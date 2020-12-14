@@ -9,28 +9,8 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
-import click
+from sodasql.sql_store.sql_store import SqlStore
 
 
-@click.group()
-def cli():
+class RedshiftSqlStore(SqlStore):
     pass
-
-@cli.command()
-def initialize():
-    click.echo('Initialize')
-
-@cli.command()
-@click.argument('dir')
-def check(dir: str):
-    click.echo(f'Checking configuration directory {dir}')
-
-@cli.command()
-@click.argument('dir')
-@click.argument('store')
-@click.argument('table')
-def scan(dir: str, store: str, table):
-    click.echo(f'Scan dir={dir} store={store} table={table}')
-
-if __name__ == '__main__':
-    cli()

@@ -11,10 +11,10 @@
 
 from typing import List
 
-from sodatools.scan.custom_metric import CustomMetric
-from sodatools.scan.scan_configuration import ScanConfiguration
-from sodatools.soda_client.soda_client import SodaClient
-from sodatools.sql_store.sql_store import SqlStore
+from sodasql.scan.custom_metric import CustomMetric
+from sodasql.scan.scan_configuration import ScanConfiguration
+from sodasql.soda_client.soda_client import SodaClient
+from sodasql.sql_store.sql_store import SqlStore
 
 
 class Scan:

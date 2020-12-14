@@ -11,7 +11,7 @@
 
 from typing import Optional
 
-from sodatools.scan.column import Column
+from sodasql.scan.column import Column
 
 
 class Measurement:
@@ -20,6 +20,7 @@ class Measurement:
     TYPE_ROW_COUNT = 'row_count'
     TYPE_MISSING_COUNT = 'missing_count'
     TYPE_INVALID_COUNT = 'invalid_count'
+    TYPE_MIN_LENGTH = 'min_length'
 
     def __init__(self, type: str, column: Optional[Column] = None, value=None):
         self.type = type

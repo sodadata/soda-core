@@ -11,9 +11,9 @@
 
 import logging
 
-from sodatools.scan.column import Column
-from sodatools.scan.parse_logs import ParseLogs
-from sodatools.scan.valid_format import VALID_FORMATS
+from sodasql.scan.column import Column
+from sodasql.scan.parse_logs import ParseLogs
+from sodasql.scan.valid_format import VALID_FORMATS
 
 
 class ColumnConfiguration:

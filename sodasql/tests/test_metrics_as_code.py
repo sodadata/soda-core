@@ -9,11 +9,11 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
-from sodatools.scan.measurement import Measurement
-from sodatools.scan.scan import Scan
-from sodatools.scan.scan_configuration import ScanConfiguration
-from sodatools.sql_store.sql_store import SqlStore
-from sodatools.tests.abstract_scan_test import AbstractScanTest
+from sodasql.scan.measurement import Measurement
+from sodasql.scan.scan import Scan
+from sodasql.scan.scan_configuration import ScanConfiguration
+from sodasql.sql_store.sql_store import SqlStore
+from sodasql.tests.abstract_scan_test import AbstractScanTest
 
 
 class TestMetricsAsCode(AbstractScanTest):
@@ -42,9 +42,9 @@ class TestMetricsAsCode(AbstractScanTest):
             f")",
 
             f"INSERT INTO {self.table_name} VALUES "
-            f"  ('1', 'a',  1), "
-            f"  ('2', 'b',  2), "
-            f"  ('3', null, null) "])
+            f"  ('1', 'one',   1), "
+            f"  ('2', null,    2), "
+            f"  ('3', 'three', null) "])
 
     def test_scan_without_configurations(self):
         measurements = Scan(self.sql_store, scan_configuration=ScanConfiguration({
@@ -63,7 +63,7 @@ class TestMetricsAsCode(AbstractScanTest):
 
         self.assertEqual(len(measurements), 2)
 
-    def test_scan_with_one_default_column_metric(self):
+    def test_scan_missing(self):
         measurements = Scan(self.sql_store, scan_configuration=ScanConfiguration({
           'table_name': self.table_name,
           'column_metrics': [
@@ -87,6 +87,26 @@ class TestMetricsAsCode(AbstractScanTest):
         self.assertEqual(measurement.value, 1)
 
         self.assertEqual(len(measurements), 5)
+
+    def test_scan_min_length(self):
+        measurements = Scan(self.sql_store, scan_configuration=ScanConfiguration({
+          'table_name': self.table_name,
+          'column_metrics': [
+            'min_length'
+          ]
+        })).execute()
+
+        measurement = measurements[2]
+        self.assertEqual(measurement.type, Measurement.TYPE_MIN_LENGTH)
+        self.assertEqual(measurement.column.name, 'id')
+        self.assertEqual(measurement.value, 1)
+
+        measurement = measurements[3]
+        self.assertEqual(measurement.type, Measurement.TYPE_MIN_LENGTH)
+        self.assertEqual(measurement.column.name, 'name')
+        self.assertEqual(measurement.value, 3)
+
+        self.assertEqual(len(measurements), 4)
 
     def test_scan_with_two_default_column_metric(self):
         measurements = Scan(self.sql_store, scan_configuration=ScanConfiguration({

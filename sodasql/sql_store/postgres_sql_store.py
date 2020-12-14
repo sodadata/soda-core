@@ -14,10 +14,10 @@ from typing import List
 
 import psycopg2
 
-from sodatools.credentials.credentials_resolver import CredentialsResolver
-from sodatools.scan.column import Column
-from sodatools.scan.scan_configuration import ScanConfiguration
-from sodatools.sql_store.sql_store import SqlStore
+from sodasql.credentials.credentials_resolver import CredentialsResolver
+from sodasql.scan.column import Column
+from sodasql.scan.scan_configuration import ScanConfiguration
+from sodasql.sql_store.sql_store import SqlStore
 
 
 class PostgresSqlStore(SqlStore):

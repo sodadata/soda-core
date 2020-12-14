@@ -12,12 +12,12 @@
 import logging
 from typing import List
 
-from sodatools.scan.column import Column
-from sodatools.scan.custom_metric import CustomMetric
-from sodatools.scan.scan_configuration import ScanConfiguration
-from sodatools.scan.measurement import Measurement
-from sodatools.soda_client.soda_client import SodaClient
-from sodatools.sql_store.sql_statement_logger import log_sql
+from sodasql.scan.column import Column
+from sodasql.scan.custom_metric import CustomMetric
+from sodasql.scan.scan_configuration import ScanConfiguration
+from sodasql.scan.measurement import Measurement
+from sodasql.soda_client.soda_client import SodaClient
+from sodasql.sql_store.sql_statement_logger import log_sql
 
 
 class SqlStore:
@@ -30,7 +30,7 @@ class SqlStore:
     def create(cls, connection_dict: dict):
         sql_store_type = connection_dict['type']
         if sql_store_type == 'postgres':
-            from sodatools.sql_store.postgres_sql_store import PostgresSqlStore
+            from sodasql.sql_store.postgres_sql_store import PostgresSqlStore
             return PostgresSqlStore(connection_dict)
         else:
             raise RuntimeError(f'Unsupported sql store type {sql_store_type}')
@@ -111,14 +111,20 @@ class SqlStore:
                 fields.append(f'{self.sql_expr_count_conditional(missing_condition)}')
                 measurements.append(Measurement(Measurement.TYPE_MISSING_COUNT, column))
 
-            if scan_configuration.is_invalid_enabled(column) and invalid_condition:
-                fields.append(f'{self.sql_expr_count_conditional(invalid_condition)}')
-                measurements.append(Measurement(Measurement.TYPE_INVALID_COUNT, column))
+            if scan_configuration.is_invalid_enabled(column):
+                if invalid_condition:
+                    fields.append(f'{self.sql_expr_count_conditional(invalid_condition)}')
+                    measurements.append(Measurement(Measurement.TYPE_INVALID_COUNT, column))
+                else:
+                    fields.append(f'{self.sql_expr_count_conditional(non_missing_condition)}')
+                    measurements.append(Measurement(Measurement.TYPE_INVALID_COUNT, column))
 
             if scan_configuration.is_min_length_enabled(column):
                 if self.is_text(column):
-                    fields.append(f'{self.sql_expr_min(self.sql_expr_length(quoted_column_name))}')
-                    measurements.append(Measurement(Measurement.TYPE_INVALID_COUNT, column))
+                    fields.append(self.sql_expr_min_conditional(
+                        non_missing_and_valid_condition,
+                        self.sql_expr_length(quoted_column_name)))
+                    measurements.append(Measurement(Measurement.TYPE_MIN_LENGTH, column))
 
         sql = 'SELECT ' + ',\n  '.join(fields) + ' \n' \
               'FROM '+self.qualify_table_name(scan_configuration.table_name)
@@ -181,6 +187,9 @@ class SqlStore:
 
     def sql_expr_count_conditional(self, condition: str):
         return f'COUNT(CASE WHEN {condition} THEN 1 END)'
+
+    def sql_expr_min_conditional(self, condition: str, expr: str):
+        return f'MIN(CASE WHEN {condition} THEN {expr} END)'
 
     def sql_expr_regexp_like(self, expr: str, pattern: str):
         return f"{expr} ~* '{self.qualify_regex(pattern)}'"

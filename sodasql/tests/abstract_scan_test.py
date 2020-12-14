@@ -13,15 +13,13 @@ import logging
 from typing import List, Optional
 from unittest import TestCase
 
-from sodatools.sql_store.sql_store import SqlStore
-from sodatools.tests.logging_helper import LoggingHelper
+from sodasql.sql_store.sql_store import SqlStore
+from sodasql.tests.logging_helper import LoggingHelper
 
 LoggingHelper.configure_for_test()
 
 
 class AbstractScanTest(TestCase):
-
-    connection = None
 
     def __init__(self, method_name: str = ...) -> None:
         super().__init__(method_name)
@@ -33,6 +31,10 @@ class AbstractScanTest(TestCase):
         super().setUp()
         self.sql_store = self.create_sql_store()
         self.connection = self.sql_store.get_connection()
+
+    def tearDown(self) -> None:
+        self.connection.rollback()
+        self.connection.close()
 
     def create_sql_store(self) -> SqlStore:
         raise RuntimeError('Implement abstract method')

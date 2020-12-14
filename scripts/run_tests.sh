@@ -4,4 +4,4 @@
 
 . .venv/bin/activate
 
-skip=aws,athena,s3,redshift,snowflake python -m pytest sodalite
+skip=aws,athena,s3,redshift,snowflake python -m pytest sodasql

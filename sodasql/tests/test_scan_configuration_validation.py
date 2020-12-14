@@ -11,8 +11,8 @@
 
 from unittest import TestCase
 
-from sodatools.scan.parse_logs import ParseLogs
-from sodatools.scan.scan_configuration import ScanConfiguration
+from sodasql.scan.parse_logs import ParseLogs
+from sodasql.scan.scan_configuration import ScanConfiguration
 
 
 class TestScanConfigurationValidation(TestCase):
