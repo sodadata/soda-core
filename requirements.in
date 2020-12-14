@@ -1,0 +1,15 @@
+# I think ordering is important.  I had to move botocore and boto3 up in order to avoid version mismatches
+boto3==1.15.18
+pyyaml==5.3.1
+argparse==1.4.0
+psycopg2-binary==2.8.5
+PyAthena==1.10.7
+flask==1.1.2
+python-json-logger==2.0.1
+snowflake-connector-python==2.3.6
+
+# conflict resolution
+urllib3==1.25.10
+certifi==2020.6.20
+cryptography==3.1.1
+requests==2.23.0

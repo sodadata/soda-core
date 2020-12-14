@@ -1,0 +1,27 @@
+column_metrics:
+    - missing
+    - invalid
+    - min
+    - max
+    - avg
+    - sum
+    - min_length
+    - max_length
+    - avg_length
+columns:
+    ID:
+        metrics:
+            - invalid
+            - distinct
+            - uniqueness
+        missing_values:
+            - N/A
+            - No date
+            - -1
+        valid_format: uuid
+    START_DATE:
+        missing_values:
+              - N/A
+              - No date
+              - -1
+        valid_regex: \d\d-\d\d-\d\d\d\d
