@@ -23,24 +23,24 @@ class TestScanConfigurationValidation(TestCase):
         self.assertIn(ParseLogs.ERROR, log.level)
         self.assertIn('table_name is required', log.message)
 
-    def test_column_metrics_not_a_list(self):
+    def test_metrics_not_a_list(self):
         parse_logs = ScanConfiguration({
             'table_name': 't',
-            'column_metrics': 'txt'
+            'metrics': 'txt'
         }).parse_logs
 
         log = parse_logs.logs[0]
         self.assertIn(ParseLogs.ERROR, log.level)
-        self.assertIn('column_metrics is not a list', log.message)
+        self.assertIn('metrics is not a list', log.message)
 
     def test_invalid_column_metric(self):
         parse_logs = ScanConfiguration({
             'table_name': 't',
-            'column_metrics': [
+            'metrics': [
                 'revenue'
             ]
         }).parse_logs
 
         log = parse_logs.logs[0]
         self.assertIn(ParseLogs.WARNING, log.level)
-        self.assertIn('Invalid column_metrics value : revenue', log.message)
+        self.assertIn('Invalid metrics value : revenue', log.message)

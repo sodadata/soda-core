@@ -8,15 +8,34 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-
+import json
 import logging
 from typing import List, Optional
 from unittest import TestCase
 
+from sodasql.scan.measurement import Measurement
+from sodasql.scan.scan import Scan
+from sodasql.scan.scan_configuration import ScanConfiguration
 from sodasql.sql_store.sql_store import SqlStore
 from sodasql.tests.logging_helper import LoggingHelper
 
 LoggingHelper.configure_for_test()
+
+
+class Measurements:
+
+    def __init__(self, measurements: List[Measurement]):
+        self.measurements = measurements
+
+    def find(self, metric_type: str, column_name: str = None):
+        for measurement in self.measurements:
+            if measurement.type == metric_type:
+                if column_name is None or measurement.column == column_name:
+                    return measurement
+        raise AssertionError(
+            f'No measurement found for metric {metric_type}' +
+            (f' and column {column_name}' if column_name else '') + '\n' +
+            '\n'.join([str(m) for m in self.measurements]))
 
 
 class AbstractScanTest(TestCase):
@@ -48,3 +67,9 @@ class AbstractScanTest(TestCase):
     def sql_updates(self, sqls: List[str]):
         for sql in sqls:
             self.sql_update(sql)
+
+    def scan(self, scan_configuration_dict: dict):
+        logging.debug('Scan configuration '+json.dumps(scan_configuration_dict, indent=2))
+        scan = Scan(self.sql_store, scan_configuration=ScanConfiguration(scan_configuration_dict))
+        return Measurements(scan.execute())
+

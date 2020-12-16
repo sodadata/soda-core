@@ -9,118 +9,70 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
-import logging
-
 from sodasql.scan.column import Column
+from sodasql.scan.metric import Metric
 from sodasql.scan.parse_logs import ParseLogs
-from sodasql.scan.valid_format import VALID_FORMATS
-
-
-class ColumnConfiguration:
-
-    VALID_KEYS = ['metrics', 'missing_values', 'valid_format', 'valid_regex']
-
-    def __init__(self, column_name: str, column_dict: dict, parse_logs: ParseLogs):
-        self.metrics = column_dict.get('metrics', [])
-        self.missing_values = column_dict.get('missing_values', [])
-        self.valid_format = column_dict.get('valid_format')
-        self.valid_regex = column_dict.get('valid_regex')
-
-        parse_logs.warning_invalid_elements(
-            self.metrics,
-            ScanConfiguration.METRIC_TYPES,
-            f'Invalid columns.{column_name} metric')
-
-        parse_logs.warning_invalid_elements(
-            column_dict.keys(),
-            ColumnConfiguration.VALID_KEYS,
-            f'Invalid key in columns.{column_name}')
+from sodasql.scan.scan_configuration_column import ScanConfigurationColumn
 
 
 class ScanConfiguration:
 
-    VALID_KEYS = ['table_name', 'column_metrics', 'columns', 'sample_size']
-
-    METRIC_MISSING = 'missing'
-    METRIC_INVALID = 'invalid'
-    METRIC_MIN = 'min'
-    METRIC_MAX = 'max'
-    METRIC_AVG = 'avg'
-    METRIC_SUM = 'sum'
-    METRIC_MIN_LENGTH = 'min_length'
-    METRIC_MAX_LENGTH = 'max_length'
-    METRIC_AVG_LENGTH = 'avg_length'
-    METRIC_DISTINCT = 'distinct'
-    METRIC_UNIQUENESS = 'uniqueness'
-
-    METRIC_TYPES = [
-        METRIC_MISSING,
-        METRIC_INVALID,
-        METRIC_MIN,
-        METRIC_MAX,
-        METRIC_AVG,
-        METRIC_SUM,
-        METRIC_MIN_LENGTH,
-        METRIC_MAX_LENGTH,
-        METRIC_AVG_LENGTH,
-        METRIC_DISTINCT,
-        METRIC_UNIQUENESS
-    ]
+    VALID_KEYS = ['table_name', 'metrics', 'columns', 'sample_size']
 
     def __init__(self, scan_dict: dict):
         self.parse_logs = ParseLogs()
         self.table_name = scan_dict.get('table_name')
         if not self.table_name:
             self.parse_logs.error('table_name is required')
-        self.column_metrics = scan_dict.get('column_metrics', [])
-        if not isinstance(self.column_metrics, list):
-            self.parse_logs.error('column_metrics is not a list')
+        self.metrics = ScanConfigurationColumn.resolve_metrics(scan_dict.get('metrics', []))
+        if not isinstance(self.metrics, list):
+            self.parse_logs.error('metrics is not a list')
         else:
             self.parse_logs.warning_invalid_elements(
-                self.column_metrics,
-                ScanConfiguration.METRIC_TYPES,
-                'Invalid column_metrics value')
+                self.metrics,
+                Metric.METRIC_TYPES,
+                'Invalid metrics value')
         self.columns = {}
         columns_dict = scan_dict.get('columns', {})
         for column_name in columns_dict:
             column_dict = columns_dict[column_name]
             column_name_lower = column_name.lower()
-            self.columns[column_name_lower] = ColumnConfiguration(column_name, column_dict, self.parse_logs)
+            self.columns[column_name_lower] = ScanConfigurationColumn(column_name, column_dict, self.parse_logs)
         self.sample_size = scan_dict.get('sample_size')
         self.parse_logs.warning_invalid_elements(
             scan_dict.keys(),
             ScanConfiguration.VALID_KEYS,
             'Invalid scan configuration')
 
-    def is_row_count_enabled(self):
-        return True
-
     def is_missing_enabled(self, column):
-        return self.__is_metric_enabled(column, self.METRIC_MISSING)
+        for metric in self.__get_metrics(column):
+            if metric in [Metric.MISSING_COUNT, Metric.MISSING_PERCENTAGE, Metric.VALUES_COUNT, Metric.VALUES_PERCENTAGE]:
+                return True
+        return False
 
-    def is_invalid_enabled(self, column):
-        return self.__is_metric_enabled(column, self.METRIC_INVALID)
+    def is_valid_enabled(self, column):
+        for metric in self.__get_metrics(column):
+            if metric in [Metric.INVALID_COUNT, Metric.INVALID_PERCENTAGE, Metric.VALID_COUNT, Metric.VALID_PERCENTAGE]:
+                return True
+        return False
 
     def is_min_length_enabled(self, column):
-        return self.__is_metric_enabled(column, self.METRIC_MIN_LENGTH)
+        return self.__is_metric_enabled(column, Metric.MIN_LENGTH)
 
     def __is_metric_enabled(self, column: Column, metric: str):
+        return metric in self.__get_metrics(column)
+
+    def __get_metrics(self, column: Column):
+        metrics = self.metrics
         column_configuration = self.columns.get(column.name.lower())
-        column_metrics = column_configuration.metrics if column_configuration else None
-        return metric in self.column_metrics or (column_metrics and metric in column_metrics)
+        if column_configuration is not None and column_configuration.metrics is not None:
+            metrics.extend(column_configuration.metrics)
+        return metrics
 
     def get_missing_values(self, column):
         column_configuration = self.columns.get(column.name.lower())
-        missing_values = column_configuration.missing_values if column_configuration else None
-        return missing_values if missing_values else []
+        return column_configuration.missing_values if column_configuration else None
 
-    def get_valid_regex(self, column):
+    def get_validity(self, column):
         column_configuration = self.columns.get(column.name.lower())
-        if column_configuration:
-            if column_configuration.valid_format:
-                regex = VALID_FORMATS.get(column_configuration.valid_format)
-                if not regex:
-                    logging.warning(f'Invalid valid format for column {column.name}: {column_configuration.valid_format}')
-                return regex
-            return column_configuration.valid_regex
-        return None
+        return column_configuration.validity if column_configuration else None

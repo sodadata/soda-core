@@ -9,15 +9,12 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
-from sodasql.scan.measurement import Measurement
-from sodasql.scan.scan import Scan
-from sodasql.scan.scan_configuration import ScanConfiguration
+from sodasql.scan.metric import Metric
 from sodasql.sql_store.sql_store import SqlStore
 from sodasql.tests.abstract_scan_test import AbstractScanTest
 
 
 class TestMetricsAsCode(AbstractScanTest):
-
     table_name = 'customers'
 
     def create_sql_store(self) -> SqlStore:
@@ -42,76 +39,92 @@ class TestMetricsAsCode(AbstractScanTest):
             f")",
 
             f"INSERT INTO {self.table_name} VALUES "
-            f"  ('1', 'one',   1), "
-            f"  ('2', null,    2), "
-            f"  ('3', 'three', null) "])
+            f"  ('1', 'one',      1), "
+            f"  ('2', 'two',      2), "
+            f"  ('3', 'three',    3), "
+            f"  ('4', 'no value', null), "
+            f"  ('5', null,       null) "])
 
     def test_scan_without_configurations(self):
-        measurements = Scan(self.sql_store, scan_configuration=ScanConfiguration({
+        measurements = self.scan({
           'table_name': self.table_name
-        })).execute()
+        })
 
-        measurement = measurements[0]
-        self.assertEqual(measurement.type, Measurement.TYPE_SCHEMA)
+        measurement = measurements.find(Metric.SCHEMA)
+        self.assertIsNotNone(measurement)
         self.assertEqual(measurement.value[0].name, 'id')
         self.assertEqual(measurement.value[1].name, 'name')
         self.assertEqual(measurement.value[2].name, 'size')
-
-        measurement = measurements[1]
-        self.assertEqual(measurement.type, Measurement.TYPE_ROW_COUNT)
-        self.assertEqual(measurement.value, 3)
-
-        self.assertEqual(len(measurements), 2)
+        self.assertEqual(measurements.find(Metric.ROW_COUNT).value, 5)
 
     def test_scan_missing(self):
-        measurements = Scan(self.sql_store, scan_configuration=ScanConfiguration({
+        measurements = self.scan({
           'table_name': self.table_name,
-          'column_metrics': [
+          'metrics': [
             'missing'
           ]
-        })).execute()
+        })
+        self.assertEqual(measurements.find(Metric.MISSING_COUNT, 'id').value, 0)
+        self.assertEqual(measurements.find(Metric.MISSING_COUNT, 'name').value, 1)
+        self.assertEqual(measurements.find(Metric.MISSING_COUNT, 'size').value, 2)
 
-        measurement = measurements[2]
-        self.assertEqual(measurement.type, Measurement.TYPE_MISSING_COUNT)
-        self.assertEqual(measurement.column.name, 'id')
-        self.assertEqual(measurement.value, 0)
+    def test_scan_missing_customized(self):
+        measurements = self.scan({
+          'table_name': self.table_name,
+          'columns': {
+            'name': {
+              'metrics': [
+                'missing'
+              ],
+              'missing_values': [
+                'no value'
+              ]
+            }
+          }
+        })
+        self.assertEqual(measurements.find(Metric.MISSING_COUNT, 'name').value, 2)
 
-        measurement = measurements[3]
-        self.assertEqual(measurement.type, Measurement.TYPE_MISSING_COUNT)
-        self.assertEqual(measurement.column.name, 'name')
-        self.assertEqual(measurement.value, 1)
-
-        measurement = measurements[4]
-        self.assertEqual(measurement.type, Measurement.TYPE_MISSING_COUNT)
-        self.assertEqual(measurement.column.name, 'size')
-        self.assertEqual(measurement.value, 1)
-
-        self.assertEqual(len(measurements), 5)
+    def test_scan_missing_customized_and_validity(self):
+        measurements = self.scan({
+          'table_name': self.table_name,
+          'columns': {
+            'name': {
+              'metrics': [
+                  'invalid_count'
+              ],
+              'missing_values': [
+                'no value'
+              ],
+              'valid_regex': 'one'
+            }
+          }
+        })
+        self.assertEqual(measurements.find(Metric.INVALID_COUNT, 'name').value, 2)
+        self.assertEqual(measurements.find(Metric.VALID_COUNT, 'name').value, 1)
+        self.assertEqual(measurements.find(Metric.MISSING_COUNT, 'name').value, 2)
 
     def test_scan_min_length(self):
-        measurements = Scan(self.sql_store, scan_configuration=ScanConfiguration({
+        measurements = self.scan({
           'table_name': self.table_name,
-          'column_metrics': [
+          'metrics': [
             'min_length'
           ]
-        })).execute()
+        })
 
-        measurement = measurements[2]
-        self.assertEqual(measurement.type, Measurement.TYPE_MIN_LENGTH)
-        self.assertEqual(measurement.column.name, 'id')
+        measurement = measurements.find(Metric.MIN_LENGTH, 'id')
+        self.assertEqual(measurement.type, Metric.MIN_LENGTH)
+        self.assertEqual(measurement.column, 'id')
         self.assertEqual(measurement.value, 1)
 
-        measurement = measurements[3]
-        self.assertEqual(measurement.type, Measurement.TYPE_MIN_LENGTH)
-        self.assertEqual(measurement.column.name, 'name')
+        measurement = measurements.find(Metric.MIN_LENGTH, 'name')
+        self.assertEqual(measurement.type, Metric.MIN_LENGTH)
+        self.assertEqual(measurement.column, 'name')
         self.assertEqual(measurement.value, 3)
 
-        self.assertEqual(len(measurements), 4)
-
     def test_scan_with_two_default_column_metric(self):
-        measurements = Scan(self.sql_store, scan_configuration=ScanConfiguration({
+        measurements = self.scan({
           'table_name': self.table_name,
-          'column_metrics': [
+          'metrics': [
             'missing'
           ],
           'columns': {
@@ -121,11 +134,8 @@ class TestMetricsAsCode(AbstractScanTest):
                   ]
               }
           }
-        })).execute()
+        })
 
-        self.assertEqual(len(self.find_measurements_by_column_name(measurements, 'id')), 1)
-        self.assertEqual(len(self.find_measurements_by_column_name(measurements, 'name')), 2)
-        self.assertEqual(len(self.find_measurements_by_column_name(measurements, 'size')), 1)
-
-    def find_measurements_by_column_name(self, measurements, column_name):
-        return list(filter(lambda measurement: measurement.column and measurement.column.name == column_name, measurements))
+        self.assertEqual(measurements.find(Metric.MISSING_COUNT, 'id').value, 0)
+        self.assertEqual(measurements.find(Metric.MISSING_COUNT, 'name').value, 1)
+        self.assertEqual(measurements.find(Metric.MISSING_COUNT, 'size').value, 2)

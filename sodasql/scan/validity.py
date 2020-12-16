@@ -9,19 +9,13 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
-from typing import Optional
-
-from sodasql.scan.column import Column
-
-
-class Measurement:
-
-    def __init__(self, type: str, column: Optional[str] = None, value=None):
-        self.type = type
-        self.column = column
-        self.value = value
+class Validity:
 
     def __str__(self):
-        return self.type + \
-               (f'({self.column})' if self.column else '') + \
-               ('' if self.value is None else ' = '+(', '.join([str(e) for e in self.value]) if isinstance(self.value, list) else str(self.value)))
+        self.format = None
+        self.regex = None
+        self.values = None
+        self.min_length = None
+        self.max_length = None
+        self.min = None
+        self.max = None

@@ -1,4 +1,4 @@
-column_metrics:
+metrics:
     - missing
     - invalid
     - min
@@ -18,7 +18,16 @@ columns:
             - N/A
             - No date
             - -1
+        valid_values:
+            - High
+            - Medium
+            - Low
         valid_format: uuid
+        valid_regex: uuid
+        valid_min_length: 3
+        valid_max_length: 3
+        valid_min: 3
+        valid_max: 3
     START_DATE:
         missing_values:
               - N/A

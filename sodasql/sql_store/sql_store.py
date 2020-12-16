@@ -14,8 +14,11 @@ from typing import List
 
 from sodasql.scan.column import Column
 from sodasql.scan.custom_metric import CustomMetric
+from sodasql.scan.metric import Metric
 from sodasql.scan.scan_configuration import ScanConfiguration
 from sodasql.scan.measurement import Measurement
+from sodasql.scan.valid_format import VALID_FORMATS
+from sodasql.scan.validity import Validity
 from sodasql.soda_client.soda_client import SodaClient
 from sodasql.sql_store.sql_statement_logger import log_sql
 
@@ -56,7 +59,7 @@ class SqlStore:
         measurements: List[Measurement] = []
 
         columns: List[Column] = self.query_columns(scan_configuration)
-        measurements.append(Measurement(Measurement.TYPE_SCHEMA, value=columns))
+        measurements.append(Measurement(Metric.SCHEMA, value=columns))
         if soda_client:
             soda_client.send_columns(scan_reference, columns)
 
@@ -91,40 +94,51 @@ class SqlStore:
         fields: List[str] = []
         measurements: List[Measurement] = []
 
-        if scan_configuration.is_row_count_enabled():
-            fields.append(self.sql_expr_count_all())
-            measurements.append(Measurement(Measurement.TYPE_ROW_COUNT))
+        fields.append(self.sql_expr_count_all())
+        measurements.append(Measurement(Metric.ROW_COUNT))
+
+        # maps db column names to missing and invalid metric indices in the measurements
+        # eg { 'colname': {'missing': 2, 'invalid': 3}, ...}
+        column_metric_indices = {}
 
         for column in columns:
+            metric_indices = {}
+            column_metric_indices[column.name] = metric_indices
+
             quoted_column_name = self.qualify_column_name(column.name)
 
-            missing_condition = self.get_missing_condition(column, scan_configuration)
-            non_missing_condition = 'NOT ' + missing_condition
-            non_missing_and_valid_condition = non_missing_condition
-            valid_condition = self.get_valid_condition(column, scan_configuration)
-            invalid_condition = None
-            if valid_condition:
-                invalid_condition = f'NOT {valid_condition}'
-                non_missing_and_valid_condition = f'({non_missing_condition}) AND ({valid_condition})'
+            missing_values = scan_configuration.get_missing_values(column)
+            validity = scan_configuration.get_validity(column)
 
-            if scan_configuration.is_missing_enabled(column):
+            is_valid_enabled = validity is not None \
+                and scan_configuration.is_valid_enabled(column)
+
+            is_missing_enabled = \
+                is_valid_enabled \
+                or scan_configuration.is_missing_enabled(column)
+
+            missing_condition = self.get_missing_condition(column, missing_values)
+            valid_condition = self.get_valid_condition(column, validity)
+
+            non_missing_and_valid_condition = \
+                f'NOT {missing_condition} AND {valid_condition}' if valid_condition else f'NOT {missing_condition}'
+
+            if is_missing_enabled:
+                metric_indices['missing'] = len(measurements)
                 fields.append(f'{self.sql_expr_count_conditional(missing_condition)}')
-                measurements.append(Measurement(Measurement.TYPE_MISSING_COUNT, column))
+                measurements.append(Measurement(Metric.MISSING_COUNT, column.name))
 
-            if scan_configuration.is_invalid_enabled(column):
-                if invalid_condition:
-                    fields.append(f'{self.sql_expr_count_conditional(invalid_condition)}')
-                    measurements.append(Measurement(Measurement.TYPE_INVALID_COUNT, column))
-                else:
-                    fields.append(f'{self.sql_expr_count_conditional(non_missing_condition)}')
-                    measurements.append(Measurement(Measurement.TYPE_INVALID_COUNT, column))
+            if is_valid_enabled:
+                metric_indices['valid'] = len(measurements)
+                fields.append(f'{self.sql_expr_count_conditional(non_missing_and_valid_condition)}')
+                measurements.append(Measurement(Metric.VALID_COUNT, column.name))
 
             if scan_configuration.is_min_length_enabled(column):
                 if self.is_text(column):
                     fields.append(self.sql_expr_min_conditional(
                         non_missing_and_valid_condition,
                         self.sql_expr_length(quoted_column_name)))
-                    measurements.append(Measurement(Measurement.TYPE_MIN_LENGTH, column))
+                    measurements.append(Measurement(Metric.MIN_LENGTH, column.name))
 
         sql = 'SELECT ' + ',\n  '.join(fields) + ' \n' \
               'FROM '+self.qualify_table_name(scan_configuration.table_name)
@@ -136,27 +150,63 @@ class SqlStore:
         for i in range(0, len(measurements)):
             measurement = measurements[i]
             measurement.value = query_result_tuple[i]
-            logging.debug(measurement)
+            logging.debug(f'Query measurement: {measurement}')
+
+        # Calculating derived measurements
+        derived_measurements = []
+        row_count = measurements[0].value
+        for column in columns:
+            metric_indices = column_metric_indices[column.name]
+            missing_index = metric_indices.get('missing')
+            if missing_index is not None:
+                missing_count = measurements[missing_index].value
+                missing_percentage = missing_count * 100 / row_count
+                values_count = row_count - missing_count
+                values_percentage = values_count * 100 / row_count
+                derived_measurements.append(Measurement(Metric.MISSING_PERCENTAGE, column.name, missing_percentage))
+                derived_measurements.append(Measurement(Metric.VALUES_COUNT, column.name, values_count))
+                derived_measurements.append(Measurement(Metric.VALUES_PERCENTAGE, column.name, values_percentage))
+
+                valid_index = metric_indices.get('valid')
+                if valid_index is not None:
+                    valid_count = measurements[valid_index].value
+                    invalid_count = row_count - missing_count - valid_count
+                    invalid_percentage = invalid_count * 100 / values_count
+                    valid_percentage = values_count * 100 / values_count
+                    derived_measurements.append(Measurement(Metric.INVALID_PERCENTAGE, column.name, invalid_percentage))
+                    derived_measurements.append(Measurement(Metric.INVALID_COUNT, column.name, invalid_count))
+                    derived_measurements.append(Measurement(Metric.VALID_PERCENTAGE, column.name, valid_percentage))
+
+        for derived_measurement in derived_measurements:
+            logging.debug(f'Derived measurement: {derived_measurement}')
+
+        measurements.extend(derived_measurements)
 
         return measurements
 
-    def get_missing_condition(self, column: Column, scan_configuration: ScanConfiguration):
+    def get_missing_condition(self, column: Column, missing_values):
         quoted_column_name = self.qualify_column_name(column.name)
-        condition = f'{quoted_column_name} IS NULL'
-        if self.is_text(column) or self.is_number(column):
-            missing_values = scan_configuration.get_missing_values(column)
-            if missing_values:
-                sql_expr_missing_values = self.sql_expr_list(column, missing_values)
-                condition = f'({condition} AND {quoted_column_name} NOT IN {sql_expr_missing_values})'
-        return condition
+        if missing_values is not None:
+            sql_expr_missing_values = self.sql_expr_list(column, missing_values)
+            return f'({quoted_column_name} IS NULL OR {quoted_column_name} IN {sql_expr_missing_values})'
+        return f'{quoted_column_name} IS NULL'
 
-    def get_valid_condition(self, column: Column, scan_configuration: ScanConfiguration):
-        if self.is_text(column):
-            valid_regex = scan_configuration.get_valid_regex(column)
-            if valid_regex:
-                quoted_column_name = self.qualify_column_name(column.name)
-                return self.sql_expr_regexp_like(quoted_column_name, valid_regex)
-        return None
+    def get_valid_condition(self, column: Column, validity: Validity):
+        quoted_column_name = self.qualify_column_name(column.name)
+        if validity is None:
+            return None
+        validity_clauses = []
+        if validity.format:
+            format_regex = VALID_FORMATS.get(validity.format)
+            validity_clauses.append(self.sql_expr_regexp_like(quoted_column_name, format_regex))
+        if validity.regex:
+            validity_clauses.append(self.sql_expr_regexp_like(quoted_column_name, validity.regex))
+        if validity.min_length:
+            validity_clauses.append(f'{self.sql_expr_length(quoted_column_name)} >= {validity.min_length}')
+        if validity.max_length:
+            validity_clauses.append(f'{self.sql_expr_length(quoted_column_name)} <= {validity.max_length}')
+        # TODO add min and max clauses
+        return '(' + ' AND '.join(validity_clauses) + ')'
 
     def is_text(self, column):
         for text_type in self._get_text_types():
@@ -232,4 +282,3 @@ class SqlStore:
         if not self.connection:
             self.connection = self.create_connection()
         return self.connection
-
