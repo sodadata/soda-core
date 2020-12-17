@@ -20,6 +20,7 @@ class LoggingHelper:
         logging.getLogger('urllib3').setLevel(logging.WARNING)
         logging.getLogger('botocore').setLevel(logging.WARNING)
         logging.getLogger('pyathena').setLevel(logging.WARNING)
+        logging.getLogger('faker').setLevel(logging.ERROR)
         logging.basicConfig(
             level=logging.DEBUG,
             # https://docs.python.org/3/library/logging.html#logrecord-attributes
