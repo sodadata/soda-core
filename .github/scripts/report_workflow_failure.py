@@ -68,7 +68,7 @@ class Reporter:
     def _find_author(self):
         headers = {
             "Authorization": f"Bearer {self.token}",
-            "Accept": "application/vnd.scripts.v3+json"
+            "Accept": "application/json"
         }
         r = requests.get(f'https://api.github.com/repos/{self.repository}/actions/runs/{self.run}',
                          headers=headers)
