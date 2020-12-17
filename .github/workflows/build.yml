@@ -26,7 +26,7 @@ jobs:
           pip3 install -r .github/scripts/requirements.txt
           python3 .github/scripts/report_workflow_failure.py
         env:
-          JOB_ID: ${{ scripts.job }}
+          JOB_ID: ${{ github.job }}
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -40,6 +40,6 @@ jobs:
           pip3 install -r .github/scripts/requirements.txt
           .github/scripts/report_workflow_success.py
         env:
-          JOB_ID: ${{ scripts.job }}
+          JOB_ID: ${{ github.job }}
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
