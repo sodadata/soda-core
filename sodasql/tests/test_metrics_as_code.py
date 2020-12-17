@@ -129,6 +129,3 @@ class TestMetricsAsCode(AbstractScanTest):
 
     def find_measurements_by_column_name(self, measurements, column_name):
         return list(filter(lambda measurement: measurement.column and measurement.column.name == column_name, measurements))
-
-    def test_fail_on_purpose(self):
-        self.assertTrue(False)
