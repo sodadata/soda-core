@@ -22,13 +22,14 @@ class ScanConfigurationColumn:
 
     @classmethod
     def resolve_metrics(cls, metrics: List[str]):
+        resolved_metrics = metrics
         if 'missing' in metrics:
-            metrics = [metric != 'missing' for metric in metrics]
-            metrics.append('missing_count')
+            resolved_metrics = [metric for metric in metrics if metric != 'missing']
+            resolved_metrics.append('missing_count')
         if 'valid' in metrics or 'invalid' in metrics:
-            metrics = [metric != 'valid' and metric != 'invalid' for metric in metrics]
-            metrics.append('valid_count')
-        return metrics
+            resolved_metrics = [metric for metric in metrics if metric != 'valid' and metric != 'invalid']
+            resolved_metrics.append('valid_count')
+        return resolved_metrics
 
     def __init__(self, column_name: str, column_dict: dict, parse_logs: ParseLogs):
         self.metrics = self.resolve_metrics(column_dict.get('metrics', []))

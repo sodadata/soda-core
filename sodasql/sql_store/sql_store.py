@@ -140,7 +140,7 @@ class SqlStore:
                         self.sql_expr_length(quoted_column_name)))
                     measurements.append(Measurement(Metric.MIN_LENGTH, column.name))
 
-        sql = 'SELECT ' + ',\n  '.join(fields) + ' \n' \
+        sql = 'SELECT \n  ' + ',\n  '.join(fields) + ' \n' \
               'FROM '+self.qualify_table_name(scan_configuration.table_name)
         if scan_configuration.sample_size:
             sql += f'\nLIMIT {scan_configuration.sample_size}'
@@ -171,8 +171,8 @@ class SqlStore:
                 if valid_index is not None:
                     valid_count = measurements[valid_index].value
                     invalid_count = row_count - missing_count - valid_count
-                    invalid_percentage = invalid_count * 100 / values_count
-                    valid_percentage = values_count * 100 / values_count
+                    invalid_percentage = invalid_count * 100 / row_count
+                    valid_percentage = valid_count * 100 / row_count
                     derived_measurements.append(Measurement(Metric.INVALID_PERCENTAGE, column.name, invalid_percentage))
                     derived_measurements.append(Measurement(Metric.INVALID_COUNT, column.name, invalid_count))
                     derived_measurements.append(Measurement(Metric.VALID_PERCENTAGE, column.name, valid_percentage))

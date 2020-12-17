@@ -63,7 +63,7 @@ class ScanConfiguration:
         return metric in self.__get_metrics(column)
 
     def __get_metrics(self, column: Column):
-        metrics = self.metrics
+        metrics = self.metrics.copy()
         column_configuration = self.columns.get(column.name.lower())
         if column_configuration is not None and column_configuration.metrics is not None:
             metrics.extend(column_configuration.metrics)

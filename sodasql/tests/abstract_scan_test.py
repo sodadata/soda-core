@@ -18,24 +18,9 @@ from sodasql.scan.scan import Scan
 from sodasql.scan.scan_configuration import ScanConfiguration
 from sodasql.sql_store.sql_store import SqlStore
 from sodasql.tests.logging_helper import LoggingHelper
+from sodasql.tests.measurements import Measurements
 
 LoggingHelper.configure_for_test()
-
-
-class Measurements:
-
-    def __init__(self, measurements: List[Measurement]):
-        self.measurements = measurements
-
-    def find(self, metric_type: str, column_name: str = None):
-        for measurement in self.measurements:
-            if measurement.type == metric_type:
-                if column_name is None or measurement.column == column_name:
-                    return measurement
-        raise AssertionError(
-            f'No measurement found for metric {metric_type}' +
-            (f' and column {column_name}' if column_name else '') + '\n' +
-            '\n'.join([str(m) for m in self.measurements]))
 
 
 class AbstractScanTest(TestCase):
@@ -68,8 +53,7 @@ class AbstractScanTest(TestCase):
         for sql in sqls:
             self.sql_update(sql)
 
-    def scan(self, scan_configuration_dict: dict):
+    def scan(self, scan_configuration_dict: dict) -> Measurements:
         logging.debug('Scan configuration '+json.dumps(scan_configuration_dict, indent=2))
         scan = Scan(self.sql_store, scan_configuration=ScanConfiguration(scan_configuration_dict))
         return Measurements(scan.execute())
-
