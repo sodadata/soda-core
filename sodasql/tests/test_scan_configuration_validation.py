@@ -43,4 +43,18 @@ class TestScanConfigurationValidation(TestCase):
 
         log = parse_logs.logs[0]
         self.assertIn(ParseLogs.WARNING, log.level)
-        self.assertIn('Invalid metrics value : revenue', log.message)
+        self.assertIn('Invalid metrics value: revenue', log.message)
+
+    def test_invalid_valid_format(self):
+        parse_logs = ScanConfiguration({
+            'table_name': 't',
+            'columns': {
+                'col': {
+                    'valid_format': 'buzz'
+                }
+            }
+        }).parse_logs
+
+        log = parse_logs.logs[0]
+        self.assertIn(ParseLogs.WARNING, log.level)
+        self.assertIn('Invalid col.valid_format: buzz', log.message)

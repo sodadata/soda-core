@@ -41,7 +41,14 @@ class AbstractScanTest(TestCase):
         self.connection.close()
 
     def create_sql_store(self) -> SqlStore:
-        raise RuntimeError('Implement abstract method')
+        return SqlStore.create({
+            'name': 'test-postgres-store',
+            'type': 'postgres',
+            'host': 'localhost',
+            'port': '5432',
+            'username': 'sodalite',
+            'database': 'sodalite',
+            'schema': 'public'})
 
     def sql_update(self, sql: str):
         assert self.connection, 'self.connection not initialized'
@@ -53,7 +60,22 @@ class AbstractScanTest(TestCase):
         for sql in sqls:
             self.sql_update(sql)
 
+    def sql_create_table(self, table_name: str, columns: List[str], rows: List[str]):
+        self.sql_updates([
+            f"DROP TABLE IF EXISTS {table_name}",
+
+            f"CREATE TABLE {table_name} ( " +
+            (", ".join(columns)) +
+            f" )",
+
+            f"INSERT INTO {table_name} VALUES " +
+            ", ".join(rows)])
+
     def scan(self, scan_configuration_dict: dict) -> Measurements:
-        logging.debug('Scan configuration '+json.dumps(scan_configuration_dict, indent=2))
+        logging.debug('Scan configuration \n'+json.dumps(scan_configuration_dict, indent=2))
         scan = Scan(self.sql_store, scan_configuration=ScanConfiguration(scan_configuration_dict))
+        if len(scan.scan_configuration.parse_logs.logs) > 0:
+            raise AssertionError(
+                'Scan configuration errors: \n  ' +
+                ('\n  '.join([str(log) for log in scan.scan_configuration.parse_logs.logs])))
         return Measurements(scan.execute())

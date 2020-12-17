@@ -8,15 +8,16 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-from typing import List, Optional
+from typing import Optional
 
-from sodasql.scan.measurement import Measurement
+from sodasql.scan.scan_result import ScanResult
 
 
 class Measurements:
 
-    def __init__(self, measurements: List[Measurement]):
-        self.measurements = measurements
+    def __init__(self, scan_result: ScanResult):
+        self.test_result = scan_result
+        self.measurements = scan_result.measurements
 
     def get(self, metric_type: str, column_name: str = None):
         for measurement in self.measurements:

@@ -18,7 +18,15 @@ from sodasql.scan.validity import Validity
 
 class ScanConfigurationColumn:
 
-    VALID_KEYS = ['metrics', 'missing_values', 'valid_format', 'valid_regex']
+    VALID_KEYS = ['metrics',
+                  'missing_values',
+                  'valid_format',
+                  'valid_regex',
+                  'valid_min',
+                  'valid_max',
+                  'valid_min_length',
+                  'valid_max_length',
+                  'tests']
 
     @classmethod
     def resolve_metrics(cls, metrics: List[str]):
@@ -54,6 +62,7 @@ class ScanConfigurationColumn:
             self.validity.max = column_dict.get('valid_max')
             self.validity.min_length = column_dict.get('valid_min_length')
             self.validity.max_length = column_dict.get('valid_max_length')
+        self.tests = column_dict.get('tests')
 
         parse_logs.warning_invalid_elements(
             self.metrics,
