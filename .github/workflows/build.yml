@@ -29,13 +29,8 @@ jobs:
           JOB_ID: ${{ github.job }}
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-  inform-success:
-    name: Inform of Success
-    runs-on: ubuntu-20.04
-    steps:
-      - uses: actions/checkout@v2
       - name: Notify Slack on Success
+        if: success()
         run: |
           pip3 install -r .github/scripts/requirements.txt
           .github/scripts/report_workflow_success.py
