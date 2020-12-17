@@ -26,8 +26,8 @@ class TestMetricsAsCode(AbstractScanTest):
             'type': 'postgres',
             'host': 'localhost',
             'port': '5432',
-            'username': 'sodalite',
-            'database': 'sodalite',
+            'username': 'sodasql',
+            'database': 'sodasql',
             'schema': 'public'})
 
     def setUp(self) -> None:
