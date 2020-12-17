@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 
-from utils.slack import SlackMessageSender
+from .utils.slack import SlackMessageSender
 
-from utils import get_env, deployment_description
+from .utils import get_env, deployment_description
 
 if __name__ == '__main__':
     slack_sender = SlackMessageSender()

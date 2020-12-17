@@ -5,7 +5,7 @@ import ssl
 
 import requests
 
-from utils import get_env
+from .utils import get_env
 
 
 class SlackMessageSender:
