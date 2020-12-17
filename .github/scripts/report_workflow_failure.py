@@ -72,6 +72,10 @@ class Reporter:
         }
         r = requests.get(f'https://api.github.com/repos/{self.repository}/actions/runs/{self.run}',
                          headers=headers)
+
+        import json
+        print(json.dumps(r.json(), indent=4))
+
         email = r.json()['head_commit']['author']['email']
         return f'`{email}`'
 
