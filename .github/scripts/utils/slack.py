@@ -22,6 +22,7 @@ class SlackMessageSender:
     def send_slack_message(self, msg: str):
         branches_to_notify = ["refs/heads/master", "refs/heads/main"]
         payload = {"text": msg}
+        logging.info('branch: %s', self.branch)
         if self.branch in branches_to_notify or self.force_send == "true":
             response = requests.post(self.slack_webhook_url, data=json.dumps(payload),
                                      headers={'Content-Type': 'application/json'})
