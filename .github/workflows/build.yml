@@ -50,8 +50,10 @@ jobs:
           JOB_ID: ${{ github.job }}
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      - uses: chrislennon/action-aws-cli@v1.1
-        env: ACTIONS_ALLOW_UNSECURE_COMMANDS
+      - name: Install AWS CLI
+        uses: chrislennon/action-aws-cli@v1.1
+        env:
+          ACTIONS_ALLOW_UNSECURE_COMMANDS: true
       - name: Publish Documentation
         if: success()
         run: aws s3 sync ./public s3://sodasql-docs/
