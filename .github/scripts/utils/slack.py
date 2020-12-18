@@ -4,7 +4,7 @@ import os
 import ssl
 import requests
 
-from .utils import get_environment_variable
+from .utils import get_environment_variable, get_branch
 
 
 class SlackMessageSender:
@@ -17,7 +17,7 @@ class SlackMessageSender:
         self.slack_webhook_url = get_environment_variable('SLACK_WEBHOOK_URL')
         self.force_send = os.environ.get('FORCE_SEND', 'false')
         self.ctx = SlackMessageSender._create_non_verifying_context()
-        self.branch = os.path.basename(get_environment_variable('GITHUB_REF'))
+        self.branch = get_branch()
 
     def send_slack_message(self, msg: str):
         payload = {"text": msg}

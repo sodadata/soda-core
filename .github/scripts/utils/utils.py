@@ -17,8 +17,9 @@ def get_deployment_description():
         return f"with deployment to *{environment}* environment "
 
 
-def get_test_reports_url():
-    repository = os.path.basename(get_environment_variable('GITHUB_REPOSITORY'))
-    test_reports_base_url = f" https://sodadata.github.io/{repository}/tests"
-    branch = os.path.basename(get_environment_variable('GITHUB_REF'))
-    return f'{test_reports_base_url}/{urllib.parse.quote_plus(branch)}/'
+def get_branch():
+    return os.path.basename(get_environment_variable('GITHUB_REF'))
+
+
+def get_project():
+    return os.path.basename(get_environment_variable('GITHUB_REPOSITORY'))
