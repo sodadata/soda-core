@@ -25,7 +25,7 @@ class Reporter:
         self.token = get_env('GITHUB_TOKEN')
         self.workflow_name = get_env('GITHUB_WORKFLOW')
         self.root_dir = os.path.join(os.path.dirname(__file__), '../')
-        self.test_reports_url = 'https://sodadata.github.io/sodasql/reports/tests'
+        self.test_reports_url = 'https://sodadata.github.io/sodasql/tests'
         self.branch = os.path.basename(get_env('GITHUB_REF'))
 
     def send_slack_message(self, msg: str):
