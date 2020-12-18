@@ -3,11 +3,14 @@
 import fnmatch
 import os
 import xml.etree.ElementTree as elementTree
-
+import logging
 import requests
 
 from utils.slack import SlackMessageSender
 from utils import get_env, deployment_description
+
+
+logging.getLogger(__name__).setLevel(logging.INFO)
 
 
 class Reporter:
@@ -68,6 +71,7 @@ class Reporter:
                   Test `{fail_class}#{fail_method}` experienced {failure_type} with:\n```\n{stack}\n```.
                   Full test reports can be found at {self.test_reports_url}/{self.branch}/index.html
                """
+        logging.info(msg)
         self.send_slack_message(msg)
 
     def _find_author(self):
