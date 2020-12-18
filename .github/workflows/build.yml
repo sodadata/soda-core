@@ -25,6 +25,7 @@ jobs:
           cat dev-requirements.in | grep tox | xargs pip install
           tox -- --html=./reports/tests/${{ steps.extract_branch.outputs.branch }}/index.html
       - name: Deploy Tests Report Page
+        if: failure()
         uses: peaceiris/actions-gh-pages@v3
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
