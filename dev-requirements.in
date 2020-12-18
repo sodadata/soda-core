@@ -10,6 +10,7 @@ python-dotenv==0.13.0
 responses==0.12.0
 moto==1.3.16
 Faker==4.1.2
+pytest-html==3.1.1
 
 # conflict resolution
 idna==2.10

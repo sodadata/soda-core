@@ -26,6 +26,8 @@ class Reporter:
         self.token = get_env('GITHUB_TOKEN')
         self.workflow_name = get_env('GITHUB_WORKFLOW')
         self.root_dir = os.path.join(os.path.dirname(__file__), '../')
+        self.test_reports_url = 'https://sodadata.github.io/sodasql/reports/tests'
+        self.branch = os.path.basename(get_env('GITHUB_REF'))
 
     def send_slack_message(self, msg: str):
         self.sender.send_slack_message(msg)
@@ -62,7 +64,10 @@ class Reporter:
         self._send_slack_message_error(fail_class, fail_method, stack.strip(), failure_type)
 
     def _send_slack_message_error(self, fail_class, fail_method, stack, failure_type):
-        msg = f"Test `{fail_class}#{fail_method}` experienced {failure_type} with:\n```\n{stack}\n```"
+        msg = f"""
+                  Test `{fail_class}#{fail_method}` experienced {failure_type} with:\n```\n{stack}\n```.
+                  Full test reports can be found at {self.test_reports_url}/{self.branch}/index.html
+               """
         self.send_slack_message(msg)
 
     def _find_author(self):
