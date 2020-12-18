@@ -199,6 +199,3 @@ class TestMissingAndInvalidInScan(AbstractScanTest):
         self.assertEqual(measurements.value(Metric.MISSING_COUNT, 'id'), 0)
         self.assertEqual(measurements.value(Metric.MISSING_COUNT, 'name'), 1)
         self.assertEqual(measurements.value(Metric.MISSING_COUNT, 'size'), 2)
-
-    def test_fail_on_purpose(self):
-        self.assertTrue(False)
