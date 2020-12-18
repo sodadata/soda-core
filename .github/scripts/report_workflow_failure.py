@@ -35,7 +35,7 @@ class Reporter:
 
     def report_workflow_failure(self):
         author = self._find_author()
-        test_reports_url = urllib.parse.quote_plus(f'self.test_reports_url}/{self.branch}/index.html')
+        test_reports_url = urllib.parse.quote_plus(f'{self.test_reports_base_url}/{self.branch}/index.html')
         msg = f":cry: Github Actions *{self.repository}* workflow *{self.workflow_name}* run " \
               f"<https://github.com/{self.repository}/actions/runs/{self.run}|{self.run}>" \
               f" *failed* {deployment_description()}on job `{self.job}` " \
