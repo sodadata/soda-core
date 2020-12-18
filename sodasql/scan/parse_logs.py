@@ -40,5 +40,5 @@ class ParseLogs:
 
     def warning_invalid_elements(self, configured_values, valid_values, message):
         for invalid_key in [configured_key for configured_key in configured_values if configured_key not in valid_values]:
-            self.warning(f'{message} : {invalid_key}')
+            self.warning(f'{message}: {invalid_key}')
 

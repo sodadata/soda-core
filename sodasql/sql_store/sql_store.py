@@ -17,6 +17,8 @@ from sodasql.scan.custom_metric import CustomMetric
 from sodasql.scan.metric import Metric
 from sodasql.scan.scan_configuration import ScanConfiguration
 from sodasql.scan.measurement import Measurement
+from sodasql.scan.scan_result import ScanResult
+from sodasql.scan.test_result import TestResult
 from sodasql.scan.valid_format import VALID_FORMATS
 from sodasql.scan.validity import Validity
 from sodasql.soda_client.soda_client import SodaClient
@@ -47,7 +49,7 @@ class SqlStore:
     def scan(self,
              scan_configuration: ScanConfiguration = None,
              custom_metrics: List[CustomMetric] = None,
-             soda_client: SodaClient = None):
+             soda_client: SodaClient = None) -> ScanResult:
 
         assert self.name, 'name is required'
         assert scan_configuration.table_name, 'scan_configuration.table_name is required'
@@ -57,6 +59,7 @@ class SqlStore:
         }
 
         measurements: List[Measurement] = []
+        test_results: List[TestResult] = []
 
         columns: List[Column] = self.query_columns(scan_configuration)
         measurements.append(Measurement(Metric.SCHEMA, value=columns))
@@ -67,10 +70,13 @@ class SqlStore:
             columns_aggregation_measurements: List[Measurement] = \
                 self.query_aggregations(scan_configuration, columns)
             measurements.extend(columns_aggregation_measurements)
+
             if soda_client:
                 soda_client.send_column_aggregation_measurements(scan_reference, columns_aggregation_measurements)
 
-        return measurements
+            test_results = self.run_tests(measurements, scan_configuration)
+
+        return ScanResult(measurements, test_results)
 
     def query_columns(self, scan_configuration: ScanConfiguration) -> List[Column]:
         sql = self.sql_columns_metadata_query(scan_configuration)
@@ -183,6 +189,25 @@ class SqlStore:
         measurements.extend(derived_measurements)
 
         return measurements
+
+    def run_tests(self,
+                  measurements: List[Measurement],
+                  scan_configuration: ScanConfiguration):
+        test_results = []
+        if scan_configuration and scan_configuration.columns:
+            for column_name in scan_configuration.columns:
+                scan_configuration_column = scan_configuration.columns.get(column_name)
+                if scan_configuration_column.tests:
+                    column_measurement_values = {
+                        measurement.type: measurement.value
+                        for measurement in measurements
+                        if measurement.column == column_name
+                    }
+                    for test in scan_configuration_column.tests:
+                        test_values = {metric: value for metric, value in column_measurement_values.items() if metric in test}
+                        test_outcome = True if eval(test, test_values) else False
+                        test_results.append(TestResult(test_outcome, test, test_values, column_name))
+        return test_results
 
     def get_missing_condition(self, column: Column, missing_values):
         quoted_column_name = self.qualify_column_name(column.name)

@@ -2,23 +2,22 @@ import json
 import logging
 import os
 import ssl
-
 import requests
 
-from .utils import get_env
+from .utils import get_environment_variable, get_branch
 
 
 class SlackMessageSender:
     slack_webhook_url: str
     branch: str
     ctx: ssl.SSLContext
-    branches_to_notify = ["refs/heads/master", "refs/heads/main"]
+    branches_to_notify = ['master', 'main']
 
     def __init__(self):
-        self.slack_webhook_url = get_env('SLACK_WEBHOOK_URL')
+        self.slack_webhook_url = get_environment_variable('SLACK_WEBHOOK_URL')
         self.force_send = os.environ.get('FORCE_SEND', 'false')
         self.ctx = SlackMessageSender._create_non_verifying_context()
-        self.branch = get_env('GITHUB_REF')
+        self.branch = get_branch()
 
     def send_slack_message(self, msg: str):
         payload = {"text": msg}
@@ -26,8 +25,8 @@ class SlackMessageSender:
             response = requests.post(self.slack_webhook_url, data=json.dumps(payload),
                                      headers={'Content-Type': 'application/json'})
             if response.status_code != 200:
-                logging.error(f'Request to slack returned an error {response.status_code}, '
-                              f'the response is:\n{response.text}')
+                logging.error(f"Request to slack returned an error '{response.status_code}', "
+                              f"the response is:\n'{response.text}'")
         else:
             logging.warning("Ignoring message '%s' since on branch '%s'", msg, self.branch)
 

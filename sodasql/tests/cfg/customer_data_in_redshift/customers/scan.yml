@@ -1,6 +1,6 @@
 metrics:
-    - missing
-    - invalid
+    - missing (= missing_count, missing_percentage, values_count, values_percentage)
+    - valid   (= valid_count, valid_percentage, invalid_count, invalid_percentage)
     - min
     - max
     - avg
@@ -23,11 +23,14 @@ columns:
             - Medium
             - Low
         valid_format: uuid
-        valid_regex: uuid
+        valid_regex: .*
         valid_min_length: 3
         valid_max_length: 3
         valid_min: 3
         valid_max: 3
+        tests:
+            - missing_percentage < 3.0
+            - invalid_count == 0
     START_DATE:
         missing_values:
               - N/A
