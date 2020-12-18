@@ -52,7 +52,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - uses: chrislennon/action-aws-cli@v1.1
       - name: Publish Documentation
-        if: success() && contains(github.ref, "main")
+        if: success()
         run: aws s3 sync ./public s3://sodasql-docs/
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_BUILD_ACCESS_KEY_ID }}
