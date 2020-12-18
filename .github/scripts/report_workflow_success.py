@@ -11,5 +11,5 @@ if __name__ == '__main__':
     msg = f":tada: Github Actions *{repository}* workflow *{workflow_name}* run " \
           f"<https://github.com/{repository}/actions/runs/{run}|{run}> *succeeded* {get_deployment_description()}" \
           f"(commit `<https://github.com/{repository}/commit/{sha}|{sha[:8]}>`) " \
-          f"Full test reports can be found <{get_test_reports_url()}|here>."
+          f"Full test reports can be found `<{get_test_reports_url()}|here>`."
     slack_sender.send_slack_message(msg)
