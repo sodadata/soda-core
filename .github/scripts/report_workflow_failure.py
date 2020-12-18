@@ -36,7 +36,7 @@ class Reporter:
               f" *failed* {get_deployment_description()}on job `{self.job}` " \
               f"(commit `<https://github.com/{self.repository}/commit/{self.sha}|{self.sha[:7]}>`). " \
               f"Last author was {author}. " \
-              f"Full test reports can be found <{get_test_reports_url()}|here>."
+              f"Full test reports can be found `<{get_test_reports_url()}|here>`."
         self.send_slack_message(msg)
         for r in self._find_files('TEST*.xml'):
             self._process_xml(r)
