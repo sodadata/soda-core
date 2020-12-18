@@ -40,6 +40,7 @@ jobs:
           JOB_ID: ${{ github.job }}
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TEST_REPORTS_BASE_URL: ${{ secrets.TEST_REPORTS_BASE_URL }}
       - name: Notify Slack on Success
         if: success()
         run: |
@@ -49,3 +50,4 @@ jobs:
           JOB_ID: ${{ github.job }}
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TEST_REPORTS_BASE_URL: ${{ secrets.TEST_REPORTS_BASE_URL }}
