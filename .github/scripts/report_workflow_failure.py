@@ -3,14 +3,10 @@
 import fnmatch
 import os
 import xml.etree.ElementTree as elementTree
-import logging
 import requests
 
 from utils.slack import SlackMessageSender
 from utils import get_env, deployment_description
-
-
-logging.getLogger(__name__).setLevel(logging.INFO)
 
 
 class Reporter:
@@ -41,7 +37,8 @@ class Reporter:
               f"<https://github.com/{self.repository}/actions/runs/{self.run}|{self.run}>" \
               f" *failed* {deployment_description()}on job `{self.job}` " \
               f"(commit `<https://github.com/{self.repository}/commit/{self.sha}|{self.sha[:7]}>`). " \
-              f"Last author was {author}"
+              f"Last author was {author}." \
+              f"Full test reports can be found <{self.test_reports_url}/{self.branch}/index.html|here>."
         self.send_slack_message(msg)
         for r in self._find_files('TEST*.xml'):
             self._process_xml(r)
@@ -67,11 +64,7 @@ class Reporter:
         self._send_slack_message_error(fail_class, fail_method, stack.strip(), failure_type)
 
     def _send_slack_message_error(self, fail_class, fail_method, stack, failure_type):
-        msg = f"""
-                  Test `{fail_class}#{fail_method}` experienced {failure_type} with:\n```\n{stack}\n```.
-                  Full test reports can be found at {self.test_reports_url}/{self.branch}/index.html
-               """
-        logging.info(msg)
+        msg = f"Test `{fail_class}#{fail_method}` experienced {failure_type} with:\n```\n{stack}\n```."
         self.send_slack_message(msg)
 
     def _find_author(self):
