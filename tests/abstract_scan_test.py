@@ -15,7 +15,7 @@ from unittest import TestCase
 
 from sodasql.scan.scan_configuration import ScanConfiguration
 from sodasql.scan.scan_result import ScanResult
-from sodasql.tests.logging_helper import LoggingHelper
+from tests.logging_helper import LoggingHelper
 from sodasql.warehouse.warehouse import Warehouse
 
 LoggingHelper.configure_for_test()

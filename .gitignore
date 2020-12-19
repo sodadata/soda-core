@@ -130,4 +130,6 @@ dmypy.json
 # Pyre type checker
 .pyre/
 *.xml
-reports
+reports/*
+!reports/index.html
+

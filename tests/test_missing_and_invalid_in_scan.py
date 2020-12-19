@@ -10,7 +10,7 @@
 #  limitations under the License.
 
 from sodasql.scan.metric import Metric
-from sodasql.tests.abstract_scan_test import AbstractScanTest
+from tests.abstract_scan_test import AbstractScanTest
 
 
 class TestMissingAndInvalidInScan(AbstractScanTest):

@@ -23,7 +23,7 @@ jobs:
       - name: Run Tox
         run: |
           cat dev-requirements.in | grep tox | xargs pip install
-          tox -- --html=./reports/tests/${{ steps.extract_branch.outputs.branch }}/index.html
+          tox -- --html=./reports/${{ steps.extract_branch.outputs.branch }}/tests/index.html --cov=sodasql tests --cov-report=html:./reports/${{ steps.extract_branch.outputs.branch }}/coverage
       - name: Deploy Tests Report Page
         if: always()
         uses: peaceiris/actions-gh-pages@v3
