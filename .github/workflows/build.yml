@@ -32,6 +32,7 @@ jobs:
           publish_dir: ./reports
           user_name: 'github-actions[bot]'
           user_email: 'github-actions[bot]@users.noreply.github.com'
+          keep_files: true
       - name: Run action-aws-cli
         uses: chrislennon/action-aws-cli@v1.1
         env:
