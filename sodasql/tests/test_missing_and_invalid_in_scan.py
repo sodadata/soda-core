@@ -38,46 +38,47 @@ class TestMissingAndInvalidInScan(AbstractScanTest):
     def test_scan_without_configurations(self):
         self._create_table_customers()
 
-        measurements = self.scan({
+        scan_result = self.scan({
           'table_name': self.table_name
         })
 
-        measurement = measurements.get(Metric.SCHEMA)
+        measurement = scan_result.get_measurement(Metric.SCHEMA)
         self.assertIsNotNone(measurement)
         self.assertEqual(measurement.value[0].name, 'id')
         self.assertEqual(measurement.value[1].name, 'name')
         self.assertEqual(measurement.value[2].name, 'size')
 
-        measurements.assertValueDataset(Metric.ROW_COUNT, 5)
+        self.assertEqual(scan_result.get(Metric.ROW_COUNT), 5)
 
     def test_scan_missing(self):
         self._create_table_customers()
 
-        measurements = self.scan({
+        scan_result = self.scan({
           'table_name': self.table_name,
           'metrics': [
             'missing'
           ]
         })
-        self.assertEqual(measurements.value(Metric.MISSING_COUNT, 'id'), 0)
-        self.assertEqual(measurements.value(Metric.MISSING_PERCENTAGE, 'id'), 0.0)
-        self.assertEqual(measurements.value(Metric.VALUES_COUNT, 'id'), 5)
-        self.assertEqual(measurements.value(Metric.VALUES_PERCENTAGE, 'id'), 100.0)
+        
+        self.assertEqual(scan_result.get(Metric.MISSING_COUNT, 'id'), 0)
+        self.assertEqual(scan_result.get(Metric.MISSING_PERCENTAGE, 'id'), 0.0)
+        self.assertEqual(scan_result.get(Metric.VALUES_COUNT, 'id'), 5)
+        self.assertEqual(scan_result.get(Metric.VALUES_PERCENTAGE, 'id'), 100.0)
 
-        self.assertEqual(measurements.value(Metric.MISSING_COUNT, 'name'), 1)
-        self.assertEqual(measurements.value(Metric.MISSING_PERCENTAGE, 'name'), 20.0)
-        self.assertEqual(measurements.value(Metric.VALUES_COUNT, 'name'), 4)
-        self.assertEqual(measurements.value(Metric.VALUES_PERCENTAGE, 'name'), 80.0)
+        self.assertEqual(scan_result.get(Metric.MISSING_COUNT, 'name'), 1)
+        self.assertEqual(scan_result.get(Metric.MISSING_PERCENTAGE, 'name'), 20.0)
+        self.assertEqual(scan_result.get(Metric.VALUES_COUNT, 'name'), 4)
+        self.assertEqual(scan_result.get(Metric.VALUES_PERCENTAGE, 'name'), 80.0)
 
-        self.assertEqual(measurements.value(Metric.MISSING_COUNT, 'size'), 2)
-        self.assertEqual(measurements.value(Metric.MISSING_PERCENTAGE, 'size'), 40.0)
-        self.assertEqual(measurements.value(Metric.VALUES_COUNT, 'size'), 3)
-        self.assertEqual(measurements.value(Metric.VALUES_PERCENTAGE, 'size'), 60.0)
+        self.assertEqual(scan_result.get(Metric.MISSING_COUNT, 'size'), 2)
+        self.assertEqual(scan_result.get(Metric.MISSING_PERCENTAGE, 'size'), 40.0)
+        self.assertEqual(scan_result.get(Metric.VALUES_COUNT, 'size'), 3)
+        self.assertEqual(scan_result.get(Metric.VALUES_PERCENTAGE, 'size'), 60.0)
 
     def test_scan_missing_customized(self):
         self._create_table_customers()
 
-        measurements = self.scan({
+        scan_result = self.scan({
           'table_name': self.table_name,
           'columns': {
             'name': {
@@ -90,15 +91,15 @@ class TestMissingAndInvalidInScan(AbstractScanTest):
             }
           }
         })
-        self.assertEqual(measurements.value(Metric.MISSING_COUNT, 'name'), 2)
-        self.assertEqual(measurements.value(Metric.MISSING_PERCENTAGE, 'name'), 40.0)
-        self.assertEqual(measurements.value(Metric.VALUES_COUNT, 'name'), 3)
-        self.assertEqual(measurements.value(Metric.VALUES_PERCENTAGE, 'name'), 60.0)
+        self.assertEqual(scan_result.get(Metric.MISSING_COUNT, 'name'), 2)
+        self.assertEqual(scan_result.get(Metric.MISSING_PERCENTAGE, 'name'), 40.0)
+        self.assertEqual(scan_result.get(Metric.VALUES_COUNT, 'name'), 3)
+        self.assertEqual(scan_result.get(Metric.VALUES_PERCENTAGE, 'name'), 60.0)
 
     def test_scan_missing_customized_and_validity(self):
         self._create_table_customers()
 
-        measurements = self.scan({
+        scan_result = self.scan({
           'table_name': self.table_name,
           'columns': {
             'name': {
@@ -112,26 +113,26 @@ class TestMissingAndInvalidInScan(AbstractScanTest):
             }
           }
         })
-        self.assertEqual(measurements.value(Metric.INVALID_COUNT, 'name'), 2)
-        self.assertEqual(measurements.value(Metric.VALID_COUNT, 'name'), 1)
-        self.assertEqual(measurements.value(Metric.MISSING_COUNT, 'name'), 2)
+        self.assertEqual(scan_result.get(Metric.INVALID_COUNT, 'name'), 2)
+        self.assertEqual(scan_result.get(Metric.VALID_COUNT, 'name'), 1)
+        self.assertEqual(scan_result.get(Metric.MISSING_COUNT, 'name'), 2)
 
     def test_scan_min_length(self):
         self._create_table_customers()
 
-        measurements = self.scan({
+        scan_result = self.scan({
           'table_name': self.table_name,
           'metrics': [
             'min_length'
           ]
         })
 
-        measurement = measurements.get(Metric.MIN_LENGTH, 'id')
+        measurement = scan_result.get_measurement(Metric.MIN_LENGTH, 'id')
         self.assertEqual(measurement.type, Metric.MIN_LENGTH)
         self.assertEqual(measurement.column, 'id')
         self.assertEqual(measurement.value, 1)
 
-        measurement = measurements.get(Metric.MIN_LENGTH, 'name')
+        measurement = scan_result.get_measurement(Metric.MIN_LENGTH, 'name')
         self.assertEqual(measurement.type, Metric.MIN_LENGTH)
         self.assertEqual(measurement.column, 'name')
         self.assertEqual(measurement.value, 3)
@@ -140,7 +141,7 @@ class TestMissingAndInvalidInScan(AbstractScanTest):
         self._create_table_customers()
 
         # validity triggers missing measurements
-        measurements = self.scan({
+        scan_result = self.scan({
           'table_name': self.table_name,
           'columns': {
               'name': {
@@ -152,20 +153,20 @@ class TestMissingAndInvalidInScan(AbstractScanTest):
           }
         })
 
-        self.assertEqual(measurements.value(Metric.MISSING_COUNT,      'name'), 1)
-        self.assertEqual(measurements.value(Metric.MISSING_PERCENTAGE, 'name'), 20.0)
-        self.assertEqual(measurements.value(Metric.VALUES_COUNT,       'name'), 4)
-        self.assertEqual(measurements.value(Metric.VALUES_PERCENTAGE,  'name'), 80)
+        self.assertEqual(scan_result.get(Metric.MISSING_COUNT,      'name'), 1)
+        self.assertEqual(scan_result.get(Metric.MISSING_PERCENTAGE, 'name'), 20.0)
+        self.assertEqual(scan_result.get(Metric.VALUES_COUNT,       'name'), 4)
+        self.assertEqual(scan_result.get(Metric.VALUES_PERCENTAGE,  'name'), 80)
 
-        self.assertEqual(measurements.value(Metric.INVALID_COUNT,      'name'), 3)
-        self.assertEqual(measurements.value(Metric.INVALID_PERCENTAGE, 'name'), 60.0)
-        self.assertEqual(measurements.value(Metric.VALID_COUNT,        'name'), 1)
-        self.assertEqual(measurements.value(Metric.VALID_PERCENTAGE,   'name'), 20.0)
+        self.assertEqual(scan_result.get(Metric.INVALID_COUNT,      'name'), 3)
+        self.assertEqual(scan_result.get(Metric.INVALID_PERCENTAGE, 'name'), 60.0)
+        self.assertEqual(scan_result.get(Metric.VALID_COUNT,        'name'), 1)
+        self.assertEqual(scan_result.get(Metric.VALID_PERCENTAGE,   'name'), 20.0)
 
     def test_scan_valid_regex(self):
         self._create_table_customers()
 
-        measurements = self.scan({
+        scan_result = self.scan({
           'table_name': self.table_name,
           'metrics': [
             'missing'
@@ -180,29 +181,29 @@ class TestMissingAndInvalidInScan(AbstractScanTest):
           }
         })
 
-        self.assertEqual(measurements.value(Metric.MISSING_COUNT,      'id'), 0)
-        self.assertEqual(measurements.value(Metric.MISSING_PERCENTAGE, 'id'), 0.0)
-        self.assertEqual(measurements.value(Metric.VALUES_COUNT,       'id'), 5)
-        self.assertEqual(measurements.value(Metric.VALUES_PERCENTAGE,  'id'), 100)
+        self.assertEqual(scan_result.get(Metric.MISSING_COUNT,      'id'), 0)
+        self.assertEqual(scan_result.get(Metric.MISSING_PERCENTAGE, 'id'), 0.0)
+        self.assertEqual(scan_result.get(Metric.VALUES_COUNT,       'id'), 5)
+        self.assertEqual(scan_result.get(Metric.VALUES_PERCENTAGE,  'id'), 100)
 
-        self.assertEqual(measurements.value(Metric.MISSING_COUNT,      'name'), 1)
-        self.assertEqual(measurements.value(Metric.MISSING_PERCENTAGE, 'name'), 20.0)
-        self.assertEqual(measurements.value(Metric.VALUES_COUNT,       'name'), 4)
-        self.assertEqual(measurements.value(Metric.VALUES_PERCENTAGE,  'name'), 80)
+        self.assertEqual(scan_result.get(Metric.MISSING_COUNT,      'name'), 1)
+        self.assertEqual(scan_result.get(Metric.MISSING_PERCENTAGE, 'name'), 20.0)
+        self.assertEqual(scan_result.get(Metric.VALUES_COUNT,       'name'), 4)
+        self.assertEqual(scan_result.get(Metric.VALUES_PERCENTAGE,  'name'), 80)
 
-        self.assertEqual(measurements.value(Metric.INVALID_COUNT,      'name'), 3)
-        self.assertEqual(measurements.value(Metric.INVALID_PERCENTAGE, 'name'), 60.0)
-        self.assertEqual(measurements.value(Metric.VALID_COUNT,        'name'), 1)
-        self.assertEqual(measurements.value(Metric.VALID_PERCENTAGE,   'name'), 20.0)
+        self.assertEqual(scan_result.get(Metric.INVALID_COUNT,      'name'), 3)
+        self.assertEqual(scan_result.get(Metric.INVALID_PERCENTAGE, 'name'), 60.0)
+        self.assertEqual(scan_result.get(Metric.VALID_COUNT,        'name'), 1)
+        self.assertEqual(scan_result.get(Metric.VALID_PERCENTAGE,   'name'), 20.0)
 
-        self.assertEqual(measurements.value(Metric.MISSING_COUNT,      'id'), 0)
-        self.assertEqual(measurements.value(Metric.MISSING_PERCENTAGE, 'id'), 0.0)
-        self.assertEqual(measurements.value(Metric.VALUES_COUNT,       'id'), 5)
-        self.assertEqual(measurements.value(Metric.VALUES_PERCENTAGE,  'id'), 100)
+        self.assertEqual(scan_result.get(Metric.MISSING_COUNT,      'id'), 0)
+        self.assertEqual(scan_result.get(Metric.MISSING_PERCENTAGE, 'id'), 0.0)
+        self.assertEqual(scan_result.get(Metric.VALUES_COUNT,       'id'), 5)
+        self.assertEqual(scan_result.get(Metric.VALUES_PERCENTAGE,  'id'), 100)
 
-        self.assertEqual(measurements.value(Metric.MISSING_COUNT, 'id'), 0)
-        self.assertEqual(measurements.value(Metric.MISSING_COUNT, 'name'), 1)
-        self.assertEqual(measurements.value(Metric.MISSING_COUNT, 'size'), 2)
+        self.assertEqual(scan_result.get(Metric.MISSING_COUNT, 'id'), 0)
+        self.assertEqual(scan_result.get(Metric.MISSING_COUNT, 'name'), 1)
+        self.assertEqual(scan_result.get(Metric.MISSING_COUNT, 'size'), 2)
 
     def test_scan_valid_format(self):
         self.table_name = 'customers'
@@ -221,7 +222,7 @@ class TestMissingAndInvalidInScan(AbstractScanTest):
              "(null)",
              "('10')"])
 
-        measurements = self.scan({
+        scan_result = self.scan({
           'table_name': self.table_name,
           'columns': {
               'col': {
@@ -233,15 +234,15 @@ class TestMissingAndInvalidInScan(AbstractScanTest):
           }
         })
 
-        self.assertEqual(measurements.value(Metric.MISSING_COUNT,      'col'), 1)
-        self.assertEqual(measurements.value(Metric.MISSING_PERCENTAGE, 'col'), 10)
-        self.assertEqual(measurements.value(Metric.VALUES_COUNT,       'col'), 9)
-        self.assertEqual(measurements.value(Metric.VALUES_PERCENTAGE,  'col'), 90)
+        self.assertEqual(scan_result.get(Metric.MISSING_COUNT,      'col'), 1)
+        self.assertEqual(scan_result.get(Metric.MISSING_PERCENTAGE, 'col'), 10)
+        self.assertEqual(scan_result.get(Metric.VALUES_COUNT,       'col'), 9)
+        self.assertEqual(scan_result.get(Metric.VALUES_PERCENTAGE,  'col'), 90)
 
-        self.assertEqual(measurements.value(Metric.INVALID_COUNT,      'col'), 2)
-        self.assertEqual(measurements.value(Metric.INVALID_PERCENTAGE, 'col'), 20.0)
-        self.assertEqual(measurements.value(Metric.VALID_COUNT,        'col'), 7)
-        self.assertEqual(measurements.value(Metric.VALID_PERCENTAGE,   'col'), 70.0)
+        self.assertEqual(scan_result.get(Metric.INVALID_COUNT,      'col'), 2)
+        self.assertEqual(scan_result.get(Metric.INVALID_PERCENTAGE, 'col'), 20.0)
+        self.assertEqual(scan_result.get(Metric.VALID_COUNT,        'col'), 7)
+        self.assertEqual(scan_result.get(Metric.VALID_PERCENTAGE,   'col'), 70.0)
 
     def test_scan_valid_min_length_max_length(self):
         self.table_name = 'customers'
@@ -260,7 +261,7 @@ class TestMissingAndInvalidInScan(AbstractScanTest):
              "('1234567')",
              "('12345678')"])
 
-        measurements = self.scan({
+        scan_result = self.scan({
           'table_name': self.table_name,
           'columns': {
               'col': {
@@ -273,12 +274,12 @@ class TestMissingAndInvalidInScan(AbstractScanTest):
           }
         })
 
-        self.assertEqual(measurements.value(Metric.MISSING_COUNT,      'col'), 1)
-        self.assertEqual(measurements.value(Metric.MISSING_PERCENTAGE, 'col'), 10)
-        self.assertEqual(measurements.value(Metric.VALUES_COUNT,       'col'), 9)
-        self.assertEqual(measurements.value(Metric.VALUES_PERCENTAGE,  'col'), 90)
+        self.assertEqual(scan_result.get(Metric.MISSING_COUNT,      'col'), 1)
+        self.assertEqual(scan_result.get(Metric.MISSING_PERCENTAGE, 'col'), 10)
+        self.assertEqual(scan_result.get(Metric.VALUES_COUNT,       'col'), 9)
+        self.assertEqual(scan_result.get(Metric.VALUES_PERCENTAGE,  'col'), 90)
 
-        self.assertEqual(measurements.value(Metric.INVALID_COUNT,      'col'), 4)
-        self.assertEqual(measurements.value(Metric.INVALID_PERCENTAGE, 'col'), 40.0)
-        self.assertEqual(measurements.value(Metric.VALID_COUNT,        'col'), 5)
-        self.assertEqual(measurements.value(Metric.VALID_PERCENTAGE,   'col'), 50.0)
+        self.assertEqual(scan_result.get(Metric.INVALID_COUNT,      'col'), 4)
+        self.assertEqual(scan_result.get(Metric.INVALID_PERCENTAGE, 'col'), 40.0)
+        self.assertEqual(scan_result.get(Metric.VALID_COUNT,        'col'), 5)
+        self.assertEqual(scan_result.get(Metric.VALID_PERCENTAGE,   'col'), 50.0)

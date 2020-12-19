@@ -14,15 +14,14 @@ from typing import List
 
 from sodasql.scan.column import Column
 from sodasql.scan.custom_metric import CustomMetric
+from sodasql.scan.measurement import Measurement
 from sodasql.scan.metric import Metric
 from sodasql.scan.scan_configuration import ScanConfiguration
-from sodasql.scan.measurement import Measurement
 from sodasql.scan.scan_result import ScanResult
 from sodasql.scan.test_result import TestResult
 from sodasql.scan.valid_format import VALID_FORMATS
 from sodasql.scan.validity import Validity
 from sodasql.soda_client.soda_client import SodaClient
-from sodasql.sql_store.sql_statement_logger import log_sql
 
 
 class SqlStore:
@@ -35,8 +34,8 @@ class SqlStore:
     def create(cls, connection_dict: dict):
         sql_store_type = connection_dict['type']
         if sql_store_type == 'postgres':
-            from sodasql.sql_store.postgres_sql_store import PostgresSqlStore
-            return PostgresSqlStore(connection_dict)
+            from sodasql.warehouse.postgres_dialect import PostgresDialect
+            return PostgresDialect(connection_dict)
         else:
             raise RuntimeError(f'Unsupported sql store type {sql_store_type}')
 

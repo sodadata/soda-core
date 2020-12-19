@@ -9,8 +9,8 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
-from sodasql.sql_store.sql_store import SqlStore
+from sodasql.warehouse.dialect import Dialect
 
 
-class RedshiftSqlStore(SqlStore):
+class RedshiftDialect(Dialect):
     pass

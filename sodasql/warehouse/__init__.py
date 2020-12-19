@@ -9,23 +9,3 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
-import logging
-from datetime import datetime
-
-
-class SqlStatementLogger:
-
-    def __init__(self, sql: str):
-        logging.debug(f'Executing SQL query: \n{sql}')
-        self.start = datetime.now()
-
-    def __enter__(self):
-        pass
-
-    def __exit__(self, exc_type, exc_value, exc_traceback):
-        delta = datetime.now() - self.start
-        logging.debug(f'SQL took {str(delta)}')
-
-
-def log_sql(sql: str):
-    return SqlStatementLogger(sql)

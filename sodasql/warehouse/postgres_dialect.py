@@ -9,27 +9,26 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
-import logging
-from typing import List
-
 import psycopg2
 
 from sodasql.credentials.credentials_resolver import CredentialsResolver
-from sodasql.scan.column import Column
 from sodasql.scan.scan_configuration import ScanConfiguration
-from sodasql.sql_store.sql_store import SqlStore
+from sodasql.warehouse.dialect import Dialect
 
 
-class PostgresSqlStore(SqlStore):
+class PostgresDialect(Dialect):
 
-    def __init__(self, connection_dict: dict):
-        super().__init__(connection_dict)
-        self.host = connection_dict.get('host', 'localhost')
-        self.port = connection_dict.get('port', '5432')
-        self.username = CredentialsResolver.resolve(connection_dict, 'username')
-        self.password = CredentialsResolver.resolve(connection_dict, 'password')
-        self.database = connection_dict.get('database')
-        self.schema = connection_dict.get('schema')
+    def __init__(self, warehouse_configuration: dict):
+        super().__init__()
+        self.host = warehouse_configuration.get('host', 'localhost')
+        self.port = warehouse_configuration.get('port', '5432')
+        self.username = CredentialsResolver.resolve(warehouse_configuration, 'username')
+        self.password = CredentialsResolver.resolve(warehouse_configuration, 'password')
+        self.database = warehouse_configuration.get('database')
+        self.schema = warehouse_configuration.get('schema')
+
+    def sql_connection_test(self):
+        pass
 
     def create_connection(self):
         return psycopg2.connect(
@@ -37,7 +36,8 @@ class PostgresSqlStore(SqlStore):
             password=self.password,
             host=self.host,
             port=self.port,
-            database=self.database)
+            database=self.database,
+            options=f'-c search_path={self.schema}' if self.schema else None)
 
     def sql_columns_metadata_query(self, scan_configuration: ScanConfiguration) -> str:
         sql = (f"SELECT column_name, data_type, is_nullable \n"

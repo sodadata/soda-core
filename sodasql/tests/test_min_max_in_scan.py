@@ -35,19 +35,19 @@ class TestMinMaxInScan(AbstractScanTest):
             f"  ('4', 'no value', null), "
             f"  ('5', null,       null) "])
 
-        measurements = self.scan({
+        scan_result = self.scan({
           'table_name': self.table_name,
           'metrics': [
             'min_length'
           ]
         })
 
-        measurement = measurements.get(Metric.MIN_LENGTH, 'id')
+        measurement = scan_result.get_measurement(Metric.MIN_LENGTH, 'id')
         self.assertEqual(measurement.type, Metric.MIN_LENGTH)
         self.assertEqual(measurement.column, 'id')
         self.assertEqual(measurement.value, 1)
 
-        measurement = measurements.get(Metric.MIN_LENGTH, 'name')
+        measurement = scan_result.get_measurement(Metric.MIN_LENGTH, 'name')
         self.assertEqual(measurement.type, Metric.MIN_LENGTH)
         self.assertEqual(measurement.column, 'name')
         self.assertEqual(measurement.value, 3)
