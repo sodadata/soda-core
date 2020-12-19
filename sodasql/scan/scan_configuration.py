@@ -8,6 +8,7 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
+from typing import List
 
 from sodasql.scan.column import Column
 from sodasql.scan.metric import Metric
@@ -44,15 +45,9 @@ class ScanConfiguration:
             ScanConfiguration.VALID_KEYS,
             'Invalid scan configuration')
 
-    def is_missing_enabled(self, column):
+    def is_any_metric_enabled(self, column: Column, metrics: List[str]):
         for metric in self.__get_metrics(column):
-            if metric in [Metric.MISSING_COUNT, Metric.MISSING_PERCENTAGE, Metric.VALUES_COUNT, Metric.VALUES_PERCENTAGE]:
-                return True
-        return False
-
-    def is_valid_enabled(self, column):
-        for metric in self.__get_metrics(column):
-            if metric in [Metric.INVALID_COUNT, Metric.INVALID_PERCENTAGE, Metric.VALID_COUNT, Metric.VALID_PERCENTAGE]:
+            if metric in metrics:
                 return True
         return False
 

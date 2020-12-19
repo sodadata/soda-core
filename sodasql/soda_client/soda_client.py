@@ -13,9 +13,6 @@ class SodaClient:
     def __init__(self):
         pass
 
-    def send_columns(self, scan_reference, columns):
-        pass
-
-    def send_column_aggregation_measurements(self, scan_reference, columns_aggregation_measurements):
+    def send_measurements(self, scan_reference, measurements):
         pass
 
