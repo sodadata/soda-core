@@ -21,3 +21,11 @@ This changes the log level:
 ```
 $ tox -- --log-cli-level=DEBUG
 ```
+
+To generate HTML test reports, execute the following command:
+
+```
+$ tox -e html-test-reports
+```
+
+Reports will be available in the directory `./reports/tests/`.
