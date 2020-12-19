@@ -210,12 +210,3 @@ class TestMissingAndInvalidMetricConfigurations(AbstractScanTest):
             Metric.VALID_COUNT,
             Metric.VALID_PERCENTAGE
         ])
-
-    def assertMeasurementsPresent(self, scan_result, column: str, expected_metrics_present):
-        metrics_present = [measurement.metric for measurement in scan_result.measurements if measurement.column == column]
-        self.assertEqual(set(metrics_present), set(expected_metrics_present))
-
-    def assertMeasurementsAbsent(self, scan_result, column: str, expected_metrics_absent: list):
-        metrics_present = [measurement.metric for measurement in scan_result.measurements if measurement.column == column]
-        metrics_present_and_expected_absent = set(expected_metrics_absent) & set(metrics_present)
-        self.assertEqual(set(), metrics_present_and_expected_absent)

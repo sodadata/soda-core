@@ -102,7 +102,9 @@ class Dialect:
         return '('+','.join(sql_values)+')'
 
     def sql_expr_cast_text_to_number(self, quoted_column_name, validity_format):
-        return f"CAST(REGEXP_REPLACE(REGEXP_REPLACE({quoted_column_name}, '[^-\d\.\,]', '', 'g'), ',', '.', 'g') AS REAL)"
+        if validity_format == 'number_whole':
+            return f"CAST({quoted_column_name} AS REAL)"
+        return f"CAST(REGEXP_REPLACE(REGEXP_REPLACE({quoted_column_name}, '[^-\\d\\.\\,]', '', 'g'), ',', '.', 'g') AS REAL)"
 
     def literal_number(self, value: str):
         return value

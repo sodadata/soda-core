@@ -26,19 +26,19 @@ class TestMissingAndInvalidCustomizations(AbstractScanTest):
              "(null)"])
 
         scan_result = self.scan({
-          'table_name': 'test_table',
-          'columns': {
-            'score': {
-              'metrics': [
+            'table_name': 'test_table',
+            'metrics': [
                 'valid',
                 'min',
                 'max',
                 'avg',
                 'sum'
-              ],
-              'valid_format': 'number_whole'
+            ],
+            'columns': {
+                'score': {
+                  'valid_format': 'number_whole'
+                }
             }
-          }
         })
 
         self.assertEqual(scan_result.get(Metric.VALUES_COUNT, 'score'), 4)
@@ -46,3 +46,29 @@ class TestMissingAndInvalidCustomizations(AbstractScanTest):
         self.assertEqual(scan_result.get(Metric.MAX, 'score'), 12)
         self.assertEqual(scan_result.get(Metric.AVG, 'score'), 5)
         self.assertEqual(scan_result.get(Metric.SUM, 'score'), 20)
+
+    def test_no_minmax_for_non_numeric_strings(self):
+        self.create_table(
+            'test_table',
+            ["score VARCHAR(255)"],
+            ["('1')",
+             "('2')",
+             "('5')",
+             "('12')",
+             "(null)"])
+
+        scan_result = self.scan({
+            'table_name': 'test_table',
+            'metrics': [
+                'valid',
+                'min',
+                'max',
+                'avg',
+                'sum'
+            ]
+        })
+
+        self.assertMeasurementsAbsent(scan_result, 'score', [
+            Metric.MIN,
+            Metric.MAX
+        ])
