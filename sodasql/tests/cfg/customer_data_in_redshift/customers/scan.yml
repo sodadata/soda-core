@@ -28,7 +28,7 @@ columns:
         valid_max_length: 3
         valid_min: 3
         valid_max: 3
-        tests:
+        checks:
             - missing_percentage < 3.0
             - invalid_count == 0
     START_DATE:

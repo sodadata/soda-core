@@ -10,51 +10,59 @@
 #  limitations under the License.
 import json
 import logging
-from typing import List, Optional
+from typing import List
 from unittest import TestCase
 
-from sodasql.scan.measurement import Measurement
-from sodasql.scan.scan import Scan
 from sodasql.scan.scan_configuration import ScanConfiguration
-from sodasql.sql_store.sql_store import SqlStore
+from sodasql.scan.scan_result import ScanResult
 from sodasql.tests.logging_helper import LoggingHelper
-from sodasql.tests.measurements import Measurements
+from sodasql.warehouse.warehouse import Warehouse
 
 LoggingHelper.configure_for_test()
 
 
 class AbstractScanTest(TestCase):
 
+    warehouse: Warehouse = None
+
     def __init__(self, method_name: str = ...) -> None:
         super().__init__(method_name)
-        self.sql_store: Optional[SqlStore] = None
         self.connection = None
 
     def setUp(self) -> None:
         logging.debug(f'\n\n--- {str(self)} ---')
         super().setUp()
-        self.sql_store = self.create_sql_store()
-        self.connection = self.sql_store.get_connection()
+        warehouse_configuration = self.get_warehouse_configuration()
+        if AbstractScanTest.warehouse is not None \
+                and AbstractScanTest.warehouse.warehouse_configuration != warehouse_configuration:
+            AbstractScanTest.warehouse.close()
+            AbstractScanTest.warehouse = None
+        if AbstractScanTest.warehouse is None:
+            AbstractScanTest.warehouse = Warehouse(warehouse_configuration)
+        self.warehouse = AbstractScanTest.warehouse
+        self.connection = self.warehouse.connection
 
-    def tearDown(self) -> None:
-        self.connection.rollback()
-        self.connection.close()
-
-    def create_sql_store(self) -> SqlStore:
-        return SqlStore.create({
+    def get_warehouse_configuration(self):
+        return {
             'name': 'test-postgres-store',
             'type': 'postgres',
             'host': 'localhost',
             'port': '5432',
             'username': 'sodalite',
             'database': 'sodalite',
-            'schema': 'public'})
+            'schema': 'public'}
+
+    def tearDown(self) -> None:
+        self.connection.rollback()
 
     def sql_update(self, sql: str):
         assert self.connection, 'self.connection not initialized'
-        with self.connection.cursor() as cursor:
+        cursor = self.connection.cursor()
+        try:
             logging.debug(f'Test SQL update: {sql}')
             return cursor.execute(sql)
+        finally:
+            cursor.close()
 
     def sql_updates(self, sqls: List[str]):
         for sql in sqls:
@@ -71,11 +79,13 @@ class AbstractScanTest(TestCase):
             f"INSERT INTO {table_name} VALUES " +
             ", ".join(rows)])
 
-    def scan(self, scan_configuration_dict: dict) -> Measurements:
+    def scan(self, scan_configuration_dict: dict) -> ScanResult:
         logging.debug('Scan configuration \n'+json.dumps(scan_configuration_dict, indent=2))
-        scan = Scan(self.sql_store, scan_configuration=ScanConfiguration(scan_configuration_dict))
+
+        scan_configuration: ScanConfiguration = ScanConfiguration(scan_configuration_dict)
+        scan = self.warehouse.create_scan(scan_configuration)
         if len(scan.scan_configuration.parse_logs.logs) > 0:
             raise AssertionError(
                 'Scan configuration errors: \n  ' +
                 ('\n  '.join([str(log) for log in scan.scan_configuration.parse_logs.logs])))
-        return Measurements(scan.execute())
+        return scan.execute()

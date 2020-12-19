@@ -1,6 +1,5 @@
 name: Customers not having an email address
-type: failures
-sql: |
+type: metric | failures
 
 SELECT
     customer_id,

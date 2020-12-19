@@ -4,11 +4,11 @@ with open("requirements.txt", "r", encoding="utf-8") as f:
     requires = [x.strip() for x in f if x.strip()]
 
 setup(
-    name="sodasql",
+    name="soda-sql",
     version="0.1.0",
     author="Tom Baeyens",
     author_email="tom@soda.io",
-    description="SodaSQL library & CLI",
+    description="soda-sql library & CLI",
     packages=find_packages(exclude=["sodasql_*"]),
     install_requires=requires,
     entry_points={"console_scripts": ["sodasql=sodasql.main:main"]},

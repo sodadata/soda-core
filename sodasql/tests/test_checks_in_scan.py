@@ -27,7 +27,7 @@ class TestMissingAndInvalidInScan(AbstractScanTest):
              "('no value')",
              "(null)"])
 
-        scan_result = Scan(self.sql_store, scan_configuration=ScanConfiguration({
+        scan_result = self.scan({
             'table_name': 'customers',
             'metrics': [
                 'missing'
@@ -39,10 +39,10 @@ class TestMissingAndInvalidInScan(AbstractScanTest):
                     ]
                 }
             }
-        })).execute()
+        })
         self.assertFalse(scan_result.has_failures())
 
-        scan_result = Scan(self.sql_store, scan_configuration=ScanConfiguration({
+        scan_result = self.scan({
             'table_name': 'customers',
             'metrics': [
                 'missing'
@@ -54,7 +54,7 @@ class TestMissingAndInvalidInScan(AbstractScanTest):
                     ]
                 }
             }
-        })).execute()
+        })
         self.assertTrue(scan_result.has_failures())
 
 
