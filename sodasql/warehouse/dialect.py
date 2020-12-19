@@ -83,6 +83,12 @@ class Dialect:
     def sql_expr_max(self, expr: str):
         return f'MAX({expr})'
 
+    def sql_expr_avg(self, expr: str):
+        return f'AVG({expr})'
+
+    def sql_expr_sum(self, expr: str):
+        return f'SUM({expr})'
+
     def sql_expr_regexp_like(self, expr: str, pattern: str):
         return f"{expr} ~* '{self.qualify_regex(pattern)}'"
 
@@ -94,6 +100,9 @@ class Dialect:
         else:
             raise RuntimeError(f"Couldn't format list {str(values)} for column {str(column)}")
         return '('+','.join(sql_values)+')'
+
+    def sql_expr_cast_text_to_number(self, quoted_column_name, validity_format):
+        return f"CAST(REGEXP_REPLACE(REGEXP_REPLACE({quoted_column_name}, '[^-\d\.\,]', '', 'g'), ',', '.', 'g') AS REAL)"
 
     def literal_number(self, value: str):
         return value

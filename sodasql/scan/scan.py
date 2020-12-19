@@ -130,19 +130,43 @@ class Scan:
                 measurements.append(Measurement(Metric.VALID_COUNT, column.name))
 
             if dialect.is_text(column):
-                if scan_configuration.is_min_length_enabled(column):
+                if scan_configuration.is_metric_enabled(column, Metric.MIN_LENGTH):
                     length_expr = dialect.sql_expr_conditional(
                         non_missing_and_valid_condition,
                         dialect.sql_expr_length(quoted_column_name))
                     fields.append(dialect.sql_expr_min(length_expr))
                     measurements.append(Measurement(Metric.MIN_LENGTH, column.name))
 
-                if scan_configuration.is_max_length_enabled(column):
+                if scan_configuration.is_metric_enabled(column, Metric.MAX_LENGTH):
                     length_expr = dialect.sql_expr_conditional(
                         non_missing_and_valid_condition,
                         dialect.sql_expr_length(quoted_column_name))
                     fields.append(dialect.sql_expr_max(length_expr))
                     measurements.append(Measurement(Metric.MAX_LENGTH, column.name))
+
+                validity_format = scan_configuration.get_validity_format(column)
+                is_column_numeric_text_format = isinstance(validity_format, str) and validity_format.startswith('number_')
+
+                if is_column_numeric_text_format:
+                    numeric_text_expr = dialect.sql_expr_conditional(
+                        non_missing_and_valid_condition,
+                        dialect.sql_expr_cast_text_to_number(quoted_column_name, validity_format))
+
+                    if scan_configuration.is_metric_enabled(column, Metric.MIN):
+                        fields.append(dialect.sql_expr_min(numeric_text_expr))
+                        measurements.append(Measurement(Metric.MIN, column.name))
+
+                    if scan_configuration.is_metric_enabled(column, Metric.MAX):
+                        fields.append(dialect.sql_expr_max(numeric_text_expr))
+                        measurements.append(Measurement(Metric.MAX, column.name))
+
+                    if scan_configuration.is_metric_enabled(column, Metric.AVG):
+                        fields.append(dialect.sql_expr_avg(numeric_text_expr))
+                        measurements.append(Measurement(Metric.AVG, column.name))
+
+                    if scan_configuration.is_metric_enabled(column, Metric.SUM):
+                        fields.append(dialect.sql_expr_sum(numeric_text_expr))
+                        measurements.append(Measurement(Metric.SUM, column.name))
 
         sql = 'SELECT \n  ' + ',\n  '.join(fields) + ' \n' \
               'FROM ' + dialect.qualify_table_name(scan_configuration.table_name)

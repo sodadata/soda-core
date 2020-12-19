@@ -56,13 +56,7 @@ class ScanConfiguration:
                 return True
         return False
 
-    def is_min_length_enabled(self, column):
-        return self.__is_metric_enabled(column, Metric.MIN_LENGTH)
-
-    def is_max_length_enabled(self, column):
-        return self.__is_metric_enabled(column, Metric.MAX_LENGTH)
-
-    def __is_metric_enabled(self, column: Column, metric: str):
+    def is_metric_enabled(self, column: Column, metric: str):
         return metric in self.__get_metrics(column)
 
     def __get_metrics(self, column: Column):
@@ -79,3 +73,10 @@ class ScanConfiguration:
     def get_validity(self, column):
         column_configuration = self.columns.get(column.name.lower())
         return column_configuration.validity if column_configuration else None
+
+    def get_validity_format(self, column):
+        column_configuration = self.columns.get(column.name.lower())
+        if column_configuration \
+                and column_configuration.validity \
+                and column_configuration.validity.format:
+            return column_configuration.validity.format
