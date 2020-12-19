@@ -3,11 +3,10 @@
 import fnmatch
 import os
 import xml.etree.ElementTree as elementTree
-
 import requests
 
 from utils.slack import SlackMessageSender
-from utils import get_env, deployment_description
+from utils import get_environment_variable, get_deployment_description, get_branch, get_project
 
 
 class Reporter:
@@ -19,12 +18,12 @@ class Reporter:
 
     def __init__(self):
         self.sender = SlackMessageSender()
-        self.job = get_env('JOB_ID')
-        self.run = get_env('GITHUB_RUN_ID')
-        self.repository = get_env('GITHUB_REPOSITORY')
-        self.sha = get_env('GITHUB_SHA')
-        self.token = get_env('GITHUB_TOKEN')
-        self.workflow_name = get_env('GITHUB_WORKFLOW')
+        self.job = get_environment_variable('JOB_ID')
+        self.run = get_environment_variable('GITHUB_RUN_ID')
+        self.repository = get_environment_variable('GITHUB_REPOSITORY')
+        self.sha = get_environment_variable('GITHUB_SHA')
+        self.token = get_environment_variable('GITHUB_TOKEN')
+        self.workflow_name = get_environment_variable('GITHUB_WORKFLOW')
         self.root_dir = os.path.join(os.path.dirname(__file__), '../')
 
     def send_slack_message(self, msg: str):
@@ -34,9 +33,10 @@ class Reporter:
         author = self._find_author()
         msg = f":cry: Github Actions *{self.repository}* workflow *{self.workflow_name}* run " \
               f"<https://github.com/{self.repository}/actions/runs/{self.run}|{self.run}>" \
-              f" *failed* {deployment_description()}on job `{self.job}` " \
+              f" *failed* {get_deployment_description()}on job `{self.job}` " \
               f"(commit `<https://github.com/{self.repository}/commit/{self.sha}|{self.sha[:7]}>`). " \
-              f"Last author was {author}"
+              f"Last author was {author}. " \
+              f"Full test reports can be found <https://sodadata.github.io/{get_project()}/tests/{get_branch()}|here>."
         self.send_slack_message(msg)
         for r in self._find_files('TEST*.xml'):
             self._process_xml(r)
@@ -62,7 +62,7 @@ class Reporter:
         self._send_slack_message_error(fail_class, fail_method, stack.strip(), failure_type)
 
     def _send_slack_message_error(self, fail_class, fail_method, stack, failure_type):
-        msg = f"Test `{fail_class}#{fail_method}` experienced {failure_type} with:\n```\n{stack}\n```"
+        msg = f"Test `{fail_class}#{fail_method}` experienced {failure_type} with:\n```\n{stack}\n```."
         self.send_slack_message(msg)
 
     def _find_author(self):

@@ -16,10 +16,32 @@ jobs:
         uses: actions/setup-python@v2
         with:
           python-version: ${{ matrix.python-version }}
+      - name: Extract Branch Name
+        shell: bash
+        run: echo "##[set-output name=branch;]$(echo ${GITHUB_REF#refs/heads/})"
+        id: extract_branch
       - name: Run Tox
         run: |
           cat dev-requirements.in | grep tox | xargs pip install
-          tox
+          tox -- --html=./reports/tests/${{ steps.extract_branch.outputs.branch }}/index.html
+      - name: Deploy Tests Report Page
+        if: always()
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./reports
+          user_name: 'github-actions[bot]'
+          user_email: 'github-actions[bot]@users.noreply.github.com'
+      - name: Run action-aws-cli
+        uses: chrislennon/action-aws-cli@v1.1
+        env:
+          ACTIONS_ALLOW_UNSECURE_COMMANDS: true
+      - name: Publish Documentation
+        if: success() && contains('refs/heads/main refs/heads/master', github.ref)
+        run: aws s3 sync ./docs s3://sodasql-docs/
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_BUILD_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_BUILD_SECRET_ACCESS_KEY }}
       - name: Notify Slack on Failure
         if: failure()
         run: |
