@@ -1,5 +1,4 @@
 import os
-import urllib.parse
 
 
 def get_environment_variable(name: str) -> str:
