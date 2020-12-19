@@ -4,12 +4,12 @@
 #
 #    pip-compile requirements.in
 #
-certifi==2020.6.20        # via requests
-chardet==3.0.4            # via requests
-diagrams==0.17.0          # via -r requirements.in
+certifi==2020.12.5        # via requests
+chardet==4.0.0            # via requests
+diagrams==0.18.0          # via -r requirements.in
 graphviz==0.13.2          # via diagrams
 idna==2.10                # via requests
 jinja2==2.11.2            # via diagrams
 markupsafe==1.1.1         # via jinja2
-requests==2.24.0          # via -r requirements.in
-urllib3==1.25.10          # via requests
+requests==2.25.1          # via -r requirements.in
+urllib3==1.26.2           # via requests

@@ -4,7 +4,7 @@ import os
 import ssl
 import requests
 
-from .utils import get_environment_variable, get_branch
+from .env import ENV
 
 
 class SlackMessageSender:
@@ -14,10 +14,10 @@ class SlackMessageSender:
     branches_to_notify = ['master', 'main']
 
     def __init__(self):
-        self.slack_webhook_url = get_environment_variable('SLACK_WEBHOOK_URL')
+        self.slack_webhook_url = ENV.get_variable('SLACK_WEBHOOK_URL')
         self.force_send = os.environ.get('FORCE_SEND', 'false')
         self.ctx = SlackMessageSender._create_non_verifying_context()
-        self.branch = get_branch()
+        self.branch = ENV.get_branch()
 
     def send_slack_message(self, msg: str):
         payload = {"text": msg}
