@@ -5,3 +5,10 @@ python-dotenv==0.13.0
 tox==3.15.2
 tox-docker==2.0.0a3
 pytest-html==3.1.1
+
+# Solve Conflicts
+certifi==2020.12.5
+chardet==3.0.4
+requests==2.23
+urllib3==1.25.10
+
