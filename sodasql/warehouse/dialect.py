@@ -74,8 +74,14 @@ class Dialect:
     def sql_expr_count_conditional(self, condition: str):
         return f'COUNT(CASE WHEN {condition} THEN 1 END)'
 
-    def sql_expr_min_conditional(self, condition: str, expr: str):
-        return f'MIN(CASE WHEN {condition} THEN {expr} END)'
+    def sql_expr_conditional(self, condition: str, expr: str):
+        return f'CASE WHEN {condition} THEN {expr} END'
+
+    def sql_expr_min(self, expr: str):
+        return f'MIN({expr})'
+
+    def sql_expr_max(self, expr: str):
+        return f'MAX({expr})'
 
     def sql_expr_regexp_like(self, expr: str, pattern: str):
         return f"{expr} ~* '{self.qualify_regex(pattern)}'"

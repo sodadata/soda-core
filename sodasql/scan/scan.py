@@ -16,10 +16,10 @@ from sodasql.scan.column import Column
 from sodasql.scan.custom_metric import CustomMetric
 from sodasql.scan.measurement import Measurement
 from sodasql.scan.metric import Metric
+from sodasql.scan.missing import Missing
 from sodasql.scan.scan_configuration import ScanConfiguration
 from sodasql.scan.scan_result import ScanResult
 from sodasql.scan.test_result import TestResult
-from sodasql.scan.valid_format import VALID_FORMATS
 from sodasql.scan.validity import Validity
 from sodasql.soda_client.soda_client import SodaClient
 from sodasql.warehouse.dialect import Dialect
@@ -103,7 +103,7 @@ class Scan:
 
             quoted_column_name = dialect.qualify_column_name(column.name)
 
-            missing_values = scan_configuration.get_missing_values(column)
+            missing = scan_configuration.get_missing(column)
             validity = scan_configuration.get_validity(column)
 
             is_valid_enabled = validity is not None \
@@ -113,7 +113,7 @@ class Scan:
                 is_valid_enabled \
                 or scan_configuration.is_missing_enabled(column)
 
-            missing_condition = self.get_missing_condition(column, missing_values)
+            missing_condition = self.get_missing_condition(column, missing)
             valid_condition = self.get_valid_condition(column, validity)
 
             non_missing_and_valid_condition = \
@@ -129,12 +129,20 @@ class Scan:
                 fields.append(f'{dialect.sql_expr_count_conditional(non_missing_and_valid_condition)}')
                 measurements.append(Measurement(Metric.VALID_COUNT, column.name))
 
-            if scan_configuration.is_min_length_enabled(column):
-                if dialect.is_text(column):
-                    fields.append(dialect.sql_expr_min_conditional(
+            if dialect.is_text(column):
+                if scan_configuration.is_min_length_enabled(column):
+                    length_expr = dialect.sql_expr_conditional(
                         non_missing_and_valid_condition,
-                        dialect.sql_expr_length(quoted_column_name)))
+                        dialect.sql_expr_length(quoted_column_name))
+                    fields.append(dialect.sql_expr_min(length_expr))
                     measurements.append(Measurement(Metric.MIN_LENGTH, column.name))
+
+                if scan_configuration.is_max_length_enabled(column):
+                    length_expr = dialect.sql_expr_conditional(
+                        non_missing_and_valid_condition,
+                        dialect.sql_expr_length(quoted_column_name))
+                    fields.append(dialect.sql_expr_max(length_expr))
+                    measurements.append(Measurement(Metric.MAX_LENGTH, column.name))
 
         sql = 'SELECT \n  ' + ',\n  '.join(fields) + ' \n' \
               'FROM ' + dialect.qualify_table_name(scan_configuration.table_name)
@@ -189,7 +197,7 @@ class Scan:
                 scan_configuration_column = scan_configuration.columns.get(column_name)
                 if scan_configuration_column.tests:
                     column_measurement_values = {
-                        measurement.type: measurement.value
+                        measurement.metric: measurement.value
                         for measurement in measurements
                         if measurement.column == column_name
                     }
@@ -199,12 +207,20 @@ class Scan:
                         test_results.append(TestResult(test_outcome, test, test_values, column_name))
         return test_results
 
-    def get_missing_condition(self, column: Column, missing_values):
+    def get_missing_condition(self, column: Column, missing: Missing):
         quoted_column_name = self.dialect.qualify_column_name(column.name)
-        if missing_values is not None:
-            sql_expr_missing_values = self.dialect.sql_expr_list(column, missing_values)
-            return f'({quoted_column_name} IS NULL OR {quoted_column_name} IN {sql_expr_missing_values})'
-        return f'{quoted_column_name} IS NULL'
+        if missing is None:
+            return f'{quoted_column_name} IS NULL'
+        validity_clauses = [f'{quoted_column_name} IS NULL']
+        if missing.values is not None:
+            sql_expr_missing_values = self.dialect.sql_expr_list(column, missing.values)
+            validity_clauses.append(f'{quoted_column_name} IN {sql_expr_missing_values}')
+        if missing.format is not None:
+            format_regex = Missing.FORMATS.get(missing.format)
+            validity_clauses.append(self.dialect.sql_expr_regexp_like(quoted_column_name, format_regex))
+        if missing.regex is not None:
+            validity_clauses.append(self.dialect.sql_expr_regexp_like(quoted_column_name, missing.regex))
+        return '(' + ' OR '.join(validity_clauses) + ')'
 
     def get_valid_condition(self, column: Column, validity: Validity):
         quoted_column_name = self.dialect.qualify_column_name(column.name)
@@ -212,7 +228,7 @@ class Scan:
             return None
         validity_clauses = []
         if validity.format:
-            format_regex = VALID_FORMATS.get(validity.format)
+            format_regex = Validity.FORMATS.get(validity.format)
             validity_clauses.append(self.dialect.sql_expr_regexp_like(quoted_column_name, format_regex))
         if validity.regex:
             validity_clauses.append(self.dialect.sql_expr_regexp_like(quoted_column_name, validity.regex))

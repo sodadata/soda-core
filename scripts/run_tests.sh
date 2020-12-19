@@ -4,4 +4,4 @@
 
 . .venv/bin/activate
 
-python -m pytest sodasql/tests
+python -m pytest tests

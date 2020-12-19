@@ -9,16 +9,13 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
-from sodasql.scan.metric import Metric
-from sodasql.scan.scan import Scan
-from sodasql.scan.scan_configuration import ScanConfiguration
-from sodasql.tests.abstract_scan_test import AbstractScanTest
+from tests.abstract_scan_test import AbstractScanTest
 
 
-class TestMissingAndInvalidInScan(AbstractScanTest):
+class TestTests(AbstractScanTest):
 
-    def test_scan_without_configurations(self):
-        self.sql_create_table(
+    def test_tests(self):
+        self.create_table(
             'customers',
             ["name VARCHAR(255)"],
             ["('one')",

@@ -59,6 +59,9 @@ class ScanConfiguration:
     def is_min_length_enabled(self, column):
         return self.__is_metric_enabled(column, Metric.MIN_LENGTH)
 
+    def is_max_length_enabled(self, column):
+        return self.__is_metric_enabled(column, Metric.MAX_LENGTH)
+
     def __is_metric_enabled(self, column: Column, metric: str):
         return metric in self.__get_metrics(column)
 
@@ -69,9 +72,9 @@ class ScanConfiguration:
             metrics.extend(column_configuration.metrics)
         return metrics
 
-    def get_missing_values(self, column):
+    def get_missing(self, column):
         column_configuration = self.columns.get(column.name.lower())
-        return column_configuration.missing_values if column_configuration else None
+        return column_configuration.missing if column_configuration else None
 
     def get_validity(self, column):
         column_configuration = self.columns.get(column.name.lower())

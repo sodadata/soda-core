@@ -28,7 +28,7 @@ class ScanResult:
 
     def find_measurement(self, metric_type: str, column_name: str = None):
         for measurement in self.measurements:
-            if measurement.type == metric_type:
+            if measurement.metric == metric_type:
                 if column_name is None or measurement.column == column_name:
                     return measurement
 

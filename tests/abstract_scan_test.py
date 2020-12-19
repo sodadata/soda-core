@@ -15,7 +15,7 @@ from unittest import TestCase
 
 from sodasql.scan.scan_configuration import ScanConfiguration
 from sodasql.scan.scan_result import ScanResult
-from sodasql.tests.logging_helper import LoggingHelper
+from tests.logging_helper import LoggingHelper
 from sodasql.warehouse.warehouse import Warehouse
 
 LoggingHelper.configure_for_test()
@@ -68,16 +68,13 @@ class AbstractScanTest(TestCase):
         for sql in sqls:
             self.sql_update(sql)
 
-    def sql_create_table(self, table_name: str, columns: List[str], rows: List[str]):
+    def create_table(self, table_name: str, columns: List[str], rows: List[str]):
+        joined_columns = ", ".join(columns)
+        joined_rows = ", ".join(rows)
         self.sql_updates([
             f"DROP TABLE IF EXISTS {table_name}",
-
-            f"CREATE TABLE {table_name} ( " +
-            (", ".join(columns)) +
-            f" )",
-
-            f"INSERT INTO {table_name} VALUES " +
-            ", ".join(rows)])
+            f"CREATE TABLE {table_name} ( {joined_columns} )",
+            f"INSERT INTO {table_name} VALUES {joined_rows}"])
 
     def scan(self, scan_configuration_dict: dict) -> ScanResult:
         logging.debug('Scan configuration \n'+json.dumps(scan_configuration_dict, indent=2))

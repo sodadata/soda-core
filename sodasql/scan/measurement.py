@@ -16,12 +16,12 @@ from sodasql.scan.column import Column
 
 class Measurement:
 
-    def __init__(self, type: str, column: Optional[str] = None, value=None):
-        self.type = type
+    def __init__(self, metric: str, column: Optional[str] = None, value=None):
+        self.metric = metric
         self.column = column
         self.value = value
 
     def __str__(self):
-        return self.type + \
+        return self.metric + \
                (f'({self.column})' if self.column else '') + \
                ('' if self.value is None else ' = '+(', '.join([str(e) for e in self.value]) if isinstance(self.value, list) else str(self.value)))
