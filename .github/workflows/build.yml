@@ -23,7 +23,8 @@ jobs:
       - name: Run Tox
         run: |
           cat dev-requirements.in | grep tox | xargs pip install
-          tox -- --html=./reports/${{ steps.extract_branch.outputs.branch }}/tests/index.html --cov=sodasql tests --cov-report=html:./reports/${{ steps.extract_branch.outputs.branch }}/coverage
+          tox -- --html=./reports/${{ steps.extract_branch.outputs.branch }}/tests/index.html \
+            --cov=sodasql tests --cov-report=html:./reports/${{ steps.extract_branch.outputs.branch }}/coverage
       - name: Copy Report Index Page
         run: |
           cp ./reports/index.html ./reports/${{ steps.extract_branch.outputs.branch }}/index.html
@@ -41,7 +42,7 @@ jobs:
         env:
           ACTIONS_ALLOW_UNSECURE_COMMANDS: true
       - name: Publish Documentation
-        if: success() && contains('refs/heads/main refs/heads/master', github.ref)
+        if: success() && contains('main master', steps.extract_branch.outputs.branch)
         run: aws s3 sync ./docs s3://sodasql-docs/
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_BUILD_ACCESS_KEY_ID }}
