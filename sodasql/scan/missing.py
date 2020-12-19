@@ -16,7 +16,7 @@ class Missing:
     FORMATS = {
         # more regexes: https://regexr.com/ https://digitalfortress.tech/tricks/top-15-commonly-used-regex/ http://regexlib.com/
         'empty': r'^$',
-        'whitespace': r'^\w+$'
+        'whitespace': r'^\s*$'
     }
 
     def __init__(self):

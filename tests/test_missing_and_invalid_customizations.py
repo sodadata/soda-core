@@ -45,14 +45,19 @@ class TestMissingAndInvalidCustomizations(AbstractScanTest):
         self.assertEqual(scan_result.get(Metric.VALUES_COUNT, 'name'), 3)
         self.assertEqual(scan_result.get(Metric.VALUES_PERCENTAGE, 'name'), 60.0)
 
-    def test_scan_customized_missing_format(self):
+    def test_scan_customized_missing_format_empty(self):
         self.create_table(
             self.table_name,
             ["name VARCHAR(255)"],
             ["('one')",
+             "('two')",
+             "('three')",
+             "('four')",
              "('')",
              "('  ')",
-             "('no value')",
+             "('  ')",
+             "(null)",
+             "(null)",
              "(null)"])
 
         scan_result = self.scan({
@@ -66,10 +71,41 @@ class TestMissingAndInvalidCustomizations(AbstractScanTest):
             }
           }
         })
-        self.assertEqual(scan_result.get(Metric.MISSING_COUNT, 'name'), 2)
+        self.assertEqual(scan_result.get(Metric.MISSING_COUNT, 'name'), 4)
         self.assertEqual(scan_result.get(Metric.MISSING_PERCENTAGE, 'name'), 40.0)
-        self.assertEqual(scan_result.get(Metric.VALUES_COUNT, 'name'), 3)
+        self.assertEqual(scan_result.get(Metric.VALUES_COUNT, 'name'), 6)
         self.assertEqual(scan_result.get(Metric.VALUES_PERCENTAGE, 'name'), 60.0)
+
+    def test_scan_customized_missing_format_whitespace(self):
+        self.create_table(
+            self.table_name,
+            ["name VARCHAR(255)"],
+            ["('one')",
+             "('two')",
+             "('three')",
+             "('four')",
+             "('')",
+             "('  ')",
+             "('  ')",
+             "(null)",
+             "(null)",
+             "(null)"])
+
+        scan_result = self.scan({
+            'table_name': self.table_name,
+            'columns': {
+                'name': {
+                    'metrics': [
+                        'missing'
+                    ],
+                    'missing_format': 'whitespace'
+                }
+            }
+        })
+        self.assertEqual(scan_result.get(Metric.MISSING_COUNT, 'name'), 6)
+        self.assertEqual(scan_result.get(Metric.MISSING_PERCENTAGE, 'name'), 60.0)
+        self.assertEqual(scan_result.get(Metric.VALUES_COUNT, 'name'), 4)
+        self.assertEqual(scan_result.get(Metric.VALUES_PERCENTAGE, 'name'), 40.0)
 
     def test_scan_missing_customized_and_validity(self):
         self.create_table(

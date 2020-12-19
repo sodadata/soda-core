@@ -18,6 +18,7 @@ from sodasql.scan.scan_result import ScanResult
 from tests.logging_helper import LoggingHelper
 from sodasql.warehouse.warehouse import Warehouse
 
+
 LoggingHelper.configure_for_test()
 
 
