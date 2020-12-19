@@ -54,5 +54,5 @@ class TestMissingAndInvalidInScan(AbstractScanTest):
         })
         self.assertTrue(scan_result.has_failures())
 
-
-
+    def test_always_fails(self):
+        self.assertTrue(False)
