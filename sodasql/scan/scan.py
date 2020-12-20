@@ -17,11 +17,9 @@ from sodasql.scan.column_conditions import ColumnConditions
 from sodasql.scan.custom_metric import CustomMetric
 from sodasql.scan.measurement import Measurement
 from sodasql.scan.metric import Metric
-from sodasql.scan.missing import Missing
 from sodasql.scan.scan_configuration import ScanConfiguration
 from sodasql.scan.scan_result import ScanResult
 from sodasql.scan.test_result import TestResult
-from sodasql.scan.validity import Validity
 from sodasql.soda_client.soda_client import SodaClient
 from sodasql.warehouse.dialect import Dialect
 from sodasql.warehouse.warehouse import Warehouse
@@ -39,6 +37,10 @@ class Scan:
         self.dialect: Dialect = warehouse.dialect
         self.scan_configuration: ScanConfiguration = scan_configuration
         self.custom_metrics: List[CustomMetric] = custom_metrics
+        self.table_sample_clause = \
+            f'\nTABLESAMPLE {scan_configuration.sample_method}({scan_configuration.sample_percentage})' \
+            if scan_configuration.sample_percentage \
+            else None
 
         self.scan_reference = {
             'warehouse': self.warehouse.name,
@@ -48,6 +50,7 @@ class Scan:
         self.measurements: List[Measurement] = []
         self.columns: Optional[List[Column]] = None
         self.conditions: Optional[dict] = None
+
 
     def execute(self):
         assert self.warehouse.name, 'warehouse.name is required'
@@ -66,7 +69,8 @@ class Scan:
         self.add_measurements(aggregation_measurements)
 
         group_by_measurements: List[Measurement] = \
-            self.query_group_by_value()
+            self.query_distinct()
+        self.add_measurements(group_by_measurements)
 
         test_results: List[TestResult] = self.run_tests()
 
@@ -163,8 +167,8 @@ class Scan:
 
         sql = 'SELECT \n  ' + ',\n  '.join(fields) + ' \n' \
               'FROM ' + dialect.qualify_table_name(self.scan_configuration.table_name)
-        if self.scan_configuration.sample_size:
-            sql += f'\nLIMIT {self.scan_configuration.sample_size}'
+        if self.table_sample_clause:
+            sql += f'\n{self.table_sample_clause}'
 
         query_result_tuple = self.warehouse.execute_query_one(sql)
 
@@ -205,15 +209,27 @@ class Scan:
 
         return measurements
 
-    def query_group_by_value(self):
+    def query_distinct(self):
         measurements: List[Measurement] = []
 
         for column in self.columns:
-            if self.scan_configuration.is_any_metric_enabled(column, [
-                    Metric.DISTINCT, Metric.UNIQUENESS,
-                    Metric.FREQUENT_VALUES,
-                    Metric.MINS, Metric.MAXS]):
-                pass
+            if self.scan_configuration.is_any_metric_enabled(column, [Metric.DISTINCT, Metric.UNIQUENESS]):
+                qualified_column_name = self.dialect.qualify_column_name(column.name)
+                qualified_table_name = self.dialect.qualify_table_name(self.scan_configuration.table_name)
+                column_conditions: ColumnConditions = self.conditions[column.name]
+                table_sample_clause = self.table_sample_clause+'\n' if self.table_sample_clause else ''
+                sql = (f'SELECT COUNT(DISTINCT({qualified_column_name}))\n'
+                       f'FROM {qualified_table_name}\n'
+                       f'{table_sample_clause}'
+                       f'WHERE {column_conditions.non_missing_and_valid_condition}')
+
+                query_result_tuple = self.warehouse.execute_query_one(sql)
+                distinct_count = query_result_tuple[0]
+                logging.debug(f'Distinct {column.name} = {distinct_count}')
+                measurements.append(Measurement(Metric.DISTINCT, column.name, distinct_count))
+
+                # TODO calculate uniqueness
+
         return measurements
 
     def run_tests(self):
@@ -225,7 +241,7 @@ class Scan:
                     column_measurement_values = {
                         measurement.metric: measurement.value
                         for measurement in self.measurements
-                        if measurement.column == column_name
+                        if measurement.column_name == column_name
                     }
                     for test in scan_configuration_column.tests:
                         test_values = {metric: value for metric, value in column_measurement_values.items() if metric in test}

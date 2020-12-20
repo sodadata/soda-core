@@ -14,7 +14,6 @@ from sodasql.scan.metric import Metric
 from tests.abstract_scan_test import AbstractScanTest
 
 
-@skip('Unfinished')
 class TestDistinct(AbstractScanTest):
 
     def test_distinct(self):

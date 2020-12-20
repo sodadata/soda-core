@@ -89,10 +89,10 @@ class AbstractScanTest(TestCase):
         return scan.execute()
 
     def assertMeasurementsPresent(self, scan_result, column: str, expected_metrics_present):
-        metrics_present = [measurement.metric for measurement in scan_result.measurements if measurement.column == column]
+        metrics_present = [measurement.metric for measurement in scan_result.measurements if measurement.column_name == column]
         self.assertEqual(set(metrics_present), set(expected_metrics_present))
 
     def assertMeasurementsAbsent(self, scan_result, column: str, expected_metrics_absent: list):
-        metrics_present = [measurement.metric for measurement in scan_result.measurements if measurement.column == column]
+        metrics_present = [measurement.metric for measurement in scan_result.measurements if measurement.column_name == column]
         metrics_present_and_expected_absent = set(expected_metrics_absent) & set(metrics_present)
         self.assertEqual(set(), metrics_present_and_expected_absent)

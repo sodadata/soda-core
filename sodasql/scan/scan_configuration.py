@@ -39,7 +39,8 @@ class ScanConfiguration:
             column_dict = columns_dict[column_name]
             column_name_lower = column_name.lower()
             self.columns[column_name_lower] = ScanConfigurationColumn(column_name, column_dict, self.parse_logs)
-        self.sample_size = scan_dict.get('sample_size')
+        self.sample_percentage = scan_dict.get('sample_percentage')
+        self.sample_method = scan_dict.get('sample_method', 'SYSTEM').upper()
         self.parse_logs.warning_invalid_elements(
             scan_dict.keys(),
             ScanConfiguration.VALID_KEYS,
