@@ -13,7 +13,7 @@ import logging
 from typing import List, Optional
 
 from sodasql.scan.column import Column
-from sodasql.scan.column_conditions import ColumnConditions
+from sodasql.scan.scan_column_cache import ScanColumnCache
 from sodasql.scan.custom_metric import CustomMetric
 from sodasql.scan.measurement import Measurement
 from sodasql.scan.metric import Metric
@@ -37,6 +37,9 @@ class Scan:
         self.dialect: Dialect = warehouse.dialect
         self.scan_configuration: ScanConfiguration = scan_configuration
         self.custom_metrics: List[CustomMetric] = custom_metrics
+
+        self.scan_result = ScanResult()
+
         self.table_sample_clause = \
             f'\nTABLESAMPLE {scan_configuration.sample_method}({scan_configuration.sample_percentage})' \
             if scan_configuration.sample_percentage \
@@ -47,9 +50,8 @@ class Scan:
             'table_name': self.scan_configuration.table_name,
             'scan_id': 'TODO-generate-an-ID'
         }
-        self.measurements: List[Measurement] = []
         self.columns: Optional[List[Column]] = None
-        self.conditions: Optional[dict] = None
+        self.column_caches: Optional[dict] = None
 
 
     def execute(self):
@@ -61,8 +63,8 @@ class Scan:
         schema_measurements = [Measurement(Metric.SCHEMA, value=self.columns)]
         self.add_measurements(schema_measurements)
 
-        self.conditions: dict = \
-            {column.name: ColumnConditions(self.scan_configuration, column, self.dialect) for column in self.columns}
+        self.column_caches: dict = \
+            {column.name: ScanColumnCache(self.scan_configuration, column, self.dialect) for column in self.columns}
 
         aggregation_measurements: List[Measurement] = \
             self.query_aggregations()
@@ -73,8 +75,9 @@ class Scan:
         self.add_measurements(group_by_measurements)
 
         test_results: List[TestResult] = self.run_tests()
+        self.scan_result.test_results.extend(test_results)
 
-        return ScanResult(self.measurements, test_results)
+        return self.scan_result
 
     def query_columns(self) -> List[Column]:
         sql = self.warehouse.dialect.sql_columns_metadata_query(self.scan_configuration)
@@ -109,9 +112,12 @@ class Scan:
 
             quoted_column_name = dialect.qualify_column_name(column.name)
 
-            column_conditions: ColumnConditions = self.conditions[column.name]
+            column_conditions: ScanColumnCache = self.column_caches[column.name]
 
-            is_valid_enabled = column_conditions.validity is not None and column_conditions.is_validity_metric_enabled
+            is_valid_enabled = \
+                (column_conditions.validity is not None and column_conditions.is_validity_metric_enabled) \
+                or self.scan_configuration.is_any_metric_enabled(column.name, [Metric.DISTINCT, Metric.UNIQUENESS])
+
             is_missing_enabled = is_valid_enabled or column_conditions.is_missing_metric_enabled
             non_missing_and_valid_condition = column_conditions.non_missing_and_valid_condition
             missing_condition = column_conditions.missing_condition
@@ -127,14 +133,14 @@ class Scan:
                 measurements.append(Measurement(Metric.VALID_COUNT, column.name))
 
             if dialect.is_text(column):
-                if self.scan_configuration.is_metric_enabled(column, Metric.MIN_LENGTH):
+                if self.scan_configuration.is_metric_enabled(column.name, Metric.MIN_LENGTH):
                     length_expr = dialect.sql_expr_conditional(
                         non_missing_and_valid_condition,
                         dialect.sql_expr_length(quoted_column_name))
                     fields.append(dialect.sql_expr_min(length_expr))
                     measurements.append(Measurement(Metric.MIN_LENGTH, column.name))
 
-                if self.scan_configuration.is_metric_enabled(column, Metric.MAX_LENGTH):
+                if self.scan_configuration.is_metric_enabled(column.name, Metric.MAX_LENGTH):
                     length_expr = dialect.sql_expr_conditional(
                         non_missing_and_valid_condition,
                         dialect.sql_expr_length(quoted_column_name))
@@ -149,19 +155,19 @@ class Scan:
                         non_missing_and_valid_condition,
                         dialect.sql_expr_cast_text_to_number(quoted_column_name, validity_format))
 
-                    if self.scan_configuration.is_metric_enabled(column, Metric.MIN):
+                    if self.scan_configuration.is_metric_enabled(column.name, Metric.MIN):
                         fields.append(dialect.sql_expr_min(numeric_text_expr))
                         measurements.append(Measurement(Metric.MIN, column.name))
 
-                    if self.scan_configuration.is_metric_enabled(column, Metric.MAX):
+                    if self.scan_configuration.is_metric_enabled(column.name, Metric.MAX):
                         fields.append(dialect.sql_expr_max(numeric_text_expr))
                         measurements.append(Measurement(Metric.MAX, column.name))
 
-                    if self.scan_configuration.is_metric_enabled(column, Metric.AVG):
+                    if self.scan_configuration.is_metric_enabled(column.name, Metric.AVG):
                         fields.append(dialect.sql_expr_avg(numeric_text_expr))
                         measurements.append(Measurement(Metric.AVG, column.name))
 
-                    if self.scan_configuration.is_metric_enabled(column, Metric.SUM):
+                    if self.scan_configuration.is_metric_enabled(column.name, Metric.SUM):
                         fields.append(dialect.sql_expr_sum(numeric_text_expr))
                         measurements.append(Measurement(Metric.SUM, column.name))
 
@@ -213,10 +219,10 @@ class Scan:
         measurements: List[Measurement] = []
 
         for column in self.columns:
-            if self.scan_configuration.is_any_metric_enabled(column, [Metric.DISTINCT, Metric.UNIQUENESS]):
+            if self.scan_configuration.is_any_metric_enabled(column.name, [Metric.DISTINCT, Metric.UNIQUENESS]):
                 qualified_column_name = self.dialect.qualify_column_name(column.name)
                 qualified_table_name = self.dialect.qualify_table_name(self.scan_configuration.table_name)
-                column_conditions: ColumnConditions = self.conditions[column.name]
+                column_conditions: ScanColumnCache = self.column_caches[column.name]
                 table_sample_clause = self.table_sample_clause+'\n' if self.table_sample_clause else ''
                 sql = (f'SELECT COUNT(DISTINCT({qualified_column_name}))\n'
                        f'FROM {qualified_table_name}\n'
@@ -225,10 +231,16 @@ class Scan:
 
                 query_result_tuple = self.warehouse.execute_query_one(sql)
                 distinct_count = query_result_tuple[0]
-                logging.debug(f'Distinct {column.name} = {distinct_count}')
-                measurements.append(Measurement(Metric.DISTINCT, column.name, distinct_count))
+                measurement = Measurement(Metric.DISTINCT, column.name, distinct_count)
+                measurements.append(measurement)
+                logging.debug(f'Query measurement: {measurement}')
 
-                # TODO calculate uniqueness
+                # uniqueness
+                valid_count = self.scan_result.get(Metric.VALID_COUNT, column.name)
+                uniqueness = (distinct_count - 1) * 100 / (valid_count - 1)
+                measurement = Measurement(Metric.UNIQUENESS, column.name, uniqueness)
+                measurements.append(measurement)
+                logging.debug(f'Derived measurement: {measurement}')
 
         return measurements
 
@@ -240,7 +252,7 @@ class Scan:
                 if scan_configuration_column.tests:
                     column_measurement_values = {
                         measurement.metric: measurement.value
-                        for measurement in self.measurements
+                        for measurement in self.scan_result.measurements
                         if measurement.column_name == column_name
                     }
                     for test in scan_configuration_column.tests:
@@ -251,6 +263,6 @@ class Scan:
 
     def add_measurements(self, measurements):
         if measurements:
-            self.measurements.extend(measurements)
+            self.scan_result.measurements.extend(measurements)
             if self.soda_client:
                 self.soda_client.send_measurements(self.scan_reference, measurements)

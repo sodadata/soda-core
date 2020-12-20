@@ -10,7 +10,6 @@
 #  limitations under the License.
 from typing import List
 
-from sodasql.scan.column import Column
 from sodasql.scan.metric import Metric
 from sodasql.scan.parse_logs import ParseLogs
 from sodasql.scan.scan_configuration_column import ScanConfigurationColumn
@@ -39,6 +38,7 @@ class ScanConfiguration:
             column_dict = columns_dict[column_name]
             column_name_lower = column_name.lower()
             self.columns[column_name_lower] = ScanConfigurationColumn(column_name, column_dict, self.parse_logs)
+
         self.sample_percentage = scan_dict.get('sample_percentage')
         self.sample_method = scan_dict.get('sample_method', 'SYSTEM').upper()
         self.parse_logs.warning_invalid_elements(
@@ -46,18 +46,18 @@ class ScanConfiguration:
             ScanConfiguration.VALID_KEYS,
             'Invalid scan configuration')
 
-    def is_any_metric_enabled(self, column: Column, metrics: List[str]):
-        for metric in self.__get_metrics(column):
+    def is_any_metric_enabled(self, column_name: str, metrics: List[str]):
+        for metric in self.__get_metrics(column_name):
             if metric in metrics:
                 return True
         return False
 
-    def is_metric_enabled(self, column: Column, metric: str):
-        return metric in self.__get_metrics(column)
+    def is_metric_enabled(self, column_name: str, metric: str):
+        return metric in self.__get_metrics(column_name)
 
-    def __get_metrics(self, column: Column):
+    def __get_metrics(self, column_name: str):
         metrics = self.metrics.copy()
-        column_configuration = self.columns.get(column.name.lower())
+        column_configuration = self.columns.get(column_name.lower())
         if column_configuration is not None and column_configuration.metrics is not None:
             metrics.extend(column_configuration.metrics)
         return metrics

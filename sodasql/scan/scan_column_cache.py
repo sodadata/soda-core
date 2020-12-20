@@ -16,18 +16,18 @@ from sodasql.scan.validity import Validity
 from sodasql.warehouse.dialect import Dialect
 
 
-class ColumnConditions:
+class ScanColumnCache:
     # Temporary stores computed conditions and where clauses for missing and validity
 
     def __init__(self, scan_configuration: ScanConfiguration, column: Column, dialect: Dialect):
         self.missing = scan_configuration.get_missing(column)
-        self.is_missing_metric_enabled = scan_configuration.is_any_metric_enabled(column, [
+        self.is_missing_metric_enabled = scan_configuration.is_any_metric_enabled(column.name, [
             Metric.MISSING_COUNT, Metric.MISSING_PERCENTAGE,
             Metric.VALUES_COUNT, Metric.VALUES_PERCENTAGE])
         self.missing_condition = self.get_missing_condition(column, self.missing, dialect)
 
         self.validity = scan_configuration.get_validity(column)
-        self.is_validity_metric_enabled = scan_configuration.is_any_metric_enabled(column, [
+        self.is_validity_metric_enabled = scan_configuration.is_any_metric_enabled(column.name, [
             Metric.INVALID_COUNT, Metric.INVALID_PERCENTAGE,
             Metric.VALID_COUNT, Metric.VALID_PERCENTAGE])
         self.valid_condition = self.get_valid_condition(column, self.validity, dialect)

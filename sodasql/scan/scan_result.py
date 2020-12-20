@@ -16,9 +16,9 @@ from sodasql.scan.measurement import Measurement
 
 class ScanResult:
 
-    def __init__(self, measurements: List[Measurement], test_results: List[TestResult]):
-        self.measurements: List[Measurement] = measurements
-        self.test_results: List[TestResult] = test_results
+    def __init__(self):
+        self.measurements: List[Measurement] = []
+        self.test_results: List[TestResult] = []
 
     def has_failures(self):
         for test_result in self.test_results:

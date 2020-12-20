@@ -26,6 +26,8 @@ class TestDistinct(AbstractScanTest):
              "('3')",
              "('3')",
              "('3')",
+             "('3')",
+             "('3')",
              "('4')",
              "('4')",
              "('5')",
@@ -39,3 +41,5 @@ class TestDistinct(AbstractScanTest):
         })
 
         self.assertEqual(scan_result.get(Metric.DISTINCT, 'score'), 5)
+        # (5 - 1) * 100 / (10 valid values - 1)
+        self.assertEqual(scan_result.get(Metric.UNIQUENESS, 'score'), 40.0)
