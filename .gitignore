@@ -132,4 +132,4 @@ dmypy.json
 *.xml
 reports/*
 !reports/index.html
-!reports/img
+
