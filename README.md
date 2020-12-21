@@ -22,7 +22,7 @@ This changes the log level:
 $ tox -- --log-cli-level=DEBUG
 ```
 
-To generate HTML reports (tests and coverage_, execute the following command:
+To generate HTML reports (tests and coverage), execute the following command:
 
 ```
 $ tox -e html-reports
