@@ -53,6 +53,3 @@ class TestTests(AbstractScanTest):
             }
         })
         self.assertTrue(scan_result.has_failures())
-
-
-
