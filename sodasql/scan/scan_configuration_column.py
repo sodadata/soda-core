@@ -11,22 +11,30 @@
 from typing import List
 
 from sodasql.scan.metric import Metric
+from sodasql.scan.missing import Missing
 from sodasql.scan.parse_logs import ParseLogs
-from sodasql.scan.valid_format import VALID_FORMATS
 from sodasql.scan.validity import Validity
 
 
 class ScanConfigurationColumn:
 
-    VALID_KEYS = ['metrics',
-                  'missing_values',
-                  'valid_format',
-                  'valid_regex',
-                  'valid_min',
-                  'valid_max',
-                  'valid_min_length',
-                  'valid_max_length',
-                  'tests']
+    MISSING_KEYS = [
+        'missing_values',
+        'missing_format',
+        'missing_regex']
+
+    VALID_KEYS = [
+        'valid_format',
+        'valid_regex',
+        'valid_values',
+        'valid_min',
+        'valid_max',
+        'valid_min_length',
+        'valid_max_length']
+
+    ALL_KEYS = MISSING_KEYS + VALID_KEYS + [
+        'metrics',
+        'tests']
 
     @classmethod
     def resolve_metrics(cls, metrics: List[str]):
@@ -41,20 +49,20 @@ class ScanConfigurationColumn:
 
     def __init__(self, column_name: str, column_dict: dict, parse_logs: ParseLogs):
         self.metrics = self.resolve_metrics(column_dict.get('metrics', []))
-        self.missing_values = column_dict.get('missing_values')
+
+        self.missing = None
+        if any(cfg in column_dict.keys() for cfg in self.MISSING_KEYS):
+            self.missing = Missing()
+            self.missing.values = column_dict.get('missing_values')
+            self.missing.format = column_dict.get('missing_format')
+            self.missing.regex = column_dict.get('missing_regex')
+
         self.validity = None
-        validity_configuration_keys = [
-            'valid_format',
-            'valid_regex',
-            'valid_values',
-            'valid_min',
-            'valid_max',
-            'valid_min_length',
-            'valid_max_length']
-        if any(cfg in column_dict.keys() for cfg in validity_configuration_keys):
+
+        if any(cfg in column_dict.keys() for cfg in self.VALID_KEYS):
             self.validity = Validity()
             self.validity.format = column_dict.get('valid_format')
-            if self.validity.format is not None and VALID_FORMATS.get(self.validity.format) is None:
+            if self.validity.format is not None and Validity.FORMATS.get(self.validity.format) is None:
                 parse_logs.warning(f'Invalid {column_name}.valid_format: {self.validity.format}')
             self.validity.regex = column_dict.get('valid_regex')
             self.validity.values = column_dict.get('valid_values')
@@ -62,6 +70,7 @@ class ScanConfigurationColumn:
             self.validity.max = column_dict.get('valid_max')
             self.validity.min_length = column_dict.get('valid_min_length')
             self.validity.max_length = column_dict.get('valid_max_length')
+
         self.tests = column_dict.get('tests')
 
         parse_logs.warning_invalid_elements(
@@ -71,5 +80,5 @@ class ScanConfigurationColumn:
 
         parse_logs.warning_invalid_elements(
             column_dict.keys(),
-            ScanConfigurationColumn.VALID_KEYS,
+            self.ALL_KEYS,
             f'Invalid key in columns.{column_name}')

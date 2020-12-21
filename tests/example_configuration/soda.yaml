@@ -1,0 +1,3 @@
+host: cloud.soda.io
+api_key_secret_env_var: SODA_API_KEY_SECRET
+# api_key_secret: the-soda-api-key-secret

@@ -8,4 +8,18 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
+from typing import List, Optional
 
+
+class Missing:
+
+    FORMATS = {
+        # more regexes: https://regexr.com/ https://digitalfortress.tech/tricks/top-15-commonly-used-regex/ http://regexlib.com/
+        'empty': r'^$',
+        'whitespace': r'^\s*$'
+    }
+
+    def __init__(self):
+        self.values: Optional[List[str]] = None
+        self.format: Optional[str] = None
+        self.regex: Optional[str] = None

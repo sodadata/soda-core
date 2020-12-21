@@ -18,6 +18,7 @@ from sodasql.scan.scan_result import ScanResult
 from tests.logging_helper import LoggingHelper
 from sodasql.warehouse.warehouse import Warehouse
 
+
 LoggingHelper.configure_for_test()
 
 
@@ -68,16 +69,13 @@ class AbstractScanTest(TestCase):
         for sql in sqls:
             self.sql_update(sql)
 
-    def sql_create_table(self, table_name: str, columns: List[str], rows: List[str]):
+    def create_table(self, table_name: str, columns: List[str], rows: List[str]):
+        joined_columns = ", ".join(columns)
+        joined_rows = ", ".join(rows)
         self.sql_updates([
             f"DROP TABLE IF EXISTS {table_name}",
-
-            f"CREATE TABLE {table_name} ( " +
-            (", ".join(columns)) +
-            f" )",
-
-            f"INSERT INTO {table_name} VALUES " +
-            ", ".join(rows)])
+            f"CREATE TABLE {table_name} ( {joined_columns} )",
+            f"INSERT INTO {table_name} VALUES {joined_rows}"])
 
     def scan(self, scan_configuration_dict: dict) -> ScanResult:
         logging.debug('Scan configuration \n'+json.dumps(scan_configuration_dict, indent=2))
@@ -89,3 +87,12 @@ class AbstractScanTest(TestCase):
                 'Scan configuration errors: \n  ' +
                 ('\n  '.join([str(log) for log in scan.scan_configuration.parse_logs.logs])))
         return scan.execute()
+
+    def assertMeasurementsPresent(self, scan_result, column: str, expected_metrics_present):
+        metrics_present = [measurement.metric for measurement in scan_result.measurements if measurement.column_name == column]
+        self.assertEqual(set(metrics_present), set(expected_metrics_present))
+
+    def assertMeasurementsAbsent(self, scan_result, column: str, expected_metrics_absent: list):
+        metrics_present = [measurement.metric for measurement in scan_result.measurements if measurement.column_name == column]
+        metrics_present_and_expected_absent = set(expected_metrics_absent) & set(metrics_present)
+        self.assertEqual(set(), metrics_present_and_expected_absent)

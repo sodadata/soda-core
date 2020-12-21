@@ -31,6 +31,9 @@ class Metric:
     AVG_LENGTH = 'avg_length'
     DISTINCT = 'distinct'
     UNIQUENESS = 'uniqueness'
+    MAXS = 'maxs'
+    MINS = 'mins'
+    FREQUENT_VALUES = 'frequent_values'
 
     METRIC_TYPES = [
         MISSING_COUNT,
@@ -49,5 +52,8 @@ class Metric:
         MAX_LENGTH,
         AVG_LENGTH,
         DISTINCT,
-        UNIQUENESS
+        UNIQUENESS,
+        MAXS,
+        MINS,
+        FREQUENT_VALUES
     ]

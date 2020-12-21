@@ -8,6 +8,7 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
+from typing import List
 
 from sodasql.scan.column import Column
 from sodasql.scan.metric import Metric
@@ -38,28 +39,20 @@ class ScanConfiguration:
             column_dict = columns_dict[column_name]
             column_name_lower = column_name.lower()
             self.columns[column_name_lower] = ScanConfigurationColumn(column_name, column_dict, self.parse_logs)
-        self.sample_size = scan_dict.get('sample_size')
+        self.sample_percentage = scan_dict.get('sample_percentage')
+        self.sample_method = scan_dict.get('sample_method', 'SYSTEM').upper()
         self.parse_logs.warning_invalid_elements(
             scan_dict.keys(),
             ScanConfiguration.VALID_KEYS,
             'Invalid scan configuration')
 
-    def is_missing_enabled(self, column):
+    def is_any_metric_enabled(self, column: Column, metrics: List[str]):
         for metric in self.__get_metrics(column):
-            if metric in [Metric.MISSING_COUNT, Metric.MISSING_PERCENTAGE, Metric.VALUES_COUNT, Metric.VALUES_PERCENTAGE]:
+            if metric in metrics:
                 return True
         return False
 
-    def is_valid_enabled(self, column):
-        for metric in self.__get_metrics(column):
-            if metric in [Metric.INVALID_COUNT, Metric.INVALID_PERCENTAGE, Metric.VALID_COUNT, Metric.VALID_PERCENTAGE]:
-                return True
-        return False
-
-    def is_min_length_enabled(self, column):
-        return self.__is_metric_enabled(column, Metric.MIN_LENGTH)
-
-    def __is_metric_enabled(self, column: Column, metric: str):
+    def is_metric_enabled(self, column: Column, metric: str):
         return metric in self.__get_metrics(column)
 
     def __get_metrics(self, column: Column):
@@ -69,10 +62,17 @@ class ScanConfiguration:
             metrics.extend(column_configuration.metrics)
         return metrics
 
-    def get_missing_values(self, column):
+    def get_missing(self, column):
         column_configuration = self.columns.get(column.name.lower())
-        return column_configuration.missing_values if column_configuration else None
+        return column_configuration.missing if column_configuration else None
 
     def get_validity(self, column):
         column_configuration = self.columns.get(column.name.lower())
         return column_configuration.validity if column_configuration else None
+
+    def get_validity_format(self, column):
+        column_configuration = self.columns.get(column.name.lower())
+        if column_configuration \
+                and column_configuration.validity \
+                and column_configuration.validity.format:
+            return column_configuration.validity.format
