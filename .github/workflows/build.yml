@@ -25,10 +25,10 @@ jobs:
           cat dev-requirements.in | grep tox | xargs pip install
           tox -- --html=./reports/${{ steps.extract_branch.outputs.branch }}/tests/index.html \
             --cov=sodasql tests --cov-report=html:./reports/${{ steps.extract_branch.outputs.branch }}/coverage
-      - name: Copy Report Index Page
+      - name: Copy Reports Index Page
         run: |
           cp ./reports/index.html ./reports/${{ steps.extract_branch.outputs.branch }}/index.html
-      - name: Deploy Tests Report Page
+      - name: Deploy Reports
         if: always()
         uses: peaceiris/actions-gh-pages@v3
         with:
