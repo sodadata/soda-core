@@ -20,3 +20,22 @@
 #     logging.debug(str(connection_dict))
 #     connection_dict['name'] = sql_store_name
 #     sql_store = SqlStore.create(connection_dict)
+from sodasql.scan.parse_logs import ParseLogs
+
+
+def parse_int(cfg_dict: dict, key: str, parse_logs: ParseLogs, cfg_description: str, default_value: int = None):
+    if cfg_dict is None:
+        return None
+    value = cfg_dict.get(key)
+    if isinstance(value, int):
+        return value
+    if isinstance(value, str):
+        try:
+            return int(value)
+        except Exception:
+            parse_logs.error(
+                f'Invalid configuration.  Expected integer in {cfg_description}.{key}, but was: {str(value)}')
+            return None
+    if value is None:
+        return default_value
+    parse_logs.error(f'Invalid configuration.  Expected integer in {cfg_description}.{key}, but was type {str(type(value))}: {str(value)}')

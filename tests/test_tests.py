@@ -16,7 +16,7 @@ class TestTests(AbstractScanTest):
 
     def test_tests(self):
         self.create_table(
-            'customers',
+            'test_table',
             ["name VARCHAR(255)"],
             ["('one')",
              "('two')",
@@ -25,7 +25,7 @@ class TestTests(AbstractScanTest):
              "(null)"])
 
         scan_result = self.scan({
-            'table_name': 'customers',
+            'table_name': 'test_table',
             'metrics': [
                 'missing'
             ],
@@ -40,7 +40,7 @@ class TestTests(AbstractScanTest):
         self.assertFalse(scan_result.has_failures())
 
         scan_result = self.scan({
-            'table_name': 'customers',
+            'table_name': 'test_table',
             'metrics': [
                 'missing'
             ],

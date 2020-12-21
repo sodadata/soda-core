@@ -13,31 +13,28 @@ from sodasql.scan.metric import Metric
 from tests.abstract_scan_test import AbstractScanTest
 
 
-class TestMinMaxLengthInScan(AbstractScanTest):
+class TestFrequentValues(AbstractScanTest):
 
     table_name = 'test_table'
 
-    def test_scan_min_max_length(self):
+    def test_scan_mins_maxs(self):
         self.create_table(
             self.table_name,
-            ["name VARCHAR(255)",
-             "size INTEGER"],
-            ["('one',    1)",
-             "('two',    2)",
-             "('three',  3)",
-             "(null,     null)"])
+            ["name INTEGER"],
+            ["(1)",
+             "(2)",
+             "(2)",
+             "(3)",
+             "(3)",
+             "(3)",
+             "(null)"])
 
         scan_result = self.scan({
-          'table_name': self.table_name,
-          'metrics': [
-            'min_length',
-            'max_length'
-          ]
+            'table_name': self.table_name,
+            'metrics': [
+                Metric.FREQUENT_VALUES
+            ]
         })
 
-        self.assertEqual(scan_result.get(Metric.MIN_LENGTH, 'name'), 3)
-        self.assertEqual(scan_result.get(Metric.MAX_LENGTH, 'name'), 5)
-
-        self.assertIsNone(scan_result.find_measurement(Metric.MIN_LENGTH, 'size'))
-        self.assertIsNone(scan_result.find_measurement(Metric.MAX_LENGTH, 'size'))
-
+        self.assertEqual(scan_result.get(Metric.FREQUENT_VALUES, 'name'),
+                         [3, 2, 1])

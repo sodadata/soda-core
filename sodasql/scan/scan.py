@@ -13,10 +13,10 @@ import logging
 from typing import List, Optional
 
 from sodasql.scan.column import Column
-from sodasql.scan.scan_column_cache import ScanColumnCache
 from sodasql.scan.custom_metric import CustomMetric
 from sodasql.scan.measurement import Measurement
 from sodasql.scan.metric import Metric
+from sodasql.scan.scan_column_cache import ScanColumnCache
 from sodasql.scan.scan_configuration import ScanConfiguration
 from sodasql.scan.scan_result import ScanResult
 from sodasql.scan.test_result import TestResult
@@ -53,7 +53,6 @@ class Scan:
         self.columns: Optional[List[Column]] = None
         self.column_caches: Optional[dict] = None
 
-
     def execute(self):
         assert self.warehouse.name, 'warehouse.name is required'
         assert self.scan_configuration.table_name, 'scan_configuration.table_name is required'
@@ -71,7 +70,7 @@ class Scan:
         self.add_measurements(aggregation_measurements)
 
         group_by_measurements: List[Measurement] = \
-            self.query_distinct()
+            self.query_group_by_value()
         self.add_measurements(group_by_measurements)
 
         test_results: List[TestResult] = self.run_tests()
@@ -110,17 +109,20 @@ class Scan:
             metric_indices = {}
             column_metric_indices[column.name] = metric_indices
 
-            quoted_column_name = dialect.qualify_column_name(column.name)
+            qualified_column_name = dialect.qualify_column_name(column.name)
 
-            column_conditions: ScanColumnCache = self.column_caches[column.name]
+            column_cache: ScanColumnCache = self.column_caches[column.name]
+            column_cache.is_text = dialect.is_text(column)
+            column_cache.is_number = dialect.is_number(column)
 
             is_valid_enabled = \
-                (column_conditions.validity is not None and column_conditions.is_validity_metric_enabled) \
+                (column_cache.validity is not None and column_cache.is_validity_metric_enabled) \
                 or self.scan_configuration.is_any_metric_enabled(column.name, [Metric.DISTINCT, Metric.UNIQUENESS])
 
-            is_missing_enabled = is_valid_enabled or column_conditions.is_missing_metric_enabled
-            non_missing_and_valid_condition = column_conditions.non_missing_and_valid_condition
-            missing_condition = column_conditions.missing_condition
+            is_missing_enabled = is_valid_enabled or column_cache.is_missing_metric_enabled
+            non_missing_and_valid_condition = column_cache.non_missing_and_valid_condition
+            missing_condition = column_cache.missing_condition
+            numeric_text_expr = None
 
             if is_missing_enabled:
                 metric_indices['missing'] = len(measurements)
@@ -132,44 +134,48 @@ class Scan:
                 fields.append(f'{dialect.sql_expr_count_conditional(non_missing_and_valid_condition)}')
                 measurements.append(Measurement(Metric.VALID_COUNT, column.name))
 
-            if dialect.is_text(column):
+            if column_cache.is_text:
                 if self.scan_configuration.is_metric_enabled(column.name, Metric.MIN_LENGTH):
                     length_expr = dialect.sql_expr_conditional(
                         non_missing_and_valid_condition,
-                        dialect.sql_expr_length(quoted_column_name))
+                        dialect.sql_expr_length(qualified_column_name))
                     fields.append(dialect.sql_expr_min(length_expr))
                     measurements.append(Measurement(Metric.MIN_LENGTH, column.name))
 
                 if self.scan_configuration.is_metric_enabled(column.name, Metric.MAX_LENGTH):
                     length_expr = dialect.sql_expr_conditional(
                         non_missing_and_valid_condition,
-                        dialect.sql_expr_length(quoted_column_name))
+                        dialect.sql_expr_length(qualified_column_name))
                     fields.append(dialect.sql_expr_max(length_expr))
                     measurements.append(Measurement(Metric.MAX_LENGTH, column.name))
 
-                validity_format = self.scan_configuration.get_validity_format(column)
-                is_column_numeric_text_format = isinstance(validity_format, str) and validity_format.startswith('number_')
-
-                if is_column_numeric_text_format:
+                column_cache.validity_format = self.scan_configuration.get_validity_format(column)
+                column_cache.is_column_numeric_text_format = \
+                    isinstance(column_cache.validity_format, str) \
+                    and column_cache.validity_format.startswith('number_')
+                if column_cache.is_column_numeric_text_format:
                     numeric_text_expr = dialect.sql_expr_conditional(
                         non_missing_and_valid_condition,
-                        dialect.sql_expr_cast_text_to_number(quoted_column_name, validity_format))
+                        dialect.sql_expr_cast_text_to_number(qualified_column_name, column_cache.validity_format))
 
-                    if self.scan_configuration.is_metric_enabled(column.name, Metric.MIN):
-                        fields.append(dialect.sql_expr_min(numeric_text_expr))
-                        measurements.append(Measurement(Metric.MIN, column.name))
+            if column_cache.is_number or column_cache.is_column_numeric_text_format:
+                numeric_expr = qualified_column_name if column_cache.is_number else numeric_text_expr
 
-                    if self.scan_configuration.is_metric_enabled(column.name, Metric.MAX):
-                        fields.append(dialect.sql_expr_max(numeric_text_expr))
-                        measurements.append(Measurement(Metric.MAX, column.name))
+                if self.scan_configuration.is_metric_enabled(column.name, Metric.MIN):
+                    fields.append(dialect.sql_expr_min(numeric_expr))
+                    measurements.append(Measurement(Metric.MIN, column.name))
 
-                    if self.scan_configuration.is_metric_enabled(column.name, Metric.AVG):
-                        fields.append(dialect.sql_expr_avg(numeric_text_expr))
-                        measurements.append(Measurement(Metric.AVG, column.name))
+                if self.scan_configuration.is_metric_enabled(column.name, Metric.MAX):
+                    fields.append(dialect.sql_expr_max(numeric_expr))
+                    measurements.append(Measurement(Metric.MAX, column.name))
 
-                    if self.scan_configuration.is_metric_enabled(column.name, Metric.SUM):
-                        fields.append(dialect.sql_expr_sum(numeric_text_expr))
-                        measurements.append(Measurement(Metric.SUM, column.name))
+                if self.scan_configuration.is_metric_enabled(column.name, Metric.AVG):
+                    fields.append(dialect.sql_expr_avg(numeric_expr))
+                    measurements.append(Measurement(Metric.AVG, column.name))
+
+                if self.scan_configuration.is_metric_enabled(column.name, Metric.SUM):
+                    fields.append(dialect.sql_expr_sum(numeric_expr))
+                    measurements.append(Measurement(Metric.SUM, column.name))
 
         sql = 'SELECT \n  ' + ',\n  '.join(fields) + ' \n' \
               'FROM ' + dialect.qualify_table_name(self.scan_configuration.table_name)
@@ -215,32 +221,104 @@ class Scan:
 
         return measurements
 
-    def query_distinct(self):
+    def query_group_by_value(self):
         measurements: List[Measurement] = []
 
         for column in self.columns:
-            if self.scan_configuration.is_any_metric_enabled(column.name, [Metric.DISTINCT, Metric.UNIQUENESS]):
+            # scan_configuration_column: ScanConfigurationColumn = self.scan_configuration.columns.get(column.name)
+
+            group_by_metrics = [Metric.DISTINCT, Metric.UNIQUENESS, Metric.UNIQUE_COUNT,
+                                Metric.MINS, Metric.MAXS, Metric.FREQUENT_VALUES]
+            if self.scan_configuration.is_any_metric_enabled(column.name, group_by_metrics):
+
                 qualified_column_name = self.dialect.qualify_column_name(column.name)
                 qualified_table_name = self.dialect.qualify_table_name(self.scan_configuration.table_name)
-                column_conditions: ScanColumnCache = self.column_caches[column.name]
-                table_sample_clause = self.table_sample_clause+'\n' if self.table_sample_clause else ''
-                sql = (f'SELECT COUNT(DISTINCT({qualified_column_name}))\n'
-                       f'FROM {qualified_table_name}\n'
-                       f'{table_sample_clause}'
-                       f'WHERE {column_conditions.non_missing_and_valid_condition}')
+                column_cache: ScanColumnCache = self.column_caches[column.name]
+                mins_maxs_limit = self.scan_configuration.get_mins_maxs_limit(column.name)
+                table_sample_clause = f'\n    AND {self.table_sample_clause} \n' if self.table_sample_clause else ''
+                numeric_expr = 'value' \
+                    if column_cache.is_number \
+                    else self.dialect.sql_expr_cast_text_to_number('value', column_cache.validity_format)
 
-                query_result_tuple = self.warehouse.execute_query_one(sql)
-                distinct_count = query_result_tuple[0]
-                measurement = Measurement(Metric.DISTINCT, column.name, distinct_count)
-                measurements.append(measurement)
-                logging.debug(f'Query measurement: {measurement}')
+                group_by_cte = (
+                    f"WITH group_by_value AS ( \n"
+                    f"  SELECT \n"
+                    f"    {qualified_column_name} AS value, \n"
+                    f"    COUNT(*) AS frequency"
+                    f"  FROM {qualified_table_name} \n"
+                    f"  WHERE {column_cache.non_missing_and_valid_condition} {table_sample_clause}\n"
+                    f"  GROUP BY {qualified_column_name} \n"
+                    f")"
+                )
 
-                # uniqueness
-                valid_count = self.scan_result.get(Metric.VALID_COUNT, column.name)
-                uniqueness = (distinct_count - 1) * 100 / (valid_count - 1)
-                measurement = Measurement(Metric.UNIQUENESS, column.name, uniqueness)
-                measurements.append(measurement)
-                logging.debug(f'Derived measurement: {measurement}')
+                if self.scan_configuration.is_any_metric_enabled(column.name, [
+                        Metric.DISTINCT, Metric.UNIQUENESS, Metric.UNIQUE_COUNT]):
+
+                    sql = (f'{group_by_cte} \n'
+                           f'SELECT COUNT(*), \n'
+                           f'       COUNT(CASE WHEN frequency = 1 THEN 1 END) \n'
+                           f'FROM group_by_value')
+
+                    query_result_tuple = self.warehouse.execute_query_one(sql)
+                    distinct_count = query_result_tuple[0]
+                    measurement = Measurement(Metric.DISTINCT, column.name, distinct_count)
+                    measurements.append(measurement)
+                    logging.debug(f'Query measurement: {measurement}')
+
+                    unique_count = query_result_tuple[1]
+                    measurement = Measurement(Metric.UNIQUE_COUNT, column.name, unique_count)
+                    measurements.append(measurement)
+                    logging.debug(f'Query measurement: {measurement}')
+
+                    # uniqueness
+                    valid_count = self.scan_result.get(Metric.VALID_COUNT, column.name)
+                    uniqueness = (distinct_count - 1) * 100 / (valid_count - 1)
+                    measurement = Measurement(Metric.UNIQUENESS, column.name, uniqueness)
+                    measurements.append(measurement)
+                    logging.debug(f'Derived measurement: {measurement}')
+
+                if self.scan_configuration.is_metric_enabled(column.name, Metric.MINS) \
+                        and (column_cache.is_number or column_cache.is_column_numeric_text_format):
+
+                    sql = (f'{group_by_cte} \n'
+                           f'SELECT value \n'
+                           f'FROM group_by_value \n'
+                           f'ORDER BY {numeric_expr} ASC \n'
+                           f'LIMIT {mins_maxs_limit} \n')
+
+                    rows = self.warehouse.execute_query_all(sql)
+                    measurement = Measurement(Metric.MINS, column.name, [row[0] for row in rows])
+                    measurements.append(measurement)
+                    logging.debug(f'Query measurement: {measurement}')
+
+                if self.scan_configuration.is_metric_enabled(column.name, Metric.MAXS) \
+                        and (column_cache.is_number or column_cache.is_column_numeric_text_format):
+
+                    sql = (f'{group_by_cte} \n'
+                           f'SELECT value \n'
+                           f'FROM group_by_value \n'
+                           f'ORDER BY {numeric_expr} DESC \n'
+                           f'LIMIT {mins_maxs_limit} \n')
+
+                    rows = self.warehouse.execute_query_all(sql)
+                    measurement = Measurement(Metric.MAXS, column.name, [row[0] for row in rows])
+                    measurements.append(measurement)
+                    logging.debug(f'Query measurement: {measurement}')
+
+                if self.scan_configuration.is_metric_enabled(column.name, Metric.FREQUENT_VALUES) \
+                        and (column_cache.is_number or column_cache.is_column_numeric_text_format):
+
+                    frequent_values_limit = self.scan_configuration.get_frequent_values_limit(column.name)
+                    sql = (f'{group_by_cte} \n'
+                           f'SELECT value \n'
+                           f'FROM group_by_value \n'
+                           f'ORDER BY frequency DESC \n'
+                           f'LIMIT {frequent_values_limit} \n')
+
+                    rows = self.warehouse.execute_query_all(sql)
+                    measurement = Measurement(Metric.FREQUENT_VALUES, column.name, [row[0] for row in rows])
+                    measurements.append(measurement)
+                    logging.debug(f'Query measurement: {measurement}')
 
         return measurements
 

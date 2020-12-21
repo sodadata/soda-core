@@ -36,6 +36,11 @@ class ScanColumnCache:
             f'NOT {self.missing_condition} AND {self.valid_condition}' if self.valid_condition \
             else f'NOT {self.missing_condition}'
 
+        self.is_text: bool = False
+        self.is_number: bool = False
+        self.is_column_numeric_text_format: bool = False
+        self.validity_format: str = None
+
     def get_missing_condition(self, column: Column, missing: Missing, dialect: Dialect):
         quoted_column_name = dialect.qualify_column_name(column.name)
         if missing is None:

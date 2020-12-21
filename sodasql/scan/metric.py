@@ -31,6 +31,7 @@ class Metric:
     AVG_LENGTH = 'avg_length'
     DISTINCT = 'distinct'
     UNIQUENESS = 'uniqueness'
+    UNIQUE_COUNT = 'unique_count'
     MAXS = 'maxs'
     MINS = 'mins'
     FREQUENT_VALUES = 'frequent_values'
