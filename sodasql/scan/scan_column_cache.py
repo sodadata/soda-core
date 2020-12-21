@@ -20,28 +20,33 @@ class ScanColumnCache:
     # Temporary stores computed conditions and where clauses for missing and validity
 
     def __init__(self, scan_configuration: ScanConfiguration, column: Column, dialect: Dialect):
+        self.column = column
+        self.is_text: bool = dialect.is_text(column)
+        self.is_number: bool = dialect.is_number(column)
+
         self.missing = scan_configuration.get_missing(column)
         self.is_missing_metric_enabled = scan_configuration.is_any_metric_enabled(column.name, [
             Metric.MISSING_COUNT, Metric.MISSING_PERCENTAGE,
             Metric.VALUES_COUNT, Metric.VALUES_PERCENTAGE])
-        self.missing_condition = self.get_missing_condition(column, self.missing, dialect)
+        self.missing_condition = self.__get_missing_condition(column, self.missing, dialect)
 
         self.validity = scan_configuration.get_validity(column)
         self.is_validity_metric_enabled = scan_configuration.is_any_metric_enabled(column.name, [
             Metric.INVALID_COUNT, Metric.INVALID_PERCENTAGE,
             Metric.VALID_COUNT, Metric.VALID_PERCENTAGE])
-        self.valid_condition = self.get_valid_condition(column, self.validity, dialect)
+        self.valid_condition = self.__get_valid_condition(column, self.validity, dialect)
 
         self.non_missing_and_valid_condition = \
             f'NOT {self.missing_condition} AND {self.valid_condition}' if self.valid_condition \
             else f'NOT {self.missing_condition}'
 
-        self.is_text: bool = False
-        self.is_number: bool = False
-        self.is_column_numeric_text_format: bool = False
-        self.validity_format: str = None
+        self.validity_format = scan_configuration.get_validity_format(column)
+        self.is_column_numeric_text_format = \
+            isinstance(self.validity_format, str) \
+            and self.validity_format.startswith('number_')
 
-    def get_missing_condition(self, column: Column, missing: Missing, dialect: Dialect):
+    @classmethod
+    def __get_missing_condition(cls, column: Column, missing: Missing, dialect: Dialect):
         quoted_column_name = dialect.qualify_column_name(column.name)
         if missing is None:
             return f'{quoted_column_name} IS NULL'
@@ -56,7 +61,8 @@ class ScanColumnCache:
             validity_clauses.append(dialect.sql_expr_regexp_like(quoted_column_name, missing.regex))
         return '(' + ' OR '.join(validity_clauses) + ')'
 
-    def get_valid_condition(self, column: Column, validity: Validity, dialect: Dialect):
+    @classmethod
+    def __get_valid_condition(cls, column: Column, validity: Validity, dialect: Dialect):
         quoted_column_name = dialect.qualify_column_name(column.name)
         if validity is None:
             return None

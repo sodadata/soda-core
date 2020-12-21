@@ -149,10 +149,6 @@ class Scan:
                     fields.append(dialect.sql_expr_max(length_expr))
                     measurements.append(Measurement(Metric.MAX_LENGTH, column.name))
 
-                column_cache.validity_format = self.scan_configuration.get_validity_format(column)
-                column_cache.is_column_numeric_text_format = \
-                    isinstance(column_cache.validity_format, str) \
-                    and column_cache.validity_format.startswith('number_')
                 if column_cache.is_column_numeric_text_format:
                     numeric_text_expr = dialect.sql_expr_conditional(
                         non_missing_and_valid_condition,
