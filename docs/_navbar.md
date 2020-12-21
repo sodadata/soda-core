@@ -1,0 +1,1 @@
+![Soda Logo](./img/soda-logo.svg)
