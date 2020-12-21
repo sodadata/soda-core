@@ -28,7 +28,7 @@ jobs:
       - name: Copy Reports Index Page
         run: |
           cp ./reports/index.html ./reports/${{ steps.extract_branch.outputs.branch }}/index.html
-          cp ./reports/img ./reports/${{ steps.extract_branch.outputs.branch }}/img
+          cp -r ./reports/img ./reports/${{ steps.extract_branch.outputs.branch }}/img
       - name: Deploy Reports
         if: always()
         uses: peaceiris/actions-gh-pages@v3
