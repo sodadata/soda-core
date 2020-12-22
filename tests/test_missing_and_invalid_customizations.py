@@ -32,7 +32,7 @@ class TestMissingAndInvalidCustomizations(AbstractScanTest):
           'columns': {
             'name': {
               'metrics': [
-                'missing'
+                Metric.CATEGORY_MISSING
               ],
               'missing_values': [
                 'no value'
@@ -65,7 +65,7 @@ class TestMissingAndInvalidCustomizations(AbstractScanTest):
           'columns': {
             'name': {
               'metrics': [
-                'missing'
+                Metric.CATEGORY_MISSING
               ],
               'missing_format': 'empty'
             }
@@ -96,7 +96,7 @@ class TestMissingAndInvalidCustomizations(AbstractScanTest):
             'columns': {
                 'name': {
                     'metrics': [
-                        'missing'
+                        Metric.CATEGORY_MISSING
                     ],
                     'missing_format': 'whitespace'
                 }
@@ -122,7 +122,7 @@ class TestMissingAndInvalidCustomizations(AbstractScanTest):
           'columns': {
             'name': {
               'metrics': [
-                  'invalid_count'
+                  Metric.INVALID_COUNT
               ],
               'missing_values': [
                 'no value'
@@ -150,7 +150,7 @@ class TestMissingAndInvalidCustomizations(AbstractScanTest):
           'columns': {
               'name': {
                   'metrics': [
-                      'invalid'
+                      Metric.CATEGORY_VALIDITY
                   ],
                   'valid_regex': 'one'
               }
@@ -187,7 +187,7 @@ class TestMissingAndInvalidCustomizations(AbstractScanTest):
           'columns': {
               'col': {
                   'metrics': [
-                      'invalid'
+                      Metric.CATEGORY_VALIDITY
                   ],
                   'valid_format': 'number_whole'
               }

@@ -15,7 +15,6 @@ from sodasql.scan.metric import Metric
 from sodasql.scan.parse_logs import ParseLogs
 from sodasql.scan.scan_column_configuration import ScanColumnConfiguration
 
-
 KEY_TABLE_NAME = 'table_name'
 KEY_METRICS = 'metrics'
 KEY_COLUMNS = 'columns'
@@ -25,6 +24,43 @@ KEY_SAMPLE_PERCENTAGE = 'sample_percentage'
 KEY_SAMPLE_METHOD = 'sample_method'
 
 
+def ensure_metric(metrics: List[str],
+                  metric: str,
+                  dependent_metric: str,
+                  parse_logs: ParseLogs,
+                  column_name: str = None):
+    if metric not in metrics:
+        metrics.append(metric)
+        column_message = f' and column {column_name}' if column_name else ''
+        parse_logs.info(f'Added metric {metric} for metric {dependent_metric}{column_message}')
+
+
+def resolve_metrics(metrics: List[str],
+                    parse_logs: ParseLogs,
+                    column_name: str = None):
+    resolved_metrics = metrics
+
+    if Metric.CATEGORY_MISSING in metrics:
+        resolved_metrics = [metric for metric in metrics if metric != Metric.CATEGORY_MISSING]
+        ensure_metric(resolved_metrics, Metric.MISSING_COUNT, Metric.CATEGORY_MISSING, parse_logs, column_name)
+        ensure_metric(resolved_metrics, Metric.MISSING_PERCENTAGE, Metric.CATEGORY_MISSING, parse_logs, column_name)
+        ensure_metric(resolved_metrics, Metric.VALUES_COUNT, Metric.CATEGORY_MISSING, parse_logs, column_name)
+        ensure_metric(resolved_metrics, Metric.VALUES_PERCENTAGE, Metric.CATEGORY_MISSING, parse_logs, column_name)
+
+    if Metric.CATEGORY_VALIDITY in metrics:
+        resolved_metrics = [metric for metric in metrics if metric != Metric.CATEGORY_VALIDITY]
+        ensure_metric(resolved_metrics, Metric.INVALID_COUNT, Metric.CATEGORY_VALIDITY, parse_logs, column_name)
+        ensure_metric(resolved_metrics, Metric.INVALID_PERCENTAGE, Metric.CATEGORY_VALIDITY, parse_logs, column_name)
+        ensure_metric(resolved_metrics, Metric.VALID_COUNT, Metric.CATEGORY_VALIDITY, parse_logs, column_name)
+        ensure_metric(resolved_metrics, Metric.VALID_PERCENTAGE, Metric.CATEGORY_VALIDITY, parse_logs, column_name)
+
+    if Metric.HISTOGRAM in metrics:
+        ensure_metric(resolved_metrics, Metric.MIN, Metric.HISTOGRAM, parse_logs, column_name)
+        ensure_metric(resolved_metrics, Metric.MAX, Metric.HISTOGRAM, parse_logs, column_name)
+
+    return resolved_metrics
+
+
 class ScanConfiguration:
 
     VALID_KEYS = [KEY_TABLE_NAME, KEY_METRICS, KEY_COLUMNS,
@@ -32,19 +68,22 @@ class ScanConfiguration:
                   KEY_SAMPLE_PERCENTAGE, KEY_SAMPLE_METHOD]
 
     def __init__(self, scan_dict: dict):
-        self.parse_logs = ParseLogs()
-        self.table_name = scan_dict.get(KEY_TABLE_NAME)
+        self.parse_logs: ParseLogs = ParseLogs()
 
+        self.table_name = scan_dict.get(KEY_TABLE_NAME)
         if not self.table_name:
             self.parse_logs.error('table_name is required')
-        self.metrics = ScanColumnConfiguration.resolve_metrics(scan_dict.get(KEY_METRICS, []))
+
+        self.metrics = resolve_metrics(scan_dict.get(KEY_METRICS, []), self.parse_logs)
         if not isinstance(self.metrics, list):
             self.parse_logs.error('metrics is not a list')
+            self.metrics = []
         else:
             self.parse_logs.warning_invalid_elements(
                 self.metrics,
                 Metric.METRIC_TYPES,
                 'Invalid metrics value')
+
         self.columns = {}
         columns_dict = scan_dict.get(KEY_COLUMNS, {})
         for column_name in columns_dict:

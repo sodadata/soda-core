@@ -10,7 +10,8 @@
 #  limitations under the License.
 
 import logging
-from typing import List, Optional
+from math import floor, ceil
+from typing import List
 
 from sodasql.scan.column_metadata import ColumnMetadata
 from sodasql.scan.custom_metric import CustomMetric
@@ -77,6 +78,10 @@ class Scan:
             self.query_group_by_value()
         self.add_measurements(group_by_measurements)
 
+        histogram_measurements: List[Measurement] = \
+            self.query_histograms()
+        self.add_measurements(histogram_measurements)
+
         test_results: List[TestResult] = self.run_tests()
         self.scan_result.test_results.extend(test_results)
 
@@ -140,22 +145,30 @@ class Scan:
                     fields.append(dialect.sql_expr_max(length_expr))
                     measurements.append(Measurement(Metric.MAX_LENGTH, column_name))
 
-            if scan_column.is_number or scan_column.is_column_numeric_text_format:
-                if self.configuration.is_metric_enabled(column_name, Metric.MIN):
+            if scan_column.has_numeric_values:
+                if scan_column.is_metric_enabled(Metric.MIN):
                     fields.append(dialect.sql_expr_min(scan_column.numeric_expr))
                     measurements.append(Measurement(Metric.MIN, column_name))
 
-                if self.configuration.is_metric_enabled(column_name, Metric.MAX):
+                if scan_column.is_metric_enabled(Metric.MAX):
                     fields.append(dialect.sql_expr_max(scan_column.numeric_expr))
                     measurements.append(Measurement(Metric.MAX, column_name))
 
-                if self.configuration.is_metric_enabled(column_name, Metric.AVG):
+                if scan_column.is_metric_enabled(Metric.AVG):
                     fields.append(dialect.sql_expr_avg(scan_column.numeric_expr))
                     measurements.append(Measurement(Metric.AVG, column_name))
 
-                if self.configuration.is_metric_enabled(column_name, Metric.SUM):
+                if scan_column.is_metric_enabled(Metric.SUM):
                     fields.append(dialect.sql_expr_sum(scan_column.numeric_expr))
                     measurements.append(Measurement(Metric.SUM, column_name))
+
+                if scan_column.is_metric_enabled(Metric.VARIANCE):
+                    fields.append(dialect.sql_expr_variance(scan_column.numeric_expr))
+                    measurements.append(Measurement(Metric.VARIANCE, column_name))
+
+                if scan_column.is_metric_enabled(Metric.STDDEV):
+                    fields.append(dialect.sql_expr_stddev(scan_column.numeric_expr))
+                    measurements.append(Measurement(Metric.STDDEV, column_name))
 
         sql = 'SELECT \n  ' + ',\n  '.join(fields) + ' \n' \
               'FROM ' + self.qualified_table_name
@@ -212,10 +225,7 @@ class Scan:
                     Metric.MINS, Metric.MAXS, Metric.FREQUENT_VALUES]):
 
                 group_by_cte = scan_column.get_group_by_cte()
-
-                numeric_value_expr = 'value' \
-                    if scan_column.is_number \
-                    else self.dialect.sql_expr_cast_text_to_number('value', scan_column.validity_format)
+                numeric_value_expr = scan_column.get_group_by_cte_numeric_value_expression()
 
                 if self.configuration.is_any_metric_enabled(column_name, [
                         Metric.DISTINCT, Metric.UNIQUENESS, Metric.UNIQUE_COUNT]):
@@ -285,6 +295,66 @@ class Scan:
                     measurements.append(measurement)
                     logging.debug(f'Query measurement: {measurement}')
 
+        return measurements
+
+    def query_histograms(self):
+
+        measurements: List[Measurement] = []
+
+        for column_name in self.column_names:
+            scan_column: ScanColumn = self.scan_columns[column_name]
+
+            if scan_column.is_metric_enabled(Metric.HISTOGRAM):
+
+                buckets: int = scan_column.get_histogram_buckets()
+
+                min_value = scan_column.get_metric_value(Metric.MIN)
+                max_value = scan_column.get_metric_value(Metric.MAX)
+
+                if scan_column.has_numeric_values and min_value and max_value and min_value < max_value:
+                    # Build the histogram query
+                    min_value = floor(min_value * 1000) / 1000
+                    max_value = ceil(max_value * 1000) / 1000
+                    bucket_width = (max_value - min_value) / buckets
+
+                    boundary = min_value
+                    boundaries = [min_value]
+                    for i in range(0, buckets):
+                        boundary += bucket_width
+                        boundaries.append(round(boundary, 3))
+
+                    group_by_cte = scan_column.get_group_by_cte()
+                    numeric_value_expr = scan_column.get_group_by_cte_numeric_value_expression()
+
+                    field_clauses = []
+                    for i in range(0, buckets):
+                        lower_bound = '' if i == 0 else f'{boundaries[i]} <= {numeric_value_expr}'
+                        upper_bound = '' if i == buckets - 1 else f'{numeric_value_expr} < {boundaries[i + 1]}'
+                        optional_and = '' if lower_bound == '' or upper_bound == '' else ' and '
+                        field_clauses.append(f'SUM(CASE WHEN {lower_bound}{optional_and}{upper_bound} THEN frequency END)')
+
+                    fields = ',\n  '.join(field_clauses)
+
+                    sql = (f'{group_by_cte} \n'
+                           f'SELECT \n'
+                           f'  {fields} \n'
+                           f'FROM group_by_value')
+
+                    row = self.warehouse.execute_query_one(sql)
+
+                    # Process the histogram query
+                    frequencies = []
+                    for i in range(0, buckets):
+                        frequency = row[i]
+                        frequencies.append(0 if not frequency else int(frequency))
+                    histogram = {
+                        'boundaries': boundaries,
+                        'frequencies': frequencies
+                    }
+
+                    measurement = Measurement(Metric.HISTOGRAM, column_name, histogram)
+                    measurements.append(measurement)
+                    logging.debug(f'Query measurement: {measurement}')
         return measurements
 
     def run_tests(self):

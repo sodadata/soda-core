@@ -8,7 +8,6 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-from typing import List
 
 from sodasql.scan.metric import Metric
 from sodasql.scan.missing import Missing
@@ -52,19 +51,9 @@ class ScanColumnConfiguration:
         KEY_METRICS,
         KEY_TESTS]
 
-    @classmethod
-    def resolve_metrics(cls, metrics: List[str]):
-        resolved_metrics = metrics
-        if 'missing' in metrics:
-            resolved_metrics = [metric for metric in metrics if metric != 'missing']
-            resolved_metrics.append(Metric.MISSING_COUNT)
-        if 'valid' in metrics or 'invalid' in metrics:
-            resolved_metrics = [metric for metric in metrics if metric != 'valid' and metric != 'invalid']
-            resolved_metrics.append(Metric.VALID_COUNT)
-        return resolved_metrics
-
     def __init__(self, column_name: str, column_dict: dict, parse_logs: ParseLogs):
-        self.metrics = self.resolve_metrics(column_dict.get(KEY_METRICS, []))
+        from sodasql.scan.scan_configuration import resolve_metrics
+        self.metrics = resolve_metrics(column_dict.get(KEY_METRICS, []), parse_logs, column_name)
 
         self.missing = None
         if any(cfg in column_dict.keys() for cfg in self.MISSING_KEYS):

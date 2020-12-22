@@ -72,7 +72,7 @@ class TestMissingAndInvalidMetricConfigurations(AbstractScanTest):
         scan_result = self.scan({
           'table_name': self.table_name,
           'metrics': [
-            'missing'
+            Metric.CATEGORY_MISSING
           ]
         })
         
@@ -119,7 +119,7 @@ class TestMissingAndInvalidMetricConfigurations(AbstractScanTest):
           'columns': {
               'name': {
                   'metrics': [
-                      'invalid'
+                      Metric.CATEGORY_VALIDITY
                   ],
                   'valid_regex': 'one'
               }
@@ -167,14 +167,14 @@ class TestMissingAndInvalidMetricConfigurations(AbstractScanTest):
           'columns': {
               'name': {
                   'metrics': [
-                      'invalid'
+                      Metric.CATEGORY_VALIDITY
                   ],
                   'valid_regex': 'one'
               }
           }
         })
 
-        self.assertMeasurementsPresent(scan_result, 'id', [
+        self.assertMeasurements(scan_result, 'id', [
             Metric.MISSING_COUNT,
             Metric.MISSING_PERCENTAGE,
             Metric.VALUES_COUNT,
@@ -187,7 +187,7 @@ class TestMissingAndInvalidMetricConfigurations(AbstractScanTest):
             Metric.VALID_PERCENTAGE
         ])
 
-        self.assertMeasurementsPresent(scan_result, 'name', [
+        self.assertMeasurements(scan_result, 'name', [
             Metric.MISSING_COUNT,
             Metric.MISSING_PERCENTAGE,
             Metric.VALUES_COUNT,
@@ -198,7 +198,7 @@ class TestMissingAndInvalidMetricConfigurations(AbstractScanTest):
             Metric.VALID_PERCENTAGE
         ])
 
-        self.assertMeasurementsPresent(scan_result, 'size', [
+        self.assertMeasurements(scan_result, 'size', [
             Metric.MISSING_COUNT,
             Metric.MISSING_PERCENTAGE,
             Metric.VALUES_COUNT,

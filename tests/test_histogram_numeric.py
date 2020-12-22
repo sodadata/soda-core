@@ -17,7 +17,7 @@ class TestHistogramNumeric(AbstractScanTest):
 
     table_name = 'test_table'
 
-    def test_scan_mins_maxs(self):
+    def test_scan_histogram_numeric(self):
         self.create_table(
             self.table_name,
             ["size INTEGER"],
@@ -40,4 +40,11 @@ class TestHistogramNumeric(AbstractScanTest):
             ]
         })
 
+        histogram = scan_result.get(Metric.HISTOGRAM, 'size')
 
+        self.assertEqual(histogram['frequencies'],
+            [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 0, 0, 0, 0, 1, 1, 1, 0, 2])
+
+        self.assertEqual(histogram['boundaries'],
+            [1.0, 1.95, 2.9, 3.85, 4.8, 5.75, 6.7, 7.65, 8.6, 9.55, 10.5,
+             11.45, 12.4, 13.35, 14.3, 15.25, 16.2, 17.15, 18.1, 19.05, 20.0])

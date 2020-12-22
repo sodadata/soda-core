@@ -11,6 +11,9 @@
 
 class Metric:
 
+    CATEGORY_MISSING = 'missing'
+    CATEGORY_VALIDITY = 'validity'
+
     ROW_COUNT = 'row_count'
     SCHEMA = 'schema'
 
@@ -26,6 +29,8 @@ class Metric:
     MAX = 'max'
     AVG = 'avg'
     SUM = 'sum'
+    VARIANCE = 'variance'
+    STDDEV = 'stddev'
     MIN_LENGTH = 'min_length'
     MAX_LENGTH = 'max_length'
     AVG_LENGTH = 'avg_length'
@@ -50,6 +55,8 @@ class Metric:
         MAX,
         AVG,
         SUM,
+        VARIANCE,
+        STDDEV,
         MIN_LENGTH,
         MAX_LENGTH,
         AVG_LENGTH,

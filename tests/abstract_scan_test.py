@@ -25,6 +25,7 @@ LoggingHelper.configure_for_test()
 class AbstractScanTest(TestCase):
 
     warehouse: Warehouse = None
+    default_test_table_name = 'test_table'
 
     def __init__(self, method_name: str = ...) -> None:
         super().__init__(method_name)
@@ -82,15 +83,22 @@ class AbstractScanTest(TestCase):
 
         scan_configuration: ScanConfiguration = ScanConfiguration(scan_configuration_dict)
         scan = self.warehouse.create_scan(scan_configuration)
-        if len(scan.configuration.parse_logs.logs) > 0:
+        if scan.configuration.parse_logs.has_warnings_or_errors():
             raise AssertionError(
                 'Scan configuration errors: \n  ' +
                 ('\n  '.join([str(log) for log in scan.configuration.parse_logs.logs])))
+        for log in scan.configuration.parse_logs.logs:
+            logging.info(str(log))
         return scan.execute()
+
+    def assertMeasurements(self, scan_result, column: str, expected_metrics_present):
+        metrics_present = [measurement.metric for measurement in scan_result.measurements if measurement.column_name == column]
+        self.assertEqual(set(metrics_present), set(expected_metrics_present))
 
     def assertMeasurementsPresent(self, scan_result, column: str, expected_metrics_present):
         metrics_present = [measurement.metric for measurement in scan_result.measurements if measurement.column_name == column]
-        self.assertEqual(set(metrics_present), set(expected_metrics_present))
+        metrics_expected_and_not_present = [expected_metric for expected_metric in expected_metrics_present if expected_metric not in metrics_present]
+        self.assertEqual(set(), set(metrics_expected_and_not_present))
 
     def assertMeasurementsAbsent(self, scan_result, column: str, expected_metrics_absent: list):
         metrics_present = [measurement.metric for measurement in scan_result.measurements if measurement.column_name == column]

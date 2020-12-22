@@ -13,9 +13,9 @@ from sodasql.scan.metric import Metric
 from tests.abstract_scan_test import AbstractScanTest
 
 
-class TestMissingAndInvalidCustomizations(AbstractScanTest):
+class TestStatisticalMetrics(AbstractScanTest):
 
-    def test_scan_customized_missing_values(self):
+    def test_scan_statistical_metrics(self):
         self.create_table(
             'test_table',
             ["score VARCHAR(255)"],
@@ -28,11 +28,12 @@ class TestMissingAndInvalidCustomizations(AbstractScanTest):
         scan_result = self.scan({
             'table_name': 'test_table',
             'metrics': [
-                'valid',
-                'min',
-                'max',
-                'avg',
-                'sum'
+                Metric.MIN,
+                Metric.MAX,
+                Metric.AVG,
+                Metric.SUM,
+                Metric.VARIANCE,
+                Metric.STDDEV
             ],
             'columns': {
                 'score': {
@@ -41,11 +42,14 @@ class TestMissingAndInvalidCustomizations(AbstractScanTest):
             }
         })
 
-        self.assertEqual(scan_result.get(Metric.VALUES_COUNT, 'score'), 4)
         self.assertEqual(scan_result.get(Metric.MIN, 'score'), 1)
         self.assertEqual(scan_result.get(Metric.MAX, 'score'), 12)
         self.assertEqual(scan_result.get(Metric.AVG, 'score'), 5)
         self.assertEqual(scan_result.get(Metric.SUM, 'score'), 20)
+        self.assertMeasurementsPresent(scan_result, 'score', [
+            Metric.VARIANCE,
+            Metric.STDDEV
+        ])
 
     def test_no_minmax_for_non_numeric_strings(self):
         self.create_table(
@@ -60,15 +64,18 @@ class TestMissingAndInvalidCustomizations(AbstractScanTest):
         scan_result = self.scan({
             'table_name': 'test_table',
             'metrics': [
-                'valid',
-                'min',
-                'max',
-                'avg',
-                'sum'
+                Metric.MIN,
+                Metric.MAX,
+                Metric.MINS,
+                Metric.MAXS,
+                Metric.FREQUENT_VALUES
             ]
         })
 
         self.assertMeasurementsAbsent(scan_result, 'score', [
             Metric.MIN,
-            Metric.MAX
+            Metric.MAX,
+            Metric.MINS,
+            Metric.MAXS,
+            Metric.FREQUENT_VALUES
         ])

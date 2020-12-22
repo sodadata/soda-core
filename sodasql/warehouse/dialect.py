@@ -89,6 +89,12 @@ class Dialect:
     def sql_expr_sum(self, expr: str):
         return f'SUM({expr})'
 
+    def sql_expr_variance(self, expr: str):
+        return f'VARIANCE({expr})'
+
+    def sql_expr_stddev(self, expr: str):
+        return f'STDDEV({expr})'
+
     def sql_expr_regexp_like(self, expr: str, pattern: str):
         return f"{expr} ~* '{self.qualify_regex(pattern)}'"
 

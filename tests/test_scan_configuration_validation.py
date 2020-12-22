@@ -11,7 +11,7 @@
 
 from unittest import TestCase
 
-from sodasql.scan.parse_logs import ParseLogs
+from sodasql.scan.parse_logs import ParseLogs, ERROR, WARNING
 from sodasql.scan.scan_configuration import ScanConfiguration
 
 
@@ -20,7 +20,7 @@ class TestScanConfigurationValidation(TestCase):
     def test_table_name_required(self):
         parse_logs = ScanConfiguration({}).parse_logs
         log = parse_logs.logs[0]
-        self.assertIn(ParseLogs.ERROR, log.level)
+        self.assertIn(ERROR, log.level)
         self.assertIn('table_name is required', log.message)
 
     def test_metrics_not_a_list(self):
@@ -30,7 +30,7 @@ class TestScanConfigurationValidation(TestCase):
         }).parse_logs
 
         log = parse_logs.logs[0]
-        self.assertIn(ParseLogs.ERROR, log.level)
+        self.assertIn(ERROR, log.level)
         self.assertIn('metrics is not a list', log.message)
 
     def test_invalid_column_metric(self):
@@ -42,7 +42,7 @@ class TestScanConfigurationValidation(TestCase):
         }).parse_logs
 
         log = parse_logs.logs[0]
-        self.assertIn(ParseLogs.WARNING, log.level)
+        self.assertIn(WARNING, log.level)
         self.assertIn('Invalid metrics value: revenue', log.message)
 
     def test_invalid_valid_format(self):
@@ -56,5 +56,5 @@ class TestScanConfigurationValidation(TestCase):
         }).parse_logs
 
         log = parse_logs.logs[0]
-        self.assertIn(ParseLogs.WARNING, log.level)
+        self.assertIn(WARNING, log.level)
         self.assertIn('Invalid col.valid_format: buzz', log.message)

@@ -77,6 +77,7 @@ class ScanColumn:
             self.numeric_expr = None
             self.numeric_text_expr = None
 
+        self.has_numeric_values = self.is_number or self.is_column_numeric_text_format
         self.mins_maxs_limit = self.scan_configuration.get_mins_maxs_limit(self.column_name)
 
     def is_any_metric_enabled(self, metrics: List[str]):
@@ -141,5 +142,18 @@ class ScanColumn:
             f")"
         )
 
+    def get_group_by_cte_numeric_value_expression(self):
+        if self.is_number:
+            return 'value'
+        if self.is_column_numeric_text_format:
+            return self.scan.dialect.sql_expr_cast_text_to_number('value', self.validity_format)
+
     def get_tests(self):
         return self.column_configuration.tests if self.column_configuration and self.column_configuration.tests else []
+
+    def get_histogram_buckets(self) -> int:
+        # TODO make configurable
+        return 20
+
+    def get_metric_value(self, metric: str):
+        return self.scan.scan_result.get(metric, self.column_name)
