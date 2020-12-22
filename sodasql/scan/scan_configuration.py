@@ -13,7 +13,7 @@ from typing import List
 from sodasql.configuration.helper import parse_int
 from sodasql.scan.metric import Metric
 from sodasql.scan.parse_logs import ParseLogs
-from sodasql.scan.scan_configuration_column import ScanConfigurationColumn
+from sodasql.scan.scan_column_configuration import ScanColumnConfiguration
 
 
 KEY_TABLE_NAME = 'table_name'
@@ -37,7 +37,7 @@ class ScanConfiguration:
 
         if not self.table_name:
             self.parse_logs.error('table_name is required')
-        self.metrics = ScanConfigurationColumn.resolve_metrics(scan_dict.get(KEY_METRICS, []))
+        self.metrics = ScanColumnConfiguration.resolve_metrics(scan_dict.get(KEY_METRICS, []))
         if not isinstance(self.metrics, list):
             self.parse_logs.error('metrics is not a list')
         else:
@@ -50,12 +50,14 @@ class ScanConfiguration:
         for column_name in columns_dict:
             column_dict = columns_dict[column_name]
             column_name_lower = column_name.lower()
-            self.columns[column_name_lower] = ScanConfigurationColumn(column_name, column_dict, self.parse_logs)
+            self.columns[column_name_lower] = ScanColumnConfiguration(column_name, column_dict, self.parse_logs)
 
         self.sample_percentage = scan_dict.get(KEY_SAMPLE_PERCENTAGE)
         self.sample_method = scan_dict.get(KEY_SAMPLE_METHOD, 'SYSTEM').upper()
-        self.mins_maxs_limit = parse_int(scan_dict, KEY_MINS_MAXS_LIMIT, self.parse_logs, 'scan configuration', 20)
-        self.frequent_values_limit = parse_int(scan_dict, KEY_FREQUENT_VALUES_LIMIT, self.parse_logs, 'scan configuration', 20)
+        self.mins_maxs_limit = \
+            parse_int(scan_dict, KEY_MINS_MAXS_LIMIT, self.parse_logs, 'scan configuration', 20)
+        self.frequent_values_limit = \
+            parse_int(scan_dict, KEY_FREQUENT_VALUES_LIMIT, self.parse_logs, 'scan configuration', 20)
 
         self.parse_logs.warning_invalid_elements(
             scan_dict.keys(),
@@ -78,12 +80,12 @@ class ScanConfiguration:
             metrics.extend(column_configuration.metrics)
         return metrics
 
-    def get_missing(self, column):
-        column_configuration = self.columns.get(column.name.lower())
+    def get_missing(self, column_name: str):
+        column_configuration = self.columns.get(column_name.lower())
         return column_configuration.missing if column_configuration else None
 
-    def get_validity(self, column):
-        column_configuration = self.columns.get(column.name.lower())
+    def get_validity(self, column_name: str):
+        column_configuration = self.columns.get(column_name.lower())
         return column_configuration.validity if column_configuration else None
 
     def get_validity_format(self, column):
@@ -98,3 +100,6 @@ class ScanConfiguration:
 
     def get_frequent_values_limit(self, column_name):
         return self.mins_maxs_limit
+
+    def get_column_configuration(self, column_name: str):
+        return self.columns.get(column_name.lower())

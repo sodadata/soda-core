@@ -32,7 +32,7 @@ KEY_VALID_MIN_LENGTH = 'valid_min_length'
 KEY_VALID_MAX_LENGTH = 'valid_max_length'
 
 
-class ScanConfigurationColumn:
+class ScanColumnConfiguration:
 
     MISSING_KEYS = [
         KEY_MISSING_VALUES,

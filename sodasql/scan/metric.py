@@ -35,6 +35,7 @@ class Metric:
     MAXS = 'maxs'
     MINS = 'mins'
     FREQUENT_VALUES = 'frequent_values'
+    HISTOGRAM = 'histogram'
 
     METRIC_TYPES = [
         MISSING_COUNT,
@@ -56,5 +57,6 @@ class Metric:
         UNIQUENESS,
         MAXS,
         MINS,
-        FREQUENT_VALUES
+        FREQUENT_VALUES,
+        HISTOGRAM
     ]

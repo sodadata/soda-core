@@ -82,10 +82,10 @@ class AbstractScanTest(TestCase):
 
         scan_configuration: ScanConfiguration = ScanConfiguration(scan_configuration_dict)
         scan = self.warehouse.create_scan(scan_configuration)
-        if len(scan.scan_configuration.parse_logs.logs) > 0:
+        if len(scan.configuration.parse_logs.logs) > 0:
             raise AssertionError(
                 'Scan configuration errors: \n  ' +
-                ('\n  '.join([str(log) for log in scan.scan_configuration.parse_logs.logs])))
+                ('\n  '.join([str(log) for log in scan.configuration.parse_logs.logs])))
         return scan.execute()
 
     def assertMeasurementsPresent(self, scan_result, column: str, expected_metrics_present):

@@ -10,7 +10,7 @@
 #  limitations under the License.
 from typing import List
 
-from sodasql.scan.column import Column
+from sodasql.scan.column_metadata import ColumnMetadata
 from sodasql.scan.parse_logs import ParseLogs
 from sodasql.scan.scan_configuration import ScanConfiguration
 
@@ -92,7 +92,7 @@ class Dialect:
     def sql_expr_regexp_like(self, expr: str, pattern: str):
         return f"{expr} ~* '{self.qualify_regex(pattern)}'"
 
-    def sql_expr_list(self, column: Column, values: List[str]) -> str:
+    def sql_expr_list(self, column: ColumnMetadata, values: List[str]) -> str:
         if self.is_text(column):
             sql_values = [self.literal_string(value) for value in values]
         elif self.is_number(column):
