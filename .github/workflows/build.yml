@@ -3,8 +3,8 @@ name: Build SodaSQL
 on: [ push ]
 
 jobs:
-  build-tox-local:
-    name: Build via Tox Local (Python 3.8)
+  test-postgres:
+    name: Test Postgres - Python
     timeout-minutes: 10
     runs-on: ubuntu-20.04
     strategy:
@@ -28,19 +28,16 @@ jobs:
       - name: Copy Reports Index Page
         run: |
           cp ./reports/index.html ./reports/${{ steps.extract_branch.outputs.branch }}/index.html
-      - name: Deploy Reports
-        if: always()
-        uses: peaceiris/actions-gh-pages@v3
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./reports
-          user_name: 'github-actions[bot]'
-          user_email: 'github-actions[bot]@users.noreply.github.com'
-          keep_files: true
-      - name: Run action-aws-cli@v1.1
+      - name: Setup aws-cli
         uses: chrislennon/action-aws-cli@v1.1
         env:
           ACTIONS_ALLOW_UNSECURE_COMMANDS: true
+      - name: Publish Reports
+        if: always()
+        run: aws s3 sync ./reports s3://sodasql-reports/
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_BUILD_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_BUILD_SECRET_ACCESS_KEY }}
       - name: Publish Documentation
         if: success() && contains('main master', steps.extract_branch.outputs.branch)
         run: aws s3 sync ./docs s3://sodasql-docs/
@@ -56,6 +53,7 @@ jobs:
           JOB_ID: ${{ github.job }}
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPORTS_URL: http://sodasql-reports.s3-website-eu-west-1.amazonaws.com
       - name: Notify Slack on Success
         if: success()
         run: |
@@ -65,3 +63,4 @@ jobs:
           JOB_ID: ${{ github.job }}
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPORTS_URL: http://sodasql-reports.s3-website-eu-west-1.amazonaws.com

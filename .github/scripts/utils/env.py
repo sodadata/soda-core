@@ -25,3 +25,7 @@ class ENV:
     @classmethod
     def get_project(cls):
         return os.path.basename(cls.get_variable('GITHUB_REPOSITORY'))
+
+    @classmethod
+    def get_reports_url(cls):
+        return cls.get_variable('REPORTS_URL')
