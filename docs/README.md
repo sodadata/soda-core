@@ -104,5 +104,14 @@ Sending measurements to cloud.soda.io...
 Done - Took 23.307 seconds
 ```
 
-Upload and store metrics over time on a free Soda cloud account:
+Integrate your scans with your data pipeline orchestration tool so they run right after 
+new data is produced in your dataset:
+* Airflow
+* AWS Glue
+* Prefect
+* Dagster
+* Luigi
+* ...
+
+Next, upload and store metrics over time on a free Soda cloud account:
 ![Free Soda cloud account](img/free-cloud-account.png)
