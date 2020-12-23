@@ -1,6 +1,8 @@
 # Developers
 
-## Running the test suite with tox
+## Running Tests
+
+### With Tox
 
 To run all unit tests simply execute the following command:
 
