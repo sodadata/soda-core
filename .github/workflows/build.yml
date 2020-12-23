@@ -1,4 +1,4 @@
-name: Build SodaSQL
+name: Build soda-sql
 
 on: [ push ]
 
