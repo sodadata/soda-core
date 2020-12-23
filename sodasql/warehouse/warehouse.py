@@ -11,15 +11,17 @@
 import logging
 from datetime import datetime
 
+from sodasql.scan.parse_logs import ParseLogs
 from sodasql.warehouse.dialect import Dialect
 
 
 class Warehouse:
 
     def __init__(self, warehouse_configuration: dict):
+        self.parse_logs: ParseLogs = ParseLogs()
         self.warehouse_configuration = warehouse_configuration
         self.name: str = warehouse_configuration.get('name')
-        self.dialect: Dialect = Dialect.create(warehouse_configuration)
+        self.dialect: Dialect = Dialect.create(warehouse_configuration, self.parse_logs)
         self.connection = self.dialect.create_connection()
 
     def execute_query_one(self, sql):

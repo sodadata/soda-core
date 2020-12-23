@@ -52,3 +52,8 @@ class ParseLogs:
             if log.level == ERROR or log.level == WARNING:
                 return True
         return False
+
+    def assert_no_warnings_or_errors(self, configuration_description: str):
+        if self.has_warnings_or_errors():
+            raise AssertionError(f'{configuration_description} configuration errors: \n  '
+                                 + ('\n  '.join([str(log) for log in self.logs])))

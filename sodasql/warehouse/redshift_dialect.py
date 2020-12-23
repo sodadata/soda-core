@@ -8,9 +8,56 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
+import boto3
+import psycopg2
 
+from sodasql.credentials.aws_credentials import AwsCredentials
+from sodasql.credentials.credentials_resolver import CredentialsResolver
+from sodasql.scan.parse_logs import ParseLogs
 from sodasql.warehouse.dialect import Dialect
 
 
 class RedshiftDialect(Dialect):
-    pass
+
+    def __init__(self, warehouse_configuration: dict, parse_logs: ParseLogs):
+        super().__init__()
+        self.host = warehouse_configuration.get('host', 'localhost')
+        self.port = warehouse_configuration.get('port', '5432')
+        self.username = CredentialsResolver.resolve(warehouse_configuration, 'username', parse_logs)
+        self.password = CredentialsResolver.resolve(warehouse_configuration, 'password', parse_logs)
+        self.database = warehouse_configuration.get('database')
+        self.schema = warehouse_configuration.get('schema')
+        self.aws_credentials = AwsCredentials.from_configuration(warehouse_configuration)
+
+    def create_connection(self):
+        if self.password:
+            resolved_username = self.username
+            resolved_password = self.password
+        else:
+            resolved_username, resolved_password = self.__get_cluster_credentials()
+        return psycopg2.connect(
+            user=resolved_username,
+            password=resolved_password,
+            host=self.host,
+            port=self.port,
+            database=self.database)
+
+    def __get_cluster_credentials(self):
+        resolved_aws_credentials = self.aws_credentials.resolve_role(role_session_name="SodaAgentGetClusterCredentials")
+
+        client = boto3.client('redshift',
+                              region_name=resolved_aws_credentials.region_name,
+                              aws_access_key_id=resolved_aws_credentials.access_key_id,
+                              aws_secret_access_key=resolved_aws_credentials.secret_access_key,
+                              aws_session_token=resolved_aws_credentials.session_token)
+
+        cluster_name = self.host.split('.')[0]
+        username = self.username
+        db_name = self.database
+        cluster_creds = client.get_cluster_credentials(DbUser=username,
+                                                       DbName=db_name,
+                                                       ClusterIdentifier=cluster_name,
+                                                       AutoCreate=False,
+                                                       DurationSeconds=3600)
+
+        return cluster_creds['DbUser'], cluster_creds['DbPassword']

@@ -31,6 +31,7 @@ columns:
         tests:
             - missing_percentage < 3.0
             - invalid_count == 0
+        time_schedule: * 2 * * *
     START_DATE:
         missing_values:
               - N/A

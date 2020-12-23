@@ -12,18 +12,19 @@
 import psycopg2
 
 from sodasql.credentials.credentials_resolver import CredentialsResolver
+from sodasql.scan.parse_logs import ParseLogs
 from sodasql.scan.scan_configuration import ScanConfiguration
 from sodasql.warehouse.dialect import Dialect
 
 
 class PostgresDialect(Dialect):
 
-    def __init__(self, warehouse_configuration: dict):
+    def __init__(self, warehouse_configuration: dict, parse_logs: ParseLogs):
         super().__init__()
         self.host = warehouse_configuration.get('host', 'localhost')
         self.port = warehouse_configuration.get('port', '5432')
-        self.username = CredentialsResolver.resolve(warehouse_configuration, 'username')
-        self.password = CredentialsResolver.resolve(warehouse_configuration, 'password')
+        self.username = CredentialsResolver.resolve(warehouse_configuration, 'username', parse_logs)
+        self.password = CredentialsResolver.resolve(warehouse_configuration, 'password', parse_logs)
         self.database = warehouse_configuration.get('database')
         self.schema = warehouse_configuration.get('schema')
 

@@ -8,25 +8,21 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
+from unittest import skip
 
-import os
-
-from sodasql.scan.parse_logs import ParseLogs
+from tests.all_warehouse_tests import AllWarehouseTests
 
 
-class CredentialsResolver:
+@skip('Not yet supported')
+class TestRedshift(AllWarehouseTests):
 
-    @classmethod
-    def resolve(cls, configuration_dict: dict, credentials_key: str, parse_logs: ParseLogs):
-        value = configuration_dict.get(credentials_key)
-        if value:
-            return value
+    def get_warehouse_configuration(self):
+        return {
+            'name': 'test-redshift-warehouse',
+            'type': 'redshift',
+            'host': 'TODO',
+            'port': 'TODO',
+            'username': 'sodalite',
+            'database': 'sodalite',
+            'schema': 'public'}
 
-        env_var = configuration_dict.get(credentials_key+'_env_var')
-        if env_var:
-            value = os.getenv(env_var)
-            if not value:
-                parse_logs.error(f'Environment variable {env_var} not defined')
-            return value
-
-        return None

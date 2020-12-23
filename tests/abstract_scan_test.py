@@ -41,12 +41,13 @@ class AbstractScanTest(TestCase):
             AbstractScanTest.warehouse = None
         if AbstractScanTest.warehouse is None:
             AbstractScanTest.warehouse = Warehouse(warehouse_configuration)
+            AbstractScanTest.warehouse.parse_logs.assert_no_warnings_or_errors('Test warehouse')
         self.warehouse = AbstractScanTest.warehouse
         self.connection = self.warehouse.connection
 
     def get_warehouse_configuration(self):
         return {
-            'name': 'test-postgres-store',
+            'name': 'test-postgres-warehouse',
             'type': 'postgres',
             'host': 'localhost',
             'port': '5432',
@@ -82,11 +83,8 @@ class AbstractScanTest(TestCase):
         logging.debug('Scan configuration \n'+json.dumps(scan_configuration_dict, indent=2))
 
         scan_configuration: ScanConfiguration = ScanConfiguration(scan_configuration_dict)
+        scan_configuration.parse_logs.assert_no_warnings_or_errors('Test scan')
         scan = self.warehouse.create_scan(scan_configuration)
-        if scan.configuration.parse_logs.has_warnings_or_errors():
-            raise AssertionError(
-                'Scan configuration errors: \n  ' +
-                ('\n  '.join([str(log) for log in scan.configuration.parse_logs.logs])))
         for log in scan.configuration.parse_logs.logs:
             logging.info(str(log))
         return scan.execute()

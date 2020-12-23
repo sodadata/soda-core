@@ -8,19 +8,29 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
+import logging
+from pathlib import Path
 
-# with open(f'cfg/{sql_store_name}/{table_name}/scan.yml') as f:
-#     scan_dict = yaml.load(f, Loader=yaml.FullLoader)
-#     scan_dict['table_name'] = table_name
-#     scan_configuration = ScanConfiguration(scan_dict)
+import yaml
 
-
-# with open(f'cfg/{sql_store_name}/connection.yaml') as f:
-#     connection_dict = yaml.load(f, Loader=yaml.FullLoader)
-#     logging.debug(str(connection_dict))
-#     connection_dict['name'] = sql_store_name
-#     sql_store = SqlStore.create(connection_dict)
 from sodasql.scan.parse_logs import ParseLogs
+
+
+def read_profiles():
+    user_home = str(Path.home())
+    with open(f'{user_home}/.soda/profiles.yml') as f:
+        return yaml.load(f, Loader=yaml.FullLoader)
+
+
+def read_scan_configuration(cfg_dir: str, warehouse_name: str, table_name: str):
+    from sodasql.scan.scan_configuration import ScanConfiguration
+    scan_file_name = f'{cfg_dir}/{warehouse_name}/{table_name}/scan.yaml'
+    logging.debug(f'Reading {scan_file_name}')
+    with open(scan_file_name) as f:
+        scan_dict = yaml.load(f, Loader=yaml.FullLoader)
+        scan_dict['warehouse_name'] = warehouse_name
+        scan_dict['table_name'] = table_name
+        return ScanConfiguration(scan_dict)
 
 
 def parse_int(cfg_dict: dict, key: str, parse_logs: ParseLogs, cfg_description: str, default_value: int = None):

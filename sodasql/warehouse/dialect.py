@@ -14,15 +14,21 @@ from sodasql.scan.column_metadata import ColumnMetadata
 from sodasql.scan.parse_logs import ParseLogs
 from sodasql.scan.scan_configuration import ScanConfiguration
 
+POSTGRES = 'postgres'
+REDSHIFT = 'redshift'
+
 
 class Dialect:
 
     @classmethod
-    def create(cls, warehouse_configuration: dict):
+    def create(cls, warehouse_configuration: dict, parse_logs: ParseLogs):
         warehouse_type = warehouse_configuration['type']
-        if warehouse_type == 'postgres':
+        if warehouse_type == POSTGRES:
             from sodasql.warehouse.postgres_dialect import PostgresDialect
-            return PostgresDialect(warehouse_configuration)
+            return PostgresDialect(warehouse_configuration, parse_logs)
+        if warehouse_type == REDSHIFT:
+            from sodasql.warehouse.redshift_dialect import RedshiftDialect
+            return RedshiftDialect(warehouse_configuration, parse_logs)
         else:
             raise RuntimeError(f'Unsupported sql warehouse type {warehouse_type}')
 

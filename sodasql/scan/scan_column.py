@@ -114,19 +114,19 @@ class ScanColumn:
 
     @classmethod
     def __get_valid_condition(cls, column_metadata: ColumnMetadata, validity: Validity, dialect: Dialect):
-        quoted_column_name = dialect.qualify_column_name(column_metadata.name)
+        qualified_column_name = dialect.qualify_column_name(column_metadata.name)
         if validity is None:
             return None
         validity_clauses = []
         if validity.format:
             format_regex = Validity.FORMATS.get(validity.format)
-            validity_clauses.append(dialect.sql_expr_regexp_like(quoted_column_name, format_regex))
+            validity_clauses.append(dialect.sql_expr_regexp_like(qualified_column_name, format_regex))
         if validity.regex:
-            validity_clauses.append(dialect.sql_expr_regexp_like(quoted_column_name, validity.regex))
+            validity_clauses.append(dialect.sql_expr_regexp_like(qualified_column_name, validity.regex))
         if validity.min_length:
-            validity_clauses.append(f'{dialect.sql_expr_length(quoted_column_name)} >= {validity.min_length}')
+            validity_clauses.append(f'{dialect.sql_expr_length(qualified_column_name)} >= {validity.min_length}')
         if validity.max_length:
-            validity_clauses.append(f'{dialect.sql_expr_length(quoted_column_name)} <= {validity.max_length}')
+            validity_clauses.append(f'{dialect.sql_expr_length(qualified_column_name)} <= {validity.max_length}')
         # TODO add min and max clauses
         return '(' + ' AND '.join(validity_clauses) + ')'
 
