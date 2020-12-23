@@ -1,15 +1,16 @@
 # soda-sql
 
-SQL data monitoring for engineers 
+SQL-based data monitoring for Data Engineers
 
-Full control for data engineers
  * Configure what metrics should be computed 
+ * Stop your data pipeline based on metric tests
  * Add metric configuration files to your version control system
  * Add custom SQL query metrics
- * Stop your data pipeline based on metric tests
+ * Collaborate with Analysts and other data roles in your company 
 
 Configure the default metrics for all columns in a dataset (=table)
-`./my_warehouse/my_dataset/scan.yaml` :
+
+`my_warehouse/my_dataset/scan.yaml` :
 ```yaml
 metrics:
     - missing_count, 
@@ -55,7 +56,8 @@ columns:
 ```
 
 Add custom SQL query metrics
-`./my_warehouse/my_dataset/customers_with_expired_zip_code.yaml` :
+
+`my_warehouse/my_dataset/customers_with_expired_zip_code.yaml` :
 ```yaml
 id: customers_with_expired_zip_code
 name: Customers with expired zip code
@@ -63,9 +65,9 @@ type: failed_rows
 sql: |
 
 SELECT
-    MD.id,
-    MD.name,
-    MD.zipcode,
+  MD.id,
+  MD.name,
+  MD.zipcode,
 FROM my_dataset as MD
   JOIN zip_codes as ZC on MD.zipcode = ZC.code
 WHERE ZC.date_expired IS NOT NULL
@@ -113,5 +115,6 @@ new data is produced in your dataset:
 * Luigi
 * ...
 
-Next, upload and store metrics over time on a free Soda cloud account:
+Next, upload and store metrics over time on a free Soda cloud account and 
+add anomaly detection (coming soon):
 ![Free Soda cloud account](img/free-cloud-account.png)

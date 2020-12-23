@@ -11,7 +11,7 @@
 
 import logging
 from math import floor, ceil
-from typing import List
+from typing import List, Optional
 
 from sodasql.scan.column_metadata import ColumnMetadata
 from sodasql.scan.custom_metric import CustomMetric
@@ -39,6 +39,9 @@ class Scan:
         self.configuration: ScanConfiguration = scan_configuration
         self.custom_metrics: List[CustomMetric] = custom_metrics
 
+        # caches measurements that are not yet sent to soda and not yet added to self.scan_result
+        # see also self.flush_measurements()
+        self.measurements = []
         self.scan_result = ScanResult()
 
         self.qualified_table_name = self.dialect.qualify_table_name(scan_configuration.table_name)
@@ -61,47 +64,44 @@ class Scan:
         assert self.warehouse.name, 'warehouse.name is required'
         assert self.configuration.table_name, 'scan_configuration.table_name is required'
 
-        self.columns: List[ColumnMetadata] = self.query_columns_metadata()
-        self.column_names: List[str] = [column_metadata.name for column_metadata in self.columns]
+        self.query_columns_metadata()
+        self.flush_measurements()
 
-        schema_measurements = [Measurement(Metric.SCHEMA, value=self.columns)]
-        self.add_measurements(schema_measurements)
+        self.query_aggregations()
+        self.flush_measurements()
 
-        self.scan_columns: dict = \
-            {column.name: ScanColumn(self, column) for column in self.columns}
+        self.query_group_by_value()
+        self.flush_measurements()
 
-        aggregation_measurements: List[Measurement] = \
-            self.query_aggregations()
-        self.add_measurements(aggregation_measurements)
+        self.query_histograms()
+        self.flush_measurements()
 
-        group_by_measurements: List[Measurement] = \
-            self.query_group_by_value()
-        self.add_measurements(group_by_measurements)
-
-        histogram_measurements: List[Measurement] = \
-            self.query_histograms()
-        self.add_measurements(histogram_measurements)
-
-        test_results: List[TestResult] = self.run_tests()
-        self.scan_result.test_results.extend(test_results)
+        self.run_tests()
 
         return self.scan_result
 
-    def query_columns_metadata(self) -> List[ColumnMetadata]:
+    def query_columns_metadata(self):
         sql = self.warehouse.dialect.sql_columns_metadata_query(self.configuration)
         column_tuples = self.warehouse.execute_query_all(sql)
-        columns = []
+        self.columns = []
         for column_tuple in column_tuples:
             name = column_tuple[0]
             type = column_tuple[1]
             nullable = 'YES' == column_tuple[2].upper()
-            columns.append(ColumnMetadata(name, type, nullable))
-        logging.debug(str(len(columns))+' columns:')
-        for column in columns:
+            self.columns.append(ColumnMetadata(name, type, nullable))
+        logging.debug(str(len(self.columns))+' columns:')
+        for column in self.columns:
             logging.debug(f'  {column.name} {column.type} {"" if column.nullable else "not null"}')
-        return columns
 
-    def query_aggregations(self) -> List[Measurement]:
+        self.column_names: List[str] = [column_metadata.name for column_metadata in self.columns]
+        self.scan_columns: dict = {column.name: ScanColumn(self, column) for column in self.columns}
+
+        self.add_query(Measurement(Metric.SCHEMA, value=self.columns))
+
+    def query_aggregations(self):
+        # This measurements list is used to match measurements with the query field order.
+        # After query execution, the value of the measurements will be extracted from the query result and
+        # the measurements will be added with self.add_query(measurement)
         measurements: List[Measurement] = []
 
         fields: List[str] = []
@@ -180,7 +180,7 @@ class Scan:
         for i in range(0, len(measurements)):
             measurement = measurements[i]
             measurement.value = query_result_tuple[i]
-            logging.debug(f'Query measurement: {measurement}')
+            self.add_query(measurement)
 
         # Calculating derived measurements
         derived_measurements = []
@@ -193,9 +193,9 @@ class Scan:
                 missing_percentage = missing_count * 100 / row_count
                 values_count = row_count - missing_count
                 values_percentage = values_count * 100 / row_count
-                derived_measurements.append(Measurement(Metric.MISSING_PERCENTAGE, column_name, missing_percentage))
-                derived_measurements.append(Measurement(Metric.VALUES_COUNT, column_name, values_count))
-                derived_measurements.append(Measurement(Metric.VALUES_PERCENTAGE, column_name, values_percentage))
+                self.add_derived(Measurement(Metric.MISSING_PERCENTAGE, column_name, missing_percentage))
+                self.add_derived(Measurement(Metric.VALUES_COUNT, column_name, values_count))
+                self.add_derived(Measurement(Metric.VALUES_PERCENTAGE, column_name, values_percentage))
 
                 valid_index = metric_indices.get('valid')
                 if valid_index is not None:
@@ -203,20 +203,11 @@ class Scan:
                     invalid_count = row_count - missing_count - valid_count
                     invalid_percentage = invalid_count * 100 / row_count
                     valid_percentage = valid_count * 100 / row_count
-                    derived_measurements.append(Measurement(Metric.INVALID_PERCENTAGE, column_name, invalid_percentage))
-                    derived_measurements.append(Measurement(Metric.INVALID_COUNT, column_name, invalid_count))
-                    derived_measurements.append(Measurement(Metric.VALID_PERCENTAGE, column_name, valid_percentage))
-
-        for derived_measurement in derived_measurements:
-            logging.debug(f'Derived measurement: {derived_measurement}')
-
-        measurements.extend(derived_measurements)
-
-        return measurements
+                    self.add_derived(Measurement(Metric.INVALID_PERCENTAGE, column_name, invalid_percentage))
+                    self.add_derived(Measurement(Metric.INVALID_COUNT, column_name, invalid_count))
+                    self.add_derived(Measurement(Metric.VALID_PERCENTAGE, column_name, valid_percentage))
 
     def query_group_by_value(self):
-        measurements: List[Measurement] = []
-
         for column_name in self.column_names:
             scan_column: ScanColumn = self.scan_columns[column_name]
 
@@ -232,26 +223,21 @@ class Scan:
 
                     sql = (f'{group_by_cte} \n'
                            f'SELECT COUNT(*), \n'
-                           f'       COUNT(CASE WHEN frequency = 1 THEN 1 END) \n'
+                           f'       COUNT(CASE WHEN frequency = 1 THEN 1 END), \n'
+                           f'       SUM(frequency) \n'
                            f'FROM group_by_value')
 
                     query_result_tuple = self.warehouse.execute_query_one(sql)
                     distinct_count = query_result_tuple[0]
-                    measurement = Measurement(Metric.DISTINCT, column_name, distinct_count)
-                    measurements.append(measurement)
-                    logging.debug(f'Query measurement: {measurement}')
-
                     unique_count = query_result_tuple[1]
-                    measurement = Measurement(Metric.UNIQUE_COUNT, column_name, unique_count)
-                    measurements.append(measurement)
-                    logging.debug(f'Query measurement: {measurement}')
-
-                    # uniqueness
-                    valid_count = self.scan_result.get(Metric.VALID_COUNT, column_name)
+                    valid_count = query_result_tuple[2]
+                    duplicate_count = distinct_count - unique_count
                     uniqueness = (distinct_count - 1) * 100 / (valid_count - 1)
-                    measurement = Measurement(Metric.UNIQUENESS, column_name, uniqueness)
-                    measurements.append(measurement)
-                    logging.debug(f'Derived measurement: {measurement}')
+
+                    self.add_query(Measurement(Metric.DISTINCT, column_name, distinct_count))
+                    self.add_query(Measurement(Metric.UNIQUE_COUNT, column_name, unique_count))
+                    self.add_derived(Measurement(Metric.DUPLICATE_COUNT, column_name, duplicate_count))
+                    self.add_derived(Measurement(Metric.UNIQUENESS, column_name, uniqueness))
 
                 if scan_column.is_metric_enabled(Metric.MINS) and scan_column.numeric_expr is not None:
 
@@ -262,9 +248,8 @@ class Scan:
                            f'LIMIT {scan_column.mins_maxs_limit} \n')
 
                     rows = self.warehouse.execute_query_all(sql)
-                    measurement = Measurement(Metric.MINS, column_name, [row[0] for row in rows])
-                    measurements.append(measurement)
-                    logging.debug(f'Query measurement: {measurement}')
+                    mins = [row[0] for row in rows]
+                    self.add_query(Measurement(Metric.MINS, column_name, mins))
 
                 if self.configuration.is_metric_enabled(column_name, Metric.MAXS) \
                         and (scan_column.is_number or scan_column.is_column_numeric_text_format):
@@ -276,9 +261,8 @@ class Scan:
                            f'LIMIT {scan_column.mins_maxs_limit} \n')
 
                     rows = self.warehouse.execute_query_all(sql)
-                    measurement = Measurement(Metric.MAXS, column_name, [row[0] for row in rows])
-                    measurements.append(measurement)
-                    logging.debug(f'Query measurement: {measurement}')
+                    maxs = [row[0] for row in rows]
+                    self.add_query(Measurement(Metric.MAXS, column_name, maxs))
 
                 if self.configuration.is_metric_enabled(column_name, Metric.FREQUENT_VALUES) \
                         and (scan_column.is_number or scan_column.is_column_numeric_text_format):
@@ -291,16 +275,10 @@ class Scan:
                            f'LIMIT {frequent_values_limit} \n')
 
                     rows = self.warehouse.execute_query_all(sql)
-                    measurement = Measurement(Metric.FREQUENT_VALUES, column_name, [row[0] for row in rows])
-                    measurements.append(measurement)
-                    logging.debug(f'Query measurement: {measurement}')
-
-        return measurements
+                    frequent_values = [row[0] for row in rows]
+                    self.add_query(Measurement(Metric.FREQUENT_VALUES, column_name, frequent_values))
 
     def query_histograms(self):
-
-        measurements: List[Measurement] = []
-
         for column_name in self.column_names:
             scan_column: ScanColumn = self.scan_columns[column_name]
 
@@ -352,13 +330,12 @@ class Scan:
                         'frequencies': frequencies
                     }
 
-                    measurement = Measurement(Metric.HISTOGRAM, column_name, histogram)
-                    measurements.append(measurement)
-                    logging.debug(f'Query measurement: {measurement}')
-        return measurements
+                    self.add_query(Measurement(Metric.HISTOGRAM, column_name, histogram))
 
     def run_tests(self):
         test_results = []
+        self.scan_result.test_results = test_results
+
         for column_name in self.column_names:
             scan_column: ScanColumn = self.scan_columns[column_name]
             tests = scan_column.get_tests()
@@ -373,10 +350,20 @@ class Scan:
                                    metric in test}
                     test_outcome = True if eval(test, test_values) else False
                     test_results.append(TestResult(test_outcome, test, test_values, column_name))
-        return test_results
 
-    def add_measurements(self, measurements):
-        if measurements:
-            self.scan_result.measurements.extend(measurements)
+    def add_query(self, measurement: Measurement):
+        return self.add_measurement('Query', measurement)
+
+    def add_derived(self, measurement: Measurement):
+        return self.add_measurement('Derived', measurement)
+
+    def add_measurement(self, measurement_type: str, measurement: Measurement):
+        self.measurements.append(measurement)
+        logging.debug(f'{measurement_type} measurement: {measurement}')
+
+    def flush_measurements(self):
+        if len(self.measurements) > 0:
+            self.scan_result.measurements.extend(self.measurements)
             if self.soda_client:
-                self.soda_client.send_measurements(self.scan_reference, measurements)
+                self.soda_client.send_measurements(self.scan_reference, self.measurements)
+            self.measurements = []

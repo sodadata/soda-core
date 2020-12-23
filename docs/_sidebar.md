@@ -1,3 +1,6 @@
-* [Configuration](configuration.md)
+* [Getting started](getting_started.md)
 * [CLI](cli.md) 
+* [Profile configuration](profile_configuration.md)
+* [Scan configuration](scan_configuration.md)
+* [Custom SQL metric](custom_sql_metric.md)
 * [Developers](developers.md)

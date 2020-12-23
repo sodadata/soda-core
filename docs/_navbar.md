@@ -1,1 +1,1 @@
-[![Soda Logo](./img/soda-logo.svg)](https://www.soda.io/)
+[![Soda Logo](./img/soda-logo.svg ':size=70')](https://www.soda.io/)
