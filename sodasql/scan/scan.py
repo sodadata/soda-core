@@ -10,9 +10,8 @@
 #  limitations under the License.
 
 import logging
-import uuid
 from math import floor, ceil
-from typing import List, Optional
+from typing import List
 
 from sodasql.scan.column_metadata import ColumnMetadata
 from sodasql.scan.custom_metric import CustomMetric
@@ -33,7 +32,7 @@ class Scan:
                  warehouse: Warehouse,
                  scan_configuration: ScanConfiguration = None,
                  custom_metrics: List[CustomMetric] = None,
-                 time: dict = None,
+                 timeslice: str = None,
                  soda_client: SodaClient = None):
         self.soda_client: SodaClient = soda_client
         self.warehouse: Warehouse = warehouse
@@ -55,8 +54,7 @@ class Scan:
         self.scan_reference = {
             'warehouseName': self.warehouse.name,
             'tableName': self.configuration.table_name,
-            'scanId': str(uuid.uuid1()),
-            'time': time
+            'timeslice': timeslice
         }
 
         self.columns: List[ColumnMetadata] = []
@@ -369,5 +367,6 @@ class Scan:
         if len(self.measurements) > 0:
             self.scan_result.measurements.extend(self.measurements)
             if self.soda_client:
-                self.soda_client.send_measurements(self.scan_reference, self.measurements)
+                measurements_json = [measurement.to_json() for measurement in self.measurements]
+                self.soda_client.send_measurements(self.scan_reference, measurements_json)
             self.measurements = []

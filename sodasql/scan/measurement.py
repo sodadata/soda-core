@@ -25,3 +25,16 @@ class Measurement:
         return self.metric + \
                (f'({self.column_name})' if self.column_name else '') + \
                ('' if self.value is None else ' = '+(', '.join([str(e) for e in self.value]) if isinstance(self.value, list) else str(self.value)))
+
+    def to_json(self):
+        if self.column_name is not None:
+            return {
+                'metric': self.metric,
+                'columnName': self.column_name,
+                'value': self.value
+            }
+        else:
+            return {
+                'metric': self.metric,
+                'value': self.value
+            }
