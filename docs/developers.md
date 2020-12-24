@@ -1,16 +1,20 @@
 # Developers
 
-## Running Tests
+## Test Postgres DB
 
-### With Tox
+Tests in the default test suite need a Postgres DB running.
+
+Start the postgres test container with `scripts/start_test_postgres_db.sh`
+
+## Running Tests with Tox
+
+Tox will start a Postgres database as a docker image and stop it after the tests are finished.
 
 To run all unit tests simply execute the following command:
 
 ```
 $ tox
 ```
-
-Tox will start a Postgres database as a docker image and stop it after the tests are finished.
 
 You may also pass extra parameters. This shows everything written to the standard output (even if tests don't fail):
 

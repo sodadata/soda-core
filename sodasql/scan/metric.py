@@ -11,9 +11,6 @@
 
 class Metric:
 
-    CATEGORY_MISSING = 'missing'
-    CATEGORY_VALIDITY = 'validity'
-
     ROW_COUNT = 'row_count'
     SCHEMA = 'schema'
 
@@ -43,6 +40,15 @@ class Metric:
     FREQUENT_VALUES = 'frequent_values'
     HISTOGRAM = 'histogram'
 
+    CATEGORY_MISSING = 'missing'
+    CATEGORY_MISSING_METRICS = [MISSING_COUNT, MISSING_PERCENTAGE, VALUES_COUNT, VALUES_PERCENTAGE]
+
+    CATEGORY_VALIDITY = 'validity'
+    CATEGORY_VALIDITY_METRICS = [VALID_COUNT, VALID_PERCENTAGE, INVALID_COUNT, INVALID_PERCENTAGE]
+
+    CATEGORY_DISTINCT = 'distinct'
+    CATEGORY_DISTINCT_METRICS = [DISTINCT, UNIQUE_COUNT, UNIQUENESS, DUPLICATE_COUNT]
+
     METRIC_TYPES = [
         MISSING_COUNT,
         MISSING_PERCENTAGE,
@@ -62,7 +68,9 @@ class Metric:
         MAX_LENGTH,
         AVG_LENGTH,
         DISTINCT,
+        UNIQUE_COUNT,
         UNIQUENESS,
+        DUPLICATE_COUNT,
         MAXS,
         MINS,
         FREQUENT_VALUES,

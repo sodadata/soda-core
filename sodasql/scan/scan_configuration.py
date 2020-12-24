@@ -31,34 +31,43 @@ def ensure_metric(metrics: List[str],
                   column_name: str = None):
     if metric not in metrics:
         metrics.append(metric)
-        column_message = f' and column {column_name}' if column_name else ''
-        parse_logs.info(f'Added metric {metric} for metric {dependent_metric}{column_message}')
+        column_message = f' on column {column_name}' if column_name else ''
+        parse_logs.info(f'Added metric {metric} as dependency of {dependent_metric}{column_message}')
+
+
+def is_metric_category_enabled(metrics: List[str], category: str, category_metrics: List[str]):
+    if category in metrics:
+        return True
+    for category_metric in category_metrics:
+        if category_metric in metrics:
+            return True
+    return False
+
+
+def resolve_category(metrics: List[str],
+                     category: str,
+                     category_metrics: List[str],
+                     parse_logs: ParseLogs,
+                     column_name: str = None):
+    if is_metric_category_enabled(metrics, category, category_metrics):
+        if category in metrics:
+            metrics.remove(category)
+        for category_metric in category_metrics:
+            ensure_metric(metrics, category_metric, category, parse_logs, column_name)
 
 
 def resolve_metrics(metrics: List[str],
                     parse_logs: ParseLogs,
                     column_name: str = None):
-    resolved_metrics = metrics
-
-    if Metric.CATEGORY_MISSING in metrics:
-        resolved_metrics = [metric for metric in metrics if metric != Metric.CATEGORY_MISSING]
-        ensure_metric(resolved_metrics, Metric.MISSING_COUNT, Metric.CATEGORY_MISSING, parse_logs, column_name)
-        ensure_metric(resolved_metrics, Metric.MISSING_PERCENTAGE, Metric.CATEGORY_MISSING, parse_logs, column_name)
-        ensure_metric(resolved_metrics, Metric.VALUES_COUNT, Metric.CATEGORY_MISSING, parse_logs, column_name)
-        ensure_metric(resolved_metrics, Metric.VALUES_PERCENTAGE, Metric.CATEGORY_MISSING, parse_logs, column_name)
-
-    if Metric.CATEGORY_VALIDITY in metrics:
-        resolved_metrics = [metric for metric in metrics if metric != Metric.CATEGORY_VALIDITY]
-        ensure_metric(resolved_metrics, Metric.INVALID_COUNT, Metric.CATEGORY_VALIDITY, parse_logs, column_name)
-        ensure_metric(resolved_metrics, Metric.INVALID_PERCENTAGE, Metric.CATEGORY_VALIDITY, parse_logs, column_name)
-        ensure_metric(resolved_metrics, Metric.VALID_COUNT, Metric.CATEGORY_VALIDITY, parse_logs, column_name)
-        ensure_metric(resolved_metrics, Metric.VALID_PERCENTAGE, Metric.CATEGORY_VALIDITY, parse_logs, column_name)
+    resolve_category(metrics, Metric.CATEGORY_MISSING, Metric.CATEGORY_MISSING_METRICS, parse_logs, column_name)
+    resolve_category(metrics, Metric.CATEGORY_VALIDITY, Metric.CATEGORY_VALIDITY_METRICS, parse_logs, column_name)
+    resolve_category(metrics, Metric.CATEGORY_DISTINCT, Metric.CATEGORY_DISTINCT_METRICS, parse_logs, column_name)
 
     if Metric.HISTOGRAM in metrics:
-        ensure_metric(resolved_metrics, Metric.MIN, Metric.HISTOGRAM, parse_logs, column_name)
-        ensure_metric(resolved_metrics, Metric.MAX, Metric.HISTOGRAM, parse_logs, column_name)
+        ensure_metric(metrics, Metric.MIN, Metric.HISTOGRAM, parse_logs, column_name)
+        ensure_metric(metrics, Metric.MAX, Metric.HISTOGRAM, parse_logs, column_name)
 
-    return resolved_metrics
+    return metrics
 
 
 class ScanConfiguration:

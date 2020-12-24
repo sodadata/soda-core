@@ -10,6 +10,7 @@
 #  limitations under the License.
 
 import logging
+import uuid
 from math import floor, ceil
 from typing import List, Optional
 
@@ -32,6 +33,7 @@ class Scan:
                  warehouse: Warehouse,
                  scan_configuration: ScanConfiguration = None,
                  custom_metrics: List[CustomMetric] = None,
+                 time: dict = None,
                  soda_client: SodaClient = None):
         self.soda_client: SodaClient = soda_client
         self.warehouse: Warehouse = warehouse
@@ -51,10 +53,12 @@ class Scan:
             else ''
 
         self.scan_reference = {
-            'warehouse': self.warehouse.name,
-            'table_name': self.configuration.table_name,
-            'scan_id': 'TODO-generate-an-ID'
+            'warehouseName': self.warehouse.name,
+            'tableName': self.configuration.table_name,
+            'scanId': str(uuid.uuid1()),
+            'time': time
         }
+
         self.columns: List[ColumnMetadata] = []
         self.column_names: List[str] = []
         # maps column names to ScanColumn's
@@ -213,13 +217,13 @@ class Scan:
 
             if scan_column.is_any_metric_enabled([
                     Metric.DISTINCT, Metric.UNIQUENESS, Metric.UNIQUE_COUNT,
-                    Metric.MINS, Metric.MAXS, Metric.FREQUENT_VALUES]):
+                    Metric.MINS, Metric.MAXS, Metric.FREQUENT_VALUES, Metric.DUPLICATE_COUNT]):
 
                 group_by_cte = scan_column.get_group_by_cte()
                 numeric_value_expr = scan_column.get_group_by_cte_numeric_value_expression()
 
                 if self.configuration.is_any_metric_enabled(column_name, [
-                        Metric.DISTINCT, Metric.UNIQUENESS, Metric.UNIQUE_COUNT]):
+                        Metric.DISTINCT, Metric.UNIQUENESS, Metric.UNIQUE_COUNT, Metric.DUPLICATE_COUNT]):
 
                     sql = (f'{group_by_cte} \n'
                            f'SELECT COUNT(*), \n'

@@ -41,5 +41,10 @@ class TestDistinct(AbstractScanTest):
         })
 
         self.assertEqual(scan_result.get(Metric.DISTINCT, 'score'), 5)
+        self.assertEqual(scan_result.get(Metric.UNIQUE_COUNT, 'score'), 2)
+
         # (5 - 1) * 100 / (10 valid values - 1)
-        self.assertEqual(scan_result.get(Metric.UNIQUENESS, 'score'), 40.0)
+        self.assertEqual(scan_result.get(Metric.UNIQUENESS, 'score'), 40)
+
+        # values 2, 3 and 4 occur multiple times -> 3 duplicates
+        self.assertEqual(scan_result.get(Metric.DUPLICATE_COUNT, 'score'), 3)

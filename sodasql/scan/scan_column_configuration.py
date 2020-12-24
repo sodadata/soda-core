@@ -81,9 +81,9 @@ class ScanColumnConfiguration:
         parse_logs.warning_invalid_elements(
             self.metrics,
             Metric.METRIC_TYPES,
-            f'Invalid columns.{column_name} metric')
+            f'Invalid metric in column {column_name}')
 
         parse_logs.warning_invalid_elements(
             column_dict.keys(),
             self.ALL_KEYS,
-            f'Invalid key in columns.{column_name}')
+            f'Invalid configuration key in scan columns {column_name}')
