@@ -36,8 +36,8 @@ class SqlTestCase(TestCase):
         super().__init__(method_name)
         self.connection = None
         EnvVarsHelper.load_test_environment_properties()
-        self.profile_name = os.getenv('profile', 'test')
-        self.profile_target_name = os.getenv('target', 'local_postgres')
+        self.profile_name = os.getenv('SODA_TEST_PROFILE', 'test')
+        self.profile_target_name = os.getenv('SODA_TEST_TARGET', 'local_postgres')
 
     def setUp(self) -> None:
         logging.debug(f'\n\n--- {str(self)} ---')

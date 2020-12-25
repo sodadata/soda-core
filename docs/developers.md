@@ -33,6 +33,12 @@ on anything else except the python interpreter
 run this test suite you have to configure the credentials in `~/.soda/profiles.yml`.  If 
 the file does not exist, an initial default version will be created.
 
+## Running tests in your IDE
+
+If you want to run sql tests on a different warehouse than postgres, use 
+environment variable `SODA_TEST_TARGET` or use `tests/.env`  
+See `tests/.env_example` for more details
+
 ## Running Tests with Tox
 
 Tox will start a Postgres database as a docker image and stop it after the tests are finished.
