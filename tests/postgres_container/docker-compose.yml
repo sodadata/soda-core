@@ -7,6 +7,6 @@ services:
     volumes:
       - ./.postgres/:/var/lib/postgresql/data
     environment:
-      - POSTGRES_USER=sodalite
-      - POSTGRES_DB=sodalite
+      - POSTGRES_USER=sodasql
+      - POSTGRES_DB=sodasql
       - POSTGRES_HOST_AUTH_METHOD=trust

@@ -2,4 +2,9 @@
 
 # Run this from the root project dir with scripts/start_postgres_container.sh
 
+# POSTGRES_DATA_DIR=./tests/postgres_container/.postgres
+# if [ -d "$POSTGRES_DATA_DIR" ]; then
+#   rm -rf "$POSTGRES_DATA_DIR"
+# fi
+
 ( cd tests/postgres_container ; docker-compose up )

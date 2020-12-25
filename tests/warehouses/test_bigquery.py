@@ -8,7 +8,6 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-from unittest import skip
 
 from tests.common.all_warehouse_tests import AllWarehouseTests
 
@@ -16,4 +15,4 @@ from tests.common.all_warehouse_tests import AllWarehouseTests
 class TestRedshift(AllWarehouseTests):
 
     def get_test_profile_target(self):
-        return 'redshift'
+        return 'bigquery'

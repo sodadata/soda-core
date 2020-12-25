@@ -13,7 +13,7 @@ from sodasql.scan.metric import Metric
 from tests.common.sql_test_case import SqlTestCase
 
 
-class TestMinMaxLength(SqlTestCase):
+class TestMinsMaxs(SqlTestCase):
 
     table_name = 'test_table'
 

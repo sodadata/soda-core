@@ -21,7 +21,7 @@ class Profile:
 
     def __init__(self, profile_name: str = 'default', target: str = None):
         self.parse_logs: ParseLogs = ParseLogs()
-        self.properties = {}
+        self.configuration: dict = {}
 
         profiles_yaml_dict = self.__read_profiles_yaml_dict()
         if profiles_yaml_dict:
@@ -32,7 +32,7 @@ class Profile:
                     if target is None:
                         target = self.__get(profile, f'profile {profile_name}', 'target', dict)
                     if target is not None:
-                        self.properties = self.__get(outputs, f'outputs.{target}', target, dict)
+                        self.configuration = self.__get(outputs, f'outputs.{target}', target, dict)
 
     def __read_profiles_yaml_dict(self):
         try:
