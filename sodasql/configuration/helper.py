@@ -16,11 +16,6 @@ import yaml
 from sodasql.scan.parse_logs import ParseLogs
 
 
-def read_profiles():
-    user_home = str(Path.home())
-    with open(f'{user_home}/.soda/profiles.yml') as f:
-        return yaml.load(f, Loader=yaml.FullLoader)
-
 
 def read_scan_configuration(cfg_dir: str, warehouse_name: str, table_name: str):
     from sodasql.scan.scan_configuration import ScanConfiguration

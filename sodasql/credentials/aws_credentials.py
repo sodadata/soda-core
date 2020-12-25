@@ -30,10 +30,10 @@ class AwsCredentials:
     @classmethod
     def from_configuration(cls, configuration: dict):
         return AwsCredentials(
-            access_key_id=configuration.get('accessKeyId'),
-            secret_access_key=configuration.get('secretAccessKey'),
-            role_arn=configuration.get('roleArn'),
-            session_token=configuration.get('sessionToken'),
+            access_key_id=configuration.get('access_key_id'),
+            secret_access_key=configuration.get('secret_access_key'),
+            role_arn=configuration.get('role_arn'),
+            session_token=configuration.get('session_token'),
             region_name=configuration.get('region', 'eu-west-1'))
 
     def resolve_role(self, role_session_name: str):

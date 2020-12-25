@@ -8,10 +8,9 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-from unittest import skip
 
 from sodasql.scan.metric import Metric
-from tests.abstract_scan_test import AbstractScanTest
+from tests.common.abstract_scan_test import AbstractScanTest
 
 
 class TestDistinct(AbstractScanTest):

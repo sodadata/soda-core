@@ -8,10 +8,14 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-from tests.test_frequent_values import TestFrequentValues
-from tests.test_histogram_numeric import TestHistogramNumeric
-from tests.test_min_max_length import TestMinMaxLength
+from unittest import skip
+
+from tests.common.all_warehouse_tests import AllWarehouseTests
 
 
-class AllWarehouseTests(TestHistogramNumeric, TestFrequentValues, TestMinMaxLength):
-    pass
+class TestRedshift(AllWarehouseTests):
+
+    def __init__(self, method_name: str = ...) -> None:
+        super().__init__(method_name)
+        self.profile_name = 'test'
+        self.profile_target_name = 'redshift'

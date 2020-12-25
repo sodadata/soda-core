@@ -8,21 +8,10 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-from unittest import skip
+from tests.local.sql.test_frequent_values import TestFrequentValues
+from tests.local.sql.test_histogram_numeric import TestHistogramNumeric
+from tests.local.sql.test_min_max_length import TestMinMaxLength
 
-from tests.all_warehouse_tests import AllWarehouseTests
 
-
-@skip('Not yet supported')
-class TestRedshift(AllWarehouseTests):
-
-    def get_warehouse_configuration(self):
-        return {
-            'name': 'test-redshift-warehouse',
-            'type': 'redshift',
-            'host': 'TODO',
-            'port': 'TODO',
-            'username': 'sodalite',
-            'database': 'sodalite',
-            'schema': 'public'}
-
+class AllWarehouseTests(TestHistogramNumeric, TestFrequentValues, TestMinMaxLength):
+    pass

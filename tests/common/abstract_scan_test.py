@@ -10,12 +10,17 @@
 #  limitations under the License.
 import json
 import logging
+import os
 from typing import List
 from unittest import TestCase
 
+import yaml
+
+from sodasql.profiles.profiles import Profile
 from sodasql.scan.scan_configuration import ScanConfiguration
 from sodasql.scan.scan_result import ScanResult
-from tests.logging_helper import LoggingHelper
+from tests.common.env_vars_helper import EnvVarsHelper
+from tests.common.logging_helper import LoggingHelper
 from sodasql.warehouse.warehouse import Warehouse
 
 
@@ -30,6 +35,9 @@ class AbstractScanTest(TestCase):
     def __init__(self, method_name: str = ...) -> None:
         super().__init__(method_name)
         self.connection = None
+        EnvVarsHelper.load_test_environment_properties()
+        self.profile_name = os.getenv('profile', 'test')
+        self.profile_target_name = os.getenv('target', 'local_postgres')
 
     def setUp(self) -> None:
         logging.debug(f'\n\n--- {str(self)} ---')
@@ -46,14 +54,38 @@ class AbstractScanTest(TestCase):
         self.connection = self.warehouse.connection
 
     def get_warehouse_configuration(self):
-        return {
-            'name': 'test-postgres-warehouse',
-            'type': 'postgres',
-            'host': 'localhost',
-            'port': '5432',
-            'username': 'sodalite',
-            'database': 'sodalite',
-            'schema': 'public'}
+        if self.profile_name == 'test' and self.profile_target_name == 'local_postgres':
+            return {
+                'name': 'test_postgres_warehouse',
+                'type': 'postgres',
+                'host': 'localhost',
+                'port': '5432',
+                'username': 'sodalite',
+                'database': 'sodalite',
+                'schema': 'public'}
+        profile = Profile(self.profile_name, self.profile_target_name)
+        if profile.parse_logs.has_warnings_or_errors() and 'No such file or directory' in profile.parse_logs.logs[0].message:
+            logging.error(f'{Profile.USER_HOME_PROFILES_YAML_LOCATION} not found, creating default initial version...')
+            initial_profile = {
+                'test': {
+                    'target': 'redshift',
+                    'outputs': {
+                        'redshift': {
+                            'type': 'redshift',
+                            'host': '***',
+                            'port': '5439',
+                            'username': '***',
+                            'database': '***',
+                            'schema': 'public'}
+                        }}}
+            with open(Profile.USER_HOME_PROFILES_YAML_LOCATION, 'w') as yaml_file:
+                yaml.dump(initial_profile, yaml_file, default_flow_style=False)
+            raise AssertionError(f'{Profile.USER_HOME_PROFILES_YAML_LOCATION} not found. '
+                                 f'Default initial version was created. '
+                                 f'Update credentials  for profile {self.profile_name}, '
+                                 f'target {self.profile_target_name} in that file and retry.')
+        profile.parse_logs.assert_no_warnings_or_errors(Profile.USER_HOME_PROFILES_YAML_LOCATION)
+        return profile.properties
 
     def tearDown(self) -> None:
         self.connection.rollback()

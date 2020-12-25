@@ -9,7 +9,7 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 from sodasql.scan.metric import Metric
-from tests.abstract_scan_test import AbstractScanTest
+from tests.common.abstract_scan_test import AbstractScanTest
 
 
 class TestSchema(AbstractScanTest):
