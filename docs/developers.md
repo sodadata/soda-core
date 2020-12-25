@@ -1,6 +1,6 @@
 # Developers
 
-## scripts
+## Scripts
 
 `scripts` directory contains convenience scripts for developers.
 
