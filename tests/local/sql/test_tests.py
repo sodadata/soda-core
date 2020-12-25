@@ -9,10 +9,10 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
-from tests.common.abstract_scan_test import AbstractScanTest
+from tests.common.sql_test_case import SqlTestCase
 
 
-class TestTests(AbstractScanTest):
+class TestTests(SqlTestCase):
 
     def test_tests(self):
         self.create_table(

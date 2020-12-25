@@ -10,10 +10,10 @@
 #  limitations under the License.
 
 from sodasql.scan.metric import Metric
-from tests.common.abstract_scan_test import AbstractScanTest
+from tests.common.sql_test_case import SqlTestCase
 
 
-class TestStatisticalMetrics(AbstractScanTest):
+class TestStatisticalMetrics(SqlTestCase):
 
     def test_scan_statistical_metrics(self):
         self.create_table(

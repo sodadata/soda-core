@@ -10,10 +10,10 @@
 #  limitations under the License.
 
 from sodasql.scan.metric import Metric
-from tests.common.abstract_scan_test import AbstractScanTest
+from tests.common.sql_test_case import SqlTestCase
 
 
-class TestHistogramNumeric(AbstractScanTest):
+class TestHistogramNumeric(SqlTestCase):
 
     table_name = 'test_table'
 

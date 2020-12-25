@@ -27,7 +27,7 @@ from sodasql.warehouse.warehouse import Warehouse
 LoggingHelper.configure_for_test()
 
 
-class AbstractScanTest(TestCase):
+class SqlTestCase(TestCase):
 
     warehouse: Warehouse = None
     default_test_table_name = 'test_table'
@@ -43,14 +43,14 @@ class AbstractScanTest(TestCase):
         logging.debug(f'\n\n--- {str(self)} ---')
         super().setUp()
         warehouse_configuration = self.get_warehouse_configuration()
-        if AbstractScanTest.warehouse is not None \
-                and AbstractScanTest.warehouse.warehouse_configuration != warehouse_configuration:
-            AbstractScanTest.warehouse.close()
-            AbstractScanTest.warehouse = None
-        if AbstractScanTest.warehouse is None:
-            AbstractScanTest.warehouse = Warehouse(warehouse_configuration)
-            AbstractScanTest.warehouse.parse_logs.assert_no_warnings_or_errors('Test warehouse')
-        self.warehouse = AbstractScanTest.warehouse
+        if SqlTestCase.warehouse is not None \
+                and SqlTestCase.warehouse.warehouse_configuration != warehouse_configuration:
+            SqlTestCase.warehouse.close()
+            SqlTestCase.warehouse = None
+        if SqlTestCase.warehouse is None:
+            SqlTestCase.warehouse = Warehouse(warehouse_configuration)
+            SqlTestCase.warehouse.parse_logs.assert_no_warnings_or_errors('Test warehouse')
+        self.warehouse = SqlTestCase.warehouse
         self.connection = self.warehouse.connection
 
     def get_warehouse_configuration(self):
