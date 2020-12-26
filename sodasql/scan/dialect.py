@@ -26,16 +26,16 @@ class Dialect:
     def create(cls, warehouse_configuration: dict, parse_logs: ParseLogs):
         warehouse_type = warehouse_configuration['type']
         if warehouse_type == POSTGRES:
-            from sodasql.warehouse.postgres_dialect import PostgresDialect
+            from sodasql.dialects.postgres_dialect import PostgresDialect
             return PostgresDialect(warehouse_configuration, parse_logs)
         if warehouse_type == SNOWFLAKE:
-            from sodasql.warehouse.snowflake_dialect import SnowflakeDialect
+            from sodasql.dialects.snowflake_dialect import SnowflakeDialect
             return SnowflakeDialect(warehouse_configuration, parse_logs)
         if warehouse_type == REDSHIFT:
-            from sodasql.warehouse.redshift_dialect import RedshiftDialect
+            from sodasql.dialects.redshift_dialect import RedshiftDialect
             return RedshiftDialect(warehouse_configuration, parse_logs)
         if warehouse_type == BIGQUERY:
-            from sodasql.warehouse.bigquery_dialect import BigQueryDialect
+            from sodasql.dialects.bigquery_dialect import BigQueryDialect
             return BigQueryDialect(warehouse_configuration, parse_logs)
         else:
             raise RuntimeError(f'Unsupported sql warehouse type {warehouse_type}')

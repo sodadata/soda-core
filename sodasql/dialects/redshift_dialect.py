@@ -12,9 +12,7 @@ import boto3
 import psycopg2
 
 from sodasql.credentials.aws_credentials import AwsCredentials
-from sodasql.credentials.credentials_resolver import CredentialsResolver
 from sodasql.scan.parse_logs import ParseLogs
-from sodasql.warehouse.dialect import Dialect
 from sodasql.warehouse.postgres_dialect import PostgresDialect
 
 

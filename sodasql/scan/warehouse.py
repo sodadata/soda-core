@@ -8,15 +8,11 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-import logging
-from datetime import datetime
 from typing import List
 
-from tabulate import tabulate
-
 from sodasql.scan.parse_logs import ParseLogs
-from sodasql.warehouse.db import sql_fetchone, sql_fetchall
-from sodasql.warehouse.dialect import Dialect
+from sodasql.scan.db import sql_fetchone, sql_fetchall
+from sodasql.scan.dialect import Dialect
 
 
 class Warehouse:

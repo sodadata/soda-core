@@ -10,7 +10,7 @@
 #  limitations under the License.
 from typing import List
 
-from sodasql.configuration.helper import parse_int
+from sodasql.scan.configuration_helper import parse_int
 from sodasql.scan.metric import Metric
 from sodasql.scan.parse_logs import ParseLogs
 from sodasql.scan.scan_column_configuration import ScanColumnConfiguration

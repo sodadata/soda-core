@@ -8,11 +8,10 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-import logging
 from typing import Optional
 
-from sodasql.warehouse.db import sql_update
-from sodasql.warehouse.warehouse import Warehouse
+from sodasql.scan.db import sql_update
+from sodasql.scan.warehouse import Warehouse
 from tests.common.all_warehouse_tests import AllWarehouseTests
 
 

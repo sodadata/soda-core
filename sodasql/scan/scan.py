@@ -22,8 +22,8 @@ from sodasql.scan.scan_configuration import ScanConfiguration
 from sodasql.scan.scan_result import ScanResult
 from sodasql.scan.test_result import TestResult
 from sodasql.soda_client.soda_client import SodaClient
-from sodasql.warehouse.dialect import Dialect
-from sodasql.warehouse.warehouse import Warehouse
+from sodasql.scan.dialect import Dialect
+from sodasql.scan.warehouse import Warehouse
 
 
 class Scan:
