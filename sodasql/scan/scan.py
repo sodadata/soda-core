@@ -84,7 +84,7 @@ class Scan:
 
     def query_columns_metadata(self):
         sql = self.warehouse.dialect.sql_columns_metadata_query(self.configuration)
-        column_tuples = self.warehouse.execute_query_all(sql)
+        column_tuples = self.warehouse.sql_fetchall(sql)
         self.columns = []
         for column_tuple in column_tuples:
             name = column_tuple[0]
@@ -177,7 +177,7 @@ class Scan:
         if self.table_sample_clause:
             sql += f'\n{self.table_sample_clause}'
 
-        query_result_tuple = self.warehouse.execute_query_one(sql)
+        query_result_tuple = self.warehouse.sql_fetchone(sql)
 
         for i in range(0, len(measurements)):
             measurement = measurements[i]
@@ -229,7 +229,7 @@ class Scan:
                            f'       SUM(frequency) \n'
                            f'FROM group_by_value')
 
-                    query_result_tuple = self.warehouse.execute_query_one(sql)
+                    query_result_tuple = self.warehouse.sql_fetchone(sql)
                     distinct_count = query_result_tuple[0]
                     unique_count = query_result_tuple[1]
                     valid_count = query_result_tuple[2]
@@ -249,7 +249,7 @@ class Scan:
                            f'ORDER BY {numeric_value_expr} ASC \n'
                            f'LIMIT {scan_column.mins_maxs_limit} \n')
 
-                    rows = self.warehouse.execute_query_all(sql)
+                    rows = self.warehouse.sql_fetchall(sql)
                     mins = [row[0] for row in rows]
                     self.add_query(Measurement(Metric.MINS, column_name, mins))
 
@@ -262,7 +262,7 @@ class Scan:
                            f'ORDER BY {numeric_value_expr} DESC \n'
                            f'LIMIT {scan_column.mins_maxs_limit} \n')
 
-                    rows = self.warehouse.execute_query_all(sql)
+                    rows = self.warehouse.sql_fetchall(sql)
                     maxs = [row[0] for row in rows]
                     self.add_query(Measurement(Metric.MAXS, column_name, maxs))
 
@@ -276,7 +276,7 @@ class Scan:
                            f'ORDER BY frequency DESC \n'
                            f'LIMIT {frequent_values_limit} \n')
 
-                    rows = self.warehouse.execute_query_all(sql)
+                    rows = self.warehouse.sql_fetchall(sql)
                     frequent_values = [row[0] for row in rows]
                     self.add_query(Measurement(Metric.FREQUENT_VALUES, column_name, frequent_values))
 
@@ -320,7 +320,7 @@ class Scan:
                            f'  {fields} \n'
                            f'FROM group_by_value')
 
-                    row = self.warehouse.execute_query_one(sql)
+                    row = self.warehouse.sql_fetchone(sql)
 
                     # Process the histogram query
                     frequencies = []

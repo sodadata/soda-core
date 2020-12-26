@@ -19,6 +19,7 @@ import yaml
 from sodasql.profiles.profiles import Profile
 from sodasql.scan.scan_configuration import ScanConfiguration
 from sodasql.scan.scan_result import ScanResult
+from sodasql.warehouse.db import sql_update, sql_updates
 from tests.common.env_vars_helper import EnvVarsHelper
 from tests.common.logging_helper import LoggingHelper
 from sodasql.warehouse.warehouse import Warehouse
@@ -29,27 +30,24 @@ LoggingHelper.configure_for_test()
 
 class SqlTestCase(TestCase):
 
-    warehouse: Warehouse = None
+    warehouse: Optional[Warehouse] = None
     default_test_table_name = 'test_table'
 
     def __init__(self, method_name: str = ...) -> None:
         super().__init__(method_name)
-        self.warehouse: Optional[Warehouse] = None
 
     def setUp(self) -> None:
         logging.debug(f'\n\n--- {str(self)} ---')
         super().setUp()
 
         test_profile_target = self.setup_get_test_profile_target()
-        self.warehouse_configuration = self.setup_get_warehouse_configuration('test', test_profile_target)
-        if SqlTestCase.warehouse is not None \
-                and SqlTestCase.warehouse.warehouse_configuration != self.warehouse_configuration:
-            SqlTestCase.warehouse.close()
-            SqlTestCase.warehouse = None
-        if SqlTestCase.warehouse is None:
-            SqlTestCase.warehouse = self.setup_create_warehouse(self.warehouse_configuration)
-            self.setup_init_warehouse()
-        self.warehouse = SqlTestCase.warehouse
+        warehouse_configuration = self.setup_get_warehouse_configuration('test', test_profile_target)
+        if self.warehouse is not None \
+                and self.warehouse.warehouse_configuration != warehouse_configuration:
+            self.warehouse.close()
+            self.warehouse = None
+        if self.warehouse is None:
+            self.warehouse = self.setup_create_warehouse(warehouse_configuration)
 
     def setup_get_test_profile_target(self):
         EnvVarsHelper.load_test_environment_properties()
@@ -120,29 +118,17 @@ class SqlTestCase(TestCase):
         warehouse.parse_logs.assert_no_warnings_or_errors('Test warehouse')
         return warehouse
 
-    def setup_init_warehouse(self):
-        pass
+    # def setup_init_warehouse(self):
+    #     pass
 
     def tearDown(self) -> None:
         self.warehouse.connection.rollback()
 
-    @classmethod
-    def execute_sql_update(cls, sql: str):
-        connection = SqlTestCase.warehouse.connection
-        assert connection, 'connection not initialized'
-        cursor = connection.cursor()
-        try:
-            logging.debug(f'Test SQL update: {sql}')
-            result = cursor.execute(sql)
-            connection.commit()
-            return result
-        finally:
-            cursor.close()
+    def sql_update(self, sql: str) -> int:
+        return sql_update(self.warehouse.connection, sql)
 
-    @classmethod
-    def execute_sql_updates(cls, sqls: List[str]):
-        for sql in sqls:
-            cls.execute_sql_update(sql)
+    def execute_sql_updates(self, sqls: List[str]):
+        return sql_updates(self.warehouse.connection, sqls)
 
     def create_table(self, table_name: str, columns: List[str], rows: List[str]):
         joined_columns = ", ".join(columns)

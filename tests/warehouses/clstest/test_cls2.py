@@ -8,11 +8,22 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
+import logging
 
-from tests.common.all_warehouse_tests import AllWarehouseTests
+from tests.warehouses.clstest.cls_test_case import ClsTestCase
 
 
-class TestBigQuery(AllWarehouseTests):
+class TestCls2(ClsTestCase):
 
-    def setup_get_test_profile_target(self):
-        return 'bigquery'
+    def get_database_configuration(self):
+        return 'db2'
+
+    def test_one_one(self):
+        logging.debug(f'test two.one {str(self.database)}')
+
+    def test_one_two(self):
+        logging.debug(f'test two.two {str(self.database)}')
+
+    @classmethod
+    def tearDownClass(cls) -> None:
+        logging.debug(f'tearDownClass 2 = {str(cls.database)}')

@@ -16,7 +16,6 @@ import yaml
 from sodasql.scan.parse_logs import ParseLogs
 
 
-
 def read_scan_configuration(cfg_dir: str, warehouse_name: str, table_name: str):
     from sodasql.scan.scan_configuration import ScanConfiguration
     scan_file_name = f'{cfg_dir}/{warehouse_name}/{table_name}/scan.yaml'

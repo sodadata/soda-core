@@ -10,10 +10,12 @@
 #  limitations under the License.
 import logging
 from datetime import datetime
+from typing import List
 
 from tabulate import tabulate
 
 from sodasql.scan.parse_logs import ParseLogs
+from sodasql.warehouse.db import sql_fetchone, sql_fetchall
 from sodasql.warehouse.dialect import Dialect
 
 
@@ -26,31 +28,11 @@ class Warehouse:
         self.dialect: Dialect = Dialect.create(warehouse_configuration, self.parse_logs)
         self.connection = self.dialect.create_connection()
 
-    def execute_query_one(self, sql):
-        cursor = self.connection.cursor()
-        try:
-            logging.debug(f'Executing SQL query: \n{sql}')
-            start = datetime.now()
-            cursor.execute(sql)
-            row_tuple = cursor.fetchone()
-            delta = datetime.now() - start
-            logging.debug(f'SQL took {str(delta)}')
-            return row_tuple
-        finally:
-            cursor.close()
+    def sql_fetchone(self, sql) -> tuple:
+        return sql_fetchone(self.connection, sql)
 
-    def execute_query_all(self, sql):
-        cursor = self.connection.cursor()
-        try:
-            logging.debug(f'Executing SQL query: \n{sql}')
-            start = datetime.now()
-            cursor.execute(sql)
-            rows = cursor.fetchall()
-            delta = datetime.now() - start
-            logging.debug(f'SQL took {str(delta)}')
-            return rows
-        finally:
-            cursor.close()
+    def sql_fetchall(self, sql) -> List[tuple]:
+        return sql_fetchall(self.connection, sql)
 
     def create_scan(self, scan_configuration):
         return self.dialect.create_scan(self, scan_configuration)
