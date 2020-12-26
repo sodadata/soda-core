@@ -11,7 +11,7 @@
 import json
 import logging
 import os
-from typing import List
+from typing import List, Optional
 from unittest import TestCase
 
 import yaml
@@ -34,79 +34,28 @@ class SqlTestCase(TestCase):
 
     def __init__(self, method_name: str = ...) -> None:
         super().__init__(method_name)
-        self.connection = None
-        self.warehouse_configuration = self.get_warehouse_configuration('test', self.get_test_profile_target())
-
-    def get_test_profile_target(self):
-        EnvVarsHelper.load_test_environment_properties()
-        return os.getenv('SODA_TEST_TARGET', 'local_postgres')
+        self.warehouse: Optional[Warehouse] = None
 
     def setUp(self) -> None:
         logging.debug(f'\n\n--- {str(self)} ---')
         super().setUp()
+
+        test_profile_target = self.setup_get_test_profile_target()
+        self.warehouse_configuration = self.setup_get_warehouse_configuration('test', test_profile_target)
         if SqlTestCase.warehouse is not None \
                 and SqlTestCase.warehouse.warehouse_configuration != self.warehouse_configuration:
             SqlTestCase.warehouse.close()
             SqlTestCase.warehouse = None
         if SqlTestCase.warehouse is None:
-            SqlTestCase.warehouse = Warehouse(self.warehouse_configuration)
-            SqlTestCase.warehouse.parse_logs.assert_no_warnings_or_errors('Test warehouse')
+            SqlTestCase.warehouse = self.setup_create_warehouse(self.warehouse_configuration)
+            self.setup_init_warehouse()
         self.warehouse = SqlTestCase.warehouse
-        self.connection = self.warehouse.connection
 
-    def tearDown(self) -> None:
-        self.connection.rollback()
+    def setup_get_test_profile_target(self):
+        EnvVarsHelper.load_test_environment_properties()
+        return os.getenv('SODA_TEST_TARGET', 'local_postgres')
 
-    def sql_update(self, sql: str):
-        assert self.connection, 'self.connection not initialized'
-        cursor = self.connection.cursor()
-        try:
-            logging.debug(f'Test SQL update: {sql}')
-            return cursor.execute(sql)
-        finally:
-            cursor.close()
-
-    def sql_updates(self, sqls: List[str]):
-        for sql in sqls:
-            self.sql_update(sql)
-
-    def create_table(self, table_name: str, columns: List[str], rows: List[str]):
-        joined_columns = ", ".join(columns)
-        joined_rows = ", ".join(rows)
-        self.sql_updates([
-            f"DROP TABLE IF EXISTS {table_name}",
-            f"CREATE TABLE {table_name} ( {joined_columns} )",
-            f"INSERT INTO {table_name} VALUES {joined_rows}"])
-
-    def scan(self, scan_configuration_dict: dict) -> ScanResult:
-        logging.debug('Scan configuration \n'+json.dumps(scan_configuration_dict, indent=2))
-
-        scan_configuration: ScanConfiguration = ScanConfiguration(scan_configuration_dict)
-        scan_configuration.parse_logs.assert_no_warnings_or_errors('Test scan')
-        scan = self.warehouse.create_scan(scan_configuration)
-        for log in scan.configuration.parse_logs.logs:
-            logging.info(str(log))
-        return scan.execute()
-
-    def assertMeasurements(self, scan_result, column: str, expected_metrics_present):
-        metrics_present = [measurement.metric for measurement in scan_result.measurements
-                           if measurement.column_name == column]
-        self.assertEqual(set(metrics_present), set(expected_metrics_present))
-
-    def assertMeasurementsPresent(self, scan_result, column: str, expected_metrics_present):
-        metrics_present = [measurement.metric for measurement in scan_result.measurements
-                           if measurement.column_name == column]
-        metrics_expected_and_not_present = [expected_metric for expected_metric in expected_metrics_present
-                                            if expected_metric not in metrics_present]
-        self.assertEqual(set(), set(metrics_expected_and_not_present))
-
-    def assertMeasurementsAbsent(self, scan_result, column: str, expected_metrics_absent: list):
-        metrics_present = [measurement.metric for measurement in scan_result.measurements
-                           if measurement.column_name == column]
-        metrics_present_and_expected_absent = set(expected_metrics_absent) & set(metrics_present)
-        self.assertEqual(set(), metrics_present_and_expected_absent)
-
-    def get_warehouse_configuration(self, profile_name: str, profile_target_name: str):
+    def setup_get_warehouse_configuration(self, profile_name: str, profile_target_name: str):
         if profile_name == 'test' and profile_target_name == 'local_postgres':
             return {
                 'name': 'test_postgres_warehouse',
@@ -116,9 +65,9 @@ class SqlTestCase(TestCase):
                 'username': 'sodasql',
                 'database': 'sodasql',
                 'schema': 'public'}
-        return self.read_warehouse_configuration_from_profile_yaml()
+        return self.setup_read_warehouse_configuration_from_profile_yaml(profile_name, profile_target_name)
 
-    def read_warehouse_configuration_from_profile_yaml(self, profile_name: str, profile_target_name: str):
+    def setup_read_warehouse_configuration_from_profile_yaml(self, profile_name: str, profile_target_name: str):
         profile = Profile(profile_name, profile_target_name)
         if profile.parse_logs.has_warnings_or_errors() \
                 and 'No such file or directory' in profile.parse_logs.logs[0].message:
@@ -166,3 +115,67 @@ class SqlTestCase(TestCase):
             profile.configuration['name'] = f'{profile_name}_{profile_target_name}_warehouse'
         return profile.configuration
 
+    def setup_create_warehouse(self, warehouse_configuration: dict) -> Warehouse:
+        warehouse = Warehouse(warehouse_configuration)
+        warehouse.parse_logs.assert_no_warnings_or_errors('Test warehouse')
+        return warehouse
+
+    def setup_init_warehouse(self):
+        pass
+
+    def tearDown(self) -> None:
+        self.warehouse.connection.rollback()
+
+    @classmethod
+    def execute_sql_update(cls, sql: str):
+        connection = SqlTestCase.warehouse.connection
+        assert connection, 'connection not initialized'
+        cursor = connection.cursor()
+        try:
+            logging.debug(f'Test SQL update: {sql}')
+            result = cursor.execute(sql)
+            connection.commit()
+            return result
+        finally:
+            cursor.close()
+
+    @classmethod
+    def execute_sql_updates(cls, sqls: List[str]):
+        for sql in sqls:
+            cls.execute_sql_update(sql)
+
+    def create_table(self, table_name: str, columns: List[str], rows: List[str]):
+        joined_columns = ", ".join(columns)
+        joined_rows = ", ".join(rows)
+        self.execute_sql_updates([
+            f"DROP TABLE IF EXISTS {table_name}",
+            f"CREATE TABLE {table_name} ( {joined_columns} )",
+            f"INSERT INTO {table_name} VALUES {joined_rows}"])
+
+    def scan(self, scan_configuration_dict: dict) -> ScanResult:
+        logging.debug('Scan configuration \n'+json.dumps(scan_configuration_dict, indent=2))
+
+        scan_configuration: ScanConfiguration = ScanConfiguration(scan_configuration_dict)
+        scan_configuration.parse_logs.assert_no_warnings_or_errors('Test scan')
+        scan = self.warehouse.create_scan(scan_configuration)
+        for log in scan.configuration.parse_logs.logs:
+            logging.info(str(log))
+        return scan.execute()
+
+    def assertMeasurements(self, scan_result, column: str, expected_metrics_present):
+        metrics_present = [measurement.metric for measurement in scan_result.measurements
+                           if measurement.column_name == column]
+        self.assertEqual(set(metrics_present), set(expected_metrics_present))
+
+    def assertMeasurementsPresent(self, scan_result, column: str, expected_metrics_present):
+        metrics_present = [measurement.metric for measurement in scan_result.measurements
+                           if measurement.column_name == column]
+        metrics_expected_and_not_present = [expected_metric for expected_metric in expected_metrics_present
+                                            if expected_metric not in metrics_present]
+        self.assertEqual(set(), set(metrics_expected_and_not_present))
+
+    def assertMeasurementsAbsent(self, scan_result, column: str, expected_metrics_absent: list):
+        metrics_present = [measurement.metric for measurement in scan_result.measurements
+                           if measurement.column_name == column]
+        metrics_present_and_expected_absent = set(expected_metrics_absent) & set(metrics_present)
+        self.assertEqual(set(), metrics_present_and_expected_absent)

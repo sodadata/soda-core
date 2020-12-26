@@ -12,6 +12,7 @@ import random
 import re
 import socket
 import string
+from typing import Optional
 
 from tests.local.sql.test_distinct_and_uniqueness import TestDistinctAndUniqueness
 from tests.local.sql.test_frequent_values import TestFrequentValues
@@ -39,9 +40,15 @@ class AllWarehouseTests(
 
     def __init__(self, method_name: str = ...) -> None:
         super().__init__(method_name)
-        self.warehouse_configuration['database'] = self.create_unique_database_name('soda_test')
+        self.database: Optional[str] = None
 
-    def create_unique_database_name(self, prefix: str):
+    def setup_get_warehouse_configuration(self, profile_name: str, profile_target_name: str):
+        warehouse_configuration = super().setup_get_warehouse_configuration(profile_name, profile_target_name)
+        self.database = self.init_create_unique_database_name('soda_test')
+        warehouse_configuration['database'] = self.database
+        return warehouse_configuration
+
+    def init_create_unique_database_name(self, prefix: str):
         normalized_hostname = re.sub(r"(?i)[^a-zA-Z0-9]", "_", socket.gethostname()).lower()
         random_suffix = ''.join(random.choice(string.ascii_lowercase + string.digits) for _ in range(10))
         return f"{prefix}_{normalized_hostname}_{random_suffix}"

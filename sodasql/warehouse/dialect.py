@@ -15,7 +15,9 @@ from sodasql.scan.parse_logs import ParseLogs
 from sodasql.scan.scan_configuration import ScanConfiguration
 
 POSTGRES = 'postgres'
+SNOWFLAKE = 'snowflake'
 REDSHIFT = 'redshift'
+BIGQUERY = 'bigquery'
 
 
 class Dialect:
@@ -26,9 +28,15 @@ class Dialect:
         if warehouse_type == POSTGRES:
             from sodasql.warehouse.postgres_dialect import PostgresDialect
             return PostgresDialect(warehouse_configuration, parse_logs)
+        if warehouse_type == SNOWFLAKE:
+            from sodasql.warehouse.snowflake_dialect import SnowflakeDialect
+            return SnowflakeDialect(warehouse_configuration, parse_logs)
         if warehouse_type == REDSHIFT:
             from sodasql.warehouse.redshift_dialect import RedshiftDialect
             return RedshiftDialect(warehouse_configuration, parse_logs)
+        if warehouse_type == BIGQUERY:
+            from sodasql.warehouse.bigquery_dialect import BigQueryDialect
+            return BigQueryDialect(warehouse_configuration, parse_logs)
         else:
             raise RuntimeError(f'Unsupported sql warehouse type {warehouse_type}')
 
@@ -102,7 +110,7 @@ class Dialect:
         return f'STDDEV({expr})'
 
     def sql_expr_regexp_like(self, expr: str, pattern: str):
-        return f"{expr} ~* '{self.qualify_regex(pattern)}'"
+        return f"REGEXP_LIKE({expr}, '{self.qualify_regex(pattern)}')"
 
     def sql_expr_list(self, column: ColumnMetadata, values: List[str]) -> str:
         if self.is_text(column):

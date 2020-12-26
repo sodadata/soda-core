@@ -11,6 +11,8 @@
 import logging
 from datetime import datetime
 
+from tabulate import tabulate
+
 from sodasql.scan.parse_logs import ParseLogs
 from sodasql.warehouse.dialect import Dialect
 

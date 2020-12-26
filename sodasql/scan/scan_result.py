@@ -29,7 +29,7 @@ class ScanResult:
     def find_measurement(self, metric_type: str, column_name: str = None):
         for measurement in self.measurements:
             if measurement.metric == metric_type:
-                if column_name is None or measurement.column_name == column_name:
+                if column_name is None or measurement.column_name.lower() == column_name.lower():
                     return measurement
 
     # get measurement value and raise exception if the measurement does not exist

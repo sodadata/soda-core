@@ -21,9 +21,11 @@ class LoggingHelper:
         logging.getLogger('botocore').setLevel(logging.WARNING)
         logging.getLogger('pyathena').setLevel(logging.WARNING)
         logging.getLogger('faker').setLevel(logging.ERROR)
+        logging.getLogger('snowflake').setLevel(logging.WARNING)
         logging.basicConfig(
             level=logging.DEBUG,
             # https://docs.python.org/3/library/logging.html#logrecord-attributes
+            # %(name)s
             format="  | %(message)s",
             handlers=[logging.StreamHandler(sys.stdout)]
         )

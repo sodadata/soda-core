@@ -15,18 +15,14 @@ from sodasql.credentials.aws_credentials import AwsCredentials
 from sodasql.credentials.credentials_resolver import CredentialsResolver
 from sodasql.scan.parse_logs import ParseLogs
 from sodasql.warehouse.dialect import Dialect
+from sodasql.warehouse.postgres_dialect import PostgresDialect
 
 
-class RedshiftDialect(Dialect):
+class RedshiftDialect(PostgresDialect):
 
     def __init__(self, warehouse_configuration: dict, parse_logs: ParseLogs):
-        super().__init__()
-        self.host = warehouse_configuration.get('host', 'localhost')
+        super().__init__(warehouse_configuration, parse_logs)
         self.port = warehouse_configuration.get('port', '5432')
-        self.username = CredentialsResolver.resolve(warehouse_configuration, 'username', parse_logs)
-        self.password = CredentialsResolver.resolve(warehouse_configuration, 'password', parse_logs)
-        self.database = warehouse_configuration.get('database')
-        self.schema = warehouse_configuration.get('schema')
         self.aws_credentials = AwsCredentials.from_configuration(warehouse_configuration)
 
     def create_connection(self):

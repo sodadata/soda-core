@@ -15,5 +15,5 @@ from tests.common.all_warehouse_tests import AllWarehouseTests
 
 class TestRedshift(AllWarehouseTests):
 
-    def get_test_profile_target(self):
+    def setup_get_test_profile_target(self):
         return 'redshift'

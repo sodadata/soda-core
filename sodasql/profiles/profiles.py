@@ -19,6 +19,9 @@ class Profile:
 
     USER_HOME_PROFILES_YAML_LOCATION = f'{str(Path.home())}/.soda/profiles.yml'
 
+    # Caches the yaml dict in memory for when it is read multiple times (as in test suites)
+    profile_yaml_dict: dict = None
+
     def __init__(self, profile_name: str = 'default', target: str = None):
         self.parse_logs: ParseLogs = ParseLogs()
         self.configuration: dict = {}
@@ -34,12 +37,14 @@ class Profile:
                     if target is not None:
                         self.configuration = self.__get(outputs, f'outputs.{target}', target, dict)
 
-    def __read_profiles_yaml_dict(self):
-        try:
-            with open(Profile.USER_HOME_PROFILES_YAML_LOCATION) as f:
-                return yaml.load(f, Loader=yaml.FullLoader)
-        except Exception as e:
-            self.parse_logs.error(str(e))
+    def __read_profiles_yaml_dict(self) -> dict:
+        if Profile.profile_yaml_dict is None:
+            try:
+                with open(Profile.USER_HOME_PROFILES_YAML_LOCATION) as f:
+                    Profile.profile_yaml_dict = yaml.load(f, Loader=yaml.FullLoader)
+            except Exception as e:
+                self.parse_logs.error(str(e))
+        return Profile.profile_yaml_dict
 
     def __get(self, configuration: dict, configuration_description: str, property_name: str, type):
         value = configuration.get(property_name)

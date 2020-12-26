@@ -28,7 +28,7 @@ class TestAthena(AllWarehouseTests):
         self.warehouse_configuration['work_dir'] = f's3://{self.test_bucket}/{self.test_bucket_path}'
         self.delete_s3_files()
 
-    def get_test_profile_target(self):
+    def setup_get_test_profile_target(self):
         return 'athena'
 
     def create_unique_bucket_name(self, prefix: str):
