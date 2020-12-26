@@ -11,12 +11,12 @@
 from typing import List
 
 from sodasql.scan.column_metadata import ColumnMetadata
+from sodasql.scan.dialect import Dialect
 from sodasql.scan.metric import Metric
 from sodasql.scan.missing import Missing
-from sodasql.scan.scan_configuration import ScanConfiguration
 from sodasql.scan.scan_column_configuration import ScanColumnConfiguration
+from sodasql.scan.scan_configuration import ScanConfiguration
 from sodasql.scan.validity import Validity
-from sodasql.scan.dialect import Dialect
 
 
 class ScanColumn:

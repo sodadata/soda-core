@@ -17,13 +17,12 @@ from unittest import TestCase
 import yaml
 
 from sodasql.cli.profile_reader import Profile
+from sodasql.scan.db import sql_update, sql_updates
 from sodasql.scan.scan_configuration import ScanConfiguration
 from sodasql.scan.scan_result import ScanResult
-from sodasql.scan.db import sql_update, sql_updates
+from sodasql.scan.warehouse import Warehouse
 from tests.common.env_vars_helper import EnvVarsHelper
 from tests.common.logging_helper import LoggingHelper
-from sodasql.scan.warehouse import Warehouse
-
 
 LoggingHelper.configure_for_test()
 

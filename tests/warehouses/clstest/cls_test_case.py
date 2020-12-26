@@ -13,7 +13,6 @@ from unittest import TestCase
 
 from tests.common.logging_helper import LoggingHelper
 
-
 LoggingHelper.configure_for_test()
 
 

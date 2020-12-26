@@ -11,8 +11,6 @@
 
 from typing import Optional
 
-from sodasql.scan.column_metadata import ColumnMetadata
-
 
 class Measurement:
 

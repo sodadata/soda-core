@@ -11,7 +11,7 @@
 
 from unittest import TestCase
 
-from sodasql.scan.parse_logs import ParseLogs, ERROR, WARNING
+from sodasql.scan.parse_logs import ERROR, WARNING
 from sodasql.scan.scan_configuration import ScanConfiguration
 
 

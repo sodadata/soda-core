@@ -15,15 +15,15 @@ from typing import List
 
 from sodasql.scan.column_metadata import ColumnMetadata
 from sodasql.scan.custom_metric import CustomMetric
+from sodasql.scan.dialect import Dialect
 from sodasql.scan.measurement import Measurement
 from sodasql.scan.metric import Metric
 from sodasql.scan.scan_column import ScanColumn
 from sodasql.scan.scan_configuration import ScanConfiguration
 from sodasql.scan.scan_result import ScanResult
 from sodasql.scan.test_result import TestResult
-from sodasql.soda_client.soda_client import SodaClient
-from sodasql.scan.dialect import Dialect
 from sodasql.scan.warehouse import Warehouse
+from sodasql.soda_client.soda_client import SodaClient
 
 
 class Scan:

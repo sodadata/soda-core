@@ -10,8 +10,8 @@
 #  limitations under the License.
 from typing import List
 
-from sodasql.scan.test_result import TestResult
 from sodasql.scan.measurement import Measurement
+from sodasql.scan.test_result import TestResult
 
 
 class ScanResult:

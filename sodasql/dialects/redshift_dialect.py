@@ -10,10 +10,10 @@
 #  limitations under the License.
 import boto3
 import psycopg2
+from sodasql.warehouse.postgres_dialect import PostgresDialect
 
 from sodasql.credentials.aws_credentials import AwsCredentials
 from sodasql.scan.parse_logs import ParseLogs
-from sodasql.warehouse.postgres_dialect import PostgresDialect
 
 
 class RedshiftDialect(PostgresDialect):

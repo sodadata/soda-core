@@ -3,10 +3,11 @@
 import fnmatch
 import os
 import xml.etree.ElementTree as elementTree
+
 import requests
 
-from . import SlackMessageSender
 from . import ENV
+from . import SlackMessageSender
 
 
 class Reporter:

@@ -12,9 +12,9 @@
 import psycopg2
 
 from sodasql.credentials.credentials_resolver import CredentialsResolver
+from sodasql.scan.dialect import Dialect
 from sodasql.scan.parse_logs import ParseLogs
 from sodasql.scan.scan_configuration import ScanConfiguration
-from sodasql.scan.dialect import Dialect
 
 
 class PostgresDialect(Dialect):
