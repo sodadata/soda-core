@@ -8,22 +8,11 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-import logging
 
-from tests.warehouses.clstest.cls_test_case import ClsTestCase
+from tests.common.warehouse_fixture import WarehouseFixture
 
 
-class TestCls1(ClsTestCase):
+class BigQueryFixture(WarehouseFixture):
 
-    def get_database_configuration(self):
-        return 'db1'
-
-    def test_one_one(self):
-        logging.debug(f'test one.one {str(self.database)}')
-
-    def test_one_two(self):
-        logging.debug(f'test one.two {str(self.database)}')
-
-    @classmethod
-    def tearDownClass(cls) -> None:
-        logging.debug(f'tearDownClass 1 = {str(cls.database)}')
+    def __init__(self, target: str) -> None:
+        super().__init__(target)

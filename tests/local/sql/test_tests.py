@@ -15,7 +15,7 @@ from tests.common.sql_test_case import SqlTestCase
 class TestTests(SqlTestCase):
 
     def test_tests(self):
-        self.create_table(
+        self.sql_create_table(
             'test_table',
             ["name VARCHAR(255)"],
             ["('one')",

@@ -63,7 +63,6 @@ class Scan:
         self.scan_columns: dict = {}
 
     def execute(self):
-        assert self.warehouse.name, 'warehouse.name is required'
         assert self.configuration.table_name, 'scan_configuration.table_name is required'
 
         self.query_columns_metadata()

@@ -17,7 +17,7 @@ class TestSchema(SqlTestCase):
     table_name = 'test_table'
 
     def test_schema_measurement(self):
-        self.create_table(
+        self.sql_create_table(
             self.table_name,
             ["id VARCHAR(255)",
              "name VARCHAR(255)",

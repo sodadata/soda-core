@@ -18,7 +18,7 @@ class TestMinsMaxs(SqlTestCase):
     table_name = 'test_table'
 
     def test_scan_mins_maxs(self):
-        self.create_table(
+        self.sql_create_table(
             self.table_name,
             ["name VARCHAR(255)",
              "size INTEGER",

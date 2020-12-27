@@ -9,10 +9,10 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
-from tests.common.all_warehouse_tests import AllWarehouseTests
+from tests.common.warehouse_fixture import WarehouseFixture
 
 
-class TestRedshift(AllWarehouseTests):
+class RedshiftFixture(WarehouseFixture):
 
-    def setup_get_test_profile_target(self):
-        return 'redshift'
+    def __init__(self, target: str) -> None:
+        super().__init__(target)

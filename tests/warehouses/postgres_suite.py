@@ -9,10 +9,9 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
-from tests.common.all_warehouse_tests import AllWarehouseTests
+from tests.common.sql_test_case import TARGET_POSTGRES
+from tests.common.sql_test_suite import run_test_suite
 
 
-class TestBigQuery(AllWarehouseTests):
-
-    def setup_get_test_profile_target(self):
-        return 'bigquery'
+if __name__ == "__main__":
+    run_test_suite(TARGET_POSTGRES)

@@ -16,7 +16,7 @@ from tests.common.sql_test_case import SqlTestCase
 class TestStatisticalMetrics(SqlTestCase):
 
     def test_scan_statistical_metrics(self):
-        self.create_table(
+        self.sql_create_table(
             'test_table',
             ["score VARCHAR(255)"],
             ["('1')",
@@ -52,7 +52,7 @@ class TestStatisticalMetrics(SqlTestCase):
         ])
 
     def test_no_minmax_for_non_numeric_strings(self):
-        self.create_table(
+        self.sql_create_table(
             'test_table',
             ["score VARCHAR(255)"],
             ["('1')",

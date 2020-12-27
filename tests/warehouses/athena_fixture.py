@@ -15,21 +15,21 @@ import string
 import boto3
 
 from sodasql.credentials.aws_credentials import AwsCredentials
-from tests.common.all_warehouse_tests import AllWarehouseTests
 from tests.common.boto3_helper import Boto3Helper
+from tests.common.warehouse_fixture import WarehouseFixture
 
 
-class TestAthena(AllWarehouseTests):
+class AthenaFixture(WarehouseFixture):
 
-    def __init__(self, method_name: str = ...) -> None:
-        super().__init__(method_name)
+    def __init__(self, target: str) -> None:
+        super().__init__(target)
         self.test_bucket = self.create_unique_bucket_name('soda')
         self.test_bucket_path = 'sodalite-athena-test'
-        self.warehouse_configuration['work_dir'] = f's3://{self.test_bucket}/{self.test_bucket_path}'
-        self.delete_s3_files()
 
-    def setup_get_test_profile_target(self):
-        return 'athena'
+    def initialize_warehouse_configuration(self, warehouse_configuration: dict):
+        super().initialize_warehouse_configuration(warehouse_configuration)
+        warehouse_configuration['work_dir'] = f's3://{self.test_bucket}/{self.test_bucket_path}'
+        self.delete_s3_files()
 
     def create_unique_bucket_name(self, prefix: str):
         random_suffix = ''.join(random.choice(string.ascii_lowercase + string.digits) for _ in range(10))
@@ -38,7 +38,7 @@ class TestAthena(AllWarehouseTests):
     def delete_s3_files(self):
         logging.debug(f"Deleting all files under s3://%s/%s", self.test_bucket, self.test_bucket_path)
         Boto3Helper.filter_false_positive_boto3_warning()
-        aws_credentials = AwsCredentials.from_configuration(self.warehouse_configuration)
+        aws_credentials = AwsCredentials.from_configuration(self.warehouse.warehouse_configuration)
         aws_credentials = aws_credentials.resolve_role("soda_sql_test_cleanup")
         s3_client = boto3.client(
             's3',

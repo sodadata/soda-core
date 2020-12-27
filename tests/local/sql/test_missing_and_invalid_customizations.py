@@ -18,7 +18,7 @@ class TestMissingAndInvalidCustomizations(SqlTestCase):
     table_name = 'test_table'
 
     def test_scan_customized_missing_values(self):
-        self.create_table(
+        self.sql_create_table(
             self.table_name,
             ["name VARCHAR(255)"],
             ["('one')",
@@ -46,7 +46,7 @@ class TestMissingAndInvalidCustomizations(SqlTestCase):
         self.assertEqual(scan_result.get(Metric.VALUES_PERCENTAGE, 'name'), 60.0)
 
     def test_scan_customized_missing_format_empty(self):
-        self.create_table(
+        self.sql_create_table(
             self.table_name,
             ["name VARCHAR(255)"],
             ["('one')",
@@ -77,7 +77,7 @@ class TestMissingAndInvalidCustomizations(SqlTestCase):
         self.assertEqual(scan_result.get(Metric.VALUES_PERCENTAGE, 'name'), 60.0)
 
     def test_scan_customized_missing_format_whitespace(self):
-        self.create_table(
+        self.sql_create_table(
             self.table_name,
             ["name VARCHAR(255)"],
             ["('one')",
@@ -108,7 +108,7 @@ class TestMissingAndInvalidCustomizations(SqlTestCase):
         self.assertEqual(scan_result.get(Metric.VALUES_PERCENTAGE, 'name'), 40.0)
 
     def test_scan_missing_customized_and_validity(self):
-        self.create_table(
+        self.sql_create_table(
             self.table_name,
             ["name VARCHAR(255)"],
             ["('one')",
@@ -136,7 +136,7 @@ class TestMissingAndInvalidCustomizations(SqlTestCase):
         self.assertEqual(scan_result.get(Metric.MISSING_COUNT, 'name'), 2)
 
     def test_scan_valid_regex(self):
-        self.create_table(
+        self.sql_create_table(
             self.table_name,
             ["name VARCHAR(255)"],
             ["('one')",
@@ -168,7 +168,7 @@ class TestMissingAndInvalidCustomizations(SqlTestCase):
         self.assertEqual(scan_result.get(Metric.VALID_PERCENTAGE,   'name'), 20.0)
 
     def test_scan_valid_format(self):
-        self.create_table(
+        self.sql_create_table(
             self.table_name,
             ["col VARCHAR(255)"],
             ["('1')",

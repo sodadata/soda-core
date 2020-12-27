@@ -19,7 +19,7 @@ class TestMissingAndInvalidMetricConfigurations(SqlTestCase):
 
     def setUp(self) -> None:
         super().setUp()
-        self.create_table(
+        self.sql_create_table(
             self.table_name,
             ["id VARCHAR(255)",
              "name VARCHAR(255)",

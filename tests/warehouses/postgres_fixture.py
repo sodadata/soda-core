@@ -13,25 +13,19 @@ from typing import Optional
 from sodasql.scan.db import sql_update
 from sodasql.scan.warehouse import Warehouse
 from tests.common.all_warehouse_tests import AllWarehouseTests
+from tests.common.warehouse_fixture import WarehouseFixture
 
 
-class TestSnowflake(AllWarehouseTests):
+class PostgresFixture(WarehouseFixture):
 
-    warehouse = None
-    database: Optional[str] = None
+    def __init__(self, target: str) -> None:
+        super().__init__(target)
 
-    def setup_get_test_profile_target(self):
-        return 'snowflake'
+    def initialize_warehouse_configuration(self, warehouse_configuration: dict):
+        self.database = warehouse_configuration['database']
 
-    def setup_create_warehouse(self, warehouse_configuration: dict) -> Warehouse:
-        warehouse = super().setup_create_warehouse(warehouse_configuration)
-        sql_update(warehouse.connection,
-                   f'CREATE DATABASE IF NOT EXISTS {self.database}')
-        TestSnowflake.warehouse = warehouse
-        TestSnowflake.database = self.database
-        return warehouse
+    def initialize_warehouse(self, warehouse: Warehouse):
+        self.warehouse = warehouse
 
-    @classmethod
-    def tearDownClass(cls) -> None:
-        sql_update(cls.warehouse.connection,
-                   f'DROP DATABASE IF EXISTS {TestSnowflake.database} CASCADE')
+    def cleanup(self):
+        pass

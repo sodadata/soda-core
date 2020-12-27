@@ -10,9 +10,9 @@
 #  limitations under the License.
 import boto3
 import psycopg2
-from sodasql.warehouse.postgres_dialect import PostgresDialect
 
 from sodasql.credentials.aws_credentials import AwsCredentials
+from sodasql.dialects.postgres_dialect import PostgresDialect
 from sodasql.scan.parse_logs import ParseLogs
 
 
@@ -37,7 +37,7 @@ class RedshiftDialect(PostgresDialect):
             database=self.database)
 
     def __get_cluster_credentials(self):
-        resolved_aws_credentials = self.aws_credentials.resolve_role(role_session_name="SodaAgentGetClusterCredentials")
+        resolved_aws_credentials = self.aws_credentials.resolve_role(role_session_name="soda_redshift_get_cluster_credentials")
 
         client = boto3.client('redshift',
                               region_name=resolved_aws_credentials.region_name,

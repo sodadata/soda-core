@@ -23,37 +23,56 @@ from sodasql.scan.scan_result import ScanResult
 from sodasql.scan.warehouse import Warehouse
 from tests.common.env_vars_helper import EnvVarsHelper
 from tests.common.logging_helper import LoggingHelper
+from tests.common.warehouse_fixture import WarehouseFixture
 
 LoggingHelper.configure_for_test()
+EnvVarsHelper.load_test_environment_properties()
+
+
+TARGET_POSTGRES = 'postgres'
+TARGET_SNOWFLAKE = 'snowflake'
+TARGET_REDSHIFT = 'redshift'
+TARGET_ATHENA = 'athena'
+TARGET_BIGQUERY = 'bigquery'
 
 
 class SqlTestCase(TestCase):
 
-    warehouse: Optional[Warehouse] = None
+    warehouse_cache_by_target = {}
+    warehouse_fixture_cache_by_target = {}
+    warehouses_close_enabled = True
     default_test_table_name = 'test_table'
 
-    def __init__(self, method_name: str = ...) -> None:
-        super().__init__(method_name)
+    def __init__(self, methodName: str = ...) -> None:
+        super().__init__(methodName)
+        self.warehouse: Optional[Warehouse] = None
+        self.target: Optional[str] = None
 
     def setUp(self) -> None:
         logging.debug(f'\n\n--- {str(self)} ---')
         super().setUp()
+        self.warehouse = self.setup_get_warehouse()
 
-        test_profile_target = self.setup_get_test_profile_target()
-        warehouse_configuration = self.setup_get_warehouse_configuration('test', test_profile_target)
-        if self.warehouse is not None \
-                and self.warehouse.warehouse_configuration != warehouse_configuration:
-            self.warehouse.close()
-            self.warehouse = None
-        if self.warehouse is None:
-            self.warehouse = self.setup_create_warehouse(warehouse_configuration)
+    def setup_get_warehouse(self):
+        """self.target may be initialized by a test suite"""
+        if self.target is None:
+            self.target = os.getenv('SODA_TEST_TARGET', TARGET_POSTGRES)
 
-    def setup_get_test_profile_target(self):
-        EnvVarsHelper.load_test_environment_properties()
-        return os.getenv('SODA_TEST_TARGET', 'local_postgres')
+        warehouse = SqlTestCase.warehouse_cache_by_target.get(self.target)
+        if warehouse is None:
+            logging.debug(f'Creating warehouse {self.target}')
+            warehouse_configuration = self.setup_get_warehouse_configuration(self.target)
+            warehouse_fixture = WarehouseFixture.create(self.target)
+            warehouse_fixture.initialize_warehouse_configuration(warehouse_configuration)
+            warehouse = self.setup_create_warehouse(warehouse_configuration)
+            warehouse_fixture.initialize_warehouse(warehouse)
+            SqlTestCase.warehouse_cache_by_target[self.target] = warehouse
+            SqlTestCase.warehouse_fixture_cache_by_target[self.target] = warehouse_fixture
 
-    def setup_get_warehouse_configuration(self, profile_name: str, profile_target_name: str):
-        if profile_name == 'test' and profile_target_name == 'local_postgres':
+        return warehouse
+
+    def setup_get_warehouse_configuration(self, target: str):
+        if target == TARGET_POSTGRES:
             return {
                 'name': 'test_postgres_warehouse',
                 'type': 'postgres',
@@ -62,10 +81,8 @@ class SqlTestCase(TestCase):
                 'username': 'sodasql',
                 'database': 'sodasql',
                 'schema': 'public'}
-        return self.setup_read_warehouse_configuration_from_profile_yaml(profile_name, profile_target_name)
 
-    def setup_read_warehouse_configuration_from_profile_yaml(self, profile_name: str, profile_target_name: str):
-        profile = Profile(profile_name, profile_target_name)
+        profile = Profile('test', target)
         if profile.parse_logs.has_warnings_or_errors() \
                 and 'No such file or directory' in profile.parse_logs.logs[0].message:
             logging.error(f'{Profile.USER_HOME_PROFILES_YAML_LOCATION} not found, creating default initial version...')
@@ -105,11 +122,9 @@ class SqlTestCase(TestCase):
                 yaml.dump(initial_profile, yaml_file, default_flow_style=False)
             raise AssertionError(f'{Profile.USER_HOME_PROFILES_YAML_LOCATION} not found. '
                                  f'Default initial version was created. '
-                                 f'Update credentials  for profile {profile_name}, '
-                                 f'target {profile_target_name} in that file and retry.')
+                                 f'Update credentials for profile test, '
+                                 f'target {target} in that file and retry.')
         profile.parse_logs.assert_no_warnings_or_errors(Profile.USER_HOME_PROFILES_YAML_LOCATION)
-        if profile.configuration.get('name') is None:
-            profile.configuration['name'] = f'{profile_name}_{profile_target_name}_warehouse'
         return profile.configuration
 
     def setup_create_warehouse(self, warehouse_configuration: dict) -> Warehouse:
@@ -117,29 +132,37 @@ class SqlTestCase(TestCase):
         warehouse.parse_logs.assert_no_warnings_or_errors('Test warehouse')
         return warehouse
 
-    # def setup_init_warehouse(self):
-    #     pass
-
     def tearDown(self) -> None:
+        logging.debug('Rolling back transaction on warehouse connection')
         self.warehouse.connection.rollback()
+
+    @classmethod
+    def tearDownClass(cls) -> None:
+        if cls.warehouses_close_enabled:
+            cls.teardown_close_warehouses()
+
+    @classmethod
+    def teardown_close_warehouses(cls):
+        for target in SqlTestCase.warehouse_cache_by_target:
+            warehouse_fixture: WarehouseFixture = cls.warehouse_fixture_cache_by_target[target]
+            warehouse_fixture.cleanup()
 
     def sql_update(self, sql: str) -> int:
         return sql_update(self.warehouse.connection, sql)
 
-    def execute_sql_updates(self, sqls: List[str]):
+    def sql_updates(self, sqls: List[str]):
         return sql_updates(self.warehouse.connection, sqls)
 
-    def create_table(self, table_name: str, columns: List[str], rows: List[str]):
+    def sql_create_table(self, table_name: str, columns: List[str], rows: List[str]):
         joined_columns = ", ".join(columns)
         joined_rows = ", ".join(rows)
-        self.execute_sql_updates([
+        self.sql_updates([
             f"DROP TABLE IF EXISTS {table_name}",
             f"CREATE TABLE {table_name} ( {joined_columns} )",
             f"INSERT INTO {table_name} VALUES {joined_rows}"])
 
     def scan(self, scan_configuration_dict: dict) -> ScanResult:
         logging.debug('Scan configuration \n'+json.dumps(scan_configuration_dict, indent=2))
-
         scan_configuration: ScanConfiguration = ScanConfiguration(scan_configuration_dict)
         scan_configuration.parse_logs.assert_no_warnings_or_errors('Test scan')
         scan = self.warehouse.create_scan(scan_configuration)
