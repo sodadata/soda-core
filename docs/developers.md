@@ -68,3 +68,41 @@ $ tox -e html-reports
 ```
 
 Reports will be available in the directory `./reports/`.
+
+## Deploying to PyPi:
+
+- Create an account on [PyPI](https://pypi.org/) and [TestPyPI](https://test.pypi.org/) (these are separated accounts) if you don't have them.
+
+- Build the distribution:
+
+```
+$ python setup.py sdist bdist_wheel
+```
+
+On success, you should have generated the distribution files under the folder `./dist`, e.g.:
+
+```
+$ ls ./dist
+soda_sql-0.1.0-py3-none-any.whl  soda-sql-0.1.0.tar.gz
+```
+
+- Upload the distribution to TestPyPI server:
+
+```
+$ twine upload --repository-url https://test.pypi.org/legacy/ dist/*
+```
+
+If it uploads successfully with no issues, that means you can publish on the live server.
+
+- Upload the distribution to PyPI server:
+
+```
+$ twine upload dist/*
+
+```
+
+- Now you can install the distribution from PyPI:
+
+```
+$ pip install soda-sql
+```
