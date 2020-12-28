@@ -8,9 +8,12 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
+from tests.common.sql_test_case import TARGET_ATHENA
+from tests.common.sql_test_suite import SqlTestSuite
 
-from tests.common.warehouse_fixture import WarehouseFixture
 
+class AthenaSuite(SqlTestSuite):
 
-class SnowflakeFixture(WarehouseFixture):
-    pass
+    def setUp(self) -> None:
+        self.target = TARGET_ATHENA
+        super().setUp()

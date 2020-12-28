@@ -13,6 +13,4 @@ from tests.common.warehouse_fixture import WarehouseFixture
 
 
 class RedshiftFixture(WarehouseFixture):
-
-    def __init__(self, target: str) -> None:
-        super().__init__(target)
+    pass

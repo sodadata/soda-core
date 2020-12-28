@@ -8,32 +8,45 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-import os
-import unittest
-from typing import Type
-from unittest import TestLoader, TextTestRunner
 
-from tests.common.sql_test_case import SqlTestCase
-
-
-class TargetTestLoader(TestLoader):
-
-    def __init__(self, target) -> None:
-        super().__init__()
-        self.target = target
-
-    def loadTestsFromTestCase(self, testCaseClass: Type[unittest.case.TestCase]) -> unittest.suite.TestSuite:
-        loaded_suite = super().loadTestsFromTestCase(testCaseClass)
-        for test in loaded_suite._tests:
-            if isinstance(test, SqlTestCase):
-                test.target = self.target
-        return loaded_suite
+from tests.local.sql.test_distinct_and_uniqueness import TestDistinctAndUniqueness
+from tests.local.sql.test_frequent_values import TestFrequentValues
+from tests.local.sql.test_histogram_numeric import TestHistogramNumeric
+from tests.local.sql.test_min_max_length import TestMinMaxLength
+from tests.local.sql.test_mins_maxs import TestMinsMaxs
+from tests.local.sql.test_missing_and_invalid_customizations import TestMissingAndInvalidCustomizations
+from tests.local.sql.test_missing_and_invalid_metric_configurations import TestMissingAndInvalidMetricConfigurations
+from tests.local.sql.test_schema import TestSchema
+from tests.local.sql.test_statistical_metrics import TestStatisticalMetrics
+from tests.local.sql.test_tests import TestTests
 
 
-def run_test_suite(target: str):
-    SqlTestCase.warehouses_close_enabled = False
-    here = os.path.dirname(__file__)
-    test_loader = TargetTestLoader(target)
-    tests = test_loader.discover(start_dir=f'{here}/../local/sql')
-    TextTestRunner().run(tests)
-    SqlTestCase.teardown_close_warehouses()
+class SqlTestSuite(
+        TestDistinctAndUniqueness,
+        TestFrequentValues,
+        TestHistogramNumeric,
+        TestMinMaxLength,
+        TestMinsMaxs,
+        TestMissingAndInvalidCustomizations,
+        TestMissingAndInvalidMetricConfigurations,
+        TestSchema,
+        TestStatisticalMetrics,
+        TestTests):
+
+    def setUp(self) -> None:
+        if type(self) == SqlTestSuite:
+            # Ensuring that AllSqlTests is not executed as a test class
+            # but that subclasses do execute the common test methods in this class
+            self.skipTest('Abstract test class should not execute its test methods, only subclasses.')
+        else:
+            super().setUp()
+            self.warehouses_close_enabled = False
+
+    def tearDown(self) -> None:
+        super().tearDown()
+
+    @classmethod
+    def tearDownClass(cls) -> None:
+        cls.teardown_close_warehouses()
+
+
