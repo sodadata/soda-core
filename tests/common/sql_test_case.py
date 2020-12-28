@@ -166,8 +166,6 @@ class SqlTestCase(TestCase):
         scan_configuration: ScanConfiguration = ScanConfiguration(scan_configuration_dict)
         scan_configuration.parse_logs.assert_no_warnings_or_errors('Test scan')
         scan = self.warehouse.create_scan(scan_configuration)
-        for log in scan.configuration.parse_logs.logs:
-            logging.info(str(log))
         return scan.execute()
 
     def assertMeasurements(self, scan_result, column: str, expected_metrics_present):
