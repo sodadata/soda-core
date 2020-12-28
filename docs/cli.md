@@ -2,6 +2,14 @@
 
 ## Installation
 
+### From PyPI
+
+```
+$ pip install soda-sql
+```
+
+### Manually
+
 - Clone the repository from Github.
 
 ```
