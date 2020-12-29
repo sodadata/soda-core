@@ -114,7 +114,3 @@ new data is produced in your dataset:
 * Dagster
 * Luigi
 * ...
-
-Next, upload and store metrics over time on a free Soda cloud account and 
-add anomaly detection (coming soon):
-![Free Soda cloud account](img/free-cloud-account.png)

@@ -8,7 +8,7 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-from typing import List
+from typing import List, Optional
 
 from sodasql.scan.column_metadata import ColumnMetadata
 from sodasql.scan.dialect import Dialect
@@ -41,18 +41,17 @@ class ScanColumn:
             [Metric.MISSING_COUNT, Metric.MISSING_PERCENTAGE,
              Metric.VALUES_COUNT, Metric.VALUES_PERCENTAGE],
             self.column_name)
-        self.missing_condition = self.__get_missing_condition(column_metadata, self.missing, dialect)
+        self.non_missing_condition: Optional[str] = self.__get_non_missing_condition(column_metadata, self.missing, dialect)
 
         self.validity = self.scan_configuration.get_validity(self.column_name)
         self.is_validity_metric_enabled = self.scan_configuration.is_any_metric_enabled(
             [Metric.INVALID_COUNT, Metric.INVALID_PERCENTAGE,
              Metric.VALID_COUNT, Metric.VALID_PERCENTAGE],
             self.column_name)
-        self.valid_condition = self.__get_valid_condition(column_metadata, self.validity, dialect)
+        self.valid_condition: Optional[str] = self.__get_valid_condition(column_metadata, self.validity, dialect)
 
-        self.non_missing_and_valid_condition = \
-            f'NOT {self.missing_condition} AND {self.valid_condition}' if self.valid_condition \
-            else f'NOT {self.missing_condition}'
+        self.non_missing_and_valid_condition: Optional[str] = \
+            self.__get_non_missing_and_valid_condition(self.non_missing_condition, self.valid_condition)
 
         self.validity_format = self.scan_configuration.get_validity_format(column_metadata)
         self.is_valid_enabled = \
@@ -60,7 +59,6 @@ class ScanColumn:
             or self.scan_configuration.is_any_metric_enabled([Metric.DISTINCT, Metric.UNIQUENESS], self.column_name)
 
         self.is_missing_enabled = self.is_valid_enabled or self.is_missing_metric_enabled
-        self.non_missing_and_valid_condition = self.non_missing_and_valid_condition
 
         self.is_column_numeric_text_format = \
             isinstance(self.validity_format, str) \
@@ -98,26 +96,26 @@ class ScanColumn:
             return True
 
     @classmethod
-    def __get_missing_condition(cls, column_metadata: ColumnMetadata, missing: Missing, dialect: Dialect):
-        qualified_column_name = dialect.qualify_column_name(column_metadata.name)
+    def __get_non_missing_condition(cls, column_metadata: ColumnMetadata, missing: Missing, dialect: Dialect):
         if missing is None:
-            return f'{qualified_column_name} IS NULL'
-        validity_clauses = [f'{qualified_column_name} IS NULL']
+            return ''
+        qualified_column_name = dialect.qualify_column_name(column_metadata.name)
+        validity_clauses = []
         if missing.values is not None:
             sql_expr_missing_values = dialect.sql_expr_list(column_metadata, missing.values)
-            validity_clauses.append(f'{qualified_column_name} IN {sql_expr_missing_values}')
+            validity_clauses.append(f'{qualified_column_name} NOT IN {sql_expr_missing_values}')
         if missing.format is not None:
             format_regex = Missing.FORMATS.get(missing.format)
-            validity_clauses.append(dialect.sql_expr_regexp_like(qualified_column_name, format_regex))
+            validity_clauses.append(f'NOT {dialect.sql_expr_regexp_like(qualified_column_name, format_regex)}')
         if missing.regex is not None:
-            validity_clauses.append(dialect.sql_expr_regexp_like(qualified_column_name, missing.regex))
-        return '(' + ' OR '.join(validity_clauses) + ')'
+            validity_clauses.append(f'NOT {dialect.sql_expr_regexp_like(qualified_column_name, missing.regex)}')
+        return ' AND '.join(validity_clauses)
 
     @classmethod
     def __get_valid_condition(cls, column_metadata: ColumnMetadata, validity: Validity, dialect: Dialect):
         qualified_column_name = dialect.qualify_column_name(column_metadata.name)
         if validity is None:
-            return None
+            return ''
         validity_clauses = []
         if validity.format:
             format_regex = Validity.FORMATS.get(validity.format)
@@ -131,14 +129,32 @@ class ScanColumn:
         # TODO add min and max clauses
         return '(' + ' AND '.join(validity_clauses) + ')'
 
+    def __get_non_missing_and_valid_condition(self, non_missing_condition, valid_condition):
+        if non_missing_condition and valid_condition:
+            return f'{non_missing_condition} AND {valid_condition}'
+        elif non_missing_condition:
+            return non_missing_condition
+        elif valid_condition:
+            return valid_condition
+        return ''
+
     def get_group_by_cte(self):
+        if self.non_missing_and_valid_condition and self.scan.table_sample_clause:
+            where = f'{self.non_missing_and_valid_condition}\n    {self.scan.table_sample_clause}'
+        elif self.non_missing_and_valid_condition:
+            where = self.non_missing_and_valid_condition
+        elif self.scan.table_sample_clause:
+            where = self.scan.table_sample_clause
+        else:
+            where = f'{self.qualified_column_name} IS NOT NULL'
+
         return (
             f"WITH group_by_value AS ( \n"
             f"  SELECT \n"
             f"    {self.qualified_column_name} AS value, \n"
             f"    COUNT(*) AS frequency"
             f"  FROM {self.scan.qualified_table_name} \n"
-            f"  WHERE {self.non_missing_and_valid_condition} {self.scan.table_sample_clause}\n"
+            f"  WHERE {where} \n"
             f"  GROUP BY {self.qualified_column_name} \n"
             f")"
         )

@@ -1,100 +1,29 @@
 # Soda's Command Line Interface (CLI)
 
-## Installation
+## Initialize a warehouse configuration directory 
 
-### From PyPI
+To make it easier to get started with soda-sql, 
+`soda init` will initialize analyse tables in a warehouse and 
+create directories with scan configuration files for each table.
 
-```
-$ pip install soda-sql
-```
+`soda init [OPTIONS] PROFILE DIRECTORY`
 
-### Manually
+`PROFILE` indicates which profile and hence which database to use. See 
+[Warehouses](warehouses.md) to learn more about configuring warehouse 
+profiles.yml
 
-- Clone the repository from Github.
+`DIRECTORY` is a directory in which the scan configuration files will 
+be generated.  For each table, a directory and scan.yml file will be 
+created in it if it doesn't exist. If a scan.yml file already exists for 
+a particular table, it will not be changed.
 
-```
-$ git clone https://github.com/sodadata/soda-sql.git
-```
-
-- Change to the `soda-sql` directory:
-
-```
-$ cd soda-sql
-```
-
-- Create a new virtual environment for `soda-sql`, .e.g, "soda_env":
-
-```
-$ python -m venv soda_env
-```
-
-- Activate the environment:
-```
-$ source soda_env/bin/activate
-```
-
-- Install the package:
-```
-$ pip install .
-```
-
-- Run the CLI application:
-
-```
-$ soda-sql
-Usage: soda-sql [OPTIONS] COMMAND [ARGS]...
-
-Options:
-  --help  Show this message and exit.
-
-Commands:
-  check
-  initialize
-  scan
-```
-
-## Profiles
-
-File `~/.soda/profiles.yml` is used by the `soda` CLI to obtain connection details to 
-warehouses (databases).  This prevents that any credentials are checked into version control 
-as part of the scan and custom sql configuration files.
-
-Eg:
-
-```
-customer:
-  target: dev
-  outputs:
-    dev:
-      type: postgres
-      host: localhost
-      username: xxx
-      password: xxx
-      database: your_dev_db
-    prod:
-      type: snowflake
-      username: xxx
-      password: xxx
-      account: YOURACCOUNTNAME.eu-central-1
-      warehouse: DEMO_WH
-      database: YOURDATABASE
-      schema: PUBLIC
-    prod:
-      type: athena
-      database: '***'
-      access_key_id: '***'
-      secret_access_key: '***'
-      # role_arn: ***
-      # region: eu-west-1
-      workDir: '***'
-```
-
-## Configuration directory layout
-
-
-
+Option `target=TARGET` Use target to specify the warehouse configuration 
+properties to use.
+  
 ## Execute a scan 
 
-TODO doc commands of the command line
+TODO doc how to specify the CLI parameters for the scan
 
 `soda scan ...`
+
+For generic scan parameters descriptions and other details see [Scan](scan.md) 

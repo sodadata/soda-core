@@ -50,8 +50,8 @@ class Metric:
     CATEGORY_VALIDITY = 'validity'
     CATEGORY_VALIDITY_METRICS = [VALID_COUNT, VALID_PERCENTAGE, INVALID_COUNT, INVALID_PERCENTAGE]
 
-    CATEGORY_DISTINCT = 'distinct'
-    CATEGORY_DISTINCT_METRICS = [DISTINCT, UNIQUE_COUNT, UNIQUENESS, DUPLICATE_COUNT]
+    CATEGORY_DUPLICATES = 'duplicates'
+    CATEGORY_DUPLICATES_METRICS = [DISTINCT, UNIQUE_COUNT, UNIQUENESS, DUPLICATE_COUNT]
 
     METRIC_TYPES = [
         ROW_COUNT,
@@ -99,7 +99,7 @@ def resolve_metrics(configured_metrics_list: List[str],
 
     resolve_category(metrics, Metric.CATEGORY_MISSING,  Metric.CATEGORY_MISSING_METRICS, parse_logs, column_name)
     resolve_category(metrics, Metric.CATEGORY_VALIDITY, Metric.CATEGORY_VALIDITY_METRICS, parse_logs, column_name)
-    resolve_category(metrics, Metric.CATEGORY_DISTINCT, Metric.CATEGORY_DISTINCT_METRICS, parse_logs, column_name)
+    resolve_category(metrics, Metric.CATEGORY_DUPLICATES, Metric.CATEGORY_DUPLICATES_METRICS, parse_logs, column_name)
 
     if Metric.VALID_COUNT in metrics:
         ensure_metric(metrics, Metric.MISSING_COUNT,      Metric.CATEGORY_VALIDITY, parse_logs, column_name)

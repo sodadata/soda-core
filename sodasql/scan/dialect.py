@@ -79,14 +79,17 @@ class Dialect:
     def sql_expr_count_all(self) -> str:
         return 'COUNT(*)'
 
+    def sql_expr_count_conditional(self, condition: str):
+        return f'COUNT(CASE WHEN {condition} THEN 1 END)'
+
+    def sql_expr_count_column(self, qualified_column_name):
+        return f'COUNT({qualified_column_name})'
+
     def sql_expr_min(self, expr):
         return f'MIN({expr})'
 
     def sql_expr_length(self, expr):
         return f'LENGTH({expr})'
-
-    def sql_expr_count_conditional(self, condition: str):
-        return f'COUNT(CASE WHEN {condition} THEN 1 END)'
 
     def sql_expr_conditional(self, condition: str, expr: str):
         return f'CASE WHEN {condition} THEN {expr} END'
@@ -116,7 +119,7 @@ class Dialect:
         if self.is_text(column):
             sql_values = [self.literal_string(value) for value in values]
         elif self.is_number(column):
-            sql_values = [self.literal_string(value) for value in values]
+            sql_values = [self.literal_number(value) for value in values]
         else:
             raise RuntimeError(f"Couldn't format list {str(values)} for column {str(column)}")
         return '('+','.join(sql_values)+')'
@@ -127,7 +130,7 @@ class Dialect:
         return f"CAST(REGEXP_REPLACE(REGEXP_REPLACE({quoted_column_name}, '[^-\\d\\.\\,]', '', 'g'), ',', '.', 'g') AS REAL)"
 
     def literal_number(self, value: str):
-        return value
+        return str(value)
 
     def literal_string(self, value: str):
         return "'"+str(value).replace("'", "\'")+"'"

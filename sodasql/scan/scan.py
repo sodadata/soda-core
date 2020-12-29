@@ -124,27 +124,33 @@ class Scan:
             scan_column: ScanColumn = self.scan_columns[column_name]
 
             if scan_column.is_missing_enabled:
-                metric_indices['missing'] = len(measurements)
-                fields.append(f'{dialect.sql_expr_count_conditional(scan_column.missing_condition)}')
-                measurements.append(Measurement(Metric.MISSING_COUNT, column_name))
+                metric_indices['non_missing'] = len(measurements)
+                if scan_column.non_missing_condition:
+                    fields.append(dialect.sql_expr_count_conditional(scan_column.non_missing_condition))
+                else:
+                    fields.append(dialect.sql_expr_count_column(scan_column.qualified_column_name))
+                measurements.append(Measurement(Metric.VALUES_COUNT, column_name))
 
             if scan_column.is_valid_enabled:
                 metric_indices['valid'] = len(measurements)
-                fields.append(f'{dialect.sql_expr_count_conditional(scan_column.non_missing_and_valid_condition)}')
+                if scan_column.non_missing_and_valid_condition:
+                    fields.append(dialect.sql_expr_count_conditional(scan_column.non_missing_and_valid_condition))
+                else:
+                    fields.append(dialect.sql_expr_count_column(scan_column.qualified_column_name))
                 measurements.append(Measurement(Metric.VALID_COUNT, column_name))
 
             if scan_column.is_text:
-                if self.configuration.is_metric_enabled(Metric.MIN_LENGTH, column_name):
-                    length_expr = dialect.sql_expr_conditional(
+                length_expr = dialect.sql_expr_conditional(
                         scan_column.non_missing_and_valid_condition,
-                        dialect.sql_expr_length(scan_column.qualified_column_name))
+                        dialect.sql_expr_length(scan_column.qualified_column_name)) \
+                    if scan_column.non_missing_and_valid_condition \
+                    else dialect.sql_expr_length(scan_column.qualified_column_name)
+
+                if self.configuration.is_metric_enabled(Metric.MIN_LENGTH, column_name):
                     fields.append(dialect.sql_expr_min(length_expr))
                     measurements.append(Measurement(Metric.MIN_LENGTH, column_name))
 
                 if self.configuration.is_metric_enabled(Metric.MAX_LENGTH, column_name):
-                    length_expr = dialect.sql_expr_conditional(
-                        scan_column.non_missing_and_valid_condition,
-                        dialect.sql_expr_length(scan_column.qualified_column_name))
                     fields.append(dialect.sql_expr_max(length_expr))
                     measurements.append(Measurement(Metric.MAX_LENGTH, column_name))
 
@@ -192,14 +198,14 @@ class Scan:
             row_count = row_count_measurement.value
             for column_name in self.column_names:
                 metric_indices = column_metric_indices[column_name]
-                missing_index = metric_indices.get('missing')
-                if missing_index is not None:
-                    missing_count = measurements[missing_index].value
+                non_missing_index = metric_indices.get('non_missing')
+                if non_missing_index is not None:
+                    values_count = measurements[non_missing_index].value
+                    missing_count = row_count - values_count
                     missing_percentage = missing_count * 100 / row_count
-                    values_count = row_count - missing_count
                     values_percentage = values_count * 100 / row_count
                     self.add_derived(Measurement(Metric.MISSING_PERCENTAGE, column_name, missing_percentage))
-                    self.add_derived(Measurement(Metric.VALUES_COUNT, column_name, values_count))
+                    self.add_derived(Measurement(Metric.MISSING_COUNT, column_name, missing_count))
                     self.add_derived(Measurement(Metric.VALUES_PERCENTAGE, column_name, values_percentage))
 
                     valid_index = metric_indices.get('valid')
