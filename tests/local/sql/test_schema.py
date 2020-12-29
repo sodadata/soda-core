@@ -45,4 +45,4 @@ class TestSchema(SqlTestCase):
         self.assertEqual(column.type, 'integer')
         self.assertEqual(column.nullable, True)
 
-        self.assertEqual(scan_result.get(Metric.ROW_COUNT), 1)
+        self.assertIsNone(scan_result.find_measurement(Metric.ROW_COUNT))

@@ -37,15 +37,17 @@ class ScanColumn:
         self.is_number: bool = dialect.is_number(column_metadata)
 
         self.missing = self.scan_configuration.get_missing(self.column_name)
-        self.is_missing_metric_enabled = self.scan_configuration.is_any_metric_enabled(self.column_name, [
-            Metric.MISSING_COUNT, Metric.MISSING_PERCENTAGE,
-            Metric.VALUES_COUNT, Metric.VALUES_PERCENTAGE])
+        self.is_missing_metric_enabled = self.scan_configuration.is_any_metric_enabled(
+            [Metric.MISSING_COUNT, Metric.MISSING_PERCENTAGE,
+             Metric.VALUES_COUNT, Metric.VALUES_PERCENTAGE],
+            self.column_name)
         self.missing_condition = self.__get_missing_condition(column_metadata, self.missing, dialect)
 
         self.validity = self.scan_configuration.get_validity(self.column_name)
-        self.is_validity_metric_enabled = self.scan_configuration.is_any_metric_enabled(self.column_name, [
-            Metric.INVALID_COUNT, Metric.INVALID_PERCENTAGE,
-            Metric.VALID_COUNT, Metric.VALID_PERCENTAGE])
+        self.is_validity_metric_enabled = self.scan_configuration.is_any_metric_enabled(
+            [Metric.INVALID_COUNT, Metric.INVALID_PERCENTAGE,
+             Metric.VALID_COUNT, Metric.VALID_PERCENTAGE],
+            self.column_name)
         self.valid_condition = self.__get_valid_condition(column_metadata, self.validity, dialect)
 
         self.non_missing_and_valid_condition = \
@@ -55,11 +57,10 @@ class ScanColumn:
         self.validity_format = self.scan_configuration.get_validity_format(column_metadata)
         self.is_valid_enabled = \
             (self.validity is not None and self.is_validity_metric_enabled) \
-            or self.scan_configuration.is_any_metric_enabled(self.column_name, [Metric.DISTINCT, Metric.UNIQUENESS])
+            or self.scan_configuration.is_any_metric_enabled([Metric.DISTINCT, Metric.UNIQUENESS], self.column_name)
 
         self.is_missing_enabled = self.is_valid_enabled or self.is_missing_metric_enabled
         self.non_missing_and_valid_condition = self.non_missing_and_valid_condition
-        self.missing_condition = self.missing_condition
 
         self.is_column_numeric_text_format = \
             isinstance(self.validity_format, str) \

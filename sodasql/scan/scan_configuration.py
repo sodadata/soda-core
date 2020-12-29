@@ -8,12 +8,11 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-from typing import List
+from typing import List, Optional, Set
 
 from sodasql.scan.configuration_helper import parse_int
-from sodasql.scan.metric import Metric
+from sodasql.scan.metric import Metric, remove_metric, ensure_metric, resolve_metrics
 from sodasql.scan.parse_logs import ParseLogs
-from sodasql.scan.scan_column_configuration import ScanColumnConfiguration
 
 KEY_TABLE_NAME = 'table_name'
 KEY_METRICS = 'metrics'
@@ -22,52 +21,6 @@ KEY_MINS_MAXS_LIMIT = 'mins_maxs_limit'
 KEY_FREQUENT_VALUES_LIMIT = 'frequent_values_limit'
 KEY_SAMPLE_PERCENTAGE = 'sample_percentage'
 KEY_SAMPLE_METHOD = 'sample_method'
-
-
-def ensure_metric(metrics: List[str],
-                  metric: str,
-                  dependent_metric: str,
-                  parse_logs: ParseLogs,
-                  column_name: str = None):
-    if metric not in metrics:
-        metrics.append(metric)
-        column_message = f' on column {column_name}' if column_name else ''
-        parse_logs.info(f'Added metric {metric} as dependency of {dependent_metric}{column_message}')
-
-
-def is_metric_category_enabled(metrics: List[str], category: str, category_metrics: List[str]):
-    if category in metrics:
-        return True
-    for category_metric in category_metrics:
-        if category_metric in metrics:
-            return True
-    return False
-
-
-def resolve_category(metrics: List[str],
-                     category: str,
-                     category_metrics: List[str],
-                     parse_logs: ParseLogs,
-                     column_name: str = None):
-    if is_metric_category_enabled(metrics, category, category_metrics):
-        if category in metrics:
-            metrics.remove(category)
-        for category_metric in category_metrics:
-            ensure_metric(metrics, category_metric, category, parse_logs, column_name)
-
-
-def resolve_metrics(metrics: List[str],
-                    parse_logs: ParseLogs,
-                    column_name: str = None):
-    resolve_category(metrics, Metric.CATEGORY_MISSING, Metric.CATEGORY_MISSING_METRICS, parse_logs, column_name)
-    resolve_category(metrics, Metric.CATEGORY_VALIDITY, Metric.CATEGORY_VALIDITY_METRICS, parse_logs, column_name)
-    resolve_category(metrics, Metric.CATEGORY_DISTINCT, Metric.CATEGORY_DISTINCT_METRICS, parse_logs, column_name)
-
-    if Metric.HISTOGRAM in metrics:
-        ensure_metric(metrics, Metric.MIN, Metric.HISTOGRAM, parse_logs, column_name)
-        ensure_metric(metrics, Metric.MAX, Metric.HISTOGRAM, parse_logs, column_name)
-
-    return metrics
 
 
 class ScanConfiguration:
@@ -83,22 +36,18 @@ class ScanConfiguration:
         if not self.table_name:
             self.parse_logs.error('table_name is required')
 
-        self.metrics = resolve_metrics(scan_dict.get(KEY_METRICS, []), self.parse_logs)
-        if not isinstance(self.metrics, list):
-            self.parse_logs.error('metrics is not a list')
-            self.metrics = []
-        else:
-            self.parse_logs.warning_invalid_elements(
-                self.metrics,
-                Metric.METRIC_TYPES,
-                'Invalid metrics value')
+        self.metrics: Set[str] = resolve_metrics(scan_dict.get(KEY_METRICS, []), self.parse_logs)
 
         self.columns = {}
         columns_dict = scan_dict.get(KEY_COLUMNS, {})
         for column_name in columns_dict:
             column_dict = columns_dict[column_name]
             column_name_lower = column_name.lower()
-            self.columns[column_name_lower] = ScanColumnConfiguration(column_name, column_dict, self.parse_logs)
+            from sodasql.scan.scan_column_configuration import ScanColumnConfiguration
+            column_configuration = ScanColumnConfiguration(self, column_name, column_dict)
+            self.columns[column_name_lower] = column_configuration
+            if remove_metric(column_configuration.metrics, Metric.ROW_COUNT):
+                ensure_metric(self.metrics, Metric.ROW_COUNT, f'{Metric.ROW_COUNT} {column_name}', self.parse_logs)
 
         self.sample_percentage = scan_dict.get(KEY_SAMPLE_PERCENTAGE)
         self.sample_method = scan_dict.get(KEY_SAMPLE_METHOD, 'SYSTEM').upper()
@@ -112,20 +61,21 @@ class ScanConfiguration:
             ScanConfiguration.VALID_KEYS,
             'Invalid scan configuration')
 
-    def is_any_metric_enabled(self, column_name: str, metrics: List[str]):
+    def is_any_metric_enabled(self, metrics: List[str], column_name: Optional[str] = None):
         for metric in self.__get_metrics(column_name):
             if metric in metrics:
                 return True
         return False
 
-    def is_metric_enabled(self, column_name: str, metric: str):
+    def is_metric_enabled(self, metric: str, column_name: Optional[str] = None):
         return metric in self.__get_metrics(column_name)
 
-    def __get_metrics(self, column_name: str):
+    def __get_metrics(self, column_name: Optional[str] = None) -> Set[str]:
         metrics = self.metrics.copy()
-        column_configuration = self.columns.get(column_name.lower())
-        if column_configuration is not None and column_configuration.metrics is not None:
-            metrics.extend(column_configuration.metrics)
+        if column_name:
+            column_configuration = self.columns.get(column_name.lower())
+            if column_configuration is not None and column_configuration.metrics is not None:
+                metrics.update(column_configuration.metrics)
         return metrics
 
     def get_missing(self, column_name: str):

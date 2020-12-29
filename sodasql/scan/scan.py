@@ -108,8 +108,10 @@ class Scan:
         fields: List[str] = []
 
         dialect = self.warehouse.dialect
-        fields.append(dialect.sql_expr_count_all())
-        measurements.append(Measurement(Metric.ROW_COUNT))
+
+        if self.configuration.is_metric_enabled(Metric.ROW_COUNT):
+            fields.append(dialect.sql_expr_count_all())
+            measurements.append(Measurement(Metric.ROW_COUNT))
 
         # maps db column names to missing and invalid metric indices in the measurements
         # eg { 'colname': {'missing': 2, 'invalid': 3}, ...}
@@ -132,14 +134,14 @@ class Scan:
                 measurements.append(Measurement(Metric.VALID_COUNT, column_name))
 
             if scan_column.is_text:
-                if self.configuration.is_metric_enabled(column_name, Metric.MIN_LENGTH):
+                if self.configuration.is_metric_enabled(Metric.MIN_LENGTH, column_name):
                     length_expr = dialect.sql_expr_conditional(
                         scan_column.non_missing_and_valid_condition,
                         dialect.sql_expr_length(scan_column.qualified_column_name))
                     fields.append(dialect.sql_expr_min(length_expr))
                     measurements.append(Measurement(Metric.MIN_LENGTH, column_name))
 
-                if self.configuration.is_metric_enabled(column_name, Metric.MAX_LENGTH):
+                if self.configuration.is_metric_enabled(Metric.MAX_LENGTH, column_name):
                     length_expr = dialect.sql_expr_conditional(
                         scan_column.non_missing_and_valid_condition,
                         dialect.sql_expr_length(scan_column.qualified_column_name))
@@ -185,42 +187,45 @@ class Scan:
 
         # Calculating derived measurements
         derived_measurements = []
-        row_count = measurements[0].value
-        for column_name in self.column_names:
-            metric_indices = column_metric_indices[column_name]
-            missing_index = metric_indices.get('missing')
-            if missing_index is not None:
-                missing_count = measurements[missing_index].value
-                missing_percentage = missing_count * 100 / row_count
-                values_count = row_count - missing_count
-                values_percentage = values_count * 100 / row_count
-                self.add_derived(Measurement(Metric.MISSING_PERCENTAGE, column_name, missing_percentage))
-                self.add_derived(Measurement(Metric.VALUES_COUNT, column_name, values_count))
-                self.add_derived(Measurement(Metric.VALUES_PERCENTAGE, column_name, values_percentage))
+        row_count_measurement = next((m for m in measurements if m.metric == Metric.ROW_COUNT), None)
+        if row_count_measurement:
+            row_count = row_count_measurement.value
+            for column_name in self.column_names:
+                metric_indices = column_metric_indices[column_name]
+                missing_index = metric_indices.get('missing')
+                if missing_index is not None:
+                    missing_count = measurements[missing_index].value
+                    missing_percentage = missing_count * 100 / row_count
+                    values_count = row_count - missing_count
+                    values_percentage = values_count * 100 / row_count
+                    self.add_derived(Measurement(Metric.MISSING_PERCENTAGE, column_name, missing_percentage))
+                    self.add_derived(Measurement(Metric.VALUES_COUNT, column_name, values_count))
+                    self.add_derived(Measurement(Metric.VALUES_PERCENTAGE, column_name, values_percentage))
 
-                valid_index = metric_indices.get('valid')
-                if valid_index is not None:
-                    valid_count = measurements[valid_index].value
-                    invalid_count = row_count - missing_count - valid_count
-                    invalid_percentage = invalid_count * 100 / row_count
-                    valid_percentage = valid_count * 100 / row_count
-                    self.add_derived(Measurement(Metric.INVALID_PERCENTAGE, column_name, invalid_percentage))
-                    self.add_derived(Measurement(Metric.INVALID_COUNT, column_name, invalid_count))
-                    self.add_derived(Measurement(Metric.VALID_PERCENTAGE, column_name, valid_percentage))
+                    valid_index = metric_indices.get('valid')
+                    if valid_index is not None:
+                        valid_count = measurements[valid_index].value
+                        invalid_count = row_count - missing_count - valid_count
+                        invalid_percentage = invalid_count * 100 / row_count
+                        valid_percentage = valid_count * 100 / row_count
+                        self.add_derived(Measurement(Metric.INVALID_PERCENTAGE, column_name, invalid_percentage))
+                        self.add_derived(Measurement(Metric.INVALID_COUNT, column_name, invalid_count))
+                        self.add_derived(Measurement(Metric.VALID_PERCENTAGE, column_name, valid_percentage))
 
     def query_group_by_value(self):
         for column_name in self.column_names:
             scan_column: ScanColumn = self.scan_columns[column_name]
 
-            if scan_column.is_any_metric_enabled([
-                    Metric.DISTINCT, Metric.UNIQUENESS, Metric.UNIQUE_COUNT,
-                    Metric.MINS, Metric.MAXS, Metric.FREQUENT_VALUES, Metric.DUPLICATE_COUNT]):
+            if scan_column.is_any_metric_enabled(
+                    [Metric.DISTINCT, Metric.UNIQUENESS, Metric.UNIQUE_COUNT,
+                     Metric.MINS, Metric.MAXS, Metric.FREQUENT_VALUES, Metric.DUPLICATE_COUNT]):
 
                 group_by_cte = scan_column.get_group_by_cte()
                 numeric_value_expr = scan_column.get_group_by_cte_numeric_value_expression()
 
-                if self.configuration.is_any_metric_enabled(column_name, [
-                        Metric.DISTINCT, Metric.UNIQUENESS, Metric.UNIQUE_COUNT, Metric.DUPLICATE_COUNT]):
+                if self.configuration.is_any_metric_enabled(
+                        [Metric.DISTINCT, Metric.UNIQUENESS, Metric.UNIQUE_COUNT, Metric.DUPLICATE_COUNT],
+                        column_name):
 
                     sql = (f'{group_by_cte} \n'
                            f'SELECT COUNT(*), \n'
@@ -252,7 +257,7 @@ class Scan:
                     mins = [row[0] for row in rows]
                     self.add_query(Measurement(Metric.MINS, column_name, mins))
 
-                if self.configuration.is_metric_enabled(column_name, Metric.MAXS) \
+                if self.configuration.is_metric_enabled(Metric.MAXS, column_name) \
                         and (scan_column.is_number or scan_column.is_column_numeric_text_format):
 
                     sql = (f'{group_by_cte} \n'
@@ -265,7 +270,7 @@ class Scan:
                     maxs = [row[0] for row in rows]
                     self.add_query(Measurement(Metric.MAXS, column_name, maxs))
 
-                if self.configuration.is_metric_enabled(column_name, Metric.FREQUENT_VALUES) \
+                if self.configuration.is_metric_enabled(Metric.FREQUENT_VALUES, column_name) \
                         and (scan_column.is_number or scan_column.is_column_numeric_text_format):
 
                     frequent_values_limit = self.configuration.get_frequent_values_limit(column_name)
