@@ -8,6 +8,7 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
+import re
 from typing import List
 
 from sodasql.scan.column_metadata import ColumnMetadata
@@ -75,7 +76,7 @@ class Dialect:
         return False
 
     def _get_number_types(self):
-        return ['INT', 'REAL', 'PRECISION']
+        return ['INT', 'REAL', 'PRECISION', 'NUMBER']
 
     def sql_columns_metadata_query(self, scan_configuration: ScanConfiguration) -> str:
         raise RuntimeError('TODO override and implement this abstract method')
@@ -83,14 +84,17 @@ class Dialect:
     def sql_expr_count_all(self) -> str:
         return 'COUNT(*)'
 
+    def sql_expr_count_conditional(self, condition: str):
+        return f'COUNT(CASE WHEN {condition} THEN 1 END)'
+
+    def sql_expr_count_column(self, qualified_column_name):
+        return f'COUNT({qualified_column_name})'
+
     def sql_expr_min(self, expr):
         return f'MIN({expr})'
 
     def sql_expr_length(self, expr):
         return f'LENGTH({expr})'
-
-    def sql_expr_count_conditional(self, condition: str):
-        return f'COUNT(CASE WHEN {condition} THEN 1 END)'
 
     def sql_expr_conditional(self, condition: str, expr: str):
         return f'CASE WHEN {condition} THEN {expr} END'
@@ -120,7 +124,7 @@ class Dialect:
         if self.is_text(column):
             sql_values = [self.literal_string(value) for value in values]
         elif self.is_number(column):
-            sql_values = [self.literal_string(value) for value in values]
+            sql_values = [self.literal_number(value) for value in values]
         else:
             raise RuntimeError(f"Couldn't format list {str(values)} for column {str(column)}")
         return '('+','.join(sql_values)+')'
@@ -131,7 +135,7 @@ class Dialect:
         return f"CAST(REGEXP_REPLACE(REGEXP_REPLACE({quoted_column_name}, '[^-\\d\\.\\,]', '', 'g'), ',', '.', 'g') AS REAL)"
 
     def literal_number(self, value: str):
-        return value
+        return str(value)
 
     def literal_string(self, value: str):
         return "'"+str(value).replace("'", "\'")+"'"
@@ -144,3 +148,6 @@ class Dialect:
 
     def qualify_column_name(self, column_name: str):
         return column_name
+
+    def escape_regex_metacharacters(self, regex):
+        return re.sub(r'(\\.)', r'\\\1', regex)

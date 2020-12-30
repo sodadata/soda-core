@@ -1,6 +1,38 @@
 # Warehouses
 
-Warehouse configuration information are stored in the `~/.soda/profiles.yml` file.
+## Profiles
+
+The file `~/.soda/profiles.yml` is used by the `soda` CLI to obtain connection details to  warehouses (databases).
+This prevents that any credentials are checked into version control as part of the scan and custom sql configuration files.
+
+Example:
+```
+customer:
+  target: dev
+  outputs:
+    dev:
+      type: postgres
+      host: localhost
+      username: xxx
+      password: xxx
+      database: your_dev_db
+    prod:
+      type: snowflake
+      username: xxx
+      password: xxx
+      account: YOURACCOUNTNAME.eu-central-1
+      warehouse: DEMO_WH
+      database: YOURDATABASE
+      schema: PUBLIC
+    prod:
+      type: athena
+      database: '***'
+      access_key_id: '***'
+      secret_access_key: '***'
+      # role_arn: ***
+      # region: eu-west-1
+      workDir: '***'
+```
 
 The top level keys define different profiles, in the following example, "default", "test", and "prod":
 
@@ -33,6 +65,23 @@ default:
 ```
 
 In the example above, the active configuration is "athena-dev".
+
+## Snowflake
+
+```yaml
+default:
+  target: snowflake-dev
+  outputs:
+    snowflake-dev:
+      type: snowflake
+      username: <YOUR SNOWFLAKE USERNAME>
+      password: <YOUR SNOWFLAKE PASSWORD>
+      account: <YOUR SNOWFLAKE ACCOUNT NAME>
+      warehouse: DEMO_WH
+      database: FUNDS
+      schema': PUBLIC
+...
+```
 
 ## AWS Athena
 

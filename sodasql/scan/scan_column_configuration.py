@@ -8,10 +8,12 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
+from typing import Set
 
-from sodasql.scan.metric import Metric
+from sodasql.scan.metric import resolve_metrics
 from sodasql.scan.missing import Missing
 from sodasql.scan.parse_logs import ParseLogs
+from sodasql.scan.scan_configuration import ScanConfiguration
 from sodasql.scan.validity import Validity
 
 
@@ -51,9 +53,9 @@ class ScanColumnConfiguration:
         KEY_METRICS,
         KEY_TESTS]
 
-    def __init__(self, column_name: str, column_dict: dict, parse_logs: ParseLogs):
-        from sodasql.scan.scan_configuration import resolve_metrics
-        self.metrics = resolve_metrics(column_dict.get(KEY_METRICS, []), parse_logs, column_name)
+    def __init__(self, scan_configuration: ScanConfiguration, column_name: str, column_dict: dict):
+        parse_logs: ParseLogs = scan_configuration.parse_logs
+        self.metrics: Set[str] = resolve_metrics(column_dict.get(KEY_METRICS, []), parse_logs, column_name)
 
         self.missing = None
         if any(cfg in column_dict.keys() for cfg in self.MISSING_KEYS):
@@ -77,11 +79,6 @@ class ScanColumnConfiguration:
             self.validity.max_length = column_dict.get(KEY_VALID_MAX_LENGTH)
 
         self.tests = column_dict.get(KEY_TESTS)
-
-        parse_logs.warning_invalid_elements(
-            self.metrics,
-            Metric.METRIC_TYPES,
-            f'Invalid metric in column {column_name}')
 
         parse_logs.warning_invalid_elements(
             column_dict.keys(),

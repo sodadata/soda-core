@@ -15,7 +15,7 @@ from tests.common.sql_test_case import SqlTestCase
 
 class TestMinsMaxs(SqlTestCase):
 
-    table_name = 'test_table'
+    table_name = SqlTestCase.default_test_table_name
 
     def test_scan_mins_maxs(self):
         self.sql_create_table(

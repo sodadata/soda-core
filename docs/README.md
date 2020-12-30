@@ -1,19 +1,25 @@
 # soda-sql
 
-SQL-based data monitoring for Data Engineers
+SQL-based data quality monitoring for Data Engineers
+
+To protect against silent data issues for the consumers of your data,
+you should check your data before and after every data pipeline job.
+
+soda-sql offers a declarative way to specify scans.  During a scan, soda-sql 
+will execute SQL queries on your table and produce metrics.  Those metrics 
+can be used to check the quality of the data or even stop the pipeline. 
 
  * Configure what metrics should be computed 
  * Stop your data pipeline based on metric tests
  * Add metric configuration files to your version control system
- * Add custom SQL query metrics
+ * Add any custom SQL query metric
  * Collaborate with Analysts and other data roles in your company 
-
-Configure the default metrics for all columns in a dataset (=table)
 
 `my_warehouse/my_dataset/scan.yaml` :
 ```yaml
 metrics:
-    - missing_count, 
+    - row_count
+    - missing_count 
     - missing_percentage
     - values_count
     - values_percentage
@@ -114,7 +120,3 @@ new data is produced in your dataset:
 * Dagster
 * Luigi
 * ...
-
-Next, upload and store metrics over time on a free Soda cloud account and 
-add anomaly detection (coming soon):
-![Free Soda cloud account](img/free-cloud-account.png)
