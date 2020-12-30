@@ -140,6 +140,11 @@ class SqlTestCase(TestCase):
         warehouse.parse_logs.assert_no_warnings_or_errors('Test warehouse')
         return warehouse
 
+    def tearDown(self) -> None:
+        logging.debug('Rolling back transaction on warehouse connection')
+        if self.warehouse.connection:
+            self.warehouse.connection.rollback()
+
     @classmethod
     def tearDownClass(cls) -> None:
         if cls.warehouses_close_enabled:
