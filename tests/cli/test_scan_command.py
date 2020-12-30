@@ -27,6 +27,7 @@ class TestScan(BaseTestCase, SqlTestCase):
                  "('two',    2)",
                  "('three',  3)",
                  "(null,     null)"])
+            self.warehouse.connection.commit()
 
             runner = CliRunner()
             result = runner.invoke(main, ['scan',

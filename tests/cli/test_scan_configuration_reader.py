@@ -18,4 +18,4 @@ class TestScanConfigurationReader(BaseTestCase):
                                          'test_table',
                                          self._get_test_resource_path('test_scan_configuration'))
         self._assert_logs(reader.parse_logs)
-        self.assertListEqual(reader.configuration.metrics, ['min_length', 'max_length'])
+        self.assertListEqual(sorted(list(reader.configuration.metrics)), ['max_length', 'min_length'])

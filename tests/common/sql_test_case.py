@@ -140,10 +140,6 @@ class SqlTestCase(TestCase):
         warehouse.parse_logs.assert_no_warnings_or_errors('Test warehouse')
         return warehouse
 
-    def tearDown(self) -> None:
-        logging.debug('Rolling back transaction on warehouse connection')
-        self.warehouse.connection.rollback()
-
     @classmethod
     def tearDownClass(cls) -> None:
         if cls.warehouses_close_enabled:
@@ -169,7 +165,6 @@ class SqlTestCase(TestCase):
             f"DROP TABLE IF EXISTS {table_name}",
             f"CREATE TABLE {table_name} ( {joined_columns} )",
             f"INSERT INTO {table_name} VALUES {joined_rows}"])
-        self.warehouse.connection.commit()
 
     def scan(self, scan_configuration_dict: dict) -> ScanResult:
         logging.debug('Scan configuration \n'+json.dumps(scan_configuration_dict, indent=2))
