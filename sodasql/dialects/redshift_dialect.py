@@ -55,3 +55,12 @@ class RedshiftDialect(PostgresDialect):
                                                        DurationSeconds=3600)
 
         return cluster_creds['DbUser'], cluster_creds['DbPassword']
+
+    def qualify_regex(self, regex):
+        """
+        Redshift regex's required the following transformations:
+            - Escape metacharacters.
+            - Removal of non-capturing-groups (not allowed).
+        """
+        return self.escape_regex_metacharacters(regex) \
+            .replace('(?:', '(')

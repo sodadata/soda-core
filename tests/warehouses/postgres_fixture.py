@@ -18,8 +18,8 @@ class PostgresFixture(WarehouseFixture):
     def initialize_warehouse_configuration(self, warehouse_configuration: dict):
         self.database = warehouse_configuration['database']
 
-    def initialize_warehouse(self, warehouse: Warehouse):
-        self.warehouse = warehouse
+    def create_database(self):
+        pass
 
-    def cleanup(self):
+    def drop_database(self):
         pass

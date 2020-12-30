@@ -73,7 +73,8 @@ class SqlTestCase(TestCase):
             warehouse_fixture = WarehouseFixture.create(self.target)
             warehouse_fixture.initialize_warehouse_configuration(warehouse_configuration)
             warehouse = self.setup_create_warehouse(warehouse_configuration)
-            warehouse_fixture.initialize_warehouse(warehouse)
+            warehouse_fixture.warehouse = warehouse
+            warehouse_fixture.create_database()
             SqlTestCase.warehouse_cache_by_target[self.target] = warehouse
             SqlTestCase.warehouse_fixture_cache_by_target[self.target] = warehouse_fixture
 
@@ -141,9 +142,9 @@ class SqlTestCase(TestCase):
         return warehouse
 
     def tearDown(self) -> None:
-        logging.debug('Rolling back transaction on warehouse connection')
         if self.warehouse.connection:
-            self.warehouse.connection.rollback()
+            warehouse_fixture: WarehouseFixture = SqlTestCase.warehouse_fixture_cache_by_target[self.target]
+            warehouse_fixture.tear_down()
 
     @classmethod
     def tearDownClass(cls) -> None:
@@ -154,7 +155,7 @@ class SqlTestCase(TestCase):
     def teardown_close_warehouses(cls):
         for target in SqlTestCase.warehouse_cache_by_target:
             warehouse_fixture: WarehouseFixture = SqlTestCase.warehouse_fixture_cache_by_target[target]
-            warehouse_fixture.cleanup()
+            warehouse_fixture.drop_database()
         SqlTestCase.warehouse_cache_by_target = {}
 
     def sql_update(self, sql: str) -> int:

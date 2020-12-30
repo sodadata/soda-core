@@ -8,6 +8,7 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
+import logging
 import random
 import re
 import socket
@@ -51,11 +52,10 @@ class WarehouseFixture:
         self.database = self.setup_create_unique_database_name('soda_test')
         warehouse_configuration['database'] = self.database
 
-    def initialize_warehouse(self, warehouse: Warehouse):
-        self.warehouse = warehouse
+    def create_database(self):
         sql_update(self.warehouse.connection, f'CREATE DATABASE IF NOT EXISTS {self.database}')
 
-    def cleanup(self):
+    def drop_database(self):
         sql_update(self.warehouse.connection, f'DROP DATABASE IF EXISTS {self.database} CASCADE')
 
     @classmethod
@@ -63,3 +63,7 @@ class WarehouseFixture:
         normalized_hostname = re.sub(r"(?i)[^a-zA-Z0-9]", "_", socket.gethostname()).lower()
         random_suffix = ''.join(random.choice(string.ascii_lowercase + string.digits) for _ in range(10))
         return f"{prefix}_{normalized_hostname}_{random_suffix}"
+
+    def tear_down(self):
+        logging.debug('Rolling back transaction on warehouse connection')
+        self.warehouse.connection.rollback()

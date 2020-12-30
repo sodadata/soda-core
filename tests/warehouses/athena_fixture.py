@@ -10,6 +10,7 @@
 #  limitations under the License.
 import logging
 import random
+import re
 import string
 
 import boto3
@@ -23,20 +24,25 @@ class AthenaFixture(WarehouseFixture):
 
     def __init__(self, target: str) -> None:
         super().__init__(target)
-        self.test_bucket = self.create_unique_bucket_name('soda')
-        self.test_bucket_path = 'sodalite-athena-test'
+        self.bucket = None
+        self.path = None
 
     def initialize_warehouse_configuration(self, warehouse_configuration: dict):
         super().initialize_warehouse_configuration(warehouse_configuration)
-        warehouse_configuration['work_dir'] = f's3://{self.test_bucket}/{self.test_bucket_path}'
-        self.delete_s3_files()
+        self.bucket = 'sodalite-athena-test'
+        self.path = self.create_unique_bucket_path('sodasql')
+        warehouse_configuration['staging_dir'] = f's3://{self.bucket}/{self.path}'
 
-    def create_unique_bucket_name(self, prefix: str):
+    def create_unique_bucket_path(self, prefix: str):
         random_suffix = ''.join(random.choice(string.ascii_lowercase + string.digits) for _ in range(10))
         return f"{prefix}_{random_suffix}"
 
+    def drop_database(self):
+        super().drop_database()
+        self.delete_s3_files()
+
     def delete_s3_files(self):
-        logging.debug(f"Deleting all files under s3://%s/%s", self.test_bucket, self.test_bucket_path)
+        logging.debug(f"Deleting all files under s3://%s/%s", self.bucket, self.path)
         Boto3Helper.filter_false_positive_boto3_warning()
         aws_credentials = AwsCredentials.from_configuration(self.warehouse.warehouse_configuration)
         aws_credentials = aws_credentials.resolve_role("soda_sql_test_cleanup")
@@ -48,7 +54,7 @@ class AthenaFixture(WarehouseFixture):
             aws_session_token=aws_credentials.session_token
         )
         object_keys = []
-        response = s3_client.list_objects_v2(Bucket=self.test_bucket, Prefix=self.test_bucket_path)
+        response = s3_client.list_objects_v2(Bucket=self.bucket, Prefix=self.path)
         if 'Contents' in response:
             for object_summary in response['Contents']:
                 object_key = object_summary['Key']
@@ -56,4 +62,8 @@ class AthenaFixture(WarehouseFixture):
             max_objects = 200
             assert len(object_keys) < max_objects, \
                 f'This method is intended for tests and hence limited to max {max_objects} keys: {len(object_keys)}'
-            s3_client.delete_objects(Bucket=self.test_bucket, Delete={'Objects': object_keys})
+            s3_client.delete_objects(Bucket=self.bucket, Delete={'Objects': object_keys})
+
+    def tear_down(self):
+        pass
+

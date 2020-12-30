@@ -79,7 +79,7 @@ default:
       account: <YOUR SNOWFLAKE ACCOUNT NAME>
       warehouse: DEMO_WH
       database: FUNDS
-      schema': PUBLIC
+      schema: PUBLIC
 ...
 ```
 
@@ -108,7 +108,7 @@ default:
     bigquery-dev:
       type: bigquery
       account_info: <PATH TO YOUR BIGQUERY ACCOUNT INFO JSON FILE>
-      dataset: sodalite
+      dataset: sodasql
 ...
 ```
 
