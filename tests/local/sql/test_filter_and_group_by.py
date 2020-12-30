@@ -18,33 +18,6 @@ from sodasql.scan.warehouse import Warehouse
 from tests.common.sql_test_case import SqlTestCase
 
 
-def filter_sql_expression(expression: dict):
-    type = expression['type']
-    if type == 'not':
-        sql = 'NOT ( ' + filter_sql_expression(expression['expression']) + ' )'
-    elif type == 'and':
-        sql = '\n      AND '.join([filter_sql_expression(e) for e in expression['andExpressions']])
-    elif type == 'or':
-        sql = '( ' + ('\n        OR '.join([filter_sql_expression(e) for e in expression['orExpressions']])) + ' )'
-    elif type == 'equals':
-        sql = filter_sql_expression(expression['left']) + ' = ' + filter_sql_expression(expression['right'])
-    elif type == 'lessThan':
-        sql = filter_sql_expression(expression['left']) + ' < ' + filter_sql_expression(expression['right'])
-    elif type == 'contains':
-        substring = expression['right']['value']
-        sql = filter_sql_expression(expression['left']) + " like '%" + substring + "%'"
-    elif type == 'number':
-        sql = str(expression['value'])
-    elif type == 'string':
-        sql = f"'{expression['value']}'"
-    elif type == 'columnValue':
-        sql = expression['columnName']
-    else:
-        raise RuntimeError(f'Unsupported expression type: {type}')
-    logging.debug('expr sql: '+sql)
-    return sql
-
-
 def execute_metric(warehouse: Warehouse, metric: dict, scan_configuration_dict):
     dialect = warehouse.dialect
 
@@ -79,7 +52,7 @@ def execute_metric(warehouse: Warehouse, metric: dict, scan_configuration_dict):
 
     filter = metric.get('filter')
     if filter:
-        where_clauses.append(filter_sql_expression(filter))
+        where_clauses.append(dialect.sql_expression(filter))
 
     scan_column: ScanColumn = scan.scan_columns.get(column_name)
     if scan_column and scan_column.non_missing_and_valid_condition:
@@ -227,3 +200,64 @@ class FilterAndGroupByTest(SqlTestCase):
         self.assertEqual(sum_by_name['four'],  2)
 
         self.assertIsNone(sum_by_name.get('one'))
+
+    def test_contains_expression(self):
+        where_expr = self.warehouse.dialect.sql_expression({
+                'type': 'contains',
+                'left': {
+                    'type': 'columnValue',
+                    'columnName': 'name'
+                },
+                'right': {
+                    'type': 'string',
+                    'value': 'ou'
+                }
+            })
+        rows = self.warehouse.sql_fetchall(
+            f'SELECT * \n'
+            f'FROM {self.default_test_table_name} \n'
+            f'WHERE {where_expr}')
+
+        self.assertEqual(len(rows), 2)
+        for row in rows:
+            self.assertEqual(row[0], 'four')
+
+        where_expr = self.warehouse.dialect.sql_expression({
+                'type': 'startsWith',
+                'left': {
+                    'type': 'columnValue',
+                    'columnName': 'name'
+                },
+                'right': {
+                    'type': 'string',
+                    'value': 'thr'
+                }
+            })
+        rows = self.warehouse.sql_fetchall(
+            f'SELECT * \n'
+            f'FROM {self.default_test_table_name} \n'
+            f'WHERE {where_expr}')
+
+        self.assertEqual(len(rows), 7)
+        for row in rows:
+            self.assertEqual(row[0], 'three')
+
+        where_expr = self.warehouse.dialect.sql_expression({
+                'type': 'endsWith',
+                'left': {
+                    'type': 'columnValue',
+                    'columnName': 'name'
+                },
+                'right': {
+                    'type': 'string',
+                    'value': 'ee'
+                }
+            })
+        rows = self.warehouse.sql_fetchall(
+            f'SELECT * \n'
+            f'FROM {self.default_test_table_name} \n'
+            f'WHERE {where_expr}')
+
+        self.assertEqual(len(rows), 7)
+        for row in rows:
+            self.assertEqual(row[0], 'three')

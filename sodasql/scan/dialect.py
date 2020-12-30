@@ -8,6 +8,7 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
+import logging
 import re
 from typing import List
 
@@ -151,3 +152,62 @@ class Dialect:
 
     def escape_regex_metacharacters(self, regex):
         return re.sub(r'(\\.)', r'\\\1', regex)
+
+    def sql_expression(self, expression_dict: dict):
+        type = expression_dict['type']
+        if type == 'number':
+            sql = str(expression_dict['value'])
+        elif type == 'string':
+            sql = f"'{expression_dict['value']}'"
+        elif type == 'columnValue':
+            sql = expression_dict['columnName']
+        elif type == 'collection':
+            value = expression_dict['value']
+            sql = '(' + (', '.join([f"'{x}'" if isinstance(x, str) else str(x) for x in value])) + ')'
+        elif type == 'equals':
+            sql = self.sql_expression(expression_dict['left']) + ' = ' + self.sql_expression(expression_dict['right'])
+        elif type == 'lessThan':
+            sql = self.sql_expression(expression_dict['left']) + ' < ' + self.sql_expression(expression_dict['right'])
+        elif type == 'lessThanOrEqual':
+            sql = self.sql_expression(expression_dict['left']) + ' <= ' + self.sql_expression(expression_dict['right'])
+        elif type == 'greaterThan':
+            sql = self.sql_expression(expression_dict['left']) + ' > ' + self.sql_expression(expression_dict['right'])
+        elif type == 'greaterThanOrEqual':
+            sql = self.sql_expression(expression_dict['left']) + ' >= ' + self.sql_expression(expression_dict['right'])
+        elif type == 'between':
+            clauses = []
+            value = self.sql_expression(expression_dict['value'])
+            gte = expression_dict.get('gte')
+            gt = expression_dict.get('gt')
+            lte = expression_dict.get('lte')
+            lt = expression_dict.get('lt')
+            if gte:
+                clauses.append(f'{gte} <= {value}')
+            elif gt:
+                clauses.append(f'{gt} < {value}')
+            if lte:
+                clauses.append(f'{value} <= {lte}')
+            elif lt:
+                clauses.append(f'{value} < {lt}')
+            sql = ' AND '.join(clauses)
+        elif type == 'in':
+            sql = self.sql_expression(expression_dict['left']) + ' IN ' + self.sql_expression(expression_dict['right'])
+        elif type == 'contains':
+            substring = expression_dict['right']['value']
+            sql = self.sql_expression(expression_dict['left']) + " like '%" + substring + "%'"
+        elif type == 'startsWith':
+            substring = expression_dict['right']['value']
+            sql = self.sql_expression(expression_dict['left']) + " like '" + substring + "%'"
+        elif type == 'endsWith':
+            substring = expression_dict['right']['value']
+            sql = self.sql_expression(expression_dict['left']) + " like '%" + substring + "'"
+        elif type == 'not':
+            sql = 'NOT ( ' + self.sql_expression(expression_dict['expression']) + ' )'
+        elif type == 'and':
+            sql = '( ' + (' ) AND ( '.join([self.sql_expression(e) for e in expression_dict['andExpressions']])) + ' )'
+        elif type == 'or':
+            sql = '( ' + (' ) OR ( '.join([self.sql_expression(e) for e in expression_dict['orExpressions']])) + ' )'
+        else:
+            raise RuntimeError(f'Unsupported expression type: {type}')
+        logging.debug('expr sql: '+sql)
+        return sql
