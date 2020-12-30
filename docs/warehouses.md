@@ -38,7 +38,16 @@ customer:
 
 ## Snowflake
 
-TODO
+Snowflake profile configuration properties
+
+| Property | Description | Required | Example |
+| --- | --- | --- | --- |
+| username | The username | Required | johndoe |
+| password | The password | Required |         |
+| account | The account host | Required | YOURACCOUNTNAME.eu-central-1 |
+| warehouse | | | DEMO_WH |
+| database | | | YOURDATABASE |
+| schema | | default: PUBLIC | PUBLIC |
 
 ## AWS Redshift
 
