@@ -46,3 +46,6 @@ class SnowflakeDialect(Dialect):
         if self.schema:
             sql += f" \n  AND table_schema = '{self.schema.upper()}'"
         return sql
+
+    def qualify_regex(self, regex) -> str:
+        return self.escape_regex_metacharacters(regex)

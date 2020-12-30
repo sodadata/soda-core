@@ -59,7 +59,7 @@ class Scan:
 
         self.columns: List[ColumnMetadata] = []
         self.column_names: List[str] = []
-        # maps column names to ScanColumn's
+        # maps column names (lower case) to ScanColumn's
         self.scan_columns: dict = {}
 
     def execute(self):
@@ -95,7 +95,7 @@ class Scan:
             logging.debug(f'  {column.name} {column.type} {"" if column.nullable else "not null"}')
 
         self.column_names: List[str] = [column_metadata.name for column_metadata in self.columns]
-        self.scan_columns: dict = {column.name: ScanColumn(self, column) for column in self.columns}
+        self.scan_columns: dict = {column.name.lower(): ScanColumn(self, column) for column in self.columns}
 
         self.add_query(Measurement(Metric.SCHEMA, value=self.columns))
 
@@ -113,15 +113,15 @@ class Scan:
             fields.append(dialect.sql_expr_count_all())
             measurements.append(Measurement(Metric.ROW_COUNT))
 
-        # maps db column names to missing and invalid metric indices in the measurements
+        # maps db column names (lower) to missing and invalid metric indices in the measurements
         # eg { 'colname': {'missing': 2, 'invalid': 3}, ...}
         column_metric_indices = {}
 
-        for column_name in self.column_names:
+        for column_name_lower in self.scan_columns:
             metric_indices = {}
-            column_metric_indices[column_name] = metric_indices
-
-            scan_column: ScanColumn = self.scan_columns[column_name]
+            column_metric_indices[column_name_lower] = metric_indices
+            scan_column: ScanColumn = self.scan_columns[column_name_lower]
+            column_name = scan_column.column_name
 
             if scan_column.is_missing_enabled:
                 metric_indices['non_missing'] = len(measurements)
@@ -179,48 +179,52 @@ class Scan:
                     fields.append(dialect.sql_expr_stddev(scan_column.numeric_expr))
                     measurements.append(Measurement(Metric.STDDEV, column_name))
 
-        sql = 'SELECT \n  ' + ',\n  '.join(fields) + ' \n' \
-              'FROM ' + self.qualified_table_name
-        if self.table_sample_clause:
-            sql += f'\n{self.table_sample_clause}'
+        if len(fields) > 0:
+            sql = 'SELECT \n  ' + ',\n  '.join(fields) + ' \n' \
+                  'FROM ' + self.qualified_table_name
+            if self.table_sample_clause:
+                sql += f'\n{self.table_sample_clause}'
 
-        query_result_tuple = self.warehouse.sql_fetchone(sql)
+            query_result_tuple = self.warehouse.sql_fetchone(sql)
 
-        for i in range(0, len(measurements)):
-            measurement = measurements[i]
-            measurement.value = query_result_tuple[i]
-            self.add_query(measurement)
+            for i in range(0, len(measurements)):
+                measurement = measurements[i]
+                measurement.value = query_result_tuple[i]
+                self.add_query(measurement)
 
-        # Calculating derived measurements
-        derived_measurements = []
-        row_count_measurement = next((m for m in measurements if m.metric == Metric.ROW_COUNT), None)
-        if row_count_measurement:
-            row_count = row_count_measurement.value
-            for column_name in self.column_names:
-                metric_indices = column_metric_indices[column_name]
-                non_missing_index = metric_indices.get('non_missing')
-                if non_missing_index is not None:
-                    values_count = measurements[non_missing_index].value
-                    missing_count = row_count - values_count
-                    missing_percentage = missing_count * 100 / row_count
-                    values_percentage = values_count * 100 / row_count
-                    self.add_derived(Measurement(Metric.MISSING_PERCENTAGE, column_name, missing_percentage))
-                    self.add_derived(Measurement(Metric.MISSING_COUNT, column_name, missing_count))
-                    self.add_derived(Measurement(Metric.VALUES_PERCENTAGE, column_name, values_percentage))
+            # Calculating derived measurements
+            derived_measurements = []
+            row_count_measurement = next((m for m in measurements if m.metric == Metric.ROW_COUNT), None)
+            if row_count_measurement:
+                row_count = row_count_measurement.value
+                for column_name_lower in self.scan_columns:
+                    scan_column = self.scan_columns[column_name_lower]
+                    column_name = scan_column.column_name
+                    metric_indices = column_metric_indices[column_name_lower]
+                    non_missing_index = metric_indices.get('non_missing')
+                    if non_missing_index is not None:
+                        values_count = measurements[non_missing_index].value
+                        missing_count = row_count - values_count
+                        missing_percentage = missing_count * 100 / row_count
+                        values_percentage = values_count * 100 / row_count
+                        self.add_derived(Measurement(Metric.MISSING_PERCENTAGE, column_name, missing_percentage))
+                        self.add_derived(Measurement(Metric.MISSING_COUNT, column_name, missing_count))
+                        self.add_derived(Measurement(Metric.VALUES_PERCENTAGE, column_name, values_percentage))
 
-                    valid_index = metric_indices.get('valid')
-                    if valid_index is not None:
-                        valid_count = measurements[valid_index].value
-                        invalid_count = row_count - missing_count - valid_count
-                        invalid_percentage = invalid_count * 100 / row_count
-                        valid_percentage = valid_count * 100 / row_count
-                        self.add_derived(Measurement(Metric.INVALID_PERCENTAGE, column_name, invalid_percentage))
-                        self.add_derived(Measurement(Metric.INVALID_COUNT, column_name, invalid_count))
-                        self.add_derived(Measurement(Metric.VALID_PERCENTAGE, column_name, valid_percentage))
+                        valid_index = metric_indices.get('valid')
+                        if valid_index is not None:
+                            valid_count = measurements[valid_index].value
+                            invalid_count = row_count - missing_count - valid_count
+                            invalid_percentage = invalid_count * 100 / row_count
+                            valid_percentage = valid_count * 100 / row_count
+                            self.add_derived(Measurement(Metric.INVALID_PERCENTAGE, column_name, invalid_percentage))
+                            self.add_derived(Measurement(Metric.INVALID_COUNT, column_name, invalid_count))
+                            self.add_derived(Measurement(Metric.VALID_PERCENTAGE, column_name, valid_percentage))
 
     def query_group_by_value(self):
-        for column_name in self.column_names:
-            scan_column: ScanColumn = self.scan_columns[column_name]
+        for column_name_lower in self.scan_columns:
+            scan_column: ScanColumn = self.scan_columns[column_name_lower]
+            column_name = scan_column.column_name
 
             if scan_column.is_any_metric_enabled(
                     [Metric.DISTINCT, Metric.UNIQUENESS, Metric.UNIQUE_COUNT,
@@ -291,8 +295,9 @@ class Scan:
                     self.add_query(Measurement(Metric.FREQUENT_VALUES, column_name, frequent_values))
 
     def query_histograms(self):
-        for column_name in self.column_names:
-            scan_column: ScanColumn = self.scan_columns[column_name]
+        for column_name_lower in self.scan_columns:
+            scan_column: ScanColumn = self.scan_columns[column_name_lower]
+            column_name = scan_column.column_name
 
             if scan_column.is_metric_enabled(Metric.HISTOGRAM):
 
@@ -348,8 +353,10 @@ class Scan:
         test_results = []
         self.scan_result.test_results = test_results
 
-        for column_name in self.column_names:
-            scan_column: ScanColumn = self.scan_columns[column_name]
+        for column_name_lower in self.scan_columns:
+            scan_column: ScanColumn = self.scan_columns[column_name_lower]
+            column_name = scan_column.column_name
+
             tests = scan_column.get_tests()
             if tests:
                 column_measurement_values = {

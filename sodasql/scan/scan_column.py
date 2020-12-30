@@ -100,15 +100,18 @@ class ScanColumn:
         if missing is None:
             return ''
         qualified_column_name = dialect.qualify_column_name(column_metadata.name)
-        validity_clauses = []
+        # snowflake will match
+        validity_clauses = [f'{qualified_column_name} IS NOT NULL']
         if missing.values is not None:
             sql_expr_missing_values = dialect.sql_expr_list(column_metadata, missing.values)
             validity_clauses.append(f'{qualified_column_name} NOT IN {sql_expr_missing_values}')
         if missing.format is not None:
             format_regex = Missing.FORMATS.get(missing.format)
-            validity_clauses.append(f'NOT {dialect.sql_expr_regexp_like(qualified_column_name, format_regex)}')
+            qualified_regex = dialect.qualify_regex(format_regex)
+            validity_clauses.append(f'NOT {dialect.sql_expr_regexp_like(qualified_column_name, qualified_regex)}')
         if missing.regex is not None:
-            validity_clauses.append(f'NOT {dialect.sql_expr_regexp_like(qualified_column_name, missing.regex)}')
+            qualified_regex = dialect.qualify_regex(missing.regex)
+            validity_clauses.append(f'NOT {dialect.sql_expr_regexp_like(qualified_column_name, qualified_regex)}')
         return ' AND '.join(validity_clauses)
 
     @classmethod
@@ -119,9 +122,11 @@ class ScanColumn:
         validity_clauses = []
         if validity.format:
             format_regex = Validity.FORMATS.get(validity.format)
-            validity_clauses.append(dialect.sql_expr_regexp_like(qualified_column_name, format_regex))
+            qualified_regex = dialect.qualify_regex(format_regex)
+            validity_clauses.append(dialect.sql_expr_regexp_like(qualified_column_name, qualified_regex))
         if validity.regex:
-            validity_clauses.append(dialect.sql_expr_regexp_like(qualified_column_name, validity.regex))
+            qualified_regex = dialect.qualify_regex(validity.regex)
+            validity_clauses.append(dialect.sql_expr_regexp_like(qualified_column_name, qualified_regex))
         if validity.min_length:
             validity_clauses.append(f'{dialect.sql_expr_length(qualified_column_name)} >= {validity.min_length}')
         if validity.max_length:

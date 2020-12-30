@@ -36,6 +36,14 @@ TARGET_ATHENA = 'athena'
 TARGET_BIGQUERY = 'bigquery'
 
 
+def equals_ignore_case(left, right):
+    if not isinstance(left, str):
+        return False
+    if not isinstance(right, str):
+        return False
+    return left.lower() == right.lower()
+
+
 class SqlTestCase(TestCase):
 
     warehouse_cache_by_target = {}
@@ -144,8 +152,9 @@ class SqlTestCase(TestCase):
     @classmethod
     def teardown_close_warehouses(cls):
         for target in SqlTestCase.warehouse_cache_by_target:
-            warehouse_fixture: WarehouseFixture = cls.warehouse_fixture_cache_by_target[target]
+            warehouse_fixture: WarehouseFixture = SqlTestCase.warehouse_fixture_cache_by_target[target]
             warehouse_fixture.cleanup()
+        SqlTestCase.warehouse_cache_by_target = {}
 
     def sql_update(self, sql: str) -> int:
         return sql_update(self.warehouse.connection, sql)
@@ -170,18 +179,18 @@ class SqlTestCase(TestCase):
 
     def assertMeasurements(self, scan_result, column: str, expected_metrics_present):
         metrics_present = [measurement.metric for measurement in scan_result.measurements
-                           if measurement.column_name == column]
+                           if equals_ignore_case(measurement.column_name, column)]
         self.assertEqual(set(metrics_present), set(expected_metrics_present))
 
     def assertMeasurementsPresent(self, scan_result, column: str, expected_metrics_present):
         metrics_present = [measurement.metric for measurement in scan_result.measurements
-                           if measurement.column_name == column]
+                           if equals_ignore_case(measurement.column_name, column)]
         metrics_expected_and_not_present = [expected_metric for expected_metric in expected_metrics_present
                                             if expected_metric not in metrics_present]
         self.assertEqual(set(), set(metrics_expected_and_not_present))
 
     def assertMeasurementsAbsent(self, scan_result, column: str, expected_metrics_absent: list):
         metrics_present = [measurement.metric for measurement in scan_result.measurements
-                           if measurement.column_name == column]
+                           if equals_ignore_case(measurement.column_name, column)]
         metrics_present_and_expected_absent = set(expected_metrics_absent) & set(metrics_present)
         self.assertEqual(set(), metrics_present_and_expected_absent)

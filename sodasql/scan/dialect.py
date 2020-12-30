@@ -8,6 +8,7 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
+import re
 from typing import List
 
 from sodasql.scan.column_metadata import ColumnMetadata
@@ -71,7 +72,7 @@ class Dialect:
         return False
 
     def _get_number_types(self):
-        return ['INT', 'REAL', 'PRECISION']
+        return ['INT', 'REAL', 'PRECISION', 'NUMBER']
 
     def sql_columns_metadata_query(self, scan_configuration: ScanConfiguration) -> str:
         raise RuntimeError('TODO override and implement this abstract method')
@@ -143,3 +144,6 @@ class Dialect:
 
     def qualify_column_name(self, column_name: str):
         return column_name
+
+    def escape_regex_metacharacters(self, regex):
+        return re.sub(r'(\\.)', r'\\\1', regex)
