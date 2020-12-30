@@ -21,7 +21,7 @@ class Warehouse:
         self.parse_logs: ParseLogs = ParseLogs()
         self.warehouse_configuration = warehouse_configuration
         self.name: str = warehouse_configuration.get('name')
-        self.dialect: Dialect = Dialect.create(warehouse_configuration, self.parse_logs)
+        self.dialect = Dialect.create(warehouse_configuration, self.parse_logs)
         self.connection = self.dialect.create_connection()
 
     def sql_fetchone(self, sql) -> tuple:

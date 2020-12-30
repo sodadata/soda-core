@@ -18,6 +18,7 @@ POSTGRES = 'postgres'
 SNOWFLAKE = 'snowflake'
 REDSHIFT = 'redshift'
 BIGQUERY = 'bigquery'
+ATHENA = 'athena'
 
 
 class Dialect:
@@ -37,6 +38,9 @@ class Dialect:
         if warehouse_type == BIGQUERY:
             from sodasql.dialects.bigquery_dialect import BigQueryDialect
             return BigQueryDialect(warehouse_configuration, parse_logs)
+        if warehouse_type == ATHENA:
+            from sodasql.dialects.athena_dialect import AthenaDialect
+            return AthenaDialect(warehouse_configuration, parse_logs)
         else:
             raise RuntimeError(f'Unsupported sql warehouse type {warehouse_type}')
 

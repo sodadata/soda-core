@@ -49,7 +49,25 @@ To run all unit tests simply execute the following command:
 $ tox
 ```
 
-You may also pass extra parameters. This shows everything written to the standard output (even if tests don't fail):
+To run tests only a specific test suite:
+
+```
+$ tox -e cli
+```
+
+Runs only tests from the CLI suite.
+
+To run an specific test method:
+
+```
+$ tox -e postgres -- -k test_distinct
+```
+
+Runs test method "test_distinct" from postgres" test suite only.
+
+You may also add extra parameters for logging and debugging. 
+
+This shows everything written to the standard output (even if tests don't fail):
 
 ```
 $ tox -- -s
@@ -61,15 +79,9 @@ This changes the log level:
 $ tox -- --log-cli-level=DEBUG
 ```
 
-To generate HTML reports (tests and coverage), execute the following command:
+HTML reports will be available in the directory `./reports/`.
 
-```
-$ tox -e html-reports
-```
-
-Reports will be available in the directory `./reports/`.
-
-## Deploying to PyPi:
+## Deploying to PyPI:
 
 - Create an account on [PyPI](https://pypi.org/) and [TestPyPI](https://test.pypi.org/) (these are separated accounts) if you don't have them.
 

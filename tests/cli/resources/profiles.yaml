@@ -1,9 +1,0 @@
-customer:
-  target: dev
-  outputs:
-    dev-postgres:
-      type: postgres
-      host: localhost
-      username: sodasql
-      password: sodasql
-      database: sodasql

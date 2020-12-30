@@ -36,7 +36,8 @@ class Scan:
                  soda_client: SodaClient = None):
         self.soda_client: SodaClient = soda_client
         self.warehouse: Warehouse = warehouse
-        self.dialect: Dialect = warehouse.dialect
+        self.dialect = warehouse.dialect
+
         self.configuration: ScanConfiguration = scan_configuration
         self.custom_metrics: List[CustomMetric] = custom_metrics
 

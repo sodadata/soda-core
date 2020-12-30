@@ -1,43 +1,114 @@
 # Warehouses
 
-## Snowflake
+Warehouse configuration information are stored in the `~/.soda/profiles.yml` file.
 
-TODO
+The top level keys define different profiles, in the following example, "default", "test", and "prod":
 
-## AWS Redshift
+```yaml
+default:
+...
+test:
+...
+prod:
+...
+```
 
-TODO
+You should have at least a "default" profile key.
 
-### username / password authentication
+Configurations for individual warehouses are stored under the key "outputs". Each "output" represents a different connection to a data store.
 
-`username`
-`password`
+The "target" key selects the active warehouse configuration (the one that will be used in the scan).
 
-### aws credentials authentication
+```yaml
+default:
+  target: athena-dev
+  outputs:
+    athena-dev:
+    ...
+    postgres-dev:
+    ...
+    snowflake-dev:
+    ...
+...
+```
 
-`access_key_id`
-`secret_access_key`
-`session_token`
-`region` (default `eu-west-1`)
-`role_arn`
-
-### Obtaining cluster credentials
-
-This authentication mechanism is used if `username` is specified and `password` is not
-
-optionally aws credentials as above
-
-temp password is obtained with get_cluster_credentials: 
-https://docs.aws.amazon.com/redshift/latest/APIReference/API_GetClusterCredentials.html
+In the example above, the active configuration is "athena-dev".
 
 ## AWS Athena
 
-TODO
+```yaml
+default:
+  target: athena-dev
+  outputs:
+    athena-dev:
+      type: athena
+      database: sodalite_test
+      access_key_id: <YOUR AWS ACCESS KEY>
+      secret_access_key: <YOUR AWS SECRET ACCESS KEY>
+      region_name: eu-west-1
+      staging_dir: <YOUR STAGING PATH IN AWS S3>
+...
+```
 
 ## GCP BigQuery
 
-TODO
+```yaml
+default:
+  target: bigquery-dev
+  outputs:
+    bigquery-dev:
+      type: bigquery
+      account_info: <PATH TO YOUR BIGQUERY ACCOUNT INFO JSON FILE>
+      dataset: sodalite
+...
+```
 
 ## PostgreSQL
 
-TODO
+```yaml
+default:
+  target: postgres-dev
+  outputs:
+    postgres-dev:
+      type: postgres
+      host: localhost
+      username: sodasql
+      password: sodasql
+      database: sodasql
+      schema: public
+...
+```
+
+## Redshift
+
+```yaml
+default:
+  target: redshift-dev
+  outputs:
+    redshift-dev:
+      type: redshift
+      host: <YOUR AWS REDSHIFT HOSTNAME>
+      username: soda
+      password: <YOUR AWS REDSHIFT PASSWORD>
+      database: soda_agent_test
+      schema: public
+...
+```
+
+It's also possible to connect using AWS CREDENTIALS instead of a user name and password:
+
+```yaml
+default:
+  target: redshift-dev
+  outputs:
+    redshift-dev:
+      type: redshift
+      host: <YOUR AWS REDSHIFT HOSTNAME>
+      database: soda_agent_test
+      schema: public
+      access_key_id: <YOUR AWS ACCESS KEY>
+      secret_access_key: <YOUR AWS SECRET ACCESS KEY>
+      region_name: eu-west-1
+...
+```
+```
