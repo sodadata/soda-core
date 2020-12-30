@@ -16,7 +16,7 @@ from unittest import TestCase
 
 import yaml
 
-from sodasql.cli.profile_reader import Profile
+from sodasql.cli.utils.profiles_reader import ProfilesReader
 from sodasql.scan.db import sql_update, sql_updates
 from sodasql.scan.scan_configuration import ScanConfiguration
 from sodasql.scan.scan_result import ScanResult
@@ -90,10 +90,10 @@ class SqlTestCase(TestCase):
                 'database': 'sodasql',
                 'schema': 'public'}
 
-        profile = Profile('test', target)
+        profile = ProfilesReader('test', target)
         if profile.parse_logs.has_warnings_or_errors() \
                 and 'No such file or directory' in profile.parse_logs.logs[0].message:
-            logging.error(f'{Profile.USER_HOME_PROFILES_YAML_LOCATION} not found, creating default initial version...')
+            logging.error(f'{ProfilesReader.PROFILES_FILE_PATH} not found, creating default initial version...')
             initial_profile = {
                 'test': {
                     'target': 'redshift',
@@ -126,13 +126,13 @@ class SqlTestCase(TestCase):
                             'database': '***',
                             'schema': 'PUBLIC'}
                     }}}
-            with open(Profile.USER_HOME_PROFILES_YAML_LOCATION, 'w') as yaml_file:
+            with open(ProfilesReader.PROFILES_FILE_PATH, 'w') as yaml_file:
                 yaml.dump(initial_profile, yaml_file, default_flow_style=False)
-            raise AssertionError(f'{Profile.USER_HOME_PROFILES_YAML_LOCATION} not found. '
+            raise AssertionError(f'{ProfilesReader.PROFILES_FILE_PATH} not found. '
                                  f'Default initial version was created. '
                                  f'Update credentials for profile test, '
                                  f'target {target} in that file and retry.')
-        profile.parse_logs.assert_no_warnings_or_errors(Profile.USER_HOME_PROFILES_YAML_LOCATION)
+        profile.parse_logs.assert_no_warnings_or_errors(ProfilesReader.PROFILES_FILE_PATH)
         return profile.configuration
 
     def setup_create_warehouse(self, warehouse_configuration: dict) -> Warehouse:
@@ -142,7 +142,8 @@ class SqlTestCase(TestCase):
 
     def tearDown(self) -> None:
         logging.debug('Rolling back transaction on warehouse connection')
-        self.warehouse.connection.rollback()
+        if self.warehouse.connection:
+            self.warehouse.connection.rollback()
 
     @classmethod
     def tearDownClass(cls) -> None:

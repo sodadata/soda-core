@@ -20,7 +20,7 @@ class RedshiftDialect(PostgresDialect):
 
     def __init__(self, warehouse_configuration: dict, parse_logs: ParseLogs):
         super().__init__(warehouse_configuration, parse_logs)
-        self.port = warehouse_configuration.get('port', '5432')
+        self.port = warehouse_configuration.get('port', '5439')
         self.aws_credentials = AwsCredentials.from_configuration(warehouse_configuration)
 
     def create_connection(self):
