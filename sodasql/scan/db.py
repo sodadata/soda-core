@@ -36,7 +36,6 @@ def sql_fetchall(connection, sql: str) -> List[tuple]:
         rows = cursor.fetchall()
         delta = datetime.now() - start
         logging.debug(f'SQL took {str(delta)}')
-        logging.debug('%s: %s', sql, rows)
         return rows
     finally:
         cursor.close()
