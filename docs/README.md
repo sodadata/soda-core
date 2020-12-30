@@ -2,13 +2,12 @@
 
 SQL-based data quality monitoring for Data Engineers
 
-For every data pipeline job, you should ensure your data is checked 
-before and after your pipeline runs.  That is the only way to protect 
-against silent data issues for the consumers of your data.
+To protect against silent data issues for the consumers of your data,
+you should check your data before and after every data pipeline job.
 
-soda-sql offers a declarative way to specify scans.  Each scan configuration 
-will lead to SQL queries being executed (read-only) and compute data 
-metrics.  Those metrics can be used to stop the pipeline. 
+soda-sql offers a declarative way to specify scans.  During a scan, soda-sql 
+will execute SQL queries on your table and produce metrics.  Those metrics 
+can be used to check the quality of the data or even stop the pipeline. 
 
  * Configure what metrics should be computed 
  * Stop your data pipeline based on metric tests
@@ -16,12 +15,11 @@ metrics.  Those metrics can be used to stop the pipeline.
  * Add any custom SQL query metric
  * Collaborate with Analysts and other data roles in your company 
 
-Configure the default metrics for all columns in a dataset (=table)
-
 `my_warehouse/my_dataset/scan.yaml` :
 ```yaml
 metrics:
-    - missing_count, 
+    - row_count
+    - missing_count 
     - missing_percentage
     - values_count
     - values_percentage
