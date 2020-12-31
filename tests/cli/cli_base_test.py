@@ -40,7 +40,7 @@ class BaseTestCase(TestCase):
 
     def _assert_logs(self, logs):
         self._log_messages(logs)
-        self.assertFalse(logs.has_warnings_or_errors(), f"Operation logs have warnings or errors.")
+        self.assertFalse(logs.has_warnings_or_errors(), f"Test logs have warnings or errors.")
 
     @staticmethod
     def _log_messages(logs):
