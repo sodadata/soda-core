@@ -16,5 +16,5 @@ setup(
     long_description_content_type="text/markdown",
     packages=find_packages(exclude=["tests"]),
     install_requires=requires,
-    entry_points={"console_scripts": ["soda-sql=sodasql.cli:main"]},
+    entry_points={"console_scripts": ["soda=sodasql.cli:main"]},
 )
