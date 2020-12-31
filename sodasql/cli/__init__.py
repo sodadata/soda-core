@@ -15,6 +15,7 @@ import logging
 
 from .utils import ProfilesReader
 from .utils import ScanConfigurationReader
+from .utils import CommandHelper
 from sodasql.scan.warehouse import Warehouse
 from sodasql.scan import parse_logs
 
@@ -41,23 +42,4 @@ def check(directory: str):
 @click.argument('table')
 @click.option('-p', '--profile', type=str, required=False)
 def scan(directory: str, warehouse: str, table: str, profile):
-    profiles_reader = ProfilesReader(profile)
-    _log_messages(profiles_reader.parse_logs)
-    warehouse_configuration = profiles_reader.configuration
-    scan_configuration_reader = ScanConfigurationReader(warehouse, table, directory)
-    _log_messages(scan_configuration_reader.parse_logs)
-    scan_configuration = scan_configuration_reader.configuration
-    warehouse = Warehouse(warehouse_configuration)
-    scan_result = warehouse.create_scan(scan_configuration).execute()
-    print('RESULTS:', scan_result.test_results)
-    print('MEASUREMENTS:')
-    for measurement in scan_result.measurements:
-        print(measurement)
-
-
-def _log_messages(logs):
-    for log in logs.logs:
-        if log.level in [parse_logs.ERROR, parse_logs.WARNING]:
-            logging.error(log)
-        else:
-            logging.info(log)
+    CommandHelper.scan(directory, warehouse, table, profile)

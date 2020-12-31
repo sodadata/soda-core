@@ -36,10 +36,18 @@ class TestProfilesReader(BaseTestCase):
             self.assertDictEqual(reader.profiles_yaml_dict,
                                  self.expected_profiles_dict)
 
-    def test_get_default_config(self):
+    def test_get_config_no_profile(self):
         with patch.object(ProfilesReader, 'PROFILES_FILE_PATH',
                           self.test_profiles_file):
             reader = ProfilesReader()
+            self._assert_logs(reader.parse_logs)
+            self.assertDictEqual(reader.configuration,
+                                 self.expected_profiles_dict['default']['outputs']['postgres-dev'])
+
+    def test_get_config_none_profile(self):
+        with patch.object(ProfilesReader, 'PROFILES_FILE_PATH',
+                          self.test_profiles_file):
+            reader = ProfilesReader(None)
             self._assert_logs(reader.parse_logs)
             self.assertDictEqual(reader.configuration,
                                  self.expected_profiles_dict['default']['outputs']['postgres-dev'])
