@@ -6,32 +6,48 @@ The file `~/.soda/profiles.yml` is used by the `soda` CLI to obtain connection d
 This prevents that any credentials are checked into version control as part of the scan and custom sql configuration files.
 
 Example:
+
 ```
-customer:
-  target: dev
+default:
+  target: bigquery-dev
   outputs:
-    dev:
+    postgres-dev:
       type: postgres
       host: localhost
-      username: xxx
-      password: xxx
-      database: your_dev_db
-    prod:
+      username: sodasql
+      password: sodasql
+      database: sodasql
+      schema: public
+    snowflake-dev:
       type: snowflake
-      username: xxx
-      password: xxx
-      account: YOURACCOUNTNAME.eu-central-1
+      username: <SNOWFLAKE USERNAME>
+      password: <SNOWFLAKE PASSWORD>
+      account: <SNOWFLAKE ACCOUNT NAME>
       warehouse: DEMO_WH
-      database: YOURDATABASE
-      schema: PUBLIC
-    prod:
+      database: FUNDS
+      schema': PUBLIC
+    athena-dev:
       type: athena
-      database: '***'
-      access_key_id: '***'
-      secret_access_key: '***'
-      # role_arn: ***
-      # region: eu-west-1
-      workDir: '***'
+      database: sodalite_test
+      access_key_id: <AWS ACCESS KEY ID>
+      secret_access_key: <aWS SECRET ACCESS KEY>
+      region_name: eu-west-1
+      staging_dir: s3://sodalite-test/funds
+    bigquery-dev:
+      type: bigquery
+      account_info: <GCP BIGQUERY ACCOUNT INFO JSON FILE>
+      dataset: sodalite
+    redshift-dev:
+      type: redshift
+      host: soda-agent-test.c0l8nhpcaknw.eu-west-1.redshift.amazonaws.com
+      username: soda
+      password: <AWS REDSHIFT PASSWORD>
+      database: soda_agent_test
+      schema: public
+test:
+...
+prod:
+...
 ```
 
 The top level keys define different profiles, in the following example, "default", "test", and "prod":
@@ -47,7 +63,7 @@ prod:
 
 You should have at least a "default" profile key.
 
-Configurations for individual warehouses are stored under the key "outputs". Each "output" represents a different connection to a data store.
+Configurations for individual warehouses are stored under the key "outputs". Each "output" represents a different warehouses.
 
 The "target" key selects the active warehouse configuration (the one that will be used in the scan).
 
@@ -64,7 +80,7 @@ default:
 ...
 ```
 
-In the example above, the active configuration is "athena-dev".
+In the example above, the active warehouse is "athena-dev".
 
 ## Snowflake
 
@@ -152,12 +168,11 @@ default:
   outputs:
     redshift-dev:
       type: redshift
-      host: <YOUR AWS REDSHIFT HOSTNAME>
+      host: soda-agent-test.c0l8nhpcaknw.eu-west-1.redshift.amazonaws.com
       database: soda_agent_test
       schema: public
       access_key_id: <YOUR AWS ACCESS KEY>
       secret_access_key: <YOUR AWS SECRET ACCESS KEY>
       region_name: eu-west-1
 ...
-```
 ```
