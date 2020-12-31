@@ -57,7 +57,7 @@ $ tox -e cli
 
 Runs only tests from the CLI suite.
 
-To run an specific test method:
+To run a specific test method:
 
 ```
 $ tox -e postgres -- -k test_distinct
@@ -79,7 +79,7 @@ This changes the log level:
 $ tox -- --log-cli-level=DEBUG
 ```
 
-HTML reports will be available in the directory `./reports/`.
+HTML reports will be available in the directory `./reports/`. It include tests and coverage.
 
 ## Deploying to PyPI:
 
@@ -116,5 +116,5 @@ $ twine upload dist/*
 - Now you can install the distribution from PyPI:
 
 ```
-$ pip install soda-sql
+$ pip install soda
 ```

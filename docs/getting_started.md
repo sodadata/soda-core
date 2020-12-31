@@ -18,7 +18,7 @@ Python 3.7.7
 
 If you don't have Python, [install it from Python downloads](https://www.python.org/downloads/)
 
-Once Python is installed, you should also have `pip`
+Once Python is installed, you should also have `pip`.
 
 ## Installing CLI using PyPI
 ```
