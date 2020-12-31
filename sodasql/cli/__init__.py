@@ -26,20 +26,50 @@ def main():
 
 
 @main.command()
-def initialize():
-    click.echo('Initialize')
+@click.argument('project_directory')
+@click.argument('warehouse_name')
+@click.option('-w', '--warehouse-type', type=str, required=False,
+              help='Warehouse type, e.g., "postgres", "snowflake", etc')
+@click.option('-p', '--profile', required=False, default='default',
+              help='Runs init using specific profile.')
+def init(project_directory: str, warehouse_name: str, warehouse_type: str, profile: str):
+    """
+    Initializes ~/.soda/profiles.yml file with the given warehouse.
+    """
+    CommandHelper.init(project_directory, warehouse_name, warehouse_type, profile)
 
 
 @main.command()
-@click.argument('dir')
-def check(directory: str):
-    click.echo(f'Checking configuration directory {directory}')
+@click.option('-w', '--warehouse-name', required=False, help='Warehouse to verify.')
+@click.option('-p', '--profile', required=False, default='default',
+              help='Runs init using specific profile.')
+def verify(warehouse_name: str, profile: str):
+    """
+    Verifies that warehouse(s) can connect.
+    """
+    CommandHelper.verify(warehouse_name, profile)
 
 
 @main.command()
-@click.argument('directory')
-@click.argument('warehouse')
+@click.argument('project_directory')
+@click.argument('warehouse_name')
+@click.option('-p', '--profile', required=False, default='default',
+              help='Runs create using specific profile.')
+def create(project_directory: str, warehouse_name: str, profile: str):
+    """
+    Creates scan configurations.
+    """
+    CommandHelper.create(project_directory, warehouse_name, profile)
+
+
+@main.command()
+@click.argument('project_directory')
+@click.argument('warehouse_name')
 @click.argument('table')
-@click.option('-p', '--profile', type=str, required=False)
-def scan(directory: str, warehouse: str, table: str, profile):
-    CommandHelper.scan(directory, warehouse, table, profile)
+@click.option('-p', '--profile', required=False,  default='default',
+              help='Runs scan using specific profile.')
+def scan(project_directory: str, warehouse_name: str, table: str, profile: str):
+    """
+    Scans a table.
+    """
+    CommandHelper.scan(project_directory, warehouse_name, table, profile)
