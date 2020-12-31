@@ -79,7 +79,7 @@ This changes the log level:
 $ tox -- --log-cli-level=DEBUG
 ```
 
-HTML reports will be available in the directory `./reports/`. It include tests and coverage.
+HTML reports will be available in the directory `./reports/`. It includes tests and coverage.
 
 ## Deploying to PyPI:
 
