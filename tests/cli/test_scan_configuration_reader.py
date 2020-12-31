@@ -9,10 +9,6 @@ from .cli_base_test import BaseTestCase
 
 class TestScanConfigurationReader(BaseTestCase):
 
-    @classmethod
-    def setUpClass(cls):
-        pass
-
     def test_scan_configuration_reader(self):
         reader = ScanConfigurationReader('test_warehouse',
                                          'test_table',
