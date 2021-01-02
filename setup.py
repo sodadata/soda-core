@@ -7,8 +7,8 @@ with open("requirements.txt", "r", encoding="utf-8") as file:
     requires = [line.strip() for line in file if line.strip()]
 
 setup(
-    name="soda-sql",
-    version="0.1.0",
+    name="soda",
+    version="2.0.0b1",
     author="Tom Baeyens",
     author_email="tom@soda.io",
     description="soda-sql library & CLI",

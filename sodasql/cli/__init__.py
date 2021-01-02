@@ -31,21 +31,20 @@ def init(project_directory: str, warehouse_name: str, warehouse_type: str, profi
     CliImpl.cli.init(project_directory, warehouse_name, warehouse_type, profile)
 
 
-@main.command()
+@main.command(help='Dry run to verify if the configuration is ok. No connection is made to the warehouse.')
 @click.option('-w', '--warehouse-name', required=False, help='Warehouse to verify.')
-@click.option('-p', '--profile', required=False, default='default',
-              help='Dry run to verify if the configuration is ok. No connection is made to the warehouse.')
+@click.option('-p', '--profile', required=False, default='default')
 def verify(warehouse_name: str, profile: str):
     CliImpl.cli.verify(warehouse_name, profile)
 
 
-@main.command()
-@click.argument('project_directory')
-@click.argument('warehouse_name')
-@click.option('-p', '--profile', required=False, default='default',
-              help='Creates a project directory and ensures a profile is present')
-def create(project_directory: str, warehouse_name: str, profile: str):
-    CliImpl.cli.create(project_directory, warehouse_name, profile)
+@main.command(help='Creates a project directory and ensures a profile is present')
+@click.argument('project_dir')
+@click.argument('warehouse_type')
+@click.argument('profile')
+@click.option('-t', '--target', required=False, default=None, help='The target eg dev vs prod.  See target docs')
+def create(project_dir: str, warehouse_type: str, profile: str):
+    CliImpl.cli.create(project_dir, warehouse_type, profile)
 
 
 @main.command()
