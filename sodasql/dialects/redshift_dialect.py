@@ -11,17 +11,16 @@
 import boto3
 import psycopg2
 
-from sodasql.profile.aws_credentials import AwsCredentials
 from sodasql.dialects.postgres_dialect import PostgresDialect
-from sodasql.scan.parse_logs import ParseLogs
+from sodasql.scan.parse_logs import ParseConfiguration
 
 
 class RedshiftDialect(PostgresDialect):
 
-    def __init__(self, warehouse_configuration: dict, parse_logs: ParseLogs):
-        super().__init__(warehouse_configuration, parse_logs)
-        self.port = warehouse_configuration.get('port', '5439')
-        self.aws_credentials = AwsCredentials.from_configuration(warehouse_configuration)
+    def __init__(self, warehouse_cfg: ParseConfiguration):
+        super().__init__(warehouse_cfg)
+        self.port = warehouse_cfg.get_str_optional('port', '5439')
+        self.aws_credentials = warehouse_cfg.get_aws_credentials_optional()
 
     def create_connection(self):
         if self.password:

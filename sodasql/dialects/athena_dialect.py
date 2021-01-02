@@ -8,27 +8,21 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-import json
-from datetime import datetime
 
 import pyathena
-from google.cloud import bigquery
-from google.cloud.bigquery import dbapi
-from google.oauth2.service_account import Credentials
 
-from sodasql.profile.aws_credentials import AwsCredentials
 from sodasql.scan.dialect import Dialect
-from sodasql.scan.parse_logs import ParseLogs
+from sodasql.scan.parse_logs import ParseConfiguration
 
 
 class AthenaDialect(Dialect):
 
-    def __init__(self, warehouse_configuration: dict, parse_logs: ParseLogs):
+    def __init__(self, warehouse_cfg: ParseConfiguration):
         super().__init__()
-        self.aws_credentials = AwsCredentials.from_configuration(warehouse_configuration)
-        self.athena_staging_dir = warehouse_configuration.get('staging_dir')
-        self.database = warehouse_configuration.get('database')
-        self.schema = warehouse_configuration.get('schema')
+        self.aws_credentials = warehouse_cfg.get_aws_credentials_optional()
+        self.athena_staging_dir = warehouse_cfg.get_str_required('staging_dir')
+        self.database = warehouse_cfg.get_str_required('database')
+        self.schema = warehouse_cfg.get_str_required('schema')
 
     def create_connection(self):
         # pyathena.connect will do the role resolving

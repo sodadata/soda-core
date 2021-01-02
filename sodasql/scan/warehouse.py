@@ -13,15 +13,15 @@ from typing import List
 from sodasql.scan.db import sql_fetchone, sql_fetchall
 from sodasql.scan.dialect import Dialect
 from sodasql.scan.parse_logs import ParseLogs
+from sodasql.scan.warehouse_configuration import WarehouseConfiguration
 
 
 class Warehouse:
 
-    def __init__(self, warehouse_configuration: dict):
-        self.parse_logs: ParseLogs = ParseLogs()
-        self.warehouse_configuration = warehouse_configuration
-        self.name: str = warehouse_configuration.get('name')
-        self.dialect = Dialect.create(warehouse_configuration, self.parse_logs)
+    def __init__(self, warehouse_configuration: WarehouseConfiguration):
+        self.warehouse_properties = warehouse_configuration.properties
+        self.name: str = warehouse_configuration.name
+        self.dialect = warehouse_configuration.dialect
         self.connection = self.dialect.create_connection()
 
     def sql_fetchone(self, sql) -> tuple:

@@ -8,16 +8,11 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
+import sys
 
 import click
-import json
-import logging
 
-from .utils import ProfilesReader
-from .utils import ScanConfigurationReader
-from .utils import CommandHelper
-from sodasql.scan.warehouse import Warehouse
-from sodasql.scan import parse_logs
+from .cli import CLI, CliImpl
 
 
 @click.group()
@@ -31,35 +26,26 @@ def main():
 @click.option('-w', '--warehouse-type', type=str, required=False,
               help='Warehouse type, e.g., "postgres", "snowflake", etc')
 @click.option('-p', '--profile', required=False, default='default',
-              help='Runs init using specific profile.')
+              help='Analyses the warehouse tables and creates scan.yml files in your project dir')
 def init(project_directory: str, warehouse_name: str, warehouse_type: str, profile: str):
-    """
-    Initializes ~/.soda/profiles.yml file with the given warehouse.
-    """
-    CommandHelper.init(project_directory, warehouse_name, warehouse_type, profile)
+    CliImpl.cli.init(project_directory, warehouse_name, warehouse_type, profile)
 
 
 @main.command()
 @click.option('-w', '--warehouse-name', required=False, help='Warehouse to verify.')
 @click.option('-p', '--profile', required=False, default='default',
-              help='Runs init using specific profile.')
+              help='Dry run to verify if the configuration is ok. No connection is made to the warehouse.')
 def verify(warehouse_name: str, profile: str):
-    """
-    Verifies that warehouse(s) can connect.
-    """
-    CommandHelper.verify(warehouse_name, profile)
+    CliImpl.cli.verify(warehouse_name, profile)
 
 
 @main.command()
 @click.argument('project_directory')
 @click.argument('warehouse_name')
 @click.option('-p', '--profile', required=False, default='default',
-              help='Runs create using specific profile.')
+              help='Creates a project directory and ensures a profile is present')
 def create(project_directory: str, warehouse_name: str, profile: str):
-    """
-    Creates scan configurations.
-    """
-    CommandHelper.create(project_directory, warehouse_name, profile)
+    CliImpl.cli.create(project_directory, warehouse_name, profile)
 
 
 @main.command()
@@ -67,9 +53,7 @@ def create(project_directory: str, warehouse_name: str, profile: str):
 @click.argument('warehouse_name')
 @click.argument('table')
 @click.option('-p', '--profile', required=False,  default='default',
-              help='Runs scan using specific profile.')
+              help='Scans a table by executing queries, computes measurements and runs tests')
 def scan(project_directory: str, warehouse_name: str, table: str, profile: str):
-    """
-    Scans a table.
-    """
-    CommandHelper.scan(project_directory, warehouse_name, table, profile)
+    exit_code = CliImpl.cli.scan(project_directory, warehouse_name, table, profile)
+    sys.exit(exit_code)

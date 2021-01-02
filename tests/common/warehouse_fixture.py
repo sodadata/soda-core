@@ -48,18 +48,17 @@ class WarehouseFixture:
         self.warehouse: Optional[Warehouse] = None
         self.database: Optional[str] = None
 
-    def initialize_warehouse_configuration(self, warehouse_configuration: dict):
-        self.database = self.setup_create_unique_database_name('soda_test')
-        warehouse_configuration['database'] = self.database
-
     def create_database(self):
+        self.database = self.create_unique_database_name()
+        self.warehouse.dialect.database = self.database
         sql_update(self.warehouse.connection, f'CREATE DATABASE IF NOT EXISTS {self.database}')
 
     def drop_database(self):
         sql_update(self.warehouse.connection, f'DROP DATABASE IF EXISTS {self.database} CASCADE')
 
     @classmethod
-    def setup_create_unique_database_name(cls, prefix: str):
+    def create_unique_database_name(cls):
+        prefix: str = 'soda_test'
         normalized_hostname = re.sub(r"(?i)[^a-zA-Z0-9]", "_", socket.gethostname()).lower()
         random_suffix = ''.join(random.choice(string.ascii_lowercase + string.digits) for _ in range(10))
         return f"{prefix}_{normalized_hostname}_{random_suffix}"

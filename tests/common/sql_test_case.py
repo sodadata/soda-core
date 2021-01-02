@@ -14,7 +14,9 @@ import os
 from typing import List, Optional
 from unittest import TestCase
 
-from sodasql.profile.profile_parse import ProfileParse
+from sodasql.scan.scan_parse import ScanParse
+from sodasql.scan.warehouse_configuration import WarehouseConfiguration
+from sodasql.scan.warehouse_parse import WarehouseParse
 from sodasql.scan.db import sql_update, sql_updates
 from sodasql.scan.scan_configuration import ScanConfiguration
 from sodasql.scan.scan_result import ScanResult
@@ -67,10 +69,11 @@ class SqlTestCase(TestCase):
         warehouse = SqlTestCase.warehouse_cache_by_target.get(self.target)
         if warehouse is None:
             logging.debug(f'Creating warehouse {self.target}')
-            warehouse_configuration = self.setup_get_warehouse_configuration(self.target)
             warehouse_fixture = WarehouseFixture.create(self.target)
-            warehouse_fixture.initialize_warehouse_configuration(warehouse_configuration)
-            warehouse = self.setup_create_warehouse(warehouse_configuration)
+            profile_parse = self.parse_test_profile(self.target)
+            profile_parse.parse_logs.assert_no_warnings_or_errors()
+
+            warehouse = Warehouse(profile_parse.warehouse_configuration)
             warehouse_fixture.warehouse = warehouse
             warehouse_fixture.create_database()
             SqlTestCase.warehouse_cache_by_target[self.target] = warehouse
@@ -78,17 +81,10 @@ class SqlTestCase(TestCase):
 
         return warehouse
 
-    def setup_get_warehouse_configuration(self, target: str) -> dict:
+    def parse_test_profile(self, target: str) -> WarehouseParse:
         tests_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         profiles_yml_path = f'{tests_dir}/warehouses/{target}_profiles.yml'
-        profile_parse = ProfileParse('test', profiles_yml_path=profiles_yml_path)
-        profile_parse.parse_logs.assert_no_warnings_or_errors()
-        return profile_parse.properties
-
-    def setup_create_warehouse(self, warehouse_configuration: dict) -> Warehouse:
-        warehouse = Warehouse(warehouse_configuration)
-        warehouse.parse_logs.assert_no_warnings_or_errors('Test warehouse')
-        return warehouse
+        return WarehouseParse('test', profiles_yml_path=profiles_yml_path)
 
     def tearDown(self) -> None:
         if self.warehouse.connection:
@@ -123,9 +119,9 @@ class SqlTestCase(TestCase):
 
     def scan(self, scan_configuration_dict: dict) -> ScanResult:
         logging.debug('Scan configuration \n'+json.dumps(scan_configuration_dict, indent=2))
-        scan_configuration: ScanConfiguration = ScanConfiguration(scan_configuration_dict)
-        scan_configuration.parse_logs.assert_no_warnings_or_errors('Test scan')
-        scan = self.warehouse.create_scan(scan_configuration)
+        scan_parse = ScanParse(scan_dict=scan_configuration_dict)
+        scan_parse.parse_logs.assert_no_warnings_or_errors()
+        scan = self.warehouse.create_scan(scan_parse.scan_configuration)
         return scan.execute()
 
     def assertMeasurements(self, scan_result, column: str, expected_metrics_present):

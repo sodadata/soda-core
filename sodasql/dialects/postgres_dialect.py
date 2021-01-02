@@ -11,22 +11,21 @@
 
 import psycopg2
 
-from sodasql.profile.credentials_resolver import CredentialsResolver
 from sodasql.scan.dialect import Dialect
-from sodasql.scan.parse_logs import ParseLogs
+from sodasql.scan.parse_logs import ParseConfiguration
 from sodasql.scan.scan_configuration import ScanConfiguration
 
 
 class PostgresDialect(Dialect):
 
-    def __init__(self, warehouse_configuration: dict, parse_logs: ParseLogs):
+    def __init__(self, warehouse_cfg: ParseConfiguration):
         super().__init__()
-        self.host = warehouse_configuration.get('host', 'localhost')
-        self.port = warehouse_configuration.get('port', '5432')
-        self.username = CredentialsResolver.resolve(warehouse_configuration, 'username', parse_logs)
-        self.password = CredentialsResolver.resolve(warehouse_configuration, 'password', parse_logs)
-        self.database = warehouse_configuration.get('database')
-        self.schema = warehouse_configuration.get('schema')
+        self.host = warehouse_cfg.get_str_optional('host', 'localhost')
+        self.port = warehouse_cfg.get_str_optional('port', '5432')
+        self.username = warehouse_cfg.get_str_optional('username', None)
+        self.password = warehouse_cfg.get_str_optional('password', None)
+        self.database = warehouse_cfg.get_str_optional('database', None)
+        self.schema = warehouse_cfg.get_str_optional('schema', None)
 
     def sql_connection_test(self):
         pass

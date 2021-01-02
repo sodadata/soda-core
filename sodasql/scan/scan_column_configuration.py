@@ -53,8 +53,7 @@ class ScanColumnConfiguration:
         KEY_METRICS,
         KEY_TESTS]
 
-    def __init__(self, scan_configuration: ScanConfiguration, column_name: str, column_dict: dict):
-        parse_logs: ParseLogs = scan_configuration.parse_logs
+    def __init__(self, parse_logs: ParseLogs, column_name: str, column_dict: dict):
         self.metrics: Set[str] = resolve_metrics(column_dict.get(KEY_METRICS, []), parse_logs, column_name)
 
         self.missing = None

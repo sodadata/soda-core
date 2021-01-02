@@ -29,8 +29,14 @@ class AwsCredentials:
 
     @classmethod
     def from_configuration(cls, configuration: dict):
+        """
+        An AwsCredentials if there is an access_key_id specified, None otherwise
+        """
+        access_key_id = configuration.get('access_key_id')
+        if not isinstance(access_key_id, str):
+            return None
         return AwsCredentials(
-            access_key_id=configuration.get('access_key_id'),
+            access_key_id=access_key_id,
             secret_access_key=configuration.get('secret_access_key'),
             role_arn=configuration.get('role_arn'),
             session_token=configuration.get('session_token'),

@@ -13,7 +13,7 @@ import re
 from typing import List
 
 from sodasql.scan.column_metadata import ColumnMetadata
-from sodasql.scan.parse_logs import ParseLogs
+from sodasql.scan.parse_logs import ParseLogs, ParseConfiguration
 from sodasql.scan.scan_configuration import ScanConfiguration
 
 POSTGRES = 'postgres'
@@ -26,25 +26,26 @@ ATHENA = 'athena'
 class Dialect:
 
     @classmethod
-    def create(cls, warehouse_configuration: dict, parse_logs: ParseLogs):
-        warehouse_type = warehouse_configuration['type']
+    def create(cls, warehouse_dict: dict, parse_logs: ParseLogs):
+        warehouse_cfg = ParseConfiguration(warehouse_dict, 'warehouse', parse_logs)
+        warehouse_type = warehouse_cfg.get_str_required('type')
         if warehouse_type == POSTGRES:
             from sodasql.dialects.postgres_dialect import PostgresDialect
-            return PostgresDialect(warehouse_configuration, parse_logs)
+            return PostgresDialect(warehouse_cfg)
         if warehouse_type == SNOWFLAKE:
             from sodasql.dialects.snowflake_dialect import SnowflakeDialect
-            return SnowflakeDialect(warehouse_configuration, parse_logs)
+            return SnowflakeDialect(warehouse_cfg)
         if warehouse_type == REDSHIFT:
             from sodasql.dialects.redshift_dialect import RedshiftDialect
-            return RedshiftDialect(warehouse_configuration, parse_logs)
+            return RedshiftDialect(warehouse_cfg)
         if warehouse_type == BIGQUERY:
             from sodasql.dialects.bigquery_dialect import BigQueryDialect
-            return BigQueryDialect(warehouse_configuration, parse_logs)
+            return BigQueryDialect(warehouse_cfg)
         if warehouse_type == ATHENA:
             from sodasql.dialects.athena_dialect import AthenaDialect
-            return AthenaDialect(warehouse_configuration, parse_logs)
+            return AthenaDialect(warehouse_cfg)
         else:
-            raise RuntimeError(f'Unsupported sql warehouse type {warehouse_type}')
+            parse_logs.error(f'Unsupported sql warehouse type {warehouse_type}')
 
     def __init__(self):
         self.parse_logs = ParseLogs()

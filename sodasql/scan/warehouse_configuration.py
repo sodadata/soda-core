@@ -9,15 +9,9 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
-from sodasql.scan.warehouse import Warehouse
-from sodasql.scan.warehouse_configuration import WarehouseConfiguration
-from tests.common.warehouse_fixture import WarehouseFixture
+class WarehouseConfiguration:
 
-
-class PostgresFixture(WarehouseFixture):
-
-    def create_database(self):
-        pass
-
-    def drop_database(self):
-        pass
+    def __init__(self):
+        self.properties = None
+        self.name = None
+        self.dialect = None

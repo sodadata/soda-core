@@ -29,37 +29,14 @@ class ScanConfiguration:
                   KEY_MINS_MAXS_LIMIT, KEY_FREQUENT_VALUES_LIMIT,
                   KEY_SAMPLE_PERCENTAGE, KEY_SAMPLE_METHOD]
 
-    def __init__(self, scan_dict: dict):
-        self.parse_logs: ParseLogs = ParseLogs()
-
-        self.table_name = scan_dict.get(KEY_TABLE_NAME)
-        if not self.table_name:
-            self.parse_logs.error('table_name is required')
-
-        self.metrics: Set[str] = resolve_metrics(scan_dict.get(KEY_METRICS, []), self.parse_logs)
-
-        self.columns = {}
-        columns_dict = scan_dict.get(KEY_COLUMNS, {})
-        for column_name in columns_dict:
-            column_dict = columns_dict[column_name]
-            column_name_lower = column_name.lower()
-            from sodasql.scan.scan_column_configuration import ScanColumnConfiguration
-            column_configuration = ScanColumnConfiguration(self, column_name, column_dict)
-            self.columns[column_name_lower] = column_configuration
-            if remove_metric(column_configuration.metrics, Metric.ROW_COUNT):
-                ensure_metric(self.metrics, Metric.ROW_COUNT, f'{Metric.ROW_COUNT} {column_name}', self.parse_logs)
-
-        self.sample_percentage = scan_dict.get(KEY_SAMPLE_PERCENTAGE)
-        self.sample_method = scan_dict.get(KEY_SAMPLE_METHOD, 'SYSTEM').upper()
-        self.mins_maxs_limit = \
-            parse_int(scan_dict, KEY_MINS_MAXS_LIMIT, self.parse_logs, 'scan configuration', 20)
-        self.frequent_values_limit = \
-            parse_int(scan_dict, KEY_FREQUENT_VALUES_LIMIT, self.parse_logs, 'scan configuration', 20)
-
-        self.parse_logs.warning_invalid_elements(
-            scan_dict.keys(),
-            ScanConfiguration.VALID_KEYS,
-            'Invalid scan configuration')
+    def __init__(self):
+        self.table_name: str = None
+        self.metrics: Set[str] = None
+        self.columns: dict = None
+        self.sample_percentage: float = None
+        self.sample_method: str = None
+        self.mins_maxs_limit: int = None
+        self.frequent_values_limit: int = None
 
     def is_any_metric_enabled(self, metrics: List[str], column_name: Optional[str] = None):
         for metric in self.__get_metrics(column_name):

@@ -6,4 +6,5 @@ test:
       host: soda-agent-test.c0l8nhpcaknw.eu-west-1.redshift.amazonaws.com
       username: {{ env_var('SODA_REDSHIFT_USERNAME') }}
       password: {{ env_var('SODA_REDSHIFT_PASSWORD') }}
+      database: dev
       schema: public

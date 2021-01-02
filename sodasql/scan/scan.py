@@ -63,7 +63,7 @@ class Scan:
         # maps column names (lower case) to ScanColumn's
         self.scan_columns: dict = {}
 
-    def execute(self):
+    def execute(self) -> ScanResult:
         assert self.configuration.table_name, 'scan_configuration.table_name is required'
 
         self.query_columns_metadata()

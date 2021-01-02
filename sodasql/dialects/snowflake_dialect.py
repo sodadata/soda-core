@@ -10,22 +10,21 @@
 #  limitations under the License.
 from snowflake import connector
 
-from sodasql.profile.credentials_resolver import CredentialsResolver
 from sodasql.scan.dialect import Dialect
-from sodasql.scan.parse_logs import ParseLogs
+from sodasql.scan.parse_logs import ParseConfiguration
 from sodasql.scan.scan_configuration import ScanConfiguration
 
 
 class SnowflakeDialect(Dialect):
 
-    def __init__(self, warehouse_configuration: dict, parse_logs: ParseLogs):
+    def __init__(self, warehouse_cfg: ParseConfiguration):
         super().__init__()
-        self.account = warehouse_configuration.get('account')
-        self.warehouse = warehouse_configuration.get('warehouse')
-        self.username = CredentialsResolver.resolve(warehouse_configuration, 'username', parse_logs)
-        self.password = CredentialsResolver.resolve(warehouse_configuration, 'password', parse_logs)
-        self.database = warehouse_configuration.get('database')
-        self.schema = warehouse_configuration.get('schema')
+        self.account = warehouse_cfg.get_str_required('account')
+        self.warehouse = warehouse_cfg.get_str_required('warehouse')
+        self.username = warehouse_cfg.get_str_required('username')
+        self.password = warehouse_cfg.get_str_required('password')
+        self.database = warehouse_cfg.get_str_required('database')
+        self.schema = warehouse_cfg.get_str_required('schema')
 
     def create_connection(self):
         return connector.connect(
