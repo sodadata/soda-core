@@ -1,4 +1,4 @@
-from .cli_base_test import BaseTestCase
+from tests.cli.cli_base_test import BaseTestCase
 
 
 class TestScan(BaseTestCase):

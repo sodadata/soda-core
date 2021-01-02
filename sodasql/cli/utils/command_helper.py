@@ -6,6 +6,7 @@ from . import ProfilesReader
 from . import ScanConfigurationReader
 from sodasql.scan.warehouse import Warehouse
 from sodasql.scan import parse_logs
+from ...profile.profile_parse import ProfileParse
 
 
 class CommandHelper:
@@ -57,18 +58,10 @@ class CommandHelper:
 
     @classmethod
     def _read_configuration(cls, profile, warehouse, table, directory):
-        profiles_reader = ProfilesReader(profile)
-        cls._log_messages(profiles_reader.parse_logs)
+        profile_parse = ProfileParse(profile)
+        profile_parse.parse_logs.log()
+        profile_parse.parse_logs.assert_no_warnings_or_errors()
         scan_configuration_reader = ScanConfigurationReader(warehouse, table, directory)
-        cls._log_messages(scan_configuration_reader.parse_logs)
-        return profiles_reader.configuration, scan_configuration_reader.configuration
-
-    @staticmethod
-    def _log_messages(logs):
-        for log in logs.logs:
-            if log.level == parse_logs.ERROR:
-                logging.error(log.message)
-            elif log.level == parse_logs.WARNING:
-                logging.warning(log.message)
-            else:
-                logging.info(log.message)
+        scan_configuration_reader.parse_logs.log()
+        scan_configuration_reader.parse_logs.assert_no_warnings_or_errors()
+        return profile_parse.properties, scan_configuration_reader.configuration

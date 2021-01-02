@@ -11,10 +11,12 @@ from sodasql.cli import main
 from sodasql.cli.utils import ProfilesReader
 from sodasql.scan import db
 from sodasql.scan import parse_logs
+from sodasql.scan.parse_logs import ParseLogs
 from sodasql.scan.warehouse import Warehouse
 
 
 class BaseTestCase(TestCase):
+
     _resources_folder = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'resources')
 
     @classmethod
@@ -23,7 +25,7 @@ class BaseTestCase(TestCase):
         cls.test_profiles_file = cls._get_test_resource_path('profiles.yml')
         cls.test_table = 'test_table'
         cls.test_warehouse = 'test_warehouse'
-        cls._create_warehouse()
+        cls.warehouse = cls._create_warehouse()
 
     @classmethod
     def tearDownClass(cls):
@@ -34,24 +36,13 @@ class BaseTestCase(TestCase):
     def _create_warehouse(cls):
         with patch.object(ProfilesReader, 'PROFILES_FILE_PATH', cls.test_profiles_file):
             profile_reader = ProfilesReader()
-            cls.warehouse = Warehouse(profile_reader.configuration)
-            cls.warehouse.connection.autocommit = True
+            warehouse = Warehouse(profile_reader.configuration)
+            warehouse.connection.autocommit = True
+            return warehouse
 
     @classmethod
     def _get_test_resource_path(cls, resource):
         return os.path.join(cls._resources_folder, resource)
-
-    def _assert_logs(self, logs):
-        self._log_messages(logs)
-        self.assertFalse(logs.has_warnings_or_errors(), f"Test logs have warnings or errors.")
-
-    @staticmethod
-    def _log_messages(logs):
-        for log in logs.logs:
-            if log.level in [parse_logs.ERROR, parse_logs.WARNING]:
-                logging.error(log)
-            else:
-                logging.info(log)
 
     @staticmethod
     def _log_result(result):

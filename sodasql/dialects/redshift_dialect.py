@@ -11,7 +11,7 @@
 import boto3
 import psycopg2
 
-from sodasql.credentials.aws_credentials import AwsCredentials
+from sodasql.profile.aws_credentials import AwsCredentials
 from sodasql.dialects.postgres_dialect import PostgresDialect
 from sodasql.scan.parse_logs import ParseLogs
 

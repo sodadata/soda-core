@@ -15,7 +15,7 @@ import string
 
 import boto3
 
-from sodasql.credentials.aws_credentials import AwsCredentials
+from sodasql.profile.aws_credentials import AwsCredentials
 from tests.common.boto3_helper import Boto3Helper
 from tests.common.warehouse_fixture import WarehouseFixture
 

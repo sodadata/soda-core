@@ -14,9 +14,7 @@ import os
 from typing import List, Optional
 from unittest import TestCase
 
-import yaml
-
-from sodasql.cli.utils.profiles_reader import ProfilesReader
+from sodasql.profile.profile_parse import ProfileParse
 from sodasql.scan.db import sql_update, sql_updates
 from sodasql.scan.scan_configuration import ScanConfiguration
 from sodasql.scan.scan_result import ScanResult
@@ -80,61 +78,12 @@ class SqlTestCase(TestCase):
 
         return warehouse
 
-    def setup_get_warehouse_configuration(self, target: str):
-        if target == TARGET_POSTGRES:
-            return {
-                'name': 'test_postgres_warehouse',
-                'type': 'postgres',
-                'host': 'localhost',
-                'port': '5432',
-                'username': 'sodasql',
-                'database': 'sodasql',
-                'schema': 'public'}
-
-        profile = ProfilesReader('test', target)
-        if profile.parse_logs.has_warnings_or_errors() \
-                and 'No such file or directory' in profile.parse_logs.logs[0].message:
-            logging.error(f'{ProfilesReader.PROFILES_FILE_PATH} not found, creating default initial version...')
-            initial_profile = {
-                'test': {
-                    'target': 'redshift',
-                    'outputs': {
-                        'redshift': {
-                            'type': 'redshift',
-                            'host': '***',
-                            'port': '5439',
-                            'username': '***',
-                            'database': '***',
-                            'schema': 'public'},
-                        'athena': {
-                            'type': 'athena',
-                            'database': '***',
-                            'access_key_id': '***',
-                            'secret_access_key': '***',
-                            # role_arn: ***
-                            # region: eu-west-1
-                            'work_dir': '***'},
-                        'bigquery': {
-                            'type': 'bigquery',
-                            'account_info': '***',
-                            'dataset': '***'},
-                        'snowflake': {
-                            'type': 'snowflake',
-                            'username': '***',
-                            'password': '***',
-                            'account': '***',
-                            'warehouse': 'DEMO_WH',
-                            'database': '***',
-                            'schema': 'PUBLIC'}
-                    }}}
-            with open(ProfilesReader.PROFILES_FILE_PATH, 'w') as yaml_file:
-                yaml.dump(initial_profile, yaml_file, default_flow_style=False)
-            raise AssertionError(f'{ProfilesReader.PROFILES_FILE_PATH} not found. '
-                                 f'Default initial version was created. '
-                                 f'Update credentials for profile test, '
-                                 f'target {target} in that file and retry.')
-        profile.parse_logs.assert_no_warnings_or_errors(ProfilesReader.PROFILES_FILE_PATH)
-        return profile.configuration
+    def setup_get_warehouse_configuration(self, target: str) -> dict:
+        tests_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        profiles_yml_path = f'{tests_dir}/warehouses/{target}_profiles.yml'
+        profile_parse = ProfileParse('test', profiles_yml_path=profiles_yml_path)
+        profile_parse.parse_logs.assert_no_warnings_or_errors()
+        return profile_parse.properties
 
     def setup_create_warehouse(self, warehouse_configuration: dict) -> Warehouse:
         warehouse = Warehouse(warehouse_configuration)

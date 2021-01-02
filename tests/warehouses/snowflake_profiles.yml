@@ -1,0 +1,10 @@
+test:
+  target: snowflake
+  outputs:
+    snowflake:
+      type: snowflake
+      username: {{ env_var('SODA_SNOWFLAKE_USERNAME') }}
+      password: {{ env_var('SODA_SNOWFLAKE_PASSWORD') }}
+      account: SODADATAPARTNER.eu-central-1
+      warehouse: DEMO_WH
+      schema: PUBLIC

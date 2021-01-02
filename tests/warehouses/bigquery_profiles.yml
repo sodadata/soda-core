@@ -1,0 +1,6 @@
+test:
+  target: bigquery
+  outputs:
+    bigquery:
+      type: bigquery
+      account_info: ~/.soda/bigquery_account_info.json

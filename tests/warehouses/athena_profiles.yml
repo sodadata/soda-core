@@ -1,0 +1,10 @@
+test:
+  target: athena
+  outputs:
+    athena:
+      type: athena
+      database: sodalite_test
+      access_key_id: {{ env_var('SODA_ATHENA_ACCESS_KEY_ID') }}
+      secret_access_key: {{ env_var('SODA_ATHENA_SECRET_ACCESS_KEY') }}
+      region_name: eu-west-1
+      staging_dir: s3://sodalite-athena-test/

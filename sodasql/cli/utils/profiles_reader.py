@@ -12,6 +12,8 @@ from pathlib import Path
 import yaml
 import os
 
+from jinja2 import Template
+
 from sodasql.scan.parse_logs import ParseLogs
 from . import BaseReader
 
@@ -39,7 +41,14 @@ class ProfilesReader(BaseReader):
     def __load_profiles_yaml_dict(self):
         try:
             with open(self.PROFILES_FILE_PATH) as f:
-                self.profiles_yaml_dict = yaml.load(f, Loader=yaml.FullLoader)
+                profiles_yaml_str = f.read()
+                template = Template(profiles_yaml_str)
+
+                def env_var(key: str, default=None):
+                    return os.getenv(key, default)
+
+                profiles_yaml_str = template.render(env_var=env_var)
+                self.profiles_yaml_dict = yaml.load(profiles_yaml_str, Loader=yaml.FullLoader)
         except Exception as e:
             self.parse_logs.error(str(e))
             self.profiles_yaml_dict = None

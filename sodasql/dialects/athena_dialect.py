@@ -16,7 +16,7 @@ from google.cloud import bigquery
 from google.cloud.bigquery import dbapi
 from google.oauth2.service_account import Credentials
 
-from sodasql.credentials.aws_credentials import AwsCredentials
+from sodasql.profile.aws_credentials import AwsCredentials
 from sodasql.scan.dialect import Dialect
 from sodasql.scan.parse_logs import ParseLogs
 

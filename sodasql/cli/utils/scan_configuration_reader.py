@@ -12,6 +12,7 @@ import logging
 import yaml
 import os
 
+from sodasql.scan.parse_logs import ParseLogs
 from sodasql.scan.scan_configuration import ScanConfiguration
 from sodasql.cli.utils import BaseReader
 
@@ -25,7 +26,7 @@ class ScanConfigurationReader(BaseReader):
         self.configuration_folder = configuration_folder
         self.configuration = None
         self.__load_configuration()
-        self.parse_logs = self.configuration.parse_logs
+        self.parse_logs: ParseLogs = self.configuration.parse_logs
 
     def __load_configuration(self):
         configuration_file_path = os.path.join(self.configuration_folder,
