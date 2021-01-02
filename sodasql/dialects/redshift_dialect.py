@@ -12,6 +12,7 @@ import boto3
 import psycopg2
 
 from sodasql.dialects.postgres_dialect import PostgresDialect
+from sodasql.scan.dialect import REDSHIFT
 from sodasql.scan.parse_logs import ParseConfiguration
 
 
@@ -21,6 +22,17 @@ class RedshiftDialect(PostgresDialect):
         super().__init__(warehouse_cfg)
         self.port = warehouse_cfg.get_str_optional('port', '5439')
         self.aws_credentials = warehouse_cfg.get_aws_credentials_optional()
+
+    @classmethod
+    def create_default_configuration_dict(cls, warehouse_type: str):
+        return {
+            'type': REDSHIFT,
+            'access_key_id': '--- ENTER AWS ACCESS KEY ID HERE ---',
+            'secret_access_key': '--- ENTER AWS SECRET ACCESS KEY HERE ---',
+            'role_arn': '--- ENTER AWS ROLE ARN TO ASSUME HERE (optional) ---',
+            'region': '--- ENTER AWS REGION HERE (optional, default is eu-west-1) ---',
+            'database': '--- ENTER DATABASE HERE ---'
+        }
 
     def create_connection(self):
         if self.password:

@@ -11,7 +11,7 @@
 
 import psycopg2
 
-from sodasql.scan.dialect import Dialect
+from sodasql.scan.dialect import Dialect, POSTGRES
 from sodasql.scan.parse_logs import ParseConfiguration
 from sodasql.scan.scan_configuration import ScanConfiguration
 
@@ -26,6 +26,17 @@ class PostgresDialect(Dialect):
         self.password = warehouse_cfg.get_str_optional('password', None)
         self.database = warehouse_cfg.get_str_optional('database', None)
         self.schema = warehouse_cfg.get_str_optional('schema', None)
+
+    @classmethod
+    def create_default_configuration_dict(cls, warehouse_type: str):
+        return {
+            'type': POSTGRES,
+            'host': 'localhost',
+            'username': '--- ENTER USERNAME HERE ---',
+            'password': '--- ENTER PASSWORD HERE ---',
+            'database': '--- ENTER DATABASE HERE ---',
+            'schema': 'public'
+        }
 
     def sql_connection_test(self):
         pass

@@ -10,7 +10,7 @@
 #  limitations under the License.
 from snowflake import connector
 
-from sodasql.scan.dialect import Dialect
+from sodasql.scan.dialect import Dialect, SNOWFLAKE
 from sodasql.scan.parse_logs import ParseConfiguration
 from sodasql.scan.scan_configuration import ScanConfiguration
 
@@ -25,6 +25,18 @@ class SnowflakeDialect(Dialect):
         self.password = warehouse_cfg.get_str_required('password')
         self.database = warehouse_cfg.get_str_optional('database')
         self.schema = warehouse_cfg.get_str_required('schema')
+
+    @classmethod
+    def create_default_configuration_dict(cls, warehouse_type: str):
+        return {
+            'type': SNOWFLAKE,
+            'username': '--- ENTER USERNAME HERE ---',
+            'password': '--- ENTER PASSWORD HERE ---',
+            'account': 'Eg YOURACCOUNT.eu-central-1',
+            'database': 'Eg YOUR_DATABASE',
+            'warehouse': 'Eg DEMO_WH',
+            'schema': 'PUBLIC'
+        }
 
     def create_connection(self):
         return connector.connect(

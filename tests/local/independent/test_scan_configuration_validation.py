@@ -13,18 +13,19 @@ from unittest import TestCase
 
 from sodasql.scan.parse_logs import ERROR, WARNING
 from sodasql.scan.scan_configuration import ScanConfiguration
+from sodasql.scan.scan_parse import ScanParse
 
 
 class TestScanConfigurationValidation(TestCase):
 
     def test_table_name_required(self):
-        parse_logs = ScanConfiguration({}).parse_logs
+        parse_logs = ScanParse(scan_dict={}).parse_logs
         log = parse_logs.logs[0]
         self.assertIn(ERROR, log.level)
         self.assertIn('table_name is required', log.message)
 
     def test_metrics_not_a_list(self):
-        parse_logs = ScanConfiguration({
+        parse_logs = ScanParse(scan_dict={
             'table_name': 't',
             'metrics': 'txt'
         }).parse_logs
@@ -34,7 +35,7 @@ class TestScanConfigurationValidation(TestCase):
         self.assertIn('metrics is not a list', log.message)
 
     def test_invalid_column_metric(self):
-        parse_logs = ScanConfiguration({
+        parse_logs = ScanParse(scan_dict={
             'table_name': 't',
             'metrics': [
                 'revenue'
@@ -46,7 +47,7 @@ class TestScanConfigurationValidation(TestCase):
         self.assertIn('Invalid metrics value: revenue', log.message)
 
     def test_invalid_valid_format(self):
-        parse_logs = ScanConfiguration({
+        parse_logs = ScanParse(scan_dict={
             'table_name': 't',
             'columns': {
                 'col': {

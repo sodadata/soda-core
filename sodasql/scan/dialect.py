@@ -22,6 +22,12 @@ REDSHIFT = 'redshift'
 BIGQUERY = 'bigquery'
 ATHENA = 'athena'
 
+ALL_WAREHOUSE_TYPES = [POSTGRES,
+                       SNOWFLAKE,
+                       REDSHIFT,
+                       BIGQUERY,
+                       ATHENA]
+
 
 class Dialect:
 
@@ -46,6 +52,30 @@ class Dialect:
             return AthenaDialect(warehouse_cfg)
         else:
             parse_logs.error(f'Unsupported sql warehouse type {warehouse_type}')
+
+    @classmethod
+    def is_valid_warehouse_type(cls, warehouse_type):
+        return warehouse_type in ALL_WAREHOUSE_TYPES
+
+    @classmethod
+    def create_default_configuration_dict(cls, warehouse_type):
+        if warehouse_type == POSTGRES:
+            from sodasql.dialects.postgres_dialect import PostgresDialect
+            return PostgresDialect.create_default_configuration_dict(warehouse_type)
+        if warehouse_type == SNOWFLAKE:
+            from sodasql.dialects.snowflake_dialect import SnowflakeDialect
+            return SnowflakeDialect.create_default_configuration_dict(warehouse_type)
+        if warehouse_type == REDSHIFT:
+            from sodasql.dialects.redshift_dialect import RedshiftDialect
+            return RedshiftDialect.create_default_configuration_dict(warehouse_type)
+        if warehouse_type == BIGQUERY:
+            from sodasql.dialects.bigquery_dialect import BigQueryDialect
+            return BigQueryDialect.create_default_configuration_dict(warehouse_type)
+        if warehouse_type == ATHENA:
+            from sodasql.dialects.athena_dialect import AthenaDialect
+            return AthenaDialect.create_default_configuration_dict(warehouse_type)
+        else:
+            raise RuntimeError(f'Unsupported sql warehouse type {warehouse_type}')
 
     def __init__(self):
         self.parse_logs = ParseLogs()
@@ -212,3 +242,4 @@ class Dialect:
             raise RuntimeError(f'Unsupported expression type: {type}')
         logging.debug('expr sql: '+sql)
         return sql
+

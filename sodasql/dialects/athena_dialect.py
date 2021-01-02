@@ -11,7 +11,7 @@
 
 import pyathena
 
-from sodasql.scan.dialect import Dialect
+from sodasql.scan.dialect import Dialect, ATHENA
 from sodasql.scan.parse_logs import ParseConfiguration
 
 
@@ -23,6 +23,18 @@ class AthenaDialect(Dialect):
         self.athena_staging_dir = warehouse_cfg.get_str_required('staging_dir')
         self.database = warehouse_cfg.get_str_required('database')
         self.schema = warehouse_cfg.get_str_required('schema')
+
+    @classmethod
+    def create_default_configuration_dict(cls, warehouse_type: str):
+        return {
+            'type': ATHENA,
+            'access_key_id': '--- ENTER AWS ACCESS KEY ID HERE ---',
+            'secret_access_key': '--- ENTER AWS SECRET ACCESS KEY HERE ---',
+            'role_arn': '--- ENTER AWS ROLE ARN TO ASSUME HERE (optional) ---',
+            'region': '--- ENTER AWS REGION HERE (optional, default is eu-west-1) ---',
+            'staging_dir': '--- ENTER STAGING DIR HERE ---',
+            'database': '--- ENTER DATABASE HERE ---'
+        }
 
     def create_connection(self):
         # pyathena.connect will do the role resolving
