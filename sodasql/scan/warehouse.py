@@ -11,8 +11,6 @@
 from typing import List
 
 from sodasql.scan.db import sql_fetchone, sql_fetchall
-from sodasql.scan.dialect import Dialect
-from sodasql.scan.parse_logs import ParseLogs
 from sodasql.scan.warehouse_configuration import WarehouseConfiguration
 
 

@@ -9,13 +9,14 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 import logging
+import os
 import random
 import re
 import socket
 import string
 from typing import Optional
 
-from sodasql.scan.db import sql_update
+from sodasql.scan.db import sql_update, sql_updates
 from sodasql.scan.warehouse import Warehouse
 
 
@@ -51,10 +52,13 @@ class WarehouseFixture:
     def create_database(self):
         self.database = self.create_unique_database_name()
         self.warehouse.dialect.database = self.database
-        sql_update(self.warehouse.connection, f'CREATE DATABASE IF NOT EXISTS {self.database}')
+        sql_updates(self.warehouse.connection, [
+            f'CREATE DATABASE IF NOT EXISTS {self.database}',
+            f'USE DATABASE {self.database}'])
 
     def drop_database(self):
-        sql_update(self.warehouse.connection, f'DROP DATABASE IF EXISTS {self.database} CASCADE')
+        sql_update(self.warehouse.connection,
+                   f'DROP DATABASE IF EXISTS {self.database} CASCADE')
 
     @classmethod
     def create_unique_database_name(cls):

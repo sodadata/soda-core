@@ -9,22 +9,34 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 from sodasql.scan.db import sql_update
+from sodasql.scan.warehouse import Warehouse
+from sodasql.scan.warehouse_configuration import WarehouseConfiguration
 from tests.common.warehouse_fixture import WarehouseFixture
 
 
 class RedshiftFixture(WarehouseFixture):
 
+    original_connection = None
+
     def create_database(self):
         self.database = self.create_unique_database_name()
-        self.warehouse.dialect.database = self.database
-        self.warehouse.connection.set_isolation_level(0)
-        sql_update(self.warehouse.connection, f'CREATE DATABASE {self.database}')
-        self.warehouse.connection.set_isolation_level(1)
+
+        self.original_connection = self.warehouse.connection
+        self.original_connection.set_isolation_level(0)
+        sql_update(self.original_connection, f'CREATE DATABASE {self.database}')
+
+        warehouse_configuration = WarehouseConfiguration()
+        warehouse_configuration.properties = self.warehouse.warehouse_properties.copy()
+        warehouse_configuration.properties['database'] = self.database
+        warehouse_configuration.name = 'test_db'
+        warehouse_configuration.dialect = self.warehouse.dialect
+        warehouse_configuration.dialect.database = self.database
+        warehouse = Warehouse(warehouse_configuration)
+        self.warehouse.connection = warehouse.connection
 
     def drop_database(self):
-        self.warehouse.connection.set_isolation_level(0)
-        sql_update(self.warehouse.connection, f'DROP DATABASE {self.database}')
-        self.warehouse.connection.set_isolation_level(1)
+        self.warehouse.connection.close()
+        sql_update(self.original_connection, f'DROP DATABASE {self.database}')
 
 
 

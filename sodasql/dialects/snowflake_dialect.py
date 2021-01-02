@@ -23,7 +23,7 @@ class SnowflakeDialect(Dialect):
         self.warehouse = warehouse_cfg.get_str_required('warehouse')
         self.username = warehouse_cfg.get_str_required('username')
         self.password = warehouse_cfg.get_str_required('password')
-        self.database = warehouse_cfg.get_str_required('database')
+        self.database = warehouse_cfg.get_str_optional('database')
         self.schema = warehouse_cfg.get_str_required('schema')
 
     def create_connection(self):
