@@ -10,9 +10,7 @@
 #  limitations under the License.
 from typing import List, Optional, Set
 
-from sodasql.scan.configuration_helper import parse_int
-from sodasql.scan.metric import Metric, remove_metric, ensure_metric, resolve_metrics
-from sodasql.scan.parse_logs import ParseLogs
+from jinja2 import Template
 
 KEY_TABLE_NAME = 'table_name'
 KEY_METRICS = 'metrics'
@@ -35,6 +33,8 @@ class ScanConfiguration:
         self.columns: dict = None
         self.sample_percentage: float = None
         self.sample_method: str = None
+        self.time_filter: str = None
+        self.time_filter_template: Template = None
         self.mins_maxs_limit: int = None
         self.frequent_values_limit: int = None
 

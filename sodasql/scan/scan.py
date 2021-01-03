@@ -32,8 +32,9 @@ class Scan:
                  warehouse: Warehouse,
                  scan_configuration: ScanConfiguration = None,
                  custom_metrics: List[CustomMetric] = None,
-                 timeslice: str = None,
-                 soda_client: SodaClient = None):
+                 time: str = None,
+                 soda_client: SodaClient = None,
+                 variables: dict = None):
         self.soda_client: SodaClient = soda_client
         self.warehouse: Warehouse = warehouse
         self.dialect = warehouse.dialect
@@ -52,10 +53,16 @@ class Scan:
             if scan_configuration.sample_percentage \
             else ''
 
+        self.time_filter_sql = None
+        if scan_configuration.time_filter_template:
+            if not variables:
+                raise RuntimeError(f'No variables provided while time_filter "{str(scan_configuration.time_filter)}" specified')
+            self.time_filter_sql = scan_configuration.time_filter_template.render(variables)
+
         self.scan_reference = {
             'warehouseName': self.warehouse.name,
             'tableName': self.configuration.table_name,
-            'timeslice': timeslice
+            'time': time
         }
 
         self.columns: List[ColumnMetadata] = []
@@ -185,6 +192,8 @@ class Scan:
                   'FROM ' + self.qualified_table_name
             if self.table_sample_clause:
                 sql += f'\n{self.table_sample_clause}'
+            if self.time_filter_sql:
+                sql += f'\nWHERE {self.time_filter_sql}'
 
             query_result_tuple = self.warehouse.sql_fetchone(sql)
 
@@ -247,7 +256,7 @@ class Scan:
                     query_result_tuple = self.warehouse.sql_fetchone(sql)
                     distinct_count = query_result_tuple[0]
                     unique_count = query_result_tuple[1]
-                    valid_count = query_result_tuple[2]
+                    valid_count = query_result_tuple[2] if query_result_tuple[2] else 0
                     duplicate_count = distinct_count - unique_count
                     uniqueness = (distinct_count - 1) * 100 / (valid_count - 1)
 
@@ -335,6 +344,9 @@ class Scan:
                            f'SELECT \n'
                            f'  {fields} \n'
                            f'FROM group_by_value')
+
+                    if self.time_filter_sql:
+                        sql += f' \nWHERE {self.scan.time_filter_sql}'
 
                     row = self.warehouse.sql_fetchone(sql)
 

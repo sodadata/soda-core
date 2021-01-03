@@ -43,7 +43,7 @@ def verify(warehouse_name: str, profile: str):
 @click.argument('warehouse_type')
 @click.argument('profile')
 @click.option('-t', '--target', required=False, default=None, help='The target eg dev vs prod.  See target docs')
-def create(project_dir: str, warehouse_type: str, profile: str):
+def create(project_dir: str, warehouse_type: str, profile: str, target: str = None):
     CliImpl.cli.create(project_dir, warehouse_type, profile)
 
 

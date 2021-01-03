@@ -153,11 +153,14 @@ class ScanColumn:
         else:
             where = f'{self.qualified_column_name} IS NOT NULL'
 
+        if self.scan.time_filter_sql:
+            where = f'{where}\n  AND {self.scan.time_filter_sql}'
+
         return (
             f"WITH group_by_value AS ( \n"
             f"  SELECT \n"
             f"    {self.qualified_column_name} AS value, \n"
-            f"    COUNT(*) AS frequency"
+            f"    COUNT(*) AS frequency \n"
             f"  FROM {self.scan.qualified_table_name} \n"
             f"  WHERE {where} \n"
             f"  GROUP BY {self.qualified_column_name} \n"

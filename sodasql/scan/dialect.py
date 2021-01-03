@@ -13,8 +13,10 @@ import re
 from typing import List
 
 from sodasql.scan.column_metadata import ColumnMetadata
+from sodasql.scan.custom_metric import CustomMetric
 from sodasql.scan.parse_logs import ParseLogs, ParseConfiguration
 from sodasql.scan.scan_configuration import ScanConfiguration
+from sodasql.soda_client.soda_client import SodaClient
 
 POSTGRES = 'postgres'
 SNOWFLAKE = 'snowflake'
@@ -87,10 +89,16 @@ class Dialect:
     def create_connection(self):
         raise RuntimeError('TODO override and implement this abstract method')
 
-    def create_scan(self, warehouse, scan_configuration):
+    def create_scan(self,
+                    warehouse,
+                    scan_configuration,
+                    custom_metrics: List[CustomMetric] = None,
+                    time: str = None,
+                    soda_client: SodaClient = None,
+                    variables: dict = None):
         # Purpose of this method is to enable dialects to override and customize the scan implementation
         from sodasql.scan.scan import Scan
-        return Scan(warehouse, scan_configuration)
+        return Scan(warehouse, scan_configuration, custom_metrics, time, soda_client, variables)
 
     def is_text(self, column):
         for text_type in self._get_text_types():

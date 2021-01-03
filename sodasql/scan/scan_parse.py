@@ -12,6 +12,7 @@ import os
 from typing import Optional
 
 import yaml
+from jinja2 import Template
 
 from sodasql.scan.configuration_helper import parse_int
 from sodasql.scan.metric import resolve_metrics, remove_metric, Metric, ensure_metric
@@ -25,13 +26,14 @@ KEY_MINS_MAXS_LIMIT = 'mins_maxs_limit'
 KEY_FREQUENT_VALUES_LIMIT = 'frequent_values_limit'
 KEY_SAMPLE_PERCENTAGE = 'sample_percentage'
 KEY_SAMPLE_METHOD = 'sample_method'
+KEY_TIME_FILTER = 'time_filter'
 
 
 class ScanParse:
 
     VALID_KEYS = [KEY_TABLE_NAME, KEY_METRICS, KEY_COLUMNS,
                   KEY_MINS_MAXS_LIMIT, KEY_FREQUENT_VALUES_LIMIT,
-                  KEY_SAMPLE_PERCENTAGE, KEY_SAMPLE_METHOD]
+                  KEY_SAMPLE_PERCENTAGE, KEY_SAMPLE_METHOD, KEY_TIME_FILTER]
 
     def __init__(self,
                  project_dir: Optional[str] = None,
@@ -69,6 +71,14 @@ class ScanParse:
             parse_int(scan_dict, KEY_MINS_MAXS_LIMIT, self.parse_logs, 'scan configuration', 20)
         self.scan_configuration.frequent_values_limit = \
             parse_int(scan_dict, KEY_FREQUENT_VALUES_LIMIT, self.parse_logs, 'scan configuration', 20)
+
+        time_filter = scan_dict.get(KEY_TIME_FILTER)
+        if time_filter:
+            try:
+                self.scan_configuration.time_filter = time_filter
+                self.scan_configuration.time_filter_template = Template(time_filter)
+            except Exception as e:
+                self.parse_logs.error(f"Coudn't parse time_filter '{time_filter}': {str(e)}")
 
         self.parse_logs.warning_invalid_elements(
             scan_dict.keys(),

@@ -54,7 +54,7 @@ class CLI:
             click.echo(f"Project dir {project_dir} is not a directory")
             return 1
 
-        project_file = os.path.join(project_dir, 'soda_project.yaml')
+        project_file = os.path.join(project_dir, 'soda_project.yml')
         project_file_path = Path(project_file)
         if project_file_path.exists():
             click.echo(f"Project file {project_file} already exists")

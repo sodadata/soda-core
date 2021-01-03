@@ -13,9 +13,7 @@ from typing import Set
 from sodasql.scan.metric import resolve_metrics
 from sodasql.scan.missing import Missing
 from sodasql.scan.parse_logs import ParseLogs
-from sodasql.scan.scan_configuration import ScanConfiguration
 from sodasql.scan.validity import Validity
-
 
 KEY_METRICS = 'metrics'
 KEY_TESTS = 'tests'

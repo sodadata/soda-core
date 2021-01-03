@@ -14,13 +14,11 @@ import os
 from typing import List, Optional
 from unittest import TestCase
 
-from sodasql.scan.scan_parse import ScanParse
-from sodasql.scan.warehouse_configuration import WarehouseConfiguration
-from sodasql.scan.warehouse_parse import WarehouseParse
 from sodasql.scan.db import sql_update, sql_updates
-from sodasql.scan.scan_configuration import ScanConfiguration
+from sodasql.scan.scan_parse import ScanParse
 from sodasql.scan.scan_result import ScanResult
 from sodasql.scan.warehouse import Warehouse
+from sodasql.scan.warehouse_parse import WarehouseParse
 from tests.common.env_vars_helper import EnvVarsHelper
 from tests.common.logging_helper import LoggingHelper
 from tests.common.warehouse_fixture import WarehouseFixture
@@ -81,6 +79,7 @@ class SqlTestCase(TestCase):
 
         return warehouse
 
+    @classmethod
     def parse_test_profile(self, target: str) -> WarehouseParse:
         tests_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         profiles_yml_path = f'{tests_dir}/warehouses/{target}_profiles.yml'
