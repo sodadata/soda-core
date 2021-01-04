@@ -20,7 +20,10 @@ from sodasql.scan.validity import Validity
 
 
 class ScanColumn:
-    # Temporary stores computed conditions and where clauses for missing and validity
+    """
+    Contains column information used during the scan.
+    Fields are precomputed based on the scan configuration.
+    """
 
     def __init__(self, scan, column_metadata: ColumnMetadata):
         from sodasql.scan.scan import Scan
@@ -131,7 +134,10 @@ class ScanColumn:
             validity_clauses.append(f'{dialect.sql_expr_length(qualified_column_name)} >= {validity.min_length}')
         if validity.max_length:
             validity_clauses.append(f'{dialect.sql_expr_length(qualified_column_name)} <= {validity.max_length}')
-        # TODO add min and max clauses
+        if validity.min:
+            validity_clauses.append(f'{qualified_column_name} >= {validity.min}')
+        if validity.max:
+            validity_clauses.append(f'{qualified_column_name} <= {validity.max}')
         return '(' + ' AND '.join(validity_clauses) + ')'
 
     def __get_non_missing_and_valid_condition(self, non_missing_condition, valid_condition):

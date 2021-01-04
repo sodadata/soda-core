@@ -8,7 +8,7 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-from typing import List
+from typing import List, Optional
 
 from sodasql.scan.measurement import Measurement
 from sodasql.scan.test_result import TestResult
@@ -16,15 +16,20 @@ from sodasql.scan.test_result import TestResult
 
 class ScanResult:
 
-    def __init__(self):
+    def __init__(self, timeslice: Optional[str] = None):
+        self.timeslice: Optional[str] = timeslice
         self.measurements: List[Measurement] = []
         self.test_results: List[TestResult] = []
 
     def has_failures(self):
+        return self.failures_count() > 0
+
+    def failures_count(self):
+        failures_count = 0
         for test_result in self.test_results:
             if not test_result.passed:
-                return True
-        return False
+                failures_count += 1
+        return failures_count
 
     def find_measurement(self, metric_type: str, column_name: str = None):
         for measurement in self.measurements:

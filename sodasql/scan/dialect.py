@@ -89,16 +89,10 @@ class Dialect:
     def create_connection(self):
         raise RuntimeError('TODO override and implement this abstract method')
 
-    def create_scan(self,
-                    warehouse,
-                    scan_configuration,
-                    custom_metrics: List[CustomMetric] = None,
-                    time: str = None,
-                    soda_client: SodaClient = None,
-                    variables: dict = None):
+    def create_scan(self, *args, **kwargs):
         # Purpose of this method is to enable dialects to override and customize the scan implementation
         from sodasql.scan.scan import Scan
-        return Scan(warehouse, scan_configuration, custom_metrics, time, soda_client, variables)
+        return Scan(*args, **kwargs)
 
     def is_text(self, column):
         for text_type in self._get_text_types():

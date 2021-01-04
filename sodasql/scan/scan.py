@@ -32,9 +32,9 @@ class Scan:
                  warehouse: Warehouse,
                  scan_configuration: ScanConfiguration = None,
                  custom_metrics: List[CustomMetric] = None,
-                 time: str = None,
                  soda_client: SodaClient = None,
-                 variables: dict = None):
+                 timeslice_variables: dict = None,
+                 timeslice: str = None):
         self.soda_client: SodaClient = soda_client
         self.warehouse: Warehouse = warehouse
         self.dialect = warehouse.dialect
@@ -45,7 +45,7 @@ class Scan:
         # caches measurements that are not yet sent to soda and not yet added to self.scan_result
         # see also self.flush_measurements()
         self.measurements = []
-        self.scan_result = ScanResult()
+        self.scan_result = ScanResult(timeslice)
 
         self.qualified_table_name = self.dialect.qualify_table_name(scan_configuration.table_name)
         self.table_sample_clause = \
@@ -55,14 +55,14 @@ class Scan:
 
         self.time_filter_sql = None
         if scan_configuration.time_filter_template:
-            if not variables:
+            if not timeslice_variables:
                 raise RuntimeError(f'No variables provided while time_filter "{str(scan_configuration.time_filter)}" specified')
-            self.time_filter_sql = scan_configuration.time_filter_template.render(variables)
+            self.time_filter_sql = scan_configuration.time_filter_template.render(timeslice_variables)
 
         self.scan_reference = {
             'warehouseName': self.warehouse.name,
             'tableName': self.configuration.table_name,
-            'time': time
+            'time': timeslice
         }
 
         self.columns: List[ColumnMetadata] = []
