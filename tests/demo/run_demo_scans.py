@@ -10,15 +10,14 @@
 #  limitations under the License.
 from datetime import timedelta, datetime
 
-from sodasql.scan.scan_parse import ScanParse
+from sodasql.scan.scan import Scan
+from sodasql.scan.scan_configuration_parser import ScanConfigurationParser
 from sodasql.scan.warehouse import Warehouse
 from tests.common.sql_test_case import SqlTestCase
-from sodasql.scan.scan import Scan
-
 
 scan_configuration_dict = {
     'table_name': 'demodata',
-    'time_filter': "date = DATE '{{ date }}'",
+    'timeslice_filter': "date = DATE '{{ date }}'",
     'metrics': [
         'missing',
         'validity',
@@ -41,10 +40,10 @@ scan_configuration_dict = {
     }
 }
 
-scan_parse = ScanParse(scan_dict=scan_configuration_dict)
+scan_parse = ScanConfigurationParser(scan_dict=scan_configuration_dict)
 scan_parse.parse_logs.assert_no_warnings_or_errors()
 
-profile_parse = SqlTestCase.parse_test_profile('postgres')
+profile_parse = SqlTestCase.create_dialect('postgres')
 warehouse = Warehouse(profile_parse.warehouse_configuration)
 
 row = warehouse.sql_fetchone(

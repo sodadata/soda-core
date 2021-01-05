@@ -14,18 +14,17 @@ from google.cloud.bigquery import dbapi
 from google.oauth2.service_account import Credentials
 
 from sodasql.scan.dialect import Dialect, BIGQUERY
-from sodasql.scan.parse_logs import ParseConfiguration
+from sodasql.scan.parser import Parser
 
 
 class BigQueryDialect(Dialect):
 
-    def __init__(self, warehouse_cfg: ParseConfiguration):
+    def __init__(self, parser: Parser):
         super().__init__()
-        warehouse_cfg.get_file_json_dict_required('account_info')
-        self.dataset_name = warehouse_cfg.get_str_required('dataset')
+        self.account_info = parser.get_file_json_dict_required('account_info')
+        self.dataset_name = parser.get_str_required('dataset')
 
-    @classmethod
-    def create_default_configuration_dict(cls, warehouse_type: str):
+    def default_configuration(self):
         return {
             'type': BIGQUERY,
             'account_info': '--- ENTER PATH TO ACCOUNT INFO HERE ---',

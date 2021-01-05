@@ -13,18 +13,37 @@ import psycopg2
 
 from sodasql.dialects.postgres_dialect import PostgresDialect
 from sodasql.scan.dialect import REDSHIFT
-from sodasql.scan.parse_logs import ParseConfiguration
+from sodasql.scan.dialect_parser import DialectParser
+from sodasql.scan.parser import Parser
 
 
 class RedshiftDialect(PostgresDialect):
 
-    def __init__(self, warehouse_cfg: ParseConfiguration):
-        super().__init__(warehouse_cfg)
-        self.port = warehouse_cfg.get_str_optional('port', '5439')
-        self.aws_credentials = warehouse_cfg.get_aws_credentials_optional()
+    def __init__(self, parser: Parser):
+        super().__init__(parser)
+        self.port = parser.get_str_optional('port', '5439')
+        self.aws_credentials = parser.get_aws_credentials_optional()
 
-    @classmethod
-    def create_default_configuration_dict(cls, warehouse_type: str):
+    def with_database(self, database: str):
+        warehouse_configuration = {
+            'host': self.host,
+            'port': self.port,
+            'username': self.username,
+            'password': self.password,
+            'database': database,
+            'schema': self.schema
+        }
+        if self.aws_credentials:
+            warehouse_configuration.update({
+                'access_key_id': self.aws_credentials.access_key_id,
+                'secret_access_key': self.aws_credentials.secret_access_key,
+                'role_arn': self.aws_credentials.role_arn,
+                'session_token': self.aws_credentials.session_token,
+                'region': self.aws_credentials.region
+            })
+        return RedshiftDialect(DialectParser(warehouse_configuration))
+
+    def default_configuration(self):
         return {
             'type': REDSHIFT,
             'access_key_id': '--- ENTER AWS ACCESS KEY ID HERE ---',

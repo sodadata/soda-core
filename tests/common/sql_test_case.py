@@ -14,18 +14,20 @@ import os
 from typing import List, Optional
 from unittest import TestCase
 
+import yaml
+
 from sodasql.scan.db import sql_update, sql_updates
-from sodasql.scan.scan_parse import ScanParse
+from sodasql.scan.dialect import Dialect
+from sodasql.scan.dialect_parser import DialectParser
+from sodasql.scan.env_vars import EnvVars
+from sodasql.scan.scan_configuration_parser import ScanConfigurationParser
 from sodasql.scan.scan_result import ScanResult
 from sodasql.scan.warehouse import Warehouse
-from sodasql.scan.warehouse_parse import WarehouseParse
-from tests.common.env_vars_helper import EnvVarsHelper
 from tests.common.logging_helper import LoggingHelper
 from tests.common.warehouse_fixture import WarehouseFixture
 
 LoggingHelper.configure_for_test()
-EnvVarsHelper.load_test_environment_properties()
-
+EnvVars.load_env_vars('test')
 
 TARGET_POSTGRES = 'postgres'
 TARGET_SNOWFLAKE = 'snowflake'
@@ -52,6 +54,8 @@ class SqlTestCase(TestCase):
     def __init__(self, methodName: str = ...) -> None:
         super().__init__(methodName)
         self.warehouse: Optional[Warehouse] = None
+        # self.target controls the warehouse on which the test is executed
+        # It is initialized in method setup_get_warehouse
         self.target: Optional[str] = None
 
     def setUp(self) -> None:
@@ -68,10 +72,9 @@ class SqlTestCase(TestCase):
         if warehouse is None:
             logging.debug(f'Creating warehouse {self.target}')
             warehouse_fixture = WarehouseFixture.create(self.target)
-            profile_parse = self.parse_test_profile(self.target)
-            profile_parse.parse_logs.assert_no_warnings_or_errors()
+            dialect = self.create_dialect(self.target)
 
-            warehouse = Warehouse(profile_parse.warehouse_configuration)
+            warehouse = Warehouse(dialect)
             warehouse_fixture.warehouse = warehouse
             warehouse_fixture.create_database()
             SqlTestCase.warehouse_cache_by_target[self.target] = warehouse
@@ -80,10 +83,14 @@ class SqlTestCase(TestCase):
         return warehouse
 
     @classmethod
-    def parse_test_profile(self, target: str) -> WarehouseParse:
+    def create_dialect(cls, target: str) -> Dialect:
         tests_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        profiles_yml_path = f'{tests_dir}/warehouses/{target}_profiles.yml'
-        return WarehouseParse('test', profiles_yml_path=profiles_yml_path)
+        test_warehouse_cfg_path = f'{tests_dir}/warehouses/{target}_cfg.yml'
+        with open(test_warehouse_cfg_path) as f:
+            warehouse_configuration_dict = yaml.load(f, Loader=yaml.FullLoader)
+            dialect_parser = DialectParser(warehouse_configuration_dict)
+            dialect_parser.assert_no_warnings_or_errors()
+            return dialect_parser.dialect
 
     def tearDown(self) -> None:
         if self.warehouse.connection:
@@ -118,9 +125,9 @@ class SqlTestCase(TestCase):
 
     def scan(self, scan_configuration_dict: dict) -> ScanResult:
         logging.debug('Scan configuration \n'+json.dumps(scan_configuration_dict, indent=2))
-        scan_parse = ScanParse(scan_dict=scan_configuration_dict)
-        scan_parse.parse_logs.assert_no_warnings_or_errors()
-        scan = self.warehouse.create_scan(scan_parse.scan_configuration)
+        scan_configuration_parser = ScanConfigurationParser(scan_dict=scan_configuration_dict)
+        scan_configuration_parser.assert_no_warnings_or_errors()
+        scan = self.warehouse.create_scan(scan_configuration_parser.scan_configuration)
         return scan.execute()
 
     def assertMeasurements(self, scan_result, column: str, expected_metrics_present):

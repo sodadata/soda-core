@@ -12,20 +12,19 @@
 import pyathena
 
 from sodasql.scan.dialect import Dialect, ATHENA
-from sodasql.scan.parse_logs import ParseConfiguration
+from sodasql.scan.parser import Parser
 
 
 class AthenaDialect(Dialect):
 
-    def __init__(self, warehouse_cfg: ParseConfiguration):
+    def __init__(self, parser: Parser):
         super().__init__()
-        self.aws_credentials = warehouse_cfg.get_aws_credentials_optional()
-        self.athena_staging_dir = warehouse_cfg.get_str_required('staging_dir')
-        self.database = warehouse_cfg.get_str_required('database')
-        self.schema = warehouse_cfg.get_str_required('schema')
+        self.aws_credentials = parser.get_aws_credentials_optional()
+        self.athena_staging_dir = parser.get_str_required_env('staging_dir')
+        self.database = parser.get_str_required_env('database')
+        self.schema = parser.get_str_required_env('schema')
 
-    @classmethod
-    def create_default_configuration_dict(cls, warehouse_type: str):
+    def default_configuration(self):
         return {
             'type': ATHENA,
             'access_key_id': '--- ENTER AWS ACCESS KEY ID HERE ---',

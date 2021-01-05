@@ -1,0 +1,9 @@
+acme_snowflake:
+  SNOWFLAKE_USERNAME: snowflake username used in project acme_snowflake
+  SNOWFLAKE_PASSWORD: s9d87f89df
+  SODA_API_KEY_SECRET: specific soda account api key used for acme_snowflake
+
+second_project:
+  SNOWFLAKE_USERNAME: snowflake username used in project acme_snowflake
+  SNOWFLAKE_PASSWORD: s9d87f89df
+  SODA_API_KEY_SECRET: specific soda account api key used for acme_snowflake

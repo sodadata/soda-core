@@ -8,12 +8,14 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-from tests.common.sql_test_case import TARGET_REDSHIFT
-from tests.common.sql_test_suite import SqlTestSuite
+from typing import Optional
+
+from sodasql.scan.dialect import Dialect
+from sodasql.soda_client.soda_client import SodaClient
 
 
-class RedshiftSuite(SqlTestSuite):
+class SodaProject:
 
-    def setUp(self) -> None:
-        self.target = TARGET_REDSHIFT
-        super().setUp()
+    name: str
+    dialect: Dialect
+    soda_client: Optional[SodaClient]

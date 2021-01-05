@@ -15,7 +15,6 @@ from typing import List
 
 from sodasql.scan.column_metadata import ColumnMetadata
 from sodasql.scan.custom_metric import CustomMetric
-from sodasql.scan.dialect import Dialect
 from sodasql.scan.measurement import Measurement
 from sodasql.scan.metric import Metric
 from sodasql.scan.scan_column import ScanColumn
@@ -59,11 +58,7 @@ class Scan:
                 raise RuntimeError(f'No variables provided while time_filter "{str(scan_configuration.time_filter)}" specified')
             self.time_filter_sql = scan_configuration.time_filter_template.render(timeslice_variables)
 
-        self.scan_reference = {
-            'warehouseName': self.warehouse.name,
-            'tableName': self.configuration.table_name,
-            'time': timeslice
-        }
+        self.scan_reference = {}
 
         self.columns: List[ColumnMetadata] = []
         self.column_names: List[str] = []

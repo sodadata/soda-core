@@ -16,6 +16,10 @@ import sys
 class LoggingHelper:
 
     @classmethod
+    def configure_for_cli(cls):
+        cls.configure_for_test()
+
+    @classmethod
     def configure_for_test(cls):
         logging.getLogger('urllib3').setLevel(logging.WARNING)
         logging.getLogger('botocore').setLevel(logging.WARNING)

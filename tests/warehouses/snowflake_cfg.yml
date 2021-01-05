@@ -1,0 +1,7 @@
+type: snowflake
+# See ../example_userhome_env_vars.yml for instructions on setting the env vars
+username: env_var(SODA_SNOWFLAKE_USERNAME)
+password: env_var(SODA_SNOWFLAKE_PASSWORD)
+account: SODADATAPARTNER.eu-central-1
+warehouse: DEMO_WH
+schema: PUBLIC

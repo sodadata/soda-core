@@ -14,8 +14,8 @@ from sodasql.scan.column_metadata import ColumnMetadata
 from sodasql.scan.dialect import Dialect
 from sodasql.scan.metric import Metric
 from sodasql.scan.missing import Missing
-from sodasql.scan.scan_column_configuration import ScanColumnConfiguration
 from sodasql.scan.scan_configuration import ScanConfiguration
+from sodasql.scan.scan_configuration_column import ScanConfigurationColumn
 from sodasql.scan.validity import Validity
 
 
@@ -31,7 +31,7 @@ class ScanColumn:
         self.scan_configuration: ScanConfiguration = scan.configuration
         self.column = column_metadata
         self.column_name = column_metadata.name
-        self.column_configuration: ScanColumnConfiguration = \
+        self.column_configuration: ScanConfigurationColumn = \
             self.scan_configuration.get_column_configuration(self.column_name)
 
         dialect = self.scan.dialect
@@ -103,7 +103,6 @@ class ScanColumn:
         if missing is None:
             return ''
         qualified_column_name = dialect.qualify_column_name(column_metadata.name)
-        # snowflake will match
         validity_clauses = [f'{qualified_column_name} IS NOT NULL']
         if missing.values is not None:
             sql_expr_missing_values = dialect.sql_expr_list(column_metadata, missing.values)

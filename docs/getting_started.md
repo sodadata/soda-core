@@ -8,7 +8,7 @@ interface.  TODO add a link
 
 ## Prerequisites
 
-### Python 3.7
+For now, you only need Python 3.7+
 
 To check your version of python, run the `python` command
 ```
@@ -21,6 +21,9 @@ If you don't have Python, [install it from Python downloads](https://www.python.
 Once Python is installed, you should also have `pip`.
 
 ## Installing CLI using PyPI
+
+(TODO : Under construction)
+
 ```
 $ pip install soda
 ```

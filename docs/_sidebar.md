@@ -1,5 +1,6 @@
 * [Overview](/)
 * [Getting started](getting_started.md)
+* [Tutorial](tutorial.md)
 * [Warehouses](warehouses.md)
 * [Project](project.md)
 * [CLI](cli.md) 

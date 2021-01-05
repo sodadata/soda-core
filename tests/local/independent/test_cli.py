@@ -11,17 +11,19 @@ class MockCLI(CLI):
 
     invocations = []
 
-    def create(self, project_dir: str, warehouse_type: str, profile: Optional[str] = 'default', target: Optional[str] = None):
-        self.invocations.append(f'create {project_dir} {warehouse_type} {profile} {target}')
+    def create(self, project_dir: str, warehouse_type: str, profile: Optional[str] = None,
+               target: Optional[str] = 'default_target'):
+        pass
 
     def init(self, project_dir: str, profile: Optional[str] = 'default', target: Optional[str] = None):
-        self.invocations.append(f'scan {project_dir} {profile} {target}')
+        pass
 
-    def scan(self, project_dir: str, table: str, profile: Optional[str] = 'default', target: Optional[str] = None):
-        self.invocations.append(f'scan {project_dir} {table} {profile} {target}')
+    def scan(self, soda_project_dir: str, table: str, timeslice: Optional[str] = None,
+             timeslice_variables: Optional[str] = None, target: Optional[str] = None) -> int:
+        self.invocations.append(f'scan({soda_project_dir}, {table}, {timeslice}, {timeslice_variables}, {target})')
 
     def verify(self, project_dir: str, table: str, profile: Optional[str] = 'default', target: Optional[str] = None):
-        self.invocations.append(f'verify {project_dir} {table} {profile} {target}')
+        pass
 
 
 class TestScan(TestCase):
@@ -37,7 +39,7 @@ class TestScan(TestCase):
 
     def test_scan_cli_invocation(self):
         runner = CliRunner()
-        result = runner.invoke(main, ['scan', 'test_project', 'test_warehouse', 'test_table'])
-        self.assertEqual(MockCLI.invocations[0], 'scan test_project test_warehouse test_table default')
+        result = runner.invoke(main, ['scan', 'test_project', 'test_warehouse'])
+        self.assertEqual(MockCLI.invocations[0], 'scan(test_project, test_warehouse, None, None, None)')
         self.assertEqual(result.exit_code, 0)
 

@@ -1,0 +1,40 @@
+metrics:
+    - missing (= missing_count, missing_percentage, values_count, values_percentage)
+    - valid   (= valid_count, valid_percentage, invalid_count, invalid_percentage)
+    - min
+    - max
+    - avg
+    - sum
+    - min_length
+    - max_length
+    - avg_length
+columns:
+    ID:
+        metrics:
+            - invalid
+            - distinct
+            - uniqueness
+        missing_values:
+            - N/A
+            - No date
+            - -1
+        valid_values:
+            - High
+            - Medium
+            - Low
+        valid_format: uuid
+        valid_regex: .*
+        valid_min_length: 3
+        valid_max_length: 3
+        valid_min: 3
+        valid_max: 3
+        tests:
+            - missing_percentage < 3.0
+            - invalid_count == 0
+        time_schedule: * 2 * * *
+    START_DATE:
+        missing_values:
+              - N/A
+              - No date
+              - -1
+        valid_regex: \d\d-\d\d-\d\d\d\d

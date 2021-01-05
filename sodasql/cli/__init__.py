@@ -20,39 +20,41 @@ def main():
     pass
 
 
-@main.command()
-@click.argument('project_directory')
-@click.argument('warehouse_name')
-@click.option('-w', '--warehouse-type', type=str, required=False,
-              help='Warehouse type, e.g., "postgres", "snowflake", etc')
-@click.option('-p', '--profile', required=False, default='default',
-              help='Analyses the warehouse tables and creates scan.yml files in your project dir')
-def init(project_directory: str, warehouse_name: str, warehouse_type: str, profile: str):
-    CliImpl.cli.init(project_directory, warehouse_name, warehouse_type, profile)
+@main.command(help='Creates a new project directory and prepares credentials in your ~/.soda/env_vars.yml '
+                   'Nothing will be overwritten or removed, only added if it does not exist yet. '
+                   'PROJECT_DIR is a soda directory that groups all soda related yaml config files in a specific '
+                   'folder structure. '
+                   'WAREHOUSE_TYPE is one of {postgres, snowflake, redshift, bigquery, athena}')
+@click.argument('project_dir')
+@click.argument('warehouse_type')
+def create(project_dir: str, warehouse_type: str):
+    CliImpl.cli.create(project_dir, warehouse_type)
 
 
-@main.command(help='Dry run to verify if the configuration is ok. No connection is made to the warehouse.')
-@click.option('-w', '--warehouse-name', required=False, help='Warehouse to verify.')
-@click.option('-p', '--profile', required=False, default='default')
+@main.command(help='Dry run to verify if the configuration is ok. Only local configuration files are checked.  '
+                   'No connection is made to the warehouse. '
+                   'PROJECT_DIR is the soda project directory containing a soda_project.yml file')
+@click.argument('project_dir')
+@click.option('-t', '--target', required=False, default=None, help='The target eg dev vs prod.  See target docs')
 def verify(warehouse_name: str, profile: str):
     CliImpl.cli.verify(warehouse_name, profile)
 
 
-@main.command(help='Creates a project directory and ensures a profile is present')
+@main.command(help='Initializes scan.yml files based on profiling tables found in the warehouse. '
+                   'PROJECT_DIR is the soda project directory containing a soda_project.yml file')
+@click.argument('soda_project_dir')
+def init(soda_project_dir: str):
+    CliImpl.cli.init(soda_project_dir)
+
+
+@main.command(help='Computes all measurements and runs all tests on one table.  Exit code 0 means no tests have failed.'
+                   'Non zero exist code means tests have failed.  If the project has a Soda cloud account configured, '
+                   'measurements will be uploaded. '
+                   'PROJECT_DIR is the soda project directory containing a soda_project.yml file '
+                   'TABLE is the name of the table to be scanned')
 @click.argument('project_dir')
-@click.argument('warehouse_type')
-@click.argument('profile')
-@click.option('-t', '--target', required=False, default=None, help='The target eg dev vs prod.  See target docs')
-def create(project_dir: str, warehouse_type: str, profile: str, target: str = None):
-    CliImpl.cli.create(project_dir, warehouse_type, profile)
-
-
-@main.command()
-@click.argument('project_directory')
-@click.argument('warehouse_name')
 @click.argument('table')
-@click.option('-p', '--profile', required=False,  default='default',
-              help='Scans a table by executing queries, computes measurements and runs tests')
-def scan(project_directory: str, warehouse_name: str, table: str, profile: str):
-    exit_code = CliImpl.cli.scan(project_directory, warehouse_name, table, profile)
+@click.option('--timeslice', required=False, default=None, help='The timeslice')
+def scan(project_dir: str, table: str, timeslice: str = None, timeslice_variables: dict = None):
+    exit_code = CliImpl.cli.scan(project_dir, table, timeslice, timeslice_variables)
     sys.exit(exit_code)

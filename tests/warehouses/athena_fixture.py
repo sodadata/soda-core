@@ -14,7 +14,6 @@ import string
 
 import boto3
 
-from sodasql.scan.aws_credentials import AwsCredentials
 from tests.common.boto3_helper import Boto3Helper
 from tests.common.warehouse_fixture import WarehouseFixture
 
@@ -43,7 +42,7 @@ class AthenaFixture(WarehouseFixture):
     def delete_s3_files(self):
         logging.debug(f"Deleting all files under s3://%s/%s", self.bucket, self.path)
         Boto3Helper.filter_false_positive_boto3_warning()
-        aws_credentials = AwsCredentials.from_configuration(self.warehouse.warehouse_properties)
+        aws_credentials = self.warehouse.dialect.aws_credentials
         aws_credentials = aws_credentials.resolve_role("soda_sql_test_cleanup")
         s3_client = boto3.client(
             's3',

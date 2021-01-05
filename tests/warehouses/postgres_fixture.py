@@ -9,8 +9,6 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
-from sodasql.scan.warehouse import Warehouse
-from sodasql.scan.warehouse_configuration import WarehouseConfiguration
 from tests.common.warehouse_fixture import WarehouseFixture
 
 

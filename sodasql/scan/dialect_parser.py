@@ -8,10 +8,13 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
+from sodasql.scan.dialect import Dialect
+from sodasql.scan.parser import Parser
 
-class WarehouseConfiguration:
 
-    def __init__(self):
-        self.properties = None
-        self.name = None
-        self.dialect = None
+class DialectParser(Parser):
+
+    def __init__(self, warehouse_configuration_dict: dict):
+        super().__init__('warehouse')
+        self._push_context(warehouse_configuration_dict, 'warehouse')
+        self.dialect = Dialect.create(self)

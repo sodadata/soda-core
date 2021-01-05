@@ -13,7 +13,7 @@ from typing import List
 
 from sodasql.scan.metric import Metric
 from sodasql.scan.scan_column import ScanColumn
-from sodasql.scan.scan_parse import ScanParse
+from sodasql.scan.scan_configuration_parser import ScanConfigurationParser
 from sodasql.scan.warehouse import Warehouse
 from tests.common.sql_test_case import SqlTestCase
 
@@ -21,9 +21,9 @@ from tests.common.sql_test_case import SqlTestCase
 def execute_metric(warehouse: Warehouse, metric: dict, scan_dict):
     dialect = warehouse.dialect
 
-    scan_parse = ScanParse(scan_dict=scan_dict)
-    scan_parse.parse_logs.assert_no_warnings_or_errors()
-    scan = warehouse.create_scan(scan_parse.scan_configuration)
+    scan_configuration_parser = ScanConfigurationParser(scan_dict=scan_dict)
+    scan_configuration_parser.assert_no_warnings_or_errors()
+    scan = warehouse.create_scan(scan_configuration_parser.scan_configuration)
     scan.execute()
 
     fields: List[str] = []

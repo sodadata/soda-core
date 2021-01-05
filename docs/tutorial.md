@@ -23,23 +23,29 @@ Commands:
 If you don't get this output, check out [getting started](getting_started.md) 
 for installation instructions
 
-2\) Run soda init and pass a project name and one of the supported warehouse types
+2\) Run `soda create` and pass a project name and one of the supported warehouse types
 
 ```
-$ soda init my_first_project -profile first -warehousetype snowflake
-Creating ~/.soda/profiles.yml
-Adding snowflake profile first in ~/.soda/profiles.yml
-Creating ./my_first_project/soda_project.yml
-Please review and update the 'first' snowflake profile in ~/.soda/profiles.yml
+$ soda create ~/soda_projects/my_first_soda_project postgres
+Soda CLI version 2.0.0 beta
+Creating project dir /Users/tom/soda_projects/my_first_soda_project ...
+Creating project file /Users/tom/soda_projects/my_first_soda_project/soda_project.yml ...
+Creating profile dir /Users/tom/soda_projects/my_first_soda_project/my_first_soda_project ...
+Adding profile my_first_soda_project to existing /Users/tom/.soda/profiles.yml
+Please review and update the 'my_first_soda_project' profile in ~/.soda/profiles.yml
 Then run 'soda create'
 ```
 
-[See 'Warehouses' to learn more about ~/.soda/profiles.yml](warehouses.md)
+Next, review and update the `my_first_soda_project` profile in `~/.soda/profiles.yml`
 
-[See 'Project' to learn more about soda_project.yml](project.md)
+See
+ * [soda init command](cli.md#init) to learn more about `soda init`
+ * [Warehouses](warehouses.md) to learn more about ~/.soda/profiles.yml
+ * [Project](project.md) to learn more about soda_project.yml
 
 3\) Test your connection with 
 
+(TODO : under construction. You can continue the tutorial without this verification step)
 ```
 $ soda verify my_first_project
 Connection to snowflake ok

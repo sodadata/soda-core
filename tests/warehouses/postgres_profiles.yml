@@ -1,9 +1,0 @@
-test:
-  target: postgres
-  outputs:
-    postgres:
-      type: postgres
-      host: localhost
-      username: sodasql
-      database: sodasql
-      schema: public

@@ -8,152 +8,253 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
+import logging
 import os
 from pathlib import Path
 from typing import Optional
 
-import click
 import yaml
 
-from sodasql.scan.dialect import Dialect
-from sodasql.scan.scan import Scan
-from sodasql.scan.scan_parse import ScanParse
-from sodasql.scan.scan_result import ScanResult
-from sodasql.scan.warehouse import Warehouse
-from sodasql.scan.warehouse_parse import WarehouseParse
+from tests.common.logging_helper import LoggingHelper
+
+
+LoggingHelper.configure_for_cli()
+
+
+class IndentingDumper(yaml.Dumper):
+    """
+    yaml.dump hack to get indentation.
+    see also https://stackoverflow.com/questions/25108581/python-yaml-dump-bad-indentation
+    """
+    def increase_indent(self, flow=False, indentless=False):
+        return super(IndentingDumper, self).increase_indent(flow, False)
 
 
 class CLI:
 
     @classmethod
     def _log_version(cls):
-        click.echo('Soda CLI version 2.0.0 beta')
+        cls.log('Soda CLI version 2.0.0 beta')
 
     def create(self,
-               project_dir: str,
-               warehouse_type: str,
-               profile: Optional[str] = 'default_profile',
-               target: Optional[str] = 'default_target'):
-        """
-        Creates a project directory and ensures a profile is present
-        """
-        self._log_version()
+               soda_project_dir: str,
+               warehouse_type: str):
+        try:
+            """
+                    Creates a project directory and ensures a profile is present
+                    """
+            self._log_version()
 
-        if not Dialect.is_valid_warehouse_type(warehouse_type):
-            click.echo(f"Invalid warehouse type {warehouse_type}")
-            return 1
+            expanded_soda_project_dir = os.path.expanduser(soda_project_dir)
+            project_dir_parent, project_dir_name = os.path.split(expanded_soda_project_dir)
 
-        project_dir_path = Path(project_dir)
-        if project_dir_path.exists():
-            click.echo(f"Project dir {project_dir} already exists")
-        else:
-            click.echo(f"Creating project dir {project_dir} ...")
-            project_dir_path.mkdir(parents=True, exist_ok=True)
+            from sodasql.scan.dialect import Dialect, ALL_WAREHOUSE_TYPES
+            dialect = Dialect.create_for_warehouse_type(warehouse_type)
 
-        if not project_dir_path.is_dir():
-            click.echo(f"Project dir {project_dir} is not a directory")
-            return 1
+            if not dialect:
+                self.log(f"Invalid warehouse type {warehouse_type}, use one of {str(ALL_WAREHOUSE_TYPES)}")
+                return 1
 
-        project_file = os.path.join(project_dir, 'soda_project.yml')
-        project_file_path = Path(project_file)
-        if project_file_path.exists():
-            click.echo(f"Project file {project_file} already exists")
-        else:
-            click.echo(f"Creating project file {project_file} ...")
-            with open(project_file, 'w') as f:
-                f.write(
-                    f'name: {os.path.basename(project_dir)}\n'
-                    f'soda_host: cloud.soda.io \n'
-                    f'soda_api_key_secret: Create an account on cloud.soda.io and put your soda api key secret here \n')
-
-        profile_dir = os.path.join(project_dir, profile)
-        profile_dir_path = Path(profile_dir)
-        if profile_dir_path.exists():
-            click.echo(f"Project dir {profile_dir_path} already exists")
-        else:
-            click.echo(f"Creating profile dir {profile_dir_path} ...")
-            profile_dir_path.mkdir(parents=True, exist_ok=True)
-
-        dot_soda_dir = os.path.join(Path.home(), '.soda')
-        dot_soda_path = Path(dot_soda_dir)
-        if not dot_soda_path.exists():
-            dot_soda_path.mkdir(parents=True, exist_ok=True)
-
-        profiles_path = os.path.join(dot_soda_dir, 'profiles.yml')
-        profiles_path = Path(profiles_path)
-        profiles_exists = profiles_path.exists()
-        if profiles_exists:
-            with open(profiles_path) as f:
-                profiles = f.read()
-                profiles_dict = yaml.load(profiles, Loader=yaml.FullLoader)
-                if profile in profiles_dict:
-                    click.echo(f"Profile {profile} already exists in {profile_dir_path}.  Skipping...")
-                    return 1
-
-        profile_yaml_dict = {
-            profile: {
-               'outputs': {
-                   'target': target,
-                   target:
-                       Dialect.create_default_configuration_dict(warehouse_type) }}}
-
-        profiles_mode = 'a' if profiles_exists else 'w'
-        with open(profiles_path, profiles_mode) as f:
-            if profiles_exists:
-                click.echo(f"Adding profile {profile} to existing {profiles_path}")
-                f.write('\n')
+            project_dir_path = Path(expanded_soda_project_dir)
+            if project_dir_path.exists():
+                self.log(f"Soda project dir {soda_project_dir} already exists")
             else:
-                click.echo(f"Creating {profiles_path} with initial profile {profile}")
-            yaml.dump(profile_yaml_dict, f)
+                self.log(f"Creating project dir {soda_project_dir} ...")
+                project_dir_path.mkdir(parents=True, exist_ok=True)
 
-    def init(self,
-             project_dir: str,
-             profile: Optional[str] = 'default',
-             target: Optional[str] = None):
+            if not project_dir_path.is_dir():
+                self.log(f"Project dir {soda_project_dir} is not a directory")
+                return 1
+
+            project_name = f'{project_dir_name}_{warehouse_type}'
+
+            soda_project_file = os.path.join(expanded_soda_project_dir, 'soda.yml')
+            warehouse_configuration = {}
+            project_env_vars = {}
+            dialect.default_configuration(warehouse_configuration, project_env_vars)
+
+            project_file_path = Path(soda_project_file)
+            if project_file_path.exists():
+                self.log(f"Project file {soda_project_file} already exists")
+            else:
+                self.log(f"Creating project file {soda_project_file} ...")
+                with open(soda_project_file, 'w+') as f:
+                    soda_project_dict = {
+                        'name': project_name,
+                        'warehouse': warehouse_configuration
+                    }
+                    yaml.dump(soda_project_dict, f, default_flow_style=False, sort_keys=False)
+                os.chmod(soda_project_file, 0o777)
+
+            dot_soda_dir = os.path.join(Path.home(), '.soda')
+            dot_soda_path = Path(dot_soda_dir)
+            if not dot_soda_path.exists():
+                dot_soda_path.mkdir(parents=True, exist_ok=True)
+
+            env_vars_file = os.path.join(dot_soda_dir, 'env_vars.yml')
+            env_vars_path = Path(env_vars_file)
+            env_vars_exists = env_vars_path.exists()
+            if env_vars_exists:
+                try:
+                    with open(env_vars_path) as f:
+                        existing_env_vars_yml_dict = yaml.load(f, Loader=yaml.FullLoader)
+                        if isinstance(existing_env_vars_yml_dict, dict) and project_name in existing_env_vars_yml_dict:
+                            self.log(f"Project {project_name} already exists in {env_vars_path}.  Skipping...")
+                            project_env_vars = None
+                except Exception as e:
+                    self.log(f"Couldn't read  {env_vars_path}: {str(e)}")
+                    project_env_vars = None
+
+            if project_env_vars:
+                project_env_vars_dict = {
+                    project_name: project_env_vars
+                }
+
+                env_vars_mode = 'a' if env_vars_exists else 'w+'
+                with open(env_vars_path, env_vars_mode) as f:
+                    if env_vars_exists:
+                        self.log(f"Adding env vars for {project_name} to {env_vars_path}")
+                        f.write('\n')
+                    else:
+                        self.log(f"Creating {env_vars_path} with example env vars")
+                    yaml.dump(project_env_vars_dict, f, default_flow_style=False, sort_keys=False)
+                if not env_vars_exists:
+                    os.chmod(env_vars_file, 0o777)
+
+                self.log(f"Please review and update the '{project_name}' environment variables in ~/.soda/env_vars.yml")
+                self.log(f"Then run 'soda init {soda_project_dir}'")
+        except Exception as e:
+            self.exception(f'Exception: {str(e)}')
+            return 1
+
+    def init(self, soda_project_dir: str):
         """
         Analyses the warehouse tables and creates scan.yml files in your project dir
         """
-        self._log_version()
-        click.echo(f'Initializing {project_dir} on {profile} {target} ...')
+        try:
+            self._log_version()
 
-        warehouse: Warehouse = self._read_warehouse(profile, target)
+            expanded_soda_project_dir = os.path.expanduser(soda_project_dir)
+
+            self.log(f'Initializing {expanded_soda_project_dir} ...')
+
+            from sodasql.scan.soda_project_parser import SodaProjectParser
+            soda_project_parser = SodaProjectParser(soda_project_dir=expanded_soda_project_dir)
+            soda_project_parser.log()
+            soda_project_parser.assert_no_warnings_or_errors()
+
+            from sodasql.scan.soda_project import SodaProject
+            soda_project: SodaProject = soda_project_parser.soda_project
+
+            from sodasql.scan.warehouse import Warehouse
+            warehouse: Warehouse = Warehouse(soda_project.dialect)
+
+            self.log('Querying warehouse for tables')
+            rows = warehouse.sql_fetchall(soda_project.dialect.sql_tables_metadata_query())
+            if len(rows) > 0:
+                first_table_name = rows[0][0]
+            for row in rows:
+                table_name = row[0]
+                table_dir = os.path.join(expanded_soda_project_dir, table_name)
+                table_dir_path = Path(table_dir)
+                if not table_dir_path.exists():
+                    self.log(f'Creating table directory {table_dir}')
+                    table_dir_path.mkdir(parents=True, exist_ok=True)
+                else:
+                    self.log(f'Directory {table_dir_path} aleady exists')
+
+                table_scan_yaml_file = os.path.join(table_dir_path, 'scan.yml')
+                table_scan_yaml_path = Path(table_scan_yaml_file)
+
+                if table_scan_yaml_path.exists():
+                    self.log(f"Scan file {table_scan_yaml_file} already exists")
+                else:
+                    self.log(f"Creating {table_scan_yaml_file} ...")
+                    with open(table_scan_yaml_file, 'w+') as f:
+                        scan_yaml_dict = {
+                            'table_name': table_name,
+                            'metrics': [
+                                'row_count',
+                                'missing_count', 'missing_percentage', 'values_count', 'values_percentage',
+                                'valid_count', 'valid_percentage', 'invalid_count', 'invalid_percentage',
+                                'min', 'max', 'avg', 'sum', 'min_length', 'max_length', 'avg_length'
+                            ]
+                        }
+                        yaml.dump(scan_yaml_dict, f, sort_keys=False, Dumper=IndentingDumper, default_flow_style=False)
+                    os.chmod(table_scan_yaml_file, 0o777)
+
+            self.log(f"Next run 'soda scan {soda_project_dir} {first_table_name}' to calculate measurements and run tests")
+
+        except Exception as e:
+            self.exception(f'Exception: {str(e)}')
+            return 1
+        finally:
+            if warehouse:
+                warehouse.close()
 
     def scan(self,
-             project_dir: str,
+             soda_project_dir: str,
              table: str,
-             profile: Optional[str] = 'default',
+             timeslice: Optional[str] = None,
+             timeslice_variables: Optional[str] = None,
              target: Optional[str] = None) -> int:
         """
         Scans a table by executing queries, computes measurements and runs tests
         """
 
-        self._log_version()
-        click.echo(f'Scanning {table} with {project_dir} on {profile}{f" {target}" if target else ""} ...')
-
-        warehouse_parse = self._parse_warehouse(profile, target)
-        warehouse_parse.parse_logs.log()
-        scan_parse = self._parse_scan(project_dir, profile, table)
-        scan_parse.parse_logs.log()
-
-        if warehouse_parse.parse_logs.has_warnings_or_errors() \
-                or scan_parse.parse_logs.has_warnings_or_errors():
-            return 1
-
-        warehouse: Warehouse = Warehouse(warehouse_parse.warehouse_configuration)
         try:
-            scan: Scan = Scan(warehouse, scan_parse.scan_configuration)
-            scan_result: ScanResult = scan.execute()
-            for measurement in scan_result.measurements:
-                click.echo(measurement)
-            for test_result in scan_result.test_results:
-                click.echo(test_result)
-        finally:
-            warehouse.close()
+            soda_project_dir = os.path.expanduser(soda_project_dir)
 
-        return 1 if scan_result.has_failures() else 0
+            self._log_version()
+            self.log(f'Scanning {table} in {soda_project_dir} ...')
+
+            from sodasql.scan.soda_project_parser import SodaProjectParser
+            soda_project_parser = SodaProjectParser(soda_project_dir=soda_project_dir)
+            soda_project_parser.log()
+            soda_project_parser.assert_no_warnings_or_errors()
+
+            from sodasql.scan.soda_project import SodaProject
+            soda_project: SodaProject = soda_project_parser.soda_project
+
+            from sodasql.scan.scan_configuration_parser import ScanConfigurationParser
+            scan_configuration_parser = ScanConfigurationParser(soda_project_dir=soda_project_dir, table=table)
+            scan_configuration_parser.log()
+            scan_configuration_parser.assert_no_warnings_or_errors()
+
+            scan_configuration = scan_configuration_parser.scan_configuration
+
+            from sodasql.scan.warehouse import Warehouse
+            warehouse: Warehouse = Warehouse(soda_project.dialect)
+
+            from sodasql.scan.scan import Scan
+            from sodasql.scan.scan_result import ScanResult
+            scan: Scan = Scan(warehouse=warehouse,
+                              scan_configuration=scan_configuration,
+                              soda_client=None)
+
+            scan_result: ScanResult = scan.execute()
+
+            for measurement in scan_result.measurements:
+                self.log(measurement)
+            for test_result in scan_result.test_results:
+                self.log(test_result)
+
+            if scan_result.has_failures():
+                self.log(f'Tests failed: {scan_result.failures_count()}')
+                return scan_result.failures_count()
+            else:
+                self.log(f'All good. {len(scan_result.measurements)} measurements computed. No tests failed.')
+                return 0
+
+        except Exception as e:
+            self.exception(f'Scan failed: {str(e)}')
+            return 1
+        finally:
+            if warehouse:
+                warehouse.close()
 
     def verify(self,
-               project_dir: str,
+               soda_project_dir: str,
                table: str,
                profile: Optional[str] = 'default',
                target: Optional[str] = None):
@@ -161,18 +262,20 @@ class CLI:
         Dry run to verify if the configuration is ok. No connection is made to the warehouse.
         """
         self._log_version()
+
+        soda_project_dir = os.path.expanduser(soda_project_dir)
+
+        from sodasql.scan.warehouse import Warehouse
         warehouse: Warehouse = self._read_warehouse(profile, target)
-        scan = self._read_scan(project_dir, table, profile, target)
+        scan = self._read_scan(soda_project_dir, table, profile, target)
 
-    def _parse_warehouse(self, profile, target):
-        warehouse_parse = WarehouseParse(profile, target)
-        warehouse_parse.parse_logs.log()
-        return warehouse_parse
+    @classmethod
+    def log(cls, message: str):
+        logging.info(message)
 
-    def _parse_scan(self, project_dir, profile, table):
-        scan_parse = ScanParse(project_dir, profile, table)
-        scan_parse.parse_logs.log()
-        return scan_parse
+    @classmethod
+    def exception(cls, message: str):
+        logging.exception(message)
 
 
 class CliImpl:

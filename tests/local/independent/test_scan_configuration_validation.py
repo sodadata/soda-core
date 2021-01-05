@@ -11,51 +11,57 @@
 
 from unittest import TestCase
 
-from sodasql.scan.parse_logs import ERROR, WARNING
-from sodasql.scan.scan_configuration import ScanConfiguration
-from sodasql.scan.scan_parse import ScanParse
+from sodasql.scan.parser import ERROR, WARNING
+from sodasql.scan.scan_configuration_parser import ScanConfigurationParser
 
 
 class TestScanConfigurationValidation(TestCase):
 
     def test_table_name_required(self):
-        parse_logs = ScanParse(scan_dict={}).parse_logs
-        log = parse_logs.logs[0]
+        parser = ScanConfigurationParser(scan_dict={})
+        log = parser.logs[0]
         self.assertIn(ERROR, log.level)
-        self.assertIn('table_name is required', log.message)
+        self.assertIn('table_name', log.message)
+        self.assertIn('does not exist', log.message)
 
     def test_metrics_not_a_list(self):
-        parse_logs = ScanParse(scan_dict={
+        parser = ScanConfigurationParser(scan_dict={
             'table_name': 't',
             'metrics': 'txt'
-        }).parse_logs
+        })
 
-        log = parse_logs.logs[0]
+        log = parser.logs[0]
         self.assertIn(ERROR, log.level)
-        self.assertIn('metrics is not a list', log.message)
+        self.assertIn('Invalid metrics', log.message)
+        self.assertIn('list', log.message)
+        self.assertIn('str', log.message)
 
     def test_invalid_column_metric(self):
-        parse_logs = ScanParse(scan_dict={
+        parser = ScanConfigurationParser(scan_dict={
             'table_name': 't',
             'metrics': [
                 'revenue'
             ]
-        }).parse_logs
+        })
 
-        log = parse_logs.logs[0]
+        log = parser.logs[0]
         self.assertIn(WARNING, log.level)
-        self.assertIn('Invalid metrics value: revenue', log.message)
+        self.assertIn('Invalid key', log.message)
+        self.assertIn('metrics', log.message)
+        self.assertIn('revenue', log.message)
 
     def test_invalid_valid_format(self):
-        parse_logs = ScanParse(scan_dict={
+        parser = ScanConfigurationParser(scan_dict={
             'table_name': 't',
             'columns': {
                 'col': {
                     'valid_format': 'buzz'
                 }
             }
-        }).parse_logs
+        })
 
-        log = parse_logs.logs[0]
+        log = parser.logs[0]
         self.assertIn(WARNING, log.level)
-        self.assertIn('Invalid col.valid_format: buzz', log.message)
+        self.assertIn('Invalid', log.message)
+        self.assertIn('valid_format', log.message)
+        self.assertIn('buzz', log.message)

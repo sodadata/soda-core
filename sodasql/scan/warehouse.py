@@ -11,16 +11,14 @@
 from typing import List
 
 from sodasql.scan.db import sql_fetchone, sql_fetchall
-from sodasql.scan.warehouse_configuration import WarehouseConfiguration
+from sodasql.scan.dialect import Dialect
 
 
 class Warehouse:
 
-    def __init__(self, warehouse_configuration: WarehouseConfiguration):
-        self.warehouse_properties = warehouse_configuration.properties
-        self.name: str = warehouse_configuration.name
-        self.dialect = warehouse_configuration.dialect
-        self.connection = self.dialect.create_connection()
+    def __init__(self, dialect: Dialect):
+        self.dialect = dialect
+        self.connection = dialect.create_connection()
 
     def sql_fetchone(self, sql) -> tuple:
         return sql_fetchone(self.connection, sql)

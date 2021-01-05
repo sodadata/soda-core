@@ -8,35 +8,43 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
+from collections import OrderedDict
 
 import psycopg2
 
 from sodasql.scan.dialect import Dialect, POSTGRES
-from sodasql.scan.parse_logs import ParseConfiguration
+from sodasql.scan.parser import Parser
 from sodasql.scan.scan_configuration import ScanConfiguration
 
 
 class PostgresDialect(Dialect):
 
-    def __init__(self, warehouse_cfg: ParseConfiguration):
-        super().__init__()
-        self.host = warehouse_cfg.get_str_optional('host', 'localhost')
-        self.port = warehouse_cfg.get_str_optional('port', '5432')
-        self.username = warehouse_cfg.get_str_optional('username', None)
-        self.password = warehouse_cfg.get_str_optional('password', None)
-        self.database = warehouse_cfg.get_str_optional('database', None)
-        self.schema = warehouse_cfg.get_str_optional('schema', None)
+    def __init__(self, parser: Parser):
+        self.host = parser.get_str_optional_env('host', 'localhost')
+        self.port = parser.get_str_optional_env('port', '5432')
+        self.username = parser.get_str_required_env('username')
+        self.password = parser.get_credential('password')
+        self.database = parser.get_str_required_env('database')
+        self.schema = parser.get_str_required_env('schema')
 
-    @classmethod
-    def create_default_configuration_dict(cls, warehouse_type: str):
-        return {
+    def default_configuration(self, warehouse_configuration: dict, env_vars: dict):
+        warehouse_configuration.update({
             'type': POSTGRES,
             'host': 'localhost',
-            'username': '--- ENTER USERNAME HERE ---',
-            'password': '--- ENTER PASSWORD HERE ---',
-            'database': '--- ENTER DATABASE HERE ---',
+            'username': 'env_var(POSTGRES_USERNAME)',
+            'password': 'env_var(POSTGRES_PASSWORD)',
+            'database': 'your_database',
             'schema': 'public'
-        }
+        })
+        env_vars.update({
+            'POSTGRES_USERNAME': 'sodasql',
+            'POSTGRES_PASSWORD': '***'
+        })
+
+    def sql_tables_metadata_query(self, filter: str = None):
+        return (f"SELECT table_name \n" 
+                f"FROM information_schema.tables \n" 
+                f"WHERE lower(table_schema)='{self.schema.lower()}'")
 
     def sql_connection_test(self):
         pass

@@ -4,7 +4,7 @@ A `soda_project.yml` is the central configuration file that soda uses to scan yo
 
 For example:
 ```yaml
-name: Customer data
+profile: my_first_soda_project
 profile: snowflake_customer_dwh
 table_path: .
 ```

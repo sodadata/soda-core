@@ -12,31 +12,18 @@ from typing import List, Optional, Set
 
 from jinja2 import Template
 
-KEY_TABLE_NAME = 'table_name'
-KEY_METRICS = 'metrics'
-KEY_COLUMNS = 'columns'
-KEY_MINS_MAXS_LIMIT = 'mins_maxs_limit'
-KEY_FREQUENT_VALUES_LIMIT = 'frequent_values_limit'
-KEY_SAMPLE_PERCENTAGE = 'sample_percentage'
-KEY_SAMPLE_METHOD = 'sample_method'
-
 
 class ScanConfiguration:
 
-    VALID_KEYS = [KEY_TABLE_NAME, KEY_METRICS, KEY_COLUMNS,
-                  KEY_MINS_MAXS_LIMIT, KEY_FREQUENT_VALUES_LIMIT,
-                  KEY_SAMPLE_PERCENTAGE, KEY_SAMPLE_METHOD]
-
-    def __init__(self):
-        self.table_name: str = None
-        self.metrics: Set[str] = None
-        self.columns: dict = None
-        self.sample_percentage: float = None
-        self.sample_method: str = None
-        self.time_filter: str = None
-        self.time_filter_template: Template = None
-        self.mins_maxs_limit: int = None
-        self.frequent_values_limit: int = None
+    table_name: str = None
+    metrics: Set[str] = None
+    columns: dict = None
+    sample_percentage: float = None
+    sample_method: str = None
+    time_filter: str = None
+    time_filter_template: Template = None
+    mins_maxs_limit: int = None
+    frequent_values_limit: int = None
 
     def is_any_metric_enabled(self, metrics: List[str], column_name: Optional[str] = None):
         for metric in self.__get_metrics(column_name):

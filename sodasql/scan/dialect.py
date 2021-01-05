@@ -13,10 +13,8 @@ import re
 from typing import List
 
 from sodasql.scan.column_metadata import ColumnMetadata
-from sodasql.scan.custom_metric import CustomMetric
-from sodasql.scan.parse_logs import ParseLogs, ParseConfiguration
+from sodasql.scan.parser import Parser
 from sodasql.scan.scan_configuration import ScanConfiguration
-from sodasql.soda_client.soda_client import SodaClient
 
 POSTGRES = 'postgres'
 SNOWFLAKE = 'snowflake'
@@ -34,53 +32,31 @@ ALL_WAREHOUSE_TYPES = [POSTGRES,
 class Dialect:
 
     @classmethod
-    def create(cls, warehouse_dict: dict, parse_logs: ParseLogs):
-        warehouse_cfg = ParseConfiguration(warehouse_dict, 'warehouse', parse_logs)
-        warehouse_type = warehouse_cfg.get_str_required('type')
+    def create(cls, parser: Parser):
+        warehouse_type = parser.get_str_optional('type')
         if warehouse_type == POSTGRES:
             from sodasql.dialects.postgres_dialect import PostgresDialect
-            return PostgresDialect(warehouse_cfg)
+            return PostgresDialect(parser)
         if warehouse_type == SNOWFLAKE:
             from sodasql.dialects.snowflake_dialect import SnowflakeDialect
-            return SnowflakeDialect(warehouse_cfg)
+            return SnowflakeDialect(parser)
         if warehouse_type == REDSHIFT:
             from sodasql.dialects.redshift_dialect import RedshiftDialect
-            return RedshiftDialect(warehouse_cfg)
+            return RedshiftDialect(parser)
         if warehouse_type == BIGQUERY:
             from sodasql.dialects.bigquery_dialect import BigQueryDialect
-            return BigQueryDialect(warehouse_cfg)
+            return BigQueryDialect(parser)
         if warehouse_type == ATHENA:
             from sodasql.dialects.athena_dialect import AthenaDialect
-            return AthenaDialect(warehouse_cfg)
-        else:
-            parse_logs.error(f'Unsupported sql warehouse type {warehouse_type}')
+            return AthenaDialect(parser)
 
     @classmethod
-    def is_valid_warehouse_type(cls, warehouse_type):
-        return warehouse_type in ALL_WAREHOUSE_TYPES
+    def create_for_warehouse_type(cls, warehouse_type):
+        from sodasql.scan.dialect_parser import DialectParser
+        return cls.create(DialectParser(warehouse_configuration_dict={'type': warehouse_type}))
 
-    @classmethod
-    def create_default_configuration_dict(cls, warehouse_type):
-        if warehouse_type == POSTGRES:
-            from sodasql.dialects.postgres_dialect import PostgresDialect
-            return PostgresDialect.create_default_configuration_dict(warehouse_type)
-        if warehouse_type == SNOWFLAKE:
-            from sodasql.dialects.snowflake_dialect import SnowflakeDialect
-            return SnowflakeDialect.create_default_configuration_dict(warehouse_type)
-        if warehouse_type == REDSHIFT:
-            from sodasql.dialects.redshift_dialect import RedshiftDialect
-            return RedshiftDialect.create_default_configuration_dict(warehouse_type)
-        if warehouse_type == BIGQUERY:
-            from sodasql.dialects.bigquery_dialect import BigQueryDialect
-            return BigQueryDialect.create_default_configuration_dict(warehouse_type)
-        if warehouse_type == ATHENA:
-            from sodasql.dialects.athena_dialect import AthenaDialect
-            return AthenaDialect.create_default_configuration_dict(warehouse_type)
-        else:
-            raise RuntimeError(f'Unsupported sql warehouse type {warehouse_type}')
-
-    def __init__(self):
-        self.parse_logs = ParseLogs()
+    def default_configuration(self, warehouse_configuration: dict, env_vars: dict):
+        pass
 
     # TODO
     def sql_connection_test(self):
@@ -113,6 +89,9 @@ class Dialect:
         return ['INT', 'REAL', 'PRECISION', 'NUMBER']
 
     def sql_columns_metadata_query(self, scan_configuration: ScanConfiguration) -> str:
+        raise RuntimeError('TODO override and implement this abstract method')
+
+    def sql_tables_metadata_query(self, filter: str = None):
         raise RuntimeError('TODO override and implement this abstract method')
 
     def sql_expr_count_all(self) -> str:
@@ -244,4 +223,3 @@ class Dialect:
             raise RuntimeError(f'Unsupported expression type: {type}')
         logging.debug('expr sql: '+sql)
         return sql
-

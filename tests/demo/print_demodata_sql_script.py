@@ -80,11 +80,11 @@ class Country(Column):
         ("US", 0.45),
         ("UK", 0.35),
         ("Spain", 0.15),
-        ("Netherlands", 0.05), ])
+        ("Netherlands", 0.05) ])
     elements_without_uk = OrderedDict([
         ("US", 0.45),
         ("Spain", 0.15),
-        ("Netherlands", 0.05), ])
+        ("Netherlands", 0.05) ])
 
     def __init__(self):
         super().__init__('VARCHAR(255)')

@@ -112,14 +112,22 @@ Sending measurements to cloud.soda.io...
 Done - Took 23.307 seconds
 ```
 
-Integrate your scans with your data pipeline orchestration tool so they run right after 
-new data is produced in your dataset:
+Scans produce measurements and test results.  
+
+The goal is to run scans regularly.  Ideally is each time after new data was 
+produced in a table.  With the CLI it's possible to schedule scans with cron.  
+But ideally you want to trigger a scan at the end of 
+the data pipeline job that produced the new data.  That way, problems will be detected 
+the soonest.  Soon, we'll add examples how to schedule scans in your favourite
+data pipeline orchestration solution like Eg:  
+
 * Airflow
 * AWS Glue
 * Prefect
 * Dagster
+* Fivetran
+* Matillion
 * Luigi
-* ...
 
 Next check out [Getting started](getting_started.md) for installation and [the tutorial](tutorial.md)
 to get your first project going.

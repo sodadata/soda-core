@@ -11,32 +11,35 @@
 from snowflake import connector
 
 from sodasql.scan.dialect import Dialect, SNOWFLAKE
-from sodasql.scan.parse_logs import ParseConfiguration
+from sodasql.scan.parser import Parser
 from sodasql.scan.scan_configuration import ScanConfiguration
 
 
 class SnowflakeDialect(Dialect):
 
-    def __init__(self, warehouse_cfg: ParseConfiguration):
+    def __init__(self, parser: Parser):
         super().__init__()
-        self.account = warehouse_cfg.get_str_required('account')
-        self.warehouse = warehouse_cfg.get_str_required('warehouse')
-        self.username = warehouse_cfg.get_str_required('username')
-        self.password = warehouse_cfg.get_str_required('password')
-        self.database = warehouse_cfg.get_str_optional('database')
-        self.schema = warehouse_cfg.get_str_required('schema')
+        self.account = parser.get_str_required_env('account')
+        self.warehouse = parser.get_str_required_env('warehouse')
+        self.username = parser.get_str_required_env('username')
+        self.password = parser.get_credential('password')
+        self.database = parser.get_str_optional_env('database')
+        self.schema = parser.get_str_required_env('schema')
 
-    @classmethod
-    def create_default_configuration_dict(cls, warehouse_type: str):
-        return {
+    def default_configuration(self, warehouse_configuration: dict, env_vars: dict):
+        warehouse_configuration.update({
             'type': SNOWFLAKE,
-            'username': '--- ENTER USERNAME HERE ---',
-            'password': '--- ENTER PASSWORD HERE ---',
-            'account': 'Eg YOURACCOUNT.eu-central-1',
-            'database': 'Eg YOUR_DATABASE',
-            'warehouse': 'Eg DEMO_WH',
+            'username': 'env_var(SNOWFLAKE_USERNAME)',
+            'password': 'env_var(SNOWFLAKE_PASSWORD)',
+            'account': 'YOURACCOUNT.eu-central-1',
+            'database': 'YOUR_DATABASE',
+            'warehouse': 'YOUR_WAREHOUSE',
             'schema': 'PUBLIC'
-        }
+        })
+        env_vars.update({
+            'SNOWFLAKE_USERNAME': 'YOUR_SNOWFLAKE_USERNAME_GOES_HERE',
+            'SNOWFLAKE_PASSWORD': 'YOUR_SNOWFLAKE_PASSWORD_GOES_HERE'
+        })
 
     def create_connection(self):
         return connector.connect(
