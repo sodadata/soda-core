@@ -89,3 +89,8 @@ warehouse:
     region: eu-west-1
 ...
 ```
+
+## Spark SQL
+
+Coming soon
+

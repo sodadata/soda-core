@@ -131,3 +131,8 @@ data pipeline orchestration solution like Eg:
 
 Next check out [Getting started](getting_started.md) for installation and [the tutorial](tutorial.md)
 to get your first project going.
+
+If you like it so far, 
+<a class="github-button" href="https://github.com/sodadata/soda-sql" data-icon="octicon-star" data-size="large" aria-label="Star sodadata/soda-sql on GitHub">Star</a>
+us on GitHub 
+

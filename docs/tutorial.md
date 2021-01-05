@@ -1,10 +1,18 @@
-# Tutorial
+# 5 min tutorial
+
+**Prerequisites** You should have the `soda` command line installed.  See 
+[Getting started](getting_started.md) to get the `soda` CLI installed.
 
 If at any time during this tutorial you get stuck, speak up 
 in the [getting-started Slack channel](slack://channel?id=C01HYL8V64C&team=T01HBMYM59V) or 
 [post an issue on GitHub](https://github.com/sodadata/soda-sql/issues/new)
 
-1\) Open a command line and enter `soda` to check your soda command line tool.
+TODO soon, we'll add instructions to launch a vanilla postgres database 
+and load demo data to scan. 
+
+#### 1\) Check your `soda` installation 
+
+Open a command line and enter `soda` to check your soda command line tool.
 
 ```
 $ soda ~/tmp/my_project postgres
@@ -23,7 +31,9 @@ Commands:
 If you don't get this output, check out [getting started](getting_started.md) 
 for installation instructions
 
-2\) Run `soda create` and pass a project name and one of the supported warehouse types
+#### 2\) Create a Soda project directory 
+
+Run `soda create` and pass a project name and one of the supported warehouse types
 
 The `soda create` command will only create and append config files.  It will 
 never overwrite or delete things in existing files.  So you can run it multiple 
@@ -48,7 +58,10 @@ See
  * [Warehouses](warehouses.md) to learn more about ~/.soda/profiles.yml
  * [Project](projects.md) to learn more about soda_project.yml
 
-3\) Use the `init` command to create a `scan.yml` for each table in your warehouse
+#### 3\) Initialize the Soda project with scan.yml files 
+
+Use the `init` helps to create a `scan.yml` for each table in your warehouse
+with good defaults that you can customize.
 
 ```
 $ soda init ~/tmp/my_project 
@@ -66,7 +79,10 @@ WHERE lower(table_schema)='public'
   | Next, run 'soda scan /Users/tom/tmp/my_project demodata' to calculate measurements and run tests
 ```
 
-4\) Review and update the generated [scan.yaml files](scan.md)
+#### 4\) Review and update the generated scan.yaml files
+
+Customize the generated scan.yml files to your needs.  See [scan.yaml](scan.md) 
+for the details.
 
 `~/tmp/my_project/demodata/scan.yml`
 ```
@@ -90,7 +106,9 @@ metrics:
   - avg_length
 ```
 
-5\) Now you can run a scan on any of the tables created like this:
+#### 5\) Run a scan 
+
+Now you can run a scan on any of the tables created like this:
 
 ```
 $ soda create ~/tmp/my_project postgres
@@ -232,3 +250,9 @@ FROM "public"."demodata"
   | values_percentage(country) = 100.0
   | All good. 38 measurements computed. No tests failed.
 ```
+
+#### 6\) Add a test
+
+See [Tests](tests.md) and add a test to a generated soda.yml files. 
+
+TODO explain this a bit more :)

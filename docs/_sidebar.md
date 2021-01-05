@@ -1,10 +1,11 @@
 * [Overview](/)
 * [Getting started](getting_started.md)
-* [Tutorial](tutorial.md)
+* [5 min tutorial](tutorial.md)
 * [Projects](projects.md)
 * [Env vars](env_vars.md)
 * [Warehouses](warehouses.md)
 * [CLI](cli.md) 
 * [Scan](scan.md)
+* [Tests](tests.md)
 * [SQL metric](sql_metrics.md)
  
