@@ -9,6 +9,8 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
+import json
+
 from google.cloud import bigquery
 from google.cloud.bigquery import dbapi
 from google.oauth2.service_account import Credentials
@@ -21,7 +23,7 @@ class BigQueryDialect(Dialect):
 
     def __init__(self, parser: Parser):
         super().__init__()
-        self.account_info = parser.get_credential('account_info_json')
+        self.account_info = json.loads(parser.get_credential('account_info_json'))
         self.dataset_name = parser.get_str_required('dataset')
 
     def default_configuration(self):

@@ -29,3 +29,7 @@ class ENV:
     @classmethod
     def get_reports_url(cls):
         return cls.get_variable('REPORTS_URL')
+
+    @classmethod
+    def get_test_module(cls):
+        return cls.get_variable('TEST_MODULE')
