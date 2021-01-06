@@ -1,2 +1,2 @@
 type: bigquery
-account_info: ~/.soda/bigquery_account_info.json
+account_info_json: env_var(BIGQUERY_ACCOUNT_INFO_PATH)

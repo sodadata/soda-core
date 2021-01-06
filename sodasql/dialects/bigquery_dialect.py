@@ -21,7 +21,7 @@ class BigQueryDialect(Dialect):
 
     def __init__(self, parser: Parser):
         super().__init__()
-        self.account_info = parser.get_file_json_dict_required('account_info')
+        self.account_info = parser.get_credential('account_info_json')
         self.dataset_name = parser.get_str_required('dataset')
 
     def default_configuration(self):
