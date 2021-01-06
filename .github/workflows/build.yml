@@ -10,7 +10,7 @@ jobs:
     strategy:
       matrix:
         python-version: [ 3.8 ]
-        test-module: [local]
+        test-module: [ local ]
     env:
       JOB_ID: ${{ github.job }}
       SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
@@ -33,12 +33,12 @@ jobs:
       - name: Run Tox
         run: |
           cat dev-requirements.in | grep tox | xargs pip install
-          tox -- --html=./reports/${{ steps.extract_branch.outputs.branch }}/${{ matrix.python-version }}/tests/index.html \
-            --cov=sodasql tests --cov-report=html:./reports/${{ steps.extract_branch.outputs.branch }}/${{ matrix.python-version }}/coverage \
+          tox -- --html=./reports/${{ steps.extract_branch.outputs.branch }}/${{ matrix.test-module }}/tests/index.html \
+            --cov=sodasql tests --cov-report=html:./reports/${{ steps.extract_branch.outputs.branch }}/${{ matrix.test-module }}/coverage \
             -k ${{ matrix.test-module }}
       - name: Copy Reports Index Page
         run: |
-          cp ./reports/index.html ./reports/${{ steps.extract_branch.outputs.branch }}/${{ matrix.python-version }}/index.html
+          cp ./reports/index.html ./reports/${{ steps.extract_branch.outputs.branch }}/${{ matrix.test-module }}/index.html
       - name: Setup aws-cli
         uses: chrislennon/action-aws-cli@v1.1
       - name: Publish Reports
