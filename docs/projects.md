@@ -1,10 +1,11 @@
 # Projects
 
-A directory with a `soda.yml` configuration file is considered a soda 
+A directory with a `soda.yml` configuration file is considered a Soda 
 project directory.
 
-A project directory contains a sub-directory per table.  Each 
-table directory has a [scan.yml](scan.md) configuration file.
+## Example
+
+Here's an example Soda project directory structure:
 
 ```
 + my_project_snowflake
@@ -17,10 +18,17 @@ table directory has a [scan.yml](scan.md) configuration file.
 |   |   + invoices_with_inactive_products.yml        
 ```
 
-Each table has a [`scan.yml`](scan.md) file.
-Tables can optionally have [user defined SQL metrics](sql_metrics.md)
+`soda.yml` contains project level configurations like 
+project name and the warehouse connection details.
 
-It contains the project name and the warehouse configurations.
+`customers` and `invoices` are table directories, each 
+having a [scan.yml](scan.md) configuration file.
+
+`invoices_*.yml` are [user defined SQL metrics](sql_metrics.md)
+that also get executed when a table scan is performed
+
+## soda.yml
+
 Note that we encourage to refer to environment variables for credentials 
 in the configurations files as those files are typically checked into a 
 version control system. 

@@ -31,15 +31,6 @@ def create(project_dir: str, warehouse_type: str):
     CliImpl.cli.create(project_dir, warehouse_type)
 
 
-@main.command(help='Dry run to verify if the configuration is ok. Only local configuration files are checked.  '
-                   'No connection is made to the warehouse. '
-                   'PROJECT_DIR is the soda project directory containing a soda_project.yml file')
-@click.argument('project_dir')
-@click.option('-t', '--target', required=False, default=None, help='The target eg dev vs prod.  See target docs')
-def verify(warehouse_name: str, profile: str):
-    CliImpl.cli.verify(warehouse_name, profile)
-
-
 @main.command(help='Initializes scan.yml files based on profiling tables found in the warehouse. '
                    'PROJECT_DIR is the soda project directory containing a soda_project.yml file')
 @click.argument('soda_project_dir')

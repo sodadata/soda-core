@@ -1,14 +1,23 @@
 # Tests
 
-In scan.yml files it's possible to add tests that determine if a 
-scan succeeds or fails.  Tests are simple expressions like for example 
+Tests are evaluated as part of scans and product test results as 
+part of the scan result.  When using the CLI, the exit code will be 
+determined by the test results.
+ 
+Tests are simple Python expressions where the metrics are available 
+as variables. 
+
+For example:
 
 * `min > 25`
 * `missing_percentage <= 2.5`
 * `5 <= avg_length and avg_length <= 10`
 
-Each test should be based on 1 single metric.
-Tests are expressions written in Python syntax
+Tests can be specified on 3 different places:
 
-Disclaimer: This is experimental for now.  We may limit the expression 
+* `tests` in scan.yml on top level for testing `row_count` and other table level metrics (TODO) 
+* `tests` in scan.yml on a column level for testing column metrics
+* `tests` in user defined SQL metrics yaml files (TODO)  
+
+> **Disclaimer**: This is experimental for now.  We may limit the expression 
 capabilities as necessary to provide safely execute tests on cloud accounts.

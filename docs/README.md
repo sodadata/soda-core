@@ -2,18 +2,29 @@
 
 SQL-based data quality monitoring for Data Engineers
 
+It's used for
+ * Data monitoring
+ * Data testing
+ * Data validation
+ * Stopping the pipeline
+
+soda-sql scans are easy to configure and read as declarative yaml files.
+All soda-sql configuration files can be checked into your version control 
+system as part of your pipeline code. On top, you can write your own 
+SQL metrics.
+
 To protect against silent data issues for the consumers of your data,
-it's best to check your data before and after every data pipeline job.
+it's recommended to check your data before and after every data pipeline job.
+soda-sql will execute optimized SQL queries to produce measurements.  
 
-soda-sql offers a declarative way to specify scans.  During a scan, soda-sql 
-will execute SQL queries on your table and produce metrics.  Those metrics 
-can be used to check the quality of the data and even stop the pipeline. 
+While soda-sql is (and will remain) targetted for standalone usage, we'll 
+also launch a free cloud account as a companion service to this open 
+source project for
+ * Storing your metrics over time
+ * Enable monitors that track change over time (eg anomaly detection) 
+ * Sharing your monitoring results with Analysts and other data roles 
 
- * Configure what metrics should be computed 
- * Stop your data pipeline based on metric tests
- * Add metric configuration files to your version control system
- * Add any custom SQL query metric
- * Collaborate with Analysts and other data people in your company 
+Let's walk you through the main capabilities:
 
 `my_warehouse/my_dataset/scan.yaml` :
 ```yaml
@@ -129,10 +140,27 @@ data pipeline orchestration solution like Eg:
 * Matillion
 * Luigi
 
+Apart from the declarative scans, you can also define your own SQL metrics.  If you 
+can write it in SQL, soda-sql can monitor it.
+
+```yaml
+id: customers_with_expired_zip_code
+name: Customers with expired zip code
+type: failed_rows
+sql: |
+
+SELECT
+  MD.id,
+  MD.name,
+  MD.zipcode,
+FROM my_dataset as MD
+  JOIN zip_codes as ZC on MD.zipcode = ZC.code
+WHERE ZC.date_expired IS NOT NULL
+```
+
+If you like it so far, encourage us and  
+<a class="github-button" href="https://github.com/sodadata/soda-sql" data-icon="octicon-star" data-size="large" aria-label="Star sodadata/soda-sql on GitHub">star soda-sql on GitHub</a> 
+
 Next check out [Getting started](getting_started.md) for installation and [the tutorial](tutorial.md)
 to get your first project going.
-
-If you like it so far, 
-<a class="github-button" href="https://github.com/sodadata/soda-sql" data-icon="octicon-star" data-size="large" aria-label="Star sodadata/soda-sql on GitHub">Star</a>
-us on GitHub 
 

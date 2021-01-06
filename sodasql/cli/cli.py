@@ -253,22 +253,6 @@ class CLI:
             if warehouse:
                 warehouse.close()
 
-    def verify(self,
-               soda_project_dir: str,
-               table: str,
-               profile: Optional[str] = 'default',
-               target: Optional[str] = None):
-        """
-        Dry run to verify if the configuration is ok. No connection is made to the warehouse.
-        """
-        self._log_version()
-
-        soda_project_dir = os.path.expanduser(soda_project_dir)
-
-        from sodasql.scan.warehouse import Warehouse
-        warehouse: Warehouse = self._read_warehouse(profile, target)
-        scan = self._read_scan(soda_project_dir, table, profile, target)
-
     @classmethod
     def log(cls, message: str):
         logging.info(message)

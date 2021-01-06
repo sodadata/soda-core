@@ -116,8 +116,7 @@ class ScanConfigurationParser(Parser):
 
         self.check_invalid_keys(VALID_KEYS)
 
-    def parse_metrics(self,
-                      column_name: Optional[str] = None):
+    def parse_metrics(self, column_name: Optional[str] = None):
         configured_metrics_list = self.get_list_optional(KEY_METRICS)
         if configured_metrics_list is None:
             return set()
