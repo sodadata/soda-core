@@ -4,7 +4,7 @@ on: [ push ]
 
 jobs:
   run-test:
-    name: Run Tests - Python
+    name: Run Tests
     timeout-minutes: 10
     runs-on: ubuntu-20.04
     strategy:
@@ -33,8 +33,10 @@ jobs:
       - name: Run Tox
         run: |
           cat dev-requirements.in | grep tox | xargs pip install
-          tox -- --html=./reports/${{ steps.extract_branch.outputs.branch }}/${{ matrix.test-module }}/tests/index.html \
-            --cov=sodasql tests --cov-report=html:./reports/${{ steps.extract_branch.outputs.branch }}/${{ matrix.test-module }}/coverage \
+          tox -- \
+            --html=./reports/${{ steps.extract_branch.outputs.branch }}/${{ matrix.test-module }}/tests/index.html \
+            --cov=sodasql tests \
+            --cov-report=html:./reports/${{ steps.extract_branch.outputs.branch }}/${{ matrix.test-module }}/coverage \
             -k ${{ matrix.test-module }}
       - name: Copy Reports Index Page
         run: |
