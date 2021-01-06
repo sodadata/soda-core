@@ -4,12 +4,13 @@ on: [ push ]
 
 jobs:
   run-test:
-    name: Run Tests - Python
+    name: Run Tests
     timeout-minutes: 10
     runs-on: ubuntu-20.04
     strategy:
       matrix:
         python-version: [ 3.8 ]
+        test-module: [ local ]
     env:
       JOB_ID: ${{ github.job }}
       SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
@@ -18,6 +19,7 @@ jobs:
       ACTIONS_ALLOW_UNSECURE_COMMANDS: true
       AWS_ACCESS_KEY_ID: ${{ secrets.AWS_BUILD_ACCESS_KEY_ID }}
       AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_BUILD_SECRET_ACCESS_KEY }}
+      TEST_MODULE: ${{ matrix.test-module }}
     steps:
       - uses: actions/checkout@v2
       - name: Setup Python ${{ matrix.python-version }}
@@ -31,11 +33,14 @@ jobs:
       - name: Run Tox
         run: |
           cat dev-requirements.in | grep tox | xargs pip install
-          tox -- --html=./reports/${{ steps.extract_branch.outputs.branch }}/tests/index.html \
-            --cov=sodasql tests --cov-report=html:./reports/${{ steps.extract_branch.outputs.branch }}/coverage
+          tox -- \
+            --html=./reports/${{ steps.extract_branch.outputs.branch }}/${{ matrix.test-module }}/tests/index.html \
+            --cov=sodasql tests \
+            --cov-report=html:./reports/${{ steps.extract_branch.outputs.branch }}/${{ matrix.test-module }}/coverage \
+            -k ${{ matrix.test-module }}
       - name: Copy Reports Index Page
         run: |
-          cp ./reports/index.html ./reports/${{ steps.extract_branch.outputs.branch }}/index.html
+          cp ./reports/index.html ./reports/${{ steps.extract_branch.outputs.branch }}/${{ matrix.test-module }}/index.html
       - name: Setup aws-cli
         uses: chrislennon/action-aws-cli@v1.1
       - name: Publish Reports
