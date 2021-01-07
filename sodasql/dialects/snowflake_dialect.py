@@ -26,20 +26,22 @@ class SnowflakeDialect(Dialect):
         self.database = parser.get_str_optional_env('database')
         self.schema = parser.get_str_required_env('schema')
 
-    def default_configuration(self, warehouse_configuration: dict, env_vars: dict):
-        warehouse_configuration.update({
+    def default_connection_properties(self, params: dict):
+        return {
             'type': SNOWFLAKE,
             'username': 'env_var(SNOWFLAKE_USERNAME)',
             'password': 'env_var(SNOWFLAKE_PASSWORD)',
             'account': 'YOURACCOUNT.eu-central-1',
-            'database': 'YOUR_DATABASE',
+            'database': params.get('database','YOUR_DATABASE'),
             'warehouse': 'YOUR_WAREHOUSE',
             'schema': 'PUBLIC'
-        })
-        env_vars.update({
-            'SNOWFLAKE_USERNAME': 'YOUR_SNOWFLAKE_USERNAME_GOES_HERE',
-            'SNOWFLAKE_PASSWORD': 'YOUR_SNOWFLAKE_PASSWORD_GOES_HERE'
-        })
+        }
+
+    def default_env_vars(self, params: dict):
+        return {
+            'SNOWFLAKE_USERNAME': params.get('username', 'YOUR_SNOWFLAKE_USERNAME_GOES_HERE'),
+            'SNOWFLAKE_PASSWORD': params.get('password', 'YOUR_SNOWFLAKE_PASSWORD_GOES_HERE')
+        }
 
     def create_connection(self):
         return connector.connect(

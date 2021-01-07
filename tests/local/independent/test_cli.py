@@ -3,11 +3,11 @@ from unittest import TestCase
 
 from click.testing import CliRunner
 
-from sodasql.cli import CLI, main
-from sodasql.cli.cli import CliImpl
+from sodasql.cli.cli import main
+from sodasql.cli.cli_impl import CliImpl
 
 
-class MockCLI(CLI):
+class MockCLI(CliImpl):
 
     invocations = []
 
@@ -30,12 +30,12 @@ class TestScan(TestCase):
 
     @classmethod
     def setUpClass(cls) -> None:
-        cls.original_cli = CliImpl.cli
-        CliImpl.cli = MockCLI()
+        cls.original_cli = CliImpl.INSTANCE
+        CliImpl.INSTANCE = MockCLI()
 
     @classmethod
     def tearDownClass(cls) -> None:
-        CliImpl.cli = cls.original_cli
+        CliImpl.INSTANCE = cls.original_cli
 
     def test_scan_cli_invocation(self):
         runner = CliRunner()

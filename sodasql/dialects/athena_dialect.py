@@ -24,15 +24,21 @@ class AthenaDialect(Dialect):
         self.database = parser.get_str_required_env('database')
         self.schema = parser.get_str_required_env('schema')
 
-    def default_configuration(self):
+    def default_connection_properties(self, params: dict):
         return {
             'type': ATHENA,
-            'access_key_id': '--- ENTER AWS ACCESS KEY ID HERE ---',
-            'secret_access_key': '--- ENTER AWS SECRET ACCESS KEY HERE ---',
-            'role_arn': '--- ENTER AWS ROLE ARN TO ASSUME HERE (optional) ---',
-            'region': '--- ENTER AWS REGION HERE (optional, default is eu-west-1) ---',
-            'staging_dir': '--- ENTER STAGING DIR HERE ---',
-            'database': '--- ENTER DATABASE HERE ---'
+            'access_key_id': 'env_var(ATHENA_ACCESS_KEY_ID)',
+            'secret_access_key': 'env_var(ATHENA_SECRET_ACCESS_KEY)',
+            'role_arn': 'Eg arn:aws:iam::123456789012:readonly',
+            'region': 'Eg eu-west-1',
+            'staging_dir': 'Eg s3://your_bucket_name/your_path',
+            'database': params.get('database', 'Eg your_athena_db')
+        }
+
+    def default_env_vars(self, params: dict):
+        return {
+            'ATHENA_ACCESS_KEY_ID': '...',
+            'ATHENA_SECRET_ACCESS_KEY': '...'
         }
 
     def create_connection(self):

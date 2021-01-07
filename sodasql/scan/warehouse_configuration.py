@@ -14,7 +14,7 @@ from sodasql.scan.dialect import Dialect
 from sodasql.soda_client.soda_client import SodaClient
 
 
-class SodaProject:
+class WarehouseConfiguration:
 
     name: str
     dialect: Dialect

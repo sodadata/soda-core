@@ -55,7 +55,10 @@ class Dialect:
         from sodasql.scan.dialect_parser import DialectParser
         return cls.create(DialectParser(warehouse_configuration_dict={'type': warehouse_type}))
 
-    def default_configuration(self, warehouse_configuration: dict, env_vars: dict):
+    def default_connection_properties(self, params: dict):
+        pass
+
+    def default_env_vars(self, params: dict):
         pass
 
     # TODO

@@ -27,19 +27,21 @@ class PostgresDialect(Dialect):
         self.database = parser.get_str_required_env('database')
         self.schema = parser.get_str_required_env('schema')
 
-    def default_configuration(self, warehouse_configuration: dict, env_vars: dict):
-        warehouse_configuration.update({
+    def default_connection_properties(self, params: dict):
+        return {
             'type': POSTGRES,
             'host': 'localhost',
             'username': 'env_var(POSTGRES_USERNAME)',
             'password': 'env_var(POSTGRES_PASSWORD)',
-            'database': 'your_database',
+            'database': params.get('database', 'your_database'),
             'schema': 'public'
-        })
-        env_vars.update({
-            'POSTGRES_USERNAME': 'sodasql',
-            'POSTGRES_PASSWORD': '***'
-        })
+        }
+
+    def default_env_vars(self, params: dict):
+        return {
+            'POSTGRES_USERNAME': params.get('username', 'Eg johndoe'),
+            'POSTGRES_PASSWORD': params.get('password', 'Eg abc123')
+        }
 
     def sql_tables_metadata_query(self, filter: str = None):
         return (f"SELECT table_name \n" 

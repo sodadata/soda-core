@@ -27,11 +27,16 @@ class BigQueryDialect(Dialect):
         self.account_info_dict = self.__parse_json_credential('account_info_json', parser)
         self.dataset_name = parser.get_str_required('dataset')
 
-    def default_configuration(self):
+    def default_connection_properties(self, params: dict):
         return {
             'type': BIGQUERY,
-            'account_info': '--- ENTER PATH TO ACCOUNT INFO HERE ---',
-            'dataset': '--- ENTER BIGQUERY DATASET HERE ---'
+            'account_info': 'env_var(BIGQUERY_ACCOUNT_INFO)',
+            'dataset': params.get('database', 'Eg your_bigquery_dataset')
+        }
+
+    def default_env_vars(self, params: dict):
+        return {
+            'BIGQUERY_ACCOUNT_INFO': '...'
         }
 
     def create_connection(self):

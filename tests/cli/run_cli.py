@@ -13,18 +13,16 @@ import traceback
 
 from click.testing import CliRunner
 
-from sodasql.cli import main
-from tests.common.logging_helper import LoggingHelper
+from sodasql.cli.cli import main
+
 
 if __name__ == "__main__":
-
-    LoggingHelper.configure_for_test()
 
     run_result = None
     try:
         runner = CliRunner()
         runner.file = sys.stdout
-        run_result = runner.invoke(main, ['scan', '~/Downloads/myproj4', 'demodata'])
+        run_result = runner.invoke(main, ['create', '-d sodasql', '-u', 'sodasql', '-p', 's', '~/soda_sql_tutorial', 'postgres'])
     except Exception as e:
         traceback.print_exc()
     if run_result:
