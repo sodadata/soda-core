@@ -1,29 +1,26 @@
 # Soda's Command Line Interface (CLI)
 
-## Initialize a warehouse configuration directory 
+## Create
 
-To make it easier to get started with soda-sql, 
-`soda init` will initialize analyse tables in a warehouse and 
-create directories with scan configuration files for each table.
+The `soda create` CLI command helps you to get started with a new warehouse 
+setup. It will create an initial warehouse directory, the warehouse configuration 
+file and the environment variables in `~/.soda/env_vars.yml`.
 
-`soda init [OPTIONS] PROFILE DIRECTORY`
+`soda create` will never delete files or remove file contents.  It only adds things 
+that are not yet present and the command reports on what it does. 
 
-`PROFILE` indicates which profile and hence which database to use. See 
-[Warehouses](warehouses.md) to learn more about configuring warehouse 
-profiles.yml
+`soda create --help` to learn more
 
-`DIRECTORY` is a directory in which the scan configuration files will 
-be generated.  For each table, a directory and scan.yml file will be 
-created in it if it doesn't exist. If a scan.yml file already exists for 
-a particular table, it will not be changed.
-
-Option `target=TARGET` Use target to specify the warehouse configuration 
-properties to use.
+Examples 
   
-## Execute a scan 
+## Init 
 
-TODO doc how to specify the CLI parameters for the scan
+The `soda init` CLI command is the next step to help you get started.  It finds 
+tables in your warehouse, inspects them and creates appropriate `scan.yml` files 
+for each table.
 
-`soda scan ...`
+`soda init` 
 
-For generic scan parameters descriptions and other details see [Scan](scan.md) 
+`soda init --help` to learn more
+
+See section [Scan](scan.md) to learn more on scan file configurations. 

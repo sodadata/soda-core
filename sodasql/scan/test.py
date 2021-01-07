@@ -9,17 +9,22 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 from dataclasses import dataclass
-from typing import Optional
-
-from sodasql.scan.test import Test
+from typing import List, Optional, Set
 
 
 @dataclass
-class TestResult:
+class Test:
 
-    test: Test
-    passed: bool
-    value = None
-    error: Optional[str]
+    expression: str
+    first_metric: str
     column: Optional[str]
     sql_metric: Optional[str]
+
+    def evaluate(self, test_variables: dict):
+        from sodasql.scan.test_result import TestResult
+        try:
+            passed = bool(eval(self.expression, test_variables))
+            value = test_variables.get(self.first_metric)
+            return TestResult(self, passed, value, None, self.column)
+        except Exception as e:
+            return TestResult(self, False, None, str(e), self.column)

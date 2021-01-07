@@ -9,6 +9,7 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 import os
+import traceback
 from typing import Optional, Set, List
 
 from jinja2 import Template
@@ -18,10 +19,12 @@ from sodasql.scan.missing import Missing
 from sodasql.scan.parser import Parser
 from sodasql.scan.scan_configuration import ScanConfiguration
 from sodasql.scan.scan_configuration_column import ScanConfigurationColumn
+from sodasql.scan.test import Test
 from sodasql.scan.validity import Validity
 
 KEY_TABLE_NAME = 'table_name'
 KEY_METRICS = 'metrics'
+KEY_TESTS = 'tests'
 KEY_COLUMNS = 'columns'
 KEY_MINS_MAXS_LIMIT = 'mins_maxs_limit'
 KEY_FREQUENT_VALUES_LIMIT = 'frequent_values_limit'
@@ -29,7 +32,7 @@ KEY_SAMPLE_PERCENTAGE = 'sample_percentage'
 KEY_SAMPLE_METHOD = 'sample_method'
 KEY_TIME_FILTER = 'time_filter'
 
-VALID_KEYS = [KEY_TABLE_NAME, KEY_METRICS, KEY_COLUMNS,
+VALID_KEYS = [KEY_TABLE_NAME, KEY_METRICS, KEY_TESTS, KEY_COLUMNS,
               KEY_MINS_MAXS_LIMIT, KEY_FREQUENT_VALUES_LIMIT,
               KEY_SAMPLE_PERCENTAGE, KEY_SAMPLE_METHOD, KEY_TIME_FILTER]
 
@@ -70,7 +73,7 @@ class ScanConfigurationParser(Parser):
 
     def __init__(self,
                  soda_project_dir: Optional[str] = None,
-                 table: Optional[str] = None,
+                 table_dir_name: Optional[str] = None,
                  scan_yaml_path: str = None,
                  scan_yaml_str: Optional[str] = None,
                  scan_dict: Optional[dict] = None):
@@ -79,8 +82,8 @@ class ScanConfigurationParser(Parser):
         if scan_dict is None:
             if scan_yaml_str is None:
                 if scan_yaml_path is None:
-                    if isinstance(soda_project_dir, str) and isinstance(table, str):
-                        scan_yaml_path = os.path.join(soda_project_dir, table, 'scan.yml')
+                    if isinstance(soda_project_dir, str) and isinstance(table_dir_name, str):
+                        scan_yaml_path = os.path.join(soda_project_dir, table_dir_name, 'scan.yml')
                     else:
                         self.error('No scan configured')
 
@@ -98,8 +101,11 @@ class ScanConfigurationParser(Parser):
 
         self._push_context(scan_dict, self.description)
 
-        self.scan_configuration.table_name = self.get_str_required(KEY_TABLE_NAME)
+        table_name = self.get_str_required(KEY_TABLE_NAME)
+        self.scan_configuration.table_name = table_name
         self.scan_configuration.metrics = self.parse_metrics()
+        self.scan_configuration.tests = self.parse_tests(scan_dict, KEY_TESTS, f'table {table_name}')
+
         self.scan_configuration.columns = self.parse_columns(self.scan_configuration)
         self.scan_configuration.sample_percentage = self.get_float_optional(KEY_SAMPLE_PERCENTAGE)
         self.scan_configuration.sample_method = self.get_str_optional(KEY_SAMPLE_METHOD, 'SYSTEM').upper()
@@ -225,8 +231,7 @@ class ScanConfigurationParser(Parser):
                 validity.min_length = column_dict.get(COLUMN_KEY_VALID_MIN_LENGTH)
                 validity.max_length = column_dict.get(COLUMN_KEY_VALID_MAX_LENGTH)
 
-            tests = column_dict.get(COLUMN_KEY_TESTS)
-            # TODO check the tests syntax
+            tests = self.parse_tests(column_dict, COLUMN_KEY_TESTS, f'column {column_name}')
 
             self.check_invalid_keys(COLUMN_ALL_KEYS)
 
@@ -242,3 +247,52 @@ class ScanConfigurationParser(Parser):
         self._pop_context()
 
         return scan_configuration_columns
+
+    def parse_tests(self,
+                    parent_dict: dict,
+                    tests_key: str,
+                    context_description: str,
+                    column_name: Optional[str] = None,
+                    sql_metric_name: Optional[str] = None):
+        tests: List[Test] = []
+
+        tests_dict: dict = parent_dict.get(tests_key)
+
+        if isinstance(tests_dict, dict):
+            self._push_context(None, tests_key)
+
+            try:
+                for test_name in tests_dict:
+                    test_expression = tests_dict.get(test_name)
+                    try:
+                        compiled_code = compile(test_expression, 'test', 'eval')
+                        names = compiled_code.co_names
+
+                        valid_test_expression = True
+                        first_metric = names[0]
+
+                        if sql_metric_name is None:
+                            non_metric_names = [name for name in names if name not in Metric.METRIC_TYPES]
+                            if len(non_metric_names) != 0 or len(names) == 0:
+                                valid_test_expression = False
+                                self.error(f'Expected metric as variables for test {test_name}, but was {set(names)}')
+                        else:
+                            sql_metric_name_set = set(sql_metric_name)
+                            if sql_metric_name_set != set(names):
+                                valid_test_expression = False
+                                self.error(f'Expected single sql metric {sql_metric_name} in expression, but was {set(names)}')
+
+                        if valid_test_expression:
+                            tests.append(Test(test_expression, first_metric, column_name, sql_metric_name))
+
+                    except SyntaxError:
+                        stacktrace_lines = traceback.format_exc().splitlines()
+                        self.error(f'Syntax error in test {context_description} {test_name}:{test_expression}:\n' +
+                                   ('\n'.join(stacktrace_lines[-3:])))
+            finally:
+                self._pop_context()
+        elif tests_dict is not None:
+            self.error(f'tests is not a dict: {tests_dict} ({str(type(tests_dict))})')
+
+        return tests
+

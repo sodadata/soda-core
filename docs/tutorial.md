@@ -1,7 +1,11 @@
 # 5 min tutorial
 
-**Prerequisites** You should have the `soda` command line installed.  See 
-[Getting started](getting_started.md) to get the `soda` CLI installed.
+**Prerequisites**
+ * Python 3.7+
+ * `soda` CLI.  See [Getting started](getting_started.md) to get the `soda` CLI installed.
+ * [Docker](https://docs.docker.com/get-docker/) which will be used in this tutorial to 
+   launch an example postgres database for soda-sql to test. If you already have a postgres 
+   running on your machine, feel free to use that one.
 
 If at any time during this tutorial you get stuck, speak up 
 in the [getting-started Slack channel](slack://channel?id=C01HYL8V64C&team=T01HBMYM59V) or 
@@ -15,7 +19,7 @@ and load demo data to scan.
 Open a command line and enter `soda` to check your soda command line tool.
 
 ```
-$ soda ~/tmp/my_project postgres
+$ soda
 Usage: soda [OPTIONS] COMMAND [ARGS]...
 
 Options:
@@ -29,34 +33,65 @@ Commands:
 ```
 
 If you don't get this output, check out [getting started](getting_started.md) 
-for installation instructions
+for installation instructions or [reach out to us](community.md)
 
-#### 2\) Create a Soda project directory 
+#### 2) Start the postgres docker container
 
-Run `soda create` and pass a project name and one of the supported warehouse types
+This postgres will act as your data warehouse.
+This script will place the postgres files in your `~/soda_sql_tutorial_postgres/`
+Feel free to use a different location   
 
-The `soda create` command will only create and append config files.  It will 
-never overwrite or delete things in existing files.  So you can run it multiple 
-times.
+```shell script
+docker run \
+    -p 5432:5432 \
+    -v ~/soda_sql_tutorial_postgres/:/var/lib/postgresql/data \
+    -e POSTGRES_USER=sodasql \
+    -e POSTGRES_DB=sodasql \
+    -e POSTGRES_HOST_AUTH_METHOD=trust \
+    postgres:9.6.17-alpine
+```
+
+When you see output like this, it means your postgres database is ready to go:
+```
+...
+LOG:  database system is ready to accept connections
+LOG:  autovacuum launcher started
+```
+
+#### 3\) Load example data 
+
+
+
+#### 2\) Create a warehouse 
+
+Run `soda create` CLI command to create a warehouse configuration file
+
+The `soda create` will only create and append config files.  It will 
+never overwrite or delete things in existing files. So you should not be scared 
+it will delete things.  The command reports what it finds and does.
+
+Imagine that you're working on a customers postgres database. 
 
 ```
-$ soda create ~/tmp/my_project postgres
+$ soda create ~/terpentine postgres
   | Soda CLI version 2.0.0 beta
-  | Creating project dir /Users/tom/tmp/my_project ...
-  | Creating project file /Users/tom/tmp/my_project/soda.yml ...
+  | Creating project dir /Users/tom/my_project ...
+  | Creating project file /Users/tom/my_project/soda.yml ...
   | Creating /Users/tom/.soda/env_vars.yml with example env vars
   | Please review and update the 'my_project_postgres' environment variables in ~/.soda/env_vars.yml
-  | Then run 'soda init /Users/tom/tmp/my_project'
+  | Then run 'soda init /Users/tom/my_project'
 ```
 
-`my_project` is the Soda project directory.  Learn more about
+To learn more on this command, see [soda create](cli.md#create) 
 
-Next, review and update the `my_first_soda_project` profile in `~/.soda/profiles.yml`
+Next, review and update the 2 files that have been created:
+ * `~/.soda/profiles.yml`
+ * `~/.soda/profiles.yml`
 
 See
  * [soda init command](cli.md#create) to learn more about `soda create`
- * [Warehouses](warehouses.md) to learn more about ~/.soda/profiles.yml
- * [Project](projects.md) to learn more about soda_project.yml
+ * [Warehouses](warehouse_types.md) to learn more about ~/.soda/profiles.yml
+ * [Project](warehouse.md) to learn more about soda_project.yml
 
 #### 3\) Initialize the Soda project with scan.yml files 
 

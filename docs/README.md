@@ -1,14 +1,14 @@
 # soda-sql
 
-SQL-based data quality monitoring for Data Engineers
+SQL-based data quality testing for Data Engineers
 
 It's used for
- * Data monitoring
  * Data testing
- * Data validation
  * Stopping the pipeline
+ * Data monitoring
+ * Data validation
 
-soda-sql scans are easy to configure and read as declarative yaml files.
+soda-sql scans make it eas easy to configure declarative data tests in yaml files.
 All soda-sql configuration files can be checked into your version control 
 system as part of your pipeline code. On top, you can write your own 
 SQL metrics.
@@ -68,8 +68,8 @@ columns:
             - Medium
             - Low
         tests:
-            - missing_percentage < 3.0
-            - invalid_count == 0
+            missing_percentage_2 : missing_percentage <  3.0
+            invalid_count : invalid_count == 0
 ```
 
 Add custom SQL query metrics
@@ -140,23 +140,6 @@ data pipeline orchestration solution like Eg:
 * Matillion
 * Luigi
 
-Apart from the declarative scans, you can also define your own SQL metrics.  If you 
-can write it in SQL, soda-sql can monitor it.
-
-```yaml
-id: customers_with_expired_zip_code
-name: Customers with expired zip code
-type: failed_rows
-sql: |
-
-SELECT
-  MD.id,
-  MD.name,
-  MD.zipcode,
-FROM my_dataset as MD
-  JOIN zip_codes as ZC on MD.zipcode = ZC.code
-WHERE ZC.date_expired IS NOT NULL
-```
 
 If you like it so far, encourage us and  
 <a class="github-button" href="https://github.com/sodadata/soda-sql" data-icon="octicon-star" data-size="large" aria-label="Star sodadata/soda-sql on GitHub">star soda-sql on GitHub</a> 

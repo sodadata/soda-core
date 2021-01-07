@@ -12,6 +12,7 @@ from dataclasses import dataclass
 from typing import Set, List
 
 from sodasql.scan.missing import Missing
+from sodasql.scan.test import Test
 from sodasql.scan.validity import Validity
 
 
@@ -21,4 +22,4 @@ class ScanConfigurationColumn:
     metrics: Set[str]
     missing: Missing
     validity: Validity
-    tests: List[str]
+    tests: List[Test]

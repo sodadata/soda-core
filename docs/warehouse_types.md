@@ -1,7 +1,7 @@
-# Warehouses
+# Warehouse types
 
-Warehouses are configured as part of a [Soda project configuration file](projects.md)
-This section explains the concrete configuration properties for each warehouse type. 
+Warehouses are configured as part of a [Soda warehouse configuration file](warehouse.md)
+This section explains the concrete connection properties for each warehouse type. 
 
 ## Snowflake
 
@@ -9,7 +9,7 @@ Example configuration
 
 ```yaml
 name: my_snowflake_project
-warehouse:
+connection:
     type: snowflake
     username: env_var(SNOWFLAKE_USERNAME)
     password: env_var(SNOWFLAKE_PASSWORD)

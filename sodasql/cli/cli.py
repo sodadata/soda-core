@@ -217,7 +217,7 @@ class CLI:
             soda_project: SodaProject = soda_project_parser.soda_project
 
             from sodasql.scan.scan_configuration_parser import ScanConfigurationParser
-            scan_configuration_parser = ScanConfigurationParser(soda_project_dir=soda_project_dir, table=table)
+            scan_configuration_parser = ScanConfigurationParser(soda_project_dir=soda_project_dir, table_dir_name=table)
             scan_configuration_parser.log()
             scan_configuration_parser.assert_no_warnings_or_errors()
 

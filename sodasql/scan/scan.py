@@ -367,16 +367,13 @@ class Scan:
 
             tests = scan_column.get_tests()
             if tests:
-                column_measurement_values = {
+                test_variables = {
                     measurement.metric: measurement.value
                     for measurement in self.scan_result.measurements
                     if measurement.column_name == column_name
                 }
                 for test in tests:
-                    test_values = {metric: value for metric, value in column_measurement_values.items() if
-                                   metric in test}
-                    test_outcome = True if eval(test, test_values) else False
-                    test_results.append(TestResult(test_outcome, test, test_values, column_name))
+                    test_results.append(test.evaluate(test_variables))
 
     def add_query(self, measurement: Measurement):
         return self.add_measurement('Query', measurement)

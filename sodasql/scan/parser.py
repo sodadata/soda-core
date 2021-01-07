@@ -72,7 +72,7 @@ class Parser:
         except Exception as e:
             self.error(f"Couldn't parse yaml in {self.description}: {str(e)}")
 
-    def _push_context(self, object: dict = None, name: str = None):
+    def _push_context(self, object=None, name: str = None):
         self.contexts.append(ParseContext(object=object, name=name))
 
     def _pop_context(self):

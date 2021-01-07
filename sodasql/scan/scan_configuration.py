@@ -12,11 +12,14 @@ from typing import List, Optional, Set
 
 from jinja2 import Template
 
+from sodasql.scan.test import Test
+
 
 class ScanConfiguration:
 
     table_name: str = None
     metrics: Set[str] = None
+    tests: List[Test] = None
     columns: dict = None
     sample_percentage: float = None
     sample_method: str = None

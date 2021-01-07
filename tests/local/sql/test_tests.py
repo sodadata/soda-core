@@ -31,9 +31,9 @@ class TestTests(SqlTestCase):
             ],
             'columns': {
                 'name': {
-                    'tests': [
-                        'missing_count < 2'
-                    ]
+                    'tests': {
+                        'no_missing': 'missing_count < 2'
+                    }
                 }
             }
         })
@@ -46,9 +46,9 @@ class TestTests(SqlTestCase):
             ],
             'columns': {
                 'name': {
-                    'tests': [
-                        'missing_count == 0'
-                    ]
+                    'tests': {
+                        'no_missing': 'missing_count == 0'
+                    }
                 }
             }
         })
