@@ -64,7 +64,7 @@ class CliImpl:
                 return 1
 
             warehouse_path = Path(expanded_warehouse_dir)
-            if warehouse_path.exists():
+            if self.file_exists(warehouse_path):
                 self.log(f"Warehouse directory {warehouse_dir} already exists")
             else:
                 self.log(f"Creating warehouse directory {warehouse_dir} ...")
@@ -82,57 +82,59 @@ class CliImpl:
             if isinstance(password, str):
                 configuration_params['password'] = password
             connection_properties = dialect.default_connection_properties(configuration_params)
-            warehouse_env_vars = dialect.default_env_vars(configuration_params)
+            warehouse_env_vars_dict = dialect.default_env_vars(configuration_params)
 
             warehouse_yml_file = os.path.join(expanded_warehouse_dir, 'warehouse.yml')
             warehouse_yml_file_log = os.path.join(warehouse_dir, 'warehouse.yml')
             warehouse_yml_path = Path(warehouse_yml_file)
-            if warehouse_yml_path.exists():
+            if self.file_exists(warehouse_yml_path):
                 self.log(f"Warehouse configuration file {warehouse_yml_file_log} already exists")
             else:
                 self.log(f"Creating warehouse configuration file {warehouse_yml_file_log} ...")
-                with open(warehouse_yml_file, 'w+') as f:
-                    warehouse_dict = {
-                        'name': warehouse_name,
-                        'connection': connection_properties
-                    }
-                    yaml.dump(warehouse_dict, f, default_flow_style=False, sort_keys=False)
-                os.chmod(warehouse_yml_file, 0o777)
+                warehouse_dict = {
+                    'name': warehouse_name,
+                    'connection': connection_properties
+                }
+                warehouse_yml_str = yaml.dump(warehouse_dict, default_flow_style=False, sort_keys=False)
+                self.file_write_from_str(warehouse_yml_path, warehouse_yml_str)
 
             dot_soda_dir = os.path.join(Path.home(), '.soda')
             dot_soda_path = Path(dot_soda_dir)
-            if not dot_soda_path.exists():
+            if not self.file_exists(dot_soda_path):
                 dot_soda_path.mkdir(parents=True, exist_ok=True)
 
             env_vars_file = os.path.join(dot_soda_dir, 'env_vars.yml')
             env_vars_path = Path(env_vars_file)
-            env_vars_exists = env_vars_path.exists()
-            if env_vars_exists:
-                try:
-                    with open(env_vars_path) as f:
-                        existing_env_vars_yml_dict = yaml.load(f, Loader=yaml.FullLoader)
-                        if isinstance(existing_env_vars_yml_dict, dict) and warehouse_name in existing_env_vars_yml_dict:
-                            self.log(f"Warehouse section {warehouse_name} already exists in {env_vars_path}.  Skipping...")
-                            warehouse_env_vars = None
-                except Exception as e:
-                    self.log(f"Couldn't read {env_vars_file}: {str(e)}")
-                    warehouse_env_vars = None
+            env_vars_yml_str = ''
+            env_vars_file_exists = self.file_exists(env_vars_path)
+            if env_vars_file_exists:
+                env_vars_yml_str = self.file_read_as_str(env_vars_path)
 
-            if warehouse_env_vars:
+                warehouse_env_vars_dict = None
+
+                existing_env_vars_yml_dict = yaml.load(env_vars_yml_str, Loader=yaml.FullLoader)
+                if isinstance(existing_env_vars_yml_dict, dict) and warehouse_name in existing_env_vars_yml_dict:
+                    self.log(f"Warehouse section {warehouse_name} already exists in {env_vars_path}.  Skipping...")
+                    warehouse_env_vars_dict = None
+
+            if warehouse_env_vars_dict:
                 warehouse_env_vars_dict = {
-                    warehouse_name: warehouse_env_vars
+                    warehouse_name: warehouse_env_vars_dict
                 }
 
-                env_vars_mode = 'a' if env_vars_exists else 'w+'
-                with open(env_vars_path, env_vars_mode) as f:
-                    if env_vars_exists:
-                        self.log(f"Adding env vars for {warehouse_name} to {env_vars_path}")
-                        f.write('\n')
-                    else:
-                        self.log(f"Creating {env_vars_path} with example env vars in section {warehouse_name}")
-                    yaml.dump(warehouse_env_vars_dict, f, default_flow_style=False, sort_keys=False)
-                if not env_vars_exists:
-                    os.chmod(env_vars_file, 0o777)
+                if len(env_vars_yml_str) > 0:
+                    env_vars_yml_str += '\n'
+
+                env_vars_yml_str += yaml.dump(warehouse_env_vars_dict,
+                                              default_flow_style=False,
+                                              sort_keys=False)
+
+                if env_vars_file_exists:
+                    self.log(f"Adding env vars for {warehouse_name} to {env_vars_path}")
+                else:
+                    self.log(f"Creating {env_vars_path} with example env vars in section {warehouse_name}")
+
+                self.file_write_from_str(env_vars_path, env_vars_yml_str)
 
             self.log(f"Review warehouse.yml by running command")
             self.log(f"  open {warehouse_yml_file}")
@@ -174,7 +176,7 @@ class CliImpl:
                 table_dir = os.path.join(expanded_warehouse_dir, table_name)
                 table_dir_log = os.path.join(warehouse_dir, table_name)
                 table_dir_path = Path(table_dir)
-                if not table_dir_path.exists():
+                if not self.file_exists(table_dir_path):
                     self.log(f'Creating table directory {table_dir_log}')
                     table_dir_path.mkdir(parents=True, exist_ok=True)
                 else:
@@ -184,22 +186,24 @@ class CliImpl:
                 table_scan_yaml_file_log = os.path.join(table_dir_log, 'scan.yml')
                 table_scan_yaml_path = Path(table_scan_yaml_file)
 
-                if table_scan_yaml_path.exists():
+                if self.file_exists(table_scan_yaml_path):
                     self.log(f"Scan file {table_scan_yaml_file_log} already exists")
                 else:
                     self.log(f"Creating {table_scan_yaml_file_log} ...")
-                    with open(table_scan_yaml_file, 'w+') as f:
-                        scan_yaml_dict = {
-                            'table_name': table_name,
-                            'metrics': [
-                                'row_count',
-                                'missing_count', 'missing_percentage', 'values_count', 'values_percentage',
-                                'valid_count', 'valid_percentage', 'invalid_count', 'invalid_percentage',
-                                'min', 'max', 'avg', 'sum', 'min_length', 'max_length', 'avg_length'
-                            ]
-                        }
-                        yaml.dump(scan_yaml_dict, f, sort_keys=False, Dumper=IndentingDumper, default_flow_style=False)
-                    os.chmod(table_scan_yaml_file, 0o777)
+                    scan_yaml_dict = {
+                        'table_name': table_name,
+                        'metrics': [
+                            'row_count',
+                            'missing_count', 'missing_percentage', 'values_count', 'values_percentage',
+                            'valid_count', 'valid_percentage', 'invalid_count', 'invalid_percentage',
+                            'min', 'max', 'avg', 'sum', 'min_length', 'max_length', 'avg_length'
+                        ]
+                    }
+                    scan_yml_str = yaml.dump(scan_yaml_dict,
+                                             sort_keys=False,
+                                             Dumper=IndentingDumper,
+                                             default_flow_style=False)
+                    self.file_write_from_str(table_scan_yaml_path, scan_yml_str)
 
             self.log(f"Next run 'soda scan {warehouse_dir} {first_table_name}' to calculate measurements and run tests")
 
@@ -280,6 +284,26 @@ class CliImpl:
     @classmethod
     def exception(cls, message: str):
         logging.exception(message)
+
+    def file_read_as_str(self, path: Path) -> str:
+        try:
+            with open(path) as f:
+                return f.read()
+        except Exception as e:
+            self.log(f"Couldn't read {str(path)}: {str(e)}")
+
+    def file_write_from_str(self, path: Path, file_content_str):
+        is_new = path.exists()
+        try:
+            with open(path, 'w+') as f:
+                f.write(file_content_str)
+            if is_new:
+                os.chmod(path, 0o666)
+        except Exception as e:
+            self.log(f"Couldn't write {str(path)}: {str(e)}")
+
+    def file_exists(self, path: Path):
+        return path.exists()
 
 
 CliImpl.INSTANCE = CliImpl()

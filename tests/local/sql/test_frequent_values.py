@@ -15,11 +15,9 @@ from tests.common.sql_test_case import SqlTestCase
 
 class TestFrequentValues(SqlTestCase):
 
-    table_name = 'test_table'
-
     def test_scan_mins_maxs(self):
         self.sql_create_table(
-            self.table_name,
+            self.default_test_table_name,
             ["name INTEGER"],
             ["(1)",
              "(2)",
@@ -30,7 +28,7 @@ class TestFrequentValues(SqlTestCase):
              "(null)"])
 
         scan_result = self.scan({
-            'table_name': self.table_name,
+            'table_name': self.default_test_table_name,
             'metrics': [
                 Metric.FREQUENT_VALUES
             ]
