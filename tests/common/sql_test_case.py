@@ -23,6 +23,7 @@ from sodasql.scan.env_vars import EnvVars
 from sodasql.scan.scan_configuration_parser import ScanConfigurationParser
 from sodasql.scan.scan_result import ScanResult
 from sodasql.scan.warehouse import Warehouse
+from sodasql.scan.warehouse_configuration import WarehouseConfiguration
 from tests.common.logging_helper import LoggingHelper
 from tests.common.warehouse_fixture import WarehouseFixture
 
@@ -74,7 +75,8 @@ class SqlTestCase(TestCase):
             warehouse_fixture = WarehouseFixture.create(self.target)
             dialect = self.create_dialect(self.target)
 
-            warehouse = Warehouse(dialect)
+            warehouse_configuration = WarehouseConfiguration(dialect=dialect)
+            warehouse = Warehouse(warehouse_configuration)
             warehouse_fixture.warehouse = warehouse
             warehouse_fixture.create_database()
             SqlTestCase.warehouse_cache_by_target[self.target] = warehouse
@@ -125,7 +127,7 @@ class SqlTestCase(TestCase):
 
     def scan(self, scan_configuration_dict: dict) -> ScanResult:
         logging.debug('Scan configuration \n'+json.dumps(scan_configuration_dict, indent=2))
-        scan_configuration_parser = ScanConfigurationParser(scan_dict=scan_configuration_dict)
+        scan_configuration_parser = ScanConfigurationParser(scan_configuration_dict, 'Test scan')
         scan_configuration_parser.assert_no_warnings_or_errors()
         scan = self.warehouse.create_scan(scan_configuration_parser.scan_configuration)
         return scan.execute()

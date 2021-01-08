@@ -21,7 +21,7 @@ from tests.common.sql_test_case import SqlTestCase
 def execute_metric(warehouse: Warehouse, metric: dict, scan_dict):
     dialect = warehouse.dialect
 
-    scan_configuration_parser = ScanConfigurationParser(scan_dict=scan_dict)
+    scan_configuration_parser = ScanConfigurationParser(scan_dict, 'Test scan')
     scan_configuration_parser.assert_no_warnings_or_errors()
     scan = warehouse.create_scan(scan_configuration_parser.scan_configuration)
     scan.execute()

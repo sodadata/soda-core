@@ -8,14 +8,16 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
+from dataclasses import dataclass
 from typing import Optional
 
 from sodasql.scan.dialect import Dialect
 from sodasql.soda_client.soda_client import SodaClient
 
 
+@dataclass
 class WarehouseConfiguration:
 
-    name: str
     dialect: Dialect
-    soda_client: Optional[SodaClient]
+    name: Optional[str] = None
+    soda_client: Optional[SodaClient] = None

@@ -10,7 +10,7 @@
 #  limitations under the License.
 import os
 import traceback
-from typing import Optional, Set, List
+from typing import Optional, Set, List, AnyStr
 
 from jinja2 import Template
 
@@ -72,30 +72,9 @@ COLUMN_ALL_KEYS = COLUMN_MISSING_KEYS + COLUMN_VALID_KEYS + [
 class ScanConfigurationParser(Parser):
 
     def __init__(self,
-                 soda_project_dir: Optional[str] = None,
-                 table_dir_name: Optional[str] = None,
-                 scan_yaml_path: str = None,
-                 scan_yaml_str: Optional[str] = None,
-                 scan_dict: Optional[dict] = None):
-        super().__init__('['+(scan_yaml_path if scan_yaml_path else 'scan.yml')+']')
-
-        if scan_dict is None:
-            if scan_yaml_str is None:
-                if scan_yaml_path is None:
-                    if isinstance(soda_project_dir, str) and isinstance(table_dir_name, str):
-                        scan_yaml_path = os.path.join(soda_project_dir, table_dir_name, 'scan.yml')
-                    else:
-                        self.error('No scan configured')
-
-                if isinstance(scan_yaml_path, str):
-                    scan_yaml_str = self._read_file_as_string(scan_yaml_path)
-                else:
-                    self.error(f"scan_yml_path is not a str {str(scan_yaml_path)}")
-
-            if isinstance(scan_yaml_str, str):
-                scan_dict = self._parse_yaml_str(scan_yaml_str)
-            else:
-                self.error(f"scan_yml_str is not a str {str(scan_yaml_str)}")
+                 scan_dict: dict,
+                 scan_file_name: AnyStr):
+        super().__init__(scan_file_name)
 
         self.scan_configuration = ScanConfiguration()
 
@@ -104,7 +83,7 @@ class ScanConfigurationParser(Parser):
         table_name = self.get_str_required(KEY_TABLE_NAME)
         self.scan_configuration.table_name = table_name
         self.scan_configuration.metrics = self.parse_metrics()
-        self.scan_configuration.tests = self.parse_tests(scan_dict, KEY_TESTS, f'table {table_name}')
+        self.scan_configuration.tests = self.parse_tests(self, scan_dict, KEY_TESTS, f'table {table_name}')
 
         self.scan_configuration.columns = self.parse_columns(self.scan_configuration)
         self.scan_configuration.sample_percentage = self.get_float_optional(KEY_SAMPLE_PERCENTAGE)
@@ -112,7 +91,7 @@ class ScanConfigurationParser(Parser):
         self.scan_configuration.mins_maxs_limit = self.get_int_optional(KEY_MINS_MAXS_LIMIT, 20)
         self.scan_configuration.frequent_values_limit = self.get_int_optional(KEY_FREQUENT_VALUES_LIMIT, 20)
 
-        time_filter = self.get_dict_optional(KEY_TIME_FILTER)
+        time_filter = self.get_str_optional(KEY_TIME_FILTER)
         if time_filter:
             try:
                 self.scan_configuration.time_filter = time_filter
@@ -231,7 +210,7 @@ class ScanConfigurationParser(Parser):
                 validity.min_length = column_dict.get(COLUMN_KEY_VALID_MIN_LENGTH)
                 validity.max_length = column_dict.get(COLUMN_KEY_VALID_MAX_LENGTH)
 
-            tests = self.parse_tests(column_dict, COLUMN_KEY_TESTS, f'column {column_name}')
+            tests = self.parse_tests(self, column_dict, COLUMN_KEY_TESTS, f'column {column_name}')
 
             self.check_invalid_keys(COLUMN_ALL_KEYS)
 
@@ -248,18 +227,20 @@ class ScanConfigurationParser(Parser):
 
         return scan_configuration_columns
 
-    def parse_tests(self,
+    @classmethod
+    def parse_tests(cls,
+                    parser: Parser,
                     parent_dict: dict,
                     tests_key: str,
                     context_description: str,
                     column_name: Optional[str] = None,
-                    sql_metric_name: Optional[str] = None):
+                    sql_metric_name: Optional[str] = None) -> List[Test]:
         tests: List[Test] = []
 
         tests_dict: dict = parent_dict.get(tests_key)
 
         if isinstance(tests_dict, dict):
-            self._push_context(None, tests_key)
+            parser._push_context(None, tests_key)
 
             try:
                 for test_name in tests_dict:
@@ -275,24 +256,24 @@ class ScanConfigurationParser(Parser):
                             non_metric_names = [name for name in names if name not in Metric.METRIC_TYPES]
                             if len(non_metric_names) != 0 or len(names) == 0:
                                 valid_test_expression = False
-                                self.error(f'Expected metric as variables for test {test_name}, but was {set(names)}')
+                                parser.error(f'Expected metric as variables for test {test_name}, but was {set(names)}')
                         else:
                             sql_metric_name_set = set(sql_metric_name)
                             if sql_metric_name_set != set(names):
                                 valid_test_expression = False
-                                self.error(f'Expected single sql metric {sql_metric_name} in expression, but was {set(names)}')
+                                parser.error(f'Expected single sql metric {sql_metric_name} in expression, but was {set(names)}')
 
                         if valid_test_expression:
-                            tests.append(Test(test_expression, first_metric, column_name, sql_metric_name))
+                            tests.append(Test(test_name, test_expression, first_metric, column_name, sql_metric_name))
 
                     except SyntaxError:
                         stacktrace_lines = traceback.format_exc().splitlines()
-                        self.error(f'Syntax error in test {context_description} {test_name}:{test_expression}:\n' +
+                        parser.error(f'Syntax error in test {context_description} {test_name}:{test_expression}:\n' +
                                    ('\n'.join(stacktrace_lines[-3:])))
             finally:
-                self._pop_context()
+                parser._pop_context()
         elif tests_dict is not None:
-            self.error(f'tests is not a dict: {tests_dict} ({str(type(tests_dict))})')
+            parser.error(f'tests is not a dict: {tests_dict} ({str(type(tests_dict))})')
 
         return tests
 

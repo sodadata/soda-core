@@ -1,4 +1,0 @@
-project: acme_snowflake
-display_name: Acme (Snowflake)
-table_names:
-  customers: CUS_TO_MERS

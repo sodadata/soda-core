@@ -13,14 +13,15 @@ import logging
 from math import floor, ceil
 from typing import List
 
+from jinja2 import Template
+
 from sodasql.scan.column_metadata import ColumnMetadata
-from sodasql.scan.custom_metric import CustomMetric
 from sodasql.scan.measurement import Measurement
 from sodasql.scan.metric import Metric
 from sodasql.scan.scan_column import ScanColumn
 from sodasql.scan.scan_configuration import ScanConfiguration
 from sodasql.scan.scan_result import ScanResult
-from sodasql.scan.test_result import TestResult
+from sodasql.scan.sql_metric import SqlMetric
 from sodasql.scan.warehouse import Warehouse
 from sodasql.soda_client.soda_client import SodaClient
 
@@ -30,16 +31,16 @@ class Scan:
     def __init__(self,
                  warehouse: Warehouse,
                  scan_configuration: ScanConfiguration = None,
-                 custom_metrics: List[CustomMetric] = None,
+                 sql_metrics: List[SqlMetric] = None,
                  soda_client: SodaClient = None,
-                 timeslice_variables: dict = None,
+                 variables: dict = None,
                  timeslice: str = None):
         self.soda_client: SodaClient = soda_client
         self.warehouse: Warehouse = warehouse
         self.dialect = warehouse.dialect
 
         self.configuration: ScanConfiguration = scan_configuration
-        self.custom_metrics: List[CustomMetric] = custom_metrics
+        self.sql_metrics: List[SqlMetric] = sql_metrics
 
         # caches measurements that are not yet sent to soda and not yet added to self.scan_result
         # see also self.flush_measurements()
@@ -52,11 +53,12 @@ class Scan:
             if scan_configuration.sample_percentage \
             else ''
 
+        self.variables = variables
         self.time_filter_sql = None
         if scan_configuration.time_filter_template:
-            if not timeslice_variables:
+            if not variables:
                 raise RuntimeError(f'No variables provided while time_filter "{str(scan_configuration.time_filter)}" specified')
-            self.time_filter_sql = scan_configuration.time_filter_template.render(timeslice_variables)
+            self.time_filter_sql = scan_configuration.time_filter_template.render(variables)
 
         self.scan_reference = {}
 
@@ -66,7 +68,7 @@ class Scan:
         self.scan_columns: dict = {}
 
     def execute(self) -> ScanResult:
-        assert self.configuration.table_name, 'scan_configuration.table_name is required'
+        assert self.configuration.table_name, 'scan.table_name is required'
 
         self.query_columns_metadata()
         self.flush_measurements()
@@ -79,6 +81,8 @@ class Scan:
 
         self.query_histograms()
         self.flush_measurements()
+
+        self.query_sql_metrics()
 
         self.run_tests()
 
@@ -198,7 +202,6 @@ class Scan:
                 self.add_query(measurement)
 
             # Calculating derived measurements
-            derived_measurements = []
             row_count_measurement = next((m for m in measurements if m.metric == Metric.ROW_COUNT), None)
             if row_count_measurement:
                 row_count = row_count_measurement.value
@@ -357,23 +360,55 @@ class Scan:
 
                     self.add_query(Measurement(Metric.HISTOGRAM, column_name, histogram))
 
+    def query_sql_metrics(self):
+        if self.sql_metrics:
+            for sql_metric in self.sql_metrics:
+                sql_variables = {
+                    measurement.metric: measurement.value
+                    for measurement in self.scan_result.measurements
+                }
+                sql_variables.update(self.variables)
+
+                template = Template(sql_metric.sql)
+                resolved_sql = template.render(sql_variables)
+
+                if sql_metric.type == SqlMetric.TYPE_NUMERIC:
+                    values = self.warehouse.sql_fetchone(resolved_sql)
+                    if len(values) == len(sql_metric.names):
+                        for i in range(0, len(values)):
+                            measurement = Measurement(sql_metric.names[i], sql_metric.column_name, values[i])
+                            self.measurements.append(measurement)
+                elif sql_metric.type == SqlMetric.TYPE_FAILURES:
+                    rows = self.warehouse.sql_fetchall(resolved_sql)
+                    measurement = Measurement(sql_metric.name, sql_metric.column_name, len(rows))
+                    self.measurements.append(measurement)
+                    for row in rows:
+                        logging.debug(f'Failed rows for {sql_metric.name}: {str(row)}')
+
     def run_tests(self):
-        test_results = []
-        self.scan_result.test_results = test_results
+        self.scan_result.test_results = []
+
+        metric_variables = {
+            measurement.metric: measurement.value
+            for measurement in self.scan_result.measurements
+        }
+
+        table_tests = self.configuration.tests
+        table_test_results = self.execute_tests(table_tests, metric_variables)
+        self.scan_result.test_results.extend(table_test_results)
 
         for column_name_lower in self.scan_columns:
             scan_column: ScanColumn = self.scan_columns[column_name_lower]
-            column_name = scan_column.column_name
+            column_tests = scan_column.get_tests()
+            column_test_results = self.execute_tests(column_tests, metric_variables)
+            self.scan_result.test_results.extend(column_test_results)
 
-            tests = scan_column.get_tests()
-            if tests:
-                test_variables = {
-                    measurement.metric: measurement.value
-                    for measurement in self.scan_result.measurements
-                    if measurement.column_name == column_name
-                }
-                for test in tests:
-                    test_results.append(test.evaluate(test_variables))
+    def execute_tests(self, tests, variables):
+        test_results = []
+        if tests:
+            for test in tests:
+                test_results.append(test.evaluate(variables))
+        return test_results
 
     def add_query(self, measurement: Measurement):
         return self.add_measurement('Query', measurement)
@@ -392,3 +427,6 @@ class Scan:
                 measurements_json = [measurement.to_json() for measurement in self.measurements]
                 self.soda_client.send_measurements(self.scan_reference, measurements_json)
             self.measurements = []
+
+
+

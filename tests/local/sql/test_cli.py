@@ -9,17 +9,28 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 from pathlib import Path
+from typing import AnyStr
 
 from click.testing import CliRunner
 
 from sodasql.cli.cli import main
-from sodasql.cli.cli_impl import CliImpl
+from sodasql.cli.file_system import FileSystem, FileSystemSingleton
 from tests.common.sql_test_case import SqlTestCase
 
 
-class CliWithMockFileSystem(CliImpl):
+class CliWithMockFileSystem(FileSystem):
 
+    dirs = set()
     files = {}
+
+    def user_home_dir(self):
+        return '/Users/johndoe'
+
+    def is_dir(self, path: AnyStr):
+        return path in self.dirs
+
+    def mkdirs(self, path: AnyStr):
+        self.dirs.add(path)
 
     def file_read_as_str(self, path: Path) -> str:
         return self.files.get(str(path))
@@ -33,28 +44,28 @@ class CliWithMockFileSystem(CliImpl):
 
 class TestScan(SqlTestCase):
 
-    original_cli = CliImpl.INSTANCE
+    original_file_system = FileSystemSingleton.INSTANCE
 
-    @classmethod
-    def setUpClass(cls) -> None:
-        CliImpl.INSTANCE = CliWithMockFileSystem()
+    def setUp(self) -> None:
+        super().setUp()
+        FileSystemSingleton.INSTANCE = CliWithMockFileSystem()
 
     @classmethod
     def tearDownClass(cls) -> None:
-        CliImpl.INSTANCE = cls.original_cli
+        FileSystemSingleton.INSTANCE = cls.original_file_system
 
     def test_scan_cli_invocation(self):
         runner = CliRunner()
         result = runner.invoke(main,
                                ['create', '-d', 'sodasql', '-u', 'sodasql', '-p', 'sodasql',
-                                '/tmp/test_project', 'postgres'])
+                                '~/test_project', 'postgres'])
         self.assertEqual(result.exit_code, 0)
         for file_name in CliWithMockFileSystem.files:
             print(f'[{file_name}]')
             print(CliWithMockFileSystem.files.get(file_name))
 
         self.assertEqual(
-            CliWithMockFileSystem.files['/tmp/test_project/warehouse.yml'],
+            CliWithMockFileSystem.files['~/test_project/warehouse.yml'],
             ('name: test_project\n'
              'connection:\n'
              '  type: postgres\n'
@@ -65,7 +76,7 @@ class TestScan(SqlTestCase):
              '  schema: public\n'))
 
         self.assertEqual(
-            CliWithMockFileSystem.files['/Users/tom/.soda/env_vars.yml'],
+            CliWithMockFileSystem.files[f'{FileSystemSingleton.INSTANCE.user_home_dir()}/.soda/env_vars.yml'],
             ('test_project:\n'
              '  POSTGRES_USERNAME: sodasql\n'
              '  POSTGRES_PASSWORD: sodasql\n'))

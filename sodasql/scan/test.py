@@ -8,6 +8,7 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
+import logging
 from dataclasses import dataclass
 from typing import List, Optional, Set
 
@@ -15,6 +16,7 @@ from typing import List, Optional, Set
 @dataclass
 class Test:
 
+    name: str
     expression: str
     first_metric: str
     column: Optional[str]
@@ -25,6 +27,7 @@ class Test:
         try:
             passed = bool(eval(self.expression, test_variables))
             value = test_variables.get(self.first_metric)
+            logging.debug(f'Test {self.name} [{self.expression}] {"passed" if passed else "failed"}')
             return TestResult(self, passed, value, None, self.column)
         except Exception as e:
             return TestResult(self, False, None, str(e), self.column)

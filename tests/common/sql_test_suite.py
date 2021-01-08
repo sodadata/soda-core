@@ -18,7 +18,7 @@ from tests.local.sql.test_missing_and_invalid_customizations import TestMissingA
 from tests.local.sql.test_missing_and_invalid_metric_configurations import TestMissingAndInvalidMetricConfigurations
 from tests.local.sql.test_schema import TestSchema
 from tests.local.sql.test_statistical_metrics import TestStatisticalMetrics
-from tests.local.sql.test_tests import TestTests
+from tests.local.sql.test_tests_column_metric import TestTests
 
 
 class SqlTestSuite(

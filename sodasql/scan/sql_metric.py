@@ -8,8 +8,22 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
+from dataclasses import dataclass
+from typing import AnyStr, List
 
-class CustomMetric:
+from sodasql.scan.test import Test
 
-    def __init__(self):
-        pass
+
+@dataclass
+class SqlMetric:
+
+    TYPE_NUMERIC = 'numeric'
+    TYPE_FAILURES = 'failures'
+    ALL_SQL_METRIC_TYPES = [TYPE_NUMERIC, TYPE_FAILURES]
+
+    name: AnyStr
+    names: List[AnyStr]
+    type: AnyStr
+    column_name: AnyStr
+    sql: AnyStr
+    tests: List[Test]

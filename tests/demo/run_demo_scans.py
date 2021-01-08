@@ -13,11 +13,12 @@ from datetime import timedelta, datetime
 from sodasql.scan.scan import Scan
 from sodasql.scan.scan_configuration_parser import ScanConfigurationParser
 from sodasql.scan.warehouse import Warehouse
+from sodasql.scan.warehouse_configuration import WarehouseConfiguration
 from tests.common.sql_test_case import SqlTestCase
 
 scan_configuration_dict = {
     'table_name': 'demodata',
-    'timeslice_filter': "date = DATE '{{ date }}'",
+    'time_filter': "date = DATE '{{ date }}'",
     'metrics': [
         'missing',
         'validity',
@@ -33,18 +34,20 @@ scan_configuration_dict = {
             'metrics': [
                 'distinct',
                 'uniqueness'],
-            'tests': [
-                'missing_percentage < 3.0',
-                'invalid_count == 0']
+            'tests': {
+                'nomissing': 'missing_percentage < 3.0',
+                'noinvalid': 'invalid_count == 0'
+            }
         }
     }
 }
 
-scan_parse = ScanConfigurationParser(scan_dict=scan_configuration_dict)
-scan_parse.parse_logs.assert_no_warnings_or_errors()
+scan_configuration_parser = ScanConfigurationParser(scan_configuration_dict, 'Demodata scan')
+scan_configuration_parser.assert_no_warnings_or_errors()
 
-profile_parse = SqlTestCase.create_dialect('postgres')
-warehouse = Warehouse(profile_parse.warehouse_configuration)
+dialect = SqlTestCase.create_dialect('postgres')
+warehouse_configuration = WarehouseConfiguration(dialect=dialect)
+warehouse = Warehouse(warehouse_configuration)
 
 row = warehouse.sql_fetchone(
     'SELECT MIN(date), MAX(date) FROM demodata'
@@ -59,8 +62,8 @@ while date != max_date:
     timeslice = datetime(year=date.year, month=date.month, day=date.day).isoformat()
     timeslice_variables = {'date': date.strftime("%Y-%m-%d")}
     scan = Scan(warehouse=warehouse,
-                scan_configuration=scan_parse.scan_configuration,
-                timeslice_variables=timeslice_variables,
+                scan_configuration=scan_configuration_parser.scan_configuration,
+                variables=timeslice_variables,
                 timeslice=timeslice)
     scan_results.append(scan.execute())
     date = date + timedelta(days=1)

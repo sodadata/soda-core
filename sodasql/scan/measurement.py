@@ -9,12 +9,12 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
-from typing import Optional
+from typing import Optional, AnyStr
 
 
 class Measurement:
 
-    def __init__(self, metric: str, column_name: Optional[str] = None, value=None):
+    def __init__(self, metric: AnyStr, column_name: Optional[AnyStr] = None, value=None):
         self.metric = metric
         self.column_name = column_name
         self.value = value

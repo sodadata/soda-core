@@ -1,17 +1,15 @@
 # soda-sql
 
-SQL-based data quality testing for Data Engineers
+SQL-based data testing and data monitoring
 
 It's used for
- * Data testing
  * Stopping the pipeline
  * Data monitoring
- * Data validation
 
-soda-sql scans make it eas easy to configure declarative data tests in yaml files.
-All soda-sql configuration files can be checked into your version control 
-system as part of your pipeline code. On top, you can write your own 
-SQL metrics.
+soda-sql scans make it eas easy to configure declarative data tests in 
+yaml configuration files.  All soda-sql configuration files can be 
+checked into your version control system as part of your pipeline 
+code. On top, you can write your own SQL metrics.
 
 To protect against silent data issues for the consumers of your data,
 it's recommended to check your data before and after every data pipeline job.

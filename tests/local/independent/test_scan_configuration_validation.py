@@ -18,17 +18,17 @@ from sodasql.scan.scan_configuration_parser import ScanConfigurationParser
 class TestScanConfigurationValidation(TestCase):
 
     def test_table_name_required(self):
-        parser = ScanConfigurationParser(scan_dict={})
+        parser = ScanConfigurationParser({}, 'Test scan')
         log = parser.logs[0]
         self.assertIn(ERROR, log.level)
         self.assertIn('table_name', log.message)
         self.assertIn('does not exist', log.message)
 
     def test_metrics_not_a_list(self):
-        parser = ScanConfigurationParser(scan_dict={
+        parser = ScanConfigurationParser({
             'table_name': 't',
             'metrics': 'txt'
-        })
+        }, 'Test scan')
 
         log = parser.logs[0]
         self.assertIn(ERROR, log.level)
@@ -37,12 +37,12 @@ class TestScanConfigurationValidation(TestCase):
         self.assertIn('str', log.message)
 
     def test_invalid_column_metric(self):
-        parser = ScanConfigurationParser(scan_dict={
+        parser = ScanConfigurationParser({
             'table_name': 't',
             'metrics': [
                 'revenue'
             ]
-        })
+        }, 'Test scan')
 
         log = parser.logs[0]
         self.assertIn(WARNING, log.level)
@@ -51,14 +51,14 @@ class TestScanConfigurationValidation(TestCase):
         self.assertIn('revenue', log.message)
 
     def test_invalid_valid_format(self):
-        parser = ScanConfigurationParser(scan_dict={
+        parser = ScanConfigurationParser({
             'table_name': 't',
             'columns': {
                 'col': {
                     'valid_format': 'buzz'
                 }
             }
-        })
+        }, 'Test scan')
 
         log = parser.logs[0]
         self.assertIn(WARNING, log.level)
