@@ -20,8 +20,10 @@ from sodasql.scan.db import sql_update, sql_updates
 from sodasql.scan.dialect import Dialect
 from sodasql.scan.dialect_parser import DialectParser
 from sodasql.scan.env_vars import EnvVars
-from sodasql.scan.scan_configuration_parser import ScanConfigurationParser
+from sodasql.scan.scan_configuration_parser import ScanConfigurationParser, KEY_TABLE_NAME
 from sodasql.scan.scan_result import ScanResult
+from sodasql.scan.sql_metric import SqlMetric
+from sodasql.scan.sql_metric_parser import SqlMetricParser
 from sodasql.scan.warehouse import Warehouse
 from sodasql.scan.warehouse_configuration import WarehouseConfiguration
 from tests.common.logging_helper import LoggingHelper
@@ -125,11 +127,28 @@ class SqlTestCase(TestCase):
             f"CREATE TABLE {table_name} ( {joined_columns} )",
             f"INSERT INTO {table_name} VALUES {joined_rows}"])
 
-    def scan(self, scan_configuration_dict: dict) -> ScanResult:
+    def scan(self,
+             scan_configuration_dict: Optional[dict] = None,
+             sql_metric_dicts: Optional[List[dict]] = None,
+             variables: Optional[dict] = None) -> ScanResult:
+        if not scan_configuration_dict:
+            scan_configuration_dict = {
+                KEY_TABLE_NAME: self.default_test_table_name
+            }
         logging.debug('Scan configuration \n'+json.dumps(scan_configuration_dict, indent=2))
         scan_configuration_parser = ScanConfigurationParser(scan_configuration_dict, 'Test scan')
         scan_configuration_parser.assert_no_warnings_or_errors()
-        scan = self.warehouse.create_scan(scan_configuration_parser.scan_configuration)
+
+        sql_metrics = []
+        if sql_metric_dicts:
+            for i in range(len(sql_metric_dicts)):
+                sql_metric_parser = SqlMetricParser(sql_metric_dicts[i], f'sql-metric-{i}')
+                sql_metric_parser.assert_no_warnings_or_errors()
+                sql_metrics.append(sql_metric_parser.sql_metric)
+
+        scan = self.warehouse.create_scan(scan_configuration=scan_configuration_parser.scan_configuration,
+                                          sql_metrics=sql_metrics,
+                                          variables=variables)
         return scan.execute()
 
     def assertMeasurements(self, scan_result, column: str, expected_metrics_present):

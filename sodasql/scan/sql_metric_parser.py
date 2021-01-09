@@ -8,25 +8,21 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-from typing import Optional, List
+from typing import List
 
+from sodasql.cli.file_system import FileSystemSingleton
 from sodasql.scan.parser import Parser
 from sodasql.scan.scan_configuration_parser import ScanConfigurationParser
 from sodasql.scan.sql_metric import SqlMetric
-from sodasql.scan.sql_metric_configuration import SqlMetricConfiguration
-from sodasql.scan.test import Test
 
-KEY_NAME = 'name'
-KEY_NAMES = 'names'
-KEY_TYPE = 'type'
-KEY_COLUMN = 'column'
 KEY_SQL = 'sql'
 KEY_TESTS = 'tests'
+KEY_GROUP_FIELDS = 'group_fields'
 
-VALID_SQL_METRIC_KEYS = [KEY_NAME, KEY_TYPE, KEY_COLUMN, KEY_SQL, KEY_TESTS]
+VALID_SQL_METRIC_KEYS = [KEY_SQL, KEY_TESTS, KEY_GROUP_FIELDS]
 
 
-class SqlMetricConfigurationParser(Parser):
+class SqlMetricParser(Parser):
     """
     Parses SQL metric yaml files
     """
@@ -37,34 +33,23 @@ class SqlMetricConfigurationParser(Parser):
         if isinstance(sql_metric_dict, dict):
             self._push_context(object=sql_metric_dict, name=self.description)
 
-            type = self.get_str_required(KEY_TYPE)
-            sql_metric_name = self.get_str_required(KEY_NAME)
-            sql_metric_names = self.get_str_required(KEY_NAMES)
-            column_name = self.get_str_optional(KEY_COLUMN)
+            sql_metric_path_dir, sql_metric_file_name = FileSystemSingleton.INSTANCE.split(sql_metric_path)
+
+            group_fields = self.get_list_optional(KEY_GROUP_FIELDS)
             sql = self.get_str_required(KEY_SQL)
             tests = ScanConfigurationParser.parse_tests(
                 self,
                 sql_metric_dict,
                 KEY_TESTS,
-                'Sql metric tests',
-                column_name,
-                sql_metric_name)
+                context_sql_metric_file_name=sql_metric_file_name)
 
-            if type == SqlMetric.TYPE_FAILURES and not sql_metric_name:
-                self.error(f'Type {SqlMetric.TYPE_FAILURES} requires a name')
-
-            if type not in SqlMetric.ALL_SQL_METRIC_TYPES:
-                self.error(f'Type {type} not valid.  Should be one of {str(SqlMetric.ALL_SQL_METRIC_TYPES)}')
-
-            if sql_metric_name and sql_metric_names:
-                self.error('Both name and names are specified')
-            elif sql_metric_names is None and sql_metric_name:
-                sql_metric_names = [sql_metric_name]
-
-            self.sql_metric = SqlMetric(
-                type, sql_metric_name, sql_metric_names, column_name, sql, tests)
+            self.sql_metric: SqlMetric = SqlMetric(sql=sql,
+                                                   file_name=sql_metric_file_name,
+                                                   group_fields=group_fields,
+                                                   tests=tests)
 
             self.check_invalid_keys(VALID_SQL_METRIC_KEYS)
+
 
         else:
             self.error('No SQL metric configuration provided')

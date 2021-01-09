@@ -14,10 +14,11 @@ from typing import Optional, AnyStr
 
 class Measurement:
 
-    def __init__(self, metric: AnyStr, column_name: Optional[AnyStr] = None, value=None):
+    def __init__(self, metric: AnyStr, column_name: Optional[AnyStr] = None, value=None, group_values: Optional[dict] = None):
         self.metric = metric
         self.column_name = column_name
         self.value = value
+        self.group_values = group_values
 
     def __str__(self):
         return self.metric + \

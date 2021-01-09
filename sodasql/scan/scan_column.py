@@ -28,7 +28,7 @@ class ScanColumn:
     def __init__(self, scan, column_metadata: ColumnMetadata):
         from sodasql.scan.scan import Scan
         self.scan: Scan = scan
-        self.scan_configuration: ScanConfiguration = scan.configuration
+        self.scan_configuration: ScanConfiguration = scan.scan_configuration
         self.column = column_metadata
         self.column_name = column_metadata.name
         self.column_configuration: ScanConfigurationColumn = \

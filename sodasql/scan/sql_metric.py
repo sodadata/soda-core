@@ -17,13 +17,7 @@ from sodasql.scan.test import Test
 @dataclass
 class SqlMetric:
 
-    TYPE_NUMERIC = 'numeric'
-    TYPE_FAILURES = 'failures'
-    ALL_SQL_METRIC_TYPES = [TYPE_NUMERIC, TYPE_FAILURES]
-
-    name: AnyStr
-    names: List[AnyStr]
-    type: AnyStr
-    column_name: AnyStr
     sql: AnyStr
-    tests: List[Test]
+    file_name: AnyStr = None
+    group_fields: List[AnyStr] = None
+    tests: List[Test] = None

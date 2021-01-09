@@ -10,7 +10,8 @@
 #  limitations under the License.
 from typing import List
 
-from sodasql.scan.db import sql_fetchone, sql_fetchall
+from sodasql.scan.db import sql_fetchone, sql_fetchall, sql_fetchone_description, sql_fetchall_description
+from sodasql.scan.sql_metric import SqlMetric
 from sodasql.scan.warehouse_configuration import WarehouseConfiguration
 
 
@@ -25,11 +26,20 @@ class Warehouse:
     def sql_fetchone(self, sql) -> tuple:
         return sql_fetchone(self.connection, sql)
 
+    def sql_fetchone_description(self, sql) -> tuple:
+        return sql_fetchone_description(self.connection, sql)
+
     def sql_fetchall(self, sql) -> List[tuple]:
         return sql_fetchall(self.connection, sql)
 
-    def create_scan(self, scan_configuration):
-        return self.dialect.create_scan(self, scan_configuration)
+    def sql_fetchall_description(self, sql) -> tuple:
+        return sql_fetchall_description(self.connection, sql)
+
+    def create_scan(self, scan_configuration, sql_metrics: List[SqlMetric] = None, variables: dict = None):
+        return self.dialect.create_scan(self,
+                                        scan_configuration=scan_configuration,
+                                        sql_metrics=sql_metrics,
+                                        variables=variables)
 
     def close(self):
         self.connection.close()

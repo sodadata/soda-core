@@ -328,8 +328,8 @@ def read_sql_metric(sql_metric_path):
     sql_metric_yaml_str = file_system.file_read_as_str(sql_metric_path)
     sql_metric_dict = parse_yaml(sql_metric_yaml_str, sql_metric_path)
 
-    from sodasql.scan.sql_metric_configuration_parser import SqlMetricConfigurationParser
-    sql_metric_parser = SqlMetricConfigurationParser(sql_metric_dict, sql_metric_path)
+    from sodasql.scan.sql_metric_parser import SqlMetricParser
+    sql_metric_parser = SqlMetricParser(sql_metric_dict, sql_metric_path)
     sql_metric_parser.log()
     sql_metric_parser.assert_no_warnings_or_errors()
     return sql_metric_parser.sql_metric

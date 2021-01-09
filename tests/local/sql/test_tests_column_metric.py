@@ -12,9 +12,9 @@
 from tests.common.sql_test_case import SqlTestCase
 
 
-class TestTests(SqlTestCase):
+class TestColumnMetricTests(SqlTestCase):
 
-    def test_tests(self):
+    def test_column_metric_test(self):
         self.sql_create_table(
             'test_table',
             ["name VARCHAR(255)"],
@@ -53,3 +53,31 @@ class TestTests(SqlTestCase):
             }
         })
         self.assertTrue(scan_result.has_failures())
+
+    def test_column_metric_metric_calculation_test(self):
+        self.sql_create_table(
+            'test_table',
+            ["size INTEGER"],
+            ["(3)",
+             "(3)",
+             "(4) ",
+             "(12)",
+             "(11)"])
+
+        scan_result = self.scan({
+            'table_name': self.default_test_table_name,
+            'metrics': [
+                'min',
+                'max'
+            ],
+            'columns': {
+                'size': {
+                    'tests': {
+                        'spread10': 'max - min < 10',
+                        'spread05': 'max - min < 5'
+                    }
+                }
+            }
+        })
+        self.assertTrue(scan_result.has_failures())
+

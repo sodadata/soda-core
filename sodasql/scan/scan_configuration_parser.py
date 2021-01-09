@@ -83,8 +83,7 @@ class ScanConfigurationParser(Parser):
         table_name = self.get_str_required(KEY_TABLE_NAME)
         self.scan_configuration.table_name = table_name
         self.scan_configuration.metrics = self.parse_metrics()
-        self.scan_configuration.tests = self.parse_tests(self, scan_dict, KEY_TESTS, f'table {table_name}')
-
+        self.scan_configuration.tests = self.parse_tests(self, scan_dict, KEY_TESTS, context_table_name=table_name)
         self.scan_configuration.columns = self.parse_columns(self.scan_configuration)
         self.scan_configuration.sample_percentage = self.get_float_optional(KEY_SAMPLE_PERCENTAGE)
         self.scan_configuration.sample_method = self.get_str_optional(KEY_SAMPLE_METHOD, 'SYSTEM').upper()
@@ -210,7 +209,11 @@ class ScanConfigurationParser(Parser):
                 validity.min_length = column_dict.get(COLUMN_KEY_VALID_MIN_LENGTH)
                 validity.max_length = column_dict.get(COLUMN_KEY_VALID_MAX_LENGTH)
 
-            tests = self.parse_tests(self, column_dict, COLUMN_KEY_TESTS, f'column {column_name}')
+            tests = self.parse_tests(self,
+                                     column_dict,
+                                     COLUMN_KEY_TESTS,
+                                     context_table_name=scan_configuration.table_name,
+                                     context_column_name=column_name)
 
             self.check_invalid_keys(COLUMN_ALL_KEYS)
 
@@ -232,9 +235,9 @@ class ScanConfigurationParser(Parser):
                     parser: Parser,
                     parent_dict: dict,
                     tests_key: str,
-                    context_description: str,
-                    column_name: Optional[str] = None,
-                    sql_metric_name: Optional[str] = None) -> List[Test]:
+                    context_table_name: Optional[str] = None,
+                    context_column_name: Optional[str] = None,
+                    context_sql_metric_file_name: Optional[str] = None) -> List[Test]:
         tests: List[Test] = []
 
         tests_dict: dict = parent_dict.get(tests_key)
@@ -245,31 +248,44 @@ class ScanConfigurationParser(Parser):
             try:
                 for test_name in tests_dict:
                     test_expression = tests_dict.get(test_name)
+
+                    test_description = None
+                    if context_column_name:
+                        test_description = f'Table({context_table_name}) ' \
+                                           f'Column({context_column_name}) ' \
+                                           f'Test({test_name}|{test_expression})'
+                    elif context_sql_metric_file_name:
+                        test_description = \
+                            f'SqlMetric({context_sql_metric_file_name}) ' \
+                            f'Test({test_name}|{test_expression})'
+                    elif context_table_name:
+                        test_description = f'Table({context_table_name}) ' \
+                                           f'Test({test_name}|{test_expression})'
+
                     try:
                         compiled_code = compile(test_expression, 'test', 'eval')
-                        names = compiled_code.co_names
+                        first_metric = None
 
-                        valid_test_expression = True
-                        first_metric = names[0]
-
-                        if sql_metric_name is None:
+                        if context_table_name or context_column_name:
+                            names = compiled_code.co_names
+                            first_metric = names[0]
                             non_metric_names = [name for name in names if name not in Metric.METRIC_TYPES]
                             if len(non_metric_names) != 0 or len(names) == 0:
-                                valid_test_expression = False
-                                parser.error(f'Expected metric as variables for test {test_name}, but was {set(names)}')
-                        else:
-                            sql_metric_name_set = set(sql_metric_name)
-                            if sql_metric_name_set != set(names):
-                                valid_test_expression = False
-                                parser.error(f'Expected single sql metric {sql_metric_name} in expression, but was {set(names)}')
+                                # Dunno yet if this should be info, warning or error.  So for now keeping it open.
+                                # SQL metric names and variables are not known until eval.
+                                parser.info(f'At least one of the variables used in test ({set(names)}) '
+                                            f'was not a valid metric type. Metric types: {Metric.METRIC_TYPES}, '
+                                            f'Test: {test_description}')
 
-                        if valid_test_expression:
-                            tests.append(Test(test_name, test_expression, first_metric, column_name, sql_metric_name))
+                        tests.append(Test(test_description,
+                                          test_expression,
+                                          first_metric,
+                                          context_column_name))
 
                     except SyntaxError:
                         stacktrace_lines = traceback.format_exc().splitlines()
-                        parser.error(f'Syntax error in test {context_description} {test_name}:{test_expression}:\n' +
-                                   ('\n'.join(stacktrace_lines[-3:])))
+                        parser.error(f'Syntax error in test {test_description}:\n' +
+                                     ('\n'.join(stacktrace_lines[-3:])))
             finally:
                 parser._pop_context()
         elif tests_dict is not None:

@@ -10,24 +10,25 @@
 #  limitations under the License.
 import logging
 from dataclasses import dataclass
-from typing import List, Optional, Set
+from typing import Optional
 
 
 @dataclass
 class Test:
 
-    name: str
+    description: str
     expression: str
     first_metric: str
     column: Optional[str]
-    sql_metric: Optional[str]
 
-    def evaluate(self, test_variables: dict):
+    def evaluate(self, test_variables: dict, group_values: Optional[dict] = None):
         from sodasql.scan.test_result import TestResult
         try:
             passed = bool(eval(self.expression, test_variables))
             value = test_variables.get(self.first_metric)
-            logging.debug(f'Test {self.name} [{self.expression}] {"passed" if passed else "failed"}')
-            return TestResult(self, passed, value, None, self.column)
+            logging.debug(f'Test {self.description} {"passed" if passed else "failed"}' +
+                          (f" with group values {group_values}" if group_values else ''))
+
+            return TestResult(test=self, passed=passed, value=value, group_values=group_values)
         except Exception as e:
-            return TestResult(self, False, None, str(e), self.column)
+            return TestResult(test=self, passed=False, error=str(e), group_values=group_values)

@@ -11,7 +11,7 @@
 
 import logging
 from math import floor, ceil
-from typing import List
+from typing import List, AnyStr, Optional
 
 from jinja2 import Template
 
@@ -39,7 +39,7 @@ class Scan:
         self.warehouse: Warehouse = warehouse
         self.dialect = warehouse.dialect
 
-        self.configuration: ScanConfiguration = scan_configuration
+        self.scan_configuration: ScanConfiguration = scan_configuration
         self.sql_metrics: List[SqlMetric] = sql_metrics
 
         # caches measurements that are not yet sent to soda and not yet added to self.scan_result
@@ -68,28 +68,30 @@ class Scan:
         self.scan_columns: dict = {}
 
     def execute(self) -> ScanResult:
-        assert self.configuration.table_name, 'scan.table_name is required'
+        if self.scan_configuration:
+            self.query_columns_metadata()
+            self.flush_measurements()
 
-        self.query_columns_metadata()
-        self.flush_measurements()
+            self.query_aggregations()
+            self.flush_measurements()
 
-        self.query_aggregations()
-        self.flush_measurements()
+            self.query_group_by_value()
+            self.flush_measurements()
 
-        self.query_group_by_value()
-        self.flush_measurements()
+            self.query_histograms()
+            self.flush_measurements()
 
-        self.query_histograms()
-        self.flush_measurements()
+        if self.sql_metrics:
+            self.query_sql_metrics_and_run_tests()
+            self.flush_measurements()
 
-        self.query_sql_metrics()
-
-        self.run_tests()
+        self.run_table_tests()
+        self.run_column_tests()
 
         return self.scan_result
 
     def query_columns_metadata(self):
-        sql = self.warehouse.dialect.sql_columns_metadata_query(self.configuration)
+        sql = self.warehouse.dialect.sql_columns_metadata_query(self.scan_configuration)
         column_tuples = self.warehouse.sql_fetchall(sql)
         self.columns = []
         for column_tuple in column_tuples:
@@ -116,7 +118,7 @@ class Scan:
 
         dialect = self.warehouse.dialect
 
-        if self.configuration.is_metric_enabled(Metric.ROW_COUNT):
+        if self.scan_configuration.is_metric_enabled(Metric.ROW_COUNT):
             fields.append(dialect.sql_expr_count_all())
             measurements.append(Measurement(Metric.ROW_COUNT))
 
@@ -153,11 +155,11 @@ class Scan:
                     if scan_column.non_missing_and_valid_condition \
                     else dialect.sql_expr_length(scan_column.qualified_column_name)
 
-                if self.configuration.is_metric_enabled(Metric.MIN_LENGTH, column_name):
+                if self.scan_configuration.is_metric_enabled(Metric.MIN_LENGTH, column_name):
                     fields.append(dialect.sql_expr_min(length_expr))
                     measurements.append(Measurement(Metric.MIN_LENGTH, column_name))
 
-                if self.configuration.is_metric_enabled(Metric.MAX_LENGTH, column_name):
+                if self.scan_configuration.is_metric_enabled(Metric.MAX_LENGTH, column_name):
                     fields.append(dialect.sql_expr_max(length_expr))
                     measurements.append(Measurement(Metric.MAX_LENGTH, column_name))
 
@@ -241,7 +243,7 @@ class Scan:
                 group_by_cte = scan_column.get_group_by_cte()
                 numeric_value_expr = scan_column.get_group_by_cte_numeric_value_expression()
 
-                if self.configuration.is_any_metric_enabled(
+                if self.scan_configuration.is_any_metric_enabled(
                         [Metric.DISTINCT, Metric.UNIQUENESS, Metric.UNIQUE_COUNT, Metric.DUPLICATE_COUNT],
                         column_name):
 
@@ -275,7 +277,7 @@ class Scan:
                     mins = [row[0] for row in rows]
                     self.add_query(Measurement(Metric.MINS, column_name, mins))
 
-                if self.configuration.is_metric_enabled(Metric.MAXS, column_name) \
+                if self.scan_configuration.is_metric_enabled(Metric.MAXS, column_name) \
                         and (scan_column.is_number or scan_column.is_column_numeric_text_format):
 
                     sql = (f'{group_by_cte} \n'
@@ -288,10 +290,10 @@ class Scan:
                     maxs = [row[0] for row in rows]
                     self.add_query(Measurement(Metric.MAXS, column_name, maxs))
 
-                if self.configuration.is_metric_enabled(Metric.FREQUENT_VALUES, column_name) \
+                if self.scan_configuration.is_metric_enabled(Metric.FREQUENT_VALUES, column_name) \
                         and (scan_column.is_number or scan_column.is_column_numeric_text_format):
 
-                    frequent_values_limit = self.configuration.get_frequent_values_limit(column_name)
+                    frequent_values_limit = self.scan_configuration.get_frequent_values_limit(column_name)
                     sql = (f'{group_by_cte} \n'
                            f'SELECT value \n'
                            f'FROM group_by_value \n'
@@ -360,54 +362,102 @@ class Scan:
 
                     self.add_query(Measurement(Metric.HISTOGRAM, column_name, histogram))
 
-    def query_sql_metrics(self):
+    def query_sql_metrics_and_run_tests(self):
         if self.sql_metrics:
             for sql_metric in self.sql_metrics:
-                sql_variables = {
-                    measurement.metric: measurement.value
-                    for measurement in self.scan_result.measurements
-                }
-                sql_variables.update(self.variables)
 
-                template = Template(sql_metric.sql)
-                resolved_sql = template.render(sql_variables)
+                if self.variables:
+                    sql_variables = self.variables.copy() if self.variables else {}
+                    # TODO add functions to sql_variables that can convert scan variables to valid SQL literals
+                    template = Template(sql_metric.sql)
+                    resolved_sql = template.render(self.variables)
+                else:
+                    resolved_sql = sql_metric.sql
 
-                if sql_metric.type == SqlMetric.TYPE_NUMERIC:
-                    values = self.warehouse.sql_fetchone(resolved_sql)
-                    if len(values) == len(sql_metric.names):
-                        for i in range(0, len(values)):
-                            measurement = Measurement(sql_metric.names[i], sql_metric.column_name, values[i])
-                            self.measurements.append(measurement)
-                elif sql_metric.type == SqlMetric.TYPE_FAILURES:
-                    rows = self.warehouse.sql_fetchall(resolved_sql)
-                    measurement = Measurement(sql_metric.name, sql_metric.column_name, len(rows))
-                    self.measurements.append(measurement)
-                    for row in rows:
-                        logging.debug(f'Failed rows for {sql_metric.name}: {str(row)}')
+                if sql_metric.group_fields:
+                    self.run_sql_metric_with_groups_and_run_tests(sql_metric, resolved_sql)
+                else:
+                    self.run_sql_metric_default_and_run_tests(sql_metric, resolved_sql)
 
-    def run_tests(self):
-        self.scan_result.test_results = []
+    def run_sql_metric_with_groups_and_run_tests(self, sql_metric: SqlMetric, resolved_sql: AnyStr):
+        group_fields_lower = set(group_field.lower() for group_field in sql_metric.group_fields)
+        row_tuples, description = self.warehouse.sql_fetchall_description(resolved_sql)
+        for row_tuple in row_tuples:
+            group_measurements = []
+            group_values = {}
+            field_values = {}
+            for i in range(len(row_tuple)):
+                field_name = description[i][0]
+                field_value = row_tuple[i]
+                if field_name.lower() in group_fields_lower:
+                    group_values[field_name.lower()] = field_value
+                else:
+                    group_measurements.append(Measurement(metric=field_name,
+                                                          value=field_value,
+                                                          group_values=group_values))
+                    field_values[field_name] = field_value
 
-        metric_variables = {
+            for group_measurement in group_measurements:
+                logging.debug(f'SQL metric {sql_metric.file_name} {group_measurement.metric} {group_values} -> {group_measurement.value}')
+                self.measurements.append(group_measurement)
+
+            sql_metric_tests = sql_metric.tests
+            test_variables = {
+                measurement.metric: measurement.value
+                for measurement in self.scan_result.measurements
+                if measurement.column_name is None
+            }
+            test_variables.update(field_values)
+            sql_metric_test_results = self.execute_tests(sql_metric_tests, test_variables, group_values)
+            self.scan_result.test_results.extend(sql_metric_test_results)
+
+    def run_sql_metric_default_and_run_tests(self, sql_metric: SqlMetric, resolved_sql: AnyStr):
+        row_tuple, description = self.warehouse.sql_fetchone_description(resolved_sql)
+        test_variables = {
             measurement.metric: measurement.value
             for measurement in self.scan_result.measurements
+            if measurement.column_name is None
         }
 
-        table_tests = self.configuration.tests
-        table_test_results = self.execute_tests(table_tests, metric_variables)
+        for i in range(len(row_tuple)):
+            metric_name = description[i][0]
+            metric_value = row_tuple[i]
+            logging.debug(f'SQL metric {sql_metric.file_name} {metric_name} -> {metric_value}')
+            measurement = Measurement(metric=metric_name, value=metric_value)
+            test_variables[metric_name] = metric_value
+            self.measurements.append(measurement)
+
+        sql_metric_test_results = self.execute_tests(sql_metric.tests, test_variables)
+        self.scan_result.test_results.extend(sql_metric_test_results)
+
+    def run_table_tests(self):
+        test_variables = {
+            measurement.metric: measurement.value
+            for measurement in self.scan_result.measurements
+            if measurement.column_name is None
+        }
+
+        table_tests = self.scan_configuration.tests
+        table_test_results = self.execute_tests(table_tests, test_variables)
         self.scan_result.test_results.extend(table_test_results)
 
+    def run_column_tests(self):
         for column_name_lower in self.scan_columns:
             scan_column: ScanColumn = self.scan_columns[column_name_lower]
             column_tests = scan_column.get_tests()
-            column_test_results = self.execute_tests(column_tests, metric_variables)
+            test_variables = {
+                measurement.metric: measurement.value
+                for measurement in self.scan_result.measurements
+                if measurement.column_name is None or measurement.column_name.lower() == column_name_lower
+            }
+            column_test_results = self.execute_tests(column_tests, test_variables)
             self.scan_result.test_results.extend(column_test_results)
 
-    def execute_tests(self, tests, variables):
+    def execute_tests(self, tests, variables, group_values: Optional[dict] = None):
         test_results = []
         if tests:
             for test in tests:
-                test_results.append(test.evaluate(variables))
+                test_results.append(test.evaluate(variables, group_values))
         return test_results
 
     def add_query(self, measurement: Measurement):
@@ -427,6 +477,3 @@ class Scan:
                 measurements_json = [measurement.to_json() for measurement in self.measurements]
                 self.soda_client.send_measurements(self.scan_reference, measurements_json)
             self.measurements = []
-
-
-

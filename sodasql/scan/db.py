@@ -14,20 +14,45 @@ from typing import List
 
 
 def sql_fetchone(connection, sql: str) -> tuple:
+    """
+    Only returns the tuple obtained by cursor.fetchone()
+    """
+    return sql_fetchone_description(connection, sql)[0]
+
+
+def sql_fetchone_description(connection, sql: str) -> tuple:
+    """
+    Returns a tuple with 2 elements:
+    1) the tuple obtained by cursor.fetchone()
+    2) the cursor.description
+    """
     cursor = connection.cursor()
     try:
         logging.debug(f'Executing SQL query: \n{sql}')
         start = datetime.now()
         cursor.execute(sql)
         row_tuple = cursor.fetchone()
+        description = cursor.description
         delta = datetime.now() - start
         logging.debug(f'SQL took {str(delta)}')
-        return row_tuple
+        return row_tuple, description
     finally:
         cursor.close()
 
 
 def sql_fetchall(connection, sql: str) -> List[tuple]:
+    """
+    Only returns the tuples obtained by cursor.fetchall()
+    """
+    return sql_fetchall_description(connection, sql)[0]
+
+
+def sql_fetchall_description(connection, sql: str) -> tuple:
+    """
+    Returns a tuple with 2 elements:
+    1) the tuples obtained by cursor.fetchall()
+    2) the cursor.description
+    """
     cursor = connection.cursor()
     try:
         logging.debug(f'Executing SQL query: \n{sql}')
@@ -36,7 +61,7 @@ def sql_fetchall(connection, sql: str) -> List[tuple]:
         rows = cursor.fetchall()
         delta = datetime.now() - start
         logging.debug(f'SQL took {str(delta)}')
-        return rows
+        return rows, cursor.description
     finally:
         cursor.close()
 

@@ -9,7 +9,7 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 from dataclasses import dataclass
-from typing import Optional
+from typing import Optional, Any
 
 from sodasql.scan.test import Test
 
@@ -19,7 +19,6 @@ class TestResult:
 
     test: Test
     passed: bool
-    value = None
-    error: Optional[str]
-    column: Optional[str]
-    sql_metric: Optional[str]
+    value: Optional[Any] = None
+    error: Optional[str] = None
+    group_values: Optional[dict] = None
