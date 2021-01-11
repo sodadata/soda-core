@@ -11,17 +11,17 @@
 from typing import List
 
 from sodasql.scan.db import sql_fetchone, sql_fetchall, sql_fetchone_description, sql_fetchall_description
-from sodasql.scan.sql_metric import SqlMetric
-from sodasql.scan.warehouse_configuration import WarehouseConfiguration
+from sodasql.scan.sql_metric_yml import SqlMetricYml
+from sodasql.scan.warehouse_yml import WarehouseYml
 
 
 class Warehouse:
 
-    def __init__(self, warehouse_configuration: WarehouseConfiguration):
-        self.name = warehouse_configuration.name
-        self.dialect = warehouse_configuration.dialect
+    def __init__(self, warehouse_yml: WarehouseYml):
+        self.name = warehouse_yml.name
+        self.dialect = warehouse_yml.dialect
         self.connection = self.dialect.create_connection()
-        self.soda_client = warehouse_configuration.soda_client
+        self.soda_client = warehouse_yml.soda_client
 
     def sql_fetchone(self, sql) -> tuple:
         return sql_fetchone(self.connection, sql)
@@ -35,9 +35,9 @@ class Warehouse:
     def sql_fetchall_description(self, sql) -> tuple:
         return sql_fetchall_description(self.connection, sql)
 
-    def create_scan(self, scan_configuration, sql_metrics: List[SqlMetric] = None, variables: dict = None):
+    def create_scan(self, scan_yml, sql_metrics: List[SqlMetricYml] = None, variables: dict = None):
         return self.dialect.create_scan(self,
-                                        scan_configuration=scan_configuration,
+                                        scan_yml=scan_yml,
                                         sql_metrics=sql_metrics,
                                         variables=variables)
 

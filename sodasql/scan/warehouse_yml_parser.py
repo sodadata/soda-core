@@ -15,7 +15,7 @@ from typing import Optional, AnyStr
 from sodasql.scan.dialect import Dialect
 from sodasql.scan.env_vars import EnvVars
 from sodasql.scan.parser import Parser
-from sodasql.scan.warehouse_configuration import WarehouseConfiguration
+from sodasql.scan.warehouse_yml import WarehouseYml
 
 KEY_NAME = 'name'
 KEY_CONNECTION = 'connection'
@@ -24,7 +24,7 @@ KEY_SODA_ACCOUNT = 'soda_account'
 VALID_WAREHOUSE_KEYS = [KEY_NAME, KEY_CONNECTION, KEY_SODA_ACCOUNT]
 
 
-class WarehouseConfigurationParser(Parser):
+class WarehouseYmlParser(Parser):
     """
     Parses warehouse.yml files
     """
@@ -37,14 +37,14 @@ class WarehouseConfigurationParser(Parser):
         if isinstance(warehouse_dict, dict):
             self._push_context(object=warehouse_dict, name=self.description)
 
-            self.warehouse_configuration = WarehouseConfiguration()
-            self.warehouse_configuration.name = self.get_str_required(KEY_NAME)
+            self.warehouse_yml = WarehouseYml()
+            self.warehouse_yml.name = self.get_str_required(KEY_NAME)
 
-            EnvVars.load_env_vars(self.warehouse_configuration.name)
+            EnvVars.load_env_vars(self.warehouse_yml.name)
 
             connection_dict = self.get_dict_required(KEY_CONNECTION)
             self._push_context(object=connection_dict, name=KEY_CONNECTION)
-            self.warehouse_configuration.dialect = Dialect.create(self)
+            self.warehouse_yml.dialect = Dialect.create(self)
             self._pop_context()
 
             self.check_invalid_keys(VALID_WAREHOUSE_KEYS)

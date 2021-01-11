@@ -17,8 +17,8 @@ from jinja2 import Template
 from sodasql.scan.metric import Metric
 from sodasql.scan.missing import Missing
 from sodasql.scan.parser import Parser
-from sodasql.scan.scan_configuration import ScanConfiguration
-from sodasql.scan.scan_configuration_column import ScanConfigurationColumn
+from sodasql.scan.scan_yml import ScanYml
+from sodasql.scan.scan_yml_column import ScanYmlColumn
 from sodasql.scan.test import Test
 from sodasql.scan.validity import Validity
 
@@ -69,32 +69,32 @@ COLUMN_ALL_KEYS = COLUMN_MISSING_KEYS + COLUMN_VALID_KEYS + [
     COLUMN_KEY_TESTS]
 
 
-class ScanConfigurationParser(Parser):
+class ScanYmlParser(Parser):
 
     def __init__(self,
                  scan_dict: dict,
                  scan_file_name: AnyStr):
         super().__init__(scan_file_name)
 
-        self.scan_configuration = ScanConfiguration()
+        self.scan_yml = ScanYml()
 
         self._push_context(scan_dict, self.description)
 
         table_name = self.get_str_required(KEY_TABLE_NAME)
-        self.scan_configuration.table_name = table_name
-        self.scan_configuration.metrics = self.parse_metrics()
-        self.scan_configuration.tests = self.parse_tests(self, scan_dict, KEY_TESTS, context_table_name=table_name)
-        self.scan_configuration.columns = self.parse_columns(self.scan_configuration)
-        self.scan_configuration.sample_percentage = self.get_float_optional(KEY_SAMPLE_PERCENTAGE)
-        self.scan_configuration.sample_method = self.get_str_optional(KEY_SAMPLE_METHOD, 'SYSTEM').upper()
-        self.scan_configuration.mins_maxs_limit = self.get_int_optional(KEY_MINS_MAXS_LIMIT, 20)
-        self.scan_configuration.frequent_values_limit = self.get_int_optional(KEY_FREQUENT_VALUES_LIMIT, 20)
+        self.scan_yml.table_name = table_name
+        self.scan_yml.metrics = self.parse_metrics()
+        self.scan_yml.tests = self.parse_tests(self, scan_dict, KEY_TESTS, context_table_name=table_name)
+        self.scan_yml.columns = self.parse_columns(self.scan_yml)
+        self.scan_yml.sample_percentage = self.get_float_optional(KEY_SAMPLE_PERCENTAGE)
+        self.scan_yml.sample_method = self.get_str_optional(KEY_SAMPLE_METHOD, 'SYSTEM').upper()
+        self.scan_yml.mins_maxs_limit = self.get_int_optional(KEY_MINS_MAXS_LIMIT, 20)
+        self.scan_yml.frequent_values_limit = self.get_int_optional(KEY_FREQUENT_VALUES_LIMIT, 20)
 
         time_filter = self.get_str_optional(KEY_TIME_FILTER)
         if time_filter:
             try:
-                self.scan_configuration.time_filter = time_filter
-                self.scan_configuration.time_filter_template = Template(time_filter)
+                self.scan_yml.time_filter = time_filter
+                self.scan_yml.time_filter_template = Template(time_filter)
             except Exception as e:
                 self.error(f"Couldn't parse time_filter '{time_filter}': {str(e)}")
 
@@ -173,7 +173,7 @@ class ScanConfigurationParser(Parser):
         else:
             return False
 
-    def parse_columns(self, scan_configuration: ScanConfiguration) -> dict:
+    def parse_columns(self, scan_configuration: ScanYml) -> dict:
         columns_dict = self.get_dict_optional(KEY_COLUMNS, {})
         self._push_context(columns_dict, KEY_COLUMNS)
 
@@ -218,7 +218,7 @@ class ScanConfigurationParser(Parser):
             self.check_invalid_keys(COLUMN_ALL_KEYS)
 
             column_name_lower = column_name.lower()
-            scan_configuration_columns[column_name_lower] = ScanConfigurationColumn(
+            scan_configuration_columns[column_name_lower] = ScanYmlColumn(
                 metrics=metrics,
                 missing=missing,
                 validity=validity,

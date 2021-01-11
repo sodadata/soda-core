@@ -19,9 +19,9 @@ from sodasql.scan.column_metadata import ColumnMetadata
 from sodasql.scan.measurement import Measurement
 from sodasql.scan.metric import Metric
 from sodasql.scan.scan_column import ScanColumn
-from sodasql.scan.scan_configuration import ScanConfiguration
+from sodasql.scan.scan_yml import ScanYml
 from sodasql.scan.scan_result import ScanResult
-from sodasql.scan.sql_metric import SqlMetric
+from sodasql.scan.sql_metric_yml import SqlMetricYml
 from sodasql.scan.warehouse import Warehouse
 from sodasql.soda_client.soda_client import SodaClient
 
@@ -30,8 +30,8 @@ class Scan:
 
     def __init__(self,
                  warehouse: Warehouse,
-                 scan_configuration: ScanConfiguration = None,
-                 sql_metrics: List[SqlMetric] = None,
+                 scan_yml: ScanYml = None,
+                 sql_metrics: List[SqlMetricYml] = None,
                  soda_client: SodaClient = None,
                  variables: dict = None,
                  timeslice: str = None):
@@ -39,28 +39,32 @@ class Scan:
         self.warehouse: Warehouse = warehouse
         self.dialect = warehouse.dialect
 
-        self.scan_configuration: ScanConfiguration = scan_configuration
-        self.sql_metrics: List[SqlMetric] = sql_metrics
+        self.scan_yml: ScanYml = scan_yml
+        self.sql_metrics: List[SqlMetricYml] = sql_metrics
 
         # caches measurements that are not yet sent to soda and not yet added to self.scan_result
         # see also self.flush_measurements()
         self.measurements = []
         self.scan_result = ScanResult(timeslice)
 
-        self.qualified_table_name = self.dialect.qualify_table_name(scan_configuration.table_name)
+        self.qualified_table_name = self.dialect.qualify_table_name(scan_yml.table_name)
         self.table_sample_clause = \
-            f'\nTABLESAMPLE {scan_configuration.sample_method}({scan_configuration.sample_percentage})' \
-            if scan_configuration.sample_percentage \
+            f'\nTABLESAMPLE {scan_yml.sample_method}({scan_yml.sample_percentage})' \
+            if scan_yml.sample_percentage \
             else ''
 
         self.variables = variables
         self.time_filter_sql = None
-        if scan_configuration.time_filter_template:
+        if scan_yml.time_filter_template:
             if not variables:
-                raise RuntimeError(f'No variables provided while time_filter "{str(scan_configuration.time_filter)}" specified')
-            self.time_filter_sql = scan_configuration.time_filter_template.render(variables)
+                raise RuntimeError(f'No variables provided while time_filter "{str(scan_yml.time_filter)}" specified')
+            self.time_filter_sql = scan_yml.time_filter_template.render(variables)
 
-        self.scan_reference = {}
+        self.scan_reference = {
+            'warehouse': warehouse.name,
+            'table': scan_yml.table_name,
+            'time': ...
+        }
 
         self.columns: List[ColumnMetadata] = []
         self.column_names: List[str] = []
@@ -68,7 +72,7 @@ class Scan:
         self.scan_columns: dict = {}
 
     def execute(self) -> ScanResult:
-        if self.scan_configuration:
+        if self.scan_yml:
             self.query_columns_metadata()
             self.flush_measurements()
 
@@ -91,7 +95,7 @@ class Scan:
         return self.scan_result
 
     def query_columns_metadata(self):
-        sql = self.warehouse.dialect.sql_columns_metadata_query(self.scan_configuration)
+        sql = self.warehouse.dialect.sql_columns_metadata_query(self.scan_yml)
         column_tuples = self.warehouse.sql_fetchall(sql)
         self.columns = []
         for column_tuple in column_tuples:
@@ -118,7 +122,7 @@ class Scan:
 
         dialect = self.warehouse.dialect
 
-        if self.scan_configuration.is_metric_enabled(Metric.ROW_COUNT):
+        if self.scan_yml.is_metric_enabled(Metric.ROW_COUNT):
             fields.append(dialect.sql_expr_count_all())
             measurements.append(Measurement(Metric.ROW_COUNT))
 
@@ -155,11 +159,11 @@ class Scan:
                     if scan_column.non_missing_and_valid_condition \
                     else dialect.sql_expr_length(scan_column.qualified_column_name)
 
-                if self.scan_configuration.is_metric_enabled(Metric.MIN_LENGTH, column_name):
+                if self.scan_yml.is_metric_enabled(Metric.MIN_LENGTH, column_name):
                     fields.append(dialect.sql_expr_min(length_expr))
                     measurements.append(Measurement(Metric.MIN_LENGTH, column_name))
 
-                if self.scan_configuration.is_metric_enabled(Metric.MAX_LENGTH, column_name):
+                if self.scan_yml.is_metric_enabled(Metric.MAX_LENGTH, column_name):
                     fields.append(dialect.sql_expr_max(length_expr))
                     measurements.append(Measurement(Metric.MAX_LENGTH, column_name))
 
@@ -243,7 +247,7 @@ class Scan:
                 group_by_cte = scan_column.get_group_by_cte()
                 numeric_value_expr = scan_column.get_group_by_cte_numeric_value_expression()
 
-                if self.scan_configuration.is_any_metric_enabled(
+                if self.scan_yml.is_any_metric_enabled(
                         [Metric.DISTINCT, Metric.UNIQUENESS, Metric.UNIQUE_COUNT, Metric.DUPLICATE_COUNT],
                         column_name):
 
@@ -277,7 +281,7 @@ class Scan:
                     mins = [row[0] for row in rows]
                     self.add_query(Measurement(Metric.MINS, column_name, mins))
 
-                if self.scan_configuration.is_metric_enabled(Metric.MAXS, column_name) \
+                if self.scan_yml.is_metric_enabled(Metric.MAXS, column_name) \
                         and (scan_column.is_number or scan_column.is_column_numeric_text_format):
 
                     sql = (f'{group_by_cte} \n'
@@ -290,10 +294,10 @@ class Scan:
                     maxs = [row[0] for row in rows]
                     self.add_query(Measurement(Metric.MAXS, column_name, maxs))
 
-                if self.scan_configuration.is_metric_enabled(Metric.FREQUENT_VALUES, column_name) \
+                if self.scan_yml.is_metric_enabled(Metric.FREQUENT_VALUES, column_name) \
                         and (scan_column.is_number or scan_column.is_column_numeric_text_format):
 
-                    frequent_values_limit = self.scan_configuration.get_frequent_values_limit(column_name)
+                    frequent_values_limit = self.scan_yml.get_frequent_values_limit(column_name)
                     sql = (f'{group_by_cte} \n'
                            f'SELECT value \n'
                            f'FROM group_by_value \n'
@@ -379,7 +383,7 @@ class Scan:
                 else:
                     self.run_sql_metric_default_and_run_tests(sql_metric, resolved_sql)
 
-    def run_sql_metric_with_groups_and_run_tests(self, sql_metric: SqlMetric, resolved_sql: AnyStr):
+    def run_sql_metric_with_groups_and_run_tests(self, sql_metric: SqlMetricYml, resolved_sql: AnyStr):
         group_fields_lower = set(group_field.lower() for group_field in sql_metric.group_fields)
         row_tuples, description = self.warehouse.sql_fetchall_description(resolved_sql)
         for row_tuple in row_tuples:
@@ -411,7 +415,7 @@ class Scan:
             sql_metric_test_results = self.execute_tests(sql_metric_tests, test_variables, group_values)
             self.scan_result.test_results.extend(sql_metric_test_results)
 
-    def run_sql_metric_default_and_run_tests(self, sql_metric: SqlMetric, resolved_sql: AnyStr):
+    def run_sql_metric_default_and_run_tests(self, sql_metric: SqlMetricYml, resolved_sql: AnyStr):
         row_tuple, description = self.warehouse.sql_fetchone_description(resolved_sql)
         test_variables = {
             measurement.metric: measurement.value
@@ -437,7 +441,7 @@ class Scan:
             if measurement.column_name is None
         }
 
-        table_tests = self.scan_configuration.tests
+        table_tests = self.scan_yml.tests
         table_test_results = self.execute_tests(table_tests, test_variables)
         self.scan_result.test_results.extend(table_test_results)
 

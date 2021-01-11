@@ -20,12 +20,12 @@ from sodasql.scan.db import sql_update, sql_updates
 from sodasql.scan.dialect import Dialect
 from sodasql.scan.dialect_parser import DialectParser
 from sodasql.scan.env_vars import EnvVars
-from sodasql.scan.scan_configuration_parser import ScanConfigurationParser, KEY_TABLE_NAME
+from sodasql.scan.scan_yml_parser import ScanYmlParser, KEY_TABLE_NAME
 from sodasql.scan.scan_result import ScanResult
-from sodasql.scan.sql_metric import SqlMetric
-from sodasql.scan.sql_metric_parser import SqlMetricParser
+from sodasql.scan.sql_metric_yml import SqlMetricYml
+from sodasql.scan.sql_metric_yml_parser import SqlMetricYmlParser
 from sodasql.scan.warehouse import Warehouse
-from sodasql.scan.warehouse_configuration import WarehouseConfiguration
+from sodasql.scan.warehouse_yml import WarehouseYml
 from tests.common.logging_helper import LoggingHelper
 from tests.common.warehouse_fixture import WarehouseFixture
 
@@ -77,7 +77,7 @@ class SqlTestCase(TestCase):
             warehouse_fixture = WarehouseFixture.create(self.target)
             dialect = self.create_dialect(self.target)
 
-            warehouse_configuration = WarehouseConfiguration(dialect=dialect)
+            warehouse_configuration = WarehouseYml(dialect=dialect)
             warehouse = Warehouse(warehouse_configuration)
             warehouse_fixture.warehouse = warehouse
             warehouse_fixture.create_database()
@@ -136,17 +136,17 @@ class SqlTestCase(TestCase):
                 KEY_TABLE_NAME: self.default_test_table_name
             }
         logging.debug('Scan configuration \n'+json.dumps(scan_configuration_dict, indent=2))
-        scan_configuration_parser = ScanConfigurationParser(scan_configuration_dict, 'Test scan')
+        scan_configuration_parser = ScanYmlParser(scan_configuration_dict, 'Test scan')
         scan_configuration_parser.assert_no_warnings_or_errors()
 
         sql_metrics = []
         if sql_metric_dicts:
             for i in range(len(sql_metric_dicts)):
-                sql_metric_parser = SqlMetricParser(sql_metric_dicts[i], f'sql-metric-{i}')
+                sql_metric_parser = SqlMetricYmlParser(sql_metric_dicts[i], f'sql-metric-{i}')
                 sql_metric_parser.assert_no_warnings_or_errors()
                 sql_metrics.append(sql_metric_parser.sql_metric)
 
-        scan = self.warehouse.create_scan(scan_configuration=scan_configuration_parser.scan_configuration,
+        scan = self.warehouse.create_scan(scan_yml=scan_configuration_parser.scan_yml,
                                           sql_metrics=sql_metrics,
                                           variables=variables)
         return scan.execute()

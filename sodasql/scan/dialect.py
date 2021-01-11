@@ -14,7 +14,7 @@ from typing import List
 
 from sodasql.scan.column_metadata import ColumnMetadata
 from sodasql.scan.parser import Parser
-from sodasql.scan.scan_configuration import ScanConfiguration
+from sodasql.scan.scan_yml import ScanYml
 
 POSTGRES = 'postgres'
 SNOWFLAKE = 'snowflake'
@@ -91,7 +91,7 @@ class Dialect:
     def _get_number_types(self):
         return ['INT', 'REAL', 'PRECISION', 'NUMBER']
 
-    def sql_columns_metadata_query(self, scan_configuration: ScanConfiguration) -> str:
+    def sql_columns_metadata_query(self, scan_configuration: ScanYml) -> str:
         raise RuntimeError('TODO override and implement this abstract method')
 
     def sql_tables_metadata_query(self, filter: str = None):

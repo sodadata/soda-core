@@ -12,8 +12,8 @@ from typing import List
 
 from sodasql.cli.file_system import FileSystemSingleton
 from sodasql.scan.parser import Parser
-from sodasql.scan.scan_configuration_parser import ScanConfigurationParser
-from sodasql.scan.sql_metric import SqlMetric
+from sodasql.scan.scan_yml_parser import ScanYmlParser
+from sodasql.scan.sql_metric_yml import SqlMetricYml
 
 KEY_SQL = 'sql'
 KEY_TESTS = 'tests'
@@ -22,7 +22,7 @@ KEY_GROUP_FIELDS = 'group_fields'
 VALID_SQL_METRIC_KEYS = [KEY_SQL, KEY_TESTS, KEY_GROUP_FIELDS]
 
 
-class SqlMetricParser(Parser):
+class SqlMetricYmlParser(Parser):
     """
     Parses SQL metric yaml files
     """
@@ -37,16 +37,16 @@ class SqlMetricParser(Parser):
 
             group_fields = self.get_list_optional(KEY_GROUP_FIELDS)
             sql = self.get_str_required(KEY_SQL)
-            tests = ScanConfigurationParser.parse_tests(
+            tests = ScanYmlParser.parse_tests(
                 self,
                 sql_metric_dict,
                 KEY_TESTS,
                 context_sql_metric_file_name=sql_metric_file_name)
 
-            self.sql_metric: SqlMetric = SqlMetric(sql=sql,
-                                                   file_name=sql_metric_file_name,
-                                                   group_fields=group_fields,
-                                                   tests=tests)
+            self.sql_metric: SqlMetricYml = SqlMetricYml(sql=sql,
+                                                         file_name=sql_metric_file_name,
+                                                         group_fields=group_fields,
+                                                         tests=tests)
 
             self.check_invalid_keys(VALID_SQL_METRIC_KEYS)
 

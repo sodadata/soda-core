@@ -1,71 +1,13 @@
-# Getting started
-
-The simplest way to use soda-sql is to use the CLI. This section explains 
-how to install the `soda` command line tool.
-
-The more advance way to use soda-sql is to use the Python programmatic
-interface.  TODO add a link
-
-## Installing soda CLI
-
-The soda CLI only needs Python 3.7+
-
-To check your version of python, run the `python` command
-```
-$ python --version
-Python 3.7.7
-```
-
-If you don't have Python, [install it from Python downloads](https://www.python.org/downloads/)
-
-Once Python is installed, you should also have `pip`.
-
-### Installing CLI using PyPI
-
-(TODO : Under construction)
-
-```
-$ pip install soda
-```
-
-If this works for you, you can continue with the [Tutorial](tutorial.md)
-
-### Installing CLI from source code
-
-Clone the repository from Github.
-```
-$ git clone https://github.com/sodadata/soda-sql.git
-```
-Change to the `soda-sql` directory:
-```
-$ cd soda
-```
-Create a new virtual environment, .e.g, ".venv":
-```
-$ python -m venv .venv
-```
-Activate the environment:
-```
-$ source .venv/bin/activate
-```
-Install the package:
-```
-$ pip install .
-```
-
-## 5 min tutorial
-
-Apart from the `soda` CLI, this tutorial also uses docker. 
-[Docker](https://docs.docker.com/get-docker/) will be used in this tutorial to 
-launch an example postgres database for soda-sql to test. If you already have a postgres 
-running on your machine, feel free to use that one.
+# 5 min tutorial
 
 If at any time during this tutorial you get stuck, speak up 
 in the [getting-started Slack channel](slack://channel?id=C01HYL8V64C&team=T01HBMYM59V) or 
 [post an issue on GitHub](https://github.com/sodadata/soda-sql/issues/new)
 
-TODO soon, we'll add instructions to launch a vanilla postgres database 
-and load demo data to scan. 
+Apart from the `soda` CLI, this tutorial also uses  [Docker](https://docs.docker.com/get-docker/) 
+to launch a warehouse containing the data to test. If you already have a postgres 
+running on your machine, feel free to use that one but make sure you'll use the correct connection 
+details.
 
 ### 1\) Check your `soda` installation 
 
@@ -85,10 +27,11 @@ Commands:
   verify  Dry run to verify if the configuration is ok.
 ```
 
-If you don't get this output, check out [getting started](getting_started.md) 
-for installation instructions or [reach out to us](community.md)
+If you don't get this output, check out [Installation](installation.md)
 
-### 2) Start postgres for this tutorial
+### 2) Set up an example warehouse 
+
+#### 2.1) Start postgres as your warehouse
 
 This postgres will act as your data warehouse during this tutorial.
 
@@ -115,7 +58,7 @@ LOG:  database system is ready to accept connections
 LOG:  autovacuum launcher started
 ```
 
-#### 3\) Load example data 
+#### 2.2\) Load example data in your warehouse
 
 Next use this command to load [example data](https://github.com/sodadata/soda-sql/blob/main/tests/demo/demodata.sql) 
 in your tutorial postgres database.
@@ -134,7 +77,7 @@ INSERT 0 12
 INSERT 0 12
 ```
 
-#### 4\) Create a warehouse 
+### 3\) Create a warehouse directory 
 
 Run `soda create` CLI command to create a warehouse configuration file
 
@@ -166,7 +109,7 @@ Next, review the 2 files that have been created:
  
 You can continue without changing anything.
 
-#### 5\) Initialize the warehouse directory with table scan.yml files 
+### 4\) Initialize table scan.yml files 
 
 Use the `init` helps to create a `scan.yml` for each table in your warehouse
 with good defaults that you can customize.
@@ -186,7 +129,7 @@ WHERE lower(table_schema)='public'
   | Next run 'soda scan /Users/tom/soda_sql_tutorial demodata' to calculate measurements and run tests
 ```
 
-#### 4\) Review and update the generated scan.yaml files
+### 5\) Review the generated scan.yaml files
 
 Customize the generated scan.yml files to your needs.  See [scan.yaml](scan.md) 
 for the details.
@@ -211,9 +154,11 @@ metrics:
   - min_length
   - max_length
   - avg_length
+tests:
+  rows: row_count > 0
 ```
 
-#### 5\) Run a scan 
+### 6\) Run a scan 
 
 Now you can run a scan on any of the tables created like this:
 
@@ -267,99 +212,14 @@ SELECT
   MIN(LENGTH(name)),
   MAX(LENGTH(name)),
   COUNT(size),
-  MIN(size),
-  MAX(size),
-  AVG(size),
-  SUM(size),
-  COUNT(date),
-  COUNT(feepct),
-  MIN(LENGTH(feepct)),
-  MAX(LENGTH(feepct)),
-  COUNT(country),
-  MIN(LENGTH(country)),
-  MAX(LENGTH(country)) 
-FROM "public"."demodata"
-  | SQL took 0:00:00.004577
-  | Query measurement: row_count = 67
-  | Query measurement: values_count(id) = 67
-  | Query measurement: min_length(id) = 36
-  | Query measurement: max_length(id) = 36
-  | Query measurement: values_count(name) = 67
-  | Query measurement: min_length(name) = 9
-  | Query measurement: max_length(name) = 19
-  | Query measurement: values_count(size) = 67
-  | Query measurement: min(size) = 1126
-  | Query measurement: max(size) = 9894
-  | Query measurement: avg(size) = 5773.1343283582089552
-  | Query measurement: sum(size) = 386800
-  | Query measurement: values_count(date) = 67
-  | Query measurement: values_count(feepct) = 67
-  | Query measurement: min_length(feepct) = 7
-  | Query measurement: max_length(feepct) = 7
-  | Query measurement: values_count(country) = 67
-  | Query measurement: min_length(country) = 2
-  | Query measurement: max_length(country) = 11
-  | Derived measurement: missing_percentage(id) = 0.0
-  | Derived measurement: missing_count(id) = 0
-  | Derived measurement: values_percentage(id) = 100.0
-  | Derived measurement: missing_percentage(name) = 0.0
-  | Derived measurement: missing_count(name) = 0
-  | Derived measurement: values_percentage(name) = 100.0
-  | Derived measurement: missing_percentage(size) = 0.0
-  | Derived measurement: missing_count(size) = 0
-  | Derived measurement: values_percentage(size) = 100.0
-  | Derived measurement: missing_percentage(date) = 0.0
-  | Derived measurement: missing_count(date) = 0
-  | Derived measurement: values_percentage(date) = 100.0
-  | Derived measurement: missing_percentage(feepct) = 0.0
-  | Derived measurement: missing_count(feepct) = 0
-  | Derived measurement: values_percentage(feepct) = 100.0
-  | Derived measurement: missing_percentage(country) = 0.0
-  | Derived measurement: missing_count(country) = 0
-  | Derived measurement: values_percentage(country) = 100.0
-  | schema = id character varying, name character varying, size integer, date date, feepct character varying, country character varying
-  | row_count = 67
-  | values_count(id) = 67
-  | min_length(id) = 36
-  | max_length(id) = 36
-  | values_count(name) = 67
-  | min_length(name) = 9
-  | max_length(name) = 19
-  | values_count(size) = 67
-  | min(size) = 1126
-  | max(size) = 9894
-  | avg(size) = 5773.1343283582089552
-  | sum(size) = 386800
-  | values_count(date) = 67
-  | values_count(feepct) = 67
-  | min_length(feepct) = 7
-  | max_length(feepct) = 7
-  | values_count(country) = 67
-  | min_length(country) = 2
-  | max_length(country) = 11
-  | missing_percentage(id) = 0.0
-  | missing_count(id) = 0
-  | values_percentage(id) = 100.0
-  | missing_percentage(name) = 0.0
-  | missing_count(name) = 0
-  | values_percentage(name) = 100.0
-  | missing_percentage(size) = 0.0
-  | missing_count(size) = 0
-  | values_percentage(size) = 100.0
-  | missing_percentage(date) = 0.0
-  | missing_count(date) = 0
-  | values_percentage(date) = 100.0
-  | missing_percentage(feepct) = 0.0
-  | missing_count(feepct) = 0
-  | values_percentage(feepct) = 100.0
-  | missing_percentage(country) = 0.0
+...
   | missing_count(country) = 0
   | values_percentage(country) = 100.0
   | All good. 38 measurements computed. No tests failed.
 ```
 
-#### 6\) Add a test
+### 7\) Next steps
 
-See [Tests](tests.md) and add a test to a generated soda.yml files. 
-
-TODO explain this a bit more :)
+* See [Tests](tests.md) to add tests.
+* See [SQL Metrics](sql_metrics.md) to add a custom SQL query as your metric.
+* See [Orchestrate scans](orchestrate_scans.md) to add scans to your data pipeline.

@@ -12,20 +12,20 @@
 from unittest import TestCase
 
 from sodasql.scan.parser import ERROR, WARNING
-from sodasql.scan.scan_configuration_parser import ScanConfigurationParser
+from sodasql.scan.scan_yml_parser import ScanYmlParser
 
 
 class TestScanConfigurationValidation(TestCase):
 
     def test_table_name_required(self):
-        parser = ScanConfigurationParser({}, 'Test scan')
+        parser = ScanYmlParser({}, 'Test scan')
         log = parser.logs[0]
         self.assertIn(ERROR, log.level)
         self.assertIn('table_name', log.message)
         self.assertIn('does not exist', log.message)
 
     def test_metrics_not_a_list(self):
-        parser = ScanConfigurationParser({
+        parser = ScanYmlParser({
             'table_name': 't',
             'metrics': 'txt'
         }, 'Test scan')
@@ -37,7 +37,7 @@ class TestScanConfigurationValidation(TestCase):
         self.assertIn('str', log.message)
 
     def test_invalid_column_metric(self):
-        parser = ScanConfigurationParser({
+        parser = ScanYmlParser({
             'table_name': 't',
             'metrics': [
                 'revenue'
@@ -51,7 +51,7 @@ class TestScanConfigurationValidation(TestCase):
         self.assertIn('revenue', log.message)
 
     def test_invalid_valid_format(self):
-        parser = ScanConfigurationParser({
+        parser = ScanYmlParser({
             'table_name': 't',
             'columns': {
                 'col': {

@@ -1,3 +1,5 @@
+import re
+
 from setuptools import setup, find_packages
 import pathlib
 
@@ -6,12 +8,19 @@ readme = (pathlib.Path(__file__).parent / "README.md").read_text()
 with open("requirements.txt", "r", encoding="utf-8") as file:
     requires = [line.strip() for line in file if line.strip()]
 
+
+def get_version():
+    with open('sodasql/__init__.py') as f:
+        init_contents = f.read()
+        return re.match(r"SODA_SQL_VERSION = '([^']+)'", init_contents).group(0)
+
+
 setup(
-    name="soda",
-    version="2.0.0b1",
+    name="soda-sql",
+    version=get_version(),
     author="Tom Baeyens",
     author_email="tom@soda.io",
-    description="soda-sql library & CLI",
+    description="Soda-SQL library & CLI",
     long_description=readme,
     long_description_content_type="text/markdown",
     packages=find_packages(exclude=["tests"]),

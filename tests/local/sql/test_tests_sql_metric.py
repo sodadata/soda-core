@@ -8,7 +8,7 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-from sodasql.scan.sql_metric_parser import SqlMetricParser, KEY_SQL, KEY_TESTS, KEY_GROUP_FIELDS
+from sodasql.scan.sql_metric_yml_parser import SqlMetricYmlParser, KEY_SQL, KEY_TESTS, KEY_GROUP_FIELDS
 from tests.common.sql_test_case import SqlTestCase
 
 

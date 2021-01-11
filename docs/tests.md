@@ -15,9 +15,6 @@ For example:
 
 Tests can be specified on 3 different places:
 
-* `tests` in scan.yml on top level for testing `row_count` and other table level metrics (TODO) 
+* `tests` in scan.yml on top level for testing `row_count` and other table level metrics 
 * `tests` in scan.yml on a column level for testing column metrics
-* `tests` in user defined SQL metrics yaml files (TODO)  
-
-> **Disclaimer**: This is experimental for now.  We may limit the expression 
-capabilities as necessary to provide safely execute tests on cloud accounts.
+* `tests` in user defined SQL metrics yaml files  

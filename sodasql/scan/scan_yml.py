@@ -15,7 +15,7 @@ from jinja2 import Template
 from sodasql.scan.test import Test
 
 
-class ScanConfiguration:
+class ScanYml:
 
     table_name: str = None
     metrics: Set[str] = None

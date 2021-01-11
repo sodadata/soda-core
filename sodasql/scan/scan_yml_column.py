@@ -17,7 +17,7 @@ from sodasql.scan.validity import Validity
 
 
 @dataclass
-class ScanConfigurationColumn:
+class ScanYmlColumn:
 
     metrics: Set[str]
     missing: Missing

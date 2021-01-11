@@ -12,7 +12,7 @@ from snowflake import connector
 
 from sodasql.scan.dialect import Dialect, SNOWFLAKE
 from sodasql.scan.parser import Parser
-from sodasql.scan.scan_configuration import ScanConfiguration
+from sodasql.scan.scan_yml import ScanYml
 
 
 class SnowflakeDialect(Dialect):
@@ -53,7 +53,7 @@ class SnowflakeDialect(Dialect):
             schema=self.schema
         )
 
-    def sql_columns_metadata_query(self, scan_configuration: ScanConfiguration) -> str:
+    def sql_columns_metadata_query(self, scan_configuration: ScanYml) -> str:
         sql = (f"SELECT column_name, data_type, is_nullable "
                 f'FROM "INFORMATION_SCHEMA"."COLUMNS" '
                 f"WHERE table_name = '{scan_configuration.table_name.upper()}'")

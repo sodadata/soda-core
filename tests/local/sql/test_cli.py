@@ -41,6 +41,15 @@ class CliWithMockFileSystem(FileSystem):
     def file_exists(self, path: Path):
         return str(path) in self.files
 
+    def is_file(self, path: AnyStr):
+        return path in self.files
+
+    def is_readable(self, path: AnyStr):
+        return self.is_file(path)
+
+    def list_dir(self, dir_path):
+        raise RuntimeError('Not yet implemented')
+
 
 class TestScan(SqlTestCase):
 

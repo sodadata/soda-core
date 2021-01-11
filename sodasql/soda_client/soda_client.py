@@ -16,6 +16,8 @@ from typing import Optional, List
 
 import requests
 
+from sodasql.scan.measurement import Measurement
+
 
 class SodaClient:
 
@@ -43,11 +45,11 @@ class SodaClient:
                                 format="%(asctime)s %(levelname)s | %(message)s",
                                 handlers=[logging.StreamHandler(sys.stdout)])
 
-    def send_measurements(self, scan_reference: dict, measurements: list):
+    def send_measurements(self, scan_reference: dict, measurements_jsons: list):
         return self.execute_command({
             'type': 'addMeasurements',
             'scanReference': scan_reference,
-            'measurements': measurements
+            'measurements': measurements_jsons
         })
 
     def get_datasources(self):

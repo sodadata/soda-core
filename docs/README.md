@@ -15,16 +15,18 @@ To protect against silent data issues for the consumers of your data,
 it's recommended to check your data before and after every data pipeline job.
 soda-sql will execute optimized SQL queries to produce measurements.  
 
-While soda-sql is (and will remain) targetted for standalone usage, we'll 
+While soda-sql is (and will remain) targeted for standalone usage, we'll 
 also launch a free cloud account as a companion service to this open 
 source project for
  * Storing your metrics over time
  * Enable monitors that track change over time (eg anomaly detection) 
  * Sharing your monitoring results with Analysts and other data roles 
 
-Let's walk you through the main capabilities:
+Let's walk you through the main capabilities.
 
-`my_warehouse/my_dataset/scan.yaml` :
+Declare the basic scan metrics and tesst in yaml configuration files 
+like this: 
+`my_warehouse/my_table/scan.yaml` :
 ```yaml
 metrics:
     - row_count
@@ -43,54 +45,43 @@ metrics:
     - min_length
     - max_length
     - avg_length
-...
-```
-
-Customize metrics for each column individually:
-```yaml
-...
 columns:
     ID:
         metrics:
             - distinct
-            - non_unique_count
+            - duplicate_count
         valid_format: uuid
         tests:
-            - non_unique_count == 0
+            duplicates: duplicate_count == 0
     CATEGORY:
         missing_values:
             - N/A
-            - No value
-        valid_values:
-            - High
-            - Medium
-            - Low
+            - No category
         tests:
-            missing_percentage_2 : missing_percentage <  3.0
-            invalid_count : invalid_count == 0
+            missing: missing_percentage < 3
+    SIZE:
+        metrics:
+            - 
+        tests:
+            spread: max - min < 20
 ```
 
-Add custom SQL query metrics
-
-`my_warehouse/my_dataset/customers_with_expired_zip_code.yaml` :
+Add any SQL query as a metric
+`my_warehouse/my_table/total_volume_us.yaml` :
 ```yaml
-id: customers_with_expired_zip_code
-name: Customers with expired zip code
-type: failed_rows
+metrics: 
+    - total_volume_us
 sql: |
-
-SELECT
-  MD.id,
-  MD.name,
-  MD.zipcode,
-FROM my_dataset as MD
-  JOIN zip_codes as ZC on MD.zipcode = ZC.code
-WHERE ZC.date_expired IS NOT NULL
+    SELECT sum(volume) as total_volume_us
+    FROM CUSTOMER_TRANSACTIONS
+    WHERE country = 'US'
+tests:
+    - total_volume_us > 5000
 ```
 
-Add scans to your data pipeline with the command line interface:
+Run scans as part of your pipeline:
 ```
-$ soda scan -env prod ./soda/metrics my_warehouse my_dataset
+$ soda scan ./soda/metrics my_warehouse my_dataset
 Soda 1.0 scan for dataset my_dataset on prod my_warehouse
   | SELECT column_name, data_type, is_nullable
   | FROM information_schema.columns
@@ -117,8 +108,9 @@ max_length: 9
 
 ...more queries...
 
-Sending measurements to cloud.soda.io...
-Done - Took 23.307 seconds
+47 measurements computed
+23 tests executed
+All is good. No tests failed. Scan took 23.307 seconds
 ```
 
 Scans produce measurements and test results.  
@@ -138,10 +130,8 @@ data pipeline orchestration solution like Eg:
 * Matillion
 * Luigi
 
-
 If you like it so far, encourage us and  
 <a class="github-button" href="https://github.com/sodadata/soda-sql" data-icon="octicon-star" data-size="large" aria-label="Star sodadata/soda-sql on GitHub">star soda-sql on GitHub</a> 
 
-Next check out [Getting started](getting_started.md) for installation and [the tutorial](tutorial.md)
+Next check out [Getting started](installation.md) for installation and [the tutorial](tutorial.md)
 to get your first project going.
-

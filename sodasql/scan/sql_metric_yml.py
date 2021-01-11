@@ -9,15 +9,15 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 from dataclasses import dataclass
-from typing import Optional
+from typing import AnyStr, List
 
-from sodasql.scan.dialect import Dialect
-from sodasql.soda_client.soda_client import SodaClient
+from sodasql.scan.test import Test
 
 
 @dataclass
-class WarehouseConfiguration:
+class SqlMetricYml:
 
-    dialect: Dialect
-    name: Optional[str] = None
-    soda_client: Optional[SodaClient] = None
+    sql: AnyStr
+    file_name: AnyStr = None
+    group_fields: List[AnyStr] = None
+    tests: List[Test] = None

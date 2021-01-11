@@ -11,9 +11,9 @@
 from datetime import timedelta, datetime
 
 from sodasql.scan.scan import Scan
-from sodasql.scan.scan_configuration_parser import ScanConfigurationParser
+from sodasql.scan.scan_yml_parser import ScanYmlParser
 from sodasql.scan.warehouse import Warehouse
-from sodasql.scan.warehouse_configuration import WarehouseConfiguration
+from sodasql.scan.warehouse_yml import WarehouseYml
 from tests.common.sql_test_case import SqlTestCase
 
 scan_configuration_dict = {
@@ -42,11 +42,11 @@ scan_configuration_dict = {
     }
 }
 
-scan_configuration_parser = ScanConfigurationParser(scan_configuration_dict, 'Demodata scan')
+scan_configuration_parser = ScanYmlParser(scan_configuration_dict, 'Demodata scan')
 scan_configuration_parser.assert_no_warnings_or_errors()
 
 dialect = SqlTestCase.create_dialect('postgres')
-warehouse_configuration = WarehouseConfiguration(dialect=dialect)
+warehouse_configuration = WarehouseYml(dialect=dialect)
 warehouse = Warehouse(warehouse_configuration)
 
 row = warehouse.sql_fetchone(
@@ -62,7 +62,7 @@ while date != max_date:
     timeslice = datetime(year=date.year, month=date.month, day=date.day).isoformat()
     timeslice_variables = {'date': date.strftime("%Y-%m-%d")}
     scan = Scan(warehouse=warehouse,
-                scan_configuration=scan_configuration_parser.scan_configuration,
+                scan_yml=scan_configuration_parser.scan_yml,
                 variables=timeslice_variables,
                 timeslice=timeslice)
     scan_results.append(scan.execute())

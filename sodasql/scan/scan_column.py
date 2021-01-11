@@ -14,8 +14,8 @@ from sodasql.scan.column_metadata import ColumnMetadata
 from sodasql.scan.dialect import Dialect
 from sodasql.scan.metric import Metric
 from sodasql.scan.missing import Missing
-from sodasql.scan.scan_configuration import ScanConfiguration
-from sodasql.scan.scan_configuration_column import ScanConfigurationColumn
+from sodasql.scan.scan_yml import ScanYml
+from sodasql.scan.scan_yml_column import ScanYmlColumn
 from sodasql.scan.validity import Validity
 
 
@@ -28,26 +28,26 @@ class ScanColumn:
     def __init__(self, scan, column_metadata: ColumnMetadata):
         from sodasql.scan.scan import Scan
         self.scan: Scan = scan
-        self.scan_configuration: ScanConfiguration = scan.scan_configuration
+        self.scan_yml: ScanYml = scan.scan_yml
         self.column = column_metadata
         self.column_name = column_metadata.name
-        self.column_configuration: ScanConfigurationColumn = \
-            self.scan_configuration.get_column_configuration(self.column_name)
+        self.column_configuration: ScanYmlColumn = \
+            self.scan_yml.get_column_configuration(self.column_name)
 
         dialect = self.scan.dialect
         self.qualified_column_name = dialect.qualify_column_name(self.column_name)
         self.is_text: bool = dialect.is_text(column_metadata)
         self.is_number: bool = dialect.is_number(column_metadata)
 
-        self.missing = self.scan_configuration.get_missing(self.column_name)
-        self.is_missing_metric_enabled = self.scan_configuration.is_any_metric_enabled(
+        self.missing = self.scan_yml.get_missing(self.column_name)
+        self.is_missing_metric_enabled = self.scan_yml.is_any_metric_enabled(
             [Metric.MISSING_COUNT, Metric.MISSING_PERCENTAGE,
              Metric.VALUES_COUNT, Metric.VALUES_PERCENTAGE],
             self.column_name)
         self.non_missing_condition: Optional[str] = self.__get_non_missing_condition(column_metadata, self.missing, dialect)
 
-        self.validity = self.scan_configuration.get_validity(self.column_name)
-        self.is_validity_metric_enabled = self.scan_configuration.is_any_metric_enabled(
+        self.validity = self.scan_yml.get_validity(self.column_name)
+        self.is_validity_metric_enabled = self.scan_yml.is_any_metric_enabled(
             [Metric.INVALID_COUNT, Metric.INVALID_PERCENTAGE,
              Metric.VALID_COUNT, Metric.VALID_PERCENTAGE],
             self.column_name)
@@ -56,10 +56,10 @@ class ScanColumn:
         self.non_missing_and_valid_condition: Optional[str] = \
             self.__get_non_missing_and_valid_condition(self.non_missing_condition, self.valid_condition)
 
-        self.validity_format = self.scan_configuration.get_validity_format(column_metadata)
+        self.validity_format = self.scan_yml.get_validity_format(column_metadata)
         self.is_valid_enabled = \
             (self.validity is not None and self.is_validity_metric_enabled) \
-            or self.scan_configuration.is_any_metric_enabled([Metric.DISTINCT, Metric.UNIQUENESS], self.column_name)
+            or self.scan_yml.is_any_metric_enabled([Metric.DISTINCT, Metric.UNIQUENESS], self.column_name)
 
         self.is_missing_enabled = self.is_valid_enabled or self.is_missing_metric_enabled
 
@@ -80,7 +80,7 @@ class ScanColumn:
             self.numeric_text_expr = None
 
         self.has_numeric_values = self.is_number or self.is_column_numeric_text_format
-        self.mins_maxs_limit = self.scan_configuration.get_mins_maxs_limit(self.column_name)
+        self.mins_maxs_limit = self.scan_yml.get_mins_maxs_limit(self.column_name)
 
     def is_any_metric_enabled(self, metrics: List[str]):
         for metric in metrics:
@@ -93,9 +93,9 @@ class ScanColumn:
                 and self.column_configuration \
                 and metric in self.column_configuration.metrics:
             return True
-        if self.scan_configuration \
-                and self.scan_configuration.metrics \
-                and metric in self.scan_configuration.metrics:
+        if self.scan_yml \
+                and self.scan_yml.metrics \
+                and metric in self.scan_yml.metrics:
             return True
 
     @classmethod

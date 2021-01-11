@@ -25,11 +25,11 @@ class AthenaFixture(WarehouseFixture):
         self.bucket = None
         self.path = None
 
-    def initialize_warehouse_configuration(self, warehouse_configuration: dict):
-        super().initialize_warehouse_configuration(warehouse_configuration)
+    def initialize_warehouse_configuration(self, warehouse_yml: dict):
+        super().initialize_warehouse_configuration(warehouse_yml)
         self.bucket = 'sodalite-athena-test'
         self.path = self.create_unique_bucket_path('sodasql')
-        warehouse_configuration['staging_dir'] = f's3://{self.bucket}/{self.path}'
+        warehouse_yml['staging_dir'] = f's3://{self.bucket}/{self.path}'
 
     def create_unique_bucket_path(self, prefix: str):
         random_suffix = ''.join(random.choice(string.ascii_lowercase + string.digits) for _ in range(10))

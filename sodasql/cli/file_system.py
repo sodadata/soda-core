@@ -34,6 +34,9 @@ class FileSystem:
         expanded_path = os.path.expanduser(path)
         return Path(expanded_path).is_file()
 
+    def is_readable(self, path: AnyStr):
+        return os.access(path, os.R_OK)
+
     def list_dir(self, dir_path):
         return os.listdir(dir_path)
 
@@ -67,3 +70,7 @@ class FileSystem:
 
 class FileSystemSingleton:
     INSTANCE: FileSystem = FileSystem()
+
+
+def file_system():
+    return FileSystemSingleton.INSTANCE

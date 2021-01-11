@@ -9,17 +9,14 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 import logging
-import os
 import sys
-from typing import Optional, AnyStr, List
+from typing import Optional
 
 import click
 import yaml
 
 from sodasql.cli.file_system import FileSystemSingleton
-from sodasql.scan.scan import Scan
-from sodasql.scan.sql_metric import SqlMetric
-from sodasql.scan.warehouse import Warehouse
+from sodasql.scan.scan_builder import ScanBuilder
 from tests.common.logging_helper import LoggingHelper
 
 LoggingHelper.configure_for_cli()
@@ -170,7 +167,14 @@ def init(warehouse_dir: str):
         logging.info(f'Initializing {warehouse_dir} ...')
 
         from sodasql.scan.warehouse import Warehouse
-        warehouse: Warehouse = read_warehouse(warehouse_dir)
+        warehouse_yaml_file = file_system.join(warehouse_dir, 'warehouse.yml')
+        scan_builder = ScanBuilder()
+        scan_builder.read_warehouse_yml(warehouse_yaml_file)
+        for parser in scan_builder.parsers:
+            parser.assert_no_warnings_or_errors()
+
+        from sodasql.scan.warehouse import Warehouse
+        warehouse = Warehouse(scan_builder.warehouse_yml)
 
         logging.info('Querying warehouse for tables')
         rows = warehouse.sql_fetchall(warehouse.dialect.sql_tables_metadata_query())
@@ -190,7 +194,7 @@ def init(warehouse_dir: str):
                 logging.info(f"Scan file {table_scan_yaml_file} already exists")
             else:
                 logging.info(f"Creating {table_scan_yaml_file} ...")
-                from sodasql.scan.scan_configuration_parser import KEY_TESTS, KEY_METRICS, KEY_TABLE_NAME
+                from sodasql.scan.scan_yml_parser import KEY_TESTS, KEY_METRICS, KEY_TABLE_NAME
                 scan_yaml_dict = {
                     KEY_TABLE_NAME: table_name,
                     KEY_METRICS: [
@@ -228,20 +232,20 @@ def init(warehouse_dir: str):
 @click.argument('warehouse_dir')
 @click.argument('table')
 @click.option('--timeslice', required=False, default=None, help='The timeslice')
-def scan(warehouse_dir: str, table_dir_name: str, timeslice: str = None, timeslice_variables: dict = None):
+def scan(warehouse_dir: str, table_dir_name: str, timeslice: str = None, variables: dict = None):
     """
     Scans a table by executing queries, computes measurements and runs tests
     """
     logging.info(SODA_SQL_VERSION)
 
+    warehouse = None
     try:
         logging.info(f'Scanning {table_dir_name} in {warehouse_dir} ...')
 
-        warehouse: Warehouse = read_warehouse(warehouse_dir)
-
-        from sodasql.scan.scan import Scan
-        scan: Scan = read_scan(warehouse_dir=warehouse_dir, table_dir_name=table_dir_name, warehouse=warehouse)
-
+        scan_builder = ScanBuilder()
+        scan_builder.read_scan_from_dirs(warehouse_dir, table_dir_name)
+        scan = scan_builder.build()
+        warehouse = scan.warehouse
         from sodasql.scan.scan_result import ScanResult
         scan_result: ScanResult = scan.execute()
 
@@ -264,79 +268,3 @@ def scan(warehouse_dir: str, table_dir_name: str, timeslice: str = None, timesli
     finally:
         if warehouse:
             warehouse.close()
-
-
-def read_warehouse(warehouse_dir: AnyStr):
-    file_system = FileSystemSingleton.INSTANCE
-    if isinstance(warehouse_dir, str):
-        warehouse_yaml_file = file_system.join(warehouse_dir, 'warehouse.yml')
-        if not file_system.file_exists(warehouse_yaml_file):
-            logging.info(f'{warehouse_yaml_file} does not exist')
-        elif not file_system.is_file(warehouse_yaml_file):
-            logging.info(f'{warehouse_yaml_file} is not a file')
-        else:
-            warehouse_yaml_str = file_system.file_read_as_str(warehouse_yaml_file)
-            if warehouse_yaml_str:
-                warehouse_dict = parse_yaml(warehouse_yaml_str, warehouse_yaml_file)
-
-                from sodasql.scan.warehouse_configuration_parser import WarehouseConfigurationParser
-                soda_project_parser = WarehouseConfigurationParser(warehouse_dict, warehouse_yaml_file)
-                soda_project_parser.log()
-                soda_project_parser.assert_no_warnings_or_errors()
-
-                from sodasql.scan.warehouse_configuration import WarehouseConfiguration
-                warehouse_configuration: WarehouseConfiguration = soda_project_parser.warehouse_configuration
-
-                from sodasql.scan.warehouse import Warehouse
-                return Warehouse(warehouse_configuration)
-            else:
-                logging.info(f'Failed to read warehouse yaml file: {warehouse_yaml_file}')
-    else:
-        logging.info(f'warehouse_dir is not a string: {str(type(warehouse_dir))}')
-
-
-def read_scan(warehouse_dir: str, table_dir_name: str, warehouse: Warehouse):
-    file_system = FileSystemSingleton.INSTANCE
-    table_dir_path = file_system.join(warehouse_dir, table_dir_name)
-    scan_yaml_path = file_system.join(table_dir_path, 'scan.yml')
-
-    scan_yaml_path: AnyStr
-    file_system = FileSystemSingleton.INSTANCE
-
-    scan_yaml_str = file_system.file_read_as_str(scan_yaml_path)
-    scan_dict = parse_yaml(scan_yaml_str, scan_yaml_path)
-
-    from sodasql.scan.scan_configuration_parser import ScanConfigurationParser
-    scan_configuration_parser = ScanConfigurationParser(scan_dict, scan_yaml_path)
-    scan_configuration_parser.log()
-    scan_configuration_parser.assert_no_warnings_or_errors()
-
-    sql_metrics: List[SqlMetric] = []
-    for table_dir_file in file_system.list_dir(table_dir_path):
-        if not table_dir_file.endswith(os.sep + 'scan.yml'):
-            sql_metric = read_sql_metric(table_dir_file)
-            sql_metrics.append(sql_metric)
-
-    return Scan(warehouse=warehouse,
-                scan_configuration=scan_configuration_parser.scan_configuration,
-                sql_metrics=sql_metrics,
-                soda_client=None)
-
-
-def read_sql_metric(sql_metric_path):
-    file_system = FileSystemSingleton.INSTANCE
-    sql_metric_yaml_str = file_system.file_read_as_str(sql_metric_path)
-    sql_metric_dict = parse_yaml(sql_metric_yaml_str, sql_metric_path)
-
-    from sodasql.scan.sql_metric_parser import SqlMetricParser
-    sql_metric_parser = SqlMetricParser(sql_metric_dict, sql_metric_path)
-    sql_metric_parser.log()
-    sql_metric_parser.assert_no_warnings_or_errors()
-    return sql_metric_parser.sql_metric
-
-
-def parse_yaml(warehouse_yaml_str: AnyStr, file_name: AnyStr):
-    try:
-        return yaml.parse(warehouse_yaml_str, Loader=yaml.FullLoader)
-    except Exception as e:
-        logging.error(f'Parsing yaml file {file_name} failed: {str(e)}')
