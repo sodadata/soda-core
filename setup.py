@@ -2,6 +2,7 @@ import re
 
 from setuptools import setup, find_packages
 import pathlib
+from os import path
 
 readme = (pathlib.Path(__file__).parent / "README.md").read_text()
 
@@ -10,9 +11,9 @@ with open("requirements.txt", "r", encoding="utf-8") as file:
 
 
 def get_version():
-    with open('sodasql/__init__.py') as f:
-        init_contents = f.read()
-        return re.match(r"SODA_SQL_VERSION = '([^']+)'", init_contents).group(0)
+    with open(path.join("sodasql", "__init__.py")) as f:
+        contents = f.read()
+        return re.findall(r"SODA_SQL_VERSION = '([^']+)'", contents)[0]
 
 
 setup(

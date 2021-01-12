@@ -47,7 +47,7 @@ jobs:
         if: always()
         run: aws s3 sync ./reports s3://sodasql-reports/
       - name: Publish Documentation
-        if: success() && contains('main master', steps.extract_branch.outputs.branch)
+        if: contains('main master', steps.extract_branch.outputs.branch)
         run: aws s3 sync ./docs s3://sodasql-docs/
       - name: Notify Slack on Failure
         if: failure()

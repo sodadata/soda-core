@@ -18,7 +18,7 @@ from tests.local.sql.test_missing_and_invalid_customizations import TestMissingA
 from tests.local.sql.test_missing_and_invalid_metric_configurations import TestMissingAndInvalidMetricConfigurations
 from tests.local.sql.test_schema import TestSchema
 from tests.local.sql.test_statistical_metrics import TestStatisticalMetrics
-from tests.local.sql.test_tests_column_metric import TestTests
+from tests.local.sql.test_tests_table_metric import TestTestsTableMetric
 
 
 class SqlTestSuite(
@@ -31,7 +31,7 @@ class SqlTestSuite(
         TestMissingAndInvalidMetricConfigurations,
         TestSchema,
         TestStatisticalMetrics,
-        TestTests):
+        TestTestsTableMetric):
 
     def setUp(self) -> None:
         if type(self) == SqlTestSuite:
@@ -48,5 +48,3 @@ class SqlTestSuite(
     @classmethod
     def tearDownClass(cls) -> None:
         cls.teardown_close_warehouses()
-
-
