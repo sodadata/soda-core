@@ -9,5 +9,5 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
-# TODO auto-update this from a github release or tag publication
+# !! This version is replaced by the Git Tag during CI/CD release !!
 SODA_SQL_VERSION = '2.0.0-beta'
