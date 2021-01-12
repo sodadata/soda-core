@@ -1,24 +1,20 @@
 # Scan
 
-## Scan parameters
+This section explains the yml structure of scan.yml files.
 
-Profile & target
+For running scans, see either [the CLI](cli.md) or [Orchestrate scans](orchestrate_scans.md) 
 
-Directory
-
-TODO timeslice
-
-## Scan file configuration keys
+## Top level scan.yml keys
 
 In a `scan.yaml` file, you configure which metrics should be computed and 
 which tests should be checked.
 
 Top level configuration keys:
 
-| Key | Description |
-| --- | ----------- |
-| table_name |  |
-| metrics |  |
+| Key | Description | Required |
+| --- | ----------- | -------- |
+| table_name | The table name. TODO add if case matters. | Required |
+| metrics | The list of metrics to compute. Column metrics specified here will be computed on each column. |
 | columns |  |
 | mins_maxs_limit |  |
 | frequent_values_limit |  |

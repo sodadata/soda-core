@@ -1,26 +1,58 @@
 # Soda's Command Line Interface (CLI)
 
-## Create
+See [Installation](installation.md) to install the `soda` command
 
-The `soda create` CLI command helps you to get started with a new warehouse 
-setup. It will create an initial warehouse directory, the warehouse configuration 
-file and the environment variables in `~/.soda/env_vars.yml`.
+The soda command line is mostly a tool to help you get started with 
+your Soda SQL configuration files.
+ 
+To see the list of commands, enter `soda`
 
-`soda create` will never delete files or remove file contents.  It only adds things 
-that are not yet present and the command reports on what it does. 
+```
+soda
+Usage: soda [OPTIONS] COMMAND [ARGS]...
 
-`soda create --help` to learn more
+Options:
+  --help  Show this message and exit.
 
-Examples 
-  
-## Init 
+Commands:
+  create  Creates a new warehouse directory and prepares credentials in
+          your...
 
-The `soda init` CLI command is the next step to help you get started.  It finds 
-tables in your warehouse, inspects them and creates appropriate `scan.yml` files 
-for each table.
+  init    Finds tables in the warehouse and based on the contents, creates...
+  scan    Computes all measurements and runs all tests on one table.
+```
+ 
+| Command | Description |
+| ------- | ----------- |
+| `soda create ...` | Creates a new warehouse directory and prepares credentials in your ~/.soda/env_vars.yml Nothing will be overwritten or removed, only added if it does not exist yet. |
+| `soda init ...` | Finds tables in the warehouse and based on the contents, creates initial scan.yml files |
+| `soda scan ...` | Computes all measurements and runs all tests on one table.  Exit code 0 means all tests passed. Non zero exist code means tests have failed or an exception occured. If the project has a Soda cloud account configured, measurements and test results will be uploaded |
 
-`soda init` 
+To learn about the parameters, use the command line help:
+* `soda create --help`
+* `soda init --help`
+* `soda scan --help`
 
-`soda init --help` to learn more
+# Env vars
 
-See section [Scan](scan.md) to learn more on scan file configurations. 
+To keep your `warehouse.yml` configuration files free of credentials, soda-sql  
+supports referencing environment environment like this: `env_var(SOME_ENV_VAR)`
+
+`soda` CLI also includes a convenient mechanism to load your local environment 
+variables.  Each `soda` CLI command that reads a warehouse configuration, will 
+also read the corresponding environment variables specified in your 
+`~/.soda/env_vars.yml`
+
+Example `~/.soda/env_vars.yml`
+```yaml
+my_project_postgres:
+    SNOWFLAKE_USERNAME: someotherexampleusername
+    SNOWFLAKE_PASSWORD: someotherexamplepassword
+
+some_other_soda_project:
+    POSTGRES_USERNAME: myexampleusername
+    POSTGRES_PASSWORD: myexamplepassword
+```
+
+The `soda create` command will assist in creating and prepopulating the 
+environment variables section in your `~/.soda/env_vars.yml`

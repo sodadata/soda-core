@@ -52,36 +52,12 @@ warehouse:
 ```
 
 Each warehouse will require different configuration parameters.
-See [Warehouses](warehouse_types.md) to learn how to configure each 
+See [Warehouse types](warehouse_types.md) to learn how to configure each 
 type of warehouse. 
 
 The example above shows you can refer to environment variables for 
-credentials.  See the next section on [Env vars](#env-vars) to learn more.
+credentials.  See section on [Env vars in CLI](cli.md#env-vars) to learn more.
 
 Soon, Soda project files will also include an optional 
 link to a Soda cloud account.  A cloud account enable you to push the monitoring 
 results after each scan and share them with other people in your data organisation.
-
-# Env vars
-
-To keep your `warehouse.yml` configuration files free of credentials, soda-sql  
-supports referencing environment environment like this: `env_var(SOME_ENV_VAR)`
-
-`soda` CLI also includes a convenient mechanism to load your local environment 
-variables.  Each `soda` CLI command that reads a warehouse configuration, will 
-also read the corresponding environment variables specified in your 
-`~/.soda/env_vars.yml`
-
-Example `~/.soda/env_vars.yml`
-```yaml
-my_project_postgres:
-    SNOWFLAKE_USERNAME: someotherexampleusername
-    SNOWFLAKE_PASSWORD: someotherexamplepassword
-
-some_other_soda_project:
-    POSTGRES_USERNAME: myexampleusername
-    POSTGRES_PASSWORD: myexamplepassword
-```
-
-The `soda create` command will assist in creating and prepopulating the 
-environment variables section in your `~/.soda/env_vars.yml`

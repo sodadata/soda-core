@@ -67,6 +67,7 @@ class ScanBuilder:
         self.file_system = FileSystemSingleton.INSTANCE
         self.warehouse_yml: WarehouseYml = None
         self.scan_yml: ScanYml = None
+        self.variables: dict = {}
         self.sql_metric_ymls: List[SqlMetricYml] = []
         self.parsers: List[Parser] = []
         self.assert_no_warnings_or_errors = True
@@ -149,6 +150,9 @@ class ScanBuilder:
         if sql_metric_parser.sql_metric:
             self.sql_metric_ymls.append(sql_metric_parser.sql_metric)
 
+    def variable(self, name: str, value):
+        self.variables[name] = value
+
     def build(self):
         for parser in self.parsers:
             parser.assert_no_warnings_or_errors()
@@ -156,6 +160,7 @@ class ScanBuilder:
         self.warehouse = Warehouse(self.warehouse_yml)
         return Scan(warehouse=self.warehouse,
                     scan_yml=self.scan_yml,
+                    variables=self.variables,
                     sql_metrics=self.sql_metric_ymls,
                     soda_client=None)
 

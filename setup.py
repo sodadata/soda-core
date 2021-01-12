@@ -9,7 +9,6 @@ readme = (pathlib.Path(__file__).parent / "README.md").read_text()
 with open("requirements.txt", "r", encoding="utf-8") as file:
     requires = [line.strip() for line in file if line.strip()]
 
-
 def get_version():
     with open(path.join("sodasql", "__init__.py")) as f:
         contents = f.read()
@@ -21,7 +20,7 @@ setup(
     version=get_version(),
     author="Tom Baeyens",
     author_email="tom@soda.io",
-    description="Soda-SQL library & CLI",
+    description="Soda SQL library & CLI",
     long_description=readme,
     long_description_content_type="text/markdown",
     packages=find_packages(exclude=["tests"]),

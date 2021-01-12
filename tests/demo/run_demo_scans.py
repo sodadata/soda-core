@@ -60,10 +60,10 @@ scan_results = []
 date = min_date
 while date != max_date:
     timeslice = datetime(year=date.year, month=date.month, day=date.day).isoformat()
-    timeslice_variables = {'date': date.strftime("%Y-%m-%d")}
+    variables = {'date': date.strftime("%Y-%m-%d")}
     scan = Scan(warehouse=warehouse,
                 scan_yml=scan_configuration_parser.scan_yml,
-                variables=timeslice_variables,
+                variables=variables,
                 timeslice=timeslice)
     scan_results.append(scan.execute())
     date = date + timedelta(days=1)

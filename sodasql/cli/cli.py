@@ -225,8 +225,7 @@ def init(warehouse_dir: str):
 
 @main.command(help='Computes all measurements and runs all tests on one table.  Exit code 0 means all tests passed.'
                    'Non zero exist code means tests have failed or an exception occured.  '
-                   'If the project has a Soda cloud account configured, '
-                   'measurements and test results will be uploaded. '
+                   'If the project has a Soda cloud account configured, measurements and test results will be uploaded'
                    'WAREHOUSE_DIR is the warehouse directory containing a warehouse.yml file '
                    'TABLE is the name of the table to be scanned')
 @click.argument('warehouse_dir')

@@ -118,3 +118,27 @@ $ twine upload dist/*
 ```
 $ pip install soda
 ```
+
+## Installing CLI from source code
+
+Clone the repository from Github.
+```
+$ git clone https://github.com/sodadata/soda-sql.git
+```
+Change to the `soda-sql` directory:
+```
+$ cd soda
+```
+Create a new virtual environment, .e.g, ".venv":
+```
+$ python -m venv .venv
+```
+Activate the environment:
+```
+$ source .venv/bin/activate
+```
+Install the package:
+```
+$ pip install .
+```
+
