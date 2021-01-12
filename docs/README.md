@@ -20,7 +20,7 @@ delivery of bad data to downstream consumers.
 Soda SQL is a Command Line Interface (CLI) and a Python library to measure 
 and test your data using SQL.
   
-You produce Yaml configuration files that include:
+As input, Soda SQL uses Yaml configuration files that include:
  * SQL connection details
  * What metrics to compute
  * What tests to run on the measurements

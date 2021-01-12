@@ -26,4 +26,4 @@ Once Python is installed, you should also have `pip`.
 $ pip install soda-sql
 ```
 
-If this works for you, you can continue with the [Tutorial](tutorial.md)
+If this works for you, you can continue with the [Tutorial](5_min_tutorial.md)

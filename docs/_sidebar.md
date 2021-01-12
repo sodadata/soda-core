@@ -11,3 +11,4 @@
 * [SQL metric](sql_metrics.md)
 * [Time partitioning](time_partitioning.md)
 * [Orchestrate scans](orchestrate_scans.md)
+* [Roadmap](roadmap.md)
