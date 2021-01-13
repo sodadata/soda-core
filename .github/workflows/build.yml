@@ -52,9 +52,6 @@ jobs:
         shell: bash
         run: echo "##[set-output name=branch;]$(echo ${GITHUB_REF#refs/heads/})"
         id: extract_branch
-      - name: Setup aws-cli
-        if: always()
-        uses: chrislennon/action-aws-cli@v1.1
       - name: Run Tox
         run: |
           cat dev-requirements.in | grep tox | xargs pip install
@@ -67,6 +64,8 @@ jobs:
         if: always()
         run: |
           cp ./reports/index.html ./reports/${{ steps.extract_branch.outputs.branch }}/${{ matrix.python-version }}/${{ matrix.test-module }}/index.html
+      - name: Setup aws-cli
+        uses: chrislennon/action-aws-cli@v1.1
       - name: Publish Reports
         if: always()
         run: aws s3 sync ./reports s3://sodasql-reports/
