@@ -61,11 +61,11 @@ jobs:
             --cov-report=html:./reports/${{ steps.extract_branch.outputs.branch }}/${{ matrix.python-version }}/${{ matrix.test-module }}/coverage \
             -k ${{ matrix.test-module }}
       - name: Copy Reports Index Page
-        if: contains('main master more-python-versions', steps.extract_branch.outputs.branch)
+        if: always()
         run: |
           cp ./reports/index.html ./reports/${{ steps.extract_branch.outputs.branch }}/${{ matrix.python-version }}/${{ matrix.test-module }}/index.html
       - name: Publish Documentation
-        if: contains('main master more-python-versions', steps.extract_branch.outputs.branch)
+        if: always()
         run: aws s3 sync ./docs s3://sodasql-docs/
       - name: Notify Slack on Failure
         if: failure()
@@ -74,7 +74,7 @@ jobs:
           python3 .github/scripts/report_workflow_failure.py
 
   notify-success:
-    name: Notify Success
+    name: Notify Slack on Success
     needs: [ run-tests ]
     runs-on: ubuntu-20.04
     env:
