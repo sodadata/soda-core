@@ -29,6 +29,7 @@ jobs:
     timeout-minutes: 10
     runs-on: ubuntu-20.04
     strategy:
+      fail-fast: false
       matrix:
         python-version: [ 3.7, 3.8 ]
         test-module: [ local ]
@@ -52,8 +53,6 @@ jobs:
         shell: bash
         run: echo "##[set-output name=branch;]$(echo ${GITHUB_REF#refs/heads/})"
         id: extract_branch
-      - name: Setup aws-cli
-        uses: chrislennon/action-aws-cli@v1.1
       - name: Run Tox
         run: |
           cat dev-requirements.in | grep tox | xargs pip install
@@ -71,6 +70,9 @@ jobs:
         run: |
           pip3 install -r .github/scripts/requirements.txt
           python3 .github/scripts/report_workflow_failure.py
+      - name: Setup aws-cli
+        if: always()
+        uses: chrislennon/action-aws-cli@v1.1
       - name: Publish Reports
         if: always()
         run: aws s3 sync ./reports s3://sodasql-reports/
