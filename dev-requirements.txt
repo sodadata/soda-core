@@ -54,8 +54,6 @@ keyring==21.7.0
     # via twine
 more-itertools==8.5.0
     # via pytest
-numpy==1.19.5
-    # via -r dev-requirements.in
 packaging==20.4
     # via
     #   bleach
