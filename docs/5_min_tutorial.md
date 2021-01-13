@@ -58,6 +58,9 @@ LOG:  database system is ready to accept connections
 LOG:  autovacuum launcher started
 ```
 
+After you're done with the tutorial, you can stop the container with 
+`docker stop soda_sql_tutorial_db`.  That will also automatically remove the container.
+
 #### 2.2\) Load example data in your warehouse
 
 Next use this command to load [example data](https://github.com/sodadata/soda-sql/blob/main/tests/demo/demodata.sql) 
