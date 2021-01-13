@@ -15,9 +15,6 @@ from tests.common.sql_test_case import SqlTestCase
 
 class TestDistinctAndUniqueness(SqlTestCase):
 
-    def test_always_fails(self):
-        self.assertTrue(False) # Just for testing.
-
     def test_distinct(self):
         self.sql_create_table(
             'test_table',
