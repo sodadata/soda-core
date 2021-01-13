@@ -46,8 +46,7 @@ class Reporter:
         msg = self._status_message(":tada:") \
             + self._run_message() \
             + f"*succeeded* {ENV.get_deployment_description()}" \
-            + self._commit_message() \
-            + self._reports_message()
+            + self._commit_message()
         self.send_slack_message(msg)
 
     def _run_message(self):

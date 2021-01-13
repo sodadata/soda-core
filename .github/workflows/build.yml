@@ -3,7 +3,27 @@ name: Build SodaSQL
 on: [ push ]
 
 jobs:
-  run-test:
+  deploy-documentation:
+    name: Deploy Documentation
+    timeout-minutes: 10
+    runs-on: ubuntu-20.04
+    env:
+      ACTIONS_ALLOW_UNSECURE_COMMANDS: true
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_BUILD_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_BUILD_SECRET_ACCESS_KEY }}
+    steps:
+      - uses: actions/checkout@v2
+      - name: Extract Branch Name
+        shell: bash
+        run: echo "##[set-output name=branch;]$(echo ${GITHUB_REF#refs/heads/})"
+        id: extract_branch
+      - name: Setup aws-cli
+        if: contains('main master', steps.extract_branch.outputs.branch)
+        uses: chrislennon/action-aws-cli@v1.1
+      - name: Publish Documentation
+        if: contains('main master', steps.extract_branch.outputs.branch)
+        run: aws s3 sync ./docs s3://sodasql-docs/
+  run-tests:
     name: Run Tests
     timeout-minutes: 10
     runs-on: ubuntu-20.04
@@ -15,7 +35,6 @@ jobs:
       JOB_ID: ${{ github.job }}
       SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      REPORTS_URL: http://sodasql-reports.s3-website-eu-west-1.amazonaws.com
       ACTIONS_ALLOW_UNSECURE_COMMANDS: true
       AWS_ACCESS_KEY_ID: ${{ secrets.AWS_BUILD_ACCESS_KEY_ID }}
       AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_BUILD_SECRET_ACCESS_KEY }}
@@ -41,21 +60,27 @@ jobs:
       - name: Copy Reports Index Page
         run: |
           cp ./reports/index.html ./reports/${{ steps.extract_branch.outputs.branch }}/${{ matrix.test-module }}/index.html
-      - name: Setup aws-cli
-        uses: chrislennon/action-aws-cli@v1.1
-      - name: Publish Reports
-        if: always()
-        run: aws s3 sync ./reports s3://sodasql-reports/
-      - name: Publish Documentation
-        if: contains('main master', steps.extract_branch.outputs.branch)
-        run: aws s3 sync ./docs s3://sodasql-docs/
       - name: Notify Slack on Failure
         if: failure()
         run: |
           pip3 install -r .github/scripts/requirements.txt
           python3 .github/scripts/report_workflow_failure.py
+
+  notify-success:
+    name: Generate Docker images
+    needs: [ run-tests ]
+    runs-on: ubuntu-20.04
+    env:
+      JOB_ID: ${{ github.job }}
+      SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - name: Extract Branch Name
+        shell: bash
+        run: echo "##[set-output name=branch;]$(echo ${GITHUB_REF#refs/heads/})"
+        id: extract_branch
       - name: Notify Slack on Success
-        if: success()
+        if: success() && contains('main master', steps.extract_branch.outputs.branch)
         run: |
           pip3 install -r .github/scripts/requirements.txt
           .github/scripts/report_workflow_success.py
