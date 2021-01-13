@@ -68,7 +68,7 @@ jobs:
           python3 .github/scripts/report_workflow_failure.py
 
   notify-success:
-    name: Notify Slack on Success
+    name: Notify Success
     needs: [ run-tests ]
     runs-on: ubuntu-20.04
     env:
@@ -81,7 +81,7 @@ jobs:
         run: echo "##[set-output name=branch;]$(echo ${GITHUB_REF#refs/heads/})"
         id: extract_branch
       - name: Notify Slack on Success
-        if: success() && contains('main master', steps.extract_branch.outputs.branch)
+        if: success()
         run: |
           pip3 install -r .github/scripts/requirements.txt
           .github/scripts/report_workflow_success.py
