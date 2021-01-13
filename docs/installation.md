@@ -1,6 +1,6 @@
 # Installation
 
-The simplest way to use soda-sql is to use the CLI. This section explains 
+The simplest way to use soda-sql is to use the CLI. This section explains
 how to install the `soda` command line tool.
 
 The more advance way to use soda-sql is to use the Python programmatic
@@ -11,6 +11,7 @@ interface.  TODO add a link
 The soda CLI requires the following packages to be installed on your system:
 - Python 3.7+
 - postgresql-libs (`libpq-dev` in Debian/Ubuntu, `libpq-devel` in CentOS, `postgresql` on MacOSX)
+- _Linux only:_ `libssl-dev` and `libffi-dev` (`libffi-devel` and `openssl-devel` in CentOS)
 
 To check your version of python, run the `python` command
 ```
