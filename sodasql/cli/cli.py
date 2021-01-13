@@ -45,13 +45,13 @@ def main():
                    'WAREHOUSE_TYPE is one of {postgres, snowflake, redshift, bigquery, athena}')
 @click.argument('warehouse_dir')
 @click.argument('warehouse_type')
-@click.option('-n', '--warehouse_name',     required=False, default=None, help='The warehouse name')
-@click.option('-d', '--database', required=False, default=None, help='The database name to use for the connection')
-@click.option('-u', '--username', required=False, default=None, help='The username to use for the connection')
-@click.option('-p', '--password', required=False, default=None, help='The password to use for the connection')
+@click.option('-d', '--database',  required=False, default=None, help='The database name to use for the connection')
+@click.option('-u', '--username',  required=False, default=None, help='The username to use for the connection, through env_var(...)')
+@click.option('-p', '--password',  required=False, default=None, help='The password to use for the connection, through env_var(...)')
+@click.option('-w', '--warehouse', required=False, default=None, help='The warehouse name')
 def create(warehouse_dir: str,
            warehouse_type: str,
-           warehouse_name: Optional[str],
+           warehouse: Optional[str],
            database: Optional[str],
            username: Optional[str],
            password: Optional[str]):
@@ -63,9 +63,9 @@ def create(warehouse_dir: str,
         file_system = FileSystemSingleton.INSTANCE
 
 
-        if not warehouse_name:
+        if not warehouse:
             warehouse_dir_parent, warehouse_dir_name = file_system.split(warehouse_dir)
-            warehouse_name = warehouse_name if warehouse_name else warehouse_dir_name
+            warehouse = warehouse if warehouse else warehouse_dir_name
 
         from sodasql.scan.dialect import Dialect, ALL_WAREHOUSE_TYPES
         dialect = Dialect.create_for_warehouse_type(warehouse_type)
@@ -100,7 +100,7 @@ def create(warehouse_dir: str,
         else:
             logging.info(f"Creating warehouse configuration file {warehouse_yml_file} ...")
             warehouse_dict = {
-                'name': warehouse_name,
+                'name': warehouse,
                 'connection': connection_properties
             }
             warehouse_yml_str = yaml.dump(warehouse_dict, default_flow_style=False, sort_keys=False)
@@ -115,17 +115,14 @@ def create(warehouse_dir: str,
         env_vars_file_exists = file_system.file_exists(env_vars_file)
         if env_vars_file_exists:
             env_vars_yml_str = file_system.file_read_as_str(env_vars_file)
-
-            warehouse_env_vars_dict = None
-
             existing_env_vars_yml_dict = yaml.load(env_vars_yml_str, Loader=yaml.FullLoader)
-            if isinstance(existing_env_vars_yml_dict, dict) and warehouse_name in existing_env_vars_yml_dict:
-                logging.info(f"Warehouse section {warehouse_name} already exists in {env_vars_file}.  Skipping...")
+            if isinstance(existing_env_vars_yml_dict, dict) and warehouse in existing_env_vars_yml_dict:
+                logging.info(f"Warehouse section {warehouse} already exists in {env_vars_file}.  Skipping...")
                 warehouse_env_vars_dict = None
 
         if warehouse_env_vars_dict:
             warehouse_env_vars_dict = {
-                warehouse_name: warehouse_env_vars_dict
+                warehouse: warehouse_env_vars_dict
             }
 
             if len(env_vars_yml_str) > 0:
@@ -136,16 +133,17 @@ def create(warehouse_dir: str,
                                           sort_keys=False)
 
             if env_vars_file_exists:
-                logging.info(f"Adding env vars for {warehouse_name} to {env_vars_file}")
+                logging.info(f"Adding env vars for {warehouse} to {env_vars_file}")
             else:
-                logging.info(f"Creating {env_vars_file} with example env vars in section {warehouse_name}")
+                logging.info(f"Creating {env_vars_file} with example env vars in section {warehouse}")
 
             file_system.file_write_from_str(env_vars_file, env_vars_yml_str)
 
         logging.info(f"Review warehouse.yml by running command")
         logging.info(f"  open {warehouse_yml_file}")
-        logging.info(f"Review section {warehouse_name} in ~/.soda/env_vars.yml by running command")
-        logging.info(f"  open ~/.soda/env_vars.yml")
+        if warehouse_env_vars_dict:
+            logging.info(f"Review section {warehouse} in ~/.soda/env_vars.yml by running command")
+            logging.info(f"  open ~/.soda/env_vars.yml")
         logging.info(f"Then run")
         logging.info(f"  soda init {warehouse_dir}")
     except Exception as e:
