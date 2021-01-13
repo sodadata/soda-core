@@ -37,7 +37,9 @@ class Reporter:
             + f" *failed* {ENV.get_deployment_description()} on job `{self.job}` " \
             + self._commit_message() \
             + f"Last author was {author}. " \
-            + self._reports_message()
+            + self._reports_message() \
+            + " " \
+            + self._test_module()
         self.send_slack_message(msg)
         for r in self._find_files('TEST*.xml'):
             self._process_xml(r)
@@ -61,6 +63,9 @@ class Reporter:
     @staticmethod
     def _reports_message():
         return f"Full reports can be found <{ENV.get_reports_url()}/{ENV.get_branch()}/{ENV.get_python_version()}/{ENV.get_test_module()}|here>."
+
+    def _test_module(self):
+        return f"Python {ENV.get_python_version()} test module {ENV.get_test_module()}"
 
     def _find_files(self, pattern: str):
         root = self.root_dir
