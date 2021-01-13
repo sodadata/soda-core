@@ -1,7 +1,7 @@
 # 5 min tutorial
 
 If at any time during this tutorial you get stuck, speak up
-in the [getting-started Slack channel](slack://channel?id=C01HYL8V64C&team=T01HBMYM59V) or
+in the [getting-started Slack channel](https://soda-community.slack.com/archives/C01HYL8V64C) or
 [post an issue on GitHub](https://github.com/sodadata/soda-sql/issues/new)
 
 Apart from the `soda` CLI, this tutorial also uses  [Docker](https://docs.docker.com/get-docker/)
