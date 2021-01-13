@@ -12,7 +12,7 @@ class SlackMessageSender:
     slack_webhook_url: str
     branch: str
     ctx: ssl.SSLContext
-    branches_to_notify = ['master', 'main', 'more-python-versions']
+    branches_to_notify = ['master', 'main']
 
     def __init__(self):
         self.slack_webhook_url = ENV.get_variable('SLACK_WEBHOOK_URL')
