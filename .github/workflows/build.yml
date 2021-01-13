@@ -3,14 +3,18 @@ name: Build SodaSQL
 on: [ push ]
 
 jobs:
+  env:
+    JOB_ID: ${{ github.job }}
+    SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+    GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    REPORTS_URL: http://sodasql-reports.s3-website-eu-west-1.amazonaws.com
+    ACTIONS_ALLOW_UNSECURE_COMMANDS: true
+    AWS_ACCESS_KEY_ID: ${{ secrets.AWS_BUILD_ACCESS_KEY_ID }}
+    AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_BUILD_SECRET_ACCESS_KEY }}
   publish-documentation:
     name: Publish Documentation
     timeout-minutes: 10
     runs-on: ubuntu-20.04
-    env:
-      ACTIONS_ALLOW_UNSECURE_COMMANDS: true
-      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_BUILD_ACCESS_KEY_ID }}
-      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_BUILD_SECRET_ACCESS_KEY }}
     steps:
       - uses: actions/checkout@v2
       - name: Extract Branch Name
@@ -34,13 +38,6 @@ jobs:
         python-version: [ 3.7, 3.8 ]
         test-module: [ local ]
     env:
-      JOB_ID: ${{ github.job }}
-      SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
-      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      REPORTS_URL: http://sodasql-reports.s3-website-eu-west-1.amazonaws.com
-      ACTIONS_ALLOW_UNSECURE_COMMANDS: true
-      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_BUILD_ACCESS_KEY_ID }}
-      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_BUILD_SECRET_ACCESS_KEY }}
       TEST_MODULE: ${{ matrix.test-module }}
       PYTHON_VERSION: ${{ matrix.python-version }}
     steps:
@@ -81,10 +78,6 @@ jobs:
     name: Notify Slack on Success
     needs: [ run-tests ]
     runs-on: ubuntu-20.04
-    env:
-      JOB_ID: ${{ github.job }}
-      SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
-      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - uses: actions/checkout@v2
       - name: Extract Branch Name
