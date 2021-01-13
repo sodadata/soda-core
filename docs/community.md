@@ -1,9 +1,9 @@
 # Community
 
-Soda SQL is open source software distributed under the Apache License v2
+Soda SQL is open source software distributed under the Apache License v2.
 
-Get involved, cause we believe Soda SQL is going to be an important part
-of many data platforms and you have a perspective to contribute.
+Get involved! We believe Soda SQL is going to be an important part
+of many data platforms and you have the opportunity to contribute.
 
 ## Slack
 
@@ -17,9 +17,8 @@ of many data platforms and you have a perspective to contribute.
 
 ## Contributing
 
-Don't hesitate and reach out if you want to contribute.  Getting involved is easier than you think.
-Even complaining is a good contribution :)
+Don't hesitate and reach out if you want to contribute.  Getting involved is easier than you might think.
+A simple typo, improved explanation or a complaint may be a good contribution :)
 
-We only ask that in all Soda SQL communications you
-should [try to be kind](http://www.catb.org/~esr/faqs/smart-questions.html).
+We only ask you to [try to be kind](http://www.catb.org/~esr/faqs/smart-questions.html) in all Soda SQL communications.
 

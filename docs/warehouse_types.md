@@ -1,7 +1,7 @@
 # Warehouse types
 
-Warehouses are configured as part of a [Soda warehouse configuration file](warehouse.md)
-This section explains the concrete connection properties for each warehouse type. 
+Warehouses are configured as part of a [Soda warehouse configuration file](warehouse.md).
+This section defines the available connection properties for each warehouse type.
 
 ## Snowflake
 

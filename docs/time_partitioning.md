@@ -1,13 +1,13 @@
 # Time partitioning
 
-This section explains how to run metrics and tests on a single time partition
+This section explains how to run metrics and tests on a specific time partition
 of the table.
 
-Time partitioning requires 1 (or more) columns that reflect the time or date.
-The goal is to run a scan on a partition of the data that corresponds to a
-particular time period. 
+Time partitioning requires 1 (or more) columns which reflect the time or date.
+It allows you to to run a scan on a partition of your data which corresponds to the
+defined time period.
 
-Let's use this `CUSTOMER_TRANSACTIONS` table as an example
+Let's use this `CUSTOMER_TRANSACTIONS` table as an example:
 
 ```
 CREATE TABLE CUSTOMER_TRANSACTIONS (
@@ -20,11 +20,11 @@ CREATE TABLE CUSTOMER_TRANSACTIONS (
 );
 ```
 
-The `CUSTOMER_TRANSACTIONS` has a `DATE` column.  Each day new customer transaction 
-rows are added.  After they are added the goal is to run the scan on the customer 
+The `CUSTOMER_TRANSACTIONS` has a `DATE` column.  Each day new customer transaction
+rows are added.  After they are added the goal is to run the scan on the customer
 transactions of the last day.
 
-In the `scan.yml`, add a `time_filter` like this:
+In the `scan.yml`, add the following `time_filter`:
 
 ```
 table_name: CUSTOMER_TRANSACTIONS
@@ -33,11 +33,13 @@ metrics: ...
 columns: ...
 ```
 
-The time filter is added to the SQL queries in the where clause.
+The defined `time_filter` is added as a `WHERE` clause to each SQL query.
 
-The `date` can be passed to the scan as a variable on the command line like:
+In our `time_filter` query we've made use of a variable: `date`. The value of this variable
+can be passed to the scan on the command line like:
 
-> _Note: CLI does not yet support variables. Coming soon.  Use programmatic style below_
+> _Note, coming soon: Soda CLI does not yet support variables. In the meantime you can use the programmatic style
+as shown below_
 ```
 soda scan -v date=2021-01-12 ./sales_snowflake customer_transactions
 ```
@@ -50,10 +52,11 @@ scan = scan_builder.build()
 scan_result = scan.execute()
 if scan_result.has_failures():
     print('Scan has test failures, stop the pipeline')
-``` 
+```
 
-For time partitioned tables, it makes sense to measure and test on both 
-the time partitions and on the full table.  To achieve this, we recommend 
-that you create 2 separate table dirs for it each having a `scan.yml`.  
-It's a good practice to add `_tp` as the suffix to the table 
-directory to indicate it's a "Time Partitioned" table configuration.
+For time partitioned tables, it makes sense to run scans on both
+the partitioned as well as on the full table. You can achieve this by
+creating 2 separate table directories, each having their own `scan.yml`.
+
+It's good practice to add `_tp` as the suffix to the table
+directory to indicate that it's a "Time Partitioned" table configuration.

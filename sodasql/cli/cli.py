@@ -151,7 +151,7 @@ def create(warehouse_dir: str,
         return 1
 
 
-@main.command(help='Finds tables in the warehouse and based on the contents, creates initial scan.yml files.'
+@main.command(help='Finds tables in the warehouse and based on the contents, creates initial scan.yml files. '
                    'WAREHOUSE_DIR is the warehouse directory containing a warehouse.yml file')
 @click.argument('warehouse_dir')
 def init(warehouse_dir: str):
@@ -160,6 +160,7 @@ def init(warehouse_dir: str):
     """
     logging.info(SODA_SQL_VERSION)
     file_system = FileSystemSingleton.INSTANCE
+    warehouse = None
 
     try:
         logging.info(f'Initializing {warehouse_dir} ...')
@@ -184,7 +185,7 @@ def init(warehouse_dir: str):
                 logging.info(f'Creating table directory {table_dir}')
                 file_system.mkdirs(table_dir)
             else:
-                logging.info(f'Directory {table_dir} aleady exists')
+                logging.info(f'Directory {table_dir} already exists')
 
             table_scan_yaml_file = file_system.join(table_dir, 'scan.yml')
 

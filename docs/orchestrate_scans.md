@@ -1,19 +1,19 @@
 # Orchestrate scans
 
-This section explains how to run scans as part of your data pipeline and 
-stop the pipeline when necessary to prevent bad data flowing downstream.
+This section explains how to run scans as part of your data pipeline and
+how to use Soda SQL to, when necessary, stop the pipeline to prevent bad data from flowing downstream.
 
-soda-sql is build in such a way that it's easy to run it as a step in your 
-pipeline orchestration.  
+Soda SQL is build in such a way that it's easy to include it as a step in your
+pipeline orchestration.
 
-Use the orchestration tool to configure if the soda scan is blocking the pipeline 
-(for testing) or in parallel (for monitoring)
+Depending on your desired setup you can configure your orchestration tool to run a soda scan as blocking
+(for testing) or in parallel (for monitoring).
 
 ## Programmatic scans
 
-Here's how to run scans using Python: 
+Here's how to run scans using Python:
 
-Programmatic scan execution based on default dir structure:
+Programmatic scan execution based on default directory structure:
 ```python
 scan_builder = ScanBuilder()
 scan_builder.read_scan_from_dirs('~/my_warehouse_dir', 'my_table_dir')
@@ -58,13 +58,13 @@ if scan_result.has_failures():
 
 TODO: describe how to run Soda scans in Airflow.
 
-If you're reading this and thinking: "I want to contribute!" Great.  
-[Post an note on GitHub](https://github.com/sodadata/soda-sql/issues/new?subject=Contributing Airflow) to let 
-others know you're starting on this. 
+> If you're reading this and thinking: "I want to contribute!", let us know! Fork the
+[repository on Github](https://github.com/sodadata/soda-sql/fork), open up a pull request and
+[let us know](https://github.com/sodadata/soda-sql/discussions) you're working on it.
 
 ## Other orchestration solutions
 
-TODO: describe how to run Soda scans in orchestration tools like
+TODO: describe how to run a soda scan in orchestration tools like:
 
 * AWS Glue
 * Prefect
@@ -73,6 +73,6 @@ TODO: describe how to run Soda scans in orchestration tools like
 * Matillion
 * Luigi
 
-If you're reading this and thinking: "I want to contribute!" Great.  
-[Post an note on GitHub](https://github.com/sodadata/soda-sql/issues/new) to let others know 
-you're starting on this. 
+> If you're reading this and thinking: "I want to contribute!", let us know! Fork the
+[repository on Github](https://github.com/sodadata/soda-sql/fork), open up a pull request and
+[let us know](https://github.com/sodadata/soda-sql/discussions) you're working on it.
