@@ -65,6 +65,7 @@ jobs:
         run: |
           cp ./reports/index.html ./reports/${{ steps.extract_branch.outputs.branch }}/${{ matrix.python-version }}/${{ matrix.test-module }}/index.html
       - name: Setup aws-cli
+        if: always()
         uses: chrislennon/action-aws-cli@v1.1
       - name: Publish Reports
         if: always()
