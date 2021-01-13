@@ -3,8 +3,8 @@ name: Build SodaSQL
 on: [ push ]
 
 jobs:
-  deploy-documentation:
-    name: Deploy Documentation
+  publish-documentation:
+    name: Publish Documentation
     timeout-minutes: 10
     runs-on: ubuntu-20.04
     env:
@@ -23,6 +23,7 @@ jobs:
       - name: Publish Documentation
         if: contains('main master', steps.extract_branch.outputs.branch)
         run: aws s3 sync ./docs s3://sodasql-docs/
+
   run-tests:
     name: Run Tests
     timeout-minutes: 10
@@ -67,7 +68,7 @@ jobs:
           python3 .github/scripts/report_workflow_failure.py
 
   notify-success:
-    name: Generate Docker images
+    name: Notify Slack on Success
     needs: [ run-tests ]
     runs-on: ubuntu-20.04
     env:
