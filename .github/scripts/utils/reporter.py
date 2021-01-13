@@ -60,7 +60,7 @@ class Reporter:
 
     @staticmethod
     def _reports_message():
-        return f"Full reports can be found <{ENV.get_reports_url()}/{ENV.get_branch()}/{ENV.get_test_module()}|here>."
+        return f"Full reports can be found <{ENV.get_reports_url()}/{ENV.get_branch()}/{ENV.get_python_version()}/{ENV.get_test_module()}|here>."
 
     def _find_files(self, pattern: str):
         root = self.root_dir
