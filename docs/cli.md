@@ -33,10 +33,20 @@ To learn about the parameters, use the command line help:
 * `soda init --help`
 * `soda scan --help`
 
+# Docker 
+
+The Soda SQL CLI interface can also be executed from inside a docker container. This can be done by first building the corresponding docker image: `docker build -t soda/soda-sql .` 
+Once this command is finished you can use it the same way as documented in the [CLI section](cli.md#soda39s-command-line-interface-cli)
+
+Examples:
+`docker run -it soda/soda-sql --help`
+`docker run -it soda/soda-sql create --help`
+`docker run -it soda/soda-sql init --help`
+
 # Env vars
 
 To keep your `warehouse.yml` configuration files free of credentials, soda-sql  
-supports referencing environment environment like this: `env_var(SOME_ENV_VAR)`
+supports referencing environment variables like this: `env_var(SOME_ENV_VAR)`
 
 `soda` CLI also includes a convenient mechanism to load your local environment 
 variables.  Each `soda` CLI command that reads a warehouse configuration, will 
