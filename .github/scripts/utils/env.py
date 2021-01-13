@@ -33,3 +33,7 @@ class ENV:
     @classmethod
     def get_test_module(cls):
         return cls.get_variable('TEST_MODULE')
+
+    @classmethod
+    def get_python_version(cls):
+        return cls.get_variable('PYTHON_VERSION')
