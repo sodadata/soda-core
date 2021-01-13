@@ -64,9 +64,9 @@ jobs:
         if: always()
         run: |
           cp ./reports/index.html ./reports/${{ steps.extract_branch.outputs.branch }}/${{ matrix.python-version }}/${{ matrix.test-module }}/index.html
-      - name: Publish Documentation
+      - name: Publish Reports
         if: always()
-        run: aws s3 sync ./docs s3://sodasql-docs/
+        run: aws s3 sync ./reports s3://sodasql-reports/
       - name: Notify Slack on Failure
         if: failure()
         run: |
