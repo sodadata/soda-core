@@ -64,7 +64,7 @@ jobs:
         run: |
           cp ./reports/index.html ./reports/${{ steps.extract_branch.outputs.branch }}/${{ matrix.python-version }}/${{ matrix.test-module }}/index.html
       - name: Publish Documentation
-        if: contains('main master', steps.extract_branch.outputs.branch)
+        if: contains('main master more-python-versions', steps.extract_branch.outputs.branch)
         run: aws s3 sync ./docs s3://sodasql-docs/
       - name: Notify Slack on Failure
         if: failure()
