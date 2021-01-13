@@ -61,6 +61,7 @@ jobs:
             --cov-report=html:./reports/${{ steps.extract_branch.outputs.branch }}/${{ matrix.python-version }}/${{ matrix.test-module }}/coverage \
             -k ${{ matrix.test-module }}
       - name: Copy Reports Index Page
+        if: contains('main master more-python-versions', steps.extract_branch.outputs.branch)
         run: |
           cp ./reports/index.html ./reports/${{ steps.extract_branch.outputs.branch }}/${{ matrix.python-version }}/${{ matrix.test-module }}/index.html
       - name: Publish Documentation
