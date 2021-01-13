@@ -66,7 +66,7 @@ class Reporter:
 
     @staticmethod
     def _test_module():
-        return f"(Python {ENV.get_python_version()}, Test Module {ENV.get_test_module()})"
+        return f"(Python **{ENV.get_python_version()}**, Test Module **{ENV.get_test_module()}**)"
 
     def _find_files(self, pattern: str):
         root = self.root_dir
