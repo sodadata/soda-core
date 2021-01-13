@@ -8,7 +8,9 @@ interface.  TODO add a link
 
 ## Requirements
 
-The soda CLI only needs Python 3.7+
+The soda CLI requires the following packages to be installed on your system:
+- Python 3.7+
+- postgresql-libs (`libpq-dev` in Debian/Ubuntu, `libpq-devel` in CentOS, `postgresql` on MacOSX)
 
 To check your version of python, run the `python` command
 ```
