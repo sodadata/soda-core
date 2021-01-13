@@ -36,6 +36,7 @@ jobs:
       JOB_ID: ${{ github.job }}
       SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      REPORTS_URL: http://sodasql-reports.s3-website-eu-west-1.amazonaws.com
       ACTIONS_ALLOW_UNSECURE_COMMANDS: true
       AWS_ACCESS_KEY_ID: ${{ secrets.AWS_BUILD_ACCESS_KEY_ID }}
       AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_BUILD_SECRET_ACCESS_KEY }}
