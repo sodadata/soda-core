@@ -8,6 +8,7 @@ pytest-html==3.1.1
 pytest-cov==2.10.1
 twine==3.3.0
 Faker==5.3.0
+numpy==1.19.5
 
 # Solve Conflicts
 certifi==2020.12.5
