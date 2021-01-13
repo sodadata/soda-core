@@ -38,7 +38,7 @@ class Reporter:
             + self._commit_message() \
             + f"Last author was {author}. " \
             + self._reports_message() \
-            + self._test_module() \
+            + self._test_module_message() \
             + "."
         self.send_slack_message(msg)
         for r in self._find_files('TEST*.xml'):
@@ -65,7 +65,7 @@ class Reporter:
         return f"Full reports can be found <{ENV.get_reports_url()}/{ENV.get_branch()}/{ENV.get_python_version()}/{ENV.get_test_module()}|here> "
 
     @staticmethod
-    def _test_module():
+    def _test_module_message():
         return f"(Python *{ENV.get_python_version()}*, Test Module *{ENV.get_test_module()}*)"
 
     def _find_files(self, pattern: str):
