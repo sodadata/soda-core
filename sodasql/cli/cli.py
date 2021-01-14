@@ -267,3 +267,6 @@ def scan(warehouse_dir: str, table_dir_name: str, timeslice: str = None, variabl
     finally:
         if warehouse:
             warehouse.close()
+
+if __name__ == '__main__':
+    main()

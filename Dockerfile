@@ -10,5 +10,6 @@ ADD setup.py /soda
 
 WORKDIR /soda
 
-RUN python setup.py install
-ENTRYPOINT ["soda"]
+RUN pip install -r requirements.txt
+
+ENTRYPOINT ["python", "sodasql/cli/cli.py"]
