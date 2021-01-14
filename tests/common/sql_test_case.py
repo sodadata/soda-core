@@ -15,21 +15,19 @@ from typing import List, Optional
 from unittest import TestCase
 
 import yaml
-
+from sodasql.common.logging_helper import LoggingHelper
 from sodasql.scan.db import sql_update, sql_updates
 from sodasql.scan.dialect import Dialect
 from sodasql.scan.dialect_parser import DialectParser
 from sodasql.scan.env_vars import EnvVars
-from sodasql.scan.scan_yml_parser import ScanYmlParser, KEY_TABLE_NAME
 from sodasql.scan.scan_result import ScanResult
+from sodasql.scan.scan_yml_parser import KEY_TABLE_NAME, ScanYmlParser
 from sodasql.scan.sql_metric_yml_parser import SqlMetricYmlParser
 from sodasql.scan.warehouse import Warehouse
 from sodasql.scan.warehouse_yml import WarehouseYml
-from sodasql.common.logging_helper import LoggingHelper
 from tests.common.warehouse_fixture import WarehouseFixture
 
 LoggingHelper.configure_for_test()
-EnvVars.load_env_vars('test')
 
 TARGET_POSTGRES = 'postgres'
 TARGET_SNOWFLAKE = 'snowflake'
@@ -59,6 +57,8 @@ class SqlTestCase(TestCase):
         # self.target controls the warehouse on which the test is executed
         # It is initialized in method setup_get_warehouse
         self.target: Optional[str] = None
+
+        EnvVars.load_env_vars('test')
 
     def setUp(self) -> None:
         logging.debug(f'\n\n--- {str(self)} ---')

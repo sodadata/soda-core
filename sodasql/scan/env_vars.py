@@ -21,7 +21,7 @@ class EnvVars:
     # Loads the environment variables in ~/.soda/env_vars.yml under the project name key
     @classmethod
     def load_env_vars(cls, project_name: str):
-        env_vars_path = f'{str(Path.home())}/.soda/env_vars.yml'
+        env_vars_path = f'{FileSystemSingleton.INSTANCE.user_home_dir()}/.soda/env_vars.yml'
         if FileSystemSingleton.INSTANCE.is_file(env_vars_path):
             file_contents = FileSystemSingleton.INSTANCE.file_read_as_str(env_vars_path)
             env_vars_dict = yaml.load(file_contents, Loader=yaml.FullLoader)
