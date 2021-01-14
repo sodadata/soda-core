@@ -15,6 +15,7 @@ jobs:
     env:
       TEST_MODULE: ${{ matrix.test-module }}
       PYTHON_VERSION: ${{ matrix.python-version }}
+      INCLUDED_BRANCHES: "main master"
     steps:
       - uses: actions/checkout@v2
       - name: Setup Python ${{ matrix.python-version }}
@@ -113,6 +114,7 @@ jobs:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
           REPORTS_URL: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          INCLUDED_BRANCHES: "main master"
         run: |
           pip3 install -r .github/scripts/requirements.txt
           .github/scripts/report_workflow_success.py
