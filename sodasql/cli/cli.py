@@ -14,10 +14,9 @@ from typing import Optional
 
 import click
 import yaml
-
 from sodasql.cli.file_system import FileSystemSingleton
-from sodasql.scan.scan_builder import ScanBuilder
 from sodasql.common.logging_helper import LoggingHelper
+from sodasql.scan.scan_builder import ScanBuilder
 
 LoggingHelper.configure_for_cli()
 
@@ -67,7 +66,7 @@ def create(warehouse_dir: str,
             warehouse_dir_parent, warehouse_dir_name = file_system.split(warehouse_dir)
             warehouse = warehouse if warehouse else warehouse_dir_name
 
-        from sodasql.scan.dialect import Dialect, ALL_WAREHOUSE_TYPES
+        from sodasql.scan.dialect import ALL_WAREHOUSE_TYPES, Dialect
         dialect = Dialect.create_for_warehouse_type(warehouse_type)
 
         if not dialect:
@@ -193,7 +192,9 @@ def init(warehouse_dir: str):
                 logging.info(f"Scan file {table_scan_yaml_file} already exists")
             else:
                 logging.info(f"Creating {table_scan_yaml_file} ...")
-                from sodasql.scan.scan_yml_parser import KEY_TESTS, KEY_METRICS, KEY_TABLE_NAME
+                from sodasql.scan.scan_yml_parser import (KEY_METRICS,
+                                                          KEY_TABLE_NAME,
+                                                          KEY_TESTS)
                 scan_yaml_dict = {
                     KEY_TABLE_NAME: table_name,
                     KEY_METRICS: [
@@ -228,7 +229,7 @@ def init(warehouse_dir: str):
                    'WAREHOUSE_DIR is the warehouse directory containing a warehouse.yml file '
                    'TABLE is the name of the table to be scanned')
 @click.argument('warehouse_dir')
-@click.argument('table')
+@click.argument('table_dir_name')
 @click.option('--timeslice', required=False, default=None, help='The timeslice')
 def scan(warehouse_dir: str, table_dir_name: str, timeslice: str = None, variables: dict = None):
     """
