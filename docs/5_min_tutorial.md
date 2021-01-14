@@ -115,16 +115,16 @@ run the following command:
 ```shell
 $ soda init ./soda_sql_tutorial
   | Soda CLI version 2.0.0 beta
-  | Initializing /Users/tom/soda_sql_tutorial ...
+  | Initializing ./soda_sql_tutorial ...
   | Querying warehouse for tables
   | Executing SQL query:
 SELECT table_name
 FROM information_schema.tables
 WHERE lower(table_schema)='public'
   | SQL took 0:00:00.005413
-  | Creating table directory /Users/tom/soda_sql_tutorial/demodata
-  | Creating /Users/tom/soda_sql_tutorial/demodata/scan.yml ...
-  | Next run 'soda scan /Users/tom/soda_sql_tutorial demodata' to calculate measurements and run tests
+  | Creating table directory ./soda_sql_tutorial/demodata
+  | Creating ./soda_sql_tutorial/demodata/scan.yml ...
+  | Next run 'soda scan ./soda_sql_tutorial demodata' to calculate measurements and run tests
 ```
 
 ### 5\) Review the generated scan.yml files
@@ -168,7 +168,7 @@ To run your first scan on the `demodata` table simply run the following command:
 ```shell
 $ soda scan ./soda_sql_tutorial demodata
   | Soda CLI version 2.0.0 beta
-  | Scanning demodata in /Users/tom/soda_sql_tutorial ...
+  | Scanning demodata in ./soda_sql_tutorial ...
   | Environment variable POSTGRES_PASSWORD is not set
   | Executing SQL query:
 SELECT column_name, data_type, is_nullable

@@ -99,7 +99,7 @@ each time new data arrived like this:
 ```shell
 $ soda scan ./my_warehouse my_table
   | Soda CLI version 2.0.0 beta
-  | Scanning my_table in /Users/tom/my_warehouse ...
+  | Scanning my_table in ./my_warehouse ...
   | Environment variable POSTGRES_PASSWORD is not set
   | Executing SQL query:
 SELECT column_name, data_type, is_nullable
