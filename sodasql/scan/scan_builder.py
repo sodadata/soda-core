@@ -108,6 +108,7 @@ class ScanBuilder:
             return
 
         warehouse_yaml_str = self.file_system.file_read_as_str(warehouse_yml_path)
+
         if warehouse_yaml_str:
             warehouse_dict = self.__parse_yaml(warehouse_yaml_str, warehouse_yml_path)
             self.warehouse_dict(warehouse_dict)
@@ -166,7 +167,7 @@ class ScanBuilder:
 
     def __parse_yaml(self, warehouse_yaml_str: AnyStr, file_name: AnyStr):
         try:
-            return yaml.parse(warehouse_yaml_str, Loader=yaml.FullLoader)
+            return yaml.load(warehouse_yaml_str, Loader=yaml.FullLoader)
         except Exception as e:
             logging.error(f'Parsing yaml file {file_name} failed: {str(e)}')
 

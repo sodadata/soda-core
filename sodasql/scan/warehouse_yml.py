@@ -18,6 +18,6 @@ from sodasql.soda_client.soda_client import SodaClient
 @dataclass
 class WarehouseYml:
 
-    dialect: Dialect
+    dialect: Dialect = None
     name: Optional[str] = None
     soda_client: Optional[SodaClient] = None

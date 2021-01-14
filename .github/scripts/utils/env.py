@@ -37,3 +37,11 @@ class ENV:
     @classmethod
     def get_python_version(cls):
         return cls.get_variable('PYTHON_VERSION')
+
+    @classmethod
+    def get_included_branches(cls):
+        return cls.get_variable('INCLUDED_BRANCHES')
+
+    @classmethod
+    def get_force_send(cls):
+        return os.environ.get('FORCE_SEND', 'false')
