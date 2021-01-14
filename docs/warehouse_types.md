@@ -36,7 +36,7 @@ Example
 
 ```yaml
 name: my_athena_project
-warehouse:
+connection:
     type: athena
     database: sodalite_test
     access_key_id: env_var(AWS_ACCESS_KEY_ID)
@@ -51,7 +51,7 @@ warehouse:
 
 ```yaml
 name: my_bigquery_project
-warehouse:
+connection:
     type: bigquery
     account_info: <PATH TO YOUR BIGQUERY ACCOUNT INFO JSON FILE>
     dataset: sodasql
@@ -62,7 +62,7 @@ warehouse:
 
 ```yaml
 name: my_postgres_project
-warehouse:
+connection:
     type: postgres
     host: localhost
     username: sodasql
@@ -76,7 +76,7 @@ warehouse:
 
 ```yaml
 name: my_redshift_project
-warehouse:
+connection:
     type: redshift
     host: <YOUR AWS REDSHIFT HOSTNAME>
     username: soda
