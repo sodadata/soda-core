@@ -1,6 +1,6 @@
-# Current status and roadmap
+# Roadmap and release notes
 
-**Current status**
+## Current status
 
 Soda SQL is currently in beta. While the codebase is quite young, it does build upon our 
 experience of many field implementations and customer inputs.  
@@ -9,7 +9,7 @@ We have seen many home grown solutions for this problem.  With this project, we 
 combine our expertise with these efforts and jointly build something that any individual party 
 could not achieve.
 
-**Roadmap**  
+## Roadmap  
 
 Now
 * Support Postgres (Done)
@@ -25,3 +25,7 @@ Later
 * Support Dremio
 
 For other SQL engines or feature requests, [create an issue](https://github.com/sodadata/soda-sql/issues/new)
+
+## Release notes
+
+TODO

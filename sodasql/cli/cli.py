@@ -140,10 +140,10 @@ def create(warehouse_dir: str,
             file_system.file_write_from_str(env_vars_file, env_vars_yml_str)
 
         logging.info(f"Review warehouse.yml by running command")
-        logging.info(f"  open {warehouse_yml_file}")
+        logging.info(f"  cat {warehouse_yml_file}")
         if warehouse_env_vars_dict:
             logging.info(f"Review section {warehouse} in ~/.soda/env_vars.yml by running command")
-            logging.info(f"  open ~/.soda/env_vars.yml")
+            logging.info(f"  cat ~/.soda/env_vars.yml")
         logging.info(f"Then run")
         logging.info(f"  soda init {warehouse_dir}")
     except Exception as e:
@@ -151,7 +151,7 @@ def create(warehouse_dir: str,
         return 1
 
 
-@main.command(help='Finds tables in the warehouse and based on the contents, creates initial scan.yml files.'
+@main.command(help='Finds tables in the warehouse and based on the contents, creates initial scan.yml files. '
                    'WAREHOUSE_DIR is the warehouse directory containing a warehouse.yml file')
 @click.argument('warehouse_dir')
 def init(warehouse_dir: str):
@@ -160,6 +160,7 @@ def init(warehouse_dir: str):
     """
     logging.info(SODA_SQL_VERSION)
     file_system = FileSystemSingleton.INSTANCE
+    warehouse = None
 
     try:
         logging.info(f'Initializing {warehouse_dir} ...')
@@ -184,7 +185,7 @@ def init(warehouse_dir: str):
                 logging.info(f'Creating table directory {table_dir}')
                 file_system.mkdirs(table_dir)
             else:
-                logging.info(f'Directory {table_dir} aleady exists')
+                logging.info(f'Directory {table_dir} already exists')
 
             table_scan_yaml_file = file_system.join(table_dir, 'scan.yml')
 

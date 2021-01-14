@@ -1,17 +1,17 @@
 # Orchestrate scans
 
-This section explains how to run scans as part of your data pipeline and 
+This section explains how to run scans as part of your data pipeline and
 stop the pipeline when necessary to prevent bad data flowing downstream.
 
-soda-sql is build in such a way that it's easy to run it as a step in your 
-pipeline orchestration.  
+soda-sql is build in such a way that it's easy to run it as a step in your
+pipeline orchestration.
 
-Use the orchestration tool to configure if the soda scan is blocking the pipeline 
+Use the orchestration tool to configure if the soda scan is blocking the pipeline
 (for testing) or in parallel (for monitoring)
 
 ## Programmatic scans
 
-Here's how to run scans using Python: 
+Here's how to run scans using Python:
 
 Programmatic scan execution based on default dir structure:
 ```python
@@ -58,9 +58,9 @@ if scan_result.has_failures():
 
 TODO: describe how to run Soda scans in Airflow.
 
-If you're reading this and thinking: "I want to contribute!" Great.  
-[Post an note on GitHub](https://github.com/sodadata/soda-sql/issues/new?subject=Contributing Airflow) to let 
-others know you're starting on this. 
+If you're reading this and thinking: "I want to contribute!" Great.
+[Post an note on GitHub](https://github.com/sodadata/soda-sql/discussions/new?title=Contributing%20Airflow) to let
+others know you're starting on this.
 
 ## Other orchestration solutions
 
@@ -74,5 +74,5 @@ TODO: describe how to run Soda scans in orchestration tools like
 * Luigi
 
 If you're reading this and thinking: "I want to contribute!" Great.  
-[Post an note on GitHub](https://github.com/sodadata/soda-sql/issues/new) to let others know 
+[Post an note on GitHub](https://github.com/sodadata/soda-sql/discussions/new) to let others know 
 you're starting on this. 

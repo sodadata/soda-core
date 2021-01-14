@@ -23,7 +23,7 @@ actual proof yet.  If you have knowledge on this, [drop us a line in one of the 
 
 ## Top level scan.yml keys
 
-In a `scan.yaml` file, you configure which metrics should be computed and 
+In a `scan.yml` file, you configure which metrics should be computed and 
 which tests should be checked.
 
 Top level configuration keys:

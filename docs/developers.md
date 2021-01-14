@@ -142,3 +142,4 @@ Install the package:
 $ pip install .
 ```
 
+## Release 

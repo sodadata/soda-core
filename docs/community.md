@@ -2,24 +2,29 @@
 
 Soda SQL is open source software distributed under the Apache License v2
 
+We hope you like it.  Please encourage us by <a class="github-button" href="https://github.com/sodadata/soda-sql" data-icon="octicon-star" data-size="large" aria-label="Star sodadata/soda-sql on GitHub">starring soda-sql on GitHub</a> 
+
 Get involved, cause we believe Soda SQL is going to be an important part 
 of many data platforms and you have a perspective to contribute.
 
-## Slack
-
-[Say 'Hi' on our Slack channel getting-started](slack://channel?id=C01HYL8V64C&team=T01HBMYM59V)
-
 ## GitHub
 
-[Post an issue on GitHub](https://github.com/sodadata/soda-sql/issues/new)
+Use [our GitHub's discussions](https://github.com/sodadata/soda-sql/discussions) forum to get 
+in touch with the community 
 
-<a class="github-button" href="https://github.com/sodadata/soda-sql" data-icon="octicon-star" data-size="large" aria-label="Star sodadata/soda-sql on GitHub">Star soda-sql on GitHub</a> 
+Don't hesitate to 
+
+* [Post a question](https://github.com/sodadata/soda-sql/discussions/new)
+* [Post a problem](https://github.com/sodadata/soda-sql/discussions/new)
+* [Share your feedback](https://github.com/sodadata/soda-sql/discussions/new)
+* [Suggest an improvement](https://github.com/sodadata/soda-sql/discussions/new)
 
 ## Contributing
 
-Don't hesitate and reach out if you want to contribute.  Getting involved is easier than you think.
-Even complaining is a good contribution :)
+We are very open to any kind of contribution.
 
-We only ask that in all Soda SQL communications you 
-should [try to be kind](http://www.catb.org/~esr/faqs/smart-questions.html).
+To start a contribution it's good to, [post your idea  
+on the discussion forum](https://github.com/sodadata/soda-sql/discussions/new)   
 
+This way the whole community is up to date and can share their thoughts and 
+--if needed-- help you with pointers.

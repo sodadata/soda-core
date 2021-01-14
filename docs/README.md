@@ -6,7 +6,7 @@ Data testing and monitoring for SQL accessible data.
 
  * Stops your pipeline if bad data is detected 
  * Extracts metrics through SQL
- * Data monitoring
+ * Full control over metrics and queries
 
 **Why Soda SQL?**
 
@@ -33,8 +33,9 @@ code.
 
 **Show me the money**
 
-Simple metrics and tests can be configured in Yaml configuration files like this: 
-`my_warehouse/my_table/scan.yaml` :
+Simple metrics and tests can be configured in Yaml configuration files called `scan.yml`. An example
+of the contents of such a file:
+
 ```yaml
 metrics:
     - row_count
@@ -74,9 +75,9 @@ columns:
             spread: max - min < 20
 ```
 
-Any custom SQL metric can be defined as well.  Eg
+Metrics aren't limited to the ones defined by Soda SQL. You can create your own custom SQL metric definitions 
+with a simple yml file.
 
-`my_warehouse/my_table/total_volume_us.yaml` :
 ```yaml
 metrics: 
     - total_volume_us
@@ -88,7 +89,7 @@ tests:
     - total_volume_us > 5000
 ```
 
-Based on these configuration files, Soda SQL will scan your data 
+Based on these configuration files, Soda SQL will scan your data
 each time new data arrived like this:
 
 ```
@@ -124,8 +125,8 @@ max_length: 9
 All is good. No tests failed. Scan took 23.307 seconds
 ```
 
-The next step is to add Soda SQL scans in your favourite
-data pipeline orchestration solution like Eg:  
+The next step is to add Soda SQL scans in your favorite
+data pipeline orchestration solution like:  
 
 * Airflow
 * AWS Glue
@@ -135,8 +136,7 @@ data pipeline orchestration solution like Eg:
 * Matillion
 * Luigi
 
-If you like the goals of this project, encourage us and  
-<a class="github-button" href="https://github.com/sodadata/soda-sql" data-icon="octicon-star" data-size="large" aria-label="Star sodadata/soda-sql on GitHub">star soda-sql on GitHub</a> 
+If you like the goals of this project, encourage us! Star   
+<a class="github-button" href="https://github.com/sodadata/soda-sql" data-icon="octicon-star" data-size="large" aria-label="Star sodadata/soda-sql on GitHub">soda-sql on GitHub</a> 
 
-Next check out [Getting started](installation.md) for installation and [the tutorial](tutorial.md)
-to get your first project going.
+> Next, head over to our ['5 minute tutorial'](https://docs.soda.io/soda-sql/#/5_min_tutorial) and get your first project going!
