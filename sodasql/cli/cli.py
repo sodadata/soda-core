@@ -17,7 +17,7 @@ import yaml
 
 from sodasql.cli.file_system import FileSystemSingleton
 from sodasql.scan.scan_builder import ScanBuilder
-from tests.common.logging_helper import LoggingHelper
+from sodasql.common.logging_helper import LoggingHelper
 
 LoggingHelper.configure_for_cli()
 
