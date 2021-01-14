@@ -14,6 +14,7 @@ from typing import Optional
 
 import click
 import yaml
+from sodasql import SODA_SQL_VERSION
 from sodasql.cli.file_system import FileSystemSingleton
 from sodasql.common.logging_helper import LoggingHelper
 from sodasql.scan.scan_builder import ScanBuilder
@@ -21,19 +22,17 @@ from sodasql.scan.scan_builder import ScanBuilder
 LoggingHelper.configure_for_cli()
 
 
-SODA_SQL_VERSION = 'Soda CLI version 2.0.0 beta'
-
-
 class IndentingDumper(yaml.Dumper):
     """
     yaml.dump hack to get indentation.
     see also https://stackoverflow.com/questions/25108581/python-yaml-dump-bad-indentation
     """
+
     def increase_indent(self, flow=False, indentless=False):
         return super(IndentingDumper, self).increase_indent(flow, False)
 
 
-@click.group()
+@click.group(help=f"Soda CLI version {SODA_SQL_VERSION}")
 def main():
     pass
 
@@ -58,7 +57,7 @@ def create(warehouse_dir: str,
         """
         Creates a project directory and ensures a profile is present
         """
-        logging.info(SODA_SQL_VERSION)
+        logging.info(f"Soda CLI version {SODA_SQL_VERSION}")
         file_system = FileSystemSingleton.INSTANCE
 
 
