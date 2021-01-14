@@ -13,6 +13,7 @@ import os
 from pathlib import Path
 
 import yaml
+from sodasql.cli.file_system import FileSystem, FileSystemSingleton
 
 
 class EnvVars:
@@ -21,15 +22,15 @@ class EnvVars:
     @classmethod
     def load_env_vars(cls, project_name: str):
         env_vars_path = f'{str(Path.home())}/.soda/env_vars.yml'
-        if Path(env_vars_path).is_file():
-            with open(env_vars_path) as f:
-                env_vars_dict = yaml.load(f, Loader=yaml.FullLoader)
-                if isinstance(env_vars_dict, dict):
-                    project_env_vars_dict = env_vars_dict.get(project_name)
-                    if isinstance(project_env_vars_dict, dict):
-                        for env_var_name in project_env_vars_dict:
-                            env_var_value = project_env_vars_dict.get(env_var_name)
-                            if isinstance(env_var_value, str):
-                                os.environ[env_var_name] = env_var_value
-                            elif env_var_value is None and env_var_name in os.environ:
-                                del os.environ[env_var_name]
+        if FileSystemSingleton.INSTANCE.is_file(env_vars_path):
+            file_contents = FileSystemSingleton.INSTANCE.file_read_as_str(env_vars_path)
+            env_vars_dict = yaml.load(file_contents, Loader=yaml.FullLoader)
+            if isinstance(env_vars_dict, dict):
+                project_env_vars_dict = env_vars_dict.get(project_name)
+                if isinstance(project_env_vars_dict, dict):
+                    for env_var_name in project_env_vars_dict:
+                        env_var_value = project_env_vars_dict.get(env_var_name)
+                        if isinstance(env_var_value, str):
+                            os.environ[env_var_name] = env_var_value
+                        elif env_var_value is None and env_var_name in os.environ:
+                            del os.environ[env_var_name]

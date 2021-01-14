@@ -13,7 +13,6 @@ import os
 from typing import AnyStr, List
 
 import yaml
-
 from sodasql.cli.file_system import FileSystemSingleton
 from sodasql.scan.parser import Parser
 from sodasql.scan.scan import Scan
@@ -76,8 +75,8 @@ class ScanBuilder:
         """
         Reads warehouse, scan and sql metrics using the directory structure.
         """
-        if self.__is_valid_type('warehouse_dir_path', warehouse_dir_path, str) or \
-           self.__is_valid_type('table_dir_name', table_dir_name, str):
+        if not self.__is_valid_type('warehouse_dir_path', warehouse_dir_path, str) or \
+           not self.__is_valid_type('table_dir_name', table_dir_name, str):
             return
 
         if not self.file_system.is_dir(warehouse_dir_path):

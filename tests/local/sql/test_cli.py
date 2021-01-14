@@ -12,7 +12,6 @@ from pathlib import Path
 from typing import AnyStr
 
 from click.testing import CliRunner
-
 from sodasql.cli.cli import main
 from sodasql.cli.file_system import FileSystem, FileSystemSingleton
 from tests.common.sql_test_case import SqlTestCase
@@ -48,7 +47,7 @@ class CliWithMockFileSystem(FileSystem):
         return self.is_file(path)
 
     def list_dir(self, dir_path):
-        raise RuntimeError('Not yet implemented')
+        return {k: v for k, v in self.files.items() if k.startswith(dir_path)}
 
 
 class TestScan(SqlTestCase):
@@ -63,7 +62,7 @@ class TestScan(SqlTestCase):
     def tearDownClass(cls) -> None:
         FileSystemSingleton.INSTANCE = cls.original_file_system
 
-    def test_scan_cli_invocation(self):
+    def test_scan_cli_create_invocation(self):
         runner = CliRunner()
         result = runner.invoke(main,
                                ['create', '-d', 'sodasql', '-u', 'sodasql', '-p', 'sodasql',
@@ -89,3 +88,34 @@ class TestScan(SqlTestCase):
             ('test_project:\n'
              '  POSTGRES_USERNAME: sodasql\n'
              '  POSTGRES_PASSWORD: sodasql\n'))
+
+    def test_scan_cli_scan_invocation(self):
+        runner = CliRunner()
+        FileSystemSingleton.INSTANCE.mkdirs('./test_project')
+        FileSystemSingleton.INSTANCE.file_write_from_str('./test_project/warehouse.yml', (
+            'name: test_project\n'
+             'connection:\n'
+             '  type: postgres\n'
+             '  host: localhost\n'
+             '  username: env_var(POSTGRES_USERNAME)\n'
+             '  password: env_var(POSTGRES_PASSWORD)\n'
+             '  database: sodasql\n'
+             '  schema: public\n'
+        ))
+        FileSystemSingleton.INSTANCE.file_write_from_str(f'{FileSystemSingleton.INSTANCE.user_home_dir()}/.soda/env_vars.yml', (
+            'test_project:\n'
+             '  POSTGRES_USERNAME: sodasql\n'
+             '  POSTGRES_PASSWORD: sodasql\n'
+        ))
+        FileSystemSingleton.INSTANCE.mkdirs('./test_project/postgres')
+        FileSystemSingleton.INSTANCE.file_write_from_str('./test_project/postgres/scan.yml', (
+            'table_name: postgres\n'
+            'metrics:\n'
+            '  - row_count\n'
+            'tests:\n'
+            '  must have rows: row_count > 0\n'
+        ))
+
+        result = runner.invoke(main,
+                               ['scan', './test_project', 'postgres'])
+        self.assertEqual(result.exit_code, 0)
