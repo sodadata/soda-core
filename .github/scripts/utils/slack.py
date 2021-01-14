@@ -12,7 +12,7 @@ class SlackMessageSender:
     slack_webhook_url: str
     branch: str
     ctx: ssl.SSLContext
-    include_branches = ENV.get_included_branches().split()
+    included_branches = ENV.get_included_branches().split()
 
     def __init__(self):
         self.slack_webhook_url = ENV.get_variable('SLACK_WEBHOOK_URL')
