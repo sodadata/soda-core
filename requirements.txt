@@ -15,7 +15,7 @@ certifi==2020.12.5        # via -r requirements.in, msrest, requests, snowflake-
 cffi==1.14.3              # via -r requirements.in, cryptography, google-crc32c, snowflake-connector-python
 chardet==3.0.4            # via -r requirements.in, requests
 click==7.1.2              # via -r requirements.in
-cryptography==3.1.1       # via -r requirements.in, azure-storage-blob, pyopenssl, snowflake-connector-python
+cryptography==3.2         # via -r requirements.in, azure-storage-blob, pyopenssl, snowflake-connector-python
 future==0.18.2            # via pyathena
 google-api-core[grpc]==1.24.1  # via google-cloud-bigquery, google-cloud-core
 google-auth==1.24.0       # via google-api-core

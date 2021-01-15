@@ -15,6 +15,6 @@ chardet==3.0.4
 requests==2.23
 urllib3==1.25.10
 cffi==1.14.3
-cryptography==3.1.1
+cryptography==3.2
 
 
