@@ -37,10 +37,7 @@ def main():
     pass
 
 
-@main.command(help='Creates a new warehouse directory and prepares credentials in your ~/.soda/env_vars.yml '
-                   'Nothing will be overwritten or removed, only added if it does not exist yet. '
-                   'WAREHOUSE_DIR is a directory that contains all soda related yaml config files for one warehouse. '
-                   'WAREHOUSE_TYPE is one of {postgres, snowflake, redshift, bigquery, athena}')
+@main.command()
 @click.argument('warehouse_dir')
 @click.argument('warehouse_type')
 @click.option('-d', '--database',  required=False, default=None, help='The database name to use for the connection')
@@ -53,6 +50,14 @@ def create(warehouse_dir: str,
            database: Optional[str],
            username: Optional[str],
            password: Optional[str]):
+    """
+    Creates a new warehouse directory and prepares credentials in your ~/.soda/env_vars.yml
+    Nothing will be overwritten or removed, only added if it does not exist yet.
+
+    WAREHOUSE_DIR is a directory that contains all soda related yaml config files for one warehouse.
+
+    WAREHOUSE_TYPE is one of {postgres, snowflake, redshift, bigquery, athena}
+    """
     try:
         """
         Creates a project directory and ensures a profile is present
@@ -161,12 +166,13 @@ def create(warehouse_dir: str,
         return 1
 
 
-@main.command(help='Finds tables in the warehouse and based on the contents, creates initial scan.yml files. '
-                   'WAREHOUSE_DIR is the warehouse directory containing a warehouse.yml file')
+@main.command()
 @click.argument('warehouse_dir')
 def init(warehouse_dir: str):
     """
     Finds tables in the warehouse and based on the contents, creates initial scan.yml files.
+
+    WAREHOUSE_DIR is the warehouse directory containing a warehouse.yml file
     """
     logging.info(SODA_SQL_VERSION)
     file_system = FileSystemSingleton.INSTANCE
@@ -238,17 +244,19 @@ def init(warehouse_dir: str):
             warehouse.close()
 
 
-@main.command(help='Computes all measurements and runs all tests on one table.  Exit code 0 means all tests passed.'
-                   'Non zero exist code means tests have failed or an exception occured.  '
-                   'If the project has a Soda cloud account configured, measurements and test results will be uploaded'
-                   'WAREHOUSE_DIR is the warehouse directory containing a warehouse.yml file '
-                   'TABLE is the name of the table to be scanned')
+@main.command()
 @click.argument('warehouse_dir')
 @click.argument('table')
 @click.option('--timeslice', required=False, default=None, help='The timeslice')
 def scan(warehouse_dir: str, table: str, timeslice: str = None, variables: dict = None):
     """
-    Scans a table by executing queries, computes measurements and runs tests
+    Computes all measurements and runs all tests on one table.  Exit code 0 means all tests passed.
+    Non zero exist code means tests have failed or an exception occured.
+    If the project has a Soda cloud account configured, measurements and test results will be uploaded.
+
+    WAREHOUSE_DIR is the warehouse directory containing a warehouse.yml file
+
+    TABLE is the name of the table to be scanned
     """
     logging.info(SODA_SQL_VERSION)
 
