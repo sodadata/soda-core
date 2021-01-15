@@ -60,16 +60,17 @@ def create(warehouse_dir: str,
         logging.info(f"Soda CLI version {SODA_SQL_VERSION}")
         file_system = FileSystemSingleton.INSTANCE
 
-
         if not warehouse:
-            warehouse_dir_parent, warehouse_dir_name = file_system.split(warehouse_dir)
+            warehouse_dir_parent, warehouse_dir_name = file_system.split(
+                warehouse_dir)
             warehouse = warehouse if warehouse else warehouse_dir_name
 
         from sodasql.scan.dialect import ALL_WAREHOUSE_TYPES, Dialect
         dialect = Dialect.create_for_warehouse_type(warehouse_type)
 
         if not dialect:
-            logging.info(f"Invalid warehouse type {warehouse_type}, use one of {str(ALL_WAREHOUSE_TYPES)}")
+            logging.info(
+                f"Invalid warehouse type {warehouse_type}, use one of {str(ALL_WAREHOUSE_TYPES)}")
             return 1
 
         if file_system.file_exists(warehouse_dir):
@@ -89,20 +90,26 @@ def create(warehouse_dir: str,
             configuration_params['username'] = username
         if isinstance(password, str):
             configuration_params['password'] = password
-        connection_properties = dialect.default_connection_properties(configuration_params)
-        warehouse_env_vars_dict = dialect.default_env_vars(configuration_params)
+        connection_properties = dialect.default_connection_properties(
+            configuration_params)
+        warehouse_env_vars_dict = dialect.default_env_vars(
+            configuration_params)
 
         warehouse_yml_file = file_system.join(warehouse_dir, 'warehouse.yml')
         if file_system.file_exists(warehouse_yml_file):
-            logging.info(f"Warehouse configuration file {warehouse_yml_file} already exists")
+            logging.info(
+                f"Warehouse configuration file {warehouse_yml_file} already exists")
         else:
-            logging.info(f"Creating warehouse configuration file {warehouse_yml_file} ...")
+            logging.info(
+                f"Creating warehouse configuration file {warehouse_yml_file} ...")
             warehouse_dict = {
                 'name': warehouse,
                 'connection': connection_properties
             }
-            warehouse_yml_str = yaml.dump(warehouse_dict, default_flow_style=False, sort_keys=False)
-            file_system.file_write_from_str(warehouse_yml_file, warehouse_yml_str)
+            warehouse_yml_str = yaml.dump(
+                warehouse_dict, default_flow_style=False, sort_keys=False)
+            file_system.file_write_from_str(
+                warehouse_yml_file, warehouse_yml_str)
 
         dot_soda_dir = file_system.join(file_system.user_home_dir(), '.soda')
         if not file_system.file_exists(dot_soda_dir):
@@ -113,9 +120,11 @@ def create(warehouse_dir: str,
         env_vars_file_exists = file_system.file_exists(env_vars_file)
         if env_vars_file_exists:
             env_vars_yml_str = file_system.file_read_as_str(env_vars_file)
-            existing_env_vars_yml_dict = yaml.load(env_vars_yml_str, Loader=yaml.FullLoader)
+            existing_env_vars_yml_dict = yaml.load(
+                env_vars_yml_str, Loader=yaml.FullLoader)
             if isinstance(existing_env_vars_yml_dict, dict) and warehouse in existing_env_vars_yml_dict:
-                logging.info(f"Warehouse section {warehouse} already exists in {env_vars_file}.  Skipping...")
+                logging.info(
+                    f"Warehouse section {warehouse} already exists in {env_vars_file}.  Skipping...")
                 warehouse_env_vars_dict = None
 
         if warehouse_env_vars_dict:
@@ -131,16 +140,19 @@ def create(warehouse_dir: str,
                                           sort_keys=False)
 
             if env_vars_file_exists:
-                logging.info(f"Adding env vars for {warehouse} to {env_vars_file}")
+                logging.info(
+                    f"Adding env vars for {warehouse} to {env_vars_file}")
             else:
-                logging.info(f"Creating {env_vars_file} with example env vars in section {warehouse}")
+                logging.info(
+                    f"Creating {env_vars_file} with example env vars in section {warehouse}")
 
             file_system.file_write_from_str(env_vars_file, env_vars_yml_str)
 
         logging.info(f"Review warehouse.yml by running command")
         logging.info(f"  cat {warehouse_yml_file}")
         if warehouse_env_vars_dict:
-            logging.info(f"Review section {warehouse} in ~/.soda/env_vars.yml by running command")
+            logging.info(
+                f"Review section {warehouse} in ~/.soda/env_vars.yml by running command")
             logging.info(f"  cat ~/.soda/env_vars.yml")
         logging.info(f"Then run")
         logging.info(f"  soda init {warehouse_dir}")
@@ -174,7 +186,8 @@ def init(warehouse_dir: str):
         warehouse = Warehouse(scan_builder.warehouse_yml)
 
         logging.info('Querying warehouse for tables')
-        rows = warehouse.sql_fetchall(warehouse.dialect.sql_tables_metadata_query())
+        rows = warehouse.sql_fetchall(
+            warehouse.dialect.sql_tables_metadata_query())
         first_table_name = rows[0][0] if len(rows) > 0 else None
         for row in rows:
             table_name = row[0]
@@ -188,7 +201,8 @@ def init(warehouse_dir: str):
             table_scan_yaml_file = file_system.join(table_dir, 'scan.yml')
 
             if file_system.file_exists(table_scan_yaml_file):
-                logging.info(f"Scan file {table_scan_yaml_file} already exists")
+                logging.info(
+                    f"Scan file {table_scan_yaml_file} already exists")
             else:
                 logging.info(f"Creating {table_scan_yaml_file} ...")
                 from sodasql.scan.scan_yml_parser import (KEY_METRICS,
@@ -210,9 +224,11 @@ def init(warehouse_dir: str):
                                          sort_keys=False,
                                          Dumper=IndentingDumper,
                                          default_flow_style=False)
-                file_system.file_write_from_str(table_scan_yaml_file, scan_yml_str)
+                file_system.file_write_from_str(
+                    table_scan_yaml_file, scan_yml_str)
 
-        logging.info(f"Next run 'soda scan {warehouse_dir} {first_table_name}' to calculate measurements and run tests")
+        logging.info(
+            f"Next run 'soda scan {warehouse_dir} {first_table_name}' to calculate measurements and run tests")
 
     except Exception as e:
         logging.exception(f'Exception: {str(e)}')
@@ -228,9 +244,9 @@ def init(warehouse_dir: str):
                    'WAREHOUSE_DIR is the warehouse directory containing a warehouse.yml file '
                    'TABLE is the name of the table to be scanned')
 @click.argument('warehouse_dir')
-@click.argument('table_dir_name')
+@click.argument('table')
 @click.option('--timeslice', required=False, default=None, help='The timeslice')
-def scan(warehouse_dir: str, table_dir_name: str, timeslice: str = None, variables: dict = None):
+def scan(warehouse_dir: str, table: str, timeslice: str = None, variables: dict = None):
     """
     Scans a table by executing queries, computes measurements and runs tests
     """
@@ -238,10 +254,10 @@ def scan(warehouse_dir: str, table_dir_name: str, timeslice: str = None, variabl
 
     warehouse = None
     try:
-        logging.info(f'Scanning {table_dir_name} in {warehouse_dir} ...')
+        logging.info(f'Scanning {table} in {warehouse_dir} ...')
 
         scan_builder = ScanBuilder()
-        scan_builder.read_scan_from_dirs(warehouse_dir, table_dir_name)
+        scan_builder.read_scan_from_dirs(warehouse_dir, table)
         scan = scan_builder.build()
         warehouse = scan.warehouse
         from sodasql.scan.scan_result import ScanResult
