@@ -2,6 +2,8 @@
 
 Data testing and monitoring for SQL accessible data.
 
+> This is the overview.  Full documentation is available at [docs.soda.io/soda-sql](https://docs.soda.io/soda-sql/)
+
 **What does Soda SQL do?**
 
  * Stops your pipeline if bad data is detected
