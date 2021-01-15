@@ -11,11 +11,15 @@ jobs:
       fail-fast: false
       matrix:
         python-version: [ 3.7, 3.8 ]
-        test-module: [ local ]
+        test-module: [ local, SnowflakeSuite, RedshiftSuite]
     env:
       TEST_MODULE: ${{ matrix.test-module }}
       PYTHON_VERSION: ${{ matrix.python-version }}
       INCLUDED_BRANCHES: "main master"
+      SODA_SNOWFLAKE_USERNAME: ${{ secrets.SODA_SNOWFLAKE_USERNAME }}
+      SODA_SNOWFLAKE_PASSWORD: ${{ secrets.SODA_SNOWFLAKE_PASSWORD }}
+      SODA_REDSHIFT_USERNAME: ${{ secrets.SODA_REDSHIFT_USERNAME }}
+      SODA_REDSHIFT_PASSWORD: ${{ secrets.SODA_REDSHIFT_PASSWORD }}
     steps:
       - uses: actions/checkout@v2
       - name: Setup Python ${{ matrix.python-version }}
