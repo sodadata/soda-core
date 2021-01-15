@@ -17,7 +17,7 @@ class TestColumnMetricTests(SqlTestCase):
     def test_column_metric_test(self):
         self.sql_create_table(
             'test_table',
-            ["name VARCHAR(255)"],
+            [f"name {self.warehouse.dialect.string_column_type}"],
             ["('one')",
              "('two')",
              "('three') ",
@@ -57,7 +57,7 @@ class TestColumnMetricTests(SqlTestCase):
     def test_column_metric_metric_calculation_test(self):
         self.sql_create_table(
             'test_table',
-            ["size INTEGER"],
+            [f"size {self.warehouse.dialect.integer_column_type}"],
             ["(3)",
              "(3)",
              "(4) ",

@@ -20,7 +20,7 @@ class TestMissingAndInvalidCustomizations(SqlTestCase):
     def test_scan_customized_missing_values(self):
         self.sql_create_table(
             self.table_name,
-            ["name VARCHAR(255)"],
+            [f"name {self.warehouse.dialect.string_column_type}"],
             ["('one')",
              "('')",
              "('  ')",
@@ -48,7 +48,7 @@ class TestMissingAndInvalidCustomizations(SqlTestCase):
     def test_scan_customized_missing_format_empty(self):
         self.sql_create_table(
             self.table_name,
-            ["name VARCHAR(255)"],
+            [f"name {self.warehouse.dialect.string_column_type}"],
             ["('one')",
              "('two')",
              "('three')",
@@ -79,7 +79,7 @@ class TestMissingAndInvalidCustomizations(SqlTestCase):
     def test_scan_customized_missing_format_whitespace(self):
         self.sql_create_table(
             self.table_name,
-            ["name VARCHAR(255)"],
+            [f"name {self.warehouse.dialect.string_column_type}"],
             ["('one')",
              "('two')",
              "('three')",
@@ -110,7 +110,7 @@ class TestMissingAndInvalidCustomizations(SqlTestCase):
     def test_scan_missing_customized_and_validity(self):
         self.sql_create_table(
             self.table_name,
-            ["name VARCHAR(255)"],
+            [f"name {self.warehouse.dialect.string_column_type}"],
             ["('one')",
              "('')",
              "('  ')",
@@ -138,7 +138,7 @@ class TestMissingAndInvalidCustomizations(SqlTestCase):
     def test_scan_valid_regex(self):
         self.sql_create_table(
             self.table_name,
-            ["name VARCHAR(255)"],
+            [f"name {self.warehouse.dialect.string_column_type}"],
             ["('one')",
              "('')",
              "('  ')",
@@ -170,7 +170,7 @@ class TestMissingAndInvalidCustomizations(SqlTestCase):
     def test_scan_valid_format(self):
         self.sql_create_table(
             self.table_name,
-            ["col VARCHAR(255)"],
+            [f"col {self.warehouse.dialect.string_column_type}"],
             ["('1')",
              "('2')",
              "('3')",

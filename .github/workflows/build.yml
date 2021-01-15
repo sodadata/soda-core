@@ -33,7 +33,7 @@ jobs:
       fail-fast: false
       matrix:
         python-version: [ 3.7, 3.8 ]
-        test-module: [ local, SnowflakeSuite, RedshiftSuite]
+        test-module: [ local, SnowflakeSuite, RedshiftSuite, BigQuerySuite ]
     env:
       JOB_ID: ${{ github.job }}
       SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
@@ -49,6 +49,7 @@ jobs:
       SODA_SNOWFLAKE_PASSWORD: ${{ secrets.SODA_SNOWFLAKE_PASSWORD }}
       SODA_REDSHIFT_USERNAME: ${{ secrets.SODA_REDSHIFT_USERNAME }}
       SODA_REDSHIFT_PASSWORD: ${{ secrets.SODA_REDSHIFT_PASSWORD }}
+      BIGQUERY_ACCOUNT_INFO_JSON: ${{ secrets.BIGQUERY_ACCOUNT_INFO_JSON }}
     steps:
       - uses: actions/checkout@v2
       - name: Setup Python ${{ matrix.python-version }}

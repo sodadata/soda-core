@@ -17,7 +17,7 @@ class TestTestsTableMetric(SqlTestCase):
     def test_tests(self):
         self.sql_create_table(
             'test_table',
-            ["name VARCHAR(255)"],
+            [f"name {self.warehouse.dialect.string_column_type}"],
             ["('one')",
              "('two')",
              "('three') ",
@@ -45,4 +45,3 @@ class TestTestsTableMetric(SqlTestCase):
             }
         })
         self.assertTrue(scan_result.has_failures())
-

@@ -31,6 +31,10 @@ ALL_WAREHOUSE_TYPES = [POSTGRES,
 
 class Dialect:
 
+    string_column_type = "VARCHAR(255)"
+    integer_column_type = "INTEGER"
+    decimal_column_type = "REAL"
+
     @classmethod
     def create(cls, parser: Parser):
         warehouse_type = parser.get_str_optional('type')
@@ -80,7 +84,7 @@ class Dialect:
         return False
 
     def _get_text_types(self):
-        return ['CHAR', 'TEXT']
+        return ['CHAR', 'TEXT', 'STRING']
 
     def is_number(self, column):
         for number_type in self._get_number_types():
@@ -89,7 +93,7 @@ class Dialect:
         return False
 
     def _get_number_types(self):
-        return ['INT', 'REAL', 'PRECISION', 'NUMBER']
+        return ['INT', 'REAL', 'PRECISION', 'NUMBER', 'DECIMAL']
 
     def sql_columns_metadata_query(self, scan_configuration: ScanYml) -> str:
         raise RuntimeError('TODO override and implement this abstract method')
@@ -147,8 +151,9 @@ class Dialect:
 
     def sql_expr_cast_text_to_number(self, quoted_column_name, validity_format):
         if validity_format == 'number_whole':
-            return f"CAST({quoted_column_name} AS REAL)"
-        return f"CAST(REGEXP_REPLACE(REGEXP_REPLACE({quoted_column_name}, '[^-\\d\\.\\,]', '', 'g'), ',', '.', 'g') AS REAL)"
+            return f"CAST({quoted_column_name} AS {self.decimal_column_type})"
+        return f"CAST(REGEXP_REPLACE(REGEXP_REPLACE({quoted_column_name}, "\
+               f"'[^-\\d\\.\\,]', '', 'g'), ',', '.', 'g') AS {self.decimal_column_type})"
 
     def literal_number(self, value: str):
         return str(value)

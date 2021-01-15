@@ -18,7 +18,7 @@ class TestFrequentValues(SqlTestCase):
     def test_scan_mins_maxs(self):
         self.sql_create_table(
             self.default_test_table_name,
-            ["name INTEGER"],
+            [f"name {self.warehouse.dialect.integer_column_type}"],
             ["(1)",
              "(2)",
              "(2)",

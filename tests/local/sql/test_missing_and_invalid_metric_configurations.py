@@ -21,9 +21,9 @@ class TestMissingAndInvalidMetricConfigurations(SqlTestCase):
         super().setUp()
         self.sql_create_table(
             self.table_name,
-            ["id VARCHAR(255)",
-             "name VARCHAR(255)",
-             "size INTEGER"],
+            [f"id {self.warehouse.dialect.string_column_type}",
+             f"name {self.warehouse.dialect.string_column_type}",
+             f"size {self.warehouse.dialect.integer_column_type}"],
             ["('1', 'one',      1)",
              "('2', '',         2)",
              "('3', '  ',       3)",

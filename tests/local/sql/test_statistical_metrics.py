@@ -18,7 +18,7 @@ class TestStatisticalMetrics(SqlTestCase):
     def test_scan_statistical_metrics(self):
         self.sql_create_table(
             'test_table',
-            ["score VARCHAR(255)"],
+            [f"score {self.warehouse.dialect.string_column_type}"],
             ["('1')",
              "('2')",
              "('5')",
@@ -54,7 +54,7 @@ class TestStatisticalMetrics(SqlTestCase):
     def test_no_minmax_for_non_numeric_strings(self):
         self.sql_create_table(
             'test_table',
-            ["score VARCHAR(255)"],
+            [f"score {self.warehouse.dialect.string_column_type}"],
             ["('1')",
              "('2')",
              "('5')",

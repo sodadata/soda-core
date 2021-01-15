@@ -20,8 +20,8 @@ class TestMinMaxLength(SqlTestCase):
     def test_scan_min_max_length(self):
         self.sql_create_table(
             self.table_name,
-            ["name VARCHAR(255)",
-             "size INTEGER"],
+            [f"name {self.warehouse.dialect.string_column_type}",
+             f"size {self.warehouse.dialect.integer_column_type}"],
             ["('one',    1)",
              "('two',    2)",
              "('three',  3)",
