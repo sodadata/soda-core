@@ -92,7 +92,7 @@ jobs:
       AWS_DOCS_BUCKET: soda-public-docs
       AWS_DOCS_PATH: /soda-sql
       TWINE_USERNAME: __token__
-      TWINE_PASSWORD: pypi-${{ secrets.PYPI_API_TOKEN }}
+      TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
     steps:
       - uses: actions/checkout@v2
       - name: Setup aws-cli
