@@ -84,10 +84,9 @@ jobs:
 
   publish-docs:
     name: Deploy documentation
-    if: github.ref == 'refs/heads/main' || contains(github.ref, 'refs/tags/')
+    if: github.ref == 'refs/heads/main'
     timeout-minutes: 10
     runs-on: ubuntu-20.04
-    needs: [publish-pypi]
     env:
       AWS_CLOUDFRONT_ID: E2OAY23FHJNRE7
       AWS_ACCESS_KEY_ID: ${{ secrets.AWS_DOCS_ACCESS_KEY_ID }}
