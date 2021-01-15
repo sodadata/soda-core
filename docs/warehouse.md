@@ -41,7 +41,7 @@ to prevent them from being checked-in into your version control system.
 For example:
 ```yaml
 name: my_project_postgres
-warehouse:
+connection:
   type: postgres
   host: localhost
   username: env_var(POSTGRES_USERNAME)
