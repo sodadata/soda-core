@@ -1,30 +1,8 @@
-name: Build SodaSQL
+name: Build soda-sql
 
 on: [ push ]
 
 jobs:
-  publish-documentation:
-    name: Publish Documentation
-    timeout-minutes: 10
-    runs-on: ubuntu-20.04
-    env:
-      ACTIONS_ALLOW_UNSECURE_COMMANDS: true
-      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_BUILD_ACCESS_KEY_ID }}
-      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_BUILD_SECRET_ACCESS_KEY }}
-      INCLUDED_BRANCHES: "main master"
-    steps:
-      - uses: actions/checkout@v2
-      - name: Extract Branch Name
-        shell: bash
-        run: echo "##[set-output name=branch;]$(echo ${GITHUB_REF#refs/heads/})"
-        id: extract_branch
-      - name: Setup aws-cli
-        if: contains(env.INCLUDED_BRANCHES, steps.extract_branch.outputs.branch)
-        uses: chrislennon/action-aws-cli@v1.1
-      - name: Publish Documentation
-        if: contains(env.INCLUDED_BRANCHES, steps.extract_branch.outputs.branch)
-        run: aws s3 sync ./docs s3://sodasql-docs/
-
   run-tests:
     name: Run Tests
     timeout-minutes: 10
@@ -35,13 +13,6 @@ jobs:
         python-version: [ 3.7, 3.8 ]
         test-module: [ local ]
     env:
-      JOB_ID: ${{ github.job }}
-      SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
-      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      REPORTS_URL: http://sodasql-reports.s3-website-eu-west-1.amazonaws.com
-      ACTIONS_ALLOW_UNSECURE_COMMANDS: true
-      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_BUILD_ACCESS_KEY_ID }}
-      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_BUILD_SECRET_ACCESS_KEY }}
       TEST_MODULE: ${{ matrix.test-module }}
       PYTHON_VERSION: ${{ matrix.python-version }}
       INCLUDED_BRANCHES: "main master"
@@ -67,31 +38,83 @@ jobs:
         if: always()
         run: |
           cp ./reports/index.html ./reports/${{ steps.extract_branch.outputs.branch }}/${{ matrix.python-version }}/${{ matrix.test-module }}/index.html
-      - name: Notify on Failure
+      - name: Store Reports
+        uses: actions/upload-artifact@v2
+        with:
+          name: soda-sql-tox-reports-${{ matrix.python-version }}
+          path: ./reports
+          retention-days: 5
+      - name: Notify Slack on Failure
         if: failure()
+        env:
+          JOB_ID: ${{ github.job }}
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          REPORTS_URL: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           pip3 install -r .github/scripts/requirements.txt
           python3 .github/scripts/report_workflow_failure.py
-      - name: Setup aws-cli
-        if: always()
-        uses: chrislennon/action-aws-cli@v1.1
-      - name: Publish Reports
-        if: always()
-        run: aws s3 sync ./reports s3://sodasql-reports/
 
-  notify-success:
-    name: Notify on Success
-    needs: [ run-tests ]
+  publish-pypi:
+    name: Build & Publish Package
+    if: contains(github.ref, 'refs/tags/')
+    timeout-minutes: 10
     runs-on: ubuntu-20.04
-    env:
-      JOB_ID: ${{ github.job }}
-      SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
-      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      INCLUDED_BRANCHES: "main master"
+    needs: [run-tests]
     steps:
       - uses: actions/checkout@v2
-      - name: Notify Slack on Success
-        if: success()
+      - name: Setup Python 3.8
+        uses: actions/setup-python@v2
+        with:
+          python-version: 3.8
+      - name: Setup dependencies
+        run: pip install --upgrade setuptools wheel twine
+      - name: Get version
+        id: get_version
+        run: echo ::set-output name=VERSION::${GITHUB_REF/refs\/tags\//}
+      - name: Replace version
+        run: sed -i -r "s|^(SODA_SQL_VERSION\s*=\s*).*|\1'${{ steps.get_version.outputs.VERSION }}'|" sodasql/__init__.py
+      - name: Build package
+        run: python3 setup.py sdist bdist_wheel
+      - name: Publish to PyPi
+        run: twine upload dist/*
+
+  publish-docs:
+    name: Deploy documentation
+    if: github.ref == 'refs/heads/main' || contains(github.ref, 'refs/tags/')
+    timeout-minutes: 10
+    runs-on: ubuntu-20.04
+    needs: [publish-pypi]
+    env:
+      AWS_CLOUDFRONT_ID: E2OAY23FHJNRE7
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_DOCS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_DOCS_SECRET_ACCESS_KEY }}
+      AWS_DOCS_BUCKET: soda-public-docs
+      AWS_DOCS_PATH: /soda-sql
+      TWINE_USERNAME: __token__
+      TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
+    steps:
+      - uses: actions/checkout@v2
+      - name: Setup aws-cli
+        uses: chrislennon/action-aws-cli@v1.1
+      - name: Publish docs
+        run: aws s3 sync ./docs s3://${AWS_DOCS_BUCKET}${AWS_DOCS_PATH}
+      - name: Invalidate cache
+        run: aws cloudfront create-invalidation --distribution-id ${AWS_CLOUDFRONT_ID} --paths "${AWS_DOCS_PATH}" "${AWS_DOCS_PATH}/*"
+
+  inform-success:
+    name: Inform of success
+    runs-on: ubuntu-20.04
+    needs: [publish-docs, publish-pypi]
+    steps:
+      - uses: actpions/checkout@v2
+      - name: Notify Slack of success
+        env:
+          JOB_ID: ${{ github.job }}
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          REPORTS_URL: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          INCLUDED_BRANCHES: "main master"
         run: |
           pip3 install -r .github/scripts/requirements.txt
           .github/scripts/report_workflow_success.py
