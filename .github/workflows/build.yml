@@ -107,7 +107,7 @@ jobs:
   inform-success:
     name: Inform of success
     runs-on: ubuntu-20.04
-    needs: [publish-docs, publish-pypi]
+    needs: [publish-pypi]
     steps:
       - uses: actpions/checkout@v2
       - name: Notify Slack of success
