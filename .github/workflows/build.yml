@@ -77,6 +77,9 @@ jobs:
       - name: Build package
         run: python3 setup.py sdist bdist_wheel
       - name: Publish to PyPi
+        env:
+          TWINE_USERNAME: __token__
+          TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
         run: twine upload dist/*
 
   publish-docs:
@@ -91,8 +94,6 @@ jobs:
       AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_DOCS_SECRET_ACCESS_KEY }}
       AWS_DOCS_BUCKET: soda-public-docs
       AWS_DOCS_PATH: /soda-sql
-      TWINE_USERNAME: __token__
-      TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
     steps:
       - uses: actions/checkout@v2
       - name: Setup aws-cli
