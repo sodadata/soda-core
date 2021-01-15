@@ -1,12 +1,13 @@
 # SQL metrics
 
 The most simple SQL metric is selecting 1 numeric value.
-The name of the field will be used as the metric name in the tests.
 For example:
 
+> The name of the field will be used as the name of the metric.  So be sure to 
+> provide a meaningful field alias for aggregate functions.  Otherwise you won't 
+> be able to properly reference the metrics in the test.
+
 ```yaml
-metrics: 
-    - total_volume_us
 sql: |
     SELECT sum(volume) as total_volume_us
     FROM CUSTOMER_TRANSACTIONS
@@ -18,10 +19,6 @@ tests:
 Multiple select fields are supported as well:  
 
 ```yaml
-metrics:
-    - total_volume_us,
-    - min_volume_us,
-    - max_volume_us
 sql: |
     SELECT sum(volume) as total_volume_us,
            min(volume) as min_volume_us,
@@ -39,10 +36,6 @@ And also group-by sql metrics.  In this case the tests will be checked for
 each group combination.
  
 ```yaml
-metrics:
-    - total_volume,
-    - min_volume,
-    - max_volume
 sql: |
     SELECT country, 
            sum(volume) as total_volume,
