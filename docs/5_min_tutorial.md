@@ -1,13 +1,13 @@
 # 5 min tutorial
 
-If at any time during this tutorial you get stuck, speak up 
-in our [GitHub discussions forum](TODO)
+If at any time during this tutorial you get stuck, speak up
+in our [GitHub Discussions forum](https://github.com/sodadata/soda-sql/discussions/).
 
 ### 1\) Check your CLI installation
 
 Open a command line and enter `soda` to verify if the soda-sql command line tool is installed correctly.
 
-If you don't get this output, check out [Installation](installation.md)
+If you don't get this output, check out our [Installation guide](installation.md).
 
 ```shell
 $ soda
@@ -26,15 +26,16 @@ Commands:
 
 ### 2) Set up an example warehouse
 
-In this tutorial we'll use PostgreSQL as our data warehouse. Note that Soda SQL also supports 
+In this tutorial we'll use PostgreSQL as our data warehouse. Note that Soda SQL also supports
 Snowflake, AWS Athena, GCP BigQuery, AWS Redshift and others.
 
 #### 2.1) Start PostgreSQL as your warehouse
 
-To get you going we've included the steps required to setup a pre-configured PostgreSQL container, 
-but you can also choose to use your own PostgreSQL installation. If so, make sure to create 
+To get you going we've included the steps required to setup a pre-configured PostgreSQL container,
+but you can also choose to use your own PostgreSQL installation. If so, make sure to create
 a `sodasql` database and an associated `sodasql` user which doesn't require a password.
 
+_Command:_
 ```shell
 $ docker run --name soda_sql_tutorial_db --rm -d \
     -p 5432:5432 \
@@ -51,17 +52,17 @@ $ docker run --name soda_sql_tutorial_db --rm -d \
 > $ docker volume rm soda_sql_tutorial_postgres
 > ```
 
-#### 2.2\) Load example data in your warehouse
+#### 2.2\) Load example data into your warehouse
 
 Use the following command to load [example data](https://github.com/sodadata/soda-sql/blob/main/tests/demo/demodata.sql)
 into your PostgreSQL tutorial database:
 
-Command
+_Command:_
 ```shell
 docker exec soda_sql_tutorial_db \
   sh -c "wget -qO - https://raw.githubusercontent.com/sodadata/soda-sql/main/tests/demo/demodata.sql | psql -U sodasql -d sodasql"
 ```
-Command console output:
+_Command console output:_
 ```shell
 DROP TABLE
 CREATE TABLE
@@ -76,55 +77,39 @@ INSERT 0 12
 
 ### 3\) Create a warehouse directory
 
-With our database up-and-running it's time to create our warehouse directory.  Soda SQL commands 
-take a warehouse directory as input.  A warehouse directory has a `warehouse.yml` file
-containing the connection details to the SQL engine.  
+With our database up-and-running it's time to create our warehouse configuration. In this tutorial we will name our
+warehouse directory `soda_sql_tutorial` and we'll use the `soda` CLI tool to create the initial
+directory and `warehouse.yml`.  The `warehouse.yml` file which
+will be created by the command below will include connection details to use the PostgreSQL
+database we've just set up.  The command will also create and store the credentials in
+`~/.soda/env_vars.yml`
 
-Also a warehouse directory contains one subdirectory per table.  
-
-For example:
-```
-+ your_warehouse_directory
-    + warehouse.yml
-    + your_table_one
-        + scan.yml
-    + your_table_two
-        + scan.yml
-        + your_sql_metric_one.yml
-        + your_sql_metric_two.yml
-```
-
-In this tutorial we will name our warehouse directory `soda_sql_tutorial` and we'll use the 
-`soda` CLI tool to create the initial directory and `warehouse.yml`.  The `warehouse.yml` file that 
-will be created by the command below will include connection details to use the PostgreSQL 
-database we've just set up.  The command will also create and store the credentials in 
-`~/.soda/env_vars.yml` 
-
+_Command:_
 ```shell
-soda create -d sodasql -u sodasql ~/soda_sql_tutorial postgres
+soda create -d sodasql -u sodasql ./soda_sql_tutorial postgres
 ```
-Command console output:
+_Command console output:_
 ```
   | Soda CLI version 2.0.0 beta
-  | Creating warehouse directory /Users/tom/soda_sql_tutorial ...
-  | Creating warehouse configuration file /Users/tom/soda_sql_tutorial/warehouse.yml ...
+  | Creating warehouse directory ./soda_sql_tutorial ...
+  | Creating warehouse configuration file ./soda_sql_tutorial/warehouse.yml ...
   | Creating /Users/tom/.soda/env_vars.yml with example env vars in section soda_sql_tutorial
   | Review warehouse.yml by running command
-  |   cat /Users/tom/soda_sql_tutorial/warehouse.yml
+  |   cat ./soda_sql_tutorial/warehouse.yml
   | Review section soda_sql_tutorial in ~/.soda/env_vars.yml by running command
   |   cat ~/.soda/env_vars.yml
   | Then run
-  |   soda init /Users/tom/soda_sql_tutorial
+  |   soda init ./soda_sql_tutorial
 ```
 
-The `soda create` will only create and append configuration files.  It will
+The `soda create` command will only create and append configuration files.  It will
 never overwrite or delete existing files so you can safely run the command
 multiple times, or against an existing directory.
 
-Next, review the 2 files that have been created: 
- * `cat ~/soda_sql_tutorial/warehouse.yml`
+Next, review the 2 files that have been created:
+ * `cat ./soda_sql_tutorial/warehouse.yml`
  * `cat ~/.soda/env_vars.yml`
- 
+
 You can continue without changing anything.
 
 Check out the [warehouse.yml](warehouse.md) or [env_vars.yml](cli.md?id=env-vars) documentation to learn more about these files.
@@ -132,41 +117,41 @@ Check out the [warehouse.yml](warehouse.md) or [env_vars.yml](cli.md?id=env-vars
 ### 4\) Initialize table scan.yml files
 
 Now our warehouse is configured it's time to initialize it with a `scan.yml` for each table.
-To automatically generate a `scan.yml` for each table in our PostgreSQL warehouse we can
-run the `soda init` command:
+We can run the `soda init` command to automatically generate a `scan.yml` for each table
+in our PostgreSQL warehouse:
 
-Command:
+_Command:_
 ```shell
 soda init ./soda_sql_tutorial
 ```
-Command console output:
+_Command console output:_
 ```
   | Soda CLI version 2.0.0 beta
-  | Initializing /Users/tom/soda_sql_tutorial ...
+  | Initializing ./soda_sql_tutorial ...
   | Querying warehouse for tables
   | Executing SQL query:
 SELECT table_name
 FROM information_schema.tables
 WHERE lower(table_schema)='public'
   | SQL took 0:00:00.005413
-  | Creating table directory /Users/tom/soda_sql_tutorial/demodata
-  | Creating /Users/tom/soda_sql_tutorial/demodata/scan.yml ...
-  | Next run 'soda scan /Users/tom/soda_sql_tutorial demodata' to calculate measurements and run tests
+  | Creating table directory ./soda_sql_tutorial/demodata
+  | Creating ./soda_sql_tutorial/demodata/scan.yml ...
+  | Next run 'soda scan ./soda_sql_tutorial demodata' to calculate measurements and run tests
 ```
 
 ### 5\) Review the generated scan.yml files
 
 Each `scan.yml` will contain the metric and test instructions used by `soda scan`. By default `soda init` will
-create a `scan.yml` file with some good defaults, but feel free to modify the generated configurations 
+create a `scan.yml` file with some good defaults, but feel free to modify the generated configurations
 to fit your needs.
 
 > Head over to the [Scan Documentation](scan.md) for more in-depth information about the `scan.yml` file.
 
-Command:
+_Command:_
 ```shell
 cat ./soda_sql_tutorial/demodata/scan.yml
 ```
-Command console output:
+_Command console output:_
 ```
 table_name: demodata
 metrics:
@@ -197,32 +182,32 @@ will collect the configured (`scan.yml`) metrics and run the defined tests again
 
 To run your first scan on the `demodata` table simply run:
 
-Command:
+_Command:_
 ```shell
 soda scan ./soda_sql_tutorial demodata
 ```
-Command console output:
+_Command console output:_
 ```
   | Soda CLI version 2.0.0 beta
-  | Scanning demodata in /Users/tom/soda_sql_tutorial ...
+  | Scanning demodata in ./soda_sql_tutorial ...
   | Environment variable POSTGRES_PASSWORD is not set
-  | Executing SQL query: 
-SELECT column_name, data_type, is_nullable 
-FROM information_schema.columns 
-WHERE lower(table_name) = 'demodata' 
-  AND table_catalog = 'sodasql' 
+  | Executing SQL query:
+SELECT column_name, data_type, is_nullable
+FROM information_schema.columns
+WHERE lower(table_name) = 'demodata'
+  AND table_catalog = 'sodasql'
   AND table_schema = 'public'
   | SQL took 0:00:00.029199
   | 6 columns:
-  |   id character varying 
-  |   name character varying 
-  |   size integer 
-  |   date date 
-  |   feepct character varying 
-  |   country character varying 
+  |   id character varying
+  |   name character varying
+  |   size integer
+  |   date date
+  |   feepct character varying
+  |   country character varying
   | Query measurement: schema = id character varying, name character varying, size integer, date date, feepct character varying, country character varying
-  | Executing SQL query: 
-SELECT 
+  | Executing SQL query:
+SELECT
   COUNT(*),
   COUNT(id),
   MIN(LENGTH(id)),
@@ -239,10 +224,10 @@ SELECT
 
 ### 7\) Next steps
 
-Congrats! You just completed all steps required to get you going with `soda-sql`.
+Congrats! You've just completed all steps required to get you going with `soda-sql`.
 
-[Post a quick note letting us know what you like / dislike](https://github.com/sodadata/soda-sql/discussions/new)
- 
+[Post a quick note letting us know what you like or dislike.](https://github.com/sodadata/soda-sql/discussions/new)
+
 Next we suggest you to take a look at some further in-depth documentation which will help you to integrate `soda-sql` into
 your own project.
 

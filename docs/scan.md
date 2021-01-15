@@ -1,29 +1,29 @@
 # Scan
 
-This section explains what a scan does and is the reference for the `scan.yml` configuration file.
+This section explains what a scan does, how it works and how to use `scan.yml` files to configure them.
 
-For running scans, see either [the CLI](cli.md) or [Orchestrate scans](orchestrate_scans.md)
+For running scans, see either [the CLI](cli.md) or [Orchestrate scans](orchestrate_scans.md).
 
 ## Anatomy of a scan
 
 A scan is performed on a table and does the following:
 
 * Fetch the column metadata of the table (column name, type and nullable)
-* Single aggregation query that computes aggregate metrics for multiple columns like eg missing, min, max etc
+* Single aggregation query that computes aggregate metrics for multiple columns like e.g. missing, min, max etc
 * For each column
   * One query for distinct_count, unique_count and valid_count
   * One query for mins (list of smallest values)
   * One query for maxs (list of greatest values)
   * One query for frequent values
-  * One query for histograms 
-  
-> Note on performance: we have tuned most column queries by using the same Column Table Expression (CTE). 
-The goal is that some databases like eg Snowflake are able to cache the results.  But we didn't see 
-actual proof yet.  If you have knowledge on this, [drop us a line in one of the channels](community.md).    
+  * One query for histograms
+
+> Note on performance: we have tuned most column queries by using the same Column Table Expression (CTE).
+The goal is to allow some databases, like eg Snowflake, to be able to cache the results, but we didn't see
+actual proof of this yet.  If you have knowledge on this, [drop us a line in one of the channels](community.md).
 
 ## Top level scan.yml keys
 
-In a `scan.yml` file, you configure which metrics should be computed and 
+In a `scan.yml` file, you configure which metrics should be computed and
 which tests should be checked.
 
 Top level configuration keys:
@@ -80,8 +80,8 @@ Top level configuration keys:
 
 ### Metric categories
 
-> Deprecated metric categories are now included in the metrics, but that is probably not a 
-> good idea. We're considering to introduce `metric_categories` as a separate top level element  
+> Deprecated metric categories are now included in the metrics, but that is probably not a
+> good idea. We're considering to introduce `metric_categories` as a separate top level element
 
 | Meric category | Metrics |
 | -------------- | ------------|
