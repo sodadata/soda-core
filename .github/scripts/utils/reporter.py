@@ -6,8 +6,7 @@ import xml.etree.ElementTree as elementTree
 
 import requests
 
-from . import ENV
-from . import SlackMessageSender
+from . import ENV, SlackMessageSender
 
 
 class Reporter:
@@ -62,7 +61,7 @@ class Reporter:
 
     @staticmethod
     def _reports_message():
-        return f"Full reports can be found <{ENV.get_reports_url()}/{ENV.get_branch()}/{ENV.get_python_version()}/{ENV.get_test_module()}|here> "
+        return f"Full reports can be found <{ENV.get_reports_url()}|here> "
 
     @staticmethod
     def _test_module_message():

@@ -3,11 +3,11 @@
 This section explains how to run metrics and tests on a single time partition
 of the table.
 
-Time partitioning requires 1 (or more) columns that reflect the time or date.
-The goal is to run a scan on a partition of the data that corresponds to a
-particular time period. 
+Time partitioning requires 1 (or more) columns which reflect the time or date.
+The goal is to run a scan on a partition of the data which corresponds to a
+particular time period.
 
-Let's use this `CUSTOMER_TRANSACTIONS` table as an example
+Let's use this `CUSTOMER_TRANSACTIONS` table as an example:
 
 ```
 CREATE TABLE CUSTOMER_TRANSACTIONS (
@@ -20,8 +20,8 @@ CREATE TABLE CUSTOMER_TRANSACTIONS (
 );
 ```
 
-The `CUSTOMER_TRANSACTIONS` has a `DATE` column.  Each day new customer transaction 
-rows are added.  After they are added the goal is to run the scan on the customer 
+The `CUSTOMER_TRANSACTIONS` has a `DATE` column.  Each day new customer transaction
+rows are added.  After they are added the goal is to run the scan on the customer
 transactions of the last day.
 
 In the `scan.yml`, add a `time_filter` like this:
@@ -50,10 +50,10 @@ scan = scan_builder.build()
 scan_result = scan.execute()
 if scan_result.has_failures():
     print('Scan has test failures, stop the pipeline')
-``` 
+```
 
-For time partitioned tables, it makes sense to measure and test on both 
-the time partitions and on the full table.  To achieve this, we recommend 
-that you create 2 separate table dirs for it each having a `scan.yml`.  
-It's a good practice to add `_tp` as the suffix to the table 
+For time partitioned tables, it makes sense to measure and test on both
+the time partitions and on the full table.  To achieve this, we recommend
+that you create 2 separate table dirs for it each having a `scan.yml`.
+It's a good practice to add `_tp` as the suffix to the table
 directory to indicate it's a "Time Partitioned" table configuration.
