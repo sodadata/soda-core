@@ -24,7 +24,7 @@ class BigQuerySuite(SqlTestSuite):
     @staticmethod
     def generate_test_table_name():
         """
-        We need to generate a different name for each BigQuery test, otherwise we exceed the daily rate
+        We need to generate a different table name for each BigQuery test, otherwise we exceed the daily rate
         limits for table operation.
         """
         return 'test_table_' + ''.join([random.choice(string.ascii_lowercase) for _ in range(5)])
