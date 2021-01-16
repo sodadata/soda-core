@@ -247,8 +247,11 @@ def init(warehouse_dir: str):
 @main.command()
 @click.argument('warehouse_dir')
 @click.argument('table')
-@click.option('--timeslice', required=False, default=None, help='The timeslice')
-def scan(warehouse_dir: str, table: str, timeslice: str = None, variables: dict = None):
+@click.option('--variables', '-v', required=False, default=None, multiple=True,
+              help='Variables like -v start=2020-04-12.  Put values with spaces in single or double quotes.')
+@click.option('--time', '-t', required=False, default=None,
+              help='The scan time in ISO8601 format like eg 2020-12-31T16:48:30Z')
+def scan(warehouse_dir: str, table: str, variables: tuple = None, time: str = None):
     """
     Computes all measurements and runs all tests on one table.  Exit code 0 means all tests passed.
     Non zero exist code means tests have failed or an exception occured.
@@ -264,8 +267,19 @@ def scan(warehouse_dir: str, table: str, timeslice: str = None, variables: dict 
     try:
         logging.info(f'Scanning {table} in {warehouse_dir} ...')
 
+        variables_dict = {}
+        if variables:
+            for variable in variables:
+                assign_index = variable.find('=')
+                if 0 < assign_index < len(variable) - 1:
+                    variable_name = variable[0:assign_index]
+                    variable_value = variable[assign_index + 1:]
+                    variables_dict[variable_name] = variable_value
+            logging.debug(f'Variables {variables_dict}')
+
         scan_builder = ScanBuilder()
         scan_builder.read_scan_from_dirs(warehouse_dir, table)
+        scan_builder.variables = variables_dict
         scan = scan_builder.build()
         warehouse = scan.warehouse
         from sodasql.scan.scan_result import ScanResult
