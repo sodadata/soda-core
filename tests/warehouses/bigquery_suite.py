@@ -8,6 +8,9 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
+import random
+import string
+
 from tests.common.sql_test_case import TARGET_BIGQUERY
 from tests.common.sql_test_suite import SqlTestSuite
 
@@ -17,3 +20,11 @@ class BigQuerySuite(SqlTestSuite):
     def setUp(self) -> None:
         self.target = TARGET_BIGQUERY
         super().setUp()
+
+    @staticmethod
+    def generate_test_table_name():
+        """
+        We need to generate a different name for each BigQuery test, otherwise we exceed the daily rate
+        limits for table operation.
+        """
+        return 'test_table_' + ''.join([random.choice(string.ascii_lowercase) for _ in range(5)])
