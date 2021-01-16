@@ -97,7 +97,6 @@ class Scan:
     def query_columns_metadata(self):
         sql = self.warehouse.dialect.sql_columns_metadata_query(self.scan_yml)
         column_tuples = self.warehouse.sql_fetchall(sql)
-
         self.columns = []
         for column_tuple in column_tuples:
             name = column_tuple[0]

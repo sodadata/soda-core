@@ -175,7 +175,7 @@ class SqlTestCase(TestCase):
     @staticmethod
     def generate_test_table_name():
         """
-        Need to generate a different table name for each test, otherwise we exceed the daily rate limits for table
-        operation for BigQuery.
+        We need to generate a different table name for each test, otherwise we exceed the daily rate limits for table
+        operation on BigQuery.
         """
         return 'test_table_' + ''.join([random.choice(string.ascii_lowercase) for _ in range(5)])
