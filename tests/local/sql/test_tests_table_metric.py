@@ -16,7 +16,7 @@ class TestTestsTableMetric(SqlTestCase):
 
     def test_tests(self):
         self.sql_create_table(
-            'test_table',
+            self.test_table_name,
             [f"name {self.warehouse.dialect.string_column_type}"],
             ["('one')",
              "('two')",
@@ -25,7 +25,7 @@ class TestTestsTableMetric(SqlTestCase):
              "(null)"])
 
         scan_result = self.scan({
-            'table_name': self.default_test_table_name,
+            'table_name': self.test_table_name,
             'metrics': [
                 'row_count'
             ],
@@ -36,7 +36,7 @@ class TestTestsTableMetric(SqlTestCase):
         self.assertFalse(scan_result.has_failures())
 
         scan_result = self.scan({
-            'table_name': self.default_test_table_name,
+            'table_name': self.test_table_name,
             'metrics': [
                 'row_count'
             ],

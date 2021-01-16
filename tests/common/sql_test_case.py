@@ -11,10 +11,13 @@
 import json
 import logging
 import os
+import random
+import string
 from typing import List, Optional
 from unittest import TestCase
 
 import yaml
+
 from sodasql.common.logging_helper import LoggingHelper
 from sodasql.scan.db import sql_update, sql_updates
 from sodasql.scan.dialect import Dialect
@@ -49,7 +52,6 @@ class SqlTestCase(TestCase):
     warehouse_cache_by_target = {}
     warehouse_fixture_cache_by_target = {}
     warehouses_close_enabled = True
-    default_test_table_name = 'test_table'
 
     def __init__(self, methodName: str = ...) -> None:
         super().__init__(methodName)
@@ -64,6 +66,7 @@ class SqlTestCase(TestCase):
         logging.debug(f'\n\n--- {str(self)} ---')
         super().setUp()
         self.warehouse = self.setup_get_warehouse()
+        self.test_table_name = self.generate_test_table_name()
 
     def setup_get_warehouse(self):
         """self.target may be initialized by a test suite"""
@@ -133,7 +136,7 @@ class SqlTestCase(TestCase):
              variables: Optional[dict] = None) -> ScanResult:
         if not scan_configuration_dict:
             scan_configuration_dict = {
-                KEY_TABLE_NAME: self.default_test_table_name
+                KEY_TABLE_NAME: self.test_table_name
             }
         logging.debug('Scan configuration \n'+json.dumps(scan_configuration_dict, indent=2))
         scan_configuration_parser = ScanYmlParser(scan_configuration_dict, 'Test scan')
@@ -168,3 +171,11 @@ class SqlTestCase(TestCase):
                            if equals_ignore_case(measurement.column_name, column)]
         metrics_present_and_expected_absent = set(expected_metrics_absent) & set(metrics_present)
         self.assertEqual(set(), metrics_present_and_expected_absent)
+
+    @staticmethod
+    def generate_test_table_name():
+        """
+        Need to generate a different table name for each test, otherwise we exceed the daily rate limits for table
+        operation for BigQuery.
+        """
+        return 'test_table_' + ''.join([random.choice(string.ascii_lowercase) for _ in range(5)])

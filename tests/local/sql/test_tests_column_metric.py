@@ -16,7 +16,7 @@ class TestColumnMetricTests(SqlTestCase):
 
     def test_column_metric_test(self):
         self.sql_create_table(
-            'test_table',
+            self.test_table_name,
             [f"name {self.warehouse.dialect.string_column_type}"],
             ["('one')",
              "('two')",
@@ -25,7 +25,7 @@ class TestColumnMetricTests(SqlTestCase):
              "(null)"])
 
         scan_result = self.scan({
-            'table_name': 'test_table',
+            'table_name': self.test_table_name,
             'metrics': [
                 'missing'
             ],
@@ -40,7 +40,7 @@ class TestColumnMetricTests(SqlTestCase):
         self.assertFalse(scan_result.has_failures())
 
         scan_result = self.scan({
-            'table_name': 'test_table',
+            'table_name': self.test_table_name,
             'metrics': [
                 'missing'
             ],
@@ -56,7 +56,7 @@ class TestColumnMetricTests(SqlTestCase):
 
     def test_column_metric_metric_calculation_test(self):
         self.sql_create_table(
-            'test_table',
+            self.test_table_name,
             [f"size {self.warehouse.dialect.integer_column_type}"],
             ["(3)",
              "(3)",
@@ -65,7 +65,7 @@ class TestColumnMetricTests(SqlTestCase):
              "(11)"])
 
         scan_result = self.scan({
-            'table_name': self.default_test_table_name,
+            'table_name': self.test_table_name,
             'metrics': [
                 'min',
                 'max'

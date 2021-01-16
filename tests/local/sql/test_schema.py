@@ -20,14 +20,14 @@ class TestSchema(SqlTestCase):
         dialect = self.warehouse.dialect
 
         self.sql_create_table(
-            self.table_name,
+            self.test_table_name,
             [f"id {self.warehouse.dialect.string_column_type}",
              f"name {self.warehouse.dialect.string_column_type}",
              f"size {self.warehouse.dialect.integer_column_type}"],
             ["('1', 'one',      1)"])
 
         scan_result = self.scan({
-            'table_name': self.table_name
+            'table_name': self.test_table_name
         })
 
         measurement = scan_result.find_measurement(Metric.SCHEMA)

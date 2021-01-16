@@ -72,7 +72,7 @@ class FilterAndGroupByTest(SqlTestCase):
     def setUp(self) -> None:
         super().setUp()
         self.sql_create_table(
-            self.default_test_table_name,
+            self.test_table_name,
             [f"name {self.warehouse.dialect.string_column_type}",
              f"size {self.warehouse.dialect.integer_column_type}"],
             ["('one',    1)",
@@ -126,7 +126,7 @@ class FilterAndGroupByTest(SqlTestCase):
             'groupBy': ['name']
         }
         rows = execute_metric(self.warehouse, metric, {
-            'table_name': self.default_test_table_name
+            'table_name': self.test_table_name
         })
 
         logging.debug(str(rows))
@@ -155,7 +155,7 @@ class FilterAndGroupByTest(SqlTestCase):
             'groupBy': ['name']
         }
         rows = execute_metric(self.warehouse, metric, {
-            'table_name': self.default_test_table_name
+            'table_name': self.test_table_name
         })
 
         logging.debug(str(rows))
@@ -183,7 +183,7 @@ class FilterAndGroupByTest(SqlTestCase):
             'groupBy': ['name']
         }
         rows = execute_metric(self.warehouse, metric, {
-            'table_name': self.default_test_table_name,
+            'table_name': self.test_table_name,
             'columns': {
                 'size': {
                     'missing_values': [1, 100]
@@ -215,7 +215,7 @@ class FilterAndGroupByTest(SqlTestCase):
             })
         rows = self.warehouse.sql_fetchall(
             f'SELECT * \n'
-            f'FROM {self.default_test_table_name} \n'
+            f'FROM {self.test_table_name} \n'
             f'WHERE {where_expr}')
 
         self.assertEqual(len(rows), 2)
@@ -235,7 +235,7 @@ class FilterAndGroupByTest(SqlTestCase):
             })
         rows = self.warehouse.sql_fetchall(
             f'SELECT * \n'
-            f'FROM {self.default_test_table_name} \n'
+            f'FROM {self.test_table_name} \n'
             f'WHERE {where_expr}')
 
         self.assertEqual(len(rows), 7)
@@ -255,7 +255,7 @@ class FilterAndGroupByTest(SqlTestCase):
             })
         rows = self.warehouse.sql_fetchall(
             f'SELECT * \n'
-            f'FROM {self.default_test_table_name} \n'
+            f'FROM {self.test_table_name} \n'
             f'WHERE {where_expr}')
 
         self.assertEqual(len(rows), 7)

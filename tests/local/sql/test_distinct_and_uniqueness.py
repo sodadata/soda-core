@@ -17,7 +17,7 @@ class TestDistinctAndUniqueness(SqlTestCase):
 
     def test_distinct(self):
         self.sql_create_table(
-            'test_table',
+            self.test_table_name,
             [f"score {self.warehouse.dialect.string_column_type}"],
             ["('1')",
              "('2')",
@@ -33,7 +33,7 @@ class TestDistinctAndUniqueness(SqlTestCase):
              "(null)"])
 
         scan_result = self.scan({
-            'table_name': 'test_table',
+            'table_name': self.test_table_name,
             'metrics': [
                 'distinct'
             ]

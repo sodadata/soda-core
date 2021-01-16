@@ -16,7 +16,7 @@ class TestSqlMetricTests(SqlTestCase):
 
     def test_sql_metric_default(self):
         self.sql_create_table(
-            self.default_test_table_name,
+            self.test_table_name,
             [f"country {self.warehouse.dialect.string_column_type}",
              f"size {self.warehouse.dialect.integer_column_type}"],
             ["('one', 2)",
@@ -26,7 +26,7 @@ class TestSqlMetricTests(SqlTestCase):
              "('two', 6)"])
 
         dialect = self.warehouse.dialect
-        qualified_table_name = dialect.qualify_table_name(self.default_test_table_name)
+        qualified_table_name = dialect.qualify_table_name(self.test_table_name)
 
         scan_result = self.scan(sql_metric_dicts=[
             {
@@ -58,7 +58,7 @@ class TestSqlMetricTests(SqlTestCase):
 
     def test_sql_metric_groups(self):
         self.sql_create_table(
-            self.default_test_table_name,
+            self.test_table_name,
             [f"country {self.warehouse.dialect.string_column_type}",
              f"size {self.warehouse.dialect.integer_column_type}"],
             ["('one', 2)",
@@ -68,7 +68,7 @@ class TestSqlMetricTests(SqlTestCase):
              "('two', 6)"])
 
         dialect = self.warehouse.dialect
-        qualified_table_name = dialect.qualify_table_name(self.default_test_table_name)
+        qualified_table_name = dialect.qualify_table_name(self.test_table_name)
 
         scan_result = self.scan(sql_metric_dicts=[
             {

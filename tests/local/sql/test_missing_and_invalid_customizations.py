@@ -19,7 +19,7 @@ class TestMissingAndInvalidCustomizations(SqlTestCase):
 
     def test_scan_customized_missing_values(self):
         self.sql_create_table(
-            self.table_name,
+            self.test_table_name,
             [f"name {self.warehouse.dialect.string_column_type}"],
             ["('one')",
              "('')",
@@ -28,7 +28,7 @@ class TestMissingAndInvalidCustomizations(SqlTestCase):
              "(null)"])
 
         scan_result = self.scan({
-          'table_name': self.table_name,
+          'table_name': self.test_table_name,
           'columns': {
             'name': {
               'metrics': [
@@ -47,7 +47,7 @@ class TestMissingAndInvalidCustomizations(SqlTestCase):
 
     def test_scan_customized_missing_format_empty(self):
         self.sql_create_table(
-            self.table_name,
+            self.test_table_name,
             [f"name {self.warehouse.dialect.string_column_type}"],
             ["('one')",
              "('two')",
@@ -61,7 +61,7 @@ class TestMissingAndInvalidCustomizations(SqlTestCase):
              "(null)"])
 
         scan_result = self.scan({
-          'table_name': self.table_name,
+          'table_name': self.test_table_name,
           'columns': {
             'name': {
               'metrics': [
@@ -78,7 +78,7 @@ class TestMissingAndInvalidCustomizations(SqlTestCase):
 
     def test_scan_customized_missing_format_whitespace(self):
         self.sql_create_table(
-            self.table_name,
+            self.test_table_name,
             [f"name {self.warehouse.dialect.string_column_type}"],
             ["('one')",
              "('two')",
@@ -92,7 +92,7 @@ class TestMissingAndInvalidCustomizations(SqlTestCase):
              "(null)"])
 
         scan_result = self.scan({
-            'table_name': self.table_name,
+            'table_name': self.test_table_name,
             'columns': {
                 'name': {
                     'metrics': [
@@ -109,7 +109,7 @@ class TestMissingAndInvalidCustomizations(SqlTestCase):
 
     def test_scan_missing_customized_and_validity(self):
         self.sql_create_table(
-            self.table_name,
+            self.test_table_name,
             [f"name {self.warehouse.dialect.string_column_type}"],
             ["('one')",
              "('')",
@@ -118,7 +118,7 @@ class TestMissingAndInvalidCustomizations(SqlTestCase):
              "(null)"])
 
         scan_result = self.scan({
-          'table_name': self.table_name,
+          'table_name': self.test_table_name,
           'columns': {
             'name': {
               'metrics': [
@@ -137,7 +137,7 @@ class TestMissingAndInvalidCustomizations(SqlTestCase):
 
     def test_scan_valid_regex(self):
         self.sql_create_table(
-            self.table_name,
+            self.test_table_name,
             [f"name {self.warehouse.dialect.string_column_type}"],
             ["('one')",
              "('')",
@@ -146,7 +146,7 @@ class TestMissingAndInvalidCustomizations(SqlTestCase):
              "(null)"])
 
         scan_result = self.scan({
-          'table_name': self.table_name,
+          'table_name': self.test_table_name,
           'columns': {
               'name': {
                   'metrics': [
@@ -169,7 +169,7 @@ class TestMissingAndInvalidCustomizations(SqlTestCase):
 
     def test_scan_valid_format(self):
         self.sql_create_table(
-            self.table_name,
+            self.test_table_name,
             [f"col {self.warehouse.dialect.string_column_type}"],
             ["('1')",
              "('2')",
@@ -183,7 +183,7 @@ class TestMissingAndInvalidCustomizations(SqlTestCase):
              "('10')"])
 
         scan_result = self.scan({
-          'table_name': self.table_name,
+          'table_name': self.test_table_name,
           'columns': {
               'col': {
                   'metrics': [
