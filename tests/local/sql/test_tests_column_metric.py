@@ -16,7 +16,7 @@ class TestColumnMetricTests(SqlTestCase):
 
     def test_column_metric_test(self):
         self.sql_create_test_table(
-            [f"name {self.warehouse.dialect.string_column_type}"],
+            [self.warehouse.dialect.declare_string_column_sql("name")],
             ["('one')",
              "('two')",
              "('three') ",
