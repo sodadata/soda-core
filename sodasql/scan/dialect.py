@@ -232,10 +232,10 @@ class Dialect:
         return sql
 
     def declare_string_column_sql(self, column_name):
-        return f"{column_name} {self.warehouse.dialect.string_column_type}"
+        return f"{column_name} {self.string_column_type}"
 
     def declare_integer_column_sql(self, column_name):
-        return f"{column_name} {self.warehouse.dialect.integer_column_type}"
+        return f"{column_name} {self.integer_column_type}"
 
     def declare_decimal_column_sql(self, column_name):
-        return f"{column_name} {self.warehouse.dialect.decimal_column_type}"
+        return f"{column_name} {self.decimal_column_type}"
