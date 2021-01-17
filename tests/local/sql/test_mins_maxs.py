@@ -33,7 +33,7 @@ class TestMinsMaxs(SqlTestCase):
              "(null,     null, null)"])
 
         scan_result = self.scan({
-            'table_name': self.test_table_name,
+            'table_name': self.default_test_table_name,
             'metrics': [
                 Metric.MINS,
                 Metric.MAXS

@@ -64,7 +64,7 @@ class SqlTestCase(TestCase):
         logging.debug(f'\n\n--- {str(self)} ---')
         super().setUp()
         self.warehouse = self.setup_get_warehouse()
-        self.test_table_name = self.generate_test_table_name()
+        self.default_test_table_name = self.generate_test_table_name()
 
     def setup_get_warehouse(self):
         """self.target may be initialized by a test suite"""
@@ -119,10 +119,11 @@ class SqlTestCase(TestCase):
     def sql_updates(self, sqls: List[str]):
         return sql_updates(self.warehouse.connection, sqls)
 
-    def sql_create_test_table(self, columns: List[str], rows: List[str]):
+    def sql_create_test_table(self, columns: List[str], rows: List[str], test_table_name: str = None):
         joined_columns = ", ".join(columns)
         joined_rows = ", ".join(rows)
-        table_name = self.warehouse.dialect.qualify_table_name(self.test_table_name)
+        table_name = test_table_name if test_table_name else self.default_test_table_name
+        table_name = self.warehouse.dialect.qualify_table_name(table_name)
         self.sql_updates([
             f"DROP TABLE IF EXISTS {table_name}",
             f"CREATE TABLE {table_name} ( {joined_columns} )",
@@ -134,7 +135,7 @@ class SqlTestCase(TestCase):
              variables: Optional[dict] = None) -> ScanResult:
         if not scan_configuration_dict:
             scan_configuration_dict = {
-                KEY_TABLE_NAME: self.test_table_name
+                KEY_TABLE_NAME: self.default_test_table_name
             }
         logging.debug('Scan configuration \n'+json.dumps(scan_configuration_dict, indent=2))
         scan_configuration_parser = ScanYmlParser(scan_configuration_dict, 'Test scan')

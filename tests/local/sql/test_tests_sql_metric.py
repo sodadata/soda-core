@@ -25,7 +25,7 @@ class TestSqlMetricTests(SqlTestCase):
              "('two', 6)"])
 
         dialect = self.warehouse.dialect
-        qualified_table_name = dialect.qualify_table_name(self.test_table_name)
+        qualified_table_name = dialect.qualify_table_name(self.default_test_table_name)
 
         scan_result = self.scan(sql_metric_dicts=[
             {
@@ -66,7 +66,7 @@ class TestSqlMetricTests(SqlTestCase):
              "('two', 6)"])
 
         dialect = self.warehouse.dialect
-        qualified_table_name = dialect.qualify_table_name(self.test_table_name)
+        qualified_table_name = dialect.qualify_table_name(self.default_test_table_name)
 
         scan_result = self.scan(sql_metric_dicts=[
             {
