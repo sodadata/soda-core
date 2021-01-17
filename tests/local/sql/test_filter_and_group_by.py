@@ -73,8 +73,8 @@ class FilterAndGroupByTest(SqlTestCase):
         super().setUp()
         self.sql_create_table(
             self.test_table_name,
-            [f"name {self.warehouse.dialect.string_column_type}",
-             f"size {self.warehouse.dialect.integer_column_type}"],
+            [self.warehouse.dialect.declare_string_column_sql("name"),
+             self.warehouse.dialect.declare_integer_column_sql("size")],
             ["('one',    1)",
              "('two',    1)",
              "('two',    2)",

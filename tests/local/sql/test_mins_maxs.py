@@ -18,9 +18,9 @@ class TestMinsMaxs(SqlTestCase):
     def test_scan_mins_maxs(self):
         self.sql_create_table(
             self.test_table_name,
-            [f"name {self.warehouse.dialect.string_column_type}",
-             f"size {self.warehouse.dialect.integer_column_type}",
-             f"width {self.warehouse.dialect.string_column_type}"],
+            [self.warehouse.dialect.declare_string_column_sql("name"),
+             self.warehouse.dialect.declare_integer_column_sql("size"),
+             self.warehouse.dialect.declare_string_column_sql("width")],
             ["('one',    1,    '11')",
              "('two',    2,    '12')",
              "('three',  3,    '13')",

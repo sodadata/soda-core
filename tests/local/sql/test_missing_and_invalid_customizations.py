@@ -170,7 +170,7 @@ class TestMissingAndInvalidCustomizations(SqlTestCase):
     def test_scan_valid_format(self):
         self.sql_create_table(
             self.test_table_name,
-            [f"col {self.warehouse.dialect.string_column_type}"],
+            [self.warehouse.dialect.declare_string_column_sql("col")],
             ["('1')",
              "('2')",
              "('3')",

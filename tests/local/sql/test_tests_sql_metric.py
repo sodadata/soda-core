@@ -17,8 +17,8 @@ class TestSqlMetricTests(SqlTestCase):
     def test_sql_metric_default(self):
         self.sql_create_table(
             self.test_table_name,
-            [f"country {self.warehouse.dialect.string_column_type}",
-             f"size {self.warehouse.dialect.integer_column_type}"],
+            [self.warehouse.dialect.declare_string_column_sql("country"),
+             self.warehouse.dialect.declare_integer_column_sql("size")],
             ["('one', 2)",
              "('two', 3)",
              "('one', 4) ",
@@ -59,8 +59,8 @@ class TestSqlMetricTests(SqlTestCase):
     def test_sql_metric_groups(self):
         self.sql_create_table(
             self.test_table_name,
-            [f"country {self.warehouse.dialect.string_column_type}",
-             f"size {self.warehouse.dialect.integer_column_type}"],
+            [self.warehouse.dialect.declare_string_column_sql("country"),
+             self.warehouse.dialect.declare_integer_column_sql("size")],
             ["('one', 2)",
              "('two', 3)",
              "('one', 4) ",
