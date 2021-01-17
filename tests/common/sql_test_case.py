@@ -119,10 +119,10 @@ class SqlTestCase(TestCase):
     def sql_updates(self, sqls: List[str]):
         return sql_updates(self.warehouse.connection, sqls)
 
-    def sql_create_table(self, table_name: str, columns: List[str], rows: List[str]):
+    def sql_create_test_table(self, columns: List[str], rows: List[str]):
         joined_columns = ", ".join(columns)
         joined_rows = ", ".join(rows)
-        table_name = self.warehouse.dialect.qualify_table_name(table_name)
+        table_name = self.warehouse.dialect.qualify_table_name(self.test_table_name)
         self.sql_updates([
             f"DROP TABLE IF EXISTS {table_name}",
             f"CREATE TABLE {table_name} ( {joined_columns} )",

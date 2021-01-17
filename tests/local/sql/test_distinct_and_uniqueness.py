@@ -16,8 +16,7 @@ from tests.common.sql_test_case import SqlTestCase
 class TestDistinctAndUniqueness(SqlTestCase):
 
     def test_distinct(self):
-        self.sql_create_table(
-            self.test_table_name,
+        self.sql_create_test_table(
             [self.warehouse.dialect.declare_string_column_sql("score")],
             ["('1')",
              "('2')",

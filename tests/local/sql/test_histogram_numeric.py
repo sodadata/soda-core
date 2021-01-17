@@ -18,8 +18,7 @@ class TestHistogramNumeric(SqlTestCase):
     table_name = 'test_table'
 
     def test_scan_histogram_numeric(self):
-        self.sql_create_table(
-            self.test_table_name,
+        self.sql_create_test_table(
             [self.warehouse.dialect.declare_integer_column_sql("size")],
             ["(1)",
              "(11)",

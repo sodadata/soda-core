@@ -15,8 +15,7 @@ from tests.common.sql_test_case import SqlTestCase
 class TestSqlMetricTests(SqlTestCase):
 
     def test_sql_metric_default(self):
-        self.sql_create_table(
-            self.test_table_name,
+        self.sql_create_test_table(
             [self.warehouse.dialect.declare_string_column_sql("country"),
              self.warehouse.dialect.declare_integer_column_sql("size")],
             ["('one', 2)",
@@ -57,8 +56,7 @@ class TestSqlMetricTests(SqlTestCase):
         self.assertTrue(scan_result.has_failures())
 
     def test_sql_metric_groups(self):
-        self.sql_create_table(
-            self.test_table_name,
+        self.sql_create_test_table(
             [self.warehouse.dialect.declare_string_column_sql("country"),
              self.warehouse.dialect.declare_integer_column_sql("size")],
             ["('one', 2)",

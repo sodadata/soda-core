@@ -19,8 +19,7 @@ class TestMissingAndInvalidMetricConfigurations(SqlTestCase):
 
     def setUp(self) -> None:
         super().setUp()
-        self.sql_create_table(
-            self.test_table_name,
+        self.sql_create_test_table(
             [self.warehouse.dialect.declare_string_column_sql("id"),
              self.warehouse.dialect.declare_string_column_sql("name"),
              self.warehouse.dialect.declare_integer_column_sql("size")],
