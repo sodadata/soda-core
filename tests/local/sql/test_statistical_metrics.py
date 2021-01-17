@@ -25,7 +25,6 @@ class TestStatisticalMetrics(SqlTestCase):
              "(null)"])
 
         scan_result = self.scan({
-            'table_name': self.default_test_table_name,
             'metrics': [
                 Metric.MIN,
                 Metric.MAX,
@@ -60,7 +59,6 @@ class TestStatisticalMetrics(SqlTestCase):
              "(null)"])
 
         scan_result = self.scan({
-            'table_name': self.default_test_table_name,
             'metrics': [
                 Metric.MIN,
                 Metric.MAX,

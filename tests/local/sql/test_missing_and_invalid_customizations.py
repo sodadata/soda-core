@@ -27,7 +27,6 @@ class TestMissingAndInvalidCustomizations(SqlTestCase):
              "(null)"])
 
         scan_result = self.scan({
-          'table_name': self.default_test_table_name,
           'columns': {
             'name': {
               'metrics': [
@@ -59,7 +58,6 @@ class TestMissingAndInvalidCustomizations(SqlTestCase):
              "(null)"])
 
         scan_result = self.scan({
-          'table_name': self.default_test_table_name,
           'columns': {
             'name': {
               'metrics': [
@@ -89,7 +87,6 @@ class TestMissingAndInvalidCustomizations(SqlTestCase):
              "(null)"])
 
         scan_result = self.scan({
-            'table_name': self.default_test_table_name,
             'columns': {
                 'name': {
                     'metrics': [
@@ -114,7 +111,6 @@ class TestMissingAndInvalidCustomizations(SqlTestCase):
              "(null)"])
 
         scan_result = self.scan({
-          'table_name': self.default_test_table_name,
           'columns': {
             'name': {
               'metrics': [
@@ -141,7 +137,6 @@ class TestMissingAndInvalidCustomizations(SqlTestCase):
              "(null)"])
 
         scan_result = self.scan({
-          'table_name': self.default_test_table_name,
           'columns': {
               'name': {
                   'metrics': [
@@ -177,7 +172,6 @@ class TestMissingAndInvalidCustomizations(SqlTestCase):
              "('10')"])
 
         scan_result = self.scan({
-          'table_name': self.default_test_table_name,
           'columns': {
               'col': {
                   'metrics': [

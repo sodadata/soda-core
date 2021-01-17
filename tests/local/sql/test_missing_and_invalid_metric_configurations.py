@@ -69,7 +69,6 @@ class TestMissingAndInvalidMetricConfigurations(SqlTestCase):
 
     def test_scan_missing(self):
         scan_result = self.scan({
-          'table_name': self.default_test_table_name,
           'metrics': [
             Metric.CATEGORY_MISSING
           ]
@@ -114,7 +113,6 @@ class TestMissingAndInvalidMetricConfigurations(SqlTestCase):
     def test_scan_with_two_default_column_metric(self):
         # validity triggers missing measurements
         scan_result = self.scan({
-            'table_name': self.default_test_table_name,
             'columns': {
                 'name': {
                     'metrics': [
@@ -159,7 +157,6 @@ class TestMissingAndInvalidMetricConfigurations(SqlTestCase):
 
     def test_scan_valid_regex(self):
         scan_result = self.scan({
-            'table_name': self.default_test_table_name,
             'metrics': [
               'missing'
             ],
