@@ -13,58 +13,9 @@ from typing import List
 
 from sodasql.scan.metric import Metric
 from sodasql.scan.scan_column import ScanColumn
-from sodasql.scan.scan_yml_parser import ScanYmlParser
+from sodasql.scan.scan_yml_parser import ScanYmlParser, KEY_TABLE_NAME
 from sodasql.scan.warehouse import Warehouse
 from tests.common.sql_test_case import SqlTestCase
-
-
-def execute_metric(warehouse: Warehouse, metric: dict, scan_dict):
-    dialect = warehouse.dialect
-
-    scan_configuration_parser = ScanYmlParser(scan_dict, 'Test scan')
-    scan_configuration_parser.assert_no_warnings_or_errors()
-    scan = warehouse.create_scan(scan_configuration_parser.scan_yml)
-    scan.execute()
-
-    fields: List[str] = []
-    group_by_column_names: List[str] = metric.get('groupBy')
-    if group_by_column_names:
-        for group_by_column in group_by_column_names:
-            fields.append(dialect.qualify_column_name(group_by_column))
-
-    column_name: str = metric.get('columnName')
-    qualified_column_name = dialect.qualify_column_name(column_name)
-
-    type = metric['type']
-    if type == Metric.ROW_COUNT:
-        fields.append('COUNT(*)')
-    if type == Metric.MIN:
-        fields.append(f'MIN({qualified_column_name})')
-    elif type == Metric.MAX:
-        fields.append(f'MAX({qualified_column_name})')
-    elif type == Metric.SUM:
-        fields.append(f'SUM({qualified_column_name})')
-
-    sql = 'SELECT \n  ' + ',\n  '.join(fields) + ' \n' \
-          'FROM ' + scan.qualified_table_name
-
-    where_clauses = []
-
-    filter = metric.get('filter')
-    if filter:
-        where_clauses.append(dialect.sql_expression(filter))
-
-    scan_column: ScanColumn = scan.scan_columns.get(column_name)
-    if scan_column and scan_column.non_missing_and_valid_condition:
-        where_clauses.append(scan_column.non_missing_and_valid_condition)
-
-    if where_clauses:
-        sql += '\nWHERE ' + '\n      AND '.join(where_clauses)
-
-    if group_by_column_names:
-        sql += '\nGROUP BY ' + ', '.join(group_by_column_names)
-
-    return warehouse.sql_fetchall(sql)
 
 
 class FilterAndGroupByTest(SqlTestCase):
@@ -124,9 +75,7 @@ class FilterAndGroupByTest(SqlTestCase):
             },
             'groupBy': ['name']
         }
-        rows = execute_metric(self.warehouse, metric, {
-            'table_name': self.default_test_table_name
-        })
+        rows = self.execute_metric(self.warehouse, metric)
 
         logging.debug(str(rows))
 
@@ -153,9 +102,7 @@ class FilterAndGroupByTest(SqlTestCase):
             },
             'groupBy': ['name']
         }
-        rows = execute_metric(self.warehouse, metric, {
-            'table_name': self.default_test_table_name
-        })
+        rows = self.execute_metric(self.warehouse, metric)
 
         logging.debug(str(rows))
 
@@ -181,8 +128,7 @@ class FilterAndGroupByTest(SqlTestCase):
             },
             'groupBy': ['name']
         }
-        rows = execute_metric(self.warehouse, metric, {
-            'table_name': self.default_test_table_name,
+        rows = self.execute_metric(self.warehouse, metric, {
             'columns': {
                 'size': {
                     'missing_values': [1, 100]
@@ -260,3 +206,54 @@ class FilterAndGroupByTest(SqlTestCase):
         self.assertEqual(len(rows), 7)
         for row in rows:
             self.assertEqual(row[0], 'three')
+
+    def execute_metric(self, warehouse: Warehouse, metric: dict, scan_dict: dict = None):
+        dialect = warehouse.dialect
+        if not scan_dict:
+            scan_dict = {}
+        if KEY_TABLE_NAME not in scan_dict:
+            scan_dict[KEY_TABLE_NAME] = self.default_test_table_name
+        scan_configuration_parser = ScanYmlParser(scan_dict, 'Test scan')
+        scan_configuration_parser.assert_no_warnings_or_errors()
+        scan = warehouse.create_scan(scan_configuration_parser.scan_yml)
+        scan.execute()
+
+        fields: List[str] = []
+        group_by_column_names: List[str] = metric.get('groupBy')
+        if group_by_column_names:
+            for group_by_column in group_by_column_names:
+                fields.append(dialect.qualify_column_name(group_by_column))
+
+        column_name: str = metric.get('columnName')
+        qualified_column_name = dialect.qualify_column_name(column_name)
+
+        type = metric['type']
+        if type == Metric.ROW_COUNT:
+            fields.append('COUNT(*)')
+        if type == Metric.MIN:
+            fields.append(f'MIN({qualified_column_name})')
+        elif type == Metric.MAX:
+            fields.append(f'MAX({qualified_column_name})')
+        elif type == Metric.SUM:
+            fields.append(f'SUM({qualified_column_name})')
+
+        sql = 'SELECT \n  ' + ',\n  '.join(fields) + ' \n' \
+              'FROM ' + scan.qualified_table_name
+
+        where_clauses = []
+
+        filter = metric.get('filter')
+        if filter:
+            where_clauses.append(dialect.sql_expression(filter))
+
+        scan_column: ScanColumn = scan.scan_columns.get(column_name)
+        if scan_column and scan_column.non_missing_and_valid_condition:
+            where_clauses.append(scan_column.non_missing_and_valid_condition)
+
+        if where_clauses:
+            sql += '\nWHERE ' + '\n      AND '.join(where_clauses)
+
+        if group_by_column_names:
+            sql += '\nGROUP BY ' + ', '.join(group_by_column_names)
+
+        return warehouse.sql_fetchall(sql)
