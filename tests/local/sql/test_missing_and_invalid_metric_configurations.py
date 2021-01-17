@@ -30,9 +30,7 @@ class TestMissingAndInvalidMetricConfigurations(SqlTestCase):
              "('5', null,       null)"])
 
     def test_scan_without_configurations(self):
-        scan_result = self.scan({
-          'table_name': self.default_test_table_name
-        })
+        scan_result = self.scan()
 
         self.assertMeasurementsAbsent(scan_result, 'id', [
             Metric.MISSING_COUNT,

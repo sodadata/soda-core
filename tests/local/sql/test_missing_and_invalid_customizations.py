@@ -19,7 +19,7 @@ class TestMissingAndInvalidCustomizations(SqlTestCase):
 
     def test_scan_customized_missing_values(self):
         self.sql_create_test_table(
-            [f"name {self.warehouse.dialect.string_column_type}"],
+            [self.warehouse.dialect.declare_string_column_sql("name")],
             ["('one')",
              "('')",
              "('  ')",
@@ -45,7 +45,7 @@ class TestMissingAndInvalidCustomizations(SqlTestCase):
 
     def test_scan_customized_missing_format_empty(self):
         self.sql_create_test_table(
-            [f"name {self.warehouse.dialect.string_column_type}"],
+            [self.warehouse.dialect.declare_string_column_sql("name")],
             ["('one')",
              "('two')",
              "('three')",
@@ -74,7 +74,7 @@ class TestMissingAndInvalidCustomizations(SqlTestCase):
 
     def test_scan_customized_missing_format_whitespace(self):
         self.sql_create_test_table(
-            [f"name {self.warehouse.dialect.string_column_type}"],
+            [self.warehouse.dialect.declare_string_column_sql("name")],
             ["('one')",
              "('two')",
              "('three')",
@@ -103,7 +103,7 @@ class TestMissingAndInvalidCustomizations(SqlTestCase):
 
     def test_scan_missing_customized_and_validity(self):
         self.sql_create_test_table(
-            [f"name {self.warehouse.dialect.string_column_type}"],
+            [self.warehouse.dialect.declare_string_column_sql("name")],
             ["('one')",
              "('')",
              "('  ')",
@@ -129,7 +129,7 @@ class TestMissingAndInvalidCustomizations(SqlTestCase):
 
     def test_scan_valid_regex(self):
         self.sql_create_test_table(
-            [f"name {self.warehouse.dialect.string_column_type}"],
+            [self.warehouse.dialect.declare_string_column_sql("name")],
             ["('one')",
              "('')",
              "('  ')",

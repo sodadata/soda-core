@@ -25,9 +25,7 @@ class TestSchema(SqlTestCase):
              self.warehouse.dialect.declare_integer_column_sql("size")],
             ["('1', 'one',      1)"])
 
-        scan_result = self.scan({
-            'table_name': self.default_test_table_name
-        })
+        scan_result = self.scan()
 
         measurement = scan_result.find_measurement(Metric.SCHEMA)
         self.assertIsNotNone(measurement)
