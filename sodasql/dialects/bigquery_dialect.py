@@ -45,10 +45,10 @@ class BigQueryDialect(Dialect):
         client = bigquery.Client(project=project_id, credentials=credentials)
         return dbapi.Connection(client)
 
-    def sql_columns_metadata_query(self, scan_configuration):
+    def sql_columns_metadata_query(self, table_name: str):
         return (f"SELECT column_name, data_type, is_nullable "
                 f'FROM `{self.dataset_name}.INFORMATION_SCHEMA.COLUMNS` '
-                f"WHERE table_name = '{scan_configuration.table_name}';")
+                f"WHERE table_name = '{table_name}';")
 
     @staticmethod
     def __parse_json_credential(credential_name, parser):

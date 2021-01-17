@@ -45,7 +45,7 @@ soda scan -v date=2021-01-12 ./sales_snowflake customer_transactions
 And programmatically, variables can be passed to a scan like this:
 ```
 scan_builder = ScanBuilder()
-scan_builder.read_scan_from_dirs('~/my_warehouse_dir', 'my_table_dir')
+scan_builder.read_scan_dir('~/my_warehouse_dir', 'my_table_dir')
 scan = scan_builder.build()
 scan_result = scan.execute()
 if scan_result.has_failures():

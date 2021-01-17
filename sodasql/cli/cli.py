@@ -16,20 +16,11 @@ import click
 import yaml
 from sodasql import SODA_SQL_VERSION
 from sodasql.cli.file_system import FileSystemSingleton
+from sodasql.cli.scan_initializer import ScanInitializer
 from sodasql.common.logging_helper import LoggingHelper
 from sodasql.scan.scan_builder import ScanBuilder
 
 LoggingHelper.configure_for_cli()
-
-
-class IndentingDumper(yaml.Dumper):
-    """
-    yaml.dump hack to get indentation.
-    see also https://stackoverflow.com/questions/25108581/python-yaml-dump-bad-indentation
-    """
-
-    def increase_indent(self, flow=False, indentless=False):
-        return super(IndentingDumper, self).increase_indent(flow, False)
 
 
 @click.group(help=f"Soda CLI version {SODA_SQL_VERSION}")
@@ -195,43 +186,9 @@ def init(warehouse_dir: str):
         rows = warehouse.sql_fetchall(
             warehouse.dialect.sql_tables_metadata_query())
         first_table_name = rows[0][0] if len(rows) > 0 else None
-        for row in rows:
-            table_name = row[0]
-            table_dir = file_system.join(warehouse_dir, table_name)
-            if not file_system.file_exists(table_dir):
-                logging.info(f'Creating table directory {table_dir}')
-                file_system.mkdirs(table_dir)
-            else:
-                logging.info(f'Directory {table_dir} already exists')
 
-            table_scan_yaml_file = file_system.join(table_dir, 'scan.yml')
-
-            if file_system.file_exists(table_scan_yaml_file):
-                logging.info(
-                    f"Scan file {table_scan_yaml_file} already exists")
-            else:
-                logging.info(f"Creating {table_scan_yaml_file} ...")
-                from sodasql.scan.scan_yml_parser import (KEY_METRICS,
-                                                          KEY_TABLE_NAME,
-                                                          KEY_TESTS)
-                scan_yaml_dict = {
-                    KEY_TABLE_NAME: table_name,
-                    KEY_METRICS: [
-                        'row_count',
-                        'missing_count', 'missing_percentage', 'values_count', 'values_percentage',
-                        'valid_count', 'valid_percentage', 'invalid_count', 'invalid_percentage',
-                        'min', 'max', 'avg', 'sum', 'min_length', 'max_length', 'avg_length'
-                    ],
-                    KEY_TESTS: {
-                        'must have rows': 'row_count > 0'
-                    }
-                }
-                scan_yml_str = yaml.dump(scan_yaml_dict,
-                                         sort_keys=False,
-                                         Dumper=IndentingDumper,
-                                         default_flow_style=False)
-                file_system.file_write_from_str(
-                    table_scan_yaml_file, scan_yml_str)
+        scan_initializer = ScanInitializer(warehouse, warehouse_dir)
+        scan_initializer.initialize_scan_ymls(rows)
 
         logging.info(
             f"Next run 'soda scan {warehouse_dir} {first_table_name}' to calculate measurements and run tests")
@@ -278,7 +235,7 @@ def scan(warehouse_dir: str, table: str, variables: tuple = None, time: str = No
             logging.debug(f'Variables {variables_dict}')
 
         scan_builder = ScanBuilder()
-        scan_builder.read_scan_from_dirs(warehouse_dir, table)
+        scan_builder.read_scan_dir(warehouse_dir, table)
         scan_builder.variables = variables_dict
         scan = scan_builder.build()
         warehouse = scan.warehouse

@@ -16,7 +16,7 @@ Here's how to run scans using Python:
 Programmatic scan execution based on default dir structure:
 ```python
 scan_builder = ScanBuilder()
-scan_builder.read_scan_from_dirs('~/my_warehouse_dir', 'my_table_dir')
+scan_builder.read_scan_dir('~/my_warehouse_dir', 'my_table_dir')
 scan = scan_builder.build()
 scan_result = scan.execute()
 if scan_result.has_failures():

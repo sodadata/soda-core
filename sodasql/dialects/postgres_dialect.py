@@ -60,10 +60,10 @@ class PostgresDialect(Dialect):
             database=self.database,
             options=f'-c search_path={self.schema}' if self.schema else None)
 
-    def sql_columns_metadata_query(self, scan_configuration: ScanYml) -> str:
+    def sql_columns_metadata_query(self, table_name: str) -> str:
         sql = (f"SELECT column_name, data_type, is_nullable \n"
                f"FROM information_schema.columns \n"
-               f"WHERE lower(table_name) = '{scan_configuration.table_name}'")
+               f"WHERE lower(table_name) = '{table_name}'")
         if self.database:
             sql += f" \n  AND table_catalog = '{self.database}'"
         if self.schema:

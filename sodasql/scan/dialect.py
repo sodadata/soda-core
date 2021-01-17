@@ -73,25 +73,25 @@ class Dialect:
         from sodasql.scan.scan import Scan
         return Scan(*args, **kwargs)
 
-    def is_text(self, column):
+    def is_text(self, column_type: str):
         for text_type in self._get_text_types():
-            if text_type.upper() in column.type.upper():
+            if column_type and text_type.upper() in column_type.upper():
                 return True
         return False
 
     def _get_text_types(self):
         return ['CHAR', 'TEXT']
 
-    def is_number(self, column):
+    def is_number(self, column_type: str):
         for number_type in self._get_number_types():
-            if number_type.upper() in column.type.upper():
+            if column_type and number_type.upper() in column_type.upper():
                 return True
         return False
 
     def _get_number_types(self):
         return ['INT', 'REAL', 'PRECISION', 'NUMBER']
 
-    def sql_columns_metadata_query(self, scan_configuration: ScanYml) -> str:
+    def sql_columns_metadata_query(self, table_name: str) -> str:
         raise RuntimeError('TODO override and implement this abstract method')
 
     def sql_tables_metadata_query(self, filter: str = None):
@@ -137,9 +137,9 @@ class Dialect:
         return f"REGEXP_LIKE({expr}, '{self.qualify_regex(pattern)}')"
 
     def sql_expr_list(self, column: ColumnMetadata, values: List[str]) -> str:
-        if self.is_text(column):
+        if self.is_text(column.type):
             sql_values = [self.literal_string(value) for value in values]
-        elif self.is_number(column):
+        elif self.is_number(column.type):
             sql_values = [self.literal_number(value) for value in values]
         else:
             raise RuntimeError(f"Couldn't format list {str(values)} for column {str(column)}")
