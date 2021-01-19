@@ -62,8 +62,8 @@ jobs:
           pip3 install -r .github/scripts/requirements.txt
           python3 .github/scripts/report_test_failure.py
 
-  notify-test-success:
-    name: Notify on Test Success
+  inform-test-success:
+    name: Inform Test Success
     runs-on: ubuntu-20.04
     needs: [run-tests]
     env:
@@ -110,16 +110,27 @@ jobs:
         run: python3 setup.py sdist bdist_wheel
       - name: Publish to PyPi
         run: twine upload dist/*
-      - name: Notify on Release Success
-        if: success()
-        run: |
-          pip3 install -r .github/scripts/requirements.txt
-          .github/scripts/report_release_success.py
       - name: Notify on Release Failure
-        if: success()
+        if: failure()
         run: |
           pip3 install -r .github/scripts/requirements.txt
           .github/scripts/report_release_failure.py
+
+  inform-release-success:
+    name: Inform Release Success
+    runs-on: ubuntu-20.04
+    needs: [publish-pypi]
+    env:
+      JOB_ID: ${{ github.job }}
+      SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      INCLUDED_BRANCHES: "main master"
+    steps:
+      - uses: actions/checkout@v2
+      - name: Notify on Release Success
+        run: |
+          pip3 install -r .github/scripts/requirements.txt
+          .github/scripts/report_release_success.py
 
   publish-docs:
     name: Deploy documentation
