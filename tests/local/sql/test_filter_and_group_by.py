@@ -14,29 +14,13 @@ from tests.common.sql_test_case import SqlTestCase
 
 
 class FilterAndGroupByTest(SqlTestCase):
-
-    def setUp(self) -> None:
-        super().setUp()
-        self.sql_create_test_table(
-            [self.warehouse.dialect.declare_string_column_sql("name"),
-             self.warehouse.dialect.declare_integer_column_sql("size")],
-            ["('one',    1)",
-             "('two',    1)",
-             "('two',    2)",
-             "('two',    3)",
-             "('two',    4)",
-             "('three',  1)",
-             "('three',  2)",
-             "('three',  3)",
-             "('three',  4)",
-             "('three',  5)",
-             "('three',  6)",
-             "('three',  7)",
-             "('four',   1)",
-             "('four',   2)",
-             "(null,     1)"])
+    """
+    Due to the use of multiple inheritance, setUp() methods for all inherited classes will be called, thus,
+    one should not put anything in setUp() that can affect other test methods, such as creating tables.
+    """
 
     def test_row_count_with_filter_and_group_by(self):
+        self._create_test_table()
         metric = {
             'type': 'row_count',
             'filter': {
@@ -81,6 +65,7 @@ class FilterAndGroupByTest(SqlTestCase):
         self.assertEqual(count_by_name['four'],  2)
 
     def test_sum_with_filter_and_group_by(self):
+        self._create_test_table()
         metric = {
             'type': 'sum',
             'columnName': 'size',
@@ -107,6 +92,7 @@ class FilterAndGroupByTest(SqlTestCase):
         self.assertEqual(sum_by_name['three'], 28)
 
     def test_sum_with_filter_and_group_by_and_custom_missing(self):
+        self._create_test_table()
         metric = {
             'type': 'sum',
             'columnName': 'size',
@@ -142,6 +128,7 @@ class FilterAndGroupByTest(SqlTestCase):
         self.assertIsNone(sum_by_name.get('one'))
 
     def test_contains_expression(self):
+        self._create_test_table()
         where_expr = self.warehouse.dialect.sql_expression({
                 'type': 'contains',
                 'left': {
@@ -201,3 +188,23 @@ class FilterAndGroupByTest(SqlTestCase):
         self.assertEqual(len(rows), 7)
         for row in rows:
             self.assertEqual(row[0], 'three')
+
+    def _create_test_table(self):
+        self.create_test_table(
+            [self.sql_declare_string_column("name"),
+             self.sql_declare_integer_column("size")],
+            ["('one',    1)",
+             "('two',    1)",
+             "('two',    2)",
+             "('two',    3)",
+             "('two',    4)",
+             "('three',  1)",
+             "('three',  2)",
+             "('three',  3)",
+             "('three',  4)",
+             "('three',  5)",
+             "('three',  6)",
+             "('three',  7)",
+             "('four',   1)",
+             "('four',   2)",
+             "(null,     1)"])

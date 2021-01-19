@@ -163,6 +163,9 @@ class Dialect:
     def qualify_table_name(self, table_name: str) -> str:
         return table_name
 
+    def qualify_writable_table_name(self, table_name: str) -> str:
+        return table_name
+
     def qualify_regex(self, regex):
         return regex
 
@@ -231,11 +234,11 @@ class Dialect:
         logging.debug('expr sql: '+sql)
         return sql
 
-    def declare_string_column_sql(self, column_name):
+    def sql_declare_string_column(self, column_name):
         return f"{column_name} {self.string_column_type}"
 
-    def declare_integer_column_sql(self, column_name):
+    def sql_declare_integer_column(self, column_name):
         return f"{column_name} {self.integer_column_type}"
 
-    def declare_decimal_column_sql(self, column_name):
+    def sql_declare_decimal_column(self, column_name):
         return f"{column_name} {self.decimal_column_type}"

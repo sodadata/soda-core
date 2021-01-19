@@ -9,6 +9,8 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
+from typing import List
+
 import pyathena
 
 from sodasql.scan.dialect import Dialect, ATHENA
@@ -56,3 +58,12 @@ class AthenaDialect(Dialect):
                 f"FROM information_schema.columns \n"
                 f"WHERE table_name = '{scan_configuration.table_name.lower()}' \n"
                 f"  AND table_schema = '{self.database.lower()}';")
+
+    def qualify_column_name(self, column_name):
+        return f'"{column_name}"'
+
+    def qualify_table_name(self, table_name: str) -> str:
+        return f'"{self.database}"."{table_name}"'
+
+    def qualify_writable_table_name(self, table_name: str) -> str:
+        return f'`{self.database}`.`{table_name}`'

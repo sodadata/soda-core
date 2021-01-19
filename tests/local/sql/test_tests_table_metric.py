@@ -15,8 +15,8 @@ from tests.common.sql_test_case import SqlTestCase
 class TestTestsTableMetric(SqlTestCase):
 
     def test_tests(self):
-        self.sql_create_test_table(
-            [self.warehouse.dialect.declare_string_column_sql("name")],
+        self.create_test_table(
+            [self.sql_declare_string_column("name")],
             ["('one')",
              "('two')",
              "('three') ",

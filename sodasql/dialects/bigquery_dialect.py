@@ -59,6 +59,9 @@ class BigQueryDialect(Dialect):
     def qualify_table_name(self, table_name: str) -> str:
         return f'`{self.dataset_name}.{table_name}`'
 
+    def qualify_writable_table_name(self, table_name: str) -> str:
+        return self.qualify_table_name(table_name)
+
     def sql_expr_regexp_like(self, expr: str, pattern: str):
         return f"REGEXP_CONTAINS({expr}, r'{self.qualify_regex(pattern)}')"
 

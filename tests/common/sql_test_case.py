@@ -11,6 +11,8 @@
 import json
 import logging
 import os
+import random
+import string
 from typing import List, Optional
 from unittest import TestCase
 
@@ -120,15 +122,19 @@ class SqlTestCase(TestCase):
     def sql_updates(self, sqls: List[str]):
         return sql_updates(self.warehouse.connection, sqls)
 
-    def sql_create_test_table(self, columns: List[str], rows: List[str], test_table_name: str = None):
-        joined_columns = ", ".join(columns)
+    def create_test_table(self, columns: List[str], rows: List[str], test_table_name: str = None):
         joined_rows = ", ".join(rows)
         table_name = test_table_name if test_table_name else self.default_test_table_name
-        table_name = self.warehouse.dialect.qualify_table_name(table_name)
         self.sql_updates([
-            f"DROP TABLE IF EXISTS {table_name}",
-            f"CREATE TABLE {table_name} ( {joined_columns} )",
-            f"INSERT INTO {table_name} VALUES {joined_rows}"])
+            f"DROP TABLE IF EXISTS {self.warehouse.dialect.qualify_writable_table_name(table_name)}",
+            self.sql_create_table(columns, table_name),
+            f"INSERT INTO {self.warehouse.dialect.qualify_table_name(table_name)} VALUES {joined_rows}"])
+
+    def sql_create_table(self, columns: List[str], table_name: str):
+        columns_sql = ", ".join(columns)
+        return f"CREATE TABLE " \
+               f"{self.warehouse.dialect.qualify_writable_table_name(table_name)} ( \n " \
+               f"{columns_sql} );"
 
     def scan(self,
              scan_configuration_dict: Optional[dict] = None,
@@ -223,6 +229,19 @@ class SqlTestCase(TestCase):
         metrics_present_and_expected_absent = set(expected_metrics_absent) & set(metrics_present)
         self.assertEqual(set(), metrics_present_and_expected_absent)
 
+    def sql_declare_string_column(self, column_name):
+        return self.warehouse.dialect.sql_declare_string_column(column_name)
+
+    def sql_declare_integer_column(self, column_name):
+        return self.warehouse.dialect.sql_declare_integer_column(column_name)
+
+    def sql_declare_decimal_column(self, column_name):
+        return self.warehouse.dialect.sql_declare_decimal_column(column_name)
+
     @staticmethod
     def generate_test_table_name():
-        return 'test_table'
+        """
+        In BigQuery, the daily limits for table operations are defined per table name, thus using the same table name
+        for all tests causes our daily quota to deplete quickly.
+        """
+        return 'test_table_' + ''.join([random.choice(string.ascii_lowercase) for _ in range(5)])

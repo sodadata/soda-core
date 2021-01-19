@@ -14,22 +14,13 @@ from tests.common.sql_test_case import SqlTestCase
 
 
 class TestMissingAndInvalidMetricConfigurations(SqlTestCase):
-
-    table_name = 'test_table'
-
-    def setUp(self) -> None:
-        super().setUp()
-        self.sql_create_test_table(
-            [self.warehouse.dialect.declare_string_column_sql("id"),
-             self.warehouse.dialect.declare_string_column_sql("name"),
-             self.warehouse.dialect.declare_integer_column_sql("size")],
-            ["('1', 'one',      1)",
-             "('2', '',         2)",
-             "('3', '  ',       3)",
-             "('4', 'no value', null)",
-             "('5', null,       null)"])
+    """
+    Due to the use of multiple inheritance, setUp() methods for all inherited classes will be called, thus,
+    one should not put anything in setUp() that can affect other test methods, such as creating tables.
+    """
 
     def test_scan_without_configurations(self):
+        self._create_test_table()
         scan_result = self.scan()
 
         self.assertMeasurementsAbsent(scan_result, 'id', [
@@ -66,6 +57,7 @@ class TestMissingAndInvalidMetricConfigurations(SqlTestCase):
         ])
 
     def test_scan_missing(self):
+        self._create_test_table()
         scan_result = self.scan({
           'metrics': [
             Metric.CATEGORY_MISSING
@@ -109,6 +101,7 @@ class TestMissingAndInvalidMetricConfigurations(SqlTestCase):
         ])
 
     def test_scan_with_two_default_column_metric(self):
+        self._create_test_table()
         # validity triggers missing measurements
         scan_result = self.scan({
             'columns': {
@@ -154,6 +147,7 @@ class TestMissingAndInvalidMetricConfigurations(SqlTestCase):
         ])
 
     def test_scan_valid_regex(self):
+        self._create_test_table()
         scan_result = self.scan({
             'metrics': [
               'missing'
@@ -204,3 +198,14 @@ class TestMissingAndInvalidMetricConfigurations(SqlTestCase):
             Metric.VALID_COUNT,
             Metric.VALID_PERCENTAGE
         ])
+
+    def _create_test_table(self):
+        self.create_test_table(
+            [self.sql_declare_string_column("id"),
+             self.sql_declare_string_column("name"),
+             self.sql_declare_integer_column("size")],
+            ["('1', 'one',      1)",
+             "('2', '',         2)",
+             "('3', '  ',       3)",
+             "('4', 'no value', null)",
+             "('5', null,       null)"])
