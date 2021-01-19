@@ -20,7 +20,6 @@ Commands:
   create  Creates a new project directory and prepares credentials in your...
   init    Initializes scan.yml files based on profiling tables found in the...
   scan    Computes all measurements and runs all tests on one table.
-  verify  Dry run to verify if the configuration is ok.
 ```
 
 
