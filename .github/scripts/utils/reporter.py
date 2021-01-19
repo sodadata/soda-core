@@ -29,11 +29,11 @@ class Reporter:
     def send_slack_message(self, msg: str):
         self.sender.send_slack_message(msg)
 
-    def report_build_failure(self):
+    def report_test_failure(self):
         author = self._find_author()
         msg = self._status_message(":cry:") \
             + self._run_message() \
-            + f" *failed* {ENV.get_deployment_description()} on job `{self.job}` " \
+            + f" *test failed* {ENV.get_deployment_description()} on job `{self.job}` " \
             + self._commit_message() \
             + f"Last author was {author}. " \
             + self._reports_message() \
@@ -43,17 +43,24 @@ class Reporter:
         for r in self._find_files('TEST*.xml'):
             self._process_xml(r)
 
-    def report_build_success(self):
+    def report_test_success(self):
         msg = self._status_message(":tada:") \
             + self._run_message() \
-            + f"*succeeded* {ENV.get_deployment_description()}" \
+            + f"*test succeeded* {ENV.get_deployment_description()}" \
             + self._commit_message()
         self.send_slack_message(msg)
 
     def report_release_success(self):
-        msg = self._status_message(":tada:") \
+        msg = self._status_message(":rocket:") \
             + self._run_message() \
-            + f"*released* {ENV.get_deployment_description()}" \
+            + f"*release succeeded* {ENV.get_deployment_description()}" \
+            + self._commit_message()
+        self.send_slack_message(msg)
+
+    def report_release_failure(self):
+        msg = self._status_message(":rocket:") \
+            + self._run_message() \
+            + f"*release failed* {ENV.get_deployment_description()}" \
             + self._commit_message()
         self.send_slack_message(msg)
 

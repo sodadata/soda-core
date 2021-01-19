@@ -5,4 +5,4 @@ from utils import Reporter
 
 if __name__ == '__main__':
     reporter = Reporter()
-    reporter.report_build_success()
+    reporter.report_test_success()
