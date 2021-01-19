@@ -51,7 +51,7 @@ jobs:
           name: soda-sql-tox-reports-${{ matrix.python-version }}
           path: ./reports
           retention-days: 5
-      - name: Notify Slack on Failure
+      - name: Notify on Failure
         if: failure()
         env:
           JOB_ID: ${{ github.job }}
@@ -60,7 +60,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           pip3 install -r .github/scripts/requirements.txt
-          python3 .github/scripts/report_workflow_failure.py
+          python3 .github/scripts/report_build_failure.py
 
   publish-pypi:
     name: Build & Publish Package
@@ -111,13 +111,17 @@ jobs:
       - name: Invalidate cache
         run: aws cloudfront create-invalidation --distribution-id ${AWS_CLOUDFRONT_ID} --paths "${AWS_DOCS_PATH}" "${AWS_DOCS_PATH}/*"
 
-  inform-success:
-    name: Inform of success
+  notify-build-success:
+    name: Notify on Build Success
     runs-on: ubuntu-20.04
-    needs: [publish-pypi]
+    needs: [run-tests]
     steps:
       - uses: actions/checkout@v2
-      - name: Notify Slack of success
+      - name: Extract Branch Name
+        shell: bash
+        run: echo "##[set-output name=branch;]$(echo ${GITHUB_REF#refs/heads/})"
+        id: extract_branch
+      - name: Notify on Success
         env:
           JOB_ID: ${{ github.job }}
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
@@ -126,4 +130,25 @@ jobs:
           INCLUDED_BRANCHES: "main master"
         run: |
           pip3 install -r .github/scripts/requirements.txt
-          .github/scripts/report_workflow_success.py
+          .github/scripts/report_build_success.py
+
+  notify-release-success:
+    name: Notify on Release Success
+    runs-on: ubuntu-20.04
+    needs: [publish-pypi]
+    steps:
+      - uses: actions/checkout@v2
+      - name: Extract Branch Name
+        shell: bash
+        run: echo "##[set-output name=branch;]$(echo ${GITHUB_REF#refs/heads/})"
+        id: extract_branch
+      - name: Notify on Success
+        env:
+          JOB_ID: ${{ github.job }}
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          REPORTS_URL: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          INCLUDED_BRANCHES: "main master"
+        run: |
+          pip3 install -r .github/scripts/requirements.txt
+          .github/scripts/report_release_success.py

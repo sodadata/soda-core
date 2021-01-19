@@ -29,7 +29,7 @@ class Reporter:
     def send_slack_message(self, msg: str):
         self.sender.send_slack_message(msg)
 
-    def report_workflow_failure(self):
+    def report_build_failure(self):
         author = self._find_author()
         msg = self._status_message(":cry:") \
             + self._run_message() \
@@ -43,10 +43,17 @@ class Reporter:
         for r in self._find_files('TEST*.xml'):
             self._process_xml(r)
 
-    def report_workflow_success(self):
+    def report_build_success(self):
         msg = self._status_message(":tada:") \
             + self._run_message() \
             + f"*succeeded* {ENV.get_deployment_description()}" \
+            + self._commit_message()
+        self.send_slack_message(msg)
+
+    def report_release_success(self):
+        msg = self._status_message(":tada:") \
+            + self._run_message() \
+            + f"*released* {ENV.get_deployment_description()}" \
             + self._commit_message()
         self.send_slack_message(msg)
 
