@@ -59,6 +59,6 @@ Each warehouse will require different configuration parameters.
 See [Warehouse types](warehouse_types.md) to learn how to configure each
 type of warehouse.
 
-Soon, Soda project files will also include an optional
+> Soon, Soda project files will also include an optional
 link to a Soda cloud account.  A cloud account enables you to push the monitoring
 results after each scan and share them with other people in your data organisation.

@@ -6,23 +6,30 @@ Data testing and monitoring for SQL accessible data.
 
 **What does Soda SQL do?**
 
- * Stops your pipeline if bad data is detected
- * Extracts metrics through SQL
- * Full control over metrics and queries
+Soda SQL allows you to
+
+ * Stop your pipeline when bad data is detected
+ * Extract metrics and column profiles through super efficient SQL
+ * Full control over metrics and queries through declarative config files
 
 **Why Soda SQL?**
 
 To protect against silent data issues for the consumers of your data,
-it's recommended to check your data before and after every data pipeline job.
-You will know when bad data enters your pipeline.  And you will prevent
-delivery of bad data to downstream consumers.
+it's best-practice to profile and test your data:
+
+ * as it lands in your warehouse, 
+ * after every important data processing step
+ * right before consumption.
+
+This way you will prevent delivery of bad data to downstream consumers.
+You will spend less time firefighting and gain a better reputation.
 
 **How does Soda SQL work?**
 
 Soda SQL is a Command Line Interface (CLI) and a Python library to measure
 and test your data using SQL.
 
-As input, Soda SQL uses Yaml configuration files that include:
+As input, Soda SQL uses YAML configuration files that include:
  * SQL connection details
  * What metrics to compute
  * What tests to run on the measurements
@@ -37,7 +44,7 @@ code.
 
 **Show me the money**
 
-Simple metrics and tests can be configured in Yaml configuration files called `scan.yml`. An example
+Simple metrics and tests can be configured in YAML configuration files called `scan.yml`. An example
 of the contents of such a file:
 
 ```yaml
