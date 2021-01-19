@@ -211,7 +211,7 @@ def init(warehouse_dir: str):
 def scan(warehouse_dir: str, table: str, variables: tuple = None, time: str = None):
     """
     Computes all measurements and runs all tests on one table.  Exit code 0 means all tests passed.
-    Non zero exist code means tests have failed or an exception occured.
+    Non zero exit code means tests have failed or an exception occurred.
     If the project has a Soda cloud account configured, measurements and test results will be uploaded.
 
     WAREHOUSE_DIR is the warehouse directory containing a warehouse.yml file

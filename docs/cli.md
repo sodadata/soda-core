@@ -26,7 +26,7 @@ Commands:
 | ------- | ----------- |
 | `soda create ...` | Creates a new warehouse directory and prepares credentials in your ~/.soda/env_vars.yml Nothing will be overwritten or removed, only added if it does not exist yet. |
 | `soda init ...` | Finds tables in the warehouse and based on the contents, creates initial scan.yml files |
-| `soda scan ...` | Computes all measurements and runs all tests on one table.  Exit code 0 means all tests passed. Non zero exist code means tests have failed or an exception occured. If the project has a Soda cloud account configured, measurements and test results will be uploaded |
+| `soda scan ...` | Computes all measurements and runs all tests on one table.  Exit code 0 means all tests passed. Non zero exit code means tests have failed or an exception occurred. If the project has a Soda cloud account configured, measurements and test results will be uploaded |
 
 To learn about the parameters, use the command line help:
 * `soda create --help`
