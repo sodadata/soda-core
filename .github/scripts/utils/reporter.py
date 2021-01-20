@@ -43,13 +43,13 @@ class Reporter:
         self._process_test_results()
 
     def report_test_success(self):
-        self._report_status(self, ":tada:", "test succeeded")
+        self._report_status(":tada:", "test succeeded")
 
     def report_release_success(self):
-        self._report_status(self, ":rocket:", "release succeeded")
+        self._report_status(":rocket:", "release succeeded")
 
     def report_release_failure(self):
-        self. _report_status(self, ":boom:", "release failed")
+        self. _report_status(":boom:", "release failed")
 
     def _report_status(self, emoji, status):
         msg = self._status_message(emoji) \
