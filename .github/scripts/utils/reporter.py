@@ -40,29 +40,27 @@ class Reporter:
             + self._test_module_message() \
             + "."
         self.send_slack_message(msg)
-        for r in self._find_files('TEST*.xml'):
-            self._process_xml(r)
+        self._process_test_results()
 
     def report_test_success(self):
-        msg = self._status_message(":tada:") \
-            + self._run_message() \
-            + f"*test succeeded* {ENV.get_deployment_description()}" \
-            + self._commit_message()
-        self.send_slack_message(msg)
+        self._report_status(self, ":tada:", "test succeeded")
 
     def report_release_success(self):
-        msg = self._status_message(":rocket:") \
+        self._report_status(self, ":rocket:", "release succeeded")
+
+    def report_release_failure(self):
+        self. _report_status(self, ":boom:", "release failed")
+
+    def _report_status(self, emoji, status):
+        msg = self._status_message(emoji) \
             + self._run_message() \
-            + f"*release succeeded* {ENV.get_deployment_description()}" \
+            + f"*{status}* {ENV.get_deployment_description()}" \
             + self._commit_message()
         self.send_slack_message(msg)
 
-    def report_release_failure(self):
-        msg = self._status_message(":rocket:") \
-            + self._run_message() \
-            + f"*release failed* {ENV.get_deployment_description()}" \
-            + self._commit_message()
-        self.send_slack_message(msg)
+    def _process_test_results(self):
+        for r in self._find_files('TEST*.xml'):
+            self._process_xml(r)
 
     def _run_message(self):
         return f"<https://github.com/{self.repository}/actions/runs/{self.run}|{self.run}> "
