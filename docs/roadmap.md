@@ -11,21 +11,6 @@ could not achieve.
 
 ## Roadmap  
 
-Now
-* Support Postgres (Done)
-
-End of January 2021
-* Support Snowflake 
-* Support AWS Redshift
-* Support GCP BigQuery
-* Support AWS Athena
-
-Later
-* Support Spark SQL
-* Support Dremio
+[See Roadmap project on GitHub](https://github.com/sodadata/soda-sql/projects/1)
 
 For other SQL engines or feature requests, [create an issue](https://github.com/sodadata/soda-sql/issues/new)
-
-## Release notes
-
-TODO
