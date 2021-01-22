@@ -238,6 +238,9 @@ class SqlTestCase(TestCase):
     def sql_declare_decimal_column(self, column_name):
         return self.warehouse.dialect.sql_declare_decimal_column(column_name)
 
+    def qualify_string(self, value: str):
+        return self.warehouse.dialect.qualify_string(value)
+
     @staticmethod
     def generate_test_table_name():
         """
