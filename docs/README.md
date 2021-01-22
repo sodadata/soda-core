@@ -1,24 +1,8 @@
----
-# Feel free to add content and custom Front Matter to this file.
-# To modify the layout, see https://jekyllrb.com/docs/themes/#overriding-theme-defaults
-#home
-
-layout: default
-title: Getting Started
-nav_order: 1
-has_children: true
-permalink: /
----
-
 # Soda SQL
 
 Data testing and monitoring for SQL accessible data.
 
-{% comment %}
-
 > [The full documentation is available on docs.soda.io/soda-sql](https://docs.soda.io/soda-sql)
-
-{% endcomment %}
 
 **What does Soda SQL do?**
 
