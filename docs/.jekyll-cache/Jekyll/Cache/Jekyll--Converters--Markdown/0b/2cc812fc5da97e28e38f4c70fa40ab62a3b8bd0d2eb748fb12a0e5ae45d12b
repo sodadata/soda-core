@@ -1,0 +1,78 @@
+I"Å<h1 id="sodas-command-line-interface-cli">Soda‚Äôs Command Line Interface (CLI)</h1>
+
+<blockquote>
+  <p>See our <a href="/soda-sql/getting-started/installation.html">Installation guide</a> on how to install the <code class="language-plaintext highlighter-rouge">soda</code> command.</p>
+</blockquote>
+
+<p>The soda command line is mostly a tool to help you get started with
+your Soda SQL configuration files.</p>
+
+<p>To see the list of available commands, enter <code class="language-plaintext highlighter-rouge">soda</code> in your terminal:</p>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>soda
+Usage: soda [OPTIONS] COMMAND [ARGS]...
+
+Options:
+  --help  Show this message and exit.
+
+Commands:
+  create  Creates a new warehouse directory and prepares credentials in
+          your...
+
+  init    Finds tables in the warehouse and based on the contents, creates...
+  scan    Computes all measurements and runs all tests on one table.
+</code></pre></div></div>
+
+<table>
+  <thead>
+    <tr>
+      <th>Command</th>
+      <th>Description</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">soda create ...</code></td>
+      <td>Creates a new warehouse directory and prepares credentials in your ~/.soda/env_vars.yml Nothing will be overwritten or removed, only added if it does not exist yet.</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">soda init ...</code></td>
+      <td>Finds tables in the warehouse and based on the contents, creates initial scan.yml files</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">soda scan ...</code></td>
+      <td>Computes all measurements and runs all tests on one table.  Exit code 0 means all tests passed. Non zero exit code means tests have failed or an exception occurred. If the project has a Soda cloud account configured, measurements and test results will be uploaded</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>To learn about the parameters, use the command line help:</p>
+<ul>
+  <li><code class="language-plaintext highlighter-rouge">soda create --help</code></li>
+  <li><code class="language-plaintext highlighter-rouge">soda init --help</code></li>
+  <li><code class="language-plaintext highlighter-rouge">soda scan --help</code></li>
+</ul>
+
+<h1 id="env-vars">Env vars</h1>
+
+<p>To keep your <code class="language-plaintext highlighter-rouge">warehouse.yml</code> configuration files free of credentials, soda-sql
+supports to reference to environment variables by using the <code class="language-plaintext highlighter-rouge">env_vars(SOME_ENV_VAR)</code> format.</p>
+
+<p>The <code class="language-plaintext highlighter-rouge">soda</code> CLI uses a convenient mechanism to load environment variables from your local
+user home directory.  Each <code class="language-plaintext highlighter-rouge">soda</code> CLI command which reads a warehouse configuration will
+also read the corresponding environment variables specified in your
+<code class="language-plaintext highlighter-rouge">~/.soda/env_vars.yml</code> file.</p>
+
+<p>Example <code class="language-plaintext highlighter-rouge">~/.soda/env_vars.yml</code></p>
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">my_project_postgres</span><span class="pi">:</span>
+    <span class="na">SNOWFLAKE_USERNAME</span><span class="pi">:</span> <span class="s">someotherexampleusername</span>
+    <span class="na">SNOWFLAKE_PASSWORD</span><span class="pi">:</span> <span class="s">someotherexamplepassword</span>
+
+<span class="na">some_other_soda_project</span><span class="pi">:</span>
+    <span class="na">POSTGRES_USERNAME</span><span class="pi">:</span> <span class="s">myexampleusername</span>
+    <span class="na">POSTGRES_PASSWORD</span><span class="pi">:</span> <span class="s">myexamplepassword</span>
+</code></pre></div></div>
+
+<p>The <code class="language-plaintext highlighter-rouge">soda create</code> command will assist in creating and prepopulating the
+environment variables section in your <code class="language-plaintext highlighter-rouge">~/.soda/env_vars.yml</code> file.</p>
+:ET

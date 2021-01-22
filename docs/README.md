@@ -1,8 +1,24 @@
+---
+# Feel free to add content and custom Front Matter to this file.
+# To modify the layout, see https://jekyllrb.com/docs/themes/#overriding-theme-defaults
+#home
+
+layout: default
+title: Getting Started
+nav_order: 1
+has_children: true
+permalink: /
+---
+
 # Soda SQL
 
 Data testing and monitoring for SQL accessible data.
 
+{% comment %}
+
 > [The full documentation is available on docs.soda.io/soda-sql](https://docs.soda.io/soda-sql)
+
+{% endcomment %}
 
 **What does Soda SQL do?**
 
@@ -17,7 +33,7 @@ Soda SQL allows you to
 To protect against silent data issues for the consumers of your data,
 it's best-practice to profile and test your data:
 
- * as it lands in your warehouse, 
+ * as it lands in your warehouse,
  * after every important data processing step
  * right before consumption.
 
@@ -40,7 +56,7 @@ a scan is executed after new data has arrived.  All soda-sql configuration files
 can be checked into your version control system as part of your pipeline
 code.
 
-> Want to try Soda SQL? Head over to our ['5 minute tutorial'](https://docs.soda.io/soda-sql/#/5_min_tutorial) and get started straight away!
+> Want to try Soda SQL? Head over to our ['5 minute tutorial'](https://docs.soda.io/soda-sql/getting-started/5_min_tutorial.html) and get started straight away!
 
 **Show me the money**
 
@@ -101,7 +117,7 @@ tests:
 Based on these configuration files, Soda SQL will scan your data
 each time new data arrived like this:
 
-```
+```bash
 $ soda scan ./soda/metrics my_warehouse my_dataset
 Soda 1.0 scan for dataset my_dataset on prod my_warehouse
   | SELECT column_name, data_type, is_nullable
@@ -145,7 +161,6 @@ data pipeline orchestration solution like:
 * Matillion
 * Luigi
 
-If you like the goals of this project, encourage us! Star
-<a class="github-button" href="https://github.com/sodadata/soda-sql" data-icon="octicon-star" data-size="large" aria-label="Star sodadata/soda-sql on GitHub">soda-sql on GitHub</a>
+If you like the goals of this project, encourage us! Star [sodadata/soda-sql on Github](https://github.com/sodadata/soda-sql).
 
-> Next, head over to our ['5 minute tutorial'](https://docs.soda.io/soda-sql/#/5_min_tutorial) and get your first project going!
+> Next, head over to our ['5 minute tutorial'](https://docs.soda.io/soda-sql/getting-started/5_min_tutorial) and get your first project going!

@@ -1,0 +1,35 @@
+I"§<h1 id="installation">Installation</h1>
+
+<p>The simplest way to use soda-sql is by using the CLI. This section guides you through
+the installation steps required to get the <code class="language-plaintext highlighter-rouge">soda</code> command up and running.</p>
+
+<blockquote>
+  <p>As an alternative to the CLI, you can use the Python Programmatic Interface, which
+provides you with a more advance way of using Soda SQL.
+See <a href="/soda-sql/documentation/orchestrate_scans.html#programmatic-scans">Programmatic scans</a>.</p>
+</blockquote>
+
+<h2 id="requirements">Requirements</h2>
+
+<p>The soda-sql CLI requires the following dependencies to be installed on your system:</p>
+<ul>
+  <li>Python &gt;=3.7 &lt;3.9</li>
+  <li>postgresql-libs (<code class="language-plaintext highlighter-rouge">libpq-dev</code> in Debian/Ubuntu, <code class="language-plaintext highlighter-rouge">libpq-devel</code> in CentOS, <code class="language-plaintext highlighter-rouge">postgresql</code> on MacOSX)</li>
+  <li><em>Linux only:</em> <code class="language-plaintext highlighter-rouge">libssl-dev</code> and <code class="language-plaintext highlighter-rouge">libffi-dev</code> (<code class="language-plaintext highlighter-rouge">libffi-devel</code> and <code class="language-plaintext highlighter-rouge">openssl-devel</code> in CentOS)</li>
+</ul>
+
+<p>To check your version of python, run the <code class="language-plaintext highlighter-rouge">python</code> command</p>
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>$ python --version
+Python 3.7.7
+</code></pre></div></div>
+
+<p>If you donâ€™t have Python, <a href="https://www.python.org/downloads/">install it from Python downloads</a> which should also
+provide you with <code class="language-plaintext highlighter-rouge">pip</code>.</p>
+
+<h2 id="installing-soda-sql-cli-from-pypi">Installing soda-sql CLI from PyPI</h2>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>$ pip install soda-sql
+</code></pre></div></div>
+
+<p>After the installation finishes head over to the <a href="/soda-sql/getting-started/5_min_tutorial.html">5 Minute Tutorial</a> to get started.</p>
+:ET

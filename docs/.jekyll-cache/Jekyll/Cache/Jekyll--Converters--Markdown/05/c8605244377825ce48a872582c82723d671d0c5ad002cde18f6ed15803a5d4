@@ -1,0 +1,25 @@
+I"r<h1 id="tests">Tests</h1>
+
+<p>Tests are evaluated as part of scans and product test results as 
+part of the scan result.  When using the CLI, the exit code will be 
+determined by the test results.</p>
+
+<p>Tests are simple Python expressions where the metrics are available 
+as variables.</p>
+
+<p>For example:</p>
+
+<ul>
+  <li><code class="language-plaintext highlighter-rouge">min &gt; 25</code></li>
+  <li><code class="language-plaintext highlighter-rouge">missing_percentage &lt;= 2.5</code></li>
+  <li><code class="language-plaintext highlighter-rouge">5 &lt;= avg_length and avg_length &lt;= 10</code></li>
+</ul>
+
+<p>Tests can be specified on 3 different places:</p>
+
+<ul>
+  <li><code class="language-plaintext highlighter-rouge">tests</code> in scan.yml on top level for testing <code class="language-plaintext highlighter-rouge">row_count</code> and other table level metrics</li>
+  <li><code class="language-plaintext highlighter-rouge">tests</code> in scan.yml on a column level for testing column metrics</li>
+  <li><code class="language-plaintext highlighter-rouge">tests</code> in user defined SQL metrics yaml files</li>
+</ul>
+:ET

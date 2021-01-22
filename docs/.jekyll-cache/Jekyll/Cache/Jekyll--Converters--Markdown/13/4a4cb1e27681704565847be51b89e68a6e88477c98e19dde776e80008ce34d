@@ -1,0 +1,343 @@
+I"� <h1 id="scan">Scan</h1>
+
+<p>This section explains what a scan does, how it works and how to use <code class="language-plaintext highlighter-rouge">scan.yml</code> files to configure them.</p>
+
+<p>For running scans, see either <a href="/soda-sql/documentation/cli.html">the CLI</a> or <a href="/soda-sql/documentation/orchestrate_scans.html">Orchestrate scans</a>.</p>
+
+<h2 id="anatomy-of-a-scan">Anatomy of a scan</h2>
+
+<p>A scan is performed on a table and does the following:</p>
+
+<ul>
+  <li>Fetch the column metadata of the table (column name, type and nullable)</li>
+  <li>Single aggregation query that computes aggregate metrics for multiple columns like e.g. missing, min, max etc</li>
+  <li>For each column
+    <ul>
+      <li>One query for distinct_count, unique_count and valid_count</li>
+      <li>One query for mins (list of smallest values)</li>
+      <li>One query for maxs (list of greatest values)</li>
+      <li>One query for frequent values</li>
+      <li>One query for histograms</li>
+    </ul>
+  </li>
+</ul>
+
+<blockquote>
+  <p>Note on performance: we have tuned most column queries by using the same Column Table Expression (CTE).
+The goal is to allow some databases, like eg Snowflake, to be able to cache the results, but we didn’t see
+actual proof of this yet.  If you have knowledge on this, <a href="/soda-sql/community.html">drop us a line in one of the channels</a>.</p>
+</blockquote>
+
+<h2 id="top-level-scanyml-keys">Top level scan.yml keys</h2>
+
+<p>In a <code class="language-plaintext highlighter-rouge">scan.yml</code> file, you configure which metrics should be computed and
+which tests should be checked.</p>
+
+<p>Top level configuration keys:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Key</th>
+      <th>Description</th>
+      <th>Required</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>table_name</td>
+      <td>The table name.</td>
+      <td>Required</td>
+    </tr>
+    <tr>
+      <td>metrics</td>
+      <td>The list of metrics to compute. Column metrics specified here will be computed on each column.</td>
+      <td>Optional</td>
+    </tr>
+    <tr>
+      <td>columns</td>
+      <td>Optionally add metrics and configurations for specific columns</td>
+      <td>Optional</td>
+    </tr>
+    <tr>
+      <td>time_filter</td>
+      <td>A SQL expression that will be added to query where clause. Uses <a href="https://jinja.palletsprojects.com/">Jinja as template language</a>. Variables can be passed into the scan.  See <a href="/soda-sql/documentation/time_partitioning.html">Time partitioning</a></td>
+      <td>Optional</td>
+    </tr>
+    <tr>
+      <td>mins_maxs_limit</td>
+      <td>Max number of elements for the mins metric</td>
+      <td>Optional, default is 5</td>
+    </tr>
+    <tr>
+      <td>frequent_values_limit</td>
+      <td>Max number of elements for the maxs metric</td>
+      <td>Optional, default is 5</td>
+    </tr>
+    <tr>
+      <td>sample_percentage</td>
+      <td>Adds <a href="https://docs.snowflake.com/en/sql-reference/constructs/sample.html">sampling</a> to limit the number of rows scanned. Only tested on Postgres</td>
+      <td>Optional</td>
+    </tr>
+    <tr>
+      <td>sample_method</td>
+      <td>For Snowflake, One of { BERNOULLI, ROW, SYSTEM, BLOCK }</td>
+      <td>Required if sample_percentage is specified</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2 id="metrics">Metrics</h2>
+
+<h3 id="table-metrics">Table metrics</h3>
+
+<table>
+  <thead>
+    <tr>
+      <th>Meric</th>
+      <th>Description</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>row_count</td>
+      <td> </td>
+    </tr>
+    <tr>
+      <td>schema</td>
+      <td> </td>
+    </tr>
+  </tbody>
+</table>
+
+<h3 id="column-metrics">Column metrics</h3>
+
+<table>
+  <thead>
+    <tr>
+      <th>Meric</th>
+      <th>Description</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>missing_count</td>
+      <td> </td>
+    </tr>
+    <tr>
+      <td>missing_percentage</td>
+      <td> </td>
+    </tr>
+    <tr>
+      <td>values_count</td>
+      <td> </td>
+    </tr>
+    <tr>
+      <td>values_percentage</td>
+      <td> </td>
+    </tr>
+    <tr>
+      <td>valid_count</td>
+      <td> </td>
+    </tr>
+    <tr>
+      <td>valid_percentage</td>
+      <td> </td>
+    </tr>
+    <tr>
+      <td>invalid_count</td>
+      <td> </td>
+    </tr>
+    <tr>
+      <td>invalid_percentage</td>
+      <td> </td>
+    </tr>
+    <tr>
+      <td>min</td>
+      <td> </td>
+    </tr>
+    <tr>
+      <td>max</td>
+      <td> </td>
+    </tr>
+    <tr>
+      <td>avg</td>
+      <td> </td>
+    </tr>
+    <tr>
+      <td>sum</td>
+      <td> </td>
+    </tr>
+    <tr>
+      <td>variance</td>
+      <td> </td>
+    </tr>
+    <tr>
+      <td>stddev</td>
+      <td> </td>
+    </tr>
+    <tr>
+      <td>min_length</td>
+      <td> </td>
+    </tr>
+    <tr>
+      <td>max_length</td>
+      <td> </td>
+    </tr>
+    <tr>
+      <td>avg_length</td>
+      <td> </td>
+    </tr>
+    <tr>
+      <td>distinct</td>
+      <td> </td>
+    </tr>
+    <tr>
+      <td>unique_count</td>
+      <td> </td>
+    </tr>
+    <tr>
+      <td>duplicate_count</td>
+      <td> </td>
+    </tr>
+    <tr>
+      <td>uniqueness</td>
+      <td> </td>
+    </tr>
+    <tr>
+      <td>maxs</td>
+      <td> </td>
+    </tr>
+    <tr>
+      <td>mins</td>
+      <td> </td>
+    </tr>
+    <tr>
+      <td>frequent_values</td>
+      <td> </td>
+    </tr>
+    <tr>
+      <td>histogram</td>
+      <td> </td>
+    </tr>
+  </tbody>
+</table>
+
+<h3 id="metric-categories">Metric categories</h3>
+
+<blockquote>
+  <p>Deprecated metric categories are now included in the metrics, but that is probably not a
+good idea. We’re considering to introduce <code class="language-plaintext highlighter-rouge">metric_categories</code> as a separate top level element</p>
+</blockquote>
+
+<table>
+  <thead>
+    <tr>
+      <th>Meric category</th>
+      <th>Metrics</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>missing</td>
+      <td>missing_count<br />missing_percentage<br />values_count<br />values_percentage</td>
+    </tr>
+    <tr>
+      <td>validity</td>
+      <td>valid_count<br />valid_percentage<br />invalid_count<br />invalid_percentage</td>
+    </tr>
+    <tr>
+      <td>duplicates</td>
+      <td>distinct<br />unique_count<br />uniqueness<br />duplicate_count</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3 id="implied-metrics">Implied metrics</h3>
+
+<table>
+  <thead>
+    <tr>
+      <th>Any metric in</th>
+      <th>Implies metrics</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>valid_count<br />valid_percentage<br />invalid_count<br />invalid_percentage</td>
+      <td>missing_count<br />missing_percentage<br />values_count<br />values_percentage</td>
+    </tr>
+    <tr>
+      <td>missing_count<br />missing_percentage<br />values_count<br />values_percentage</td>
+      <td>row_count</td>
+    </tr>
+    <tr>
+      <td>histogram</td>
+      <td>min<br />max</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2 id="column-configurations">Column configurations</h2>
+
+<p>Column configuration keys:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Key</th>
+      <th>Description</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>metrics</td>
+      <td>Extra metrics to be computed for this column</td>
+    </tr>
+    <tr>
+      <td>tests</td>
+      <td>Tests to be evaluate for this column</td>
+    </tr>
+    <tr>
+      <td>missing_values</td>
+      <td>Customize what values are considered missing</td>
+    </tr>
+    <tr>
+      <td>missing_format</td>
+      <td>To customize missing values such as whitespace and empty strings</td>
+    </tr>
+    <tr>
+      <td>missing_regex</td>
+      <td>Define your own custom missing values</td>
+    </tr>
+    <tr>
+      <td>valid_format</td>
+      <td>Specifies valid values with a named valid text format</td>
+    </tr>
+    <tr>
+      <td>valid_regex</td>
+      <td>Specifies valid values with a regex</td>
+    </tr>
+    <tr>
+      <td>valid_values</td>
+      <td>Specifies valid values with a list of values</td>
+    </tr>
+    <tr>
+      <td>valid_min</td>
+      <td>Specifies a min value for valid values</td>
+    </tr>
+    <tr>
+      <td>valid_max</td>
+      <td>Specifies a max value for valid values</td>
+    </tr>
+    <tr>
+      <td>valid_min_length</td>
+      <td>Specifies a min length for valid values</td>
+    </tr>
+    <tr>
+      <td>valid_max_length</td>
+      <td>Specifies a max length for valid values</td>
+    </tr>
+  </tbody>
+</table>
+:ET

@@ -1,0 +1,53 @@
+I"¬<h1 id="sql-metrics">SQL metrics</h1>
+
+<p>The most simple SQL metric is selecting 1 numeric value.
+For example:</p>
+
+<blockquote>
+  <p>The name of the field will be used as the name of the metric.  So be sure to 
+provide a meaningful field alias for aggregate functions.  Otherwise you wonâ€™t 
+be able to properly reference the metrics in the test.</p>
+</blockquote>
+
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">sql</span><span class="pi">:</span> <span class="pi">|</span>
+    <span class="s">SELECT sum(volume) as total_volume_us</span>
+    <span class="s">FROM CUSTOMER_TRANSACTIONS</span>
+    <span class="s">WHERE country = 'US'</span>
+<span class="na">tests</span><span class="pi">:</span>
+    <span class="na">total_volume_greater_than</span><span class="pi">:</span> <span class="s">total_volume_us &gt; </span><span class="m">5000</span>
+</code></pre></div></div>
+
+<p>Multiple select fields are supported as well:</p>
+
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">sql</span><span class="pi">:</span> <span class="pi">|</span>
+    <span class="s">SELECT sum(volume) as total_volume_us,</span>
+           <span class="s">min(volume) as min_volume_us,</span>
+           <span class="s">max(volume) as max_volume_us</span>
+    <span class="s">FROM CUSTOMER_TRANSACTIONS</span>
+    <span class="s">WHERE country = 'US'</span>
+<span class="na">tests</span><span class="pi">:</span>
+    <span class="na">total_volume_greater_than</span><span class="pi">:</span> <span class="s">total_volume_us &gt; </span><span class="m">5000</span>
+    <span class="na">min_volume_greater_than</span><span class="pi">:</span> <span class="s">min_volume_us &gt; </span><span class="m">20</span>
+    <span class="na">max_volume_greater_than</span><span class="pi">:</span> <span class="s">max_volume_us &gt; </span><span class="m">100</span>
+    <span class="na">spread_less_than</span><span class="pi">:</span> <span class="s">max_volume_us - min_volume_us &lt; 60</span> 
+</code></pre></div></div>
+
+<p>And also group-by sql metrics.  In this case the tests will be checked for 
+each group combination.</p>
+
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">sql</span><span class="pi">:</span> <span class="pi">|</span>
+    <span class="s">SELECT country, </span>
+           <span class="s">sum(volume) as total_volume,</span>
+           <span class="s">min(volume) as min_volume,</span>
+           <span class="s">max(volume) as max_volume</span>
+    <span class="s">FROM CUSTOMER_TRANSACTIONS</span>
+    <span class="s">GROUP BY country</span>
+<span class="na">group_fields</span><span class="pi">:</span> 
+    <span class="pi">-</span> <span class="s">country</span>
+<span class="na">tests</span><span class="pi">:</span>
+    <span class="na">total_volume_greater_than</span><span class="pi">:</span> <span class="s">total_volume &gt; </span><span class="m">5000</span>
+    <span class="na">min_volume_greater_than</span><span class="pi">:</span> <span class="s">min_volume &gt; </span><span class="m">20</span>
+    <span class="na">max_volume_greater_than</span><span class="pi">:</span> <span class="s">max_volume &gt; </span><span class="m">100</span>
+    <span class="na">spread_less_than</span><span class="pi">:</span> <span class="s">max_volume - min_volume &lt; 60</span> 
+</code></pre></div></div>
+:ET

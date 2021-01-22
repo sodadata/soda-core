@@ -1,0 +1,65 @@
+I"<h1 id="warehouse">Warehouse</h1>
+
+<p>A directory with a <code class="language-plaintext highlighter-rouge">warehouse.yml</code> configuration file is considered a Soda
+warehouse directory and it implies a directory structure of one directory
+per table.</p>
+
+<p>A warehouse represents a connection to any SQL engine like: Snowflake, Redshift,
+BigQuery, Athena, Postgres, etc .</p>
+
+<h2 id="example">Example</h2>
+
+<p>Here’s an example Soda warehouse directory structure:</p>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>+ sales_snowflake
+|   + warehouse.yml
+|   + customers
+|   |   + scan.yml
+|   + invoices
+|   |   + scan.yml
+|   |   + invoices_without_active_country.yml
+|   |   + invoices_with_inactive_products.yml
+</code></pre></div></div>
+
+<p><code class="language-plaintext highlighter-rouge">warehouse.yml</code> contains the name of the warehouse and
+the connection details (see below)</p>
+
+<p><code class="language-plaintext highlighter-rouge">customers</code> and <code class="language-plaintext highlighter-rouge">invoices</code> are table directories, each
+having a <a href="/soda-sql/documentation/scan.html">scan.yml</a> configuration file.</p>
+
+<p><code class="language-plaintext highlighter-rouge">invoices_*.yml</code> are user defined <a href="/soda-sql/documentation/sql_metrics.html">SQL metrics</a>
+that also get executed when a table scan is performed</p>
+
+<h2 id="warehouseyml">warehouse.yml</h2>
+
+<p><code class="language-plaintext highlighter-rouge">warehouse.yml</code> contains the name of the warehouse and the connection details.</p>
+
+<p>We encourage usage of environment variables for credentials and other sensitive information
+to prevent them from being checked-in into your version control system.</p>
+
+<p>For example:</p>
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">name</span><span class="pi">:</span> <span class="s">my_project_postgres</span>
+<span class="na">connection</span><span class="pi">:</span>
+  <span class="na">type</span><span class="pi">:</span> <span class="s">postgres</span>
+  <span class="na">host</span><span class="pi">:</span> <span class="s">localhost</span>
+  <span class="na">username</span><span class="pi">:</span> <span class="s">env_var(POSTGRES_USERNAME)</span>
+  <span class="na">password</span><span class="pi">:</span> <span class="s">env_var(POSTGRES_PASSWORD)</span>
+  <span class="na">database</span><span class="pi">:</span> <span class="s">sodasql</span>
+  <span class="na">schema</span><span class="pi">:</span> <span class="s">public</span>
+</code></pre></div></div>
+
+<p>The example above shows you how to each environment variables for credentials.
+Each environment variable, defined using <code class="language-plaintext highlighter-rouge">env_var(VAR_NAME)</code>, will automatically be
+resolved using the <code class="language-plaintext highlighter-rouge">env_vars.yml</code> file in your home directory. More on this can be found
+in the <a href="/soda-sql/documentation/cli.html#env-vars">cli.yml documentation</a>.</p>
+
+<p>Each warehouse will require different configuration parameters.
+See <a href="/soda-sql/documentation/warehouse_types.html">Warehouse types</a> to learn how to configure each
+type of warehouse.</p>
+
+<blockquote>
+  <p>Soon, Soda project files will also include an optional
+link to a Soda cloud account.  A cloud account enables you to push the monitoring
+results after each scan and share them with other people in your data organisation.</p>
+</blockquote>
+:ET

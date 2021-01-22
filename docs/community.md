@@ -1,8 +1,14 @@
+---
+layout: default
+title: Community
+nav_order: 99
+---
+
 # Community
 
 Soda SQL is open source software distributed under the Apache License v2.
 
-We hope you like it.  Please encourage us by <a class="github-button" href="https://github.com/sodadata/soda-sql" data-icon="octicon-star" data-size="large" aria-label="Star sodadata/soda-sql on GitHub">starring soda-sql on GitHub</a>.
+We hope you like it.  Please encourage us by [starring sodadata/soda-sql on Github](https://github.com/sodadata/soda-sql).
 
 Get involved, cause we believe Soda SQL is going to be an important part
 of many data platforms and you have a perspective to contribute.
@@ -13,7 +19,7 @@ of many data platforms and you have a perspective to contribute.
 
 [Discussions: github.com/sodadata/soda-sql/discussions](https://github.com/sodadata/soda-sql/discussions)
 
-Create a [new discussion](https://github.com/sodadata/soda-sql/discussions/new) to 
+Create a [new discussion](https://github.com/sodadata/soda-sql/discussions/new) to
 * Post a question
 * Post a problem
 * Share your feedback

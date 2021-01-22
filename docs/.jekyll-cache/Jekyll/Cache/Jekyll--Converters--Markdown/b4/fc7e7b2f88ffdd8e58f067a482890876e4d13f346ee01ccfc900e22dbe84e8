@@ -1,0 +1,38 @@
+I"ç<h1 id="roadmap-and-release-notes">Roadmap and release notes</h1>
+
+<h2 id="current-status">Current status</h2>
+
+<p>Soda SQL is currently in beta. While the codebase is quite young, it does build upon our 
+experience of many field implementations and customer inputs.</p>
+
+<p>We have seen many home grown solutions for this problem.  With this project, we want to 
+combine our expertise with these efforts and jointly build something that any individual party 
+could not achieve.</p>
+
+<h2 id="roadmap">Roadmap</h2>
+
+<p>Now</p>
+<ul>
+  <li>Support Postgres (Done)</li>
+</ul>
+
+<p>End of January 2021</p>
+<ul>
+  <li>Support Snowflake</li>
+  <li>Support AWS Redshift</li>
+  <li>Support GCP BigQuery</li>
+  <li>Support AWS Athena</li>
+</ul>
+
+<p>Later</p>
+<ul>
+  <li>Support Spark SQL</li>
+  <li>Support Dremio</li>
+</ul>
+
+<p>For other SQL engines or feature requests, <a href="https://github.com/sodadata/soda-sql/issues/new">create an issue</a></p>
+
+<h2 id="release-notes">Release notes</h2>
+
+<p>TODO</p>
+:ET

@@ -1,0 +1,230 @@
+I"�3<h1 id="5-min-tutorial">5 min tutorial</h1>
+
+<p>If at any time during this tutorial you get stuck, speak up
+in our <a href="https://github.com/sodadata/soda-sql/discussions/">GitHub Discussions forum</a>.</p>
+
+<h3 id="1-check-your-cli-installation">1) Check your CLI installation</h3>
+
+<p>Open a command line and enter <code class="language-plaintext highlighter-rouge">soda</code> to verify if the soda-sql command line tool is installed correctly.</p>
+
+<p>If you don’t get this output, check out our <a href="/soda-sql/getting-started/installation.html">Installation guide</a>.</p>
+
+<div class="language-shell highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nv">$ </span>soda
+Usage: soda <span class="o">[</span>OPTIONS] COMMAND <span class="o">[</span>ARGS]...
+
+Options:
+  <span class="nt">--help</span>  Show this message and exit.
+
+Commands:
+  create  Creates a new project directory and prepares credentials <span class="k">in </span>your...
+  init    Initializes scan.yml files based on profiling tables found <span class="k">in </span>the...
+  scan    Computes all measurements and runs all tests on one table.
+</code></pre></div></div>
+
+<h3 id="2-set-up-an-example-warehouse">2) Set up an example warehouse</h3>
+
+<p>In this tutorial we’ll use PostgreSQL as our data warehouse. Note that Soda SQL also supports
+Snowflake, AWS Athena, GCP BigQuery, AWS Redshift and others.</p>
+
+<h4 id="21-start-postgresql-as-your-warehouse">2.1) Start PostgreSQL as your warehouse</h4>
+
+<p>To get you going we’ve included the steps required to setup a pre-configured PostgreSQL container,
+but you can also choose to use your own PostgreSQL installation. If so, make sure to create
+a <code class="language-plaintext highlighter-rouge">sodasql</code> database and an associated <code class="language-plaintext highlighter-rouge">sodasql</code> user which doesn’t require a password.</p>
+
+<p><em>Command:</em></p>
+<div class="language-shell highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nv">$ </span>docker run <span class="nt">--name</span> soda_sql_tutorial_db <span class="nt">--rm</span> <span class="nt">-d</span> <span class="se">\</span>
+    <span class="nt">-p</span> 5432:5432 <span class="se">\</span>
+    <span class="nt">-v</span> soda_sql_tutorial_postgres:/var/lib/postgresql/data:rw <span class="se">\</span>
+    <span class="nt">-e</span> <span class="nv">POSTGRES_USER</span><span class="o">=</span>sodasql <span class="se">\</span>
+    <span class="nt">-e</span> <span class="nv">POSTGRES_DB</span><span class="o">=</span>sodasql <span class="se">\</span>
+    <span class="nt">-e</span> <span class="nv">POSTGRES_HOST_AUTH_METHOD</span><span class="o">=</span>trust <span class="se">\</span>
+    postgres:9.6.17-alpine
+</code></pre></div></div>
+
+<blockquote>
+  <p>As soon as you’re done with the tutorial you can use the following commands to clean up the created container and volume:</p>
+  <div class="language-shell highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nv">$ </span>docker stop soda_sql_tutorial_db
+<span class="nv">$ </span>docker volume <span class="nb">rm </span>soda_sql_tutorial_postgres
+</code></pre></div>  </div>
+</blockquote>
+
+<h4 id="22-load-example-data-into-your-warehouse">2.2) Load example data into your warehouse</h4>
+
+<p>Use the following command to load <a href="https://github.com/sodadata/soda-sql/blob/main/tests/demo/demodata.sql">example data</a>
+into your PostgreSQL tutorial database:</p>
+
+<p><em>Command:</em></p>
+<div class="language-shell highlighter-rouge"><div class="highlight"><pre class="highlight"><code>docker <span class="nb">exec </span>soda_sql_tutorial_db <span class="se">\</span>
+  sh <span class="nt">-c</span> <span class="s2">"wget -qO - https://raw.githubusercontent.com/sodadata/soda-sql/main/tests/demo/demodata.sql | psql -U sodasql -d sodasql"</span>
+</code></pre></div></div>
+<p><em>Command console output:</em></p>
+<div class="language-shell highlighter-rouge"><div class="highlight"><pre class="highlight"><code>DROP TABLE
+CREATE TABLE
+INSERT 0 6
+INSERT 0 8
+INSERT 0 9
+INSERT 0 8
+INSERT 0 10
+INSERT 0 12
+INSERT 0 12
+</code></pre></div></div>
+
+<h3 id="3-create-a-warehouse-directory">3) Create a warehouse directory</h3>
+
+<p>With our database up-and-running it’s time to create our warehouse configuration. In this tutorial we will name our
+warehouse directory <code class="language-plaintext highlighter-rouge">soda_sql_tutorial</code> and we’ll use the <code class="language-plaintext highlighter-rouge">soda</code> CLI tool to create the initial
+directory and <code class="language-plaintext highlighter-rouge">warehouse.yml</code>.  The <code class="language-plaintext highlighter-rouge">warehouse.yml</code> file which
+will be created by the command below will include connection details to use the PostgreSQL
+database we’ve just set up.  The command will also create and store the credentials in
+<code class="language-plaintext highlighter-rouge">~/.soda/env_vars.yml</code></p>
+
+<p><em>Command:</em></p>
+<div class="language-shell highlighter-rouge"><div class="highlight"><pre class="highlight"><code>soda create <span class="nt">-d</span> sodasql <span class="nt">-u</span> sodasql ./soda_sql_tutorial postgres
+</code></pre></div></div>
+<p><em>Command console output:</em></p>
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>  | Soda CLI version 2.0.0 beta
+  | Creating warehouse directory ./soda_sql_tutorial ...
+  | Creating warehouse configuration file ./soda_sql_tutorial/warehouse.yml ...
+  | Creating /Users/tom/.soda/env_vars.yml with example env vars in section soda_sql_tutorial
+  | Review warehouse.yml by running command
+  |   cat ./soda_sql_tutorial/warehouse.yml
+  | Review section soda_sql_tutorial in ~/.soda/env_vars.yml by running command
+  |   cat ~/.soda/env_vars.yml
+  | Then run
+  |   soda init ./soda_sql_tutorial
+</code></pre></div></div>
+
+<p>The <code class="language-plaintext highlighter-rouge">soda create</code> command will only create and append configuration files.  It will
+never overwrite or delete existing files so you can safely run the command
+multiple times, or against an existing directory.</p>
+
+<p>Next, review the 2 files that have been created:</p>
+<ul>
+  <li><code class="language-plaintext highlighter-rouge">cat ./soda_sql_tutorial/warehouse.yml</code></li>
+  <li><code class="language-plaintext highlighter-rouge">cat ~/.soda/env_vars.yml</code></li>
+</ul>
+
+<p>You can continue without changing anything.</p>
+
+<p>Check out the <a href="/soda-sql/documentation/warehouse.html">warehouse.yml</a> or <a href="/soda-sql/documentation/cli.html#env-vars">env_vars.yml</a> documentation to learn more about these files.</p>
+
+<h3 id="4-initialize-table-scanyml-files">4) Initialize table scan.yml files</h3>
+
+<p>Now our warehouse is configured it’s time to initialize it with a <code class="language-plaintext highlighter-rouge">scan.yml</code> for each table.
+We can run the <code class="language-plaintext highlighter-rouge">soda init</code> command to automatically generate a <code class="language-plaintext highlighter-rouge">scan.yml</code> for each table
+in our PostgreSQL warehouse:</p>
+
+<p><em>Command:</em></p>
+<div class="language-shell highlighter-rouge"><div class="highlight"><pre class="highlight"><code>soda init ./soda_sql_tutorial
+</code></pre></div></div>
+<p><em>Command console output:</em></p>
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>  | Soda CLI version 2.0.0 beta
+  | Initializing ./soda_sql_tutorial ...
+  | Querying warehouse for tables
+  | Executing SQL query:
+SELECT table_name
+FROM information_schema.tables
+WHERE lower(table_schema)='public'
+  | SQL took 0:00:00.005413
+  | Creating table directory ./soda_sql_tutorial/demodata
+  | Creating ./soda_sql_tutorial/demodata/scan.yml ...
+  | Next run 'soda scan ./soda_sql_tutorial demodata' to calculate measurements and run tests
+</code></pre></div></div>
+
+<h3 id="5-review-the-generated-scanyml-files">5) Review the generated scan.yml files</h3>
+
+<p>Each <code class="language-plaintext highlighter-rouge">scan.yml</code> will contain the metric and test instructions used by <code class="language-plaintext highlighter-rouge">soda scan</code>. By default <code class="language-plaintext highlighter-rouge">soda init</code> will
+create a <code class="language-plaintext highlighter-rouge">scan.yml</code> file with some good defaults, but feel free to modify the generated configurations
+to fit your needs.</p>
+
+<blockquote>
+  <p>Head over to the <a href="/soda-sql/documentation/scan.html">Scan Documentation</a> for more in-depth information about the <code class="language-plaintext highlighter-rouge">scan.yml</code> file.</p>
+</blockquote>
+
+<p><em>Command:</em></p>
+<div class="language-shell highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nb">cat</span> ./soda_sql_tutorial/demodata/scan.yml
+</code></pre></div></div>
+<p><em>Command console output:</em></p>
+<div class="language-shell highlighter-rouge"><div class="highlight"><pre class="highlight"><code>table_name: demodata
+metrics:
+  - row_count
+  - missing_count
+  - missing_percentage
+  - values_count
+  - values_percentage
+  - valid_count
+  - valid_percentage
+  - invalid_count
+  - invalid_percentage
+  - min
+  - max
+  - avg
+  - <span class="nb">sum</span>
+  - min_length
+  - max_length
+  - avg_length
+tests:
+  rows: row_count <span class="o">&gt;</span> 0
+</code></pre></div></div>
+
+<h3 id="6-run-a-scan">6) Run a scan</h3>
+
+<p>With your warehouse directory created and initialized it’s time to start scanning. Each scan
+will collect the configured (<code class="language-plaintext highlighter-rouge">scan.yml</code>) metrics and run the defined tests against them.</p>
+
+<p>To run your first scan on the <code class="language-plaintext highlighter-rouge">demodata</code> table simply run:</p>
+
+<p><em>Command:</em></p>
+<div class="language-shell highlighter-rouge"><div class="highlight"><pre class="highlight"><code>soda scan ./soda_sql_tutorial demodata
+</code></pre></div></div>
+<p><em>Command console output:</em></p>
+<div class="language-shell highlighter-rouge"><div class="highlight"><pre class="highlight"><code>  | Soda CLI version 2.0.0 beta
+  | Scanning demodata <span class="k">in</span> ./soda_sql_tutorial ...
+  | Environment variable POSTGRES_PASSWORD is not <span class="nb">set</span>
+  | Executing SQL query:
+SELECT column_name, data_type, is_nullable
+FROM information_schema.columns
+WHERE lower<span class="o">(</span>table_name<span class="o">)</span> <span class="o">=</span> <span class="s1">'demodata'</span>
+  AND table_catalog <span class="o">=</span> <span class="s1">'sodasql'</span>
+  AND table_schema <span class="o">=</span> <span class="s1">'public'</span>
+  | SQL took 0:00:00.029199
+  | 6 columns:
+  |   <span class="nb">id </span>character varying
+  |   name character varying
+  |   size integer
+  |   <span class="nb">date date</span>
+  |   feepct character varying
+  |   country character varying
+  | Query measurement: schema <span class="o">=</span> <span class="nb">id </span>character varying, name character varying, size integer, <span class="nb">date date</span>, feepct character varying, country character varying
+  | Executing SQL query:
+SELECT
+  COUNT<span class="o">(</span><span class="k">*</span><span class="o">)</span>,
+  COUNT<span class="o">(</span><span class="nb">id</span><span class="o">)</span>,
+  MIN<span class="o">(</span>LENGTH<span class="o">(</span><span class="nb">id</span><span class="o">))</span>,
+  MAX<span class="o">(</span>LENGTH<span class="o">(</span><span class="nb">id</span><span class="o">))</span>,
+  COUNT<span class="o">(</span>name<span class="o">)</span>,
+  MIN<span class="o">(</span>LENGTH<span class="o">(</span>name<span class="o">))</span>,
+  MAX<span class="o">(</span>LENGTH<span class="o">(</span>name<span class="o">))</span>,
+  COUNT<span class="o">(</span>size<span class="o">)</span>,
+...
+  | missing_count<span class="o">(</span>country<span class="o">)</span> <span class="o">=</span> 0
+  | values_percentage<span class="o">(</span>country<span class="o">)</span> <span class="o">=</span> 100.0
+  | All good. 38 measurements computed. No tests failed.
+</code></pre></div></div>
+
+<h3 id="7-next-steps">7) Next steps</h3>
+
+<p>Congrats! You’ve just completed all steps required to get you going with <code class="language-plaintext highlighter-rouge">soda-sql</code>.</p>
+
+<p><a href="https://github.com/sodadata/soda-sql/discussions/new">Post a quick note letting us know what you like or dislike.</a></p>
+
+<p>Next we suggest you to take a look at some further in-depth documentation which will help you to integrate <code class="language-plaintext highlighter-rouge">soda-sql</code> into
+your own project.</p>
+
+<ul>
+  <li>See <a href="/soda-sql/documentation/tests.html">Tests</a> to add tests.</li>
+  <li>See <a href="/soda-sql/documentation/sql_metrics.html">SQL Metrics</a> to add a custom SQL query as your metric.</li>
+  <li>See <a href="/soda-sql/documentation/orchestrate_scans.html">Orchestrate scans</a> to add scans to your data pipeline.</li>
+</ul>
+:ET
