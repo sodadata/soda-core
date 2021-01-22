@@ -2,8 +2,6 @@
 
 Data testing and monitoring for SQL accessible data.
 
-> This is the overview.  Full documentation is available at [docs.soda.io/soda-sql](https://docs.soda.io/soda-sql/)
-
 **What does Soda SQL do?**
 
 Soda SQL allows you to
@@ -80,8 +78,6 @@ columns:
         tests:
             missing: missing_percentage < 3
     SIZE:
-        metrics:
-            -
         tests:
             spread: max - min < 20
 ```

@@ -16,7 +16,7 @@ tests:
     total_volume_greater_than: total_volume_us > 5000
 ```
 
-Multiple select fields are supported as well:  
+Multiple metrics can be computed with a single query.  Just select multselect fields are supported as well:  
 
 ```yaml
 sql: |

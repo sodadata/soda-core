@@ -9,22 +9,17 @@ of many data platforms and you have a perspective to contribute.
 
 ## GitHub
 
-Use [our GitHub's discussions](https://github.com/sodadata/soda-sql/discussions) forum to get
-in touch with the community.
+[Soda SQL project home : github.com/sodadata/soda-sql](https://github.com/sodadata/soda-sql/)
 
-Don't hesitate to:
+[Discussions: github.com/sodadata/soda-sql/discussions](https://github.com/sodadata/soda-sql/discussions)
 
-* [Post a question](https://github.com/sodadata/soda-sql/discussions/new)
-* [Post a problem](https://github.com/sodadata/soda-sql/issues/new)
-* [Share your feedback](https://github.com/sodadata/soda-sql/discussions/new)
-* [Suggest an improvement](https://github.com/sodadata/soda-sql/discussions/new)
+Create a [new discussion](https://github.com/sodadata/soda-sql/discussions/new) to 
+* Post a question
+* Post a problem
+* Share your feedback
+* Suggest an improvement or contribution (We are very open to any kind of contribution)
 
 ## Contributing
 
-We are very open to any kind of contribution.
-
-To start a contribution it's good to, [post your idea
+We are very open to contributions.  To start a contribution it's good to, [post your idea
 on the discussion forum](https://github.com/sodadata/soda-sql/discussions/new).
-
-This way the whole community is up to date and can share their thoughts and
---if needed-- help you with pointers to get going.
