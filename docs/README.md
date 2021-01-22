@@ -2,6 +2,8 @@
 
 Data testing and monitoring for SQL accessible data.
 
+> [The full documentation is available on docs.soda.io/soda-sql](https://docs.soda.io/soda-sql)
+
 **What does Soda SQL do?**
 
 Soda SQL allows you to
