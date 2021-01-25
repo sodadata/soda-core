@@ -145,4 +145,4 @@ data pipeline orchestration solution like:
 
 If you like the goals of this project, encourage us! Star [sodadata/soda-sql on Github](https://github.com/sodadata/soda-sql).
 
-> Next, head over to our ['5 minute tutorial'](https://docs.soda.io/soda-sql/getting-started/5_min_tutorial) and get your first project going!
+> Next, head over to our ['5 minute tutorial'](https://docs.soda.io/soda-sql/getting-started/5_min_tutorial.html) and get your first project going!
