@@ -152,7 +152,8 @@ class Dialect:
     def sql_expr_cast_text_to_number(self, quoted_column_name, validity_format):
         if validity_format == 'number_whole':
             return f"CAST({quoted_column_name} AS {self.decimal_column_type})"
-        f"CAST(REGEXP_REPLACE(REGEXP_REPLACE({quoted_column_name}, '[^-\\d\\.\\,]', '', 'g'), ',', '.', 'g') AS {self.decimal_column_type})"
+        return f"CAST(REGEXP_REPLACE(REGEXP_REPLACE({quoted_column_name}, "\
+               f"'[^-\\d\\.\\,]', '', 'g'), ',', '.', 'g') AS {self.decimal_column_type})"
 
     def literal_number(self, value: str):
         return str(value)
