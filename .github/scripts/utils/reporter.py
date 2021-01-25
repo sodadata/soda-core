@@ -29,26 +29,38 @@ class Reporter:
     def send_slack_message(self, msg: str):
         self.sender.send_slack_message(msg)
 
-    def report_workflow_failure(self):
+    def report_test_failure(self):
         author = self._find_author()
         msg = self._status_message(":cry:") \
             + self._run_message() \
-            + f" *failed* {ENV.get_deployment_description()} on job `{self.job}` " \
+            + f" *test failed* {ENV.get_deployment_description()} on job `{self.job}` " \
             + self._commit_message() \
             + f"Last author was {author}. " \
             + self._reports_message() \
             + self._test_module_message() \
             + "."
         self.send_slack_message(msg)
-        for r in self._find_files('TEST*.xml'):
-            self._process_xml(r)
+        self._process_test_results()
 
-    def report_workflow_success(self):
-        msg = self._status_message(":tada:") \
+    def report_test_success(self):
+        self._report_status(":tada:", "test succeeded")
+
+    def report_release_success(self):
+        self._report_status(":rocket:", "release succeeded")
+
+    def report_release_failure(self):
+        self. _report_status(":boom:", "release failed")
+
+    def _report_status(self, emoji, status):
+        msg = self._status_message(emoji) \
             + self._run_message() \
-            + f"*succeeded* {ENV.get_deployment_description()}" \
+            + f"*{status}* {ENV.get_deployment_description()}" \
             + self._commit_message()
         self.send_slack_message(msg)
+
+    def _process_test_results(self):
+        for r in self._find_files('TEST*.xml'):
+            self._process_xml(r)
 
     def _run_message(self):
         return f"<https://github.com/{self.repository}/actions/runs/{self.run}|{self.run}> "

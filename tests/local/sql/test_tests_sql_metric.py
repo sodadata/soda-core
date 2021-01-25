@@ -15,10 +15,9 @@ from tests.common.sql_test_case import SqlTestCase
 class TestSqlMetricTests(SqlTestCase):
 
     def test_sql_metric_default(self):
-        self.sql_create_table(
-            self.default_test_table_name,
-            ["country VARCHAR(255)",
-             "size INTEGER"],
+        self.create_test_table(
+            [self.sql_declare_string_column("country"),
+             self.sql_declare_integer_column("size")],
             ["('one', 2)",
              "('two', 3)",
              "('one', 4) ",
@@ -57,10 +56,9 @@ class TestSqlMetricTests(SqlTestCase):
         self.assertTrue(scan_result.has_failures())
 
     def test_sql_metric_groups(self):
-        self.sql_create_table(
-            self.default_test_table_name,
-            ["country VARCHAR(255)",
-             "size INTEGER"],
+        self.create_test_table(
+            [self.sql_declare_string_column("country"),
+             self.sql_declare_integer_column("size")],
             ["('one', 2)",
              "('two', 3)",
              "('one', 4) ",

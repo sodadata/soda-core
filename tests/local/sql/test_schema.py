@@ -14,21 +14,16 @@ from tests.common.sql_test_case import SqlTestCase
 
 class TestSchema(SqlTestCase):
 
-    table_name = 'test_table'
-
     def test_schema_measurement(self):
         dialect = self.warehouse.dialect
 
-        self.sql_create_table(
-            self.table_name,
-            ["id VARCHAR(255)",
-             "name VARCHAR(255)",
-             "size INTEGER"],
+        self.create_test_table(
+            [self.sql_declare_string_column("id"),
+             self.sql_declare_string_column("name"),
+             self.sql_declare_integer_column("size")],
             ["('1', 'one',      1)"])
 
-        scan_result = self.scan({
-            'table_name': self.table_name
-        })
+        scan_result = self.scan()
 
         measurement = scan_result.find_measurement(Metric.SCHEMA)
         self.assertIsNotNone(measurement)

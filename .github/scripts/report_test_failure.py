@@ -5,4 +5,4 @@ from utils import Reporter
 
 if __name__ == '__main__':
     reporter = Reporter()
-    reporter.report_workflow_failure()
+    reporter.report_test_failure()

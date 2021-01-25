@@ -15,12 +15,9 @@ from tests.common.sql_test_case import SqlTestCase
 
 class TestMissingAndInvalidCustomizations(SqlTestCase):
 
-    table_name = 'test_table'
-
     def test_scan_customized_missing_values(self):
-        self.sql_create_table(
-            self.table_name,
-            ["name VARCHAR(255)"],
+        self.create_test_table(
+            [self.sql_declare_string_column("name")],
             ["('one')",
              "('')",
              "('  ')",
@@ -28,7 +25,6 @@ class TestMissingAndInvalidCustomizations(SqlTestCase):
              "(null)"])
 
         scan_result = self.scan({
-          'table_name': self.table_name,
           'columns': {
             'name': {
               'metrics': [
@@ -46,9 +42,8 @@ class TestMissingAndInvalidCustomizations(SqlTestCase):
         self.assertEqual(scan_result.get(Metric.VALUES_PERCENTAGE, 'name'), 60.0)
 
     def test_scan_customized_missing_format_empty(self):
-        self.sql_create_table(
-            self.table_name,
-            ["name VARCHAR(255)"],
+        self.create_test_table(
+            [self.sql_declare_string_column("name")],
             ["('one')",
              "('two')",
              "('three')",
@@ -61,7 +56,6 @@ class TestMissingAndInvalidCustomizations(SqlTestCase):
              "(null)"])
 
         scan_result = self.scan({
-          'table_name': self.table_name,
           'columns': {
             'name': {
               'metrics': [
@@ -77,9 +71,8 @@ class TestMissingAndInvalidCustomizations(SqlTestCase):
         self.assertEqual(scan_result.get(Metric.VALUES_PERCENTAGE, 'name'), 60.0)
 
     def test_scan_customized_missing_format_whitespace(self):
-        self.sql_create_table(
-            self.table_name,
-            ["name VARCHAR(255)"],
+        self.create_test_table(
+            [self.sql_declare_string_column("name")],
             ["('one')",
              "('two')",
              "('three')",
@@ -92,7 +85,6 @@ class TestMissingAndInvalidCustomizations(SqlTestCase):
              "(null)"])
 
         scan_result = self.scan({
-            'table_name': self.table_name,
             'columns': {
                 'name': {
                     'metrics': [
@@ -108,9 +100,8 @@ class TestMissingAndInvalidCustomizations(SqlTestCase):
         self.assertEqual(scan_result.get(Metric.VALUES_PERCENTAGE, 'name'), 40.0)
 
     def test_scan_missing_customized_and_validity(self):
-        self.sql_create_table(
-            self.table_name,
-            ["name VARCHAR(255)"],
+        self.create_test_table(
+            [self.sql_declare_string_column("name")],
             ["('one')",
              "('')",
              "('  ')",
@@ -118,7 +109,6 @@ class TestMissingAndInvalidCustomizations(SqlTestCase):
              "(null)"])
 
         scan_result = self.scan({
-          'table_name': self.table_name,
           'columns': {
             'name': {
               'metrics': [
@@ -136,9 +126,8 @@ class TestMissingAndInvalidCustomizations(SqlTestCase):
         self.assertEqual(scan_result.get(Metric.MISSING_COUNT, 'name'), 2)
 
     def test_scan_valid_regex(self):
-        self.sql_create_table(
-            self.table_name,
-            ["name VARCHAR(255)"],
+        self.create_test_table(
+            [self.sql_declare_string_column("name")],
             ["('one')",
              "('')",
              "('  ')",
@@ -146,7 +135,6 @@ class TestMissingAndInvalidCustomizations(SqlTestCase):
              "(null)"])
 
         scan_result = self.scan({
-          'table_name': self.table_name,
           'columns': {
               'name': {
                   'metrics': [
@@ -168,9 +156,8 @@ class TestMissingAndInvalidCustomizations(SqlTestCase):
         self.assertEqual(scan_result.get(Metric.VALID_PERCENTAGE,   'name'), 20.0)
 
     def test_scan_valid_format(self):
-        self.sql_create_table(
-            self.table_name,
-            ["col VARCHAR(255)"],
+        self.create_test_table(
+            [self.sql_declare_string_column("col")],
             ["('1')",
              "('2')",
              "('3')",
@@ -183,7 +170,6 @@ class TestMissingAndInvalidCustomizations(SqlTestCase):
              "('10')"])
 
         scan_result = self.scan({
-          'table_name': self.table_name,
           'columns': {
               'col': {
                   'metrics': [

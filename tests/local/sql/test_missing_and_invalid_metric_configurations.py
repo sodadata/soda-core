@@ -14,26 +14,14 @@ from tests.common.sql_test_case import SqlTestCase
 
 
 class TestMissingAndInvalidMetricConfigurations(SqlTestCase):
-
-    table_name = 'test_table'
-
-    def setUp(self) -> None:
-        super().setUp()
-        self.sql_create_table(
-            self.table_name,
-            ["id VARCHAR(255)",
-             "name VARCHAR(255)",
-             "size INTEGER"],
-            ["('1', 'one',      1)",
-             "('2', '',         2)",
-             "('3', '  ',       3)",
-             "('4', 'no value', null)",
-             "('5', null,       null)"])
+    """
+    Due to the use of multiple inheritance, setUp() methods for all inherited classes will be called, thus,
+    one should not put anything in setUp() that can affect other test methods, such as creating tables.
+    """
 
     def test_scan_without_configurations(self):
-        scan_result = self.scan({
-          'table_name': self.table_name
-        })
+        self._create_test_table()
+        scan_result = self.scan()
 
         self.assertMeasurementsAbsent(scan_result, 'id', [
             Metric.MISSING_COUNT,
@@ -69,8 +57,8 @@ class TestMissingAndInvalidMetricConfigurations(SqlTestCase):
         ])
 
     def test_scan_missing(self):
+        self._create_test_table()
         scan_result = self.scan({
-          'table_name': self.table_name,
           'metrics': [
             Metric.CATEGORY_MISSING
           ]
@@ -113,9 +101,9 @@ class TestMissingAndInvalidMetricConfigurations(SqlTestCase):
         ])
 
     def test_scan_with_two_default_column_metric(self):
+        self._create_test_table()
         # validity triggers missing measurements
         scan_result = self.scan({
-            'table_name': self.table_name,
             'columns': {
                 'name': {
                     'metrics': [
@@ -159,8 +147,8 @@ class TestMissingAndInvalidMetricConfigurations(SqlTestCase):
         ])
 
     def test_scan_valid_regex(self):
+        self._create_test_table()
         scan_result = self.scan({
-            'table_name': self.table_name,
             'metrics': [
               'missing'
             ],
@@ -210,3 +198,14 @@ class TestMissingAndInvalidMetricConfigurations(SqlTestCase):
             Metric.VALID_COUNT,
             Metric.VALID_PERCENTAGE
         ])
+
+    def _create_test_table(self):
+        self.create_test_table(
+            [self.sql_declare_string_column("id"),
+             self.sql_declare_string_column("name"),
+             self.sql_declare_integer_column("size")],
+            ["('1', 'one',      1)",
+             "('2', '',         2)",
+             "('3', '  ',       3)",
+             "('4', 'no value', null)",
+             "('5', null,       null)"])

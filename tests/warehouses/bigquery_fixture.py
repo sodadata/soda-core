@@ -10,7 +10,27 @@
 #  limitations under the License.
 
 from tests.common.warehouse_fixture import WarehouseFixture
+from google.cloud import bigquery
 
 
 class BigQueryFixture(WarehouseFixture):
-    pass
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.project_id = None
+
+    def create_database(self):
+        self.database = self.create_unique_database_name()
+        self.warehouse.dialect.database = self.database
+        self.project_id = self.warehouse.dialect.account_info_dict['project_id']
+        dataset_id = f"{self.project_id}.{self.database}"
+        dataset = bigquery.Dataset(dataset_id)
+        dataset.location = "EU"
+        self.warehouse.dialect.client.create_dataset(dataset, timeout=30)
+
+    def drop_database(self):
+        dataset_id = f"{self.project_id}.{self.database}"
+        self.warehouse.dialect.client.delete_dataset(dataset_id, delete_contents=True, not_found_ok=True)
+
+    def tear_down(self):
+        pass

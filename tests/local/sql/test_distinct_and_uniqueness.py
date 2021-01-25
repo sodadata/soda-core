@@ -16,9 +16,8 @@ from tests.common.sql_test_case import SqlTestCase
 class TestDistinctAndUniqueness(SqlTestCase):
 
     def test_distinct(self):
-        self.sql_create_table(
-            'test_table',
-            ["score VARCHAR(255)"],
+        self.create_test_table(
+            [self.sql_declare_string_column("score")],
             ["('1')",
              "('2')",
              "('2')",
@@ -33,7 +32,6 @@ class TestDistinctAndUniqueness(SqlTestCase):
              "(null)"])
 
         scan_result = self.scan({
-            'table_name': 'test_table',
             'metrics': [
                 'distinct'
             ]

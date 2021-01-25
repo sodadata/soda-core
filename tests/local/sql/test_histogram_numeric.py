@@ -18,9 +18,8 @@ class TestHistogramNumeric(SqlTestCase):
     table_name = 'test_table'
 
     def test_scan_histogram_numeric(self):
-        self.sql_create_table(
-            self.table_name,
-            ["size INTEGER"],
+        self.create_test_table(
+            [self.sql_declare_integer_column("size")],
             ["(1)",
              "(11)",
              "(11)",
@@ -34,7 +33,6 @@ class TestHistogramNumeric(SqlTestCase):
              "(null)"])
 
         scan_result = self.scan({
-            'table_name': self.table_name,
             'metrics': [
                 Metric.HISTOGRAM
             ]

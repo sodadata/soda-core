@@ -11,15 +11,19 @@
 import json
 import logging
 import os
+import random
+import string
 from typing import List, Optional
 from unittest import TestCase
 
 import yaml
+
 from sodasql.common.logging_helper import LoggingHelper
 from sodasql.scan.db import sql_update, sql_updates
 from sodasql.scan.dialect import Dialect
 from sodasql.scan.dialect_parser import DialectParser
 from sodasql.scan.env_vars import EnvVars
+from sodasql.scan.metric import Metric
 from sodasql.scan.scan_result import ScanResult
 from sodasql.scan.scan_yml_parser import KEY_TABLE_NAME, ScanYmlParser
 from sodasql.scan.sql_metric_yml_parser import SqlMetricYmlParser
@@ -49,10 +53,9 @@ class SqlTestCase(TestCase):
     warehouse_cache_by_target = {}
     warehouse_fixture_cache_by_target = {}
     warehouses_close_enabled = True
-    default_test_table_name = 'test_table'
 
-    def __init__(self, methodName: str = ...) -> None:
-        super().__init__(methodName)
+    def __init__(self, method_name: str = ...) -> None:
+        super().__init__(method_name)
         self.warehouse: Optional[Warehouse] = None
         # self.target controls the warehouse on which the test is executed
         # It is initialized in method setup_get_warehouse
@@ -64,6 +67,7 @@ class SqlTestCase(TestCase):
         logging.debug(f'\n\n--- {str(self)} ---')
         super().setUp()
         self.warehouse = self.setup_get_warehouse()
+        self.default_test_table_name = self.generate_test_table_name()
 
     def setup_get_warehouse(self):
         """self.target may be initialized by a test suite"""
@@ -118,22 +122,28 @@ class SqlTestCase(TestCase):
     def sql_updates(self, sqls: List[str]):
         return sql_updates(self.warehouse.connection, sqls)
 
-    def sql_create_table(self, table_name: str, columns: List[str], rows: List[str]):
-        joined_columns = ", ".join(columns)
+    def create_test_table(self, columns: List[str], rows: List[str], test_table_name: str = None):
         joined_rows = ", ".join(rows)
+        table_name = test_table_name if test_table_name else self.default_test_table_name
         self.sql_updates([
-            f"DROP TABLE IF EXISTS {table_name}",
-            f"CREATE TABLE {table_name} ( {joined_columns} )",
-            f"INSERT INTO {table_name} VALUES {joined_rows}"])
+            f"DROP TABLE IF EXISTS {self.warehouse.dialect.qualify_writable_table_name(table_name)}",
+            self.sql_create_table(columns, table_name),
+            f"INSERT INTO {self.warehouse.dialect.qualify_table_name(table_name)} VALUES {joined_rows}"])
+
+    def sql_create_table(self, columns: List[str], table_name: str):
+        columns_sql = ", ".join(columns)
+        return f"CREATE TABLE " \
+               f"{self.warehouse.dialect.qualify_writable_table_name(table_name)} ( \n " \
+               f"{columns_sql} );"
 
     def scan(self,
              scan_configuration_dict: Optional[dict] = None,
              sql_metric_dicts: Optional[List[dict]] = None,
              variables: Optional[dict] = None) -> ScanResult:
         if not scan_configuration_dict:
-            scan_configuration_dict = {
-                KEY_TABLE_NAME: self.default_test_table_name
-            }
+            scan_configuration_dict = {}
+        if KEY_TABLE_NAME not in scan_configuration_dict:
+            scan_configuration_dict[KEY_TABLE_NAME] = self.default_test_table_name
         logging.debug('Scan configuration \n'+json.dumps(scan_configuration_dict, indent=2))
         scan_configuration_parser = ScanYmlParser(scan_configuration_dict, 'Test scan')
         scan_configuration_parser.assert_no_warnings_or_errors()
@@ -149,6 +159,57 @@ class SqlTestCase(TestCase):
                                           sql_metrics=sql_metrics,
                                           variables=variables)
         return scan.execute()
+
+    def execute_metric(self, warehouse: Warehouse, metric: dict, scan_dict: dict = None):
+        dialect = warehouse.dialect
+        if not scan_dict:
+            scan_dict = {}
+        if KEY_TABLE_NAME not in scan_dict:
+            scan_dict[KEY_TABLE_NAME] = self.default_test_table_name
+        scan_configuration_parser = ScanYmlParser(scan_dict, 'Test scan')
+        scan_configuration_parser.assert_no_warnings_or_errors()
+        scan = warehouse.create_scan(scan_configuration_parser.scan_yml)
+        scan.execute()
+
+        fields: List[str] = []
+        group_by_column_names: List[str] = metric.get('groupBy')
+        if group_by_column_names:
+            for group_by_column in group_by_column_names:
+                fields.append(dialect.qualify_column_name(group_by_column))
+
+        column_name: str = metric.get('columnName')
+        qualified_column_name = dialect.qualify_column_name(column_name)
+
+        metric_type = metric['type']
+        if metric_type == Metric.ROW_COUNT:
+            fields.append('COUNT(*)')
+        if metric_type == Metric.MIN:
+            fields.append(f'MIN({qualified_column_name})')
+        elif metric_type == Metric.MAX:
+            fields.append(f'MAX({qualified_column_name})')
+        elif metric_type == Metric.SUM:
+            fields.append(f'SUM({qualified_column_name})')
+
+        sql = 'SELECT \n  ' + ',\n  '.join(fields) + ' \n' \
+              'FROM ' + scan.qualified_table_name
+
+        where_clauses = []
+
+        metric_filter = metric.get('filter')
+        if metric_filter:
+            where_clauses.append(dialect.sql_expression(metric_filter))
+
+        scan_column: ScanColumn = scan.scan_columns.get(column_name)
+        if scan_column and scan_column.non_missing_and_valid_condition:
+            where_clauses.append(scan_column.non_missing_and_valid_condition)
+
+        if where_clauses:
+            sql += '\nWHERE ' + '\n      AND '.join(where_clauses)
+
+        if group_by_column_names:
+            sql += '\nGROUP BY ' + ', '.join(group_by_column_names)
+
+        return warehouse.sql_fetchall(sql)
 
     def assertMeasurements(self, scan_result, column: str, expected_metrics_present):
         metrics_present = [measurement.metric for measurement in scan_result.measurements
@@ -167,3 +228,20 @@ class SqlTestCase(TestCase):
                            if equals_ignore_case(measurement.column_name, column)]
         metrics_present_and_expected_absent = set(expected_metrics_absent) & set(metrics_present)
         self.assertEqual(set(), metrics_present_and_expected_absent)
+
+    def sql_declare_string_column(self, column_name):
+        return self.warehouse.dialect.sql_declare_string_column(column_name)
+
+    def sql_declare_integer_column(self, column_name):
+        return self.warehouse.dialect.sql_declare_integer_column(column_name)
+
+    def sql_declare_decimal_column(self, column_name):
+        return self.warehouse.dialect.sql_declare_decimal_column(column_name)
+
+    @staticmethod
+    def generate_test_table_name():
+        """
+        In BigQuery, the daily limits for table operations are defined per table name, thus using the same table name
+        for all tests causes our daily quota to deplete quickly.
+        """
+        return 'test_table_' + ''.join([random.choice(string.ascii_lowercase) for _ in range(5)])

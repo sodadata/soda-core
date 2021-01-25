@@ -11,7 +11,7 @@ jobs:
       fail-fast: false
       matrix:
         python-version: [ 3.7, 3.8 ]
-        test-module: [ local, SnowflakeSuite, RedshiftSuite]
+        test-module: [ local, AthenaSuite, BigQuerySuite, RedshiftSuite, SnowflakeSuite ]
     env:
       TEST_MODULE: ${{ matrix.test-module }}
       PYTHON_VERSION: ${{ matrix.python-version }}
@@ -20,6 +20,9 @@ jobs:
       SODA_SNOWFLAKE_PASSWORD: ${{ secrets.SODA_SNOWFLAKE_PASSWORD }}
       SODA_REDSHIFT_USERNAME: ${{ secrets.SODA_REDSHIFT_USERNAME }}
       SODA_REDSHIFT_PASSWORD: ${{ secrets.SODA_REDSHIFT_PASSWORD }}
+      BIGQUERY_ACCOUNT_INFO_JSON: ${{ secrets.BIGQUERY_ACCOUNT_INFO_JSON }}
+      SODA_ATHENA_ACCESS_KEY_ID: ${{ secrets.SODA_ATHENA_ACCESS_KEY_ID }}
+      SODA_ATHENA_SECRET_ACCESS_KEY: ${{ secrets.SODA_ATHENA_SECRET_ACCESS_KEY }}
     steps:
       - uses: actions/checkout@v2
       - name: Setup Python ${{ matrix.python-version }}
@@ -48,7 +51,7 @@ jobs:
           name: soda-sql-tox-reports-${{ matrix.python-version }}
           path: ./reports
           retention-days: 5
-      - name: Notify Slack on Failure
+      - name: Notify on Test Failure
         if: failure()
         env:
           JOB_ID: ${{ github.job }}
@@ -57,7 +60,24 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           pip3 install -r .github/scripts/requirements.txt
-          python3 .github/scripts/report_workflow_failure.py
+          python3 .github/scripts/report_test_failure.py
+
+  inform-test-success:
+    name: Inform Test Success
+    runs-on: ubuntu-20.04
+    needs: [run-tests]
+    env:
+      JOB_ID: ${{ github.job }}
+      SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+      REPORTS_URL: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      INCLUDED_BRANCHES: "main master"
+    steps:
+      - uses: actions/checkout@v2
+      - name: Notify on Success
+        run: |
+          pip3 install -r .github/scripts/requirements.txt
+          .github/scripts/report_test_success.py
 
   publish-pypi:
     name: Build & Publish Package
@@ -65,6 +85,14 @@ jobs:
     timeout-minutes: 10
     runs-on: ubuntu-20.04
     needs: [run-tests]
+    env:
+      JOB_ID: ${{ github.job }}
+      SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+      REPORTS_URL: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      INCLUDED_BRANCHES: "main master"
+      TWINE_USERNAME: __token__
+      TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
     steps:
       - uses: actions/checkout@v2
       - name: Setup Python 3.8
@@ -81,10 +109,28 @@ jobs:
       - name: Build package
         run: python3 setup.py sdist bdist_wheel
       - name: Publish to PyPi
-        env:
-          TWINE_USERNAME: __token__
-          TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
         run: twine upload dist/*
+      - name: Notify on Release Failure
+        if: failure()
+        run: |
+          pip3 install -r .github/scripts/requirements.txt
+          .github/scripts/report_release_failure.py
+
+  inform-release-success:
+    name: Inform Release Success
+    runs-on: ubuntu-20.04
+    needs: [publish-pypi]
+    env:
+      JOB_ID: ${{ github.job }}
+      SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      INCLUDED_BRANCHES: "main master"
+    steps:
+      - uses: actions/checkout@v2
+      - name: Notify on Release Success
+        run: |
+          pip3 install -r .github/scripts/requirements.txt
+          .github/scripts/report_release_success.py
 
   publish-docs:
     name: Deploy documentation
@@ -124,20 +170,3 @@ jobs:
         run: aws s3 sync ./docs/_site s3://${AWS_DOCS_BUCKET}${AWS_DOCS_PATH}
       - name: Invalidate cache
         run: aws cloudfront create-invalidation --distribution-id ${AWS_CLOUDFRONT_ID} --paths "${AWS_DOCS_PATH}" "${AWS_DOCS_PATH}/*"
-
-  inform-success:
-    name: Inform of success
-    runs-on: ubuntu-20.04
-    needs: [publish-pypi]
-    steps:
-      - uses: actions/checkout@v2
-      - name: Notify Slack of success
-        env:
-          JOB_ID: ${{ github.job }}
-          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
-          REPORTS_URL: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          INCLUDED_BRANCHES: "main master"
-        run: |
-          pip3 install -r .github/scripts/requirements.txt
-          .github/scripts/report_workflow_success.py

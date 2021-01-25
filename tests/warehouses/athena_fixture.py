@@ -11,57 +11,83 @@
 import logging
 import random
 import string
+from os import path
+import re
 
 import boto3
 
+from sodasql.scan.db import sql_updates
 from tests.common.boto3_helper import Boto3Helper
 from tests.common.warehouse_fixture import WarehouseFixture
 
 
 class AthenaFixture(WarehouseFixture):
+    S3_URI_PATTERN = r"(^s3://)([^/]*)/(.*$)"
 
     def __init__(self, target: str) -> None:
         super().__init__(target)
-        self.bucket = None
-        self.path = None
+        self.database_location = self.generate_database_location()
 
-    def initialize_warehouse_configuration(self, warehouse_yml: dict):
-        super().initialize_warehouse_configuration(warehouse_yml)
-        self.bucket = 'sodalite-athena-test'
-        self.path = self.create_unique_bucket_path('sodasql')
-        warehouse_yml['staging_dir'] = f's3://{self.bucket}/{self.path}'
-
-    def create_unique_bucket_path(self, prefix: str):
-        random_suffix = ''.join(random.choice(string.ascii_lowercase + string.digits) for _ in range(10))
-        return f"{prefix}_{random_suffix}"
+    @staticmethod
+    def generate_database_location():
+        return 'test_tables_' + ''.join(random.choice(string.ascii_lowercase + string.digits) for _ in range(10))
 
     def drop_database(self):
+        pass
         super().drop_database()
         self.delete_s3_files()
 
     def delete_s3_files(self):
-        logging.debug(f"Deleting all files under s3://%s/%s", self.bucket, self.path)
+        database_full_location = path.join(self.warehouse.dialect.athena_staging_dir, self.database_location)
+        logging.debug(f"Deleting all files under %s...", database_full_location)
+        bucket = self._extract_s3_bucket(database_full_location)
+        folder = self._extract_s3_folder(database_full_location)
+        self._delete_s3_files(bucket, folder)
+
+    def create_database(self):
+        self.database = self.create_unique_database_name()
+        self.warehouse.dialect.database = self.database
+        sql_updates(self.warehouse.connection, [
+            f'CREATE DATABASE IF NOT EXISTS {self.database}'])
+
+    def tear_down(self):
+        pass
+
+    def _delete_s3_files(self, bucket, folder, max_objects=200):
+        s3_client = self._create_s3_client()
+        response = s3_client.list_objects_v2(Bucket=bucket, Prefix=folder)
+        object_keys = self._extract_object_keys(response)
+        assert len(object_keys) < max_objects, \
+            f"This method is intended for tests and hence limited to a maximum of {max_objects} objects, " \
+            f"{len(object_keys)} objects exceeds the limit."
+        s3_client.delete_objects(Bucket=bucket, Delete={'Objects': object_keys})
+
+    def _create_s3_client(self):
         Boto3Helper.filter_false_positive_boto3_warning()
         aws_credentials = self.warehouse.dialect.aws_credentials
         aws_credentials = aws_credentials.resolve_role("soda_sql_test_cleanup")
-        s3_client = boto3.client(
+        return boto3.client(
             's3',
             region_name=aws_credentials.region_name,
             aws_access_key_id=aws_credentials.access_key_id,
             aws_secret_access_key=aws_credentials.secret_access_key,
             aws_session_token=aws_credentials.session_token
         )
+
+    @staticmethod
+    def _extract_object_keys(response):
         object_keys = []
-        response = s3_client.list_objects_v2(Bucket=self.bucket, Prefix=self.path)
         if 'Contents' in response:
-            for object_summary in response['Contents']:
-                object_key = object_summary['Key']
-                object_keys.append({'Key': object_key})
-            max_objects = 200
-            assert len(object_keys) < max_objects, \
-                f'This method is intended for tests and hence limited to max {max_objects} keys: {len(object_keys)}'
-            s3_client.delete_objects(Bucket=self.bucket, Delete={'Objects': object_keys})
+            objects = response['Contents']
+            for summary in objects:
+                key = summary['Key']
+                object_keys.append({'Key': key})
+        return object_keys
 
-    def tear_down(self):
-        pass
+    @classmethod
+    def _extract_s3_folder(cls, uri):
+        return re.search(cls.S3_URI_PATTERN, uri).group(3)
 
+    @classmethod
+    def _extract_s3_bucket(cls, uri):
+        return re.search(cls.S3_URI_PATTERN, uri).group(2)

@@ -15,9 +15,8 @@ from tests.common.sql_test_case import SqlTestCase
 class TestTestsTableMetric(SqlTestCase):
 
     def test_tests(self):
-        self.sql_create_table(
-            'test_table',
-            ["name VARCHAR(255)"],
+        self.create_test_table(
+            [self.sql_declare_string_column("name")],
             ["('one')",
              "('two')",
              "('three') ",
@@ -25,7 +24,6 @@ class TestTestsTableMetric(SqlTestCase):
              "(null)"])
 
         scan_result = self.scan({
-            'table_name': self.default_test_table_name,
             'metrics': [
                 'row_count'
             ],
@@ -36,7 +34,6 @@ class TestTestsTableMetric(SqlTestCase):
         self.assertFalse(scan_result.has_failures())
 
         scan_result = self.scan({
-            'table_name': self.default_test_table_name,
             'metrics': [
                 'row_count'
             ],
@@ -45,4 +42,3 @@ class TestTestsTableMetric(SqlTestCase):
             }
         })
         self.assertTrue(scan_result.has_failures())
-
