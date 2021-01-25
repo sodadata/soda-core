@@ -73,6 +73,8 @@ class Scan:
 
     def execute(self) -> ScanResult:
         if self.scan_yml:
+            # always push metadata measurements in the first request,
+            # that way server can know about them
             self.query_columns_metadata()
             self.flush_measurements()
 
