@@ -238,6 +238,9 @@ class SqlTestCase(TestCase):
     def sql_declare_decimal_column(self, column_name):
         return self.warehouse.dialect.sql_declare_decimal_column(column_name)
 
+    def sql_declare_big_integer_column(self, column_name):
+        return self.warehouse.dialect.sql_declare_big_integer_column(column_name)
+
     @staticmethod
     def generate_test_table_name():
         """

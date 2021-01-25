@@ -34,6 +34,7 @@ class Dialect:
     string_column_type = "VARCHAR(255)"
     integer_column_type = "INTEGER"
     decimal_column_type = "REAL"
+    big_integer_column_type = "BIGINT"
 
     @classmethod
     def create(cls, parser: Parser):
@@ -243,3 +244,6 @@ class Dialect:
 
     def sql_declare_decimal_column(self, column_name):
         return f"{column_name} {self.decimal_column_type}"
+
+    def sql_declare_big_integer_column(self, column_name):
+        return f"{column_name} {self.big_integer_column_type}"

@@ -100,3 +100,9 @@ class RedshiftDialect(PostgresDialect):
         """
         return self.escape_regex_metacharacters(regex) \
             .replace('(?:', '(')
+
+    def sql_expr_avg(self, expr: str):
+        return f"AVG({expr}::DECIMAL(38, 0))"
+
+    def sql_expr_sum(self, expr: str):
+        return f"SUM({expr}::DECIMAL(38, 0))"

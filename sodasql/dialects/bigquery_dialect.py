@@ -26,6 +26,7 @@ class BigQueryDialect(Dialect):
     string_column_type = "STRING"
     integer_column_type = "INT64"
     decimal_column_type = "DECIMAL"
+    big_integer_column_type = "BIGNUMERIC"
 
     def __init__(self, parser: Parser):
         super().__init__()
