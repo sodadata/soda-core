@@ -46,17 +46,17 @@ class RedshiftDialect(PostgresDialect):
     def default_connection_properties(self, params: dict):
         return {
             'type': REDSHIFT,
-            'access_key_id': 'env_var(ATHENA_ACCESS_KEY_ID)',
-            'secret_access_key': 'env_var(ATHENA_SECRET_ACCESS_KEY)',
-            'role_arn': 'Eg arn:aws:iam::123456789012:readonly',
+            'host': 'Eg your.redshift.host.com',
+            'username': 'env_var(REDSHIFT_USERNAME)',
+            'password': 'env_var(REDSHIFT_PASSWORD)',
             'region': 'Eg eu-west-1',
             'database': params.get('database', 'Eg your_redshift_db')
         }
 
     def default_env_vars(self, params: dict):
         return {
-            'ATHENA_ACCESS_KEY_ID': '...',
-            'ATHENA_SECRET_ACCESS_KEY': '...'
+            'REDSHIFT_USERNAME': '...',
+            'REDSHIFT_PASSWORD': '...'
         }
 
     def create_connection(self):
