@@ -158,8 +158,8 @@ class ScanColumn:
         else:
             where = f'{self.qualified_column_name} IS NOT NULL'
 
-        if self.scan.time_filter_sql:
-            where = f'{where}\n  AND {self.scan.time_filter_sql}'
+        if self.scan.filter_sql:
+            where = f'{where}\n  AND {self.scan.filter_sql}'
 
         return (
             f"WITH group_by_value AS ( \n"

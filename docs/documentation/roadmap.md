@@ -1,11 +1,11 @@
 ---
 layout: default
-title: Roadmap and release notes
+title: Roadmap
 parent: Documentation
-nav_order: 10
+nav_order: 11
 ---
 
-# Roadmap and release notes
+# Roadmap
 
 ## Current status
 

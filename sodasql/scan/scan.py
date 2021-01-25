@@ -54,11 +54,11 @@ class Scan:
             else ''
 
         self.variables = variables
-        self.time_filter_sql = None
-        if scan_yml.time_filter_template:
+        self.filter_sql = None
+        if scan_yml.filter_template:
             if not variables:
-                raise RuntimeError(f'No variables provided while time_filter "{str(scan_yml.time_filter)}" specified')
-            self.time_filter_sql = scan_yml.time_filter_template.render(variables)
+                raise RuntimeError(f'No variables provided while filter "{str(scan_yml.filter)}" specified')
+            self.filter_sql = scan_yml.filter_template.render(variables)
 
         self.scan_reference = {
             'warehouse': warehouse.name,
@@ -197,8 +197,8 @@ class Scan:
                   'FROM ' + self.qualified_table_name
             if self.table_sample_clause:
                 sql += f'\n{self.table_sample_clause}'
-            if self.time_filter_sql:
-                sql += f'\nWHERE {self.time_filter_sql}'
+            if self.filter_sql:
+                sql += f'\nWHERE {self.filter_sql}'
 
             query_result_tuple = self.warehouse.sql_fetchone(sql)
 
@@ -349,8 +349,8 @@ class Scan:
                            f'  {fields} \n'
                            f'FROM group_by_value')
 
-                    if self.time_filter_sql:
-                        sql += f' \nWHERE {self.scan.time_filter_sql}'
+                    if self.filter_sql:
+                        sql += f' \nWHERE {self.scan.filter_sql}'
 
                     row = self.warehouse.sql_fetchone(sql)
 

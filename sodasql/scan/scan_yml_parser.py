@@ -30,11 +30,11 @@ KEY_MINS_MAXS_LIMIT = 'mins_maxs_limit'
 KEY_FREQUENT_VALUES_LIMIT = 'frequent_values_limit'
 KEY_SAMPLE_PERCENTAGE = 'sample_percentage'
 KEY_SAMPLE_METHOD = 'sample_method'
-KEY_TIME_FILTER = 'time_filter'
+KEY_FILTER = 'filter'
 
 VALID_KEYS = [KEY_TABLE_NAME, KEY_METRICS, KEY_TESTS, KEY_COLUMNS,
               KEY_MINS_MAXS_LIMIT, KEY_FREQUENT_VALUES_LIMIT,
-              KEY_SAMPLE_PERCENTAGE, KEY_SAMPLE_METHOD, KEY_TIME_FILTER]
+              KEY_SAMPLE_PERCENTAGE, KEY_SAMPLE_METHOD, KEY_FILTER]
 
 COLUMN_KEY_TESTS = 'tests'
 
@@ -90,13 +90,13 @@ class ScanYmlParser(Parser):
         self.scan_yml.mins_maxs_limit = self.get_int_optional(KEY_MINS_MAXS_LIMIT, 5)
         self.scan_yml.frequent_values_limit = self.get_int_optional(KEY_FREQUENT_VALUES_LIMIT, 5)
 
-        time_filter = self.get_str_optional(KEY_TIME_FILTER)
-        if time_filter:
+        filter = self.get_str_optional(KEY_FILTER)
+        if filter:
             try:
-                self.scan_yml.time_filter = time_filter
-                self.scan_yml.time_filter_template = Template(time_filter)
+                self.scan_yml.filter = filter
+                self.scan_yml.filter_template = Template(filter)
             except Exception as e:
-                self.error(f"Couldn't parse time_filter '{time_filter}': {str(e)}")
+                self.error(f"Couldn't parse filter '{filter}': {str(e)}")
 
         self.check_invalid_keys(VALID_KEYS)
 

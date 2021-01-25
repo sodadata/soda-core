@@ -1,18 +1,16 @@
 ---
 layout: default
-title: Time partitioning
+title: Filtering
 parent: Documentation
 nav_order: 8
 ---
 
-# Time partitioning
+# Filtering
 
-This section explains how to run metrics and tests on a single time partition
-of the table.
+This section explains how to apply dynamic filters on the data in a scan.  Filtering can be 
+used to run the scan on for example a single time partition of the table or on a country.
 
-Time partitioning requires 1 (or more) columns which reflect the time or date.
-The goal is to run a scan on a partition of the data which corresponds to a
-particular time period.
+Time partitioning requires 1 (or more) columns to filter on.
 
 Let's use this `CUSTOMER_TRANSACTIONS` table as an example:
 
@@ -31,11 +29,11 @@ The `CUSTOMER_TRANSACTIONS` has a `DATE` column.  Each day new customer transact
 rows are added.  After they are added the goal is to run the scan on the customer
 transactions of the last day.
 
-In the `scan.yml`, add a `time_filter` like this:
+In the `scan.yml`, add a `filter` like this:
 
 ```yaml
 table_name: CUSTOMER_TRANSACTIONS
-time_filter: "date = DATE '{{ date }}'"
+filter: "date = DATE '\{\{ date \}\}'"
 metrics: ...
 columns: ...
 ```
@@ -53,6 +51,9 @@ And programmatically, variables can be passed to a scan like this:
 ```python
 scan_builder = ScanBuilder()
 scan_builder.read_scan_dir('~/my_warehouse_dir', 'my_table_dir')
+scan_builder.variables = {
+  'date': '2021-06-12'
+}
 scan = scan_builder.build()
 scan_result = scan.execute()
 if scan_result.has_failures():

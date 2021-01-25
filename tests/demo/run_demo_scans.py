@@ -18,7 +18,7 @@ from tests.common.sql_test_case import SqlTestCase
 
 scan_configuration_dict = {
     'table_name': 'demodata',
-    'time_filter': "date = DATE '{{ date }}'",
+    'filter': "date = DATE '{{ date }}'",
     'metrics': [
         'missing',
         'validity',

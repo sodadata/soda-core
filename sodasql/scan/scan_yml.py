@@ -23,8 +23,8 @@ class ScanYml:
     columns: dict = None
     sample_percentage: float = None
     sample_method: str = None
-    time_filter: str = None
-    time_filter_template: Template = None
+    filter: str = None
+    filter_template: Template = None
     mins_maxs_limit: int = None
     frequent_values_limit: int = None
 
