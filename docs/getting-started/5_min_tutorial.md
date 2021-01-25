@@ -1,3 +1,10 @@
+---
+layout: default
+title: 5 min tutorial
+parent: Getting Started
+nav_order: 2
+---
+
 # 5 min tutorial
 
 If at any time during this tutorial you get stuck, speak up
@@ -7,7 +14,7 @@ in our [GitHub Discussions forum](https://github.com/sodadata/soda-sql/discussio
 
 Open a command line and enter `soda` to verify if the soda-sql command line tool is installed correctly.
 
-If you don't get this output, check out our [Installation guide](installation.md).
+If you don't get this output, check out our [Installation guide]({% link getting-started/installation.md %}).
 
 ```shell
 $ soda
@@ -20,7 +27,6 @@ Commands:
   create  Creates a new project directory and prepares credentials in your...
   init    Initializes scan.yml files based on profiling tables found in the...
   scan    Computes all measurements and runs all tests on one table.
-  verify  Dry run to verify if the configuration is ok.
 ```
 
 
@@ -112,7 +118,7 @@ Next, review the 2 files that have been created:
 
 You can continue without changing anything.
 
-Check out the [warehouse.yml](warehouse.md) or [env_vars.yml](cli.md?id=env-vars) documentation to learn more about these files.
+Check out the [warehouse.yml]({% link documentation/warehouse.md %}) or [env_vars.yml]({% link documentation/cli.md %}#env-vars) documentation to learn more about these files.
 
 ### 4\) Initialize table scan.yml files
 
@@ -145,14 +151,14 @@ Each `scan.yml` will contain the metric and test instructions used by `soda scan
 create a `scan.yml` file with some good defaults, but feel free to modify the generated configurations
 to fit your needs.
 
-> Head over to the [Scan Documentation](scan.md) for more in-depth information about the `scan.yml` file.
+> Head over to the [Scan Documentation]({% link documentation/scan.md %}) for more in-depth information about the `scan.yml` file.
 
 _Command:_
 ```shell
 cat ./soda_sql_tutorial/demodata/scan.yml
 ```
 _Command console output:_
-```
+```shell
 table_name: demodata
 metrics:
   - row_count
@@ -187,7 +193,7 @@ _Command:_
 soda scan ./soda_sql_tutorial demodata
 ```
 _Command console output:_
-```
+```shell
   | Soda CLI version 2.0.0 beta
   | Scanning demodata in ./soda_sql_tutorial ...
   | Environment variable POSTGRES_PASSWORD is not set
@@ -231,6 +237,6 @@ Congrats! You've just completed all steps required to get you going with `soda-s
 Next we suggest you to take a look at some further in-depth documentation which will help you to integrate `soda-sql` into
 your own project.
 
-* See [Tests](tests.md) to add tests.
-* See [SQL Metrics](sql_metrics.md) to add a custom SQL query as your metric.
-* See [Orchestrate scans](orchestrate_scans.md) to add scans to your data pipeline.
+* See [Tests]({% link documentation/tests.md %}) to add tests.
+* See [SQL Metrics]({% link documentation/sql_metrics.md %}) to add a custom SQL query as your metric.
+* See [Orchestrate scans]({% link documentation/orchestrate_scans.md %}) to add scans to your data pipeline.

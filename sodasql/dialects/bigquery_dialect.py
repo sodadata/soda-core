@@ -11,6 +11,7 @@
 
 import json
 from json.decoder import JSONDecodeError
+import re
 
 from google.cloud import bigquery
 from google.cloud.bigquery import dbapi
@@ -50,10 +51,19 @@ class BigQueryDialect(Dialect):
         self.client = bigquery.Client(project=project_id, credentials=credentials)
         return dbapi.Connection(self.client)
 
-    def sql_columns_metadata_query(self, scan_configuration):
+    def sql_columns_metadata_query(self, table_name: str):
         return (f"SELECT column_name, data_type, is_nullable "
                 f'FROM `{self.dataset_name}.INFORMATION_SCHEMA.COLUMNS` '
-                f"WHERE table_name = '{scan_configuration.table_name}';")
+                f"WHERE table_name = '{table_name}';")
+
+    def qualify_table_name(self, table_name: str) -> str:
+        return f'`{self.dataset_name}.{table_name}`'
+
+    def qualify_writable_table_name(self, table_name: str) -> str:
+        return self.qualify_table_name(table_name)
+
+    def sql_expr_regexp_like(self, expr: str, pattern: str):
+        return f"REGEXP_CONTAINS({expr}, r'{self.qualify_regex(pattern)}')"
 
     def qualify_table_name(self, table_name: str) -> str:
         return f'`{self.dataset_name}.{table_name}`'

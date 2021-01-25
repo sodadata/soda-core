@@ -1,11 +1,18 @@
+---
+layout: default
+title: Installation
+parent: Getting Started
+nav_order: 1
+---
+
 # Installation
 
 The simplest way to use soda-sql is by using the CLI. This section guides you through
 the installation steps required to get the `soda` command up and running.
 
-> As an alternative to the CLI, you can use the Python Programmatic Interface, which 
-> provides you with a more advance way of using Soda SQL. 
-> See [Programmatic scans](orchestrate_scans.md#programmatic-scans).
+> As an alternative to the CLI, you can use the Python Programmatic Interface, which
+> provides you with a more advance way of using Soda SQL.
+> See [Programmatic scans]({% link documentation/orchestrate_scans.md %}#programmatic-scans).
 
 ## Requirements
 
@@ -29,4 +36,4 @@ provide you with `pip`.
 $ pip install soda-sql
 ```
 
-After the installation finishes head over to the [5 Minute Tutorial](5_min_tutorial.md) to get started.
+After the installation finishes head over to the [5 Minute Tutorial]({% link getting-started/5_min_tutorial.md %}) to get started.

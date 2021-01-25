@@ -36,8 +36,8 @@ class ScanColumn:
 
         dialect = self.scan.dialect
         self.qualified_column_name = dialect.qualify_column_name(self.column_name)
-        self.is_text: bool = dialect.is_text(column_metadata)
-        self.is_number: bool = dialect.is_number(column_metadata)
+        self.is_text: bool = dialect.is_text(column_metadata.type)
+        self.is_number: bool = dialect.is_number(column_metadata.type)
 
         self.missing = self.scan_yml.get_missing(self.column_name)
         self.is_missing_metric_enabled = self.scan_yml.is_any_metric_enabled(

@@ -26,7 +26,7 @@ class ScanBuilder:
     Programmatic scan execution based on default dir structure:
 
     scan_builder = ScanBuilder()
-    scan_builder.read_scan_from_dirs('~/my_warehouse_dir', 'my_table_dir')
+    scan_builder.read_scan_dir('~/my_warehouse_dir', 'my_table_dir')
     scan = scan_builder.build()
     scan_result = scan.execute()
     if scan_result.has_failures():
@@ -70,8 +70,9 @@ class ScanBuilder:
         self.sql_metric_ymls: List[SqlMetricYml] = []
         self.parsers: List[Parser] = []
         self.assert_no_warnings_or_errors = True
+        self.soda_client: SodaClient = None
 
-    def read_scan_from_dirs(self, warehouse_dir_path: str, table_dir_name: str):
+    def read_scan_dir(self, warehouse_dir_path: str, table_dir_name: str):
         """
         Reads warehouse, scan and sql metrics using the directory structure.
         """
@@ -81,6 +82,7 @@ class ScanBuilder:
 
         if not self.file_system.is_dir(warehouse_dir_path):
             logging.error(f'warehouse_dir_path {warehouse_dir_path} is not a directory')
+            return
 
         warehouse_yml_path = self.file_system.join(warehouse_dir_path, 'warehouse.yml')
         self.read_warehouse_yml(warehouse_yml_path)
@@ -88,6 +90,7 @@ class ScanBuilder:
         table_dir_path = self.file_system.join(warehouse_dir_path, table_dir_name)
         if not self.file_system.is_dir(table_dir_path):
             logging.error(f'table_dir_path {table_dir_path} is not a directory')
+            return
 
         scan_yml_path = self.file_system.join(table_dir_path, 'scan.yml')
         self.read_scan_yml(scan_yml_path)
@@ -156,13 +159,23 @@ class ScanBuilder:
     def build(self):
         for parser in self.parsers:
             parser.assert_no_warnings_or_errors()
+        if not self.scan_yml:
+            raise RuntimeError('Invalid scan configurations')
+
         from sodasql.scan.warehouse import Warehouse
-        self.warehouse = Warehouse(self.warehouse_yml)
-        return Scan(warehouse=self.warehouse,
+        warehouse = Warehouse(self.warehouse_yml)
+
+        if not self.soda_client:
+            host = os.getenv('SODA_HOST', 'cloud.soda.io')
+            api_key_secret = os.getenv('SODA_API_KEY_SECRET', None)
+            if api_key_secret:
+                self.soda_client = SodaClient(host, api_key_secret=api_key_secret)
+
+        return Scan(warehouse=warehouse,
                     scan_yml=self.scan_yml,
                     variables=self.variables,
                     sql_metrics=self.sql_metric_ymls,
-                    soda_client=None)
+                    soda_client=self.soda_client)
 
     def __parse_yaml(self, warehouse_yaml_str: AnyStr, file_name: AnyStr):
         try:

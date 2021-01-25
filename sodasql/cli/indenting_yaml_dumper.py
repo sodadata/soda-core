@@ -8,15 +8,16 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-from dataclasses import dataclass
-from typing import Optional
-
-from sodasql.scan.dialect import Dialect
-from sodasql.soda_server_client.soda_server_client import SodaServerClient
+import yaml
 
 
-@dataclass
-class WarehouseYml:
+class IndentingDumper(yaml.Dumper):
+    """
+    yaml.dump hack to get indentation.
+    see also https://stackoverflow.com/questions/25108581/python-yaml-dump-bad-indentation
+    """
 
-    dialect: Dialect = None
-    name: Optional[str] = None
+    def increase_indent(self, flow=False, indentless=False):
+        return super(IndentingDumper, self).increase_indent(flow, False)
+
+

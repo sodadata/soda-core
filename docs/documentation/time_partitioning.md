@@ -1,3 +1,10 @@
+---
+layout: default
+title: Time partitioning
+parent: Documentation
+nav_order: 8
+---
+
 # Time partitioning
 
 This section explains how to run metrics and tests on a single time partition
@@ -9,7 +16,7 @@ particular time period.
 
 Let's use this `CUSTOMER_TRANSACTIONS` table as an example:
 
-```
+```sql
 CREATE TABLE CUSTOMER_TRANSACTIONS (
   ID VARCHAR(255),
   NAME VARCHAR(255),
@@ -26,7 +33,7 @@ transactions of the last day.
 
 In the `scan.yml`, add a `time_filter` like this:
 
-```
+```yaml
 table_name: CUSTOMER_TRANSACTIONS
 time_filter: "date = DATE '{{ date }}'"
 metrics: ...
@@ -43,9 +50,9 @@ soda scan -v date=2021-01-12 ./sales_snowflake customer_transactions
 ```
 
 And programmatically, variables can be passed to a scan like this:
-```
+```python
 scan_builder = ScanBuilder()
-scan_builder.read_scan_from_dirs('~/my_warehouse_dir', 'my_table_dir')
+scan_builder.read_scan_dir('~/my_warehouse_dir', 'my_table_dir')
 scan = scan_builder.build()
 scan_result = scan.execute()
 if scan_result.has_failures():

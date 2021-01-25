@@ -1,0 +1,20 @@
+title: Soda SQL Documentation
+email: support@soda.io
+description: >- # this means to ignore newlines until "baseurl:"
+  This is the documentation site for Soda testing and monitoring for SQL accessible data.
+baseurl: "/soda-sql" # the subpath of your site, e.g. /blog
+url: "" # the base hostname & protocol for your site, e.g. http://example.com
+twitter_username: sodadata
+github_username:  sodadata
+
+# Build settings minima
+theme: just-the-docs
+plugins:
+  - jekyll-feed
+
+logo: /assets/images/soda-logo.svg
+color_scheme: soda
+
+aux_links:
+  "Soda SQL on GitHub":
+    - "//github.com/sodadata/soda-sql"

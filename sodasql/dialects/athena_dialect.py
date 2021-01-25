@@ -53,10 +53,10 @@ class AthenaDialect(Dialect):
             region_name=self.aws_credentials.region_name,
             role_arn=self.aws_credentials.role_arn)
 
-    def sql_columns_metadata_query(self, scan_configuration):
+    def sql_columns_metadata_query(self, table_name: str):
         return (f"SELECT column_name, data_type, is_nullable \n"
                 f"FROM information_schema.columns \n"
-                f"WHERE table_name = '{scan_configuration.table_name.lower()}' \n"
+                f"WHERE table_name = '{table_name.lower()}' \n"
                 f"  AND table_schema = '{self.database.lower()}';")
 
     def qualify_column_name(self, column_name):

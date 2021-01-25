@@ -1,3 +1,10 @@
+---
+layout: default
+title: Warehouse
+parent: Documentation
+nav_order: 3
+---
+
 # Warehouse
 
 A directory with a `warehouse.yml` configuration file is considered a Soda
@@ -26,9 +33,9 @@ Here's an example Soda warehouse directory structure:
 the connection details (see below)
 
 `customers` and `invoices` are table directories, each
-having a [scan.yml](scan.md) configuration file.
+having a [scan.yml]({% link documentation/scan.md %}) configuration file.
 
-`invoices_*.yml` are user defined [SQL metrics](sql_metrics.md)
+`invoices_*.yml` are user defined [SQL metrics]({% link documentation/sql_metrics.md %})
 that also get executed when a table scan is performed
 
 ## warehouse.yml
@@ -53,12 +60,12 @@ connection:
 The example above shows you how to each environment variables for credentials.
 Each environment variable, defined using `env_var(VAR_NAME)`, will automatically be
 resolved using the `env_vars.yml` file in your home directory. More on this can be found
-in the [cli.yml documentation](cli.md#env-vars.md).
+in the [cli.yml documentation]({% link documentation/cli.md %}#env-vars).
 
 Each warehouse will require different configuration parameters.
-See [Warehouse types](warehouse_types.md) to learn how to configure each
+See [Warehouse types]({% link documentation/warehouse_types.md %}) to learn how to configure each
 type of warehouse.
 
-Soon, Soda project files will also include an optional
+> Soon, Soda project files will also include an optional
 link to a Soda cloud account.  A cloud account enables you to push the monitoring
 results after each scan and share them with other people in your data organisation.

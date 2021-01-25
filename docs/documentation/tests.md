@@ -1,3 +1,10 @@
+---
+layout: default
+title: Tests
+parent: Documentation
+nav_order: 6
+---
+
 # Tests
 
 Tests are evaluated as part of scans and product test results as 

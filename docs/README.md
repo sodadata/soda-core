@@ -2,27 +2,32 @@
 
 Data testing and monitoring for SQL accessible data.
 
-> This is the overview.  Full documentation is available at [docs.soda.io/soda-sql](https://docs.soda.io/soda-sql/)
-
 **What does Soda SQL do?**
 
- * Stops your pipeline if bad data is detected
- * Extracts metrics through SQL
- * Full control over metrics and queries
+Soda SQL allows you to
+
+ * Stop your pipeline when bad data is detected
+ * Extract metrics and column profiles through super efficient SQL
+ * Full control over metrics and queries through declarative config files
 
 **Why Soda SQL?**
 
 To protect against silent data issues for the consumers of your data,
-it's recommended to check your data before and after every data pipeline job.
-You will know when bad data enters your pipeline.  And you will prevent
-delivery of bad data to downstream consumers.
+it's best-practice to profile and test your data:
+
+ * as it lands in your warehouse,
+ * after every important data processing step
+ * right before consumption.
+
+This way you will prevent delivery of bad data to downstream consumers.
+You will spend less time firefighting and gain a better reputation.
 
 **How does Soda SQL work?**
 
 Soda SQL is a Command Line Interface (CLI) and a Python library to measure
 and test your data using SQL.
 
-As input, Soda SQL uses Yaml configuration files that include:
+As input, Soda SQL uses YAML configuration files that include:
  * SQL connection details
  * What metrics to compute
  * What tests to run on the measurements
@@ -33,11 +38,11 @@ a scan is executed after new data has arrived.  All soda-sql configuration files
 can be checked into your version control system as part of your pipeline
 code.
 
-> Want to try Soda SQL? Head over to our ['5 minute tutorial'](https://docs.soda.io/soda-sql/#/5_min_tutorial) and get started straight away!
+> Want to try Soda SQL? Head over to our ['5 minute tutorial'](https://docs.soda.io/soda-sql/getting-started/5_min_tutorial.html) and get started straight away!
 
 **Show me the money**
 
-Simple metrics and tests can be configured in Yaml configuration files called `scan.yml`. An example
+Simple metrics and tests can be configured in YAML configuration files called `scan.yml`. An example
 of the contents of such a file:
 
 ```yaml
@@ -73,8 +78,6 @@ columns:
         tests:
             missing: missing_percentage < 3
     SIZE:
-        metrics:
-            -
         tests:
             spread: max - min < 20
 ```
@@ -96,7 +99,7 @@ tests:
 Based on these configuration files, Soda SQL will scan your data
 each time new data arrived like this:
 
-```
+```bash
 $ soda scan ./soda/metrics my_warehouse my_dataset
 Soda 1.0 scan for dataset my_dataset on prod my_warehouse
   | SELECT column_name, data_type, is_nullable
@@ -140,7 +143,6 @@ data pipeline orchestration solution like:
 * Matillion
 * Luigi
 
-If you like the goals of this project, encourage us! Star
-<a class="github-button" href="https://github.com/sodadata/soda-sql" data-icon="octicon-star" data-size="large" aria-label="Star sodadata/soda-sql on GitHub">soda-sql on GitHub</a>
+If you like the goals of this project, encourage us! Star [sodadata/soda-sql on Github](https://github.com/sodadata/soda-sql).
 
-> Next, head over to our ['5 minute tutorial'](https://docs.soda.io/soda-sql/#/5_min_tutorial) and get your first project going!
+> Next, head over to our ['5 minute tutorial'](https://docs.soda.io/soda-sql/getting-started/5_min_tutorial.html) and get your first project going!

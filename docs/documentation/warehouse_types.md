@@ -1,7 +1,14 @@
+---
+layout: default
+title: Warehouse types
+parent: Documentation
+nav_order: 4
+---
+
 # Warehouse types
 
-Warehouses are configured as part of a [Soda warehouse configuration file](warehouse.md)
-This section explains the concrete connection properties for each warehouse type. 
+Warehouses are configured as part of a [Soda warehouse configuration file]({% link documentation/warehouse.md %})
+This section explains the concrete connection properties for each warehouse type.
 
 ## Snowflake
 
@@ -93,4 +100,3 @@ connection:
 ## Spark SQL
 
 Coming soon
-

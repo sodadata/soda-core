@@ -73,7 +73,7 @@ class ScanYmlParser(Parser):
 
     def __init__(self,
                  scan_dict: dict,
-                 scan_file_name: AnyStr):
+                 scan_file_name: AnyStr = 'scan'):
         super().__init__(scan_file_name)
 
         self.scan_yml = ScanYml()

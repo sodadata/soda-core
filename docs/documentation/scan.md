@@ -1,8 +1,15 @@
+---
+layout: default
+title: Scan
+parent: Documentation
+nav_order: 5
+---
+
 # Scan
 
 This section explains what a scan does, how it works and how to use `scan.yml` files to configure them.
 
-For running scans, see either [the CLI](cli.md) or [Orchestrate scans](orchestrate_scans.md).
+For running scans, see either [the CLI]({% link documentation/cli.md %}) or [Orchestrate scans]({% link documentation/orchestrate_scans.md %}).
 
 ## Anatomy of a scan
 
@@ -19,7 +26,7 @@ A scan is performed on a table and does the following:
 
 > Note on performance: we have tuned most column queries by using the same Column Table Expression (CTE).
 The goal is to allow some databases, like eg Snowflake, to be able to cache the results, but we didn't see
-actual proof of this yet.  If you have knowledge on this, [drop us a line in one of the channels](community.md).
+actual proof of this yet.  If you have knowledge on this, [drop us a line in one of the channels]({% link community.md %}).
 
 ## Top level scan.yml keys
 
@@ -33,7 +40,7 @@ Top level configuration keys:
 | table_name | The table name. | Required |
 | metrics | The list of metrics to compute. Column metrics specified here will be computed on each column. | Optional |
 | columns | Optionally add metrics and configurations for specific columns | Optional |
-| time_filter | A SQL expression that will be added to query where clause. Uses [Jinja as template language](https://jinja.palletsprojects.com/). Variables can be passed into the scan.  See [Time partitioning](time_partitioning.md) | Optional |
+| time_filter | A SQL expression that will be added to query where clause. Uses [Jinja as template language](https://jinja.palletsprojects.com/). Variables can be passed into the scan.  See [Time partitioning]({% link documentation/time_partitioning.md %}) | Optional |
 | mins_maxs_limit | Max number of elements for the mins metric | Optional, default is 5 |
 | frequent_values_limit | Max number of elements for the maxs metric | Optional, default is 5 |
 | sample_percentage | Adds [sampling](https://docs.snowflake.com/en/sql-reference/constructs/sample.html) to limit the number of rows scanned. Only tested on Postgres | Optional |

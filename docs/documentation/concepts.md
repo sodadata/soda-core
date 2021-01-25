@@ -1,3 +1,10 @@
+---
+layout: default
+title: Concepts
+parent: Documentation
+nav_order: 1
+---
+
 # Concepts
 
 | Concept     | Description |
