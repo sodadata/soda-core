@@ -14,7 +14,7 @@ from sodasql.scan.parser import Parser
 
 class DialectParser(Parser):
 
-    def __init__(self, warehouse_configuration_dict: dict):
+    def __init__(self, warehouse_connection_dict: dict):
         super().__init__('warehouse')
-        self._push_context(warehouse_configuration_dict, 'warehouse')
+        self._push_context(warehouse_connection_dict, 'connection')
         self.dialect = Dialect.create(self)

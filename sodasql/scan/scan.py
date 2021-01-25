@@ -23,7 +23,7 @@ from sodasql.scan.scan_yml import ScanYml
 from sodasql.scan.scan_result import ScanResult
 from sodasql.scan.sql_metric_yml import SqlMetricYml
 from sodasql.scan.warehouse import Warehouse
-from sodasql.soda_client.soda_client import SodaClient
+from sodasql.soda_server_client.soda_server_client import SodaServerClient
 
 
 class Scan:
@@ -32,10 +32,10 @@ class Scan:
                  warehouse: Warehouse,
                  scan_yml: ScanYml = None,
                  sql_metrics: List[SqlMetricYml] = None,
-                 soda_client: SodaClient = None,
+                 soda_client: SodaServerClient = None,
                  variables: dict = None,
                  timeslice: str = None):
-        self.soda_client: SodaClient = soda_client
+        self.soda_client: SodaServerClient = soda_client
         self.warehouse: Warehouse = warehouse
         self.dialect = warehouse.dialect
 

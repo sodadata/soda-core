@@ -21,7 +21,6 @@ class Warehouse:
         self.name = warehouse_yml.name
         self.dialect = warehouse_yml.dialect
         self.connection = self.dialect.create_connection()
-        self.soda_client = warehouse_yml.soda_client
 
     def sql_fetchone(self, sql) -> tuple:
         return sql_fetchone(self.connection, sql)

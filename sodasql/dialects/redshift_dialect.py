@@ -25,7 +25,7 @@ class RedshiftDialect(PostgresDialect):
         self.aws_credentials = parser.get_aws_credentials_optional()
 
     def with_database(self, database: str):
-        warehouse_configuration = {
+        warehouse_connection_dict = {
             'host': self.host,
             'port': self.port,
             'username': self.username,
@@ -34,14 +34,14 @@ class RedshiftDialect(PostgresDialect):
             'schema': self.schema
         }
         if self.aws_credentials:
-            warehouse_configuration.update({
+            warehouse_connection_dict.update({
                 'access_key_id': self.aws_credentials.access_key_id,
                 'secret_access_key': self.aws_credentials.secret_access_key,
                 'role_arn': self.aws_credentials.role_arn,
                 'session_token': self.aws_credentials.session_token,
                 'region': self.aws_credentials.region
             })
-        return RedshiftDialect(DialectParser(warehouse_configuration))
+        return RedshiftDialect(DialectParser(warehouse_connection_dict))
 
     def default_connection_properties(self, params: dict):
         return {

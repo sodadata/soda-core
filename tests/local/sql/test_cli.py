@@ -9,11 +9,8 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 import os
-import uuid
-from pathlib import Path
 from typing import AnyStr
 
-import pytest
 from click.testing import CliRunner
 
 from sodasql.cli.cli import main

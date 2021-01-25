@@ -19,31 +19,24 @@ import requests
 from sodasql.scan.measurement import Measurement
 
 
-class SodaClient:
+class SodaServerClient:
 
     def __init__(self,
-                 server: str,
-                 port: Optional[str] = None,
+                 host: str,
+                 colon_port: Optional[str] = None,
+                 protocol: Optional[str] = 'https',
                  username: Optional[str] = None,
                  password: Optional[str] = None,
                  api_key_id: Optional[str] = None,
-                 api_key_secret: Optional[str] = None,
-                 configure_logging: Optional[bool] = False):
-        self.server_name: str = server
-        port = f':{port}' if port else ''
-        protocol = os.getenv('SODA_CLIENT_PROTOCOL', 'https')
-        self.api_url: str = f'{protocol}://{self.server_name}{port}/api'
+                 api_key_secret: Optional[str] = None):
+        self.host: str = host
+        colon_port = f':{colon_port}' if colon_port else ''
+        self.api_url: str = f'{protocol}://{self.host}{colon_port}/api'
         self.username: Optional[str] = username
         self.password: Optional[str] = password
         self.api_key_id: Optional[str] = api_key_id
         self.api_key_secret: Optional[str] = api_key_secret
         self.token: Optional[str] = None
-        if configure_logging:
-            logging.getLogger('urllib3').setLevel(logging.WARNING)
-            logging.basicConfig(level=logging.DEBUG,
-                                # https://docs.python.org/3/library/logging.html#logrecord-attributes
-                                format="%(asctime)s %(levelname)s | %(message)s",
-                                handlers=[logging.StreamHandler(sys.stdout)])
 
     def send_measurements(self, scan_reference: dict, measurements_jsons: list):
         return self.execute_command({
@@ -53,12 +46,12 @@ class SodaClient:
         })
 
     def execute_command(self, command: dict):
-        self.__ensure_session_token()
-        return self.__execute_request('command', command, False)
+        self._ensure_session_token()
+        return self._execute_request('command', command, False)
 
     def execute_query(self, command: dict):
-        self.__ensure_session_token()
-        return self.__execute_request('query', command, False)
+        self._ensure_session_token()
+        return self._execute_request('query', command, False)
 
     def _execute_request(self, request_type: str, request_body: dict, is_retry: bool):
         logging.debug(f'> /api/{request_type} {json.dumps(request_body, indent=2)}')
@@ -69,8 +62,8 @@ class SodaClient:
         if response.status_code == 401 and not is_retry:
             logging.debug(f'Authentication failed. Probably token expired. Reauthenticating...')
             self.token = None
-            self.__ensure_session_token()
-            response_json = self.__execute_request(request_type, request_body, True)
+            self._ensure_session_token()
+            response_json = self._execute_request(request_type, request_body, True)
         else:
             assert response.status_code == 200, f'Request failed with status {response.status_code}: {json.dumps(response_json, indent=2)}'
         return response_json

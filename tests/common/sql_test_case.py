@@ -80,8 +80,8 @@ class SqlTestCase(TestCase):
             warehouse_fixture = WarehouseFixture.create(self.target)
             dialect = self.create_dialect(self.target)
 
-            warehouse_configuration = WarehouseYml(dialect=dialect)
-            warehouse = Warehouse(warehouse_configuration)
+            warehouse_yml = WarehouseYml(dialect=dialect)
+            warehouse = Warehouse(warehouse_yml)
             warehouse_fixture.warehouse = warehouse
             warehouse_fixture.create_database()
             SqlTestCase.warehouse_cache_by_target[self.target] = warehouse

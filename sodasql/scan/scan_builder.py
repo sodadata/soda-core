@@ -70,6 +70,7 @@ class ScanBuilder:
         self.sql_metric_ymls: List[SqlMetricYml] = []
         self.parsers: List[Parser] = []
         self.assert_no_warnings_or_errors = True
+        self.soda_client: SodaClient = None
 
     def read_scan_dir(self, warehouse_dir_path: str, table_dir_name: str):
         """
@@ -160,13 +161,21 @@ class ScanBuilder:
             parser.assert_no_warnings_or_errors()
         if not self.scan_yml:
             raise RuntimeError('Invalid scan configurations')
+
         from sodasql.scan.warehouse import Warehouse
         warehouse = Warehouse(self.warehouse_yml)
+
+        if not self.soda_client:
+            host = os.getenv('SODA_HOST', 'cloud.soda.io')
+            api_key_secret = os.getenv('SODA_API_KEY_SECRET', None)
+            if api_key_secret:
+                self.soda_client = SodaClient(host, api_key_secret=api_key_secret)
+
         return Scan(warehouse=warehouse,
                     scan_yml=self.scan_yml,
                     variables=self.variables,
                     sql_metrics=self.sql_metric_ymls,
-                    soda_client=None)
+                    soda_client=self.soda_client)
 
     def __parse_yaml(self, warehouse_yaml_str: AnyStr, file_name: AnyStr):
         try:
