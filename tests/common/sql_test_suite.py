@@ -19,7 +19,7 @@ from tests.local.sql.test_missing_and_invalid_metric_configurations import TestM
 from tests.local.sql.test_schema import TestSchema
 from tests.local.sql.test_statistical_metrics import TestStatisticalMetrics
 from tests.local.sql.test_tests_table_metric import TestTestsTableMetric
-from tests.local.sql.test_numeric_data_overflow import TestNumericDataOverflow
+from tests.local.sql.test_numeric_data import TestNumericData
 
 
 class SqlTestSuite(
@@ -33,7 +33,7 @@ class SqlTestSuite(
         TestSchema,
         TestStatisticalMetrics,
         TestTestsTableMetric,
-        TestNumericDataOverflow):
+        TestNumericData):
 
     def setUp(self) -> None:
         if type(self) == SqlTestSuite:
