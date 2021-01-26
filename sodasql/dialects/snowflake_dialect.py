@@ -64,4 +64,5 @@ class SnowflakeDialect(Dialect):
         return sql
 
     def qualify_regex(self, regex) -> str:
-        return self.escape_regex_metacharacters(regex)
+        return self.escape_metacharacters(regex)
+

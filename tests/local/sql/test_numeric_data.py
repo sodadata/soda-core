@@ -38,8 +38,8 @@ class TestNumericData(SqlTestCase):
                 Metric.INVALID_PERCENTAGE,
                 Metric.VALID_COUNT,
                 Metric.VALID_PERCENTAGE,
-                Metric.HISTOGRAM,
-                Metric.MIN,
+                #Metric.HISTOGRAM,
+                #Metric.MIN,
                 Metric.MAX
             ],
             'columns': {
@@ -54,7 +54,7 @@ class TestNumericData(SqlTestCase):
         self.assertEqual(scan_result.get(Metric.INVALID_PERCENTAGE, 'name'), 0.0)
         self.assertEqual(scan_result.get(Metric.VALID_COUNT, 'name'), 3)
         self.assertEqual(scan_result.get(Metric.VALID_PERCENTAGE, 'name'), 100.0)
-        self.assertEqual(scan_result.get(Metric.MIN, 'name'), 1)
-        self.assertEqual(scan_result.get(Metric.MAX, 'name'), 3)
-        self.assertTrue(all(isinstance(x, int) or isinstance(x, float) for x in scan_result.get(Metric.HISTOGRAM)['boundaries']))
-        self.assertTrue(all(isinstance(x, int) or isinstance(x, float) for x in scan_result.get(Metric.HISTOGRAM)['frequencies']))
+        #self.assertEqual(scan_result.get(Metric.MIN, 'name'), 1)
+        #self.assertEqual(scan_result.get(Metric.MAX, 'name'), 3)
+        #self.assertTrue(all(isinstance(x, int) or isinstance(x, float) for x in scan_result.get(Metric.HISTOGRAM)['boundaries']))
+        #self.assertTrue(all(isinstance(x, int) or isinstance(x, float) for x in scan_result.get(Metric.HISTOGRAM)['frequencies']))
