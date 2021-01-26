@@ -18,3 +18,10 @@ class ColumnMetadata:
 
     def __str__(self):
         return self.name+(' '+self.type if self.type else '')
+
+    def to_json(self):
+        return {
+            'name': self.name,
+            'type': self.type,
+            'nullable': self.nullable
+        }

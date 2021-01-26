@@ -17,7 +17,8 @@ from sodasql.scan.parser import Parser
 
 class PostgresDialect(Dialect):
 
-    def __init__(self, parser: Parser):
+    def __init__(self, parser: Parser, type: str = POSTGRES):
+        super().__init__(type)
         self.host = parser.get_str_optional_env('host', 'localhost')
         self.port = parser.get_str_optional_env('port', '5432')
         self.username = parser.get_str_required_env('username')

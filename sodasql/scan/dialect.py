@@ -35,6 +35,9 @@ class Dialect:
     integer_column_type = "INTEGER"
     decimal_column_type = "REAL"
 
+    def __init__(self, type: str):
+        self.type = type
+
     @classmethod
     def create(cls, parser: Parser):
         warehouse_type = parser.get_str_optional('type')

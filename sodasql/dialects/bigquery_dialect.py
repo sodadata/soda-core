@@ -28,7 +28,7 @@ class BigQueryDialect(Dialect):
     decimal_column_type = "DECIMAL"
 
     def __init__(self, parser: Parser):
-        super().__init__()
+        super().__init__(BIGQUERY)
         self.account_info_dict = self.__parse_json_credential('account_info_json', parser)
         self.dataset_name = parser.get_str_required('dataset')
         self.client = None

@@ -32,10 +32,10 @@ class Scan:
                  warehouse: Warehouse,
                  scan_yml: ScanYml = None,
                  sql_metrics: List[SqlMetricYml] = None,
-                 soda_client: SodaServerClient = None,
+                 soda_server_client: SodaServerClient = None,
                  variables: dict = None,
-                 timeslice: str = None):
-        self.soda_client: SodaServerClient = soda_client
+                 time: str = None):
+        self.soda_server_client: SodaServerClient = soda_server_client
         self.warehouse: Warehouse = warehouse
         self.dialect = warehouse.dialect
 
@@ -45,7 +45,8 @@ class Scan:
         # caches measurements that are not yet sent to soda and not yet added to self.scan_result
         # see also self.flush_measurements()
         self.measurements = []
-        self.scan_result = ScanResult(timeslice)
+        self.test_results = []
+        self.scan_result = ScanResult()
 
         self.qualified_table_name = self.dialect.qualify_table_name(scan_yml.table_name)
         self.table_sample_clause = \
@@ -60,11 +61,8 @@ class Scan:
                 raise RuntimeError(f'No variables provided while filter "{str(scan_yml.filter)}" specified')
             self.filter_sql = scan_yml.filter_template.render(variables)
 
-        self.scan_reference = {
-            'warehouse': warehouse.name,
-            'table': scan_yml.table_name,
-            'time': ...
-        }
+        self.scan_reference = None
+        self.time = time
 
         self.columns: List[ColumnMetadata] = []
         self.column_names: List[str] = []
@@ -72,27 +70,53 @@ class Scan:
         self.scan_columns: dict = {}
 
     def execute(self) -> ScanResult:
-        if self.scan_yml:
-            # always push metadata measurements in the first request,
-            # that way server can know about them
-            self.query_columns_metadata()
-            self.flush_measurements()
+        self.ensure_scan_reference()
 
-            self.query_aggregations()
-            self.flush_measurements()
+        scan_failed = False
+        try:
+            if self.scan_yml:
+                # always push metadata measurements in the first request,
+                # that way server can know about them
+                self.query_columns_metadata()
+                self.send_results()
 
-            self.query_group_by_value()
-            self.flush_measurements()
+                self.query_aggregations()
+                self.send_results()
 
-            self.query_histograms()
-            self.flush_measurements()
+                self.query_group_by_value()
+                self.send_results()
 
-        if self.sql_metrics:
-            self.query_sql_metrics_and_run_tests()
-            self.flush_measurements()
+                self.query_histograms()
+                self.send_results()
 
-        self.run_table_tests()
-        self.run_column_tests()
+            if self.sql_metrics:
+                self.query_sql_metrics_and_run_tests()
+                self.send_results()
+
+            self.run_table_tests()
+            self.run_column_tests()
+            self.send_results()
+
+        except Exception as e:
+            logging.exception('Scan failed')
+            scan_failed = True
+            try:
+                if self.soda_server_client:
+                    self.soda_server_client.scan_ended(self.scan_reference, e)
+            except Exception as itsHopelessImGivingUp:
+                logging.exception('Notifying Soda Server of scan failure failed')
+
+        finally:
+            try:
+                self.warehouse.close()
+            except:
+                logging.exception('Closing connection failed')
+
+            try:
+                if self.soda_server_client and not scan_failed:
+                    self.soda_server_client.scan_ended(self.scan_reference)
+            except:
+                logging.exception('Notifying Soda Server of scan ended failed')
 
         return self.scan_result
 
@@ -111,8 +135,8 @@ class Scan:
 
         self.column_names: List[str] = [column_metadata.name for column_metadata in self.columns]
         self.scan_columns: dict = {column.name.lower(): ScanColumn(self, column) for column in self.columns}
-
-        self.add_query(Measurement(Metric.SCHEMA, value=self.columns))
+        schema_measurement_value = [column_metadata.to_json() for column_metadata in self.columns]
+        self.add_query(Measurement(Metric.SCHEMA, value=schema_measurement_value))
 
     def query_aggregations(self):
         # This measurements list is used to match measurements with the query field order.
@@ -415,7 +439,7 @@ class Scan:
             }
             test_variables.update(field_values)
             sql_metric_test_results = self.execute_tests(sql_metric_tests, test_variables, group_values)
-            self.scan_result.test_results.extend(sql_metric_test_results)
+            self.test_results.extend(sql_metric_test_results)
 
     def run_sql_metric_default_and_run_tests(self, sql_metric: SqlMetricYml, resolved_sql: AnyStr):
         row_tuple, description = self.warehouse.sql_fetchone_description(resolved_sql)
@@ -434,7 +458,7 @@ class Scan:
             self.measurements.append(measurement)
 
         sql_metric_test_results = self.execute_tests(sql_metric.tests, test_variables)
-        self.scan_result.test_results.extend(sql_metric_test_results)
+        self.test_results.extend(sql_metric_test_results)
 
     def run_table_tests(self):
         test_variables = {
@@ -445,7 +469,7 @@ class Scan:
 
         table_tests = self.scan_yml.tests
         table_test_results = self.execute_tests(table_tests, test_variables)
-        self.scan_result.test_results.extend(table_test_results)
+        self.test_results.extend(table_test_results)
 
     def run_column_tests(self):
         for column_name_lower in self.scan_columns:
@@ -457,7 +481,7 @@ class Scan:
                 if measurement.column_name is None or measurement.column_name.lower() == column_name_lower
             }
             column_test_results = self.execute_tests(column_tests, test_variables)
-            self.scan_result.test_results.extend(column_test_results)
+            self.test_results.extend(column_test_results)
 
     def execute_tests(self, tests, variables, group_values: Optional[dict] = None):
         test_results = []
@@ -476,10 +500,23 @@ class Scan:
         self.measurements.append(measurement)
         logging.debug(f'{measurement_type} measurement: {measurement}')
 
-    def flush_measurements(self):
-        if len(self.measurements) > 0:
+    def ensure_scan_reference(self):
+        if self.soda_server_client:
+            if not self.scan_reference:
+                self.start_scan_response = self.soda_server_client.scan_start(
+                    self.warehouse.name,
+                    self.warehouse.dialect.type,
+                    self.scan_yml.table_name,
+                    self.time)
+                self.scan_reference = self.start_scan_response['scanReference']
+
+    def send_results(self):
+        if len(self.measurements) > 0 or len(self.test_results) > 0:
             self.scan_result.measurements.extend(self.measurements)
-            if self.soda_client:
-                measurements_json = [measurement.to_json() for measurement in self.measurements]
-                self.soda_client.send_measurements(self.scan_reference, measurements_json)
+            self.scan_result.test_results.extend(self.test_results)
+            if self.soda_server_client:
+                measurement_jsons = [measurement.to_json() for measurement in self.measurements]
+                test_result_jsons = [test_result.to_json() for test_result in self.test_results]
+                self.soda_server_client.scan_results(self.scan_reference, measurement_jsons, test_result_jsons)
             self.measurements = []
+            self.test_results = []

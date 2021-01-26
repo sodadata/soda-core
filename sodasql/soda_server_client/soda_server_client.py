@@ -23,14 +23,14 @@ class SodaServerClient:
 
     def __init__(self,
                  host: str,
-                 colon_port: Optional[str] = None,
+                 port: Optional[str] = None,
                  protocol: Optional[str] = 'https',
                  username: Optional[str] = None,
                  password: Optional[str] = None,
                  api_key_id: Optional[str] = None,
                  api_key_secret: Optional[str] = None):
         self.host: str = host
-        colon_port = f':{colon_port}' if colon_port else ''
+        colon_port = f':{port}' if port else ''
         self.api_url: str = f'{protocol}://{self.host}{colon_port}/api'
         self.username: Optional[str] = username
         self.password: Optional[str] = password
@@ -38,37 +38,57 @@ class SodaServerClient:
         self.api_key_secret: Optional[str] = api_key_secret
         self.token: Optional[str] = None
 
-    def send_measurements(self, scan_reference: dict, measurements_jsons: list):
+    def scan_start(self, warehouse_name, warehouse_type, table_name, scan_time):
         return self.execute_command({
-            'type': 'addMeasurements',
+            'type': 'scanStart',
+            'warehouseName': warehouse_name,
+            'warehouseType': warehouse_type,
+            'tableName': table_name,
+            'scanTime': scan_time
+        })
+
+    def scan_ended(self, scan_reference, exception = None):
+        if exception is None:
+            self.execute_command({
+                'type': 'scanEnded',
+                'scanReference': scan_reference
+            })
+        else:
+            self.execute_command({
+                'type': 'scanEnded',
+                'scanReference': scan_reference,
+                'exception': str(exception)
+            })
+
+    def scan_results(self, scan_reference: dict, measurement_jsons: list, test_result_jsons: list):
+        return self.execute_command({
+            'type': 'scanResults',
             'scanReference': scan_reference,
-            'measurements': measurements_jsons
+            'measurements': measurement_jsons,
+            'testResults': test_result_jsons
         })
 
     def execute_command(self, command: dict):
-        self._ensure_session_token()
         return self._execute_request('command', command, False)
 
     def execute_query(self, command: dict):
-        self._ensure_session_token()
         return self._execute_request('query', command, False)
 
     def _execute_request(self, request_type: str, request_body: dict, is_retry: bool):
         logging.debug(f'> /api/{request_type} {json.dumps(request_body, indent=2)}')
-        request_body['token'] = self.token
+        request_body['token'] = self.get_token()
         response = requests.post(f'{self.api_url}/{request_type}', json=request_body)
         response_json = response.json()
         logging.debug(f'< {response.status_code} {json.dumps(response_json, indent=2)}')
         if response.status_code == 401 and not is_retry:
             logging.debug(f'Authentication failed. Probably token expired. Reauthenticating...')
             self.token = None
-            self._ensure_session_token()
             response_json = self._execute_request(request_type, request_body, True)
         else:
             assert response.status_code == 200, f'Request failed with status {response.status_code}: {json.dumps(response_json, indent=2)}'
         return response_json
 
-    def _ensure_session_token(self):
+    def get_token(self):
         if not self.token:
             login_command = {
                 'type': 'login'
@@ -92,3 +112,4 @@ class SodaServerClient:
             self.token = login_response_json.get('token')
             assert self.token, 'No token in login response?!'
             logging.debug('< 200 (login ok, token received)')
+        return self.token

@@ -15,7 +15,7 @@ from tests.common.sql_test_case import SqlTestCase
 class TestColumnMetricTests(SqlTestCase):
 
     def test_column_metric_test(self):
-        self.create_test_table(
+        self.sql_recreate_table(
             [self.sql_declare_string_column("name")],
             ["('one')",
              "('two')",
@@ -52,7 +52,7 @@ class TestColumnMetricTests(SqlTestCase):
         self.assertTrue(scan_result.has_failures())
 
     def test_column_metric_metric_calculation_test(self):
-        self.create_test_table(
+        self.sql_recreate_table(
             [self.sql_declare_integer_column("size")],
             ["(3)",
              "(3)",

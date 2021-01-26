@@ -18,7 +18,7 @@ from sodasql.scan.scan_yml import ScanYml
 class SnowflakeDialect(Dialect):
 
     def __init__(self, parser: Parser):
-        super().__init__()
+        super().__init__(SNOWFLAKE)
         self.account = parser.get_str_required_env('account')
         self.warehouse = parser.get_str_required_env('warehouse')
         self.username = parser.get_str_required_env('username')

@@ -1,6 +1,6 @@
 # Soda SQL
 
-Data testing and monitoring for SQL accessible data.
+Data testing, monitoring and profiling for SQL accessible data.
 
 **What does Soda SQL do?**
 
