@@ -56,5 +56,5 @@ class TestNumericData(SqlTestCase):
         self.assertEqual(scan_result.get(Metric.VALID_PERCENTAGE, 'name'), 100.0)
         self.assertEqual(scan_result.get(Metric.MIN, 'name'), 1)
         self.assertEqual(scan_result.get(Metric.MAX, 'name'), 3)
-        self.assertTrue(all(isinstance(x, int) or isinstance(x, float) for x in scan_result.get(Metric.HISTOGRAM)['boundaries']))
-        self.assertTrue(all(isinstance(x, int) or isinstance(x, float) for x in scan_result.get(Metric.HISTOGRAM)['frequencies']))
+        self.assertAllNumeric(scan_result.get(Metric.HISTOGRAM)['boundaries'])
+        self.assertAllNumeric(scan_result.get(Metric.HISTOGRAM)['frequencies'])

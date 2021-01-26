@@ -248,3 +248,7 @@ class SqlTestCase(TestCase):
         for all tests causes our daily quota to deplete quickly.
         """
         return 'test_table_' + ''.join([random.choice(string.ascii_lowercase) for _ in range(5)])
+
+    def assertAllNumeric(self, values):
+        self.assertTrue(
+            all(isinstance(x, int) or isinstance(x, float) for x in values))
