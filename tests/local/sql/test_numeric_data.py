@@ -15,15 +15,18 @@ from sodasql.scan.metric import Metric
 
 class TestNumericData(SqlTestCase):
 
-    def test_sum_overflow(self):
+    def test_overflow(self):
         self.create_test_table(
             [self.sql_declare_big_integer_column("name")],
             ["(9223372036854775807)",
              "(9223372036854775807)"])
 
-        expression = self.warehouse.dialect.sql_expr_sum(self.warehouse.dialect.qualify_column_name("name"))
-        sql = f"SELECT {expression} from {self.warehouse.dialect.qualify_table_name(self.default_test_table_name)}"
-        self.warehouse.sql_fetchone(sql)
+        self.scan({
+            'metrics': [
+                Metric.SUM,
+                Metric.AVG
+            ]
+        })
 
     def test_numeric_parsing(self):
         self.create_test_table(
