@@ -10,12 +10,12 @@
 #  limitations under the License.
 from unittest import TestCase
 
-from sodasql.scan.dialect import Dialect
+from sodasql.scan.dialect import Dialect, POSTGRES
 
 
 class TestSqlExpressions(TestCase):
 
-    dialect = Dialect()
+    dialect = Dialect('test')
 
     def test_string(self):
         self.assertEqual("'hello'", self.dialect.sql_expression({

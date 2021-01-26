@@ -108,11 +108,6 @@ class Scan:
 
         finally:
             try:
-                self.warehouse.close()
-            except:
-                logging.exception('Closing connection failed')
-
-            try:
                 if self.soda_server_client and not scan_failed:
                     self.soda_server_client.scan_ended(self.scan_reference)
             except:
