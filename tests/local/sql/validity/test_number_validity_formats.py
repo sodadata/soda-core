@@ -16,7 +16,7 @@ from tests.common.sql_test_case import SqlTestCase
 class TestNumberValidityFormats(SqlTestCase):
 
     def test_number_whole(self):
-        self.create_test_table(
+        self.sql_recreate_table(
             [self.sql_declare_string_column("name")],
             ["('1')",
              "('-2')",
@@ -45,7 +45,7 @@ class TestNumberValidityFormats(SqlTestCase):
         self.assertEqual(scan_result.get(Metric.VALID_PERCENTAGE, 'name'), 40.0)
 
     def test_number_decimal_point(self):
-        self.create_test_table(
+        self.sql_recreate_table(
             [self.sql_declare_string_column("name")],
             ["('3.14159265359')",
              "('1.61803398875')",
@@ -74,7 +74,7 @@ class TestNumberValidityFormats(SqlTestCase):
         self.assertEqual(scan_result.get(Metric.VALID_PERCENTAGE, 'name'), 40.0)
 
     def test_number_decimal_comma(self):
-        self.create_test_table(
+        self.sql_recreate_table(
             [self.sql_declare_string_column("name")],
             ["('2,718')",
              "('6,0221515')",
@@ -103,7 +103,7 @@ class TestNumberValidityFormats(SqlTestCase):
         self.assertEqual(scan_result.get(Metric.VALID_PERCENTAGE, 'name'), 40.0)
 
     def test_number_percentage(self):
-        self.create_test_table(
+        self.sql_recreate_table(
             [self.sql_declare_string_column("name")],
             ["('1%')",
              "('2.0%')",
@@ -135,7 +135,7 @@ class TestNumberValidityFormats(SqlTestCase):
         self.assertEqual(scan_result.get(Metric.VALID_PERCENTAGE, 'name'), 50.0)
 
     def test_number_money_usd(self):
-        self.create_test_table(
+        self.sql_recreate_table(
             [self.sql_declare_string_column("name")],
             [f"('10,000,000,000 USD')",
              f"('10,000,000,000USD')",
@@ -169,7 +169,7 @@ class TestNumberValidityFormats(SqlTestCase):
         self.assertEqual(scan_result.get(Metric.VALID_PERCENTAGE, 'name'), 80.0)
 
     def test_number_money_eur(self):
-        self.create_test_table(
+        self.sql_recreate_table(
             [self.sql_declare_string_column("name")],
             [f"('10 000 000 000 EUR')",
              f"('10 000 000 000EUR')",
@@ -203,7 +203,7 @@ class TestNumberValidityFormats(SqlTestCase):
         self.assertEqual(scan_result.get(Metric.VALID_PERCENTAGE, 'name'), 80.0)
 
     def test_number_money_gbp(self):
-        self.create_test_table(
+        self.sql_recreate_table(
             [self.sql_declare_string_column("name")],
             [f"('10,000,000,000 GBP')",
              f"('10,000,000,000GBP')",
@@ -237,7 +237,7 @@ class TestNumberValidityFormats(SqlTestCase):
         self.assertEqual(scan_result.get(Metric.VALID_PERCENTAGE, 'name'), 80.0)
 
     def test_number_money_rmb(self):
-        self.create_test_table(
+        self.sql_recreate_table(
             [self.sql_declare_string_column("name")],
             [f"('10,000,000,000 RMB')",
              f"('10,000,000,000RMB')",
@@ -271,7 +271,7 @@ class TestNumberValidityFormats(SqlTestCase):
         self.assertEqual(scan_result.get(Metric.VALID_PERCENTAGE, 'name'), 80.0)
 
     def test_number_money_chf(self):
-        self.create_test_table(
+        self.sql_recreate_table(
             [self.sql_declare_string_column("name")],
             [self.qualify_string(f"('10''000''000''000 CHF')"),
              self.qualify_string(f"('10''000''000''000CHF')"),
@@ -305,7 +305,7 @@ class TestNumberValidityFormats(SqlTestCase):
         self.assertEqual(scan_result.get(Metric.VALID_PERCENTAGE, 'name'), 80.0)
 
     def test_number_money(self):
-        self.create_test_table(
+        self.sql_recreate_table(
             [self.sql_declare_string_column("name")],
             ["('10,000,000,000 $')",
              f"('52,5 €')",

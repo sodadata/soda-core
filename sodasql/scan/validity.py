@@ -45,7 +45,7 @@ class Validity:
         #     r'(?:[2468][048]|[13579][26])00)-02-29)T(?:[01]\d|2[0-3]):[0-5]\d:[0-5]\d(\.\d+)?(?:Z|[+-][01]\d:[0-5]\d)$',
     }
 
-    def __str__(self):
+    def __init__(self):
         self.format = None
         self.regex = None
         self.values = None
@@ -53,5 +53,3 @@ class Validity:
         self.max_length = None
         self.min = None
         self.max = None
-
-

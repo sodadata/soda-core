@@ -17,7 +17,7 @@ import uuid
 class TestPersonalInfoValidityFormats(SqlTestCase):
 
     def test_email(self):
-        self.create_test_table(
+        self.sql_recreate_table(
             [self.sql_declare_string_column("name")],
             ["('moe@pantherbrewing.com')",
              "('larry@pantherbrewing.com')",
@@ -46,7 +46,7 @@ class TestPersonalInfoValidityFormats(SqlTestCase):
         self.assertEqual(scan_result.get(Metric.VALID_PERCENTAGE, 'name'), 60.0)
 
     def test_phone(self):
-        self.create_test_table(
+        self.sql_recreate_table(
             [self.sql_declare_string_column("name")],
             ["('+1 123 123 1234')",
              "('+12 123 123 1234')",
@@ -78,7 +78,7 @@ class TestPersonalInfoValidityFormats(SqlTestCase):
         self.assertEqual(scan_result.get(Metric.VALID_PERCENTAGE, 'name'), 87.5)
 
     def test_credit_card_number(self):
-        self.create_test_table(
+        self.sql_recreate_table(
             [self.sql_declare_string_column("name")],
             ["('1616161616161616')",
              "('4444-4444-4444-4444')",

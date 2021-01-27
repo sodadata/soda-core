@@ -17,7 +17,7 @@ from datetime import datetime, timezone
 class TestDateAndTimeValidityFormats(SqlTestCase):
 
     def test_date_eu(self):
-        self.create_test_table(
+        self.sql_recreate_table(
             [self.sql_declare_string_column("name")],
             ["('21-01-2021')",
              "('21.01.2021')",
@@ -49,7 +49,7 @@ class TestDateAndTimeValidityFormats(SqlTestCase):
         self.assertEqual(scan_result.get(Metric.VALID_PERCENTAGE, 'name'), 50.0)
 
     def test_date_us(self):
-        self.create_test_table(
+        self.sql_recreate_table(
             [self.sql_declare_string_column("name")],
             ["('01-21-2021')",
              "('01.21.2021')",
@@ -81,7 +81,7 @@ class TestDateAndTimeValidityFormats(SqlTestCase):
         self.assertEqual(scan_result.get(Metric.VALID_PERCENTAGE, 'name'), 50.0)
 
     def test_date_inverse(self):
-        self.create_test_table(
+        self.sql_recreate_table(
             [self.sql_declare_string_column("name")],
             ["('2021-01-21')",
              "('2021.01.21')",
@@ -113,7 +113,7 @@ class TestDateAndTimeValidityFormats(SqlTestCase):
         self.assertEqual(scan_result.get(Metric.VALID_PERCENTAGE, 'name'), 37.5)
 
     def test_time(self):
-        self.create_test_table(
+        self.sql_recreate_table(
             [self.sql_declare_string_column("name")],
             ["('11:59:00,000')",
              "('11:59:00')",
@@ -147,7 +147,7 @@ class TestDateAndTimeValidityFormats(SqlTestCase):
     def test_date_iso_8601(self):
         test_date = datetime.now()
         test_date_with_timezone = datetime.now(timezone.utc)
-        self.create_test_table(
+        self.sql_recreate_table(
             [self.sql_declare_string_column("name")],
             [f"('{test_date.isoformat()}')",
              f"('{test_date_with_timezone.isoformat()}')",

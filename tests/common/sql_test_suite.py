@@ -20,6 +20,7 @@ from tests.local.sql.test_schema import TestSchema
 from tests.local.sql.test_statistical_metrics import TestStatisticalMetrics
 from tests.local.sql.test_tests_table_metric import TestTestsTableMetric
 from tests.common.validity_test_suite import ValidityTestSuite
+from tests.local.sql.test_numeric_data import TestNumericData
 
 
 class SqlTestSuite(
@@ -33,7 +34,8 @@ class SqlTestSuite(
         TestSchema,
         TestStatisticalMetrics,
         TestTestsTableMetric,
-        ValidityTestSuite):
+        ValidityTestSuite,
+        TestNumericData):
 
     def setUp(self) -> None:
         if type(self) == SqlTestSuite:

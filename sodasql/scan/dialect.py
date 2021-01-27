@@ -34,6 +34,7 @@ class Dialect:
     string_column_type = "VARCHAR(255)"
     integer_column_type = "INTEGER"
     decimal_column_type = "REAL"
+    big_integer_column_type = "BIGINT"
 
     def __init__(self, type: str):
         self.type = type
@@ -155,8 +156,10 @@ class Dialect:
     def sql_expr_cast_text_to_number(self, quoted_column_name, validity_format):
         if validity_format == 'number_whole':
             return f"CAST({quoted_column_name} AS {self.decimal_column_type})"
-        return f"CAST(REGEXP_REPLACE(REGEXP_REPLACE({quoted_column_name}, "\
-               f"'[^-\\d\\.\\,]', '', 'g'), ',', '.', 'g') AS {self.decimal_column_type})"
+        not_number_pattern = self.qualify_regex(r"[^-\d\.\,]")
+        comma_pattern = self.qualify_regex(r"\,")
+        return f"CAST(REGEXP_REPLACE(REGEXP_REPLACE({quoted_column_name}, '{not_number_pattern}', ''), "\
+               f"'{comma_pattern}', '.') AS {self.decimal_column_type})"
 
     def literal_number(self, value: str):
         return str(value)
@@ -250,3 +253,6 @@ class Dialect:
 
     def sql_declare_decimal_column(self, column_name):
         return f"{column_name} {self.decimal_column_type}"
+
+    def sql_declare_big_integer_column(self, column_name):
+        return f"{column_name} {self.big_integer_column_type}"

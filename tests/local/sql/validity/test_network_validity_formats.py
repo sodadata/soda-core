@@ -17,7 +17,7 @@ import uuid
 class TestNetworkValidityFormats(SqlTestCase):
 
     def test_uuid(self):
-        self.create_test_table(
+        self.sql_recreate_table(
             [self.sql_declare_string_column("name")],
             [f"('{uuid.uuid1()}')",
              f"('{uuid.uuid3(uuid.NAMESPACE_URL, 'http://python.org/')}')",
@@ -49,7 +49,7 @@ class TestNetworkValidityFormats(SqlTestCase):
         self.assertEqual(scan_result.get(Metric.VALID_PERCENTAGE, 'name'), 50.0)
 
     def test_ip_address(self):
-        self.create_test_table(
+        self.sql_recreate_table(
             [self.sql_declare_string_column("name")],
             ["('0.0.0.0')",
              "('127.0.0.1')",
