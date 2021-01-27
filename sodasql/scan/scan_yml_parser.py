@@ -251,16 +251,16 @@ class ScanYmlParser(Parser):
 
                     test_description = None
                     if context_column_name:
-                        test_description = f'Table({context_table_name}) ' \
-                                           f'Column({context_column_name}) ' \
-                                           f'Test({test_name}|{test_expression})'
+                        test_description = f'table({context_table_name}) ' \
+                                           f'column({context_column_name}) ' \
+                                           f'expression({test_expression})'
                     elif context_sql_metric_file_name:
                         test_description = \
-                            f'SqlMetric({context_sql_metric_file_name}) ' \
-                            f'Test({test_name}|{test_expression})'
+                            f'sql_metric({context_sql_metric_file_name}) ' \
+                            f'expression({test_expression})'
                     elif context_table_name:
-                        test_description = f'Table({context_table_name}) ' \
-                                           f'Test({test_name}|{test_expression})'
+                        test_description = f'table({context_table_name}) ' \
+                                           f'expression({test_expression})'
 
                     try:
                         compiled_code = compile(test_expression, 'test', 'eval')

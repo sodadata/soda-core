@@ -17,7 +17,7 @@ class TestSchema(SqlTestCase):
     def test_schema_measurement(self):
         dialect = self.warehouse.dialect
 
-        self.create_test_table(
+        self.sql_recreate_table(
             [self.sql_declare_string_column("id"),
              self.sql_declare_string_column("name"),
              self.sql_declare_integer_column("size")],
@@ -28,18 +28,15 @@ class TestSchema(SqlTestCase):
         measurement = scan_result.find_measurement(Metric.SCHEMA)
         self.assertIsNotNone(measurement)
 
-        columns_by_name_lower = {column.name.lower(): column for column in measurement.value}
+        columns_by_name_lower = {column['name'].lower(): column for column in measurement.value}
 
         column = columns_by_name_lower['id']
-        self.assertTrue(dialect.is_text(column.type))
-        self.assertEqual(column.nullable, True)
+        self.assertTrue(dialect.is_text(column['type']))
 
         column = columns_by_name_lower['name']
-        self.assertTrue(dialect.is_text(column.type))
-        self.assertEqual(column.nullable, True)
+        self.assertTrue(dialect.is_text(column['type']))
 
         column = columns_by_name_lower['size']
-        self.assertTrue(dialect.is_number(column.type))
-        self.assertEqual(column.nullable, True)
+        self.assertTrue(dialect.is_number(column['type']))
 
         self.assertIsNone(scan_result.find_measurement(Metric.ROW_COUNT))

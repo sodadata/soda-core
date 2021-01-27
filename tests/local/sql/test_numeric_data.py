@@ -16,7 +16,7 @@ from sodasql.scan.metric import Metric
 class TestNumericData(SqlTestCase):
 
     def test_overflow(self):
-        self.create_test_table(
+        self.sql_recreate_table(
             [self.sql_declare_big_integer_column("name")],
             ["(9223372036854775807)",
              "(9223372036854775807)"])
@@ -29,7 +29,7 @@ class TestNumericData(SqlTestCase):
         })
 
     def test_numeric_parsing(self):
-        self.create_test_table(
+        self.sql_recreate_table(
             [self.sql_declare_string_column("name")],
             ["('1%')",
              "('2.0%')",

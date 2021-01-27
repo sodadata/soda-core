@@ -22,3 +22,22 @@ class TestResult:
     value: Optional[Any] = None
     error: Optional[str] = None
     group_values: Optional[dict] = None
+
+    def to_json(self):
+        if not self.test or not self.test.expression:
+            return {
+                'error': 'Invalid test result'
+            }
+        if self.error:
+            return {
+                'test': self.test.expression,
+                'error': error
+            }
+        test_result_json = {
+            'test': self.test.expression,
+            'passed': self.passed,
+            'value': self.value
+        }
+        if self.group_values:
+            test_result_json['groupValues'] = self.group_values
+        return test_result_json

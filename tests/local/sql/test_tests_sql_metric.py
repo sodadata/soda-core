@@ -12,10 +12,10 @@ from sodasql.scan.sql_metric_yml_parser import SqlMetricYmlParser, KEY_SQL, KEY_
 from tests.common.sql_test_case import SqlTestCase
 
 
-class TestSqlMetricTests(SqlTestCase):
+class TestTestsSqlMetric(SqlTestCase):
 
     def test_sql_metric_default(self):
-        self.create_test_table(
+        self.sql_recreate_table(
             [self.sql_declare_string_column("country"),
              self.sql_declare_integer_column("size")],
             ["('one', 2)",
@@ -56,7 +56,7 @@ class TestSqlMetricTests(SqlTestCase):
         self.assertTrue(scan_result.has_failures())
 
     def test_sql_metric_groups(self):
-        self.create_test_table(
+        self.sql_recreate_table(
             [self.sql_declare_string_column("country"),
              self.sql_declare_integer_column("size")],
             ["('one', 2)",

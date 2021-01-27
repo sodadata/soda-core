@@ -20,7 +20,7 @@ from sodasql.scan.parser import Parser
 class AthenaDialect(Dialect):
 
     def __init__(self, parser: Parser):
-        super().__init__()
+        super().__init__(ATHENA)
         self.aws_credentials = parser.get_aws_credentials_optional()
         self.athena_staging_dir = parser.get_str_required_env('staging_dir')
         self.database = parser.get_str_required_env('database')

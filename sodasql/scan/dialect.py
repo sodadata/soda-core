@@ -36,6 +36,9 @@ class Dialect:
     decimal_column_type = "REAL"
     big_integer_column_type = "BIGINT"
 
+    def __init__(self, type: str):
+        self.type = type
+
     @classmethod
     def create(cls, parser: Parser):
         warehouse_type = parser.get_str_optional('type')
@@ -173,10 +176,14 @@ class Dialect:
     def qualify_regex(self, regex):
         return regex
 
+    def qualify_string(self, value: str):
+        return value
+
     def qualify_column_name(self, column_name: str):
         return column_name
 
-    def escape_metacharacters(self, value: str):
+    @staticmethod
+    def escape_metacharacters(value: str):
         return re.sub(r'(\\.)', r'\\\1', value)
 
     def sql_expression(self, expression_dict: dict):

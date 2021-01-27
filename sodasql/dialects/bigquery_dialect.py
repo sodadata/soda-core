@@ -29,7 +29,7 @@ class BigQueryDialect(Dialect):
     big_integer_column_type = "BIGNUMERIC"
 
     def __init__(self, parser: Parser):
-        super().__init__()
+        super().__init__(BIGQUERY)
         self.account_info_dict = self.__parse_json_credential('account_info_json', parser)
         self.dataset_name = parser.get_str_required('dataset')
         self.client = None
@@ -62,6 +62,21 @@ class BigQueryDialect(Dialect):
 
     def qualify_writable_table_name(self, table_name: str) -> str:
         return self.qualify_table_name(table_name)
+
+    def sql_expr_regexp_like(self, expr: str, pattern: str):
+        return f"REGEXP_CONTAINS({expr}, r'{self.qualify_regex(pattern)}')"
+
+    def qualify_table_name(self, table_name: str) -> str:
+        return f'`{self.dataset_name}.{table_name}`'
+
+    def qualify_writable_table_name(self, table_name: str) -> str:
+        return self.qualify_table_name(table_name)
+
+    def qualify_regex(self, regex):
+        return regex.replace("''", "\\'")
+
+    def qualify_string(self, value: str):
+        return self.qualify_regex(value)
 
     def sql_expr_regexp_like(self, expr: str, pattern: str):
         return f"REGEXP_CONTAINS({expr}, r'{self.qualify_regex(pattern)}')"

@@ -64,13 +64,13 @@ while date != max_date:
     scan = Scan(warehouse=warehouse,
                 scan_yml=scan_configuration_parser.scan_yml,
                 variables=variables,
-                timeslice=timeslice)
+                time=timeslice)
     scan_results.append(scan.execute())
     date = date + timedelta(days=1)
 
 print()
 print('Summary:')
 for scan_result in scan_results:
-    print(f'Results for scan {scan_result.timeslice}:')
+    print(f'Scan results:')
     print(f'  Measurements: {len(scan_result.measurements)}')
     print(f'  Test results: {len(scan_result.test_results)} of which {scan_result.failures_count()} failed')

@@ -19,6 +19,7 @@ from sodasql.scan.scan import Scan
 from sodasql.scan.scan_yml import ScanYml
 from sodasql.scan.sql_metric_yml import SqlMetricYml
 from sodasql.scan.warehouse_yml import WarehouseYml
+from sodasql.soda_server_client.soda_server_client import SodaServerClient
 
 
 class ScanBuilder:
@@ -70,7 +71,8 @@ class ScanBuilder:
         self.sql_metric_ymls: List[SqlMetricYml] = []
         self.parsers: List[Parser] = []
         self.assert_no_warnings_or_errors = True
-        self.soda_client: SodaClient = None
+        self.soda_server_client: SodaServerClient = None
+        self.scan_reference = None
 
     def read_scan_dir(self, warehouse_dir_path: str, table_dir_name: str):
         """
@@ -165,17 +167,19 @@ class ScanBuilder:
         from sodasql.scan.warehouse import Warehouse
         warehouse = Warehouse(self.warehouse_yml)
 
-        if not self.soda_client:
+        if not self.soda_server_client:
             host = os.getenv('SODA_HOST', 'cloud.soda.io')
             api_key_secret = os.getenv('SODA_API_KEY_SECRET', None)
             if api_key_secret:
-                self.soda_client = SodaClient(host, api_key_secret=api_key_secret)
+                self.soda_server_client = SodaServerClient(host, api_key_secret=api_key_secret)
 
-        return Scan(warehouse=warehouse,
+        scan = Scan(warehouse=warehouse,
                     scan_yml=self.scan_yml,
                     variables=self.variables,
                     sql_metrics=self.sql_metric_ymls,
-                    soda_client=self.soda_client)
+                    soda_server_client=self.soda_server_client)
+        scan.scan_reference = self.scan_reference
+        return scan
 
     def __parse_yaml(self, warehouse_yaml_str: AnyStr, file_name: AnyStr):
         try:

@@ -16,8 +16,7 @@ from sodasql.scan.test_result import TestResult
 
 class ScanResult:
 
-    def __init__(self, timeslice: Optional[str] = None):
-        self.timeslice: Optional[str] = timeslice
+    def __init__(self):
         self.measurements: List[Measurement] = []
         self.test_results: List[TestResult] = []
 
@@ -54,3 +53,9 @@ class ScanResult:
                 (f' and column {column_name}' if column_name else '') + '\n' +
                 '\n'.join([str(m) for m in self.measurements]))
         return measurement
+
+    def to_json(self):
+        return {
+            'measurements': [measurement.to_json() for measurement in self.measurements],
+            'testResults': [test_result.to_json() for test_result in self.test_results]
+        }

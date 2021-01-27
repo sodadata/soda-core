@@ -20,7 +20,7 @@ from sodasql.scan.parser import Parser
 class RedshiftDialect(PostgresDialect):
 
     def __init__(self, parser: Parser):
-        super().__init__(parser)
+        super().__init__(parser, REDSHIFT)
         self.port = parser.get_str_optional('port', '5439')
         self.aws_credentials = parser.get_aws_credentials_optional()
 

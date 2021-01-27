@@ -19,6 +19,7 @@ from tests.local.sql.test_missing_and_invalid_metric_configurations import TestM
 from tests.local.sql.test_schema import TestSchema
 from tests.local.sql.test_statistical_metrics import TestStatisticalMetrics
 from tests.local.sql.test_tests_table_metric import TestTestsTableMetric
+from tests.common.validity_test_suite import ValidityTestSuite
 from tests.local.sql.test_numeric_data import TestNumericData
 
 
@@ -33,6 +34,7 @@ class SqlTestSuite(
         TestSchema,
         TestStatisticalMetrics,
         TestTestsTableMetric,
+        ValidityTestSuite,
         TestNumericData):
 
     def setUp(self) -> None:
