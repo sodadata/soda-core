@@ -34,11 +34,8 @@ class Warehouse:
     def sql_fetchall_description(self, sql) -> tuple:
         return sql_fetchall_description(self.connection, sql)
 
-    def create_scan(self, scan_yml, sql_metrics: List[SqlMetricYml] = None, variables: dict = None):
-        return self.dialect.create_scan(self,
-                                        scan_yml=scan_yml,
-                                        sql_metrics=sql_metrics,
-                                        variables=variables)
+    def create_scan(self, *args, **kwargs):
+        return self.dialect.create_scan(self, *args, **kwargs)
 
     def close(self):
         self.connection.close()

@@ -24,11 +24,13 @@ from sodasql.scan.dialect import Dialect
 from sodasql.scan.dialect_parser import DialectParser
 from sodasql.scan.env_vars import EnvVars
 from sodasql.scan.metric import Metric
+from sodasql.scan.scan_column import ScanColumn
 from sodasql.scan.scan_result import ScanResult
 from sodasql.scan.scan_yml_parser import KEY_TABLE_NAME, ScanYmlParser
 from sodasql.scan.sql_metric_yml_parser import SqlMetricYmlParser
 from sodasql.scan.warehouse import Warehouse
 from sodasql.scan.warehouse_yml import WarehouseYml
+from tests.common.mock_soda_server_client import MockSodaServerClient
 from tests.common.warehouse_fixture import WarehouseFixture
 
 LoggingHelper.configure_for_test()
@@ -60,6 +62,8 @@ class SqlTestCase(TestCase):
         # self.target controls the warehouse on which the test is executed
         # It is initialized in method setup_get_warehouse
         self.target: Optional[str] = None
+        # Tests must explicitely enable mock soda server client by calling self.use_mock_soda_server_client()
+        self.mock_soda_server_client = None
 
         EnvVars.load_env_vars('test')
 
@@ -68,6 +72,9 @@ class SqlTestCase(TestCase):
         super().setUp()
         self.warehouse = self.setup_get_warehouse()
         self.default_test_table_name = self.generate_test_table_name()
+
+    def use_mock_soda_server_client(self):
+        self.mock_soda_server_client = MockSodaServerClient()
 
     def setup_get_warehouse(self):
         """self.target may be initialized by a test suite"""
@@ -157,7 +164,8 @@ class SqlTestCase(TestCase):
 
         scan = self.warehouse.create_scan(scan_yml=scan_configuration_parser.scan_yml,
                                           sql_metrics=sql_metrics,
-                                          variables=variables)
+                                          variables=variables,
+                                          soda_server_client=self.mock_soda_server_client)
         return scan.execute()
 
     def execute_metric(self, warehouse: Warehouse, metric: dict, scan_dict: dict = None):
@@ -168,7 +176,7 @@ class SqlTestCase(TestCase):
             scan_dict[KEY_TABLE_NAME] = self.default_test_table_name
         scan_configuration_parser = ScanYmlParser(scan_dict, 'Test scan')
         scan_configuration_parser.assert_no_warnings_or_errors()
-        scan = warehouse.create_scan(scan_configuration_parser.scan_yml)
+        scan = warehouse.create_scan(scan_yml=scan_configuration_parser.scan_yml)
         scan.execute()
 
         fields: List[str] = []
@@ -244,13 +252,11 @@ class SqlTestCase(TestCase):
     def qualify_string(self, value: str):
         return self.warehouse.dialect.qualify_string(value)
 
-    @staticmethod
-    def generate_test_table_name():
+    def generate_test_table_name(self):
         """
-        In BigQuery, the daily limits for table operations are defined per table name, thus using the same table name
-        for all tests causes our daily quota to deplete quickly.
+        Overridden in sql_test_suite
         """
-        return 'test_table_' + ''.join([random.choice(string.ascii_lowercase) for _ in range(5)])
+        return 'test_table'
 
     def assertAllNumeric(self, values):
         self.assertTrue(

@@ -11,13 +11,15 @@
 
 from typing import Optional, AnyStr
 
+from sodasql.common.json_helper import JsonHelper
+
 
 class Measurement:
 
     def __init__(self, metric: AnyStr, column_name: Optional[AnyStr] = None, value=None, group_values: Optional[dict] = None):
         self.metric = metric
         self.column_name = column_name
-        self.value = value
+        self.value = JsonHelper.to_jsonnable(value)
         self.group_values = group_values
 
     def __str__(self):

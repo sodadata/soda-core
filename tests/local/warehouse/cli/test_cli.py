@@ -75,7 +75,7 @@ class TestScan(SqlTestCase):
             self.run_cli_scan()
 
     def load_demo_data(self):
-        demodata_path = os.path.normpath(os.path.join(os.path.dirname(__file__), '..', '..', 'demo', 'demodata.sql'))
+        demodata_path = os.path.normpath(os.path.join(os.path.dirname(__file__), '../..', '..', 'demo', 'demodata.sql'))
         with open(demodata_path) as f:
             sql_statements_str = f.read()
             for sql_statement in sql_statements_str.split(';'):
