@@ -65,6 +65,21 @@ class BigQueryDialect(Dialect):
     def sql_expr_regexp_like(self, expr: str, pattern: str):
         return f"REGEXP_CONTAINS({expr}, r'{self.qualify_regex(pattern)}')"
 
+    def qualify_table_name(self, table_name: str) -> str:
+        return f'`{self.dataset_name}.{table_name}`'
+
+    def qualify_writable_table_name(self, table_name: str) -> str:
+        return self.qualify_table_name(table_name)
+
+    def qualify_regex(self, regex):
+        return regex.replace("''", "\\'")
+
+    def qualify_string(self, value: str):
+        return self.qualify_regex(value)
+
+    def sql_expr_regexp_like(self, expr: str, pattern: str):
+        return f"REGEXP_CONTAINS({expr}, r'{self.qualify_regex(pattern)}')"
+
     @staticmethod
     def __parse_json_credential(credential_name, parser):
         try:

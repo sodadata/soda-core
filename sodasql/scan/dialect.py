@@ -173,11 +173,15 @@ class Dialect:
     def qualify_regex(self, regex):
         return regex
 
+    def qualify_string(self, value: str):
+        return value
+
     def qualify_column_name(self, column_name: str):
         return column_name
 
-    def escape_regex_metacharacters(self, regex):
-        return re.sub(r'(\\.)', r'\\\1', regex)
+    @staticmethod
+    def escape_metacharacters(value: str):
+        return re.sub(r'(\\.)', r'\\\1', value)
 
     def sql_expression(self, expression_dict: dict):
         type = expression_dict['type']
