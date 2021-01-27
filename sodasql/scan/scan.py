@@ -22,6 +22,7 @@ from sodasql.scan.scan_column import ScanColumn
 from sodasql.scan.scan_yml import ScanYml
 from sodasql.scan.scan_result import ScanResult
 from sodasql.scan.sql_metric_yml import SqlMetricYml
+from sodasql.scan.test_result import TestResult
 from sodasql.scan.warehouse import Warehouse
 from sodasql.soda_server_client.soda_server_client import SodaServerClient
 
@@ -42,10 +43,6 @@ class Scan:
         self.scan_yml: ScanYml = scan_yml
         self.sql_metrics: List[SqlMetricYml] = sql_metrics
 
-        # caches measurements that are not yet sent to soda and not yet added to self.scan_result
-        # see also self.flush_measurements()
-        self.measurements = []
-        self.test_results = []
         self.scan_result = ScanResult()
 
         self.qualified_table_name = self.dialect.qualify_table_name(scan_yml.table_name)
@@ -70,32 +67,21 @@ class Scan:
         self.scan_columns: dict = {}
 
     def execute(self) -> ScanResult:
-        self.ensure_scan_reference()
+        self._ensure_scan_reference()
 
         scan_failed = False
         try:
             if self.scan_yml:
-                # always push metadata measurements in the first request,
-                # that way server can know about them
-                self.query_columns_metadata()
-                self.send_results()
-
-                self.query_aggregations()
-                self.send_results()
-
-                self.query_group_by_value()
-                self.send_results()
-
-                self.query_histograms()
-                self.send_results()
-
+                # Soda Server and the code below require that the schema measurements is the first measurement
+                self._query_columns_metadata()
+                self._query_aggregations()
+                self._query_group_by_value()
+                self._query_histograms()
             if self.sql_metrics:
-                self.query_sql_metrics_and_run_tests()
-                self.send_results()
+                self._query_sql_metrics_and_run_tests()
 
-            self.run_table_tests()
-            self.run_column_tests()
-            self.send_results()
+            self._run_table_tests()
+            self._run_column_tests()
 
         except Exception as e:
             logging.exception('Scan failed')
@@ -115,7 +101,7 @@ class Scan:
 
         return self.scan_result
 
-    def query_columns_metadata(self):
+    def _query_columns_metadata(self):
         sql = self.warehouse.dialect.sql_columns_metadata_query(self.scan_yml.table_name)
         column_tuples = self.warehouse.sql_fetchall(sql)
         self.columns = []
@@ -131,9 +117,11 @@ class Scan:
         self.column_names: List[str] = [column_metadata.name for column_metadata in self.columns]
         self.scan_columns: dict = {column.name.lower(): ScanColumn(self, column) for column in self.columns}
         schema_measurement_value = [column_metadata.to_json() for column_metadata in self.columns]
-        self.add_query(Measurement(Metric.SCHEMA, value=schema_measurement_value))
+        schema_measurement = Measurement(Metric.SCHEMA, value=schema_measurement_value)
+        self._log_measurement(schema_measurement)
+        self._flush_measurements([schema_measurement])
 
-    def query_aggregations(self):
+    def _query_aggregations(self):
         # This measurements list is used to match measurements with the query field order.
         # After query execution, the value of the measurements will be extracted from the query result and
         # the measurements will be added with self.add_query(measurement)
@@ -226,7 +214,7 @@ class Scan:
             for i in range(0, len(measurements)):
                 measurement = measurements[i]
                 measurement.value = query_result_tuple[i]
-                self.add_query(measurement)
+                self._log_measurement(measurement)
 
             # Calculating derived measurements
             row_count_measurement = next((m for m in measurements if m.metric == Metric.ROW_COUNT), None)
@@ -242,9 +230,12 @@ class Scan:
                         missing_count = row_count - values_count
                         missing_percentage = missing_count * 100 / row_count
                         values_percentage = values_count * 100 / row_count
-                        self.add_derived(Measurement(Metric.MISSING_PERCENTAGE, column_name, missing_percentage))
-                        self.add_derived(Measurement(Metric.MISSING_COUNT, column_name, missing_count))
-                        self.add_derived(Measurement(Metric.VALUES_PERCENTAGE, column_name, values_percentage))
+
+                        self._log_and_append_derived_measurements(measurements, [
+                            Measurement(Metric.MISSING_PERCENTAGE, column_name, missing_percentage),
+                            Measurement(Metric.MISSING_COUNT, column_name, missing_count),
+                            Measurement(Metric.VALUES_PERCENTAGE, column_name, values_percentage)
+                        ])
 
                         valid_index = metric_indices.get('valid')
                         if valid_index is not None:
@@ -252,12 +243,18 @@ class Scan:
                             invalid_count = row_count - missing_count - valid_count
                             invalid_percentage = invalid_count * 100 / row_count
                             valid_percentage = valid_count * 100 / row_count
-                            self.add_derived(Measurement(Metric.INVALID_PERCENTAGE, column_name, invalid_percentage))
-                            self.add_derived(Measurement(Metric.INVALID_COUNT, column_name, invalid_count))
-                            self.add_derived(Measurement(Metric.VALID_PERCENTAGE, column_name, valid_percentage))
+                            self._log_and_append_derived_measurements(measurements, [
+                                Measurement(Metric.INVALID_PERCENTAGE, column_name, invalid_percentage),
+                                Measurement(Metric.INVALID_COUNT, column_name, invalid_count),
+                                Measurement(Metric.VALID_PERCENTAGE, column_name, valid_percentage)
+                            ])
 
-    def query_group_by_value(self):
+        self._flush_measurements(measurements)
+
+    def _query_group_by_value(self):
         for column_name_lower in self.scan_columns:
+            measurements = []
+
             scan_column: ScanColumn = self.scan_columns[column_name_lower]
             column_name = scan_column.column_name
 
@@ -285,10 +282,15 @@ class Scan:
                     duplicate_count = distinct_count - unique_count
                     uniqueness = (distinct_count - 1) * 100 / (valid_count - 1)
 
-                    self.add_query(Measurement(Metric.DISTINCT, column_name, distinct_count))
-                    self.add_query(Measurement(Metric.UNIQUE_COUNT, column_name, unique_count))
-                    self.add_derived(Measurement(Metric.DUPLICATE_COUNT, column_name, duplicate_count))
-                    self.add_derived(Measurement(Metric.UNIQUENESS, column_name, uniqueness))
+                    self._log_and_append_query_measurement(
+                        measurements, Measurement(Metric.DISTINCT, column_name, distinct_count))
+                    self._log_and_append_query_measurement(
+                        measurements, Measurement(Metric.UNIQUE_COUNT, column_name, unique_count))
+
+                    self._log_and_append_derived_measurements(measurements, [
+                        Measurement(Metric.DUPLICATE_COUNT, column_name, duplicate_count),
+                        Measurement(Metric.UNIQUENESS, column_name, uniqueness)
+                    ])
 
                 if scan_column.is_metric_enabled(Metric.MINS) and scan_column.numeric_expr is not None:
 
@@ -300,7 +302,7 @@ class Scan:
 
                     rows = self.warehouse.sql_fetchall(sql)
                     mins = [row[0] for row in rows]
-                    self.add_query(Measurement(Metric.MINS, column_name, mins))
+                    self._log_and_append_query_measurement(measurements, Measurement(Metric.MINS, column_name, mins))
 
                 if self.scan_yml.is_metric_enabled(Metric.MAXS, column_name) \
                         and (scan_column.is_number or scan_column.is_column_numeric_text_format):
@@ -313,7 +315,7 @@ class Scan:
 
                     rows = self.warehouse.sql_fetchall(sql)
                     maxs = [row[0] for row in rows]
-                    self.add_query(Measurement(Metric.MAXS, column_name, maxs))
+                    self._log_and_append_query_measurement(measurements, Measurement(Metric.MAXS, column_name, maxs))
 
                 if self.scan_yml.is_metric_enabled(Metric.FREQUENT_VALUES, column_name) \
                         and (scan_column.is_number or scan_column.is_column_numeric_text_format):
@@ -327,9 +329,13 @@ class Scan:
 
                     rows = self.warehouse.sql_fetchall(sql)
                     frequent_values = [row[0] for row in rows]
-                    self.add_query(Measurement(Metric.FREQUENT_VALUES, column_name, frequent_values))
+                    self._log_and_append_query_measurement(
+                        measurements, Measurement(Metric.FREQUENT_VALUES, column_name, frequent_values))
 
-    def query_histograms(self):
+            self._flush_measurements(measurements)
+
+    def _query_histograms(self):
+        measurements = []
         for column_name_lower in self.scan_columns:
             scan_column: ScanColumn = self.scan_columns[column_name_lower]
             column_name = scan_column.column_name
@@ -385,12 +391,13 @@ class Scan:
                         'frequencies': frequencies
                     }
 
-                    self.add_query(Measurement(Metric.HISTOGRAM, column_name, histogram))
+                    self._log_and_append_query_measurement(
+                        measurements, Measurement(Metric.HISTOGRAM, column_name, histogram))
+        self._flush_measurements(measurements)
 
-    def query_sql_metrics_and_run_tests(self):
+    def _query_sql_metrics_and_run_tests(self):
         if self.sql_metrics:
             for sql_metric in self.sql_metrics:
-
                 if self.variables:
                     sql_variables = self.variables.copy() if self.variables else {}
                     # TODO add functions to sql_variables that can convert scan variables to valid SQL literals
@@ -400,11 +407,13 @@ class Scan:
                     resolved_sql = sql_metric.sql
 
                 if sql_metric.group_fields:
-                    self.run_sql_metric_with_groups_and_run_tests(sql_metric, resolved_sql)
+                    self._run_sql_metric_with_groups_and_run_tests(sql_metric, resolved_sql)
                 else:
-                    self.run_sql_metric_default_and_run_tests(sql_metric, resolved_sql)
+                    self._run_sql_metric_default_and_run_tests(sql_metric, resolved_sql)
 
-    def run_sql_metric_with_groups_and_run_tests(self, sql_metric: SqlMetricYml, resolved_sql: AnyStr):
+    def _run_sql_metric_with_groups_and_run_tests(self, sql_metric: SqlMetricYml, resolved_sql: AnyStr):
+        measurements = []
+        test_results = []
         group_fields_lower = set(group_field.lower() for group_field in sql_metric.group_fields)
         row_tuples, description = self.warehouse.sql_fetchall_description(resolved_sql)
         for row_tuple in row_tuples:
@@ -424,7 +433,7 @@ class Scan:
 
             for group_measurement in group_measurements:
                 logging.debug(f'SQL metric {sql_metric.file_name} {group_measurement.metric} {group_values} -> {group_measurement.value}')
-                self.measurements.append(group_measurement)
+                self._log_and_append_query_measurement(measurements, group_measurement)
 
             sql_metric_tests = sql_metric.tests
             test_variables = {
@@ -433,10 +442,13 @@ class Scan:
                 if measurement.column_name is None
             }
             test_variables.update(field_values)
-            sql_metric_test_results = self.execute_tests(sql_metric_tests, test_variables, group_values)
-            self.test_results.extend(sql_metric_test_results)
+            sql_metric_test_results = self._execute_tests(sql_metric_tests, test_variables, group_values)
+            test_results.extend(sql_metric_test_results)
 
-    def run_sql_metric_default_and_run_tests(self, sql_metric: SqlMetricYml, resolved_sql: AnyStr):
+        self._flush_measurements(measurements)
+        self._flush_test_results(test_results)
+
+    def _run_sql_metric_default_and_run_tests(self, sql_metric: SqlMetricYml, resolved_sql: AnyStr):
         row_tuple, description = self.warehouse.sql_fetchone_description(resolved_sql)
         test_variables = {
             measurement.metric: measurement.value
@@ -444,18 +456,21 @@ class Scan:
             if measurement.column_name is None
         }
 
+        measurements = []
         for i in range(len(row_tuple)):
             metric_name = description[i][0]
             metric_value = row_tuple[i]
             logging.debug(f'SQL metric {sql_metric.file_name} {metric_name} -> {metric_value}')
             measurement = Measurement(metric=metric_name, value=metric_value)
             test_variables[metric_name] = metric_value
-            self.measurements.append(measurement)
+            self._log_and_append_query_measurement(measurements, measurement)
 
-        sql_metric_test_results = self.execute_tests(sql_metric.tests, test_variables)
-        self.test_results.extend(sql_metric_test_results)
+        self._flush_measurements(measurements)
 
-    def run_table_tests(self):
+        sql_metric_test_results = self._execute_tests(sql_metric.tests, test_variables)
+        self._flush_test_results(sql_metric_test_results)
+
+    def _run_table_tests(self):
         test_variables = {
             measurement.metric: measurement.value
             for measurement in self.scan_result.measurements
@@ -463,10 +478,11 @@ class Scan:
         }
 
         table_tests = self.scan_yml.tests
-        table_test_results = self.execute_tests(table_tests, test_variables)
-        self.test_results.extend(table_test_results)
+        table_test_results = self._execute_tests(table_tests, test_variables)
+        self._flush_test_results(table_test_results)
 
-    def run_column_tests(self):
+    def _run_column_tests(self):
+        test_results = []
         for column_name_lower in self.scan_columns:
             scan_column: ScanColumn = self.scan_columns[column_name_lower]
             column_tests = scan_column.get_tests()
@@ -475,27 +491,60 @@ class Scan:
                 for measurement in self.scan_result.measurements
                 if measurement.column_name is None or measurement.column_name.lower() == column_name_lower
             }
-            column_test_results = self.execute_tests(column_tests, test_variables)
-            self.test_results.extend(column_test_results)
+            column_test_results = self._execute_tests(column_tests, test_variables)
+            test_results.extend(column_test_results)
+        self._flush_test_results(test_results)
 
-    def execute_tests(self, tests, variables, group_values: Optional[dict] = None):
+    def _execute_tests(self, tests, variables, group_values: Optional[dict] = None):
         test_results = []
         if tests:
             for test in tests:
                 test_results.append(test.evaluate(variables, group_values))
         return test_results
 
-    def add_query(self, measurement: Measurement):
-        return self.add_measurement('Query', measurement)
+    @classmethod
+    def _log_and_append_query_measurement(cls, measurements: List[Measurement], measurement: Measurement):
+        """
+        Convenience method to log a measurement and append it to the given list of measurements
+        Logging will indicate it is the result of a query
+        """
+        cls._log_measurement(measurement)
+        measurements.append(measurement)
 
-    def add_derived(self, measurement: Measurement):
-        return self.add_measurement('Derived', measurement)
+    @classmethod
+    def _log_and_append_derived_measurements(
+            cls,
+            measurements: List[Measurement],
+            derived_measurements: List[Measurement]):
+        """
+        Convenience method to log a list of derived measurements and append them to the given list of measurements.
+        Logging will indicate it is a derived measurement
+        """
+        for derived_measurement in derived_measurements:
+            cls._log_measurement(derived_measurement, is_derived=True)
+            measurements.append(derived_measurement)
 
-    def add_measurement(self, measurement_type: str, measurement: Measurement):
-        self.measurements.append(measurement)
+    @classmethod
+    def _log_measurement(cls, measurement, is_derived: bool = False):
+        measurement_type = "Derived" if is_derived else "Query"
         logging.debug(f'{measurement_type} measurement: {measurement}')
 
-    def ensure_scan_reference(self):
+    def _flush_measurements(self, measurements: List[Measurement]):
+        """
+        Adds the measurements to the scan result and sends the measurements to the Soda Server if that's configured
+        """
+        self.scan_result.measurements.extend(measurements)
+        if self.soda_server_client:
+            measurement_jsons = [measurement.to_json() for measurement in measurements]
+            self.soda_server_client.scan_measurements(self.scan_reference, measurement_jsons)
+
+    def _flush_test_results(self, test_results: List[TestResult]):
+        self.scan_result.test_results.extend(test_results)
+        if self.soda_server_client:
+            test_result_jsons = [test_result.to_json() for test_result in test_results]
+            self.soda_server_client.scan_test_results(self.scan_reference, test_result_jsons)
+
+    def _ensure_scan_reference(self):
         if self.soda_server_client:
             if not self.scan_reference:
                 self.start_scan_response = self.soda_server_client.scan_start(
@@ -504,14 +553,3 @@ class Scan:
                     self.scan_yml.table_name,
                     self.time)
                 self.scan_reference = self.start_scan_response['scanReference']
-
-    def send_results(self):
-        if len(self.measurements) > 0 or len(self.test_results) > 0:
-            self.scan_result.measurements.extend(self.measurements)
-            self.scan_result.test_results.extend(self.test_results)
-            if self.soda_server_client:
-                measurement_jsons = [measurement.to_json() for measurement in self.measurements]
-                test_result_jsons = [test_result.to_json() for test_result in self.test_results]
-                self.soda_server_client.scan_results(self.scan_reference, measurement_jsons, test_result_jsons)
-            self.measurements = []
-            self.test_results = []

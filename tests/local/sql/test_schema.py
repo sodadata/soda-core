@@ -32,14 +32,11 @@ class TestSchema(SqlTestCase):
 
         column = columns_by_name_lower['id']
         self.assertTrue(dialect.is_text(column['type']))
-        self.assertEqual(column['nullable'], True)
 
         column = columns_by_name_lower['name']
         self.assertTrue(dialect.is_text(column['type']))
-        self.assertEqual(column['nullable'], True)
 
         column = columns_by_name_lower['size']
         self.assertTrue(dialect.is_number(column['type']))
-        self.assertEqual(column['nullable'], True)
 
         self.assertIsNone(scan_result.find_measurement(Metric.ROW_COUNT))

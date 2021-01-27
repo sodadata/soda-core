@@ -50,21 +50,27 @@ class SodaServerClient:
     def scan_ended(self, scan_reference, exception = None):
         if exception is None:
             self.execute_command({
-                'type': 'scanEnded',
+                'type': 'scanEnd',
                 'scanReference': scan_reference
             })
         else:
             self.execute_command({
-                'type': 'scanEnded',
+                'type': 'scanEnd',
                 'scanReference': scan_reference,
-                'exception': str(exception)
+                'error': str(exception)
             })
 
-    def scan_results(self, scan_reference: dict, measurement_jsons: list, test_result_jsons: list):
+    def scan_measurements(self, scan_reference: dict, measurement_jsons: list):
         return self.execute_command({
-            'type': 'scanResults',
+            'type': 'scanMeasurements',
             'scanReference': scan_reference,
-            'measurements': measurement_jsons,
+            'measurements': measurement_jsons
+        })
+
+    def scan_test_results(self, scan_reference: dict, test_result_jsons: list):
+        return self.execute_command({
+            'type': 'scanTestResults',
+            'scanReference': scan_reference,
             'testResults': test_result_jsons
         })
 

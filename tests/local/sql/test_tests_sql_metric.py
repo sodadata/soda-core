@@ -12,7 +12,7 @@ from sodasql.scan.sql_metric_yml_parser import SqlMetricYmlParser, KEY_SQL, KEY_
 from tests.common.sql_test_case import SqlTestCase
 
 
-class TestSqlMetricTests(SqlTestCase):
+class TestTestsSqlMetric(SqlTestCase):
 
     def test_sql_metric_default(self):
         self.sql_recreate_table(

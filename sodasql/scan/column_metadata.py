@@ -22,6 +22,5 @@ class ColumnMetadata:
     def to_json(self):
         return {
             'name': self.name,
-            'type': self.type,
-            'nullable': self.nullable
+            'type': self.type
         }

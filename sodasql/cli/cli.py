@@ -244,13 +244,14 @@ def scan(warehouse_dir: str, table: str, variables: tuple = None, time: str = No
 
         for measurement in scan_result.measurements:
             logging.info(measurement)
-        for test_result in scan_result.test_results:
-            logging.info(test_result)
 
         logging.info(f'{len(scan_result.measurements)} measurements computed')
         logging.info(f'{len(scan_result.test_results)} tests executed')
         if scan_result.has_failures():
-            logging.info(f'{scan_result.failures_count()} tests failed!')
+            logging.info(f'{scan_result.failures_count()} of {len(scan_result.test_results)} tests failed:')
+            for test_result in scan_result.test_results:
+                if not test_result.passed:
+                    logging.info(f'  {test_result.test.description} cause {test_result.test.first_metric}={test_result.value}')
         else:
             logging.info(f'All is good. No tests failed.')
         sys.exit(scan_result.failures_count())
