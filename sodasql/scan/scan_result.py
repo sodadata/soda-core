@@ -19,6 +19,7 @@ class ScanResult:
     def __init__(self):
         self.measurements: List[Measurement] = []
         self.test_results: List[TestResult] = []
+        self.error = None
 
     def has_failures(self):
         return self.failures_count() > 0

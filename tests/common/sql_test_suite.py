@@ -11,7 +11,7 @@
 import random
 import string
 
-from tests.local.sql.test_numeric_data import TestNumericData
+from tests.local.warehouse.validity.test_numeric_data import TestNumericData
 from tests.local.warehouse.metrics.test_distinct_and_uniqueness import TestDistinctAndUniqueness
 from tests.local.warehouse.metrics.test_frequent_values import TestFrequentValues
 from tests.local.warehouse.metrics.test_histogram_numeric import TestHistogramNumeric

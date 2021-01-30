@@ -8,13 +8,15 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-from sodasql.scan.sql_metric_yml_parser import SqlMetricYmlParser, KEY_SQL, KEY_TESTS, KEY_GROUP_FIELDS
+from sodasql.scan.sql_metric_yml_parser import SqlMetricYmlParser, KEY_SQL, KEY_TESTS, KEY_GROUP_FIELDS, \
+    KEY_METRIC_NAMES
 from tests.common.sql_test_case import SqlTestCase
 
 
 class TestTestsSqlMetric(SqlTestCase):
 
-    def test_sql_metric_default(self):
+    def setUp(self) -> None:
+        super().setUp()
         self.sql_recreate_table(
             [self.sql_declare_string_column("country"),
              self.sql_declare_integer_column("size")],
@@ -23,77 +25,64 @@ class TestTestsSqlMetric(SqlTestCase):
              "('one', 4) ",
              "('one', 5)",
              "('two', 6)"])
+        self.qualified_table_name = self.warehouse.dialect.qualify_table_name(self.default_test_table_name)
 
-        dialect = self.warehouse.dialect
-        qualified_table_name = dialect.qualify_table_name(self.default_test_table_name)
-
-        scan_result = self.scan(sql_metric_dicts=[
+    def test_sql_metric_default_simple(self):
+        sql_metric_dicts = [
             {
                 KEY_SQL: (
                     f"SELECT sum(size) as sum_ones \n"
-                    f"FROM {qualified_table_name} \n"
+                    f"FROM {self.qualified_table_name} \n"
                     f"WHERE country = 'one'"
                 ),
                 KEY_TESTS: {
-                    'sum_ones_20': 'sum_ones < 20'
+                    'sum_test': 'sum_ones < 20'
                 }
             }
-        ])
+        ]
+
+        scan_result = self.scan(sql_metric_dicts=sql_metric_dicts)
         self.assertFalse(scan_result.has_failures())
 
-        scan_result = self.scan(sql_metric_dicts=[
-            {
-                KEY_SQL: (
-                    f"SELECT sum(size) as sum_ones \n"
-                    f"FROM {qualified_table_name} \n"
-                    f"WHERE country = 'one'"
-                ),
-                KEY_TESTS: {
-                    'sum_ones_10': 'sum_ones < 10'
-                }
-            }
-        ])
+        sql_metric_dicts[0][KEY_TESTS]['sum_test'] = 'sum_ones < 10'
+
+        scan_result = self.scan(sql_metric_dicts=sql_metric_dicts)
         self.assertTrue(scan_result.has_failures())
 
-    def test_sql_metric_groups(self):
-        self.sql_recreate_table(
-            [self.sql_declare_string_column("country"),
-             self.sql_declare_integer_column("size")],
-            ["('one', 2)",
-             "('two', 3)",
-             "('one', 4) ",
-             "('one', 5)",
-             "('two', 6)"])
-
-        dialect = self.warehouse.dialect
-        qualified_table_name = dialect.qualify_table_name(self.default_test_table_name)
-
+    def test_sql_metric_default_field_metric_name_mapping(self):
         scan_result = self.scan(sql_metric_dicts=[
             {
+                KEY_METRIC_NAMES: ['sum_ones'],
                 KEY_SQL: (
-                    f"SELECT country, sum(size) as total_size_per_country \n"
-                    f"FROM {qualified_table_name} \n"
-                    f"GROUP BY country"
+                    f"SELECT sum(size) \n"
+                    f"FROM {self.qualified_table_name} \n"
+                    f"WHERE country = 'one'"
                 ),
                 KEY_TESTS: {
-                    'total_size_20': 'total_size_per_country < 20'
-                },
-                KEY_GROUP_FIELDS: ['country']
+                    'sum_test': 'sum_ones < 20'
+                }
             }
         ])
         self.assertFalse(scan_result.has_failures())
 
-        scan_result = self.scan(sql_metric_dicts=[
+    def test_sql_metric_groups(self):
+        sql_metric_dicts = [
             {
                 KEY_SQL: (
                     f"SELECT country, sum(size) as total_size_per_country \n"
-                    f"FROM {qualified_table_name} \n"
+                    f"FROM {self.qualified_table_name} \n"
                     f"GROUP BY country"
                 ),
                 KEY_TESTS: {
-                    'total_size_10': 'total_size_per_country < 10'
+                    'total_size_test': 'total_size_per_country < 20'
                 },
                 KEY_GROUP_FIELDS: ['country']
             }
-        ])
+        ]
+        scan_result = self.scan(sql_metric_dicts=sql_metric_dicts)
+        self.assertFalse(scan_result.has_failures())
+
+        sql_metric_dicts[0][KEY_TESTS]['total_size_test'] = 'total_size_per_country < 10'
+
+        scan_result = self.scan(sql_metric_dicts=sql_metric_dicts)
         self.assertTrue(scan_result.has_failures())

@@ -16,10 +16,11 @@ from sodasql.scan.scan_yml_parser import ScanYmlParser
 from sodasql.scan.sql_metric_yml import SqlMetricYml
 
 KEY_SQL = 'sql'
+KEY_METRIC_NAMES = 'metric_names'
 KEY_TESTS = 'tests'
 KEY_GROUP_FIELDS = 'group_fields'
 
-VALID_SQL_METRIC_KEYS = [KEY_SQL, KEY_TESTS, KEY_GROUP_FIELDS]
+VALID_SQL_METRIC_KEYS = [KEY_SQL, KEY_METRIC_NAMES, KEY_TESTS, KEY_GROUP_FIELDS]
 
 
 class SqlMetricYmlParser(Parser):
@@ -35,15 +36,16 @@ class SqlMetricYmlParser(Parser):
 
             sql_metric_path_dir, sql_metric_file_name = FileSystemSingleton.INSTANCE.split(sql_metric_path)
 
+            metric_names = self.get_list_optional(KEY_METRIC_NAMES)
             group_fields = self.get_list_optional(KEY_GROUP_FIELDS)
             sql = self.get_str_required(KEY_SQL)
-            tests = ScanYmlParser.parse_tests(
-                self,
+            tests = self.parse_tests(
                 sql_metric_dict,
                 KEY_TESTS,
                 context_sql_metric_file_name=sql_metric_file_name)
 
             self.sql_metric: SqlMetricYml = SqlMetricYml(sql=sql,
+                                                         metric_names=metric_names,
                                                          file_name=sql_metric_file_name,
                                                          group_fields=group_fields,
                                                          tests=tests)

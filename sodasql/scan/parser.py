@@ -11,13 +11,16 @@
 import json
 import logging
 import os
+import traceback
 from collections import deque
 from dataclasses import dataclass
-from typing import List, Deque
+from typing import List, Deque, Optional
 
 import yaml
 
 from sodasql.scan.aws_credentials import AwsCredentials
+from sodasql.scan.metric import Metric
+from sodasql.scan.test import Test
 
 ERROR = 'error'
 WARNING = 'warning'
@@ -213,3 +216,113 @@ class Parser:
 
     def _get_current_context_object(self):
         return self.contexts[-1].object
+
+    def parse_tests(self,
+                    parent_dict: dict,
+                    tests_key: str,
+                    context_table_name: Optional[str] = None,
+                    context_column_name: Optional[str] = None,
+                    context_sql_metric_file_name: Optional[str] = None) -> List[Test]:
+        tests: List[Test] = []
+
+        test_ymls = parent_dict.get(tests_key)
+
+        self._push_context(None, tests_key)
+        try:
+            if isinstance(test_ymls, list):
+                for test_index in range(len(test_ymls)):
+                    test_yml = test_ymls[test_index]
+                    self._push_context(None, str(test_index))
+                    try:
+                        test_name = f'test_{test_index}'
+                        test_expression = test_yml
+                        test = self.parse_test(test_name,
+                                               test_expression,
+                                               context_table_name,
+                                               context_column_name,
+                                               context_sql_metric_file_name)
+                        if test:
+                            tests.append(test)
+                    finally:
+                        self._pop_context()
+
+            elif isinstance(test_ymls, dict):
+                for test_name in test_ymls:
+                    self._push_context(None, test_name)
+                    try:
+                        test_expression = test_ymls[test_name]
+                        test = self.parse_test(test_name, test_expression)
+                        if test:
+                            tests.append(test)
+                    finally:
+                        self._pop_context()
+
+            elif test_ymls is not None:
+                self.error(f'tests is not a list: {test_ymls} ({str(type(test_ymls))})')
+        finally:
+            self._pop_context()
+
+        return tests
+
+    def parse_test(self,
+                   test_name: str,
+                   test_expression: str,
+                   context_table_name: str = None,
+                   context_column_name: str = None,
+                   context_sql_metric_file_name: str = None):
+
+        if not test_name:
+            self.error('Test name is required')
+            return
+
+        if not test_expression:
+            self.error('Test expression is required')
+            return
+
+        test_description = self.create_test_description(
+            test_expression,
+            context_table_name,
+            context_column_name,
+            context_sql_metric_file_name)
+
+        try:
+            compiled_code = compile(test_expression, 'test', 'eval')
+            first_metric = None
+
+            if context_table_name or context_column_name:
+                names = compiled_code.co_names
+                first_metric = names[0]
+                non_metric_names = [name for name in names if name not in Metric.METRIC_TYPES]
+                if len(non_metric_names) != 0 or len(names) == 0:
+                    # Dunno yet if this should be info, warning or error.  So for now keeping it open.
+                    # SQL metric names and variables are not known until eval.
+                    self.info(f'At least one of the variables used in test ({set(names)}) '
+                              f'was not a valid metric type. Metric types: {Metric.METRIC_TYPES}, '
+                              f'Test: {test_description}')
+
+            return Test(test_description,
+                        test_expression,
+                        first_metric,
+                        context_column_name)
+
+        except SyntaxError:
+            stacktrace_lines = traceback.format_exc().splitlines()
+            self.error(f'Syntax error in test {test_description}:\n' +
+                       ('\n'.join(stacktrace_lines[-3:])))
+
+    def create_test_description(self,
+                                test_expression,
+                                context_table_name: str,
+                                context_column_name: str,
+                                context_sql_metric_file_name: str):
+        if context_column_name:
+            return f'table({context_table_name}) ' \
+                   f'column({context_column_name}) ' \
+                   f'expression({test_expression})'
+        elif context_sql_metric_file_name:
+            return f'sql_metric({context_sql_metric_file_name}) ' \
+                   f'expression({test_expression})'
+        elif context_table_name:
+            return f'table({context_table_name}) ' \
+                   f'expression({test_expression})'
+

@@ -83,7 +83,7 @@ class ScanYmlParser(Parser):
         table_name = self.get_str_required(KEY_TABLE_NAME)
         self.scan_yml.table_name = table_name
         self.scan_yml.metrics = self.parse_metrics()
-        self.scan_yml.tests = self.parse_tests(self, scan_dict, KEY_TESTS, context_table_name=table_name)
+        self.scan_yml.tests = self.parse_tests(scan_dict, KEY_TESTS, context_table_name=table_name)
         self.scan_yml.columns = self.parse_columns(self.scan_yml)
         self.scan_yml.sample_percentage = self.get_float_optional(KEY_SAMPLE_PERCENTAGE)
         self.scan_yml.sample_method = self.get_str_optional(KEY_SAMPLE_METHOD, 'SYSTEM').upper()
@@ -209,8 +209,7 @@ class ScanYmlParser(Parser):
                 validity.min_length = column_dict.get(COLUMN_KEY_VALID_MIN_LENGTH)
                 validity.max_length = column_dict.get(COLUMN_KEY_VALID_MAX_LENGTH)
 
-            tests = self.parse_tests(self,
-                                     column_dict,
+            tests = self.parse_tests(column_dict,
                                      COLUMN_KEY_TESTS,
                                      context_table_name=scan_configuration.table_name,
                                      context_column_name=column_name)
@@ -229,67 +228,3 @@ class ScanYmlParser(Parser):
         self._pop_context()
 
         return scan_configuration_columns
-
-    @classmethod
-    def parse_tests(cls,
-                    parser: Parser,
-                    parent_dict: dict,
-                    tests_key: str,
-                    context_table_name: Optional[str] = None,
-                    context_column_name: Optional[str] = None,
-                    context_sql_metric_file_name: Optional[str] = None) -> List[Test]:
-        tests: List[Test] = []
-
-        tests_dict: dict = parent_dict.get(tests_key)
-
-        if isinstance(tests_dict, dict):
-            parser._push_context(None, tests_key)
-
-            try:
-                for test_name in tests_dict:
-                    test_expression = tests_dict.get(test_name)
-
-                    test_description = None
-                    if context_column_name:
-                        test_description = f'table({context_table_name}) ' \
-                                           f'column({context_column_name}) ' \
-                                           f'expression({test_expression})'
-                    elif context_sql_metric_file_name:
-                        test_description = \
-                            f'sql_metric({context_sql_metric_file_name}) ' \
-                            f'expression({test_expression})'
-                    elif context_table_name:
-                        test_description = f'table({context_table_name}) ' \
-                                           f'expression({test_expression})'
-
-                    try:
-                        compiled_code = compile(test_expression, 'test', 'eval')
-                        first_metric = None
-
-                        if context_table_name or context_column_name:
-                            names = compiled_code.co_names
-                            first_metric = names[0]
-                            non_metric_names = [name for name in names if name not in Metric.METRIC_TYPES]
-                            if len(non_metric_names) != 0 or len(names) == 0:
-                                # Dunno yet if this should be info, warning or error.  So for now keeping it open.
-                                # SQL metric names and variables are not known until eval.
-                                parser.info(f'At least one of the variables used in test ({set(names)}) '
-                                            f'was not a valid metric type. Metric types: {Metric.METRIC_TYPES}, '
-                                            f'Test: {test_description}')
-
-                        tests.append(Test(test_description,
-                                          test_expression,
-                                          first_metric,
-                                          context_column_name))
-
-                    except SyntaxError:
-                        stacktrace_lines = traceback.format_exc().splitlines()
-                        parser.error(f'Syntax error in test {test_description}:\n' +
-                                     ('\n'.join(stacktrace_lines[-3:])))
-            finally:
-                parser._pop_context()
-        elif tests_dict is not None:
-            parser.error(f'tests is not a dict: {tests_dict} ({str(type(tests_dict))})')
-
-        return tests
-

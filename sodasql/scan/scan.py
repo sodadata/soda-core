@@ -10,6 +10,7 @@
 #  limitations under the License.
 
 import logging
+import traceback
 from math import floor, ceil
 from typing import List, AnyStr, Optional
 
@@ -86,6 +87,7 @@ class Scan:
         except Exception as e:
             logging.exception('Scan failed')
             scan_failed = True
+            self.scan_result.error = traceback.format_exc()
             try:
                 if self.soda_server_client:
                     self.soda_server_client.scan_ended(self.scan_reference, e)
@@ -367,7 +369,8 @@ class Scan:
                         lower_bound = '' if i == 0 else f'{boundaries[i]} <= {numeric_value_expr}'
                         upper_bound = '' if i == buckets - 1 else f'{numeric_value_expr} < {boundaries[i + 1]}'
                         optional_and = '' if lower_bound == '' or upper_bound == '' else ' and '
-                        field_clauses.append(f'SUM(CASE WHEN {lower_bound}{optional_and}{upper_bound} THEN frequency END)')
+                        field_clauses.append(
+                            f'SUM(CASE WHEN {lower_bound}{optional_and}{upper_bound} THEN frequency END)')
 
                     fields = ',\n  '.join(field_clauses)
 
@@ -402,7 +405,7 @@ class Scan:
                     sql_variables = self.variables.copy() if self.variables else {}
                     # TODO add functions to sql_variables that can convert scan variables to valid SQL literals
                     template = Template(sql_metric.sql)
-                    resolved_sql = template.render(self.variables)
+                    resolved_sql = template.render(sql_variables)
                 else:
                     resolved_sql = sql_metric.sql
 
@@ -458,7 +461,7 @@ class Scan:
 
         measurements = []
         for i in range(len(row_tuple)):
-            metric_name = description[i][0]
+            metric_name = sql_metric.metric_names[i] if sql_metric.metric_names is not None else description[i][0]
             metric_value = row_tuple[i]
             logging.debug(f'SQL metric {sql_metric.file_name} {metric_name} -> {metric_value}')
             measurement = Measurement(metric=metric_name, value=metric_value)
@@ -534,13 +537,16 @@ class Scan:
         Adds the measurements to the scan result and sends the measurements to the Soda Server if that's configured
         """
         self.scan_result.measurements.extend(measurements)
-        if self.soda_server_client:
+        if self.soda_server_client and measurements:
             measurement_jsons = [measurement.to_json() for measurement in measurements]
             self.soda_server_client.scan_measurements(self.scan_reference, measurement_jsons)
 
     def _flush_test_results(self, test_results: List[TestResult]):
+        """
+        Adds the test_results to the scan result and sends the measurements to the Soda Server if that's configured
+        """
         self.scan_result.test_results.extend(test_results)
-        if self.soda_server_client:
+        if self.soda_server_client and test_results:
             test_result_jsons = [test_result.to_json() for test_result in test_results]
             self.soda_server_client.scan_test_results(self.scan_reference, test_result_jsons)
 

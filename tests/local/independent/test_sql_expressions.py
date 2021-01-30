@@ -154,7 +154,7 @@ class TestSqlExpressions(TestCase):
             }))
 
     def test_contains(self):
-        self.assertEqual("name like '%t%'", self.dialect.sql_expression({
+        self.assertEqual("name LIKE '%t%'", self.dialect.sql_expression({
                 'type': 'contains',
                 'left': {
                     'type': 'columnValue',
@@ -167,7 +167,7 @@ class TestSqlExpressions(TestCase):
             }))
 
     def test_starts_with(self):
-        self.assertEqual("name like 't%'", self.dialect.sql_expression({
+        self.assertEqual("name LIKE 't%'", self.dialect.sql_expression({
                 'type': 'startsWith',
                 'left': {
                     'type': 'columnValue',
@@ -180,7 +180,7 @@ class TestSqlExpressions(TestCase):
             }))
 
     def test_ends_with(self):
-        self.assertEqual("name like '%t'", self.dialect.sql_expression({
+        self.assertEqual("name LIKE '%t'", self.dialect.sql_expression({
                 'type': 'endsWith',
                 'left': {
                     'type': 'columnValue',

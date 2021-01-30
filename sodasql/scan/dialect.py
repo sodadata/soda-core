@@ -162,10 +162,14 @@ class Dialect:
                f"'{comma_pattern}', '.') AS {self.decimal_column_type})"
 
     def literal_number(self, value: str):
+        if value is None:
+            return None
         return str(value)
 
     def literal_string(self, value: str):
-        return "'"+str(value).replace("'", "\'")+"'"
+        if value is None:
+            return None
+        return "'"+self.escape_metacharacters(value)+"'"
 
     def qualify_table_name(self, table_name: str) -> str:
         return table_name
@@ -186,65 +190,6 @@ class Dialect:
     def escape_metacharacters(value: str):
         return re.sub(r'(\\.)', r'\\\1', value)
 
-    def sql_expression(self, expression_dict: dict):
-        type = expression_dict['type']
-        if type == 'number':
-            sql = str(expression_dict['value'])
-        elif type == 'string':
-            sql = f"'{expression_dict['value']}'"
-        elif type == 'columnValue':
-            sql = expression_dict['columnName']
-        elif type == 'collection':
-            value = expression_dict['value']
-            sql = '(' + (', '.join([f"'{x}'" if isinstance(x, str) else str(x) for x in value])) + ')'
-        elif type == 'equals':
-            sql = self.sql_expression(expression_dict['left']) + ' = ' + self.sql_expression(expression_dict['right'])
-        elif type == 'lessThan':
-            sql = self.sql_expression(expression_dict['left']) + ' < ' + self.sql_expression(expression_dict['right'])
-        elif type == 'lessThanOrEqual':
-            sql = self.sql_expression(expression_dict['left']) + ' <= ' + self.sql_expression(expression_dict['right'])
-        elif type == 'greaterThan':
-            sql = self.sql_expression(expression_dict['left']) + ' > ' + self.sql_expression(expression_dict['right'])
-        elif type == 'greaterThanOrEqual':
-            sql = self.sql_expression(expression_dict['left']) + ' >= ' + self.sql_expression(expression_dict['right'])
-        elif type == 'between':
-            clauses = []
-            value = self.sql_expression(expression_dict['value'])
-            gte = expression_dict.get('gte')
-            gt = expression_dict.get('gt')
-            lte = expression_dict.get('lte')
-            lt = expression_dict.get('lt')
-            if gte:
-                clauses.append(f'{gte} <= {value}')
-            elif gt:
-                clauses.append(f'{gt} < {value}')
-            if lte:
-                clauses.append(f'{value} <= {lte}')
-            elif lt:
-                clauses.append(f'{value} < {lt}')
-            sql = ' AND '.join(clauses)
-        elif type == 'in':
-            sql = self.sql_expression(expression_dict['left']) + ' IN ' + self.sql_expression(expression_dict['right'])
-        elif type == 'contains':
-            substring = expression_dict['right']['value']
-            sql = self.sql_expression(expression_dict['left']) + " like '%" + substring + "%'"
-        elif type == 'startsWith':
-            substring = expression_dict['right']['value']
-            sql = self.sql_expression(expression_dict['left']) + " like '" + substring + "%'"
-        elif type == 'endsWith':
-            substring = expression_dict['right']['value']
-            sql = self.sql_expression(expression_dict['left']) + " like '%" + substring + "'"
-        elif type == 'not':
-            sql = 'NOT ( ' + self.sql_expression(expression_dict['expression']) + ' )'
-        elif type == 'and':
-            sql = '( ' + (' ) AND ( '.join([self.sql_expression(e) for e in expression_dict['andExpressions']])) + ' )'
-        elif type == 'or':
-            sql = '( ' + (' ) OR ( '.join([self.sql_expression(e) for e in expression_dict['orExpressions']])) + ' )'
-        else:
-            raise RuntimeError(f'Unsupported expression type: {type}')
-        logging.debug('expr sql: '+sql)
-        return sql
-
     def sql_declare_string_column(self, column_name):
         return f"{column_name} {self.string_column_type}"
 
@@ -256,3 +201,105 @@ class Dialect:
 
     def sql_declare_big_integer_column(self, column_name):
         return f"{column_name} {self.big_integer_column_type}"
+
+    def sql_expression(self, expression_dict: dict):
+        type = expression_dict['type']
+        if type == 'number':
+            sql = self.literal_number(expression_dict['value'])
+        elif type == 'string':
+            sql = self.literal_string(expression_dict['value'])
+        elif type == 'columnValue':
+            sql = expression_dict['columnName']
+        elif type == 'collection':
+            # collection of string or number literals
+            value = expression_dict['value']
+            sql = '(' + (', '.join([self.literal_string(x) if isinstance(x, str)
+                                    else self.literal_number(x) for x in value])) + ')'
+        elif type == 'equals':
+            left = self.sql_expression(expression_dict['left'])
+            right = self.sql_expression(expression_dict['right'])
+            sql = self.sql_expr_equal(left, right)
+        elif type == 'lessThan':
+            left = self.sql_expression(expression_dict['left'])
+            right = self.sql_expression(expression_dict['right'])
+            sql = self.sql_expr_less_than(left, right)
+        elif type == 'lessThanOrEqual':
+            left = self.sql_expression(expression_dict['left'])
+            right = self.sql_expression(expression_dict['right'])
+            sql = self.sql_expr_less_than_or_equal(left, right)
+        elif type == 'greaterThan':
+            left = self.sql_expression(expression_dict['left'])
+            right = self.sql_expression(expression_dict['right'])
+            sql = self.sql_expr_greater_than(left, right)
+        elif type == 'greaterThanOrEqual':
+            left = self.sql_expression(expression_dict['left'])
+            right = self.sql_expression(expression_dict['right'])
+            sql = self.sql_expr_greater_than_or_equal(left, right)
+        elif type == 'between':
+            clauses = []
+            value = self.sql_expression(expression_dict['value'])
+            gte = self.literal_number(expression_dict.get('gte'))
+            gt = self.literal_number(expression_dict.get('gt'))
+            lte = self.literal_number(expression_dict.get('lte'))
+            lt = self.literal_number(expression_dict.get('lt'))
+            if gte:
+                clauses.append(self.sql_expr_less_than_or_equal(gte, value))
+            elif gt:
+                clauses.append(self.sql_expr_less_than(gt, value))
+            if lte:
+                clauses.append(self.sql_expr_less_than_or_equal(value, lte))
+            elif lt:
+                clauses.append(self.sql_expr_less_than(value, lt))
+            sql = ' AND '.join(clauses)
+        elif type == 'in':
+            left = self.sql_expression(expression_dict['left'])
+            right = self.sql_expression(expression_dict['right'])
+            sql = self.sql_expr_in(left, right)
+        elif type == 'contains':
+            value = self.sql_expression(expression_dict['left'])
+            substring = self.escape_metacharacters(expression_dict['right']['value'])
+            sql = self.sql_expr_contains(value, substring)
+        elif type == 'startsWith':
+            value = self.sql_expression(expression_dict['left'])
+            substring = self.escape_metacharacters(expression_dict['right']['value'])
+            sql = self.sql_expr_starts_with(value, substring)
+        elif type == 'endsWith':
+            value = self.sql_expression(expression_dict['left'])
+            substring = self.escape_metacharacters(expression_dict['right']['value'])
+            sql = self.sql_expr_ends_with(value, substring)
+        elif type == 'not':
+            sql = 'NOT ( ' + self.sql_expression(expression_dict['expression']) + ' )'
+        elif type == 'and':
+            sql = '( ' + (' ) AND ( '.join([self.sql_expression(e) for e in expression_dict['andExpressions']])) + ' )'
+        elif type == 'or':
+            sql = '( ' + (' ) OR ( '.join([self.sql_expression(e) for e in expression_dict['orExpressions']])) + ' )'
+        else:
+            raise RuntimeError(f'Unsupported expression type: {type}')
+        return sql
+
+    def sql_expr_equal(self, left, right):
+        return f'{left} = {right}'
+
+    def sql_expr_less_than(self, left, right):
+        return f'{left} < {right}'
+
+    def sql_expr_less_than_or_equal(self, left, right):
+        return f'{left} <= {right}'
+
+    def sql_expr_greater_than(self, left, right):
+        return f'{left} > {right}'
+
+    def sql_expr_greater_than_or_equal(self, left, right):
+        return f'{left} >= {right}'
+
+    def sql_expr_in(self, left, right):
+        return f'{left} IN {right}'
+
+    def sql_expr_contains(self, value, substring):
+        return value + " LIKE '%" + substring + "%'"
+
+    def sql_expr_starts_with(self, value, substring):
+        return value + " LIKE '" + substring + "%'"
+
+    def sql_expr_ends_with(self, value, substring):
+        return value + " LIKE '%" + substring + "'"
