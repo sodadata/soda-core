@@ -35,16 +35,16 @@ class TestTestsSqlMetric(SqlTestCase):
                     f"FROM {self.qualified_table_name} \n"
                     f"WHERE country = 'one'"
                 ),
-                KEY_TESTS: {
-                    'sum_test': 'sum_ones < 20'
-                }
+                KEY_TESTS: [
+                    'sum_ones < 20'
+                ]
             }
         ]
 
         scan_result = self.scan(sql_metric_dicts=sql_metric_dicts)
         self.assertFalse(scan_result.has_failures())
 
-        sql_metric_dicts[0][KEY_TESTS]['sum_test'] = 'sum_ones < 10'
+        sql_metric_dicts[0][KEY_TESTS][0] = 'sum_ones < 10'
 
         scan_result = self.scan(sql_metric_dicts=sql_metric_dicts)
         self.assertTrue(scan_result.has_failures())
@@ -58,9 +58,7 @@ class TestTestsSqlMetric(SqlTestCase):
                     f"FROM {self.qualified_table_name} \n"
                     f"WHERE country = 'one'"
                 ),
-                KEY_TESTS: {
-                    'sum_test': 'sum_ones < 20'
-                }
+                KEY_TESTS: ['sum_ones < 20']
             }
         ])
         self.assertFalse(scan_result.has_failures())

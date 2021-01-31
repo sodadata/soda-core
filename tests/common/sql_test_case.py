@@ -142,15 +142,15 @@ class SqlTestCase(TestCase):
                f"{columns_sql} );"
 
     def scan(self,
-             scan_configuration_dict: Optional[dict] = None,
+             scan_yml_dict: Optional[dict] = None,
              sql_metric_dicts: Optional[List[dict]] = None,
              variables: Optional[dict] = None) -> ScanResult:
-        if not scan_configuration_dict:
-            scan_configuration_dict = {}
-        if KEY_TABLE_NAME not in scan_configuration_dict:
-            scan_configuration_dict[KEY_TABLE_NAME] = self.default_test_table_name
-        logging.debug('Scan configuration \n'+json.dumps(scan_configuration_dict, indent=2))
-        scan_configuration_parser = ScanYmlParser(scan_configuration_dict, 'Test scan')
+        if not scan_yml_dict:
+            scan_yml_dict = {}
+        if KEY_TABLE_NAME not in scan_yml_dict:
+            scan_yml_dict[KEY_TABLE_NAME] = self.default_test_table_name
+        logging.debug('Scan configuration \n' + json.dumps(scan_yml_dict, indent=2))
+        scan_configuration_parser = ScanYmlParser(scan_yml_dict, 'Test scan')
         scan_configuration_parser.assert_no_warnings_or_errors()
 
         sql_metric_ymls = []

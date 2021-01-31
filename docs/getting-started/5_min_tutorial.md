@@ -158,7 +158,7 @@ _Command:_
 cat ./soda_sql_tutorial/demodata/scan.yml
 ```
 _Command console output:_
-```shell
+```yaml
 table_name: demodata
 metrics:
   - row_count
@@ -178,7 +178,7 @@ metrics:
   - max_length
   - avg_length
 tests:
-  rows: row_count > 0
+  - row_count > 0
 ```
 
 ### 6\) Run a scan

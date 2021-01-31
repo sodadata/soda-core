@@ -23,32 +23,24 @@ class TestColumnMetricTests(SqlTestCase):
              "('no value')",
              "(null)"])
 
-        scan_result = self.scan({
+        scan_yml_dict = {
             'metrics': [
                 'missing'
             ],
             'columns': {
                 'name': {
-                    'tests': {
-                        'no_missing': 'missing_count < 2'
-                    }
+                    'tests': [
+                        'missing_count < 2'
+                    ]
                 }
             }
-        })
+        }
+        scan_result = self.scan(scan_yml_dict)
         self.assertFalse(scan_result.has_failures())
 
-        scan_result = self.scan({
-            'metrics': [
-                'missing'
-            ],
-            'columns': {
-                'name': {
-                    'tests': {
-                        'no_missing': 'missing_count == 0'
-                    }
-                }
-            }
-        })
+        scan_yml_dict['columns']['name']['tests'][0] = 'missing_count == 0'
+
+        scan_result = self.scan(scan_yml_dict)
         self.assertTrue(scan_result.has_failures())
 
     def test_column_metric_metric_calculation_test(self):
@@ -68,8 +60,8 @@ class TestColumnMetricTests(SqlTestCase):
             'columns': {
                 'size': {
                     'tests': {
-                        'spread10': 'max - min < 10',
-                        'spread05': 'max - min < 5'
+                        '01': 'max - min < 10',
+                        '02': 'max - min < 5'
                     }
                 }
             }

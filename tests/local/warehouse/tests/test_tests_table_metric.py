@@ -23,22 +23,15 @@ class TestTestsTableMetric(SqlTestCase):
              "('no value')",
              "(null)"])
 
-        scan_result = self.scan({
+        scan_yml_dict = {
             'metrics': [
                 'row_count'
             ],
-            'tests': {
-                'must have rows': 'row_count > 2'
-            }
-        })
+            'tests': ['2 < row_count < 20']
+        }
+        scan_result = self.scan(scan_yml_dict)
         self.assertFalse(scan_result.has_failures())
 
-        scan_result = self.scan({
-            'metrics': [
-                'row_count'
-            ],
-            'tests': {
-                'must have rows': 'row_count > 10'
-            }
-        })
+        scan_yml_dict['tests'][0] = '10 < row_count < 20'
+        scan_result = self.scan(scan_yml_dict)
         self.assertTrue(scan_result.has_failures())

@@ -16,6 +16,7 @@ from typing import Optional, List
 
 import requests
 
+from sodasql import SODA_SQL_VERSION
 from sodasql.scan.measurement import Measurement
 
 
@@ -83,6 +84,7 @@ class SodaServerClient:
     def _execute_request(self, request_type: str, request_body: dict, is_retry: bool):
         logging.debug(f'> /api/{request_type} {json.dumps(request_body, indent=2)}')
         request_body['token'] = self.get_token()
+        request_body['sodaSqlVersion'] = SODA_SQL_VERSION
         response = requests.post(f'{self.api_url}/{request_type}', json=request_body)
         response_json = response.json()
         logging.debug(f'< {response.status_code} {json.dumps(response_json, indent=2)}')
