@@ -35,7 +35,7 @@ class Warehouse:
         return sql_fetchall_description(self.connection, sql)
 
     def create_scan(self, *args, **kwargs):
-        return self.dialect.create_scan(self, *args, **kwargs)
+        return self.dialect.create_scan(self, close_warehouse=False, *args, **kwargs)
 
     def close(self):
         self.connection.close()

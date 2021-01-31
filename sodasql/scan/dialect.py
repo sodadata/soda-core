@@ -16,6 +16,8 @@ from sodasql.scan.column_metadata import ColumnMetadata
 from sodasql.scan.parser import Parser
 from sodasql.scan.scan_yml import ScanYml
 
+KEY_WAREHOUSE_TYPE = 'type'
+
 POSTGRES = 'postgres'
 SNOWFLAKE = 'snowflake'
 REDSHIFT = 'redshift'
@@ -41,7 +43,7 @@ class Dialect:
 
     @classmethod
     def create(cls, parser: Parser):
-        warehouse_type = parser.get_str_optional('type')
+        warehouse_type = parser.get_str_optional(KEY_WAREHOUSE_TYPE)
         if warehouse_type == POSTGRES:
             from sodasql.dialects.postgres_dialect import PostgresDialect
             return PostgresDialect(parser)
@@ -61,7 +63,7 @@ class Dialect:
     @classmethod
     def create_for_warehouse_type(cls, warehouse_type):
         from sodasql.scan.dialect_parser import DialectParser
-        return cls.create(DialectParser(warehouse_connection_dict={'type': warehouse_type}))
+        return cls.create(DialectParser(warehouse_connection_dict={KEY_WAREHOUSE_TYPE: warehouse_type}))
 
     def default_connection_properties(self, params: dict):
         pass
@@ -111,8 +113,11 @@ class Dialect:
     def sql_expr_count_conditional(self, condition: str):
         return f'COUNT(CASE WHEN {condition} THEN 1 END)'
 
-    def sql_expr_count_column(self, qualified_column_name):
-        return f'COUNT({qualified_column_name})'
+    def sql_expr_count(self, expr):
+        return f'COUNT({expr})'
+
+    def sql_expr_distinct(self, expr):
+        return f'DISTINCT({expr})'
 
     def sql_expr_min(self, expr):
         return f'MIN({expr})'
@@ -203,6 +208,8 @@ class Dialect:
         return f"{column_name} {self.big_integer_column_type}"
 
     def sql_expression(self, expression_dict: dict):
+        if expression_dict is None:
+            return None
         type = expression_dict['type']
         if type == 'number':
             sql = self.literal_number(expression_dict['value'])

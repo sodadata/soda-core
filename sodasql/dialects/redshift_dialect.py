@@ -12,7 +12,7 @@ import boto3
 import psycopg2
 
 from sodasql.dialects.postgres_dialect import PostgresDialect
-from sodasql.scan.dialect import REDSHIFT
+from sodasql.scan.dialect import REDSHIFT, KEY_WAREHOUSE_TYPE
 from sodasql.scan.dialect_parser import DialectParser
 from sodasql.scan.parser import Parser
 
@@ -45,7 +45,7 @@ class RedshiftDialect(PostgresDialect):
 
     def default_connection_properties(self, params: dict):
         return {
-            'type': REDSHIFT,
+            KEY_WAREHOUSE_TYPE: REDSHIFT,
             'host': 'Eg your.redshift.host.com',
             'username': 'env_var(REDSHIFT_USERNAME)',
             'password': 'env_var(REDSHIFT_PASSWORD)',

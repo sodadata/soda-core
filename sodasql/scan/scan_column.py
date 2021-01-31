@@ -44,7 +44,8 @@ class ScanColumn:
             [Metric.MISSING_COUNT, Metric.MISSING_PERCENTAGE,
              Metric.VALUES_COUNT, Metric.VALUES_PERCENTAGE],
             self.column_name)
-        self.non_missing_condition: Optional[str] = self.__get_non_missing_condition(column_metadata, self.missing, dialect)
+        self.missing_condition = self.__get_missing_condition(column_metadata, self.missing, dialect)
+        self.non_missing_condition: Optional[str] = f'NOT ( {self.missing_condition} )'
 
         self.validity = self.scan_yml.get_validity(self.column_name)
         self.is_validity_metric_enabled = self.scan_yml.is_any_metric_enabled(
@@ -99,22 +100,21 @@ class ScanColumn:
             return True
 
     @classmethod
-    def __get_non_missing_condition(cls, column_metadata: ColumnMetadata, missing: Missing, dialect: Dialect):
-        if missing is None:
-            return ''
+    def __get_missing_condition(cls, column_metadata: ColumnMetadata, missing: Missing, dialect: Dialect):
         qualified_column_name = dialect.qualify_column_name(column_metadata.name)
-        validity_clauses = [f'{qualified_column_name} IS NOT NULL']
-        if missing.values is not None:
-            sql_expr_missing_values = dialect.sql_expr_list(column_metadata, missing.values)
-            validity_clauses.append(f'{qualified_column_name} NOT IN {sql_expr_missing_values}')
-        if missing.format is not None:
-            format_regex = Missing.FORMATS.get(missing.format)
-            qualified_regex = dialect.qualify_regex(format_regex)
-            validity_clauses.append(f'NOT {dialect.sql_expr_regexp_like(qualified_column_name, qualified_regex)}')
-        if missing.regex is not None:
-            qualified_regex = dialect.qualify_regex(missing.regex)
-            validity_clauses.append(f'NOT {dialect.sql_expr_regexp_like(qualified_column_name, qualified_regex)}')
-        return ' AND '.join(validity_clauses)
+        validity_clauses = [f'{qualified_column_name} IS NULL']
+        if missing:
+            if missing.values:
+                sql_expr_missing_values = dialect.sql_expr_list(column_metadata, missing.values)
+                validity_clauses.append(f'{qualified_column_name} IN {sql_expr_missing_values}')
+            if missing.format:
+                format_regex = Missing.FORMATS.get(missing.format)
+                qualified_regex = dialect.qualify_regex(format_regex)
+                validity_clauses.append(dialect.sql_expr_regexp_like(qualified_column_name, qualified_regex))
+            if missing.regex:
+                qualified_regex = dialect.qualify_regex(missing.regex)
+                validity_clauses.append(dialect.sql_expr_regexp_like(qualified_column_name, qualified_regex))
+        return " OR ".join(validity_clauses)
 
     @classmethod
     def __get_valid_condition(cls, column_metadata: ColumnMetadata, validity: Validity, dialect: Dialect):

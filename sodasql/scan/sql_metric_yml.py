@@ -17,8 +17,8 @@ from sodasql.scan.test import Test
 @dataclass
 class SqlMetricYml:
 
-    sql: AnyStr
+    sql: str
     metric_names: List[str] = None
-    file_name: AnyStr = None
+    file_name: str = None
     group_fields: List[str] = None
     tests: List[Test] = None

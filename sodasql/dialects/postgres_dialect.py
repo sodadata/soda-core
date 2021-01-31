@@ -11,7 +11,7 @@
 
 import psycopg2
 
-from sodasql.scan.dialect import Dialect, POSTGRES
+from sodasql.scan.dialect import Dialect, POSTGRES, KEY_WAREHOUSE_TYPE
 from sodasql.scan.parser import Parser
 
 
@@ -28,7 +28,7 @@ class PostgresDialect(Dialect):
 
     def default_connection_properties(self, params: dict):
         return {
-            'type': POSTGRES,
+            KEY_WAREHOUSE_TYPE: POSTGRES,
             'host': 'localhost',
             'username': 'env_var(POSTGRES_USERNAME)',
             'password': 'env_var(POSTGRES_PASSWORD)',

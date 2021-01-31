@@ -20,8 +20,8 @@ from sodasql.scan.column_metadata import ColumnMetadata
 from sodasql.scan.measurement import Measurement
 from sodasql.scan.metric import Metric
 from sodasql.scan.scan_column import ScanColumn
-from sodasql.scan.scan_yml import ScanYml
 from sodasql.scan.scan_result import ScanResult
+from sodasql.scan.scan_yml import ScanYml
 from sodasql.scan.sql_metric_yml import SqlMetricYml
 from sodasql.scan.test_result import TestResult
 from sodasql.scan.warehouse import Warehouse
@@ -32,40 +32,39 @@ class Scan:
 
     def __init__(self,
                  warehouse: Warehouse,
+                 close_warehouse: bool = True,
                  scan_yml: ScanYml = None,
-                 sql_metrics: List[SqlMetricYml] = None,
+                 sql_metric_ymls: List[SqlMetricYml] = [],
                  soda_server_client: SodaServerClient = None,
                  variables: dict = None,
                  time: str = None):
-        self.soda_server_client: SodaServerClient = soda_server_client
-        self.warehouse: Warehouse = warehouse
-        self.dialect = warehouse.dialect
-
-        self.scan_yml: ScanYml = scan_yml
-        self.sql_metrics: List[SqlMetricYml] = sql_metrics
+        self.warehouse = warehouse
+        self.close_warehouse = close_warehouse
+        self.scan_yml = scan_yml
+        self.sql_metric_ymls = sql_metric_ymls
+        self.soda_server_client = soda_server_client
+        self.variables = variables
+        self.time = time
 
         self.scan_result = ScanResult()
-
+        self.dialect = warehouse.dialect
         self.qualified_table_name = self.dialect.qualify_table_name(scan_yml.table_name)
+        self.scan_reference = None
+        self.columns: List[ColumnMetadata] = []
+        self.column_names: List[str] = []
+        # maps column names (lower case) to ScanColumn's
+        self.scan_columns: dict = {}
+
         self.table_sample_clause = \
             f'\nTABLESAMPLE {scan_yml.sample_method}({scan_yml.sample_percentage})' \
             if scan_yml.sample_percentage \
             else ''
 
-        self.variables = variables
         self.filter_sql = None
         if scan_yml.filter_template:
             if not variables:
                 raise RuntimeError(f'No variables provided while filter "{str(scan_yml.filter)}" specified')
             self.filter_sql = scan_yml.filter_template.render(variables)
-
-        self.scan_reference = None
-        self.time = time
-
-        self.columns: List[ColumnMetadata] = []
-        self.column_names: List[str] = []
-        # maps column names (lower case) to ScanColumn's
-        self.scan_columns: dict = {}
 
     def execute(self) -> ScanResult:
         self._ensure_scan_reference()
@@ -78,9 +77,8 @@ class Scan:
                 self._query_aggregations()
                 self._query_group_by_value()
                 self._query_histograms()
-            if self.sql_metrics:
-                self._query_sql_metrics_and_run_tests()
 
+            self._query_sql_metrics_and_run_tests()
             self._run_table_tests()
             self._run_column_tests()
 
@@ -100,6 +98,9 @@ class Scan:
                     self.soda_server_client.scan_ended(self.scan_reference)
             except:
                 logging.exception('Notifying Soda Server of scan ended failed')
+
+            if self.close_warehouse:
+                self.warehouse.close()
 
         return self.scan_result
 
@@ -152,7 +153,7 @@ class Scan:
                 if scan_column.non_missing_condition:
                     fields.append(dialect.sql_expr_count_conditional(scan_column.non_missing_condition))
                 else:
-                    fields.append(dialect.sql_expr_count_column(scan_column.qualified_column_name))
+                    fields.append(dialect.sql_expr_count(scan_column.qualified_column_name))
                 measurements.append(Measurement(Metric.VALUES_COUNT, column_name))
 
             if scan_column.is_valid_enabled:
@@ -160,7 +161,7 @@ class Scan:
                 if scan_column.non_missing_and_valid_condition:
                     fields.append(dialect.sql_expr_count_conditional(scan_column.non_missing_and_valid_condition))
                 else:
-                    fields.append(dialect.sql_expr_count_column(scan_column.qualified_column_name))
+                    fields.append(dialect.sql_expr_count(scan_column.qualified_column_name))
                 measurements.append(Measurement(Metric.VALID_COUNT, column_name))
 
             if scan_column.is_text:
@@ -399,8 +400,8 @@ class Scan:
         self._flush_measurements(measurements)
 
     def _query_sql_metrics_and_run_tests(self):
-        if self.sql_metrics:
-            for sql_metric in self.sql_metrics:
+        if self.sql_metric_ymls:
+            for sql_metric in self.sql_metric_ymls:
                 if self.variables:
                     sql_variables = self.variables.copy() if self.variables else {}
                     # TODO add functions to sql_variables that can convert scan variables to valid SQL literals
@@ -551,11 +552,10 @@ class Scan:
             self.soda_server_client.scan_test_results(self.scan_reference, test_result_jsons)
 
     def _ensure_scan_reference(self):
-        if self.soda_server_client:
-            if not self.scan_reference:
-                self.start_scan_response = self.soda_server_client.scan_start(
-                    self.warehouse.name,
-                    self.warehouse.dialect.type,
-                    self.scan_yml.table_name,
-                    self.time)
-                self.scan_reference = self.start_scan_response['scanReference']
+        if self.soda_server_client and not self.scan_reference:
+            self.start_scan_response = self.soda_server_client.scan_start(
+                self.warehouse.name,
+                self.warehouse.dialect.type,
+                self.scan_yml.table_name,
+                self.time)
+            self.scan_reference = self.start_scan_response['scanReference']

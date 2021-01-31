@@ -153,15 +153,15 @@ class SqlTestCase(TestCase):
         scan_configuration_parser = ScanYmlParser(scan_configuration_dict, 'Test scan')
         scan_configuration_parser.assert_no_warnings_or_errors()
 
-        sql_metrics = []
+        sql_metric_ymls = []
         if sql_metric_dicts:
             for i in range(len(sql_metric_dicts)):
                 sql_metric_parser = SqlMetricYmlParser(sql_metric_dicts[i], f'sql-metric-{i}')
                 sql_metric_parser.assert_no_warnings_or_errors()
-                sql_metrics.append(sql_metric_parser.sql_metric)
+                sql_metric_ymls.append(sql_metric_parser.sql_metric)
 
         scan = self.warehouse.create_scan(scan_yml=scan_configuration_parser.scan_yml,
-                                          sql_metrics=sql_metrics,
+                                          sql_metric_ymls=sql_metric_ymls,
                                           variables=variables,
                                           soda_server_client=self.mock_soda_server_client)
         return scan.execute()

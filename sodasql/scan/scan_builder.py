@@ -72,7 +72,7 @@ class ScanBuilder:
         self.parsers: List[Parser] = []
         self.assert_no_warnings_or_errors = True
         self.soda_server_client: SodaServerClient = None
-        self.scan_reference = None
+        self.scan_type = Scan
 
     def read_scan_dir(self, warehouse_dir_path: str, table_dir_name: str):
         """
@@ -173,13 +173,11 @@ class ScanBuilder:
             if api_key_secret:
                 self.soda_server_client = SodaServerClient(host, api_key_secret=api_key_secret)
 
-        scan = Scan(warehouse=warehouse,
-                    scan_yml=self.scan_yml,
-                    variables=self.variables,
-                    sql_metrics=self.sql_metric_ymls,
-                    soda_server_client=self.soda_server_client)
-        scan.scan_reference = self.scan_reference
-        return scan
+        return self.scan_type(warehouse=warehouse,
+                              scan_yml=self.scan_yml,
+                              variables=self.variables,
+                              sql_metric_ymls=self.sql_metric_ymls,
+                              soda_server_client=self.soda_server_client)
 
     def __parse_yaml(self, warehouse_yaml_str: AnyStr, file_name: AnyStr):
         try:

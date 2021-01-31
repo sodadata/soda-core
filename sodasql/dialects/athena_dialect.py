@@ -13,7 +13,7 @@ from typing import List
 
 import pyathena
 
-from sodasql.scan.dialect import Dialect, ATHENA
+from sodasql.scan.dialect import Dialect, ATHENA, KEY_WAREHOUSE_TYPE
 from sodasql.scan.parser import Parser
 
 
@@ -28,7 +28,7 @@ class AthenaDialect(Dialect):
 
     def default_connection_properties(self, params: dict):
         return {
-            'type': ATHENA,
+            KEY_WAREHOUSE_TYPE: ATHENA,
             'access_key_id': 'env_var(ATHENA_ACCESS_KEY_ID)',
             'secret_access_key': 'env_var(ATHENA_SECRET_ACCESS_KEY)',
             'role_arn': 'Eg arn:aws:iam::123456789012:readonly',

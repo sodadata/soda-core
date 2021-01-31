@@ -17,7 +17,7 @@ from google.cloud import bigquery
 from google.cloud.bigquery import dbapi
 from google.oauth2.service_account import Credentials
 
-from sodasql.scan.dialect import Dialect, BIGQUERY
+from sodasql.scan.dialect import Dialect, BIGQUERY, KEY_WAREHOUSE_TYPE
 from sodasql.scan.parser import Parser
 
 
@@ -36,7 +36,7 @@ class BigQueryDialect(Dialect):
 
     def default_connection_properties(self, params: dict):
         return {
-            'type': BIGQUERY,
+            KEY_WAREHOUSE_TYPE: BIGQUERY,
             'account_info': 'env_var(BIGQUERY_ACCOUNT_INFO)',
             'dataset': params.get('database', 'Eg your_bigquery_dataset')
         }

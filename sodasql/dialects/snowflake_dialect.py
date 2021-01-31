@@ -10,7 +10,7 @@
 #  limitations under the License.
 from snowflake import connector
 
-from sodasql.scan.dialect import Dialect, SNOWFLAKE
+from sodasql.scan.dialect import Dialect, SNOWFLAKE, KEY_WAREHOUSE_TYPE
 from sodasql.scan.parser import Parser
 from sodasql.scan.scan_yml import ScanYml
 
@@ -28,7 +28,7 @@ class SnowflakeDialect(Dialect):
 
     def default_connection_properties(self, params: dict):
         return {
-            'type': SNOWFLAKE,
+            KEY_WAREHOUSE_TYPE: SNOWFLAKE,
             'username': 'env_var(SNOWFLAKE_USERNAME)',
             'password': 'env_var(SNOWFLAKE_PASSWORD)',
             'account': 'YOURACCOUNT.eu-central-1',
