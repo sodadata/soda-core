@@ -10,14 +10,11 @@
 #  limitations under the License.
 import json
 import logging
-import os
-import sys
-from typing import Optional, List
+from typing import Optional
 
 import requests
 
 from sodasql import SODA_SQL_VERSION
-from sodasql.scan.measurement import Measurement
 
 
 class SodaServerClient:
