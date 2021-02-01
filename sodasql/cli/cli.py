@@ -115,11 +115,9 @@ def create(warehouse_dir: str,
         env_vars_file_exists = file_system.file_exists(env_vars_file)
         if env_vars_file_exists:
             env_vars_yml_str = file_system.file_read_as_str(env_vars_file)
-            existing_env_vars_yml_dict = yaml.load(
-                env_vars_yml_str, Loader=yaml.FullLoader)
+            existing_env_vars_yml_dict = yaml.load(env_vars_yml_str, Loader=yaml.FullLoader)
             if isinstance(existing_env_vars_yml_dict, dict) and warehouse in existing_env_vars_yml_dict:
-                logging.info(
-                    f"Warehouse section {warehouse} already exists in {env_vars_file}.  Skipping...")
+                logging.info(f"Warehouse section {warehouse} already exists in {env_vars_file}.  Skipping...")
                 warehouse_env_vars_dict = None
 
         if warehouse_env_vars_dict:

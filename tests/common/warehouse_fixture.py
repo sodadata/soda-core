@@ -54,10 +54,12 @@ class WarehouseFixture:
         sql_updates(self.warehouse.connection, [
             f'CREATE DATABASE IF NOT EXISTS {self.database}',
             f'USE DATABASE {self.database}'])
+        self.warehouse.connection.commit()
 
     def drop_database(self):
         sql_update(self.warehouse.connection,
                    f'DROP DATABASE IF EXISTS {self.database} CASCADE')
+        self.warehouse.connection.commit()
 
     @classmethod
     def create_unique_database_name(cls):

@@ -80,6 +80,4 @@ class SnowflakeDialect(Dialect):
         return f'"{column_name}"'
 
     def qualify_table_name(self, table_name: str) -> str:
-        return f'"{table_name}"'
-
-
+        return f'"{table_name.upper()}"'
