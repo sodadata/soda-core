@@ -21,8 +21,8 @@ jobs:
       SODA_REDSHIFT_USERNAME: ${{ secrets.SODA_REDSHIFT_USERNAME }}
       SODA_REDSHIFT_PASSWORD: ${{ secrets.SODA_REDSHIFT_PASSWORD }}
       BIGQUERY_ACCOUNT_INFO_JSON: ${{ secrets.BIGQUERY_ACCOUNT_INFO_JSON }}
-      SODA_ATHENA_ACCESS_KEY_ID: ${{ secrets.SODA_ATHENA_ACCESS_KEY_ID }}
-      SODA_ATHENA_SECRET_ACCESS_KEY: ${{ secrets.SODA_ATHENA_SECRET_ACCESS_KEY }}
+      SODA_ATHENA_ACCESS_KEY_ID: ${{ secrets.AWS_BUILD_ACCESS_KEY_ID }}
+      SODA_ATHENA_SECRET_ACCESS_KEY: ${{ secrets.AWS_BUILD_SECRET_ACCESS_KEY }}
     steps:
       - uses: actions/checkout@v2
       - name: Setup Python ${{ matrix.python-version }}
