@@ -104,7 +104,7 @@ class Dialect:
     def sql_columns_metadata_query(self, table_name: str) -> str:
         raise RuntimeError('TODO override and implement this abstract method')
 
-    def sql_tables_metadata_query(self, filter: str = None):
+    def sql_tables_metadata_query(self, limit: str = 10, filter: str = None):
         raise RuntimeError('TODO override and implement this abstract method')
 
     def sql_expr_count_all(self) -> str:

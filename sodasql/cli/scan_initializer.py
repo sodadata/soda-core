@@ -85,9 +85,9 @@ class ScanInitializer:
                             validity_format_count_fields.append(count_field)
 
                         row = self.warehouse.sql_fetchone(
-                            f'SELECT \n' +
+                            f'SELECT \n  ' +
                             (',\n  '.join(validity_format_count_fields)) + ',\n'
-                            f'  COUNT({qualified_column_name})'
+                            f'  COUNT({qualified_column_name}) \n'
                             f'FROM {qualified_table_name} \n'
                             f'LIMIT 1000'
                         )

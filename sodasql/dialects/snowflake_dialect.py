@@ -53,16 +53,33 @@ class SnowflakeDialect(Dialect):
             schema=self.schema
         )
 
-    def sql_columns_metadata_query(self, table_name: str) -> str:
-        sql = (f"SELECT column_name, data_type, is_nullable "
-                f'FROM "INFORMATION_SCHEMA"."COLUMNS" '
-                f"WHERE table_name = '{table_name.upper()}'")
+    def sql_tables_metadata_query(self, limit: str = 10, filter: str = None):
+        sql = (f"SELECT table_name \n" 
+               f"FROM information_schema.tables \n" 
+               f"WHERE lower(table_schema)='{self.schema.lower()}'")
         if self.database:
-            sql += f" \n  AND table_catalog = '{self.database.upper()}'"
+            sql += f" \n  AND lower(table_catalog) = '{self.database.lower()}'"
+        if isinstance(limit, int):
+            sql += f" \nLIMIT {limit}"
+        return sql
+
+    def sql_columns_metadata_query(self, table_name: str) -> str:
+        sql = (f"SELECT column_name, data_type, is_nullable \n"
+               f'FROM information_schema.columns \n'
+               f"WHERE lower(table_name) = '{table_name.lower()}'")
+        if self.database:
+            sql += f" \n  AND lower(table_catalog) = '{self.database.lower()}'"
         if self.schema:
-            sql += f" \n  AND table_schema = '{self.schema.upper()}'"
+            sql += f" \n  AND lower(table_schema) = '{self.schema.lower()}'"
         return sql
 
     def qualify_regex(self, regex) -> str:
         return self.escape_metacharacters(regex)
+
+    def qualify_column_name(self, column_name: str):
+        return f'"{column_name}"'
+
+    def qualify_table_name(self, table_name: str) -> str:
+        return f'"{table_name}"'
+
 

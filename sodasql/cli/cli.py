@@ -57,9 +57,8 @@ def create(warehouse_dir: str,
         file_system = FileSystemSingleton.INSTANCE
 
         if not warehouse:
-            warehouse_dir_parent, warehouse_dir_name = file_system.split(
-                warehouse_dir)
-            warehouse = warehouse if warehouse else warehouse_dir_name
+            warehouse_dir_parent, warehouse_dir_name = file_system.split(warehouse_dir)
+            warehouse = warehouse_dir_name if warehouse_dir_name != '.' else warehouse_type
 
         from sodasql.scan.dialect import ALL_WAREHOUSE_TYPES, Dialect
         dialect = Dialect.create_for_warehouse_type(warehouse_type)

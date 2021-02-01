@@ -42,7 +42,7 @@ class PostgresDialect(Dialect):
             'POSTGRES_PASSWORD': params.get('password', 'Eg abc123')
         }
 
-    def sql_tables_metadata_query(self, filter: str = None):
+    def sql_tables_metadata_query(self, limit: str = 10, filter: str = None):
         return (f"SELECT table_name \n" 
                 f"FROM information_schema.tables \n" 
                 f"WHERE lower(table_schema)='{self.schema.lower()}'")
