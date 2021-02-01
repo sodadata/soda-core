@@ -11,7 +11,6 @@
 import json
 import logging
 import os
-from pathlib import Path
 from typing import List, Optional
 from unittest import TestCase
 
@@ -84,15 +83,6 @@ class SqlTestCase(TestCase):
         if warehouse is None:
             logging.debug(f'Creating warehouse {self.target}')
 
-            env_vars_file = os.path.join(str(Path.home()), '.soda', 'env_vars.yml')
-            if self.target != TARGET_POSTGRES and Path(env_vars_file).exists():
-                with open(env_vars_file) as f:
-                    env_vars_yml_str = f.read()
-                    env_vars_yml_dict = yaml.load(env_vars_yml_str, Loader=yaml.FullLoader)
-                    env_vars_for_target = env_vars_yml_dict[self.target]
-                    for env_var_name in env_vars_for_target:
-                        os.environ[env_var_name] = env_vars_for_target[env_var_name]
-
             warehouse_fixture = WarehouseFixture.create(self.target)
             dialect = self.create_dialect(self.target)
 
@@ -145,7 +135,6 @@ class SqlTestCase(TestCase):
         if rows:
             joined_rows = ", ".join(rows)
             self.sql_update(f"INSERT INTO {table_name} VALUES {joined_rows}")
-        self.warehouse.connection.commit()
 
     def sql_create_table(self, columns: List[str], table_name: str):
         columns_sql = ", ".join(columns)
