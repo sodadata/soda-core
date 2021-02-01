@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 ### Removed
 
+## [2.0.0b4] - 2021-02-01
+### Added
+### Changed
+- Packaging issue solved which blocked CLI bootstrapping
+### Removed
+
 ## [2.0.0b3] - 2021-01-31
 ### Added
 - Support for Snowflake
