@@ -2,4 +2,8 @@
 
 # Run this from the root project dir with scripts/run_all_tests.sh
 
-git tag -a 2.0.0b3 -m "CI for Snowflake, Athena, Redshift, BigQuery. Removed test name requirement. Soda server client. Docs. bugs."
+VERSION=2.0.0b4
+MESSAGE="2.0.0b4 short summary of changes"
+
+git tag -a $VERSION -m $MESSAGE
+git push origin $VERSION
