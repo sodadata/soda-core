@@ -16,7 +16,7 @@ class TestColumnMetricTests(SqlTestCase):
 
     def test_column_metric_test(self):
         self.sql_recreate_table(
-            [self.sql_declare_string_column("name")],
+            [f"name {self.dialect.data_type_varchar_255}"],
             ["('one')",
              "('two')",
              "('three') ",
@@ -45,7 +45,7 @@ class TestColumnMetricTests(SqlTestCase):
 
     def test_column_metric_metric_calculation_test(self):
         self.sql_recreate_table(
-            [self.sql_declare_integer_column("size")],
+            [f"size {self.dialect.data_type_integer}"],
             ["(3)",
              "(3)",
              "(4) ",

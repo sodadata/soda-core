@@ -57,8 +57,8 @@ metrics:
     - invalid_percentage
 columns:
     start_date:
-        - validity_format: date_eu
-        - tests:
+        validity_format: date_eu
+        tests:
             - invalid_percentage < 2.0
 ```
 

@@ -17,7 +17,7 @@ class TestDistinctAndUniqueness(SqlTestCase):
 
     def test_distinct(self):
         self.sql_recreate_table(
-            [self.sql_declare_string_column("score")],
+            [f"score {self.dialect.data_type_varchar_255}"],
             ["('1')",
              "('2')",
              "('2')",

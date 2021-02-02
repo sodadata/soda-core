@@ -17,7 +17,7 @@ class TestNumberValidityFormats(SqlTestCase):
 
     def test_number_whole(self):
         self.sql_recreate_table(
-            [self.sql_declare_string_column("name")],
+            [f"name {self.dialect.data_type_varchar_255}"],
             ["('1')",
              "('-2')",
              "('6.62607004')",
@@ -46,7 +46,7 @@ class TestNumberValidityFormats(SqlTestCase):
 
     def test_number_decimal_point(self):
         self.sql_recreate_table(
-            [self.sql_declare_string_column("name")],
+            [f"name {self.dialect.data_type_varchar_255}"],
             ["('3.14159265359')",
              "('1.61803398875')",
              "('If my calculations are correct, when this baby hits...')",
@@ -75,7 +75,7 @@ class TestNumberValidityFormats(SqlTestCase):
 
     def test_number_decimal_comma(self):
         self.sql_recreate_table(
-            [self.sql_declare_string_column("name")],
+            [f"name {self.dialect.data_type_varchar_255}"],
             ["('2,718')",
              "('6,0221515')",
              "('It must be admitted that very simple relations exist between...')",
@@ -104,7 +104,7 @@ class TestNumberValidityFormats(SqlTestCase):
 
     def test_number_percentage(self):
         self.sql_recreate_table(
-            [self.sql_declare_string_column("name")],
+            [f"name {self.dialect.data_type_varchar_255}"],
             ["('1%')",
              "('2.0%')",
              "('3,0%')",
@@ -136,7 +136,7 @@ class TestNumberValidityFormats(SqlTestCase):
 
     def test_number_money_usd(self):
         self.sql_recreate_table(
-            [self.sql_declare_string_column("name")],
+            [f"name {self.dialect.data_type_varchar_255}"],
             [f"('10,000,000,000 USD')",
              f"('10,000,000,000USD')",
              f"('10,000,000,000 usd')",
@@ -170,7 +170,7 @@ class TestNumberValidityFormats(SqlTestCase):
 
     def test_number_money_eur(self):
         self.sql_recreate_table(
-            [self.sql_declare_string_column("name")],
+            [f"name {self.dialect.data_type_varchar_255}"],
             [f"('10 000 000 000 EUR')",
              f"('10 000 000 000EUR')",
              f"('10 000 000 000 eur')",
@@ -204,7 +204,7 @@ class TestNumberValidityFormats(SqlTestCase):
 
     def test_number_money_gbp(self):
         self.sql_recreate_table(
-            [self.sql_declare_string_column("name")],
+            [f"name {self.dialect.data_type_varchar_255}"],
             [f"('10,000,000,000 GBP')",
              f"('10,000,000,000GBP')",
              f"('10,000,000,000 gbp')",
@@ -238,7 +238,7 @@ class TestNumberValidityFormats(SqlTestCase):
 
     def test_number_money_rmb(self):
         self.sql_recreate_table(
-            [self.sql_declare_string_column("name")],
+            [f"name {self.dialect.data_type_varchar_255}"],
             [f"('10,000,000,000 RMB')",
              f"('10,000,000,000RMB')",
              f"('10,000,000,000 rmb')",
@@ -272,7 +272,7 @@ class TestNumberValidityFormats(SqlTestCase):
 
     def test_number_money_chf(self):
         self.sql_recreate_table(
-            [self.sql_declare_string_column("name")],
+            [f"name {self.dialect.data_type_varchar_255}"],
             [self.qualify_string(f"('10''000''000''000 CHF')"),
              self.qualify_string(f"('10''000''000''000CHF')"),
              self.qualify_string(f"('10''000''000''000 chf')"),
@@ -306,7 +306,7 @@ class TestNumberValidityFormats(SqlTestCase):
 
     def test_number_money(self):
         self.sql_recreate_table(
-            [self.sql_declare_string_column("name")],
+            [f"name {self.dialect.data_type_varchar_255}"],
             ["('10,000,000,000 $')",
              f"('52,5 €')",
              f"('7,717.5 £')",

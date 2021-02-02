@@ -18,8 +18,8 @@ class TestTestsSqlMetric(SqlTestCase):
     def setUp(self) -> None:
         super().setUp()
         self.sql_recreate_table(
-            [self.sql_declare_string_column("country"),
-             self.sql_declare_integer_column("size")],
+            [f"country {self.dialect.data_type_varchar_255}",
+             f"size {self.dialect.data_type_integer}"],
             ["('one', 2)",
              "('two', 3)",
              "('one', 4) ",

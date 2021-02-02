@@ -18,7 +18,7 @@ class TestNetworkValidityFormats(SqlTestCase):
 
     def test_uuid(self):
         self.sql_recreate_table(
-            [self.sql_declare_string_column("name")],
+            [f"name {self.dialect.data_type_varchar_255}"],
             [f"('{uuid.uuid1()}')",
              f"('{uuid.uuid3(uuid.NAMESPACE_URL, 'http://python.org/')}')",
              f"('{uuid.uuid4()}')",
@@ -50,7 +50,7 @@ class TestNetworkValidityFormats(SqlTestCase):
 
     def test_ip_address(self):
         self.sql_recreate_table(
-            [self.sql_declare_string_column("name")],
+            [f"name {self.dialect.data_type_varchar_255}"],
             ["('0.0.0.0')",
              "('127.0.0.1')",
              "('10.1.2.3')",

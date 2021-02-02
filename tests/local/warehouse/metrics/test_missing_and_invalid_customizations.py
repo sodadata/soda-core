@@ -17,7 +17,7 @@ class TestMissingAndInvalidCustomizations(SqlTestCase):
 
     def test_scan_customized_missing_values(self):
         self.sql_recreate_table(
-            [self.sql_declare_string_column("name")],
+            [f"name {self.dialect.data_type_varchar_255}"],
             ["('one')",
              "('')",
              "('  ')",
@@ -43,7 +43,7 @@ class TestMissingAndInvalidCustomizations(SqlTestCase):
 
     def test_scan_customized_missing_format_empty(self):
         self.sql_recreate_table(
-            [self.sql_declare_string_column("name")],
+            [f"name {self.dialect.data_type_varchar_255}"],
             ["('one')",
              "('two')",
              "('three')",
@@ -72,7 +72,7 @@ class TestMissingAndInvalidCustomizations(SqlTestCase):
 
     def test_scan_customized_missing_format_whitespace(self):
         self.sql_recreate_table(
-            [self.sql_declare_string_column("name")],
+            [f"name {self.dialect.data_type_varchar_255}"],
             ["('one')",
              "('two')",
              "('three')",
@@ -101,7 +101,7 @@ class TestMissingAndInvalidCustomizations(SqlTestCase):
 
     def test_scan_missing_customized_and_validity(self):
         self.sql_recreate_table(
-            [self.sql_declare_string_column("name")],
+            [f"name {self.dialect.data_type_varchar_255}"],
             ["('one')",
              "('')",
              "('  ')",
@@ -127,7 +127,7 @@ class TestMissingAndInvalidCustomizations(SqlTestCase):
 
     def test_scan_valid_regex(self):
         self.sql_recreate_table(
-            [self.sql_declare_string_column("name")],
+            [f"name {self.dialect.data_type_varchar_255}"],
             ["('one')",
              "('')",
              "('  ')",
@@ -157,7 +157,7 @@ class TestMissingAndInvalidCustomizations(SqlTestCase):
 
     def test_scan_valid_format(self):
         self.sql_recreate_table(
-            [self.sql_declare_string_column("col")],
+            [f"col {self.dialect.data_type_varchar_255}"],
             ["('1')",
              "('2')",
              "('3')",

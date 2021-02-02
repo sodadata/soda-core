@@ -201,9 +201,9 @@ class TestMissingAndInvalidMetricConfigurations(SqlTestCase):
 
     def _create_test_table(self):
         self.sql_recreate_table(
-            [self.sql_declare_string_column("id"),
-             self.sql_declare_string_column("name"),
-             self.sql_declare_integer_column("size")],
+            [f"id {self.dialect.data_type_varchar_255}",
+             f"name {self.dialect.data_type_varchar_255}",
+             f"size {self.dialect.data_type_integer}"],
             ["('1', 'one',      1)",
              "('2', '',         2)",
              "('3', '  ',       3)",

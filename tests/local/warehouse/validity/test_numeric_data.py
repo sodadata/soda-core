@@ -17,7 +17,7 @@ class TestNumericData(SqlTestCase):
 
     def test_overflow(self):
         self.sql_recreate_table(
-            [self.sql_declare_big_integer_column("name")],
+            [f"name {self.dialect.data_type_bigint}"],
             ["(9223372036854775807)",
              "(9223372036854775807)"])
 
@@ -30,7 +30,7 @@ class TestNumericData(SqlTestCase):
 
     def test_numeric_parsing(self):
         self.sql_recreate_table(
-            [self.sql_declare_string_column("name")],
+            [f"name {self.dialect.data_type_varchar_255}"],
             ["('1%')",
              "('2.0%')",
              "('3,0%')"])

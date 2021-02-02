@@ -18,7 +18,7 @@ class TestPersonalInfoValidityFormats(SqlTestCase):
 
     def test_email(self):
         self.sql_recreate_table(
-            [self.sql_declare_string_column("name")],
+            [f"name {self.dialect.data_type_varchar_255}"],
             ["('moe@pantherbrewing.com')",
              "('larry@pantherbrewing.com')",
              "('curly@pantherbrewing.com')",
@@ -47,7 +47,7 @@ class TestPersonalInfoValidityFormats(SqlTestCase):
 
     def test_phone(self):
         self.sql_recreate_table(
-            [self.sql_declare_string_column("name")],
+            [f"name {self.dialect.data_type_varchar_255}"],
             ["('+1 123 123 1234')",
              "('+12 123 123 1234')",
              "('123 123 1234')",
@@ -79,7 +79,7 @@ class TestPersonalInfoValidityFormats(SqlTestCase):
 
     def test_credit_card_number(self):
         self.sql_recreate_table(
-            [self.sql_declare_string_column("name")],
+            [f"name {self.dialect.data_type_varchar_255}"],
             ["('1616161616161616')",
              "('4444-4444-4444-4444')",
              "('4444 4444 4444 4444')",

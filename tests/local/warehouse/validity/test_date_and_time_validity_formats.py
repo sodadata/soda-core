@@ -18,7 +18,7 @@ class TestDateAndTimeValidityFormats(SqlTestCase):
 
     def test_date_eu(self):
         self.sql_recreate_table(
-            [self.sql_declare_string_column("name")],
+            [f"name {self.dialect.data_type_varchar_255}"],
             ["('21-01-2021')",
              "('21.01.2021')",
              "('21/01/2021')",
@@ -50,7 +50,7 @@ class TestDateAndTimeValidityFormats(SqlTestCase):
 
     def test_date_us(self):
         self.sql_recreate_table(
-            [self.sql_declare_string_column("name")],
+            [f"name {self.dialect.data_type_varchar_255}"],
             ["('01-21-2021')",
              "('01.21.2021')",
              "('01/21/2021')",
@@ -82,7 +82,7 @@ class TestDateAndTimeValidityFormats(SqlTestCase):
 
     def test_date_inverse(self):
         self.sql_recreate_table(
-            [self.sql_declare_string_column("name")],
+            [f"name {self.dialect.data_type_varchar_255}"],
             ["('2021-01-21')",
              "('2021.01.21')",
              "('2021/01/21')",
@@ -114,7 +114,7 @@ class TestDateAndTimeValidityFormats(SqlTestCase):
 
     def test_time(self):
         self.sql_recreate_table(
-            [self.sql_declare_string_column("name")],
+            [f"name {self.dialect.data_type_varchar_255}"],
             ["('11:59:00,000')",
              "('11:59:00')",
              "('11:59')",
@@ -148,7 +148,7 @@ class TestDateAndTimeValidityFormats(SqlTestCase):
         test_date = datetime.now()
         test_date_with_timezone = datetime.now(timezone.utc)
         self.sql_recreate_table(
-            [self.sql_declare_string_column("name")],
+            [f"name {self.dialect.data_type_varchar_255}"],
             [f"('{test_date.isoformat()}')",
              f"('{test_date_with_timezone.isoformat()}')",
              "('2021, January 21')",

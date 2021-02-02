@@ -181,49 +181,52 @@ class ScanYmlParser(Parser):
 
         for column_name in columns_dict:
             column_dict = columns_dict.get(column_name)
-            self._push_context(column_dict, column_name)
+            if not isinstance(column_dict, dict):
+                self.error(f'Column {column_name} should be an object, not a {type(column_dict)}')
+            else:
+                self._push_context(column_dict, column_name)
 
-            metrics: Set[str] = self.parse_metrics(column_name)
+                metrics: Set[str] = self.parse_metrics(column_name)
 
-            if self.remove_metric(metrics, Metric.ROW_COUNT):
-                self.ensure_metric(scan_configuration.metrics, Metric.ROW_COUNT, f'{Metric.ROW_COUNT} {column_name}')
+                if self.remove_metric(metrics, Metric.ROW_COUNT):
+                    self.ensure_metric(scan_configuration.metrics, Metric.ROW_COUNT, f'{Metric.ROW_COUNT} {column_name}')
 
-            missing = None
-            if any(cfg in column_dict.keys() for cfg in COLUMN_MISSING_KEYS):
-                missing = Missing()
-                missing.values = column_dict.get(COLUMN_KEY_MISSING_VALUES)
-                missing.format = column_dict.get(COLUMN_KEY_MISSING_FORMAT)
-                missing.regex = column_dict.get(COLUMN_KEY_MISSING_REGEX)
+                missing = None
+                if any(cfg in column_dict.keys() for cfg in COLUMN_MISSING_KEYS):
+                    missing = Missing()
+                    missing.values = column_dict.get(COLUMN_KEY_MISSING_VALUES)
+                    missing.format = column_dict.get(COLUMN_KEY_MISSING_FORMAT)
+                    missing.regex = column_dict.get(COLUMN_KEY_MISSING_REGEX)
 
-            validity = None
+                validity = None
 
-            if any(cfg in column_dict.keys() for cfg in COLUMN_VALID_KEYS):
-                validity = Validity()
-                validity.format = column_dict.get(COLUMN_KEY_VALID_FORMAT)
-                if validity.format is not None and Validity.FORMATS.get(validity.format) is None:
-                    self.warning(f'Invalid {column_name}.{COLUMN_KEY_VALID_FORMAT}: {validity.format}')
-                validity.regex = column_dict.get(COLUMN_KEY_VALID_REGEX)
-                validity.values = column_dict.get(COLUMN_KEY_VALID_VALUES)
-                validity.min = column_dict.get(COLUMN_KEY_VALID_MIN)
-                validity.max = column_dict.get(COLUMN_KEY_VALID_MAX)
-                validity.min_length = column_dict.get(COLUMN_KEY_VALID_MIN_LENGTH)
-                validity.max_length = column_dict.get(COLUMN_KEY_VALID_MAX_LENGTH)
+                if any(cfg in column_dict.keys() for cfg in COLUMN_VALID_KEYS):
+                    validity = Validity()
+                    validity.format = column_dict.get(COLUMN_KEY_VALID_FORMAT)
+                    if validity.format is not None and Validity.FORMATS.get(validity.format) is None:
+                        self.warning(f'Invalid {column_name}.{COLUMN_KEY_VALID_FORMAT}: {validity.format}')
+                    validity.regex = column_dict.get(COLUMN_KEY_VALID_REGEX)
+                    validity.values = column_dict.get(COLUMN_KEY_VALID_VALUES)
+                    validity.min = column_dict.get(COLUMN_KEY_VALID_MIN)
+                    validity.max = column_dict.get(COLUMN_KEY_VALID_MAX)
+                    validity.min_length = column_dict.get(COLUMN_KEY_VALID_MIN_LENGTH)
+                    validity.max_length = column_dict.get(COLUMN_KEY_VALID_MAX_LENGTH)
 
-            tests = self.parse_tests(column_dict,
-                                     COLUMN_KEY_TESTS,
-                                     context_table_name=scan_configuration.table_name,
-                                     context_column_name=column_name)
+                tests = self.parse_tests(column_dict,
+                                         COLUMN_KEY_TESTS,
+                                         context_table_name=scan_configuration.table_name,
+                                         context_column_name=column_name)
 
-            self.check_invalid_keys(COLUMN_ALL_KEYS)
+                self.check_invalid_keys(COLUMN_ALL_KEYS)
 
-            column_name_lower = column_name.lower()
-            scan_configuration_columns[column_name_lower] = ScanYmlColumn(
-                metrics=metrics,
-                missing=missing,
-                validity=validity,
-                tests=tests)
+                column_name_lower = column_name.lower()
+                scan_configuration_columns[column_name_lower] = ScanYmlColumn(
+                    metrics=metrics,
+                    missing=missing,
+                    validity=validity,
+                    tests=tests)
 
-            self._pop_context()
+                self._pop_context()
 
         self._pop_context()
 

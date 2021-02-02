@@ -57,6 +57,7 @@ class SqlTestCase(TestCase):
     def __init__(self, method_name: str = ...) -> None:
         super().__init__(method_name)
         self.warehouse: Optional[Warehouse] = None
+        self.dialect: Optional[Dialect] = None
         # self.target controls the warehouse on which the test is executed
         # It is initialized in method setup_get_warehouse
         self.target: Optional[str] = None
@@ -69,6 +70,7 @@ class SqlTestCase(TestCase):
         logging.debug(f'\n\n--- {str(self)} ---')
         super().setUp()
         self.warehouse = self.setup_get_warehouse()
+        self.dialect = self.warehouse.dialect
         self.default_test_table_name = self.generate_test_table_name()
 
     def use_mock_soda_server_client(self):
@@ -235,18 +237,6 @@ class SqlTestCase(TestCase):
                            if equals_ignore_case(measurement.column_name, column)]
         metrics_present_and_expected_absent = set(expected_metrics_absent) & set(metrics_present)
         self.assertEqual(set(), metrics_present_and_expected_absent)
-
-    def sql_declare_string_column(self, column_name):
-        return self.warehouse.dialect.sql_declare_string_column(column_name)
-
-    def sql_declare_integer_column(self, column_name):
-        return self.warehouse.dialect.sql_declare_integer_column(column_name)
-
-    def sql_declare_decimal_column(self, column_name):
-        return self.warehouse.dialect.sql_declare_decimal_column(column_name)
-
-    def sql_declare_big_integer_column(self, column_name):
-        return self.warehouse.dialect.sql_declare_big_integer_column(column_name)
 
     def qualify_string(self, value: str):
         return self.warehouse.dialect.qualify_string(value)

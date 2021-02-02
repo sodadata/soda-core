@@ -19,7 +19,7 @@ class TestSodaServerClient(SqlTestCase):
         self.use_mock_soda_server_client()
 
         self.sql_recreate_table(
-            [self.sql_declare_string_column("name")],
+            [f"name {self.dialect.data_type_varchar_255}"],
             ["('one')",
              "('two')",
              "('three')",

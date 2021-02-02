@@ -23,10 +23,10 @@ from sodasql.scan.parser import Parser
 
 class BigQueryDialect(Dialect):
 
-    string_column_type = "STRING"
-    integer_column_type = "INT64"
-    decimal_column_type = "DECIMAL"
-    big_integer_column_type = "BIGNUMERIC"
+    data_type_varchar_255 = "STRING"
+    data_type_integer = "INT64"
+    data_type_real = "DECIMAL"
+    data_type_bigint = "BIGNUMERIC"
 
     def __init__(self, parser: Parser):
         super().__init__(BIGQUERY)

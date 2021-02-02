@@ -191,8 +191,8 @@ class FilterAndGroupByTest(SqlTestCase):
 
     def _create_test_table(self):
         self.sql_recreate_table(
-            [self.sql_declare_string_column("name"),
-             self.sql_declare_integer_column("size")],
+            [f"name {self.dialect.data_type_varchar_255}",
+             f"size {self.dialect.data_type_integer}"],
             ["('one',    1)",
              "('two',    1)",
              "('two',    2)",
