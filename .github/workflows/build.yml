@@ -168,6 +168,6 @@ jobs:
           bundle install --jobs 4 --retry 3
           bundle exec jekyll build
       - name: Publish docs
-        run: aws s3 sync ./docs/_site s3://${AWS_DOCS_BUCKET}${AWS_DOCS_PATH}
+        run: aws s3 sync --delete ./docs/_site s3://${AWS_DOCS_BUCKET}${AWS_DOCS_PATH}
       - name: Invalidate cache
         run: aws cloudfront create-invalidation --distribution-id ${AWS_CLOUDFRONT_ID} --paths "${AWS_DOCS_PATH}" "${AWS_DOCS_PATH}/*"

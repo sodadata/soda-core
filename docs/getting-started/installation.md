@@ -33,20 +33,19 @@ pip 21.0.1 ...
 If you don't have Python, [install it from Python downloads](https://www.python.org/downloads/) which should also
 provide you with `pip`.
 
-To upgrade pip, enter 
-```
-pip install --upgrade pip
-```
-There are known issues of soda-sql with pip version 19.  21.0+ works.
+> There are known issues of soda-sql with pip version 19. Upgrade `pip` to >=20.0 which has been confirmed
+working. You can upgrade `pip` using the following command
+> ```
+> $ pip install --upgrade pip
+> ```
 
-
-## Installing soda CLI globally
+## Installing Soda CLI globally (recommended)
 
 ```
 $ pip install soda-sql
 ```
 
-## Installing soda CLI in a virtual environment
+## Installing Soda CLI in a virtual environment
 
 ```
 mkdir your_soda_project_dir
