@@ -134,7 +134,7 @@ class SqlTestCase(TestCase):
         self.sql_update(self.sql_create_table(columns, table_name))
         if rows:
             joined_rows = ", ".join(rows)
-            self.sql_update(f"INSERT INTO {table_name} VALUES {joined_rows}")
+            self.sql_update(f"INSERT INTO {self.warehouse.dialect.qualify_table_name(table_name)} VALUES {joined_rows}")
 
     def sql_create_table(self, columns: List[str], table_name: str):
         columns_sql = ", ".join(columns)
