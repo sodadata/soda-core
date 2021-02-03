@@ -11,22 +11,21 @@
 import logging
 import os
 from pathlib import Path
-from typing import AnyStr
 
 
 class FileSystem:
 
-    def join(self, a: AnyStr, *paths: AnyStr):
+    def join(self, a: str, *paths: str):
         return os.path.join(a, *paths)
 
-    def split(self, path: AnyStr):
+    def split(self, path: str):
         return os.path.split(path)
 
-    def file_exists(self, path: AnyStr):
+    def file_exists(self, path: str):
         expanded_path = os.path.expanduser(path)
         return Path(expanded_path).exists()
 
-    def is_dir(self, path: AnyStr):
+    def is_dir(self, path: str):
         expanded_path = os.path.expanduser(path)
         return Path(expanded_path).is_dir()
 
@@ -34,20 +33,20 @@ class FileSystem:
         expanded_path = os.path.expanduser(path)
         return Path(expanded_path).is_file()
 
-    def is_readable(self, path: AnyStr):
+    def is_readable(self, path: str):
         return os.access(path, os.R_OK)
 
     def list_dir(self, dir_path):
         return os.listdir(dir_path)
 
-    def mkdirs(self, path: AnyStr):
+    def mkdirs(self, path: str):
         expanded_path = os.path.expanduser(path)
         Path(expanded_path).mkdir(parents=True, exist_ok=True)
 
     def user_home_dir(self):
         return str(Path.home())
 
-    def file_read_as_str(self, path: AnyStr) -> str:
+    def file_read_as_str(self, path: str) -> str:
         expanded_path = os.path.expanduser(path)
         try:
             with open(expanded_path) as f:
@@ -55,7 +54,7 @@ class FileSystem:
         except Exception as e:
             logging.debug(f"Couldn't read {str(path)}: {str(e)}")
 
-    def file_write_from_str(self, path: AnyStr, file_content_str):
+    def file_write_from_str(self, path: str, file_content_str):
         expanded_path = os.path.expanduser(path)
         path_path: Path = Path(expanded_path)
         is_new = not path_path.exists()

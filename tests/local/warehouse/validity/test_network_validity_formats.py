@@ -9,10 +9,11 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
+import uuid
+
 from sodasql.scan.metric import Metric
 from sodasql.scan.scan_yml_parser import KEY_METRICS, KEY_COLUMNS, COLUMN_KEY_VALID_FORMAT
 from tests.common.sql_test_case import SqlTestCase
-import uuid
 
 
 class TestNetworkValidityFormats(SqlTestCase):

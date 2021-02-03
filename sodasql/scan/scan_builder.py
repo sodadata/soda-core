@@ -10,7 +10,7 @@
 #  limitations under the License.
 import logging
 import os
-from typing import AnyStr, List
+from typing import List
 
 import yaml
 from sodasql.cli.file_system import FileSystemSingleton
@@ -72,7 +72,6 @@ class ScanBuilder:
         self.parsers: List[Parser] = []
         self.assert_no_warnings_or_errors = True
         self.soda_server_client: SodaServerClient = None
-        self.scan_type = Scan
 
     def read_scan_dir(self, warehouse_dir_path: str, table_dir_name: str):
         """
@@ -134,21 +133,21 @@ class ScanBuilder:
         sql_metric_dict = self.__parse_yaml(sql_metric_yaml_str, sql_metric_path)
         return self.sql_metric_dict(sql_metric_dict, sql_metric_path)
 
-    def warehouse_dict(self, warehouse_dict: dict, warehouse_source_description: AnyStr = 'Warehouse'):
+    def warehouse_dict(self, warehouse_dict: dict, warehouse_source_description: str = 'Warehouse'):
         from sodasql.scan.warehouse_yml_parser import WarehouseYmlParser
         warehouse_parser = WarehouseYmlParser(warehouse_dict, warehouse_source_description)
         warehouse_parser.log()
         self.parsers.append(warehouse_parser)
         self.warehouse_yml = warehouse_parser.warehouse_yml
 
-    def scan_dict(self, scan_dict: dict, scan_source_description: AnyStr = 'Scan'):
+    def scan_dict(self, scan_dict: dict, scan_source_description: str = 'Scan'):
         from sodasql.scan.scan_yml_parser import ScanYmlParser
         scan_yml_parser = ScanYmlParser(scan_dict, scan_source_description)
         scan_yml_parser.log()
         self.parsers.append(scan_yml_parser)
         self.scan_yml = scan_yml_parser.scan_yml
 
-    def sql_metric_dict(self, sql_metric_dict: dict, sql_metric_source_description: AnyStr = 'SQL Metric'):
+    def sql_metric_dict(self, sql_metric_dict: dict, sql_metric_source_description: str = 'SQL Metric'):
         from sodasql.scan.sql_metric_yml_parser import SqlMetricYmlParser
         sql_metric_parser = SqlMetricYmlParser(sql_metric_dict, sql_metric_source_description)
         sql_metric_parser.log()
@@ -173,13 +172,13 @@ class ScanBuilder:
             if api_key_secret:
                 self.soda_server_client = SodaServerClient(host, api_key_secret=api_key_secret)
 
-        return self.scan_type(warehouse=warehouse,
-                              scan_yml=self.scan_yml,
-                              variables=self.variables,
-                              sql_metric_ymls=self.sql_metric_ymls,
-                              soda_server_client=self.soda_server_client)
+        return Scan(warehouse=warehouse,
+                    scan_yml=self.scan_yml,
+                    variables=self.variables,
+                    sql_metric_ymls=self.sql_metric_ymls,
+                    soda_server_client=self.soda_server_client)
 
-    def __parse_yaml(self, warehouse_yaml_str: AnyStr, file_name: AnyStr):
+    def __parse_yaml(self, warehouse_yaml_str: str, file_name: str):
         try:
             return yaml.load(warehouse_yaml_str, Loader=yaml.FullLoader)
         except Exception as e:

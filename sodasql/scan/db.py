@@ -12,8 +12,6 @@ import logging
 from datetime import datetime
 from typing import List
 
-from sodasql.scan.dialect import Dialect
-
 
 def sql_fetchone(connection, sql: str) -> tuple:
     """

@@ -19,7 +19,7 @@ class Warehouse:
 
     def __init__(self, warehouse_yml: WarehouseYml):
         self.name = warehouse_yml.name
-        self.dialect = warehouse_yml.dialect
+        self.dialect: Dialect = warehouse_yml.dialect
         self.connection = self.dialect.create_connection()
 
     def sql_fetchone(self, sql) -> tuple:
@@ -35,8 +35,9 @@ class Warehouse:
         return sql_fetchall_description(self.connection, sql)
 
     def create_scan(self, *args, **kwargs):
-        return self.dialect.create_scan(self, close_warehouse=False, *args, **kwargs)
+        return self.dialect.create_scan(self, *args, **kwargs)
 
     def close(self):
-        self.connection.close()
-
+        if self.connection:
+            self.connection.rollback()
+            self.connection.close()

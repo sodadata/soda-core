@@ -9,7 +9,7 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 from dataclasses import dataclass
-from typing import AnyStr, List
+from typing import List
 
 from sodasql.scan.test import Test
 

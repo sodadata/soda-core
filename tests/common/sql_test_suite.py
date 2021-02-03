@@ -11,18 +11,19 @@
 import random
 import string
 
-from tests.local.warehouse.validity.test_numeric_data import TestNumericData
+from tests.common.validity_test_suite import ValidityTestSuite
 from tests.local.warehouse.metrics.test_distinct_and_uniqueness import TestDistinctAndUniqueness
 from tests.local.warehouse.metrics.test_frequent_values import TestFrequentValues
 from tests.local.warehouse.metrics.test_histogram_numeric import TestHistogramNumeric
 from tests.local.warehouse.metrics.test_min_max_length import TestMinMaxLength
 from tests.local.warehouse.metrics.test_mins_maxs import TestMinsMaxs
 from tests.local.warehouse.metrics.test_missing_and_invalid_customizations import TestMissingAndInvalidCustomizations
-from tests.local.warehouse.metrics.test_missing_and_invalid_metric_configurations import TestMissingAndInvalidMetricConfigurations
+from tests.local.warehouse.metrics.test_missing_and_invalid_metric_configurations import \
+    TestMissingAndInvalidMetricConfigurations
 from tests.local.warehouse.metrics.test_schema import TestSchema
 from tests.local.warehouse.metrics.test_statistical_metrics import TestStatisticalMetrics
 from tests.local.warehouse.tests.test_tests_table_metric import TestTestsTableMetric
-from tests.common.validity_test_suite import ValidityTestSuite
+from tests.local.warehouse.validity.test_numeric_data import TestNumericData
 
 
 class SqlTestSuite(

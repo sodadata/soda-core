@@ -12,11 +12,12 @@
 import logging
 import traceback
 from math import floor, ceil
-from typing import List, AnyStr, Optional
+from typing import List, Optional
 
 from jinja2 import Template
 
 from sodasql.scan.column_metadata import ColumnMetadata
+from sodasql.scan.group_value import GroupValue
 from sodasql.scan.measurement import Measurement
 from sodasql.scan.metric import Metric
 from sodasql.scan.scan_column import ScanColumn
@@ -32,14 +33,12 @@ class Scan:
 
     def __init__(self,
                  warehouse: Warehouse,
-                 close_warehouse: bool = True,
                  scan_yml: ScanYml = None,
                  sql_metric_ymls: List[SqlMetricYml] = [],
                  soda_server_client: SodaServerClient = None,
                  variables: dict = None,
                  time: str = None):
         self.warehouse = warehouse
-        self.close_warehouse = close_warehouse
         self.scan_yml = scan_yml
         self.sql_metric_ymls = sql_metric_ymls
         self.soda_server_client = soda_server_client
@@ -54,6 +53,9 @@ class Scan:
         self.column_names: List[str] = []
         # maps column names (lower case) to ScanColumn's
         self.scan_columns: dict = {}
+        self.close_warehouse = True
+        self.send_scan_end = True
+        self.exception = None
 
         self.table_sample_clause = \
             f'\nTABLESAMPLE {scan_yml.sample_method}({scan_yml.sample_percentage})' \
@@ -69,7 +71,6 @@ class Scan:
     def execute(self) -> ScanResult:
         self._ensure_scan_reference()
 
-        scan_failed = False
         try:
             if self.scan_yml:
                 # Soda Server and the code below require that the schema measurements is the first measurement
@@ -84,18 +85,13 @@ class Scan:
 
         except Exception as e:
             logging.exception('Scan failed')
-            scan_failed = True
+            self.exception = e
             self.scan_result.error = traceback.format_exc()
-            try:
-                if self.soda_server_client:
-                    self.soda_server_client.scan_ended(self.scan_reference, e)
-            except Exception as itsHopelessImGivingUp:
-                logging.exception('Notifying Soda Server of scan failure failed')
 
         finally:
             try:
-                if self.soda_server_client and not scan_failed:
-                    self.soda_server_client.scan_ended(self.scan_reference)
+                if self.soda_server_client and self.send_scan_end:
+                    self.soda_server_client.scan_ended(self.scan_reference, self.exception)
             except:
                 logging.exception('Notifying Soda Server of scan ended failed')
 
@@ -283,17 +279,17 @@ class Scan:
                     unique_count = query_result_tuple[1]
                     valid_count = query_result_tuple[2] if query_result_tuple[2] else 0
                     duplicate_count = distinct_count - unique_count
-                    uniqueness = (distinct_count - 1) * 100 / (valid_count - 1)
 
                     self._log_and_append_query_measurement(
                         measurements, Measurement(Metric.DISTINCT, column_name, distinct_count))
                     self._log_and_append_query_measurement(
                         measurements, Measurement(Metric.UNIQUE_COUNT, column_name, unique_count))
 
-                    self._log_and_append_derived_measurements(measurements, [
-                        Measurement(Metric.DUPLICATE_COUNT, column_name, duplicate_count),
-                        Measurement(Metric.UNIQUENESS, column_name, uniqueness)
-                    ])
+                    derived_measurements = [Measurement(Metric.DUPLICATE_COUNT, column_name, duplicate_count)]
+                    if valid_count > 1:
+                        uniqueness = (distinct_count - 1) * 100 / (valid_count - 1)
+                        derived_measurements.append(Measurement(Metric.UNIQUENESS, column_name, uniqueness))
+                    self._log_and_append_derived_measurements(measurements, derived_measurements)
 
                 if scan_column.is_metric_enabled(Metric.MINS) and scan_column.numeric_expr is not None:
 
@@ -415,29 +411,30 @@ class Scan:
                 else:
                     self._run_sql_metric_default_and_run_tests(sql_metric, resolved_sql)
 
-    def _run_sql_metric_with_groups_and_run_tests(self, sql_metric: SqlMetricYml, resolved_sql: AnyStr):
+    def _run_sql_metric_with_groups_and_run_tests(self, sql_metric: SqlMetricYml, resolved_sql: str):
         measurements = []
         test_results = []
         group_fields_lower = set(group_field.lower() for group_field in sql_metric.group_fields)
-        row_tuples, description = self.warehouse.sql_fetchall_description(resolved_sql)
-        for row_tuple in row_tuples:
-            group_measurements = []
-            group_values = {}
-            field_values = {}
-            for i in range(len(row_tuple)):
-                field_name = description[i][0]
-                field_value = row_tuple[i]
-                if field_name.lower() in group_fields_lower:
-                    group_values[field_name.lower()] = field_value
+        rows, description = self.warehouse.sql_fetchall_description(resolved_sql)
+        group_values_by_metric_name = {}
+        for row in rows:
+            group = {}
+            metric_values = {}
+            for i in range(len(row)):
+                metric_name = sql_metric.metric_names[i] if sql_metric.metric_names is not None else description[i][0]
+                metric_value = row[i]
+                if metric_name.lower() in group_fields_lower:
+                    group[metric_name] = metric_value
                 else:
-                    group_measurements.append(Measurement(metric=field_name,
-                                                          value=field_value,
-                                                          group_values=group_values))
-                    field_values[field_name] = field_value
+                    metric_values[metric_name] = metric_value
 
-            for group_measurement in group_measurements:
-                logging.debug(f'SQL metric {sql_metric.file_name} {group_measurement.metric} {group_values} -> {group_measurement.value}')
-                self._log_and_append_query_measurement(measurements, group_measurement)
+            for metric_name in metric_values:
+                metric_value = metric_values[metric_name]
+                if metric_name not in group_values_by_metric_name:
+                    group_values_by_metric_name[metric_name] = []
+                group_values = group_values_by_metric_name[metric_name]
+                group_values.append(GroupValue(group=group, value=metric_value))
+                logging.debug(f'SQL metric {sql_metric.file_name} {metric_name} {group} -> {metric_value}')
 
             sql_metric_tests = sql_metric.tests
             test_variables = {
@@ -445,14 +442,19 @@ class Scan:
                 for measurement in self.scan_result.measurements
                 if measurement.column_name is None
             }
-            test_variables.update(field_values)
-            sql_metric_test_results = self._execute_tests(sql_metric_tests, test_variables, group_values)
+            test_variables.update(metric_values)
+            sql_metric_test_results = self._execute_tests(sql_metric_tests, test_variables, group)
             test_results.extend(sql_metric_test_results)
+
+        for metric_name in group_values_by_metric_name:
+            group_values = group_values_by_metric_name[metric_name]
+            measurement = Measurement(metric=metric_name, group_values=group_values)
+            self._log_and_append_query_measurement(measurements, measurement)
 
         self._flush_measurements(measurements)
         self._flush_test_results(test_results)
 
-    def _run_sql_metric_default_and_run_tests(self, sql_metric: SqlMetricYml, resolved_sql: AnyStr):
+    def _run_sql_metric_default_and_run_tests(self, sql_metric: SqlMetricYml, resolved_sql: str):
         row_tuple, description = self.warehouse.sql_fetchone_description(resolved_sql)
         test_variables = {
             measurement.metric: measurement.value

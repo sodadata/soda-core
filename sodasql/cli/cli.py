@@ -14,6 +14,7 @@ from typing import Optional
 
 import click
 import yaml
+
 from sodasql import SODA_SQL_VERSION
 from sodasql.cli.file_system import FileSystemSingleton
 from sodasql.cli.scan_initializer import ScanInitializer
@@ -193,9 +194,10 @@ def init(warehouse_dir: str):
     except Exception as e:
         logging.exception(f'Exception: {str(e)}')
         return 1
+
     finally:
-        if warehouse:
-            warehouse.close()
+        if warehouse and warehouse.connection and not warehouse.connection.closed:
+            warehouse.connection.close()
 
 
 @main.command()
@@ -217,7 +219,6 @@ def scan(warehouse_dir: str, table: str, variables: tuple = None, time: str = No
     """
     logging.info(SODA_SQL_VERSION)
 
-    warehouse = None
     try:
         logging.info(f'Scanning {table} in {warehouse_dir} ...')
 
@@ -235,7 +236,6 @@ def scan(warehouse_dir: str, table: str, variables: tuple = None, time: str = No
         scan_builder.read_scan_dir(warehouse_dir, table)
         scan_builder.variables = variables_dict
         scan = scan_builder.build()
-        warehouse = scan.warehouse
         from sodasql.scan.scan_result import ScanResult
         scan_result: ScanResult = scan.execute()
 
@@ -256,6 +256,4 @@ def scan(warehouse_dir: str, table: str, variables: tuple = None, time: str = No
     except Exception as e:
         logging.exception(f'Scan failed: {str(e)}')
         sys.exit(1)
-    finally:
-        if warehouse:
-            warehouse.close()
+

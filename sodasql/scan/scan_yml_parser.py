@@ -8,9 +8,7 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-import os
-import traceback
-from typing import Optional, Set, List, AnyStr
+from typing import Optional, Set, List
 
 from jinja2 import Template
 
@@ -19,7 +17,6 @@ from sodasql.scan.missing import Missing
 from sodasql.scan.parser import Parser
 from sodasql.scan.scan_yml import ScanYml
 from sodasql.scan.scan_yml_column import ScanYmlColumn
-from sodasql.scan.test import Test
 from sodasql.scan.validity import Validity
 
 KEY_TABLE_NAME = 'table_name'
@@ -74,7 +71,7 @@ class ScanYmlParser(Parser):
 
     def __init__(self,
                  scan_dict: dict,
-                 scan_file_name: AnyStr = 'scan'):
+                 scan_file_name: str = 'scan'):
         super().__init__(scan_file_name)
 
         self.scan_yml = ScanYml()

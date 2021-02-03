@@ -8,9 +8,9 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-from tests.local.warehouse.validity.test_number_validity_formats import TestNumberValidityFormats
-from tests.local.warehouse.validity.test_network_validity_formats import TestNetworkValidityFormats
 from tests.local.warehouse.validity.test_date_and_time_validity_formats import TestDateAndTimeValidityFormats
+from tests.local.warehouse.validity.test_network_validity_formats import TestNetworkValidityFormats
+from tests.local.warehouse.validity.test_number_validity_formats import TestNumberValidityFormats
 from tests.local.warehouse.validity.test_user_info_validity_formats import TestPersonalInfoValidityFormats
 
 

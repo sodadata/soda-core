@@ -10,9 +10,9 @@
 #  limitations under the License.
 import logging
 import random
+import re
 import string
 from os import path
-import re
 
 import boto3
 

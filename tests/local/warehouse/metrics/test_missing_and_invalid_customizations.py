@@ -10,7 +10,7 @@
 #  limitations under the License.
 
 from sodasql.scan.metric import Metric
-from sodasql.scan.scan_yml_parser import KEY_COLUMNS, KEY_METRICS, COLUMN_KEY_METRICS, COLUMN_KEY_VALID_FORMAT
+from sodasql.scan.scan_yml_parser import KEY_COLUMNS, COLUMN_KEY_METRICS, COLUMN_KEY_VALID_FORMAT
 from tests.common.sql_test_case import SqlTestCase
 
 

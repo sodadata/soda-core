@@ -9,7 +9,6 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 import os
-from typing import AnyStr
 
 from click.testing import CliRunner
 
@@ -27,25 +26,25 @@ class CliWithMockFileSystem(FileSystem):
     def user_home_dir(self):
         return '/Users/johndoe'
 
-    def is_dir(self, path: AnyStr):
+    def is_dir(self, path: str):
         return path in self.dirs
 
-    def mkdirs(self, path: AnyStr):
+    def mkdirs(self, path: str):
         self.dirs.add(path)
 
-    def file_read_as_str(self, path: AnyStr) -> str:
+    def file_read_as_str(self, path: str) -> str:
         return self.files.get(str(path))
 
-    def file_write_from_str(self, path: AnyStr, file_content_str):
+    def file_write_from_str(self, path: str, file_content_str):
         self.files[str(path)] = file_content_str
 
-    def file_exists(self, path: AnyStr):
+    def file_exists(self, path: str):
         return str(path) in self.files
 
-    def is_file(self, path: AnyStr):
+    def is_file(self, path: str):
         return path in self.files
 
-    def is_readable(self, path: AnyStr):
+    def is_readable(self, path: str):
         return self.is_file(path)
 
     def list_dir(self, dir_path):

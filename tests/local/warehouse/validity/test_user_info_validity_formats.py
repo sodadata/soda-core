@@ -12,7 +12,6 @@
 from sodasql.scan.metric import Metric
 from sodasql.scan.scan_yml_parser import KEY_METRICS, KEY_COLUMNS
 from tests.common.sql_test_case import SqlTestCase
-import uuid
 
 
 class TestPersonalInfoValidityFormats(SqlTestCase):

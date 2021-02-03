@@ -9,8 +9,9 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
-from tests.common.warehouse_fixture import WarehouseFixture
 from google.cloud import bigquery
+
+from tests.common.warehouse_fixture import WarehouseFixture
 
 
 class BigQueryFixture(WarehouseFixture):

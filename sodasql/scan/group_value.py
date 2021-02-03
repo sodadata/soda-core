@@ -8,23 +8,18 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-import sys
-import traceback
+from dataclasses import dataclass
+from typing import List
 
-from click.testing import CliRunner
 
-from sodasql.cli.cli import main
+@dataclass
+class GroupValue:
 
-if __name__ == "__main__":
+    group: List[str]
+    value: object
 
-    run_result = None
-    try:
-        runner = CliRunner()
-        runner.file = sys.stdout
-        run_result = runner.invoke(main, ['create', '-d sodasql', '-u', 'sodasql', '~/soda_sql_tutorial3', 'postgres'])
-    except Exception as e:
-        traceback.print_exc()
-    if run_result:
-        print(f'\nConsole:')
-        print(run_result.output)
-    print(f'\nExit code {run_result.exit_code}')
+    def to_json(self):
+        return {
+            'group': self.group,
+            'value': self.value
+        }

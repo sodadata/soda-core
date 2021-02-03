@@ -9,10 +9,11 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
+from datetime import datetime, timezone
+
 from sodasql.scan.metric import Metric
 from sodasql.scan.scan_yml_parser import KEY_METRICS, KEY_COLUMNS
 from tests.common.sql_test_case import SqlTestCase
-from datetime import datetime, timezone
 
 
 class TestDateAndTimeValidityFormats(SqlTestCase):

@@ -167,6 +167,7 @@ class SqlTestCase(TestCase):
                                           sql_metric_ymls=sql_metric_ymls,
                                           variables=variables,
                                           soda_server_client=self.mock_soda_server_client)
+        scan.close_warehouse = False
         return scan.execute()
 
     def execute_metric(self, warehouse: Warehouse, metric: dict, scan_dict: dict = None):
@@ -178,6 +179,7 @@ class SqlTestCase(TestCase):
         scan_configuration_parser = ScanYmlParser(scan_dict, 'Test scan')
         scan_configuration_parser.assert_no_warnings_or_errors()
         scan = warehouse.create_scan(scan_yml=scan_configuration_parser.scan_yml)
+        scan.close_warehouse = False
         scan.execute()
 
         fields: List[str] = []

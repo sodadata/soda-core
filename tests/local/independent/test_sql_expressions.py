@@ -10,7 +10,7 @@
 #  limitations under the License.
 from unittest import TestCase
 
-from sodasql.scan.dialect import Dialect, POSTGRES
+from sodasql.scan.dialect import Dialect
 
 
 class TestSqlExpressions(TestCase):

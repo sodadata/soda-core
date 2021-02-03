@@ -8,9 +8,6 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-import os
-from pathlib import Path
-from typing import Optional, AnyStr
 
 from sodasql.scan.dialect import Dialect
 from sodasql.scan.env_vars import EnvVars
@@ -31,7 +28,7 @@ class WarehouseYmlParser(Parser):
 
     def __init__(self,
                  warehouse_dict: dict,
-                 warehouse_yaml_file: AnyStr):
+                 warehouse_yaml_file: str):
         super().__init__(description=warehouse_yaml_file)
 
         if isinstance(warehouse_dict, dict):

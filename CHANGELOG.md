@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 ### Removed
 
+## [2.0.0b6] - 2021-02-03
+### Changed
+- Upgrade library dependencies (dev-requirements.in) to their latest patch
 ## [2.0.0b5] - 2021-02-01
 ### Changed
 - Fixed Snowflake CLI issue
@@ -26,14 +29,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Anonymous tests
 ### Changed
 - Improved [docs on tests](https://docs.soda.io/soda-sql/documentation/tests.html)
-### Removed
 
 ## [2.0.0b2] - 2021-01-22
 ### Added
 - Support for AWS PostgreSQL
 ### Changed
 - Published [docs online](https://docs.soda.io/soda-sql/)
-### Removed
 
 ## [2.0.0b1] - 2021-01-15
 Initial release
