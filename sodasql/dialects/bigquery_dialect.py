@@ -90,8 +90,8 @@ class BigQueryDialect(Dialect):
 
     def sql_expr_cast_text_to_number(self, quoted_column_name, validity_format):
         if validity_format == 'number_whole':
-            return f"CAST({quoted_column_name} AS {self.decimal_column_type})"
+            return f"CAST({quoted_column_name} AS {self.data_type_real})"
         not_number_pattern = self.qualify_regex(r"[^-\d\.\,]")
         comma_pattern = self.qualify_regex(r"\,")
         return f"CAST(REGEXP_REPLACE(REGEXP_REPLACE({quoted_column_name}, r'{not_number_pattern}', ''), "\
-               f"r'{comma_pattern}', '.') AS {self.decimal_column_type})"
+               f"r'{comma_pattern}', '.') AS {self.data_type_real})"
