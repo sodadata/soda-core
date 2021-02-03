@@ -45,7 +45,7 @@ class ScanColumn:
              Metric.VALUES_COUNT, Metric.VALUES_PERCENTAGE],
             self.column_name)
         self.missing_condition = self.__get_missing_condition(column_metadata, self.missing, dialect)
-        self.non_missing_condition: Optional[str] = f'NOT ( {self.missing_condition} )'
+        self.non_missing_condition: Optional[str] = f'NOT ({self.missing_condition})'
 
         self.validity = self.scan_yml.get_validity(self.column_name)
         self.is_validity_metric_enabled = self.scan_yml.is_any_metric_enabled(

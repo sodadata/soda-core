@@ -275,11 +275,11 @@ class Dialect:
             substring = self.escape_metacharacters(expression_dict['right']['value'])
             sql = self.sql_expr_ends_with(value, substring)
         elif type == 'not':
-            sql = 'NOT ( ' + self.sql_expression(expression_dict['expression']) + ' )'
+            sql = 'NOT (' + self.sql_expression(expression_dict['expression']) + ')'
         elif type == 'and':
-            sql = '( ' + (' ) AND ( '.join([self.sql_expression(e) for e in expression_dict['andExpressions']])) + ' )'
+            sql = '(' + (') AND ('.join([self.sql_expression(e) for e in expression_dict['andExpressions']])) + ')'
         elif type == 'or':
-            sql = '( ' + (' ) OR ( '.join([self.sql_expression(e) for e in expression_dict['orExpressions']])) + ' )'
+            sql = '(' + (') OR ('.join([self.sql_expression(e) for e in expression_dict['orExpressions']])) + ')'
         else:
             raise RuntimeError(f'Unsupported expression type: {type}')
         return sql
