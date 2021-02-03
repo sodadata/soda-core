@@ -193,7 +193,7 @@ class TestSqlExpressions(TestCase):
             }))
 
     def test_not(self):
-        self.assertEqual("NOT ( name = 't' )", self.dialect.sql_expression({
+        self.assertEqual("NOT (name = 't')", self.dialect.sql_expression({
                 'type': 'not',
                 'expression': {
                     'type': 'equals',
@@ -209,7 +209,7 @@ class TestSqlExpressions(TestCase):
             }))
 
     def test_and(self):
-        self.assertEqual("( name = 't' ) AND ( size = 3 )", self.dialect.sql_expression({
+        self.assertEqual("(name = 't') AND (size = 3)", self.dialect.sql_expression({
                 'type': 'and',
                 'andExpressions': [{
                         'type': 'equals',
@@ -235,7 +235,7 @@ class TestSqlExpressions(TestCase):
             ]}))
 
     def test_or(self):
-        self.assertEqual("( name = 't' ) OR ( size = 3 )", self.dialect.sql_expression({
+        self.assertEqual("(name = 't') OR (size = 3)", self.dialect.sql_expression({
             'type': 'or',
             'orExpressions': [{
                 'type': 'equals',
