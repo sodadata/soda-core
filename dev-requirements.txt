@@ -6,9 +6,9 @@
 #
 appdirs==1.4.4
     # via virtualenv
-attrs==20.2.0
+attrs==20.3.0
     # via pytest
-bleach==3.2.1
+bleach==3.3.0
     # via readme-renderer
 certifi==2020.12.5
     # via
@@ -24,7 +24,7 @@ chardet==3.0.4
     #   requests
 colorama==0.4.4
     # via twine
-coverage==5.3
+coverage==5.4
     # via pytest-cov
 cryptography==3.2.1
     # via
@@ -32,7 +32,7 @@ cryptography==3.2.1
     #   secretstorage
 distlib==0.3.1
     # via virtualenv
-docker==4.4.0
+docker==4.4.1
     # via tox-docker
 docutils==0.16
     # via readme-renderer
@@ -58,28 +58,28 @@ jeepney==0.6.0
     # via
     #   keyring
     #   secretstorage
-keyring==21.7.0
+keyring==22.0.1
     # via twine
-more-itertools==8.5.0
+more-itertools==8.6.0
     # via pytest
-packaging==20.4
+packaging==20.9
     # via
     #   bleach
     #   pytest
     #   tox
-pkginfo==1.6.1
+pkginfo==1.7.0
     # via twine
 pluggy==0.13.1
     # via
     #   pytest
     #   tox
-py==1.9.0
+py==1.10.0
     # via
     #   pytest
     #   tox
 pycparser==2.20
     # via cffi
-pygments==2.7.3
+pygments==2.7.4
     # via readme-renderer
 pyparsing==2.4.7
     # via packaging
@@ -89,7 +89,7 @@ pytest-html==3.1.1
     # via -r dev-requirements.in
 pytest-metadata==1.11.0
     # via pytest-html
-pytest==6.0.1
+pytest==6.0.2
     # via
     #   -r dev-requirements.in
     #   pytest-cov
@@ -118,7 +118,6 @@ six==1.15.0
     #   bleach
     #   cryptography
     #   docker
-    #   packaging
     #   python-dateutil
     #   readme-renderer
     #   tox
@@ -128,17 +127,17 @@ tabulate==0.8.7
     # via -r dev-requirements.in
 text-unidecode==1.3
     # via faker
-toml==0.10.1
+toml==0.10.2
     # via
     #   pytest
     #   tox
-tox-docker==2.0.0a3
+tox-docker==2.0.0
     # via -r dev-requirements.in
 tox==3.15.2
     # via
     #   -r dev-requirements.in
     #   tox-docker
-tqdm==4.55.0
+tqdm==4.56.0
     # via twine
 twine==3.3.0
     # via -r dev-requirements.in
@@ -146,7 +145,7 @@ urllib3==1.25.10
     # via
     #   -r dev-requirements.in
     #   requests
-virtualenv==20.0.35
+virtualenv==20.4.2
     # via tox
 webencodings==0.5.1
     # via bleach
