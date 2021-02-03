@@ -10,6 +10,7 @@
 #  limitations under the License.
 
 from sodasql.scan.metric import Metric
+from sodasql.scan.scan_yml_parser import KEY_METRICS, KEY_COLUMNS
 from tests.common.sql_test_case import SqlTestCase
 from datetime import datetime, timezone
 
@@ -29,13 +30,13 @@ class TestDateAndTimeValidityFormats(SqlTestCase):
              "(null)"])
 
         scan_result = self.scan({
-            'metrics': [
+            KEY_METRICS: [
                 Metric.INVALID_COUNT,
                 Metric.INVALID_PERCENTAGE,
                 Metric.VALID_COUNT,
                 Metric.VALID_PERCENTAGE,
             ],
-            'columns': {
+            KEY_COLUMNS: {
                 'name': {
                     'valid_format': 'date_eu'
                 }
@@ -61,13 +62,13 @@ class TestDateAndTimeValidityFormats(SqlTestCase):
              "(null)"])
 
         scan_result = self.scan({
-            'metrics': [
+            KEY_METRICS: [
                 Metric.INVALID_COUNT,
                 Metric.INVALID_PERCENTAGE,
                 Metric.VALID_COUNT,
                 Metric.VALID_PERCENTAGE,
             ],
-            'columns': {
+            KEY_COLUMNS: {
                 'name': {
                     'valid_format': 'date_us'
                 }
@@ -93,13 +94,13 @@ class TestDateAndTimeValidityFormats(SqlTestCase):
              "(null)"])
 
         scan_result = self.scan({
-            'metrics': [
+            KEY_METRICS: [
                 Metric.INVALID_COUNT,
                 Metric.INVALID_PERCENTAGE,
                 Metric.VALID_COUNT,
                 Metric.VALID_PERCENTAGE,
             ],
-            'columns': {
+            KEY_COLUMNS: {
                 'name': {
                     'valid_format': 'date_inverse'
                 }
@@ -125,13 +126,13 @@ class TestDateAndTimeValidityFormats(SqlTestCase):
              "(null)"])
 
         scan_result = self.scan({
-            'metrics': [
+            KEY_METRICS: [
                 Metric.INVALID_COUNT,
                 Metric.INVALID_PERCENTAGE,
                 Metric.VALID_COUNT,
                 Metric.VALID_PERCENTAGE,
             ],
-            'columns': {
+            KEY_COLUMNS: {
                 'name': {
                     'valid_format': 'time'
                 }
@@ -156,13 +157,13 @@ class TestDateAndTimeValidityFormats(SqlTestCase):
              "(null)"])
 
         scan_result = self.scan({
-            'metrics': [
+            KEY_METRICS: [
                 Metric.INVALID_COUNT,
                 Metric.INVALID_PERCENTAGE,
                 Metric.VALID_COUNT,
                 Metric.VALID_PERCENTAGE,
             ],
-            'columns': {
+            KEY_COLUMNS: {
                 'name': {
                     'valid_format': 'date_iso_8601'
                 }

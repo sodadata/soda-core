@@ -10,6 +10,7 @@
 #  limitations under the License.
 
 from sodasql.scan.metric import Metric
+from sodasql.scan.scan_yml_parser import KEY_METRICS
 from tests.common.sql_test_case import SqlTestCase
 
 
@@ -27,7 +28,7 @@ class TestMinMaxLength(SqlTestCase):
              "(null,     null)"])
 
         scan_result = self.scan({
-          'metrics': [
+          KEY_METRICS: [
             'min_length',
             'max_length'
           ]

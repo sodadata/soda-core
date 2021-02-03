@@ -10,6 +10,7 @@
 #  limitations under the License.
 
 from sodasql.scan.metric import Metric
+from sodasql.scan.scan_yml_parser import KEY_METRICS, KEY_COLUMNS
 from tests.common.sql_test_case import SqlTestCase
 
 
@@ -33,11 +34,11 @@ class TestMinsMaxs(SqlTestCase):
              "(null,     null, null)"])
 
         scan_result = self.scan({
-            'metrics': [
+            KEY_METRICS: [
                 Metric.MINS,
                 Metric.MAXS
             ],
-            'columns': {
+            KEY_COLUMNS: {
                 'width': {
                     'valid_format': 'number_whole'
                 }

@@ -19,7 +19,7 @@ from tests.common.sql_test_case import SqlTestCase
 scan_configuration_dict = {
     'table_name': 'demodata',
     'filter': "date = DATE '{{ date }}'",
-    'metrics': [
+    KEY_METRICS: [
         'missing',
         'validity',
         'min',
@@ -29,9 +29,9 @@ scan_configuration_dict = {
         'min_length',
         'max_length',
         'avg_length'],
-    'columns': {
+    KEY_COLUMNS: {
         'ID': {
-            'metrics': [
+            KEY_METRICS: [
                 'distinct',
                 'uniqueness'],
             'tests': {

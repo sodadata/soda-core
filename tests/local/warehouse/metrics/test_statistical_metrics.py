@@ -10,6 +10,7 @@
 #  limitations under the License.
 
 from sodasql.scan.metric import Metric
+from sodasql.scan.scan_yml_parser import KEY_METRICS, KEY_COLUMNS, COLUMN_KEY_VALID_FORMAT
 from tests.common.sql_test_case import SqlTestCase
 
 
@@ -25,7 +26,7 @@ class TestStatisticalMetrics(SqlTestCase):
              "(null)"])
 
         scan_result = self.scan({
-            'metrics': [
+            KEY_METRICS: [
                 Metric.MIN,
                 Metric.MAX,
                 Metric.AVG,
@@ -33,9 +34,9 @@ class TestStatisticalMetrics(SqlTestCase):
                 Metric.VARIANCE,
                 Metric.STDDEV
             ],
-            'columns': {
+            KEY_COLUMNS: {
                 'score': {
-                  'valid_format': 'number_whole'
+                  COLUMN_KEY_VALID_FORMAT: 'number_whole'
                 }
             }
         })
@@ -59,7 +60,7 @@ class TestStatisticalMetrics(SqlTestCase):
              "(null)"])
 
         scan_result = self.scan({
-            'metrics': [
+            KEY_METRICS: [
                 Metric.MIN,
                 Metric.MAX,
                 Metric.MINS,

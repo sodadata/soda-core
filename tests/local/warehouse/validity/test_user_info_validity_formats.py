@@ -10,6 +10,7 @@
 #  limitations under the License.
 
 from sodasql.scan.metric import Metric
+from sodasql.scan.scan_yml_parser import KEY_METRICS, KEY_COLUMNS
 from tests.common.sql_test_case import SqlTestCase
 import uuid
 
@@ -26,13 +27,13 @@ class TestPersonalInfoValidityFormats(SqlTestCase):
              "(null)"])
 
         scan_result = self.scan({
-            'metrics': [
+            KEY_METRICS: [
                 Metric.INVALID_COUNT,
                 Metric.INVALID_PERCENTAGE,
                 Metric.VALID_COUNT,
                 Metric.VALID_PERCENTAGE,
             ],
-            'columns': {
+            KEY_COLUMNS: {
                 'name': {
                     'valid_format': 'email'
                 }
@@ -58,13 +59,13 @@ class TestPersonalInfoValidityFormats(SqlTestCase):
              "('555-ABCD')"])
 
         scan_result = self.scan({
-            'metrics': [
+            KEY_METRICS: [
                 Metric.INVALID_COUNT,
                 Metric.INVALID_PERCENTAGE,
                 Metric.VALID_COUNT,
                 Metric.VALID_PERCENTAGE,
             ],
-            'columns': {
+            KEY_COLUMNS: {
                 'name': {
                     'valid_format': 'phone_number'
                 }
@@ -86,13 +87,13 @@ class TestPersonalInfoValidityFormats(SqlTestCase):
              "('55555 55555 55555 55555')"])
 
         scan_result = self.scan({
-            'metrics': [
+            KEY_METRICS: [
                 Metric.INVALID_COUNT,
                 Metric.INVALID_PERCENTAGE,
                 Metric.VALID_COUNT,
                 Metric.VALID_PERCENTAGE,
             ],
-            'columns': {
+            KEY_COLUMNS: {
                 'name': {
                     'valid_format': 'credit_card_number'
                 }

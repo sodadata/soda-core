@@ -8,7 +8,7 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-
+from sodasql.scan.scan_yml_parser import KEY_METRICS, KEY_COLUMNS, COLUMN_KEY_TESTS
 from tests.common.sql_test_case import SqlTestCase
 
 
@@ -24,12 +24,12 @@ class TestColumnMetricTests(SqlTestCase):
              "(null)"])
 
         scan_yml_dict = {
-            'metrics': [
+            KEY_METRICS: [
                 'missing'
             ],
-            'columns': {
+            KEY_COLUMNS: {
                 'name': {
-                    'tests': [
+                    COLUMN_KEY_TESTS: [
                         'missing_count < 2'
                     ]
                 }
@@ -38,7 +38,7 @@ class TestColumnMetricTests(SqlTestCase):
         scan_result = self.scan(scan_yml_dict)
         self.assertFalse(scan_result.has_failures())
 
-        scan_yml_dict['columns']['name']['tests'][0] = 'missing_count == 0'
+        scan_yml_dict[KEY_COLUMNS]['name']['tests'][0] = 'missing_count == 0'
 
         scan_result = self.scan(scan_yml_dict)
         self.assertTrue(scan_result.has_failures())
@@ -53,13 +53,13 @@ class TestColumnMetricTests(SqlTestCase):
              "(11)"])
 
         scan_result = self.scan({
-            'metrics': [
+            KEY_METRICS: [
                 'min',
                 'max'
             ],
-            'columns': {
+            KEY_COLUMNS: {
                 'size': {
-                    'tests': {
+                    COLUMN_KEY_TESTS: {
                         '01': 'max - min < 10',
                         '02': 'max - min < 5'
                     }

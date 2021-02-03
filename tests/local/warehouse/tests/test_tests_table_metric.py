@@ -8,7 +8,7 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-
+from sodasql.scan.scan_yml_parser import KEY_METRICS
 from tests.common.sql_test_case import SqlTestCase
 
 
@@ -24,7 +24,7 @@ class TestTestsTableMetric(SqlTestCase):
              "(null)"])
 
         scan_yml_dict = {
-            'metrics': [
+            KEY_METRICS: [
                 'row_count'
             ],
             'tests': ['2 < row_count < 20']

@@ -10,6 +10,7 @@
 #  limitations under the License.
 
 from sodasql.scan.metric import Metric
+from sodasql.scan.scan_yml_parser import KEY_METRICS, KEY_COLUMNS, COLUMN_KEY_VALID_FORMAT
 from tests.common.sql_test_case import SqlTestCase
 import uuid
 
@@ -29,13 +30,13 @@ class TestNetworkValidityFormats(SqlTestCase):
              "('Heather-Christina-Pamela-Neil-Patrick-Harris')"])
 
         scan_result = self.scan({
-            'metrics': [
+            KEY_METRICS: [
                 Metric.INVALID_COUNT,
                 Metric.INVALID_PERCENTAGE,
                 Metric.VALID_COUNT,
                 Metric.VALID_PERCENTAGE,
             ],
-            'columns': {
+            KEY_COLUMNS: {
                 'name': {
                     'valid_format': 'uuid'
                 }
@@ -57,15 +58,15 @@ class TestNetworkValidityFormats(SqlTestCase):
              "('6.0.0.6.5')"])
 
         scan_result = self.scan({
-            'metrics': [
+            KEY_METRICS: [
                 Metric.INVALID_COUNT,
                 Metric.INVALID_PERCENTAGE,
                 Metric.VALID_COUNT,
                 Metric.VALID_PERCENTAGE,
             ],
-            'columns': {
+            KEY_COLUMNS: {
                 'name': {
-                    'valid_format': 'ip_address'
+                    COLUMN_KEY_VALID_FORMAT: 'ip_address'
                 }
             }
         })

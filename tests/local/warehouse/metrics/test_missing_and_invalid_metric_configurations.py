@@ -10,6 +10,7 @@
 #  limitations under the License.
 
 from sodasql.scan.metric import Metric
+from sodasql.scan.scan_yml_parser import KEY_METRICS, KEY_COLUMNS, COLUMN_KEY_METRICS
 from tests.common.sql_test_case import SqlTestCase
 
 
@@ -59,7 +60,7 @@ class TestMissingAndInvalidMetricConfigurations(SqlTestCase):
     def test_scan_missing(self):
         self._create_test_table()
         scan_result = self.scan({
-          'metrics': [
+          KEY_METRICS: [
             Metric.CATEGORY_MISSING
           ]
         })
@@ -104,9 +105,9 @@ class TestMissingAndInvalidMetricConfigurations(SqlTestCase):
         self._create_test_table()
         # validity triggers missing measurements
         scan_result = self.scan({
-            'columns': {
+            KEY_COLUMNS: {
                 'name': {
-                    'metrics': [
+                    COLUMN_KEY_METRICS: [
                         Metric.CATEGORY_VALIDITY
                     ],
                     'valid_regex': 'one'
@@ -149,12 +150,12 @@ class TestMissingAndInvalidMetricConfigurations(SqlTestCase):
     def test_scan_valid_regex(self):
         self._create_test_table()
         scan_result = self.scan({
-            'metrics': [
+            KEY_METRICS: [
               'missing'
             ],
-            'columns': {
+            KEY_COLUMNS: {
                 'name': {
-                    'metrics': [
+                    COLUMN_KEY_METRICS: [
                         Metric.CATEGORY_VALIDITY
                     ],
                     'valid_regex': 'one'

@@ -8,7 +8,7 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-
+from sodasql.scan.scan_yml_parser import KEY_METRICS, KEY_COLUMNS
 from tests.common.sql_test_case import SqlTestCase
 from sodasql.scan.metric import Metric
 
@@ -22,7 +22,7 @@ class TestNumericData(SqlTestCase):
              "(9223372036854775807)"])
 
         self.scan({
-            'metrics': [
+            KEY_METRICS: [
                 Metric.SUM,
                 Metric.AVG
             ]
@@ -36,7 +36,7 @@ class TestNumericData(SqlTestCase):
              "('3,0%')"])
 
         scan_result = self.scan({
-            'metrics': [
+            KEY_METRICS: [
                 Metric.INVALID_COUNT,
                 Metric.INVALID_PERCENTAGE,
                 Metric.VALID_COUNT,
@@ -45,7 +45,7 @@ class TestNumericData(SqlTestCase):
                 Metric.MIN,
                 Metric.MAX
             ],
-            'columns': {
+            KEY_COLUMNS: {
                 'name': {
                     'valid_format': 'number_percentage'
                 }

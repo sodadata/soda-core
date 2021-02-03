@@ -10,6 +10,7 @@
 #  limitations under the License.
 
 from sodasql.scan.metric import Metric
+from sodasql.scan.scan_yml_parser import COLUMN_KEY_VALID_FORMAT, KEY_COLUMNS, KEY_METRICS
 from tests.common.sql_test_case import SqlTestCase
 
 
@@ -25,15 +26,15 @@ class TestNumberValidityFormats(SqlTestCase):
              "(null)"])
 
         scan_result = self.scan({
-            'metrics': [
+            KEY_METRICS: [
                 Metric.INVALID_COUNT,
                 Metric.INVALID_PERCENTAGE,
                 Metric.VALID_COUNT,
                 Metric.VALID_PERCENTAGE,
             ],
-            'columns': {
+            KEY_COLUMNS: {
                 'name': {
-                    'valid_format': 'number_whole'
+                    COLUMN_KEY_VALID_FORMAT: 'number_whole'
                 }
             }
         })
@@ -54,13 +55,13 @@ class TestNumberValidityFormats(SqlTestCase):
              "('... miles per hour...')"])
 
         scan_result = self.scan({
-            'metrics': [
+            KEY_METRICS: [
                 Metric.INVALID_COUNT,
                 Metric.INVALID_PERCENTAGE,
                 Metric.VALID_COUNT,
                 Metric.VALID_PERCENTAGE,
             ],
-            'columns': {
+            KEY_COLUMNS: {
                 'name': {
                     'valid_format': 'number_decimal_point'
                 }
@@ -83,13 +84,13 @@ class TestNumberValidityFormats(SqlTestCase):
              "(null)"])
 
         scan_result = self.scan({
-            'metrics': [
+            KEY_METRICS: [
                 Metric.INVALID_COUNT,
                 Metric.INVALID_PERCENTAGE,
                 Metric.VALID_COUNT,
                 Metric.VALID_PERCENTAGE,
             ],
-            'columns': {
+            KEY_COLUMNS: {
                 'name': {
                     'valid_format': 'number_decimal_comma'
                 }
@@ -115,13 +116,13 @@ class TestNumberValidityFormats(SqlTestCase):
              "('... I am going to beat fantasy with science!')"])
 
         scan_result = self.scan({
-            'metrics': [
+            KEY_METRICS: [
                 Metric.INVALID_COUNT,
                 Metric.INVALID_PERCENTAGE,
                 Metric.VALID_COUNT,
                 Metric.VALID_PERCENTAGE,
             ],
-            'columns': {
+            KEY_COLUMNS: {
                 'name': {
                     'valid_format': 'number_percentage'
                 }
@@ -149,13 +150,13 @@ class TestNumberValidityFormats(SqlTestCase):
              "('2 goats and my daughter')"])
 
         scan_result = self.scan({
-            'metrics': [
+            KEY_METRICS: [
                 Metric.INVALID_COUNT,
                 Metric.INVALID_PERCENTAGE,
                 Metric.VALID_COUNT,
                 Metric.VALID_PERCENTAGE,
             ],
-            'columns': {
+            KEY_COLUMNS: {
                 'name': {
                     'valid_format': 'number_money_usd'
                 }
@@ -183,13 +184,13 @@ class TestNumberValidityFormats(SqlTestCase):
              "('10 shrubberies')"])
 
         scan_result = self.scan({
-            'metrics': [
+            KEY_METRICS: [
                 Metric.INVALID_COUNT,
                 Metric.INVALID_PERCENTAGE,
                 Metric.VALID_COUNT,
                 Metric.VALID_PERCENTAGE,
             ],
-            'columns': {
+            KEY_COLUMNS: {
                 'name': {
                     'valid_format': 'number_money_eur'
                 }
@@ -217,13 +218,13 @@ class TestNumberValidityFormats(SqlTestCase):
              "('12 million Twitter followers')"])
 
         scan_result = self.scan({
-            'metrics': [
+            KEY_METRICS: [
                 Metric.INVALID_COUNT,
                 Metric.INVALID_PERCENTAGE,
                 Metric.VALID_COUNT,
                 Metric.VALID_PERCENTAGE,
             ],
-            'columns': {
+            KEY_COLUMNS: {
                 'name': {
                     'valid_format': 'number_money_gbp'
                 }
@@ -251,13 +252,13 @@ class TestNumberValidityFormats(SqlTestCase):
              "('1.67 x 10^21 water molecules')"])
 
         scan_result = self.scan({
-            'metrics': [
+            KEY_METRICS: [
                 Metric.INVALID_COUNT,
                 Metric.INVALID_PERCENTAGE,
                 Metric.VALID_COUNT,
                 Metric.VALID_PERCENTAGE,
             ],
-            'columns': {
+            KEY_COLUMNS: {
                 'name': {
                     'valid_format': 'number_money_rmb'
                 }
@@ -285,13 +286,13 @@ class TestNumberValidityFormats(SqlTestCase):
              "('16 candles')"])
 
         scan_result = self.scan({
-            'metrics': [
+            KEY_METRICS: [
                 Metric.INVALID_COUNT,
                 Metric.INVALID_PERCENTAGE,
                 Metric.VALID_COUNT,
                 Metric.VALID_PERCENTAGE,
             ],
-            'columns': {
+            KEY_COLUMNS: {
                 'name': {
                     'valid_format': 'number_money_chf'
                 }
@@ -325,13 +326,13 @@ class TestNumberValidityFormats(SqlTestCase):
              "('7 samurais')"])
 
         scan_result = self.scan({
-            'metrics': [
+            KEY_METRICS: [
                 Metric.INVALID_COUNT,
                 Metric.INVALID_PERCENTAGE,
                 Metric.VALID_COUNT,
                 Metric.VALID_PERCENTAGE,
             ],
-            'columns': {
+            KEY_COLUMNS: {
                 'name': {
                     'valid_format': 'number_money'
                 }

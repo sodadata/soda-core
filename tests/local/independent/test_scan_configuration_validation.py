@@ -12,7 +12,7 @@
 from unittest import TestCase
 
 from sodasql.scan.parser import ERROR, WARNING
-from sodasql.scan.scan_yml_parser import ScanYmlParser
+from sodasql.scan.scan_yml_parser import ScanYmlParser, KEY_METRICS, KEY_COLUMNS
 
 
 class TestScanConfigurationValidation(TestCase):
@@ -27,7 +27,7 @@ class TestScanConfigurationValidation(TestCase):
     def test_metrics_not_a_list(self):
         parser = ScanYmlParser({
             'table_name': 't',
-            'metrics': 'txt'
+            KEY_METRICS: 'txt'
         }, 'Test scan')
 
         log = parser.logs[0]
@@ -39,7 +39,7 @@ class TestScanConfigurationValidation(TestCase):
     def test_invalid_column_metric(self):
         parser = ScanYmlParser({
             'table_name': 't',
-            'metrics': [
+            KEY_METRICS: [
                 'revenue'
             ]
         }, 'Test scan')
@@ -53,7 +53,7 @@ class TestScanConfigurationValidation(TestCase):
     def test_invalid_valid_format(self):
         parser = ScanYmlParser({
             'table_name': 't',
-            'columns': {
+            KEY_COLUMNS: {
                 'col': {
                     'valid_format': 'buzz'
                 }

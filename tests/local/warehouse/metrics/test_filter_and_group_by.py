@@ -10,6 +10,7 @@
 #  limitations under the License.
 import logging
 
+from sodasql.scan.scan_yml_parser import KEY_COLUMNS
 from tests.common.sql_test_case import SqlTestCase
 
 
@@ -110,7 +111,7 @@ class FilterAndGroupByTest(SqlTestCase):
             'groupBy': ['name']
         }
         rows = self.execute_metric(self.warehouse, metric, {
-            'columns': {
+            KEY_COLUMNS: {
                 'size': {
                     'missing_values': [1, 100]
                 }

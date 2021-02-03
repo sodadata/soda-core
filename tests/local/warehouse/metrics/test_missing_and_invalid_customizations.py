@@ -10,6 +10,7 @@
 #  limitations under the License.
 
 from sodasql.scan.metric import Metric
+from sodasql.scan.scan_yml_parser import KEY_COLUMNS, KEY_METRICS, COLUMN_KEY_METRICS, COLUMN_KEY_VALID_FORMAT
 from tests.common.sql_test_case import SqlTestCase
 
 
@@ -25,9 +26,9 @@ class TestMissingAndInvalidCustomizations(SqlTestCase):
              "(null)"])
 
         scan_result = self.scan({
-          'columns': {
+          KEY_COLUMNS: {
             'name': {
-              'metrics': [
+              COLUMN_KEY_METRICS: [
                 Metric.CATEGORY_MISSING
               ],
               'missing_values': [
@@ -56,9 +57,9 @@ class TestMissingAndInvalidCustomizations(SqlTestCase):
              "(null)"])
 
         scan_result = self.scan({
-          'columns': {
+          KEY_COLUMNS: {
             'name': {
-              'metrics': [
+              COLUMN_KEY_METRICS: [
                 Metric.CATEGORY_MISSING
               ],
               'missing_format': 'empty'
@@ -85,9 +86,9 @@ class TestMissingAndInvalidCustomizations(SqlTestCase):
              "(null)"])
 
         scan_result = self.scan({
-            'columns': {
+            KEY_COLUMNS: {
                 'name': {
-                    'metrics': [
+                    COLUMN_KEY_METRICS: [
                         Metric.CATEGORY_MISSING
                     ],
                     'missing_format': 'whitespace'
@@ -109,9 +110,9 @@ class TestMissingAndInvalidCustomizations(SqlTestCase):
              "(null)"])
 
         scan_result = self.scan({
-          'columns': {
+          KEY_COLUMNS: {
             'name': {
-              'metrics': [
+              COLUMN_KEY_METRICS: [
                   Metric.INVALID_COUNT
               ],
               'missing_values': [
@@ -135,9 +136,9 @@ class TestMissingAndInvalidCustomizations(SqlTestCase):
              "(null)"])
 
         scan_result = self.scan({
-          'columns': {
+          KEY_COLUMNS: {
               'name': {
-                  'metrics': [
+                  COLUMN_KEY_METRICS: [
                       Metric.CATEGORY_VALIDITY
                   ],
                   'valid_regex': 'one'
@@ -170,12 +171,12 @@ class TestMissingAndInvalidCustomizations(SqlTestCase):
              "('10')"])
 
         scan_result = self.scan({
-          'columns': {
+          KEY_COLUMNS: {
               'col': {
-                  'metrics': [
+                  COLUMN_KEY_METRICS: [
                       Metric.CATEGORY_VALIDITY
                   ],
-                  'valid_format': 'number_whole'
+                  COLUMN_KEY_VALID_FORMAT: 'number_whole'
               }
           }
         })
