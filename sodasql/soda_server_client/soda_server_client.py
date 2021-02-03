@@ -43,6 +43,20 @@ class SodaServerClient:
             'warehouseType': warehouse_type,
             'tableName': table_name,
             'scanTime': scan_time
+            # 'columns': {
+            #     'ID': {
+            #         'missingValues': [ 'N/A', 'No value' ],
+            #         'validity': {
+            #               'namedFormat': 'date_eu',
+            #               'regexFormat': 'someregex*',
+            #               'allowedValues': ['a', 5],
+            #               'minLength': 5,
+            #               'maxLength': 25,
+            #               'minValue': 0,
+            #               'maxValue': 200
+            #         }
+            #     }
+            # }
         })
 
     def scan_ended(self, scan_reference, exception = None):
