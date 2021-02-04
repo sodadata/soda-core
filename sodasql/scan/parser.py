@@ -207,7 +207,7 @@ class Parser:
                 raise ValueError(str(type(value)))
             except ValueError as e:
                 self.error(f'Invalid {property_name}: Expected {str(return_type)}, but was {str(value)}: {str(e)}')
-                return None
+                return default
 
         else:
             if is_required:

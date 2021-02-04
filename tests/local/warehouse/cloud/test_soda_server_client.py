@@ -10,7 +10,7 @@
 #  limitations under the License.
 
 from sodasql.scan.metric import Metric
-from sodasql.scan.scan_yml_parser import KEY_METRICS
+from sodasql.scan.scan_yml_parser import KEY_METRICS, KEY_METRIC_GROUPS
 from tests.common.sql_test_case import SqlTestCase
 
 
@@ -27,9 +27,9 @@ class TestSodaServerClient(SqlTestCase):
              "(null)"])
 
         self.scan({
-            KEY_METRICS: [
-                Metric.CATEGORY_MISSING,
-                Metric.CATEGORY_DUPLICATES
+            KEY_METRIC_GROUPS: [
+                Metric.METRIC_GROUP_MISSING,
+                Metric.METRIC_GROUP_DUPLICATES
             ],
             'tests': {
                 'thegood': f'{Metric.ROW_COUNT} > 0',

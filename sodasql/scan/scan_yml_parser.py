@@ -21,6 +21,7 @@ from sodasql.scan.validity import Validity
 
 KEY_TABLE_NAME = 'table_name'
 KEY_METRICS = 'metrics'
+KEY_METRIC_GROUPS = 'metric_groups'
 KEY_TESTS = 'tests'
 KEY_COLUMNS = 'columns'
 KEY_MINS_MAXS_LIMIT = 'mins_maxs_limit'
@@ -29,11 +30,10 @@ KEY_SAMPLE_PERCENTAGE = 'sample_percentage'
 KEY_SAMPLE_METHOD = 'sample_method'
 KEY_FILTER = 'filter'
 
-VALID_KEYS = [KEY_TABLE_NAME, KEY_METRICS, KEY_TESTS, KEY_COLUMNS,
-              KEY_MINS_MAXS_LIMIT, KEY_FREQUENT_VALUES_LIMIT,
-              KEY_SAMPLE_PERCENTAGE, KEY_SAMPLE_METHOD, KEY_FILTER]
+VALID_SCAN_YML_KEYS = [KEY_TABLE_NAME, KEY_METRICS, KEY_METRIC_GROUPS, KEY_TESTS, KEY_COLUMNS,
+                       KEY_MINS_MAXS_LIMIT, KEY_FREQUENT_VALUES_LIMIT,
+                       KEY_SAMPLE_PERCENTAGE, KEY_SAMPLE_METHOD, KEY_FILTER]
 
-COLUMN_KEY_METRICS = 'metrics'
 COLUMN_KEY_TESTS = 'tests'
 
 COLUMN_KEY_MISSING_VALUES = 'missing_values'
@@ -62,8 +62,9 @@ COLUMN_VALID_KEYS = [
     COLUMN_KEY_VALID_MIN_LENGTH,
     COLUMN_KEY_VALID_MAX_LENGTH]
 
-COLUMN_ALL_KEYS = COLUMN_MISSING_KEYS + COLUMN_VALID_KEYS + [
+VALID_COLUMN_KEYS = COLUMN_MISSING_KEYS + COLUMN_VALID_KEYS + [
     KEY_METRICS,
+    KEY_METRIC_GROUPS,
     COLUMN_KEY_TESTS]
 
 
@@ -96,43 +97,39 @@ class ScanYmlParser(Parser):
             except Exception as e:
                 self.error(f"Couldn't parse filter '{filter}': {str(e)}")
 
-        self.check_invalid_keys(VALID_KEYS)
+        self.check_invalid_keys(VALID_SCAN_YML_KEYS)
 
     def parse_metrics(self, column_name: Optional[str] = None):
-        configured_metrics_list = self.get_list_optional(KEY_METRICS)
-        if configured_metrics_list is None:
-            return set()
-
-        if not isinstance(configured_metrics_list, list):
-            self.error('metrics is not a list')
-            return set()
-
-        metrics: Set[str] = set(configured_metrics_list)
+        metrics: Set[str] = set(self.get_list_optional(KEY_METRICS, []))
+        metrics_groups: Set[str] = set(self.get_list_optional(KEY_METRIC_GROUPS, []))
 
         self._push_context(metrics, KEY_METRICS)
 
-        self.resolve_category(metrics, Metric.CATEGORY_MISSING, Metric.CATEGORY_MISSING_METRICS, column_name)
-        self.resolve_category(metrics, Metric.CATEGORY_VALIDITY, Metric.CATEGORY_VALIDITY_METRICS, column_name)
-        self.resolve_category(metrics, Metric.CATEGORY_DUPLICATES, Metric.CATEGORY_DUPLICATES_METRICS, column_name)
+        for metric_group_name in Metric.METRIC_GROUPS:
+            group_metrics = Metric.METRIC_GROUPS[metric_group_name]
+            for metric in metrics:
+                if metric in group_metrics:
+                    metrics_groups.add(metric_group_name)
 
-        if Metric.VALID_COUNT in metrics:
-            self.ensure_metric(metrics, Metric.MISSING_COUNT, Metric.CATEGORY_VALIDITY, column_name)
-            self.ensure_metric(metrics, Metric.MISSING_PERCENTAGE, Metric.CATEGORY_VALIDITY, column_name)
-            self.ensure_metric(metrics, Metric.VALUES_COUNT, Metric.CATEGORY_VALIDITY, column_name)
-            self.ensure_metric(metrics, Metric.VALUES_PERCENTAGE, Metric.CATEGORY_VALIDITY, column_name)
+        if Metric.METRIC_GROUP_VALIDITY in metrics_groups:
+            metrics_groups.add(Metric.METRIC_GROUP_MISSING)
 
-        if any(m in metrics for m in Metric.CATEGORY_MISSING_METRICS):
-            self.ensure_metric(metrics, Metric.ROW_COUNT, Metric.CATEGORY_MISSING)
+        if Metric.METRIC_GROUP_MISSING in metrics_groups:
+            metrics.add(Metric.ROW_COUNT)
+
+        for metric_group_name in metrics_groups:
+            for group_metric in Metric.METRIC_GROUPS[metric_group_name]:
+                metrics.add(group_metric)
 
         if Metric.HISTOGRAM in metrics:
-            self.ensure_metric(metrics, Metric.MIN, Metric.HISTOGRAM, column_name)
-            self.ensure_metric(metrics, Metric.MAX, Metric.HISTOGRAM, column_name)
+            metrics.add(Metric.MIN)
+            metrics.add(Metric.MAX)
 
         self.check_invalid_keys(Metric.METRIC_TYPES)
 
         self._pop_context()
 
-        return set(metrics)
+        return metrics
 
     def ensure_metric(self,
                       metrics: Set[str],
@@ -154,6 +151,7 @@ class ScanYmlParser(Parser):
 
     def resolve_category(self,
                          metrics: Set[str],
+                         metrics_groups: List[str],
                          category: str,
                          category_metrics: List[str],
                          column_name: str = None):
@@ -215,7 +213,7 @@ class ScanYmlParser(Parser):
                                          context_table_name=scan_configuration.table_name,
                                          context_column_name=column_name)
 
-                self.check_invalid_keys(COLUMN_ALL_KEYS)
+                self.check_invalid_keys(VALID_COLUMN_KEYS)
 
                 column_name_lower = column_name.lower()
                 scan_configuration_columns[column_name_lower] = ScanYmlColumn(
@@ -229,3 +227,4 @@ class ScanYmlParser(Parser):
         self._pop_context()
 
         return scan_configuration_columns
+

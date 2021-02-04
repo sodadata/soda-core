@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [2.0.0b6] - 2021-02-03
 ### Changed
 - Upgrade library dependencies (dev-requirements.in) to their latest patch
+- In scan.yml files, extracted metric categories from `metrics` into a separate `metric_groups` element 
 ## [2.0.0b5] - 2021-02-01
 ### Changed
 - Fixed Snowflake CLI issue

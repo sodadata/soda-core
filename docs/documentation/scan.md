@@ -85,24 +85,29 @@ Top level configuration keys:
 | frequent_values |  |
 | histogram |  |
 
-### Metric categories
+### Metric resolving
 
-> Deprecated metric categories are now included in the metrics, but that is probably not a
-> good idea. We're considering to introduce `metric_categories` as a separate top level element
+Some metrics belong together as they depend on the same query.  
+When you specify 1 metric in a group, the other metrics in the group are also computed.
+So Soda SQL might compute more metrics then are configured in the  scan.yml
 
-| Meric category | Metrics |
-| -------------- | ------------|
-| missing | missing_count<br/>missing_percentage<br/>values_count<br/>values_percentage |
-| validity | valid_count<br/>valid_percentage<br/>invalid_count<br/>invalid_percentage |
-| duplicates | distinct<br/>unique_count<br/>uniqueness<br/>duplicate_count |
+Here are the groups
 
-### Implied metrics
+| Metrics |
+| ------------|
+| missing_count<br/>missing_percentage<br/>values_count<br/>values_percentage |
+| valid_count<br/>valid_percentage<br/>invalid_count<br/>invalid_percentage |
+| distinct<br/>unique_count<br/>uniqueness<br/>duplicate_count |
 
-| Any metric in | Implies metrics |
-| ------------- | --------------- |
-| valid_count<br/>valid_percentage<br/>invalid_count<br/>invalid_percentage | missing_count<br/>missing_percentage<br/>values_count<br/>values_percentage |
-| missing_count<br/>missing_percentage<br/>values_count<br/>values_percentage | row_count |
-| histogram | min<br/>max |
+There are also some dependencies between the metrics.
+
+Any metric related to invalid values (`valid_count`, `valid_percentage`, `invalid_count`, `invalid_percentage`) will 
+imply all missing metrics to be included as well (`missing_count`, `missing_percentage`, `values_count`, `values_percentage`)
+
+Any missing metric (`missing_count`, `missing_percentage`, `values_count`, `values_percentage`) will imply 
+a `row_count` metric.
+
+And last a `histogram` metric will imply `min` and `max` metrics.
 
 ## Column configurations
 
@@ -111,6 +116,7 @@ Column configuration keys:
 | Key | Description |
 | --- | ----------- |
 | metrics | Extra metrics to be computed for this column |
+| metric_groups | Extra metric groups to be computed for this column |
 | tests | Tests to be evaluate for this column |
 | missing_values | Customize what values are considered missing |
 | missing_format | To customize missing values such as whitespace and empty strings |

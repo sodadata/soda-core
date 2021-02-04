@@ -10,7 +10,7 @@
 #  limitations under the License.
 
 from sodasql.scan.metric import Metric
-from sodasql.scan.scan_yml_parser import KEY_METRICS, KEY_COLUMNS, COLUMN_KEY_METRICS
+from sodasql.scan.scan_yml_parser import KEY_METRICS, KEY_COLUMNS, KEY_METRICS, KEY_METRIC_GROUPS
 from tests.common.sql_test_case import SqlTestCase
 
 
@@ -60,8 +60,8 @@ class TestMissingAndInvalidMetricConfigurations(SqlTestCase):
     def test_scan_missing(self):
         self._create_test_table()
         scan_result = self.scan({
-          KEY_METRICS: [
-            Metric.CATEGORY_MISSING
+          KEY_METRIC_GROUPS: [
+            Metric.METRIC_GROUP_MISSING
           ]
         })
         
@@ -107,8 +107,8 @@ class TestMissingAndInvalidMetricConfigurations(SqlTestCase):
         scan_result = self.scan({
             KEY_COLUMNS: {
                 'name': {
-                    COLUMN_KEY_METRICS: [
-                        Metric.CATEGORY_VALIDITY
+                    KEY_METRIC_GROUPS: [
+                        Metric.METRIC_GROUP_VALIDITY
                     ],
                     'valid_regex': 'one'
                 }
@@ -150,13 +150,13 @@ class TestMissingAndInvalidMetricConfigurations(SqlTestCase):
     def test_scan_valid_regex(self):
         self._create_test_table()
         scan_result = self.scan({
-            KEY_METRICS: [
-              'missing'
+            KEY_METRIC_GROUPS: [
+              Metric.METRIC_GROUP_MISSING
             ],
             KEY_COLUMNS: {
                 'name': {
-                    COLUMN_KEY_METRICS: [
-                        Metric.CATEGORY_VALIDITY
+                    KEY_METRIC_GROUPS: [
+                        Metric.METRIC_GROUP_VALIDITY
                     ],
                     'valid_regex': 'one'
                 }

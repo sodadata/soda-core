@@ -8,7 +8,8 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-from sodasql.scan.scan_yml_parser import KEY_METRICS, KEY_COLUMNS, COLUMN_KEY_TESTS
+from sodasql.scan.metric import Metric
+from sodasql.scan.scan_yml_parser import KEY_METRICS, KEY_COLUMNS, COLUMN_KEY_TESTS, KEY_METRIC_GROUPS
 from tests.common.sql_test_case import SqlTestCase
 
 
@@ -24,8 +25,8 @@ class TestColumnMetricTests(SqlTestCase):
              "(null)"])
 
         scan_yml_dict = {
-            KEY_METRICS: [
-                'missing'
+            KEY_METRIC_GROUPS: [
+                Metric.METRIC_GROUP_MISSING
             ],
             KEY_COLUMNS: {
                 'name': {

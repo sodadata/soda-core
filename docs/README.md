@@ -70,16 +70,16 @@ columns:
             - duplicate_count
         valid_format: uuid
         tests:
-            duplicates: duplicate_count == 0
+            duplicate_count == 0
     CATEGORY:
         missing_values:
             - N/A
             - No category
         tests:
-            missing: missing_percentage < 3
+            missing_percentage < 3
     SIZE:
         tests:
-            spread: max - min < 20
+            max - min < 20
 ```
 
 Metrics aren't limited to the ones defined by Soda SQL. You can create your own custom SQL metric definitions
