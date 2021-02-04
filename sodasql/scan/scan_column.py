@@ -44,18 +44,22 @@ class ScanColumn:
             [Metric.MISSING_COUNT, Metric.MISSING_PERCENTAGE,
              Metric.VALUES_COUNT, Metric.VALUES_PERCENTAGE],
             self.column_name)
-        self.missing_condition = self.__get_missing_condition(column_metadata, self.missing, dialect)
-        self.non_missing_condition: Optional[str] = f'NOT ({self.missing_condition})'
 
         self.validity = self.scan_yml.get_validity(self.column_name)
         self.is_validity_metric_enabled = self.scan_yml.is_any_metric_enabled(
             [Metric.INVALID_COUNT, Metric.INVALID_PERCENTAGE,
              Metric.VALID_COUNT, Metric.VALID_PERCENTAGE],
             self.column_name)
-        self.valid_condition: Optional[str] = self.__get_valid_condition(column_metadata, self.validity, dialect)
 
+        self.missing_condition, self.is_default_missing_condition = \
+            self.__get_missing_condition(column_metadata, self.missing, dialect)
+        self.non_missing_condition: Optional[str] = f'NOT ({self.missing_condition})'
+        self.valid_condition, self.is_default_valid_condition = \
+            self.__get_valid_condition(column_metadata, self.validity, dialect)
         self.non_missing_and_valid_condition: Optional[str] = \
             self.__get_non_missing_and_valid_condition(self.non_missing_condition, self.valid_condition)
+        self.is_default_non_missing_and_valid_condition = \
+            self.is_default_missing_condition and self.is_default_valid_condition
 
         self.validity_format = self.scan_yml.get_validity_format(column_metadata)
         self.is_valid_enabled = \
@@ -68,17 +72,22 @@ class ScanColumn:
             isinstance(self.validity_format, str) \
             and self.validity_format.startswith('number_')
 
+        self.numeric_expr = None
+
         if self.is_number:
-            self.numeric_expr = self.qualified_column_name
-            self.numeric_text_expr = None
+            if self.is_default_non_missing_and_valid_condition:
+                self.numeric_expr = self.qualified_column_name
+            else:
+                self.numeric_expr = dialect.sql_expr_conditional(self.non_missing_and_valid_condition,
+                                                                 self.qualified_column_name)
+
         elif self.is_column_numeric_text_format:
-            self.numeric_text_expr = dialect.sql_expr_conditional(
-                    self.non_missing_and_valid_condition,
-                    dialect.sql_expr_cast_text_to_number(self.qualified_column_name, self.validity_format))
-            self.numeric_expr = self.numeric_text_expr
-        else:
-            self.numeric_expr = None
-            self.numeric_text_expr = None
+            if self.is_default_non_missing_and_valid_condition:
+                self.numeric_expr = dialect.sql_expr_cast_text_to_number(self.qualified_column_name, self.validity_format)
+            else:
+                self.numeric_expr = dialect.sql_expr_conditional(self.non_missing_and_valid_condition,
+                                                                 dialect.sql_expr_cast_text_to_number(
+                                                                     self.qualified_column_name, self.validity_format))
 
         self.has_numeric_values = self.is_number or self.is_column_numeric_text_format
         self.mins_maxs_limit = self.scan_yml.get_mins_maxs_limit(self.column_name)
@@ -114,13 +123,13 @@ class ScanColumn:
             if missing.regex:
                 qualified_regex = dialect.qualify_regex(missing.regex)
                 validity_clauses.append(dialect.sql_expr_regexp_like(qualified_column_name, qualified_regex))
-        return " OR ".join(validity_clauses)
+        return " OR ".join(validity_clauses), len(validity_clauses) == 1
 
     @classmethod
     def __get_valid_condition(cls, column_metadata: ColumnMetadata, validity: Validity, dialect: Dialect):
         qualified_column_name = dialect.qualify_column_name(column_metadata.name)
         if validity is None:
-            return ''
+            return '', True
         validity_clauses = []
         if validity.format:
             format_regex = Validity.FORMATS.get(validity.format)
@@ -137,7 +146,7 @@ class ScanColumn:
             validity_clauses.append(f'{qualified_column_name} >= {validity.min}')
         if validity.max:
             validity_clauses.append(f'{qualified_column_name} <= {validity.max}')
-        return '(' + ' AND '.join(validity_clauses) + ')'
+        return '(' + ' AND '.join(validity_clauses) + ')', len(validity_clauses) == 0
 
     def __get_non_missing_and_valid_condition(self, non_missing_condition, valid_condition):
         if non_missing_condition and valid_condition:

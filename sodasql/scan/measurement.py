@@ -31,7 +31,7 @@ class Measurement:
         if self.group_values is None:
             json['value'] = JsonHelper.to_jsonnable(self.value)
         else:
-            json['group_values'] = [group_value.to_json() for group_value in self.group_values]
+            json['groupValues'] = [group_value.to_json() for group_value in self.group_values]
 
         if self.column_name is not None:
             json['columnName'] = self.column_name

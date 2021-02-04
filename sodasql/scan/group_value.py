@@ -18,8 +18,31 @@ class GroupValue:
     group: List[str]
     value: object
 
+    @classmethod
+    def from_json(cls, json: dict):
+        if json is None:
+            return None
+        assert isinstance(json, dict)
+        return GroupValue(
+            group=json.get('group'),
+            value=json.get('value')
+        )
+
+    @classmethod
+    def from_json_list(cls, json_list: list):
+        if json_list is None:
+            return None
+        assert isinstance(json_list, list)
+        group_values = []
+        for json in json_list:
+            group_value = cls.from_json(json)
+            if group_value:
+                group_values.append(group_value)
+        return group_values
+
     def to_json(self):
         return {
             'group': self.group,
             'value': self.value
         }
+

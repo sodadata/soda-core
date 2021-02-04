@@ -113,6 +113,9 @@ class Dialect:
     def sql_expr_count_conditional(self, condition: str):
         return f'COUNT(CASE WHEN {condition} THEN 1 END)'
 
+    def sql_expr_conditional(self, condition: str, expr: str):
+        return f'CASE WHEN {condition} THEN {expr} END'
+
     def sql_expr_count(self, expr):
         return f'COUNT({expr})'
 
@@ -124,9 +127,6 @@ class Dialect:
 
     def sql_expr_length(self, expr):
         return f'LENGTH({expr})'
-
-    def sql_expr_conditional(self, condition: str, expr: str):
-        return f'CASE WHEN {condition} THEN {expr} END'
 
     def sql_expr_min(self, expr: str):
         return f'MIN({expr})'
