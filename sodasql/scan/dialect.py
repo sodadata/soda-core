@@ -310,3 +310,6 @@ class Dialect:
 
     def sql_expr_ends_with(self, value, substring):
         return value + " LIKE '%" + substring + "'"
+
+    def get_type_name(self, column_description):
+        return str(column_description[1])

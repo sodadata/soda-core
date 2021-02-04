@@ -227,8 +227,8 @@ class Scan:
                     if non_missing_index is not None:
                         values_count = measurements[non_missing_index].value
                         missing_count = row_count - values_count
-                        missing_percentage = missing_count * 100 / row_count
-                        values_percentage = values_count * 100 / row_count
+                        missing_percentage = missing_count * 100 / row_count if row_count > 0 else None
+                        values_percentage = values_count * 100 / row_count if row_count > 0 else None
 
                         self._log_and_append_derived_measurements(measurements, [
                             Measurement(Metric.MISSING_PERCENTAGE, column_name, missing_percentage),
@@ -240,8 +240,8 @@ class Scan:
                         if valid_index is not None:
                             valid_count = measurements[valid_index].value
                             invalid_count = row_count - missing_count - valid_count
-                            invalid_percentage = invalid_count * 100 / row_count
-                            valid_percentage = valid_count * 100 / row_count
+                            invalid_percentage = invalid_count * 100 / row_count if row_count > 0 else None
+                            valid_percentage = valid_count * 100 / row_count if row_count > 0 else None
                             self._log_and_append_derived_measurements(measurements, [
                                 Measurement(Metric.INVALID_PERCENTAGE, column_name, invalid_percentage),
                                 Measurement(Metric.INVALID_COUNT, column_name, invalid_count),
@@ -339,7 +339,7 @@ class Scan:
             scan_column: ScanColumn = self.scan_columns[column_name_lower]
             column_name = scan_column.column_name
 
-            if scan_column.is_metric_enabled(Metric.HISTOGRAM):
+            if scan_column.is_metric_enabled(Metric.HISTOGRAM) and scan_column.numeric_expr:
 
                 buckets: int = scan_column.get_histogram_buckets()
 
