@@ -321,13 +321,13 @@ class Scan:
 
                     frequent_values_limit = self.scan_yml.get_frequent_values_limit(column_name)
                     sql = (f'{group_by_cte} \n'
-                           f'SELECT value \n'
+                           f'SELECT value, frequency \n'
                            f'FROM group_by_value \n'
                            f'ORDER BY frequency DESC \n'
                            f'LIMIT {frequent_values_limit} \n')
 
                     rows = self.warehouse.sql_fetchall(sql)
-                    frequent_values = [row[0] for row in rows]
+                    frequent_values = [{'value': row[0], 'frequency': row[1]} for row in rows]
                     self._log_and_append_query_measurement(
                         measurements, Measurement(Metric.FREQUENT_VALUES, column_name, frequent_values))
 

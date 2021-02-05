@@ -34,4 +34,6 @@ class TestFrequentValues(SqlTestCase):
         })
 
         self.assertEqual(scan_result.get(Metric.FREQUENT_VALUES, 'name'),
-                         [3, 2, 1])
+                         [{'frequency': 3, 'value': 3},
+                          {'frequency': 2, 'value': 2},
+                          {'frequency': 1, 'value': 1}])

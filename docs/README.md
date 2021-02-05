@@ -86,8 +86,6 @@ Metrics aren't limited to the ones defined by Soda SQL. You can create your own 
 with a simple yml file.
 
 ```yaml
-metrics:
-    - total_volume_us
 sql: |
     SELECT sum(volume) as total_volume_us
     FROM CUSTOMER_TRANSACTIONS
