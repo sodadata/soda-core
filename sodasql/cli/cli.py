@@ -196,8 +196,11 @@ def init(warehouse_dir: str):
         return 1
 
     finally:
-        if warehouse and warehouse.connection and not warehouse.connection.closed:
-            warehouse.connection.close()
+        if warehouse and warehouse.connection:
+            try:
+                warehouse.connection.close()
+            except Exception as e:
+                logging.debug(f'Closing connection failed: {str(e)}')
 
 
 @main.command()

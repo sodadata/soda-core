@@ -8,6 +8,8 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
+import logging
+
 from sodasql.scan.db import sql_update
 from tests.common.warehouse_fixture import WarehouseFixture
 
@@ -29,7 +31,10 @@ class RedshiftFixture(WarehouseFixture):
         self.warehouse.connection = self.warehouse.dialect.create_connection()
 
     def drop_database(self):
-        self.warehouse.connection.close()
+        try:
+            self.warehouse.connection.close()
+        except Exception as e:
+            logging.debug(f'Closing connection failed: {str(e)}')
         sql_update(self.original_connection, f'DROP DATABASE {self.database}')
 
 

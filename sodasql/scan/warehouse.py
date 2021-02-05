@@ -8,6 +8,7 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
+import logging
 from typing import List
 
 from sodasql.scan.db import sql_fetchone, sql_fetchall, sql_fetchone_description, sql_fetchall_description
@@ -39,5 +40,8 @@ class Warehouse:
 
     def close(self):
         if self.connection:
-            self.connection.rollback()
-            self.connection.close()
+            try:
+                self.connection.close()
+            except Exception as e:
+                logging.debug(f'Closing connection failed: {str(e)}')
+
