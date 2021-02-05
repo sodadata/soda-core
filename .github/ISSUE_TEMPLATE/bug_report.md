@@ -22,4 +22,4 @@ __Include your scan.yml or warehouse.yml when relevant__
 **OS**: 
 **Python Version**:
 **Soda SQL Version**:
-
+**Warehouse Type**:
