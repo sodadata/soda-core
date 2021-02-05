@@ -8,7 +8,7 @@ assignees: ''
 ---
 
 **Describe the bug**
-A clear and concise description of what the bug is.
+__A clear and concise description of what the bug is and what you expected instead.__
 
 **To Reproduce**
 Steps to reproduce the behavior:
@@ -16,10 +16,10 @@ Steps to reproduce the behavior:
 2. Run `soda scan ...`
 3 ...
 
-**Expected behavior**
-A clear and concise description of what you expected to happen.
-
 **Context**
-OS: 
-Python Version:
-Soda SQL Version:
+__Include your scan.yml or warehouse.yml when relevant__
+
+**OS**: 
+**Python Version**:
+**Soda SQL Version**:
+
