@@ -24,7 +24,7 @@ setup(
     description="Soda SQL library & CLI",
     long_description=readme,
     long_description_content_type="text/markdown",
-    packages=find_packages(exclude=["tests"]),
+    packages=find_packages(include=["sodasql*"]),
     install_requires=requires,
     entry_points={"console_scripts": ["soda=sodasql.cli.cli:main"]},
 )
