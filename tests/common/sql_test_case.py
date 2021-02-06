@@ -153,7 +153,7 @@ class SqlTestCase(TestCase):
         if KEY_TABLE_NAME not in scan_yml_dict:
             scan_yml_dict[KEY_TABLE_NAME] = self.default_test_table_name
         logging.debug('Scan configuration \n' + json.dumps(scan_yml_dict, indent=2))
-        scan_configuration_parser = ScanYmlParser(scan_yml_dict, 'Test scan')
+        scan_configuration_parser = ScanYmlParser(scan_yml_dict, 'test-scan')
         scan_configuration_parser.assert_no_warnings_or_errors()
 
         sql_metric_ymls = []

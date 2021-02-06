@@ -8,13 +8,14 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-from sodasql.scan.scan_yml_parser import KEY_METRICS
+from sodasql.scan.scan_yml_parser import KEY_METRICS, KEY_TESTS
 from tests.common.sql_test_case import SqlTestCase
 
 
 class TestTestsTableMetric(SqlTestCase):
 
-    def test_tests(self):
+    def setUp(self) -> None:
+        super().setUp()
         self.sql_recreate_table(
             [f"name {self.dialect.data_type_varchar_255}"],
             ["('one')",
@@ -23,6 +24,7 @@ class TestTestsTableMetric(SqlTestCase):
              "('no value')",
              "(null)"])
 
+    def test_tests(self):
         scan_yml_dict = {
             KEY_METRICS: [
                 'row_count'
@@ -33,5 +35,22 @@ class TestTestsTableMetric(SqlTestCase):
         self.assertFalse(scan_result.has_failures())
 
         scan_yml_dict['tests'][0] = '10 < row_count < 20'
+        scan_result = self.scan(scan_yml_dict)
+        self.assertTrue(scan_result.has_failures())
+
+    def test_named_tests(self):
+        test_name = 'my_test'
+        scan_yml_dict = {
+            KEY_METRICS: [
+                'row_count'
+            ],
+            KEY_TESTS: {
+                test_name: '2 < row_count < 20'
+            }
+        }
+        scan_result = self.scan(scan_yml_dict)
+        self.assertFalse(scan_result.has_failures())
+
+        scan_yml_dict['tests'][test_name] = '10 < row_count < 20'
         scan_result = self.scan(scan_yml_dict)
         self.assertTrue(scan_result.has_failures())

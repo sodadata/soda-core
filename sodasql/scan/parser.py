@@ -251,14 +251,18 @@ class Parser:
                     self._push_context(None, test_name)
                     try:
                         test_expression = test_ymls[test_name]
-                        test = self.parse_test(test_name, test_expression)
+                        test = self.parse_test(test_name,
+                                               test_expression,
+                                               context_table_name,
+                                               context_column_name,
+                                               context_sql_metric_file_name)
                         if test:
                             tests.append(test)
                     finally:
                         self._pop_context()
 
             elif test_ymls is not None:
-                self.error(f'tests is not a list: {test_ymls} ({str(type(test_ymls))})')
+                self.error(f'Tests should be either a list of test expressions or an object of named test expressions: {test_ymls} ({str(type(test_ymls))})')
         finally:
             self._pop_context()
 
