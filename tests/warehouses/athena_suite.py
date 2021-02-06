@@ -21,12 +21,3 @@ class AthenaSuite(SqlTestSuite):
     def setUp(self) -> None:
         self.target = TARGET_ATHENA
         super().setUp()
-
-    # def sql_create_table(self, columns: List[str], table_name: str):
-    #     columns_sql = ", ".join(columns)
-    #     database_location = self.warehouse_fixture_cache_by_target[TARGET_ATHENA].database_location
-    #     table_location = path.join(self.warehouse.dialect.athena_staging_dir, database_location, table_name)
-    #     return f"CREATE EXTERNAL TABLE " \
-    #            f"{self.warehouse.dialect.qualify_writable_table_name(table_name)} ( \n " \
-    #            f"{columns_sql} ) \n " \
-    #            f"LOCATION '{table_location}';"
