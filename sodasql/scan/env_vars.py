@@ -10,10 +10,9 @@
 #  limitations under the License.
 
 import os
-from pathlib import Path
 
 import yaml
-from sodasql.cli.file_system import FileSystem, FileSystemSingleton
+from sodasql.scan.file_system import FileSystemSingleton
 
 
 class EnvVars:

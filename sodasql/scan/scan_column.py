@@ -31,8 +31,8 @@ class ScanColumn:
         self.scan_yml: ScanYml = scan.scan_yml
         self.column = column_metadata
         self.column_name = column_metadata.name
-        self.column_configuration: ScanYmlColumn = \
-            self.scan_yml.get_column_configuration(self.column_name)
+        self.scan_yml_column: ScanYmlColumn = \
+            self.scan_yml.get_scan_yaml_column(self.column_name)
 
         dialect = self.scan.dialect
         self.qualified_column_name = dialect.qualify_column_name(self.column_name)
@@ -99,9 +99,9 @@ class ScanColumn:
         return False
 
     def is_metric_enabled(self, metric: str):
-        if self.column_configuration \
-                and self.column_configuration \
-                and metric in self.column_configuration.metrics:
+        if self.scan_yml_column \
+                and self.scan_yml_column \
+                and metric in self.scan_yml_column.metrics:
             return True
         if self.scan_yml \
                 and self.scan_yml.metrics \
@@ -191,7 +191,7 @@ class ScanColumn:
             return self.scan.dialect.sql_expr_cast_text_to_number('value', self.validity_format)
 
     def get_tests(self):
-        return self.column_configuration.tests if self.column_configuration and self.column_configuration.tests else []
+        return self.scan_yml_column.tests if self.scan_yml_column and self.scan_yml_column.tests else []
 
     def get_histogram_buckets(self) -> int:
         # TODO make configurable

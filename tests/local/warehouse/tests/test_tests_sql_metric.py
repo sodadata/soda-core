@@ -8,6 +8,9 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
+from sodasql.scan.metric import Metric
+from sodasql.scan.scan_yml_parser import KEY_SQL_METRICS, SQL_METRIC_KEY_TESTS, SQL_METRIC_KEY_SQL, \
+    COLUMN_KEY_SQL_METRICS, SQL_METRIC_KEY_GROUP_FIELDS, KEY_COLUMNS, COLUMN_KEY_METRICS
 from sodasql.scan.sql_metric_yml_parser import KEY_SQL, KEY_TESTS, KEY_GROUP_FIELDS, \
     KEY_METRIC_NAMES
 from tests.common.sql_test_case import SqlTestCase
@@ -28,59 +31,93 @@ class TestTestsSqlMetric(SqlTestCase):
         self.qualified_table_name = self.warehouse.dialect.qualify_table_name(self.default_test_table_name)
 
     def test_sql_metric_default_simple(self):
-        sql_metric_dicts = [
-            {
-                KEY_SQL: (
+        scan_yml_dict = {
+            KEY_SQL_METRICS: [{
+                SQL_METRIC_KEY_SQL: (
                     f"SELECT sum(size) as sum_ones \n"
                     f"FROM {self.qualified_table_name} \n"
                     f"WHERE country = 'one'"
                 ),
-                KEY_TESTS: [
+                SQL_METRIC_KEY_TESTS: [
                     'sum_ones < 20'
                 ]
-            }
-        ]
+            }]
+        }
 
-        scan_result = self.scan(sql_metric_dicts=sql_metric_dicts)
+        scan_result = self.scan(scan_yml_dict=scan_yml_dict)
         self.assertFalse(scan_result.has_failures())
 
-        sql_metric_dicts[0][KEY_TESTS][0] = 'sum_ones < 10'
+        scan_yml_dict[KEY_SQL_METRICS][0][SQL_METRIC_KEY_TESTS][0] = 'sum_ones < 10'
 
-        scan_result = self.scan(sql_metric_dicts=sql_metric_dicts)
+        scan_result = self.scan(scan_yml_dict=scan_yml_dict)
+        self.assertTrue(scan_result.has_failures())
+
+    def test_sql_metric_on_column(self):
+        scan_yml_dict = {
+            KEY_COLUMNS: {
+                'size': {
+                    COLUMN_KEY_METRICS: [
+                        Metric.SUM
+                    ],
+                    COLUMN_KEY_SQL_METRICS: [{
+                        SQL_METRIC_KEY_SQL: (
+                            f"SELECT sum(size) as sum_ones \n"
+                            f"FROM {self.qualified_table_name} \n"
+                            f"WHERE country = 'one'"
+                        ),
+                        SQL_METRIC_KEY_TESTS: [
+                            'sum - sum_ones == 9'
+                        ]
+                    }]
+                }
+            }
+        }
+
+        scan_result = self.scan(scan_yml_dict=scan_yml_dict)
+        self.assertFalse(scan_result.has_failures())
+
+        scan_yml_dict[KEY_COLUMNS]['size'][COLUMN_KEY_SQL_METRICS][0][SQL_METRIC_KEY_TESTS][0] = 'sum - sum_ones == 25'
+
+        scan_result = self.scan(scan_yml_dict=scan_yml_dict)
         self.assertTrue(scan_result.has_failures())
 
     def test_sql_metric_default_field_metric_name_mapping(self):
-        scan_result = self.scan(sql_metric_dicts=[
-            {
+        scan_yml_dict = {
+            KEY_SQL_METRICS: [{
                 KEY_METRIC_NAMES: ['sum_ones'],
-                KEY_SQL: (
+                SQL_METRIC_KEY_SQL: (
                     f"SELECT sum(size) \n"
                     f"FROM {self.qualified_table_name} \n"
                     f"WHERE country = 'one'"
                 ),
-                KEY_TESTS: ['sum_ones < 20']
-            }
-        ])
+                SQL_METRIC_KEY_TESTS: [
+                    'sum_ones < 20'
+                ]
+            }]
+        }
+        scan_result = self.scan(scan_yml_dict=scan_yml_dict)
         self.assertFalse(scan_result.has_failures())
 
     def test_sql_metric_groups(self):
-        sql_metric_dicts = [
-            {
-                KEY_SQL: (
+        scan_yml_dict = {
+            KEY_SQL_METRICS: [{
+                SQL_METRIC_KEY_SQL: (
                     f"SELECT country, sum(size) as total_size_per_country \n"
                     f"FROM {self.qualified_table_name} \n"
                     f"GROUP BY country"
                 ),
-                KEY_TESTS: {
-                    'total_size_test': 'total_size_per_country < 20'
-                },
-                KEY_GROUP_FIELDS: ['country']
-            }
-        ]
-        scan_result = self.scan(sql_metric_dicts=sql_metric_dicts)
+                SQL_METRIC_KEY_TESTS: [
+                    'total_size_per_country < 20'
+                ],
+                SQL_METRIC_KEY_GROUP_FIELDS: ['country']
+            }]
+        }
+
+        scan_result = self.scan(scan_yml_dict=scan_yml_dict)
         self.assertFalse(scan_result.has_failures())
 
-        sql_metric_dicts[0][KEY_TESTS]['total_size_test'] = 'total_size_per_country < 10'
+        scan_yml_dict[KEY_SQL_METRICS][0][SQL_METRIC_KEY_TESTS][0] = 'total_size_per_country < 10'
 
-        scan_result = self.scan(sql_metric_dicts=sql_metric_dicts)
+        scan_result = self.scan(scan_yml_dict=scan_yml_dict)
         self.assertTrue(scan_result.has_failures())
+

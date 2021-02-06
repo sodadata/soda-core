@@ -34,13 +34,11 @@ class Scan:
     def __init__(self,
                  warehouse: Warehouse,
                  scan_yml: ScanYml = None,
-                 sql_metric_ymls: List[SqlMetricYml] = [],
                  soda_server_client: SodaServerClient = None,
                  variables: dict = None,
                  time: str = None):
         self.warehouse = warehouse
         self.scan_yml = scan_yml
-        self.sql_metric_ymls = sql_metric_ymls
         self.soda_server_client = soda_server_client
         self.variables = variables
         self.time = time
@@ -49,7 +47,7 @@ class Scan:
         self.dialect = warehouse.dialect
         self.qualified_table_name = self.dialect.qualify_table_name(scan_yml.table_name)
         self.scan_reference = None
-        self.columns: List[ColumnMetadata] = []
+        self.column_metadatas: List[ColumnMetadata] = []
         self.column_names: List[str] = []
         # maps column names (lower case) to ScanColumn's
         self.scan_columns: dict = {}
@@ -103,19 +101,19 @@ class Scan:
     def _query_columns_metadata(self):
         sql = self.warehouse.dialect.sql_columns_metadata_query(self.scan_yml.table_name)
         column_tuples = self.warehouse.sql_fetchall(sql)
-        self.columns = []
+        self.column_metadatas = []
         for column_tuple in column_tuples:
             name = column_tuple[0]
             type = column_tuple[1]
             nullable = 'YES' == column_tuple[2].upper()
-            self.columns.append(ColumnMetadata(name, type, nullable))
-        logging.debug(str(len(self.columns))+' columns:')
-        for column in self.columns:
+            self.column_metadatas.append(ColumnMetadata(name, type, nullable))
+        logging.debug(str(len(self.column_metadatas)) + ' columns:')
+        for column in self.column_metadatas:
             logging.debug(f'  {column.name} {column.type} {"" if column.nullable else "not null"}')
 
-        self.column_names: List[str] = [column_metadata.name for column_metadata in self.columns]
-        self.scan_columns: dict = {column.name.lower(): ScanColumn(self, column) for column in self.columns}
-        schema_measurement_value = [column_metadata.to_json() for column_metadata in self.columns]
+        self.column_names: List[str] = [column_metadata.name for column_metadata in self.column_metadatas]
+        self.scan_columns: dict = {column.name.lower(): ScanColumn(self, column) for column in self.column_metadatas}
+        schema_measurement_value = [column_metadata.to_json() for column_metadata in self.column_metadatas]
         schema_measurement = Measurement(Metric.SCHEMA, value=schema_measurement_value)
         self._log_measurement(schema_measurement)
         self._flush_measurements([schema_measurement])
@@ -396,8 +394,15 @@ class Scan:
         self._flush_measurements(measurements)
 
     def _query_sql_metrics_and_run_tests(self):
-        if self.sql_metric_ymls:
-            for sql_metric in self.sql_metric_ymls:
+        self._query_sql_metrics_and_run_tests_base(self.scan_yml.sql_metric_ymls)
+        for column_name_lower in self.scan_columns:
+            scan_column: ScanColumn = self.scan_columns[column_name_lower]
+            if scan_column and scan_column.scan_yml_column:
+                self._query_sql_metrics_and_run_tests_base(scan_column.scan_yml_column.sql_metric_ymls, column_name_lower)
+
+    def _query_sql_metrics_and_run_tests_base(self, sql_metric_ymls: Optional[List[SqlMetricYml]], column_name_lower: Optional[str] = None):
+        if sql_metric_ymls:
+            for sql_metric in sql_metric_ymls:
                 if self.variables:
                     sql_variables = self.variables.copy() if self.variables else {}
                     # TODO add functions to sql_variables that can convert scan variables to valid SQL literals
@@ -407,11 +412,29 @@ class Scan:
                     resolved_sql = sql_metric.sql
 
                 if sql_metric.group_fields:
-                    self._run_sql_metric_with_groups_and_run_tests(sql_metric, resolved_sql)
+                    self._run_sql_metric_with_groups_and_run_tests(sql_metric, resolved_sql, column_name_lower)
                 else:
-                    self._run_sql_metric_default_and_run_tests(sql_metric, resolved_sql)
+                    self._run_sql_metric_default_and_run_tests(sql_metric, resolved_sql, column_name_lower)
 
-    def _run_sql_metric_with_groups_and_run_tests(self, sql_metric: SqlMetricYml, resolved_sql: str):
+    def _run_sql_metric_default_and_run_tests(self, sql_metric: SqlMetricYml, resolved_sql: str, column_name_lower: Optional[str] = None):
+        row_tuple, description = self.warehouse.sql_fetchone_description(resolved_sql)
+        test_variables = self._get_test_variables(column_name_lower)
+
+        measurements = []
+        for i in range(len(row_tuple)):
+            metric_name = sql_metric.metric_names[i] if sql_metric.metric_names is not None else description[i][0]
+            metric_value = row_tuple[i]
+            logging.debug(f'SQL metric {sql_metric.name} {metric_name} -> {metric_value}')
+            measurement = Measurement(metric=metric_name, value=metric_value)
+            test_variables[metric_name] = metric_value
+            self._log_and_append_query_measurement(measurements, measurement)
+
+        self._flush_measurements(measurements)
+
+        sql_metric_test_results = self._execute_tests(sql_metric.tests, test_variables)
+        self._flush_test_results(sql_metric_test_results)
+
+    def _run_sql_metric_with_groups_and_run_tests(self, sql_metric: SqlMetricYml, resolved_sql: str, column_name_lower: Optional[str] = None):
         measurements = []
         test_results = []
         group_fields_lower = set(group_field.lower() for group_field in sql_metric.group_fields)
@@ -434,14 +457,10 @@ class Scan:
                     group_values_by_metric_name[metric_name] = []
                 group_values = group_values_by_metric_name[metric_name]
                 group_values.append(GroupValue(group=group, value=metric_value))
-                logging.debug(f'SQL metric {sql_metric.file_name} {metric_name} {group} -> {metric_value}')
+                logging.debug(f'SQL metric {sql_metric.name} {metric_name} {group} -> {metric_value}')
 
             sql_metric_tests = sql_metric.tests
-            test_variables = {
-                measurement.metric: measurement.value
-                for measurement in self.scan_result.measurements
-                if measurement.column_name is None
-            }
+            test_variables = self._get_test_variables(column_name_lower)
             test_variables.update(metric_values)
             sql_metric_test_results = self._execute_tests(sql_metric_tests, test_variables, group)
             test_results.extend(sql_metric_test_results)
@@ -454,34 +473,15 @@ class Scan:
         self._flush_measurements(measurements)
         self._flush_test_results(test_results)
 
-    def _run_sql_metric_default_and_run_tests(self, sql_metric: SqlMetricYml, resolved_sql: str):
-        row_tuple, description = self.warehouse.sql_fetchone_description(resolved_sql)
-        test_variables = {
+    def _get_test_variables(self, column_name_lower: Optional[str] = None):
+        return {
             measurement.metric: measurement.value
             for measurement in self.scan_result.measurements
-            if measurement.column_name is None
+            if measurement.column_name is None or measurement.column_name.lower() == column_name_lower
         }
-
-        measurements = []
-        for i in range(len(row_tuple)):
-            metric_name = sql_metric.metric_names[i] if sql_metric.metric_names is not None else description[i][0]
-            metric_value = row_tuple[i]
-            logging.debug(f'SQL metric {sql_metric.file_name} {metric_name} -> {metric_value}')
-            measurement = Measurement(metric=metric_name, value=metric_value)
-            test_variables[metric_name] = metric_value
-            self._log_and_append_query_measurement(measurements, measurement)
-
-        self._flush_measurements(measurements)
-
-        sql_metric_test_results = self._execute_tests(sql_metric.tests, test_variables)
-        self._flush_test_results(sql_metric_test_results)
 
     def _run_table_tests(self):
-        test_variables = {
-            measurement.metric: measurement.value
-            for measurement in self.scan_result.measurements
-            if measurement.column_name is None
-        }
+        test_variables = self._get_test_variables()
 
         table_tests = self.scan_yml.tests
         table_test_results = self._execute_tests(table_tests, test_variables)
@@ -492,11 +492,7 @@ class Scan:
         for column_name_lower in self.scan_columns:
             scan_column: ScanColumn = self.scan_columns[column_name_lower]
             column_tests = scan_column.get_tests()
-            test_variables = {
-                measurement.metric: measurement.value
-                for measurement in self.scan_result.measurements
-                if measurement.column_name is None or measurement.column_name.lower() == column_name_lower
-            }
+            test_variables = self._get_test_variables(column_name_lower)
             column_test_results = self._execute_tests(column_tests, test_variables)
             test_results.extend(column_test_results)
         self._flush_test_results(test_results)

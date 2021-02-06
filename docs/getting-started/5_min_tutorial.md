@@ -14,20 +14,14 @@ in our [GitHub Discussions forum](https://github.com/sodadata/soda-sql/discussio
 
 Open a command line and enter `soda` to verify if the soda-sql command line tool is installed correctly.
 
-If you don't get this output, check out our [Installation guide]({% link getting-started/installation.md %}).
+If you don't get this kind of output, check out our [Installation guide]({% link getting-started/installation.md %}).
 
 ```shell
 $ soda
 Usage: soda [OPTIONS] COMMAND [ARGS]...
-
-Options:
-  --help  Show this message and exit.
-
-Commands:
-  create  Creates a new project directory and prepares credentials in your...
-  init    Initializes scan.yml files based on profiling tables found in the...
-  scan    Computes all measurements and runs all tests on one table.
+...
 ```
+
 
 
 ### 2) Set up an example warehouse
@@ -92,20 +86,18 @@ database we've just set up.  The command will also create and store the credenti
 
 _Command:_
 ```shell
-soda create -d sodasql -u sodasql ./soda_sql_tutorial postgres
+soda create -d sodasql -u sodasql -w postgres_local_tutorial postgres
 ```
 _Command console output:_
 ```
-  | Soda CLI version 2.0.0 beta
-  | Creating warehouse directory ./soda_sql_tutorial ...
-  | Creating warehouse configuration file ./soda_sql_tutorial/warehouse.yml ...
-  | Creating /Users/tom/.soda/env_vars.yml with example env vars in section soda_sql_tutorial
+  | Soda CLI version 
+  | Creating warehouse YAML file warehouse.yml ...
+  | Creating /Users/tom/.soda/env_vars.yml with example env vars in section postgres_local_tutorial
   | Review warehouse.yml by running command
-  |   cat ./soda_sql_tutorial/warehouse.yml
-  | Review section soda_sql_tutorial in ~/.soda/env_vars.yml by running command
+  |   cat warehouse.yml
+  | Review section postgres_local_tutorial in ~/.soda/env_vars.yml by running command
   |   cat ~/.soda/env_vars.yml
-  | Then run
-  |   soda init ./soda_sql_tutorial
+  | Then run the soda init command
 ```
 
 The `soda create` command will only create and append configuration files.  It will
@@ -113,49 +105,54 @@ never overwrite or delete existing files so you can safely run the command
 multiple times, or against an existing directory.
 
 Next, review the 2 files that have been created:
- * `cat ./soda_sql_tutorial/warehouse.yml`
+ * `cat ./warehouse.yml`
  * `cat ~/.soda/env_vars.yml`
 
 You can continue without changing anything.
 
 Check out the [warehouse.yml]({% link documentation/warehouse.md %}) or [env_vars.yml]({% link documentation/cli.md %}#env-vars) documentation to learn more about these files.
 
-### 4\) Initialize table scan.yml files
+### 4\) Initialize table scan YAML files
 
-Now our warehouse is configured it's time to initialize it with a `scan.yml` for each table.
-We can run the `soda init` command to automatically generate a `scan.yml` for each table
+Now our warehouse is configured it's time to create a scan YAML file for the tables we want to scan.
+We can run the `soda init` command to automatically generate a `{table_name}.yml` for each table
 in our PostgreSQL warehouse:
+
+Run this command in the directory where the `warehouse.yml` is located that was just created in the previous step:
 
 _Command:_
 ```shell
-soda init ./soda_sql_tutorial
+soda init 
 ```
 _Command console output:_
 ```
-  | Soda CLI version 2.0.0 beta
-  | Initializing ./soda_sql_tutorial ...
+soda init
+  | 
+  | Initializing warehouse.yml ...
   | Querying warehouse for tables
-  | Executing SQL query:
-SELECT table_name
-FROM information_schema.tables
+  | Creating tables directory tables
+  | Executing SQL query: 
+SELECT table_name 
+FROM information_schema.tables 
 WHERE lower(table_schema)='public'
-  | SQL took 0:00:00.005413
-  | Creating table directory ./soda_sql_tutorial/demodata
-  | Creating ./soda_sql_tutorial/demodata/scan.yml ...
-  | Next run 'soda scan ./soda_sql_tutorial demodata' to calculate measurements and run tests
+  | SQL took 0:00:00.011542
+  | Creating tables/demodata.yml ...
+  ... Some queries will be executed and shown on the console.  The queries are used   ... 
+  ... to do type inference and prepare default scan YAML files that you can customize ... 
+  | Next run 'soda scan tables/demodata.yml' to calculate measurements and run tests
 ```
 
 ### 5\) Review the generated scan.yml files
 
-Each `scan.yml` will contain the metric and test instructions used by `soda scan`. By default `soda init` will
-create a `scan.yml` file with some good defaults, but feel free to modify the generated configurations
+Each scan YAML file will contain the metric and test instructions used by `soda scan`. By default `soda init` will
+create a scan YAML file with some good defaults, but feel free to modify the generated configurations
 to fit your needs.
 
-> Head over to the [Scan Documentation]({% link documentation/scan.md %}) for more in-depth information about the `scan.yml` file.
+> Head over to the [Scan Documentation]({% link documentation/scan.md %}) for more in-depth information about scan YAML files.
 
 _Command:_
 ```shell
-cat ./soda_sql_tutorial/demodata/scan.yml
+cat ./tables/demodata.yml
 ```
 _Command console output:_
 ```yaml
@@ -170,15 +167,26 @@ metrics:
   - valid_percentage
   - invalid_count
   - invalid_percentage
+  - min_length
+  - max_length
+  - avg_length
   - min
   - max
   - avg
   - sum
-  - min_length
-  - max_length
-  - avg_length
+  - variance
+  - stddev
 tests:
   - row_count > 0
+columns:
+  id:
+    valid_format: uuid
+    tests:
+      - invalid_percentage == 0
+  feepct:
+    valid_format: number_percentage
+    tests:
+      - invalid_percentage == 0
 ```
 
 ### 6\) Run a scan
@@ -190,7 +198,7 @@ To run your first scan on the `demodata` table simply run:
 
 _Command:_
 ```shell
-soda scan ./soda_sql_tutorial demodata
+soda scan tables/demodata.yml
 ```
 _Command console output:_
 ```shell

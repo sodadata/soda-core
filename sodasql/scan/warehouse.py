@@ -12,7 +12,7 @@ import logging
 from typing import List
 
 from sodasql.scan.db import sql_fetchone, sql_fetchall, sql_fetchone_description, sql_fetchall_description
-from sodasql.scan.sql_metric_yml import SqlMetricYml
+from sodasql.scan.dialect import Dialect
 from sodasql.scan.warehouse_yml import WarehouseYml
 
 

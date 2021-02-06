@@ -5,6 +5,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+### Changed
+- Moved the SQL metrics inside the scan YAML files, with option to specify the SQL inline or refer to a file.
+### Added
+- Added column level SQL metrics
+- Added documentation on SQL metric variables
 
 ## [2.0.0b6] - 2021-02-05
 ### Changed

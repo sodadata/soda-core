@@ -8,11 +8,9 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-from typing import List
 
-from sodasql.cli.file_system import FileSystemSingleton
+from sodasql.scan.file_system import FileSystemSingleton
 from sodasql.scan.parser import Parser
-from sodasql.scan.scan_yml_parser import ScanYmlParser
 from sodasql.scan.sql_metric_yml import SqlMetricYml
 
 KEY_SQL = 'sql'
@@ -42,7 +40,7 @@ class SqlMetricYmlParser(Parser):
             tests = self.parse_tests(
                 sql_metric_dict,
                 KEY_TESTS,
-                context_sql_metric_file_name=sql_metric_file_name)
+                context_sql_metric=sql_metric_file_name)
 
             self.sql_metric: SqlMetricYml = SqlMetricYml(sql=sql,
                                                          metric_names=metric_names,

@@ -10,17 +10,8 @@ nav_order: 7
 Soda SQL comes shipped with the capability to extend our default set of common metrics. This
 allows you to compose tests based on custom-made optimized for your dataset.
 
-Creating new custom SQL metrics is as simple as creating an additional `.yml` file in the
-directory containing the `scan.yml`. Soda SQL will then automatically recognize these files.
-
-An example of such a directory structure may look like:
-```
-- your_project/
-  - warehouse.yml
-  - orders/
-    - scan.yml
-    - total_volume_us.sql
-```
+Custom SQL metrics are specified in the scan YAML file in one of two places. 
+Use the `sql-metrics` element on the top level or on the column level.
 
 ## Basic metric query
 
@@ -33,12 +24,14 @@ For example:
 
 
 ```yaml
-sql: |
-    SELECT sum(volume) as total_volume_us
-    FROM CUSTOMER_TRANSACTIONS
-    WHERE country = 'US'
-tests:
-    - total_volume_us > 5000
+table_name: mytable
+sql_metrics: 
+    - sql: |
+        SELECT sum(volume) as total_volume_us
+        FROM CUSTOMER_TRANSACTIONS
+        WHERE country = 'US'
+      tests:
+        - total_volume_us > 5000
 ```
 
 ## Multiple metrics in one query
@@ -46,17 +39,19 @@ tests:
 You can also compute multiple metric values in a single query. These values can then be combined in your tests:
 
 ```yaml
-sql: |
-    SELECT sum(volume) as total_volume_us,
-           min(volume) as min_volume_us,
-           max(volume) as max_volume_us
-    FROM CUSTOMER_TRANSACTIONS
-    WHERE country = 'US'
-tests:
-    - total_volume_us > 5000
-    - min_volume_us > 20
-    - max_volume_us > 100
-    - max_volume_us - min_volume_us < 60
+table_name: mytable
+sql_metrics: 
+    - sql: |
+        SELECT sum(volume) as total_volume_us,
+               min(volume) as min_volume_us,
+               max(volume) as max_volume_us
+        FROM CUSTOMER_TRANSACTIONS
+        WHERE country = 'US'
+      tests:
+        - total_volume_us > 5000
+        - min_volume_us > 20
+        - max_volume_us > 100
+        - max_volume_us - min_volume_us < 60
 ```
 
 ## Group by queries
@@ -67,20 +62,22 @@ each group combination.  In order for Soda SQL to understand that you're using a
 by setting the `group_fields` property:
 
 ```yaml
-sql: |
-    SELECT country,
-           sum(volume) as total_volume,
-           min(volume) as min_volume,
-           max(volume) as max_volume
-    FROM CUSTOMER_TRANSACTIONS
-    GROUP BY country
-group_fields:
-    - country
-tests:
-    - total_volume > 5000
-    - min_volume > 20
-    - max_volume > 100
-    - max_volume - min_volume < 60
+table_name: mytable
+sql_metrics: 
+    - sql: |
+        SELECT country,
+               sum(volume) as total_volume,
+               min(volume) as min_volume,
+               max(volume) as max_volume
+        FROM CUSTOMER_TRANSACTIONS
+        GROUP BY country
+      group_fields:
+        - country
+      tests:
+        - total_volume > 5000
+        - min_volume > 20
+        - max_volume > 100
+        - max_volume - min_volume < 60
 ```
 
 ## Metric names
@@ -90,19 +87,78 @@ do so you'll have to provide the `metric_names` property. This property contains
 a list of values which should match the order of values in your `SELECT` statement:
 
 ```yaml
-sql: |
-    SELECT sum(volume),
-           min(volume),
-           max(volume)
-    FROM CUSTOMER_TRANSACTIONS
-    WHERE country = 'US'
-metric_names:
-    - total_volume_us
-    - min_volume_us
-    - max_volume_us
-tests:
-    - total_volume_us > 5000
-    - min_volume_us > 20
-    - max_volume_us > 100
-    - max_volume_us - min_volume_us < 60
+table_name: mytable
+sql_metrics: 
+    - sql: |
+        SELECT sum(volume),
+               min(volume),
+               max(volume)
+        FROM CUSTOMER_TRANSACTIONS
+        WHERE country = 'US'
+      metric_names:
+        - total_volume_us
+        - min_volume_us
+        - max_volume_us
+      tests:
+        - total_volume_us > 5000
+        - min_volume_us > 20
+        - max_volume_us > 100
+        - max_volume_us - min_volume_us < 60
 ```
+
+## Column SQL metrics
+
+Defining a SQL metric on a column level will also make the column metrics available in 
+the tests.
+
+```yaml
+table_name: mytable
+columns:
+    metrics:
+        - avg
+    volume: 
+        sql_metrics: 
+            - sql: |
+                SELECT sum(volume) as total_volume_us
+                FROM CUSTOMER_TRANSACTIONS
+                WHERE country = 'US'
+              tests:
+                - total_volume_us - avg > 5000
+```
+
+## Variables
+
+The variables passed in to a scan are also available in the SQL metrics:
+
+Jinja syntax is used to resolve the variables.
+
+```yaml
+table_name: mytable
+sql_metrics: 
+    - sql: |
+        SELECT sum(volume) as total_volume_us
+        FROM CUSTOMER_TRANSACTIONS
+        WHERE country = 'US' AND date = DATE '{{ date }}'
+      tests:
+        - total_volume_us > 5000
+```
+
+## SQL file reference
+
+Instead of inlining the SQL in the YAML files, it's also possible to refer to 
+a file relative to the scan YAML file.
+
+```yaml
+table_name: mytable
+sql_metrics: 
+    - sql_file: mytable_metric_us_volume.sql
+      tests:
+        - total_volume_us > 5000
+```
+Where `mytable_metric_us_volume.sql` contains 
+```sql
+SELECT sum(volume) as total_volume_us
+FROM CUSTOMER_TRANSACTIONS
+WHERE country = 'US'
+```
+

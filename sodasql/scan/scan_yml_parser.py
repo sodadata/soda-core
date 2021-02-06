@@ -8,20 +8,23 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-from typing import Optional, Set, List
+from typing import Set, List, Optional
 
 from jinja2 import Template
 
+from sodasql.scan.file_system import FileSystemSingleton
 from sodasql.scan.metric import Metric
 from sodasql.scan.missing import Missing
 from sodasql.scan.parser import Parser
 from sodasql.scan.scan_yml import ScanYml
 from sodasql.scan.scan_yml_column import ScanYmlColumn
+from sodasql.scan.sql_metric_yml import SqlMetricYml
 from sodasql.scan.validity import Validity
 
 KEY_TABLE_NAME = 'table_name'
 KEY_METRICS = 'metrics'
 KEY_METRIC_GROUPS = 'metric_groups'
+KEY_SQL_METRICS = 'sql_metrics'
 KEY_TESTS = 'tests'
 KEY_COLUMNS = 'columns'
 KEY_MINS_MAXS_LIMIT = 'mins_maxs_limit'
@@ -30,11 +33,14 @@ KEY_SAMPLE_PERCENTAGE = 'sample_percentage'
 KEY_SAMPLE_METHOD = 'sample_method'
 KEY_FILTER = 'filter'
 
-VALID_SCAN_YML_KEYS = [KEY_TABLE_NAME, KEY_METRICS, KEY_METRIC_GROUPS, KEY_TESTS, KEY_COLUMNS,
-                       KEY_MINS_MAXS_LIMIT, KEY_FREQUENT_VALUES_LIMIT,
+VALID_SCAN_YML_KEYS = [KEY_TABLE_NAME, KEY_METRICS, KEY_METRIC_GROUPS, KEY_SQL_METRICS,
+                       KEY_TESTS, KEY_COLUMNS, KEY_MINS_MAXS_LIMIT, KEY_FREQUENT_VALUES_LIMIT,
                        KEY_SAMPLE_PERCENTAGE, KEY_SAMPLE_METHOD, KEY_FILTER]
 
-COLUMN_KEY_TESTS = 'tests'
+COLUMN_KEY_METRICS = KEY_METRICS
+COLUMN_KEY_METRIC_GROUPS = KEY_METRIC_GROUPS
+COLUMN_KEY_SQL_METRICS = KEY_SQL_METRICS
+COLUMN_KEY_TESTS = KEY_TESTS
 
 COLUMN_KEY_MISSING_VALUES = 'missing_values'
 COLUMN_KEY_MISSING_FORMAT = 'missing_format'
@@ -63,17 +69,29 @@ COLUMN_VALID_KEYS = [
     COLUMN_KEY_VALID_MAX_LENGTH]
 
 VALID_COLUMN_KEYS = COLUMN_MISSING_KEYS + COLUMN_VALID_KEYS + [
-    KEY_METRICS,
-    KEY_METRIC_GROUPS,
+    COLUMN_KEY_METRICS,
+    COLUMN_KEY_METRIC_GROUPS,
+    COLUMN_KEY_SQL_METRICS,
     COLUMN_KEY_TESTS]
+
+SQL_METRIC_KEY_NAME = 'name'
+SQL_METRIC_KEY_SQL = 'sql'
+SQL_METRIC_KEY_SQL_FILE = 'sql_file'
+SQL_METRIC_KEY_METRIC_NAMES = 'metric_names'
+SQL_METRIC_KEY_TESTS = KEY_TESTS
+SQL_METRIC_KEY_GROUP_FIELDS = 'group_fields'
+
+VALID_SQL_METRIC_KEYS = [SQL_METRIC_KEY_SQL, SQL_METRIC_KEY_METRIC_NAMES, SQL_METRIC_KEY_TESTS, SQL_METRIC_KEY_GROUP_FIELDS]
 
 
 class ScanYmlParser(Parser):
 
     def __init__(self,
                  scan_dict: dict,
-                 scan_file_name: str = 'scan'):
-        super().__init__(scan_file_name)
+                 scan_yaml_path: str = 'scan'):
+        super().__init__(scan_yaml_path)
+
+        self.scan_yaml_path = scan_yaml_path
 
         self.scan_yml = ScanYml()
 
@@ -82,6 +100,7 @@ class ScanYmlParser(Parser):
         table_name = self.get_str_required(KEY_TABLE_NAME)
         self.scan_yml.table_name = table_name
         self.scan_yml.metrics = self.parse_metrics()
+        self.scan_yml.sql_metric_ymls = self.parse_sql_metric_ymls(KEY_SQL_METRICS)
         self.scan_yml.tests = self.parse_tests(scan_dict, KEY_TESTS, context_table_name=table_name)
         self.scan_yml.columns = self.parse_columns(self.scan_yml)
         self.scan_yml.sample_percentage = self.get_float_optional(KEY_SAMPLE_PERCENTAGE)
@@ -99,7 +118,7 @@ class ScanYmlParser(Parser):
 
         self.check_invalid_keys(VALID_SCAN_YML_KEYS)
 
-    def parse_metrics(self, column_name: Optional[str] = None):
+    def parse_metrics(self):
         metrics: Set[str] = set(self.get_list_optional(KEY_METRICS, []))
         metrics_groups: Set[str] = set(self.get_list_optional(KEY_METRIC_GROUPS, []))
 
@@ -182,7 +201,7 @@ class ScanYmlParser(Parser):
             else:
                 self._push_context(column_dict, column_name)
 
-                metrics: Set[str] = self.parse_metrics(column_name)
+                metrics: Set[str] = self.parse_metrics()
 
                 if self.remove_metric(metrics, Metric.ROW_COUNT):
                     self.ensure_metric(scan_configuration.metrics, Metric.ROW_COUNT, f'{Metric.ROW_COUNT} {column_name}')
@@ -208,6 +227,8 @@ class ScanYmlParser(Parser):
                     validity.min_length = column_dict.get(COLUMN_KEY_VALID_MIN_LENGTH)
                     validity.max_length = column_dict.get(COLUMN_KEY_VALID_MAX_LENGTH)
 
+                sql_metric_ymls = self.parse_sql_metric_ymls(metrics_key=COLUMN_KEY_SQL_METRICS, column_name=column_name)
+
                 tests = self.parse_tests(column_dict,
                                          COLUMN_KEY_TESTS,
                                          context_table_name=scan_configuration.table_name,
@@ -218,6 +239,7 @@ class ScanYmlParser(Parser):
                 column_name_lower = column_name.lower()
                 scan_configuration_columns[column_name_lower] = ScanYmlColumn(
                     metrics=metrics,
+                    sql_metric_ymls=sql_metric_ymls,
                     missing=missing,
                     validity=validity,
                     tests=tests)
@@ -228,3 +250,59 @@ class ScanYmlParser(Parser):
 
         return scan_configuration_columns
 
+    def parse_sql_metric_ymls(self, metrics_key: str, column_name: Optional[str] = None) -> List[SqlMetricYml]:
+        sql_metrics_dicts: List[dict] = self.get_list_optional(metrics_key, [])
+        if isinstance(sql_metrics_dicts, list):
+            self._push_context(sql_metrics_dicts, metrics_key)
+            try:
+                sql_metric_ymls = []
+                for i in range(len(sql_metrics_dicts)):
+                    sql_metric_dict = sql_metrics_dicts[i]
+                    sql_metric_yml = self.parse_sql_metric(sql_metric_dict=sql_metric_dict,
+                                                           sql_metric_index=i,
+                                                           column_name=column_name)
+                    sql_metric_ymls.append(sql_metric_yml)
+                return sql_metric_ymls
+            finally:
+                self._pop_context()
+        elif sql_metrics_dicts is not None:
+            self.error(f'Invalid YAML structure near {metrics_key}: Expected list of SQL metrics, but was {type(sql_metrics_dicts)}')
+
+    def parse_sql_metric(self, sql_metric_dict, sql_metric_index: int, column_name: Optional[str] = None) -> SqlMetricYml:
+        if isinstance(sql_metric_dict, dict):
+            self._push_context(object=sql_metric_dict, name=sql_metric_index)
+
+            try:
+                name = self.get_str_optional(SQL_METRIC_KEY_NAME, str(sql_metric_index))
+                metric_names = self.get_list_optional(SQL_METRIC_KEY_METRIC_NAMES)
+                group_fields = self.get_list_optional(SQL_METRIC_KEY_GROUP_FIELDS)
+                sql = self.get_str_optional(SQL_METRIC_KEY_SQL)
+                sql_file = self.get_str_optional(SQL_METRIC_KEY_SQL_FILE)
+
+                if not sql and not sql_file:
+                    self.error('No sql nor sql_file specified in SQL metric')
+                elif sql_file:
+                    file_system = FileSystemSingleton.INSTANCE
+                    sql_file_path = file_system.join(file_system.dirname(self.scan_yaml_path), sql_file)
+                    sql = file_system.file_read_as_str(sql_file_path)
+
+                tests = self.parse_tests(
+                    sql_metric_dict,
+                    SQL_METRIC_KEY_TESTS,
+                    context_table_name=self.scan_yml.table_name,
+                    context_column_name=column_name,
+                    context_sql_metric=name)
+
+                sql_metric_yml: SqlMetricYml = SqlMetricYml(sql=sql,
+                                                            metric_names=metric_names,
+                                                            name=name,
+                                                            group_fields=group_fields,
+                                                            tests=tests)
+
+                self.check_invalid_keys(VALID_SQL_METRIC_KEYS)
+                return sql_metric_yml
+            finally:
+                self._pop_context()
+
+        else:
+            self.error('No SQL metric configuration provided')

@@ -8,9 +8,12 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
+import logging
 
+from sodasql.common.yaml_helper import YamlHelper
 from sodasql.scan.dialect import Dialect
 from sodasql.scan.env_vars import EnvVars
+from sodasql.scan.file_system import FileSystemSingleton
 from sodasql.scan.parser import Parser
 from sodasql.scan.warehouse_yml import WarehouseYml
 
@@ -21,6 +24,16 @@ KEY_SODA_ACCOUNT = 'soda_account'
 VALID_WAREHOUSE_KEYS = [KEY_NAME, KEY_CONNECTION, KEY_SODA_ACCOUNT]
 
 
+def read_warehouse_yml_file(warehouse_yml_file: str):
+    file_system = FileSystemSingleton.INSTANCE
+    if file_system.is_readable_file(warehouse_yml_file):
+        warehouse_yaml_str = file_system.file_read_as_str(warehouse_yml_file)
+        if warehouse_yaml_str:
+            return YamlHelper.parse_yaml(warehouse_yaml_str, warehouse_yml_file)
+        else:
+            logging.error(f'Failed to read warehouse yaml file: {warehouse_yml_file}')
+
+
 class WarehouseYmlParser(Parser):
     """
     Parses warehouse.yml files
@@ -28,7 +41,7 @@ class WarehouseYmlParser(Parser):
 
     def __init__(self,
                  warehouse_dict: dict,
-                 warehouse_yaml_file: str):
+                 warehouse_yaml_file: str = 'warehouse-dict'):
         super().__init__(description=warehouse_yaml_file)
 
         if isinstance(warehouse_dict, dict):

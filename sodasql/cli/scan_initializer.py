@@ -9,12 +9,14 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 import logging
+import re
 from math import ceil
 
 import yaml
 
-from sodasql.cli.file_system import FileSystemSingleton
+from sodasql.scan.file_system import FileSystemSingleton
 from sodasql.cli.indenting_yaml_dumper import IndentingDumper
+from sodasql.scan.metric import Metric
 from sodasql.scan.validity import Validity
 from sodasql.scan.warehouse import Warehouse
 
@@ -24,20 +26,30 @@ class ScanInitializer:
     def __init__(self, warehouse: Warehouse, warehouse_dir: str):
         self.warehouse: Warehouse = warehouse
         self.warehouse_dir: str = warehouse_dir
+        self.first_table_scan_yml_file = None
 
-    def initialize_scan_ymls(self, rows):
+    def initialize_scan_ymls(self):
         file_system = FileSystemSingleton.INSTANCE
 
+        def fileify(name: str):
+            return re.sub(r'[^A-Za-z0-9_.]+', '_', name).lower()
+
+        table_dir = file_system.join(self.warehouse_dir, 'tables')
+        if not file_system.file_exists(table_dir):
+            logging.info(f'Creating tables directory {table_dir}')
+            file_system.mkdirs(table_dir)
+        else:
+            logging.info(f'Directory {table_dir} already exists')
+
+        rows = self.warehouse.sql_fetchall(
+            self.warehouse.dialect.sql_tables_metadata_query())
         for row in rows:
             table_name = row[0]
-            table_dir = file_system.join(self.warehouse_dir, table_name)
-            if not file_system.file_exists(table_dir):
-                logging.info(f'Creating table directory {table_dir}')
-                file_system.mkdirs(table_dir)
-            else:
-                logging.info(f'Directory {table_dir} already exists')
 
-            table_scan_yaml_file = file_system.join(table_dir, 'scan.yml')
+            table_scan_yaml_file = file_system.join(table_dir, f'{fileify(table_name)}.yml')
+
+            if not self.first_table_scan_yml_file:
+                self.first_table_scan_yml_file = table_scan_yaml_file
 
             if file_system.file_exists(table_scan_yaml_file):
                 logging.info(
@@ -52,16 +64,15 @@ class ScanInitializer:
                                                           COLUMN_KEY_TESTS)
                 scan_yaml_dict = {
                     KEY_TABLE_NAME: table_name,
-                    KEY_METRICS: [
-                        # TODO replace with constants
-                        'row_count',
-                        'missing_count', 'missing_percentage', 'values_count', 'values_percentage',
-                        'valid_count', 'valid_percentage', 'invalid_count', 'invalid_percentage',
-                        'min', 'max', 'avg', 'sum', 'min_length', 'max_length', 'avg_length'
-                    ],
-                    KEY_TESTS: {
-                        'row_count_min': 'row_count > 0'
-                    }
+                    KEY_METRICS:
+                        [Metric.ROW_COUNT] +
+                        Metric.METRIC_GROUPS[Metric.METRIC_GROUP_MISSING] +
+                        Metric.METRIC_GROUPS[Metric.METRIC_GROUP_VALIDITY] +
+                        Metric.METRIC_GROUPS[Metric.METRIC_GROUP_LENGTH] +
+                        Metric.METRIC_GROUPS[Metric.METRIC_GROUP_STATISTICS],
+                    KEY_TESTS: [
+                        'row_count > 0'
+                    ]
                 }
 
                 dialect = self.warehouse.dialect
@@ -111,9 +122,9 @@ class ScanInitializer:
                                     valid_percentage = valid_count * 100 / values_count
                                     invalid_threshold = (100 - valid_percentage) * 1.1
                                     invalid_threshold_rounded = ceil(invalid_threshold)
-                                    column_yml[COLUMN_KEY_TESTS] = {
-                                        'invalid_pct_max': f'invalid_percentage <= {str(invalid_threshold_rounded)}'
-                                    }
+                                    column_yml[COLUMN_KEY_TESTS] = [
+                                        f'invalid_percentage == {str(invalid_threshold_rounded)}'
+                                    ]
                                 columns[column_name] = column_yml
 
                 if columns:

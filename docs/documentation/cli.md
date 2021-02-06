@@ -15,25 +15,27 @@ your Soda SQL configuration files.
 To see the list of available commands, enter `soda` in your terminal:
 
 ```
-soda
+$ soda
 Usage: soda [OPTIONS] COMMAND [ARGS]...
+
+  Soda CLI version 2.0.0b7
 
 Options:
   --help  Show this message and exit.
 
 Commands:
-  create  Creates a new warehouse directory and prepares credentials in
-          your...
+  create  Creates a new warehouse.yml file and prepares credentials in your...
+  init    Finds tables in the warehouse and creates scan YAML files based
+          on...
 
-  init    Finds tables in the warehouse and based on the contents, creates...
   scan    Computes all measurements and runs all tests on one table.
 ```
 
 | Command | Description |
 | ------- | ----------- |
-| `soda create ...` | Creates a new warehouse directory and prepares credentials in your ~/.soda/env_vars.yml Nothing will be overwritten or removed, only added if it does not exist yet. |
-| `soda init ...` | Finds tables in the warehouse and based on the contents, creates initial scan.yml files |
-| `soda scan ...` | Computes all measurements and runs all tests on one table.  Exit code 0 means all tests passed. Non zero exit code means tests have failed or an exception occurred. If the project has a Soda cloud account configured, measurements and test results will be uploaded |
+| `soda create ...` | Creates a new warehouse.yml file and prepares credentials in your ~/.soda/env_vars.yml Nothing will be overwritten or removed, only added if it does not exist yet. |
+| `soda init ...` | Finds tables in the warehouse and creates scan YAML files based on the data in the table, creates files in a subdirectory called "tables" next to the warehouse file. |
+| `soda scan ...` | Computes all measurements and runs all tests on one table.  Exit code 0 means all tests passed. Non zero exit code means tests have failed or an exception occurred. If the warehouse YAML file has a Soda cloud account configured, measurements and test results will be uploaded. |
 
 To learn about the parameters, use the command line help:
 * `soda create --help`

@@ -25,7 +25,6 @@ from sodasql.scan.metric import Metric
 from sodasql.scan.scan_column import ScanColumn
 from sodasql.scan.scan_result import ScanResult
 from sodasql.scan.scan_yml_parser import KEY_TABLE_NAME, ScanYmlParser
-from sodasql.scan.sql_metric_yml_parser import SqlMetricYmlParser
 from sodasql.scan.warehouse import Warehouse
 from sodasql.scan.warehouse_yml import WarehouseYml
 from tests.common.mock_soda_server_client import MockSodaServerClient
@@ -146,7 +145,6 @@ class SqlTestCase(TestCase):
 
     def scan(self,
              scan_yml_dict: Optional[dict] = None,
-             sql_metric_dicts: Optional[List[dict]] = None,
              variables: Optional[dict] = None) -> ScanResult:
         if not scan_yml_dict:
             scan_yml_dict = {}
@@ -156,15 +154,7 @@ class SqlTestCase(TestCase):
         scan_configuration_parser = ScanYmlParser(scan_yml_dict, 'test-scan')
         scan_configuration_parser.assert_no_warnings_or_errors()
 
-        sql_metric_ymls = []
-        if sql_metric_dicts:
-            for i in range(len(sql_metric_dicts)):
-                sql_metric_parser = SqlMetricYmlParser(sql_metric_dicts[i], f'sql-metric-{i}')
-                sql_metric_parser.assert_no_warnings_or_errors()
-                sql_metric_ymls.append(sql_metric_parser.sql_metric)
-
         scan = self.warehouse.create_scan(scan_yml=scan_configuration_parser.scan_yml,
-                                          sql_metric_ymls=sql_metric_ymls,
                                           variables=variables,
                                           soda_server_client=self.mock_soda_server_client)
         scan.close_warehouse = False
@@ -176,7 +166,7 @@ class SqlTestCase(TestCase):
             scan_dict = {}
         if KEY_TABLE_NAME not in scan_dict:
             scan_dict[KEY_TABLE_NAME] = self.default_test_table_name
-        scan_configuration_parser = ScanYmlParser(scan_dict, 'Test scan')
+        scan_configuration_parser = ScanYmlParser(scan_dict, 'test-scan')
         scan_configuration_parser.assert_no_warnings_or_errors()
         scan = warehouse.create_scan(scan_yml=scan_configuration_parser.scan_yml)
         scan.close_warehouse = False

@@ -64,23 +64,23 @@ columns:
 
 ## SQL metric tests 
 
-SQL metric tests in sql metric yaml files are used for testing sql metric values.
+SQL metric tests in scan YAML files are used for testing sql metric values.
 
 Available metrics:
 * Table metrics like `row_count`
 * User defined SQL metrics
-
-[comment]: <> (TODO if column is specified in sql metric, it should enable the column metrics)
-[comment]: <> (* Column metrics like `missing_count`, `invalid_percentage`, ...)
+* Column metrics if the SQL metric was specified on a column
 
 Example SQL metric YAML file that includes SQL metric test:
 ```yaml
-sql: |
-    SELECT sum(volume) as total_volume_us
-    FROM CUSTOMER_TRANSACTIONS
-    WHERE country = 'US'
-tests:
-    - total_volume_us > 5000
+table_name: yourtable
+sql_metrics:
+    - sql: |
+          SELECT sum(volume) as total_volume_us
+          FROM CUSTOMER_TRANSACTIONS
+          WHERE country = 'US'
+      tests:
+          - total_volume_us > 5000
 ```
 
 ## Test names

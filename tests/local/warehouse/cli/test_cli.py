@@ -13,13 +13,14 @@ import os
 from click.testing import CliRunner
 
 from sodasql.cli.cli import main
-from sodasql.cli.file_system import FileSystem, FileSystemSingleton
+from sodasql.scan.file_system import FileSystem, FileSystemSingleton
 from sodasql.dialects.postgres_dialect import PostgresDialect
 from tests.common.sql_test_case import SqlTestCase
 
 
 class CliWithMockFileSystem(FileSystem):
 
+    current_dir = '/'
     dirs = set()
     files = {}
 
@@ -27,31 +28,46 @@ class CliWithMockFileSystem(FileSystem):
         return '/Users/johndoe'
 
     def is_dir(self, path: str):
-        return path in self.dirs
+        normalized_path = self.normalize(path)
+        return normalized_path in self.dirs
 
     def mkdirs(self, path: str):
-        self.dirs.add(path)
+        normalized_path = self.normalize(path)
+        self.dirs.add(normalized_path)
 
     def file_read_as_str(self, path: str) -> str:
-        return self.files.get(str(path))
+        normalized_path = self.normalize(path)
+        return self.files.get(normalized_path)
 
     def file_write_from_str(self, path: str, file_content_str):
-        self.files[str(path)] = file_content_str
+        normalized_path = self.normalize(path)
+        self.files[normalized_path] = file_content_str
 
     def file_exists(self, path: str):
-        return str(path) in self.files
+        normalized_path = self.normalize(path)
+        return self.normalize(normalized_path) in self.files
 
     def is_file(self, path: str):
-        return path in self.files
+        normalized_path = self.normalize(path)
+        return normalized_path in self.files
 
     def is_readable(self, path: str):
         return self.is_file(path)
 
     def list_dir(self, dir_path):
-        return {k: v for k, v in self.files.items() if k.startswith(dir_path)}
+        normalized_dir_path = self.normalize(dir_path)
+        return {k: v for k, v in self.files.items() if k.startswith(normalized_dir_path)}
+
+    def is_readable_file(self, file_path: str):
+        return self.file_exists(self.normalize(file_path))
+
+    def normalize(self, path):
+        parts = os.path.normpath(path).split(os.sep)
+        normalized_path = os.sep.join([part for part in parts if part != '.'])
+        return normalized_path
 
 
-class TestScan(SqlTestCase):
+class TestCli(SqlTestCase):
 
     original_file_system = FileSystemSingleton.INSTANCE
     mock_file_system = None
@@ -84,28 +100,27 @@ class TestScan(SqlTestCase):
 
     def run_cli_create(self):
         runner = CliRunner()
-        result = runner.invoke(main, ['create', '-d', 'sodasql', '-u', 'sodasql', '-p', 'sodasql', './test_project',
-                                      'postgres'])
+        result = runner.invoke(main, ['create', '-d', 'sodasql', '-u', 'sodasql', '-p', 'sodasql', '-w', 'local_postgres_tutorial', 'postgres'])
         self.assertEqual(result.exit_code, 0)
         for file_name in self.mock_file_system.files:
             print(f'[{file_name}]')
             print(CliWithMockFileSystem.files.get(file_name))
 
-        self.assertIsNotNone(self.mock_file_system.files.get('./test_project/warehouse.yml'))
+        self.assertIsNotNone(self.mock_file_system.files.get('warehouse.yml'))
         user_home_dir = self.mock_file_system.user_home_dir()
         self.assertIsNotNone(self.mock_file_system.files.get(f'{user_home_dir}/.soda/env_vars.yml'))
 
     def run_cli_init(self):
         runner = CliRunner()
-        result = runner.invoke(main, ['init', './test_project'])
+        result = runner.invoke(main, ['init'])
         self.assertEqual(result.exit_code, 0)
 
-        scan_yml_str = self.mock_file_system.file_read_as_str(f'./test_project/{self.demodata_table_name}/scan.yml')
+        scan_yml_str = self.mock_file_system.file_read_as_str(f'tables/{self.demodata_table_name.lower()}.yml')
         self.assertIsNotNone(scan_yml_str)
         print(scan_yml_str)
 
     def run_cli_scan(self):
         runner = CliRunner()
-        result = runner.invoke(main, ['scan', './test_project', self.demodata_table_name])
+        result = runner.invoke(main, ['scan', f'tables/{self.demodata_table_name.lower()}.yml'])
         self.assertEqual(result.exit_code, 0)
 

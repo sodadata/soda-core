@@ -42,7 +42,7 @@ scan_configuration_dict = {
     }
 }
 
-scan_configuration_parser = ScanYmlParser(scan_configuration_dict, 'Demodata scan')
+scan_configuration_parser = ScanYmlParser(scan_configuration_dict, 'demodata-scan')
 scan_configuration_parser.assert_no_warnings_or_errors()
 
 dialect = SqlTestCase.create_dialect('postgres')

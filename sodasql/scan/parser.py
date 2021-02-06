@@ -75,7 +75,8 @@ class Parser:
         except Exception as e:
             self.error(f"Couldn't parse yaml in {self.description}: {str(e)}")
 
-    def _push_context(self, object=None, name: str = None):
+    def _push_context(self, object=None, name: Optional[object] = None):
+        name = name if isinstance(name, str) or name is None else str(name)
         self.contexts.append(ParseContext(object=object, name=name))
 
     def _pop_context(self):
@@ -222,7 +223,7 @@ class Parser:
                     tests_key: str,
                     context_table_name: Optional[str] = None,
                     context_column_name: Optional[str] = None,
-                    context_sql_metric_file_name: Optional[str] = None) -> List[Test]:
+                    context_sql_metric: Optional[str] = None) -> List[Test]:
         tests: List[Test] = []
 
         test_ymls = parent_dict.get(tests_key)
@@ -240,7 +241,7 @@ class Parser:
                                                test_expression,
                                                context_table_name,
                                                context_column_name,
-                                               context_sql_metric_file_name)
+                                               context_sql_metric)
                         if test:
                             tests.append(test)
                     finally:
@@ -255,7 +256,7 @@ class Parser:
                                                test_expression,
                                                context_table_name,
                                                context_column_name,
-                                               context_sql_metric_file_name)
+                                               context_sql_metric)
                         if test:
                             tests.append(test)
                     finally:
@@ -273,7 +274,7 @@ class Parser:
                    test_expression: str,
                    context_table_name: str = None,
                    context_column_name: str = None,
-                   context_sql_metric_file_name: str = None):
+                   context_sql_metric: str = None):
 
         if not test_name:
             self.error('Test name is required')
@@ -287,7 +288,7 @@ class Parser:
             test_expression,
             context_table_name,
             context_column_name,
-            context_sql_metric_file_name)
+            context_sql_metric)
 
         try:
             compiled_code = compile(test_expression, 'test', 'eval')
@@ -318,15 +319,13 @@ class Parser:
                                 test_expression,
                                 context_table_name: str,
                                 context_column_name: str,
-                                context_sql_metric_file_name: str):
+                                context_sql_metric: str):
+        parts = []
+        if context_table_name:
+            parts.append(f'table({context_table_name})')
         if context_column_name:
-            return f'table({context_table_name}) ' \
-                   f'column({context_column_name}) ' \
-                   f'expression({test_expression})'
-        elif context_sql_metric_file_name:
-            return f'sql_metric({context_sql_metric_file_name}) ' \
-                   f'expression({test_expression})'
-        elif context_table_name:
-            return f'table({context_table_name}) ' \
-                   f'expression({test_expression})'
-
+            parts.append(f'column({context_column_name})')
+        if context_sql_metric:
+            parts.append(f'sql_metric({context_sql_metric})')
+        parts.append(f'expression({test_expression})')
+        return ' '.join(parts)

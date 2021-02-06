@@ -12,19 +12,9 @@ Here's how to run scans using Python:
 Programmatic scan execution based on default dir structure:
 ```python
 scan_builder = ScanBuilder()
-scan_builder.read_scan_dir('~/my_warehouse_dir', 'my_table_dir')
-scan = scan_builder.build()
-scan_result = scan.execute()
-if scan_result.has_failures():
-    print('Scan has test failures, stop the pipeline')
-```
-
-Programmatic scan execution reading yaml files by path:
-```python
-scan_builder = ScanBuilder()
-scan_builder.read_warehouse_yml('./anydir/warehouse.yml')
-scan_builder.read_scan_yml('./anydir/scan.yml')
-scan_builder.read_sql_metrics_from_dir('./anydir/')
+scan_builder.scan_yml_file = 'tables/my_table.yml'
+# scan_builder will automatically find the warehouse.yml in the parent and same directory as the scan YAML file
+# scan_builder.warehouse_yml_file = '../warehouse.yml'
 scan = scan_builder.build()
 scan_result = scan.execute()
 if scan_result.has_failures():
@@ -34,16 +24,16 @@ if scan_result.has_failures():
 Programmatic scan execution using dicts:
 ```python
 scan_builder = ScanBuilder()
-scan_builder.warehouse_dict({
+scan_builder.warehouse_yml_dict = {
     'name': 'my_warehouse_name',
     'connection': {
         'type': 'snowflake',
         ...
     }
-})
-scan_builder.scan_dict({...})
-scan_builder.sql_metric_dict({...})
-scan_builder.sql_metric_dict({...})
+}
+scan_builder.scan_yml_dict = {
+    ...
+}
 scan = scan_builder.build()
 scan_result = scan.execute()
 if scan_result.has_failures():

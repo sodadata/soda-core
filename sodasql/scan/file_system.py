@@ -18,6 +18,12 @@ class FileSystem:
     def join(self, a: str, *paths: str):
         return os.path.join(a, *paths)
 
+    def dirname(self, path: str):
+        return os.path.dirname(path)
+
+    def normpath(self, path):
+        return os.path.normpath(path)
+
     def split(self, path: str):
         return os.path.split(path)
 
@@ -65,6 +71,18 @@ class FileSystem:
                 os.chmod(path, 0o666)
         except Exception as e:
             logging.debug(f"Couldn't write {str(path)}: {str(e)}")
+
+    def is_readable_file(self, file_path: str):
+        if not self.file_exists(file_path):
+            logging.error(f'{file_path} does not exist')
+            return False
+        elif not self.is_file(file_path):
+            logging.error(f'{file_path} is not a file')
+            return False
+        elif not self.is_readable(file_path):
+            logging.error(f'{file_path} is not readable')
+            return False
+        return True
 
 
 class FileSystemSingleton:

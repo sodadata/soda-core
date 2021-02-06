@@ -12,6 +12,7 @@ from typing import List, Optional, Set
 
 from jinja2 import Template
 
+from sodasql.scan.sql_metric_yml import SqlMetricYml
 from sodasql.scan.test import Test
 
 
@@ -19,7 +20,9 @@ class ScanYml:
 
     table_name: str = None
     metrics: Set[str] = None
+    sql_metric_ymls: List[SqlMetricYml] = None
     tests: List[Test] = None
+    # maps column_name.lower() to ScanYamlColumn's
     columns: dict = None
     sample_percentage: float = None
     sample_method: str = None
@@ -66,5 +69,5 @@ class ScanYml:
     def get_frequent_values_limit(self, column_name):
         return self.mins_maxs_limit
 
-    def get_column_configuration(self, column_name: str):
+    def get_scan_yaml_column(self, column_name: str):
         return self.columns.get(column_name.lower())
