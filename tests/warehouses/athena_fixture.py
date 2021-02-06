@@ -13,6 +13,7 @@ import random
 import re
 import string
 from os import path
+from typing import List
 
 import boto3
 
@@ -26,11 +27,7 @@ class AthenaFixture(WarehouseFixture):
 
     def __init__(self, target: str) -> None:
         super().__init__(target)
-        self.database_location = self.generate_database_location()
-
-    @staticmethod
-    def generate_database_location():
-        return 'test_tables_' + ''.join(random.choice(string.ascii_lowercase + string.digits) for _ in range(10))
+        self.suite_id = 'suite_' + (''.join(random.choice(string.ascii_lowercase + string.digits) for _ in range(5)))
 
     def drop_database(self):
         pass
@@ -38,7 +35,7 @@ class AthenaFixture(WarehouseFixture):
         self.delete_s3_files()
 
     def delete_s3_files(self):
-        database_full_location = path.join(self.warehouse.dialect.athena_staging_dir, self.database_location)
+        database_full_location = path.join(self.warehouse.dialect.athena_staging_dir, self.suite_id)
         logging.debug(f"Deleting all files under %s...", database_full_location)
         bucket = self._extract_s3_bucket(database_full_location)
         folder = self._extract_s3_folder(database_full_location)
@@ -49,6 +46,15 @@ class AthenaFixture(WarehouseFixture):
         self.warehouse.dialect.database = self.database
         sql_updates(self.warehouse.connection, [
             f'CREATE DATABASE IF NOT EXISTS {self.database}'])
+
+    def sql_create_table(self, columns: List[str], table_name: str):
+        columns_sql = ", ".join(columns)
+        table_postfix = (''.join(random.choice(string.ascii_lowercase + string.digits) for _ in range(5)))
+        table_location = path.join(self.warehouse.dialect.athena_staging_dir, self.suite_id, table_name, table_postfix)
+        return f"CREATE EXTERNAL TABLE " \
+               f"{self.warehouse.dialect.qualify_writable_table_name(table_name)} ( \n " \
+               f"{columns_sql} ) \n " \
+               f"LOCATION '{table_location}';"
 
     def tear_down(self):
         pass

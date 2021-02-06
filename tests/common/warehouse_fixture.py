@@ -13,7 +13,7 @@ import random
 import re
 import socket
 import string
-from typing import Optional
+from typing import Optional, List
 
 from sodasql.scan.db import sql_update, sql_updates
 from sodasql.scan.warehouse import Warehouse
@@ -60,6 +60,12 @@ class WarehouseFixture:
         sql_update(self.warehouse.connection,
                    f'DROP DATABASE IF EXISTS {self.database} CASCADE')
         self.warehouse.connection.commit()
+
+    def sql_create_table(self, columns: List[str], table_name: str):
+        columns_sql = ", ".join(columns)
+        return f"CREATE TABLE " \
+               f"{self.warehouse.dialect.qualify_writable_table_name(table_name)} ( \n " \
+               f"{columns_sql} );"
 
     @classmethod
     def create_unique_database_name(cls):

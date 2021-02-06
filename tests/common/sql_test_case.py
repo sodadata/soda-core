@@ -49,8 +49,7 @@ def equals_ignore_case(left, right):
 
 class SqlTestCase(TestCase):
 
-    warehouse_cache_by_target = {}
-    warehouse_fixture_cache_by_target = {}
+    warehouse_fixtures_by_target = {}
     warehouses_close_enabled = True
 
     def __init__(self, method_name: str = ...) -> None:
@@ -68,33 +67,32 @@ class SqlTestCase(TestCase):
     def setUp(self) -> None:
         logging.debug(f'\n\n--- {str(self)} ---')
         super().setUp()
-        self.warehouse = self.setup_get_warehouse()
+        self.warehouse_fixture: Optional[WarehouseFixture] = self.setup_get_warehouse_fixture()
+        self.warehouse = self.warehouse_fixture.warehouse
         self.dialect = self.warehouse.dialect
         self.default_test_table_name = self.generate_test_table_name()
 
     def use_mock_soda_server_client(self):
         self.mock_soda_server_client = MockSodaServerClient()
 
-    def setup_get_warehouse(self):
+    def setup_get_warehouse_fixture(self):
         """self.target may be initialized by a test suite"""
         if self.target is None:
             self.target = os.getenv('SODA_TEST_TARGET', TARGET_POSTGRES)
 
-        warehouse = SqlTestCase.warehouse_cache_by_target.get(self.target)
-        if warehouse is None:
+        warehouse_fixture = SqlTestCase.warehouse_fixtures_by_target.get(self.target)
+        if warehouse_fixture is None:
             logging.debug(f'Creating warehouse {self.target}')
 
             warehouse_fixture = WarehouseFixture.create(self.target)
             dialect = self.create_dialect(self.target)
 
             warehouse_yml = WarehouseYml(dialect=dialect)
-            warehouse = Warehouse(warehouse_yml)
-            warehouse_fixture.warehouse = warehouse
+            warehouse_fixture.warehouse = Warehouse(warehouse_yml)
             warehouse_fixture.create_database()
-            SqlTestCase.warehouse_cache_by_target[self.target] = warehouse
-            SqlTestCase.warehouse_fixture_cache_by_target[self.target] = warehouse_fixture
+            SqlTestCase.warehouse_fixtures_by_target[self.target] = warehouse_fixture
 
-        return warehouse
+        return warehouse_fixture
 
     @classmethod
     def create_dialect(cls, target: str) -> Dialect:
@@ -108,8 +106,7 @@ class SqlTestCase(TestCase):
 
     def tearDown(self) -> None:
         if self.warehouse.connection:
-            warehouse_fixture: WarehouseFixture = SqlTestCase.warehouse_fixture_cache_by_target[self.target]
-            warehouse_fixture.tear_down()
+            self.warehouse_fixture.tear_down()
 
     @classmethod
     def tearDownClass(cls) -> None:
@@ -118,10 +115,10 @@ class SqlTestCase(TestCase):
 
     @classmethod
     def teardown_close_warehouses(cls):
-        for target in SqlTestCase.warehouse_cache_by_target:
-            warehouse_fixture: WarehouseFixture = SqlTestCase.warehouse_fixture_cache_by_target[target]
+        for target in SqlTestCase.warehouse_fixtures_by_target:
+            warehouse_fixture: WarehouseFixture = SqlTestCase.warehouse_fixtures_by_target[target]
             warehouse_fixture.drop_database()
-        SqlTestCase.warehouse_cache_by_target = {}
+        SqlTestCase.warehouse_fixtures_by_target = {}
 
     def sql_update(self, sql: str) -> int:
         return sql_update(self.warehouse.connection, sql)
@@ -136,12 +133,10 @@ class SqlTestCase(TestCase):
         if rows:
             joined_rows = ", ".join(rows)
             self.sql_update(f"INSERT INTO {self.warehouse.dialect.qualify_table_name(table_name)} VALUES {joined_rows}")
+        self.warehouse.connection.commit()
 
     def sql_create_table(self, columns: List[str], table_name: str):
-        columns_sql = ", ".join(columns)
-        return f"CREATE TABLE " \
-               f"{self.warehouse.dialect.qualify_writable_table_name(table_name)} ( \n " \
-               f"{columns_sql} );"
+        return self.warehouse_fixture.sql_create_table(columns=columns, table_name=table_name)
 
     def scan(self,
              scan_yml_dict: Optional[dict] = None,
