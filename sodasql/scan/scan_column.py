@@ -138,6 +138,9 @@ class ScanColumn:
         if validity.regex:
             qualified_regex = dialect.qualify_regex(validity.regex)
             validity_clauses.append(dialect.sql_expr_regexp_like(qualified_column_name, qualified_regex))
+        if validity.values:
+            valid_values_sql = dialect.literal_list(validity.values)
+            validity_clauses.append(dialect.sql_expr_in(qualified_column_name, valid_values_sql))
         if validity.min_length:
             validity_clauses.append(f'{dialect.sql_expr_length(qualified_column_name)} >= {validity.min_length}')
         if validity.max_length:

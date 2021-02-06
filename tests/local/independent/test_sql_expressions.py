@@ -41,7 +41,7 @@ class TestSqlExpressions(TestCase):
             }))
 
     def test_collection(self):
-        self.assertEqual("('a', 'b', 3, 4)", self.dialect.sql_expression({
+        self.assertEqual("('a','b',3,4)", self.dialect.sql_expression({
                 'type': 'collection',
                 'value': ['a', 'b', 3, 4]
             }))
@@ -141,7 +141,7 @@ class TestSqlExpressions(TestCase):
             }))
 
     def test_in(self):
-        self.assertEqual("name IN ('a', 'b', 'c')", self.dialect.sql_expression({
+        self.assertEqual("name IN ('a','b','c')", self.dialect.sql_expression({
                 'type': 'in',
                 'left': {
                     'type': 'columnValue',

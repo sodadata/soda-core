@@ -10,6 +10,7 @@
 #  limitations under the License.
 import logging
 import re
+from numbers import Number
 from typing import List
 
 from sodasql.scan.column_metadata import ColumnMetadata
@@ -166,7 +167,7 @@ class Dialect:
         return f"CAST(REGEXP_REPLACE(REGEXP_REPLACE({quoted_column_name}, '{not_number_pattern}', ''), "\
                f"'{comma_pattern}', '.') AS {self.data_type_decimal})"
 
-    def literal_number(self, value: str):
+    def literal_number(self, value: Number):
         if value is None:
             return None
         return str(value)
@@ -175,6 +176,20 @@ class Dialect:
         if value is None:
             return None
         return "'"+self.escape_metacharacters(value)+"'"
+
+    def literal_list(self, l: list):
+        if l is None:
+            return None
+        return '(' + (','.join([self.literal(e) for e in l])) + ')'
+
+    def literal(self, o: object):
+        if isinstance(o, Number):
+            return self.literal_number(o)
+        elif isinstance(o, str):
+            return self.literal_string(o)
+        elif isinstance(o, list) or isinstance(o, set) or isinstance(o, tuple):
+            return self.literal_list(o)
+        raise RuntimeError(f'Cannot convert type {type(o)} to a SQL literal: {o}')
 
     def qualify_table_name(self, table_name: str) -> str:
         return table_name
@@ -220,8 +235,7 @@ class Dialect:
         elif type == 'collection':
             # collection of string or number literals
             value = expression_dict['value']
-            sql = '(' + (', '.join([self.literal_string(x) if isinstance(x, str)
-                                    else self.literal_number(x) for x in value])) + ')'
+            sql = self.literal_list(value)
         elif type == 'equals':
             left = self.sql_expression(expression_dict['left'])
             right = self.sql_expression(expression_dict['right'])
