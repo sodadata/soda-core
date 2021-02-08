@@ -14,7 +14,7 @@ from typing import Optional
 
 import requests
 
-from sodasql import SODA_SQL_VERSION
+from sodasql.version import SODA_SQL_VERSION
 
 
 class SodaServerClient:

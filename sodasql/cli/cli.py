@@ -15,7 +15,7 @@ from typing import Optional
 import click
 import yaml
 
-from sodasql import SODA_SQL_VERSION
+from sodasql.version import SODA_SQL_VERSION
 from sodasql.cli.scan_initializer import ScanInitializer
 from sodasql.common.logging_helper import LoggingHelper
 from sodasql.scan.file_system import FileSystemSingleton
@@ -185,8 +185,8 @@ def init(warehouse_file: str):
 
 
 @main.command()
+@click.argument('warehouse_yml_file')
 @click.argument('scan_yml_file')
-@click.argument('warehouse_yml_file', required=False)
 @click.option('-v', '--variables',
               required=False,
               default=None,
@@ -202,11 +202,9 @@ def scan(scan_yml_file: str, warehouse_yml_file: str, variables: tuple = None, t
     Non zero exit code means tests have failed or an exception occurred.
     If the warehouse YAML file has a Soda cloud account configured, measurements and test results will be uploaded.
 
-    SCAN_YML_FILE is the scan YAML file that contains the metrics and tests for a table to run.
+    WAREHOUSE_YML_FILE is the warehouse YAML file containing connection details.
 
-    WAREHOUSE_YML_FILE is the warehouse YAML file containing connection details.  If the warehouse YML is named
-    "warehouse.yml" and located on the ssame directory or one level up, it will be found automatically and this
-    argument does not have to be specified.
+    SCAN_YML_FILE is the scan YAML file that contains the metrics and tests for a table to run.
     """
     logging.info(SODA_SQL_VERSION)
 

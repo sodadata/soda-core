@@ -42,7 +42,7 @@ code.
 
 **"[Show me the money](https://www.youtube.com/watch?v=1-mOKMq19zU)"**
 
-Simple metrics and tests can be configured in YAML configuration files called `scan.yml`. An example
+Simple metrics and tests can be configured in scan YAML configuration files. An example
 of the contents of such a file:
 
 ```yaml

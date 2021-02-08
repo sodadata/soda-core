@@ -92,20 +92,11 @@ class ScanBuilder:
                     soda_server_client=self.soda_server_client)
 
     def __build_warehouse_yml(self):
-        file_system = FileSystemSingleton.INSTANCE
+        if not self.warehouse_yml_file and not self.warehouse_dict and not self.warehouse_yml:
+            logging.error(f'No warehouse specified')
+            return
 
-        if not self.warehouse_yml_file and self.scan_yml_file:
-            scan_yml_dir = file_system.dirname(self.scan_yml_file)
-            scan_parent = file_system.normpath(file_system.join(scan_yml_dir, '..'))
-            self.warehouse_yml_file = file_system.join(scan_parent, 'warehouse.yml')
-            if not file_system.file_exists(self.warehouse_yml_file):
-                self.warehouse_yml_file = file_system.join(scan_yml_dir, 'warehouse.yml')
-                if not file_system.file_exists(self.warehouse_yml_file):
-                    self.warehouse_yml_file = None
-                    logging.error(f'Could not find warehouse.yml relative to {self.scan_yml_file}. '
-                                  f'Please specify the warehouse YML file as the second argument')
-
-        if self.warehouse_yml_file and not self.warehouse_dict and not self.warehouse_yml:
+        elif self.warehouse_yml_file and not self.warehouse_dict and not self.warehouse_yml:
             if not isinstance(self.warehouse_yml_file, str):
                 logging.error(f'scan_builder.warehouse_yml_file must be str, but was {type(self.warehouse_yml_file)}: {self.warehouse_yml_file}')
             else:
@@ -121,7 +112,11 @@ class ScanBuilder:
     def __build_scan_yml(self):
         file_system = FileSystemSingleton.INSTANCE
 
-        if self.scan_yml_file and not self.scan_yml_dict and not self.scan_yml:
+        if not self.scan_yml_file and not self.scan_yml_dict and not self.scan_yml:
+            logging.error(f'No scan specified')
+            return
+
+        elif self.scan_yml_file and not self.scan_yml_dict and not self.scan_yml:
             if not isinstance(self.scan_yml_file, str):
                 logging.error(f'scan_builder.scan_yml_file must be str, but was {type(self.scan_yml_file)}: {self.scan_yml_file}')
             elif file_system.is_readable_file(self.scan_yml_file):

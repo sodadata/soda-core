@@ -105,7 +105,7 @@ jobs:
         id: get_version
         run: echo ::set-output name=VERSION::${GITHUB_REF/refs\/tags\//}
       - name: Replace version
-        run: sed -i -r "s|^(SODA_SQL_VERSION\s*=\s*).*|\1'${{ steps.get_version.outputs.VERSION }}'|" sodasql/__init__.py
+        run: sed -i -r "s|^(SODA_SQL_VERSION\s*=\s*).*|\1'${{ steps.get_version.outputs.VERSION }}'|" sodasql/version.py
       - name: Build package
         run: python3 setup.py sdist bdist_wheel
       - name: Publish to PyPi

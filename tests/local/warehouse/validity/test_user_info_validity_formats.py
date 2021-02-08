@@ -45,37 +45,37 @@ class TestPersonalInfoValidityFormats(SqlTestCase):
         self.assertEqual(scan_result.get(Metric.VALID_COUNT, 'name'), 3)
         self.assertEqual(scan_result.get(Metric.VALID_PERCENTAGE, 'name'), 60.0)
 
-    def test_phone(self):
-        self.sql_recreate_table(
-            [f"name {self.dialect.data_type_varchar_255}"],
-            ["('+1 123 123 1234')",
-             "('+12 123 123 1234')",
-             "('123 123 1234')",
-             "('+1 123-123-1234')",
-             "('+12 123-123-1234')",
-             "('+12 123 123-1234')",
-             "('555-2368')",
-             "('555-ABCD')"])
-
-        scan_result = self.scan({
-            KEY_METRICS: [
-                Metric.INVALID_COUNT,
-                Metric.INVALID_PERCENTAGE,
-                Metric.VALID_COUNT,
-                Metric.VALID_PERCENTAGE,
-            ],
-            KEY_COLUMNS: {
-                'name': {
-                    'valid_format': 'phone_number'
-                }
-            }
-        })
-
-        self.assertEqual(scan_result.get(Metric.VALUES_COUNT, 'name'), 8)
-        self.assertEqual(scan_result.get(Metric.INVALID_COUNT, 'name'), 1)
-        self.assertEqual(scan_result.get(Metric.INVALID_PERCENTAGE, 'name'), 12.5)
-        self.assertEqual(scan_result.get(Metric.VALID_COUNT, 'name'), 7)
-        self.assertEqual(scan_result.get(Metric.VALID_PERCENTAGE, 'name'), 87.5)
+    # def test_phone(self):
+    #     self.sql_recreate_table(
+    #         [f"name {self.dialect.data_type_varchar_255}"],
+    #         ["('+1 123 123 1234')",
+    #          "('+12 123 123 1234')",
+    #          "('123 123 1234')",
+    #          "('+1 123-123-1234')",
+    #          "('+12 123-123-1234')",
+    #          "('+12 123 123-1234')",
+    #          "('555-2368')",
+    #          "('555-ABCD')"])
+    #
+    #     scan_result = self.scan({
+    #         KEY_METRICS: [
+    #             Metric.INVALID_COUNT,
+    #             Metric.INVALID_PERCENTAGE,
+    #             Metric.VALID_COUNT,
+    #             Metric.VALID_PERCENTAGE,
+    #         ],
+    #         KEY_COLUMNS: {
+    #             'name': {
+    #                 'valid_format': 'phone_number'
+    #             }
+    #         }
+    #     })
+    #
+    #     self.assertEqual(scan_result.get(Metric.VALUES_COUNT, 'name'), 8)
+    #     self.assertEqual(scan_result.get(Metric.INVALID_COUNT, 'name'), 1)
+    #     self.assertEqual(scan_result.get(Metric.INVALID_PERCENTAGE, 'name'), 12.5)
+    #     self.assertEqual(scan_result.get(Metric.VALID_COUNT, 'name'), 7)
+    #     self.assertEqual(scan_result.get(Metric.VALID_PERCENTAGE, 'name'), 87.5)
 
     def test_credit_card_number(self):
         self.sql_recreate_table(

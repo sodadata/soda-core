@@ -118,7 +118,8 @@ Now our warehouse is configured it's time to create a scan YAML file for the tab
 We can run the `soda init` command to automatically generate a `{table_name}.yml` for each table
 in our PostgreSQL warehouse:
 
-Run this command in the directory where the `warehouse.yml` is located that was just created in the previous step:
+The `soda init` will by default use `warehouse.yml` in the current directory.  Run this command in 
+the directory where the `warehouse.yml` is located that was just created in the previous step:
 
 _Command:_
 ```shell
@@ -142,7 +143,7 @@ WHERE lower(table_schema)='public'
   | Next run 'soda scan tables/demodata.yml' to calculate measurements and run tests
 ```
 
-### 5\) Review the generated scan.yml files
+### 5\) Review the generated scan YAML files
 
 Each scan YAML file will contain the metric and test instructions used by `soda scan`. By default `soda init` will
 create a scan YAML file with some good defaults, but feel free to modify the generated configurations
@@ -191,14 +192,16 @@ columns:
 
 ### 6\) Run a scan
 
-With your warehouse directory created and initialized it's time to start scanning. Each scan
-will collect the configured (`scan.yml`) metrics and run the defined tests against them.
+With your warehouse directory created and initialized it's time to start scanning. 
+
+Each scan requires a warehouse YAML and a scan YAML as input.  The scan command will collect the configured 
+metrics and run the defined tests against them.
 
 To run your first scan on the `demodata` table simply run:
 
 _Command:_
 ```shell
-soda scan tables/demodata.yml
+soda scan warehouse.yml tables/demodata.yml
 ```
 _Command console output:_
 ```shell

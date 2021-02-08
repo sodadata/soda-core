@@ -121,6 +121,6 @@ class TestCli(SqlTestCase):
 
     def run_cli_scan(self):
         runner = CliRunner()
-        result = runner.invoke(main, ['scan', f'tables/{self.demodata_table_name.lower()}.yml'])
+        result = runner.invoke(main, ['scan', 'warehouse.yml', f'tables/{self.demodata_table_name.lower()}.yml'])
         self.assertEqual(result.exit_code, 0)
 
