@@ -8,14 +8,14 @@ nav_order: 7
 # SQL metrics
 
 Soda SQL comes shipped with the capability to extend our default set of common metrics. This
-allows you to compose tests based on custom-made optimized for your dataset.
+allows you to compose tests based on custom-made metrics optimized for your dataset.
 
-Custom SQL metrics are specified in the scan YAML file in one of two places. 
-Use the `sql-metrics` element on the top level or on the column level.
+Custom SQL metrics are specified as a list in your scan YAML file. This property (`sql_metrics`)
+can be located as either a root or column-level property.
 
 ## Basic metric query
 
-The most simple SQL metric is selecting 1 numeric value.
+The most simple SQL metric is one which selects a single numeric value.
 For example:
 
 > By default the name of the field will be used as the name of the metric.  So
@@ -25,7 +25,7 @@ For example:
 
 ```yaml
 table_name: mytable
-sql_metrics: 
+sql_metrics:
     - sql: |
         SELECT sum(volume) as total_volume_us
         FROM CUSTOMER_TRANSACTIONS
@@ -40,7 +40,7 @@ You can also compute multiple metric values in a single query. These values can 
 
 ```yaml
 table_name: mytable
-sql_metrics: 
+sql_metrics:
     - sql: |
         SELECT sum(volume) as total_volume_us,
                min(volume) as min_volume_us,
@@ -63,7 +63,7 @@ by setting the `group_fields` property:
 
 ```yaml
 table_name: mytable
-sql_metrics: 
+sql_metrics:
     - sql: |
         SELECT country,
                sum(volume) as total_volume,
@@ -88,7 +88,7 @@ a list of values which should match the order of values in your `SELECT` stateme
 
 ```yaml
 table_name: mytable
-sql_metrics: 
+sql_metrics:
     - sql: |
         SELECT sum(volume),
                min(volume),
@@ -108,7 +108,7 @@ sql_metrics:
 
 ## Column SQL metrics
 
-Defining a SQL metric on a column level will also make the column metrics available in 
+Defining a SQL metric on a column level will also make the column metrics available in
 the tests.
 
 ```yaml
@@ -116,8 +116,8 @@ table_name: mytable
 columns:
     metrics:
         - avg
-    volume: 
-        sql_metrics: 
+    volume:
+        sql_metrics:
             - sql: |
                 SELECT sum(volume) as total_volume_us
                 FROM CUSTOMER_TRANSACTIONS
@@ -132,9 +132,10 @@ The variables passed in to a scan are also available in the SQL metrics:
 
 Jinja syntax is used to resolve the variables.
 
+{% raw %}
 ```yaml
 table_name: mytable
-sql_metrics: 
+sql_metrics:
     - sql: |
         SELECT sum(volume) as total_volume_us
         FROM CUSTOMER_TRANSACTIONS
@@ -142,20 +143,22 @@ sql_metrics:
       tests:
         - total_volume_us > 5000
 ```
+{% endraw %}
 
 ## SQL file reference
 
-Instead of inlining the SQL in the YAML files, it's also possible to refer to 
-a file relative to the scan YAML file.
+Instead of inlining the SQL in the YAML files, it's also possible to refer to
+a file relative to the scan YAML file:
 
 ```yaml
 table_name: mytable
-sql_metrics: 
+sql_metrics:
     - sql_file: mytable_metric_us_volume.sql
       tests:
         - total_volume_us > 5000
 ```
-Where `mytable_metric_us_volume.sql` contains 
+
+In this case `mytable_metric_us_volume.sql` contains:
 ```sql
 SELECT sum(volume) as total_volume_us
 FROM CUSTOMER_TRANSACTIONS

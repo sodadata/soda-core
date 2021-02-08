@@ -35,7 +35,7 @@ To get you going we've included the steps required to setup a pre-configured Pos
 but you can also choose to use your own PostgreSQL installation. If so, make sure to create
 a `sodasql` database and an associated `sodasql` user which doesn't require a password.
 
-_Command:_
+<sub>Command:</sub>
 ```shell
 $ docker run --name soda_sql_tutorial_db --rm -d \
     -p 5432:5432 \
@@ -57,12 +57,12 @@ $ docker run --name soda_sql_tutorial_db --rm -d \
 Use the following command to load [example data](https://github.com/sodadata/soda-sql/blob/main/tests/demo/demodata.sql)
 into your PostgreSQL tutorial database:
 
-_Command:_
+<sub>Command:</sub>
 ```shell
 docker exec soda_sql_tutorial_db \
   sh -c "wget -qO - https://raw.githubusercontent.com/sodadata/soda-sql/main/tests/demo/demodata.sql | psql -U sodasql -d sodasql"
 ```
-_Command console output:_
+<sub>Command console output:</sub>
 ```shell
 DROP TABLE
 CREATE TABLE
@@ -79,23 +79,30 @@ INSERT 0 12
 
 With our database up-and-running it's time to create our warehouse configuration. In this tutorial we will name our
 warehouse directory `soda_sql_tutorial` and we'll use the `soda` CLI tool to create the initial
-directory and `warehouse.yml`.  The `warehouse.yml` file which
-will be created by the command below will include connection details to use the PostgreSQL
-database we've just set up.  The command will also create and store the credentials in
-`~/.soda/env_vars.yml`
+directory and `warehouse.yml`. Let's start by creating the new project directory:
 
-_Command:_
+```bash
+$ mkdir soda_sql_tutorial
+$ cd soda_sql_tutorial/
+```
+
+The `warehouse.yml` file which will be created by the command below will include connection
+details to use the PostgreSQL database we've just set up.  The command will also create
+and store the provided credentials in `~/.soda/env_vars.yml`, which we use to prevent your
+credentials from bleeding into your version control system.
+
+<sub>Command:</sub>
 ```shell
-soda create -d sodasql -u sodasql -w postgres_local_tutorial postgres
+$ soda create -d sodasql -u sodasql -w soda_sql_tutorial postgres
 ```
-_Command console output:_
+<sub>Command console output:</sub>
 ```
-  | Soda CLI version 
+  | Soda CLI version ...
   | Creating warehouse YAML file warehouse.yml ...
-  | Creating /Users/tom/.soda/env_vars.yml with example env vars in section postgres_local_tutorial
+  | Creating /Users/tom/.soda/env_vars.yml with example env vars in section soda_sql_tutorial
   | Review warehouse.yml by running command
   |   cat warehouse.yml
-  | Review section postgres_local_tutorial in ~/.soda/env_vars.yml by running command
+  | Review section soda_sql_tutorial in ~/.soda/env_vars.yml by running command
   |   cat ~/.soda/env_vars.yml
   | Then run the soda init command
 ```
@@ -114,33 +121,35 @@ Check out the [warehouse.yml]({% link documentation/warehouse.md %}) or [env_var
 
 ### 4\) Initialize table scan YAML files
 
-Now our warehouse is configured it's time to create a scan YAML file for the tables we want to scan.
-We can run the `soda init` command to automatically generate a `{table_name}.yml` for each table
-in our PostgreSQL warehouse:
+Now our warehouse is configured it's time to create a 'scan YAML' file for each table which we want to scan.
+To create a scan YAML for each table in your database you can simply run the `soda init` command. Alternatively
+you can manually create the scan YAML files.
 
-The `soda init` will by default use `warehouse.yml` in the current directory.  Run this command in 
-the directory where the `warehouse.yml` is located that was just created in the previous step:
+> By default `soda init` will place the scan YAML files in a `./tables/` directory, but this isn't required. Feel
+free to locate the scan YAML files anywhere you like.
 
-_Command:_
+The `soda init` will by default use the `warehouse.yml` in the current directory. Since we already created
+a `warehouse.yml` in our previous step we can simply continue by running:
+
+<sub>Command:</sub>
 ```shell
-soda init 
-```
-_Command console output:_
-```
 soda init
-  | 
+```
+<sub>Command console output:</sub>
+```
   | Initializing warehouse.yml ...
   | Querying warehouse for tables
   | Creating tables directory tables
-  | Executing SQL query: 
-SELECT table_name 
-FROM information_schema.tables 
+  | Executing SQL query:
+SELECT table_name
+FROM information_schema.tables
 WHERE lower(table_schema)='public'
-  | SQL took 0:00:00.011542
+  | SQL took 0:00:00.007998
   | Creating tables/demodata.yml ...
-  ... Some queries will be executed and shown on the console.  The queries are used   ... 
-  ... to do type inference and prepare default scan YAML files that you can customize ... 
-  | Next run 'soda scan tables/demodata.yml' to calculate measurements and run tests
+  | Executing SQL query:
+...
+  | SQL took 0:00:00.000647
+  | Next run 'soda scan warehouse.yml tables/demodata.yml' to calculate measurements and run tests
 ```
 
 ### 5\) Review the generated scan YAML files
@@ -151,11 +160,11 @@ to fit your needs.
 
 > Head over to the [Scan Documentation]({% link documentation/scan.md %}) for more in-depth information about scan YAML files.
 
-_Command:_
+<sub>Command:</sub>
 ```shell
 cat ./tables/demodata.yml
 ```
-_Command console output:_
+<sub>Command console output:</sub>
 ```yaml
 table_name: demodata
 metrics:
@@ -192,18 +201,18 @@ columns:
 
 ### 6\) Run a scan
 
-With your warehouse directory created and initialized it's time to start scanning. 
+With your warehouse directory created and initialized it's time to start scanning.
 
-Each scan requires a warehouse YAML and a scan YAML as input.  The scan command will collect the configured 
+Each scan requires a warehouse YAML and a scan YAML as input.  The scan command will collect the configured
 metrics and run the defined tests against them.
 
 To run your first scan on the `demodata` table simply run:
 
-_Command:_
+<sub>Command:</sub>
 ```shell
 soda scan warehouse.yml tables/demodata.yml
 ```
-_Command console output:_
+<sub>Command console output:</sub>
 ```shell
   | Soda CLI version 2.0.0 beta
   | Scanning demodata in ./soda_sql_tutorial ...

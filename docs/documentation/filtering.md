@@ -7,7 +7,7 @@ nav_order: 8
 
 # Filtering
 
-This section explains how to apply dynamic filters on the data in a scan.  Filtering can be 
+This section explains how to apply dynamic filters on the data in a scan.  Filtering can be
 used to run the scan on for example a single time partition of the table or on a country.
 
 Time partitioning requires 1 (or more) columns to filter on.
@@ -25,29 +25,31 @@ CREATE TABLE CUSTOMER_TRANSACTIONS (
 );
 ```
 
-The `CUSTOMER_TRANSACTIONS` has a `DATE` column.  Each day new customer transaction
-rows are added.  After they are added the goal is to run the scan on the customer
-transactions of the last day.
+The `CUSTOMER_TRANSACTIONS` table has a `DATE` column.  Each day new customer transaction
+rows are added, but we want our scans to only run on the transactions of the last day. In order
+to do so we can add a `filter` to our Scan YAML file:
 
-In the `scan.yml`, add a `filter` like this:
-
+{% raw %}
 ```yaml
 table_name: CUSTOMER_TRANSACTIONS
-filter: "date = DATE '\{\{ date \}\}'"
+filter: "date = DATE '{{ date }}'"
 metrics: ...
 columns: ...
 ```
+{% endraw %}
 
-The time filter is added to the SQL queries in the where clause.
+The time filter is automatically added to the `WHERE` class of each executed SQL query.
 
-The `date` can be passed to the scan as a variable on the command line like:
+As you can see we've used a variable called `date` in our example. This variable can be populated
+by supplying an additional `-v` argument to each `soda scan`.
 
-> _Note: CLI does not yet support variables. Coming soon.  Use programmatic style below_
 ```
-soda scan -v date=2021-01-12 ./sales_snowflake customer_transactions
+soda scan -v date=2021-01-12 warehouse.yml tables/customer_transactions.yml
 ```
 
-And programmatically, variables can be passed to a scan like this:
+> _Note: CLI does not yet support variables, but this will be made available soon. In the meantime you can use  the 'programmatic style' below_
+
+You can also use variables when invoking a Soda SQL Scan programmatically:
 ```python
 scan_builder = ScanBuilder()
 scan_builder.warehouse_yml_file = 'warehouse.yml'
@@ -61,8 +63,8 @@ if scan_result.has_failures():
     print('Scan has test failures, stop the pipeline')
 ```
 
-For time partitioned tables, it makes sense to measure and test on both
-the time partitions and on the full table.  To achieve this, we recommend
-that you create 2 separate table dirs for it each having a `scan.yml`.
-It's a good practice to add `_tp` as the suffix to the table
-directory to indicate it's a "Time Partitioned" table configuration.
+> For time partitioned tables it makes sense to run a `soda scan` on both
+the time partitioned and full table's data.  To achieve this, we recommend
+you to create 2 separate Scan YAML files for the same table.
+It's a good practice to add `_tp` as the suffix of one of your Scan YAML files
+to indicate that  it's a "Time Partitioned" table configuration.

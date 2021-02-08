@@ -7,13 +7,15 @@ nav_order: 5
 
 # Scan
 
-This section explains what a scan does, how it works and how to use `scan.yml` files to configure them.
+Soda Scan is one of the core concepts of Soda SQL. This section explains what a scan does, how
+it works and how you can configure them using 'scan YAML' files.
 
-For running scans, see either [the CLI]({% link documentation/cli.md %}) or [Orchestrate scans]({% link documentation/orchestrate_scans.md %}).
+> Looking for more information on _running_ a scan? Take a look at either
+[the CLI]({% link documentation/cli.md %}) or [Orchestrate scans]({% link documentation/orchestrate_scans.md %}) sections.
 
 ## Anatomy of a scan
 
-A scan is performed on a table and does the following:
+A scan runs within the context of a table and performs the following actions:
 
 * Fetch the column metadata of the table (column name, type and nullable)
 * Single aggregation query that computes aggregate metrics for multiple columns like e.g. missing, min, max etc
@@ -24,22 +26,25 @@ A scan is performed on a table and does the following:
   * One query for frequent values
   * One query for histograms
 
+
 > Note on performance: we have tuned most column queries by using the same Column Table Expression (CTE).
 The goal is to allow some databases, like eg Snowflake, to be able to cache the results, but we didn't see
 actual proof of this yet.  If you have knowledge on this, [drop us a line in one of the channels]({% link community.md %}).
 
-## Top level scan.yml keys
+## Scan YAML configuration
 
-In a `scan.yml` file, you configure which metrics should be computed and
-which tests should be checked.
+'Scan YAML' files are used to configure which metrics should be computed and
+which tests should be checked. You are free to use any name, but we recommend
+naming your Scan YAML files after the tables in your warehouse.
 
 Top level configuration keys:
 
 | Key | Description | Required |
 | --- | ----------- | -------- |
 | table_name | The table name. | Required |
-| metrics | The list of metrics to compute. Column metrics specified here will be computed on each column. | Optional |
-| columns | Optionally add metrics and configurations for specific columns | Optional |
+| metrics | List of default metrics to compute. Column metrics specified here will be computed on each column. | Optional |
+| columns | Define validity rules, metrics, [custom SQL Metrics]({% link documentation/sql_metrics.md %}) and tests for specific columns | Optional |
+| sql_metrics | A list of [custom SQL Metrics]({% link documentation/sql_metrics.md %}) which don't belong to a specific column | Optional |
 | filter | A SQL expression that will be added to query where clause. Uses [Jinja as template language](https://jinja.palletsprojects.com/). Variables can be passed into the scan.  See [Filtering]({% link documentation/filtering.md %}) | Optional |
 | mins_maxs_limit | Max number of elements for the mins metric | Optional, default is 5 |
 | frequent_values_limit | Max number of elements for the maxs metric | Optional, default is 5 |
@@ -87,7 +92,7 @@ Top level configuration keys:
 
 ### Metric resolving
 
-Some metrics belong together as they depend on the same query.  
+Some metrics belong together as they depend on the same query.
 When you specify 1 metric in a group, the other metrics in the group are also computed.
 So Soda SQL might compute more metrics then are configured in the  scan.yml
 
@@ -101,10 +106,10 @@ Here are the groups
 
 There are also some dependencies between the metrics.
 
-Any metric related to invalid values (`valid_count`, `valid_percentage`, `invalid_count`, `invalid_percentage`) will 
+Any metric related to invalid values (`valid_count`, `valid_percentage`, `invalid_count`, `invalid_percentage`) will
 imply all missing metrics to be included as well (`missing_count`, `missing_percentage`, `values_count`, `values_percentage`)
 
-Any missing metric (`missing_count`, `missing_percentage`, `values_count`, `values_percentage`) will imply 
+Any missing metric (`missing_count`, `missing_percentage`, `values_count`, `values_percentage`) will imply
 a `row_count` metric.
 
 And last a `histogram` metric will imply `min` and `max` metrics.

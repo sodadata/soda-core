@@ -14,14 +14,14 @@ from typing import Optional
 
 import click
 import yaml
-
-from sodasql.version import SODA_SQL_VERSION
 from sodasql.cli.scan_initializer import ScanInitializer
 from sodasql.common.logging_helper import LoggingHelper
 from sodasql.scan.file_system import FileSystemSingleton
 from sodasql.scan.scan_builder import ScanBuilder
 from sodasql.scan.warehouse import Warehouse
-from sodasql.scan.warehouse_yml_parser import read_warehouse_yml_file, WarehouseYmlParser
+from sodasql.scan.warehouse_yml_parser import (WarehouseYmlParser,
+                                               read_warehouse_yml_file)
+from sodasql.version import SODA_SQL_VERSION
 
 LoggingHelper.configure_for_cli()
 
@@ -36,7 +36,7 @@ def main():
 @click.option('-f', '--file',
               required=False,
               default='warehouse.yml',
-              help='The destination file name for the warehouse configuration details. It can a include relative path.')
+              help='The destination filename for the warehouse configuration details. This can be a relative path.')
 @click.option('-d', '--database',  required=False, default=None, help='The database name to use for the connection')
 @click.option('-u', '--username',  required=False, default=None, help='The username to use for the connection, through env_var(...)')
 @click.option('-p', '--password',  required=False, default=None, help='The password to use for the connection, through env_var(...)')
@@ -148,10 +148,11 @@ def create(warehouse_type: str,
 @click.argument('warehouse_file', required=False, default='warehouse.yml')
 def init(warehouse_file: str):
     """
-    Finds tables in the warehouse and creates scan YAML files based on the data in the table, creates files in
-    a subdirectory called "tables" next to the warehouse file.
-    WAREHOUSE_FILE is contains the connection details to the warehouse which can be created with soda create command.
-    The warehouse file argument is optional. The default is warehouse.yml
+    Finds tables in the warehouse and creates scan YAML files based on the data in the table. By default it creates
+    files in a subdirectory called "tables" on the same level as the warehouse file.
+
+    WAREHOUSE_FILE contains the connection details to the warehouse. This file can be created using the `soda create` command.
+    The warehouse file argument is optional and defaults to 'warehouse.yml'.
     """
     logging.info(SODA_SQL_VERSION)
     file_system = FileSystemSingleton.INSTANCE
@@ -170,7 +171,7 @@ def init(warehouse_file: str):
         scan_initializer.initialize_scan_ymls()
 
         logging.info(
-            f"Next run 'soda scan {scan_initializer.first_table_scan_yml_file}' to calculate measurements and run tests")
+            f"Next run 'soda scan {warehouse_file} {scan_initializer.first_table_scan_yml_file}' to calculate measurements and run tests")
 
     except Exception as e:
         logging.exception(f'Exception: {str(e)}')

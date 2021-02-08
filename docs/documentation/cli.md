@@ -9,8 +9,8 @@ nav_order: 2
 
 > See our [Installation guide]({% link getting-started/installation.md %}) on how to install the `soda` command.
 
-The soda command line is mostly a tool to help you get started with
-your Soda SQL configuration files.
+The soda command line tool helps you to get started with
+your Soda SQL configuration files and run Soda Scans.
 
 To see the list of available commands, enter `soda` in your terminal:
 
@@ -18,7 +18,7 @@ To see the list of available commands, enter `soda` in your terminal:
 $ soda
 Usage: soda [OPTIONS] COMMAND [ARGS]...
 
-  Soda CLI version 2.0.0b7
+  Soda CLI version {version}
 
 Options:
   --help  Show this message and exit.
@@ -33,8 +33,8 @@ Commands:
 
 | Command | Description |
 | ------- | ----------- |
-| `soda create ...` | Creates a new warehouse.yml file and prepares credentials in your ~/.soda/env_vars.yml Nothing will be overwritten or removed, only added if it does not exist yet. |
-| `soda init ...` | Finds tables in the warehouse and creates scan YAML files based on the data in the table, creates files in a subdirectory called "tables" next to the warehouse file. |
+| `soda create ...` | Creates a new `warehouse.yml` file and prepares credentials in your `~/.soda/env_vars.yml`. Nothing will be overwritten or removed, only added if it doesn't exist yet. |
+| `soda init ...` | Finds tables in your warehouse and creates scan YAML files for each table. Files are created in a subdirectory called "tables" next to the warehouse file. |
 | `soda scan ...` | Computes all measurements and runs all tests on one table.  Exit code 0 means all tests passed. Non zero exit code means tests have failed or an exception occurred. If the warehouse YAML file has a Soda cloud account configured, measurements and test results will be uploaded. |
 
 To learn about the parameters, use the command line help:

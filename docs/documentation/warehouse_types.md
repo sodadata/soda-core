@@ -7,13 +7,19 @@ nav_order: 4
 
 # Warehouse types
 
-Warehouses are configured as part of a [Soda warehouse configuration file]({% link documentation/warehouse.md %})
-This section explains the concrete connection properties for each warehouse type.
+Warehouses are configured as part of a [Soda warehouse configuration file]({% link documentation/warehouse.md %}).
+This section defines the available connection properties for each warehouse type:
+
+- [Snowflake](#snowflake)
+- [AWS Athena](#aws-athena)
+- [GCP BigQuery](#gcp-bigquery)
+- [PostgreSQL](#postgresql)
+- [Redshift](#redshift)
+- [Spark SQL](#sparks-sql)
 
 ## Snowflake
 
-Example configuration
-
+<sub>Example configuration</sub>
 ```yaml
 name: my_snowflake_project
 connection:
@@ -39,7 +45,7 @@ connection:
 
 ## AWS Athena
 
-Example
+<sub>Example configuration</sub>
 
 ```yaml
 name: my_athena_project
@@ -56,6 +62,8 @@ connection:
 
 ## GCP BigQuery
 
+<sub>Example configuration</sub>
+
 ```yaml
 name: my_bigquery_project
 connection:
@@ -66,6 +74,8 @@ connection:
 ```
 
 ## PostgreSQL
+
+<sub>Example configuration</sub>
 
 ```yaml
 name: my_postgres_project
@@ -80,6 +90,8 @@ connection:
 ```
 
 ## Redshift
+
+<sub>Example configuration</sub>
 
 ```yaml
 name: my_redshift_project
@@ -99,4 +111,4 @@ connection:
 
 ## Spark SQL
 
-Coming soon
+_Coming soon_
