@@ -38,7 +38,7 @@ class SodaServerClient:
 
     def scan_start(self, warehouse_name, warehouse_type, table_name, scan_time):
         return self.execute_command({
-            'type': 'scanStart',
+            'type': 'sodaSqlScanStart',
             'warehouseName': warehouse_name,
             'warehouseType': warehouse_type,
             'tableName': table_name,
@@ -62,26 +62,26 @@ class SodaServerClient:
     def scan_ended(self, scan_reference, exception = None):
         if exception is None:
             self.execute_command({
-                'type': 'scanEnd',
+                'type': 'sodaSqlScanEnd',
                 'scanReference': scan_reference
             })
         else:
             self.execute_command({
-                'type': 'scanEnd',
+                'type': 'sodaSqlScanEnd',
                 'scanReference': scan_reference,
                 'error': str(exception)
             })
 
     def scan_measurements(self, scan_reference: dict, measurement_jsons: list):
         return self.execute_command({
-            'type': 'scanMeasurements',
+            'type': 'sodaSqlScanMeasurements',
             'scanReference': scan_reference,
             'measurements': measurement_jsons
         })
 
     def scan_test_results(self, scan_reference: dict, test_result_jsons: list):
         return self.execute_command({
-            'type': 'scanTestResults',
+            'type': 'sodaSqlScanTestResults',
             'scanReference': scan_reference,
             'testResults': test_result_jsons
         })
