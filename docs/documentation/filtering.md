@@ -50,6 +50,7 @@ soda scan -v date=2021-01-12 ./sales_snowflake customer_transactions
 And programmatically, variables can be passed to a scan like this:
 ```python
 scan_builder = ScanBuilder()
+scan_builder.warehouse_yml_file = 'warehouse.yml'
 scan_builder.scan_yml_file = 'tables/my_table.yml'
 scan_builder.variables = {
   'date': '2021-06-12'

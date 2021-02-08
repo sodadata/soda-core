@@ -13,6 +13,12 @@ We hope you like it.  Please encourage us by [starring sodadata/soda-sql on Gith
 Get involved, cause we believe Soda SQL is going to be an important part
 of many data platforms and you have a perspective to contribute.
 
+## Slack community
+
+Talk to the team
+
+[Soda's Slack community](slack://channel?id=C01HYL8V64C&team=T01HBMYM59V)
+
 ## GitHub
 
 [Soda SQL project home : github.com/sodadata/soda-sql](https://github.com/sodadata/soda-sql/)
