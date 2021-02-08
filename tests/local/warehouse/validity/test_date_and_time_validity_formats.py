@@ -146,33 +146,33 @@ class TestDateAndTimeValidityFormats(SqlTestCase):
         self.assertEqual(scan_result.get(Metric.VALID_COUNT, 'name'), 5)
         self.assertEqual(scan_result.get(Metric.VALID_PERCENTAGE, 'name'), 62.5)
 
-    # def test_date_iso_8601(self):
-    #     test_date = datetime.now()
-    #     test_date_with_timezone = datetime.now(timezone.utc)
-    #     self.sql_recreate_table(
-    #         [f"name {self.dialect.data_type_varchar_255}"],
-    #         [f"('{test_date.isoformat()}')",
-    #          f"('{test_date_with_timezone.isoformat()}')",
-    #          "('2021, January 21')",
-    #          "('October 21, 2015')",
-    #          "(null)"])
-    #
-    #     scan_result = self.scan({
-    #         KEY_METRICS: [
-    #             Metric.INVALID_COUNT,
-    #             Metric.INVALID_PERCENTAGE,
-    #             Metric.VALID_COUNT,
-    #             Metric.VALID_PERCENTAGE,
-    #         ],
-    #         KEY_COLUMNS: {
-    #             'name': {
-    #                 'valid_format': 'date_iso_8601'
-    #             }
-    #         }
-    #     })
-    #
-    #     self.assertEqual(scan_result.get(Metric.VALUES_COUNT, 'name'), 4)
-    #     self.assertEqual(scan_result.get(Metric.INVALID_COUNT, 'name'), 2)
-    #     self.assertEqual(scan_result.get(Metric.INVALID_PERCENTAGE, 'name'), 40.0)
-    #     self.assertEqual(scan_result.get(Metric.VALID_COUNT, 'name'), 2)
-    #     self.assertEqual(scan_result.get(Metric.VALID_PERCENTAGE, 'name'), 40.0)
+    def test_date_iso_8601(self):
+        test_date = datetime.now()
+        test_date_with_timezone = datetime.now(timezone.utc)
+        self.sql_recreate_table(
+            [f"name {self.dialect.data_type_varchar_255}"],
+            [f"('{test_date.isoformat()}')",
+             f"('{test_date_with_timezone.isoformat()}')",
+             "('2021, January 21')",
+             "('October 21, 2015')",
+             "(null)"])
+    
+        scan_result = self.scan({
+            KEY_METRICS: [
+                Metric.INVALID_COUNT,
+                Metric.INVALID_PERCENTAGE,
+                Metric.VALID_COUNT,
+                Metric.VALID_PERCENTAGE,
+            ],
+            KEY_COLUMNS: {
+                'name': {
+                    'valid_format': 'date_iso_8601'
+                }
+            }
+        })
+    
+        self.assertEqual(scan_result.get(Metric.VALUES_COUNT, 'name'), 4)
+        self.assertEqual(scan_result.get(Metric.INVALID_COUNT, 'name'), 2)
+        self.assertEqual(scan_result.get(Metric.INVALID_PERCENTAGE, 'name'), 40.0)
+        self.assertEqual(scan_result.get(Metric.VALID_COUNT, 'name'), 2)
+        self.assertEqual(scan_result.get(Metric.VALID_PERCENTAGE, 'name'), 40.0)
