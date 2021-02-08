@@ -1,6 +1,8 @@
 import json
 from decimal import Decimal
 
+from sodasql.scan.group_value import GroupValue
+
 
 class JsonHelper:
 
@@ -43,4 +45,6 @@ class JsonHelper:
             return o
         if isinstance(o, Decimal):
             return float(o)
+        if isinstance(o, GroupValue):
+            return o.to_json()
         raise RuntimeError(f"Don't know how to jsonize {o} ({type(o)})")

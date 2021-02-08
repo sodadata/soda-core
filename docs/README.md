@@ -63,6 +63,14 @@ metrics:
     - min_length
     - max_length
     - avg_length
+    - distinct
+    - unique_count
+    - duplicate_count
+    - uniqueness
+    - maxs
+    - mins
+    - frequent_values
+    - histogram
 columns:
     ID:
         metrics:
@@ -80,18 +88,13 @@ columns:
     SIZE:
         tests:
             max - min < 20
-```
-
-Metrics aren't limited to the ones defined by Soda SQL. You can create your own custom SQL metric definitions
-with a simple yml file.
-
-```yaml
-sql: |
-    SELECT sum(volume) as total_volume_us
-    FROM CUSTOMER_TRANSACTIONS
-    WHERE country = 'US'
-tests:
-    - total_volume_us > 5000
+sql_metrics:
+    - sql: |
+        SELECT sum(volume) as total_volume_us
+        FROM CUSTOMER_TRANSACTIONS
+        WHERE country = 'US'
+      tests:
+        - total_volume_us > 5000
 ```
 
 Based on these configuration files, Soda SQL will scan your data

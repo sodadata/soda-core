@@ -23,6 +23,14 @@ class Measurement:
     value: object = None
     group_values: Optional[List[GroupValue]] = None
 
+    def __str__(self):
+        column_str = f'({self.column_name})' if self.column_name else ''
+        group_values_str = JsonHelper.to_json(JsonHelper.to_jsonnable(self.group_values)) if self.group_values else ''
+        value_str = '' if self.value is None \
+                    else (' = ' + (', '.join([str(e) for e in self.value]) if isinstance(self.value, list)
+                                  else str(self.value)))
+        return f'{self.metric}{column_str}{group_values_str}{value_str}'
+
     def to_json(self):
         json = {
             'metric': self.metric,
