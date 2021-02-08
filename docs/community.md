@@ -17,7 +17,7 @@ of many data platforms and you have a perspective to contribute.
 
 Talk to the team
 
-[Soda's Slack community](slack://channel?id=C01HYL8V64C&team=T01HBMYM59V)
+[Soda's Slack community](https://soda-community.slack.com/messages/C01HYL8V64C)
 
 ## GitHub
 
