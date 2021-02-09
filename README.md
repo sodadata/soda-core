@@ -1,11 +1,11 @@
-<p align="center"><img width="204" height="48" src="https://raw.githubusercontent.com/sodadata/soda-sql/main/docs/assets/images/soda-logo.svg" alt="Soda logo" /></p>
+<p align="center"><img width="204" height="48" src="https://raw.githubusercontent.com/sodadata/soda-sql/main/docs/assets/images/soda-banner.png" alt="Soda logo" /></p>
 
 <h1 align="center">Soda SQL</h1>
 <p align="center"><b>Data testing, monitoring and profiling for SQL accessible data.</b></p>
 
 <p align="center">
   <a href="https://github.com/sodadata/soda-sql/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-Apache%202-blue.svg" alt="License: Apache 2.0"></a>
-  <a href="https://soda-community.slack.com"><img alt="Slack" src="https://img.shields.io/badge/chat-slack-green.svg"></a>
+  <a href="https://soda-community.slack.com/messages/C01HYL8V64C"><img alt="Slack" src="https://img.shields.io/badge/chat-slack-green.svg"></a>
   <a href="https://pypi.org/project/soda-sql/"><img alt="Pypi Soda SQL" src="https://img.shields.io/badge/pypi-soda%20sql-green.svg"></a>
 </p>
 
