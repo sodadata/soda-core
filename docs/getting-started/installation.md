@@ -48,8 +48,9 @@ $ pip install soda-sql
 ## Installing Soda CLI in a virtual environment
 
 ```
-python -m venv .venv
+python3 -m venv .venv
 source .venv/bin/activate
+pip install --upgrade pip
 pip install soda-sql
 ```
 

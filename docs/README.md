@@ -47,10 +47,10 @@ code.
 
 > Want to try Soda SQL? Head over to our ['5 minute tutorial'](https://docs.soda.io/soda-sql/getting-started/5_min_tutorial.html) and get started straight away!
 
-**"[Show me the money](https://www.youtube.com/watch?v=1-mOKMq19zU)"**
+**"[Show me the metrics](https://www.youtube.com/watch?v=1-mOKMq19zU)"**
 
-Simple metrics and tests can be configured in scan YAML configuration files. An example
-of the contents of such a file:
+Let's walk through an example. Simple metrics and tests can be configured in scan YAML configuration 
+files. An example of the contents of such a file:
 
 ```yaml
 metrics:
