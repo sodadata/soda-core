@@ -1,4 +1,4 @@
-<p align="center"><img width="204" height="48" src="https://raw.githubusercontent.com/sodadata/soda-sql/main/docs/assets/images/soda-banner.png" alt="Soda logo" /></p>
+<p align="center"><img src="https://raw.githubusercontent.com/sodadata/soda-sql/main/docs/assets/images/soda-banner.png" alt="Soda logo" /></p>
 
 <h1 align="center">Soda SQL</h1>
 <p align="center"><b>Data testing, monitoring and profiling for SQL accessible data.</b></p>
