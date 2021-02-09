@@ -45,18 +45,18 @@ class TestSodaServerClient(SqlTestCase):
             command_type = command['type']
             if i == 0:
                 # The first command should be a scanStart command
-                self.assertEqual('scanStart', command_type)
+                self.assertEqual('sodaSqlScanStart', command_type)
             elif i == 1:
                 # The first non-start command should be a scanMeasurements command with a schema measurement
-                self.assertEqual(command_type, 'scanMeasurements')
+                self.assertEqual(command_type, 'sodaSqlScanMeasurements')
                 self.assertEqual(command['measurements'][0]['metric'], Metric.SCHEMA)
             elif i == len(commands)-1:
                 # The last command should be a scanEnd command
-                self.assertEqual('scanEnd', command_type)
+                self.assertEqual('sodaSqlScanEnd', command_type)
             else:
-                if command_type == 'scanMeasurements':
+                if command_type == 'sodaSqlScanMeasurements':
                     scan_measurement_count += 1
-                elif command_type == 'scanTestResults':
+                elif command_type == 'sodaSqlScanTestResults':
                     scan_test_result_count += 1
 
         # There should at least be one scanMeasurement command
