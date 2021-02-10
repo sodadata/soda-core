@@ -58,7 +58,7 @@ class ScanBuilder:
     def __init__(self):
         self.file_system = FileSystemSingleton.INSTANCE
         self.warehouse_yml_file: str = None
-        self.warehouse_dict: dict = None
+        self.warehouse_yml_dict: dict = None
         self.warehouse_yml: WarehouseYml = None
         self.scan_yml_file: str = None
         self.scan_yml_dict: dict = None
@@ -92,19 +92,19 @@ class ScanBuilder:
                     soda_server_client=self.soda_server_client)
 
     def __build_warehouse_yml(self):
-        if not self.warehouse_yml_file and not self.warehouse_dict and not self.warehouse_yml:
+        if not self.warehouse_yml_file and not self.warehouse_yml_dict and not self.warehouse_yml:
             logging.error(f'No warehouse specified')
             return
 
-        elif self.warehouse_yml_file and not self.warehouse_dict and not self.warehouse_yml:
+        elif self.warehouse_yml_file and not self.warehouse_yml_dict and not self.warehouse_yml:
             if not isinstance(self.warehouse_yml_file, str):
                 logging.error(f'scan_builder.warehouse_yml_file must be str, but was {type(self.warehouse_yml_file)}: {self.warehouse_yml_file}')
             else:
-                self.warehouse_dict = read_warehouse_yml_file(self.warehouse_yml_file)
+                self.warehouse_yml_dict = read_warehouse_yml_file(self.warehouse_yml_file)
 
-        if self.warehouse_dict and not self.warehouse_yml:
+        if self.warehouse_yml_dict and not self.warehouse_yml:
             from sodasql.scan.warehouse_yml_parser import WarehouseYmlParser
-            warehouse_parser = WarehouseYmlParser(self.warehouse_dict, self.warehouse_yml_file)
+            warehouse_parser = WarehouseYmlParser(self.warehouse_yml_dict, self.warehouse_yml_file)
             warehouse_parser.log()
             self.parsers.append(warehouse_parser)
             self.warehouse_yml = warehouse_parser.warehouse_yml
