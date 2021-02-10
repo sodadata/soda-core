@@ -26,8 +26,11 @@ When there are test failures in soda scan, the exit code will be non-zero.
 
 To create a BashOperator, first create a variable in airflow to point to your
 Soda SQL project. You can do this either using Airflow web admin ui or via
-commandline: ` airflow variables set "soda_sql_project_path"
-"YOUR_SODA_SQL_PROJECT_LOCATION"`
+commandline:
+
+```bash
+airflow variables set "soda_sql_project_path" "YOUR_SODA_SQL_PROJECT_LOCATION"
+```
 
 Take a note of the variable name and use it in your DAG. Here is a sample DAG
 that uses Airflow DummyOperators to denote data ingestion task and publishing
@@ -42,7 +45,7 @@ from airflow.utils.dates import days_ago
 from datetime import timedelta
 
 # Use the same variable name that you used in airflow variable creation
-soda_sql_project_path =Variable.get('soda_sql_project_path')
+soda_sql_project_path = Variable.get('soda_sql_project_path')
 
 default_args = {
     'owner': 'soda_sql',
