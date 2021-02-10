@@ -19,4 +19,7 @@ from sodasql.soda_server_client.soda_server_client import SodaServerClient
 class WarehouseYml:
 
     dialect: Dialect = None
-    name: Optional[str] = None
+    name: str = None
+    soda_host: Optional[str] = None
+    soda_api_key_id: Optional[str] = None
+    soda_api_key_secret: Optional[str] = None

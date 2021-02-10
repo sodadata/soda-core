@@ -21,6 +21,10 @@ KEY_NAME = 'name'
 KEY_CONNECTION = 'connection'
 KEY_SODA_ACCOUNT = 'soda_account'
 
+SODA_KEY_HOST = 'host'
+SODA_KEY_API_KEY_ID = 'api_key_id'
+SODA_KEY_API_KEY_SECRET = 'api_key_secret'
+
 VALID_WAREHOUSE_KEYS = [KEY_NAME, KEY_CONNECTION, KEY_SODA_ACCOUNT]
 
 
@@ -53,9 +57,18 @@ class WarehouseYmlParser(Parser):
             EnvVars.load_env_vars(self.warehouse_yml.name)
 
             connection_dict = self.get_dict_required(KEY_CONNECTION)
-            self._push_context(object=connection_dict, name=KEY_CONNECTION)
-            self.warehouse_yml.dialect = Dialect.create(self)
-            self._pop_context()
+            if connection_dict:
+                self._push_context(object=connection_dict, name=KEY_CONNECTION)
+                self.warehouse_yml.dialect = Dialect.create(self)
+                self._pop_context()
+
+            soda_account_dict = self.get_dict_optional(KEY_SODA_ACCOUNT)
+            if soda_account_dict:
+                self._push_context(object=soda_account_dict, name=KEY_SODA_ACCOUNT)
+                self.warehouse_yml.soda_host = self.get_str_optional(SODA_KEY_HOST, 'cloud.soda.io')
+                self.warehouse_yml.soda_api_key_id = self.get_str_required(SODA_KEY_API_KEY_ID)
+                self.warehouse_yml.soda_api_key_secret = self.get_str_required(SODA_KEY_API_KEY_SECRET)
+                self._pop_context()
 
             self.check_invalid_keys(VALID_WAREHOUSE_KEYS)
 

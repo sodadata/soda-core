@@ -10,7 +10,6 @@
 #  limitations under the License.
 import logging
 import os
-from pathlib import Path
 from typing import List
 
 from sodasql.common.yaml_helper import YamlHelper
@@ -80,12 +79,8 @@ class ScanBuilder:
         from sodasql.scan.warehouse import Warehouse
         warehouse = Warehouse(self.warehouse_yml)
 
-        if not self.soda_server_client:
-            host = os.getenv('SODA_HOST', 'cloud.soda.io')
-            api_key_secret = os.getenv('SODA_API_KEY_SECRET', None)
-            if api_key_secret:
-                self.soda_server_client = SodaServerClient(host, api_key_secret=api_key_secret)
-
+        self._create_soda_server_client()
+        
         return Scan(warehouse=warehouse,
                     scan_yml=self.scan_yml,
                     variables=self.variables,
@@ -133,3 +128,18 @@ class ScanBuilder:
             self.parsers.append(scan_yml_parser)
             self.scan_yml = scan_yml_parser.scan_yml
 
+    def _create_soda_server_client(self):
+        if not self.soda_server_client:
+            if self.warehouse_yml.soda_api_key_id and self.warehouse_yml.soda_api_key_secret:
+                host = self.warehouse_yml.soda_host
+                api_key_id = self.warehouse_yml.soda_api_key_id
+                api_key_secret = self.warehouse_yml.soda_api_key_secret
+            else:
+                host = os.getenv('SODA_HOST', 'cloud.soda.io')
+                api_key_id = os.getenv('SODA_SERVER_API_KEY_ID', None)
+                api_key_secret = os.getenv('SODA_SERVER_API_KEY_SECRET', None)
+
+            if api_key_id and api_key_secret:
+                self.soda_server_client = SodaServerClient(host, api_key_id=api_key_id, api_key_secret=api_key_secret)
+            else:
+                logging.debug("No Soda Cloud account configured")

@@ -1,9 +1,12 @@
-#!/usr/bin/env bash
+#!/usr/bin/env zsh
 
-# Run this from the root project dir with scripts/run_all_tests.sh
+# Run this from the root project dir with scripts/release.sh
 
-VERSION=2.0.0b8
-MESSAGE="Fixed init files and scan logs"
+if [ -z $1 ] || [ -z $2 ]; then
+  echo "SYNTAX: scripts/release.sh [RELEASE_TAG_NAME] [RELEASE_TAG_MESSAGE]"
+  echo "Eg: scripts/release.sh 2.0.0b9 \"Some release description\""
+  exit 1
+fi
 
-git tag -a "$VERSION" -m "$MESSAGE"
-git push origin "$VERSION"
+git tag -a "$1" -m "$2"
+git push origin "$1"
