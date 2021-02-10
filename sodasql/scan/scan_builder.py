@@ -69,8 +69,8 @@ class ScanBuilder:
         self.soda_server_client: SodaServerClient = None
 
     def build(self):
-        self.__build_warehouse_yml()
-        self.__build_scan_yml()
+        self._build_warehouse_yml()
+        self._build_scan_yml()
 
         for parser in self.parsers:
             parser.assert_no_warnings_or_errors()
@@ -91,7 +91,7 @@ class ScanBuilder:
                     variables=self.variables,
                     soda_server_client=self.soda_server_client)
 
-    def __build_warehouse_yml(self):
+    def _build_warehouse_yml(self):
         if not self.warehouse_yml_file and not self.warehouse_yml_dict and not self.warehouse_yml:
             logging.error(f'No warehouse specified')
             return
@@ -109,7 +109,7 @@ class ScanBuilder:
             self.parsers.append(warehouse_parser)
             self.warehouse_yml = warehouse_parser.warehouse_yml
 
-    def __build_scan_yml(self):
+    def _build_scan_yml(self):
         file_system = FileSystemSingleton.INSTANCE
 
         if not self.scan_yml_file and not self.scan_yml_dict and not self.scan_yml:
