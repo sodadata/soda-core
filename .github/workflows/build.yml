@@ -58,6 +58,7 @@ jobs:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
           REPORTS_URL: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          INCLUDED_BRANCHES: "main master"
         run: |
           pip3 install -r .github/scripts/requirements.txt
           python3 .github/scripts/report_test_failure.py

@@ -13,7 +13,7 @@ class MockSodaServerClient(SodaServerClient):
     def execute_command(self, command: dict):
         json.dumps(command, indent=2)
         self.commands.append(command)
-        if command['type'] == 'scanStart':
+        if command['type'] == 'sodaSqlScanStart':
             return {'scanReference': 'scanref-123'}
 
     def execute_query(self, command: dict):
