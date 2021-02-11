@@ -26,7 +26,8 @@ class SodaServerClient:
                  username: Optional[str] = None,
                  password: Optional[str] = None,
                  api_key_id: Optional[str] = None,
-                 api_key_secret: Optional[str] = None):
+                 api_key_secret: Optional[str] = None,
+                 token: Optional[str] = None):
         self.host: str = host
         colon_port = f':{port}' if port else ''
         self.api_url: str = f'{protocol}://{self.host}{colon_port}/api'
@@ -34,7 +35,7 @@ class SodaServerClient:
         self.password: Optional[str] = password
         self.api_key_id: Optional[str] = api_key_id
         self.api_key_secret: Optional[str] = api_key_secret
-        self.token: Optional[str] = None
+        self.token: Optional[str] = token
 
     def scan_start(self, warehouse_name, warehouse_type, table_name, scan_time):
         return self.execute_command({
