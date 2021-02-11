@@ -25,7 +25,7 @@ Talk to the team
 
 [Discussions: github.com/sodadata/soda-sql/discussions](https://github.com/sodadata/soda-sql/discussions)
 
-Create a [new discussion](https://github.com/sodadata/soda-sql/discussions/new) to
+Create a [new discussion](https://github.com/sodadata/soda-sql/discussions) to
 * Post a question
 * Post a problem
 * Share your feedback
@@ -34,4 +34,4 @@ Create a [new discussion](https://github.com/sodadata/soda-sql/discussions/new) 
 ## Contributing
 
 We are very open to contributions.  To start a contribution it's good to, [post your idea
-on the discussion forum](https://github.com/sodadata/soda-sql/discussions/new).
+on the discussion forum](https://github.com/sodadata/soda-sql/discussions).

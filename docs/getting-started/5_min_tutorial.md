@@ -252,7 +252,7 @@ SELECT
 
 Congrats! You've just completed all steps required to get you going with `soda-sql`.
 
-[Post a quick note letting us know what you like or dislike.](https://github.com/sodadata/soda-sql/discussions/new)
+[Post a quick note letting us know what you like or dislike.](https://github.com/sodadata/soda-sql/discussions)
 
 Next we suggest you to take a look at some further in-depth documentation which will help you to integrate `soda-sql` into
 your own project.
