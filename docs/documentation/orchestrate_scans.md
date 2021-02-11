@@ -89,9 +89,8 @@ options, for example passing variables to `soda scan` command.
 We are currently working on a custom SodaSQL operator to provide even tighter
 integration with Airflow.
 
-Need more help? [Post](https://github.com/sodadata/soda-sql/discussions/new?)
-your questions on on our discussion forum or talk to us on
-[soda-community-slack](https://soda-community.slack.com)
+Need more help? [Post your questions on GitHub](https://github.com/sodadata/soda-sql/discussions/new)
+or [join our Slack community](https://join.slack.com/t/soda-community/shared_invite/zt-m77gajo1-nXJF7JtbbRht2zwaiLb9pg)
 
 ## Other orchestration solutions
 
