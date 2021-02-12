@@ -22,6 +22,8 @@ KEY_CONNECTION = 'connection'
 KEY_SODA_ACCOUNT = 'soda_account'
 
 SODA_KEY_HOST = 'host'
+SODA_KEY_PORT = 'port'
+SODA_KEY_PROTOCOL = 'protocol'
 SODA_KEY_API_KEY_ID = 'api_key_id'
 SODA_KEY_API_KEY_SECRET = 'api_key_secret'
 
@@ -66,6 +68,8 @@ class WarehouseYmlParser(Parser):
             if soda_account_dict:
                 self._push_context(object=soda_account_dict, name=KEY_SODA_ACCOUNT)
                 self.warehouse_yml.soda_host = self.get_str_optional(SODA_KEY_HOST, 'cloud.soda.io')
+                self.warehouse_yml.soda_port = self.get_int_optional(SODA_KEY_PORT, 443)
+                self.warehouse_yml.soda_protocol = self.get_str_optional(SODA_KEY_PROTOCOL, 'https')
                 self.warehouse_yml.soda_api_key_id = self.get_str_required(SODA_KEY_API_KEY_ID)
                 self.warehouse_yml.soda_api_key_secret = self.get_str_required(SODA_KEY_API_KEY_SECRET)
                 self._pop_context()

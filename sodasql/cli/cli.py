@@ -8,12 +8,14 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
+import datetime
 import logging
 import sys
 from typing import Optional
 
 import click
 import yaml
+
 from sodasql.cli.scan_initializer import ScanInitializer
 from sodasql.common.logging_helper import LoggingHelper
 from sodasql.scan.file_system import FileSystemSingleton
@@ -195,7 +197,7 @@ def init(warehouse_file: str):
               help='Variables like -v start=2020-04-12.  Put values with spaces in single or double quotes.')
 @click.option('-t', '--time',
               required=False,
-              default=None,
+              default=datetime.datetime.now().isoformat(timespec='seconds'),
               help='The scan time in ISO8601 format like eg 2020-12-31T16:48:30Z')
 def scan(scan_yml_file: str, warehouse_yml_file: str, variables: tuple = None, time: str = None):
     """
@@ -223,6 +225,7 @@ def scan(scan_yml_file: str, warehouse_yml_file: str, variables: tuple = None, t
         scan_builder = ScanBuilder()
         scan_builder.warehouse_yml_file = warehouse_yml_file
         scan_builder.scan_yml_file = scan_yml_file
+        scan_builder.time = time
 
         logging.info(f'Scanning {scan_yml_file} ...')
 
