@@ -45,7 +45,7 @@ To learn about the parameters, use the command line help:
 # Env vars
 
 To keep your `warehouse.yml` configuration files free of credentials, soda-sql
-supports to reference to environment variables by using the `env_vars(SOME_ENV_VAR)` format.
+supports to reference to environment variables by using the `env_var(SOME_ENV_VAR)` format.
 
 The `soda` CLI uses a convenient mechanism to load environment variables from your local
 user home directory.  Each `soda` CLI command which reads a warehouse configuration will

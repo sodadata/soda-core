@@ -60,6 +60,7 @@ class ScanBuilder:
         self.warehouse_yml_dict: dict = None
         self.warehouse_yml: WarehouseYml = None
         self.scan_yml_file: str = None
+        self.time: str = None
         self.scan_yml_dict: dict = None
         self.scan_yml: ScanYml = None
         self.variables: dict = {}
@@ -84,7 +85,8 @@ class ScanBuilder:
         return Scan(warehouse=warehouse,
                     scan_yml=self.scan_yml,
                     variables=self.variables,
-                    soda_server_client=self.soda_server_client)
+                    soda_server_client=self.soda_server_client,
+                    time=self.time)
 
     def _build_warehouse_yml(self):
         if not self.warehouse_yml_file and not self.warehouse_yml_dict and not self.warehouse_yml:
@@ -134,12 +136,20 @@ class ScanBuilder:
                 host = self.warehouse_yml.soda_host
                 api_key_id = self.warehouse_yml.soda_api_key_id
                 api_key_secret = self.warehouse_yml.soda_api_key_secret
+                port = str(self.warehouse_yml.soda_port)
+                protocol = self.warehouse_yml.soda_protocol
             else:
                 host = os.getenv('SODA_HOST', 'cloud.soda.io')
                 api_key_id = os.getenv('SODA_SERVER_API_KEY_ID', None)
                 api_key_secret = os.getenv('SODA_SERVER_API_KEY_SECRET', None)
+                port = os.getenv('SODA_PORT', '443')
+                protocol = os.getenv('SODA_PROTOCOL', 'https')
 
             if api_key_id and api_key_secret:
-                self.soda_server_client = SodaServerClient(host, api_key_id=api_key_id, api_key_secret=api_key_secret)
+                self.soda_server_client = SodaServerClient(host,
+                                                           api_key_id=api_key_id,
+                                                           api_key_secret=api_key_secret,
+                                                           protocol=protocol,
+                                                           port=port)
             else:
                 logging.debug("No Soda Cloud account configured")

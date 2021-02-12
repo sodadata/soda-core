@@ -21,5 +21,7 @@ class WarehouseYml:
     dialect: Dialect = None
     name: str = None
     soda_host: Optional[str] = None
+    soda_port: Optional[int] = None
+    soda_protocol: Optional[str] = None
     soda_api_key_id: Optional[str] = None
     soda_api_key_secret: Optional[str] = None
