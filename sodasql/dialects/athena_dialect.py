@@ -53,6 +53,9 @@ class AthenaDialect(Dialect):
             region_name=self.aws_credentials.region_name,
             role_arn=self.aws_credentials.role_arn)
 
+    def sql_tables_metadata_query(self, *_):
+        return (f"SHOW tables IN `{self.database.lower()}`;")
+
     def sql_columns_metadata_query(self, table_name: str):
         return (f"SELECT column_name, data_type, is_nullable \n"
                 f"FROM information_schema.columns \n"
