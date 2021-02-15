@@ -54,8 +54,10 @@ class AthenaDialect(Dialect):
             role_arn=self.aws_credentials.role_arn)
 
     def sql_tables_metadata_query(self, limit: str = 10, filter: str = None):
+        # Alternative ( https://github.com/sodadata/soda-sql/pull/98/files )
+        # return (f"SHOW tables IN `{self.database.lower()}`;")
         return (f"SELECT table_name \n"
-                f"FROM information_schema.columns \n"
+                f"FROM information_schema.tables \n"
                 f"WHERE lower(table_schema) = '{self.database.lower()}';")
 
     def sql_columns_metadata_query(self, table_name: str):
