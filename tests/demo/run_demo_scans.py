@@ -11,7 +11,7 @@
 from datetime import timedelta, datetime
 
 from sodasql.scan.scan import Scan
-from sodasql.scan.scan_yml_parser import ScanYmlParser
+from sodasql.scan.scan_yml_parser import ScanYmlParser, KEY_METRICS, KEY_COLUMNS
 from sodasql.scan.warehouse import Warehouse
 from sodasql.scan.warehouse_yml import WarehouseYml
 from tests.common.sql_test_case import SqlTestCase

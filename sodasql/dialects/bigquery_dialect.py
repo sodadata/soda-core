@@ -52,6 +52,10 @@ class BigQueryDialect(Dialect):
         self.client = bigquery.Client(project=project_id, credentials=credentials)
         return dbapi.Connection(self.client)
 
+    def sql_tables_metadata_query(self, limit: str = 10, filter: str = None):
+        return (f"SELECT table_name \n"
+                f"FROM `{self.dataset_name}.INFORMATION_SCHEMA.TABLES`;")
+
     def sql_columns_metadata_query(self, table_name: str):
         return (f"SELECT column_name, data_type, is_nullable "
                 f'FROM `{self.dataset_name}.INFORMATION_SCHEMA.COLUMNS` '
