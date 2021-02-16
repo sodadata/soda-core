@@ -8,6 +8,7 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
+import json
 from dataclasses import dataclass
 from typing import Optional, Any
 
@@ -19,25 +20,34 @@ class TestResult:
 
     test: Test
     passed: bool
-    value: Optional[Any] = None
+    values: Optional[dict] = None
     error: Optional[str] = None
     group_values: Optional[dict] = None
+
+    def __str__(self):
+        return (f'Test {self.test.description} {"passed" if self.passed else "failed"}' +
+                (f" with group values {self.group_values}" if self.group_values else '') +
+                f' with metric values {json.dumps(self.values)}')
 
     def to_json(self):
         if not self.test or not self.test.expression:
             return {
                 'error': 'Invalid test result'
             }
-        if self.error:
-            return {
-                'test': self.test.expression,
-                'error': error
-            }
+
         test_result_json = {
-            'test': self.test.expression,
-            'passed': self.passed,
-            'value': self.value
+            'name': self.test.name,
+            'index': self.test.index,
+            'expression': self.test.expression
         }
+
+        if self.error:
+            test_result_json['error'] = self.error
+        else:
+            test_result_json['passed'] = self.passed
+            test_result_json['values'] = self.values
+
         if self.group_values:
             test_result_json['groupValues'] = self.group_values
+
         return test_result_json

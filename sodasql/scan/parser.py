@@ -240,11 +240,12 @@ class Parser:
                     try:
                         test_name = f'test_{test_index}'
                         test_expression = test_yml
-                        test = self.parse_test(test_name,
-                                               test_expression,
-                                               context_table_name,
-                                               context_column_name,
-                                               context_sql_metric)
+                        test = self.parse_test(test_name=test_name,
+                                               test_expression=test_expression,
+                                               test_index=test_index,
+                                               context_table_name=context_table_name,
+                                               context_column_name=context_column_name,
+                                               context_sql_metric=context_sql_metric)
                         if test:
                             tests.append(test)
                     finally:
@@ -255,11 +256,11 @@ class Parser:
                     self._push_context(None, test_name)
                     try:
                         test_expression = test_ymls[test_name]
-                        test = self.parse_test(test_name,
-                                               test_expression,
-                                               context_table_name,
-                                               context_column_name,
-                                               context_sql_metric)
+                        test = self.parse_test(test_name=test_name,
+                                               test_expression=test_expression,
+                                               context_table_name=context_table_name,
+                                               context_column_name=context_column_name,
+                                               context_sql_metric=context_sql_metric)
                         if test:
                             tests.append(test)
                     finally:
@@ -275,6 +276,7 @@ class Parser:
     def parse_test(self,
                    test_name: str,
                    test_expression: str,
+                   test_index: int = None,
                    context_table_name: str = None,
                    context_column_name: str = None,
                    context_sql_metric: str = None):
@@ -295,11 +297,12 @@ class Parser:
 
         try:
             compiled_code = compile(test_expression, 'test', 'eval')
-            first_metric = None
+
+            metrics = None
 
             if context_table_name or context_column_name:
                 names = compiled_code.co_names
-                first_metric = names[0]
+                metrics = names
                 non_metric_names = [name for name in names if name not in Metric.METRIC_TYPES]
                 if len(non_metric_names) != 0 or len(names) == 0:
                     # Dunno yet if this should be info, warning or error.  So for now keeping it open.
@@ -308,10 +311,12 @@ class Parser:
                               f'was not a valid metric type. Metric types: {Metric.METRIC_TYPES}, '
                               f'Test: {test_description}')
 
-            return Test(test_description,
-                        test_expression,
-                        first_metric,
-                        context_column_name)
+            return Test(description=test_description,
+                        name=test_name,
+                        index=test_index,
+                        expression=test_expression,
+                        metrics=metrics,
+                        column=context_column_name)
 
         except SyntaxError:
             stacktrace_lines = traceback.format_exc().splitlines()

@@ -330,16 +330,13 @@ def scan(scan_yml_file: str, warehouse_yml_file: str, variables: tuple = None, t
         from sodasql.scan.scan_result import ScanResult
         scan_result: ScanResult = scan.execute()
 
-        for measurement in scan_result.measurements:
-            logging.info(measurement)
-
         logging.info(f'{len(scan_result.measurements)} measurements computed')
         logging.info(f'{len(scan_result.test_results)} tests executed')
         if scan_result.has_failures():
             logging.info(f'{scan_result.failures_count()} of {len(scan_result.test_results)} tests failed:')
             for test_result in scan_result.test_results:
                 if not test_result.passed:
-                    logging.info(f'  {test_result.test.description} cause {test_result.test.first_metric}={test_result.value}')
+                    logging.info(f'  {test_result}')
         else:
             logging.info(f'All is good. No tests failed.')
         sys.exit(scan_result.failures_count())
