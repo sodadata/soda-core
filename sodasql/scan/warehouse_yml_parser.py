@@ -46,12 +46,12 @@ class WarehouseYmlParser(Parser):
     """
 
     def __init__(self,
-                 warehouse_dict: dict,
-                 warehouse_yaml_file: str = 'warehouse-dict'):
-        super().__init__(description=warehouse_yaml_file)
+                 warehouse_yml_dict: dict,
+                 warehouse_yml_file: str = 'warehouse-dict'):
+        super().__init__(description=warehouse_yml_file)
 
-        if isinstance(warehouse_dict, dict):
-            self._push_context(object=warehouse_dict, name=self.description)
+        if isinstance(warehouse_yml_dict, dict):
+            self._push_context(object=warehouse_yml_dict, name=self.description)
 
             self.warehouse_yml = WarehouseYml()
             self.warehouse_yml.name = self.get_str_required(KEY_NAME)

@@ -104,7 +104,7 @@ $ soda create -d sodasql -u sodasql -w soda_sql_tutorial postgres
   |   cat warehouse.yml
   | Review section soda_sql_tutorial in ~/.soda/env_vars.yml by running command
   |   cat ~/.soda/env_vars.yml
-  | Then run the soda init command
+  | Then run the soda analyze command
 ```
 
 The `soda create` command will only create and append configuration files.  It will
@@ -119,25 +119,25 @@ You can continue without changing anything.
 
 Check out the [warehouse.yml]({% link documentation/warehouse.md %}) or [env_vars.yml]({% link documentation/cli.md %}#env-vars) documentation to learn more about these files.
 
-### 4\) Initialize table scan YAML files
+### 4\) Analyze table scan YAML files
 
 Now our warehouse is configured it's time to create a 'scan YAML' file for each table which we want to scan.
-To create a scan YAML for each table in your database you can simply run the `soda init` command. Alternatively
+To create a scan YAML for each table in your database you can simply run the `soda analyze` command. Alternatively
 you can manually create the scan YAML files.
 
-> By default `soda init` will place the scan YAML files in a `./tables/` directory, but this isn't required. Feel
+> By default `soda analyze` will place the scan YAML files in a `./tables/` directory, but this isn't required. Feel
 free to locate the scan YAML files anywhere you like.
 
-The `soda init` will by default use the `warehouse.yml` in the current directory. Since we already created
+The `soda analyze` will by default use the `warehouse.yml` in the current directory. Since we already created
 a `warehouse.yml` in our previous step we can simply continue by running:
 
 <sub>Command:</sub>
 ```shell
-soda init
+soda analyze
 ```
 <sub>Command console output:</sub>
 ```
-  | Initializing warehouse.yml ...
+  | Analyzing warehouse.yml ...
   | Querying warehouse for tables
   | Creating tables directory tables
   | Executing SQL query:
@@ -154,7 +154,7 @@ WHERE lower(table_schema)='public'
 
 ### 5\) Review the generated scan YAML files
 
-Each scan YAML file will contain the metric and test instructions used by `soda scan`. By default `soda init` will
+Each scan YAML file will contain the metric and test instructions used by `soda scan`. By default `soda analyze` will
 create a scan YAML file with some good defaults, but feel free to modify the generated configurations
 to fit your needs.
 

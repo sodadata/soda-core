@@ -18,7 +18,7 @@ A warehouse represents a connection to any SQL engine like: `Snowflake`, `Redshi
 ### Example
 
 Here's an example of a Soda Warehouse directory structure which is generated
-when using `soda init` to setup your project:
+when using `soda analyze` to setup your project:
 
 ```
 + sales_snowflake

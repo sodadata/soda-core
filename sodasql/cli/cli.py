@@ -10,15 +10,19 @@
 #  limitations under the License.
 import datetime
 import logging
+import re
 import sys
+from math import ceil
 from typing import Optional
 
 import click
 import yaml
 
-from sodasql.cli.scan_initializer import ScanInitializer
+from sodasql.cli.indenting_yaml_dumper import IndentingDumper
 from sodasql.common.logging_helper import LoggingHelper
+from sodasql.dataset_analyzer import DatasetAnalyzer
 from sodasql.scan.file_system import FileSystemSingleton
+from sodasql.scan.metric import Metric
 from sodasql.scan.scan_builder import ScanBuilder
 from sodasql.scan.warehouse import Warehouse
 from sodasql.scan.warehouse_yml_parser import (WarehouseYmlParser,
@@ -150,7 +154,17 @@ def create(warehouse_type: str,
 @click.argument('warehouse_file', required=False, default='warehouse.yml')
 def init(warehouse_file: str):
     """
-    Finds tables in the warehouse and creates scan YAML files based on the data in the table. By default it creates
+    Renamed to `soda analyze`
+    """
+    logging.info(SODA_SQL_VERSION)
+    logging.info("Command 'soda init' was renamed to 'soda analyse'.  To see the arguments and options: `soda analyse --help`")
+
+
+@main.command()
+@click.argument('warehouse_file', required=False, default='warehouse.yml')
+def analyze(warehouse_file: str):
+    """
+    Analyzes tables in the warehouse and creates scan YAML files based on the data in the table. By default it creates
     files in a subdirectory called "tables" on the same level as the warehouse file.
 
     WAREHOUSE_FILE contains the connection details to the warehouse. This file can be created using the `soda create` command.
@@ -161,7 +175,7 @@ def init(warehouse_file: str):
     warehouse = None
 
     try:
-        logging.info(f'Initializing {warehouse_file} ...')
+        logging.info(f'Analyzing {warehouse_file} ...')
 
         warehouse_yml_dict = read_warehouse_yml_file(warehouse_file)
         warehouse_yml_parser = WarehouseYmlParser(warehouse_yml_dict, warehouse_file)
@@ -169,11 +183,89 @@ def init(warehouse_file: str):
 
         logging.info('Querying warehouse for tables')
         warehouse_dir = file_system.dirname(warehouse_file)
-        scan_initializer = ScanInitializer(warehouse, warehouse_dir)
-        scan_initializer.initialize_scan_ymls()
+
+        file_system = FileSystemSingleton.INSTANCE
+
+        def fileify(name: str):
+            return re.sub(r'[^A-Za-z0-9_.]+', '_', name).lower()
+
+        table_dir = file_system.join(warehouse_dir, 'tables')
+        if not file_system.file_exists(table_dir):
+            logging.info(f'Creating tables directory {table_dir}')
+            file_system.mkdirs(table_dir)
+        else:
+            logging.info(f'Directory {table_dir} already exists')
+
+        first_table_scan_yml_file = None
+
+        dialect = warehouse.dialect
+        tables_metadata_query = dialect.sql_tables_metadata_query()
+        rows = warehouse.sql_fetchall(tables_metadata_query)
+
+        for row in rows:
+            table_name = row[0]
+
+            dataset_analyzer = DatasetAnalyzer()
+            dataset_analyze_results = dataset_analyzer.analyze(warehouse, table_name)
+
+            table_scan_yaml_file = file_system.join(table_dir, f'{fileify(table_name)}.yml')
+
+            if not first_table_scan_yml_file:
+                first_table_scan_yml_file = table_scan_yaml_file
+
+            if file_system.file_exists(table_scan_yaml_file):
+                logging.info(
+                    f"Scan file {table_scan_yaml_file} already exists")
+            else:
+                logging.info(f"Creating {table_scan_yaml_file} ...")
+                from sodasql.scan.scan_yml_parser import (KEY_METRICS,
+                                                          KEY_TABLE_NAME,
+                                                          KEY_TESTS,
+                                                          KEY_COLUMNS,
+                                                          COLUMN_KEY_VALID_FORMAT,
+                                                          COLUMN_KEY_TESTS)
+                scan_yaml_dict = {
+                    KEY_TABLE_NAME: table_name,
+                    KEY_METRICS:
+                        [Metric.ROW_COUNT] +
+                        Metric.METRIC_GROUPS[Metric.METRIC_GROUP_MISSING] +
+                        Metric.METRIC_GROUPS[Metric.METRIC_GROUP_VALIDITY] +
+                        Metric.METRIC_GROUPS[Metric.METRIC_GROUP_LENGTH] +
+                        Metric.METRIC_GROUPS[Metric.METRIC_GROUP_STATISTICS],
+                    KEY_TESTS: [
+                        'row_count > 0'
+                    ]
+                }
+
+                columns = {}
+                for column_analysis_result in dataset_analyze_results:
+                    if column_analysis_result.validity_format:
+                        column_yml = {
+                            COLUMN_KEY_VALID_FORMAT: column_analysis_result.validity_format
+                        }
+                        values_count = column_analysis_result.values_count
+                        valid_count = column_analysis_result.valid_count
+                        if valid_count > (values_count * .8):
+                            valid_percentage = valid_count * 100 / values_count
+                            invalid_threshold = (100 - valid_percentage) * 1.1
+                            invalid_threshold_rounded = ceil(invalid_threshold)
+                            invalid_comparator = '==' if invalid_threshold_rounded == 0 else '<='
+                            column_yml[COLUMN_KEY_TESTS] = [
+                                f'invalid_percentage {invalid_comparator} {str(invalid_threshold_rounded)}'
+                            ]
+                            columns[column_analysis_result.column_name] = column_yml
+
+                if columns:
+                    scan_yaml_dict[KEY_COLUMNS] = columns
+
+                scan_yml_str = yaml.dump(scan_yaml_dict,
+                                         sort_keys=False,
+                                         Dumper=IndentingDumper,
+                                         default_flow_style=False)
+                file_system.file_write_from_str(table_scan_yaml_file, scan_yml_str)
 
         logging.info(
-            f"Next run 'soda scan {warehouse_file} {scan_initializer.first_table_scan_yml_file}' to calculate measurements and run tests")
+            f"Next run 'soda scan {warehouse_file} {first_table_scan_yml_file}' to calculate measurements and run tests")
 
     except Exception as e:
         logging.exception(f'Exception: {str(e)}')

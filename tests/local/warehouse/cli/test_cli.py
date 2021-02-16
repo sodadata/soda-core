@@ -86,7 +86,7 @@ class TestCli(SqlTestCase):
         if isinstance(self.warehouse.dialect, PostgresDialect):
             self.load_demo_data()
             self.run_cli_create()
-            self.run_cli_init()
+            self.run_cli_analyze()
             self.run_cli_scan()
 
     def load_demo_data(self):
@@ -110,9 +110,9 @@ class TestCli(SqlTestCase):
         user_home_dir = self.mock_file_system.user_home_dir()
         self.assertIsNotNone(self.mock_file_system.files.get(f'{user_home_dir}/.soda/env_vars.yml'))
 
-    def run_cli_init(self):
+    def run_cli_analyze(self):
         runner = CliRunner()
-        result = runner.invoke(main, ['init'])
+        result = runner.invoke(main, ['analyze'])
         self.assertEqual(result.exit_code, 0)
 
         scan_yml_str = self.mock_file_system.file_read_as_str(f'tables/{self.demodata_table_name.lower()}.yml')

@@ -34,12 +34,12 @@ Commands:
 | Command | Description |
 | ------- | ----------- |
 | `soda create ...` | Creates a new `warehouse.yml` file and prepares credentials in your `~/.soda/env_vars.yml`. Nothing will be overwritten or removed, only added if it doesn't exist yet. |
-| `soda init ...` | Finds tables in your warehouse and creates scan YAML files for each table. Files are created in a subdirectory called "tables" next to the warehouse file. |
+| `soda analyze ...` | Analyzes tables in your warehouse and creates scan YAML files for each table. Files are created in a subdirectory called "tables" next to the warehouse file. |
 | `soda scan ...` | Computes all measurements and runs all tests on one table.  Exit code 0 means all tests passed. Non zero exit code means tests have failed or an exception occurred. If the warehouse YAML file has a Soda cloud account configured, measurements and test results will be uploaded. |
 
 To learn about the parameters, use the command line help:
 * `soda create --help`
-* `soda init --help`
+* `soda analyze --help`
 * `soda scan --help`
 
 # Env vars
