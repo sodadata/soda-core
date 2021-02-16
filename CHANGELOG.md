@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [unreleased]
 
 ### Fixed
+
+## [2.0.0b11] - 2021-02-16
+### Changed
 - Added missing table metadata queries for athena and bigquery (#97)
 
 ## [2.0.0b10] - 2021-02-11
