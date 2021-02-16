@@ -27,25 +27,20 @@ cachetools==4.2.0
     # via google-auth
 certifi==2020.12.5
     # via
-    #   -r requirements.in
     #   msrest
     #   requests
     #   snowflake-connector-python
 cffi==1.14.3
     # via
-    #   -r requirements.in
     #   cryptography
     #   google-crc32c
     #   snowflake-connector-python
 chardet==3.0.4
-    # via
-    #   -r requirements.in
-    #   requests
+    # via requests
 click==7.1.2
     # via -r requirements.in
 cryptography==3.2.1
     # via
-    #   -r requirements.in
     #   azure-storage-blob
     #   pyopenssl
     #   snowflake-connector-python
@@ -125,7 +120,6 @@ requests-oauthlib==1.3.0
     # via msrest
 requests==2.23.0
     # via
-    #   -r requirements.in
     #   azure-core
     #   google-api-core
     #   msrest
@@ -156,7 +150,6 @@ tenacity==6.2.0
     # via pyathena
 urllib3==1.25.10
     # via
-    #   -r requirements.in
     #   botocore
     #   requests
     #   snowflake-connector-python

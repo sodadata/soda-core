@@ -12,24 +12,20 @@ bleach==3.3.0
     # via readme-renderer
 certifi==2020.12.5
     # via
-    #   -r dev-requirements.in
+    #   -c requirements.txt
     #   requests
-cffi==1.14.3
-    # via
-    #   -r dev-requirements.in
-    #   cryptography
 chardet==3.0.4
     # via
-    #   -r dev-requirements.in
+    #   -c requirements.txt
     #   requests
+click==7.1.2
+    # via
+    #   -c requirements.txt
+    #   pip-tools
 colorama==0.4.4
     # via twine
 coverage==5.4
     # via pytest-cov
-cryptography==3.2.1
-    # via
-    #   -r dev-requirements.in
-    #   secretstorage
 distlib==0.3.1
     # via virtualenv
 docker==4.4.1
@@ -43,7 +39,9 @@ filelock==3.0.12
     #   tox
     #   virtualenv
 idna==2.10
-    # via requests
+    # via
+    #   -c requirements.txt
+    #   requests
 importlib-metadata==1.7.0
     # via
     #   keyring
@@ -54,10 +52,6 @@ importlib-metadata==1.7.0
     #   virtualenv
 iniconfig==1.1.1
     # via pytest
-jeepney==0.6.0
-    # via
-    #   keyring
-    #   secretstorage
 keyring==22.0.1
     # via twine
 more-itertools==8.6.0
@@ -67,6 +61,8 @@ packaging==20.9
     #   bleach
     #   pytest
     #   tox
+pip-tools==5.5.0
+    # via -r dev-requirements.in
 pkginfo==1.7.0
     # via twine
 pluggy==0.13.1
@@ -77,8 +73,6 @@ py==1.10.0
     # via
     #   pytest
     #   tox
-pycparser==2.20
-    # via cffi
 pygments==2.7.4
     # via readme-renderer
 pyparsing==2.4.7
@@ -96,7 +90,9 @@ pytest==6.0.2
     #   pytest-html
     #   pytest-metadata
 python-dateutil==2.8.1
-    # via faker
+    # via
+    #   -c requirements.txt
+    #   faker
 python-dotenv==0.13.0
     # via -r dev-requirements.in
 readme-renderer==28.0
@@ -105,18 +101,16 @@ requests-toolbelt==0.9.1
     # via twine
 requests==2.23.0
     # via
-    #   -r dev-requirements.in
+    #   -c requirements.txt
     #   docker
     #   requests-toolbelt
     #   twine
 rfc3986==1.4.0
     # via twine
-secretstorage==3.3.0
-    # via keyring
 six==1.15.0
     # via
+    #   -c requirements.txt
     #   bleach
-    #   cryptography
     #   docker
     #   python-dateutil
     #   readme-renderer
@@ -143,7 +137,7 @@ twine==3.3.0
     # via -r dev-requirements.in
 urllib3==1.25.10
     # via
-    #   -r dev-requirements.in
+    #   -c requirements.txt
     #   requests
 virtualenv==20.4.2
     # via tox
@@ -155,4 +149,5 @@ zipp==3.4.0
     # via importlib-metadata
 
 # The following packages are considered to be unsafe in a requirements file:
+# pip
 # setuptools

@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+set -e
+
 # Run this from the root project dir with scripts/recreate_venv.sh
 
 VENV_DIR=.venv
