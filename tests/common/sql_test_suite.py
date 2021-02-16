@@ -28,16 +28,16 @@ from tests.local.warehouse.validity.test_numeric_data import TestNumericData
 
 class SqlTestSuite(
         TestDistinctAndUniqueness,
-        # TestFrequentValues,
-        # TestHistogramNumeric,
+        TestFrequentValues,
+        TestHistogramNumeric,
         TestMinMaxLength,
-        # TestMinsMaxs,
-        # TestMissingAndInvalidCustomizations,
+        TestMinsMaxs,
+        TestMissingAndInvalidCustomizations,
         TestMissingAndInvalidMetricConfigurations,
         TestSchema,
-        # TestStatisticalMetrics,
+        TestStatisticalMetrics,
         TestTestsTableMetric,
-        # ValidityTestSuite,
+        ValidityTestSuite,
         TestNumericData):
 
     def setUp(self) -> None:
