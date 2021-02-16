@@ -11,63 +11,73 @@
 import uuid
 from collections import OrderedDict
 from datetime import date, timedelta
-from typing import List
+from typing import List, Optional
 
 from faker import Faker
+
+from sodasql.dialects.postgres_dialect import PostgresDialect
+from sodasql.scan.dialect import Dialect, KEY_WAREHOUSE_TYPE
+from sodasql.scan.dialect_parser import DialectParser
+from tests.common.sql_test_case import TARGET_SNOWFLAKE, TARGET_POSTGRES, TARGET_REDSHIFT, TARGET_ATHENA, \
+    TARGET_BIGQUERY
+from tests.common.warehouse_fixture import WarehouseFixture
 
 faker = Faker()
 Faker.seed(faker.random_int())
 
 
 class Column:
-    def __init__(self, sql_type: str):
+    def __init__(self):
         class_name = str(type(self))
         self.name = class_name[class_name.rfind('.')+1:-2].upper()
-        self.type = sql_type
+        self.type = None
+        self.dialect: Optional[Dialect] = None
 
     def declaration(self) -> str:
-        return f'{self.name} {self.type}'
+        return f'{self.name} {self.get_data_type()}'
 
     def value(self, date_index, row_index, date):
         pass
 
+    def get_data_type(self):
+        pass
+
 
 class Id(Column):
-    def __init__(self):
-        super().__init__('VARCHAR(255)')
+    def get_data_type(self):
+        return dialect.data_type_varchar_255
 
     def value(self, date_index, row_index, date):
         return f"'{str(uuid.uuid1())}'"
 
+
 class Name(Column):
-    def __init__(self):
-        super().__init__('VARCHAR(255)')
+    def get_data_type(self):
+        return dialect.data_type_varchar_255
 
     def value(self, date_index, row_index, date):
         return f"'{faker.name()}'"
 
 
 class Size(Column):
-    def __init__(self):
-        super().__init__('INT')
+    def get_data_type(self):
+        return dialect.data_type_integer
 
     def value(self, date_index, row_index, date):
         return str(faker.random_int(min=1000, max=9999, step=1))
 
 
 class Date(Column):
-    def __init__(self):
-        super().__init__('DATE')
+    def get_data_type(self):
+        return dialect.data_type_date
 
     def value(self, date_index, row_index, date):
-        return ("DATE '" +
-                date.strftime("%Y-%m-%d") +
-                "'")
+        return self.dialect.literal_date(date)
 
 
 class FeePct(Column):
-    def __init__(self):
-        super().__init__('VARCHAR(255)')
+    def get_data_type(self):
+        return dialect.data_type_varchar_255
 
     def value(self, date_index, row_index, date):
         min = int(10 + date_index * 1)
@@ -86,8 +96,8 @@ class Country(Column):
         ("Spain", 0.15),
         ("Netherlands", 0.05) ])
 
-    def __init__(self):
-        super().__init__('VARCHAR(255)')
+    def get_data_type(self):
+        return dialect.data_type_varchar_255
 
     def value(self, date_index, row_index, date):
         elements = Country.elements if date_index != 2 else Country.elements_without_uk
@@ -100,17 +110,20 @@ class Generator:
         self.days = days
         self.columns = columns
         self.date = date.today() - timedelta(days=self.days-1)
+        self.dialect = None
+        self.table_name = 'DEMODATA'
 
-    def generate(self):
+    def generate(self, dialect: Dialect):
+        self.dialect = dialect
+        for column in self.columns:
+            column.dialect = dialect
         self.create_table()
         self.insert_rows()
 
     def create_table(self):
-        column_declarations = map(lambda x : x.declaration(), self.columns)
-        self.execute(f'DROP TABLE IF EXISTS DEMODATA CASCADE')
-        self.execute(f'CREATE TABLE DEMODATA (\n  ' +
-                     (',\n  '.join(column_declarations)) +
-                     f'\n)')
+        column_declarations = map(lambda x: x.declaration(), self.columns)
+        self.print_sql(self.dialect.sql_drop_table(self.table_name))
+        self.print_sql(self.dialect.sql_create_table(self.table_name, column_declarations))
 
     def insert_rows(self):
         for date_index in range(0, self.days):
@@ -123,15 +136,18 @@ class Generator:
                     row_values.append(row_value)
                 rows.append('( ' + (', '.join(row_values)) + ' )')
 
-            self.execute('INSERT INTO DEMODATA VALUES \n  ' +
-                         (',\n  '.join(rows)))
+            self.print_sql(self.dialect.sql_insert_into(self.table_name, rows))
             self.date = self.date + timedelta(days=1)
 
-    def execute(self, sql):
+    def print_sql(self, sql):
         print(f'{sql};\n')
 
     def get_row_count(self, date_index: int) -> int:
         return 5 + date_index + faker.random_int(min=0, max=2)
+
+
+def create_dialect(target):
+    return Dialect.create(DialectParser({KEY_WAREHOUSE_TYPE: target}))
 
 
 if __name__ == "__main__":
@@ -142,4 +158,9 @@ if __name__ == "__main__":
             Date(),
             FeePct(),
             Country()])
-    generator.generate()
+
+    targets = [TARGET_POSTGRES] # TARGET_ATHENA, TARGET_SNOWFLAKE, TARGET_REDSHIFT, TARGET_ATHENA, TARGET_BIGQUERY]
+
+    for target in targets:
+        dialect: Dialect = create_dialect(target)
+        generator.generate(dialect)

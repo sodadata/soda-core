@@ -50,12 +50,13 @@ soda scan -v date=2021-01-12 warehouse.yml tables/customer_transactions.yml
 > _Note: CLI does not yet support variables, but this will be made available soon. In the meantime you can use  the 'programmatic style' below_
 
 You can also use variables when invoking a Soda SQL Scan programmatically:
+
 ```python
 scan_builder = ScanBuilder()
 scan_builder.warehouse_yml_file = 'warehouse.yml'
 scan_builder.scan_yml_file = 'tables/my_table.yml'
 scan_builder.variables = {
-  'date': '2021-06-12'
+    'date': '2021-06-12'
 }
 scan = scan_builder.build()
 scan_result = scan.execute()

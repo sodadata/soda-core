@@ -8,6 +8,8 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
+from datetime import date
+
 from snowflake import connector
 
 from sodasql.scan.dialect import Dialect, SNOWFLAKE, KEY_WAREHOUSE_TYPE
@@ -19,12 +21,13 @@ class SnowflakeDialect(Dialect):
 
     def __init__(self, parser: Parser):
         super().__init__(SNOWFLAKE)
-        self.account = parser.get_str_required_env('account')
-        self.warehouse = parser.get_str_required_env('warehouse')
-        self.username = parser.get_str_required_env('username')
-        self.password = parser.get_credential('password')
-        self.database = parser.get_str_optional_env('database')
-        self.schema = parser.get_str_required_env('schema')
+        if parser:
+            self.account = parser.get_str_required_env('account')
+            self.warehouse = parser.get_str_required_env('warehouse')
+            self.username = parser.get_str_required_env('username')
+            self.password = parser.get_credential('password')
+            self.database = parser.get_str_optional_env('database')
+            self.schema = parser.get_str_required_env('schema')
 
     def default_connection_properties(self, params: dict):
         return {

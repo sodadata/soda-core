@@ -10,6 +10,7 @@ nav_order: 10
 Here's how to run scans using Python:
 
 Programmatic scan execution based on default dir structure:
+
 ```python
 scan_builder = ScanBuilder()
 scan_builder.scan_yml_file = 'tables/my_table.yml'
@@ -22,6 +23,7 @@ if scan_result.has_failures():
 ```
 
 Programmatic scan execution using dicts:
+
 ```python
 scan_builder = ScanBuilder()
 scan_builder.warehouse_yml_dict = {

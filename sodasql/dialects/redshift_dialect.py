@@ -8,6 +8,8 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
+from datetime import date
+
 import boto3
 import psycopg2
 
@@ -21,8 +23,9 @@ class RedshiftDialect(PostgresDialect):
 
     def __init__(self, parser: Parser):
         super().__init__(parser, REDSHIFT)
-        self.port = parser.get_str_optional('port', '5439')
-        self.aws_credentials = parser.get_aws_credentials_optional()
+        if parser:
+            self.port = parser.get_str_optional('port', '5439')
+            self.aws_credentials = parser.get_aws_credentials_optional()
 
     def with_database(self, database: str):
         warehouse_connection_dict = {

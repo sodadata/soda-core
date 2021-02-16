@@ -10,6 +10,7 @@
 #  limitations under the License.
 
 import json
+from datetime import date
 from json.decoder import JSONDecodeError
 import re
 
@@ -30,8 +31,9 @@ class BigQueryDialect(Dialect):
 
     def __init__(self, parser: Parser):
         super().__init__(BIGQUERY)
-        self.account_info_dict = self.__parse_json_credential('account_info_json', parser)
-        self.dataset_name = parser.get_str_required('dataset')
+        if parser:
+            self.account_info_dict = self.__parse_json_credential('account_info_json', parser)
+            self.dataset_name = parser.get_str_required('dataset')
         self.client = None
 
     def default_connection_properties(self, params: dict):

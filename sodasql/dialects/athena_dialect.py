@@ -8,7 +8,7 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-
+from datetime import date
 from typing import List
 
 import pyathena
@@ -21,10 +21,11 @@ class AthenaDialect(Dialect):
 
     def __init__(self, parser: Parser):
         super().__init__(ATHENA)
-        self.aws_credentials = parser.get_aws_credentials_optional()
-        self.athena_staging_dir = parser.get_str_required_env('staging_dir')
-        self.database = parser.get_str_required_env('database')
-        self.schema = parser.get_str_required_env('schema')
+        if parser:
+            self.aws_credentials = parser.get_aws_credentials_optional()
+            self.athena_staging_dir = parser.get_str_required_env('staging_dir')
+            self.database = parser.get_str_required_env('database')
+            self.schema = parser.get_str_required_env('schema')
 
     def default_connection_properties(self, params: dict):
         return {
@@ -80,3 +81,8 @@ class AthenaDialect(Dialect):
 
     def sql_expr_sum(self, expr: str):
         return f"SUM(CAST ({expr} as DECIMAL(38, 0)))"
+
+    def literal_date(self, date: date):
+        date_string = date.strftime("%Y-%m-%d")
+        return f"DATE('{date_string}')"
+

@@ -8,6 +8,7 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
+from datetime import date
 
 import psycopg2
 
@@ -17,14 +18,15 @@ from sodasql.scan.parser import Parser
 
 class PostgresDialect(Dialect):
 
-    def __init__(self, parser: Parser, type: str = POSTGRES):
+    def __init__(self, parser: Parser = None, type: str = POSTGRES):
         super().__init__(type)
-        self.host = parser.get_str_optional_env('host', 'localhost')
-        self.port = parser.get_str_optional_env('port', '5432')
-        self.username = parser.get_str_required_env('username')
-        self.password = parser.get_credential('password')
-        self.database = parser.get_str_required_env('database')
-        self.schema = parser.get_str_required_env('schema')
+        if parser:
+            self.host = parser.get_str_optional_env('host', 'localhost')
+            self.port = parser.get_str_optional_env('port', '5432')
+            self.username = parser.get_str_required_env('username')
+            self.password = parser.get_credential('password')
+            self.database = parser.get_str_required_env('database')
+            self.schema = parser.get_str_required_env('schema')
 
     def default_connection_properties(self, params: dict):
         return {

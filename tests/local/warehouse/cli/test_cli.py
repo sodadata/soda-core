@@ -117,7 +117,6 @@ class TestCli(SqlTestCase):
 
         scan_yml_str = self.mock_file_system.file_read_as_str(f'tables/{self.demodata_table_name.lower()}.yml')
         self.assertIsNotNone(scan_yml_str)
-        print(scan_yml_str)
 
     def run_cli_scan(self):
         runner = CliRunner()

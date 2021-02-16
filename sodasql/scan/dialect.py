@@ -8,14 +8,13 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-import logging
 import re
+from datetime import date
 from numbers import Number
 from typing import List
 
 from sodasql.scan.column_metadata import ColumnMetadata
 from sodasql.scan.parser import Parser
-from sodasql.scan.scan_yml import ScanYml
 
 KEY_WAREHOUSE_TYPE = 'type'
 
@@ -38,6 +37,7 @@ class Dialect:
     data_type_integer = "INTEGER"
     data_type_bigint = "BIGINT"
     data_type_decimal = "REAL"
+    data_type_date = "DATE"
 
     def __init__(self, type: str):
         self.type = type
@@ -107,6 +107,21 @@ class Dialect:
 
     def sql_tables_metadata_query(self, limit: str = 10, filter: str = None):
         raise RuntimeError('TODO override and implement this abstract method')
+
+    def sql_create_table(self, table_name: str, column_declarations: List[str]):
+        columns_sql = ",\n  ".join(column_declarations)
+        return f"CREATE TABLE " \
+               f"{self.qualify_writable_table_name(table_name)} ( \n" \
+               f"  {columns_sql} )"
+
+    def sql_insert_into(self, table_name, rows: list):
+        rows_sql = ',\n  '.join(rows)
+        return (f'INSERT INTO '
+                f"{self.qualify_writable_table_name(table_name)} VALUES \n"
+                f"  {rows_sql}")
+
+    def sql_drop_table(self, table_name):
+        return f"DROP TABLE IF EXISTS {self.qualify_writable_table_name(table_name)}"
 
     def sql_expr_count_all(self) -> str:
         return 'COUNT(*)'
@@ -181,6 +196,10 @@ class Dialect:
         if l is None:
             return None
         return '(' + (','.join([self.literal(e) for e in l])) + ')'
+
+    def literal_date(self, date: date):
+        date_string = date.strftime("%Y-%m-%d")
+        return f"DATE '{date_string}'"
 
     def literal(self, o: object):
         if isinstance(o, Number):
