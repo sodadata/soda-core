@@ -47,8 +47,8 @@ class WarehouseYmlParser(Parser):
 
     def __init__(self,
                  warehouse_yml_dict: dict,
-                 warehouse_yml_file: str = 'warehouse-dict'):
-        super().__init__(description=warehouse_yml_file)
+                 warehouse_yml_path: str = 'warehouse-dict'):
+        super().__init__(description=warehouse_yml_path)
 
         if isinstance(warehouse_yml_dict, dict):
             self._push_context(object=warehouse_yml_dict, name=self.description)

@@ -35,6 +35,9 @@ class ParseLog:
     def __str__(self):
         return f'[{self.level}] {self.message}'
 
+    def is_error_or_warning(self):
+        return self.level == ERROR or self.level == WARNING
+
     def log(self):
         if self.level == ERROR:
             logging.error(self.message)
@@ -108,7 +111,7 @@ class Parser:
 
     def has_warnings_or_errors(self):
         for log in self.logs:
-            if log.level == ERROR or log.level == WARNING:
+            if log.is_error_or_warning():
                 return True
         return False
 

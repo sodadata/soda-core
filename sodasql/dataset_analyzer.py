@@ -32,6 +32,12 @@ class ColumnAnalysisResult:
     values_count: int = None
     valid_count: int = None
 
+    def to_json(self):
+        return {
+            'columnName': self.column_name,
+            'sourceType': self.source_type,
+            'validityFormat': self.validity_format
+        }
 
 class DatasetAnalyzer:
 

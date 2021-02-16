@@ -87,21 +87,21 @@ VALID_SQL_METRIC_KEYS = [SQL_METRIC_KEY_SQL, SQL_METRIC_KEY_METRIC_NAMES, SQL_ME
 class ScanYmlParser(Parser):
 
     def __init__(self,
-                 scan_dict: dict,
-                 scan_yaml_path: str = 'scan'):
-        super().__init__(scan_yaml_path)
+                 scan_yml_dict: dict,
+                 scan_yml_path: str = 'scan'):
+        super().__init__(description=scan_yml_path)
 
-        self.scan_yaml_path = scan_yaml_path
+        self.scan_yaml_path = scan_yml_path
 
         self.scan_yml = ScanYml()
 
-        self._push_context(scan_dict, self.description)
+        self._push_context(scan_yml_dict, self.description)
 
         table_name = self.get_str_required(KEY_TABLE_NAME)
         self.scan_yml.table_name = table_name
         self.scan_yml.metrics = self.parse_metrics()
         self.scan_yml.sql_metric_ymls = self.parse_sql_metric_ymls(KEY_SQL_METRICS)
-        self.scan_yml.tests = self.parse_tests(scan_dict, KEY_TESTS, context_table_name=table_name)
+        self.scan_yml.tests = self.parse_tests(scan_yml_dict, KEY_TESTS, context_table_name=table_name)
         self.scan_yml.columns = self.parse_columns(self.scan_yml)
         self.scan_yml.sample_percentage = self.get_float_optional(KEY_SAMPLE_PERCENTAGE)
         self.scan_yml.sample_method = self.get_str_optional(KEY_SAMPLE_METHOD, 'SYSTEM').upper()

@@ -8,6 +8,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+## [2.0.0b12] - 2021-02-16
+### Changed
+- Renamed CLI command init to analyze!
+- (Internal refactoring) Extracted dataset analyzer
+
 ## [2.0.0b11] - 2021-02-16
 ### Changed
 - Added missing table metadata queries for athena and bigquery (#97)
