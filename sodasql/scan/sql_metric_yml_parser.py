@@ -40,7 +40,7 @@ class SqlMetricYmlParser(Parser):
             tests = self.parse_tests(
                 sql_metric_dict,
                 KEY_TESTS,
-                context_sql_metric=sql_metric_file_name)
+                context_sql_metric_name=sql_metric_file_name)
 
             self.sql_metric: SqlMetricYml = SqlMetricYml(sql=sql,
                                                          metric_names=metric_names,

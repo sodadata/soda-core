@@ -226,7 +226,8 @@ class Parser:
                     tests_key: str,
                     context_table_name: Optional[str] = None,
                     context_column_name: Optional[str] = None,
-                    context_sql_metric: Optional[str] = None) -> List[Test]:
+                    context_sql_metric_name: Optional[str] = None,
+                    context_sql_metric_index: Optional[int] = None) -> List[Test]:
         tests: List[Test] = []
 
         test_ymls = parent_dict.get(tests_key)
@@ -238,14 +239,13 @@ class Parser:
                     test_yml = test_ymls[test_index]
                     self._push_context(None, str(test_index))
                     try:
-                        test_name = f'test_{test_index}'
                         test_expression = test_yml
-                        test = self.parse_test(test_name=test_name,
+                        test = self.parse_test(test_index=test_index,
                                                test_expression=test_expression,
-                                               test_index=test_index,
                                                context_table_name=context_table_name,
                                                context_column_name=context_column_name,
-                                               context_sql_metric=context_sql_metric)
+                                               context_sql_metric_name=context_sql_metric_name,
+                                               context_sql_metric_index=context_sql_metric_index)
                         if test:
                             tests.append(test)
                     finally:
@@ -260,7 +260,8 @@ class Parser:
                                                test_expression=test_expression,
                                                context_table_name=context_table_name,
                                                context_column_name=context_column_name,
-                                               context_sql_metric=context_sql_metric)
+                                               context_sql_metric_name=context_sql_metric_name,
+                                               context_sql_metric_index=context_sql_metric_index)
                         if test:
                             tests.append(test)
                     finally:
@@ -274,16 +275,13 @@ class Parser:
         return tests
 
     def parse_test(self,
-                   test_name: str,
                    test_expression: str,
+                   test_name: str = None,
                    test_index: int = None,
                    context_table_name: str = None,
                    context_column_name: str = None,
-                   context_sql_metric: str = None):
-
-        if not test_name:
-            self.error('Test name is required')
-            return
+                   context_sql_metric_name: str = None,
+                   context_sql_metric_index: int = None):
 
         if not test_expression:
             self.error('Test expression is required')
@@ -291,9 +289,19 @@ class Parser:
 
         test_description = self.create_test_description(
             test_expression,
-            context_table_name,
+            test_name,
+            test_index,
             context_column_name,
-            context_sql_metric)
+            context_sql_metric_name,
+            context_sql_metric_index)
+
+        test_id = self.create_test_id(
+            test_expression,
+            test_name,
+            test_index,
+            context_column_name,
+            context_sql_metric_name,
+            context_sql_metric_index)
 
         try:
             compiled_code = compile(test_expression, 'test', 'eval')
@@ -312,8 +320,7 @@ class Parser:
                               f'Test: {test_description}')
 
             return Test(description=test_description,
-                        name=test_name,
-                        index=test_index,
+                        id=test_id,
                         expression=test_expression,
                         metrics=metrics,
                         column=context_column_name)
@@ -325,15 +332,39 @@ class Parser:
 
     def create_test_description(self,
                                 test_expression,
-                                context_table_name: str,
-                                context_column_name: str,
-                                context_sql_metric: str):
+                                test_name,
+                                test_index,
+                                context_column_name,
+                                context_sql_metric_name,
+                                context_sql_metric_index):
         parts = []
-        if context_table_name:
-            parts.append(f'table({context_table_name})')
         if context_column_name:
             parts.append(f'column({context_column_name})')
-        if context_sql_metric:
-            parts.append(f'sql_metric({context_sql_metric})')
-        parts.append(f'expression({test_expression})')
+        if context_sql_metric_index is not None:
+            parts.append(f'sqlmetric({context_sql_metric_index})')
+        elif context_sql_metric_name:
+            parts.append(f'sqlmetric({context_sql_metric_name})')
+        parts.append((test_name if test_name else f'test') + f'({test_expression})')
         return ' '.join(parts)
+
+    def create_test_id(self,
+                       test_expression,
+                       test_name,
+                       test_index,
+                       context_column_name,
+                       context_sql_metric_name,
+                       context_sql_metric_index):
+        # ORDERING AND CONTENTS ARE CRUCIAL
+        # It's used to match tests with monitor ids on the Soda cloud platform
+        test_id_dict = {}
+        if context_column_name:
+            test_id_dict['column'] = context_column_name
+        if context_sql_metric_index is not None:
+            test_id_dict['sql_metric_index'] = context_sql_metric_index
+        elif context_sql_metric_name:
+            test_id_dict['sql_metric_name'] = context_sql_metric_name
+        if test_index is not None:
+            test_id_dict['expression'] = test_expression
+        elif test_name:
+            test_id_dict['test_name'] = test_name
+        return json.dumps(test_id_dict, separators=(',', ':'))

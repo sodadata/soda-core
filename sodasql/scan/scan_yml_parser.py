@@ -273,7 +273,7 @@ class ScanYmlParser(Parser):
             self._push_context(object=sql_metric_dict, name=sql_metric_index)
 
             try:
-                name = self.get_str_optional(SQL_METRIC_KEY_NAME, str(sql_metric_index))
+                sql_metric_name = self.get_str_optional(SQL_METRIC_KEY_NAME)
                 metric_names = self.get_list_optional(SQL_METRIC_KEY_METRIC_NAMES)
                 group_fields = self.get_list_optional(SQL_METRIC_KEY_GROUP_FIELDS)
                 sql = self.get_str_optional(SQL_METRIC_KEY_SQL)
@@ -291,11 +291,12 @@ class ScanYmlParser(Parser):
                     SQL_METRIC_KEY_TESTS,
                     context_table_name=self.scan_yml.table_name,
                     context_column_name=column_name,
-                    context_sql_metric=name)
+                    context_sql_metric_name=sql_metric_name,
+                    context_sql_metric_index=sql_metric_index)
 
                 sql_metric_yml: SqlMetricYml = SqlMetricYml(sql=sql,
                                                             metric_names=metric_names,
-                                                            name=name,
+                                                            name=sql_metric_name,
                                                             group_fields=group_fields,
                                                             tests=tests)
 

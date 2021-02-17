@@ -8,9 +8,12 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
+import json
+import logging
 
 from sodasql.scan.metric import Metric
-from sodasql.scan.scan_yml_parser import KEY_METRICS, KEY_METRIC_GROUPS
+from sodasql.scan.scan_yml_parser import KEY_METRICS, KEY_METRIC_GROUPS, KEY_COLUMNS, COLUMN_KEY_TESTS, KEY_SQL_METRICS, \
+    SQL_METRIC_KEY_TESTS, SQL_METRIC_KEY_SQL
 from tests.common.sql_test_case import SqlTestCase
 
 
@@ -34,14 +37,30 @@ class TestSodaServerClient(SqlTestCase):
             'tests': {
                 'thegood': f'{Metric.ROW_COUNT} > 0',
                 'thebad': f'{Metric.ROW_COUNT} + 1 < 0'
+            },
+            KEY_SQL_METRICS: [{
+                SQL_METRIC_KEY_SQL: f'SELECT 0 AS zero FROM {self.default_test_table_name}',
+                SQL_METRIC_KEY_TESTS: [
+                        'zero == 0'
+                ]
+            }],
+            KEY_COLUMNS: {
+                'name': {
+                    COLUMN_KEY_TESTS: [
+                        f'{Metric.MISSING_COUNT} < 1',
+                    ]
+                }
             }
         })
 
         commands = self.mock_soda_server_client.commands
         scan_measurement_count = 0
         scan_test_result_count = 0
+        commands_log = ''
         for i in range(len(commands)):
             command = commands[i]
+            commands_log += json.dumps(command, indent=2) + '\n'
+
             command_type = command['type']
             if i == 0:
                 # The first command should be a scanStart command
@@ -58,6 +77,8 @@ class TestSodaServerClient(SqlTestCase):
                     scan_measurement_count += 1
                 elif command_type == 'sodaSqlScanTestResults':
                     scan_test_result_count += 1
+
+        logging.debug('Commands from Soda SQL to Server: \n'+commands_log)
 
         # There should at least be one scanMeasurement command
         self.assertGreater(scan_measurement_count, 0)

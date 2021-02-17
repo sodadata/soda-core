@@ -36,10 +36,13 @@ class TestResult:
             }
 
         test_result_json = {
-            'name': self.test.name,
-            'index': self.test.index,
+            'id': self.test.id,
+            'description': self.test.description,
             'expression': self.test.expression
         }
+
+        if self.test.column:
+            test_result_json['columnName'] = self.test.column
 
         if self.error:
             test_result_json['error'] = self.error

@@ -17,9 +17,8 @@ from typing import Optional, List
 @dataclass
 class Test:
 
+    id: str
     description: str
-    name: str
-    index: int
     expression: str
     metrics: List[str]
     column: Optional[str]

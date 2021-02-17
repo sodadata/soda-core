@@ -339,9 +339,12 @@ def scan(scan_yml_file: str, warehouse_yml_file: str, variables: tuple = None, t
                     logging.info(f'  {test_result}')
         else:
             logging.info(f'All is good. No tests failed.')
-        sys.exit(scan_result.failures_count())
+        exit_code = scan_result.failures_count()
+        logging.info(f'Exiting with code {exit_code}')
+        sys.exit(exit_code)
 
     except Exception as e:
         logging.exception(f'Scan failed: {str(e)}')
+        logging.info(f'Exiting with code 1')
         sys.exit(1)
 
