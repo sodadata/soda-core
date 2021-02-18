@@ -1,0 +1,5 @@
+type: sqlserver
+host: localhost
+username: sodasql
+database: sodasql
+schema: public
