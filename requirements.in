@@ -6,3 +6,4 @@ psycopg2-binary==2.8.5
 PyAthena==1.10.7
 google-cloud-bigquery==2.5.0
 cryptography==3.3.2
+pyodbc==4.0.30

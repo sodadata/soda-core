@@ -23,12 +23,14 @@ SNOWFLAKE = 'snowflake'
 REDSHIFT = 'redshift'
 BIGQUERY = 'bigquery'
 ATHENA = 'athena'
+SQLSERVER = 'sqlserver'
 
 ALL_WAREHOUSE_TYPES = [POSTGRES,
                        SNOWFLAKE,
                        REDSHIFT,
                        BIGQUERY,
-                       ATHENA]
+                       ATHENA,
+                       SQLSERVER]
 
 
 class Dialect:
@@ -60,6 +62,9 @@ class Dialect:
         if warehouse_type == ATHENA:
             from sodasql.dialects.athena_dialect import AthenaDialect
             return AthenaDialect(parser)
+        if warehouse_type == SQLSERVER:
+            from sodasql.dialects.sqlserver_dialect import SQLServerDialect
+            return SQLServerDialect(parser)
 
     @classmethod
     def create_for_warehouse_type(cls, warehouse_type):
