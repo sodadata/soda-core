@@ -21,7 +21,7 @@ if __name__ == "__main__":
     try:
         runner = CliRunner()
         runner.file = sys.stdout
-        run_result = runner.invoke(main, ['create', '-d sodasql', '-u', 'sodasql', '~/soda_sql_tutorial3', 'postgres'])
+        run_result = runner.invoke(main, ['scan', '~/soda_sql_tutorial3', 'postgres'])
     except Exception as e:
         traceback.print_exc()
     if run_result:

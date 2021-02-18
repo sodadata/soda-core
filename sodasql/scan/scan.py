@@ -552,8 +552,7 @@ class Scan:
     def _ensure_scan_reference(self):
         if self.soda_server_client and not self.scan_reference:
             self.start_scan_response = self.soda_server_client.scan_start(
-                self.warehouse.name,
-                self.warehouse.dialect.type,
-                self.scan_yml.table_name,
+                self.warehouse,
+                self.scan_yml,
                 self.time)
             self.scan_reference = self.start_scan_response['scanReference']
