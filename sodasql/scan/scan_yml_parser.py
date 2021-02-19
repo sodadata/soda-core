@@ -294,9 +294,12 @@ class ScanYmlParser(Parser):
                     context_sql_metric_name=sql_metric_name,
                     context_sql_metric_index=sql_metric_index)
 
+                sql_metric_description = ((column_name+'.' if column_name else '') +
+                                          (sql_metric_name if sql_metric_name else f'sql_metric[{sql_metric_index}]'))
+
                 sql_metric_yml: SqlMetricYml = SqlMetricYml(sql=sql,
                                                             metric_names=metric_names,
-                                                            name=sql_metric_name,
+                                                            description=sql_metric_description,
                                                             group_fields=group_fields,
                                                             tests=tests)
 

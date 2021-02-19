@@ -38,7 +38,12 @@ columns: ...
 ```
 {% endraw %}
 
-The time filter is automatically added to the `WHERE` class of each executed SQL query.
+Variables are replaced as text.  So don't forget to include quotes in your filter template if needed.  
+
+The filter is automatically added to the `WHERE` class of Soda SQL generated queries.
+
+> NOTE: Soda SQL will not add this filter to SQL metric queries.  You have to ensure that this filter logic is also 
+> part of the queries in your SQL metrics. See [SQL metrics](sql_metrics.md) to learn more.  
 
 As you can see we've used a variable called `date` in our example. This variable can be populated
 by supplying an additional `-v` argument to each `soda scan`.
