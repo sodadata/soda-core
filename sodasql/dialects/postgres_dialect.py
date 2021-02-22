@@ -50,15 +50,16 @@ class PostgresDialect(Dialect):
                 f"WHERE lower(table_schema)='{self.schema.lower()}'")
 
     def sql_connection_test(self):
-        pass
+        return "select 1"
 
-    def create_connection(self):
+    def create_connection(self, *args, **kwargs):
         return psycopg2.connect(
             user=self.username,
             password=self.password,
             host=self.host,
             port=self.port,
             database=self.database,
+            connect_timeout=kwargs.get('connection_timeout_sec', None),
             options=f'-c search_path={self.schema}' if self.schema else None)
 
     def sql_columns_metadata_query(self, table_name: str) -> str:
@@ -89,6 +90,15 @@ class PostgresDialect(Dialect):
 
     def get_type_name(self, column_description):
         return PostgresDialect.type_names_by_type_code.get(str(column_description[1]))
+
+    def is_connection_error(self, exception):
+        if exception is None:
+            return False
+        error_message = str(exception)
+        return error_message.find('Operation timed out') != -1
+
+    def is_authentication_error(self, exception):
+        return exception is not None and str(exception).find('Connection refused') != -1
 
     type_names_by_type_code = {
         '16': 'bool',

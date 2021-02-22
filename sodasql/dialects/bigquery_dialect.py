@@ -92,7 +92,7 @@ class BigQueryDialect(Dialect):
         try:
             return json.loads(parser.get_credential(credential_name))
         except JSONDecodeError as e:
-            parser.error(f'Error parsing credential %s: %s', credential_name, e)
+            parser.error(f'Error parsing credential {credential_name}: {e}', credential_name)
 
     def sql_expr_cast_text_to_number(self, quoted_column_name, validity_format):
         if validity_format == 'number_whole':
