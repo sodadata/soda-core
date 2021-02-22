@@ -14,6 +14,8 @@ from typing import Optional
 
 import requests
 
+from sodasql.scan.scan_yml import ScanYml
+from sodasql.scan.scan_yml_column import ScanYmlColumn
 from sodasql.version import SODA_SQL_VERSION
 
 
@@ -37,27 +39,34 @@ class SodaServerClient:
         self.api_key_secret: Optional[str] = api_key_secret
         self.token: Optional[str] = token
 
-    def scan_start(self, warehouse_name, warehouse_type, table_name, scan_time):
+    def scan_start(self, warehouse, scan_yml: ScanYml, scan_time):
+        soda_column_cfgs = {}
+        if scan_yml.columns:
+            for column_name in scan_yml.columns:
+                scan_yml_column: ScanYmlColumn = scan_yml.columns[column_name]
+                soda_column_cfg = {}
+                if scan_yml_column.missing:
+                    soda_column_cfg['missingValues'] = scan_yml_column.missing
+                validity = scan_yml_column.validity
+                if validity:
+                    soda_column_cfg['validity'] = {
+                        'namedFormat': validity.format,
+                        'regexFormat': validity.regex,
+                        'allowedValues': validity.values,
+                        'minLength': validity.min_length,
+                        'maxLength': validity.max_length,
+                        'minValue': validity.min,
+                        'maxValue': validity.max
+                    }
+                soda_column_cfgs[column_name] = soda_column_cfg
+
         return self.execute_command({
             'type': 'sodaSqlScanStart',
-            'warehouseName': warehouse_name,
-            'warehouseType': warehouse_type,
-            'tableName': table_name,
-            'scanTime': scan_time
-            # 'columns': {
-            #     'ID': {
-            #         'missingValues': [ 'N/A', 'No value' ],
-            #         'validity': {
-            #               'namedFormat': 'date_eu',
-            #               'regexFormat': 'someregex*',
-            #               'allowedValues': ['a', 5],
-            #               'minLength': 5,
-            #               'maxLength': 25,
-            #               'minValue': 0,
-            #               'maxValue': 200
-            #         }
-            #     }
-            # }
+            'warehouseName': warehouse.name,
+            'warehouseType': warehouse.dialect.type,
+            'tableName': scan_yml.table_name,
+            'scanTime': scan_time,
+            'columns': soda_column_cfgs
         })
 
     def scan_ended(self, scan_reference, exception = None):

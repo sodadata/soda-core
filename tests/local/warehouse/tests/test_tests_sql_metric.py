@@ -10,7 +10,7 @@
 #  limitations under the License.
 from sodasql.scan.metric import Metric
 from sodasql.scan.scan_yml_parser import KEY_SQL_METRICS, SQL_METRIC_KEY_TESTS, SQL_METRIC_KEY_SQL, \
-    COLUMN_KEY_SQL_METRICS, SQL_METRIC_KEY_GROUP_FIELDS, KEY_COLUMNS, COLUMN_KEY_METRICS
+    COLUMN_KEY_SQL_METRICS, SQL_METRIC_KEY_GROUP_FIELDS, KEY_COLUMNS, COLUMN_KEY_METRICS, KEY_FILTER
 from sodasql.scan.sql_metric_yml_parser import KEY_SQL, KEY_TESTS, KEY_GROUP_FIELDS, \
     KEY_METRIC_NAMES
 from tests.common.sql_test_case import SqlTestCase
@@ -120,4 +120,3 @@ class TestTestsSqlMetric(SqlTestCase):
 
         scan_result = self.scan(scan_yml_dict=scan_yml_dict)
         self.assertTrue(scan_result.has_failures())
-

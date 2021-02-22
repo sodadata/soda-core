@@ -13,6 +13,9 @@ allows you to compose tests based on custom-made metrics optimized for your data
 Custom SQL metrics are specified as a list in your scan YAML file. This property (`sql_metrics`)
 can be located as either a root or column-level property.
 
+> If you use a filter, beware that you have to include the filter logic in your SQL metric queries.
+> See also section [Variables](#variables) below.
+
 ## Basic metric query
 
 The most simple SQL metric is one which selects a single numeric value.
@@ -129,12 +132,16 @@ columns:
 ## Variables
 
 The variables passed in to a scan are also available in the SQL metrics:
-
 Jinja syntax is used to resolve the variables.
+
+> Variables are typically used for [Filtering](filtering.md).  When you use filtering, Soda SQL will not 
+> add the filter to your SQL metrics automatic.  You have to include the filter also in your SQL metric queries.
+> You are free to use other variables in your SQL metric query.
 
 {% raw %}
 ```yaml
 table_name: mytable
+filter: date = DATE '{{ date }}'
 sql_metrics:
     - sql: |
         SELECT sum(volume) as total_volume_us

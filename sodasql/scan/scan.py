@@ -424,7 +424,7 @@ class Scan:
         for i in range(len(row_tuple)):
             metric_name = sql_metric.metric_names[i] if sql_metric.metric_names is not None else description[i][0]
             metric_value = row_tuple[i]
-            logging.debug(f'SQL metric {sql_metric.name} {metric_name} -> {metric_value}')
+            logging.debug(f'SQL metric {sql_metric.description} {metric_name} -> {metric_value}')
             measurement = Measurement(metric=metric_name, value=metric_value)
             test_variables[metric_name] = metric_value
             self._log_and_append_query_measurement(measurements, measurement)
@@ -443,6 +443,7 @@ class Scan:
         for row in rows:
             group = {}
             metric_values = {}
+
             for i in range(len(row)):
                 metric_name = sql_metric.metric_names[i] if sql_metric.metric_names is not None else description[i][0]
                 metric_value = row[i]
@@ -451,19 +452,22 @@ class Scan:
                 else:
                     metric_values[metric_name] = metric_value
 
-            for metric_name in metric_values:
-                metric_value = metric_values[metric_name]
-                if metric_name not in group_values_by_metric_name:
-                    group_values_by_metric_name[metric_name] = []
-                group_values = group_values_by_metric_name[metric_name]
-                group_values.append(GroupValue(group=group, value=metric_value))
-                logging.debug(f'SQL metric {sql_metric.name} {metric_name} {group} -> {metric_value}')
+            if not group:
+                logging.error(f'None of the declared group_fields were found in result: {sql_metric.group_fields}. Skipping result.')
+            else:
+                for metric_name in metric_values:
+                    metric_value = metric_values[metric_name]
+                    if metric_name not in group_values_by_metric_name:
+                        group_values_by_metric_name[metric_name] = []
+                    group_values = group_values_by_metric_name[metric_name]
+                    group_values.append(GroupValue(group=group, value=metric_value))
+                    logging.debug(f'SQL metric {sql_metric.description} {metric_name} {group} -> {metric_value}')
 
-            sql_metric_tests = sql_metric.tests
-            test_variables = self._get_test_variables(column_name_lower)
-            test_variables.update(metric_values)
-            sql_metric_test_results = self._execute_tests(sql_metric_tests, test_variables, group)
-            test_results.extend(sql_metric_test_results)
+                sql_metric_tests = sql_metric.tests
+                test_variables = self._get_test_variables(column_name_lower)
+                test_variables.update(metric_values)
+                sql_metric_test_results = self._execute_tests(sql_metric_tests, test_variables, group)
+                test_results.extend(sql_metric_test_results)
 
         for metric_name in group_values_by_metric_name:
             group_values = group_values_by_metric_name[metric_name]
@@ -552,8 +556,7 @@ class Scan:
     def _ensure_scan_reference(self):
         if self.soda_server_client and not self.scan_reference:
             self.start_scan_response = self.soda_server_client.scan_start(
-                self.warehouse.name,
-                self.warehouse.dialect.type,
-                self.scan_yml.table_name,
+                self.warehouse,
+                self.scan_yml,
                 self.time)
             self.scan_reference = self.start_scan_response['scanReference']
