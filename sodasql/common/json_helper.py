@@ -1,5 +1,5 @@
+import datetime
 import json
-from datetime import date, datetime
 from decimal import Decimal
 
 from sodasql.scan.group_value import GroupValue
@@ -46,10 +46,12 @@ class JsonHelper:
             return o
         if isinstance(o, Decimal):
             return float(o)
-        if isinstance(o, date):
-            return o.strftime('%Y-%m-%d')
-        if isinstance(o, datetime):
+        if isinstance(o, datetime.datetime):
             return o.isoformat()
+        if isinstance(o, datetime.date):
+            return o.strftime('%Y-%m-%d')
+        if isinstance(o, datetime.time):
+            return o.strftime('%H:%M:%S')
         if isinstance(o, GroupValue):
             return o.to_json()
         raise RuntimeError(f"Don't know how to jsonize {o} ({type(o)})")

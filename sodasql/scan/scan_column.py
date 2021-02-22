@@ -193,10 +193,12 @@ class ScanColumn:
             return self.scan.dialect.sql_expr_cast_text_to_number('value', self.validity_format)
 
     def get_order_by_cte_value_expression(self, numeric_value_expr: str):
-        if numeric_value_expr:
-            return numeric_value_expr
+        if self.is_number or self.is_time:
+            return 'value'
+        if self.is_column_numeric_text_format:
+            return self.scan.dialect.sql_expr_cast_text_to_number('value', self.validity_format)
         elif self.is_text:
-            return self.scan.dialect.qualify_column_name('value')
+            return 'value'
         return None
 
     def get_tests(self):
