@@ -157,7 +157,7 @@ def init(warehouse_file: str):
     Renamed to `soda analyze`
     """
     logging.info(SODA_SQL_VERSION)
-    logging.info("Command 'soda init' was renamed to 'soda analyse'.  To see the arguments and options: `soda analyse --help`")
+    logging.info("Command 'soda init' was renamed to 'soda analyze'.  To see the arguments and options: `soda analyze --help`")
 
 
 @main.command()
