@@ -102,6 +102,15 @@ class Dialect:
     def _get_number_types(self):
         return ['INT', 'REAL', 'PRECISION', 'NUMBER', 'DECIMAL']
 
+    def is_time(self, column_type: str):
+        for time_type in self._get_time_types():
+            if column_type and time_type.upper() in column_type.upper():
+                return True
+        return False
+
+    def _get_time_types(self):
+        return ['TIMESTAMP', 'DATE', 'TIME']
+
     def sql_columns_metadata_query(self, table_name: str) -> str:
         raise RuntimeError('TODO override and implement this abstract method')
 

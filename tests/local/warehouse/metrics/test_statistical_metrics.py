@@ -52,11 +52,11 @@ class TestStatisticalMetrics(SqlTestCase):
 
     def test_no_minmax_for_non_numeric_strings(self):
         self.sql_recreate_table(
-            [f"score {self.dialect.data_type_varchar_255}"],
-            ["('1')",
-             "('2')",
-             "('5')",
-             "('12')",
+            [f"txt {self.dialect.data_type_varchar_255}"],
+            ["('a')",
+             "('b')",
+             "('c')",
+             "('d')",
              "(null)"])
 
         scan_result = self.scan({
@@ -69,10 +69,8 @@ class TestStatisticalMetrics(SqlTestCase):
             ]
         })
 
-        self.assertMeasurementsAbsent(scan_result, 'score', [
+        self.assertMeasurementsAbsent(scan_result, 'txt', [
             Metric.MIN,
             Metric.MAX,
-            Metric.MINS,
-            Metric.MAXS,
             Metric.FREQUENT_VALUES
         ])

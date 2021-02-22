@@ -38,6 +38,7 @@ class ScanColumn:
         self.qualified_column_name = dialect.qualify_column_name(self.column_name)
         self.is_text: bool = dialect.is_text(column_metadata.type)
         self.is_number: bool = dialect.is_number(column_metadata.type)
+        self.is_time: bool = dialect.is_time(column_metadata.type)
 
         self.missing = self.scan_yml.get_missing(self.column_name)
         self.is_missing_metric_enabled = self.scan_yml.is_any_metric_enabled(
@@ -73,6 +74,7 @@ class ScanColumn:
             and self.validity_format.startswith('number_')
 
         self.numeric_expr = None
+        self.mins_maxs_order_by_expr = dialect.qualify_column_name('value')
 
         if self.is_number:
             if self.is_default_non_missing_and_valid_condition:
@@ -185,10 +187,17 @@ class ScanColumn:
         )
 
     def get_group_by_cte_numeric_value_expression(self):
-        if self.is_number:
-            return 'value'
+        if self.is_number or self.is_time:
+            return self.scan.dialect.qualify_column_name('value')
         if self.is_column_numeric_text_format:
             return self.scan.dialect.sql_expr_cast_text_to_number('value', self.validity_format)
+
+    def get_order_by_cte_value_expression(self, numeric_value_expr: str):
+        if numeric_value_expr:
+            return numeric_value_expr
+        elif self.is_text:
+            return self.scan.dialect.qualify_column_name('value')
+        return None
 
     def get_tests(self):
         return self.scan_yml_column.tests if self.scan_yml_column and self.scan_yml_column.tests else []

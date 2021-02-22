@@ -261,6 +261,7 @@ class Scan:
 
                 group_by_cte = scan_column.get_group_by_cte()
                 numeric_value_expr = scan_column.get_group_by_cte_numeric_value_expression()
+                order_by_value_expr = scan_column.get_order_by_cte_value_expression(numeric_value_expr)
 
                 if self.scan_yml.is_any_metric_enabled(
                         [Metric.DISTINCT, Metric.UNIQUENESS, Metric.UNIQUE_COUNT, Metric.DUPLICATE_COUNT],
@@ -289,25 +290,23 @@ class Scan:
                         derived_measurements.append(Measurement(Metric.UNIQUENESS, column_name, uniqueness))
                     self._log_and_append_derived_measurements(measurements, derived_measurements)
 
-                if scan_column.is_metric_enabled(Metric.MINS) and scan_column.numeric_expr is not None:
-
+                if scan_column.is_metric_enabled(Metric.MINS) and order_by_value_expr:
                     sql = (f'{group_by_cte} \n'
                            f'SELECT value \n'
                            f'FROM group_by_value \n'
-                           f'ORDER BY {numeric_value_expr} ASC \n'
+                           f'ORDER BY {order_by_value_expr} ASC \n'
                            f'LIMIT {scan_column.mins_maxs_limit} \n')
 
                     rows = self.warehouse.sql_fetchall(sql)
                     mins = [row[0] for row in rows]
                     self._log_and_append_query_measurement(measurements, Measurement(Metric.MINS, column_name, mins))
 
-                if self.scan_yml.is_metric_enabled(Metric.MAXS, column_name) \
-                        and (scan_column.is_number or scan_column.is_column_numeric_text_format):
+                if self.scan_yml.is_metric_enabled(Metric.MAXS, column_name) and order_by_value_expr:
 
                     sql = (f'{group_by_cte} \n'
                            f'SELECT value \n'
                            f'FROM group_by_value \n'
-                           f'ORDER BY {numeric_value_expr} DESC \n'
+                           f'ORDER BY {order_by_value_expr} DESC \n'
                            f'LIMIT {scan_column.mins_maxs_limit} \n')
 
                     rows = self.warehouse.sql_fetchall(sql)
