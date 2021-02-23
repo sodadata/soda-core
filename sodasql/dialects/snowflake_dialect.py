@@ -9,13 +9,12 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 import re
-from datetime import date
 
 from snowflake import connector
+from snowflake.connector.network import DEFAULT_SOCKET_CONNECT_TIMEOUT
 
 from sodasql.scan.dialect import Dialect, SNOWFLAKE, KEY_WAREHOUSE_TYPE
 from sodasql.scan.parser import Parser
-from sodasql.scan.scan_yml import ScanYml
 
 
 class SnowflakeDialect(Dialect):
@@ -55,7 +54,7 @@ class SnowflakeDialect(Dialect):
             warehouse=self.warehouse,
             database=self.database,
             schema=self.schema,
-            login_timeout=kwargs.get('connection_timeout_sec', None),
+            login_timeout=kwargs.get('connection_timeout_sec', DEFAULT_SOCKET_CONNECT_TIMEOUT),
         )
 
     def sql_tables_metadata_query(self, limit: str = 10, filter: str = None):
