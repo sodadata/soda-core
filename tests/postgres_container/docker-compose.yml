@@ -1,6 +1,6 @@
 version: "3.7"
 services:
-  sodalite-postgres:
+  soda-sql-postgres:
     image: postgres:9.6.17-alpine
     ports:
       - "5432:5432"
