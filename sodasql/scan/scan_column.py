@@ -188,7 +188,7 @@ class ScanColumn:
 
     def get_group_by_cte_numeric_value_expression(self):
         if self.is_number or self.is_time:
-            return self.scan.dialect.qualify_column_name('value')
+            return 'value'
         if self.is_column_numeric_text_format:
             return self.scan.dialect.sql_expr_cast_text_to_number('value', self.validity_format)
 
