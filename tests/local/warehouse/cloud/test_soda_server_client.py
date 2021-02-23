@@ -13,7 +13,7 @@ import logging
 
 from sodasql.scan.metric import Metric
 from sodasql.scan.scan_yml_parser import KEY_METRICS, KEY_METRIC_GROUPS, KEY_COLUMNS, COLUMN_KEY_TESTS, KEY_SQL_METRICS, \
-    SQL_METRIC_KEY_TESTS, SQL_METRIC_KEY_SQL
+    SQL_METRIC_KEY_TESTS, SQL_METRIC_KEY_SQL, COLUMN_KEY_MISSING_VALUES
 from tests.common.sql_test_case import SqlTestCase
 
 
@@ -46,6 +46,7 @@ class TestSodaServerClient(SqlTestCase):
             }],
             KEY_COLUMNS: {
                 'name': {
+                    COLUMN_KEY_MISSING_VALUES: ['N/A'],
                     COLUMN_KEY_TESTS: [
                         f'{Metric.MISSING_COUNT} < 1',
                     ]

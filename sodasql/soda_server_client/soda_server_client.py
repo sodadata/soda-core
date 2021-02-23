@@ -46,7 +46,12 @@ class SodaServerClient:
                 scan_yml_column: ScanYmlColumn = scan_yml.columns[column_name]
                 soda_column_cfg = {}
                 if scan_yml_column.missing:
-                    soda_column_cfg['missingValues'] = scan_yml_column.missing
+                    if scan_yml_column.missing.values:
+                        soda_column_cfg['missingValues'] = scan_yml_column.missing.values
+                    if scan_yml_column.missing.values:
+                        soda_column_cfg['missingRegex'] = scan_yml_column.missing.regex
+                    if scan_yml_column.missing.values:
+                        soda_column_cfg['missingFormat'] = scan_yml_column.missing.format
                 validity = scan_yml_column.validity
                 if validity:
                     soda_column_cfg['validity'] = {

@@ -28,12 +28,13 @@ INFO = 'info'
 
 
 class ParseLog:
-    def __init__(self, level: str, message: str):
+    def __init__(self, level: str, message: str, field: str):
         self.level = level
         self.message = message
+        self.field = field
 
     def __str__(self):
-        return f'[{self.level}] {self.message}'
+        return f'[{self.level}] ({self.field}) {self.message}'
 
     def is_error_or_warning(self):
         return self.level == ERROR or self.level == WARNING
@@ -88,14 +89,14 @@ class Parser:
     def _get_context_description(self):
         return '.'.join([context.name for context in self.contexts if context.name])
 
-    def error(self, message: str):
-        return self.logs.append(ParseLog(ERROR, message))
+    def error(self, message: str, field: str = None):
+        return self.logs.append(ParseLog(ERROR, message, field))
 
-    def warning(self, message: str):
-        return self.logs.append(ParseLog(WARNING, message))
+    def warning(self, message: str, field: str = None):
+        return self.logs.append(ParseLog(WARNING, message, field))
 
-    def info(self, message):
-        return self.logs.append(ParseLog(INFO, message))
+    def info(self, message, field: str = None):
+        return self.logs.append(ParseLog(INFO, message, field))
 
     def log(self):
         for log in self.logs:
@@ -107,7 +108,7 @@ class Parser:
         """
         context_iterable = self._get_current_context_object()
         for invalid_key in [configured_key for configured_key in context_iterable if configured_key not in valid_keys]:
-            self.warning(f'Invalid key in {self._get_context_description()} : {invalid_key}')
+            self.warning(f'Invalid key in {self._get_context_description()} : {invalid_key}', invalid_key)
 
     def has_warnings_or_errors(self):
         for log in self.logs:
@@ -174,7 +175,8 @@ class Parser:
         try:
             return json.loads(file_str)
         except Exception as e:
-            self.error(f"Couldn't parse json configuration {property_name} for {self.description}: {str(e)}")
+            self.error(f"Couldn't parse json configuration {property_name} for {self.description}: {str(e)}",
+                       property_name)
 
     def _get(self,
              property_name: str,
@@ -210,12 +212,14 @@ class Parser:
                     return float(value)
                 raise ValueError(str(type(value)))
             except ValueError as e:
-                self.error(f'Invalid {property_name}: Expected {str(return_type)}, but was {str(value)}: {str(e)}')
+                self.error(f'Invalid {property_name}: Expected {str(return_type)}, but was {str(value)}: {str(e)}',
+                           property_name)
                 return default
 
         else:
             if is_required:
-                self.error(f'Property {property_name} does not exist in {self._get_context_description()}')
+                self.error(f'Property {property_name} does not exist in {self._get_context_description()}',
+                           property_name)
             return default
 
     def _get_current_context_object(self):
@@ -268,7 +272,8 @@ class Parser:
                         self._pop_context()
 
             elif test_ymls is not None:
-                self.error(f'Tests should be either a list of test expressions or an object of named test expressions: {test_ymls} ({str(type(test_ymls))})')
+                self.error(
+                    f'Tests should be either a list of test expressions or an object of named test expressions: {test_ymls} ({str(type(test_ymls))})')
         finally:
             self._pop_context()
 

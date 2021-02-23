@@ -18,10 +18,10 @@ from sodasql.scan.warehouse_yml import WarehouseYml
 
 class Warehouse:
 
-    def __init__(self, warehouse_yml: WarehouseYml):
+    def __init__(self, warehouse_yml: WarehouseYml, *args, **kwargs):
         self.name = warehouse_yml.name
         self.dialect: Dialect = warehouse_yml.dialect
-        self.connection = self.dialect.create_connection()
+        self.connection = self.dialect.create_connection(*args, **kwargs)
 
     def sql_fetchone(self, sql) -> tuple:
         return sql_fetchone(self.connection, sql)

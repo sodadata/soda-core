@@ -11,7 +11,9 @@ class MockSodaServerClient(SodaServerClient):
         self.commands = []
 
     def execute_command(self, command: dict):
+        # Serializing is important as it ensures no exceptions occur during serialization
         json.dumps(command, indent=2)
+        # Still we use the unserialized version to check the results as that is easier
         self.commands.append(command)
         if command['type'] == 'sodaSqlScanStart':
             return {'scanReference': 'scanref-123'}

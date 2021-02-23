@@ -81,7 +81,8 @@ SQL_METRIC_KEY_METRIC_NAMES = 'metric_names'
 SQL_METRIC_KEY_TESTS = KEY_TESTS
 SQL_METRIC_KEY_GROUP_FIELDS = 'group_fields'
 
-VALID_SQL_METRIC_KEYS = [SQL_METRIC_KEY_SQL, SQL_METRIC_KEY_METRIC_NAMES, SQL_METRIC_KEY_TESTS, SQL_METRIC_KEY_GROUP_FIELDS]
+VALID_SQL_METRIC_KEYS = [SQL_METRIC_KEY_SQL, SQL_METRIC_KEY_METRIC_NAMES, SQL_METRIC_KEY_TESTS,
+                         SQL_METRIC_KEY_GROUP_FIELDS]
 
 
 class ScanYmlParser(Parser):
@@ -114,7 +115,7 @@ class ScanYmlParser(Parser):
                 self.scan_yml.filter = filter
                 self.scan_yml.filter_template = Template(filter)
             except Exception as e:
-                self.error(f"Couldn't parse filter '{filter}': {str(e)}")
+                self.error(f"Couldn't parse filter '{filter}': {str(e)}", KEY_FILTER)
 
         self.check_invalid_keys(VALID_SCAN_YML_KEYS)
 
@@ -197,14 +198,15 @@ class ScanYmlParser(Parser):
         for column_name in columns_dict:
             column_dict = columns_dict.get(column_name)
             if not isinstance(column_dict, dict):
-                self.error(f'Column {column_name} should be an object, not a {type(column_dict)}')
+                self.error(f'Column {column_name} should be an object, not a {type(column_dict)}', KEY_COLUMNS)
             else:
                 self._push_context(column_dict, column_name)
 
                 metrics: Set[str] = self.parse_metrics()
 
                 if self.remove_metric(metrics, Metric.ROW_COUNT):
-                    self.ensure_metric(scan_configuration.metrics, Metric.ROW_COUNT, f'{Metric.ROW_COUNT} {column_name}')
+                    self.ensure_metric(scan_configuration.metrics, Metric.ROW_COUNT,
+                                       f'{Metric.ROW_COUNT} {column_name}')
 
                 missing = None
                 if any(cfg in column_dict.keys() for cfg in COLUMN_MISSING_KEYS):
@@ -227,7 +229,8 @@ class ScanYmlParser(Parser):
                     validity.min_length = column_dict.get(COLUMN_KEY_VALID_MIN_LENGTH)
                     validity.max_length = column_dict.get(COLUMN_KEY_VALID_MAX_LENGTH)
 
-                sql_metric_ymls = self.parse_sql_metric_ymls(metrics_key=COLUMN_KEY_SQL_METRICS, column_name=column_name)
+                sql_metric_ymls = self.parse_sql_metric_ymls(metrics_key=COLUMN_KEY_SQL_METRICS,
+                                                             column_name=column_name)
 
                 tests = self.parse_tests(column_dict,
                                          COLUMN_KEY_TESTS,
@@ -266,9 +269,12 @@ class ScanYmlParser(Parser):
             finally:
                 self._pop_context()
         elif sql_metrics_dicts is not None:
-            self.error(f'Invalid YAML structure near {metrics_key}: Expected list of SQL metrics, but was {type(sql_metrics_dicts)}')
+            self.error(
+                f'Invalid YAML structure near {metrics_key}: Expected list of SQL metrics, but was {type(sql_metrics_dicts)}',
+                metrics_key)
 
-    def parse_sql_metric(self, sql_metric_dict, sql_metric_index: int, column_name: Optional[str] = None) -> SqlMetricYml:
+    def parse_sql_metric(self, sql_metric_dict, sql_metric_index: int,
+                         column_name: Optional[str] = None) -> SqlMetricYml:
         if isinstance(sql_metric_dict, dict):
             self._push_context(object=sql_metric_dict, name=sql_metric_index)
 
@@ -294,7 +300,7 @@ class ScanYmlParser(Parser):
                     context_sql_metric_name=sql_metric_name,
                     context_sql_metric_index=sql_metric_index)
 
-                sql_metric_description = ((column_name+'.' if column_name else '') +
+                sql_metric_description = ((column_name + '.' if column_name else '') +
                                           (sql_metric_name if sql_metric_name else f'sql_metric[{sql_metric_index}]'))
 
                 sql_metric_yml: SqlMetricYml = SqlMetricYml(sql=sql,
