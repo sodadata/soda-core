@@ -8,6 +8,7 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
+import re
 from datetime import date
 
 from snowflake import connector
@@ -46,14 +47,15 @@ class SnowflakeDialect(Dialect):
             'SNOWFLAKE_PASSWORD': params.get('password', 'YOUR_SNOWFLAKE_PASSWORD_GOES_HERE')
         }
 
-    def create_connection(self):
+    def create_connection(self, *args, **kwargs):
         return connector.connect(
             user=self.username,
             password=self.password,
             account=self.account,
             warehouse=self.warehouse,
             database=self.database,
-            schema=self.schema
+            schema=self.schema,
+            login_timeout=kwargs.get('connection_timeout_sec', None),
         )
 
     def sql_tables_metadata_query(self, limit: str = 10, filter: str = None):
@@ -84,3 +86,32 @@ class SnowflakeDialect(Dialect):
 
     def qualify_table_name(self, table_name: str) -> str:
         return f'"{table_name.upper()}"'
+
+    def sql_connection_test(self):
+        return 'select 1'
+
+    def is_connection_error(self, exception):
+        """
+        Detects following error messages:
+
+        - 250003: Failed to execute request: ...: Failed to establish a new connection: [Errno 8] nodename nor servname provided, or not known'))
+        """
+        if exception is None:
+            return False
+        error_message = str(exception)
+        return re.search('^250003', error_message)
+
+    def is_authentication_error(self, exception):
+        """
+        Detects following error messages:
+
+        - 251005: User is empty
+        - 250001 (08001): Failed to connect to DB: ... Incorrect username or password was specified.
+        - 250001 (08001): Failed to connect to DB: Verify the account name is correct: ... HTTP 403: Forbidden
+        """
+        if exception is None:
+            return False
+        error_message = str(exception)
+
+        return re.search('^251005', error_message) or \
+               re.search('^250001', error_message)

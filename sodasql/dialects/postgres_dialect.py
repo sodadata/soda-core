@@ -8,6 +8,7 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
+import re
 
 import psycopg2
 
@@ -44,8 +45,8 @@ class PostgresDialect(Dialect):
         }
 
     def sql_tables_metadata_query(self, limit: str = 10, filter: str = None):
-        return (f"SELECT table_name \n" 
-                f"FROM information_schema.tables \n" 
+        return (f"SELECT table_name \n"
+                f"FROM information_schema.tables \n"
                 f"WHERE lower(table_schema)='{self.schema.lower()}'")
 
     def sql_connection_test(self):
@@ -84,7 +85,7 @@ class PostgresDialect(Dialect):
             return f"CAST({quoted_column_name} AS {self.data_type_decimal})"
         not_number_pattern = self.qualify_regex(r"[^-\d\.\,]")
         comma_pattern = self.qualify_regex(r"\,")
-        return f"CAST(REGEXP_REPLACE(REGEXP_REPLACE({quoted_column_name}, '{not_number_pattern}', '', 'g'), "\
+        return f"CAST(REGEXP_REPLACE(REGEXP_REPLACE({quoted_column_name}, '{not_number_pattern}', '', 'g'), " \
                f"'{comma_pattern}', '.', 'g') AS {self.data_type_decimal})"
 
     def get_type_name(self, column_description):
@@ -94,10 +95,15 @@ class PostgresDialect(Dialect):
         if exception is None:
             return False
         error_message = str(exception)
-        return error_message.find('Operation timed out') != -1
+        return error_message.find('Operation timed out') != -1 or \
+               error_message.find('timeout expired') != -1
 
     def is_authentication_error(self, exception):
-        return exception is not None and str(exception).find('Connection refused') != -1
+        if exception is None:
+            return False
+        error_message = str(exception)
+        return error_message.find('Connection refused') != -1 or \
+               re.search('role ".*" does not exist', error_message)
 
     type_names_by_type_code = {
         '16': 'bool',
