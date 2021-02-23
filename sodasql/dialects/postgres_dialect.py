@@ -49,9 +49,6 @@ class PostgresDialect(Dialect):
                 f"FROM information_schema.tables \n"
                 f"WHERE lower(table_schema)='{self.schema.lower()}'")
 
-    def sql_connection_test(self):
-        return "select 1"
-
     def create_connection(self, *args, **kwargs):
         return psycopg2.connect(
             user=self.username,
@@ -96,6 +93,7 @@ class PostgresDialect(Dialect):
             return False
         error_message = str(exception)
         return error_message.find('Operation timed out') != -1 or \
+               error_message.find('could not translate host name') != -1 or \
                error_message.find('timeout expired') != -1
 
     def is_authentication_error(self, exception):
@@ -103,6 +101,7 @@ class PostgresDialect(Dialect):
             return False
         error_message = str(exception)
         return error_message.find('Connection refused') != -1 or \
+               error_message.find('password authentication failed') != -1 or \
                re.search('role ".*" does not exist', error_message)
 
     type_names_by_type_code = {

@@ -62,7 +62,7 @@ class RedshiftDialect(PostgresDialect):
             'REDSHIFT_PASSWORD': '...'
         }
 
-    def create_connection(self):
+    def create_connection(self, *args, **kwargs):
         if self.password:
             resolved_username = self.username
             resolved_password = self.password
@@ -73,6 +73,7 @@ class RedshiftDialect(PostgresDialect):
             password=resolved_password,
             host=self.host,
             port=self.port,
+            connect_timeout=kwargs.get('connection_timeout_sec', None),
             database=self.database)
 
     def __get_cluster_credentials(self):

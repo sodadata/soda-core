@@ -87,9 +87,6 @@ class SnowflakeDialect(Dialect):
     def qualify_table_name(self, table_name: str) -> str:
         return f'"{table_name.upper()}"'
 
-    def sql_connection_test(self):
-        return 'select 1'
-
     def is_connection_error(self, exception):
         """
         Detects following error messages:
