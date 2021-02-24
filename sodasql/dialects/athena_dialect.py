@@ -96,4 +96,6 @@ class AthenaDialect(Dialect):
         if exception is None:
             return False
         error_message = str(exception)
-        return error_message.find('The security token included in the request is invalid')
+        return error_message.find('InvalidSignatureException') != -1 or \
+               error_message.find('Access denied when writing output') != -1 or \
+               error_message.find('The security token included in the request is invalid') != -1
