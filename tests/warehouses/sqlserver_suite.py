@@ -8,7 +8,7 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-from tests.common.sql_test_case import TARGET_SQLServer
+from tests.common.sql_test_case import TARGET_SQLSERVER
 from tests.common.sql_test_suite import SqlTestSuite
 
 class SQLServerSuite(SqlTestSuite):
