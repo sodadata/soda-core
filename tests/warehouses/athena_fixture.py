@@ -32,14 +32,7 @@ class AthenaFixture(WarehouseFixture):
     def drop_database(self):
         pass
         super().drop_database()
-        self.delete_s3_files()
-
-    def delete_s3_files(self):
-        database_full_location = path.join(self.warehouse.dialect.athena_staging_dir, self.suite_id)
-        logging.debug(f"Deleting all files under %s...", database_full_location)
-        bucket = self._extract_s3_bucket(database_full_location)
-        folder = self._extract_s3_folder(database_full_location)
-        self._delete_s3_files(bucket, folder)
+        self.delete_staging_files()
 
     def create_database(self):
         self.database = self.create_unique_database_name()
@@ -59,14 +52,13 @@ class AthenaFixture(WarehouseFixture):
     def tear_down(self):
         pass
 
-    def _delete_s3_files(self, bucket, folder, max_objects=200):
+    def delete_staging_files(self):
+        database_full_location = path.join(self.warehouse.dialect.athena_staging_dir, self.suite_id)
+        logging.debug(f"Deleting all files under %s...", database_full_location)
+        bucket = self._extract_s3_bucket(database_full_location)
+        folder = self._extract_s3_folder(database_full_location)
         s3_client = self._create_s3_client()
-        response = s3_client.list_objects_v2(Bucket=bucket, Prefix=folder)
-        object_keys = self._extract_object_keys(response)
-        assert len(object_keys) < max_objects, \
-            f"This method is intended for tests and hence limited to a maximum of {max_objects} objects, " \
-            f"{len(object_keys)} objects exceeds the limit."
-        s3_client.delete_objects(Bucket=bucket, Delete={'Objects': object_keys})
+        AthenaFixture.delete_s3_files(s3_client, bucket, folder)
 
     def _create_s3_client(self):
         Boto3Helper.filter_false_positive_boto3_warning()
@@ -79,6 +71,17 @@ class AthenaFixture(WarehouseFixture):
             aws_secret_access_key=aws_credentials.secret_access_key,
             aws_session_token=aws_credentials.session_token
         )
+
+    @staticmethod
+    def delete_s3_files(s3_client, bucket, folder, max_objects=200):
+        response = s3_client.list_objects_v2(Bucket=bucket, Prefix=folder)
+        object_keys = AthenaFixture._extract_object_keys(response)
+        assert len(object_keys) < max_objects, \
+            f"This method is intended for tests and hence limited to a maximum of {max_objects} objects, " \
+            f"{len(object_keys)} objects exceeds the limit."
+        if object_keys:
+            s3_client.delete_objects(Bucket=bucket, Delete={'Objects': object_keys})
+
 
     @staticmethod
     def _extract_object_keys(response):

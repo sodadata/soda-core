@@ -1,4 +1,3 @@
 type: bigquery
 account_info_json: env_var(BIGQUERY_ACCOUNT_INFO_JSON)
 dataset: sodalite
-

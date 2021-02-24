@@ -222,6 +222,9 @@ class Dialect:
     def qualify_table_name(self, table_name: str) -> str:
         return table_name
 
+    def qualify_column_name(self, column_name: str):
+        return column_name
+
     def qualify_writable_table_name(self, table_name: str) -> str:
         return table_name
 
@@ -230,9 +233,6 @@ class Dialect:
 
     def qualify_string(self, value: str):
         return value
-
-    def qualify_column_name(self, column_name: str):
-        return column_name
 
     @staticmethod
     def escape_metacharacters(value: str):
