@@ -72,9 +72,8 @@ class Dialect:
     def default_env_vars(self, params: dict):
         pass
 
-    # TODO
     def sql_connection_test(self):
-        pass
+        return "select 1"
 
     def create_connection(self, *args, **kwargs):
         raise RuntimeError('TODO override and implement this abstract method')

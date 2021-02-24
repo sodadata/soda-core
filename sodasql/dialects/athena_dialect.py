@@ -8,8 +8,8 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
+import re
 from datetime import date
-from typing import List
 
 import pyathena
 
@@ -43,7 +43,7 @@ class AthenaDialect(Dialect):
             'ATHENA_SECRET_ACCESS_KEY': '...'
         }
 
-    def create_connection(self):
+    def create_connection(self, *args, **kwargs):
         # pyathena.connect will do the role resolving
         # aws_credentials = self.aws_credentials.resolve_role('soda_scan')
         return pyathena.connect(
@@ -51,7 +51,8 @@ class AthenaDialect(Dialect):
             aws_secret_access_key=self.aws_credentials.secret_access_key,
             s3_staging_dir=self.athena_staging_dir,
             region_name=self.aws_credentials.region_name,
-            role_arn=self.aws_credentials.role_arn)
+            role_arn=self.aws_credentials.role_arn,
+        )
 
     def sql_tables_metadata_query(self, limit: str = 10, filter: str = None):
         # Alternative ( https://github.com/sodadata/soda-sql/pull/98/files )
@@ -85,3 +86,16 @@ class AthenaDialect(Dialect):
         date_string = date.strftime("%Y-%m-%d")
         return f"DATE('{date_string}')"
 
+    def is_connection_error(self, exception):
+        if exception is None:
+            return False
+        error_message = str(exception)
+        return error_message.find('Could not connect to the endpoint URL') != -1
+
+    def is_authentication_error(self, exception):
+        if exception is None:
+            return False
+        error_message = str(exception)
+        return error_message.find('InvalidSignatureException') != -1 or \
+               error_message.find('Access denied when writing output') != -1 or \
+               error_message.find('The security token included in the request is invalid') != -1

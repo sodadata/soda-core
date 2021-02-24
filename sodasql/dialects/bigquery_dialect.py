@@ -10,10 +10,10 @@
 #  limitations under the License.
 
 import json
-from datetime import date
 from json.decoder import JSONDecodeError
-import re
 
+from google.api_core.exceptions import Forbidden, NotFound
+from google.auth.exceptions import GoogleAuthError, TransportError
 from google.cloud import bigquery
 from google.cloud.bigquery import dbapi
 from google.oauth2.service_account import Credentials
@@ -23,7 +23,6 @@ from sodasql.scan.parser import Parser
 
 
 class BigQueryDialect(Dialect):
-
     data_type_varchar_255 = "STRING"
     data_type_integer = "INT64"
     data_type_decimal = "DECIMAL"
@@ -48,7 +47,7 @@ class BigQueryDialect(Dialect):
             'BIGQUERY_ACCOUNT_INFO': '...'
         }
 
-    def create_connection(self):
+    def create_connection(self, *args, **kwargs):
         credentials = Credentials.from_service_account_info(self.account_info_dict)
         project_id = self.account_info_dict['project_id']
         self.client = bigquery.Client(project=project_id, credentials=credentials)
@@ -99,5 +98,17 @@ class BigQueryDialect(Dialect):
             return f"CAST({quoted_column_name} AS {self.data_type_decimal})"
         not_number_pattern = self.qualify_regex(r"[^-\d\.\,]")
         comma_pattern = self.qualify_regex(r"\,")
-        return f"CAST(REGEXP_REPLACE(REGEXP_REPLACE({quoted_column_name}, r'{not_number_pattern}', ''), "\
+        return f"CAST(REGEXP_REPLACE(REGEXP_REPLACE({quoted_column_name}, r'{not_number_pattern}', ''), " \
                f"r'{comma_pattern}', '.') AS {self.data_type_decimal})"
+
+    def is_connection_error(self, exception):
+        if exception is None:
+            return False
+        return isinstance(exception, NotFound) or \
+                isinstance(exception, TransportError)
+
+    def is_authentication_error(self, exception):
+        if exception is None:
+            return False
+        return isinstance(exception, Forbidden) or \
+               isinstance(exception, GoogleAuthError)
