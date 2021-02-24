@@ -14,10 +14,9 @@ import os
 import traceback
 from collections import deque
 from dataclasses import dataclass
-from typing import List, Deque, Optional
+from typing import Deque, List, Optional
 
 import yaml
-
 from sodasql.scan.aws_credentials import AwsCredentials
 from sodasql.scan.metric import Metric
 from sodasql.scan.test import Test
@@ -162,7 +161,8 @@ class Parser:
 
     def get_aws_credentials_optional(self):
         access_key_id = self.get_str_optional_env('access_key_id')
-        if access_key_id:
+        role_arn = self.get_str_optional_env('role_arn')
+        if access_key_id or role_arn:
             return AwsCredentials(
                 access_key_id=access_key_id,
                 secret_access_key=self.get_credential('secret_access_key'),
