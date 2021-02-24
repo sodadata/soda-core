@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [2.0.0b15] - NEXT RELEASE
 ### Changed
 - Add support for role assumption in Athena and Redshift
+- Add support for detection of connectivity and authentication issues
+- Improvements in cross-dialect quote handing
 
 ## [2.0.0b14] - 2021-02-23
 ### Changed
