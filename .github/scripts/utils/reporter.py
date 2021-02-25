@@ -4,8 +4,8 @@ import xml.etree.ElementTree as elementTree
 
 import requests
 
-from slack import SlackMessageSender
-from utils import get_env, deployment_description
+from utils.slack import SlackMessageSender
+from utils.utils import get_env, deployment_description
 
 
 class Reporter:
