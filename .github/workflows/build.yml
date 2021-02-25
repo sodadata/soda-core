@@ -57,9 +57,10 @@ jobs:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
           REPORTS_URL: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        working-directory: .github/scripts
         run: |
-          pip3 install -r .github/scripts/requirements.txt
-          python3 .github/scripts/report_test_failure.py
+          pip3 install -r requirements.txt
+          python3 report_test_failure.py
 
   inform-test-success:
     name: Inform Test Success
@@ -73,9 +74,10 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - name: Notify on Success
+        working-directory: .github/scripts
         run: |
-          pip3 install -r .github/scripts/requirements.txt
-          .github/scripts/report_test_success.py
+          pip3 install -r requirements.txt
+          python3 report_test_success.py
 
   publish-pypi:
     name: Build & Publish Package
@@ -109,9 +111,10 @@ jobs:
         run: twine upload dist/*
       - name: Notify on Release Failure
         if: failure()
+        working-directory: .github/scripts
         run: |
-          pip3 install -r .github/scripts/requirements.txt
-          .github/scripts/report_release_failure.py
+          pip3 install -r requirements.txt
+          python3 report_release_failure.py
 
   inform-release-success:
     name: Inform Release Success
@@ -124,9 +127,10 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - name: Notify on Release Success
+        working-directory: .github/scripts
         run: |
-          pip3 install -r .github/scripts/requirements.txt
-          .github/scripts/report_release_success.py
+          pip3 install -r requirements.txt
+          python3 report_release_success.py
 
   publish-docs:
     name: Deploy documentation
