@@ -19,6 +19,7 @@ class SlackMessageSender:
         self.force_send = ENV.get_force_send()
         self.ctx = SlackMessageSender._create_non_verifying_context()
         self.branch = ENV.get_branch()
+        self.event_name = ENV.get_variable('GITHUB_EVENT_NAME')
 
     def send_slack_message(self, msg: str):
         payload = {"text": msg}
@@ -29,7 +30,10 @@ class SlackMessageSender:
                 logging.error(f"Request to slack returned an error '{response.status_code}', "
                               f"the response is:\n'{response.text}'")
         else:
-            logging.warning("Ignoring message '%s' since on branch '%s'", msg, self.branch)
+            for e, v in os.environ.items():
+                print(f"{e}={v}")
+            print(f"Ignoring message '{msg}' since on branch {self.branch}. "
+                  f"Event name is {self.event_name}")
 
     @staticmethod
     def _create_non_verifying_context() -> ssl.SSLContext:
