@@ -24,9 +24,6 @@ class Reporter:
         self.token = get_env('GITHUB_TOKEN')
         self.workflow_name = get_env('GITHUB_WORKFLOW')
         self.root_dir = os.path.join(os.path.dirname(__file__), '../')
-        self.reports_url = get_env('REPORTS_URL')
-        self.python_version = get_env('PYTHON_VERSION')
-        self.test_module = get_env('TEST_MODULE')
 
     def send_slack_message(self, msg: str):
         self.sender.send_slack_message(msg)
@@ -74,10 +71,13 @@ class Reporter:
         return f"(commit `<https://github.com/{self.repository}/commit/{self.sha}|{self.sha[:8]}>`) "
 
     def _reports_message(self):
-        return f"Full reports can be found <{self.reports_url}|here> "
+        reports_url = get_env('REPORTS_URL')
+        return f"Full reports can be found <{reports_url}|here> "
 
     def _test_module_message(self):
-        return f"(Python *{self.python_version}*, Test Module *{self.test_module}*)"
+        python_version = get_env('PYTHON_VERSION')
+        test_module = get_env('TEST_MODULE')
+        return f"(Python *{python_version}*, Test Module *{test_module}*)"
 
     def _find_files(self, pattern: str):
         root = self.root_dir
