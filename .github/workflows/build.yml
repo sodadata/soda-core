@@ -15,7 +15,6 @@ jobs:
     env:
       TEST_MODULE: ${{ matrix.test-module }}
       PYTHON_VERSION: ${{ matrix.python-version }}
-      INCLUDED_BRANCHES: "main master"
       SODA_SNOWFLAKE_USERNAME: ${{ secrets.SODA_SNOWFLAKE_USERNAME }}
       SODA_SNOWFLAKE_PASSWORD: ${{ secrets.SODA_SNOWFLAKE_PASSWORD }}
       SODA_REDSHIFT_USERNAME: ${{ secrets.SODA_REDSHIFT_USERNAME }}
@@ -58,7 +57,6 @@ jobs:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
           REPORTS_URL: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          INCLUDED_BRANCHES: "main master"
         run: |
           pip3 install -r .github/scripts/requirements.txt
           python3 .github/scripts/report_test_failure.py
@@ -72,7 +70,6 @@ jobs:
       SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
       REPORTS_URL: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      INCLUDED_BRANCHES: "main master"
     steps:
       - uses: actions/checkout@v2
       - name: Notify on Success
@@ -91,7 +88,6 @@ jobs:
       SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
       REPORTS_URL: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      INCLUDED_BRANCHES: "main master"
       TWINE_USERNAME: __token__
       TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
     steps:
@@ -125,7 +121,6 @@ jobs:
       JOB_ID: ${{ github.job }}
       SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      INCLUDED_BRANCHES: "main master"
     steps:
       - uses: actions/checkout@v2
       - name: Notify on Release Success
