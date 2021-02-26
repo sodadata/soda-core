@@ -11,6 +11,7 @@
 
 import logging
 import traceback
+from datetime import datetime
 from math import floor, ceil
 from typing import List, Optional
 
@@ -53,6 +54,8 @@ class Scan:
         self.scan_columns: dict = {}
         self.close_warehouse = True
         self.send_scan_end = True
+        self.start_time = None
+        self.queries_executed = 0
         self.exception = None
 
         self.table_sample_clause = \
@@ -67,6 +70,7 @@ class Scan:
             self.filter_sql = scan_yml.filter_template.render(variables)
 
     def execute(self) -> ScanResult:
+        self.start_time = datetime.now()
         if self.soda_server_client:
             logging.debug(f'Soda cloud: {self.soda_server_client.host}')
             self._ensure_scan_reference()
@@ -82,6 +86,8 @@ class Scan:
             self._query_sql_metrics_and_run_tests()
             self._run_table_tests()
             self._run_column_tests()
+
+            logging.debug(f'Executed {self.queries_executed} in {(datetime.now() - self.start_time)}')
 
         except Exception as e:
             logging.exception('Scan failed')
@@ -103,6 +109,7 @@ class Scan:
     def _query_columns_metadata(self):
         sql = self.warehouse.dialect.sql_columns_metadata_query(self.scan_yml.table_name)
         column_tuples = self.warehouse.sql_fetchall(sql)
+        self.queries_executed += 1
         self.column_metadatas = []
         for column_tuple in column_tuples:
             name = column_tuple[0]
@@ -209,6 +216,7 @@ class Scan:
                 sql += f'\nWHERE {self.filter_sql}'
 
             query_result_tuple = self.warehouse.sql_fetchone(sql)
+            self.queries_executed += 1
 
             for i in range(0, len(measurements)):
                 measurement = measurements[i]
@@ -276,6 +284,8 @@ class Scan:
                            f'FROM group_by_value')
 
                     query_result_tuple = self.warehouse.sql_fetchone(sql)
+                    self.queries_executed += 1
+
                     distinct_count = query_result_tuple[0]
                     unique_count = query_result_tuple[1]
                     valid_count = query_result_tuple[2] if query_result_tuple[2] else 0
@@ -300,6 +310,8 @@ class Scan:
                            f'LIMIT {scan_column.mins_maxs_limit} \n')
 
                     rows = self.warehouse.sql_fetchall(sql)
+                    self.queries_executed += 1
+
                     mins = [row[0] for row in rows]
                     self._log_and_append_query_measurement(measurements, Measurement(Metric.MINS, column_name, mins))
 
@@ -312,6 +324,8 @@ class Scan:
                            f'LIMIT {scan_column.mins_maxs_limit} \n')
 
                     rows = self.warehouse.sql_fetchall(sql)
+                    self.queries_executed += 1
+
                     maxs = [row[0] for row in rows]
                     self._log_and_append_query_measurement(measurements, Measurement(Metric.MAXS, column_name, maxs))
 
@@ -326,6 +340,8 @@ class Scan:
                            f'LIMIT {frequent_values_limit} \n')
 
                     rows = self.warehouse.sql_fetchall(sql)
+                    self.queries_executed += 1
+
                     frequent_values = [{'value': row[0], 'frequency': row[1]} for row in rows]
                     self._log_and_append_query_measurement(
                         measurements, Measurement(Metric.FREQUENT_VALUES, column_name, frequent_values))
@@ -379,6 +395,7 @@ class Scan:
                         sql += f' \nWHERE {self.scan.filter_sql}'
 
                     row = self.warehouse.sql_fetchone(sql)
+                    self.queries_executed += 1
 
                     # Process the histogram query
                     frequencies = []
@@ -419,6 +436,8 @@ class Scan:
 
     def _run_sql_metric_default_and_run_tests(self, sql_metric: SqlMetricYml, resolved_sql: str, column_name_lower: Optional[str] = None):
         row_tuple, description = self.warehouse.sql_fetchone_description(resolved_sql)
+        self.queries_executed += 1
+
         test_variables = self._get_test_variables(column_name_lower)
 
         measurements = []
@@ -439,7 +458,10 @@ class Scan:
         measurements = []
         test_results = []
         group_fields_lower = set(group_field.lower() for group_field in sql_metric.group_fields)
+
         rows, description = self.warehouse.sql_fetchall_description(resolved_sql)
+        self.queries_executed += 1
+
         group_values_by_metric_name = {}
         for row in rows:
             group = {}
