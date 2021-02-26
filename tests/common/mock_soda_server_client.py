@@ -9,6 +9,7 @@ class MockSodaServerClient(SodaServerClient):
     def __init__(self):
         self.requests = []
         self.commands = []
+        self.host = 'MockSodaServerClient'
 
     def execute_command(self, command: dict):
         # Serializing is important as it ensures no exceptions occur during serialization

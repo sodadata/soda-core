@@ -316,13 +316,13 @@ class Parser:
             if context_table_name or context_column_name:
                 names = compiled_code.co_names
                 metrics = names
-                non_metric_names = [name for name in names if name not in Metric.METRIC_TYPES]
-                if len(non_metric_names) != 0 or len(names) == 0:
-                    # Dunno yet if this should be info, warning or error.  So for now keeping it open.
-                    # SQL metric names and variables are not known until eval.
-                    self.info(f'At least one of the variables used in test ({set(names)}) '
-                              f'was not a valid metric type. Metric types: {Metric.METRIC_TYPES}, '
-                              f'Test: {test_description}')
+                # non_metric_names = [name for name in names if name not in Metric.METRIC_TYPES]
+                # if len(non_metric_names) != 0 or len(names) == 0:
+                #     # Dunno yet if this should be info, warning or error.  So for now keeping it open.
+                #     # SQL metric names and variables are not known until eval.
+                #     self.info(f'At least one of the variables used in test ({set(names)}) '
+                #               f'was not a valid metric type. Metric types: {Metric.METRIC_TYPES}, '
+                #               f'Test: {test_description}')
 
             return Test(description=test_description,
                         id=test_id,

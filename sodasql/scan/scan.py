@@ -67,7 +67,9 @@ class Scan:
             self.filter_sql = scan_yml.filter_template.render(variables)
 
     def execute(self) -> ScanResult:
-        self._ensure_scan_reference()
+        if self.soda_server_client:
+            logging.debug(f'Soda cloud: {self.soda_server_client.host}')
+            self._ensure_scan_reference()
 
         try:
             if self.scan_yml:
