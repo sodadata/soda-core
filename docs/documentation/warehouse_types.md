@@ -69,7 +69,7 @@ connection:
 name: my_bigquery_project
 connection:
     type: bigquery
-    account_info: <PATH TO YOUR BIGQUERY ACCOUNT INFO JSON FILE>
+    account_info: <YOUR BIGQUERY SERVICE ACCOUNT INFO JSON FILE>
     dataset: sodasql
 ...
 ```
