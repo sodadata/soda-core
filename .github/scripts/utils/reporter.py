@@ -1,12 +1,11 @@
-#!/usr/bin/env python3
-
 import fnmatch
 import os
 import xml.etree.ElementTree as elementTree
 
 import requests
 
-from . import ENV, SlackMessageSender
+from utils.slack import SlackMessageSender
+from utils.utils import get_env, deployment_description
 
 
 class Reporter:
@@ -18,12 +17,12 @@ class Reporter:
 
     def __init__(self):
         self.sender = SlackMessageSender()
-        self.job = ENV.get_variable('JOB_ID')
-        self.run = ENV.get_variable('GITHUB_RUN_ID')
-        self.repository = ENV.get_variable('GITHUB_REPOSITORY')
-        self.sha = ENV.get_variable('GITHUB_SHA')
-        self.token = ENV.get_variable('GITHUB_TOKEN')
-        self.workflow_name = ENV.get_variable('GITHUB_WORKFLOW')
+        self.job = get_env('JOB_ID')
+        self.run = get_env('GITHUB_RUN_ID')
+        self.repository = get_env('GITHUB_REPOSITORY')
+        self.sha = get_env('GITHUB_SHA')
+        self.token = get_env('GITHUB_TOKEN')
+        self.workflow_name = get_env('GITHUB_WORKFLOW')
         self.root_dir = os.path.join(os.path.dirname(__file__), '../')
 
     def send_slack_message(self, msg: str):
@@ -33,7 +32,7 @@ class Reporter:
         author = self._find_author()
         msg = self._status_message(":cry:") \
             + self._run_message() \
-            + f" *test failed* {ENV.get_deployment_description()} on job `{self.job}` " \
+            + f" *test failed* {deployment_description()} on job `{self.job}` " \
             + self._commit_message() \
             + f"Last author was {author}. " \
             + self._reports_message() \
@@ -54,7 +53,7 @@ class Reporter:
     def _report_status(self, emoji, status):
         msg = self._status_message(emoji) \
             + self._run_message() \
-            + f"*{status}* {ENV.get_deployment_description()}" \
+            + f"*{status}* {deployment_description()}" \
             + self._commit_message()
         self.send_slack_message(msg)
 
@@ -71,13 +70,14 @@ class Reporter:
     def _commit_message(self):
         return f"(commit `<https://github.com/{self.repository}/commit/{self.sha}|{self.sha[:8]}>`) "
 
-    @staticmethod
-    def _reports_message():
-        return f"Full reports can be found <{ENV.get_reports_url()}|here> "
+    def _reports_message(self):
+        reports_url = get_env('REPORTS_URL')
+        return f"Full reports can be found <{reports_url}|here> "
 
-    @staticmethod
-    def _test_module_message():
-        return f"(Python *{ENV.get_python_version()}*, Test Module *{ENV.get_test_module()}*)"
+    def _test_module_message(self):
+        python_version = get_env('PYTHON_VERSION')
+        test_module = get_env('TEST_MODULE')
+        return f"(Python *{python_version}*, Test Module *{test_module}*)"
 
     def _find_files(self, pattern: str):
         root = self.root_dir
