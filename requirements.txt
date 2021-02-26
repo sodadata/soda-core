@@ -107,6 +107,8 @@ pycryptodomex==3.9.8
     # via snowflake-connector-python
 pyjwt==1.7.1
     # via snowflake-connector-python
+pyodbc==4.0.30
+    # via -r requirements.in
 pyopenssl==19.1.0
     # via snowflake-connector-python
 python-dateutil==2.8.1

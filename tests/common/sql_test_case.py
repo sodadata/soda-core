@@ -37,6 +37,7 @@ TARGET_SNOWFLAKE = 'snowflake'
 TARGET_REDSHIFT = 'redshift'
 TARGET_ATHENA = 'athena'
 TARGET_BIGQUERY = 'bigquery'
+TARGET_SQLSERVER = 'sqlserver'
 
 
 def equals_ignore_case(left, right):
@@ -59,7 +60,7 @@ class SqlTestCase(TestCase):
         # self.target controls the warehouse on which the test is executed
         # It is initialized in method setup_get_warehouse
         self.target: Optional[str] = None
-        # Tests must explicitely enable mock soda server client by calling self.use_mock_soda_server_client()
+        # Tests must explicitly enable mock soda server client by calling self.use_mock_soda_server_client()
         self.mock_soda_server_client = None
 
         EnvVars.load_env_vars('test')

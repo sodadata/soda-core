@@ -15,6 +15,7 @@ This section defines the available connection properties for each warehouse type
 - [GCP BigQuery](#gcp-bigquery)
 - [PostgreSQL](#postgresql)
 - [Redshift](#redshift)
+- [Microsoft SQLServer](#sqlserver)
 - [Spark SQL](#sparks-sql)
 
 ## Snowflake
@@ -109,6 +110,20 @@ connection:
 ...
 ```
 
+## Microsoft SQLServer (Experimental)
+
+<sub>Example configuration</sub>
+
+```yaml
+name: my_sqlserver_project
+connection:
+  type: sqlserver
+  host: <YOUR SQLServer HOSTNAME>
+  username: env_var(SQL_SERVER_USERNAME)
+  password: env_var(SQL_SERVER_PASSWORD)
+  database: master
+  schema: dbo
+```
 ## Spark SQL
 
 _Coming soon_
