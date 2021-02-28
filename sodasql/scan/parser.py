@@ -74,7 +74,7 @@ class Parser:
 
     def _parse_yaml_str(self, yaml_str):
         try:
-            return yaml.load(yaml_str, Loader=yaml.FullLoader)
+            return yaml.load(yaml_str, Loader=yaml.SafeLoader)
         except Exception as e:
             self.error(f"Couldn't parse yaml in {self.description}: {str(e)}")
 

@@ -23,7 +23,7 @@ class EnvVars:
         env_vars_path = f'{FileSystemSingleton.INSTANCE.user_home_dir()}/.soda/env_vars.yml'
         if FileSystemSingleton.INSTANCE.is_file(env_vars_path):
             file_contents = FileSystemSingleton.INSTANCE.file_read_as_str(env_vars_path)
-            env_vars_dict = yaml.load(file_contents, Loader=yaml.FullLoader)
+            env_vars_dict = yaml.load(file_contents, Loader=yaml.SafeLoader)
             if isinstance(env_vars_dict, dict):
                 project_env_vars_dict = env_vars_dict.get(project_name)
                 if isinstance(project_env_vars_dict, dict):
