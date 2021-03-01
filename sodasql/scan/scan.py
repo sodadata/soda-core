@@ -440,12 +440,17 @@ class Scan:
 
         test_variables = self._get_test_variables(column_name_lower)
 
+        column_name = None
+        if column_name_lower:
+            scan_column = self.scan_columns[column_name_lower]
+            column_name = scan_column.column_name
+
         measurements = []
         for i in range(len(row_tuple)):
             metric_name = sql_metric.metric_names[i] if sql_metric.metric_names is not None else description[i][0]
             metric_value = row_tuple[i]
             logging.debug(f'SQL metric {sql_metric.description} {metric_name} -> {metric_value}')
-            measurement = Measurement(metric=metric_name, value=metric_value)
+            measurement = Measurement(metric=metric_name, value=metric_value, column_name=column_name)
             test_variables[metric_name] = metric_value
             self._log_and_append_query_measurement(measurements, measurement)
 
