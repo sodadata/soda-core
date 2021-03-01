@@ -32,7 +32,6 @@ class WarehouseAuthenticationError(SodaSqlError):
                                                       f"Soda-sql encountered a problem while trying to authenticate to {warehouse_type}",
                                                            original_exception)
         self.warehouse_type = warehouse_type
-        self.original_exception = original_exception
 
 
 class WarehouseConnectionError(SodaSqlError):
@@ -43,7 +42,6 @@ class WarehouseConnectionError(SodaSqlError):
                                                   f"Soda-sql encountered a problem while trying to connect to {warehouse_type}",
                                                        original_exception)
         self.warehouse_type = warehouse_type
-        self.original_exception = original_exception
 
 
 class TestFailureError(SodaSqlError):
@@ -51,4 +49,3 @@ class TestFailureError(SodaSqlError):
 
     def __init__(self, error_code, original_exception):
         super(TestFailureError, self).__init__(error_code, "Soda-sql test failed due to an exception", original_exception)
-        self.original_exception = original_exception

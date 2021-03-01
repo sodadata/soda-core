@@ -368,7 +368,7 @@ class Dialect:
     def is_authentication_error(self, exception):
         return False
 
-    def try_to_raise_soda_sql_exceptions(self, exception: Exception) -> Exception:
+    def try_to_raise_soda_sql_exception(self, exception: Exception) -> Exception:
         if self.is_connection_error(exception):
             raise WarehouseConnectionError(error_code=ERROR_CODE_CONNECTION_FAILED,
                                            warehouse_type=self.type, original_exception=exception)

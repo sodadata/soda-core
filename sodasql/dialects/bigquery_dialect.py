@@ -55,7 +55,7 @@ class BigQueryDialect(Dialect):
             conn = dbapi.Connection(self.client)
             return conn
         except Exception as e:
-            self.try_to_raise_soda_sql_exceptions(e)
+            self.try_to_raise_soda_sql_exception(e)
 
     def sql_tables_metadata_query(self, limit: str = 10, filter: str = None):
         return (f"SELECT table_name \n"

@@ -61,7 +61,7 @@ class PostgresDialect(Dialect):
                 options=f'-c search_path={self.schema}' if self.schema else None)
             return conn
         except Exception as e:
-            self.try_to_raise_soda_sql_exceptions(e)
+            self.try_to_raise_soda_sql_exception(e)
 
     def sql_columns_metadata_query(self, table_name: str) -> str:
         sql = (f"SELECT column_name, data_type, is_nullable \n"

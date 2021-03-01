@@ -79,7 +79,7 @@ class RedshiftDialect(PostgresDialect):
                 database=self.database)
             return conn
         except Exception as e:
-            self.try_to_raise_soda_sql_exceptions(e)
+            self.try_to_raise_soda_sql_exception(e)
 
     def __get_cluster_credentials(self):
         resolved_aws_credentials = self.aws_credentials.resolve_role(role_session_name="soda_redshift_get_cluster_credentials")
