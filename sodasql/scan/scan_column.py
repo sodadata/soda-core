@@ -133,23 +133,23 @@ class ScanColumn:
         if validity is None:
             return '', True
         validity_clauses = []
-        if validity.format:
+        if validity.format is not None:
             format_regex = Validity.FORMATS.get(validity.format)
             qualified_regex = dialect.qualify_regex(format_regex)
             validity_clauses.append(dialect.sql_expr_regexp_like(qualified_column_name, qualified_regex))
-        if validity.regex:
+        if validity.regex is not None:
             qualified_regex = dialect.qualify_regex(validity.regex)
             validity_clauses.append(dialect.sql_expr_regexp_like(qualified_column_name, qualified_regex))
-        if validity.values:
+        if validity.values is not None:
             valid_values_sql = dialect.literal_list(validity.values)
             validity_clauses.append(dialect.sql_expr_in(qualified_column_name, valid_values_sql))
-        if validity.min_length:
+        if validity.min_length is not None:
             validity_clauses.append(f'{dialect.sql_expr_length(qualified_column_name)} >= {validity.min_length}')
-        if validity.max_length:
+        if validity.max_length is not None:
             validity_clauses.append(f'{dialect.sql_expr_length(qualified_column_name)} <= {validity.max_length}')
-        if validity.min:
+        if validity.min is not None:
             validity_clauses.append(f'{qualified_column_name} >= {validity.min}')
-        if validity.max:
+        if validity.max is not None:
             validity_clauses.append(f'{qualified_column_name} <= {validity.max}')
         return '(' + ' AND '.join(validity_clauses) + ')', len(validity_clauses) == 0
 
