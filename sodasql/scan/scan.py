@@ -145,10 +145,9 @@ class Scan:
         # eg { 'colname': {'missing': 2, 'invalid': 3}, ...}
         column_metric_indices = {}
 
-        for column_name_lower in self.scan_columns:
+        for column_name_lower, scan_column in self.scan_columns.items():
             metric_indices = {}
             column_metric_indices[column_name_lower] = metric_indices
-            scan_column: ScanColumn = self.scan_columns[column_name_lower]
             column_name = scan_column.column_name
 
             if scan_column.is_missing_enabled:
@@ -227,8 +226,7 @@ class Scan:
             row_count_measurement = next((m for m in measurements if m.metric == Metric.ROW_COUNT), None)
             if row_count_measurement:
                 row_count = row_count_measurement.value
-                for column_name_lower in self.scan_columns:
-                    scan_column = self.scan_columns[column_name_lower]
+                for column_name_lower, scan_column in self.scan_columns.items():
                     column_name = scan_column.column_name
                     metric_indices = column_metric_indices[column_name_lower]
                     non_missing_index = metric_indices.get('non_missing')
@@ -259,10 +257,9 @@ class Scan:
         self._flush_measurements(measurements)
 
     def _query_group_by_value(self):
-        for column_name_lower in self.scan_columns:
+        for column_name_lower, scan_column in self.scan_columns.items():
             measurements = []
 
-            scan_column: ScanColumn = self.scan_columns[column_name_lower]
             column_name = scan_column.column_name
 
             if scan_column.is_any_metric_enabled(
@@ -350,8 +347,7 @@ class Scan:
 
     def _query_histograms(self):
         measurements = []
-        for column_name_lower in self.scan_columns:
-            scan_column: ScanColumn = self.scan_columns[column_name_lower]
+        for column_name_lower, scan_column in self.scan_columns.items():
             column_name = scan_column.column_name
 
             if scan_column.is_metric_enabled(Metric.HISTOGRAM) and scan_column.numeric_expr:
@@ -413,12 +409,11 @@ class Scan:
 
     def _query_sql_metrics_and_run_tests(self):
         self._query_sql_metrics_and_run_tests_base(self.scan_yml.sql_metric_ymls)
-        for column_name_lower in self.scan_columns:
-            scan_column: ScanColumn = self.scan_columns[column_name_lower]
+        for column_name_lower, scan_column in self.scan_columns.items():
             if scan_column and scan_column.scan_yml_column:
-                self._query_sql_metrics_and_run_tests_base(scan_column.scan_yml_column.sql_metric_ymls, column_name_lower)
+                self._query_sql_metrics_and_run_tests_base(scan_column.scan_yml_column.sql_metric_ymls, scan_column)
 
-    def _query_sql_metrics_and_run_tests_base(self, sql_metric_ymls: Optional[List[SqlMetricYml]], column_name_lower: Optional[str] = None):
+    def _query_sql_metrics_and_run_tests_base(self, sql_metric_ymls: Optional[List[SqlMetricYml]], scan_column: Optional[ScanColumn] = None):
         if sql_metric_ymls:
             for sql_metric in sql_metric_ymls:
                 if self.variables:
@@ -430,20 +425,16 @@ class Scan:
                     resolved_sql = sql_metric.sql
 
                 if sql_metric.group_fields:
-                    self._run_sql_metric_with_groups_and_run_tests(sql_metric, resolved_sql, column_name_lower)
+                    self._run_sql_metric_with_groups_and_run_tests(sql_metric, resolved_sql, scan_column)
                 else:
-                    self._run_sql_metric_default_and_run_tests(sql_metric, resolved_sql, column_name_lower)
+                    self._run_sql_metric_default_and_run_tests(sql_metric, resolved_sql, scan_column)
 
-    def _run_sql_metric_default_and_run_tests(self, sql_metric: SqlMetricYml, resolved_sql: str, column_name_lower: Optional[str] = None):
+    def _run_sql_metric_default_and_run_tests(self, sql_metric: SqlMetricYml, resolved_sql: str, scan_column: Optional[ScanColumn] = None):
         row_tuple, description = self.warehouse.sql_fetchone_description(resolved_sql)
         self.queries_executed += 1
 
-        test_variables = self._get_test_variables(column_name_lower)
-
-        column_name = None
-        if column_name_lower:
-            scan_column = self.scan_columns[column_name_lower]
-            column_name = scan_column.column_name
+        test_variables = self._get_test_variables(scan_column)
+        column_name = scan_column.column_name if scan_column is not None else None
 
         measurements = []
         for i in range(len(row_tuple)):
@@ -459,7 +450,7 @@ class Scan:
         sql_metric_test_results = self._execute_tests(sql_metric.tests, test_variables)
         self._flush_test_results(sql_metric_test_results)
 
-    def _run_sql_metric_with_groups_and_run_tests(self, sql_metric: SqlMetricYml, resolved_sql: str, column_name_lower: Optional[str] = None):
+    def _run_sql_metric_with_groups_and_run_tests(self, sql_metric: SqlMetricYml, resolved_sql: str, scan_column: Optional[ScanColumn]):
         measurements = []
         test_results = []
         group_fields_lower = set(group_field.lower() for group_field in sql_metric.group_fields)
@@ -492,20 +483,22 @@ class Scan:
                     logging.debug(f'SQL metric {sql_metric.description} {metric_name} {group} -> {metric_value}')
 
                 sql_metric_tests = sql_metric.tests
-                test_variables = self._get_test_variables(column_name_lower)
+                test_variables = self._get_test_variables(scan_column)
                 test_variables.update(metric_values)
                 sql_metric_test_results = self._execute_tests(sql_metric_tests, test_variables, group)
                 test_results.extend(sql_metric_test_results)
 
+        column_name = scan_column.column_name if scan_column is not None else None
         for metric_name in group_values_by_metric_name:
             group_values = group_values_by_metric_name[metric_name]
-            measurement = Measurement(metric=metric_name, group_values=group_values)
+            measurement = Measurement(metric=metric_name, group_values=group_values, column_name=column_name)
             self._log_and_append_query_measurement(measurements, measurement)
 
         self._flush_measurements(measurements)
         self._flush_test_results(test_results)
 
-    def _get_test_variables(self, column_name_lower: Optional[str] = None):
+    def _get_test_variables(self, scan_column: Optional[ScanColumn] = None):
+        column_name_lower = scan_column.column_name_lower if scan_column is not None else None
         return {
             measurement.metric: measurement.value
             for measurement in self.scan_result.measurements
@@ -521,10 +514,9 @@ class Scan:
 
     def _run_column_tests(self):
         test_results = []
-        for column_name_lower in self.scan_columns:
-            scan_column: ScanColumn = self.scan_columns[column_name_lower]
+        for column_name_lower, scan_column in self.scan_columns.items():
             column_tests = scan_column.get_tests()
-            test_variables = self._get_test_variables(column_name_lower)
+            test_variables = self._get_test_variables(scan_column)
             column_test_results = self._execute_tests(column_tests, test_variables)
             test_results.extend(column_test_results)
         self._flush_test_results(test_results)
