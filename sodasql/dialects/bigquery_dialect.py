@@ -48,10 +48,14 @@ class BigQueryDialect(Dialect):
         }
 
     def create_connection(self, *args, **kwargs):
-        credentials = Credentials.from_service_account_info(self.account_info_dict)
-        project_id = self.account_info_dict['project_id']
-        self.client = bigquery.Client(project=project_id, credentials=credentials)
-        return dbapi.Connection(self.client)
+        try:
+            credentials = Credentials.from_service_account_info(self.account_info_dict)
+            project_id = self.account_info_dict['project_id']
+            self.client = bigquery.Client(project=project_id, credentials=credentials)
+            conn = dbapi.Connection(self.client)
+            return conn
+        except Exception as e:
+            self.try_to_raise_soda_sql_exceptions(e)
 
     def sql_tables_metadata_query(self, limit: str = 10, filter: str = None):
         return (f"SELECT table_name \n"

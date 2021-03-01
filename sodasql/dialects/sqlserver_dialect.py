@@ -74,13 +74,17 @@ class SQLServerDialect(Dialect):
         pass
 
     def create_connection(self):
-        return pyodbc.connect(
-            'DRIVER={' + self.driver +
-            '};SERVER=' + self.host +
-            ';PORT=' + self.port +
-            ';DATABASE=' + self.database +
-            ';UID=' + self.username +
-            ';PWD=' + self.password)
+        try:
+            conn = pyodbc.connect(
+                'DRIVER={' + self.driver +
+                '};SERVER=' + self.host +
+                ';PORT=' + self.port +
+                ';DATABASE=' + self.database +
+                ';UID=' + self.username +
+                ';PWD=' + self.password)
+            return conn
+        except Exception as e:
+            self.try_to_raise_soda_sql_exceptions(e)
 
     def sql_columns_metadata_query(self, table_name: str) -> str:
         sql = (f"SELECT column_name, data_type, is_nullable \n"

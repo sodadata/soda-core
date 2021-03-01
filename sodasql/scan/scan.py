@@ -17,6 +17,8 @@ from typing import List, Optional
 
 from jinja2 import Template
 
+from sodasql.exceptions.exceptions import SodaSqlError, ERROR_CODE_GENERIC, TestFailureError, \
+    ERROR_CODE_TEST_FAILED
 from sodasql.scan.column_metadata import ColumnMetadata
 from sodasql.scan.group_value import GroupValue
 from sodasql.scan.measurement import Measurement
@@ -56,7 +58,6 @@ class Scan:
         self.send_scan_end = True
         self.start_time = None
         self.queries_executed = 0
-        self.exception = None
 
         self.table_sample_clause = \
             f'\nTABLESAMPLE {scan_yml.sample_method}({scan_yml.sample_percentage})' \
@@ -86,18 +87,21 @@ class Scan:
             self._query_sql_metrics_and_run_tests()
             self._run_table_tests()
             self._run_column_tests()
-
             logging.debug(f'Executed {self.queries_executed} in {(datetime.now() - self.start_time)}')
+            self._validate_scan_success()
 
-        except Exception as e:
+        except SodaSqlError as e:
+            logging.exception(str(e))
+            self.scan_result.error = {'errorCode': e.error_code, 'message': str(e)}
+
+        except Exception:
             logging.exception('Scan failed')
-            self.exception = e
-            self.scan_result.error = traceback.format_exc()
+            self.scan_result.error = {'errorCode': ERROR_CODE_GENERIC, 'message': traceback.format_exc()}
 
         finally:
             try:
                 if self.soda_server_client and self.send_scan_end:
-                    self.soda_server_client.scan_ended(self.scan_reference, self.exception)
+                    self.soda_server_client.scan_ended(self.scan_reference, self.scan_result.error)
             except:
                 logging.exception('Notifying Soda Server of scan ended failed')
 
@@ -583,3 +587,12 @@ class Scan:
                 self.scan_yml,
                 self.time)
             self.scan_reference = self.start_scan_response['scanReference']
+
+    def _validate_scan_success(self):
+        if self.scan_result.has_failures():
+            for test_result in self.scan_result.test_results:
+                if not test_result.passed and test_result.error:
+                    raise TestFailureError(error_code=ERROR_CODE_TEST_FAILED, original_exception=test_result.error)
+
+
+

@@ -13,6 +13,8 @@ from datetime import date
 from numbers import Number
 from typing import List
 
+from sodasql.exceptions.exceptions import WarehouseConnectionError, WarehouseAuthenticationError, ERROR_CODE_CONNECTION_FAILED, \
+    ERROR_CODE_AUTHENTICATION_FAILED
 from sodasql.scan.column_metadata import ColumnMetadata
 from sodasql.scan.parser import Parser
 
@@ -365,3 +367,13 @@ class Dialect:
 
     def is_authentication_error(self, exception):
         return False
+
+    def try_to_raise_soda_sql_exceptions(self, exception: Exception) -> Exception:
+        if self.is_connection_error(exception):
+            raise WarehouseConnectionError(error_code=ERROR_CODE_CONNECTION_FAILED,
+                                           warehouse_type=self.type, original_exception=exception)
+        elif self.is_authentication_error(exception):
+            raise WarehouseAuthenticationError(error_code=ERROR_CODE_AUTHENTICATION_FAILED,
+                                               warehouse_type=self.type, original_exception=exception)
+        else:
+            raise exception
