@@ -17,7 +17,7 @@ the installation steps required to get the `soda` command up and running.
 ## Requirements
 
 The soda-sql CLI requires the following dependencies to be installed on your system:
-- Python >=3.7 <3.9
+- Python >=3.7
 - Pip >=21.0
 - postgresql-libs (`libpq-dev` in Debian/Ubuntu, `libpq-devel` in CentOS, `postgresql` on MacOSX)
 - _Linux only:_ `libssl-dev` and `libffi-dev` (`libffi-devel` and `openssl-devel` in CentOS)
