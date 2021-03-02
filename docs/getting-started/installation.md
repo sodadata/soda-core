@@ -20,7 +20,9 @@ The soda-sql CLI requires the following dependencies to be installed on your sys
 - Python >=3.7 <3.9
 - Pip >=21.0
 - postgresql-libs (`libpq-dev` in Debian/Ubuntu, `libpq-devel` in CentOS, `postgresql` on MacOSX)
-- _Linux only:_ `g++`, `unixodbc-dev`, `python3-dev`, `libssl-dev` and `libffi-dev` (`libffi-devel` and `openssl-devel` in CentOS)
+- _Linux only:_ 
+  + On Debian Buster: `g++`, `unixodbc-dev`, `python3-dev`, `libssl-dev` and `libffi-dev`
+  + On CentOS 8: `gcc-c++`, `unixODBC-devel`, `python38-devel`, `libffi-devel` and `openssl-devel`
 
 To check your version of python, run the `python` command
 ```
