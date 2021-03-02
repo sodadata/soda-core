@@ -16,36 +16,38 @@ ERROR_CODE_TEST_FAILED = 'test_failed'
 
 
 class SodaSqlError(Exception):
-    """Basic exception for errors raised by soda-sql"""
 
-    def __init__(self, error_code, msg, original_exception):
+    def __init__(self, msg, original_exception):
         super(SodaSqlError, self).__init__(f"{msg}: {str(original_exception)}")
-        self.error_code = error_code
+        self.error_code = ERROR_CODE_GENERIC
         self.original_exception = original_exception
 
 
 class WarehouseAuthenticationError(SodaSqlError):
-    """Basic exception for authentication errors"""
 
-    def __init__(self, error_code, warehouse_type, original_exception):
-        super(WarehouseAuthenticationError, self).__init__(error_code,
-                                                      f"Soda-sql encountered a problem while trying to authenticate to {warehouse_type}",
-                                                           original_exception)
+    def __init__(self, warehouse_type, original_exception):
+        super(WarehouseAuthenticationError, self).__init__(
+            f"Soda-sql encountered a problem while trying to authenticate to {warehouse_type}",
+            original_exception)
+        self.error_code = ERROR_CODE_AUTHENTICATION_FAILED
         self.warehouse_type = warehouse_type
 
 
 class WarehouseConnectionError(SodaSqlError):
-    """Basic exception for authentication errors"""
 
-    def __init__(self, error_code, warehouse_type, original_exception):
-        super(WarehouseConnectionError, self).__init__(error_code,
-                                                  f"Soda-sql encountered a problem while trying to connect to {warehouse_type}",
-                                                       original_exception)
+    def __init__(self, warehouse_type, original_exception):
+        super(WarehouseConnectionError, self).__init__(
+            f"Soda-sql encountered a problem while trying to connect to {warehouse_type}",
+            original_exception)
+        self.error_code = ERROR_CODE_CONNECTION_FAILED
         self.warehouse_type = warehouse_type
 
 
 class TestFailureError(SodaSqlError):
-    """Basic exception for test errors"""
 
-    def __init__(self, error_code, original_exception):
-        super(TestFailureError, self).__init__(error_code, "Soda-sql test failed due to an exception", original_exception)
+    def __init__(self, original_exception):
+        super(TestFailureError, self).__init__("Soda-sql test failed due to an exception",
+                                               original_exception)
+        self.error_code = ERROR_CODE_TEST_FAILED
+
+
