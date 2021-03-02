@@ -24,12 +24,19 @@ class ScanResult:
     def has_failures(self):
         return self.failures_count() > 0
 
+    def has_errors(self):
+        return self.errors_count() > 0
+
     def failures_count(self):
         failures_count = 0
         for test_result in self.test_results:
             if not test_result.passed:
                 failures_count += 1
         return failures_count
+
+    def errors_count(self):
+        test_results_with_errors = [test_result for test_result in self.test_results if test_result.error]
+        return len(test_results_with_errors)
 
     def find_measurement(self, metric_type: str, column_name: str = None):
         for measurement in self.measurements:

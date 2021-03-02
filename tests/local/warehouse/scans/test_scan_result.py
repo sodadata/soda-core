@@ -39,8 +39,8 @@ class TestScanResult(SqlTestCase):
         scan_result = self.scan(scan_yml_dict)
         self.assertTrue(scan_result.has_failures())
         self.assertIsNotNone(scan_result.error)
-        self.assertIsNotNone(scan_result.error["errorCode"])
-        self.assertEqual(scan_result.error["errorCode"], ERROR_CODE_TEST_FAILED)
+        self.assertIsNotNone(scan_result.error["code"])
+        self.assertEqual(scan_result.error["code"], ERROR_CODE_TEST_FAILED)
         self.assertIsNotNone(scan_result.error["message"])
         self.assertEqual(scan_result.error["message"], "Soda-sql test failed due to an exception: name 'error' is not defined")
 

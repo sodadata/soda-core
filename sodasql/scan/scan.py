@@ -17,7 +17,7 @@ from typing import List, Optional
 
 from jinja2 import Template
 
-from sodasql.exceptions.exceptions import SodaSqlError, TestFailureError
+from sodasql.exceptions.exceptions import SodaSqlError, TestFailureError, ERROR_CODE_GENERIC
 from sodasql.scan.column_metadata import ColumnMetadata
 from sodasql.scan.group_value import GroupValue
 from sodasql.scan.measurement import Measurement
@@ -91,11 +91,11 @@ class Scan:
 
         except SodaSqlError as e:
             logging.exception(str(e))
-            self.scan_result.error = {'errorCode': e.error_code, 'message': str(e)}
+            self.scan_result.error = {'code': e.error_code, 'message': str(e)}
 
         except Exception:
             logging.exception('Scan failed')
-            self.scan_result.error = {'errorCode': ERROR_CODE_GENERIC, 'message': traceback.format_exc()}
+            self.scan_result.error = {'code': ERROR_CODE_GENERIC, 'message': traceback.format_exc()}
 
         finally:
             try:
@@ -588,9 +588,9 @@ class Scan:
             self.scan_reference = self.start_scan_response['scanReference']
 
     def _validate_scan_success(self):
-        if self.scan_result.has_failures():
+        if self.scan_result.has_errors():
             for test_result in self.scan_result.test_results:
-                if not test_result.passed and test_result.error:
+                if test_result.error:
                     raise TestFailureError(original_exception=test_result.error)
 
 
