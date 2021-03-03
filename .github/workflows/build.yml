@@ -1,5 +1,6 @@
 name: Build soda-sql
 
+
 on: [ push ]
 
 jobs:
