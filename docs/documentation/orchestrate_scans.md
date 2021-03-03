@@ -94,11 +94,11 @@ ingest_data_op >> soda_sql_scan_op >> publish_data_op
 
 ## Other Options
 
-If you don't want to use a PythonVirtualenvOperator, which will install soda-sql on invocation, you can use normal 
-PythonOperator. See the example dag under `examples/airflow_python_op.py`
+If you don't want to use a PythonVirtualenvOperator, which will install soda-sql on invocation, you can use normal
+PythonOperator. See the example dag under [airflow_python_op.py](../../examples/airflow_python_op.py)
 
-You can check the file `examples/airflow_bash.py` on how to create a dag using BashOperator, and if you want to use 
-a virtualenv with BashOperator, check `examples/airflow_bash_venv.py` 
+You can check the file [airflow_bash.py](../../examples/airflow_bash.py) on how to create a dag using BashOperator,
+and if you want to use a virtualenv with BashOperator, check [airflow_bash_env.py](../../examples/airflow_bash_env.py)
 
 ### SodaScanOperator -- Coming Soon!
 

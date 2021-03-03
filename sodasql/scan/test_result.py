@@ -12,6 +12,7 @@ import json
 from dataclasses import dataclass
 from typing import Optional, Any
 
+from sodasql.common.json_helper import JsonHelper
 from sodasql.scan.test import Test
 
 
@@ -48,7 +49,11 @@ class TestResult:
             test_result_json['error'] = self.error
         else:
             test_result_json['passed'] = self.passed
-            test_result_json['values'] = self.values
+            values = {}
+            if isinstance(self.values, dict):
+                for variable_name in self.values:
+                    values[variable_name] = JsonHelper.to_jsonnable(self.values[variable_name])
+            test_result_json['values'] = values
 
         if self.group_values:
             test_result_json['groupValues'] = self.group_values

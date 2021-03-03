@@ -19,25 +19,31 @@ class TestValidValues(SqlTestCase):
 
     def test_valid_values(self):
         self.sql_recreate_table(
-            [f"name {self.dialect.data_type_varchar_255}"],
-            ["('one')",
-             "('two')",
-             "('a')",
-             "('b')",
-             "('c')"])
+            [f"name {self.dialect.data_type_varchar_255}",
+             f"size {self.dialect.data_type_integer}"],
+            ["('one',  -1)",
+             "('two',  0)",
+             "('a',    1)",
+             "('b',    2)",
+             "('c',    null)"])
 
         scan_result = self.scan({
           KEY_METRICS: [
               Metric.INVALID_COUNT
           ],
-          KEY_COLUMNS: {
+          'columns': {
             'name': {
-              COLUMN_KEY_VALID_VALUES: [
+              'valid_values': [
                 'one',
                 'two'
               ]
+            },
+            'size': {
+                'valid_min': 0
             }
           }
         })
         self.assertEqual(scan_result.get(Metric.INVALID_COUNT, 'name'), 3)
         self.assertEqual(scan_result.get(Metric.VALID_COUNT, 'name'), 2)
+
+        self.assertEqual(scan_result.get(Metric.VALID_COUNT, 'size'), 3)

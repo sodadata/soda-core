@@ -109,13 +109,12 @@ class SnowflakeDialect(Dialect):
                exception.errno == errorcode.ER_FAILED_TO_GET_BOOTSTRAP or \
                exception.errno == errorcode.ER_NO_HOSTNAME_FOUND
 
-
-def is_authentication_error(self, exception):
-    if exception is None or exception.errno is None:
-        return False
-    return exception.errno == errorcode.ER_FAILED_TO_CONNECT_TO_DB or \
-           exception.errno == errorcode.ER_NO_USER or \
-           exception.errno == errorcode.ER_NO_PASSWORD or \
-           exception.errno == errorcode.ER_NOT_HTTPS_USED or \
-           exception.errno == errorcode.ER_INVALID_VALUE or \
-           exception.errno == errorcode.ER_INVALID_PRIVATE_KEY
+    def is_authentication_error(self, exception):
+        if exception is None or exception.errno is None:
+            return False
+        return exception.errno == errorcode.ER_FAILED_TO_CONNECT_TO_DB or \
+               exception.errno == errorcode.ER_NO_USER or \
+               exception.errno == errorcode.ER_NO_PASSWORD or \
+               exception.errno == errorcode.ER_NOT_HTTPS_USED or \
+               exception.errno == errorcode.ER_INVALID_VALUE or \
+               exception.errno == errorcode.ER_INVALID_PRIVATE_KEY

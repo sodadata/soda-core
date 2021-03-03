@@ -23,14 +23,15 @@ class TestSodaServerClient(SqlTestCase):
         self.use_mock_soda_server_client()
 
         self.sql_recreate_table(
-            [f"name {self.dialect.data_type_varchar_255}"],
-            ["('one')",
-             "('two')",
-             "('three')",
-             "(null)"])
+            [f"name {self.dialect.data_type_varchar_255}",
+             f"length {self.dialect.data_type_decimal}"],
+            ["('one',   3.45678)",
+             "('two',   3.45678)",
+             "('three', 3.45678)",
+             "(null,    null)"])
 
         self.scan({
-            KEY_METRIC_GROUPS: [
+            'metric_groups': [
                 Metric.METRIC_GROUP_MISSING,
                 Metric.METRIC_GROUP_DUPLICATES
             ],
@@ -38,18 +39,24 @@ class TestSodaServerClient(SqlTestCase):
                 'thegood': f'{Metric.ROW_COUNT} > 0',
                 'thebad': f'{Metric.ROW_COUNT} + 1 < 0'
             },
-            KEY_SQL_METRICS: [{
-                SQL_METRIC_KEY_SQL: f'SELECT 0 AS zero FROM {self.default_test_table_name}',
-                SQL_METRIC_KEY_TESTS: [
+            'sql_metrics': [{
+                'sql': f'SELECT 0 AS zero FROM {self.default_test_table_name}',
+                'tests': [
                         'zero == 0'
                 ]
             }],
-            KEY_COLUMNS: {
+            'columns': {
                 'name': {
-                    COLUMN_KEY_MISSING_VALUES: ['N/A'],
-                    COLUMN_KEY_TESTS: [
+                    'missing_values': ['N/A'],
+                    'tests': [
                         f'{Metric.MISSING_COUNT} < 1',
-                    ]
+                    ],
+                    'sql_metrics': [{
+                        'sql': f'SELECT SUM(length) as l FROM {self.default_test_table_name}',
+                        'tests': [
+                            'l > 0'
+                        ]
+                    }]
                 }
             }
         })

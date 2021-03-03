@@ -36,7 +36,9 @@ cffi==1.14.3
     #   google-crc32c
     #   snowflake-connector-python
 chardet==3.0.4
-    # via requests
+    # via
+    #   requests
+    #   snowflake-connector-python
 click==7.1.2
     # via -r requirements.in
 cryptography==3.3.2
@@ -66,7 +68,9 @@ googleapis-common-protos==1.52.0
 grpcio==1.34.0
     # via google-api-core
 idna==2.10
-    # via requests
+    # via
+    #   requests
+    #   snowflake-connector-python
 isodate==0.6.0
     # via msrest
 jinja2==2.11.2
@@ -147,7 +151,7 @@ six==1.15.0
     #   pyopenssl
     #   python-dateutil
     #   tenacity
-snowflake-connector-python==2.3.6
+snowflake-connector-python==2.4.0
     # via -r requirements.in
 tenacity==6.2.0
     # via pyathena
@@ -155,7 +159,6 @@ urllib3==1.25.10
     # via
     #   botocore
     #   requests
-    #   snowflake-connector-python
 
 # The following packages are considered to be unsafe in a requirements file:
 # setuptools
