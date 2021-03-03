@@ -2,7 +2,7 @@
 name: Feature or warehouse request
 about: Suggest an idea, enhancement or new warehouse for soda-sql
 title: ''
-labels: enhancement, soda-sql
+labels: feature request, soda-sql
 assignees: ''
 
 ---
