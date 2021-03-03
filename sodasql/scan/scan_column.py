@@ -31,6 +31,7 @@ class ScanColumn:
         self.scan_yml: ScanYml = scan.scan_yml
         self.column = column_metadata
         self.column_name = column_metadata.name
+        self.column_name_lower = self.column_name.lower()
         self.scan_yml_column: ScanYmlColumn = \
             self.scan_yml.get_scan_yaml_column(self.column_name)
 
