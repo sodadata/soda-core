@@ -589,6 +589,3 @@ class Scan:
             for test_result in self.scan_result.test_results:
                 if test_result.error:
                     raise TestFailureError(original_exception=test_result.error)
-
-
-
