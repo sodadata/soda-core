@@ -25,9 +25,8 @@ class TestScanResult(SqlTestCase):
              "('no value')",
              "(null)"])
 
-    def test_scan_result_with_test_errors(self):
+    def test_scan_result_with_test_error(self):
         test_name = 'my_test'
-        second_test_name = 'my_second_test'
         scan_yml_dict = {
             KEY_METRICS: [
                 'row_count'
@@ -43,4 +42,25 @@ class TestScanResult(SqlTestCase):
         self.assertIsNotNone(scan_result.error["code"])
         self.assertEqual(scan_result.error["code"], ERROR_CODE_TEST_FAILED)
         self.assertIsNotNone(scan_result.error["message"])
-        self.assertEqual(scan_result.error["message"], "Soda-sql test failed due to an exception: name 'error' is not defined")
+        self.assertEqual(scan_result.error["message"], "Soda-sql test failed with error: name 'error' is not defined")
+
+    def test_scan_result_with_test_errors(self):
+        test_name = 'my_test'
+        second_test_name = 'my_second_test'
+        scan_yml_dict = {
+            KEY_METRICS: [
+                'row_count'
+            ],
+            KEY_TESTS: {
+                test_name: '10 < error < 20',
+                second_test_name: '10 < error < 20',
+            }
+
+        }
+        scan_result = self.scan(scan_yml_dict)
+        self.assertTrue(scan_result.has_failures())
+        self.assertIsNotNone(scan_result.error)
+        self.assertIsNotNone(scan_result.error["code"])
+        self.assertEqual(scan_result.error["code"], ERROR_CODE_TEST_FAILED)
+        self.assertIsNotNone(scan_result.error["message"])
+        self.assertEqual(scan_result.error["message"], "2 soda-sql tests failed with errors: name 'error' is not defined, name 'error' is not defined")
