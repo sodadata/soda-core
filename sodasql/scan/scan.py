@@ -87,7 +87,7 @@ class Scan:
             self._run_table_tests()
             self._run_column_tests()
 
-            logging.debug(f'Executed {self.queries_executed} in {(datetime.now() - self.start_time)}')
+            logging.debug(f'Executed {self.queries_executed} queries in {(datetime.now() - self.start_time)}')
 
         except Exception as e:
             logging.exception('Scan failed')
