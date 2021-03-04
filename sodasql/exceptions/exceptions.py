@@ -46,7 +46,7 @@ class WarehouseConnectionError(SodaSqlError):
 class TestFailureError(SodaSqlError):
 
     def __init__(self, original_exception, errors_number):
-        if errors_number>1:
+        if errors_number > 1:
             msg = f"{errors_number} soda-sql tests failed with errors"
         else:
             msg = "Soda-sql test failed with error"
