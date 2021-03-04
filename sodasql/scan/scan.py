@@ -86,8 +86,9 @@ class Scan:
             self._query_sql_metrics_and_run_tests()
             self._run_table_tests()
             self._run_column_tests()
-            logging.debug(f'Executed {self.queries_executed} in {(datetime.now() - self.start_time)}')
             self._validate_scan_success()
+
+            logging.debug(f'Executed {self.queries_executed} queries in {(datetime.now() - self.start_time)}')
 
         except SodaSqlError as e:
             logging.exception(str(e))

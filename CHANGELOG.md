@@ -4,9 +4,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [UNRELEASED]
+## [2.0.0b18] - 2021-03-04
 ### Changed
-- Add support for Python 3.9
+- Fixed bug in analyze command in BigQuery for STRUCT & ARRAY columns
+
+## [2.0.0b17] - 2021-03-04
+### Added
+- Added support for Python 3.9 (Big tnx to the Snowflake connector update!)
+### Changed
+- Switched from yaml FullLoader to SafeLoader as per suggestion of 418sec.  Tnx!
+- Fixed Decimal jsonnable bug when serializing test results
+- Improved logging
 
 ## [2.0.0b16] - 2021-03-01
 ### Changed
