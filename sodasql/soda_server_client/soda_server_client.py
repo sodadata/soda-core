@@ -84,7 +84,7 @@ class SodaServerClient:
             self.execute_command({
                 'type': 'sodaSqlScanEnd',
                 'scanReference': scan_reference,
-                'error': json.dumps(error)
+                'error': error
             })
 
     def scan_measurements(self, scan_reference: dict, measurement_jsons: list):
