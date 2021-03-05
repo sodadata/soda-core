@@ -13,6 +13,7 @@ from datetime import date
 from numbers import Number
 from typing import List
 
+from sodasql.exceptions.exceptions import WarehouseConnectionError, WarehouseAuthenticationError
 from sodasql.scan.column_metadata import ColumnMetadata
 from sodasql.scan.parser import Parser
 
@@ -185,14 +186,14 @@ class Dialect:
             sql_values = [self.literal_number(value) for value in values]
         else:
             raise RuntimeError(f"Couldn't format list {str(values)} for column {str(column)}")
-        return '('+','.join(sql_values)+')'
+        return '(' + ','.join(sql_values) + ')'
 
     def sql_expr_cast_text_to_number(self, quoted_column_name, validity_format):
         if validity_format == 'number_whole':
             return f"CAST({quoted_column_name} AS {self.data_type_decimal})"
         not_number_pattern = self.qualify_regex(r"[^-\d\.\,]")
         comma_pattern = self.qualify_regex(r"\,")
-        return f"CAST(REGEXP_REPLACE(REGEXP_REPLACE({quoted_column_name}, '{not_number_pattern}', ''), "\
+        return f"CAST(REGEXP_REPLACE(REGEXP_REPLACE({quoted_column_name}, '{not_number_pattern}', ''), " \
                f"'{comma_pattern}', '.') AS {self.data_type_decimal})"
 
     def literal_number(self, value: Number):
@@ -203,7 +204,7 @@ class Dialect:
     def literal_string(self, value: str):
         if value is None:
             return None
-        return "'"+self.escape_metacharacters(value)+"'"
+        return "'" + self.escape_metacharacters(value) + "'"
 
     def literal_list(self, l: list):
         if l is None:
@@ -365,3 +366,11 @@ class Dialect:
 
     def is_authentication_error(self, exception):
         return False
+
+    def try_to_raise_soda_sql_exception(self, exception: Exception) -> Exception:
+        if self.is_connection_error(exception):
+            raise WarehouseConnectionError(warehouse_type=self.type, original_exception=exception)
+        elif self.is_authentication_error(exception):
+            raise WarehouseAuthenticationError(warehouse_type=self.type, original_exception=exception)
+        else:
+            raise exception

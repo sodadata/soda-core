@@ -63,18 +63,23 @@ class RedshiftDialect(PostgresDialect):
         }
 
     def create_connection(self, *args, **kwargs):
-        if self.password:
-            resolved_username = self.username
-            resolved_password = self.password
-        else:
-            resolved_username, resolved_password = self.__get_cluster_credentials()
-        return psycopg2.connect(
-            user=resolved_username,
-            password=resolved_password,
-            host=self.host,
-            port=self.port,
-            connect_timeout=kwargs.get('connection_timeout_sec', None),
-            database=self.database)
+        try:
+            if self.password:
+                resolved_username = self.username
+                resolved_password = self.password
+            else:
+                resolved_username, resolved_password = self.__get_cluster_credentials()
+
+            conn = psycopg2.connect(
+                user=resolved_username,
+                password=resolved_password,
+                host=self.host,
+                port=self.port,
+                connect_timeout=kwargs.get('connection_timeout_sec', None),
+                database=self.database)
+            return conn
+        except Exception as e:
+            self.try_to_raise_soda_sql_exception(e)
 
     def __get_cluster_credentials(self):
         resolved_aws_credentials = self.aws_credentials.resolve_role(role_session_name="soda_redshift_get_cluster_credentials")

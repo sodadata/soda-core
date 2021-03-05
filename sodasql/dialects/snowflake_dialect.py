@@ -47,15 +47,20 @@ class SnowflakeDialect(Dialect):
         }
 
     def create_connection(self, *args, **kwargs):
-        return connector.connect(
-            user=self.username,
-            password=self.password,
-            account=self.account,
-            warehouse=self.warehouse,
-            database=self.database,
-            schema=self.schema,
-            login_timeout=kwargs.get('connection_timeout_sec', DEFAULT_SOCKET_CONNECT_TIMEOUT),
-        )
+        try:
+            conn = connector.connect(
+                user=self.username,
+                password=self.password,
+                account=self.account,
+                warehouse=self.warehouse,
+                database=self.database,
+                schema=self.schema,
+                login_timeout=kwargs.get('connection_timeout_sec', DEFAULT_SOCKET_CONNECT_TIMEOUT),
+            )
+            return conn
+
+        except Exception as e:
+            self.try_to_raise_soda_sql_exception(e)
 
     def sql_tables_metadata_query(self, limit: str = 10, filter: str = None):
         sql = (f"SELECT table_name \n"

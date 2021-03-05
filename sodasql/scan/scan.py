@@ -17,6 +17,7 @@ from typing import List, Optional
 
 from jinja2 import Template
 
+from sodasql.exceptions.exceptions import SodaSqlError, TestFailureError, ERROR_CODE_GENERIC
 from sodasql.scan.column_metadata import ColumnMetadata
 from sodasql.scan.group_value import GroupValue
 from sodasql.scan.measurement import Measurement
@@ -56,12 +57,11 @@ class Scan:
         self.send_scan_end = True
         self.start_time = None
         self.queries_executed = 0
-        self.exception = None
 
         self.table_sample_clause = \
             f'\nTABLESAMPLE {scan_yml.sample_method}({scan_yml.sample_percentage})' \
-            if scan_yml.sample_percentage \
-            else ''
+                if scan_yml.sample_percentage \
+                else ''
 
         self.filter_sql = None
         if scan_yml.filter_template:
@@ -86,18 +86,22 @@ class Scan:
             self._query_sql_metrics_and_run_tests()
             self._run_table_tests()
             self._run_column_tests()
+            self._validate_scan_success()
 
             logging.debug(f'Executed {self.queries_executed} queries in {(datetime.now() - self.start_time)}')
 
-        except Exception as e:
+        except SodaSqlError as e:
+            logging.exception(str(e))
+            self.scan_result.error = {'code': e.error_code, 'message': str(e)}
+
+        except Exception:
             logging.exception('Scan failed')
-            self.exception = e
-            self.scan_result.error = traceback.format_exc()
+            self.scan_result.error = {'code': ERROR_CODE_GENERIC, 'message': traceback.format_exc()}
 
         finally:
             try:
                 if self.soda_server_client and self.send_scan_end:
-                    self.soda_server_client.scan_ended(self.scan_reference, self.exception)
+                    self.soda_server_client.scan_ended(self.scan_reference, self.scan_result.error)
             except:
                 logging.exception('Notifying Soda Server of scan ended failed')
 
@@ -168,8 +172,8 @@ class Scan:
 
             if scan_column.is_text:
                 length_expr = dialect.sql_expr_conditional(
-                        scan_column.non_missing_and_valid_condition,
-                        dialect.sql_expr_length(scan_column.qualified_column_name)) \
+                    scan_column.non_missing_and_valid_condition,
+                    dialect.sql_expr_length(scan_column.qualified_column_name)) \
                     if scan_column.non_missing_and_valid_condition \
                     else dialect.sql_expr_length(scan_column.qualified_column_name)
 
@@ -208,7 +212,7 @@ class Scan:
 
         if len(fields) > 0:
             sql = 'SELECT \n  ' + ',\n  '.join(fields) + ' \n' \
-                  'FROM ' + self.qualified_table_name
+                                                         'FROM ' + self.qualified_table_name
             if self.table_sample_clause:
                 sql += f'\n{self.table_sample_clause}'
             if self.filter_sql:
@@ -313,7 +317,6 @@ class Scan:
                     self._log_and_append_query_measurement(measurements, Measurement(Metric.MINS, column_name, mins))
 
                 if self.scan_yml.is_metric_enabled(Metric.MAXS, column_name) and order_by_value_expr:
-
                     sql = (f'{group_by_cte} \n'
                            f'SELECT value \n'
                            f'FROM group_by_value \n'
@@ -328,7 +331,6 @@ class Scan:
 
                 if self.scan_yml.is_metric_enabled(Metric.FREQUENT_VALUES, column_name) \
                         and (scan_column.is_number or scan_column.is_column_numeric_text_format):
-
                     frequent_values_limit = self.scan_yml.get_frequent_values_limit(column_name)
                     sql = (f'{group_by_cte} \n'
                            f'SELECT value, frequency \n'
@@ -410,7 +412,8 @@ class Scan:
             if scan_column and scan_column.scan_yml_column:
                 self._query_sql_metrics_and_run_tests_base(scan_column.scan_yml_column.sql_metric_ymls, scan_column)
 
-    def _query_sql_metrics_and_run_tests_base(self, sql_metric_ymls: Optional[List[SqlMetricYml]], scan_column: Optional[ScanColumn] = None):
+    def _query_sql_metrics_and_run_tests_base(self, sql_metric_ymls: Optional[List[SqlMetricYml]],
+                                              scan_column: Optional[ScanColumn] = None):
         if sql_metric_ymls:
             for sql_metric in sql_metric_ymls:
                 if self.variables:
@@ -426,7 +429,8 @@ class Scan:
                 else:
                     self._run_sql_metric_default_and_run_tests(sql_metric, resolved_sql, scan_column)
 
-    def _run_sql_metric_default_and_run_tests(self, sql_metric: SqlMetricYml, resolved_sql: str, scan_column: Optional[ScanColumn] = None):
+    def _run_sql_metric_default_and_run_tests(self, sql_metric: SqlMetricYml, resolved_sql: str,
+                                              scan_column: Optional[ScanColumn] = None):
         row_tuple, description = self.warehouse.sql_fetchone_description(resolved_sql)
         self.queries_executed += 1
 
@@ -447,7 +451,8 @@ class Scan:
         sql_metric_test_results = self._execute_tests(sql_metric.tests, test_variables)
         self._flush_test_results(sql_metric_test_results)
 
-    def _run_sql_metric_with_groups_and_run_tests(self, sql_metric: SqlMetricYml, resolved_sql: str, scan_column: Optional[ScanColumn]):
+    def _run_sql_metric_with_groups_and_run_tests(self, sql_metric: SqlMetricYml, resolved_sql: str,
+                                                  scan_column: Optional[ScanColumn]):
         measurements = []
         test_results = []
         group_fields_lower = set(group_field.lower() for group_field in sql_metric.group_fields)
@@ -469,7 +474,8 @@ class Scan:
                     metric_values[metric_name] = metric_value
 
             if not group:
-                logging.error(f'None of the declared group_fields were found in result: {sql_metric.group_fields}. Skipping result.')
+                logging.error(
+                    f'None of the declared group_fields were found in result: {sql_metric.group_fields}. Skipping result.')
             else:
                 for metric_name in metric_values:
                     metric_value = metric_values[metric_name]
@@ -577,3 +583,8 @@ class Scan:
                 self.scan_yml,
                 self.time)
             self.scan_reference = self.start_scan_response['scanReference']
+
+    def _validate_scan_success(self):
+        if self.scan_result.has_errors():
+            test_errors = [test_result.error for test_result in self.scan_result.test_results if test_result.error]
+            raise TestFailureError(original_exception=", ".join(test_errors), errors_count=len(test_errors))

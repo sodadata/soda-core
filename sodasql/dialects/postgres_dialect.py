@@ -50,14 +50,18 @@ class PostgresDialect(Dialect):
                 f"WHERE lower(table_schema)='{self.schema.lower()}'")
 
     def create_connection(self, *args, **kwargs):
-        return psycopg2.connect(
-            user=self.username,
-            password=self.password,
-            host=self.host,
-            port=self.port,
-            database=self.database,
-            connect_timeout=kwargs.get('connection_timeout_sec', None),
-            options=f'-c search_path={self.schema}' if self.schema else None)
+        try:
+            conn = psycopg2.connect(
+                user=self.username,
+                password=self.password,
+                host=self.host,
+                port=self.port,
+                database=self.database,
+                connect_timeout=kwargs.get('connection_timeout_sec', None),
+                options=f'-c search_path={self.schema}' if self.schema else None)
+            return conn
+        except Exception as e:
+            self.try_to_raise_soda_sql_exception(e)
 
     def sql_columns_metadata_query(self, table_name: str) -> str:
         sql = (f"SELECT column_name, data_type, is_nullable \n"

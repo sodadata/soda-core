@@ -74,8 +74,8 @@ class SodaServerClient:
             'columns': soda_column_cfgs
         })
 
-    def scan_ended(self, scan_reference, exception = None):
-        if exception is None:
+    def scan_ended(self, scan_reference, error: dict = None):
+        if error is None:
             self.execute_command({
                 'type': 'sodaSqlScanEnd',
                 'scanReference': scan_reference
@@ -84,7 +84,7 @@ class SodaServerClient:
             self.execute_command({
                 'type': 'sodaSqlScanEnd',
                 'scanReference': scan_reference,
-                'error': str(exception)
+                'error': error
             })
 
     def scan_measurements(self, scan_reference: dict, measurement_jsons: list):
