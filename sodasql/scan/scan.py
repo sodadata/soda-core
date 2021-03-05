@@ -387,9 +387,6 @@ class Scan:
                            f'  {fields} \n'
                            f'FROM group_by_value')
 
-                    if self.filter_sql:
-                        sql += f' \nWHERE {self.scan.filter_sql}'
-
                     row = self.warehouse.sql_fetchone(sql)
                     self.queries_executed += 1
 
