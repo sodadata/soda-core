@@ -590,4 +590,4 @@ class Scan:
     def _validate_scan_success(self):
         if self.scan_result.has_errors():
             test_errors = [test_result.error for test_result in self.scan_result.test_results if test_result.error]
-            raise TestFailureError(original_exception=", ".join(test_errors), errors_number=len(test_errors))
+            raise TestFailureError(original_exception=", ".join(test_errors), errors_count=len(test_errors))
