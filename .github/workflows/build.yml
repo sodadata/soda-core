@@ -1,6 +1,6 @@
 name: Build soda-sql
 
-on: [ push, pull_request ]
+on: [ push ]
 
 jobs:
   run-tests:
