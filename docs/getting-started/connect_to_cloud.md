@@ -23,18 +23,24 @@ soda-sql uses an API to connect to Soda Cloud. To use the API, you must generate
 ```shell
 soda_account:
   host: cloud.soda.io
-  api_key_id: 
-  api_key_secret:  
+  api_key_id: env_var(API_PUBLIC)
+  api_key_secret: env_var(API_PRIVATE)
 ```
-5. In Soda Cloud, navigate to your Profile page to generate new API keys. 
-    * Copy the Public key, then paste it into the `warehouse.yml` file as the value for `api_key_id'.
-    * Copy the Private key, then paste it into the `warehouse.yml` file as the value for `api_key_secret'.
-6. Save the changes to the `warehouse.yml` file.
-7. Use soda-sql to scan the tables in your warehouse again.
+5. Save the `warehouse.yml` file.
+6. Open your `~/.soda/env_vars.yml` file in a text editor, then add the following to the file:
+```shell
+  API_PUBLIC: 
+  API_PRIVATE: 
+```
+7. In Soda Cloud, navigate to your Profile page to generate new API keys. 
+    * Copy the Public key, then paste it into the `env_vars.yml` file as the value for `API_PUBLIC`.
+    * Copy the Private key, then paste it into the `env_vars.yml` file as the value for `API_PRIVATE`.
+8. Save the changes to the `env_vars.yml` file. Close the API Keys create dialog box in your Soda Cloud account.
+9. From the command line, use soda-sql to scan the tables in your warehouse again.
 ```shell
 soda scan warehouse.yml tables/[dbtablename].yml
 ```
-9. Navigate to your Soda Cloud account and refresh the browser. Review the results of your scan in Monitor Results.
+10. Navigate to your Soda Cloud account and refresh the browser. Review the results of your scan in Monitor Results.
 
 ## Next
 
