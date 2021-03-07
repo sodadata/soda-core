@@ -12,17 +12,17 @@ To use the Soda Cloud web user interface to monitor your data, you must install 
 * The **soda-sql** command line tool does the work of scanning the data in your database. 
 * Your **Soda Cloud** account is where soda-sql pushes the results of its scans. Use the web UI to examine the results and set up alerts.  
 
-soda-sql uses an API to connect to Soda Cloud. To use the API, you must generate API keys in your Soda Cloud account, then add them to the `warehouse.yml` file that soda-sql created. 
+soda-sql uses an API to connect to Soda Cloud. To use the API, you must generate API keys in your Soda Cloud account, then add them to the warehouse yaml file that soda-sql created. 
 
 
 
-1. If you have not already done so, create a Soda Cloud account at `cloud.soda.io`.
+1. If you have not already done so, create a Soda Cloud account at [cloud.soda.io](https://cloud.soda.io/signup).
 2. Use the instructions in the [Installation guide]({% link getting-started/installation.md %}) to install soda-sql.
-3. Follow steps 3 - 6 in the [5 min tutorial]({% link getting-started/5_min_tutorial.md %}) to create your `warehouse.yml` file, connect to your database, analyze your database tables, and run a scan on the data.
+3. Follow steps 3 - 6 in the [5 min tutorial]({% link getting-started/5_min_tutorial.md %}) to create your warehouse yaml file, connect to your database, analyze your database tables, and run a scan on the data.
 4. Open the `warehouse.yml` file in a text editor, then add the following to the file:
 ```shell
 soda_account:
-  host: http://cloud.soda.io
+  host: cloud.soda.io
   api_key_id: 
   api_key_secret:  
 ```
@@ -39,5 +39,5 @@ soda scan warehouse.yml tables/[dbtablename].yml
 ## Next
 
 * Learn more about the [anatomy of a scan]({% link documentation/scan.md %}).
-* Learn more about the [`warehouse.yml`]({% link documentation/warehouse.md %}) file.
+* Learn more about the [warehouse yaml]({% link documentation/warehouse.md %}) file.
 * [Contact us](https://github.com/sodadata/soda-sql/discussions) with a question or comment.
