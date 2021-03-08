@@ -8,10 +8,10 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-from datetime import date
 
 import boto3
 import psycopg2
+from botocore.exceptions import ClientError, ValidationError, ParamValidationError
 
 from sodasql.dialects.postgres_dialect import PostgresDialect
 from sodasql.scan.dialect import REDSHIFT, KEY_WAREHOUSE_TYPE
@@ -82,7 +82,8 @@ class RedshiftDialect(PostgresDialect):
             self.try_to_raise_soda_sql_exception(e)
 
     def __get_cluster_credentials(self):
-        resolved_aws_credentials = self.aws_credentials.resolve_role(role_session_name="soda_redshift_get_cluster_credentials")
+        resolved_aws_credentials = self.aws_credentials.resolve_role(
+            role_session_name="soda_redshift_get_cluster_credentials")
 
         client = boto3.client('redshift',
                               region_name=resolved_aws_credentials.region_name,
@@ -115,5 +116,15 @@ class RedshiftDialect(PostgresDialect):
             return f"CAST({quoted_column_name} AS {self.data_type_decimal})"
         not_number_pattern = self.qualify_regex(r"[^-\d\.\,]")
         comma_pattern = self.qualify_regex(r"\,")
-        return f"CAST(REGEXP_REPLACE(REGEXP_REPLACE({quoted_column_name}, '{not_number_pattern}', ''), "\
+        return f"CAST(REGEXP_REPLACE(REGEXP_REPLACE({quoted_column_name}, '{not_number_pattern}', ''), " \
                f"'{comma_pattern}', '.') AS {self.data_type_decimal})"
+
+    def is_connection_error(self, exception):
+        is_postgres_error = super().is_connection_error(exception)
+        if is_postgres_error:
+            return is_postgres_error
+        if exception is None:
+            return False
+        return isinstance(exception, ClientError) or \
+               isinstance(exception, ValidationError) or \
+               isinstance(exception, ParamValidationError)

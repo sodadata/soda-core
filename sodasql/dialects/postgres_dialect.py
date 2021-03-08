@@ -101,6 +101,9 @@ class PostgresDialect(Dialect):
         error_message = str(exception)
         return error_message.find('Operation timed out') != -1 or \
                error_message.find('could not translate host name') != -1 or \
+               error_message.find('could not connect to server') != -1 or \
+               error_message.find('No route to host') != -1 or \
+               error_message.find('no route to host') != -1 or \
                error_message.find('timeout expired') != -1
 
     def is_authentication_error(self, exception):
