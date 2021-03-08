@@ -81,7 +81,7 @@ class ScanBuilder:
         warehouse = Warehouse(self.warehouse_yml)
 
         self._create_soda_server_client()
-        
+
         return Scan(warehouse=warehouse,
                     scan_yml=self.scan_yml,
                     variables=self.variables,
@@ -101,10 +101,12 @@ class ScanBuilder:
 
         if self.warehouse_yml_dict and not self.warehouse_yml:
             from sodasql.scan.warehouse_yml_parser import WarehouseYmlParser
-            warehouse_parser = WarehouseYmlParser(self.warehouse_yml_dict, self.warehouse_yml_file)
-            warehouse_parser.log()
-            self.parsers.append(warehouse_parser)
-            self.warehouse_yml = warehouse_parser.warehouse_yml
+            self.parse_warehouse_yml(WarehouseYmlParser(self.warehouse_yml_dict, self.warehouse_yml_file))
+
+    def parse_warehouse_yml(self, warehouse_parser):
+        warehouse_parser.log()
+        self.parsers.append(warehouse_parser)
+        self.warehouse_yml = warehouse_parser.warehouse_yml
 
     def _build_scan_yml(self):
         file_system = FileSystemSingleton.INSTANCE
