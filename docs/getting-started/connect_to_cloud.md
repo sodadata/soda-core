@@ -29,6 +29,8 @@ soda_account:
 5. Save the `warehouse.yml` file.
 6. Open your `~/.soda/env_vars.yml` file in a text editor, then add the following to the file:
 ```shell
+[warehouse_name]:
+  ...
   API_PUBLIC: 
   API_PRIVATE: 
 ```
