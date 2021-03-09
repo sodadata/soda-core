@@ -7,7 +7,7 @@ nav_order: 13
 
 # Connect to Soda Cloud
 
-To use the Soda Cloud web user interface to monitor your data, you must install and configure the soda-sql command line tool, then connect it to your Soda Cloud account.
+To use the Soda Cloud web user interface to monitor your data, you must install and configure the soda-sql command line tool, then connect it to your Soda Cloud account. 
 
 * The **soda-sql** command line tool does the work of scanning the data in your database. 
 * Your **Soda Cloud** account is where soda-sql pushes the results of its scans. Use the web UI to examine the results and set up alerts.  
