@@ -19,19 +19,23 @@ from sodasql.scan.parser import Parser
 
 KEY_WAREHOUSE_TYPE = 'type'
 
-POSTGRES = 'postgres'
-SNOWFLAKE = 'snowflake'
-REDSHIFT = 'redshift'
-BIGQUERY = 'bigquery'
 ATHENA = 'athena'
+BIGQUERY = 'bigquery'
+POSTGRES = 'postgres'
+REDSHIFT = 'redshift'
+REDSHIFT_SPECTRUM = 'redshift-spectrum'
+SNOWFLAKE = 'snowflake'
 SQLSERVER = 'sqlserver'
 
-ALL_WAREHOUSE_TYPES = [POSTGRES,
-                       SNOWFLAKE,
-                       REDSHIFT,
+
+ALL_WAREHOUSE_TYPES = [ATHENA,
                        BIGQUERY,
-                       ATHENA,
-                       SQLSERVER]
+                       POSTGRES,
+                       REDSHIFT,
+                       REDSHIFT_SPECTRUM,
+                       SNOWFLAKE,
+                       SQLSERVER
+                       ]
 
 
 class Dialect:
@@ -48,21 +52,24 @@ class Dialect:
     @classmethod
     def create(cls, parser: Parser):
         warehouse_type = parser.get_str_optional(KEY_WAREHOUSE_TYPE)
-        if warehouse_type == POSTGRES:
-            from sodasql.dialects.postgres_dialect import PostgresDialect
-            return PostgresDialect(parser)
-        if warehouse_type == SNOWFLAKE:
-            from sodasql.dialects.snowflake_dialect import SnowflakeDialect
-            return SnowflakeDialect(parser)
-        if warehouse_type == REDSHIFT:
-            from sodasql.dialects.redshift_dialect import RedshiftDialect
-            return RedshiftDialect(parser)
-        if warehouse_type == BIGQUERY:
-            from sodasql.dialects.bigquery_dialect import BigQueryDialect
-            return BigQueryDialect(parser)
         if warehouse_type == ATHENA:
             from sodasql.dialects.athena_dialect import AthenaDialect
             return AthenaDialect(parser)
+        if warehouse_type == BIGQUERY:
+            from sodasql.dialects.bigquery_dialect import BigQueryDialect
+            return BigQueryDialect(parser)
+        if warehouse_type == POSTGRES:
+            from sodasql.dialects.postgres_dialect import PostgresDialect
+            return PostgresDialect(parser)
+        if warehouse_type == REDSHIFT:
+            from sodasql.dialects.redshift_dialect import RedshiftDialect
+            return RedshiftDialect(parser)
+        if warehouse_type == REDSHIFT:
+            from sodasql.dialects.redshift_spectrum_dialect import RedshiftSpectrumDialect
+            return RedshiftSpectrumDialect(parser)
+        if warehouse_type == SNOWFLAKE:
+            from sodasql.dialects.snowflake_dialect import SnowflakeDialect
+            return SnowflakeDialect(parser)
         if warehouse_type == SQLSERVER:
             from sodasql.dialects.sqlserver_dialect import SQLServerDialect
             return SQLServerDialect(parser)
