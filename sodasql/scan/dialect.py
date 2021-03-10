@@ -64,7 +64,7 @@ class Dialect:
         if warehouse_type == REDSHIFT:
             from sodasql.dialects.redshift_dialect import RedshiftDialect
             return RedshiftDialect(parser)
-        if warehouse_type == REDSHIFT:
+        if warehouse_type == REDSHIFT_SPECTRUM:
             from sodasql.dialects.redshift_spectrum_dialect import RedshiftSpectrumDialect
             return RedshiftSpectrumDialect(parser)
         if warehouse_type == SNOWFLAKE:

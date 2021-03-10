@@ -9,22 +9,17 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
-import boto3
-import psycopg2
-from botocore.exceptions import ClientError, ValidationError, ParamValidationError
-
-from sodasql.dialects.postgres_dialect import PostgresDialect
-from sodasql.scan.dialect import REDSHIFT, KEY_WAREHOUSE_TYPE
-from sodasql.scan.dialect_parser import DialectParser
+from sodasql.dialects.redshift_dialect import RedshiftDialect
+from sodasql.scan.dialect import REDSHIFT_SPECTRUM
 from sodasql.scan.parser import Parser
 
 
-class RedshiftSpectrumDialect(PostgresDialect):
+class RedshiftSpectrumDialect(RedshiftDialect):
     def __init__(self, parser: Parser):
-        super().__init__(parser, REDSHIFT)
+        super().__init__(parser)
 
     def sql_tables_metadata_query(self, limit: str = 10, filter: str = None):
-        return (f"SELECT table_name \n"
+        return (f"SELECT tablename \n"
                 f"FROM SVV_EXTERNAL_TABLES \n"
                 f"WHERE lower(schemaname)='{self.schema.lower()}'")
 
