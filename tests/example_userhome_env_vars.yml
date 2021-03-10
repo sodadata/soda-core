@@ -3,10 +3,13 @@
 
 test:
   # To execute tests in local/sql on another warehouse than postgres use eg
-  # SODA_TEST_TARGET: redshift
+  #SODA_TEST_TARGET: hive
   SODA_ATHENA_ACCESS_KEY_ID: xxx
   SODA_ATHENA_SECRET_ACCESS_KEY: xxx
   SODA_REDSHIFT_USERNAME: xxx
   SODA_REDSHIFT_PASSWORD: xxx
   SODA_SNOWFLAKE_USERNAME: xxx
   SODA_SNOWFLAKE_PASSWORD: xxx
+  SODA_HIVE_USERNAME: xxx
+  SODA_HIVE_PASSWORD: xxx
+

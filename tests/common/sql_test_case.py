@@ -38,6 +38,7 @@ TARGET_REDSHIFT = 'redshift'
 TARGET_ATHENA = 'athena'
 TARGET_BIGQUERY = 'bigquery'
 TARGET_SQLSERVER = 'sqlserver'
+TARGET_HIVE = 'hive'
 
 
 def equals_ignore_case(left, right):

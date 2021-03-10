@@ -1,0 +1,8 @@
+type: hive
+host: localhost
+username: env_var(SODA_HIVE_PASSWORD)
+password: env_var(SODA_HIVE_PASSWORD)
+database: hive
+configuration:
+    hive.execution.engine: mr
+    mapreduce.job.reduces: 2

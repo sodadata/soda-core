@@ -25,13 +25,15 @@ REDSHIFT = 'redshift'
 BIGQUERY = 'bigquery'
 ATHENA = 'athena'
 SQLSERVER = 'sqlserver'
+HIVE = 'hive'
 
 ALL_WAREHOUSE_TYPES = [POSTGRES,
                        SNOWFLAKE,
                        REDSHIFT,
                        BIGQUERY,
                        ATHENA,
-                       SQLSERVER]
+                       SQLSERVER,
+                       HIVE]
 
 
 class Dialect:
@@ -66,6 +68,9 @@ class Dialect:
         if warehouse_type == SQLSERVER:
             from sodasql.dialects.sqlserver_dialect import SQLServerDialect
             return SQLServerDialect(parser)
+        if warehouse_type == HIVE:
+            from sodasql.dialects.hive_dialect import HiveDialect
+            return HiveDialect(parser)
 
     @classmethod
     def create_for_warehouse_type(cls, warehouse_type):
@@ -374,3 +379,6 @@ class Dialect:
             raise WarehouseAuthenticationError(warehouse_type=self.type, original_exception=exception)
         else:
             raise exception
+
+    def sql_columns_metadata(self, table_name: str) -> List[tuple]:
+        return []
