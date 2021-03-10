@@ -25,15 +25,15 @@ class HiveDialect(Dialect):
             KEY_WAREHOUSE_TYPE: HIVE,
             'host': 'localhost',
             'port': 10000,
-            'username': 'env_var(POSTGRES_USERNAME)',
-            'password': 'env_var(POSTGRES_PASSWORD)',
+            'username': 'env_var(HIVE_USERNAME)',
+            'password': 'env_var(HIVE_PASSWORD)',
             'database': params.get('database', 'your_database')
         }
 
     def default_env_vars(self, params: dict):
         return {
-            'POSTGRES_USERNAME': params.get('username', 'hive_username_goes_here'),
-            'POSTGRES_PASSWORD': params.get('password', 'hive_password_goes_here')
+            'HIVE_USERNAME': params.get('username', 'hive_username_goes_here'),
+            'HIVE_PASSWORD': params.get('password', 'hive_password_goes_here')
         }
 
     def sql_tables_metadata_query(self, limit: str = 10, filter: str = None):
@@ -49,7 +49,7 @@ class HiveDialect(Dialect):
                 host=self.host,
                 port=self.port,
                 database=self.database,
-                configuration={key: str(value) for key, value in self.configuration.items()}, #https://github.com/jaegertracing/jaeger-client-python/issues/151
+                configuration={ key: str(value) for key, value in self.configuration.items() }, #https://github.com/jaegertracing/jaeger-client-python/issues/151
                 auth=None)
             return conn
         except Exception as e:
