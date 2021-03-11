@@ -7,129 +7,115 @@ nav_order: 5
 
 # Scan
 
-Soda Scan is one of the core concepts of Soda SQL. This section explains what a scan does, how
-it works and how you can configure them using 'scan YAML' files.
+A **scan** is a Soda SQL computation uses SQL queries to extract information about data in a database table. Use the ```soda scan``` CLI command to initiate a scan of your data.
 
-> Looking for more information on _running_ a scan? Take a look at either
-[the CLI]({% link documentation/cli.md %}) or [Orchestrate scans]({% link documentation/orchestrate_scans.md %}) sections.
+Intead of laboriously accessing your database and then manually defining SQL queries to analyze the data in tables, you can use a much simpler Soda SQL scan. First, you configure scan metrics and tests in a scan yaml file, then Soda SQL uses the input from your scan yaml file to prepare, then run SQL queries against your data.
 
-## Anatomy of a scan
+## Create a scan yaml file
 
-A scan runs within the context of a table and performs the following actions:
+You need to create a **scan yaml** file for every table in your database that you want to scan. If you have 20 tables in your database, you need 20 yaml files, each corresponding to a single table. 
 
-* Fetch the column metadata of the table (column name, type and nullable)
-* Single aggregation query that computes aggregate metrics for multiple columns like e.g. missing, min, max etc
-* For each column
-  * One query for distinct_count, unique_count and valid_count
-  * One query for mins (list of smallest values)
-  * One query for maxs (list of greatest values)
-  * One query for frequent values
-  * One query for histograms
+You can create scan yaml files yourself, but the CLI command ```soda analyze``` sifts through the contents of your database and autmatically prepares a scan yaml file for each table. It puts the files in the ```/tables``` directory that it puts in the same directory as your ```warehouse.yml``` file. In the example below, Soda SQL created a scan yaml file named ```demodata.yml``` and put it in the ```/tables``` directory.
+
+In your command line interface, navigate to the directory that contains your ```warehouse.yml``` file, then execute the following command:
+
+```shell
+soda analyze
+```
+
+Output:
+
+```shell
+  | Analyzing warehouse.yml ...
+  | Querying warehouse for tables
+  | Creating tables directory tables
+  | Executing SQL query: 
+SELECT table_name 
+FROM information_schema.tables 
+WHERE lower(table_schema)='public'
+  | SQL took 0:00:00.008511
+  | Executing SQL query: 
+SELECT column_name, data_type, is_nullable 
+FROM information_schema.columns 
+WHERE lower(table_name) = 'demodata' 
+  AND table_catalog = 'sodasql' 
+  AND table_schema = 'public'
+  | SQL took 0:00:00.013018
+  | Executing SQL query: 
+  ...
+    | SQL took 0:00:00.008593
+  | Creating tables/demodata.yml ...
+  | Next run 'soda scan warehouse.yml tables/demodata.yml' to calculate measurements and run tests
+```
+
+If you decide to create your own scan yaml files manually, best pracice dictates that you name the yaml file using the same name as the table in your database. 
+
+## Anatomy of the scan yaml file
+
+When it creates your scan yaml file, Soda SQL pre-populates it with the ```test``` and ```metric``` configurations it deemed useful based on the data in the table it analzyed. You can keep those configurations intact and use them to run your scans, or you can adjust or add to them to fine tune the tests Soda SQL runs on your data.
+
+The following describes the contents of a scan yaml file that Soda SQL created and pre-populated.
+
+<img align="middle" style="margin:0px 0px" width="60%" height="60%" src="https://raw.githubusercontent.com/sodadata/soda-sql/main/docs/assets/images/scan-anatomy.png" alt="scan anatomy" />
+
+**1** - The value of **table_name** identifies a SQL table in your database. If you were writing a SQL query, it is the value you would supply for FROM.
+
+**2** - A **metric** is a property of the data in your database.  A **measurement** is the value for a metric that Soda SQL obtains during a scan. For example, in ```row_count = 5```, ```row_count``` is the metric and ```5``` is the measurement.
+
+**3** - A **test** is a Python expression that, during a scan, checks for metrics that match the parameters defined for a measurement. As a result of a scan, a test either passes or fails. For example, the test ```row_count > 0``` checks to see if the table has at least one row. If the test passes, it means the table has at least one row; if the test fails, it means the table has no rows, which means that the table is empty. Tests in this part of the yaml file apply to all columns in the table. A single Soda SQL scan can run many tests on the contents of the whole table.
+
+**4** - A **column** identifies a SQL column in your table. Use column names to configure tests against individual columns in the table. A single Soda SQL scan can run many tests in many columns.
+
+**5** - **```id```** and **```feepct```** are column names that identify specific columns in this table. 
+
+**6** - The value for **valid_format** identifies the only form of data in the column that Soda SQL recognizes as valid during a scan. In this case, any row in the ```id``` column that contains data that is UUID format (univerally unique identifier) is valid; anything else is invalid.
+
+**7** - Same as above, only the tests in the ```column``` section of the yaml file run only against the contents of the single, identified column. In this case, the test "invalid_percentage == 0" checks to see if all rows in the ```id``` column contain data in a valid format. If the test passes, it means that 0% of the rows contain data that is invalid; if the test fails, it means that more than 0% of the rows contain invalid data, which is data that is in non-UUID format. 
 
 
-> Note on performance: we have tuned most column queries by using the same Column Table Expression (CTE).
-The goal is to allow some databases, like eg Snowflake, to be able to cache the results, but we didn't see
-actual proof of this yet.  If you have knowledge on this, [drop us a line in one of the channels]({% link community.md %}).
+# Run a scan
 
-## Scan YAML configuration
+When you run a scan, Soda SQL uses the configurations in your scan yaml file to prepare, then run SQL queries against data in your database. The default tests and metrics Soda SQL configured when it created the yaml file are focused on finding missing, invalid, or unexpected data in your tables.
 
-'Scan YAML' files are used to configure which metrics should be computed and
-which tests should be checked. You are free to use any name, but we recommend
-naming your Scan YAML files after the tables in your warehouse.
+Each scan requires the following as input:
+- a warehouse yaml, which represents a connection to your SQL engine
+- a scan yaml file, including its path, which contains the defined metric and test instructions that Soda SQL uses to scan tables in your warehouse
 
-Top level configuration keys:
+Example command: 
 
-| Key | Description | Required |
-| --- | ----------- | -------- |
-| table_name | The table name. | Required |
-| metrics | List of default metrics to compute. Column metrics specified here will be computed on each column. | Optional |
-| columns | Define validity rules, metrics, [custom SQL Metrics]({% link documentation/sql_metrics.md %}) and tests for specific columns | Optional |
-| sql_metrics | A list of [custom SQL Metrics]({% link documentation/sql_metrics.md %}) which don't belong to a specific column | Optional |
-| filter | A SQL expression that will be added to query where clause. Uses [Jinja as template language](https://jinja.palletsprojects.com/). Variables can be passed into the scan.  See [Filtering]({% link documentation/filtering.md %}) | Optional |
-| mins_maxs_limit | Max number of elements for the mins metric | Optional, default is 5 |
-| frequent_values_limit | Max number of elements for the maxs metric | Optional, default is 5 |
-| sample_percentage | Adds [sampling](https://docs.snowflake.com/en/sql-reference/constructs/sample.html) to limit the number of rows scanned. Only tested on Postgres | Optional |
-| sample_method | For Snowflake, One of { BERNOULLI, ROW, SYSTEM, BLOCK } | Required if sample_percentage is specified |
+```shell
+soda scan warehouse.yml tables/demodata.yml
+```
 
-## Metrics
+## Scan output
 
-### Table metrics
+By default, the output of a Soda SQL scan appears in your command line interface.
 
-| Meric | Description |
-| ----- | ------------|
-| row_count |  |
-| schema |  |
+```shell
+  | 2.0.0b18
+  | Scanning tables/demodata.yml ...
+  | Soda cloud: dev.sodadata.io
+  | Executing SQL query: 
+SELECT column_name, data_type, is_nullable 
+FROM information_schema.columns 
+WHERE lower(table_name) = 'demodata' 
+  AND table_catalog = 'sodasql' 
+  AND table_schema = 'public'
+  ...
+  | < 200 {}
+  | 54 measurements computed
+  | 3 tests executed
+  | All is good. No tests failed.
+  | Exiting with code 0
+```
 
-### Column metrics
+In the above example, Soda SQL executed three tests and all the tests passed. The ```Exit code``` indicates the number of failed tests in the scan; in this case, it is zero.
 
-| Meric | Description |
-| ----- | ------------|
-| missing_count |  |
-| missing_percentage |  |
-| values_count |  |
-| values_percentage |  |
-| valid_count |  |
-| valid_percentage |  |
-| invalid_count |  |
-| invalid_percentage |  |
-| min |  |
-| max |  |
-| avg |  |
-| sum |  |
-| variance |  |
-| stddev |  |
-| min_length |  |
-| max_length |  |
-| avg_length |  |
-| distinct |  |
-| unique_count |  |
-| duplicate_count |  |
-| uniqueness |  |
-| maxs |  |
-| mins |  |
-| frequent_values |  |
-| histogram |  |
+If you have a **Soda Cloud** account and you have connected it to the soda-sql tool in your environment, soda automatically pushes the scan output to your Soda Cloud account. You can log in and view the Monitor Results; each row in the Monitor Results table represents the output of one scan.
+Optional: insert the output into your data orchestration tool to block the pipeline if it encounters bad data (test) or run in parallel to make you aware (monitor)
 
-### Metric resolving
+## Next
 
-Some metrics belong together as they depend on the same query.
-When you specify 1 metric in a group, the other metrics in the group are also computed.
-So Soda SQL might compute more metrics then are configured in the  scan.yml
-
-Here are the groups
-
-| Metrics |
-| ------------|
-| missing_count<br/>missing_percentage<br/>values_count<br/>values_percentage |
-| valid_count<br/>valid_percentage<br/>invalid_count<br/>invalid_percentage |
-| distinct<br/>unique_count<br/>uniqueness<br/>duplicate_count |
-
-There are also some dependencies between the metrics.
-
-Any metric related to invalid values (`valid_count`, `valid_percentage`, `invalid_count`, `invalid_percentage`) will
-imply all missing metrics to be included as well (`missing_count`, `missing_percentage`, `values_count`, `values_percentage`)
-
-Any missing metric (`missing_count`, `missing_percentage`, `values_count`, `values_percentage`) will imply
-a `row_count` metric.
-
-And last a `histogram` metric will imply `min` and `max` metrics.
-
-## Column configurations
-
-Column configuration keys:
-
-| Key | Description |
-| --- | ----------- |
-| metrics | Extra metrics to be computed for this column |
-| metric_groups | Extra metric groups to be computed for this column |
-| tests | Tests to be evaluate for this column |
-| missing_values | Customize what values are considered missing |
-| missing_format | To customize missing values such as whitespace and empty strings |
-| missing_regex | Define your own custom missing values |
-| valid_format | Specifies valid values with a named valid text format |
-| valid_regex | Specifies valid values with a regex |
-| valid_values | Specifies valid values with a list of values |
-| valid_min | Specifies a min value for valid values |
-| valid_max | Specifies a max value for valid values |
-| valid_min_length | Specifies a min length for valid values |
-| valid_max_length | Specifies a max length for valid values |
+* Learn more about the [warehouse yaml]({% link documentation/warehouse.md %}) file.
+* Learn how to apply [filters]({% link documentation/filtering.md %}) to your scan.
+* Learn how to [connect Soda SQL with your Soda Cloud account]({% link documentation/connect-to-cloud.md %}).
