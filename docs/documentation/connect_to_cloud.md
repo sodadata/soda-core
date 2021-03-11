@@ -2,7 +2,7 @@
 layout: default
 title: Connect to Soda Cloud
 parent: Documentation
-nav_order: 13
+nav_order: 12
 ---
 
 # Connect to Soda Cloud
