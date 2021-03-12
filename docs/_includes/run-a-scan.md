@@ -2,7 +2,7 @@ When you run a scan, Soda SQL uses the configurations in your Scan YAML file to 
 
 Each scan requires the following as input:
 - a Warehouse YAML file, which represents a connection to your SQL engine
-- a Scan YAML file, including its path, which contains the defined metric and test instructions that Soda SQL uses to scan tables in your warehouse
+- a Scan YAML file, including its path, which contains the metric and test instructions that Soda SQL uses to scan tables in your warehouse
 
 Example command: 
 
