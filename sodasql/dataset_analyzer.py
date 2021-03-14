@@ -39,6 +39,7 @@ class ColumnAnalysisResult:
             'validityFormat': self.validity_format
         }
 
+
 class DatasetAnalyzer:
 
     def analyze(self, warehouse: Warehouse, table_name: str):
@@ -49,12 +50,14 @@ class DatasetAnalyzer:
 
         sql = dialect.sql_columns_metadata_query(table_name)
         column_tuple_list = self.dialect.sql_columns_metadata(table_name)
-        column_tuples = warehouse.sql_fetchall(sql) if len(column_tuple_list) == 0 else column_tuple_list
+        column_tuples = warehouse.sql_fetchall(sql) if len(
+            column_tuple_list) == 0 else column_tuple_list
         for column_tuple in column_tuples:
             column_name = column_tuple[0]
             source_type = column_tuple[1]
 
-            column_analysis_result = ColumnAnalysisResult(column_name=column_name, source_type=source_type)
+            column_analysis_result = ColumnAnalysisResult(
+                column_name=column_name, source_type=source_type)
             analyze_results.append(column_analysis_result)
 
             qualified_column_name = dialect.qualify_column_name(column_name)
@@ -68,7 +71,8 @@ class DatasetAnalyzer:
                     format_regex = Validity.FORMATS[validity_format]
                     validity_counts.append({'format': validity_format})
                     qualified_regex = dialect.qualify_regex(format_regex)
-                    regexp_like = dialect.sql_expr_regexp_like(qualified_column_name, qualified_regex)
+                    regexp_like = dialect.sql_expr_regexp_like(
+                        qualified_column_name, qualified_regex)
                     count_field = f'COUNT(CASE WHEN {regexp_like} THEN 1 END)'
                     validity_format_count_fields.append(count_field)
 
@@ -88,12 +92,14 @@ class DatasetAnalyzer:
                         validity_count = validity_counts[i]
                         validity_count['count'] = row[i]
 
-                    sorted_validity_counts = sorted(validity_counts, key=lambda c: c['count'], reverse=True)
+                    sorted_validity_counts = sorted(
+                        validity_counts, key=lambda c: c['count'], reverse=True)
                     most_frequent_validity_format = sorted_validity_counts[0]
                     valid_count = most_frequent_validity_format['count']
                     column_analysis_result.valid_count = valid_count
 
                     if valid_count > (values_count / 2):
-                        column_analysis_result.validity_format = most_frequent_validity_format['format']
+                        column_analysis_result.validity_format = most_frequent_validity_format[
+                            'format']
 
         return analyze_results

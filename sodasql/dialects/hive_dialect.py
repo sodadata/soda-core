@@ -2,10 +2,10 @@ from pyhive import hive
 from pyhive.exc import Error
 from thrift.transport.TTransport import TTransportException
 
-from sodasql.exceptions.exceptions import WarehouseConnectionError, WarehouseAuthenticationError
 from sodasql.scan.dialect import Dialect, HIVE, KEY_WAREHOUSE_TYPE
 from sodasql.scan.parser import Parser
 import json
+
 
 class HiveDialect(Dialect):
     data_type_decimal = "DECIMAL"
@@ -41,7 +41,7 @@ class HiveDialect(Dialect):
                 f"show tables;")
 
     def create_connection(self, *args, **kwargs):
-        self.configuration['hive.ddl.output.format']='json'
+        self.configuration['hive.ddl.output.format'] = 'json'
         try:
             conn = hive.connect(
                 username=self.username,
@@ -49,23 +49,29 @@ class HiveDialect(Dialect):
                 host=self.host,
                 port=self.port,
                 database=self.database,
-                configuration={ key: str(value) for key, value in self.configuration.items() }, #https://github.com/jaegertracing/jaeger-client-python/issues/151
+                # https://github.com/jaegertracing/jaeger-client-python/issues/151
+                configuration={key: str(value)
+                               for key, value in self.configuration.items()},
                 auth=None)
             return conn
         except Exception as e:
             self.try_to_raise_soda_sql_exception(e)
 
-    def sql_columns_metadata(self, table_name:str):
+    def sql_columns_metadata(self, table_name: str):
         # getting columns info from hive which version <3.x needs to be parsed
         column_tuples = []
-        cur = self.create_connection().cursor()
-        cur.execute(f"describe {self.database}.{table_name}")
-        result = cur.fetchall()[0][0]
-        if result is not None:
-            result_json = json.loads(result)
-            for column in result_json['columns']:
-                column_tuples.append((column['name'],column['type'], 'YES'))
-        return column_tuples
+        cursor = self.create_connection().cursor()
+        try:
+            cursor.execute(f"describe {self.database}.{table_name}")
+            result = cursor.fetchall()[0][0]
+            if result is not None:
+                result_json = json.loads(result)
+                for column in result_json['columns']:
+                    column_tuples.append(
+                        (column['name'], column['type'], 'YES'))
+            return column_tuples
+        finally:
+            cursor.close()
 
     def sql_columns_metadata_query(self, table_name: str) -> str:
         # hive_version < 3.x does not support information_schema.columns
@@ -78,7 +84,7 @@ class HiveDialect(Dialect):
         return self.qualify_table_name(table_name)
 
     def sql_expr_regexp_like(self, expr: str, pattern: str):
-        return f"{expr} rlike '{self.qualify_regex(pattern)}'"
+        return f"cast({expr} as string) rlike '{self.qualify_regex(pattern)}'"
 
     def is_text(self, column_type: str):
         for text_type in self._get_text_types():
@@ -96,7 +102,16 @@ class HiveDialect(Dialect):
         return False
 
     def _get_number_types(self):
-        return ['TINYINT', 'SMALLINT', 'INT', 'BIGINT', 'FLOAT', 'DOUBLE', 'DOUBLE PRECISION', 'DECIMAL', 'NUMERIC']
+        return [
+            'TINYINT',
+            'SMALLINT',
+            'INT',
+            'BIGINT',
+            'FLOAT',
+            'DOUBLE',
+            'DOUBLE PRECISION',
+            'DECIMAL',
+            'NUMERIC']
 
     def sql_expr_stddev(self, expr: str):
         return f'STDDEV_POP({expr})'
@@ -113,11 +128,3 @@ class HiveDialect(Dialect):
         if exception is None:
             return False
         return isinstance(exception, TTransportException)
-
-    def try_to_raise_soda_sql_exception(self, exception: Exception) -> Exception:
-        if self.is_connection_error(exception):
-            raise WarehouseConnectionError(warehouse_type=self.type, original_exception=exception)
-        elif self.is_authentication_error(exception):
-            raise WarehouseAuthenticationError(warehouse_type=self.type, original_exception=exception)
-        else:
-            raise exception
