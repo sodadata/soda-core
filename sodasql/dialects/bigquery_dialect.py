@@ -47,7 +47,7 @@ class BigQueryDialect(Dialect):
             'BIGQUERY_ACCOUNT_INFO': '...'
         }
 
-    def create_connection(self, *args, **kwargs):
+    def create_connection(self):
         try:
             credentials = Credentials.from_service_account_info(self.account_info_dict)
             project_id = self.account_info_dict['project_id']

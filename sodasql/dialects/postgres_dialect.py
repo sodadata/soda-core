@@ -12,7 +12,7 @@ import re
 
 import psycopg2
 
-from sodasql.scan.dialect import Dialect, POSTGRES, KEY_WAREHOUSE_TYPE
+from sodasql.scan.dialect import Dialect, POSTGRES, KEY_WAREHOUSE_TYPE, KEY_CONNECTION_TIMEOUT
 from sodasql.scan.parser import Parser
 
 
@@ -27,6 +27,7 @@ class PostgresDialect(Dialect):
             self.password = parser.get_credential('password')
             self.database = parser.get_str_required_env('database')
             self.schema = parser.get_str_required_env('schema')
+            self.connection_timeout = parser.get_int_optional(KEY_CONNECTION_TIMEOUT)
 
     def default_connection_properties(self, params: dict):
         return {
@@ -49,7 +50,7 @@ class PostgresDialect(Dialect):
                 f"FROM information_schema.tables \n"
                 f"WHERE lower(table_schema)='{self.schema.lower()}'")
 
-    def create_connection(self, *args, **kwargs):
+    def create_connection(self):
         try:
             conn = psycopg2.connect(
                 user=self.username,
@@ -57,7 +58,7 @@ class PostgresDialect(Dialect):
                 host=self.host,
                 port=self.port,
                 database=self.database,
-                connect_timeout=kwargs.get('connection_timeout_sec', None),
+                connect_timeout=self.connection_timeout,
                 options=f'-c search_path={self.schema}' if self.schema else None)
             return conn
         except Exception as e:

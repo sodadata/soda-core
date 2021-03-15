@@ -43,7 +43,7 @@ class AthenaDialect(Dialect):
             'ATHENA_SECRET_ACCESS_KEY': '...'
         }
 
-    def create_connection(self, *args, **kwargs):
+    def create_connection(self):
         # pyathena.connect will do the role resolving
         # aws_credentials = self.aws_credentials.resolve_role('soda_scan')
         try:
