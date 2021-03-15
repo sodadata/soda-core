@@ -23,7 +23,7 @@ Instead of laboriously accessing your database and then manually defining SQL qu
 
 You need to create a **Scan YAML** file for every table in your database that you want to scan. If you have 20 tables in your database, you need 20 YAML files, each corresponding to a single table. 
 
-You can create Scan YAML files yourself, but the CLI command `soda analyze` sifts through the contents of your database and automatically prepares a Scan YAML file for each table. Soda SQL puts the YAML files in the `/tables` directory which is in the same directory as your `warehouse.yml` file.
+You can create Scan YAML files yourself, but the CLI command `soda analyze` sifts through the contents of your database and automatically prepares a Scan YAML file for each table. Soda SQL puts the YAML files in the `/tables` directory in the warehouse directory alongside your `warehouse.yml` file.
 
 In your command-line interface, navigate to the directory that contains your `warehouse.yml` file, then execute the following:
 
@@ -74,7 +74,7 @@ The following describes the contents of a Scan YAML file that Soda SQL created a
 
 **2** - A **metric** is a property of the data in your database.  A **measurement** is the value for a metric that Soda SQL obtains during a scan. For example, in `row_count = 5`, `row_count` is the metric and `5` is the measurement.
 
-**3** - A **test** is a Python expression that, during a scan, checks for metrics that match the parameters defined for a measurement. As a result of a scan, a test either passes or fails. 
+**3** - A **test** is a Python expression that, during a scan, checks metrics to see if they match the parameters defined for a measurement. As a result of a scan, a test either passes or fails. 
 
 For example, the test `row_count > 0` checks to see if the table has at least one row. If the test passes, it means the table has at least one row; if the test fails, it means the table has no rows, which means that the table is empty. Tests in this part of the YAML file apply to all columns in the table. A single Soda SQL scan can run many tests on the contents of the whole table.
 
