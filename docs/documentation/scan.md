@@ -90,8 +90,8 @@ For example, the test `row_count > 0` checks to see if the table has at least on
 
 The table below describes all of the top level configuration keys you can use to customize your scan. 
 
-| Key     | Description | Required | 
-| ----------- | ---------- | -------- | 
+| Key         | Description | Required | 
+| ----------- | ----------- | -------- | 
 | `table_name` | Identifies a SQL table in your database. | required | 
 | `metrics` |  A list of all the default metrics that you can use to configure a scan. This list includes both table and column metrics. See [Metrics]({% link documentation/sql_metrics.md %}) for configuration details.| optional | 
 | `columns` | The section of the Scan YAML file in which you define tests and metrics that apply to individual columns. See [Metrics]({% link documentation/sql_metrics.md %}#column-metrics) for configuration details.| optional | 
