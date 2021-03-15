@@ -41,7 +41,7 @@ class DatasetAnalyzer:
         analyze_results: List[ColumnAnalysisResult] = []
 
         sql = dialect.sql_columns_metadata_query(table_name)
-        column_tuple_list = self.dialect.sql_columns_metadata(table_name)
+        column_tuple_list = dialect.sql_columns_metadata(table_name)
         column_tuples = warehouse.sql_fetchall(sql) if len(
             column_tuple_list) == 0 else column_tuple_list
         for column_tuple in column_tuples:
