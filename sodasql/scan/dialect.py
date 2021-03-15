@@ -18,6 +18,7 @@ from sodasql.scan.column_metadata import ColumnMetadata
 from sodasql.scan.parser import Parser
 
 KEY_WAREHOUSE_TYPE = 'type'
+KEY_CONNECTION_TIMEOUT = 'connection_timeout_sec'
 
 POSTGRES = 'postgres'
 SNOWFLAKE = 'snowflake'
@@ -81,7 +82,7 @@ class Dialect:
     def sql_connection_test(self):
         return "select 1"
 
-    def create_connection(self, *args, **kwargs):
+    def create_connection(self):
         raise RuntimeError('TODO override and implement this abstract method')
 
     def create_scan(self, *args, **kwargs):

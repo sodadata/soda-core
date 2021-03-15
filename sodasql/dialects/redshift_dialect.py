@@ -62,7 +62,7 @@ class RedshiftDialect(PostgresDialect):
             'REDSHIFT_PASSWORD': '...'
         }
 
-    def create_connection(self, *args, **kwargs):
+    def create_connection(self):
         try:
             if self.password:
                 resolved_username = self.username
@@ -75,7 +75,7 @@ class RedshiftDialect(PostgresDialect):
                 password=resolved_password,
                 host=self.host,
                 port=self.port,
-                connect_timeout=kwargs.get('connection_timeout_sec', None),
+                connect_timeout=self.connection_timeout,
                 database=self.database)
             return conn
         except Exception as e:

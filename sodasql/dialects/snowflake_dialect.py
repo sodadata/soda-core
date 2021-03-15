@@ -13,7 +13,7 @@ from snowflake import connector
 from snowflake.connector import errorcode
 from snowflake.connector.network import DEFAULT_SOCKET_CONNECT_TIMEOUT
 
-from sodasql.scan.dialect import Dialect, SNOWFLAKE, KEY_WAREHOUSE_TYPE
+from sodasql.scan.dialect import Dialect, SNOWFLAKE, KEY_WAREHOUSE_TYPE, KEY_CONNECTION_TIMEOUT
 from sodasql.scan.parser import Parser
 
 
@@ -28,6 +28,7 @@ class SnowflakeDialect(Dialect):
             self.password = parser.get_credential('password')
             self.database = parser.get_str_optional_env('database')
             self.schema = parser.get_str_required_env('schema')
+            self.connection_timeout = parser.get_int_optional(KEY_CONNECTION_TIMEOUT, DEFAULT_SOCKET_CONNECT_TIMEOUT)
 
     def default_connection_properties(self, params: dict):
         return {
@@ -46,7 +47,7 @@ class SnowflakeDialect(Dialect):
             'SNOWFLAKE_PASSWORD': params.get('password', 'YOUR_SNOWFLAKE_PASSWORD_GOES_HERE')
         }
 
-    def create_connection(self, *args, **kwargs):
+    def create_connection(self):
         try:
             conn = connector.connect(
                 user=self.username,
@@ -55,7 +56,7 @@ class SnowflakeDialect(Dialect):
                 warehouse=self.warehouse,
                 database=self.database,
                 schema=self.schema,
-                login_timeout=kwargs.get('connection_timeout_sec', DEFAULT_SOCKET_CONNECT_TIMEOUT),
+                login_timeout=self.connection_timeout,
             )
             return conn
 
