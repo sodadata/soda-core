@@ -11,11 +11,13 @@
 from dataclasses import dataclass
 from typing import List
 
+from sodasql.common.json_helper import JsonHelper
+
 
 @dataclass
 class GroupValue:
 
-    group: List[str]
+    group: dict
     value: object
 
     @classmethod
@@ -42,7 +44,7 @@ class GroupValue:
 
     def to_json(self):
         return {
-            'group': self.group,
-            'value': self.value
+            'group': JsonHelper.to_jsonnable(self.group),
+            'value': JsonHelper.to_jsonnable(self.value)
         }
 

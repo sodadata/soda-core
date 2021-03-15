@@ -25,11 +25,17 @@ class Measurement:
 
     def __str__(self):
         column_str = f'({self.column_name})' if self.column_name else ''
-        group_values_str = JsonHelper.to_json(JsonHelper.to_jsonnable(self.group_values)) if self.group_values else ''
-        value_str = '' if self.value is None \
-                    else (' = ' + (', '.join([str(e) for e in self.value]) if isinstance(self.value, list)
-                                  else str(self.value)))
-        return f'{self.metric}{column_str}{group_values_str}{value_str}'
+
+        group_values_str = ''
+        if self.group_values is not None:
+            if len(self.group_values) == 0:
+                return f'{self.metric}{column_str}: no groups'
+            else:
+                values_str = '\n  '.join([f'group{JsonHelper.to_jsonnable(group_value.group)} = {group_value.value}'
+                                          for group_value in self.group_values])
+                return f'{self.metric}{column_str}: \n  {values_str}'
+        else:
+            return f'{self.metric}{column_str} = {self.value}'
 
     def to_json(self):
         json = {

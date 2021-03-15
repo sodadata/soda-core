@@ -24,7 +24,6 @@ class AthenaSuite(SqlTestSuite):
         self.target = TARGET_ATHENA
         super().setUp()
 
-
     def test_skip_column_with_unknown_type_struct(self):
         # goal of this test is to ensure that unknown types like the struct are skipped during the scan
 
