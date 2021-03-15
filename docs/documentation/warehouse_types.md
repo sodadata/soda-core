@@ -16,6 +16,7 @@ This section defines the available connection properties for each warehouse type
 - [PostgreSQL](#postgresql)
 - [Redshift](#redshift)
 - [Microsoft SQLServer](#sqlserver)
+- [Hive](#hive)
 - [Spark SQL](#sparks-sql)
 
 ## Snowflake
@@ -137,6 +138,26 @@ connection:
   database: master
   schema: dbo
 ```
+
+## Hive
+
+<sub>Example configuration</sub>
+
+```yaml
+name: my_hive_project
+connection:
+    type: hive
+    host: localhost
+    port: 10000
+    username: env_var(HIVE_USERNAME)
+    password: env_var(HIVE_PASSWORD)
+    database: default
+    configuration:
+      hive.execution.engine: mr
+      mapreduce.job.reduces: 2
+...
+```
+
 ## Spark SQL
 
 _Coming soon_

@@ -25,13 +25,15 @@ REDSHIFT = 'redshift'
 BIGQUERY = 'bigquery'
 ATHENA = 'athena'
 SQLSERVER = 'sqlserver'
+HIVE = 'hive'
 
 ALL_WAREHOUSE_TYPES = [POSTGRES,
                        SNOWFLAKE,
                        REDSHIFT,
                        BIGQUERY,
                        ATHENA,
-                       SQLSERVER]
+                       SQLSERVER,
+                       HIVE]
 
 
 class Dialect:
@@ -66,11 +68,17 @@ class Dialect:
         if warehouse_type == SQLSERVER:
             from sodasql.dialects.sqlserver_dialect import SQLServerDialect
             return SQLServerDialect(parser)
+        if warehouse_type == HIVE:
+            from sodasql.dialects.hive_dialect import HiveDialect
+            return HiveDialect(parser)
 
     @classmethod
     def create_for_warehouse_type(cls, warehouse_type):
         from sodasql.scan.dialect_parser import DialectParser
-        return cls.create(DialectParser(warehouse_connection_dict={KEY_WAREHOUSE_TYPE: warehouse_type}))
+        return cls.create(
+            DialectParser(
+                warehouse_connection_dict={
+                    KEY_WAREHOUSE_TYPE: warehouse_type}))
 
     def default_connection_properties(self, params: dict):
         pass
@@ -85,7 +93,8 @@ class Dialect:
         raise RuntimeError('TODO override and implement this abstract method')
 
     def create_scan(self, *args, **kwargs):
-        # Purpose of this method is to enable dialects to override and customize the scan implementation
+        # Purpose of this method is to enable dialects to override and
+        # customize the scan implementation
         from sodasql.scan.scan import Scan
         return Scan(*args, **kwargs)
 
@@ -127,7 +136,10 @@ class Dialect:
     def sql_tables_metadata_query(self, limit: str = 10, filter: str = None):
         raise RuntimeError('TODO override and implement this abstract method')
 
-    def sql_create_table(self, table_name: str, column_declarations: List[str]):
+    def sql_create_table(
+            self,
+            table_name: str,
+            column_declarations: List[str]):
         columns_sql = ",\n  ".join(column_declarations)
         return f"CREATE TABLE " \
                f"{self.qualify_writable_table_name(table_name)} ( \n" \
@@ -190,10 +202,12 @@ class Dialect:
         elif self.is_number(column.type):
             sql_values = [self.literal_number(value) for value in values]
         else:
-            raise RuntimeError(f"Couldn't format list {str(values)} for column {str(column)}")
+            raise RuntimeError(
+                f"Couldn't format list {str(values)} for column {str(column)}")
         return '(' + ','.join(sql_values) + ')'
 
-    def sql_expr_cast_text_to_number(self, quoted_column_name, validity_format):
+    def sql_expr_cast_text_to_number(
+            self, quoted_column_name, validity_format):
         if validity_format == 'number_whole':
             return f"CAST({quoted_column_name} AS {self.data_type_decimal})"
         not_number_pattern = self.qualify_regex(r"[^-\d\.\,]")
@@ -227,7 +241,8 @@ class Dialect:
             return self.literal_string(o)
         elif isinstance(o, list) or isinstance(o, set) or isinstance(o, tuple):
             return self.literal_list(o)
-        raise RuntimeError(f'Cannot convert type {type(o)} to a SQL literal: {o}')
+        raise RuntimeError(
+            f'Cannot convert type {type(o)} to a SQL literal: {o}')
 
     def qualify_table_name(self, table_name: str) -> str:
         return table_name
@@ -316,22 +331,28 @@ class Dialect:
             sql = self.sql_expr_in(left, right)
         elif type == 'contains':
             value = self.sql_expression(expression_dict['left'])
-            substring = self.escape_metacharacters(expression_dict['right']['value'])
+            substring = self.escape_metacharacters(
+                expression_dict['right']['value'])
             sql = self.sql_expr_contains(value, substring)
         elif type == 'startsWith':
             value = self.sql_expression(expression_dict['left'])
-            substring = self.escape_metacharacters(expression_dict['right']['value'])
+            substring = self.escape_metacharacters(
+                expression_dict['right']['value'])
             sql = self.sql_expr_starts_with(value, substring)
         elif type == 'endsWith':
             value = self.sql_expression(expression_dict['left'])
-            substring = self.escape_metacharacters(expression_dict['right']['value'])
+            substring = self.escape_metacharacters(
+                expression_dict['right']['value'])
             sql = self.sql_expr_ends_with(value, substring)
         elif type == 'not':
-            sql = 'NOT (' + self.sql_expression(expression_dict['expression']) + ')'
+            sql = 'NOT (' + \
+                self.sql_expression(expression_dict['expression']) + ')'
         elif type == 'and':
-            sql = '(' + (') AND ('.join([self.sql_expression(e) for e in expression_dict['andExpressions']])) + ')'
+            sql = '(' + (') AND ('.join([self.sql_expression(e)
+                                         for e in expression_dict['andExpressions']])) + ')'
         elif type == 'or':
-            sql = '(' + (') OR ('.join([self.sql_expression(e) for e in expression_dict['orExpressions']])) + ')'
+            sql = '(' + (') OR ('.join([self.sql_expression(e)
+                                        for e in expression_dict['orExpressions']])) + ')'
         else:
             raise RuntimeError(f'Unsupported expression type: {type}')
         return sql
@@ -372,10 +393,17 @@ class Dialect:
     def is_authentication_error(self, exception):
         return False
 
-    def try_to_raise_soda_sql_exception(self, exception: Exception) -> Exception:
+    def try_to_raise_soda_sql_exception(
+            self, exception: Exception) -> Exception:
         if self.is_connection_error(exception):
-            raise WarehouseConnectionError(warehouse_type=self.type, original_exception=exception)
+            raise WarehouseConnectionError(
+                warehouse_type=self.type,
+                original_exception=exception)
         elif self.is_authentication_error(exception):
-            raise WarehouseAuthenticationError(warehouse_type=self.type, original_exception=exception)
+            raise WarehouseAuthenticationError(
+                warehouse_type=self.type, original_exception=exception)
         else:
             raise exception
+
+    def sql_columns_metadata(self, table_name: str) -> List[tuple]:
+        return []
