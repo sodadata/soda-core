@@ -12,6 +12,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Documentation improvements and additions
 - Managed scan support in scan launching flow
 
+## [2.0.0b22] - 2021-03-15
+### Changed
+- Fixed bug in serialization of group values
+- Added Hive dialect
+- In scan, skipping columns with unknown data types
+- Improved analyzer should avoid full scan
+- Fixed valid_values configuration
+
+## [2.0.0b21] - 2021-03-08
+
+### Changed
+- Improved error handling for Postgres/Redshift
+- Adaptations in `.editorconfig` to align with PEP-8
+- Documentation improvements and additions
+- Managed scan support in scan launching flow
+
 ## [2.0.0b20] - 2021-03-05
 
 ### Changed
