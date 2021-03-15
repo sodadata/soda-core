@@ -121,11 +121,18 @@ class Scan:
             nullable = 'YES' == column_tuple[2].upper()
             self.column_metadatas.append(ColumnMetadata(name, type, nullable))
         logging.debug(str(len(self.column_metadatas)) + ' columns:')
-        for column in self.column_metadatas:
-            logging.debug(f'  {column.name} {column.type} {"" if column.nullable else "not null"}')
 
         self.column_names: List[str] = [column_metadata.name for column_metadata in self.column_metadatas]
-        self.scan_columns: dict = {column.name.lower(): ScanColumn(self, column) for column in self.column_metadatas}
+        self.scan_columns: dict = {}
+        for column_metadata in self.column_metadatas:
+            scan_column = ScanColumn(self, column_metadata)
+            if scan_column.is_supported:
+                logging.debug(f'  {scan_column.column_name} ({scan_column.column.type}) '
+                              f'{"" if scan_column.column.nullable else "not null"}')
+                self.scan_columns[column_metadata.name.lower()] = scan_column
+            else:
+                logging.debug(f'  {scan_column.column_name} ({scan_column.column.type}) -> unsupported, skipped!')
+
         schema_measurement_value = [column_metadata.to_json() for column_metadata in self.column_metadatas]
         schema_measurement = Measurement(Metric.SCHEMA, value=schema_measurement_value)
         self._log_measurement(schema_measurement)

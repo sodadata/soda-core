@@ -116,6 +116,11 @@ class Dialect:
     def _get_time_types(self):
         return ['TIMESTAMP', 'DATE', 'TIME']
 
+    def is_supported(self, column_type: str):
+        return (self.is_text(column_type)
+                or self.is_number(column_type)
+                or self.is_time(column_type))
+
     def sql_columns_metadata_query(self, table_name: str) -> str:
         raise RuntimeError('TODO override and implement this abstract method')
 

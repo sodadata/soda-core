@@ -40,42 +40,44 @@ class ScanColumn:
         self.is_text: bool = dialect.is_text(column_metadata.type)
         self.is_number: bool = dialect.is_number(column_metadata.type)
         self.is_time: bool = dialect.is_time(column_metadata.type)
+        self.is_supported: bool = dialect.is_supported(column_metadata.type)
 
-        self.missing = self.scan_yml.get_missing(self.column_name)
-        self.is_missing_metric_enabled = self.scan_yml.is_any_metric_enabled(
-            [Metric.MISSING_COUNT, Metric.MISSING_PERCENTAGE,
-             Metric.VALUES_COUNT, Metric.VALUES_PERCENTAGE],
-            self.column_name)
+        if self.is_supported:
+            self.missing = self.scan_yml.get_missing(self.column_name)
+            self.is_missing_metric_enabled = self.scan_yml.is_any_metric_enabled(
+                [Metric.MISSING_COUNT, Metric.MISSING_PERCENTAGE,
+                 Metric.VALUES_COUNT, Metric.VALUES_PERCENTAGE],
+                self.column_name)
 
-        self.validity = self.scan_yml.get_validity(self.column_name)
-        self.is_validity_metric_enabled = self.scan_yml.is_any_metric_enabled(
-            [Metric.INVALID_COUNT, Metric.INVALID_PERCENTAGE,
-             Metric.VALID_COUNT, Metric.VALID_PERCENTAGE],
-            self.column_name)
+            self.validity = self.scan_yml.get_validity(self.column_name)
+            self.is_validity_metric_enabled = self.scan_yml.is_any_metric_enabled(
+                [Metric.INVALID_COUNT, Metric.INVALID_PERCENTAGE,
+                 Metric.VALID_COUNT, Metric.VALID_PERCENTAGE],
+                self.column_name)
 
-        self.missing_condition, self.is_default_missing_condition = \
-            self.__get_missing_condition(column_metadata, self.missing, dialect)
-        self.non_missing_condition: Optional[str] = f'NOT ({self.missing_condition})'
-        self.valid_condition, self.is_default_valid_condition = \
-            self.__get_valid_condition(column_metadata, self.validity, dialect)
-        self.non_missing_and_valid_condition: Optional[str] = \
-            self.__get_non_missing_and_valid_condition(self.non_missing_condition, self.valid_condition)
-        self.is_default_non_missing_and_valid_condition = \
-            self.is_default_missing_condition and self.is_default_valid_condition
+            self.missing_condition, self.is_default_missing_condition = \
+                self.__get_missing_condition(column_metadata, self.missing, dialect)
+            self.non_missing_condition: Optional[str] = f'NOT ({self.missing_condition})'
+            self.valid_condition, self.is_default_valid_condition = \
+                self.__get_valid_condition(column_metadata, self.validity, dialect)
+            self.non_missing_and_valid_condition: Optional[str] = \
+                self.__get_non_missing_and_valid_condition(self.non_missing_condition, self.valid_condition)
+            self.is_default_non_missing_and_valid_condition = \
+                self.is_default_missing_condition and self.is_default_valid_condition
 
-        self.validity_format = self.scan_yml.get_validity_format(column_metadata)
-        self.is_valid_enabled = \
-            (self.validity is not None and self.is_validity_metric_enabled) \
-            or self.scan_yml.is_any_metric_enabled([Metric.DISTINCT, Metric.UNIQUENESS], self.column_name)
+            self.validity_format = self.scan_yml.get_validity_format(column_metadata)
+            self.is_valid_enabled = \
+                (self.validity is not None and self.is_validity_metric_enabled) \
+                or self.scan_yml.is_any_metric_enabled([Metric.DISTINCT, Metric.UNIQUENESS], self.column_name)
 
-        self.is_missing_enabled = self.is_valid_enabled or self.is_missing_metric_enabled
+            self.is_missing_enabled = self.is_valid_enabled or self.is_missing_metric_enabled
 
-        self.is_column_numeric_text_format = \
-            isinstance(self.validity_format, str) \
-            and self.validity_format.startswith('number_')
+            self.is_column_numeric_text_format = \
+                isinstance(self.validity_format, str) \
+                and self.validity_format.startswith('number_')
 
-        self.numeric_expr = None
-        self.mins_maxs_order_by_expr = dialect.qualify_column_name('value')
+            self.numeric_expr = None
+            self.mins_maxs_order_by_expr = dialect.qualify_column_name('value')
 
         if self.is_number:
             if self.is_default_non_missing_and_valid_condition:

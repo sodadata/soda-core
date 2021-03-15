@@ -8,17 +8,9 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-import logging
-import re
 from dataclasses import dataclass
-from math import ceil
 from typing import List
 
-import yaml
-
-from sodasql.scan.file_system import FileSystemSingleton
-from sodasql.cli.indenting_yaml_dumper import IndentingDumper
-from sodasql.scan.metric import Metric
 from sodasql.scan.validity import Validity
 from sodasql.scan.warehouse import Warehouse
 
@@ -38,6 +30,7 @@ class ColumnAnalysisResult:
             'sourceType': self.source_type,
             'validityFormat': self.validity_format
         }
+
 
 class DatasetAnalyzer:
 

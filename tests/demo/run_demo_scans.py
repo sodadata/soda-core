@@ -46,8 +46,8 @@ scan_configuration_parser = ScanYmlParser(scan_configuration_dict, 'demodata-sca
 scan_configuration_parser.assert_no_warnings_or_errors()
 
 dialect = SqlTestCase.create_dialect('postgres')
-warehouse_configuration = WarehouseYml(dialect=dialect)
-warehouse = Warehouse(warehouse_configuration)
+warehouse_yml = WarehouseYml(dialect=dialect)
+warehouse = Warehouse(warehouse_yml)
 
 row = warehouse.sql_fetchone(
     'SELECT MIN(date), MAX(date) FROM demodata'
