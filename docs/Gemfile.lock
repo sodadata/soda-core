@@ -76,5 +76,7 @@ DEPENDENCIES
   just-the-docs
   wdm (~> 0.1.1)
 
+
 BUNDLED WITH
-   2.2.6
+   2.2.13
+ 
