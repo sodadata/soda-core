@@ -79,23 +79,23 @@ class ScanColumn:
             self.numeric_expr = None
             self.mins_maxs_order_by_expr = dialect.qualify_column_name('value')
 
-        if self.is_number:
-            if self.is_default_non_missing_and_valid_condition:
-                self.numeric_expr = self.qualified_column_name
-            else:
-                self.numeric_expr = dialect.sql_expr_conditional(self.non_missing_and_valid_condition,
-                                                                 self.qualified_column_name)
+            if self.is_number:
+                if self.is_default_non_missing_and_valid_condition:
+                    self.numeric_expr = self.qualified_column_name
+                else:
+                    self.numeric_expr = dialect.sql_expr_conditional(self.non_missing_and_valid_condition,
+                                                                     self.qualified_column_name)
 
-        elif self.is_column_numeric_text_format:
-            if self.is_default_non_missing_and_valid_condition:
-                self.numeric_expr = dialect.sql_expr_cast_text_to_number(self.qualified_column_name, self.validity_format)
-            else:
-                self.numeric_expr = dialect.sql_expr_conditional(self.non_missing_and_valid_condition,
-                                                                 dialect.sql_expr_cast_text_to_number(
-                                                                     self.qualified_column_name, self.validity_format))
+            elif self.is_column_numeric_text_format:
+                if self.is_default_non_missing_and_valid_condition:
+                    self.numeric_expr = dialect.sql_expr_cast_text_to_number(self.qualified_column_name, self.validity_format)
+                else:
+                    self.numeric_expr = dialect.sql_expr_conditional(self.non_missing_and_valid_condition,
+                                                                     dialect.sql_expr_cast_text_to_number(
+                                                                         self.qualified_column_name, self.validity_format))
 
-        self.has_numeric_values = self.is_number or self.is_column_numeric_text_format
-        self.mins_maxs_limit = self.scan_yml.get_mins_maxs_limit(self.column_name)
+            self.has_numeric_values = self.is_number or self.is_column_numeric_text_format
+            self.mins_maxs_limit = self.scan_yml.get_mins_maxs_limit(self.column_name)
 
     def is_any_metric_enabled(self, metrics: List[str]):
         for metric in metrics:
