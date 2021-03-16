@@ -11,7 +11,7 @@ nav_order: 13
 A Soda SQL CLI command that sifts through the contents of your database and automatically prepares a Scan YAML file for each table. See [Create a Scan YAML file]({% link documentation/scan.md %}#create-a-scan-yaml-file).
 
 ### column
-A SQL column in a table.
+A column in a table in your warehouse.
 
 ### column configuration key
 The key in the key-value pair that you use to define what qualifies as a valid value in a column. A Soda SQL scan uses the value of a column configuration key to determine if it should pass or fail a test on a column. For example, in `valid_format: UUID` , `valid_format` is a column configuration key and `UUID` is the only format of the data in the column that Soda SQL considers valid. See [Column metrics]({% link documentation/sql_metrics.md %}#column-metrics).
@@ -25,7 +25,7 @@ The key in the key-value pair that you use to define configuration in your Scan 
 ### create
 A Soda SQL CLI command that creates a warehouse directory.
 
-### default metrics
+### default metric
 An out-of-the-box metric that you can configure in a Scan YAML file. By contrast, you can use [SQL metrics]({% link documentation/sql_metrics.md %}#sql-metrics) to define custom metrics in a Scan YAML file.
 
 ### measurement
@@ -44,9 +44,9 @@ The file in which you configure scan metrics and tests. Soda SQL uses the input 
 A custom metric you define in your Scan YAML file. SQL metrics essentially enable you to add SQL queries to your Scan YAML file so that Soda SQL runs them during a scan. See [SQL metrics]({% link documentation/sql_metrics.md %}#sql-metrics).
 
 ### table
-A SQL table.
+A table in your warehouse.
 
-### table metrics
+### table metric
 A property of the data in a table in your database. Use a table metric to define tests that apply to all data in the table during a scan. See [Table metrics]({% link documentation/sql_metrics.md %}#table-metrics).
 
 ### test
