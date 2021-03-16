@@ -72,6 +72,9 @@ class BigQueryDialect(Dialect):
     def is_number(self, column_type: str):
         return not self.is_complex(column_type) and super().is_number(column_type)
 
+    def is_time(self, column_type: str):
+        return not self.is_complex(column_type) and super().is_time(column_type)
+
     def is_complex(self, column_type: str):
         column_type_upper = column_type.upper()
         return column_type_upper.startswith('STRUCT') or column_type_upper.startswith('ARRAY')

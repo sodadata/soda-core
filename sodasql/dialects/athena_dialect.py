@@ -58,6 +58,19 @@ class AthenaDialect(Dialect):
         except Exception as e:
             self.try_to_raise_soda_sql_exception(e)
 
+    def is_text(self, column_type: str):
+        return not self.is_complex(column_type) and super().is_text(column_type)
+
+    def is_number(self, column_type: str):
+        return not self.is_complex(column_type) and super().is_number(column_type)
+
+    def is_time(self, column_type: str):
+        return not self.is_complex(column_type) and super().is_time(column_type)
+
+    def is_complex(self, column_type: str):
+        column_type_upper = column_type.upper()
+        return column_type_upper.startswith('ROW')
+
     def sql_tables_metadata_query(self, limit: str = 10, filter: str = None):
         # Alternative ( https://github.com/sodadata/soda-sql/pull/98/files )
         # return (f"SHOW tables IN `{self.database.lower()}`;")
