@@ -29,7 +29,7 @@ Use **table metrics** to define tests in your Scan YAML file that apply to all d
 | `schema` |  Identifies that the table is part of a schema.   |
 
 
-### Example tests using a table metric
+#### Example tests using a table metric
 
 ```yaml
 tests:
@@ -56,51 +56,82 @@ Where a column metric references a valid or invalid value, or a limit, use the m
 
 | Column metric   | Description |  Use with column config key(s) |
 | ---------- | ---------------- | ------------------------------ |
-| `missing_count` | The total number of rows that are missing specific content. | `missing_values` <br /> `missing_regex`|
-| `missing_percentage` | The total percentage of rows that are missing specific content. | `missing_values` <br /> `missing_regex` |
-| `values_count` | The total number of rows that contain content included in a list of valid values. | `valid_values` <br /> `valid_regex`  |
-| `values_percentage` | The total percentage of rows that contain content included in a list of valid values. | `valid_values` <br /> `valid_regex` |
-| `valid_count` |  The total number of rows that contain valid content.  | `valid_format` <br /> `valid_regex`   |
-| `valid_percentage` | The total percentage of rows that contain valid content.  |  `valid_format` <br /> `valid_regex`  |
-| `invalid_count` | The total number of rows that contain invalid content.   | `valid_format` <br /> `valid_regex`  |
-| `invalid_percentage` | The total percentage of rows that contain invalid content.  |  `valid_format` <br /> `valid_regex` |
-| `min` | The smallest value in a numeric column.  |  -  |
-| `max` | The greatest value in a numeric column.  |  -  |
 | `avg` | The average of the values in a numeric column.  |  - |
-| `sum` | The sum of the values in a numeric column.   | -  |
-| `variance` | The variance of a numerical column.  | -  |
-| `stddev` |  The standard deviation of a numeric column.   |   |
-| `min_length` | The minimum length of a string.  | `valid_min_length`  |
-| `max_length` | The maximum length of a string.  | `valid_max_length`  |
 | `avg_length` | The average length of a string.  |  -  |
 | `distinct` |  The distinct contents in rows in a column.  | -  |
-| `unique_count` | The number of rows in which the content appears only once in the column.  |  - |
 | `duplicate_count` | The number of rows that contain duplicated content. | -  |
-| `uniqueness` | A measure of whether the rows contain unique content.  | -  |
-| `maxs` |  The number of rows that qualify as maximum. | `valid_max` |
-| `mins` |  The number of rows that qualify as minimum. | `valid_min`  |
+| `duplicates` | A group of metrics that Soda SQL computes on a column. Includes `distinct`, `unique_count`, `uniqueness`, `duplicate_count` | `metric_groups` |
 | `frequent_values` |  The number of rows that contain content that most frequently occurs in the column. |  - |
 | `histogram` |  A histogram calculated on the content of the column.  | - |
+| `invalid_count` | The total number of rows that contain invalid content.   | `valid_format` <br /> `valid_regex`  |
+| `invalid_percentage` | The total percentage of rows that contain invalid content.  |  `valid_format` <br /> `valid_regex` |
+| `length` | A group of metrics that Soda SQL computes on a column. Includes `min_length`, `max_length`, `avg_length` | `metric_groups` |
+| `max` | The greatest value in a numeric column.  |  -  |
+| `max_length` | The maximum length of a string.  | `valid_max_length`  |
+| `maxs` |  The number of rows that qualify as maximum. | `valid_max` |
+| `min` | The smallest value in a numeric column.  |  -  |
+| `min_length` | The minimum length of a string.  | `valid_min_length`  |
+| `mins` |  The number of rows that qualify as minimum. | `valid_min`  |
+| `missing` | A group of metrics that Soda SQL computes on a column. Includes `missing_count`, `missing_percentage`, `values_count`, `values_percentage`. | `metric_groups` |
+| `missing_count` | The total number of rows that are missing specific content. | `missing_values` <br /> `missing_regex`|
+| `missing_percentage` | The total percentage of rows that are missing specific content. | `missing_values` <br /> `missing_regex` |
+| `profiling` | A group of metrics that Soda SQL computes on a column. Includes `maxs`, `mins`, `frequent_values`, `histogram` | `metric_groups` |
+| `statistics` | A group of metrics that Soda SQL computes on a column. Includes `min`, `max`, `avg sum`, `variance`, `stddev` | `metric_groups` |
+| `stddev` |  The standard deviation of a numeric column.   | - |
+| `sum` | The sum of the values in a numeric column.   | -  |
+| `unique_count` | The number of rows in which the content appears only once in the column.  |  - |
+| `uniqueness` | A measure of whether the rows contain unique content.  | -  |
+| `valid_count` |  The total number of rows that contain valid content.  | `valid_format` <br /> `valid_regex`   |
+| `validity` | A group of metrics that Soda SQL computes on a column. Includes `valid_count`, `valid_percentage`, `invalid_count`, `invalide_percentage` | `metric_groups` |
+| `valid_percentage` | The total percentage of rows that contain valid content.  |  `valid_format` <br /> `valid_regex`  |
+| `values_count` | The total number of rows that contain content included in a list of valid values. | `valid_values` <br /> `valid_regex`  |
+| `values_percentage` | The total percentage of rows that contain content included in a list of valid values. | `valid_values` <br /> `valid_regex` |
+| `variance` | The variance of a numerical column.  | -  |
 
 
-| Column configuration key  | Description      | 
-| ---------- | ---------------- | 
-| `metrics` | Specifies extra metrics that Soda SQL computes for this column. |
-| `metric_groups` | Specifies pre-defined groups of metrics that Soda SQL computes for this column. Valid values for this key are `missing`, `validity`, or`duplicates`. |
-| `tests` | A section that contains the tests that Soda SQL runs on a column during a scan.|
-| `missing_values` | Specifies the values that Soda SQL is to consider missing.|
-| `missing_format` | Specifies missing values such as whitespace or empty strings.|
-| `missing_regex` | Use regex expressions to specify your own custom missing values.|
-| `valid_format` | Specifies a named valid text format.|
-| `valid_regex` | Use regex expressions to specify your own custom valid values. |
-| `valid_values` | Specifies several valid values in list format. |
-| `valid_min` | Specifies a minimum value for valid values. |
-| `valid_max` | Specifies a maximum value for valid values. |
-| `valid_min_length` | Specifies a minimum string length for valid values. |
-| `valid_max_length` | Specifies a maximum string length for valid values. |
+| Column configuration key  | Description  | Values |
+| ------------------------- | ------------ | ------ |
+| `metric_groups` | Specifies pre-defined groups of metrics that Soda SQL computes for this column. | `duplicates` <br /> `length` <br /> `missing`  <br /> `profiling` <br /> `statistics` <br /> `validity` |
+| `metrics` | Specifies extra metrics that Soda SQL computes for this column. |  - |
+| `missing_format` | Specifies missing values such as whitespace or empty strings.|   |
+| `missing_regex` | Use regex expressions to specify your own custom missing values.| regex |
+| `missing_values` | Specifies the values that Soda SQL is to consider missing in list format.| integers in list |
+| `tests` | A section that contains the tests that Soda SQL runs on a column during a scan.| - |
+| `valid_format` | Specifies a named valid text format.| See Valid_format value table below.  |
+| `valid_max` | Specifies a maximum value for valid values. | integer |
+| `valid_max_length` | Specifies a maximum string length for valid values. | integer |
+| `valid_min` | Specifies a minimum value for valid values. | integer |
+| `valid_min_length` | Specifies a minimum string length for valid values. | integer |
+| `valid_regex` | Use regex expressions to specify your own custom valid values. | regex |
+| `valid_values` | Specifies several valid values in list format. | integers in list |
 
 
-### Example test using a column metric
+
+| Valid_format value | Format | 
+| ----- | ------ | 
+| `number_whole` | Number is whole. | 
+| `number_decimal_point` | Number uses `.` as decimal indicator.|
+| `number_decimal_comma` | Number uses `,` as decimal indicator.|
+| `number_percentage` | Number is a percentage. |
+| `number_money_usd` | Number matches US dollar currency pattern. |
+| `number_money_eur` | Number matches Euro currency pattern. |
+| `number_money_gbp` | Number matches British pound currency pattern. |
+| `number_money_rmb` | Number matches Renminbi yuan currency pattern. |
+| `number_money_chf` | Number matches Swiss franc currency pattern. |
+| `number_money` | Format matches any of the `number_money_` patterns.|
+| `date_eu` | dd/mm/yyyy |
+| `date_us` | mm/dd/yyyy |
+| `date_inverse` | yyyy/mm/dd |
+| `time` | |
+| `date_iso_8601` | yyyy-mm-dd |
+| `uuid` | universally unique identifier |
+| `ip_address` | Four whole numbers separated by `.` |
+| `email` | email address |
+| `phone_number` |  |
+| `credit_card_number` | Four four-digit numbers separated by spaces. |
+        
+
+#### Example tests using a column metric
 
 ```yaml
 columns:
