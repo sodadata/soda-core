@@ -7,4 +7,5 @@ PyAthena==2.2.0
 google-cloud-bigquery==2.5.0
 cryptography==3.3.2
 pyodbc==4.0.30
-sasl==0.2.1
+PyHive==0.6.3
+thrift==0.13.0
