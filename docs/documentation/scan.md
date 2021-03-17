@@ -63,7 +63,7 @@ If you decide to create your own Scan YAML files manually, best practice dictate
 
 ## Anatomy of the Scan YAML file
 
-When it creates your Scan YAML file, Soda SQL pre-populates it with the `test` and `metric` configurations it deems useful based on the data in the table it analyzed. You can keep those configurations intact and use them to run your scans, or you can adjust or add to them to fine tune the tests Soda SQL runs on your data.  
+When it creates your Scan YAML file, Soda SQL pre-populates it with the `test` and `metric` configurations it deems useful based on the data in the table it analyzed. You can keep those configurations intact and use them to run your scans, or you can adjust or add to them to fine-tune the tests Soda SQL runs on your data.  
 
 The following describes the contents of a Scan YAML file that Soda SQL created and pre-populated.
 
