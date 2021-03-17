@@ -25,6 +25,7 @@ class AthenaDialect(Dialect):
             self.aws_credentials = parser.get_aws_credentials_optional()
             self.athena_staging_dir = parser.get_str_required_env('staging_dir')
             self.database = parser.get_str_required_env('database')
+            self.catalog = parser.get_str_optional_env('catalog')
 
     def default_connection_properties(self, params: dict):
         return {
@@ -34,7 +35,8 @@ class AthenaDialect(Dialect):
             'role_arn': 'Eg arn:aws:iam::123456789012:readonly',
             'region': 'Eg eu-west-1',
             'staging_dir': 'Eg s3://your_bucket_name/your_path',
-            'database': params.get('database', 'Eg your_athena_db')
+            'database': params.get('database', 'Eg your_athena_db'),
+            'catalog': 'AwsDataCatalog'
         }
 
     def default_env_vars(self, params: dict):
@@ -53,6 +55,7 @@ class AthenaDialect(Dialect):
                 s3_staging_dir=self.athena_staging_dir,
                 region_name=self.aws_credentials.region_name,
                 role_arn=self.aws_credentials.role_arn,
+                catalog_name=self.catalog,
             )
             return conn
         except Exception as e:
