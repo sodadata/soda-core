@@ -44,7 +44,7 @@ soda scan warehouse.yml tables/[dbtablename].yml
 ```
 10. Navigate to your Soda Cloud account and refresh the browser. Review the results of your scan in Monitor Results.
 
-## Next
+## Go further
 
 * Learn more about the [anatomy of a scan]({% link documentation/scan.md %}).
 * Learn more about the [warehouse yaml]({% link documentation/warehouse.md %}) file.
