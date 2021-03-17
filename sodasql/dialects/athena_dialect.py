@@ -25,7 +25,7 @@ class AthenaDialect(Dialect):
             self.aws_credentials = parser.get_aws_credentials_optional()
             self.athena_staging_dir = parser.get_str_required_env('staging_dir')
             self.database = parser.get_str_required_env('database')
-            self.catalog = parser.get_str_required_env('catalog')
+            self.catalog = parser.get_str_optional_env('catalog')
 
     def default_connection_properties(self, params: dict):
         return {
