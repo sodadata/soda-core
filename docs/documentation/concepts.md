@@ -44,7 +44,7 @@ soda_sql_tutorial:
   POSTGRES_PASSWORD: yyyyyy
 ```
 
-To **define** the data quality tests that Soda SQL runs against a table in your warehouse, you use the Scan YAML files that Soda SQL creates when you run the `soda analyze` CLI command. Soda SQL uses the Warehouse YAML file to connect to your warehouse and analyze the tables in it. For every table that exists, Soda SQL creates a corresponding Scan YAML file and automatically populates it with tests it deems relevant for your data. You can keep these default tests intact, or you can adjust them or add more tests to fine-tune your search for "bad" data. 
+To **define** the data quality tests that Soda SQL runs against a table in your warehouse, you use the scan YAML files that Soda SQL creates when you run the `soda analyze` CLI command. Soda SQL uses the Warehouse YAML file to connect to your warehouse and analyze the tables in it. For every table that exists, Soda SQL creates a corresponding scan YAML file and automatically populates it with tests it deems relevant for your data. You can keep these default tests intact, or you can adjust them or add more tests to fine-tune your search for "bad" data. 
 
 For example, you can define tests that look for things like, non-UUID entries in the id column of a table, or zero values in a commission percentage column. See [Scan YAML]({% link documentation/scan.md %}) for much more detail on the contents of this file.
 
@@ -65,20 +65,20 @@ columns:
       - invalid_percentage == 0
 ```
 
-To **scan** your data, you use the `soda scan` CLI command. Soda SQL uses the input in the Scan YAML file to prepare SQL queries that it runs against the data in a table in a warehouse. All tests return true or false; if true, the test passed and you know your data is sound; if false, the test fails which means the scan discovered data that falls outside the expected or acceptable parameters you defined in your test. 
+To **scan** your data, you use the `soda scan` CLI command. Soda SQL uses the input in the scan YAML file to prepare SQL queries that it runs against the data in a table in a warehouse. All tests return true or false; if true, the test passed and you know your data is sound; if false, the test fails which means the scan discovered data that falls outside the expected or acceptable parameters you defined in your test. 
  
 
 ## Soda SQL operation
 
-Imagine you have installed Soda SQL, you have run the `soda create` command to set up your Warehouse and env_vars YAML files, and you have added your warehouse login credentials to the env_vars YAML. You have run `soda analyze`, and you have some new Scan YAML files in your `/tables` directory that map to tables in your database. You are ready to scan! 
+Imagine you have installed Soda SQL, you have run the `soda create` command to set up your Warehouse and env_vars YAML files, and you have added your warehouse login credentials to the env_vars YAML. You have run `soda analyze`, and you have some new scan YAML files in your `/tables` directory that map to tables in your database. You are ready to scan! 
 
 The following image illustrates what Soda SQL does when you initiate a scan.
 
 ![soda-operation](../assets/images/soda-operation.png){:height="800px" width="800px"}
 
-You trigger a scan using the `soda scan` CLI command from your [warehouse directory]({% link documentation/glossary.md %}#warehouse-directory). The scan specifies which Warehouse YAML and Scan YAML files to use, which amounts to telling it which table in which warehouse to scan. 
+You trigger a scan using the `soda scan` CLI command from your [warehouse directory]({% link documentation/glossary.md %}#warehouse-directory). The scan specifies which Warehouse YAML and scan YAML files to use, which amounts to telling it which table in which warehouse to scan. 
 
-Soda SQL uses the tests in the Scan YAML to prepare SQL queries that it runs on the tables in your warehouse. When Soda SQL runs a scan, it performs the following actions:
+Soda SQL uses the tests in the scan YAML to prepare SQL queries that it runs on the tables in your warehouse. When Soda SQL runs a scan, it performs the following actions:
 - fetches column metadata (column name, type, and nullable)
 - executes a single aggregation query that computes aggregate metrics for multiple columns, such as `missing`, `min`, or `max`
 - for each column, executes several more queries, including `distinct_count`, `unique_count`, and `valid_count`

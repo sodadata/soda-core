@@ -41,27 +41,3 @@ To learn about the parameters, use the command line help:
 * `soda create --help`
 * `soda analyze --help`
 * `soda scan --help`
-
-# Env vars
-
-To keep your `warehouse.yml` configuration files free of credentials, soda-sql
-supports to reference to environment variables by using the `env_var(SOME_ENV_VAR)` format.
-
-The `soda` CLI uses a convenient mechanism to load environment variables from your local
-user home directory.  Each `soda` CLI command which reads a warehouse configuration will
-also read the corresponding environment variables specified in your
-`~/.soda/env_vars.yml` file.
-
-Example `~/.soda/env_vars.yml`
-```yaml
-my_project_postgres:
-    SNOWFLAKE_USERNAME: someotherexampleusername
-    SNOWFLAKE_PASSWORD: someotherexamplepassword
-
-some_other_soda_project:
-    POSTGRES_USERNAME: myexampleusername
-    POSTGRES_PASSWORD: myexamplepassword
-```
-
-The `soda create` command will assist in creating and prepopulating the
-environment variables section in your `~/.soda/env_vars.yml` file.
