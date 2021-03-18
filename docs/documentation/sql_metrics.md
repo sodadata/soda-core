@@ -86,7 +86,7 @@ Where a column metric references a valid or invalid value, or a limit, use the m
 | Column configuration key  | Description      | 
 | ---------- | ---------------- | 
 | `metrics` | Specifies extra metrics that Soda SQL computes for this column. |
-| `metric_groups` | Specifies pre-defined groups of metrics that Soda SQL computes for this column. Valid values for this key are `missing`, `validity`, or`duplicates`. |
+| `metric_groups` | Specifies pre-defined groups of metrics that Soda SQL computes for this column. See table below for the list of metric_group values. |
 | `tests` | A section that contains the tests that Soda SQL runs on a column during a scan.|
 | `missing_values` | Specifies the values that Soda SQL is to consider missing.|
 | `missing_format` | Specifies missing values such as whitespace or empty strings.|
@@ -99,6 +99,17 @@ Where a column metric references a valid or invalid value, or a limit, use the m
 | `valid_min_length` | Specifies a minimum string length for valid values. |
 | `valid_max_length` | Specifies a maximum string length for valid values. |
 
+> Metric group names and the list of metrics included are experimental.  They may change in future versions.
+
+| Metric group  | Metrics included | 
+| ------------- | ---------------- | 
+| `missing` | missing_count, missing_percentage, values_count, values_percentage |
+| `validity` | valid_count, valid_percentage, invalid_count, invalid_percentage |
+| `duplicates` | distinct, unique_count, uniqueness, duplicate_count |
+| `statistics` | min, max, avg, sum, variance, stddev |
+| `length` | min_length, max_length, avg_length |
+| `profiling` | maxs, mins, frequent_values, histogram |
+| `all` | All metrics |
 
 ### Example test using a column metric
 
