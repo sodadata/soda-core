@@ -160,9 +160,43 @@ def init(warehouse_file: str):
     logging.info("Command 'soda init' was renamed to 'soda analyze'.  To see the arguments and options: `soda analyze --help`")
 
 
+def create_table_filter_regex(table_filter):
+    if not isinstance(table_filter, str):
+        return None
+    regex_parts = []
+    for table_filter_part in table_filter.split(','):
+        regex_part = create_table_filter_regex_part(table_filter_part)
+        regex_parts.append(regex_part)
+    return '(' + ('|'.join(regex_parts)) + ')'
+
+
+def create_table_filter_regex_part(table_filter):
+    table_filter_regex = ''
+    for c in table_filter:
+        if c == '*':
+            table_filter_regex += '.*'
+        else:
+            table_filter_regex += re.escape(c)
+    return table_filter_regex
+
+
+def matches_table_include(table_name: str, table_include_pattern):
+    return table_include_pattern is None or re.match(table_include_pattern, table_name, re.IGNORECASE)
+
+
+def matches_table_exclude(table_name: str, table_exclude_pattern):
+    return table_exclude_pattern is None or not re.match(table_exclude_pattern, table_name, re.IGNORECASE)
+
+
 @main.command()
 @click.argument('warehouse_file', required=False, default='warehouse.yml')
-def analyze(warehouse_file: str):
+@click.option('-i', '--include',
+              required=False,
+              help='Table name includes filter, case insensitive, comma separated list, use * as a wild card')
+@click.option('-e', '--exclude',
+              required=False,
+              help='Table name exclusion filter, case insensitive, comma separated list, use * as a wild card')
+def analyze(warehouse_file: str, include: str, exclude: str):
     """
     Analyzes tables in the warehouse and creates scan YAML files based on the data in the table. By default it creates
     files in a subdirectory called "tables" on the same level as the warehouse file.
@@ -202,67 +236,73 @@ def analyze(warehouse_file: str):
         tables_metadata_query = dialect.sql_tables_metadata_query()
         rows = warehouse.sql_fetchall(tables_metadata_query)
 
+        table_include_regex = create_table_filter_regex(include)
+        table_exclude_regex = create_table_filter_regex(exclude)
+
         for row in rows:
             table_name = row[0]
 
-            dataset_analyzer = DatasetAnalyzer()
-            dataset_analyze_results = dataset_analyzer.analyze(warehouse, table_name)
+            if (matches_table_include(table_name, table_include_regex)
+                    and matches_table_exclude(table_name, table_exclude_regex)):
+                dataset_analyzer = DatasetAnalyzer()
+                dataset_analyze_results = dataset_analyzer.analyze(warehouse, table_name)
 
-            table_scan_yaml_file = file_system.join(table_dir, f'{fileify(table_name)}.yml')
+                table_scan_yaml_file = file_system.join(table_dir, f'{fileify(table_name)}.yml')
 
-            if not first_table_scan_yml_file:
-                first_table_scan_yml_file = table_scan_yaml_file
+                if not first_table_scan_yml_file:
+                    first_table_scan_yml_file = table_scan_yaml_file
 
-            if file_system.file_exists(table_scan_yaml_file):
-                logging.info(
-                    f"Scan file {table_scan_yaml_file} already exists")
+                if file_system.file_exists(table_scan_yaml_file):
+                    logging.info(f"Scan file {table_scan_yaml_file} already exists")
+                else:
+                    logging.info(f"Creating {table_scan_yaml_file} ...")
+                    from sodasql.scan.scan_yml_parser import (KEY_METRICS,
+                                                              KEY_TABLE_NAME,
+                                                              KEY_TESTS,
+                                                              KEY_COLUMNS,
+                                                              COLUMN_KEY_VALID_FORMAT,
+                                                              COLUMN_KEY_TESTS)
+                    scan_yaml_dict = {
+                        KEY_TABLE_NAME: table_name,
+                        KEY_METRICS:
+                            [Metric.ROW_COUNT] +
+                            Metric.METRIC_GROUPS[Metric.METRIC_GROUP_MISSING] +
+                            Metric.METRIC_GROUPS[Metric.METRIC_GROUP_VALIDITY] +
+                            Metric.METRIC_GROUPS[Metric.METRIC_GROUP_LENGTH] +
+                            Metric.METRIC_GROUPS[Metric.METRIC_GROUP_STATISTICS],
+                        KEY_TESTS: [
+                            'row_count > 0'
+                        ]
+                    }
+
+                    columns = {}
+                    for column_analysis_result in dataset_analyze_results:
+                        if column_analysis_result.validity_format:
+                            column_yml = {
+                                COLUMN_KEY_VALID_FORMAT: column_analysis_result.validity_format
+                            }
+                            values_count = column_analysis_result.values_count
+                            valid_count = column_analysis_result.valid_count
+                            if valid_count > (values_count * .8):
+                                valid_percentage = valid_count * 100 / values_count
+                                invalid_threshold = (100 - valid_percentage) * 1.1
+                                invalid_threshold_rounded = ceil(invalid_threshold)
+                                invalid_comparator = '==' if invalid_threshold_rounded == 0 else '<='
+                                column_yml[COLUMN_KEY_TESTS] = [
+                                    f'invalid_percentage {invalid_comparator} {str(invalid_threshold_rounded)}'
+                                ]
+                                columns[column_analysis_result.column_name] = column_yml
+
+                    if columns:
+                        scan_yaml_dict[KEY_COLUMNS] = columns
+
+                    scan_yml_str = yaml.dump(scan_yaml_dict,
+                                             sort_keys=False,
+                                             Dumper=IndentingDumper,
+                                             default_flow_style=False)
+                    file_system.file_write_from_str(table_scan_yaml_file, scan_yml_str)
             else:
-                logging.info(f"Creating {table_scan_yaml_file} ...")
-                from sodasql.scan.scan_yml_parser import (KEY_METRICS,
-                                                          KEY_TABLE_NAME,
-                                                          KEY_TESTS,
-                                                          KEY_COLUMNS,
-                                                          COLUMN_KEY_VALID_FORMAT,
-                                                          COLUMN_KEY_TESTS)
-                scan_yaml_dict = {
-                    KEY_TABLE_NAME: table_name,
-                    KEY_METRICS:
-                        [Metric.ROW_COUNT] +
-                        Metric.METRIC_GROUPS[Metric.METRIC_GROUP_MISSING] +
-                        Metric.METRIC_GROUPS[Metric.METRIC_GROUP_VALIDITY] +
-                        Metric.METRIC_GROUPS[Metric.METRIC_GROUP_LENGTH] +
-                        Metric.METRIC_GROUPS[Metric.METRIC_GROUP_STATISTICS],
-                    KEY_TESTS: [
-                        'row_count > 0'
-                    ]
-                }
-
-                columns = {}
-                for column_analysis_result in dataset_analyze_results:
-                    if column_analysis_result.validity_format:
-                        column_yml = {
-                            COLUMN_KEY_VALID_FORMAT: column_analysis_result.validity_format
-                        }
-                        values_count = column_analysis_result.values_count
-                        valid_count = column_analysis_result.valid_count
-                        if valid_count > (values_count * .8):
-                            valid_percentage = valid_count * 100 / values_count
-                            invalid_threshold = (100 - valid_percentage) * 1.1
-                            invalid_threshold_rounded = ceil(invalid_threshold)
-                            invalid_comparator = '==' if invalid_threshold_rounded == 0 else '<='
-                            column_yml[COLUMN_KEY_TESTS] = [
-                                f'invalid_percentage {invalid_comparator} {str(invalid_threshold_rounded)}'
-                            ]
-                            columns[column_analysis_result.column_name] = column_yml
-
-                if columns:
-                    scan_yaml_dict[KEY_COLUMNS] = columns
-
-                scan_yml_str = yaml.dump(scan_yaml_dict,
-                                         sort_keys=False,
-                                         Dumper=IndentingDumper,
-                                         default_flow_style=False)
-                file_system.file_write_from_str(table_scan_yaml_file, scan_yml_str)
+                logging.info(f"Skipping table {table_name}")
 
         logging.info(
             f"Next run 'soda scan {warehouse_file} {first_table_scan_yml_file}' to calculate measurements and run tests")

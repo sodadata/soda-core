@@ -53,6 +53,7 @@ connection:
 name: my_athena_project
 connection:
     type: athena
+    catalog: my_catalog
     database: sodalite_test
     access_key_id: env_var(AWS_ACCESS_KEY_ID)
     secret_access_key: env_var(AWS_SECRET_ACCESS_KEY)
@@ -61,6 +62,17 @@ connection:
     staging_dir: <YOUR STAGING PATH IN AWS S3>
 ...
 ```
+
+| Property | Description | Required |
+| -------- | ----------- | -------- |
+| type | `snowflake` | Required |
+| catalog | | Optional (default is `AwsDataCatalog`) |
+| database | | Required |
+| staging_dir | | Required |
+| access_key_id | | Optional |
+| secret_access_key | | Optional |
+| role_arn | | Optional |
+| region | | Optional |
 
 ## GCP BigQuery
 

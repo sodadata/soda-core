@@ -48,7 +48,7 @@ cryptography==3.3.2
     #   pyopenssl
     #   snowflake-connector-python
 future==0.18.2
-    # via pyathena
+    # via pyhive
 google-api-core[grpc]==1.24.1
     # via
     #   google-cloud-bigquery
@@ -103,12 +103,14 @@ pyasn1==0.4.8
     # via
     #   pyasn1-modules
     #   rsa
-pyathena==1.10.7
+pyathena==2.2.0
     # via -r requirements.in
 pycparser==2.20
     # via cffi
 pycryptodomex==3.9.8
     # via snowflake-connector-python
+pyhive==0.6.3
+    # via -r requirements.in
 pyjwt==1.7.1
     # via snowflake-connector-python
 pyodbc==4.0.30
@@ -116,7 +118,9 @@ pyodbc==4.0.30
 pyopenssl==19.1.0
     # via snowflake-connector-python
 python-dateutil==2.8.1
-    # via botocore
+    # via
+    #   botocore
+    #   pyhive
 pytz==2020.1
     # via
     #   google-api-core
@@ -151,10 +155,13 @@ six==1.15.0
     #   pyopenssl
     #   python-dateutil
     #   tenacity
+    #   thrift
 snowflake-connector-python==2.4.0
     # via -r requirements.in
 tenacity==6.2.0
     # via pyathena
+thrift==0.13.0
+    # via -r requirements.in
 urllib3==1.25.10
     # via
     #   botocore

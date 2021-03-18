@@ -6,6 +6,7 @@ nav_order: 13
 ---
 
 # Glossary
+<!--This glossary contains Soda-specific terms only. Do not define industry terminology such as "SQL" or "query".-->
 
 ### analyze
 A Soda SQL CLI command that sifts through the contents of your database and automatically prepares a Scan YAML file for each table. See [Create a Scan YAML file]({% link documentation/scan.md %}#create-a-scan-yaml-file).
