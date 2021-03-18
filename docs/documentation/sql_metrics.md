@@ -60,29 +60,23 @@ Where a column metric references a valid or invalid value, or a limit, use the m
 | `avg_length` | The average length of a string.  |  -  |
 | `distinct` |  The distinct contents in rows in a column.  | -  |
 | `duplicate_count` | The number of rows that contain duplicated content. | -  |
-| `duplicates` | A group of metrics that Soda SQL computes on a column. Includes `distinct`, `unique_count`, `uniqueness`, `duplicate_count` | `metric_groups` |
 | `frequent_values` |  The number of rows that contain content that most frequently occurs in the column. |  - |
 | `histogram` |  A histogram calculated on the content of the column.  | - |
-| `invalid_count` | The total number of rows that contain invalid content.   | `valid_format` <br /> `valid_regex`  |
+| `invalid_count` | The total number of rows that contain invalid content.   | `valid_format` <br /> `valid_regex` |
 | `invalid_percentage` | The total percentage of rows that contain invalid content.  |  `valid_format` <br /> `valid_regex` |
-| `length` | A group of metrics that Soda SQL computes on a column. Includes `min_length`, `max_length`, `avg_length` | `metric_groups` |
 | `max` | The greatest value in a numeric column.  |  -  |
 | `max_length` | The maximum length of a string.  | `valid_max_length`  |
 | `maxs` |  The number of rows that qualify as maximum. | `valid_max` |
 | `min` | The smallest value in a numeric column.  |  -  |
 | `min_length` | The minimum length of a string.  | `valid_min_length`  |
 | `mins` |  The number of rows that qualify as minimum. | `valid_min`  |
-| `missing` | A group of metrics that Soda SQL computes on a column. Includes `missing_count`, `missing_percentage`, `values_count`, `values_percentage`. | `metric_groups` |
 | `missing_count` | The total number of rows that are missing specific content. | `missing_values` <br /> `missing_regex`|
 | `missing_percentage` | The total percentage of rows that are missing specific content. | `missing_values` <br /> `missing_regex` |
-| `profiling` | A group of metrics that Soda SQL computes on a column. Includes `maxs`, `mins`, `frequent_values`, `histogram` | `metric_groups` |
-| `statistics` | A group of metrics that Soda SQL computes on a column. Includes `min`, `max`, `avg sum`, `variance`, `stddev` | `metric_groups` |
 | `stddev` |  The standard deviation of a numeric column.   | - |
 | `sum` | The sum of the values in a numeric column.   | -  |
 | `unique_count` | The number of rows in which the content appears only once in the column.  |  - |
 | `uniqueness` | A measure of whether the rows contain unique content.  | -  |
 | `valid_count` |  The total number of rows that contain valid content.  | `valid_format` <br /> `valid_regex`   |
-| `validity` | A group of metrics that Soda SQL computes on a column. Includes `valid_count`, `valid_percentage`, `invalid_count`, `invalide_percentage` | `metric_groups` |
 | `valid_percentage` | The total percentage of rows that contain valid content.  |  `valid_format` <br /> `valid_regex`  |
 | `values_count` | The total number of rows that contain content included in a list of valid values. | `valid_values` <br /> `valid_regex`  |
 | `values_percentage` | The total percentage of rows that contain content included in a list of valid values. | `valid_values` <br /> `valid_regex` |
@@ -91,7 +85,7 @@ Where a column metric references a valid or invalid value, or a limit, use the m
 
 | Column configuration key  | Description  | Values |
 | ------------------------- | ------------ | ------ |
-| `metric_groups` | Specifies pre-defined groups of metrics that Soda SQL computes for this column. | `duplicates` <br /> `length` <br /> `missing`  <br /> `profiling` <br /> `statistics` <br /> `validity` |
+| `metric_groups` | Specifies pre-defined groups of metrics that Soda SQL computes for this column. See [Metric groups and dependencies](#metric-groups-and-dependencies) for details.| `duplicates` <br /> `length` <br /> `missing`  <br /> `profiling` <br /> `statistics` <br /> `validity` |
 | `metrics` | Specifies extra metrics that Soda SQL computes for this column. |  - |
 | `missing_format` | Specifies missing values such as whitespace or empty strings.|   |
 | `missing_regex` | Use regex expressions to specify your own custom missing values.| regex |
@@ -104,7 +98,6 @@ Where a column metric references a valid or invalid value, or a limit, use the m
 | `valid_min_length` | Specifies a minimum string length for valid values. | integer |
 | `valid_regex` | Use regex expressions to specify your own custom valid values. | regex |
 | `valid_values` | Specifies several valid values in list format. | integers in list |
-
 
 
 | Valid_format value | Format | 
@@ -147,7 +140,30 @@ columns:
 `invalid_percentage == 0` in column `id` with column configuration `valid_format: uuid` checks the rows in the column named `id` for values that match a uuid (universally unique identifier) format. If the test passes, it means that 0% of the rows contain data that is invalid; if the test fails, it means that more than 0% of the rows contain invalid data, which is data that is in non-UUID format. 
 
 
-## Metric dependencies
+## Metric groups and dependencies
+
+Out of the box, Soda SQL includes a **metric groups** configuration key. Define this configuration key in your Scan YAML file so that when you use one of the group's metrics in a test, Soda SQL automatically runs the test against all the metrics in its group. 
+
+In the example below, a Soda SQL scan runs a test on the contents of the `commission` column to look for values that are not in percentage format. Because the YAML file also defined `metric_group: validity`, the scan also tests all other metrics in the `validity` group. Refer to table, below.
+
+```yaml
+columns:
+  commission:
+     metric_group: validity
+     valid_format: number_percentage
+     tests:
+     – invalid_count == 0
+```
+
+| Metric_groups value | Metrics the scan includes |
+| ------------------- | ----------------------- |
+| `all` | all column metrics |
+| `duplicates` | `distinct`, `unique_count`, `uniqueness`, `duplicate_count` | 
+| `length` | `min_length`, `max_length`, `avg_length` | 
+| `missing` | `missing_count`, `missing_percentage`, `values_count`, `values_percentage`. | 
+| `profiling` |  `maxs`, `mins`, `frequent_values`, `histogram` | 
+| `statistics` | `min`, `max`, `avg sum`, `variance`, `stddev` | 
+| `validity` |  `valid_count`, `valid_percentage`, `invalid_count`, `invalide_percentage` | 
 
 By default, there exist **dependencies** between some metrics. If Soda SQL scans a metric which has dependencies, it includes all the dependent metrics in the scan as well.
 
