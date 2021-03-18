@@ -63,7 +63,7 @@ If you decide to create your own Scan YAML files manually, best practice dictate
 
 ## Anatomy of the Scan YAML file
 
-When it creates your Scan YAML file, Soda SQL pre-populates it with the `test` and `metric` configurations it deems useful based on the data in the table it analyzed. You can keep those configurations intact and use them to run your scans, or you can adjust or add to them to fine tune the tests Soda SQL runs on your data.  
+When it creates your Scan YAML file, Soda SQL pre-populates it with the `test` and `metric` configurations it deems useful based on the data in the table it analyzed. You can keep those configurations intact and use them to run your scans, or you can adjust or add to them to fine-tune the tests Soda SQL runs on your data.  
 
 The following describes the contents of a Scan YAML file that Soda SQL created and pre-populated.
 
@@ -92,15 +92,13 @@ The table below describes all of the top level configuration keys you can use to
 
 | Key         | Description | Required | 
 | ----------- | ----------- | -------- | 
-| `table_name` | Identifies a SQL table in your database. | required | 
-| `metrics` |  A list of all the default metrics that you can use to configure a scan. This list includes both table and column metrics. See [Metrics]({% link documentation/sql_metrics.md %}) for configuration details.| optional | 
 | `columns` | The section of the Scan YAML file in which you define tests and metrics that apply to individual columns. See [Metrics]({% link documentation/sql_metrics.md %}#column-metrics) for configuration details.| optional | 
 | `filter` | A SQL expression that Soda SQL adds to the `WHERE` clause in the query. Use `filter` to pass variables, such as date, into a scan. Uses [Jinja](https://jinja.palletsprojects.com/en/2.11.x/) as the templating language. See [Filtering]({% link documentation/filtering.md %}) for configuration details.| optional | 
 | `frequent_values_limit` | Defines the maximum number of elements for the `maxs` metric. Default value is `5`.| optional |
 | `metrics` |  A list of all the default metrics that you can use to configure a scan. This list includes both table and column metrics. See [Metrics]({% link documentation/sql_metrics.md %}) for configuration details.| optional | 
 | `mins_maxs_limit` | Defines the maximum number of elements for the `mins` metric. Default value is `5`.| optional | 
 | `sample_method` | Defines the sample method Soda SQL uses when you specify a `sample_percentage`. For Snowflake, the values available for this key are: `BERNOULLI`, `ROW`, `SYSTEM`, and `BLOCK`. | required, if `sample_percentage` is specified | 
-| `sample_percentage` | Defines a limit to the number of rows in a table that Soda SQL scans during a scan. (Tested on Postgres only.) | optional | 
+| `sample_percentage` | Defines a limit to the number of rows in a table that Soda SQL scans during a scan. (Tested on Postgres only.) | optional|
 | `sql_metrics` | The section of the Scan YAML file in which you define custom sql queries to run during a scan. You can apply `sql_metrics` to all data in the table, or data in individual columns. See [Metrics]({% link documentation/sql_metrics.md %}#sql-metrics) for configuration details.| optional | 
 | `table_name` | Identifies a SQL table in your database. | required | 
 
