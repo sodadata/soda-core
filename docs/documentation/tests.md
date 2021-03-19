@@ -11,7 +11,7 @@ A **test** is a check that Soda SQL performs when it scans a table in your wareh
 
 As a result of a scan, each test either passes or fails. When a test fails, it means that a property of the data in your table did not match the test parameters you defined. In other words, any test that returns `true` during a Soda SQL scan passes; any test that returns `false`, fails.  
 
-The **scan results** in the command-line interface (CLI) include an exit code which is an indicator of the test results: `0` means all tests passed; a non-zero value means one or more tests have failed. The CLI test results below indicate that all three tests in the Scan YAML file passed.
+The **scan results** in the command-line interface (CLI) include an exit code which is an indicator of the test results: `0` means all tests passed; a non-zero value means one or more tests have failed. The CLI test results below indicate that all three tests in the scan YAML file passed.
 
 ```shell
   | 54 measurements computed
@@ -23,7 +23,7 @@ The **scan results** in the command-line interface (CLI) include an exit code wh
 
 ## Define tests
 
-You define your tests in your [Scan YAML file]({% link documentation/scan.md %}) which is associated with a specific table in your database. You can write tests using **default metrics** that Soda SQL applies to an entire table (table metrics), or to individual columns you identify (column metrics). You can also write tests using **custom metrics** (SQL metrics) that you can apply to an entire table or individual columns. To learn more, see [Metrics]({% link documentation/sql_metrics.md %}).
+You define your tests in your [scan YAML file]({% link documentation/scan.md %}) which is associated with a specific table in your database. You can write tests using **default metrics** that Soda SQL applies to an entire table (table metrics), or to individual columns you identify (column metrics). You can also write tests using **custom metrics** (SQL metrics) that you can apply to an entire table or individual columns. To learn more, see [Metrics]({% link documentation/sql_metrics.md %}).
 
 Regardless of how it applies, each test is comprised of three parts: 
 
@@ -52,7 +52,7 @@ columns:
 
 #### Example tests using default metrics
 
-Reference the table below which corresponds to the following example Scan YAML file.
+Reference the table below which corresponds to the following example scan YAML file.
 
 ```yaml
 table_name: demodata
@@ -90,9 +90,9 @@ columns:
 
 #### Example tests using custom metrics
 
-If the default set of table and column metrics that Soda SQL offers do not quite give you the information you need from a scan, you can use **SQL metrics** to customize your queries. SQL metrics essentially enable you to add SQL queries to your Scan YAML file so that Soda SQL runs them during a scan. See [SQL metrics]({% link documentation/sql_metrics.md %}#sql-metrics)
+If the default set of table and column metrics that Soda SQL offers do not quite give you the information you need from a scan, you can use **SQL metrics** to customize your queries. SQL metrics essentially enable you to add SQL queries to your scan YAML file so that Soda SQL runs them during a scan. See [SQL metrics]({% link documentation/sql_metrics.md %}#sql-metrics)
 
-Reference the table below which corresponds to the following example Scan YAML file.
+Reference the table below which corresponds to the following example scan YAML file.
 
 ```yaml
 table_name: yourtable

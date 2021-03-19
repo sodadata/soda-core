@@ -27,7 +27,7 @@ CREATE TABLE CUSTOMER_TRANSACTIONS (
 
 The `CUSTOMER_TRANSACTIONS` table has a `DATE` column.  Each day new customer transaction
 rows are added, but we want our scans to only run on the transactions of the last day. In order
-to do so we can add a `filter` to our Scan YAML file:
+to do so we can add a `filter` to our scan YAML file:
 
 {% raw %}
 ```yaml
@@ -71,6 +71,6 @@ if scan_result.has_failures():
 
 > For time partitioned tables it makes sense to run a `soda scan` on both
 the time partitioned and full table's data.  To achieve this, we recommend
-you to create 2 separate Scan YAML files for the same table.
-It's a good practice to add `_tp` as the suffix of one of your Scan YAML files
+you to create 2 separate scan YAML files for the same table.
+It's a good practice to add `_tp` as the suffix of one of your scan YAML files
 to indicate that  it's a "Time Partitioned" table configuration.

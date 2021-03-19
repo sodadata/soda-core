@@ -1,50 +1,52 @@
 ---
 layout: default
-title: Warehouse
+title: Warehouse YAML
 parent: Documentation
 nav_order: 3
 ---
 
-# Warehouse
+# Warehouse YAML
 
-A directory with a `warehouse.yml` configuration file is considered a Soda
-warehouse directory. By default Soda SQL places its Scan YAML files in a
-subdirectory called `./tables`, although this isn't enforce nor required. Feel
-free to structure your project anyway you like.
+A **warehouse** represents a SQL engine or database such as Snowflake, AWS Redshift, or PostgreSQL. You use a **warehouse YAML** file to configure connection details for Soda SQL to access your warehouse. 
 
-A warehouse represents a connection to any SQL engine like: `Snowflake`, `Redshift`,
-`BigQuery`, `Athena`, `PostgreSQL`, etc.
+## Create a warehouse YAML file
 
-### Example
+You need to create a **warehouse YAML** file for every warehouse to which you want to connect. You can create warehouse YAML files manually, but the CLI command `soda create` automatically prepares a warehouse YAML file and an env_vars YAML file for you. (Use the env-vars YAML to securely store warehouse login credentials. See [Env_vars YAML](#env_vars-yaml) below.)
 
-Here's an example of a Soda Warehouse directory structure which is generated
-when using `soda analyze` to setup your project:
+When you execute the `soda create` command, you include options that instruct Soda SQL in the creation of the file, and you indicate the type of warehouse, a specification Soda SQL requires. Use `soda create --help` for a list of all available options. 
 
+The example below provides the following details:
+* option `-d` provides the name of the database
+* option `-u` provides the username to log in to the database
+* option `-w` provides the name of the warehouse
+* requirement `postgres` indicates the type of database 
+
+
+Command:
+```shell
+$ soda create -d sodasql -u sodasql -w soda_sql_tutorial postgres
 ```
-+ sales_snowflake
-|   + warehouse.yml
-|   + tables
-|   |   + scan.yml
-|   |   + orders.yml
+Output:
+```shell
+  | Soda CLI version 2.x.xx
+  | Creating warehouse YAML file warehouse.yml ...
+  | Creating /Users/Me/.soda/env_vars.yml with example env vars in section soda_sql_tutorial
+  | Review warehouse.yml by running command
+  |   cat warehouse.yml
+  | Review section soda_sql_tutorial in ~/.soda/env_vars.yml by running command
+  |   cat ~/.soda/env_vars.yml
+  | Then run the soda analyze command
 ```
 
-##### `warehouse.yml`
-This file contains the name of your warehouse and its
-connection details (see below)
+In the above example, Soda SQL created a warehouse YAML file and put it in a **warehouse directory** which is the top directory in your Soda SQL project directory structure. (It put the env_vars YAML file in your local user home directory.)
 
-##### `./tables`
-This directory contains all of your [Scan YAML]({% link documentation/scan.md %}) configuration files.
 
-## warehouse.yml
+## Anatomy of the warehouse YAML file
 
-This contains the name of the warehouse and the connection details.
+When it creates your warehouse YAML file, Soda SQL pre-populates it with the options details you provided. The following is an example of a warehouse YAML file that Soda SQL created and pre-populated.
 
-We encourage usage of environment variables for credentials and other sensitive information
-to prevent them from being checked-in into your version control system.
-
-For example:
 ```yaml
-name: my_project_postgres
+name: soda_sql_tutorial
 connection:
   type: postgres
   host: localhost
@@ -54,15 +56,31 @@ connection:
   schema: public
 ```
 
-The example above shows you how to use environment variables for your credentials.
-Each environment variable, defined using `env_var(VAR_NAME)`, will automatically be
-resolved using the `env_vars.yml` file in your home directory. More on this can be found
-in the [cli.yml documentation]({% link documentation/cli.md %}#env-vars).
+Notice that even though the command provided a value for `username`, Soda SQL automatically used `env_var(POSTGRES_USERNAME)` instead. By default, Soda SQL stores database login credentials in an env_vars YAML file so that this sensitive information stays locally stored. See [Env_vars YAML](#env_vars-yaml) below for details.
 
-Each warehouse will require different configuration parameters.
-See [Warehouse types]({% link documentation/warehouse_types.md %}) to learn how to configure each
-type of warehouse.
+Each type of warehouse requires different configuration parameters. Refer to [Set warehouse configurations]({% link documentation/warehouse_types.md %}) for details that correspond to the type of database you are using. 
 
-> Soon, Soda project files will also include an optional
-link to a Soda cloud account.  A cloud account enables you to push the monitoring
-results after each scan and share them with other people in your data organisation.
+
+# Env_vars YAML
+
+To keep your warehouse YAML file free of login credentials, Soda SQL references environment variables. When it creates a new warehouse YAML file, Soda SQL also creates an **env_vars YAML** file to store your database username and password values. Soda SQL does not overwrite or remove and existing environment variables, it only adds new. 
+
+When it [runs a scan]({% link documentation/scan.md %}#run-a-scan), Soda SQL loads environment variables from your local user home directory where it stored your env_vars YAML file. 
+
+Use the command `cat ~/.soda/env_vars.yml` to review the contents of your env_vars YAML file. Open the file from your local user home directory to input the values for your database credentials.
+
+```yaml
+soda_sql_tutorial:
+    POSTGRES_USERNAME: myexampleusername
+    POSTGRES_PASSWORD: myexamplepassword
+
+some_other_soda_project:
+    SNOWFLAKE_USERNAME: someotherexampleusername
+    SNOWFLAKE_PASSWORD: someotherexamplepassword
+```
+
+## Go further
+
+* Set the [warehouse configuration parameters]({% link documentation/warehouse_types.md %}) for your type of database.
+* Learn more about [How Soda SQL works]({% link documentation/concepts.md %}).
+* Learn more about the [scan YAML]({% link documentation/scan.md %}) file.

@@ -7,7 +7,7 @@ nav_order: 7
 
 # Metrics
 
-A **metric** is a property of the data in your database. A **measurement** is the value for a metric that Soda SQL obtains during a scan. For example, in `row_count = 5`, `row_count` is the metric and `5` is the measurement. The following sections detail the configuration for metrics you can customize in your [Scan YAML file]({% link documentation/scan.md %}).
+A **metric** is a property of the data in your database. A **measurement** is the value for a metric that Soda SQL obtains during a scan. For example, in `row_count = 5`, `row_count` is the metric and `5` is the measurement. The following sections detail the configuration for metrics you can customize in your [scan YAML file]({% link documentation/scan.md %}).
 <br />
 <br />
 
@@ -18,7 +18,7 @@ A **metric** is a property of the data in your database. A **measurement** is th
 
 ## Table metrics
 
-Use **table metrics** to define tests in your Scan YAML file that apply to all data in the table during a scan.
+Use **table metrics** to define tests in your scan YAML file that apply to all data in the table during a scan.
 
 ![table-metrics](../assets/images/table-metrics.png){:height="440px" width="440px"}
 
@@ -47,7 +47,7 @@ Checks to see if the table has exactly five rows. The test fails if the table co
 
 ## Column metrics
 
-Use **column metrics** to define tests in your Scan YAML file that apply to specific columns in a table during a scan. 
+Use **column metrics** to define tests in your scan YAML file that apply to specific columns in a table during a scan. 
 
 Where a column metric references a valid or invalid value, or a limit, use the metric in conjunction with a **column configuration**. A Soda SQL scan uses the value of a column configuration key to determine if it should pass or fail a test. See [example](#example-test-using-a-column-metric) below.
 
@@ -142,7 +142,7 @@ columns:
 
 ## Metric groups and dependencies
 
-Out of the box, Soda SQL includes a **metric groups** configuration key. Define this configuration key in your Scan YAML file so that when you use one of the group's metrics in a test, Soda SQL automatically runs the test against all the metrics in its group. 
+Out of the box, Soda SQL includes a **metric groups** configuration key. Define this configuration key in your scan YAML file so that when you use one of the group's metrics in a test, Soda SQL automatically runs the test against all the metrics in its group. 
 
 In the example below, a Soda SQL scan runs a test on the contents of the `commission` column to look for values that are not in percentage format. Because the YAML file also defined `metric_group: validity`, the scan also tests all other metrics in the `validity` group. Refer to table, below.
 
@@ -180,11 +180,11 @@ By default, there exist **dependencies** between some metrics. If Soda SQL scans
 
 ## SQL metrics
 
-If the default set of table and column metrics that Soda SQL offers do not quite give you the information you need from a scan, you can use **SQL metrics** to customize your queries. SQL metrics essentially enable you to add SQL queries to your Scan YAML file so that Soda SQL runs them during a scan.
+If the default set of table and column metrics that Soda SQL offers do not quite give you the information you need from a scan, you can use **SQL metrics** to customize your queries. SQL metrics essentially enable you to add SQL queries to your scan YAML file so that Soda SQL runs them during a scan.
 
 
 #### Simple example
-In your Scan YAML file, use the `sql_metrics` property as a table metric or a column metric. The following simple SQL metric example queries all content in the table to select a single numeric value. 
+In your scan YAML file, use the `sql_metrics` property as a table metric or a column metric. The following simple SQL metric example queries all content in the table to select a single numeric value. 
 
 ```yaml
 table_name: mytable
@@ -301,7 +301,7 @@ sql_metrics:
 
 In Soda SQL, you set a **variable** to apply a filter to the data that Soda SQL scans. Often you use a variable to filter the range of a scan by date. (See [Filtering](filtering.md)).  
 
-When you define a variable in your Scan YAML file, Soda SQL applies the filter to all tests *except* tests defined in SQL metrics. To apply a filter to SQL metrics tests, be sure to explicitly define the variable in your SQL query, as in the example below.
+When you define a variable in your scan YAML file, Soda SQL applies the filter to all tests *except* tests defined in SQL metrics. To apply a filter to SQL metrics tests, be sure to explicitly define the variable in your SQL query, as in the example below.
 
 ```yaml
 table_name: mytable
@@ -318,7 +318,7 @@ sql_metrics:
 
 ### SQL metrics using file reference
 
-Instead of including all your customized SQL queries in the SQL metrics in your Scan YAML file, you can use **`sql_file`** to reference a relative file.
+Instead of including all your customized SQL queries in the SQL metrics in your scan YAML file, you can use **`sql_file`** to reference a relative file.
 
 ```yaml
 table_name: mytable

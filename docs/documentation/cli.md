@@ -1,67 +1,54 @@
 ---
 layout: default
-title: CLI
+title: Soda SQL CLI commands
 parent: Documentation
 nav_order: 2
 ---
 
-# Soda's Command Line Interface (CLI)
+# Soda SQL CLI commands
 
-> See our [Installation guide]({% link getting-started/installation.md %}) on how to install the `soda` command.
+| Command | Description |
+| ------- | ----------- |
+| `soda analyze` | Analyzes the contents of your warehouse and automatically prepares a scan YAML file for each table. Soda SQL puts the YAML files in the `/tables` directory inside the warehouse directory. See [Create a scan YAML file]({% link documentation/scan.md %}#create-a-scan-yaml-file) for details.|
+| `soda create` | Creates a new `warehouse.yml` file and prepares credentials in your `~/.soda/env_vars.yml`. Soda SQL does not overwrite or remove and existing environment variables, it only adds new. See [Create a warehouse YAML file]({% link documentation/warehouse.md %}#create-a-warehouse-yaml-file) for details. |
+| `soda scan` | Uses the configurations in your scan YAML file to prepare, then run SQL queries against the data in your warehouse. See [Run a scan]({% link documentation/scan.md %}#run-a-scan) for details. |
 
-The soda command line tool helps you to get started with
-your Soda SQL configuration files and run Soda Scans.
+## List of commands
 
-To see the list of available commands, enter `soda` in your terminal:
+To see a list of Soda SQL command-line interface (CLI) commands, use the `soda` command. 
 
+Command:
+```shell
+soda
 ```
-$ soda
+
+Output:
+```shell
 Usage: soda [OPTIONS] COMMAND [ARGS]...
 
-  Soda CLI version {version}
+  Soda CLI version 2.x.xxx
 
 Options:
   --help  Show this message and exit.
 
 Commands:
-  create  Creates a new warehouse.yml file and prepares credentials in your...
-  init    Finds tables in the warehouse and creates scan YAML files based
-          on...
+  analyze  Analyzes tables in the warehouse and creates scan YAML files...
+  create   Creates a new warehouse.yml file and prepares credentials in
+           your...
 
-  scan    Computes all measurements and runs all tests on one table.
+  init     Renamed to `soda analyze`
+  scan     Computes all measurements and runs all tests on one table.
 ```
 
-| Command | Description |
-| ------- | ----------- |
-| `soda create ...` | Creates a new `warehouse.yml` file and prepares credentials in your `~/.soda/env_vars.yml`. Nothing will be overwritten or removed, only added if it doesn't exist yet. |
-| `soda analyze ...` | Analyzes tables in your warehouse and creates scan YAML files for each table. Files are created in a subdirectory called "tables" next to the warehouse file. |
-| `soda scan ...` | Computes all measurements and runs all tests on one table.  Exit code 0 means all tests passed. Non zero exit code means tests have failed or an exception occurred. If the warehouse YAML file has a Soda cloud account configured, measurements and test results will be uploaded. |
+## List of parameters
 
-To learn about the parameters, use the command line help:
+To see a list of configurable parameters for each command, use the command-line help.
 * `soda create --help`
 * `soda analyze --help`
 * `soda scan --help`
 
-# Env vars
 
-To keep your `warehouse.yml` configuration files free of credentials, soda-sql
-supports to reference to environment variables by using the `env_var(SOME_ENV_VAR)` format.
-
-The `soda` CLI uses a convenient mechanism to load environment variables from your local
-user home directory.  Each `soda` CLI command which reads a warehouse configuration will
-also read the corresponding environment variables specified in your
-`~/.soda/env_vars.yml` file.
-
-Example `~/.soda/env_vars.yml`
-```yaml
-my_project_postgres:
-    SNOWFLAKE_USERNAME: someotherexampleusername
-    SNOWFLAKE_PASSWORD: someotherexamplepassword
-
-some_other_soda_project:
-    POSTGRES_USERNAME: myexampleusername
-    POSTGRES_PASSWORD: myexamplepassword
-```
-
-The `soda create` command will assist in creating and prepopulating the
-environment variables section in your `~/.soda/env_vars.yml` file.
+## Go further
+* Learn [How Soda SQL works]({% link documentation/concepts.md %}).
+* [Install Soda SQL]({% link getting-started/installation.md %}).
+* [Set up Soda SQL]({% link getting-started/5_min_tutorial.md %}) and run your first scan.

@@ -9,21 +9,21 @@ nav_order: 5
 
 A **scan** is a Soda SQL CLI command that uses SQL queries to extract information about data in a database table. 
 
-Instead of laboriously accessing your database and then manually defining SQL queries to analyze the data in tables, you can use a much simpler Soda SQL scan. First, you configure scan metrics and tests in a **Scan YAML** file, then Soda SQL uses the input from that file to prepare, then run SQL queries against your data.
+Instead of laboriously accessing your database and then manually defining SQL queries to analyze the data in tables, you can use a much simpler Soda SQL scan. First, you configure scan metrics and tests in a **scan YAML** file, then Soda SQL uses the input from that file to prepare, then run SQL queries against your data.
 <br />
 <br />
 
-**[Create a Scan YAML file](#create-a-scan-yaml-file)<br />
-[Anatomy of the Scan YAML file](#anatomy-of-the-scan-yaml-file)<br />
+**[Create a scan YAML file](#create-a-scan-yaml-file)<br />
+[Anatomy of the scan YAML file](#anatomy-of-the-scan-yaml-file)<br />
 [Scan YAML configuration keys](#scan-yaml-configuration-keys)<br />
 [Run a scan](#run-a-scan)<br />
 [Scan output](#scan-output)<br />**
 
-## Create a Scan YAML file
+## Create a scan YAML file
 
-You need to create a **Scan YAML** file for every table in your database that you want to scan. If you have 20 tables in your database, you need 20 YAML files, each corresponding to a single table. 
+You need to create a **scan YAML** file for every table in your [warehouse]({% link documentation/glossary.md %}#warehouse) that you want to scan. If you have 20 tables in your warehouse, you need 20 YAML files, each corresponding to a single table. 
 
-You can create Scan YAML files yourself, but the CLI command `soda analyze` sifts through the contents of your database and automatically prepares a Scan YAML file for each table. Soda SQL puts the YAML files in the `/tables` directory which is in the same directory as your `warehouse.yml` file.
+You can create scan YAML files yourself, but the CLI command `soda analyze` sifts through the contents of your warehouse and automatically prepares a scan YAML file for each table. Soda SQL puts the YAML files in the `/tables` directory which is in the same directory as your `warehouse.yml` file.
 
 In your command-line interface, navigate to the directory that contains your `warehouse.yml` file, then execute the following:
 
@@ -57,15 +57,15 @@ WHERE lower(table_name) = 'demodata'
   | Creating tables/demodata.yml ...
   | Next run 'soda scan warehouse.yml tables/demodata.yml' to calculate measurements and run tests
 ```
-In the above example, Soda SQL created a Scan YAML file named `demodata.yml` and put it in the `/tables` directory.
+In the above example, Soda SQL created a scan YAML file named `demodata.yml` and put it in the `/tables` directory.
 
-If you decide to create your own Scan YAML files manually, best practice dictates that you name the YAML file using the same name as the table in your database. 
+If you decide to create your own scan YAML files manually, best practice dictates that you name the YAML file using the same name as the table in your database. 
 
-## Anatomy of the Scan YAML file
+## Anatomy of the scan YAML file
 
-When it creates your Scan YAML file, Soda SQL pre-populates it with the `test` and `metric` configurations it deems useful based on the data in the table it analyzed. You can keep those configurations intact and use them to run your scans, or you can adjust or add to them to fine-tune the tests Soda SQL runs on your data.  
+When it creates your scan YAML file, Soda SQL pre-populates it with the `test` and `metric` configurations it deems useful based on the data in the table it analyzed. You can keep those configurations intact and use them to run your scans, or you can adjust or add to them to fine-tune the tests Soda SQL runs on your data.  
 
-The following describes the contents of a Scan YAML file that Soda SQL created and pre-populated.
+The following describes the contents of a scan YAML file that Soda SQL created and pre-populated.
 
 ![scan-anatomy](../assets/images/scan-anatomy.png){:height="440px" width="440px"}
 
@@ -92,14 +92,14 @@ The table below describes all of the top level configuration keys you can use to
 
 | Key         | Description | Required | 
 | ----------- | ----------- | -------- | 
-| `columns` | The section of the Scan YAML file in which you define tests and metrics that apply to individual columns. See [Metrics]({% link documentation/sql_metrics.md %}#column-metrics) for configuration details.| optional | 
+| `columns` | The section of the scan YAML file in which you define tests and metrics that apply to individual columns. See [Metrics]({% link documentation/sql_metrics.md %}#column-metrics) for configuration details.| optional | 
 | `filter` | A SQL expression that Soda SQL adds to the `WHERE` clause in the query. Use `filter` to pass variables, such as date, into a scan. Uses [Jinja](https://jinja.palletsprojects.com/en/2.11.x/) as the templating language. See [Filtering]({% link documentation/filtering.md %}) for configuration details.| optional | 
 | `frequent_values_limit` | Defines the maximum number of elements for the `maxs` metric. Default value is `5`.| optional |
 | `metrics` |  A list of all the default metrics that you can use to configure a scan. This list includes both table and column metrics. See [Metrics]({% link documentation/sql_metrics.md %}) for configuration details.| optional | 
 | `mins_maxs_limit` | Defines the maximum number of elements for the `mins` metric. Default value is `5`.| optional | 
 | `sample_method` | Defines the sample method Soda SQL uses when you specify a `sample_percentage`. For Snowflake, the values available for this key are: `BERNOULLI`, `ROW`, `SYSTEM`, and `BLOCK`. | required, if `sample_percentage` is specified | 
 | `sample_percentage` | Defines a limit to the number of rows in a table that Soda SQL scans during a scan. (Tested on Postgres only.) | optional|
-| `sql_metrics` | The section of the Scan YAML file in which you define custom sql queries to run during a scan. You can apply `sql_metrics` to all data in the table, or data in individual columns. See [Metrics]({% link documentation/sql_metrics.md %}#sql-metrics) for configuration details.| optional | 
+| `sql_metrics` | The section of the scan YAML file in which you define custom sql queries to run during a scan. You can apply `sql_metrics` to all data in the table, or data in individual columns. See [Metrics]({% link documentation/sql_metrics.md %}#sql-metrics) for configuration details.| optional | 
 | `table_name` | Identifies a SQL table in your database. | required | 
 
 
