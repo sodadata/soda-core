@@ -21,9 +21,9 @@ Instead of laboriously accessing your database and then manually defining SQL qu
 
 ## Create a scan YAML file
 
-You need to create a **scan YAML** file for every table in your database that you want to scan. If you have 20 tables in your database, you need 20 YAML files, each corresponding to a single table. 
+You need to create a **scan YAML** file for every table in your [warehouse]({% link documentation/glossary.md %}#warehouse) that you want to scan. If you have 20 tables in your warehouse, you need 20 YAML files, each corresponding to a single table. 
 
-You can create scan YAML files yourself, but the CLI command `soda analyze` sifts through the contents of your database and automatically prepares a scan YAML file for each table. Soda SQL puts the YAML files in the `/tables` directory which is in the same directory as your `warehouse.yml` file.
+You can create scan YAML files yourself, but the CLI command `soda analyze` sifts through the contents of your warehouse and automatically prepares a scan YAML file for each table. Soda SQL puts the YAML files in the `/tables` directory which is in the same directory as your `warehouse.yml` file.
 
 In your command-line interface, navigate to the directory that contains your `warehouse.yml` file, then execute the following:
 

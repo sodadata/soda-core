@@ -1,53 +1,25 @@
 ---
 layout: default
-title: Warehouse types
+title: Set warehouse configurations
 parent: Documentation
 nav_order: 4
 ---
 
-# Warehouse types
+# Set warehouse configurations
 
-Warehouses are configured as part of a [Soda warehouse configuration file]({% link documentation/warehouse.md %}).
-This section defines the available connection properties for each warehouse type:
+Soda SQL needs connection details in order to access your [warehouse]({% link documentation/glossary.md %}#warehouse) to scan your data. Each type of warehouse requires different configuration parameters. To set the warehouse configurations in your [warehouse YAML]({% link documentation/warehouse.md %}), use the following example configurations that correspond to each database type that Soda SQL supports.
 
-- [Snowflake](#snowflake)
-- [AWS Athena](#aws-athena)
-- [GCP BigQuery](#gcp-bigquery)
-- [PostgreSQL](#postgresql)
-- [Redshift](#redshift)
-- [Microsoft SQLServer](#sqlserver)
-- [Hive](#hive)
-- [Spark SQL](#sparks-sql)
 
-## Snowflake
+[AWS Athena](#aws-athena) <br />
+[Google Cloud Platform BigQuery](#gcp-bigquery) <br />
+[Hive](#hive) <br />
+[Microsoft SQLServer](#sqlserver) <br />
+[PostgreSQL](#postgresql) <br />
+[Redshift](#redshift) <br />
+[Snowflake](#snowflake) <br />
 
-<sub>Example configuration</sub>
-```yaml
-name: my_snowflake_project
-connection:
-    type: snowflake
-    username: env_var(SNOWFLAKE_USERNAME)
-    password: env_var(SNOWFLAKE_PASSWORD)
-    account: YOUR_SNOWFLAKE_ACCOUNT.eu-west-1
-    warehouse: YOUR_WAREHOUSE
-    database: YOUR_DATABASE
-    schema: PUBLIC
-...
-```
-
-| Property | Description | Required |
-| -------- | ----------- | -------- |
-| type | `snowflake` | Required |
-| username |  | Required |
-| password |  | Required |
-| account | Eg YOUR_SNOWFLAKE_ACCOUNT.eu-west-1 | Required |
-| warehouse |  | Required |
-| database |  | Required |
-| schema |  | Required |
 
 ## AWS Athena
-
-<sub>Example configuration</sub>
 
 ```yaml
 name: my_athena_project
@@ -76,8 +48,6 @@ connection:
 
 ## GCP BigQuery
 
-<sub>Example configuration</sub>
-
 ```yaml
 name: my_bigquery_project
 connection:
@@ -100,9 +70,39 @@ connection:
 ...
 ```
 
-## PostgreSQL
+## Hive
 
-<sub>Example configuration</sub>
+```yaml
+name: my_hive_project
+connection:
+    type: hive
+    host: localhost
+    port: 10000
+    username: env_var(HIVE_USERNAME)
+    password: env_var(HIVE_PASSWORD)
+    database: default
+    configuration:
+      hive.execution.engine: mr
+      mapreduce.job.reduces: 2
+...
+```
+
+## Microsoft SQLServer
+
+Note: This connection is experimental.
+
+```yaml
+name: my_sqlserver_project
+connection:
+  type: sqlserver
+  host: <YOUR SQLServer HOSTNAME>
+  username: env_var(SQL_SERVER_USERNAME)
+  password: env_var(SQL_SERVER_PASSWORD)
+  database: master
+  schema: dbo
+```
+
+## PostgreSQL
 
 ```yaml
 name: my_postgres_project
@@ -117,8 +117,6 @@ connection:
 ```
 
 ## Redshift
-
-<sub>Example configuration</sub>
 
 ```yaml
 name: my_redshift_project
@@ -136,40 +134,27 @@ connection:
 ...
 ```
 
-## Microsoft SQLServer (Experimental)
-
-<sub>Example configuration</sub>
+## Snowflake
 
 ```yaml
-name: my_sqlserver_project
+name: my_snowflake_project
 connection:
-  type: sqlserver
-  host: <YOUR SQLServer HOSTNAME>
-  username: env_var(SQL_SERVER_USERNAME)
-  password: env_var(SQL_SERVER_PASSWORD)
-  database: master
-  schema: dbo
-```
-
-## Hive
-
-<sub>Example configuration</sub>
-
-```yaml
-name: my_hive_project
-connection:
-    type: hive
-    host: localhost
-    port: 10000
-    username: env_var(HIVE_USERNAME)
-    password: env_var(HIVE_PASSWORD)
-    database: default
-    configuration:
-      hive.execution.engine: mr
-      mapreduce.job.reduces: 2
+    type: snowflake
+    username: env_var(SNOWFLAKE_USERNAME)
+    password: env_var(SNOWFLAKE_PASSWORD)
+    account: YOUR_SNOWFLAKE_ACCOUNT.eu-west-1
+    warehouse: YOUR_WAREHOUSE
+    database: YOUR_DATABASE
+    schema: PUBLIC
 ...
 ```
 
-## Spark SQL
-
-_Coming soon_
+| Property | Description | Required |
+| -------- | ----------- | -------- |
+| type | `snowflake` | Required |
+| username |  | Required |
+| password |  | Required |
+| account | Eg YOUR_SNOWFLAKE_ACCOUNT.eu-west-1 | Required |
+| warehouse |  | Required |
+| database |  | Required |
+| schema |  | Required |
