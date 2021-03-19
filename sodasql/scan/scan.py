@@ -86,6 +86,8 @@ class Scan:
             self._query_sql_metrics_and_run_tests()
             self._run_table_tests()
             self._run_column_tests()
+            self._take_samples()
+
             self._validate_scan_success()
 
             logging.debug(f'Executed {self.queries_executed} queries in {(datetime.now() - self.start_time)}')
@@ -537,6 +539,35 @@ class Scan:
             for test in tests:
                 test_results.append(test.evaluate(variables, group_values))
         return test_results
+
+    # noinspection PyTypeChecker
+    def _take_samples(self):
+        if self.soda_server_client:
+            from sodasql.scan.sampler import Sampler
+            sampler = Sampler(self)
+            for measurement in self.scan_result.measurements:
+                if type(measurement) == Measurement:
+                    if (measurement.metric == Metric.ROW_COUNT
+                            and self.scan_yml.is_dataset_sample_enabled()):
+                        row_count = int(measurement.value)
+                        if row_count > 0:
+                            sampler.save_sample(self.scan_yml.samples_yml, row_count)
+
+                    if (measurement.metric == Metric.MISSING_COUNT
+                            or measurement.metric == Metric.INVALID_COUNT):
+                        column_samples_yml = self.scan_yml.get_column_samples_yml(measurement.column_name)
+                        if (measurement.value > 0
+                                and column_samples_yml
+                                and column_samples_yml.is_failed_rows_enabled()):
+                            sampler.save_column_sql(column_samples_yml, measurement)
+
+                    if (measurement.metric == Metric.VALUES_COUNT
+                            or measurement.metric == Metric.VALID_COUNT):
+                        column_samples_yml = self.scan_yml.get_column_samples_yml(measurement.column_name)
+                        if (measurement.value > 0
+                                and column_samples_yml
+                                and column_samples_yml.is_passing_rows_enabled()):
+                            sampler.save_column_sql(column_samples_yml, measurement)
 
     @classmethod
     def _log_and_append_query_measurement(cls, measurements: List[Measurement], measurement: Measurement):

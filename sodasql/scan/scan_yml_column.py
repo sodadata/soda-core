@@ -9,9 +9,10 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 from dataclasses import dataclass
-from typing import Set, List
+from typing import Set, List, Optional
 
 from sodasql.scan.missing import Missing
+from sodasql.scan.samples_yml import SamplesYml
 from sodasql.scan.sql_metric_yml import SqlMetricYml
 from sodasql.scan.test import Test
 from sodasql.scan.validity import Validity
@@ -25,3 +26,4 @@ class ScanYmlColumn:
     missing: Missing
     validity: Validity
     tests: List[Test]
+    samples_yml: Optional[SamplesYml]

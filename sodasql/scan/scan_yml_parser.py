@@ -16,6 +16,7 @@ from sodasql.scan.file_system import FileSystemSingleton
 from sodasql.scan.metric import Metric
 from sodasql.scan.missing import Missing
 from sodasql.scan.parser import Parser
+from sodasql.scan.samples_yml import SamplesYml
 from sodasql.scan.scan_yml import ScanYml
 from sodasql.scan.scan_yml_column import ScanYmlColumn
 from sodasql.scan.sql_metric_yml import SqlMetricYml
@@ -32,15 +33,17 @@ KEY_FREQUENT_VALUES_LIMIT = 'frequent_values_limit'
 KEY_SAMPLE_PERCENTAGE = 'sample_percentage'
 KEY_SAMPLE_METHOD = 'sample_method'
 KEY_FILTER = 'filter'
+KEY_SAMPLES = 'samples'
 
 VALID_SCAN_YML_KEYS = [KEY_TABLE_NAME, KEY_METRICS, KEY_METRIC_GROUPS, KEY_SQL_METRICS,
                        KEY_TESTS, KEY_COLUMNS, KEY_MINS_MAXS_LIMIT, KEY_FREQUENT_VALUES_LIMIT,
-                       KEY_SAMPLE_PERCENTAGE, KEY_SAMPLE_METHOD, KEY_FILTER]
+                       KEY_SAMPLE_PERCENTAGE, KEY_SAMPLE_METHOD, KEY_FILTER, KEY_SAMPLES]
 
 COLUMN_KEY_METRICS = KEY_METRICS
 COLUMN_KEY_METRIC_GROUPS = KEY_METRIC_GROUPS
 COLUMN_KEY_SQL_METRICS = KEY_SQL_METRICS
 COLUMN_KEY_TESTS = KEY_TESTS
+COLUMN_KEY_SAMPLES = KEY_SAMPLES
 
 COLUMN_KEY_MISSING_VALUES = 'missing_values'
 COLUMN_KEY_MISSING_FORMAT = 'missing_format'
@@ -72,7 +75,8 @@ VALID_COLUMN_KEYS = COLUMN_MISSING_KEYS + COLUMN_VALID_KEYS + [
     COLUMN_KEY_METRICS,
     COLUMN_KEY_METRIC_GROUPS,
     COLUMN_KEY_SQL_METRICS,
-    COLUMN_KEY_TESTS]
+    COLUMN_KEY_TESTS,
+    COLUMN_KEY_SAMPLES]
 
 SQL_METRIC_KEY_NAME = 'name'
 SQL_METRIC_KEY_SQL = 'sql'
@@ -83,6 +87,13 @@ SQL_METRIC_KEY_GROUP_FIELDS = 'group_fields'
 
 VALID_SQL_METRIC_KEYS = [SQL_METRIC_KEY_SQL, SQL_METRIC_KEY_METRIC_NAMES, SQL_METRIC_KEY_TESTS,
                          SQL_METRIC_KEY_GROUP_FIELDS]
+
+SAMPLES_KEY_DATASET_LIMIT = 'dataset_limit'
+SAMPLES_KEY_DATASET_TABLESAMPLE = 'dataset_tablesample'
+SAMPLES_KEY_FAILED_LIMIT = 'failed_limit'
+SAMPLES_KEY_FAILED_TABLESAMPLE = 'failed_tablesample'
+SAMPLES_KEY_PASSED_LIMIT = 'passed_limit'
+SAMPLES_KEY_PASSED_TABLESAMPLE = 'passed_tablesample'
 
 
 class ScanYmlParser(Parser):
@@ -104,10 +115,14 @@ class ScanYmlParser(Parser):
         self.scan_yml.sql_metric_ymls = self.parse_sql_metric_ymls(KEY_SQL_METRICS)
         self.scan_yml.tests = self.parse_tests(scan_yml_dict, KEY_TESTS, context_table_name=table_name)
         self.scan_yml.columns = self.parse_columns(self.scan_yml)
-        self.scan_yml.sample_percentage = self.get_float_optional(KEY_SAMPLE_PERCENTAGE)
-        self.scan_yml.sample_method = self.get_str_optional(KEY_SAMPLE_METHOD, 'SYSTEM').upper()
         self.scan_yml.mins_maxs_limit = self.get_int_optional(KEY_MINS_MAXS_LIMIT, 5)
         self.scan_yml.frequent_values_limit = self.get_int_optional(KEY_FREQUENT_VALUES_LIMIT, 5)
+        self.scan_yml.samples_yml = self.parse_samples_yml(KEY_SAMPLES)
+
+        # TODO change the next 2 properties to filter_tablesample (similar to samples.dataset_tablesample)
+        # afaict, they are not docced and can be changed.
+        self.scan_yml.sample_percentage = self.get_float_optional(KEY_SAMPLE_PERCENTAGE)
+        self.scan_yml.sample_method = self.get_str_optional(KEY_SAMPLE_METHOD, 'SYSTEM').upper()
 
         filter = self.get_str_optional(KEY_FILTER)
         if filter:
@@ -138,8 +153,11 @@ class ScanYmlParser(Parser):
             metrics.add(Metric.ROW_COUNT)
 
         for metric_group_name in metrics_groups:
-            for group_metric in Metric.METRIC_GROUPS[metric_group_name]:
-                metrics.add(group_metric)
+            if metric_group_name in Metric.METRIC_GROUPS:
+                for group_metric in Metric.METRIC_GROUPS[metric_group_name]:
+                    metrics.add(group_metric)
+            else:
+                self.warning(f'Invalid metric_group {metric_group_name}')
 
         if Metric.HISTOGRAM in metrics:
             metrics.add(Metric.MIN)
@@ -237,6 +255,8 @@ class ScanYmlParser(Parser):
                                          context_table_name=scan_configuration.table_name,
                                          context_column_name=column_name)
 
+                samples_yml = self.parse_samples_yml(COLUMN_KEY_SAMPLES)
+
                 self.check_invalid_keys(VALID_COLUMN_KEYS)
 
                 column_name_lower = column_name.lower()
@@ -245,7 +265,8 @@ class ScanYmlParser(Parser):
                     sql_metric_ymls=sql_metric_ymls,
                     missing=missing,
                     validity=validity,
-                    tests=tests)
+                    tests=tests,
+                    samples_yml=samples_yml)
 
                 self._pop_context()
 
@@ -316,3 +337,20 @@ class ScanYmlParser(Parser):
 
         else:
             self.error('No SQL metric configuration provided')
+
+    def parse_samples_yml(self, samples_key: str) -> Optional[SamplesYml]:
+        samples = self.get_dict_optional(samples_key)
+        if samples is not None:
+            self._push_context(samples, samples_key)
+            try:
+                samples_yml = SamplesYml(
+                    dataset_limit=self.get_int_optional(SAMPLES_KEY_DATASET_LIMIT),
+                    dataset_tablesample=self.get_str_optional(SAMPLES_KEY_DATASET_TABLESAMPLE),
+                    failed_limit=self.get_int_optional(SAMPLES_KEY_FAILED_LIMIT),
+                    failed_tablesample=self.get_str_optional(SAMPLES_KEY_FAILED_TABLESAMPLE),
+                    passed_limit=self.get_int_optional(SAMPLES_KEY_PASSED_LIMIT),
+                    passed_tablesample=self.get_str_optional(SAMPLES_KEY_PASSED_TABLESAMPLE)
+                )
+                return samples_yml
+            finally:
+                self._pop_context()

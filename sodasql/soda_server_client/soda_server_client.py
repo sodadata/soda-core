@@ -10,7 +10,8 @@
 #  limitations under the License.
 import json
 import logging
-from typing import Optional
+import tempfile
+from typing import Optional, List
 
 import requests
 
@@ -99,6 +100,87 @@ class SodaServerClient:
             'type': 'sodaSqlScanTestResults',
             'scanReference': scan_reference,
             'testResults': test_result_jsons
+        })
+
+    def scan_upload(self, scan_reference: str, cursor, file_path: str):
+
+        def serialize_file_upload_value(value):
+            if value is None \
+                or isinstance(value, str) \
+                or isinstance(value, int) \
+                or isinstance(value, float):
+                return value
+            return str(value)
+
+        stored_rows = 0
+        with tempfile.TemporaryFile() as temp_file:
+            row = cursor.fetchone()
+            while row is not None:
+                sample_values = []
+                for i in range(0, len(row)):
+                    sample_values.append(serialize_file_upload_value(row[i]))
+                temp_file.write(bytearray(json.dumps(sample_values), 'utf-8'))
+                temp_file.write(b'\n')
+                stored_rows += 1
+                row = cursor.fetchone()
+
+            size = temp_file.tell()
+            temp_file.seek(0)
+
+            logging.debug(f'Uploading {file_path} of size {size}')
+            headers = {
+                'Authorization': self.get_token(),
+                'Content-Type': 'application/octet-stream',
+                'Scan-Reference': scan_reference,
+                'File-Path': file_path
+            }
+            if size == 0:
+                # because of https://github.com/psf/requests/issues/4215 we can't send content size
+                # when the size is 0 since requests blocks then on I/O indefinitely
+                logging.warning("Empty file upload detected, not sending Content-Length header")
+            else:
+                headers['Content-Length'] = str(size)
+
+            upload_response_json = self._upload_file(headers, temp_file)
+            if 'fileId' not in upload_response_json:
+                logging.error(f"No fileId received in response: {upload_response_json}")
+            return stored_rows, upload_response_json['fileId']
+
+    def _upload_file(self, headers, temp_file):
+        upload_response = requests.post(
+            f'{self.api_url}/scan/upload',
+            headers=headers,
+            data=temp_file)
+        return upload_response.json()
+
+    def scan_file(self,
+                  scan_reference: str,
+                  sample_type: str,
+                  stored: int,
+                  total: int,
+                  source_columns: List[dict],
+                  file_path: str,
+                  file_id: str,
+                  column_name: Optional[str] = None):
+        command_json = {
+            'type': 'scannerScanFile',
+            'scanReference': scan_reference,
+            'fileId': file_id,
+            'sampleType': sample_type,
+            'stored': stored,
+            'total': total,
+            'sourceColumns': source_columns
+        }
+        if column_name:
+            command_json['columnName'] = column_name
+        logging.debug(f'Sending file id to Soda App {file_id} {file_path}')
+        self.execute_command(command_json)
+
+    def scan_monitor_measurements(self, scan_reference: dict, monitor_measurement_json: dict):
+        return self.execute_command({
+            'type': 'scannerMonitorMeasurement',
+            'scanReference': scan_reference,
+            'monitorMeasurement': monitor_measurement_json
         })
 
     def execute_command(self, command: dict):

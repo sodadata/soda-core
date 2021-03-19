@@ -12,6 +12,8 @@ from typing import List, Optional, Set
 
 from jinja2 import Template
 
+from sodasql.scan.samples_yml import SamplesYml
+from sodasql.scan.scan_yml_column import ScanYmlColumn
 from sodasql.scan.sql_metric_yml import SqlMetricYml
 from sodasql.scan.test import Test
 
@@ -24,12 +26,13 @@ class ScanYml:
     tests: List[Test] = None
     # maps column_name.lower() to ScanYamlColumn's
     columns: dict = None
-    sample_percentage: float = None
-    sample_method: str = None
     filter: str = None
     filter_template: Template = None
+    sample_percentage: float = None
+    sample_method: str = None
     mins_maxs_limit: int = None
     frequent_values_limit: int = None
+    samples_yml: SamplesYml = None
 
     def is_any_metric_enabled(self, metrics: List[str], column_name: Optional[str] = None):
         for metric in self.__get_metrics(column_name):
@@ -49,19 +52,19 @@ class ScanYml:
         return metrics
 
     def get_missing(self, column_name: str):
-        column_configuration = self.columns.get(column_name.lower())
-        return column_configuration.missing if column_configuration else None
+        scan_yml_column = self.columns.get(column_name.lower())
+        return scan_yml_column.missing if scan_yml_column else None
 
     def get_validity(self, column_name: str):
-        column_configuration = self.columns.get(column_name.lower())
-        return column_configuration.validity if column_configuration else None
+        scan_yml_column = self.columns.get(column_name.lower())
+        return scan_yml_column.validity if scan_yml_column else None
 
     def get_validity_format(self, column):
-        column_configuration = self.columns.get(column.name.lower())
-        if column_configuration \
-                and column_configuration.validity \
-                and column_configuration.validity.format:
-            return column_configuration.validity.format
+        scan_yml_column = self.columns.get(column.name.lower())
+        if scan_yml_column \
+                and scan_yml_column.validity \
+                and scan_yml_column.validity.format:
+            return scan_yml_column.validity.format
 
     def get_mins_maxs_limit(self, column_name):
         return self.mins_maxs_limit
@@ -71,3 +74,14 @@ class ScanYml:
 
     def get_scan_yaml_column(self, column_name: str):
         return self.columns.get(column_name.lower())
+
+    def is_dataset_sample_enabled(self) -> bool:
+        return (self.samples_yml is not None
+                and (self.samples_yml.dataset_limit is not None
+                     or self.samples_yml.dataset_tablesample is not None))
+
+    def get_column_samples_yml(self, column_name: str):
+        scan_yml_column: ScanYmlColumn = self.columns.get(column_name.lower())
+        if scan_yml_column.samples_yml:
+            return scan_yml_column.samples_yml.with_defaults(self.samples_yml)
+        return self.samples_yml
