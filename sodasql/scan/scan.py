@@ -551,7 +551,7 @@ class Scan:
                             and self.scan_yml.is_dataset_sample_enabled()):
                         row_count = int(measurement.value)
                         if row_count > 0:
-                            sampler.save_sample(self.scan_yml.samples_yml, row_count)
+                            sampler.save_column_sql(self.scan_yml.samples_yml, measurement)
 
                     if (measurement.metric == Metric.MISSING_COUNT
                             or measurement.metric == Metric.INVALID_COUNT):

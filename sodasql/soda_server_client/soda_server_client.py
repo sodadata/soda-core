@@ -127,7 +127,7 @@ class SodaServerClient:
             size = temp_file.tell()
             temp_file.seek(0)
 
-            logging.debug(f'Uploading {file_path} of size {size}')
+            logging.debug(f'Uploading {file_path} ({size} bytes)')
             headers = {
                 'Authorization': self.get_token(),
                 'Content-Type': 'application/octet-stream',
@@ -173,7 +173,6 @@ class SodaServerClient:
         }
         if column_name:
             command_json['columnName'] = column_name
-        logging.debug(f'Sending file id to Soda App {file_id} {file_path}')
         self.execute_command(command_json)
 
     def scan_monitor_measurements(self, scan_reference: dict, monitor_measurement_json: dict):

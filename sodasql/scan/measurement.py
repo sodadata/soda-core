@@ -26,7 +26,6 @@ class Measurement:
     def __str__(self):
         column_str = f'({self.column_name})' if self.column_name else ''
 
-        group_values_str = ''
         if self.group_values is not None:
             if len(self.group_values) == 0:
                 return f'{self.metric}{column_str}: no groups'

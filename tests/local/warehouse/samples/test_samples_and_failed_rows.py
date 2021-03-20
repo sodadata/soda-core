@@ -52,5 +52,7 @@ class TestSamplesAndFailedRows(SqlTestCase):
     def get_file_data(self, sample_type: str, column_name=None):
         command = next(command
                        for command in self.mock_soda_server_client.commands
-                       if command['type'] == 'scannerScanFile' and command.get('columnName') == column_name)
+                       if (command['type'] == 'scannerScanFile'
+                           and command['sampleType'] == sample_type
+                           and command.get('columnName') == column_name))
         return self.mock_soda_server_client.file_uploads[command['fileId']]['data']

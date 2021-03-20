@@ -256,6 +256,10 @@ class ScanYmlParser(Parser):
                                          context_column_name=column_name)
 
                 samples_yml = self.parse_samples_yml(COLUMN_KEY_SAMPLES)
+                if samples_yml and samples_yml.dataset_limit:
+                    self.warning(f"Invalid column samples key 'dataset_limit'")
+                if samples_yml and samples_yml.dataset_tablesample:
+                    self.warning(f"Invalid column samples key 'dataset_tablesample'")
 
                 self.check_invalid_keys(VALID_COLUMN_KEYS)
 
