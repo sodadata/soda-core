@@ -12,6 +12,8 @@ from typing import List, Optional, Set
 
 from jinja2 import Template
 
+from sodasql.scan.measurement import Measurement
+from sodasql.scan.metric import Metric
 from sodasql.scan.samples_yml import SamplesYml
 from sodasql.scan.scan_yml_column import ScanYmlColumn
 from sodasql.scan.sql_metric_yml import SqlMetricYml
@@ -75,13 +77,24 @@ class ScanYml:
     def get_scan_yaml_column(self, column_name: str):
         return self.columns.get(column_name.lower())
 
-    def is_dataset_sample_enabled(self) -> bool:
-        return (self.samples_yml is not None
-                and (self.samples_yml.dataset_limit is not None
-                     or self.samples_yml.dataset_tablesample is not None))
+    def get_sample_yml(self, measurement: Measurement) -> Optional[SamplesYml]:
+        if (measurement.metric == Metric.ROW_COUNT
+                and self.samples_yml is not None
+                and self.samples_yml.is_table_enabled()):
+            return self.samples_yml
+        else:
+            column_samples_yml = self.get_column_samples_yml(measurement.column_name)
+            if column_samples_yml:
+                if (measurement.metric in [Metric.MISSING_COUNT, Metric.INVALID_COUNT]
+                        and column_samples_yml.is_failed_enabled()):
+                    return column_samples_yml
+                elif (measurement.metric in [Metric.VALUES_COUNT, Metric.VALID_COUNT]
+                        and column_samples_yml.is_passed_enabled()):
+                    return column_samples_yml
+        return None
 
-    def get_column_samples_yml(self, column_name: str):
+    def get_column_samples_yml(self, column_name: str) -> Optional[SamplesYml]:
         scan_yml_column: ScanYmlColumn = self.columns.get(column_name.lower())
-        if scan_yml_column.samples_yml:
+        if scan_yml_column and scan_yml_column.samples_yml:
             return scan_yml_column.samples_yml.with_defaults(self.samples_yml)
         return self.samples_yml

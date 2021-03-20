@@ -370,6 +370,11 @@ def scan(scan_yml_file: str, warehouse_yml_file: str, variables: tuple = None, t
         from sodasql.scan.scan_result import ScanResult
         scan_result: ScanResult = scan.execute()
 
+        if scan_result.has_soda_client_errors():
+            logging.error(f'Soda client errors: ')
+            for error in scan_result.soda_server_client_errors:
+                logging.error(f'  {error}')
+
         logging.info(f'{len(scan_result.measurements)} measurements computed')
         logging.info(f'{len(scan_result.test_results)} tests executed')
         if scan_result.has_failures():

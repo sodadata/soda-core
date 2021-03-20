@@ -20,6 +20,7 @@ class ScanResult:
         self.measurements: List[Measurement] = []
         self.test_results: List[TestResult] = []
         self.error = None
+        self.soda_server_client_errors = []
 
     def has_failures(self):
         return self.failures_count() > 0
@@ -48,6 +49,12 @@ class ScanResult:
     def find(self, metric_type: str, column_name: str = None):
         measurement = self.find_measurement(metric_type, column_name)
         return measurement.value if measurement else None
+
+    def has_soda_client_errors(self):
+        return len(self.soda_server_client_errors) > 0
+
+    def add_soda_server_client_error(self, error_message: str):
+        self.soda_server_client_errors.append(error_message)
 
     # get measurement value and raise exception if the measurement does not exist
     def get(self, metric_type: str, column_name: str = None):

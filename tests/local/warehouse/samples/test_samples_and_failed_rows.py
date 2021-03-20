@@ -19,7 +19,7 @@ class TestSamplesAndFailedRows(SqlTestCase):
         self.scan({
             'metric_groups': ['missing', 'validity'],
             'samples': {
-                'dataset_limit': 10,
+                'table_limit': 10,
                 'failed_limit': 5
             },
             'columns': {

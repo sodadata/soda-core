@@ -1,5 +1,7 @@
+import json
 import logging
 import re
+import tempfile
 from datetime import datetime
 from time import strftime, gmtime
 
@@ -7,6 +9,7 @@ from sodasql.scan.metric import Metric
 from sodasql.scan.samples_yml import SamplesYml
 from sodasql.scan.scan_column import ScanColumn
 from sodasql.scan.scan import Scan
+from sodasql.scan.warehouse import Warehouse
 
 
 class Sampler:
@@ -23,7 +26,7 @@ class Sampler:
     def _fileify(self, name: str):
         return re.sub(r'[^A-Za-z0-9_.]*', '', name).lower()
 
-    def save_column_sql(self, samples_yml: SamplesYml, measurement):
+    def save_sample(self, samples_yml: SamplesYml, measurement):
         """
         Builds and executes SQL to save a sample for the given measurement
         Args:
@@ -42,8 +45,8 @@ class Sampler:
 
         if measurement.metric == Metric.ROW_COUNT:
             sample_name = 'dataset'
-            tablesample = samples_yml.dataset_tablesample
-            limit = samples_yml.dataset_limit
+            tablesample = samples_yml.table_tablesample
+            limit = samples_yml.table_limit
         elif measurement.metric == Metric.MISSING_COUNT:
             sample_name = 'missing'
             where_clause = scan_column.missing_condition
@@ -84,24 +87,15 @@ class Sampler:
                               if sample_name == 'dataset' else f'{self.scan.scan_yml.table_name}.{column_name}.{sample_name}')
 
         logging.debug(f'Sampling {sample_description}')
-        cursor = self.scan.warehouse.connection.cursor()
-        try:
-            logging.debug(f'Executing SQL query: \n{sql}')
-            start = datetime.now()
-            cursor.execute(sql)
-            sample_columns = [
-                {'name': d[0],
-                 'type': self.scan.warehouse.dialect.get_type_name(d)}
-                for d in cursor.description
-            ]
 
-            rows_stored, file_id = self.scan.soda_server_client.scan_upload(
-                self.scan_reference,
-                cursor,
-                file_path)
+        with tempfile.TemporaryFile() as temp_file:
 
-            delta = datetime.now() - start
-            logging.debug(f'SQL took {str(delta)}')
+            rows_stored, sample_columns = self.save_sample_to_local_file(sql, temp_file)
+
+            temp_file_size_in_bytes = temp_file.tell()
+            temp_file.seek(0)
+
+            file_id = self.scan.soda_server_client.scan_upload(self.scan_reference, file_path, temp_file, temp_file_size_in_bytes)
 
             self.scan.soda_server_client.scan_file(
                 scan_reference=self.scan_reference,
@@ -113,9 +107,43 @@ class Sampler:
                 file_id=file_id,
                 column_name=column_name)
 
-            logging.debug(f'Sent sample {sample_description} ({rows_stored}/{rows_total}) to Soda Cloud')
-        except Exception:
-            logging.exception(f'Sampling {sample_description} failed')
-            raise
+        logging.debug(f'Sent sample {sample_description} ({rows_stored}/{rows_total}) to Soda Cloud')
+
+    def save_sample_to_local_file(self, sql, temp_file):
+        def serialize_file_upload_value(value):
+            if value is None \
+                    or isinstance(value, str) \
+                    or isinstance(value, int) \
+                    or isinstance(value, float):
+                return value
+            return str(value)
+
+        cursor = self.scan.warehouse.connection.cursor()
+        try:
+            logging.debug(f'Executing SQL query: \n{sql}')
+            start = datetime.now()
+            cursor.execute(sql)
+            sample_columns = [
+                {'name': d[0],
+                 'type': self.scan.warehouse.dialect.get_type_name(d)}
+                for d in cursor.description
+            ]
+
+            stored_rows = 0
+            row = cursor.fetchone()
+            while row is not None:
+                sample_values = []
+                for i in range(0, len(row)):
+                    sample_values.append(serialize_file_upload_value(row[i]))
+                temp_file.write(bytearray(json.dumps(sample_values), 'utf-8'))
+                temp_file.write(b'\n')
+                stored_rows += 1
+                row = cursor.fetchone()
+
+            delta = datetime.now() - start
+            logging.debug(f'SQL took {str(delta)}')
+
         finally:
             cursor.close()
+
+        return stored_rows, sample_columns

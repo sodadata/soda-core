@@ -88,8 +88,8 @@ SQL_METRIC_KEY_GROUP_FIELDS = 'group_fields'
 VALID_SQL_METRIC_KEYS = [SQL_METRIC_KEY_SQL, SQL_METRIC_KEY_METRIC_NAMES, SQL_METRIC_KEY_TESTS,
                          SQL_METRIC_KEY_GROUP_FIELDS]
 
-SAMPLES_KEY_DATASET_LIMIT = 'dataset_limit'
-SAMPLES_KEY_DATASET_TABLESAMPLE = 'dataset_tablesample'
+SAMPLES_KEY_DATASET_LIMIT = 'table_limit'
+SAMPLES_KEY_DATASET_TABLESAMPLE = 'table_tablesample'
 SAMPLES_KEY_FAILED_LIMIT = 'failed_limit'
 SAMPLES_KEY_FAILED_TABLESAMPLE = 'failed_tablesample'
 SAMPLES_KEY_PASSED_LIMIT = 'passed_limit'
@@ -119,7 +119,7 @@ class ScanYmlParser(Parser):
         self.scan_yml.frequent_values_limit = self.get_int_optional(KEY_FREQUENT_VALUES_LIMIT, 5)
         self.scan_yml.samples_yml = self.parse_samples_yml(KEY_SAMPLES)
 
-        # TODO change the next 2 properties to filter_tablesample (similar to samples.dataset_tablesample)
+        # TODO change the next 2 properties to filter_tablesample (similar to samples.table_tablesample)
         # afaict, they are not docced and can be changed.
         self.scan_yml.sample_percentage = self.get_float_optional(KEY_SAMPLE_PERCENTAGE)
         self.scan_yml.sample_method = self.get_str_optional(KEY_SAMPLE_METHOD, 'SYSTEM').upper()
@@ -256,10 +256,10 @@ class ScanYmlParser(Parser):
                                          context_column_name=column_name)
 
                 samples_yml = self.parse_samples_yml(COLUMN_KEY_SAMPLES)
-                if samples_yml and samples_yml.dataset_limit:
-                    self.warning(f"Invalid column samples key 'dataset_limit'")
-                if samples_yml and samples_yml.dataset_tablesample:
-                    self.warning(f"Invalid column samples key 'dataset_tablesample'")
+                if samples_yml and samples_yml.table_limit:
+                    self.warning(f"Invalid column samples key 'table_limit'")
+                if samples_yml and samples_yml.table_tablesample:
+                    self.warning(f"Invalid column samples key 'table_tablesample'")
 
                 self.check_invalid_keys(VALID_COLUMN_KEYS)
 
@@ -348,8 +348,8 @@ class ScanYmlParser(Parser):
             self._push_context(samples, samples_key)
             try:
                 samples_yml = SamplesYml(
-                    dataset_limit=self.get_int_optional(SAMPLES_KEY_DATASET_LIMIT),
-                    dataset_tablesample=self.get_str_optional(SAMPLES_KEY_DATASET_TABLESAMPLE),
+                    table_limit=self.get_int_optional(SAMPLES_KEY_DATASET_LIMIT),
+                    table_tablesample=self.get_str_optional(SAMPLES_KEY_DATASET_TABLESAMPLE),
                     failed_limit=self.get_int_optional(SAMPLES_KEY_FAILED_LIMIT),
                     failed_tablesample=self.get_str_optional(SAMPLES_KEY_FAILED_TABLESAMPLE),
                     passed_limit=self.get_int_optional(SAMPLES_KEY_PASSED_LIMIT),

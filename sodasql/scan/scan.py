@@ -101,11 +101,12 @@ class Scan:
             self.scan_result.error = {'code': ERROR_CODE_GENERIC, 'message': traceback.format_exc()}
 
         finally:
-            try:
-                if self.soda_server_client and self.send_scan_end:
+            if self.soda_server_client and self.send_scan_end:
+                try:
                     self.soda_server_client.scan_ended(self.scan_reference, self.scan_result.error)
-            except:
-                logging.exception('Notifying Soda Server of scan ended failed')
+                except Exception as e:
+                    logging.error(f'Soda Cloud error: Could not end scan: {e}')
+                    self.scan_result.add_soda_server_client_error(f'Could not end scan: {e}')
 
             if self.close_warehouse:
                 self.warehouse.close()
@@ -543,31 +544,18 @@ class Scan:
     # noinspection PyTypeChecker
     def _take_samples(self):
         if self.soda_server_client:
-            from sodasql.scan.sampler import Sampler
-            sampler = Sampler(self)
-            for measurement in self.scan_result.measurements:
-                if type(measurement) == Measurement:
-                    if (measurement.metric == Metric.ROW_COUNT
-                            and self.scan_yml.is_dataset_sample_enabled()):
-                        row_count = int(measurement.value)
-                        if row_count > 0:
-                            sampler.save_column_sql(self.scan_yml.samples_yml, measurement)
-
-                    if (measurement.metric == Metric.MISSING_COUNT
-                            or measurement.metric == Metric.INVALID_COUNT):
-                        column_samples_yml = self.scan_yml.get_column_samples_yml(measurement.column_name)
-                        if (measurement.value > 0
-                                and column_samples_yml
-                                and column_samples_yml.is_failed_rows_enabled()):
-                            sampler.save_column_sql(column_samples_yml, measurement)
-
-                    if (measurement.metric == Metric.VALUES_COUNT
-                            or measurement.metric == Metric.VALID_COUNT):
-                        column_samples_yml = self.scan_yml.get_column_samples_yml(measurement.column_name)
-                        if (measurement.value > 0
-                                and column_samples_yml
-                                and column_samples_yml.is_passing_rows_enabled()):
-                            sampler.save_column_sql(column_samples_yml, measurement)
+            try:
+                from sodasql.scan.sampler import Sampler
+                sampler = Sampler(self)
+                for measurement in self.scan_result.measurements:
+                    if (measurement.metric in [Metric.ROW_COUNT, Metric.MISSING_COUNT, Metric.INVALID_COUNT, Metric.VALUES_COUNT, Metric.VALID_COUNT]
+                            and measurement.value > 0):
+                        samples_yml = self.scan_yml.get_sample_yml(measurement)
+                        if samples_yml:
+                            sampler.save_sample(samples_yml, measurement)
+            except Exception as e:
+                logging.exception(f'Soda cloud error: Could not upload samples: {e}')
+                self.scan_result.add_soda_server_client_error(f'Could not upload samples: {e}')
 
     @classmethod
     def _log_and_append_query_measurement(cls, measurements: List[Measurement], measurement: Measurement):
@@ -603,7 +591,11 @@ class Scan:
         self.scan_result.measurements.extend(measurements)
         if self.soda_server_client and measurements:
             measurement_jsons = [measurement.to_json() for measurement in measurements]
-            self.soda_server_client.scan_measurements(self.scan_reference, measurement_jsons)
+            try:
+                self.soda_server_client.scan_measurements(self.scan_reference, measurement_jsons)
+            except Exception as e:
+                logging.error(f'Soda Cloud error: Could not send measurements: {e}')
+                self.scan_result.add_soda_server_client_error(f'Could not send measurements: {e}')
 
     def _flush_test_results(self, test_results: List[TestResult]):
         """
@@ -612,15 +604,25 @@ class Scan:
         self.scan_result.test_results.extend(test_results)
         if self.soda_server_client and test_results:
             test_result_jsons = [test_result.to_json() for test_result in test_results]
-            self.soda_server_client.scan_test_results(self.scan_reference, test_result_jsons)
+            try:
+                self.soda_server_client.scan_test_results(self.scan_reference, test_result_jsons)
+            except Exception as e:
+                logging.error(f'Soda Cloud error: Could not send test results: {e}')
+                self.scan_result.add_soda_server_client_error(f'Could not send test results: {e}')
 
     def _ensure_scan_reference(self):
         if self.soda_server_client and not self.scan_reference:
-            self.start_scan_response = self.soda_server_client.scan_start(
-                self.warehouse,
-                self.scan_yml,
-                self.time)
-            self.scan_reference = self.start_scan_response['scanReference']
+            try:
+                self.start_scan_response = self.soda_server_client.scan_start(
+                    self.warehouse,
+                    self.scan_yml,
+                    self.time)
+                self.scan_reference = self.start_scan_response['scanReference']
+            except Exception as e:
+                logging.error(f'Soda Cloud error: Could not start scan: {e}')
+                logging.error(f'Skipping subsequent Soda Cloud communication')
+                self.scan_result.add_soda_server_client_error(f'Could not start scan: {e}')
+                self.soda_server_client = None
 
     def _validate_scan_success(self):
         if self.scan_result.has_errors():

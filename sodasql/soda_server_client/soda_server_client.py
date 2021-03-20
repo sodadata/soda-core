@@ -66,6 +66,7 @@ class SodaServerClient:
                     }
                 soda_column_cfgs[column_name] = soda_column_cfg
 
+        logging.debug(f'Soda Cloud scan start')
         return self.execute_command({
             'type': 'sodaSqlScanStart',
             'warehouseName': warehouse.name,
@@ -77,11 +78,13 @@ class SodaServerClient:
 
     def scan_ended(self, scan_reference, error: dict = None):
         if error is None:
+            logging.debug(f'Soda Cloud scan end ok')
             self.execute_command({
                 'type': 'sodaSqlScanEnd',
                 'scanReference': scan_reference
             })
         else:
+            logging.debug(f'Soda Cloud scan end with error')
             self.execute_command({
                 'type': 'sodaSqlScanEnd',
                 'scanReference': scan_reference,
@@ -89,6 +92,7 @@ class SodaServerClient:
             })
 
     def scan_measurements(self, scan_reference: dict, measurement_jsons: list):
+        logging.debug(f'Soda Cloud scan send measurements')
         return self.execute_command({
             'type': 'sodaSqlScanMeasurements',
             'scanReference': scan_reference,
@@ -96,55 +100,33 @@ class SodaServerClient:
         })
 
     def scan_test_results(self, scan_reference: dict, test_result_jsons: list):
+        logging.debug(f'Soda Cloud scan send test results')
         return self.execute_command({
             'type': 'sodaSqlScanTestResults',
             'scanReference': scan_reference,
             'testResults': test_result_jsons
         })
 
-    def scan_upload(self, scan_reference: str, cursor, file_path: str):
+    def scan_upload(self, scan_reference: str, file_path, temp_file, file_size_in_bytes: int):
+        headers = {
+            'Authorization': self.get_token(),
+            'Content-Type': 'application/octet-stream',
+            'Scan-Reference': scan_reference,
+            'File-Path': file_path
+        }
 
-        def serialize_file_upload_value(value):
-            if value is None \
-                or isinstance(value, str) \
-                or isinstance(value, int) \
-                or isinstance(value, float):
-                return value
-            return str(value)
+        if file_size_in_bytes == 0:
+            # because of https://github.com/psf/requests/issues/4215 we can't send content size
+            # when the size is 0 since requests blocks then on I/O indefinitely
+            logging.warning("Empty file upload detected, not sending Content-Length header")
+        else:
+            headers['Content-Length'] = str(file_size_in_bytes)
 
-        stored_rows = 0
-        with tempfile.TemporaryFile() as temp_file:
-            row = cursor.fetchone()
-            while row is not None:
-                sample_values = []
-                for i in range(0, len(row)):
-                    sample_values.append(serialize_file_upload_value(row[i]))
-                temp_file.write(bytearray(json.dumps(sample_values), 'utf-8'))
-                temp_file.write(b'\n')
-                stored_rows += 1
-                row = cursor.fetchone()
+        upload_response_json = self._upload_file(headers, temp_file)
 
-            size = temp_file.tell()
-            temp_file.seek(0)
-
-            logging.debug(f'Uploading {file_path} ({size} bytes)')
-            headers = {
-                'Authorization': self.get_token(),
-                'Content-Type': 'application/octet-stream',
-                'Scan-Reference': scan_reference,
-                'File-Path': file_path
-            }
-            if size == 0:
-                # because of https://github.com/psf/requests/issues/4215 we can't send content size
-                # when the size is 0 since requests blocks then on I/O indefinitely
-                logging.warning("Empty file upload detected, not sending Content-Length header")
-            else:
-                headers['Content-Length'] = str(size)
-
-            upload_response_json = self._upload_file(headers, temp_file)
-            if 'fileId' not in upload_response_json:
-                logging.error(f"No fileId received in response: {upload_response_json}")
-            return stored_rows, upload_response_json['fileId']
+        if 'fileId' not in upload_response_json:
+            logging.error(f"No fileId received in response: {upload_response_json}")
+        return upload_response_json['fileId']
 
     def _upload_file(self, headers, temp_file):
         upload_response = requests.post(
@@ -189,12 +171,12 @@ class SodaServerClient:
         return self._execute_request('query', command, False)
 
     def _execute_request(self, request_type: str, request_body: dict, is_retry: bool):
-        logging.debug(f'> /api/{request_type} {json.dumps(request_body, indent=2)}')
+        # logging.debug(f'> /api/{request_type} {json.dumps(request_body, indent=2)}')
         request_body['token'] = self.get_token()
         request_body['sodaSqlVersion'] = SODA_SQL_VERSION
         response = requests.post(f'{self.api_url}/{request_type}', json=request_body)
         response_json = response.json()
-        logging.debug(f'< {response.status_code} {json.dumps(response_json, indent=2)}')
+        # logging.debug(f'< {response.status_code} {json.dumps(response_json, indent=2)}')
         if response.status_code == 401 and not is_retry:
             logging.debug(f'Authentication failed. Probably token expired. Reauthenticating...')
             self.token = None
