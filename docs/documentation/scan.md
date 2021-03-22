@@ -141,11 +141,25 @@ WHERE lower(table_name) = 'demodata'
   | Exiting with code 0
 ```
 
+In the following example, some of the tests Soda SQL executed failed, as indicated by `Exiting with code 2`. The scan output indicates which tests failed and why, so that you can investigate and resolve the issues in the warehouse.
+
+```shell
+  | < 200 {}
+  | 304 measurements computed
+  | 8 tests executed
+  | 2 of 8 tests failed:
+  |   Test column(EMAIL) test(missing_count == 0) failed with metric values {"missing_count": 33}
+  |   Test column(CREDIT_CARD_NUMBER) test(invalid_percentage == 0) failed with metric values {"invalid_percentage": 28.4}
+  | Exiting with code 2 
+```
+
+## Use the scan output
+
 Optionally, if you have a Soda Cloud account and you have [connected Soda SQL]({% link documentation/connect_to_cloud.md %}) to your account, Soda SQL automatically pushes the scan output to your Soda Cloud account. You can log in to view the Monitor Results; each row in the Monitor Results table represents the output of one scan.
 
-Optionally, you can [programmatically insert]({% link documentation/programmatic_scan.md %}) the output of Soda SQL scans into your data orchestration tool such as Dagster, or Apache Airflow. In your orchestration tool, you can use Soda SQL scan results to block the data pipeline if it encounters bad data, or to run in parallel to surface issues with your data.
+Optionally, you can [insert]({% link documentation/orchestrate_scans.md %}) the output of Soda SQL scans into your data orchestration tool such as Dagster, or Apache Airflow. In your orchestration tool, you can use Soda SQL scan results to block the data pipeline if it encounters bad data, or to run in parallel to surface issues with your data.
 
-## Learn more
+## Go further
 
 * Learn more about the [warehouse YAML]({% link documentation/warehouse.md %}) file.
 * Learn how to configure [metrics]({% link documentation/sql_metrics.md %}) in your YAML files.

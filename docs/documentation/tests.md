@@ -128,7 +128,7 @@ tests:
     volume_test_min:  total_volume_us < 5000
 ```
 
-## Learn more
+## Go further
 
 * Learn more about [Metrics]({% link documentation/sql_metrics.md %}).
 * Learn about [How Soda works]({% link documentation/concepts.md  %}).

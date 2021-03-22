@@ -301,7 +301,7 @@ sql_metrics:
 
 ### Variables in SQL metrics
 
-In Soda SQL, you set a **variable** to apply a filter to the data that Soda SQL scans. Often you use a variable to filter the range of a scan by date. (See [Filtering](filtering.md)).  
+In Soda SQL, you set a **variable** to apply a filter to the data that Soda SQL scans. Often you use a variable to filter the range of a scan by date. Refer to [Apply filters]({% link documentation/filtering.md %}) for details.  
 
 When you define a variable in your scan YAML file, Soda SQL applies the filter to all tests *except* tests defined in SQL metrics. To apply a filter to SQL metrics tests, be sure to explicitly define the variable in your SQL query, as in the example below.
 
@@ -316,7 +316,6 @@ sql_metrics:
       tests:
         - total_volume_us > 5000
 ```
-
 
 ### SQL metrics using file reference
 
@@ -338,8 +337,8 @@ FROM CUSTOMER_TRANSACTIONS
 WHERE country = 'US'
 ```
 
-## Learn more
-
+## Go further
+* Learn [How Soda SQL works]({% link documentation/concepts.md %}).
 * Learn more about the [Scan YAML]({% link documentation/scan.md %}) file.
 * Learn more about configuring [tests]({% link documentation/tests.md %}).
 * Learn how to apply [filters]({% link documentation/filtering.md %}) to your scan.
