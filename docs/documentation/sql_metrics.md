@@ -100,7 +100,9 @@ Where a column metric references a valid or invalid value, or a limit, use the m
 | `valid_values` | Specifies several valid values in list format. | integers in list |
 
 
-| Valid_format value | Format | 
+> EXPERIMENTAL: The valid_format values are experimental and may change in the future.
+
+| `valid_format` value | Format | 
 | ----- | ------ | 
 | `number_whole` | Number is whole. | 
 | `number_decimal_point` | Number uses `.` as decimal indicator.|
@@ -155,15 +157,15 @@ columns:
      – invalid_count == 0
 ```
 
-| Metric_groups value | Metrics the scan includes |
+| `metric_groups` value | Metrics the scan includes |
 | ------------------- | ----------------------- |
 | `all` | all column metrics |
+| `missing` | `missing_count`, `missing_percentage`, `values_count`, `values_percentage`. | 
+| `validity` |  `valid_count`, `valid_percentage`, `invalid_count`, `invalide_percentage` | 
 | `duplicates` | `distinct`, `unique_count`, `uniqueness`, `duplicate_count` | 
 | `length` | `min_length`, `max_length`, `avg_length` | 
-| `missing` | `missing_count`, `missing_percentage`, `values_count`, `values_percentage`. | 
 | `profiling` |  `maxs`, `mins`, `frequent_values`, `histogram` | 
 | `statistics` | `min`, `max`, `avg sum`, `variance`, `stddev` | 
-| `validity` |  `valid_count`, `valid_percentage`, `invalid_count`, `invalide_percentage` | 
 
 By default, there exist **dependencies** between some metrics. If Soda SQL scans a metric which has dependencies, it includes all the dependent metrics in the scan as well.
 
