@@ -20,7 +20,7 @@ from sodasql.soda_server_client.soda_server_client import SodaServerClient
 from tests.common.sql_test_case import SqlTestCase
 
 
-@skip
+#@skip
 class TestSodaServerInteraction(SqlTestCase):
 
     def test_soda_server_client(self):
@@ -29,31 +29,27 @@ class TestSodaServerInteraction(SqlTestCase):
             ["(1)",
              "(2)",
              "(3)",
+             "(4)",
              "(null)"])
 
         scan_yml_dict = {
-            KEY_TABLE_NAME: self.default_test_table_name,
-            KEY_METRIC_GROUPS: [
-                Metric.METRIC_GROUP_MISSING,
-                Metric.METRIC_GROUP_VALIDITY,
-                Metric.METRIC_GROUP_DUPLICATES,
-                Metric.METRIC_GROUP_STATISTICS,
-                Metric.METRIC_GROUP_LENGTH,
-                Metric.METRIC_GROUP_PROFILING
+            'table_name': self.default_test_table_name,
+            'samples': {
+                'table_limit': 10,
+                'failed_limit': 5
+            },
+            'metric_groups': [
+                'missing',
+                'validity'
             ],
             'tests': [
-                f'{Metric.ROW_COUNT} > 0'
+                'row_count > 0'
             ],
-            KEY_SQL_METRICS: [{
-                SQL_METRIC_KEY_SQL: f'SELECT 0 AS zero FROM {self.default_test_table_name}',
-                SQL_METRIC_KEY_TESTS: [
-                        'zero == 0'
-                ]
-            }],
-            KEY_COLUMNS: {
+            'columns': {
                 'name': {
-                    COLUMN_KEY_TESTS: [
-                        f'{Metric.MISSING_COUNT} < 1',
+                    'valid_max': 2,
+                    'tests': [
+                        'missing_count < 1',
                     ]
                 }
             }
@@ -66,12 +62,12 @@ class TestSodaServerInteraction(SqlTestCase):
             host='localhost',
             port='5000',
             protocol='http',
-            token='testtoken'
+            api_key_id='testapikeyid',
+            api_key_secret='testapikeysecret'
         )
 
         scan = self.warehouse.create_scan(scan_yml=scan_configuration_parser.scan_yml,
                                           soda_server_client=soda_server_client,
                                           time=datetime.now().isoformat())
-
         scan.close_warehouse = False
         return scan.execute()
