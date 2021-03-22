@@ -24,7 +24,10 @@ class TestSamplesAndFailedRows(SqlTestCase):
             },
             'columns': {
                 'id': {
-                    'valid_format': 'number_whole'
+                    'valid_format': 'number_whole',
+                    'tests': [
+                        'invalid_count == 0'
+                    ]
                 },
                 'date': {
                     'missing_values': ['N/A', 'No value']
@@ -48,6 +51,11 @@ class TestSamplesAndFailedRows(SqlTestCase):
         self.assertEqual(date_missing_sample_file_contents,
                          '["1", "N/A"]\n'
                          '["2", null]\n')
+
+        test_results_command = next(command for command in self.mock_soda_server_client.commands
+                                    if (command['type'] == 'sodaSqlScanTestResults'))
+        metrics = test_results_command['testResults'][0]['metrics']
+        self.assertEqual(metrics, ['invalid_count'])
 
     def get_file_data(self, sample_type: str, column_name=None):
         command = next(command

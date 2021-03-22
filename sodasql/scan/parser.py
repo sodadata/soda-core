@@ -315,7 +315,7 @@ class Parser:
 
             if context_table_name or context_column_name:
                 names = compiled_code.co_names
-                metrics = names
+                metrics = list(names)
                 # non_metric_names = [name for name in names if name not in Metric.METRIC_TYPES]
                 # if len(non_metric_names) != 0 or len(names) == 0:
                 #     # Dunno yet if this should be info, warning or error.  So for now keeping it open.

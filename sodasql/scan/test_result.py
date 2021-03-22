@@ -39,7 +39,8 @@ class TestResult:
         test_result_json = {
             'id': self.test.id,
             'description': self.test.description,
-            'expression': self.test.expression
+            'expression': self.test.expression,
+            'metrics': self.test.metrics
         }
 
         if self.test.column:
