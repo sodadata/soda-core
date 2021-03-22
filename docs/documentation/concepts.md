@@ -105,7 +105,7 @@ Though you do not have to set up and ingrate a Soda Cloud account in order to us
 
 To connect Soda SQL to Soda Cloud, you create API keys in your Soda Cloud account and configure them as connection credentials in your Warehouse and env_vars YAML files. See [Connect to Soda Cloud]({% link documentation/connect_to_cloud.md %}) for details. 
 
-## Learn more
+## Go further
 * Learn more about the contents of the [Scan YAML]({% link documentation/scan.md %}) file.
 * Learn more about the [Metrics]({% link documentation/sql_metrics.md %}) you can use to define [Tests]({% link documentation/tests.md %}).
 * Learn how to [Connect to Soda Cloud]({% link documentation/connect_to_cloud.md %}).
