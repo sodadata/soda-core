@@ -190,3 +190,29 @@ class TestMissingAndInvalidCustomizations(SqlTestCase):
         self.assertEqual(scan_result.get(Metric.INVALID_PERCENTAGE, 'col'), 20.0)
         self.assertEqual(scan_result.get(Metric.VALID_COUNT,        'col'), 7)
         self.assertEqual(scan_result.get(Metric.VALID_PERCENTAGE,   'col'), 70.0)
+
+    def test_scan_valid_format(self):
+        self.sql_recreate_table(
+            [f"col_pct {self.dialect.data_type_varchar_255}"],
+            ["( '8%' )",
+             "( null )",
+             "( '3--%' )",
+             "( 'nopct' )",
+             "( '6%' )",
+             "( '6%' )",
+             "( '6%' )",
+             "( '77 %' )"])
+
+        scan_result = self.scan({
+          'columns': {
+              'col_pct': {
+                  'metric_groups': [
+                      'validity'
+                  ],
+                  'valid_format': 'number_percentage'
+              }
+          }
+        })
+
+        self.assertEqual(scan_result.get(Metric.MISSING_COUNT, 'col_pct'), 1)
+        self.assertEqual(scan_result.get(Metric.INVALID_COUNT, 'col_pct'), 2)
