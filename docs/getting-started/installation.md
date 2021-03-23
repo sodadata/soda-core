@@ -21,12 +21,12 @@ Soda SQL is a command-line interface (CLI) tool that enables you to scan the dat
 
 Use Soda SQL with any of the following data warehouses:
 
+- Apache Hive
 - AWS Athena
+- AWS Redshift
 - Google Cloud Platform BigQuery
-- Hive
-- Microsoft SQLServer
+- Microsoft SQL Server
 - PostgreSQL
-- Redshift
 - Snowflake
 
 
@@ -40,7 +40,7 @@ For Linux users only, install the following:
 - On Debian Buster: `apt-get install g++ unixodbc-dev python3-dev libssl-dev libffi-dev`
 - On CentOS 8: `yum install gcc-c++ unixODBC-devel python38-devel libffi-devel openssl-devel`
 
-For MSSQLServer users only, install the following:
+For MSSQL Server users only, install the following:
 - [SQLServer Driver](https://docs.microsoft.com/en-us/sql/connect/odbc/microsoft-odbc-driver-for-sql-server?view=sql-server-ver15)
 
 

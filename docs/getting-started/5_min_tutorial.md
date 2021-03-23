@@ -8,6 +8,8 @@ nav_order: 2
 # Quick start tutorial 
 
 Use your command-line interface to **connect** Soda SQL to your database, prepare default **tests** that will surface "bad" data, then run your first **scan** in a few minutes. 
+<br />
+<br />
 
 ![tutorial-happy-path](../assets/images/tutorial-happy-path.png){:height="600px" width="600px"}
 

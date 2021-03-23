@@ -2,7 +2,7 @@
 layout: default
 title: Configure orchestrated scans
 parent: Documentation
-nav_order: 9
+nav_order: 10
 ---
 
 # Configure orchestrated scans
