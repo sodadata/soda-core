@@ -6,4 +6,34 @@ has_children: true
 permalink: /
 ---
 
-{% include_relative README.md %}
+<p align="center"><img src="https://raw.githubusercontent.com/sodadata/soda-sql/main/docs/assets/images/soda-banner.png" alt="Soda logo" /></p>
+
+<img src="./assets/images/soda-sql-wide.png" align="left" alt="Soda SQL logo" width="720" height="720" />
+
+**Soda SQL** is an open-source command-line tool. It utilizes user-defined input to prepare SQL queries that run tests on tables in a database to find invlaid, missing, or unexpected data. When tests fail, they surface "bad" data that you and your data engineering team can fix, ensuring downstream analysts are using "good" data to make decisions.
+
+Use Soda SQL to scan a variety of data warehouses:<br />
+<table>
+  <tr>
+    <td>Apache Hive<br /> AWS Athena<br /> AWS Redshift<br /> GCP BigQuery<br /></td>
+    <td>Microsoft SQL Server <br /> PostgreSQL<br /> Snowflake<br /><br /></td>
+  </tr>
+</table>
+
+
+* [Install Soda SQL]({% link getting-started/installation.md %}) from your command-line interface.
+* Follow the [Quick start tutorial]({% link getting-started/5_min_tutorial.md %}) to set up Soda SQL and run your first scan in minutes.
+* Learn the [Basics of Soda SQL]({% link documentation/concepts.md %}#soda-sql-basics).
+* Use Soda SQL with your [data orchestration tool]({% link documentation/orchestrate_scans.md %}) to automate data monitoring and testing.
+* Use Soda SQL as a stand-alone solution, or [connect to a free Soda Cloud account]({% link documentation/connect_to_cloud.md %}) to use the web app to monitor data quality.
+* Help us make Soda SQL even better! Join our [developer community]({% link community.md %}) and [contribute](https://github.com/sodadata/soda-sql/blob/main/CONTRIBUTING.md).
+
+<br />
+
+<img src="./assets/images/soda-cloud-wide.png" align="left" alt="Soda SQL logo" width="720" height="720" />
+
+Connect Soda SQL to a free **Soda Cloud** account where you and your team can use the web application to monitor test results and collaborate to keep your data issue-free. 
+
+* Set up your free Soda Cloud account at [cloud.soda.io](https://cloud.soda.io/signup).
+* Soda SQL can run without Soda Cloud, but Soda Cloud depends upon Soda SQL! Install Soda SQL, then [connect it to your Soda Cloud Account]({% link documentation/connect_to_cloud.md %}).
+* Set monitors and alerts to notify your team about data issues.

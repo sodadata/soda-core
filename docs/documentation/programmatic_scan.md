@@ -2,7 +2,7 @@
 layout: default
 title: Configure programmatic scans
 parent: Documentation
-nav_order: 10
+nav_order: 9
 ---
 
 # Configure programmatic scans
