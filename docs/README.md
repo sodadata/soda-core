@@ -46,7 +46,7 @@ a scan is executed after new data has arrived.  All soda-sql configuration files
 can be checked into your version control system as part of your pipeline
 code.
 
-> Want to try Soda SQL? Head over to our ['5 minute tutorial'](https://docs.soda.io/soda-sql/getting-started/5_min_tutorial.html) and get started straight away!
+> Want to try Soda SQL? Head over to our ['Quick start tutorial'](https://docs.soda.io/soda-sql/getting-started/5_min_tutorial.html) and get started straight away!
 
 **"[Show me the metrics](https://www.youtube.com/watch?v=1-mOKMq19zU)"**
 
@@ -154,4 +154,4 @@ data pipeline orchestration solution like:
 
 If you like the goals of this project, encourage us! Star [sodadata/soda-sql on Github](https://github.com/sodadata/soda-sql).
 
-> Next, head over to our ['5 minute tutorial'](https://docs.soda.io/soda-sql/getting-started/5_min_tutorial.html) and get your first project going!
+> Next, head over to our ['Quick start tutorial'](https://docs.soda.io/soda-sql/getting-started/5_min_tutorial.html) and get your first project going!

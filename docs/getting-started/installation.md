@@ -1,56 +1,58 @@
 ---
 layout: default
-title: Installation
-parent: Getting Started
+title: Install Soda SQL
+parent: Get Started
 nav_order: 1
 ---
 
-# Installation
+# Install Soda SQL
 
-The simplest way to use soda-sql is by using the CLI. This section guides you through
-the installation steps required to get the `soda` command up and running.
+Soda SQL is a command-line interface (CLI) tool that enables you to scan the data in your database to surface invalid, missing, or unexpected data. 
+<br />
 
-> As an alternative to the CLI, you can use the Python Programmatic Interface, which
-> provides you with a more advance way of using Soda SQL.
-> See [Programmatic scans]({% link documentation/orchestrate_scans.md %}#programmatic-scans).
+**[Compatibility](#ccompatibility)<br />
+[Requirements](#requirements)<br />
+[Install](#install)<br />
+[Upgrade](#upgrade)<br />
+[Troubleshoot](#troubleshoot)<br />
+[Go further](#go-further)<br />**
+
+## Compatibility
+
+Use Soda SQL with any of the following data warehouses:
+
+- AWS Athena
+- Google Cloud Platform BigQuery
+- Hive
+- Microsoft SQLServer
+- PostgreSQL
+- Redshift
+- Snowflake
+
 
 ## Requirements
 
-The soda-sql CLI requires the following dependencies to be installed on your system:
-- Python >=3.7
-- Pip >=21.0
-- postgresql-libs (`libpq-dev` in Debian/Ubuntu, `libpq-devel` in CentOS, `postgresql` on MacOSX)
-- _Linux only:_
-  + On Debian Buster: `apt-get install g++ unixodbc-dev python3-dev libssl-dev libffi-dev`
-  + On CentOS 8: `yum install gcc-c++ unixODBC-devel python38-devel libffi-devel openssl-devel`
+To use Soda SQL, you must have installed the following on your system:
+- **Python 3.7** or greater. To check your existing version, use the CLI command: `python --version`
+- **Pip 21.0** or greater. To check your existing version, use the CLI command: `pip --version`
 
-- _MSSQLServer Warehouse only:_
-  + If you use MSSQLServer, make sure that you also install appropriate [SQLServer Driver](https://docs.microsoft.com/en-us/sql/connect/odbc/microsoft-odbc-driver-for-sql-server?view=sql-server-ver15)
+For Linux users only, install the following:
+- On Debian Buster: `apt-get install g++ unixodbc-dev python3-dev libssl-dev libffi-dev`
+- On CentOS 8: `yum install gcc-c++ unixODBC-devel python38-devel libffi-devel openssl-devel`
 
-To check your version of python, run the `python` command
-```
-$ python --version
-Python 3.7.7
-$ pip --version
-pip 21.0.1 ...
-```
+For MSSQLServer users only, install the following:
+- [SQLServer Driver](https://docs.microsoft.com/en-us/sql/connect/odbc/microsoft-odbc-driver-for-sql-server?view=sql-server-ver15)
 
-If you don't have Python, [install it from Python downloads](https://www.python.org/downloads/) which should also
-provide you with `pip`.
 
-> There are known issues of soda-sql with pip version 19. Upgrade `pip` to >=20.0 which has been confirmed
-working. You can upgrade `pip` using the following command
-> ```
-> $ pip install --upgrade pip
-> ```
+## Install
 
-## Installing Soda CLI globally (recommended)
+From your command-line interface tool, execute the following command:
 
 ```
 $ pip install soda-sql
 ```
 
-## Installing Soda CLI in a virtual environment
+Optionally, you can install Soda SQL in a virtual environment. Execute the following commands one by one:
 
 ```
 python3 -m venv .venv
@@ -59,4 +61,30 @@ pip install --upgrade pip
 pip install soda-sql
 ```
 
-After the installation finishes head over to the [5 Minute Tutorial]({% link getting-started/5_min_tutorial.md %}) to get started.
+
+## Upgrade 
+
+To upgrade your existing Soda SQL tool to the latest version, use the following command:
+```shell
+pip install soda-sql -U
+```
+
+## Troubleshoot
+
+**Problem:** There are known issues on Soda SQL when using pip version 19. <br />
+**Solution:** Upgrade `pip` to version 20 or greater using the following command:
+```shell
+$ pip install --upgrade pip
+```
+<br />
+
+**Problem:** Upgrading Soda SQL does not seem to work. <br />
+**Solution:** Run the following command to skip your local cache when upgrading your Soda SQL version:
+```shell
+$ pip install --upgrade --no-cache-dir soda-sql
+```
+
+## Go further
+
+* Set up Soda SQL and run your first scan: [Quick start tutorial]({% link getting-started/5_min_tutorial.md %})
+* Learn [How Soda SQL works]({% link documentation/concepts.md %}).

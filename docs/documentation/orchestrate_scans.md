@@ -15,12 +15,14 @@ Use the results of a Soda SQL scan to instruct your orchestration tool to:
 - block "bad" data from entering your data pipeline (for testing), or,
 - allow data to enter the pipeline (for monitoring).
 
+![orchestrate](../assets/images/orchestrate.png){:height="800px" width="800px"}
 
 Follow the instructions that correspond to your data orchestration tool:
-- [Apache Airflow using PythonVirtualenvOperator](#apache-airflow-using-pythonvirtualenvoperator)<br />
-- [Apache Airflow using PythonOperator](#apache-airflow-using-pythonoperator)<br />
-- [Apache Airflow using BashOperator](#apache-airflow-using-bashoperator)<br />
-- More coming soon
+
+[Apache Airflow using PythonVirtualenvOperator](#apache-airflow-using-pythonvirtualenvoperator)<br />
+[Apache Airflow using PythonOperator](#apache-airflow-using-pythonoperator)<br />
+[Apache Airflow using BashOperator](#apache-airflow-using-bashoperator)<br />
+More coming soon
 <br />
 
 

@@ -17,8 +17,8 @@ soda-sql uses an API to connect to Soda Cloud. To use the API, you must generate
 
 
 1. If you have not already done so, create a Soda Cloud account at [cloud.soda.io](https://cloud.soda.io/signup).
-2. Use the instructions in the [Installation guide]({% link getting-started/installation.md %}) to install soda-sql.
-3. Follow steps 3 - 6 in the [5 min tutorial]({% link getting-started/5_min_tutorial.md %}) to create your warehouse yaml file, connect to your database, analyze your database tables, and run a scan on the data.
+2. Use the instructions in [Install Soda SQL]({% link getting-started/installation.md %}) to install soda-sql.
+3. Follow steps 3 - 6 in the [Quick start tutorial]({% link getting-started/5_min_tutorial.md %}) to create your warehouse yaml file, connect to your database, analyze your database tables, and run a scan on the data.
 4. Open the `warehouse.yml` file in a text editor, then add the following to the file:
 ```shell
 soda_account:
