@@ -23,7 +23,7 @@ Instead of laboriously accessing your database and then manually defining SQL qu
 
 You need to create a **scan YAML** file for every table in your [warehouse]({% link documentation/glossary.md %}#warehouse) that you want to scan. If you have 20 tables in your warehouse, you need 20 YAML files, each corresponding to a single table. 
 
-You can create scan YAML files yourself, but the CLI command `soda analyze` sifts through the contents of your warehouse and automatically prepares a scan YAML file for each table. Soda SQL puts the YAML files in the `/tables` directory which is in the same directory as your `warehouse.yml` file.
+You can create scan YAML files yourself, but the CLI command `soda analyze` sifts through the contents of your warehouse and automatically prepares a scan YAML file for each table. Soda SQL puts the YAML files in a `/tables` directory in your [warehouse directory]({% link documentation/glossary.md %}#warehouse-directory).
 
 In your command-line interface, navigate to the directory that contains your `warehouse.yml` file, then execute the following:
 
@@ -93,7 +93,7 @@ The table below describes all of the top level configuration keys you can use to
 | Key         | Description | Required | 
 | ----------- | ----------- | -------- | 
 | `columns` | The section of the scan YAML file in which you define tests and metrics that apply to individual columns. See [Metrics]({% link documentation/sql_metrics.md %}#column-metrics) for configuration details.| optional | 
-| `filter` | A SQL expression that Soda SQL adds to the `WHERE` clause in the query. Use `filter` to pass variables, such as date, into a scan. Uses [Jinja](https://jinja.palletsprojects.com/en/2.11.x/) as the templating language. See [Filtering]({% link documentation/filtering.md %}) for configuration details.| optional | 
+| `filter` | A SQL expression that Soda SQL adds to the `WHERE` clause in the query. Use `filter` to pass variables, such as date, into a scan. Uses [Jinja](https://jinja.palletsprojects.com/en/2.11.x/) as the templating language. See [Apply filters]({% link documentation/filtering.md %}) for configuration details.| optional | 
 | `frequent_values_limit` | Defines the maximum number of elements for the `maxs` metric. Default value is `5`.| optional |
 | `metrics` |  A list of all the default metrics that you can use to configure a scan. This list includes both table and column metrics. See [Metrics]({% link documentation/sql_metrics.md %}) for configuration details.| optional | 
 | `mins_maxs_limit` | Defines the maximum number of elements for the `mins` metric. Default value is `5`.| optional | 
@@ -121,37 +121,7 @@ To allow some databases, such as Snowflake, to cache scan results, the column qu
 
 ## Scan output
 
-By default, the output of a Soda SQL scan appears in your command line interface. In the example below, Soda SQL executed three tests and all the tests passed. The `Exit code` is a process code: 0 indicates success with no test failures; a non-zero number indicates failures.
-
-```shell
-  | 2.0.0b18
-  | Scanning tables/demodata.yml ...
-  | Soda cloud: dev.sodadata.io
-  | Executing SQL query: 
-SELECT column_name, data_type, is_nullable 
-FROM information_schema.columns 
-WHERE lower(table_name) = 'demodata' 
-  AND table_catalog = 'sodasql' 
-  AND table_schema = 'public'
-  ...
-  | < 200 {}
-  | 54 measurements computed
-  | 3 tests executed
-  | All is good. No tests failed.
-  | Exiting with code 0
-```
-
-In the following example, some of the tests Soda SQL executed failed, as indicated by `Exiting with code 2`. The scan output indicates which tests failed and why, so that you can investigate and resolve the issues in the warehouse.
-
-```shell
-  | < 200 {}
-  | 304 measurements computed
-  | 8 tests executed
-  | 2 of 8 tests failed:
-  |   Test column(EMAIL) test(missing_count == 0) failed with metric values {"missing_count": 33}
-  |   Test column(CREDIT_CARD_NUMBER) test(invalid_percentage == 0) failed with metric values {"invalid_percentage": 28.4}
-  | Exiting with code 2 
-```
+{% include scan-output.md %}
 
 ## Use the scan output
 

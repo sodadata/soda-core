@@ -76,16 +76,16 @@ The following image illustrates what Soda SQL does when you initiate a scan.
 
 ![soda-operation](../assets/images/soda-operation.png){:height="800px" width="800px"}
 
-You trigger a scan using the `soda scan` CLI command from your [warehouse directory]({% link documentation/glossary.md %}#warehouse-directory). The scan specifies which Warehouse YAML and scan YAML files to use, which amounts to telling it which table in which warehouse to scan. 
+**1** - You trigger a scan using the `soda scan` CLI command from your [warehouse directory]({% link documentation/glossary.md %}#warehouse-directory). The scan specifies which Warehouse YAML and scan YAML files to use, which amounts to telling it which table in which warehouse to scan. 
 
-Soda SQL uses the tests in the scan YAML to prepare SQL queries that it runs on the tables in your warehouse. When Soda SQL runs a scan, it performs the following actions:
+**2** - Soda SQL uses the tests in the scan YAML to prepare SQL queries that it runs on the tables in your warehouse. 
+
+**3** - When Soda SQL runs a scan, it performs the following actions:
 - fetches column metadata (column name, type, and nullable)
 - executes a single aggregation query that computes aggregate metrics for multiple columns, such as `missing`, `min`, or `max`
 - for each column, executes several more queries, including `distinct_count`, `unique_count`, and `valid_count`
 
-The results of the scan appear in your command-line interface. The **exit code** indicates test results: 
-- `0` means that all tests passed and your data exists within the parameters for "good" that you defined 
-- any integer other than `0` means that one or more tests failed; some of your data falls outside the parameters for "good"
+**4** - {% include scan-output.md %}
 
 
 ## Soda SQL automation and integrations

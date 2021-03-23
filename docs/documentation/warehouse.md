@@ -18,7 +18,7 @@ When you execute the `soda create` command, you include options that instruct So
 The example below provides the following details:
 * option `-d` provides the name of the database
 * option `-u` provides the username to log in to the database
-* option `-w` provides the name of the warehouse
+* option `-w` provides the name of the warehouse directory
 * requirement `postgres` indicates the type of database 
 
 
@@ -61,7 +61,7 @@ Notice that even though the command provided a value for `username`, Soda SQL au
 Each type of warehouse requires different configuration parameters. Refer to [Set warehouse configurations]({% link documentation/warehouse_types.md %}) for details that correspond to the type of database you are using. 
 
 
-# Env_vars YAML
+## Env_vars YAML
 
 To keep your warehouse YAML file free of login credentials, Soda SQL references environment variables. When it creates a new warehouse YAML file, Soda SQL also creates an **env_vars YAML** file to store your database username and password values. Soda SQL does not overwrite or remove and existing environment variables, it only adds new. 
 
