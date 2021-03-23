@@ -70,4 +70,4 @@ class TestSodaServerInteraction(SqlTestCase):
                                           soda_server_client=soda_server_client,
                                           time=datetime.now().isoformat())
         scan.close_warehouse = False
-        return scan.execute()
+        scan.execute()

@@ -141,9 +141,9 @@ class SodaServerClient:
                   stored: int,
                   total: int,
                   source_columns: List[dict],
-                  file_path: str,
                   file_id: str,
-                  column_name: Optional[str] = None):
+                  column_name: Optional[str],
+                  test_ids: List[str]):
         command_json = {
             'type': 'scannerScanFile',
             'scanReference': scan_reference,
@@ -155,6 +155,8 @@ class SodaServerClient:
         }
         if column_name:
             command_json['columnName'] = column_name
+        if test_ids:
+            command_json['testSodaSqlIds'] = test_ids
         self.execute_command(command_json)
 
     def scan_monitor_measurements(self, scan_reference: dict, monitor_measurement_json: dict):

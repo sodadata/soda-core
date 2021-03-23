@@ -3,13 +3,13 @@ import logging
 import re
 import tempfile
 from datetime import datetime
-from time import strftime, gmtime
+from typing import List
 
 from sodasql.scan.metric import Metric
 from sodasql.scan.samples_yml import SamplesYml
-from sodasql.scan.scan_column import ScanColumn
 from sodasql.scan.scan import Scan
-from sodasql.scan.warehouse import Warehouse
+from sodasql.scan.scan_column import ScanColumn
+from sodasql.scan.test_result import TestResult
 
 
 class Sampler:
@@ -26,15 +26,16 @@ class Sampler:
     def _fileify(self, name: str):
         return re.sub(r'[^A-Za-z0-9_.]*', '', name).lower()
 
-    def save_sample(self, samples_yml: SamplesYml, measurement):
-        """
-        Builds and executes SQL to save a sample for the given measurement
+    def save_sample(self, samples_yml: SamplesYml, measurement, test_results: List[TestResult]):
+        """ilds and executes SQL to save a sample for the given measu
+        Burement
         Args:
             samples_yml: For column metric samples, samples_yml will have the defaults from the scan samples
                          already resolved.
         """
         column_name = measurement.column_name
         scan_column: ScanColumn = self.scan.scan_columns[column_name.lower()] if column_name else None
+        tests = [test_result.test for test_result in test_results]
 
         # rows_total is the total number of rows from which the sample is taken
         rows_total = measurement.value
@@ -42,6 +43,7 @@ class Sampler:
         where_clause = None
         tablesample = None
         limit = None
+        test_ids = None
 
         if measurement.metric == Metric.ROW_COUNT:
             sample_name = 'dataset'
@@ -52,6 +54,10 @@ class Sampler:
             where_clause = scan_column.missing_condition
             tablesample = samples_yml.failed_tablesample
             limit = samples_yml.failed_limit
+
+            def is_missing_test(test):
+                return test.metrics == [Metric.MISSING_COUNT] or test.metrics == [Metric.MISSING_PERCENTAGE]
+            test_ids = [test.id for test in tests if is_missing_test(test) and test.column == column_name]
         elif measurement.metric == Metric.VALUES_COUNT:
             sample_name = 'values'
             where_clause = f'NOT ({scan_column.missing_condition})'
@@ -62,6 +68,10 @@ class Sampler:
             where_clause = f'NOT ({scan_column.missing_condition}) AND NOT ({scan_column.valid_condition})'
             tablesample = samples_yml.failed_tablesample
             limit = samples_yml.failed_limit
+
+            def is_invalid_test(test):
+                return test.metrics == [Metric.INVALID_COUNT] or test.metrics == [Metric.INVALID_PERCENTAGE]
+            test_ids = [test.id for test in tests if is_invalid_test(test) and test.column == column_name]
         elif measurement.metric == Metric.VALID_COUNT:
             sample_name = 'valid'
             where_clause = f'NOT ({scan_column.missing_condition}) AND ({scan_column.valid_condition})'
@@ -103,9 +113,9 @@ class Sampler:
                 stored=int(rows_stored),
                 total=int(rows_total),
                 source_columns=sample_columns,
-                file_path=file_path,
                 file_id=file_id,
-                column_name=column_name)
+                column_name=column_name,
+                test_ids=test_ids)
 
         logging.debug(f'Sent sample {sample_description} ({rows_stored}/{rows_total}) to Soda Cloud')
 

@@ -10,7 +10,7 @@
 #  limitations under the License.
 import json
 from dataclasses import dataclass
-from typing import Optional, Any
+from typing import Optional
 
 from sodasql.common.json_helper import JsonHelper
 from sodasql.scan.test import Test
@@ -39,8 +39,7 @@ class TestResult:
         test_result_json = {
             'id': self.test.id,
             'description': self.test.description,
-            'expression': self.test.expression,
-            'metrics': self.test.metrics
+            'expression': self.test.expression
         }
 
         if self.test.column:

@@ -439,7 +439,9 @@ class Scan:
                 else:
                     self._run_sql_metric_default_and_run_tests(sql_metric, resolved_sql, scan_column)
 
-    def _run_sql_metric_default_and_run_tests(self, sql_metric: SqlMetricYml, resolved_sql: str,
+    def _run_sql_metric_default_and_run_tests(self,
+                                              sql_metric: SqlMetricYml,
+                                              resolved_sql: str,
                                               scan_column: Optional[ScanColumn] = None):
         row_tuple, description = self.warehouse.sql_fetchone_description(resolved_sql)
         self.queries_executed += 1
@@ -461,7 +463,9 @@ class Scan:
         sql_metric_test_results = self._execute_tests(sql_metric.tests, test_variables)
         self._flush_test_results(sql_metric_test_results)
 
-    def _run_sql_metric_with_groups_and_run_tests(self, sql_metric: SqlMetricYml, resolved_sql: str,
+    def _run_sql_metric_with_groups_and_run_tests(self,
+                                                  sql_metric: SqlMetricYml,
+                                                  resolved_sql: str,
                                                   scan_column: Optional[ScanColumn]):
         measurements = []
         test_results = []
@@ -484,8 +488,8 @@ class Scan:
                     metric_values[metric_name] = metric_value
 
             if not group:
-                logging.error(
-                    f'None of the declared group_fields were found in result: {sql_metric.group_fields}. Skipping result.')
+                logging.error(f'None of the declared group_fields were found in '
+                              f'result: {sql_metric.group_fields}. Skipping result.')
             else:
                 for metric_name in metric_values:
                     metric_value = metric_values[metric_name]
@@ -547,12 +551,13 @@ class Scan:
             try:
                 from sodasql.scan.sampler import Sampler
                 sampler = Sampler(self)
+
                 for measurement in self.scan_result.measurements:
                     if (measurement.metric in [Metric.ROW_COUNT, Metric.MISSING_COUNT, Metric.INVALID_COUNT, Metric.VALUES_COUNT, Metric.VALID_COUNT]
                             and measurement.value > 0):
                         samples_yml = self.scan_yml.get_sample_yml(measurement)
                         if samples_yml:
-                            sampler.save_sample(samples_yml, measurement)
+                            sampler.save_sample(samples_yml, measurement, self.scan_result.test_results)
             except Exception as e:
                 logging.exception(f'Soda cloud error: Could not upload samples: {e}')
                 self.scan_result.add_soda_server_client_error(f'Could not upload samples: {e}')

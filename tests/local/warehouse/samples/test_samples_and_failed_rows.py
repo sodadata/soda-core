@@ -54,8 +54,6 @@ class TestSamplesAndFailedRows(SqlTestCase):
 
         test_results_command = next(command for command in self.mock_soda_server_client.commands
                                     if (command['type'] == 'sodaSqlScanTestResults'))
-        metrics = test_results_command['testResults'][0]['metrics']
-        self.assertEqual(metrics, ['invalid_count'])
 
     def get_file_data(self, sample_type: str, column_name=None):
         command = next(command
