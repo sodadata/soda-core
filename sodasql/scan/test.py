@@ -17,7 +17,7 @@ from typing import Optional, List
 class Test:
 
     id: str
-    description: str
+    title: str
     expression: str
     metrics: List[str]
     column: Optional[str]

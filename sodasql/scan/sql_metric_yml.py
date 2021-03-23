@@ -9,7 +9,7 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 from dataclasses import dataclass
-from typing import List
+from typing import List, Optional
 
 from sodasql.scan.test import Test
 
@@ -17,9 +17,14 @@ from sodasql.scan.test import Test
 @dataclass
 class SqlMetricYml:
 
+    type: str
+    name: Optional[str]
+    title: Optional[str]
     sql: str
-    description: str = None
-    column_name: str = None
+    index: int
+    column_name: Optional[str]
+
+    # TODO move these next members into a subclass NumericSqlMetricYml
     metric_names: List[str] = None
     group_fields: List[str] = None
     tests: List[Test] = None

@@ -9,6 +9,7 @@ from sodasql.scan.metric import Metric
 from sodasql.scan.samples_yml import SamplesYml
 from sodasql.scan.scan import Scan
 from sodasql.scan.scan_column import ScanColumn
+from sodasql.scan.sql_metric_yml import SqlMetricYml
 from sodasql.scan.test_result import TestResult
 
 
@@ -27,8 +28,8 @@ class Sampler:
         return re.sub(r'[^A-Za-z0-9_.]*', '', name).lower()
 
     def save_sample(self, samples_yml: SamplesYml, measurement, test_results: List[TestResult]):
-        """ilds and executes SQL to save a sample for the given measu
-        Burement
+        """
+        Builds and executes SQL to save a sample for the given measurement
         Args:
             samples_yml: For column metric samples, samples_yml will have the defaults from the scan samples
                          already resolved.
@@ -96,16 +97,17 @@ class Sampler:
         sample_description = (f'{self.scan.scan_yml.table_name}.sample'
                               if sample_name == 'dataset' else f'{self.scan.scan_yml.table_name}.{column_name}.{sample_name}')
 
-        logging.debug(f'Sampling {sample_description}')
-
+        logging.debug(f'Sending sample {sample_description}')
         with tempfile.TemporaryFile() as temp_file:
-
             rows_stored, sample_columns = self.save_sample_to_local_file(sql, temp_file)
 
             temp_file_size_in_bytes = temp_file.tell()
             temp_file.seek(0)
 
-            file_id = self.scan.soda_server_client.scan_upload(self.scan_reference, file_path, temp_file, temp_file_size_in_bytes)
+            file_id = self.scan.soda_server_client.scan_upload(self.scan_reference,
+                                                               file_path,
+                                                               temp_file,
+                                                               temp_file_size_in_bytes)
 
             self.scan.soda_server_client.scan_file(
                 scan_reference=self.scan_reference,
@@ -116,8 +118,15 @@ class Sampler:
                 file_id=file_id,
                 column_name=column_name,
                 test_ids=test_ids)
-
         logging.debug(f'Sent sample {sample_description} ({rows_stored}/{rows_total}) to Soda Cloud')
+
+    def create_file_path_failed_rows_sql_metric(self, failed_rows_sql_metric_yml: SqlMetricYml):
+        column_name = failed_rows_sql_metric_yml.column_name
+        return (f'{self.scan_folder_name}/' +
+                (f'{self._fileify(column_name)}_' if column_name else '') +
+                'failed_rows_' +
+                f'{self._fileify(failed_rows_sql_metric_yml.name)}' +
+                '.jsonl')
 
     def save_sample_to_local_file(self, sql, temp_file):
         def serialize_file_upload_value(value):

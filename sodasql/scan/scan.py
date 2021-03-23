@@ -10,6 +10,7 @@
 #  limitations under the License.
 
 import logging
+import tempfile
 import traceback
 from datetime import datetime
 from math import floor, ceil
@@ -26,6 +27,7 @@ from sodasql.scan.scan_column import ScanColumn
 from sodasql.scan.scan_result import ScanResult
 from sodasql.scan.scan_yml import ScanYml
 from sodasql.scan.sql_metric_yml import SqlMetricYml
+from sodasql.scan.test import Test
 from sodasql.scan.test_result import TestResult
 from sodasql.scan.warehouse import Warehouse
 from sodasql.soda_server_client.soda_server_client import SodaServerClient
@@ -57,6 +59,7 @@ class Scan:
         self.send_scan_end = True
         self.start_time = None
         self.queries_executed = 0
+        self.sampler = None
 
         self.table_sample_clause = \
             f'\nTABLESAMPLE {scan_yml.sample_method}({scan_yml.sample_percentage})' \
@@ -74,6 +77,9 @@ class Scan:
         if self.soda_server_client:
             logging.debug(f'Soda cloud: {self.soda_server_client.host}')
             self._ensure_scan_reference()
+
+        from sodasql.scan.sampler import Sampler
+        self.sampler = Sampler(self)
 
         try:
             if self.scan_yml:
@@ -422,22 +428,28 @@ class Scan:
             if scan_column and scan_column.scan_yml_column:
                 self._query_sql_metrics_and_run_tests_base(scan_column.scan_yml_column.sql_metric_ymls, scan_column)
 
-    def _query_sql_metrics_and_run_tests_base(self, sql_metric_ymls: Optional[List[SqlMetricYml]],
+    def _query_sql_metrics_and_run_tests_base(self,
+                                              sql_metric_ymls: Optional[List[SqlMetricYml]],
                                               scan_column: Optional[ScanColumn] = None):
         if sql_metric_ymls:
             for sql_metric in sql_metric_ymls:
-                if self.variables:
-                    sql_variables = self.variables.copy() if self.variables else {}
-                    # TODO add functions to sql_variables that can convert scan variables to valid SQL literals
-                    template = Template(sql_metric.sql)
-                    resolved_sql = template.render(sql_variables)
-                else:
-                    resolved_sql = sql_metric.sql
+                resolved_sql = self.resolve_sql_metric_sql(sql_metric)
 
-                if sql_metric.group_fields:
-                    self._run_sql_metric_with_groups_and_run_tests(sql_metric, resolved_sql, scan_column)
-                else:
+                if sql_metric.type == 'numeric':
                     self._run_sql_metric_default_and_run_tests(sql_metric, resolved_sql, scan_column)
+                elif sql_metric.type == 'numeric_groups':
+                    self._run_sql_metric_with_groups_and_run_tests(sql_metric, resolved_sql, scan_column)
+                elif sql_metric.type == 'failed_rows':
+                    self._run_sql_metric_failed_rows(sql_metric, resolved_sql, scan_column)
+
+    def resolve_sql_metric_sql(self, sql_metric):
+        if self.variables:
+            sql_variables = self.variables.copy() if self.variables else {}
+            template = Template(sql_metric.sql)
+            resolved_sql = template.render(sql_variables)
+        else:
+            resolved_sql = sql_metric.sql
+        return resolved_sql
 
     def _run_sql_metric_default_and_run_tests(self,
                                               sql_metric: SqlMetricYml,
@@ -453,7 +465,7 @@ class Scan:
         for i in range(len(row_tuple)):
             metric_name = sql_metric.metric_names[i] if sql_metric.metric_names is not None else description[i][0]
             metric_value = row_tuple[i]
-            logging.debug(f'SQL metric {sql_metric.description} {metric_name} -> {metric_value}')
+            logging.debug(f'SQL metric {sql_metric.title} {metric_name} -> {metric_value}')
             measurement = Measurement(metric=metric_name, value=metric_value, column_name=column_name)
             test_variables[metric_name] = metric_value
             self._log_and_append_query_measurement(measurements, measurement)
@@ -497,7 +509,7 @@ class Scan:
                         group_values_by_metric_name[metric_name] = []
                     group_values = group_values_by_metric_name[metric_name]
                     group_values.append(GroupValue(group=group, value=metric_value))
-                    logging.debug(f'SQL metric {sql_metric.description} {metric_name} {group} -> {metric_value}')
+                    logging.debug(f'SQL metric {sql_metric.title} {metric_name} {group} -> {metric_value}')
 
                 sql_metric_tests = sql_metric.tests
                 test_variables = self._get_test_variables(scan_column)
@@ -513,6 +525,53 @@ class Scan:
 
         self._flush_measurements(measurements)
         self._flush_test_results(test_results)
+
+    def _run_sql_metric_failed_rows(self,
+                                    sql_metric: SqlMetricYml,
+                                    resolved_sql: str,
+                                    scan_column: Optional[ScanColumn] = None):
+
+        logging.debug(f'Sending failed rows for sql metric {sql_metric.name}')
+        with tempfile.TemporaryFile() as temp_file:
+            rows_stored, sample_columns = \
+                self.sampler.save_sample_to_local_file(resolved_sql, temp_file)
+
+            column_name = scan_column.column_name if scan_column else None
+            measurement = Measurement(metric=sql_metric.name, value=rows_stored, column_name=column_name)
+
+            measurements = []
+            self._log_and_append_query_measurement(measurements, measurement)
+            self._flush_measurements(measurements)
+
+            test = sql_metric.tests[0]
+
+            test_variables = {
+                sql_metric.name: rows_stored
+            }
+
+            test_result = test.evaluate(test_variables)
+            self._flush_test_results([test_result])
+
+            temp_file_size_in_bytes = temp_file.tell()
+            temp_file.seek(0)
+
+            file_path = self.sampler.create_file_path_failed_rows_sql_metric(sql_metric)
+
+            file_id = self.soda_server_client.scan_upload(self.scan_reference,
+                                                          file_path,
+                                                          temp_file,
+                                                          temp_file_size_in_bytes)
+
+            self.soda_server_client.scan_file(
+                scan_reference=self.scan_reference,
+                sample_type='failedRowsSample',
+                stored=int(rows_stored),
+                total=int(rows_stored),
+                source_columns=sample_columns,
+                file_id=file_id,
+                column_name=sql_metric.column_name,
+                test_ids=[test.id])
+            logging.debug(f'Sent failed rows for sql metric ({rows_stored}/{rows_stored}) to Soda Cloud')
 
     def _get_test_variables(self, scan_column: Optional[ScanColumn] = None):
         column_name_lower = scan_column.column_name_lower if scan_column is not None else None
@@ -549,15 +608,12 @@ class Scan:
     def _take_samples(self):
         if self.soda_server_client:
             try:
-                from sodasql.scan.sampler import Sampler
-                sampler = Sampler(self)
-
                 for measurement in self.scan_result.measurements:
                     if (measurement.metric in [Metric.ROW_COUNT, Metric.MISSING_COUNT, Metric.INVALID_COUNT, Metric.VALUES_COUNT, Metric.VALID_COUNT]
                             and measurement.value > 0):
                         samples_yml = self.scan_yml.get_sample_yml(measurement)
                         if samples_yml:
-                            sampler.save_sample(samples_yml, measurement, self.scan_result.test_results)
+                            self.sampler.save_sample(samples_yml, measurement, self.scan_result.test_results)
             except Exception as e:
                 logging.exception(f'Soda cloud error: Could not upload samples: {e}')
                 self.scan_result.add_soda_server_client_error(f'Could not upload samples: {e}')

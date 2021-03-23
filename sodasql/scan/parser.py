@@ -241,10 +241,24 @@ class Parser:
             if isinstance(test_ymls, list):
                 for test_index in range(len(test_ymls)):
                     test_yml = test_ymls[test_index]
-                    self._push_context(None, str(test_index))
+                    self._push_context(test_yml, str(test_index))
                     try:
-                        test_expression = test_yml
+                        test_name = None
+                        test_title = None
+                        test_expression = None
+
+                        if isinstance(test_yml, str):
+                            test_expression = test_yml
+                        elif isinstance(test_yml, dict):
+                            test_name = self.get_str_required('name')
+                            test_title = self.get_str_required('title')
+                            test_expression = self.get_str_required('expression')
+                        else:
+                            self.error(f'Test must be a string or an object, but was {type(test_yml)}')
+
                         test = self.parse_test(test_index=test_index,
+                                               test_name=test_name,
+                                               test_title=test_title,
                                                test_expression=test_expression,
                                                context_table_name=context_table_name,
                                                context_column_name=context_column_name,
@@ -255,6 +269,7 @@ class Parser:
                     finally:
                         self._pop_context()
 
+            # Deprecated
             elif isinstance(test_ymls, dict):
                 for test_name in test_ymls:
                     self._push_context(None, test_name)
@@ -282,6 +297,7 @@ class Parser:
     def parse_test(self,
                    test_expression: str,
                    test_name: str = None,
+                   test_title: str = None,
                    test_index: int = None,
                    context_table_name: str = None,
                    context_column_name: str = None,
@@ -292,7 +308,7 @@ class Parser:
             self.error('Test expression is required')
             return
 
-        test_description = self.create_test_description(
+        test_title = test_title if test_title else self.create_test_title(
             test_expression,
             test_name,
             test_index,
@@ -324,24 +340,24 @@ class Parser:
                 #               f'was not a valid metric type. Metric types: {Metric.METRIC_TYPES}, '
                 #               f'Test: {test_description}')
 
-            return Test(description=test_description,
-                        id=test_id,
+            return Test(id=test_id,
+                        title=test_title,
                         expression=test_expression,
                         metrics=metrics,
                         column=context_column_name)
 
         except SyntaxError:
             stacktrace_lines = traceback.format_exc().splitlines()
-            self.error(f'Syntax error in test {test_description}:\n' +
+            self.error(f'Syntax error in test {test_title}:\n' +
                        ('\n'.join(stacktrace_lines[-3:])))
 
-    def create_test_description(self,
-                                test_expression,
-                                test_name,
-                                test_index,
-                                context_column_name,
-                                context_sql_metric_name,
-                                context_sql_metric_index):
+    def create_test_title(self,
+                          test_expression,
+                          test_name,
+                          test_index,
+                          context_column_name,
+                          context_sql_metric_name,
+                          context_sql_metric_index):
         parts = []
         if context_column_name:
             parts.append(f'column({context_column_name})')

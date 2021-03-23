@@ -26,7 +26,7 @@ class TestResult:
     group_values: Optional[dict] = None
 
     def __str__(self):
-        return (f'Test {self.test.description} {"passed" if self.passed else "failed"}' +
+        return (f'Test {self.test.title} {"passed" if self.passed else "failed"}' +
                 (f" with group values {self.group_values}" if self.group_values else '') +
                 f' with metric values {json.dumps(self.values)}')
 
@@ -38,7 +38,7 @@ class TestResult:
 
         test_result_json = {
             'id': self.test.id,
-            'description': self.test.description,
+            'title': self.test.title,
             'expression': self.test.expression
         }
 
