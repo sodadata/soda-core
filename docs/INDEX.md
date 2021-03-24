@@ -36,4 +36,5 @@ Connect Soda SQL to a free **Soda Cloud** account where you and your team can us
 
 * Set up your free Soda Cloud account at [cloud.soda.io](https://cloud.soda.io/signup).
 * Soda SQL can run without Soda Cloud, but Soda Cloud depends upon Soda SQL! Install Soda SQL, then [connect it to your Soda Cloud Account]({% link documentation/connect_to_cloud.md %}).
+* Learn more about [Soda Cloud architecture]({% link documentation/soda-cloud-architecture.md %}).
 * [Create monitors and alerts]({% link documentation/monitors.md %}) to notify your team about data issues.

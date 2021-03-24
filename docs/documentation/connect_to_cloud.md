@@ -7,7 +7,7 @@ nav_order: 11
 
 # Connect to Soda Cloud
 
-To use the **[Soda Cloud]({% link documentation/glossary.md %}#soda-cloud)** web user interface to monitor your data, you must install and configure the **[Soda SQL]({% link documentation/glossary.md %}#soda-sql)** command line tool, then connect it to your Soda Cloud account.  
+To use the **[Soda Cloud]({% link documentation/glossary.md %}#soda-cloud)** web application to monitor your data, you must install and configure the **[Soda SQL]({% link documentation/glossary.md %}#soda-sql)** command-line tool, then connect it to your Soda Cloud account.  
 
 Soda SQL uses an API to connect to Soda Cloud. To use the API, you must generate API keys in your Soda Cloud account, then add them to the [warehouse YAML]({% link documentation/warehouse.md %}) file that Soda SQL created. 
 
@@ -34,7 +34,7 @@ soda_account:
     * Copy the Public key, then paste it into the `env_vars.yml` file as the value for `API_PUBLIC`.
     * Copy the Private key, then paste it into the `env_vars.yml` file as the value for `API_PRIVATE`.
 8. Save the changes to the `env_vars.yml` file. Close the API Keys create dialog box in your Soda Cloud account.
-9. From the command line, use Soda SQL to scan the tables in your warehouse again.
+9. From the command-line, use Soda SQL to scan the tables in your warehouse again.
 ```shell
 $ soda scan warehouse.yml tables/[dbtablename].yml
 ```
@@ -43,6 +43,6 @@ $ soda scan warehouse.yml tables/[dbtablename].yml
 ## Go further
 
 * Learn how to [create monitors and alerts]({% link documentation/monitors.md %}).
-* Learn more about the [anatomy of a scan]({% link documentation/scan.md %}).
+* Learn more about [Soda Cloud architecture]({% link documentation/soda-cloud-architecture.md %}).
 * Learn more about the [warehouse yaml]({% link documentation/warehouse.md %}) file.
-* [Contact us](https://github.com/sodadata/Soda SQL/discussions) with a question or comment.
+* Learn more about the [anatomy of a scan]({% link documentation/scan.md %}#anatomy-of-the-scan-yaml-file)
