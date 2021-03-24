@@ -30,7 +30,7 @@ In your command-line interface, navigate to the directory that contains your `wa
 Command:
 
 ```shell
-soda analyze
+$ soda analyze
 ```
 
 Output:

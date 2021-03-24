@@ -12,13 +12,13 @@ To test specific portions of data for quality, you can apply dynamic **filters**
 For example, where a `CUSTOMER_TRANSACTIONS` [table]({% link documentation/glossary.md %}#table) has a `DATE` column, you may wish to run a scan only against the newest data added to the table. In such a case, you can apply a filter for a specific date so that Soda SQL only scans data associated with that date. 
 
 ```shell
-soda scan -v date=2021-01-12 warehouse.yml tables/customer_transactions.yml
+$ soda scan -v date=2021-01-12 warehouse.yml tables/customer_transactions.yml
 ```
 
 Similarly, if the table has a column for `COUNTRY`, you can apply a filter that scans only the data that pertains to the country you specify as a variable in the `soda scan` command.
 
 ```shell
-soda scan -v country=FRA warehouse.yml tables/customer_transactions.yml
+$ soda scan -v country=FRA warehouse.yml tables/customer_transactions.yml
 ```
 
 
@@ -35,18 +35,18 @@ columns: ...
 3. When you define a variable in your scan YAML file, Soda SQL applies the filter to all tests *except* tests defined in SQL metrics. To apply a filter to SQL metrics tests, be sure to explicitly define the variable in your SQL query. Refer to [Variables in SQL metrics]({% link documentation/sql_metrics.md %}#variables-in-sql-metrics)
 4. Save the changes to the YAML file, then run a filtered scan by adding a variable to your `soda scan` command in your command-line interface.
 ```shell
-soda scan -v date=2021-01-12 warehouse.yml tables/customer_transactions.yml
+$ soda scan -v date=2021-01-12 warehouse.yml tables/customer_transactions.yml
 ```
 
 
 For time-partitioned tables, consider configuring a separate scan YAML file for scans that use a filter. For example:
 * `customer_transactions.yml` with no filter defined in the file, so you can scan all the data in the table without applying a date filter
 ```shell
-soda scan warehouse.yml tables/customer_transactions.yml
+$ soda scan warehouse.yml tables/customer_transactions.yml
 ```
 * `customer_transactions_tp.yml` with a date filter defined, so you can add a date variable to your `soda scan` command to scan against a date you specify
 ```shell
-soda scan -v date=2021-01-12 warehouse.yml tables/customer_transactions_tp.yml
+$ soda scan -v date=2021-01-12 warehouse.yml tables/customer_transactions_tp.yml
 ```
 
 

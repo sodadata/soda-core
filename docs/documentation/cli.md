@@ -19,7 +19,7 @@ To see a list of Soda SQL command-line interface (CLI) commands, use the `soda` 
 
 Command:
 ```shell
-soda
+$ soda
 ```
 
 Output:
@@ -43,10 +43,11 @@ Commands:
 ## List of parameters
 
 To see a list of configurable parameters for each command, use the command-line help.
-* `soda create --help`
-* `soda analyze --help`
-* `soda scan --help`
-
+```shell
+$ soda create --help
+$ soda analyze --help
+$ soda scan --help
+```
 
 ## Go further
 * Learn [How Soda SQL works]({% link documentation/concepts.md %}).

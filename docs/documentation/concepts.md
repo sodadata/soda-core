@@ -100,8 +100,8 @@ Though you do not have to set up and ingrate a Soda Cloud account in order to us
 
 - collaborate with team members to review details of scan results that can help you to diagnose data issues
 - store [metrics]({% link documentation/sql_metrics.md %}) over time
-- empower others to set quality thresholds that define "good" data
-- set up and send alert notifications when "bad" data enters your data pipeline
+- empower others to [set quality thresholds]({% link documentation/monitors.md %}) that define "good" data
+- set up and [send alert notifications]({% link documentation/monitors.md %}) when "bad" data enters your data pipeline
 
 To connect Soda SQL to Soda Cloud, you create API keys in your Soda Cloud account and configure them as connection credentials in your Warehouse and env_vars YAML files. See [Connect to Soda Cloud]({% link documentation/connect_to_cloud.md %}) for details. 
 
