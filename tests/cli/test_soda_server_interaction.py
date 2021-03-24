@@ -67,7 +67,7 @@ class TestSodaServerInteraction(SqlTestCase):
 
         scan = self.warehouse.create_scan(scan_yml=scan_configuration_parser.scan_yml,
                                           soda_server_client=soda_server_client,
-                                          time=datetime.now().isoformat())
+                                          time=datetime.now().isoformat(timespec='seconds'))
         scan.close_warehouse = False
         scan_result = scan.execute()
 
