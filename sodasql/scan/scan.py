@@ -17,6 +17,7 @@ from math import floor, ceil
 from typing import List, Optional
 
 from jinja2 import Template
+from tabulate import tabulate
 
 from sodasql.exceptions.exceptions import SodaSqlError, TestFailureError, ERROR_CODE_GENERIC
 from sodasql.scan.column_metadata import ColumnMetadata
@@ -535,47 +536,56 @@ class Scan:
                                     resolved_sql: str,
                                     scan_column: Optional[ScanColumn] = None):
 
-        logging.debug(f'Sending failed rows for sql metric {sql_metric.name}')
-        with tempfile.TemporaryFile() as temp_file:
-            rows_stored, sample_columns = \
-                self.sampler.save_sample_to_local_file(resolved_sql, temp_file)
+        if self.soda_server_client:
 
-            column_name = scan_column.column_name if scan_column else None
-            measurement = Measurement(metric=sql_metric.name, value=rows_stored, column_name=column_name)
+            logging.debug(f'Sending failed rows for sql metric {sql_metric.name} to Soda Cloud')
+            with tempfile.TemporaryFile() as temp_file:
+                rows_stored, sample_columns = \
+                    self.sampler.save_sample_to_local_file(resolved_sql, temp_file)
 
-            measurements = []
-            self._log_and_append_query_measurement(measurements, measurement)
-            self._flush_measurements(measurements)
+                column_name = scan_column.column_name if scan_column else None
+                measurement = Measurement(metric=sql_metric.name, value=rows_stored, column_name=column_name)
 
-            test = sql_metric.tests[0]
+                measurements = []
+                self._log_and_append_query_measurement(measurements, measurement)
+                self._flush_measurements(measurements)
 
-            test_variables = {
-                sql_metric.name: rows_stored
-            }
+                test = sql_metric.tests[0]
 
-            test_result = test.evaluate(test_variables)
-            self._flush_test_results([test_result])
+                test_variables = {
+                    sql_metric.name: rows_stored
+                }
 
-            temp_file_size_in_bytes = temp_file.tell()
-            temp_file.seek(0)
+                test_result = test.evaluate(test_variables)
+                self._flush_test_results([test_result])
 
-            file_path = self.sampler.create_file_path_failed_rows_sql_metric(sql_metric)
+                temp_file_size_in_bytes = temp_file.tell()
+                temp_file.seek(0)
 
-            file_id = self.soda_server_client.scan_upload(self.scan_reference,
-                                                          file_path,
-                                                          temp_file,
-                                                          temp_file_size_in_bytes)
+                file_path = self.sampler.create_file_path_failed_rows_sql_metric(sql_metric)
 
-            self.soda_server_client.scan_file(
-                scan_reference=self.scan_reference,
-                sample_type='invalidSample',
-                stored=int(rows_stored),
-                total=int(rows_stored),
-                source_columns=sample_columns,
-                file_id=file_id,
-                column_name=sql_metric.column_name,
-                test_ids=[test.id])
-            logging.debug(f'Sent failed rows for sql metric ({rows_stored}/{rows_stored}) to Soda Cloud')
+                file_id = self.soda_server_client.scan_upload(self.scan_reference,
+                                                              file_path,
+                                                              temp_file,
+                                                              temp_file_size_in_bytes)
+
+                self.soda_server_client.scan_file(
+                    scan_reference=self.scan_reference,
+                    sample_type='invalidSample',
+                    stored=int(rows_stored),
+                    total=int(rows_stored),
+                    source_columns=sample_columns,
+                    file_id=file_id,
+                    column_name=sql_metric.column_name,
+                    test_ids=[test.id])
+                logging.debug(f'Sent failed rows for sql metric ({rows_stored}/{rows_stored}) to Soda Cloud')
+        else:
+            failed_rows, description = self.warehouse.sql_fetchall_description(sql=resolved_sql)
+            if len(failed_rows) > 0:
+                table_text = tabulate(failed_rows, headers=[col[0] for col in description], tablefmt='pretty')
+                logging.debug(f'Failed rows for sql metric sql {sql_metric.name}:\n' + table_text)
+            else:
+                logging.debug(f'No failed rows for sql metric sql {sql_metric.name}')
 
     def _get_test_variables(self, scan_column: Optional[ScanColumn] = None):
         column_name_lower = scan_column.column_name_lower if scan_column is not None else None
