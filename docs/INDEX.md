@@ -8,7 +8,7 @@ permalink: /
 
 <p align="center"><img src="https://raw.githubusercontent.com/sodadata/soda-sql/main/docs/assets/images/soda-banner.png" alt="Soda logo" /></p>
 
-<img src="./assets/images/soda-sql-wide.png" align="left" alt="Soda SQL logo" width="720" height="720" />
+# Soda SQL
 
 **Soda SQL** is an open-source command-line tool. It utilizes user-defined input to prepare SQL queries that run tests on tables in a database to find invlaid, missing, or unexpected data. When tests fail, they surface "bad" data that you and your data engineering team can fix, ensuring downstream analysts are using "good" data to make decisions.
 
@@ -30,10 +30,10 @@ Use Soda SQL to scan a variety of data warehouses:<br />
 
 <br />
 
-<img src="./assets/images/soda-cloud-wide.png" align="left" alt="Soda SQL logo" width="720" height="720" />
+# Soda Cloud
 
 Connect Soda SQL to a free **Soda Cloud** account where you and your team can use the web application to monitor test results and collaborate to keep your data issue-free. 
 
 * Set up your free Soda Cloud account at [cloud.soda.io](https://cloud.soda.io/signup).
 * Soda SQL can run without Soda Cloud, but Soda Cloud depends upon Soda SQL! Install Soda SQL, then [connect it to your Soda Cloud Account]({% link documentation/connect_to_cloud.md %}).
-* Set monitors and alerts to notify your team about data issues.
+* [Create monitors and alerts]({% link documentation/monitors.md %}) to notify your team about data issues.

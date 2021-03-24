@@ -2,11 +2,14 @@
 layout: default
 title: Glossary
 parent: Documentation
-nav_order: 13
+nav_order: 14
 ---
 
 # Glossary
 <!--This glossary contains Soda-specific terms only. Do not define industry terminology such as "SQL" or "query".-->
+
+### alert 
+A setting that you configure in Soda Cloud by specifying key:value thresholds which, if passed, trigger a notification. See also: [notification](#notification).
 
 ### analyze
 A Soda SQL CLI command that sifts through the contents of your database and automatically prepares a scan YAML file for each table. See [Create a scan YAML file]({% link documentation/scan.md %}#create-a-scan-yaml-file).
@@ -35,11 +38,23 @@ The value for a metric that Soda SQL obtains during a scan. For example, in `row
 ### metric
 A property of the data in your database. See [Metrics]({% link documentation/sql_metrics.md %}). 
 
+### monitor
+A scan you define in Soda Cloud that tests the data in your database.
+
+### notification 
+A setting you configure in Soda Cloud that defines whom to notify when a data issue triggers an alert. See also: [alert](#alert).
+
 ### scan
 A Soda SQL CLI command that uses SQL queries to extract information about data in a database table.
 
 ### scan YAML
 The file in which you configure scan metrics and tests. Soda SQL uses the input from this file to prepare, then run SQL queries against your data. See [Scan YAML]({% link documentation/scan.md %}).
+
+### Soda Cloud
+A free, web application that enables you to examine the results of Soda SQL scans and create monitors and alerts. To use Soda Cloud, you must set up and connect Soda SQL to your Soda cloud account.
+
+### Soda SQL
+An open-source command-line tool that scans the data in your warehouse. You can use this as a stand-alone tool to monitor data quality from the command line, or connect it to a Soda Cloud account to monitor your data using a web application.
 
 ### SQL metric
 A custom metric you define in your scan YAML file. SQL metrics essentially enable you to add SQL queries to your scan YAML file so that Soda SQL runs them during a scan. See [SQL metrics]({% link documentation/sql_metrics.md %}#sql-metrics).

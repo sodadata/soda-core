@@ -4,8 +4,7 @@ Each scan requires the following as input:
 - a Warehouse YAML file, which represents a connection to your SQL engine
 - a scan YAML file, including its path, which contains the metric and test instructions that Soda SQL uses to scan tables in your warehouse
 
-Example command: 
-
+#### Example command 
 ```shell
-soda scan warehouse.yml tables/demodata.yml
+$ soda scan warehouse.yml tables/demodata.yml
 ```
