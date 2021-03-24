@@ -20,7 +20,7 @@ class Sampler:
         self.scan_reference = self.scan.scan_reference
         self.scan_folder_name = (f'{self._fileify(self.scan.warehouse.name)}' +
                                  f'-{self._fileify(self.scan.scan_yml.table_name)}' +
-                                 (f'-{self.scan.time}' if isinstance(self.scan.time, str) else '') +
+                                 (f'-{self._fileify(self.scan.time)}' if isinstance(self.scan.time, str) else '') +
                                  (f'-{self.scan.time.strftime("%Y%m%d%H%M%S")}' if isinstance(self.scan.time, datetime) else '') +
                                  f'-{datetime.now().strftime("%Y%m%d%H%M%S")}')
 
