@@ -8,7 +8,7 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-from typing import List, Optional
+from typing import List
 
 from sodasql.scan.measurement import Measurement
 from sodasql.scan.test_result import TestResult
@@ -54,6 +54,9 @@ class ScanResult:
         return len(self.soda_server_client_errors) > 0
 
     def add_soda_server_client_error(self, error_message: str):
+        self.soda_server_client_errors.append(error_message)
+
+    def add_exception(self, error_message: str):
         self.soda_server_client_errors.append(error_message)
 
     # get measurement value and raise exception if the measurement does not exist

@@ -27,7 +27,6 @@ from sodasql.scan.scan_column import ScanColumn
 from sodasql.scan.scan_result import ScanResult
 from sodasql.scan.scan_yml import ScanYml
 from sodasql.scan.sql_metric_yml import SqlMetricYml
-from sodasql.scan.test import Test
 from sodasql.scan.test_result import TestResult
 from sodasql.scan.warehouse import Warehouse
 from sodasql.soda_server_client.soda_server_client import SodaServerClient
@@ -433,14 +432,19 @@ class Scan:
                                               scan_column: Optional[ScanColumn] = None):
         if sql_metric_ymls:
             for sql_metric in sql_metric_ymls:
-                resolved_sql = self.resolve_sql_metric_sql(sql_metric)
+                try:
+                    resolved_sql = self.resolve_sql_metric_sql(sql_metric)
 
-                if sql_metric.type == 'numeric':
-                    self._run_sql_metric_default_and_run_tests(sql_metric, resolved_sql, scan_column)
-                elif sql_metric.type == 'numeric_groups':
-                    self._run_sql_metric_with_groups_and_run_tests(sql_metric, resolved_sql, scan_column)
-                elif sql_metric.type == 'failed_rows':
-                    self._run_sql_metric_failed_rows(sql_metric, resolved_sql, scan_column)
+                    if sql_metric.type == 'numeric':
+                        self._run_sql_metric_default_and_run_tests(sql_metric, resolved_sql, scan_column)
+                    elif sql_metric.type == 'numeric_groups':
+                        self._run_sql_metric_with_groups_and_run_tests(sql_metric, resolved_sql, scan_column)
+                    elif sql_metric.type == 'failed_rows':
+                        self._run_sql_metric_failed_rows(sql_metric, resolved_sql, scan_column)
+                except Exception as e:
+                    msg = f"Couldn't run sql metric {sql_metric}: {e}"
+                    logging.exception(msg)
+                    self.scan_result.add_exception(msg)
 
     def resolve_sql_metric_sql(self, sql_metric):
         if self.variables:

@@ -376,7 +376,8 @@ class ScanYmlParser(Parser):
                                      sql_metric_index: int,
                                      column_name: str) -> SqlMetricYml:
 
-        sql_metric_name = self.get_str_optional(SQL_METRIC_KEY_NAME)
+        sql_metric_name = self.get_str_required(SQL_METRIC_KEY_NAME)
+
         test_name = sql_metric_name
         test_expression = f'{test_name} == 0'
         test_id = self.create_test_id(test_expression, test_name, sql_metric_index, column_name, sql_metric_name, sql_metric_index)
@@ -390,7 +391,7 @@ class ScanYmlParser(Parser):
 
         return SqlMetricYml(
             type=sql_metric_type,
-            name=test_name,
+            name=sql_metric_name,
             title=self.get_str_optional(SQL_METRIC_KEY_TITLE),
             sql=self.get_str_optional(SQL_METRIC_KEY_SQL),
             column_name=column_name,

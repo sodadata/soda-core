@@ -8,19 +8,13 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-import json
-import logging
 from datetime import datetime
-from unittest import skip
 
-from sodasql.scan.metric import Metric
-from sodasql.scan.scan_yml_parser import KEY_METRICS, KEY_METRIC_GROUPS, KEY_COLUMNS, COLUMN_KEY_TESTS, KEY_SQL_METRICS, \
-    SQL_METRIC_KEY_TESTS, SQL_METRIC_KEY_SQL, KEY_TABLE_NAME, ScanYmlParser
+from sodasql.scan.scan_yml_parser import ScanYmlParser
 from sodasql.soda_server_client.soda_server_client import SodaServerClient
 from tests.common.sql_test_case import SqlTestCase
 
 
-#@skip
 class TestSodaServerInteraction(SqlTestCase):
 
     def test_soda_server_client(self):
@@ -52,7 +46,12 @@ class TestSodaServerInteraction(SqlTestCase):
                         'missing_count < 1',
                     ]
                 }
-            }
+            },
+            'sql_metrics': [{
+                'name': 'big names',
+                'sql': f'SELECT * from {self.default_test_table_name} WHERE name > 3',
+                'type': 'failed_rows'
+            }]
         }
 
         scan_configuration_parser = ScanYmlParser(scan_yml_dict, 'test-scan')
@@ -70,4 +69,7 @@ class TestSodaServerInteraction(SqlTestCase):
                                           soda_server_client=soda_server_client,
                                           time=datetime.now().isoformat())
         scan.close_warehouse = False
-        scan.execute()
+        scan_result = scan.execute()
+
+        # if scan_result.has_failures():
+        #     raise RuntimeError(f'Scan failed: {scan_result.get_failures_message()}')
