@@ -568,7 +568,7 @@ class Scan:
 
             self.soda_server_client.scan_file(
                 scan_reference=self.scan_reference,
-                sample_type='failedRowsSample',
+                sample_type='invalidSample',
                 stored=int(rows_stored),
                 total=int(rows_stored),
                 source_columns=sample_columns,

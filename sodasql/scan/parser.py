@@ -236,6 +236,16 @@ class Parser:
 
         test_ymls = parent_dict.get(tests_key)
 
+        # Deprecated
+        if isinstance(test_ymls, dict):
+            test_ymls_list = []
+            for test_name in test_ymls:
+                test_ymls_list.append({
+                    'name': test_name,
+                    'expression': test_ymls[test_name]
+                })
+            test_ymls = test_ymls_list
+
         self._push_context(None, tests_key)
         try:
             if isinstance(test_ymls, list):
@@ -251,7 +261,7 @@ class Parser:
                             test_expression = test_yml
                         elif isinstance(test_yml, dict):
                             test_name = self.get_str_required('name')
-                            test_title = self.get_str_required('title')
+                            test_title = self.get_str_optional('title')
                             test_expression = self.get_str_required('expression')
                         else:
                             self.error(f'Test must be a string or an object, but was {type(test_yml)}')
@@ -259,23 +269,6 @@ class Parser:
                         test = self.parse_test(test_index=test_index,
                                                test_name=test_name,
                                                test_title=test_title,
-                                               test_expression=test_expression,
-                                               context_table_name=context_table_name,
-                                               context_column_name=context_column_name,
-                                               context_sql_metric_name=context_sql_metric_name,
-                                               context_sql_metric_index=context_sql_metric_index)
-                        if test:
-                            tests.append(test)
-                    finally:
-                        self._pop_context()
-
-            # Deprecated
-            elif isinstance(test_ymls, dict):
-                for test_name in test_ymls:
-                    self._push_context(None, test_name)
-                    try:
-                        test_expression = test_ymls[test_name]
-                        test = self.parse_test(test_name=test_name,
                                                test_expression=test_expression,
                                                context_table_name=context_table_name,
                                                context_column_name=context_column_name,
@@ -380,12 +373,17 @@ class Parser:
         test_id_dict = {}
         if context_column_name:
             test_id_dict['column'] = context_column_name
-        if context_sql_metric_index is not None:
-            test_id_dict['sql_metric_index'] = context_sql_metric_index
-        elif context_sql_metric_name:
+
+        if context_sql_metric_name:
             test_id_dict['sql_metric_name'] = context_sql_metric_name
-        if test_index is not None:
-            test_id_dict['expression'] = test_expression
-        elif test_name:
+        elif context_sql_metric_index is not None:
+            test_id_dict['sql_metric_index'] = context_sql_metric_index
+
+        if test_name:
             test_id_dict['test_name'] = test_name
+        elif test_expression:
+            test_id_dict['expression'] = test_expression
+        else:
+            test_id_dict['test_index'] = test_index
+
         return json.dumps(test_id_dict, separators=(',', ':'))

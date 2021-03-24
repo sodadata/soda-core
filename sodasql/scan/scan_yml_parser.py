@@ -8,6 +8,7 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
+import re
 from typing import Set, List, Optional
 
 from jinja2 import Template
@@ -299,12 +300,13 @@ class ScanYmlParser(Parser):
 
                         self._push_context(object=sql_metric_dict, name=i)
                         try:
+                            sql_metric_yml = None
+
                             if metric_type == 'failed_rows':
                                 sql_metric_yml = self.parse_sql_metric_failed_rows(
                                     metric_type,
                                     sql_metric_index=i,
                                     column_name=column_name)
-                                sql_metric_ymls.append(sql_metric_yml)
 
                             elif metric_type.startswith('numeric'):
                                 sql_metric_yml = self.parse_sql_metric(
@@ -312,9 +314,11 @@ class ScanYmlParser(Parser):
                                     sql_metric_type=metric_type,
                                     sql_metric_index=i,
                                     column_name=column_name)
-                                sql_metric_ymls.append(sql_metric_yml)
                             else:
                                 self.error(f'Unknown sql_metric type {metric_type}')
+
+                            if sql_metric_yml:
+                                sql_metric_ymls.append(sql_metric_yml)
 
                         finally:
                             self._pop_context()
@@ -333,7 +337,7 @@ class ScanYmlParser(Parser):
                          sql_metric_dict,
                          sql_metric_type: str,
                          sql_metric_index: int,
-                         column_name: Optional[str] = None) -> SqlMetricYml:
+                         column_name: Optional[str] = None) -> Optional[SqlMetricYml]:
         sql_metric_name = self.get_str_optional(SQL_METRIC_KEY_NAME)
         metric_names = self.get_list_optional(SQL_METRIC_KEY_METRIC_NAMES)
         group_fields = self.get_list_optional(SQL_METRIC_KEY_GROUP_FIELDS)
@@ -374,9 +378,13 @@ class ScanYmlParser(Parser):
     def parse_sql_metric_failed_rows(self,
                                      sql_metric_type: str,
                                      sql_metric_index: int,
-                                     column_name: str) -> SqlMetricYml:
+                                     column_name: str) -> Optional[SqlMetricYml]:
 
         sql_metric_name = self.get_str_required(SQL_METRIC_KEY_NAME)
+        # TODO fix this regex to valid python identifiers
+        if not re.match(r'^[a-z0-9_]+$', sql_metric_name):
+            self.error(f'Invalid metric identifier {sql_metric_name}', SQL_METRIC_KEY_NAME)
+            return None
 
         test_name = sql_metric_name
         test_expression = f'{test_name} == 0'

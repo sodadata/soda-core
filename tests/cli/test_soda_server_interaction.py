@@ -28,10 +28,10 @@ class TestSodaServerInteraction(SqlTestCase):
 
         scan_yml_dict = {
             'table_name': self.default_test_table_name,
-            'samples': {
-                'table_limit': 10,
-                'failed_limit': 5
-            },
+            # 'samples': {
+            #     'table_limit': 10,
+            #     'failed_limit': 5
+            # },
             'metric_groups': [
                 'missing',
                 'validity'
@@ -48,7 +48,7 @@ class TestSodaServerInteraction(SqlTestCase):
                 }
             },
             'sql_metrics': [{
-                'name': 'big names',
+                'name': 'big_names',
                 'sql': f'SELECT * from {self.default_test_table_name} WHERE name > 3',
                 'type': 'failed_rows'
             }]
