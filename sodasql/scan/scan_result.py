@@ -11,6 +11,7 @@
 from typing import List
 
 from sodasql.scan.measurement import Measurement
+from sodasql.scan.scan_error import ScanError
 from sodasql.scan.test_result import TestResult
 
 
@@ -20,6 +21,14 @@ class ScanResult:
         self.measurements: List[Measurement] = []
         self.test_results: List[TestResult] = []
         self.error = None
+
+        # Any scan error (bug or sql syntax problems) should
+        #  - be logged at the end of the scan on the console
+        #  - be sent to the Soda Cloud (if connected and if authentication was successful)
+        #  - make the scan fail
+        self.scan_errors: List[ScanError] = []
+
+        # Deprecated
         self.soda_server_client_errors = []
 
     def has_failures(self):
@@ -71,6 +80,9 @@ class ScanResult:
                 (f' and column {column_name}' if column_name else '') + '\n' +
                 '\n'.join([str(m) for m in self.measurements]))
         return measurement
+
+    def add_scan_error(self, error: ScanError):
+        self.scan_errors.append(error)
 
     def to_json(self):
         return {

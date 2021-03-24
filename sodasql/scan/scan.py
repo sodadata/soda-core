@@ -25,6 +25,7 @@ from sodasql.scan.group_value import GroupValue
 from sodasql.scan.measurement import Measurement
 from sodasql.scan.metric import Metric
 from sodasql.scan.scan_column import ScanColumn
+from sodasql.scan.scan_error import SodaCloudScanError
 from sodasql.scan.scan_result import ScanResult
 from sodasql.scan.scan_yml import ScanYml
 from sodasql.scan.sql_metric_yml import SqlMetricYml
@@ -571,13 +572,14 @@ class Scan:
 
                 self.soda_server_client.scan_file(
                     scan_reference=self.scan_reference,
-                    sample_type='invalidSample',
+                    sample_type='failedRowsSample',
                     stored=int(rows_stored),
                     total=int(rows_stored),
                     source_columns=sample_columns,
                     file_id=file_id,
                     column_name=sql_metric.column_name,
-                    test_ids=[test.id])
+                    test_ids=[test.id],
+                    sql_metric_name=sql_metric.name)
                 logging.debug(f'Sent failed rows for sql metric ({rows_stored}/{rows_stored}) to Soda Cloud')
         else:
             failed_rows, description = self.warehouse.sql_fetchall_description(sql=resolved_sql)
@@ -697,6 +699,7 @@ class Scan:
                 logging.error(f'Soda Cloud error: Could not start scan: {e}')
                 logging.error(f'Skipping subsequent Soda Cloud communication')
                 self.scan_result.add_soda_server_client_error(f'Could not start scan: {e}')
+                self.scan_result.add_scan_error(SodaCloudScanError('Could not start scan', e))
                 self.soda_server_client = None
 
     def _validate_scan_success(self):
