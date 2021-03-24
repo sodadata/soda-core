@@ -381,8 +381,9 @@ class ScanYmlParser(Parser):
                                      column_name: str) -> Optional[SqlMetricYml]:
 
         sql_metric_name = self.get_str_required(SQL_METRIC_KEY_NAME)
-        # TODO fix this regex to valid python identifiers
-        if not re.match(r'^[a-z0-9_]+$', sql_metric_name):
+        # Only allow for valid python identifiers as the metric names in failed rows
+        # TODO make this consistent with the other sql metric names
+        if not re.match(r"^[^\d\W]\w*\Z$", sql_metric_name):
             self.error(f'Invalid metric identifier {sql_metric_name}', SQL_METRIC_KEY_NAME)
             return None
 
