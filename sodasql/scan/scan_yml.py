@@ -21,7 +21,6 @@ from sodasql.scan.test import Test
 
 
 class ScanYml:
-
     table_name: str = None
     metrics: Set[str] = None
     sql_metric_ymls: List[SqlMetricYml] = None
@@ -89,12 +88,13 @@ class ScanYml:
                         and column_samples_yml.is_failed_enabled()):
                     return column_samples_yml
                 elif (measurement.metric in [Metric.VALUES_COUNT, Metric.VALID_COUNT]
-                        and column_samples_yml.is_passed_enabled()):
+                      and column_samples_yml.is_passed_enabled()):
                     return column_samples_yml
         return None
 
     def get_column_samples_yml(self, column_name: str) -> Optional[SamplesYml]:
-        scan_yml_column: ScanYmlColumn = self.columns.get(column_name.lower())
-        if scan_yml_column and scan_yml_column.samples_yml:
-            return scan_yml_column.samples_yml.with_defaults(self.samples_yml)
+        if column_name and isinstance(column_name, str):
+            scan_yml_column: ScanYmlColumn = self.columns.get(column_name.lower())
+            if scan_yml_column and scan_yml_column.samples_yml:
+                return scan_yml_column.samples_yml.with_defaults(self.samples_yml)
         return self.samples_yml
