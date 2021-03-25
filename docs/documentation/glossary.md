@@ -2,7 +2,7 @@
 layout: default
 title: Glossary
 parent: Documentation
-nav_order: 14
+nav_order: 15
 ---
 
 # Glossary
@@ -54,7 +54,7 @@ The file in which you configure scan metrics and tests. Soda SQL uses the input 
 A free, web application that enables you to examine the results of Soda SQL scans and create monitors and alerts. To use Soda Cloud, you must set up and connect Soda SQL to your Soda cloud account.
 
 ### Soda SQL
-An open-source command-line tool that scans the data in your warehouse. You can use this as a stand-alone tool to monitor data quality from the command line, or connect it to a Soda Cloud account to monitor your data using a web application.
+An open-source command-line tool that scans the data in your warehouse. You can use this as a stand-alone tool to monitor data quality from the command-line, or connect it to a Soda Cloud account to monitor your data using a web application.
 
 ### SQL metric
 A custom metric you define in your scan YAML file. SQL metrics essentially enable you to add SQL queries to your scan YAML file so that Soda SQL runs them during a scan. See [SQL metrics]({% link documentation/sql_metrics.md %}#sql-metrics).

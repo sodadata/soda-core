@@ -15,7 +15,7 @@ Soda SQL is open-source software distributed under the Apache License 2.0.
   <a href="https://github.com/sodadata/soda-sql/actions/workflows/build.yml"><img alt="Build soda-sql" src="https://github.com/sodadata/soda-sql/actions/workflows/build.yml/badge.svg"></a>
 </p>
 
-## Contributing
+## Contribute
 
 We welcome and encourage any kind of contributions and suggestions for improvement! 
 

@@ -2,7 +2,7 @@
 layout: default
 title: Create monitors and alerts
 parent: Documentation
-nav_order: 12
+nav_order: 13
 ---
 
 # Create monitors and alerts
@@ -23,7 +23,7 @@ Log in to **[Soda Cloud]({% link documentation/glossary.md %}#soda-cloud)** to c
 
 1. In Soda Cloud, navigate to the **Monitor Results** table, then click the stacked dots to **Create Monitor**. Select the type `Metric`, then follow the guided steps to complete the setup. 
 2. Specify the Slack or email notifications you want to send when bad data triggers a **Critical Alert** or **Warning**, then **Save** your monitor. Your new monitor appears as a row in the **Monitor Results** table.
-3. Access your command line interface, then use Soda SQL to scan your data again.
+3. Access your command-line interface, then use Soda SQL to scan your data again.
 ``` shell
 $ soda scan warehouse.yml tables/yourtablename.yml
 ```
@@ -34,4 +34,4 @@ $ soda scan warehouse.yml tables/yourtablename.yml
 ## Go further
 
 * Learn more about [How Soda SQL works]({% link documentation/concepts.md %})
-* Read about Soda Cloud architecture.
+* Learn more about [Soda Cloud architecture]({% link documentation/soda-cloud-architecture.md %}).
