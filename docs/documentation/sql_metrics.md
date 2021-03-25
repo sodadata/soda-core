@@ -62,7 +62,7 @@ Where a column metric references a valid or invalid value, or a limit, use the m
 | `duplicate_count` | The number of rows that contain duplicated content. | -  |
 | `frequent_values` |  The number of rows that contain content that most frequently occurs in the column. |  - |
 | `histogram` |  A histogram calculated on the content of the column.  | - |
-| `invalid_count` | The total number of rows that contain invalid content.   | `valid_format` <br /> `valid_regex` |
+| `invalid_count` | The total number of rows that contain invalid content. | `valid_format` <br /> `valid_regex` |
 | `invalid_percentage` | The total percentage of rows that contain invalid content.  |  `valid_format` <br /> `valid_regex` |
 | `max` | The greatest value in a numeric column.  |  -  |
 | `max_length` | The maximum length of a string.  | `valid_max_length`  |
@@ -75,7 +75,7 @@ Where a column metric references a valid or invalid value, or a limit, use the m
 | `stddev` |  The standard deviation of a numeric column.   | - |
 | `sum` | The sum of the values in a numeric column.   | -  |
 | `unique_count` | The number of rows in which the content appears only once in the column.  |  - |
-| `uniqueness` | A measure of whether the rows contain unique content.  | -  |
+| `uniqueness` | A ratio that produces a number between 0 and 100 that indicates how unique a column is.  0 indicates that all the values are the same; 100 indicates that all the values in the the column are unique.  | -  |
 | `valid_count` |  The total number of rows that contain valid content.  | `valid_format` <br /> `valid_regex`   |
 | `valid_percentage` | The total percentage of rows that contain valid content.  |  `valid_format` <br /> `valid_regex`  |
 | `values_count` | The total number of rows that contain content included in a list of valid values. | `valid_values` <br /> `valid_regex`  |
