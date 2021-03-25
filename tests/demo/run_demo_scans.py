@@ -73,4 +73,4 @@ print('Summary:')
 for scan_result in scan_results:
     print(f'Scan results:')
     print(f'  Measurements: {len(scan_result.measurements)}')
-    print(f'  Test results: {len(scan_result.test_results)} of which {scan_result.failures_count()} failed')
+    print(f'  Test results: {len(scan_result.test_results)} of which {scan_result.get_test_failures_count()} failed')

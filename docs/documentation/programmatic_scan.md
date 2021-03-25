@@ -20,7 +20,7 @@ scan_builder.scan_yml_file = 'tables/my_table.yml'
 # scan_builder.warehouse_yml_file = '../warehouse.yml'
 scan = scan_builder.build()
 scan_result = scan.execute()
-if scan_result.has_failures():
+if scan_result.has_test_failures():
     print('Scan has test failures, stop the pipeline')
 ```
 
@@ -40,7 +40,7 @@ scan_builder.scan_yml_dict = {
 }
 scan = scan_builder.build()
 scan_result = scan.execute()
-if scan_result.has_failures():
+if scan_result.has_test_failures():
     print('Scan has test failures, stop the pipeline')
 ```
 

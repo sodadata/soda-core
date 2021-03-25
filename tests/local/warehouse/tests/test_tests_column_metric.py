@@ -37,12 +37,12 @@ class TestColumnMetricTests(SqlTestCase):
             }
         }
         scan_result = self.scan(scan_yml_dict)
-        self.assertFalse(scan_result.has_failures())
+        self.assertFalse(scan_result.has_test_failures())
 
         scan_yml_dict[KEY_COLUMNS]['name']['tests'][0] = 'missing_count == 0'
 
         scan_result = self.scan(scan_yml_dict)
-        self.assertTrue(scan_result.has_failures())
+        self.assertTrue(scan_result.has_test_failures())
 
     def test_column_metric_metric_calculation_test(self):
         self.sql_recreate_table(
@@ -67,5 +67,5 @@ class TestColumnMetricTests(SqlTestCase):
                 }
             }
         })
-        self.assertTrue(scan_result.has_failures())
+        self.assertTrue(scan_result.has_test_failures())
 

@@ -48,18 +48,15 @@ class AthenaDialect(Dialect):
     def create_connection(self):
         # pyathena.connect will do the role resolving
         # aws_credentials = self.aws_credentials.resolve_role('soda_scan')
-        try:
-            conn = pyathena.connect(
-                aws_access_key_id=self.aws_credentials.access_key_id,
-                aws_secret_access_key=self.aws_credentials.secret_access_key,
-                s3_staging_dir=self.athena_staging_dir,
-                region_name=self.aws_credentials.region_name,
-                role_arn=self.aws_credentials.role_arn,
-                catalog_name=self.catalog,
-            )
-            return conn
-        except Exception as e:
-            self.try_to_raise_soda_sql_exception(e)
+        conn = pyathena.connect(
+            aws_access_key_id=self.aws_credentials.access_key_id,
+            aws_secret_access_key=self.aws_credentials.secret_access_key,
+            s3_staging_dir=self.athena_staging_dir,
+            region_name=self.aws_credentials.region_name,
+            role_arn=self.aws_credentials.role_arn,
+            catalog_name=self.catalog,
+        )
+        return conn
 
     def is_text(self, column_type: str):
         return not self.is_complex(column_type) and super().is_text(column_type)

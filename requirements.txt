@@ -158,8 +158,6 @@ six==1.15.0
     #   thrift
 snowflake-connector-python==2.4.0
     # via -r requirements.in
-tabulate==0.8.9
-    # via -r requirements.in
 tenacity==6.2.0
     # via pyathena
 thrift==0.13.0

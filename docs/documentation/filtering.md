@@ -66,7 +66,7 @@ scan_builder.variables = {
 }
 scan = scan_builder.build()
 scan_result = scan.execute()
-if scan_result.has_failures():
+if scan_result.has_test_failures():
     print('Scan has test failures, stop the pipeline')
 ```
 

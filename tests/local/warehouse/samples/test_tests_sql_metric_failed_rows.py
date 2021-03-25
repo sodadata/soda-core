@@ -47,5 +47,5 @@ class TestTestsSqlMetric(SqlTestCase):
         }
 
         scan_result = self.scan(scan_yml_dict=scan_yml_dict)
-        self.assertTrue(scan_result.has_failures())
+        self.assertTrue(scan_result.has_test_failures())
 

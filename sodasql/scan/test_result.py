@@ -22,7 +22,7 @@ class TestResult:
     test: Test
     passed: bool
     values: Optional[dict] = None
-    error: Optional[str] = None
+    error: Optional[Exception] = None
     group_values: Optional[dict] = None
 
     def __str__(self):
@@ -46,7 +46,7 @@ class TestResult:
             test_result_json['columnName'] = self.test.column
 
         if self.error:
-            test_result_json['error'] = self.error
+            test_result_json['error'] = str(self.error)
         else:
             test_result_json['passed'] = self.passed
             values = {}

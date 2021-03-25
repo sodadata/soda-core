@@ -11,21 +11,18 @@
 
 import logging
 import tempfile
-import traceback
 from datetime import datetime
 from math import floor, ceil
 from typing import List, Optional
 
 from jinja2 import Template
-from tabulate import tabulate
 
-from sodasql.exceptions.exceptions import SodaSqlError, TestFailureError, ERROR_CODE_GENERIC
 from sodasql.scan.column_metadata import ColumnMetadata
 from sodasql.scan.group_value import GroupValue
 from sodasql.scan.measurement import Measurement
 from sodasql.scan.metric import Metric
 from sodasql.scan.scan_column import ScanColumn
-from sodasql.scan.scan_error import SodaCloudScanError
+from sodasql.scan.scan_error import SodaCloudScanError, ScanError, TestExecutionScanError
 from sodasql.scan.scan_result import ScanResult
 from sodasql.scan.scan_yml import ScanYml
 from sodasql.scan.sql_metric_yml import SqlMetricYml
@@ -95,25 +92,19 @@ class Scan:
             self._run_column_tests()
             self._take_samples()
 
-            self._validate_scan_success()
-
             logging.debug(f'Executed {self.queries_executed} queries in {(datetime.now() - self.start_time)}')
 
-        except SodaSqlError as e:
-            logging.exception(str(e))
-            self.scan_result.error = {'code': e.error_code, 'message': str(e)}
-
-        except Exception:
-            logging.exception('Scan failed')
-            self.scan_result.error = {'code': ERROR_CODE_GENERIC, 'message': traceback.format_exc()}
+        except Exception as e:
+            logging.exception('Exception during scan')
+            self.scan_result.add_error(ScanError('Exception during scan', e))
 
         finally:
             if self.soda_server_client and self.send_scan_end:
                 try:
-                    self.soda_server_client.scan_ended(self.scan_reference, self.scan_result.error)
+                    self.soda_server_client.scan_ended(self.scan_reference, self.scan_result.errors)
                 except Exception as e:
                     logging.error(f'Soda Cloud error: Could not end scan: {e}')
-                    self.scan_result.add_soda_server_client_error(f'Could not end scan: {e}')
+                    self.scan_result.add_error(SodaCloudScanError('Could not end scan', e))
 
             if self.close_warehouse:
                 self.warehouse.close()
@@ -166,262 +157,271 @@ class Scan:
         # eg { 'colname': {'missing': 2, 'invalid': 3}, ...}
         column_metric_indices = {}
 
-        for column_name_lower, scan_column in self.scan_columns.items():
-            metric_indices = {}
-            column_metric_indices[column_name_lower] = metric_indices
-            column_name = scan_column.column_name
+        try:
+            for column_name_lower, scan_column in self.scan_columns.items():
+                metric_indices = {}
+                column_metric_indices[column_name_lower] = metric_indices
+                column_name = scan_column.column_name
 
-            if scan_column.is_missing_enabled:
-                metric_indices['non_missing'] = len(measurements)
-                if scan_column.non_missing_condition:
-                    fields.append(dialect.sql_expr_count_conditional(scan_column.non_missing_condition))
-                else:
-                    fields.append(dialect.sql_expr_count(scan_column.qualified_column_name))
-                measurements.append(Measurement(Metric.VALUES_COUNT, column_name))
+                if scan_column.is_missing_enabled:
+                    metric_indices['non_missing'] = len(measurements)
+                    if scan_column.non_missing_condition:
+                        fields.append(dialect.sql_expr_count_conditional(scan_column.non_missing_condition))
+                    else:
+                        fields.append(dialect.sql_expr_count(scan_column.qualified_column_name))
+                    measurements.append(Measurement(Metric.VALUES_COUNT, column_name))
 
-            if scan_column.is_valid_enabled:
-                metric_indices['valid'] = len(measurements)
-                if scan_column.non_missing_and_valid_condition:
-                    fields.append(dialect.sql_expr_count_conditional(scan_column.non_missing_and_valid_condition))
-                else:
-                    fields.append(dialect.sql_expr_count(scan_column.qualified_column_name))
-                measurements.append(Measurement(Metric.VALID_COUNT, column_name))
+                if scan_column.is_valid_enabled:
+                    metric_indices['valid'] = len(measurements)
+                    if scan_column.non_missing_and_valid_condition:
+                        fields.append(dialect.sql_expr_count_conditional(scan_column.non_missing_and_valid_condition))
+                    else:
+                        fields.append(dialect.sql_expr_count(scan_column.qualified_column_name))
+                    measurements.append(Measurement(Metric.VALID_COUNT, column_name))
 
-            if scan_column.is_text:
-                length_expr = dialect.sql_expr_conditional(
-                    scan_column.non_missing_and_valid_condition,
-                    dialect.sql_expr_length(scan_column.qualified_column_name)) \
-                    if scan_column.non_missing_and_valid_condition \
-                    else dialect.sql_expr_length(scan_column.qualified_column_name)
+                if scan_column.is_text:
+                    length_expr = dialect.sql_expr_conditional(
+                        scan_column.non_missing_and_valid_condition,
+                        dialect.sql_expr_length(scan_column.qualified_column_name)) \
+                        if scan_column.non_missing_and_valid_condition \
+                        else dialect.sql_expr_length(scan_column.qualified_column_name)
 
-                if self.scan_yml.is_metric_enabled(Metric.MIN_LENGTH, column_name):
-                    fields.append(dialect.sql_expr_min(length_expr))
-                    measurements.append(Measurement(Metric.MIN_LENGTH, column_name))
+                    if self.scan_yml.is_metric_enabled(Metric.MIN_LENGTH, column_name):
+                        fields.append(dialect.sql_expr_min(length_expr))
+                        measurements.append(Measurement(Metric.MIN_LENGTH, column_name))
 
-                if self.scan_yml.is_metric_enabled(Metric.MAX_LENGTH, column_name):
-                    fields.append(dialect.sql_expr_max(length_expr))
-                    measurements.append(Measurement(Metric.MAX_LENGTH, column_name))
+                    if self.scan_yml.is_metric_enabled(Metric.MAX_LENGTH, column_name):
+                        fields.append(dialect.sql_expr_max(length_expr))
+                        measurements.append(Measurement(Metric.MAX_LENGTH, column_name))
 
-            if scan_column.has_numeric_values:
-                if scan_column.is_metric_enabled(Metric.MIN):
-                    fields.append(dialect.sql_expr_min(scan_column.numeric_expr))
-                    measurements.append(Measurement(Metric.MIN, column_name))
+                if scan_column.has_numeric_values:
+                    if scan_column.is_metric_enabled(Metric.MIN):
+                        fields.append(dialect.sql_expr_min(scan_column.numeric_expr))
+                        measurements.append(Measurement(Metric.MIN, column_name))
 
-                if scan_column.is_metric_enabled(Metric.MAX):
-                    fields.append(dialect.sql_expr_max(scan_column.numeric_expr))
-                    measurements.append(Measurement(Metric.MAX, column_name))
+                    if scan_column.is_metric_enabled(Metric.MAX):
+                        fields.append(dialect.sql_expr_max(scan_column.numeric_expr))
+                        measurements.append(Measurement(Metric.MAX, column_name))
 
-                if scan_column.is_metric_enabled(Metric.AVG):
-                    fields.append(dialect.sql_expr_avg(scan_column.numeric_expr))
-                    measurements.append(Measurement(Metric.AVG, column_name))
+                    if scan_column.is_metric_enabled(Metric.AVG):
+                        fields.append(dialect.sql_expr_avg(scan_column.numeric_expr))
+                        measurements.append(Measurement(Metric.AVG, column_name))
 
-                if scan_column.is_metric_enabled(Metric.SUM):
-                    fields.append(dialect.sql_expr_sum(scan_column.numeric_expr))
-                    measurements.append(Measurement(Metric.SUM, column_name))
+                    if scan_column.is_metric_enabled(Metric.SUM):
+                        fields.append(dialect.sql_expr_sum(scan_column.numeric_expr))
+                        measurements.append(Measurement(Metric.SUM, column_name))
 
-                if scan_column.is_metric_enabled(Metric.VARIANCE):
-                    fields.append(dialect.sql_expr_variance(scan_column.numeric_expr))
-                    measurements.append(Measurement(Metric.VARIANCE, column_name))
+                    if scan_column.is_metric_enabled(Metric.VARIANCE):
+                        fields.append(dialect.sql_expr_variance(scan_column.numeric_expr))
+                        measurements.append(Measurement(Metric.VARIANCE, column_name))
 
-                if scan_column.is_metric_enabled(Metric.STDDEV):
-                    fields.append(dialect.sql_expr_stddev(scan_column.numeric_expr))
-                    measurements.append(Measurement(Metric.STDDEV, column_name))
+                    if scan_column.is_metric_enabled(Metric.STDDEV):
+                        fields.append(dialect.sql_expr_stddev(scan_column.numeric_expr))
+                        measurements.append(Measurement(Metric.STDDEV, column_name))
 
-        if len(fields) > 0:
-            sql = 'SELECT \n  ' + ',\n  '.join(fields) + ' \n' \
-                                                         'FROM ' + self.qualified_table_name
-            if self.table_sample_clause:
-                sql += f'\n{self.table_sample_clause}'
-            if self.filter_sql:
-                sql += f'\nWHERE {self.filter_sql}'
+            if len(fields) > 0:
+                sql = 'SELECT \n  ' + ',\n  '.join(fields) + ' \n' \
+                                                             'FROM ' + self.qualified_table_name
+                if self.table_sample_clause:
+                    sql += f'\n{self.table_sample_clause}'
+                if self.filter_sql:
+                    sql += f'\nWHERE {self.filter_sql}'
 
-            query_result_tuple = self.warehouse.sql_fetchone(sql)
-            self.queries_executed += 1
+                query_result_tuple = self.warehouse.sql_fetchone(sql)
+                self.queries_executed += 1
 
-            for i in range(0, len(measurements)):
-                measurement = measurements[i]
-                measurement.value = query_result_tuple[i]
-                self._log_measurement(measurement)
+                for i in range(0, len(measurements)):
+                    measurement = measurements[i]
+                    measurement.value = query_result_tuple[i]
+                    self._log_measurement(measurement)
 
-            # Calculating derived measurements
-            row_count_measurement = next((m for m in measurements if m.metric == Metric.ROW_COUNT), None)
-            if row_count_measurement:
-                row_count = row_count_measurement.value
-                for column_name_lower, scan_column in self.scan_columns.items():
-                    column_name = scan_column.column_name
-                    metric_indices = column_metric_indices[column_name_lower]
-                    non_missing_index = metric_indices.get('non_missing')
-                    if non_missing_index is not None:
-                        values_count = measurements[non_missing_index].value
-                        missing_count = row_count - values_count
-                        missing_percentage = missing_count * 100 / row_count if row_count > 0 else None
-                        values_percentage = values_count * 100 / row_count if row_count > 0 else None
+                # Calculating derived measurements
+                row_count_measurement = next((m for m in measurements if m.metric == Metric.ROW_COUNT), None)
+                if row_count_measurement:
+                    row_count = row_count_measurement.value
+                    for column_name_lower, scan_column in self.scan_columns.items():
+                        column_name = scan_column.column_name
+                        metric_indices = column_metric_indices[column_name_lower]
+                        non_missing_index = metric_indices.get('non_missing')
+                        if non_missing_index is not None:
+                            values_count = measurements[non_missing_index].value
+                            missing_count = row_count - values_count
+                            missing_percentage = missing_count * 100 / row_count if row_count > 0 else None
+                            values_percentage = values_count * 100 / row_count if row_count > 0 else None
 
-                        self._log_and_append_derived_measurements(measurements, [
-                            Measurement(Metric.MISSING_PERCENTAGE, column_name, missing_percentage),
-                            Measurement(Metric.MISSING_COUNT, column_name, missing_count),
-                            Measurement(Metric.VALUES_PERCENTAGE, column_name, values_percentage)
-                        ])
-
-                        valid_index = metric_indices.get('valid')
-                        if valid_index is not None:
-                            valid_count = measurements[valid_index].value
-                            invalid_count = row_count - missing_count - valid_count
-                            invalid_percentage = invalid_count * 100 / row_count if row_count > 0 else None
-                            valid_percentage = valid_count * 100 / row_count if row_count > 0 else None
                             self._log_and_append_derived_measurements(measurements, [
-                                Measurement(Metric.INVALID_PERCENTAGE, column_name, invalid_percentage),
-                                Measurement(Metric.INVALID_COUNT, column_name, invalid_count),
-                                Measurement(Metric.VALID_PERCENTAGE, column_name, valid_percentage)
+                                Measurement(Metric.MISSING_PERCENTAGE, column_name, missing_percentage),
+                                Measurement(Metric.MISSING_COUNT, column_name, missing_count),
+                                Measurement(Metric.VALUES_PERCENTAGE, column_name, values_percentage)
                             ])
 
-        self._flush_measurements(measurements)
+                            valid_index = metric_indices.get('valid')
+                            if valid_index is not None:
+                                valid_count = measurements[valid_index].value
+                                invalid_count = row_count - missing_count - valid_count
+                                invalid_percentage = invalid_count * 100 / row_count if row_count > 0 else None
+                                valid_percentage = valid_count * 100 / row_count if row_count > 0 else None
+                                self._log_and_append_derived_measurements(measurements, [
+                                    Measurement(Metric.INVALID_PERCENTAGE, column_name, invalid_percentage),
+                                    Measurement(Metric.INVALID_COUNT, column_name, invalid_count),
+                                    Measurement(Metric.VALID_PERCENTAGE, column_name, valid_percentage)
+                                ])
+
+            self._flush_measurements(measurements)
+        except Exception as e:
+            self.scan_result.add_error(ScanError(f'Exception during aggregation query', e))
 
     def _query_group_by_value(self):
         for column_name_lower, scan_column in self.scan_columns.items():
-            measurements = []
+            try:
+                measurements = []
 
-            column_name = scan_column.column_name
+                column_name = scan_column.column_name
 
-            if scan_column.is_any_metric_enabled(
-                    [Metric.DISTINCT, Metric.UNIQUENESS, Metric.UNIQUE_COUNT,
-                     Metric.MINS, Metric.MAXS, Metric.FREQUENT_VALUES, Metric.DUPLICATE_COUNT]):
+                if scan_column.is_any_metric_enabled(
+                        [Metric.DISTINCT, Metric.UNIQUENESS, Metric.UNIQUE_COUNT,
+                         Metric.MINS, Metric.MAXS, Metric.FREQUENT_VALUES, Metric.DUPLICATE_COUNT]):
 
-                group_by_cte = scan_column.get_group_by_cte()
-                numeric_value_expr = scan_column.get_group_by_cte_numeric_value_expression()
-                order_by_value_expr = scan_column.get_order_by_cte_value_expression(numeric_value_expr)
+                    group_by_cte = scan_column.get_group_by_cte()
+                    numeric_value_expr = scan_column.get_group_by_cte_numeric_value_expression()
+                    order_by_value_expr = scan_column.get_order_by_cte_value_expression(numeric_value_expr)
 
-                if self.scan_yml.is_any_metric_enabled(
-                        [Metric.DISTINCT, Metric.UNIQUENESS, Metric.UNIQUE_COUNT, Metric.DUPLICATE_COUNT],
-                        column_name):
+                    if self.scan_yml.is_any_metric_enabled(
+                            [Metric.DISTINCT, Metric.UNIQUENESS, Metric.UNIQUE_COUNT, Metric.DUPLICATE_COUNT],
+                            column_name):
 
-                    sql = (f'{group_by_cte} \n'
-                           f'SELECT COUNT(*), \n'
-                           f'       COUNT(CASE WHEN frequency = 1 THEN 1 END), \n'
-                           f'       SUM(frequency) \n'
-                           f'FROM group_by_value')
+                        sql = (f'{group_by_cte} \n'
+                               f'SELECT COUNT(*), \n'
+                               f'       COUNT(CASE WHEN frequency = 1 THEN 1 END), \n'
+                               f'       SUM(frequency) \n'
+                               f'FROM group_by_value')
 
-                    query_result_tuple = self.warehouse.sql_fetchone(sql)
-                    self.queries_executed += 1
+                        query_result_tuple = self.warehouse.sql_fetchone(sql)
+                        self.queries_executed += 1
 
-                    distinct_count = query_result_tuple[0]
-                    unique_count = query_result_tuple[1]
-                    valid_count = query_result_tuple[2] if query_result_tuple[2] else 0
-                    duplicate_count = distinct_count - unique_count
+                        distinct_count = query_result_tuple[0]
+                        unique_count = query_result_tuple[1]
+                        valid_count = query_result_tuple[2] if query_result_tuple[2] else 0
+                        duplicate_count = distinct_count - unique_count
 
-                    self._log_and_append_query_measurement(
-                        measurements, Measurement(Metric.DISTINCT, column_name, distinct_count))
-                    self._log_and_append_query_measurement(
-                        measurements, Measurement(Metric.UNIQUE_COUNT, column_name, unique_count))
+                        self._log_and_append_query_measurement(
+                            measurements, Measurement(Metric.DISTINCT, column_name, distinct_count))
+                        self._log_and_append_query_measurement(
+                            measurements, Measurement(Metric.UNIQUE_COUNT, column_name, unique_count))
 
-                    derived_measurements = [Measurement(Metric.DUPLICATE_COUNT, column_name, duplicate_count)]
-                    if valid_count > 1:
-                        uniqueness = (distinct_count - 1) * 100 / (valid_count - 1)
-                        derived_measurements.append(Measurement(Metric.UNIQUENESS, column_name, uniqueness))
-                    self._log_and_append_derived_measurements(measurements, derived_measurements)
+                        derived_measurements = [Measurement(Metric.DUPLICATE_COUNT, column_name, duplicate_count)]
+                        if valid_count > 1:
+                            uniqueness = (distinct_count - 1) * 100 / (valid_count - 1)
+                            derived_measurements.append(Measurement(Metric.UNIQUENESS, column_name, uniqueness))
+                        self._log_and_append_derived_measurements(measurements, derived_measurements)
 
-                if scan_column.is_metric_enabled(Metric.MINS) and order_by_value_expr:
-                    sql = (f'{group_by_cte} \n'
-                           f'SELECT value \n'
-                           f'FROM group_by_value \n'
-                           f'ORDER BY {order_by_value_expr} ASC \n'
-                           f'LIMIT {scan_column.mins_maxs_limit} \n')
+                    if scan_column.is_metric_enabled(Metric.MINS) and order_by_value_expr:
+                        sql = (f'{group_by_cte} \n'
+                               f'SELECT value \n'
+                               f'FROM group_by_value \n'
+                               f'ORDER BY {order_by_value_expr} ASC \n'
+                               f'LIMIT {scan_column.mins_maxs_limit} \n')
 
-                    rows = self.warehouse.sql_fetchall(sql)
-                    self.queries_executed += 1
+                        rows = self.warehouse.sql_fetchall(sql)
+                        self.queries_executed += 1
 
-                    mins = [row[0] for row in rows]
-                    self._log_and_append_query_measurement(measurements, Measurement(Metric.MINS, column_name, mins))
+                        mins = [row[0] for row in rows]
+                        self._log_and_append_query_measurement(measurements, Measurement(Metric.MINS, column_name, mins))
 
-                if self.scan_yml.is_metric_enabled(Metric.MAXS, column_name) and order_by_value_expr:
-                    sql = (f'{group_by_cte} \n'
-                           f'SELECT value \n'
-                           f'FROM group_by_value \n'
-                           f'ORDER BY {order_by_value_expr} DESC \n'
-                           f'LIMIT {scan_column.mins_maxs_limit} \n')
+                    if self.scan_yml.is_metric_enabled(Metric.MAXS, column_name) and order_by_value_expr:
+                        sql = (f'{group_by_cte} \n'
+                               f'SELECT value \n'
+                               f'FROM group_by_value \n'
+                               f'ORDER BY {order_by_value_expr} DESC \n'
+                               f'LIMIT {scan_column.mins_maxs_limit} \n')
 
-                    rows = self.warehouse.sql_fetchall(sql)
-                    self.queries_executed += 1
+                        rows = self.warehouse.sql_fetchall(sql)
+                        self.queries_executed += 1
 
-                    maxs = [row[0] for row in rows]
-                    self._log_and_append_query_measurement(measurements, Measurement(Metric.MAXS, column_name, maxs))
+                        maxs = [row[0] for row in rows]
+                        self._log_and_append_query_measurement(measurements, Measurement(Metric.MAXS, column_name, maxs))
 
-                if self.scan_yml.is_metric_enabled(Metric.FREQUENT_VALUES, column_name) \
-                        and (scan_column.is_number or scan_column.is_column_numeric_text_format):
-                    frequent_values_limit = self.scan_yml.get_frequent_values_limit(column_name)
-                    sql = (f'{group_by_cte} \n'
-                           f'SELECT value, frequency \n'
-                           f'FROM group_by_value \n'
-                           f'ORDER BY frequency DESC \n'
-                           f'LIMIT {frequent_values_limit} \n')
+                    if self.scan_yml.is_metric_enabled(Metric.FREQUENT_VALUES, column_name) \
+                            and (scan_column.is_number or scan_column.is_column_numeric_text_format):
+                        frequent_values_limit = self.scan_yml.get_frequent_values_limit(column_name)
+                        sql = (f'{group_by_cte} \n'
+                               f'SELECT value, frequency \n'
+                               f'FROM group_by_value \n'
+                               f'ORDER BY frequency DESC \n'
+                               f'LIMIT {frequent_values_limit} \n')
 
-                    rows = self.warehouse.sql_fetchall(sql)
-                    self.queries_executed += 1
+                        rows = self.warehouse.sql_fetchall(sql)
+                        self.queries_executed += 1
 
-                    frequent_values = [{'value': row[0], 'frequency': row[1]} for row in rows]
-                    self._log_and_append_query_measurement(
-                        measurements, Measurement(Metric.FREQUENT_VALUES, column_name, frequent_values))
+                        frequent_values = [{'value': row[0], 'frequency': row[1]} for row in rows]
+                        self._log_and_append_query_measurement(
+                            measurements, Measurement(Metric.FREQUENT_VALUES, column_name, frequent_values))
 
-            self._flush_measurements(measurements)
+                self._flush_measurements(measurements)
+            except Exception as e:
+                self.scan_result.add_error(ScanError(f'Exception during column group by value queries', e))
 
     def _query_histograms(self):
         measurements = []
         for column_name_lower, scan_column in self.scan_columns.items():
             column_name = scan_column.column_name
 
-            if scan_column.is_metric_enabled(Metric.HISTOGRAM) and scan_column.numeric_expr:
+            try:
+                if scan_column.is_metric_enabled(Metric.HISTOGRAM) and scan_column.numeric_expr:
 
-                buckets: int = scan_column.get_histogram_buckets()
+                    buckets: int = scan_column.get_histogram_buckets()
 
-                min_value = scan_column.get_metric_value(Metric.MIN)
-                max_value = scan_column.get_metric_value(Metric.MAX)
+                    min_value = scan_column.get_metric_value(Metric.MIN)
+                    max_value = scan_column.get_metric_value(Metric.MAX)
 
-                if scan_column.has_numeric_values and min_value and max_value and min_value < max_value:
-                    # Build the histogram query
-                    min_value = floor(min_value * 1000) / 1000
-                    max_value = ceil(max_value * 1000) / 1000
-                    bucket_width = (max_value - min_value) / buckets
+                    if scan_column.has_numeric_values and min_value and max_value and min_value < max_value:
+                        # Build the histogram query
+                        min_value = floor(min_value * 1000) / 1000
+                        max_value = ceil(max_value * 1000) / 1000
+                        bucket_width = (max_value - min_value) / buckets
 
-                    boundary = min_value
-                    boundaries = [min_value]
-                    for i in range(0, buckets):
-                        boundary += bucket_width
-                        boundaries.append(round(boundary, 3))
+                        boundary = min_value
+                        boundaries = [min_value]
+                        for i in range(0, buckets):
+                            boundary += bucket_width
+                            boundaries.append(round(boundary, 3))
 
-                    group_by_cte = scan_column.get_group_by_cte()
-                    numeric_value_expr = scan_column.get_group_by_cte_numeric_value_expression()
+                        group_by_cte = scan_column.get_group_by_cte()
+                        numeric_value_expr = scan_column.get_group_by_cte_numeric_value_expression()
 
-                    field_clauses = []
-                    for i in range(0, buckets):
-                        lower_bound = '' if i == 0 else f'{boundaries[i]} <= {numeric_value_expr}'
-                        upper_bound = '' if i == buckets - 1 else f'{numeric_value_expr} < {boundaries[i + 1]}'
-                        optional_and = '' if lower_bound == '' or upper_bound == '' else ' and '
-                        field_clauses.append(
-                            f'SUM(CASE WHEN {lower_bound}{optional_and}{upper_bound} THEN frequency END)')
+                        field_clauses = []
+                        for i in range(0, buckets):
+                            lower_bound = '' if i == 0 else f'{boundaries[i]} <= {numeric_value_expr}'
+                            upper_bound = '' if i == buckets - 1 else f'{numeric_value_expr} < {boundaries[i + 1]}'
+                            optional_and = '' if lower_bound == '' or upper_bound == '' else ' and '
+                            field_clauses.append(
+                                f'SUM(CASE WHEN {lower_bound}{optional_and}{upper_bound} THEN frequency END)')
 
-                    fields = ',\n  '.join(field_clauses)
+                        fields = ',\n  '.join(field_clauses)
 
-                    sql = (f'{group_by_cte} \n'
-                           f'SELECT \n'
-                           f'  {fields} \n'
-                           f'FROM group_by_value')
+                        sql = (f'{group_by_cte} \n'
+                               f'SELECT \n'
+                               f'  {fields} \n'
+                               f'FROM group_by_value')
 
-                    row = self.warehouse.sql_fetchone(sql)
-                    self.queries_executed += 1
+                        row = self.warehouse.sql_fetchone(sql)
+                        self.queries_executed += 1
 
-                    # Process the histogram query
-                    frequencies = []
-                    for i in range(0, buckets):
-                        frequency = row[i]
-                        frequencies.append(0 if not frequency else int(frequency))
-                    histogram = {
-                        'boundaries': boundaries,
-                        'frequencies': frequencies
-                    }
+                        # Process the histogram query
+                        frequencies = []
+                        for i in range(0, buckets):
+                            frequency = row[i]
+                            frequencies.append(0 if not frequency else int(frequency))
+                        histogram = {
+                            'boundaries': boundaries,
+                            'frequencies': frequencies
+                        }
 
-                    self._log_and_append_query_measurement(
-                        measurements, Measurement(Metric.HISTOGRAM, column_name, histogram))
-        self._flush_measurements(measurements)
+                        self._log_and_append_query_measurement(measurements,
+                                                               Measurement(Metric.HISTOGRAM, column_name, histogram))
+                    self._flush_measurements(measurements)
+            except Exception as e:
+                self.scan_result.add_error(ScanError(f'Exception during histogram query for {column_name}', e))
 
     def _query_sql_metrics_and_run_tests(self):
         self._query_sql_metrics_and_run_tests_base(self.scan_yml.sql_metric_ymls)
@@ -446,7 +446,7 @@ class Scan:
                 except Exception as e:
                     msg = f"Couldn't run sql metric {sql_metric}: {e}"
                     logging.exception(msg)
-                    self.scan_result.add_exception(msg)
+                    self.scan_result.add_error(ScanError(f'Could not run sql metric {sql_metric}', e))
 
     def resolve_sql_metric_sql(self, sql_metric):
         if self.variables:
@@ -461,136 +461,146 @@ class Scan:
                                               sql_metric: SqlMetricYml,
                                               resolved_sql: str,
                                               scan_column: Optional[ScanColumn] = None):
-        row_tuple, description = self.warehouse.sql_fetchone_description(resolved_sql)
-        self.queries_executed += 1
+        try:
+            row_tuple, description = self.warehouse.sql_fetchone_description(resolved_sql)
+            self.queries_executed += 1
 
-        test_variables = self._get_test_variables(scan_column)
-        column_name = scan_column.column_name if scan_column is not None else None
+            test_variables = self._get_test_variables(scan_column)
+            column_name = scan_column.column_name if scan_column is not None else None
 
-        measurements = []
-        for i in range(len(row_tuple)):
-            metric_name = sql_metric.metric_names[i] if sql_metric.metric_names is not None else description[i][0]
-            metric_value = row_tuple[i]
-            logging.debug(f'SQL metric {sql_metric.title} {metric_name} -> {metric_value}')
-            measurement = Measurement(metric=metric_name, value=metric_value, column_name=column_name)
-            test_variables[metric_name] = metric_value
-            self._log_and_append_query_measurement(measurements, measurement)
+            measurements = []
+            for i in range(len(row_tuple)):
+                metric_name = sql_metric.metric_names[i] if sql_metric.metric_names is not None else description[i][0]
+                metric_value = row_tuple[i]
+                logging.debug(f'SQL metric {sql_metric.title} {metric_name} -> {metric_value}')
+                measurement = Measurement(metric=metric_name, value=metric_value, column_name=column_name)
+                test_variables[metric_name] = metric_value
+                self._log_and_append_query_measurement(measurements, measurement)
 
-        self._flush_measurements(measurements)
+            self._flush_measurements(measurements)
 
-        sql_metric_test_results = self._execute_tests(sql_metric.tests, test_variables)
-        self._flush_test_results(sql_metric_test_results)
+            sql_metric_test_results = self._execute_tests(sql_metric.tests, test_variables)
+            self._flush_test_results(sql_metric_test_results)
+        except Exception as e:
+            self.scan_result.add_error(ScanError(f'Exception during sql metric query {resolved_sql}', e))
 
     def _run_sql_metric_with_groups_and_run_tests(self,
                                                   sql_metric: SqlMetricYml,
                                                   resolved_sql: str,
                                                   scan_column: Optional[ScanColumn]):
-        measurements = []
-        test_results = []
-        group_fields_lower = set(group_field.lower() for group_field in sql_metric.group_fields)
+        try:
+            measurements = []
+            test_results = []
+            group_fields_lower = set(group_field.lower() for group_field in sql_metric.group_fields)
 
-        rows, description = self.warehouse.sql_fetchall_description(resolved_sql)
-        self.queries_executed += 1
+            rows, description = self.warehouse.sql_fetchall_description(resolved_sql)
+            self.queries_executed += 1
 
-        group_values_by_metric_name = {}
-        for row in rows:
-            group = {}
-            metric_values = {}
+            group_values_by_metric_name = {}
+            for row in rows:
+                group = {}
+                metric_values = {}
 
-            for i in range(len(row)):
-                metric_name = sql_metric.metric_names[i] if sql_metric.metric_names is not None else description[i][0]
-                metric_value = row[i]
-                if metric_name.lower() in group_fields_lower:
-                    group[metric_name] = metric_value
+                for i in range(len(row)):
+                    metric_name = sql_metric.metric_names[i] if sql_metric.metric_names is not None else description[i][0]
+                    metric_value = row[i]
+                    if metric_name.lower() in group_fields_lower:
+                        group[metric_name] = metric_value
+                    else:
+                        metric_values[metric_name] = metric_value
+
+                if not group:
+                    logging.error(f'None of the declared group_fields were found in '
+                                  f'result: {sql_metric.group_fields}. Skipping result.')
                 else:
-                    metric_values[metric_name] = metric_value
+                    for metric_name in metric_values:
+                        metric_value = metric_values[metric_name]
+                        if metric_name not in group_values_by_metric_name:
+                            group_values_by_metric_name[metric_name] = []
+                        group_values = group_values_by_metric_name[metric_name]
+                        group_values.append(GroupValue(group=group, value=metric_value))
+                        logging.debug(f'SQL metric {sql_metric.title} {metric_name} {group} -> {metric_value}')
 
-            if not group:
-                logging.error(f'None of the declared group_fields were found in '
-                              f'result: {sql_metric.group_fields}. Skipping result.')
-            else:
-                for metric_name in metric_values:
-                    metric_value = metric_values[metric_name]
-                    if metric_name not in group_values_by_metric_name:
-                        group_values_by_metric_name[metric_name] = []
-                    group_values = group_values_by_metric_name[metric_name]
-                    group_values.append(GroupValue(group=group, value=metric_value))
-                    logging.debug(f'SQL metric {sql_metric.title} {metric_name} {group} -> {metric_value}')
+                    sql_metric_tests = sql_metric.tests
+                    test_variables = self._get_test_variables(scan_column)
+                    test_variables.update(metric_values)
+                    sql_metric_test_results = self._execute_tests(sql_metric_tests, test_variables, group)
+                    test_results.extend(sql_metric_test_results)
 
-                sql_metric_tests = sql_metric.tests
-                test_variables = self._get_test_variables(scan_column)
-                test_variables.update(metric_values)
-                sql_metric_test_results = self._execute_tests(sql_metric_tests, test_variables, group)
-                test_results.extend(sql_metric_test_results)
+            column_name = scan_column.column_name if scan_column is not None else None
+            for metric_name in group_values_by_metric_name:
+                group_values = group_values_by_metric_name[metric_name]
+                measurement = Measurement(metric=metric_name, group_values=group_values, column_name=column_name)
+                self._log_and_append_query_measurement(measurements, measurement)
 
-        column_name = scan_column.column_name if scan_column is not None else None
-        for metric_name in group_values_by_metric_name:
-            group_values = group_values_by_metric_name[metric_name]
-            measurement = Measurement(metric=metric_name, group_values=group_values, column_name=column_name)
-            self._log_and_append_query_measurement(measurements, measurement)
-
-        self._flush_measurements(measurements)
-        self._flush_test_results(test_results)
+            self._flush_measurements(measurements)
+            self._flush_test_results(test_results)
+        except Exception as e:
+            self.scan_result.add_error(ScanError(f'Exception during sql metric groups query {resolved_sql}', e))
 
     def _run_sql_metric_failed_rows(self,
                                     sql_metric: SqlMetricYml,
                                     resolved_sql: str,
                                     scan_column: Optional[ScanColumn] = None):
 
-        if self.soda_server_client:
+        try:
+            if self.soda_server_client:
 
-            logging.debug(f'Sending failed rows for sql metric {sql_metric.name} to Soda Cloud')
-            with tempfile.TemporaryFile() as temp_file:
-                rows_stored, sample_columns = \
-                    self.sampler.save_sample_to_local_file(resolved_sql, temp_file)
+                logging.debug(f'Sending failed rows for sql metric {sql_metric.name} to Soda Cloud')
+                with tempfile.TemporaryFile() as temp_file:
+                    rows_stored, sample_columns = \
+                        self.sampler.save_sample_to_local_file(resolved_sql, temp_file)
 
-                column_name = scan_column.column_name if scan_column else None
-                measurement = Measurement(metric=sql_metric.name, value=rows_stored, column_name=column_name)
+                    column_name = scan_column.column_name if scan_column else None
+                    measurement = Measurement(metric=sql_metric.name, value=rows_stored, column_name=column_name)
 
-                measurements = []
-                self._log_and_append_query_measurement(measurements, measurement)
-                self._flush_measurements(measurements)
+                    measurements = []
+                    self._log_and_append_query_measurement(measurements, measurement)
+                    self._flush_measurements(measurements)
 
-                test = sql_metric.tests[0]
+                    test = sql_metric.tests[0]
 
-                test_variables = {
-                    sql_metric.name: rows_stored
-                }
+                    test_variables = {
+                        sql_metric.name: rows_stored
+                    }
 
-                test_result = test.evaluate(test_variables)
-                self._flush_test_results([test_result])
+                    test_result = self.evaluate_test(test, test_variables)
+                    self._flush_test_results([test_result])
 
-                if rows_stored > 0:
-                    temp_file_size_in_bytes = temp_file.tell()
-                    temp_file.seek(0)
+                    if rows_stored > 0:
+                        temp_file_size_in_bytes = temp_file.tell()
+                        temp_file.seek(0)
 
-                    file_path = self.sampler.create_file_path_failed_rows_sql_metric(sql_metric)
+                        file_path = self.sampler.create_file_path_failed_rows_sql_metric(sql_metric)
 
-                    file_id = self.soda_server_client.scan_upload(self.scan_reference,
-                                                                  file_path,
-                                                                  temp_file,
-                                                                  temp_file_size_in_bytes)
+                        file_id = self.soda_server_client.scan_upload(self.scan_reference,
+                                                                      file_path,
+                                                                      temp_file,
+                                                                      temp_file_size_in_bytes)
 
-                    self.soda_server_client.scan_file(
-                        scan_reference=self.scan_reference,
-                        sample_type='failedRowsSample',
-                        stored=int(rows_stored),
-                        total=int(rows_stored),
-                        source_columns=sample_columns,
-                        file_id=file_id,
-                        column_name=sql_metric.column_name,
-                        test_ids=[test.id],
-                        sql_metric_name=sql_metric.name)
-                    logging.debug(f'Sent failed rows for sql metric ({rows_stored}/{rows_stored}) to Soda Cloud')
-                else:
-                    logging.debug(f'No failed rows for sql metric ({sql_metric.name})')
-        else:
-            failed_rows, description = self.warehouse.sql_fetchall_description(sql=resolved_sql)
-            if len(failed_rows) > 0:
-                table_text = tabulate(failed_rows, headers=[col[0] for col in description], tablefmt='pretty')
-                logging.debug(f'Failed rows for sql metric sql {sql_metric.name}:\n' + table_text)
+                        self.soda_server_client.scan_file(
+                            scan_reference=self.scan_reference,
+                            sample_type='failedRowsSample',
+                            stored=int(rows_stored),
+                            total=int(rows_stored),
+                            source_columns=sample_columns,
+                            file_id=file_id,
+                            column_name=sql_metric.column_name,
+                            test_ids=[test.id],
+                            sql_metric_name=sql_metric.name)
+                        logging.debug(f'Sent failed rows for sql metric ({rows_stored}/{rows_stored}) to Soda Cloud')
+                    else:
+                        logging.debug(f'No failed rows for sql metric ({sql_metric.name})')
             else:
-                logging.debug(f'No failed rows for sql metric sql {sql_metric.name}')
+                failed_rows_tuples, description = self.warehouse.sql_fetchall_description(sql=resolved_sql)
+                if len(failed_rows_tuples) > 0:
+                    table_text = self._table_to_text(failed_rows_tuples, description)
+                    logging.debug(f'Failed rows for sql metric sql {sql_metric.name}:\n' + table_text)
+                else:
+                    logging.debug(f'No failed rows for sql metric sql {sql_metric.name}')
+        except Exception as e:
+            logging.exception(f'Could not perform sql metric failed rows \n{resolved_sql}', e)
+            self.scan_result.add_error(ScanError(f'Exception during sql metric failed rows query {resolved_sql}', e))
 
     def _get_test_variables(self, scan_column: Optional[ScanColumn] = None):
         column_name_lower = scan_column.column_name_lower if scan_column is not None else None
@@ -620,7 +630,8 @@ class Scan:
         test_results = []
         if tests:
             for test in tests:
-                test_results.append(test.evaluate(variables, group_values))
+                test_result = self.evaluate_test(test, variables, group_values)
+                test_results.append(test_result)
         return test_results
 
     # noinspection PyTypeChecker
@@ -635,7 +646,7 @@ class Scan:
                             self.sampler.save_sample(samples_yml, measurement, self.scan_result.test_results)
             except Exception as e:
                 logging.exception(f'Soda cloud error: Could not upload samples: {e}')
-                self.scan_result.add_soda_server_client_error(f'Could not upload samples: {e}')
+                self.scan_result.add_error(SodaCloudScanError('Could not upload samples', e))
 
     @classmethod
     def _log_and_append_query_measurement(cls, measurements: List[Measurement], measurement: Measurement):
@@ -675,20 +686,22 @@ class Scan:
                 self.soda_server_client.scan_measurements(self.scan_reference, measurement_jsons)
             except Exception as e:
                 logging.error(f'Soda Cloud error: Could not send measurements: {e}')
-                self.scan_result.add_soda_server_client_error(f'Could not send measurements: {e}')
+                self.scan_result.add_error(SodaCloudScanError('Could not send measurements', e))
 
     def _flush_test_results(self, test_results: List[TestResult]):
         """
         Adds the test_results to the scan result and sends the measurements to the Soda Server if that's configured
         """
-        self.scan_result.test_results.extend(test_results)
-        if self.soda_server_client and test_results:
-            test_result_jsons = [test_result.to_json() for test_result in test_results]
-            try:
-                self.soda_server_client.scan_test_results(self.scan_reference, test_result_jsons)
-            except Exception as e:
-                logging.error(f'Soda Cloud error: Could not send test results: {e}')
-                self.scan_result.add_soda_server_client_error(f'Could not send test results: {e}')
+        if test_results:
+            self.scan_result.add_test_results(test_results)
+
+            if self.soda_server_client:
+                test_result_jsons = [test_result.to_json() for test_result in test_results]
+                try:
+                    self.soda_server_client.scan_test_results(self.scan_reference, test_result_jsons)
+                except Exception as e:
+                    logging.error(f'Soda Cloud error: Could not send test results: {e}')
+                    self.scan_result.add_error(SodaCloudScanError('Could not send test results', e))
 
     def _ensure_scan_reference(self):
         if self.soda_server_client and not self.scan_reference:
@@ -700,12 +713,40 @@ class Scan:
                 self.scan_reference = self.start_scan_response['scanReference']
             except Exception as e:
                 logging.error(f'Soda Cloud error: Could not start scan: {e}')
-                logging.error(f'Skipping subsequent Soda Cloud communication')
-                self.scan_result.add_soda_server_client_error(f'Could not start scan: {e}')
-                self.scan_result.add_scan_error(SodaCloudScanError('Could not start scan', e))
+                logging.error(f'Skipping subsequent Soda Cloud communication but continuing the scan')
+                self.scan_result.add_error(SodaCloudScanError('Could not start scan', e))
                 self.soda_server_client = None
 
-    def _validate_scan_success(self):
-        if self.scan_result.has_errors():
-            test_errors = [test_result.error for test_result in self.scan_result.test_results if test_result.error]
-            raise TestFailureError(original_exception=", ".join(test_errors), errors_count=len(test_errors))
+    def evaluate_test(self, test, test_variables, group_values: Optional[dict] = None) -> TestResult:
+        test_result = test.evaluate(test_variables, group_values)
+        if test_result.error:
+            self.scan_result.add_error(TestExecutionScanError(
+                message=f'Test "{test_result.test.expression}" failed',
+                exception=test_result.error,
+                test=test_result.test
+            ))
+        return test_result
+
+    def _table_to_text(self, failed_row_tuples: tuple, description):
+        columns = [col[0] for col in description]
+        widths = [len(col) for col in columns]
+        tavnit = '|'
+        separator = '+'
+
+        for failed_row_tuple in failed_row_tuples:
+            failed_row_tuple = tuple(str(cell) for cell in failed_row_tuple)
+            for i in range(0, len(failed_row_tuple)):
+                widths[i] = max(widths[i], len(failed_row_tuple[i]))
+
+        for w in widths:
+            tavnit += " %-" + "%ss |" % (w,)
+            separator += '-' * w + '--+'
+
+        table_text = ''
+        table_text += separator + '\n'
+        table_text += tavnit % tuple(columns) + '\n'
+        table_text += separator + '\n'
+        for row in failed_row_tuples:
+            table_text += tavnit % row + '\n'
+        table_text += separator
+        return table_text

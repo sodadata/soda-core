@@ -30,8 +30,8 @@ def run_soda_scan(warehouse_yml_file, scan_yml_file):
     scan_builder.scan_yml_file = scan_yml_file
     scan = scan_builder.build()
     scan_result = scan.execute()
-    if scan_result.has_failures():
-        failures = scan_result.failures_count()
+    if scan_result.has_test_failures():
+        failures = scan_result.get_test_failures_count()
         raise AirflowFailException(f"Soda Scan found {failures} errors in your data!")
 
 

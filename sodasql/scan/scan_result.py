@@ -26,53 +26,68 @@ class ScanResult:
         #  - be logged at the end of the scan on the console
         #  - be sent to the Soda Cloud (if connected and if authentication was successful)
         #  - make the scan fail
-        self.scan_errors: List[ScanError] = []
+        self.errors: List[ScanError] = []
 
-        # Deprecated
-        self.soda_server_client_errors = []
+    def add_error(self, error: ScanError):
+        self.errors.append(error)
 
-    def has_failures(self):
-        return self.failures_count() > 0
+    def add_test_results(self, test_results):
+        self.test_results.extend(test_results)
 
-    def has_errors(self):
-        return self.errors_count() > 0
+    # TODO rename to has_test_failures()
+    def has_test_failures(self) -> bool:
+        return self.get_test_failures_count() > 0
 
-    def failures_count(self):
-        failures_count = 0
-        for test_result in self.test_results:
-            if not test_result.passed:
-                failures_count += 1
-        return failures_count
+    # TODO rename to get_test_failures_count()
+    def get_test_failures_count(self) -> int:
+        test_failures = self.get_test_failures()
+        return len(test_failures)
 
-    def errors_count(self):
-        test_results_with_errors = [test_result for test_result in self.test_results if test_result.error]
-        return len(test_results_with_errors)
+    def get_test_failures(self) -> List[TestResult]:
+        return [test_result for test_result in self.test_results if not test_result.passed]
 
-    def find_measurement(self, metric_type: str, column_name: str = None):
+    def has_errors(self) -> bool:
+        """
+        DEPRECATED keep, but change impl to self.scan_errors
+        """
+        return self.get_errors_count() > 0
+
+    def get_errors(self) -> List[ScanError]:
+        return self.errors
+
+    def get_errors_count(self) -> int:
+        return len(self.errors)
+
+    def is_passed(self) -> bool:
+        return not (self.has_test_failures() or self.has_errors())
+
+    def to_json(self) -> dict:
+        return {
+            'measurements': [measurement.to_json() for measurement in self.measurements],
+            'testResults': [test_result.to_json() for test_result in self.test_results],
+            'errors': [scan_error.to_json() for scan_error in self.errors]
+        }
+
+    def find_measurement(self, metric_type: str, column_name: str = None) -> Measurement:
+        """
+        Returns the measurement or None if the measurement does not exist
+        """
         for measurement in self.measurements:
             if measurement.metric == metric_type:
                 if column_name is None or measurement.column_name.lower() == column_name.lower():
                     return measurement
 
-    # get measurement value and raise exception if the measurement does not exist
     def find(self, metric_type: str, column_name: str = None):
+        """
+        Returns the measurement value or None if the measurement does not exist
+        """
         measurement = self.find_measurement(metric_type, column_name)
         return measurement.value if measurement else None
 
-    def has_soda_client_errors(self):
-        return len(self.soda_server_client_errors) > 0
-
-    def add_soda_server_client_error(self, error_message: str):
-        self.soda_server_client_errors.append(error_message)
-
-    def add_exception(self, error_message: str):
-        self.soda_server_client_errors.append(error_message)
-
-    # get measurement value and raise exception if the measurement does not exist
-    def get(self, metric_type: str, column_name: str = None):
-        return self.get_measurement(metric_type, column_name).value
-
-    def get_measurement(self, metric_type: str, column_name: str = None):
+    def get_measurement(self, metric_type: str, column_name: str = None) -> Measurement:
+        """
+        Returns the measurement or raises AssertionError if the measurement does not exist
+        """
         measurement = self.find_measurement(metric_type, column_name)
         if measurement is None:
             raise AssertionError(
@@ -81,11 +96,8 @@ class ScanResult:
                 '\n'.join([str(m) for m in self.measurements]))
         return measurement
 
-    def add_scan_error(self, error: ScanError):
-        self.scan_errors.append(error)
-
-    def to_json(self):
-        return {
-            'measurements': [measurement.to_json() for measurement in self.measurements],
-            'testResults': [test_result.to_json() for test_result in self.test_results]
-        }
+    def get(self, metric_type: str, column_name: str = None):
+        """
+        Returns the measurement value or raises AssertionError if the measurement does not exist
+        """
+        return self.get_measurement(metric_type, column_name).value

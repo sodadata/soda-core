@@ -32,11 +32,11 @@ class TestTestsTableMetric(SqlTestCase):
             'tests': ['2 < row_count < 20']
         }
         scan_result = self.scan(scan_yml_dict)
-        self.assertFalse(scan_result.has_failures())
+        self.assertFalse(scan_result.has_test_failures())
 
         scan_yml_dict['tests'][0] = '10 < row_count < 20'
         scan_result = self.scan(scan_yml_dict)
-        self.assertTrue(scan_result.has_failures())
+        self.assertTrue(scan_result.has_test_failures())
 
     def test_named_tests(self):
         test_name = 'my_test'
@@ -49,8 +49,8 @@ class TestTestsTableMetric(SqlTestCase):
             }
         }
         scan_result = self.scan(scan_yml_dict)
-        self.assertFalse(scan_result.has_failures())
+        self.assertFalse(scan_result.has_test_failures())
 
         scan_yml_dict['tests'][test_name] = '10 < row_count < 20'
         scan_result = self.scan(scan_yml_dict)
-        self.assertTrue(scan_result.has_failures())
+        self.assertTrue(scan_result.has_test_failures())

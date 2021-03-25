@@ -21,7 +21,7 @@ Connecting to Microsoft SQL Example with pyodbc
 server = '<server>.database.windows.net'
 database = '<database>'
 username = '<username>'
-password = '<password>'   
+password = '<password>'
 driver= '{ODBC Driver 17 for SQL Server}'
 
 
@@ -53,6 +53,7 @@ class SQLServerDialect(Dialect):
         return {
             KEY_WAREHOUSE_TYPE: SQLSERVER,
             'host': 'localhost',
+            'port': '1433',
             'username': 'env_var(SQLSERVER_USERNAME)',
             'password': 'env_var(SQLSERVER_PASSWORD)',
             'database': params.get('database', 'your_database'),

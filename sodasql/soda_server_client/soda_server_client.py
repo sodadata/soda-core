@@ -10,11 +10,11 @@
 #  limitations under the License.
 import json
 import logging
-import tempfile
 from typing import Optional, List
 
 import requests
 
+from sodasql.scan.scan_error import ScanError
 from sodasql.scan.scan_yml import ScanYml
 from sodasql.scan.scan_yml_column import ScanYmlColumn
 from sodasql.version import SODA_SQL_VERSION
@@ -76,20 +76,17 @@ class SodaServerClient:
             'columns': soda_column_cfgs
         })
 
-    def scan_ended(self, scan_reference, error: dict = None):
-        if error is None:
-            logging.debug(f'Soda Cloud scan end ok')
-            self.execute_command({
-                'type': 'sodaSqlScanEnd',
-                'scanReference': scan_reference
-            })
+    def scan_ended(self, scan_reference, errors: List[ScanError] = None):
+        scan_end_command = {
+            'type': 'sodaSqlScanEnd',
+            'scanReference': scan_reference
+        }
+        if errors:
+            logging.debug(f'Soda Cloud scan end with errors')
+            scan_end_command['errors'] = [error.to_json() for error in errors]
         else:
-            logging.debug(f'Soda Cloud scan end with error')
-            self.execute_command({
-                'type': 'sodaSqlScanEnd',
-                'scanReference': scan_reference,
-                'error': error
-            })
+            logging.debug(f'Soda Cloud scan end ok')
+        self.execute_command(scan_end_command)
 
     def scan_measurements(self, scan_reference: dict, measurement_jsons: list):
         logging.debug(f'Soda Cloud scan send measurements')

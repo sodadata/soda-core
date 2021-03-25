@@ -33,6 +33,7 @@ class PostgresDialect(Dialect):
         return {
             KEY_WAREHOUSE_TYPE: POSTGRES,
             'host': 'localhost',
+            'port': '5432',
             'username': 'env_var(POSTGRES_USERNAME)',
             'password': 'env_var(POSTGRES_PASSWORD)',
             'database': params.get('database', 'your_database'),

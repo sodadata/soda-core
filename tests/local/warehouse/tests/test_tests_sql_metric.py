@@ -45,12 +45,12 @@ class TestTestsSqlMetric(SqlTestCase):
         }
 
         scan_result = self.scan(scan_yml_dict=scan_yml_dict)
-        self.assertFalse(scan_result.has_failures())
+        self.assertFalse(scan_result.has_test_failures())
 
         scan_yml_dict[KEY_SQL_METRICS][0][SQL_METRIC_KEY_TESTS][0] = 'sum_ones < 10'
 
         scan_result = self.scan(scan_yml_dict=scan_yml_dict)
-        self.assertTrue(scan_result.has_failures())
+        self.assertTrue(scan_result.has_test_failures())
 
     def test_sql_metric_on_column(self):
         scan_yml_dict = {
@@ -74,12 +74,12 @@ class TestTestsSqlMetric(SqlTestCase):
         }
 
         scan_result = self.scan(scan_yml_dict=scan_yml_dict)
-        self.assertFalse(scan_result.has_failures())
+        self.assertFalse(scan_result.has_test_failures())
 
         scan_yml_dict[KEY_COLUMNS]['size'][COLUMN_KEY_SQL_METRICS][0][SQL_METRIC_KEY_TESTS][0] = 'sum - sum_ones == 25'
 
         scan_result = self.scan(scan_yml_dict=scan_yml_dict)
-        self.assertTrue(scan_result.has_failures())
+        self.assertTrue(scan_result.has_test_failures())
 
     def test_sql_metric_default_field_metric_name_mapping(self):
         scan_yml_dict = {
@@ -96,7 +96,7 @@ class TestTestsSqlMetric(SqlTestCase):
             }]
         }
         scan_result = self.scan(scan_yml_dict=scan_yml_dict)
-        self.assertFalse(scan_result.has_failures())
+        self.assertFalse(scan_result.has_test_failures())
 
     def test_sql_metric_groups(self):
         scan_yml_dict = {
@@ -114,9 +114,9 @@ class TestTestsSqlMetric(SqlTestCase):
         }
 
         scan_result = self.scan(scan_yml_dict=scan_yml_dict)
-        self.assertFalse(scan_result.has_failures())
+        self.assertFalse(scan_result.has_test_failures())
 
         scan_yml_dict[KEY_SQL_METRICS][0][SQL_METRIC_KEY_TESTS][0] = 'total_size_per_country < 10'
 
         scan_result = self.scan(scan_yml_dict=scan_yml_dict)
-        self.assertTrue(scan_result.has_failures())
+        self.assertTrue(scan_result.has_test_failures())

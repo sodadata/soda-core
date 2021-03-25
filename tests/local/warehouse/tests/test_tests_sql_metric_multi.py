@@ -57,4 +57,4 @@ class TestTestsSqlMetric(SqlTestCase):
         }
 
         scan_result = self.scan(scan_yml_dict=scan_yml_dict, variables={'R_ID': 'r1'})
-        self.assertFalse(scan_result.has_failures())
+        self.assertFalse(scan_result.has_test_failures())

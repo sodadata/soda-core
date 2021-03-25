@@ -26,41 +26,39 @@ class TestScanResult(SqlTestCase):
              "(null)"])
 
     def test_scan_result_with_test_error(self):
-        test_name = 'my_test'
         scan_yml_dict = {
             KEY_METRICS: [
                 'row_count'
             ],
-            KEY_TESTS: {
-                test_name: '10 < error < 20',
-            }
-
+            KEY_TESTS: [
+                '10 < error < 20'
+            ]
         }
         scan_result = self.scan(scan_yml_dict)
-        self.assertTrue(scan_result.has_failures())
-        self.assertIsNotNone(scan_result.error)
-        self.assertIsNotNone(scan_result.error["code"])
-        self.assertEqual(scan_result.error["code"], ERROR_CODE_TEST_FAILED)
-        self.assertIsNotNone(scan_result.error["message"])
-        self.assertEqual(scan_result.error["message"], "Soda-sql test failed with error: name 'error' is not defined")
+        self.assertTrue(scan_result.has_test_failures())
+        self.assertEqual(len(scan_result.errors), 1)
+        error_json = scan_result.errors[0].to_json()
+        self.assertEqual(error_json['type'], 'test_execution_error')
+        self.assertIsNotNone(error_json['message'])
 
     def test_scan_result_with_test_errors(self):
-        test_name = 'my_test'
-        second_test_name = 'my_second_test'
         scan_yml_dict = {
             KEY_METRICS: [
                 'row_count'
             ],
-            KEY_TESTS: {
-                test_name: '10 < error < 20',
-                second_test_name: '10 < error < 20',
-            }
-
+            KEY_TESTS: [
+                '10 < error < 20',
+                'lskdfj(lkj)',
+            ]
         }
         scan_result = self.scan(scan_yml_dict)
-        self.assertTrue(scan_result.has_failures())
-        self.assertIsNotNone(scan_result.error)
-        self.assertIsNotNone(scan_result.error["code"])
-        self.assertEqual(scan_result.error["code"], ERROR_CODE_TEST_FAILED)
-        self.assertIsNotNone(scan_result.error["message"])
-        self.assertEqual(scan_result.error["message"], "2 soda-sql tests failed with errors: name 'error' is not defined, name 'error' is not defined")
+        self.assertTrue(scan_result.has_test_failures())
+        self.assertEqual(len(scan_result.errors), 2)
+
+        error_json = scan_result.errors[0].to_json()
+        self.assertEqual(error_json['type'], 'test_execution_error')
+        self.assertIn('10 < error < 20', error_json['message'])
+
+        error_json = scan_result.errors[1].to_json()
+        self.assertEqual(error_json['type'], 'test_execution_error')
+        self.assertIn('lskdfj(lkj)', error_json['message'])

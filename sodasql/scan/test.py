@@ -31,5 +31,5 @@ class Test:
             logging.debug(str(test_result))
             return test_result
         except Exception as e:
-            logging.debug(e, exc_info=True)
-            return TestResult(test=self, passed=False, error=str(e), group_values=group_values)
+            logging.error(f'Test error for "{self.expression}": {e}')
+            return TestResult(test=self, passed=False, error=e, group_values=group_values)
