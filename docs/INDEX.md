@@ -35,6 +35,6 @@ Use Soda SQL to scan a variety of data warehouses:<br />
 Connect Soda SQL to a free **Soda Cloud** account where you and your team can use the web application to monitor test results and collaborate to keep your data issue-free. 
 
 * Set up your free Soda Cloud account at [cloud.soda.io](https://cloud.soda.io/signup).
-* Soda SQL can run without Soda Cloud, but Soda Cloud depends upon Soda SQL! Install Soda SQL, then [connect it to your Soda Cloud Account]({% link documentation/connect_to_cloud.md %}).
+* Soda SQL can run without Soda Cloud, but Soda Cloud Free and Teams editions depend upon Soda SQL! Install Soda SQL, then [connect it to your Soda Cloud Account]({% link documentation/connect_to_cloud.md %}).
 * Learn more about [Soda Cloud architecture]({% link documentation/soda-cloud-architecture.md %}).
 * [Create monitors and alerts]({% link documentation/monitors.md %}) to notify your team about data issues.
