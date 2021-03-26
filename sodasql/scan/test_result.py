@@ -28,7 +28,7 @@ class TestResult:
     def __str__(self):
         return (f'Test {self.test.title} {"passed" if self.passed else "failed"}' +
                 (f" with group values {self.group_values}" if self.group_values else '') +
-                f' with metric values {json.dumps(self.values)}')
+                f' with metric values {json.dumps(JsonHelper.to_jsonnable(self.values))}')
 
     def to_json(self):
         if not self.test or not self.test.expression:
@@ -39,6 +39,7 @@ class TestResult:
         test_result_json = {
             'id': self.test.id,
             'title': self.test.title,
+            'description': self.test.title, # for backwards compatibility
             'expression': self.test.expression
         }
 
@@ -49,13 +50,9 @@ class TestResult:
             test_result_json['error'] = str(self.error)
         else:
             test_result_json['passed'] = self.passed
-            values = {}
-            if isinstance(self.values, dict):
-                for variable_name in self.values:
-                    values[variable_name] = JsonHelper.to_jsonnable(self.values[variable_name])
-            test_result_json['values'] = values
+            test_result_json['values'] = JsonHelper.to_jsonnable(self.values)
 
         if self.group_values:
-            test_result_json['groupValues'] = self.group_values
+            test_result_json['groupValues'] = JsonHelper.to_jsonnable(self.group_values)
 
         return test_result_json

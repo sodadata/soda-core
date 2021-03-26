@@ -40,7 +40,8 @@ class FileSystem:
         return Path(expanded_path).is_file()
 
     def is_readable(self, path: str):
-        return os.access(path, os.R_OK)
+        expanded_path = os.path.expanduser(path)
+        return os.access(expanded_path, os.R_OK)
 
     def list_dir(self, dir_path):
         return os.listdir(dir_path)

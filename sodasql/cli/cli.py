@@ -13,6 +13,7 @@ import logging
 import re
 import sys
 from math import ceil
+from os.path import expanduser
 from typing import Optional
 
 import click

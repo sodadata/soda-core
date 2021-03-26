@@ -88,7 +88,7 @@ class SodaServerClient:
             logging.debug(f'Soda Cloud scan end ok')
         self.execute_command(scan_end_command)
 
-    def scan_measurements(self, scan_reference: dict, measurement_jsons: list):
+    def scan_measurements(self, scan_reference: dict, measurement_jsons: List[dict]):
         logging.debug(f'Soda Cloud scan send measurements')
         return self.execute_command({
             'type': 'sodaSqlScanMeasurements',
@@ -147,8 +147,8 @@ class SodaServerClient:
             'scanReference': scan_reference,
             'fileId': file_id,
             'sampleType': sample_type,
-            'stored': stored,
-            'total': total,
+            'stored': str(stored),
+            'total': str(total),
             'sourceColumns': source_columns
         }
         if column_name:
