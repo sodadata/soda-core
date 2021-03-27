@@ -7,7 +7,7 @@ nav_order: 4
 
 # Set warehouse configurations
 
-Soda SQL needs connection details in order to access your [warehouse]({% link documentation/glossary.md %}#warehouse) to scan your data. Each type of warehouse requires different configuration parameters. To set the warehouse configurations in your [warehouse YAML]({% link documentation/warehouse.md %}), use the following example configurations that correspond to each database type that Soda SQL supports.
+Soda SQL needs connection details in order to access your [warehouse]({% link documentation/glossary.md %}#warehouse) to scan your data. Each type of warehouse uses different configuration parameters. To set the warehouse configurations in your [warehouse YAML]({% link documentation/warehouse.md %}), use the following example configurations that correspond to each database type that Soda SQL supports.
 
 [Apache Hive](#apache-hive) <br />
 [AWS Athena](#aws-athena) <br />
@@ -41,7 +41,7 @@ connection:
 name: my_athena_project
 connection:
     type: athena
-    catalog: my_catalog
+    catalog: AwsDataCatalog
     database: sodalite_test
     access_key_id: env_var(AWS_ACCESS_KEY_ID)
     secret_access_key: env_var(AWS_SECRET_ACCESS_KEY)

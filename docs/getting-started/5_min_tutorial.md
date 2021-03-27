@@ -2,7 +2,7 @@
 layout: default
 title: Quick start tutorial
 parent: Get Started
-nav_order: 2
+nav_order: 1
 ---
 
 # Quick start tutorial 
@@ -49,7 +49,7 @@ Usage: soda [OPTIONS] COMMAND [ARGS]...
 2. Create, then navigate to a new Soda SQL warehouse directory. The example below creates a directory named `soda-sql-tutorial`.
 ```shell
 $ mkdir soda_sql_tutorial
-$ cd soda_sql_tutorial/
+$ cd soda_sql_tutorial
 ```
 3. Use the `soda create` command to create and pre-populate two files that enable you to configure connection details for Soda SQL to access your warehouse: 
 * a `warehouse.yml` file which stores access details for your warehouse ([read more]({% link documentation/warehouse.md %}))
@@ -107,7 +107,7 @@ cat ./tables/demodata.yml
 ```
 Output:<br />
 ![tutorial-output](../assets/images/tutorial-output.png){:height="340px" width="340px"}
-3. Note the three tests that Soda SQL configured in `demodata.yml`. When it creates this file, Soda SQL pre-populates it with the `test` and `metric` configurations it deems useful based on the data in the table it analyzed. Read more about the [Anatomy of the scan YAML file]({% link documentation/scan.md %}anatomy-of-the-scan-yaml-file).
+3. Note the three tests that Soda SQL configured in `demodata.yml`. When it created this file, Soda SQL pre-populated it with the `test` and `metric` configurations it deemed useful based on the data in the table it analyzed. Read more about the [Anatomy of the scan YAML file]({% link documentation/scan.md %}anatomy-of-the-scan-yaml-file).
 
 ## Run a scan
 
@@ -165,5 +165,5 @@ $ docker volume rm soda_sql_tutorial_postgres
 * [Post your feedback](https://github.com/sodadata/soda-sql/discussions) about this tutorial!
 * Learn more about [How Soda SQL works]({% link documentation/concepts.md %}).
 * Learn more about the [scan YAML file]({% link documentation/scan.md %}) and how to [run scans]({% link documentation/scan.md %}#run-a-scan).
-* Learn more about configuring [tests]({% link documentation/concepts.md %}) and [metrics]({% link documentation/sql_metrics.md %}).
+* Learn more about configuring [tests]({% link documentation/tests.md %}) and [metrics]({% link documentation/sql_metrics.md %}).
 * Configure your warehouse YAML to [connect to your warehouse]({% link documentation/warehouse_types.md %}).

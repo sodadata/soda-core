@@ -2,7 +2,7 @@
 layout: default
 title: Glossary
 parent: Documentation
-nav_order: 15
+nav_order: 16
 ---
 
 # Glossary
@@ -31,6 +31,9 @@ A Soda SQL CLI command that creates a warehouse directory.
 
 ### default metric
 An out-of-the-box metric that you can configure in a scan YAML file. By contrast, you can use [SQL metrics]({% link documentation/sql_metrics.md %}#sql-metrics) to define custom metrics in a scan YAML file.
+
+### env_vars YAML
+The file in your local user home directory that stores your database login credentials.
 
 ### measurement
 The value for a metric that Soda SQL obtains during a scan. For example, in `row_count = 5`, `row_count` is the metric and `5` is the measurement.

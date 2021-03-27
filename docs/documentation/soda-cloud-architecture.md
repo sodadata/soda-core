@@ -2,7 +2,7 @@
 layout: default
 title: Soda Cloud architecture
 parent: Documentation
-nav_order: 12
+nav_order: 11
 ---
 
 # Soda Cloud architecture
@@ -15,9 +15,12 @@ Installed in your environment, you use the Soda SQL command-line tool to [scan](
 
 When you create a [monitor]({% link documentation/glossary.md %}#monitor) in Soda Cloud's web application, Soda SQL uses the monitor settings to add new [tests]({% link documentation/glossary.md %}#test) when it runs a scan on data in a specific warehouse. A monitor is essentially a way to create Soda SQL tests using the web application instead of adjusting [scan YAML file]({% link documentation/glossary.md %}#scan-yaml) contents directly in your Soda project directory.
 
+Beyond creating them, you can use monitors to track data quality over time. Soda Cloud stores your scan results and prepares charts that represent the volume of failed tests in each scan. These visualizations of your scan results enable you to see where your data quality is improving or deteriorating over time.
+
 ## Go further
 
+* Create a Soda Cloud account at [cloud.soda.io](https://cloud.soda.io/signup).
+* [Connect Soda SQL to Soda Cloud]({% link documentation/connect_to_cloud.md %}).
 * Learn more about [How Soda SQL works]({% link documentation/concepts.md %}).
 * Learn more about [Soda SQL scans]({% link documentation/scan.md %}).
 * Learn more about [Soda SQL tests]({% link documentation/tests.md %}) and [Soda Cloud monitors and alerts]({% link documentation/monitors.md %}).
-* [Connect Soda SQL to Soda Cloud]({% link documentation/connect_to_cloud.md %}).

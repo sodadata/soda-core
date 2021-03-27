@@ -2,7 +2,7 @@
 layout: default
 title: Install Soda SQL
 parent: Get Started
-nav_order: 1
+nav_order: 2
 ---
 
 # Install Soda SQL
@@ -71,20 +71,10 @@ pip install soda-sql -U
 
 ## Troubleshoot
 
-**Problem:** There are known issues on Soda SQL when using pip version 19. <br />
-**Solution:** Upgrade `pip` to version 20 or greater using the following command:
-```shell
-$ pip install --upgrade pip
-```
-<br />
-
-**Problem:** Upgrading Soda SQL does not seem to work. <br />
-**Solution:** Run the following command to skip your local cache when upgrading your Soda SQL version:
-```shell
-$ pip install --upgrade --no-cache-dir soda-sql
-```
+{% include troubleshoot-install.md %}
 
 ## Go further
 
-* Set up Soda SQL and run your first scan: [Quick start tutorial]({% link getting-started/5_min_tutorial.md %})
+* [Configure Soda SQL]({% link getting-started/5_min_tutorial.md %}).
+* [Run your first scan]({% link documentation/scan.md %}#run-a-scan).
 * Learn [How Soda SQL works]({% link documentation/concepts.md %}).
