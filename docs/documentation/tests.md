@@ -29,7 +29,7 @@ For example:
 tests:
   - row_count > 0
 ```
-However, where a test must determine whether or not data is valid, you must add a fourth element, a **column configuration key** to define what qualifies as valid. You define a column configuration key before the test that will use the definition of "valid". 
+However, where a test must determine whether or not data is valid, you must add a fourth element, a **column configuration key** to define what qualifies as valid. In the scan YAML file, you define a column configuration key before the test that will use the definition of "valid". 
 
 In the example below, the user defined the `valid_format` as `date_eu` or dd/mm/yyyy format. The metric `invalid_percentage` refers to the `valid_format` configuration key to determine if the data in the column is valid. To see a list of all available column configuration keys, see [Column Metrics]({% link documentation/sql_metrics.md %}#column-metrics).
 
@@ -106,14 +106,13 @@ sql_metrics:
 
 Soda SQL can run both anonymous or named tests. Named tests are useful if you intend to push Soda SQL scan results to your Soda Cloud account where you can update a test and retain its test history. 
 
-Example of an anonymous test:
-
+Example of an anonymous test
 ```yaml
 tests:
     - total_volume_us > 5000
 ```
 
-Examples of named tests:
+Examples of named tests
 ```yaml
 tests:
     volume_test_max:  total_volume_us > 3000

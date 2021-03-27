@@ -9,6 +9,8 @@ nav_order: 13
 
 Log in to **[Soda Cloud]({% link documentation/glossary.md %}#soda-cloud)** to create **[monitors]({% link documentation/glossary.md %}#monitor)**, and customize **[alerts]({% link documentation/glossary.md %}#alert)** that send **[notifications]({% link documentation/glossary.md %}#notification)** to your team when a [scan]({% link documentation/glossary.md %}#scan) surfaces data issues.
 
+Further, you can use monitors to track data quality over time. Soda Cloud stores your scan results and prepares charts that represent the volume of failed tests in each scan. These visualizations of your scan results enable you to see where your data quality is improving or deteriorating over time.
+
 
 ## Prerequisites
 
@@ -22,7 +24,7 @@ Log in to **[Soda Cloud]({% link documentation/glossary.md %}#soda-cloud)** to c
 ## Create a monitor and an alert
 
 1. In Soda Cloud, navigate to the **Monitor Results** table, then click the stacked dots to **Create Monitor**. Select the type `Metric`, then follow the guided steps to complete the setup. 
-2. Specify the Slack or email notifications you want to send when bad data triggers a **Critical Alert** or **Warning**, then **Save** your monitor. Your new monitor appears as a row in the **Monitor Results** table.
+2. Specify the Slack or email notifications you want to send when bad data triggers a **Critical Alert** or **Warning**, add a brief description of what your monitor tests, then **Save** your monitor. Your new monitor appears as a row in the **Monitor Results** table.
 3. Access your command-line interface, then use Soda SQL to scan your data again.
 ``` shell
 $ soda scan warehouse.yml tables/yourtablename.yml
