@@ -325,6 +325,7 @@ dq_task = SodaSQLScan(
     warehouse_def="/path/to/warehouse.yml"
 )
 
+# Define Prefect flow
 with Flow(name="DQ Sample") as f:
 
     f.add_task(dq_task)
