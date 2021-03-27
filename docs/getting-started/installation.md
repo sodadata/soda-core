@@ -75,5 +75,6 @@ pip install soda-sql -U
 
 ## Go further
 
-* Set up Soda SQL and run your first scan: [Quick start tutorial]({% link getting-started/5_min_tutorial.md %})
+* [Configure Soda SQL]({% link getting-started/5_min_tutorial.md %}).
+* [Run your first scan]({% link documentation/scan.md %}#run-a-scan).
 * Learn [How Soda SQL works]({% link documentation/concepts.md %}).
