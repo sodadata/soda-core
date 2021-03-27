@@ -229,6 +229,113 @@ publish_data_op = DummyOperator(
 ingest_data_op >> soda_sql_scan_op >> publish_data_op
 ```
 
+## Prefect using custom Task
+
+Create a custom Prefect Task to run Soda SQL scans programmatically.
+
+1. Install Soda SQL and Prefect in your environment
+2. Make sure that Soda SQL is available in the environment where your Prefect flow runs. 
+   For example, if you use Docker as the storage backend, you have to provide Soda SQL as a dependency.
+   Please refer to Prefect documentation for further details.
+3. Define a custom Prefect Task to wrap Soda SQL and use it in your Prefect Flow.
+   Below you can find a basic implementation of a SodaSQLScan Task.
+   
+```python
+from sodasql.scan.scan_builder import ScanBuilder
+from prefect import Task
+from prefect.utilities.tasks import defaults_from_attrs
+from typing import Dict, Union
+class SodaSQLScan(Task):
+    """
+    SodaSQLScan
+    """
+    def __init__(
+        self,
+        scan_def: Union[Dict, str] = None,
+        warehouse_def: Union[Dict, str] = None,
+        **kwargs
+    ):
+        """
+        Args:
+            scan_def: Soda SQL scan file path or dictionary
+            warehouse_def: Soda SQL warehouse file path or dictionary
+            **kwargs:
+        """
+        self.scan_builder = ScanBuilder()
+        self._set_scan_def(scan_def=scan_def)
+        self._set_warehouse_def(warehouse_def=warehouse_def)
+        super().__init__(**kwargs)
+        
+    def _set_scan_def(self, scan_def: Union[Dict, str]) -> None:
+        """
+        Args:
+            scan_def: Soda SQL scan file path or dictionary
+        Returns:
+        """
+        self.scan_def = scan_def
+        if isinstance(scan_def, str):
+            self.scan_builder.scan_yml_file = scan_def
+        elif isinstance(scan_def, dict):
+            self.scan_builder.scan_yml_dict = scan_def
+            
+    def _set_warehouse_def(self, warehouse_def: Union[Dict, str]) -> None:
+        """
+        Args:
+            warehouse_def: Soda SQL warehouse file path or dictionary
+        Returns:
+        """
+        self.warehouse_def = warehouse_def
+        if isinstance(warehouse_def, str):
+            self.scan_builder.warehouse_yml_file = warehouse_def
+        elif isinstance(warehouse_def, dict):
+            self.scan_builder.warehouse_yml_dict = warehouse_def
+            
+    @defaults_from_attrs("scan_def", "warehouse_def")
+    def run(self, scan_def: Union[Dict, str], warehouse_def: Union[Dict, str]) -> Dict:
+        """
+        Args:
+            scan_def: Soda SQL scan file path or dictionary
+            warehouse_def: Soda SQL warehouse file path or dictionary
+        Returns: Soda SQL scan results as JSON object
+        """
+        if scan_def is None:
+            raise ValueError(
+                "Scan definition cannot be None. \
+                Please provide either a path to a scan definition file or a scan definition dictionary"
+            )
+        if warehouse_def is None:
+            raise ValueError(
+                "Warehouse definition cannot be None. \
+                Please provide either a path to a warehouse definition file or a warehouse definition dictionary"
+            )
+        scan = self.scan_builder.build()
+        return scan.execute().to_json()
+```
+
+In your Prefect Flow, you can call the Soda SQL Task like this:
+
+```python
+import SodaSQLScan
+
+from prefect import Flow
+
+
+dq_task = SodaSQLScan(
+    scan_def="/path/to/scan.yml",
+    warehouse_def="/path/to/warehouse.yml"
+)
+
+with Flow(name="DQ Sample") as f:
+
+    f.add_task(dq_task)
+
+# run Flow locally, useful only for debugging
+# f.run()
+
+# Register flow to Prefect Server/Cloud
+f.register()
+```
+
 ## Go further
 
 - If you want to write integration instructions for your favorite data orchestration tool, please contribute to our open-source docs! [Post a note on GitHub](https://github.com/sodadata/soda-sql/discussions) to let us know your plans.
