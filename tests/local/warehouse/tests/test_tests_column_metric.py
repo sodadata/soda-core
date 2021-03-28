@@ -54,18 +54,19 @@ class TestColumnMetricTests(SqlTestCase):
              "(11)"])
 
         scan_result = self.scan({
-            KEY_METRICS: [
+            'metrics': [
                 'min',
                 'max'
             ],
-            KEY_COLUMNS: {
+            'columns': {
                 'size': {
-                    COLUMN_KEY_TESTS: {
-                        '01': 'max - min < 10',
-                        '02': 'max - min < 5'
-                    }
+                    'tests': [
+                        'max > 0',
+                        'min < 20',
+                        'max - min < 10',
+                        'max - min < 5'
+                    ]
                 }
             }
         })
         self.assertTrue(scan_result.has_test_failures())
-

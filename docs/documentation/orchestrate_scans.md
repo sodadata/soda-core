@@ -22,6 +22,7 @@ Follow the instructions that correspond to your data orchestration tool:
 [Apache Airflow using PythonVirtualenvOperator](#apache-airflow-using-pythonvirtualenvoperator)<br />
 [Apache Airflow using PythonOperator](#apache-airflow-using-pythonoperator)<br />
 [Apache Airflow using BashOperator](#apache-airflow-using-bashoperator)<br />
+[Prefect using a custom Task](#prefect-using-a-custom-task)<br />
 More coming soon
 <br />
 
@@ -229,16 +230,13 @@ publish_data_op = DummyOperator(
 ingest_data_op >> soda_sql_scan_op >> publish_data_op
 ```
 
-## Prefect using custom Task
+## Prefect using a custom Task
 
 Create a custom Prefect Task to run Soda SQL scans programmatically.
 
-1. Install Soda SQL and Prefect in your environment
-2. Make sure that Soda SQL is available in the environment where your Prefect flow runs. 
-   For example, if you use Docker as the storage backend, you have to provide Soda SQL as a dependency.
-   Please refer to Prefect documentation for further details.
-3. Define a custom Prefect Task to wrap Soda SQL and use it in your Prefect Flow.
-   Below you can find a basic implementation of a SodaSQLScan Task.
+1. Install Soda SQL and Prefect in your environment.
+2. Make sure that Soda SQL is available in the environment in whic your Prefect flow runs. For example, if you use Docker as the storage backend, you must provide Soda SQL as a dependency. Refer to [Prefect documentation](https://docs.prefect.io/core/concepts/flows.html).
+3. Define a custom Prefect Task to wrap Soda SQL and use it in your Prefect Flow. Refer to the following basic implementation of a SodaSQLScan Task.
    
 ```python
 from sodasql.scan.scan_builder import ScanBuilder
@@ -312,7 +310,7 @@ class SodaSQLScan(Task):
         return scan.execute().to_json()
 ```
 
-In your Prefect Flow, you can call the Soda SQL Task like this:
+In your Prefect Flow, call the Soda SQL Task as per the following example.
 
 ```python
 import SodaSQLScan

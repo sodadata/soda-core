@@ -2,7 +2,7 @@
 layout: default
 title: Glossary
 parent: Documentation
-nav_order: 16
+nav_order: 18
 ---
 
 # Glossary
@@ -75,7 +75,7 @@ A Python expression that, during a scan, checks metrics to see if they match the
 A SQL engine or database that contains data that you wish to test and monitor.
 
 ### warehouse directory
-The top directory in the Soda SQL directory structure which contains your Warehouse YAML file and, generally, your `/tables` directory.
+The top directory in the Soda SQL directory structure which contains your warehouse YAML file and, generally, your `/tables` directory.
 
 ### warehouse YAML
 The file in which you configure warehouse connection details and Soda Cloud connection details. See [Warehouse YAML]({% link documentation/warehouse.md %}) and [Connect to Soda Cloud]({% link documentation/connect_to_cloud.md %}).

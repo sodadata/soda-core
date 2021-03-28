@@ -9,14 +9,20 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 import logging
+import os
 import random
 import re
 import socket
 import string
 from typing import Optional, List
 
+import yaml
+
 from sodasql.scan.db import sql_update, sql_updates
+from sodasql.scan.dialect import Dialect
+from sodasql.scan.dialect_parser import DialectParser
 from sodasql.scan.warehouse import Warehouse
+from sodasql.scan.warehouse_yml import WarehouseYml
 
 
 class WarehouseFixture:
@@ -48,8 +54,20 @@ class WarehouseFixture:
     def __init__(self, target: str) -> None:
         super().__init__()
         self.target: str = target
-        self.warehouse: Optional[Warehouse] = None
+        self.dialect = self.create_dialect(self.target)
+        self.warehouse_yml = WarehouseYml(dialect=self.dialect, name='test_warehouse')
+        self.warehouse: Optional[Warehouse] = Warehouse(self.warehouse_yml)
         self.database: Optional[str] = None
+        self.create_database()
+
+    def create_dialect(cls, target: str) -> Dialect:
+        tests_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        test_warehouse_cfg_path = f'{tests_dir}/warehouses/{target}_cfg.yml'
+        with open(test_warehouse_cfg_path) as f:
+            warehouse_configuration_dict = yaml.load(f, Loader=yaml.SafeLoader)
+            dialect_parser = DialectParser(warehouse_configuration_dict)
+            dialect_parser.assert_no_warnings_or_errors()
+            return dialect_parser.dialect
 
     def create_database(self):
         self.database = self.create_unique_database_name()

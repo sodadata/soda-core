@@ -8,11 +8,8 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-from sodasql.scan.metric import Metric
 from sodasql.scan.scan_yml_parser import KEY_SQL_METRICS, SQL_METRIC_KEY_TESTS, SQL_METRIC_KEY_SQL, \
-    COLUMN_KEY_SQL_METRICS, SQL_METRIC_KEY_GROUP_FIELDS, KEY_COLUMNS, COLUMN_KEY_METRICS, KEY_FILTER
-from sodasql.scan.sql_metric_yml_parser import KEY_SQL, KEY_TESTS, KEY_GROUP_FIELDS, \
-    KEY_METRIC_NAMES
+    COLUMN_KEY_SQL_METRICS, SQL_METRIC_KEY_GROUP_FIELDS, COLUMN_KEY_METRICS
 from tests.common.sql_test_case import SqlTestCase
 
 

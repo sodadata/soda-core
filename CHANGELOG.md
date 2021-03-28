@@ -4,6 +4,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.0b26] - 2021-03-31
+### Changed
+- Update dependencies to their latest versions
+- Fix JSON serialization issues with decimals
+- Refactor the way how errors are shown during a scan
+- Add support for Metric Groups
+- Add experimental support for SQL Metrics which produce `failed_rows`
+- Add experimental support for dataset sampling (Soda Cloud)
+
 ## [2.0.0b25] - 2021-03-17
 ### Improved
 - new parameter `catalog` added in Athena warehouse configuration
@@ -44,7 +53,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [2.0.0b19] - 2021-03-04
 ###
-- `2.0.0b18` was a broken release missing some files. This releases fixes that. 
+- `2.0.0b18` was a broken release missing some files. This releases fixes that.
   It does not introduce any new features.
 
 ## [2.0.0b18] - 2021-03-04

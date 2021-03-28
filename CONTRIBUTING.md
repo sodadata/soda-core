@@ -36,14 +36,14 @@ launch a correct PostgreSQL db with the right user and database.
 
 ## Pushing a release
 
-Pushing a release is fully automated and only requires to push a tag.
-
+Make sure that you you install dev-requirements
+```shell
+pip-compile dev-requiremnts.in
+pip install -r dev-requiremnts.txt
 ```
-scripts/release.sh [releasename] "[release description]"
-```
 
-eg
+Pushing a release is fully automated and only requires to bump the version using `tbump`. For example to release 2.1.0b3, you can use the following command:
 
-```
-scripts/release.sh 2.0.0b24 "Added advanced automagical testing to scans"
+```shell
+tbump 2.1.0b3
 ```

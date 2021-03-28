@@ -21,7 +21,7 @@ This open-source, command-line tool exists to enable Data Engineers to access an
 - scan your [table]({% link documentation/glossary.md %}#table) to run tests for "bad" data.
 
 
-To **connect** to a data warehouse such as Snowflake, AWS Athena, or Google Cloud Products BigQuery, you use two files that Soda SQL creates for you when you run the `soda create` CLI command: 
+To **connect** to a data warehouse such as Snowflake, Amazon Athena, or Google Cloud Products BigQuery, you use two files that Soda SQL creates for you when you run the `soda create` CLI command: 
 - a `warehouse.yml` file which stores access details for your warehouse, and, 
 - an `env_vars.yml` file which securely stores warehouse login credentials.
 
@@ -99,7 +99,7 @@ Additionally, you can integrate Soda SQL with a **Soda Cloud** account. This fre
 Though you do not have to set up and ingrate a Soda Cloud account in order to use Soda SQL, the web app serves to complement the CLI tool, giving you a non-CLI method of examining data quality. Use Soda Cloud to:
 
 - collaborate with team members to review details of scan results that can help you to diagnose data issues
-- store [metrics]({% link documentation/sql_metrics.md %}) over time
+- use monitors to view stored [scan output]({% link documentation/scan.md %}#scan-output) as a line graph that represents the volume of failed tests in each scan
 - empower others to [set quality thresholds]({% link documentation/monitors.md %}) that define "good" data
 - set up and [send alert notifications]({% link documentation/monitors.md %}) when "bad" data enters your data pipeline
 
@@ -110,3 +110,4 @@ To connect Soda SQL to Soda Cloud, you create API keys in your Soda Cloud accoun
 * Learn more about the [Metrics]({% link documentation/sql_metrics.md %}) you can use to define [Tests]({% link documentation/tests.md %}).
 * Learn how to [Connect to Soda Cloud]({% link documentation/connect_to_cloud.md %}).
 * See how to prepare [programmatic scans]({% link documentation/programmatic_scan.md %}) of your data.
+* Reference the [Data types]({% link documentation/supported-data-types.md %}) that Soda SQL supports when it scans columns.

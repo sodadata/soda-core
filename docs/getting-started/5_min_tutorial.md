@@ -20,7 +20,7 @@ In the context of Soda SQL, a warehouse represents a SQL engine or database such
 
 All the instructions below reference this sample warehouse in the commands.
 
-1. From your command-line interface, execute the following to build a containerized PostgreSQL warehouse.
+1. From your command-line interface, execute the following to build a containerized PostgreSQL warehouse. Note that the `-v` option connects to a location on your local drive in which Soda SQL will create your warehouse directory file further in this tutorial.
 ```shell
 $ docker run --name soda_sql_tutorial_db --rm -d \
     -p 5432:5432 \
@@ -107,7 +107,7 @@ cat ./tables/demodata.yml
 ```
 Output:<br />
 ![tutorial-output](../assets/images/tutorial-output.png){:height="340px" width="340px"}
-3. Note the three tests that Soda SQL configured in `demodata.yml`. When it created this file, Soda SQL pre-populated it with the `test` and `metric` configurations it deemed useful based on the data in the table it analyzed. Read more about the [Anatomy of the scan YAML file]({% link documentation/scan.md %}anatomy-of-the-scan-yaml-file).
+3. Note the three tests that Soda SQL configured in `demodata.yml`. When it created this file, Soda SQL pre-populated it with the `test` and `metric` configurations it deemed useful based on the data in the table it analyzed. Read more about the [Anatomy of the scan YAML file]({% link documentation/scan.md %}#anatomy-of-the-scan-yaml-file).
 
 ## Run a scan
 
