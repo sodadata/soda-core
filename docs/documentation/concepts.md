@@ -99,7 +99,7 @@ Additionally, you can integrate Soda SQL with a **Soda Cloud** account. This fre
 Though you do not have to set up and ingrate a Soda Cloud account in order to use Soda SQL, the web app serves to complement the CLI tool, giving you a non-CLI method of examining data quality. Use Soda Cloud to:
 
 - collaborate with team members to review details of scan results that can help you to diagnose data issues
-- store [metrics]({% link documentation/sql_metrics.md %}) over time
+- use monitors to view stored [scan output]({% link documentation/scan.md %}#scan-output) as a line graph that represents the volume of failed tests in each scan
 - empower others to [set quality thresholds]({% link documentation/monitors.md %}) that define "good" data
 - set up and [send alert notifications]({% link documentation/monitors.md %}) when "bad" data enters your data pipeline
 
