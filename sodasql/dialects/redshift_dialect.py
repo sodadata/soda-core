@@ -102,6 +102,9 @@ class RedshiftDialect(PostgresDialect):
 
         return cluster_creds['DbUser'], cluster_creds['DbPassword']
 
+    def is_text(self, column_type: str):
+        return column_type.upper() in ['CHARACTER VARYING', 'CHARACTER', 'CHAR', 'TEXT', 'NCHAR', 'NVARCHAR', 'BPCHAR']
+
     def qualify_regex(self, regex):
         return self.escape_metacharacters(regex)
 

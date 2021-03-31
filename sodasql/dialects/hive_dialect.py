@@ -87,13 +87,7 @@ class HiveDialect(Dialect):
         return f"cast({expr} as string) rlike '{self.qualify_regex(pattern)}'"
 
     def is_text(self, column_type: str):
-        for text_type in self._get_text_types():
-            if column_type and text_type.upper() in column_type.upper():
-                return True
-        return False
-
-    def _get_text_types(self):
-        return ['CHAR', 'VARCHAR', 'STRING']
+        return column_type.upper() in ['CHAR', 'VARCHAR']
 
     def is_number(self, column_type: str):
         for number_type in self._get_number_types():

@@ -67,7 +67,7 @@ class BigQueryDialect(Dialect):
                 f"WHERE table_name = '{table_name}';")
 
     def is_text(self, column_type: str):
-        return not self.is_complex(column_type) and super().is_text(column_type)
+        return column_type.upper() in ['STRING']
 
     def is_number(self, column_type: str):
         return not self.is_complex(column_type) and super().is_number(column_type)

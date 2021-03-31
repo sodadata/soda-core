@@ -75,6 +75,9 @@ class PostgresDialect(Dialect):
             sql += f" \n  AND table_schema = '{self.schema}'"
         return sql
 
+    def is_text(self, column_type: str):
+        return column_type.upper() in ['CHARACTER VARYING', 'CHARACTER', 'CHAR', 'TEXT']
+
     def qualify_table_name(self, table_name: str) -> str:
         if self.schema:
             return f'"{self.schema}"."{table_name}"'

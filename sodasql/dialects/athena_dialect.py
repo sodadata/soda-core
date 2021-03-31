@@ -61,7 +61,7 @@ class AthenaDialect(Dialect):
         return conn
 
     def is_text(self, column_type: str):
-        return not self.is_complex(column_type) and super().is_text(column_type)
+        return column_type.upper() in ['CHAR', 'VARCHAR', 'STRING']
 
     def is_number(self, column_type: str):
         return not self.is_complex(column_type) and super().is_number(column_type)

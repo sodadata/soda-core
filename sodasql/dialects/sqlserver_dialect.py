@@ -97,6 +97,9 @@ class SQLServerDialect(Dialect):
             sql += f" \n  AND table_schema = '{self.schema}'"
         return sql
 
+    def is_text(self, column_type: str):
+        return column_type.upper() in ['VARCHAR', 'CHAR', 'TEXT', 'NVARCHAR', 'NCHAR', 'NTEXT']
+
     def qualify_table_name(self, table_name: str) -> str:
         if self.schema:
             return f'"{self.schema}"."{table_name}"'
