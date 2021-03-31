@@ -99,7 +99,7 @@ class Sampler:
 
         logging.debug(f'Sending sample {sample_description}')
         with tempfile.TemporaryFile() as temp_file:
-            rows_stored, sample_columns = self.save_sample_to_local_file(sql, temp_file)
+            rows_total, rows_stored, sample_columns = self.save_sample_to_local_file(sql, temp_file)
 
             temp_file_size_in_bytes = temp_file.tell()
             temp_file.seek(0)
@@ -128,7 +128,7 @@ class Sampler:
                 f'{self._fileify(failed_rows_sql_metric_yml.name)}' +
                 '.jsonl')
 
-    def save_sample_to_local_file(self, sql, temp_file):
+    def save_sample_to_local_file(self, sql, temp_file, sample_limit=None):
         def serialize_file_upload_value(value):
             if value is None \
                     or isinstance(value, str) \
@@ -148,15 +148,18 @@ class Sampler:
                 for d in cursor.description
             ]
 
-            stored_rows = 0
+            stored_rows = total_rows = 0
             row = cursor.fetchone()
             while row is not None:
-                sample_values = []
-                for i in range(0, len(row)):
-                    sample_values.append(serialize_file_upload_value(row[i]))
-                temp_file.write(bytearray(json.dumps(sample_values), 'utf-8'))
-                temp_file.write(b'\n')
-                stored_rows += 1
+                if sample_limit is None or stored_rows < sample_limit:
+                    sample_values = []
+                    for i in range(0, len(row)):
+                        sample_values.append(serialize_file_upload_value(row[i]))
+                    temp_file.write(bytearray(json.dumps(sample_values), 'utf-8'))
+                    temp_file.write(b'\n')
+                    stored_rows += 1
+
+                total_rows += 1
                 row = cursor.fetchone()
 
             delta = datetime.now() - start
@@ -165,4 +168,4 @@ class Sampler:
         finally:
             cursor.close()
 
-        return stored_rows, sample_columns
+        return total_rows, stored_rows, sample_columns
