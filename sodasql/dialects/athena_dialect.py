@@ -13,7 +13,7 @@ from datetime import date
 
 import pyathena
 
-from sodasql.scan.dialect import Dialect, ATHENA, KEY_WAREHOUSE_TYPE
+from sodasql.scan.dialect import ATHENA, KEY_WAREHOUSE_TYPE, Dialect
 from sodasql.scan.parser import Parser
 
 
@@ -47,13 +47,15 @@ class AthenaDialect(Dialect):
 
     def create_connection(self):
         # pyathena.connect will do the role resolving
-        # aws_credentials = self.aws_credentials.resolve_role('soda_scan')
+        # note that aws_credentials can be optional, in which case
+        # pyathena will automatically resolve to the user's local
+        # AWS configuration or environment vars.
         conn = pyathena.connect(
-            aws_access_key_id=self.aws_credentials.access_key_id,
-            aws_secret_access_key=self.aws_credentials.secret_access_key,
+            aws_access_key_id=self.aws_credentials.access_key_id if self.aws_credentials else None,
+            aws_secret_access_key=self.aws_credentials.secret_access_key if self.aws_credentials else None,
             s3_staging_dir=self.athena_staging_dir,
-            region_name=self.aws_credentials.region_name,
-            role_arn=self.aws_credentials.role_arn,
+            region_name=self.aws_credentials.region_name if self.aws_credentials else None,
+            role_arn=self.aws_credentials.role_arn if self.aws_credentials else None,
             catalog_name=self.catalog,
         )
         return conn
