@@ -10,9 +10,7 @@
 #  limitations under the License.
 from sodasql.scan.metric import Metric
 from sodasql.scan.scan_yml_parser import KEY_SQL_METRICS, SQL_METRIC_KEY_TESTS, SQL_METRIC_KEY_SQL, \
-    COLUMN_KEY_SQL_METRICS, SQL_METRIC_KEY_GROUP_FIELDS, KEY_COLUMNS, COLUMN_KEY_METRICS, KEY_FILTER
-from sodasql.scan.sql_metric_yml_parser import KEY_SQL, KEY_TESTS, KEY_GROUP_FIELDS, \
-    KEY_METRIC_NAMES
+    COLUMN_KEY_SQL_METRICS, SQL_METRIC_KEY_GROUP_FIELDS, KEY_COLUMNS, COLUMN_KEY_METRICS
 from tests.common.sql_test_case import SqlTestCase
 
 
@@ -83,14 +81,14 @@ class TestTestsSqlMetric(SqlTestCase):
 
     def test_sql_metric_default_field_metric_name_mapping(self):
         scan_yml_dict = {
-            KEY_SQL_METRICS: [{
-                KEY_METRIC_NAMES: ['sum_ones'],
-                SQL_METRIC_KEY_SQL: (
+            'sql_metrics': [{
+                'metric_names': ['sum_ones'],
+                'sql': (
                     f"SELECT sum(size) \n"
                     f"FROM {self.qualified_table_name} \n"
                     f"WHERE country = 'one'"
                 ),
-                SQL_METRIC_KEY_TESTS: [
+                'tests': [
                     'sum_ones < 20'
                 ]
             }]

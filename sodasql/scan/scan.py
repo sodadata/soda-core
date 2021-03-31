@@ -12,7 +12,7 @@
 import logging
 import tempfile
 from datetime import datetime
-from math import ceil, floor
+from math import floor, ceil
 from typing import List, Optional
 
 from jinja2 import Template
@@ -22,8 +22,7 @@ from sodasql.scan.group_value import GroupValue
 from sodasql.scan.measurement import Measurement
 from sodasql.scan.metric import Metric
 from sodasql.scan.scan_column import ScanColumn
-from sodasql.scan.scan_error import (ScanError, SodaCloudScanError,
-                                     TestExecutionScanError)
+from sodasql.scan.scan_error import SodaCloudScanError, ScanError, TestExecutionScanError
 from sodasql.scan.scan_result import ScanResult
 from sodasql.scan.scan_yml import ScanYml
 from sodasql.scan.sql_metric_yml import SqlMetricYml
@@ -540,30 +539,32 @@ class Scan:
             self.scan_result.add_error(ScanError(f'Exception during sql metric groups query {resolved_sql}', e))
 
     def _run_sql_metric_failed_rows(self,
-                                    sql_metric: SqlMetricYml,
+                                    sql_metric_yml: SqlMetricYml,
                                     resolved_sql: str,
                                     scan_column: Optional[ScanColumn] = None):
+
         try:
             if self.soda_server_client:
-                logging.debug(f'Sending failed rows for sql metric {sql_metric.name} to Soda Cloud')
 
-                failed_rows_sample_limit = self.scan_yml.samples_yml.failed_limit \
-                    if self.scan_yml.samples_yml and self.scan_yml.samples_yml.is_failed_enabled() else None
+                logging.debug(f'Sending failed rows for sql metric {sql_metric_yml.name} to Soda Cloud')
                 with tempfile.TemporaryFile() as temp_file:
-                    rows_total, rows_stored, sample_columns = \
-                        self.sampler.save_sample_to_local_file(resolved_sql, temp_file, failed_rows_sample_limit)
+
+                    failed_limit = self.scan_yml.get_sql_metric_failed_rows_limit(sql_metric_yml)
+
+                    rows_stored, sample_columns, total_rows = \
+                        self.sampler.save_sample_to_local_file_with_limit(resolved_sql, temp_file, failed_limit)
 
                     column_name = scan_column.column_name if scan_column else None
-                    measurement = Measurement(metric=sql_metric.name, value=rows_stored, column_name=column_name)
+                    measurement = Measurement(metric=sql_metric_yml.name, value=rows_stored, column_name=column_name)
 
                     measurements = []
                     self._log_and_append_query_measurement(measurements, measurement)
                     self._flush_measurements(measurements)
 
-                    test = sql_metric.tests[0]
+                    test = sql_metric_yml.tests[0]
 
                     test_variables = {
-                        sql_metric.name: rows_stored
+                        sql_metric_yml.name: rows_stored
                     }
 
                     test_result = self.evaluate_test(test, test_variables)
@@ -573,7 +574,7 @@ class Scan:
                         temp_file_size_in_bytes = temp_file.tell()
                         temp_file.seek(0)
 
-                        file_path = self.sampler.create_file_path_failed_rows_sql_metric(sql_metric)
+                        file_path = self.sampler.create_file_path_failed_rows_sql_metric(sql_metric_yml)
 
                         file_id = self.soda_server_client.scan_upload(self.scan_reference,
                                                                       file_path,
@@ -584,22 +585,22 @@ class Scan:
                             scan_reference=self.scan_reference,
                             sample_type='failedRowsSample',
                             stored=int(rows_stored),
-                            total=int(rows_total),
+                            total=int(total_rows),
                             source_columns=sample_columns,
                             file_id=file_id,
-                            column_name=sql_metric.column_name,
+                            column_name=sql_metric_yml.column_name,
                             test_ids=[test.id],
-                            sql_metric_name=sql_metric.name)
-                        logging.debug(f'Sent failed rows for sql metric ({rows_stored}/{rows_total}) to Soda Cloud')
+                            sql_metric_name=sql_metric_yml.name)
+                        logging.debug(f'Sent failed rows for sql metric ({rows_stored}/{total_rows}) to Soda Cloud')
                     else:
-                        logging.debug(f'No failed rows for sql metric ({sql_metric.name})')
+                        logging.debug(f'No failed rows for sql metric ({sql_metric_yml.name})')
             else:
                 failed_rows_tuples, description = self.warehouse.sql_fetchall_description(sql=resolved_sql)
                 if len(failed_rows_tuples) > 0:
                     table_text = self._table_to_text(failed_rows_tuples, description)
-                    logging.debug(f'Failed rows for sql metric sql {sql_metric.name}:\n' + table_text)
+                    logging.debug(f'Failed rows for sql metric sql {sql_metric_yml.name}:\n' + table_text)
                 else:
-                    logging.debug(f'No failed rows for sql metric sql {sql_metric.name}')
+                    logging.debug(f'No failed rows for sql metric sql {sql_metric_yml.name}')
         except Exception as e:
             logging.exception(f'Could not perform sql metric failed rows \n{resolved_sql}', e)
             self.scan_result.add_error(ScanError(f'Exception during sql metric failed rows query {resolved_sql}', e))

@@ -80,6 +80,13 @@ VALID_COLUMN_KEYS = COLUMN_MISSING_KEYS + COLUMN_VALID_KEYS + [
     COLUMN_KEY_TESTS,
     COLUMN_KEY_SAMPLES]
 
+SAMPLES_KEY_DATASET_LIMIT = 'table_limit'
+SAMPLES_KEY_DATASET_TABLESAMPLE = 'table_tablesample'
+SAMPLES_KEY_FAILED_LIMIT = 'failed_limit'
+SAMPLES_KEY_FAILED_TABLESAMPLE = 'failed_tablesample'
+SAMPLES_KEY_PASSED_LIMIT = 'passed_limit'
+SAMPLES_KEY_PASSED_TABLESAMPLE = 'passed_tablesample'
+
 SQL_METRIC_KEY_NAME = 'name'
 SQL_METRIC_KEY_TITLE = 'title'
 SQL_METRIC_KEY_SQL = 'sql'
@@ -88,16 +95,10 @@ SQL_METRIC_KEY_SQL_FILE = 'sql_file'
 SQL_METRIC_KEY_METRIC_NAMES = 'metric_names'
 SQL_METRIC_KEY_TESTS = KEY_TESTS
 SQL_METRIC_KEY_GROUP_FIELDS = 'group_fields'
+SQL_METRIC_KEY_FAILED_LIMIT = SAMPLES_KEY_FAILED_LIMIT
 
 VALID_SQL_METRIC_KEYS = [SQL_METRIC_KEY_SQL, SQL_METRIC_KEY_METRIC_NAMES, SQL_METRIC_KEY_TESTS,
-                         SQL_METRIC_KEY_GROUP_FIELDS]
-
-SAMPLES_KEY_DATASET_LIMIT = 'table_limit'
-SAMPLES_KEY_DATASET_TABLESAMPLE = 'table_tablesample'
-SAMPLES_KEY_FAILED_LIMIT = 'failed_limit'
-SAMPLES_KEY_FAILED_TABLESAMPLE = 'failed_tablesample'
-SAMPLES_KEY_PASSED_LIMIT = 'passed_limit'
-SAMPLES_KEY_PASSED_TABLESAMPLE = 'passed_tablesample'
+                         SQL_METRIC_KEY_GROUP_FIELDS, SQL_METRIC_KEY_FAILED_LIMIT]
 
 
 class ScanYmlParser(Parser):
@@ -381,6 +382,9 @@ class ScanYmlParser(Parser):
                                      column_name: str) -> Optional[SqlMetricYml]:
 
         sql_metric_name = self.get_str_required(SQL_METRIC_KEY_NAME)
+        if sql_metric_name is None:
+            return None
+
         # Only allow for valid python identifiers as the metric names in failed rows
         # TODO make this consistent with the other sql metric names
         if not re.match(r"^[^\d\W]\w*\Z$", sql_metric_name):
@@ -405,6 +409,7 @@ class ScanYmlParser(Parser):
             sql=self.get_str_optional(SQL_METRIC_KEY_SQL),
             column_name=column_name,
             index=sql_metric_index,
+            failed_limit=self.get_int_optional(SQL_METRIC_KEY_FAILED_LIMIT),
             tests=[test])
 
     def parse_samples_yml(self, samples_key: str) -> Optional[SamplesYml]:

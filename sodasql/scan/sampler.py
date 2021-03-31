@@ -99,7 +99,7 @@ class Sampler:
 
         logging.debug(f'Sending sample {sample_description}')
         with tempfile.TemporaryFile() as temp_file:
-            rows_total, rows_stored, sample_columns = self.save_sample_to_local_file(sql, temp_file)
+            rows_stored, sample_columns = self.save_sample_to_local_file(sql, temp_file)
 
             temp_file_size_in_bytes = temp_file.tell()
             temp_file.seek(0)
@@ -128,37 +128,67 @@ class Sampler:
                 f'{self._fileify(failed_rows_sql_metric_yml.name)}' +
                 '.jsonl')
 
-    def save_sample_to_local_file(self, sql, temp_file, sample_limit=None):
-        def serialize_file_upload_value(value):
-            if value is None \
-                    or isinstance(value, str) \
-                    or isinstance(value, int) \
-                    or isinstance(value, float):
-                return value
-            return str(value)
+    def __serialize_file_upload_value(self, value):
+        if value is None \
+                or isinstance(value, str) \
+                or isinstance(value, int) \
+                or isinstance(value, float):
+            return value
+        return str(value)
+
+    def __get_sample_columns(self, cursor):
+        return [
+            {'name': d[0],
+             'type': self.scan.warehouse.dialect.get_type_name(d)}
+            for d in cursor.description
+        ]
+
+    def save_sample_to_local_file(self, sql, temp_file):
+        cursor = self.scan.warehouse.connection.cursor()
+        try:
+            logging.debug(f'Executing SQL query: \n{sql}')
+            start = datetime.now()
+            cursor.execute(sql)
+            sample_columns = self.__get_sample_columns(cursor)
+
+            stored_rows = 0
+            row = cursor.fetchone()
+            while row is not None:
+                sample_values = []
+                for i in range(0, len(row)):
+                    sample_values.append(self.__serialize_file_upload_value(row[i]))
+                temp_file.write(bytearray(json.dumps(sample_values), 'utf-8'))
+                temp_file.write(b'\n')
+                stored_rows += 1
+                row = cursor.fetchone()
+
+            delta = datetime.now() - start
+            logging.debug(f'SQL took {str(delta)}')
+
+        finally:
+            cursor.close()
+
+        return stored_rows, sample_columns
+
+    def save_sample_to_local_file_with_limit(self, sql, temp_file, limit: int):
 
         cursor = self.scan.warehouse.connection.cursor()
         try:
             logging.debug(f'Executing SQL query: \n{sql}')
             start = datetime.now()
             cursor.execute(sql)
-            sample_columns = [
-                {'name': d[0],
-                 'type': self.scan.warehouse.dialect.get_type_name(d)}
-                for d in cursor.description
-            ]
+            sample_columns = self.__get_sample_columns(cursor)
 
             stored_rows = total_rows = 0
             row = cursor.fetchone()
             while row is not None:
-                if sample_limit is None or stored_rows < sample_limit:
+                if stored_rows < limit:
                     sample_values = []
                     for i in range(0, len(row)):
-                        sample_values.append(serialize_file_upload_value(row[i]))
+                        sample_values.append(self.__serialize_file_upload_value(row[i]))
                     temp_file.write(bytearray(json.dumps(sample_values), 'utf-8'))
                     temp_file.write(b'\n')
                     stored_rows += 1
-
                 total_rows += 1
                 row = cursor.fetchone()
 
@@ -168,4 +198,4 @@ class Sampler:
         finally:
             cursor.close()
 
-        return total_rows, stored_rows, sample_columns
+        return stored_rows, sample_columns, total_rows
