@@ -66,7 +66,9 @@ class AthenaDialect(Dialect):
                 or re.match(r'^VARCHAR\([0-9]+\)$', column_type_upper))
 
     def is_number(self, column_type: str):
-        return not self.is_complex(column_type) and super().is_number(column_type)
+        column_type_upper = column_type.upper()
+        return (column_type_upper in ['TINYINT', 'SMALLINT', 'INT', 'INTEGER', 'BIGINT', 'DOUBLE', 'FLOAT', 'DECIMAL']
+                or re.match(r'^DECIMAL\([0-9]+(,[0-9]+)?\)$', column_type_upper))
 
     def is_time(self, column_type: str):
         return not self.is_complex(column_type) and super().is_time(column_type)

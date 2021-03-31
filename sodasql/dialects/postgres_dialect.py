@@ -78,6 +78,16 @@ class PostgresDialect(Dialect):
     def is_text(self, column_type: str):
         return column_type.upper() in ['CHARACTER VARYING', 'CHARACTER', 'CHAR', 'TEXT']
 
+    def is_number(self, column_type: str):
+        return column_type.upper() in ['SMALLINT', 'INTEGER', 'BIGINT', 'DECIMAL', 'NUMERIC	VARIABLE',
+                                       'REAL', 'DOUBLE PRECISION', 'SMALLSERIAL', 'SERIAL', 'BIGSERIAL']
+
+    def is_time(self, column_type: str):
+        return column_type.upper() in [
+            'TIMESTAMP', 'DATE', 'TIME',
+            'TIMESTAMP WITH TIME ZONE', 'TIMESTAMP WITHOUT TIME ZONE',
+            'TIME WITH TIME ZONE', 'TIME WITHOUT TIME ZONE']
+
     def qualify_table_name(self, table_name: str) -> str:
         if self.schema:
             return f'"{self.schema}"."{table_name}"'

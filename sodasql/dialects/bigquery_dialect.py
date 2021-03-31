@@ -70,7 +70,7 @@ class BigQueryDialect(Dialect):
         return column_type.upper() in ['STRING']
 
     def is_number(self, column_type: str):
-        return not self.is_complex(column_type) and super().is_number(column_type)
+        return column_type.upper() in ['INT64', 'NUMERIC', 'DECIMAL', 'BIGNUMERIC', 'BIGDECIMAL', 'FLOAT64']
 
     def is_time(self, column_type: str):
         return not self.is_complex(column_type) and super().is_time(column_type)

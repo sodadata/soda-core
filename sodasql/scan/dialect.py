@@ -93,43 +93,31 @@ class Dialect:
     def create_connection(self):
         raise RuntimeError('TODO override and implement this abstract method')
 
+    def sql_columns_metadata_query(self, table_name: str) -> str:
+        raise RuntimeError('TODO override and implement this abstract method')
+
+    def sql_tables_metadata_query(self, limit: str = 10, filter: str = None):
+        raise RuntimeError('TODO override and implement this abstract method')
+
+    def is_text(self, column_type: str):
+        raise RuntimeError('TODO override this method')
+
+    def is_number(self, column_type: str):
+        raise RuntimeError('TODO override this method')
+
+    def is_time(self, column_type: str):
+        raise RuntimeError('TODO override this method')
+
     def create_scan(self, *args, **kwargs):
         # Purpose of this method is to enable dialects to override and
         # customize the scan implementation
         from sodasql.scan.scan import Scan
         return Scan(*args, **kwargs)
 
-    def is_text(self, column_type: str):
-        raise RuntimeError('TODO override this method')
-
-    def is_number(self, column_type: str):
-        for number_type in self._get_number_types():
-            if column_type and number_type.upper() in column_type.upper():
-                return True
-        return False
-
-    def _get_number_types(self):
-        return ['INT', 'REAL', 'PRECISION', 'NUMBER', 'DECIMAL']
-
-    def is_time(self, column_type: str):
-        for time_type in self._get_time_types():
-            if column_type and time_type.upper() in column_type.upper():
-                return True
-        return False
-
-    def _get_time_types(self):
-        return ['TIMESTAMP', 'DATE', 'TIME']
-
     def is_supported(self, column_type: str):
         return (self.is_text(column_type)
                 or self.is_number(column_type)
                 or self.is_time(column_type))
-
-    def sql_columns_metadata_query(self, table_name: str) -> str:
-        raise RuntimeError('TODO override and implement this abstract method')
-
-    def sql_tables_metadata_query(self, limit: str = 10, filter: str = None):
-        raise RuntimeError('TODO override and implement this abstract method')
 
     def sql_create_table(
             self,
