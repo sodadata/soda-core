@@ -33,6 +33,7 @@ class ScanYml:
     sample_method: str = None
     mins_maxs_limit: int = None
     frequent_values_limit: int = None
+    # None means no samples to be taken
     samples_yml: SamplesYml = None
 
     def is_any_metric_enabled(self, metrics: List[str], column_name: Optional[str] = None):
@@ -98,3 +99,11 @@ class ScanYml:
             if scan_yml_column and scan_yml_column.samples_yml:
                 return scan_yml_column.samples_yml.with_defaults(self.samples_yml)
         return self.samples_yml
+
+    def get_sql_metric_failed_rows_limit(self, sql_metric_yml: SqlMetricYml):
+        if sql_metric_yml and isinstance(sql_metric_yml.failed_limit, int):
+            return sql_metric_yml.failed_limit
+        if self.samples_yml and isinstance(self.samples_yml.failed_limit, int):
+            return self.samples_yml.failed_limit
+        # default is 5
+        return 5

@@ -23,6 +23,7 @@ class SqlMetricYml:
     sql: str
     index: int
     column_name: Optional[str]
+    failed_limit: Optional[int] = None
 
     # TODO move these next members into a subclass NumericSqlMetricYml
     metric_names: List[str] = None
