@@ -87,10 +87,6 @@ class SqlTestCase(TestCase):
             logging.debug(f'Creating warehouse {self.target}')
 
             warehouse_fixture = WarehouseFixture.create(self.target)
-            # dialect = self.create_dialect(self.target)
-            # warehouse_yml = WarehouseYml(dialect=dialect, name='test_warehouse')
-            # warehouse_fixture.warehouse = Warehouse(warehouse_yml)
-            # warehouse_fixture.create_database()
             SqlTestCase.warehouse_fixtures_by_target[self.target] = warehouse_fixture
 
         return warehouse_fixture
