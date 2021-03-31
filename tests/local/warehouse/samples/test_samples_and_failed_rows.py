@@ -115,7 +115,7 @@ class TestSamplesAndFailedRows(SqlTestCase):
 
     def find_scan_file_command(self, sample_type, column_name=None, sql_metric_name=None):
         return next((command for command in self.mock_soda_server_client.commands
-                             if (command['type'] == 'scannerScanFile'
+                             if (command['type'] == 'sodaSqlScanFile'
                                  and command['sampleType'] == sample_type
                                  and command.get('columnName') == column_name
                                  and command.get('sqlMetricName') == sql_metric_name)),

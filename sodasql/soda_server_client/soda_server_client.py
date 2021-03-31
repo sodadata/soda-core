@@ -143,7 +143,7 @@ class SodaServerClient:
                   test_ids: List[str],
                   sql_metric_name: Optional[str] = None):
         command_json = {
-            'type': 'scannerScanFile',
+            'type': 'sodaSqlScanFile',
             'scanReference': scan_reference,
             'fileId': file_id,
             'sampleType': sample_type,
@@ -161,7 +161,7 @@ class SodaServerClient:
 
     def scan_monitor_measurements(self, scan_reference: dict, monitor_measurement_json: dict):
         return self.execute_command({
-            'type': 'scannerMonitorMeasurement',
+            'type': 'sodaSqlMonitorMeasurement',
             'scanReference': scan_reference,
             'monitorMeasurement': monitor_measurement_json
         })
