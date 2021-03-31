@@ -9,7 +9,7 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 import re
-from typing import Set, List, Optional
+from typing import List, Optional, Set
 
 from jinja2 import Template
 
@@ -98,7 +98,7 @@ SQL_METRIC_KEY_GROUP_FIELDS = 'group_fields'
 SQL_METRIC_KEY_FAILED_LIMIT = SAMPLES_KEY_FAILED_LIMIT
 
 VALID_SQL_METRIC_KEYS = [SQL_METRIC_KEY_SQL, SQL_METRIC_KEY_METRIC_NAMES, SQL_METRIC_KEY_TESTS,
-                         SQL_METRIC_KEY_GROUP_FIELDS, SQL_METRIC_KEY_FAILED_LIMIT]
+                         SQL_METRIC_KEY_SQL_FILE, SQL_METRIC_KEY_GROUP_FIELDS, SQL_METRIC_KEY_FAILED_LIMIT]
 
 
 class ScanYmlParser(Parser):
