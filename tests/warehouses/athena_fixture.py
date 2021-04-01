@@ -30,7 +30,6 @@ class AthenaFixture(WarehouseFixture):
         self.suite_id = 'suite_' + (''.join(random.choice(string.ascii_lowercase + string.digits) for _ in range(5)))
 
     def drop_database(self):
-        pass
         super().drop_database()
         self.delete_staging_files()
 

@@ -17,8 +17,8 @@ from tests.common.warehouse_fixture import WarehouseFixture
 class BigQueryFixture(WarehouseFixture):
 
     def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
         self.project_id = None
+        super().__init__(*args, **kwargs)
 
     def create_database(self):
         self.database = self.create_unique_database_name()
