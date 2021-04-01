@@ -107,7 +107,7 @@ cat ./tables/demodata.yml
 ```
 Output:<br />
 ![tutorial-output](../assets/images/tutorial-output.png){:height="340px" width="340px"}
-3. Note the three tests that Soda SQL configured in `demodata.yml`. When it created this file, Soda SQL pre-populated it with the `test` and `metric` configurations it deemed useful based on the data in the table it analyzed. Read more about the [Anatomy of the scan YAML file]({% link documentation/scan.md %}anatomy-of-the-scan-yaml-file).
+3. Note the three tests that Soda SQL configured in `demodata.yml`. When it created this file, Soda SQL pre-populated it with the `test` and `metric` configurations it deemed useful based on the data in the table it analyzed. Read more about the [Anatomy of the scan YAML file]({% link documentation/scan.md %}#anatomy-of-the-scan-yaml-file).
 
 ## Run a scan
 
