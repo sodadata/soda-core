@@ -145,7 +145,7 @@ def create(warehouse_type: str,
             logging.info(
                 f"Review section {warehouse} in ~/.soda/env_vars.yml by running command")
             logging.info(f"  cat ~/.soda/env_vars.yml")
-        logging.info(f"Then run the soda analyse command")
+        logging.info(f"Then run the soda analyze command")
     except Exception as e:
         logging.exception(f'Exception: {str(e)}')
         return 1
