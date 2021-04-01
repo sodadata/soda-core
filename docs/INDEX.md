@@ -10,7 +10,7 @@ permalink: /
 
 # Soda SQL
 
-**Soda SQL** is an open-source command-line tool. It utilizes user-defined input to prepare SQL queries that run tests on tables in a database to find invlaid, missing, or unexpected data. When tests fail, they surface "bad" data that you and your data engineering team can fix, ensuring downstream analysts are using "good" data to make decisions.
+**Soda SQL** is an open-source command-line tool. It utilizes user-defined input to prepare SQL queries that run tests on tables in a database to find invalid, missing, or unexpected data. When tests fail, they surface "bad" data that you and your data engineering team can fix, ensuring downstream analysts are using "good" data to make decisions.
 
 Use Soda SQL to scan a variety of data warehouses:<br />
 <table>
