@@ -67,17 +67,13 @@ class BigQueryDialect(Dialect):
                 f"WHERE table_name = '{table_name}';")
 
     def is_text(self, column_type: str):
-        return not self.is_complex(column_type) and super().is_text(column_type)
+        return column_type.upper() in ['STRING']
 
     def is_number(self, column_type: str):
-        return not self.is_complex(column_type) and super().is_number(column_type)
+        return column_type.upper() in ['INT64', 'NUMERIC', 'DECIMAL', 'BIGNUMERIC', 'BIGDECIMAL', 'FLOAT64']
 
     def is_time(self, column_type: str):
-        return not self.is_complex(column_type) and super().is_time(column_type)
-
-    def is_complex(self, column_type: str):
-        column_type_upper = column_type.upper()
-        return column_type_upper.startswith('STRUCT') or column_type_upper.startswith('ARRAY')
+        return column_type.upper() in ['DATE', 'DATETIME', 'TIME', 'TIMESTAMP']
 
     def qualify_table_name(self, table_name: str) -> str:
         return f'`{self.dataset_name}.{table_name}`'

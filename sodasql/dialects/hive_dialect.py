@@ -77,6 +77,14 @@ class HiveDialect(Dialect):
         # hive_version < 3.x does not support information_schema.columns
         return ''
 
+    def is_text(self, column_type: str):
+        return column_type.upper() in ['CHAR', 'VARCHAR']
+
+    def is_number(self, column_type: str):
+        return column_type.upper() in [
+            'TINYINT', 'SMALLINT', 'INT', 'BIGINT',
+            'FLOAT', 'DOUBLE', 'DOUBLE PRECISION', 'DECIMAL', 'NUMERIC']
+
     def qualify_table_name(self, table_name: str) -> str:
         return f'{self.database}.{table_name}'
 
@@ -85,33 +93,6 @@ class HiveDialect(Dialect):
 
     def sql_expr_regexp_like(self, expr: str, pattern: str):
         return f"cast({expr} as string) rlike '{self.qualify_regex(pattern)}'"
-
-    def is_text(self, column_type: str):
-        for text_type in self._get_text_types():
-            if column_type and text_type.upper() in column_type.upper():
-                return True
-        return False
-
-    def _get_text_types(self):
-        return ['CHAR', 'VARCHAR', 'STRING']
-
-    def is_number(self, column_type: str):
-        for number_type in self._get_number_types():
-            if column_type and number_type.upper() in column_type.upper():
-                return True
-        return False
-
-    def _get_number_types(self):
-        return [
-            'TINYINT',
-            'SMALLINT',
-            'INT',
-            'BIGINT',
-            'FLOAT',
-            'DOUBLE',
-            'DOUBLE PRECISION',
-            'DECIMAL',
-            'NUMERIC']
 
     def sql_expr_stddev(self, expr: str):
         return f'STDDEV_POP({expr})'

@@ -63,6 +63,18 @@ class SnowflakeDialect(Dialect):
         except Exception as e:
             self.try_to_raise_soda_sql_exception(e)
 
+    def is_text(self, column_type: str):
+        return column_type.upper() in ['VARCHAR', 'CHAR', 'CHARACTER', 'STRING', 'TEXT']
+
+    def is_number(self, column_type: str):
+        return column_type.upper() in ['NUMBER', 'INT', 'INTEGER', 'BIGINT', 'SMALLINT', 'TINYINT', 'BYTEINT',
+                                       'FLOAT', 'FLOAT4', 'FLOAT8',
+                                       'DOUBLE', 'DOUBLE PRECISION', 'REAL']
+
+    def is_time(self, column_type: str):
+        return column_type.upper() in ['DATE', 'DATETIME', 'TIME', 'TIMESTAMP',
+                                       'TIMESTAMP_LTZ', 'TIMESTAMP_NTZ', 'TIMESTAMP_TZ']
+
     def sql_tables_metadata_query(self, limit: str = 10, filter: str = None):
         sql = (f"SELECT table_name \n"
                f"FROM information_schema.tables \n"

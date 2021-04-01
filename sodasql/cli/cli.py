@@ -151,16 +151,6 @@ def create(warehouse_type: str,
         return 1
 
 
-@main.command()
-@click.argument('warehouse_file', required=False, default='warehouse.yml')
-def init(warehouse_file: str):
-    """
-    Renamed to `soda analyze`
-    """
-    logging.info(SODA_SQL_VERSION)
-    logging.info("Command 'soda init' was renamed to 'soda analyze'.  To see the arguments and options: `soda analyze --help`")
-
-
 def create_table_filter_regex(table_filter):
     if not isinstance(table_filter, str):
         return None

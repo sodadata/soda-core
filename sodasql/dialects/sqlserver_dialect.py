@@ -97,6 +97,16 @@ class SQLServerDialect(Dialect):
             sql += f" \n  AND table_schema = '{self.schema}'"
         return sql
 
+    def is_text(self, column_type: str):
+        return column_type.upper() in ['VARCHAR', 'CHAR', 'TEXT', 'NVARCHAR', 'NCHAR', 'NTEXT']
+
+    def is_number(self, column_type: str):
+        return column_type.upper() in ['BIGINT', 'NUMERIC', 'BIT', 'SMALLINT', 'DECIMAL', 'SMALLMONEY',
+                                       'INT', 'TINYINT', 'MONEY', 'FLOAT', 'REAL']
+
+    def is_time(self, column_type: str):
+        return column_type.upper() in ['DATE', 'DATETIMEOFFSET', 'DATETIME2', 'SMALLDATETIME', 'DATETIME', 'TIME']
+
     def qualify_table_name(self, table_name: str) -> str:
         if self.schema:
             return f'"{self.schema}"."{table_name}"'

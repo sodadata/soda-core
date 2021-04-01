@@ -102,6 +102,15 @@ class RedshiftDialect(PostgresDialect):
 
         return cluster_creds['DbUser'], cluster_creds['DbPassword']
 
+    def is_text(self, column_type: str):
+        return column_type.upper() in ['CHARACTER VARYING', 'CHARACTER', 'CHAR', 'TEXT', 'NCHAR', 'NVARCHAR', 'BPCHAR']
+
+    def is_number(self, column_type: str):
+        return column_type.upper() in ['SMALLINT', 'INT2', 'INTEGER', 'INT', 'INT4', 'BIGINT', 'INT8']
+
+    def is_time(self, column_type: str):
+        return column_type.upper() in ['DATE', 'TIME', 'TIMETZ', 'TIMESTAMP', 'TIMESTAMPTZ']
+
     def qualify_regex(self, regex):
         return self.escape_metacharacters(regex)
 
