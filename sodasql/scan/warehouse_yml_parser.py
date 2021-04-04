@@ -47,8 +47,12 @@ class WarehouseYmlParser(Parser):
 
     def __init__(self,
                  warehouse_yml_dict: dict,
-                 warehouse_yml_path: str = 'warehouse-dict'):
-        super().__init__(description=warehouse_yml_path)
+                 warehouse_yml_path: str = None):
+        super().__init__(description=warehouse_yml_path if warehouse_yml_path else 'warehouse_dict')
+
+        if isinstance(warehouse_yml_path, str):
+            file_system = FileSystemSingleton.INSTANCE
+            self.set_dir(file_system.dirname(warehouse_yml_path))
 
         if isinstance(warehouse_yml_dict, dict):
             self._push_context(object=warehouse_yml_dict, name=self.description)

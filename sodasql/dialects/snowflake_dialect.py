@@ -25,7 +25,7 @@ class SnowflakeDialect(Dialect):
             self.account = parser.get_str_required_env('account')
             self.warehouse = parser.get_str_required_env('warehouse')
             self.username = parser.get_str_required_env('username')
-            self.password = parser.get_credential('password')
+            self.password = parser.get_str_optional_env('password')
             self.database = parser.get_str_optional_env('database')
             self.schema = parser.get_str_required_env('schema')
             self.connection_timeout = parser.get_int_optional(KEY_CONNECTION_TIMEOUT, DEFAULT_SOCKET_CONNECT_TIMEOUT)

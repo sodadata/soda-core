@@ -24,7 +24,7 @@ class PostgresDialect(Dialect):
             self.host = parser.get_str_optional_env('host', 'localhost')
             self.port = parser.get_str_optional_env('port', '5432')
             self.username = parser.get_str_required_env('username')
-            self.password = parser.get_credential('password')
+            self.password = parser.get_str_optional_env('password')
             self.database = parser.get_str_required_env('database')
             self.schema = parser.get_str_required_env('schema')
             self.connection_timeout = parser.get_int_optional(KEY_CONNECTION_TIMEOUT)

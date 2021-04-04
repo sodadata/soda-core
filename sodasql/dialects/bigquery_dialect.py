@@ -23,6 +23,8 @@ from sodasql.scan.parser import Parser
 
 
 class BigQueryDialect(Dialect):
+
+    # TODO move these to test warehouse fixture
     data_type_varchar_255 = "STRING"
     data_type_integer = "INT64"
     data_type_decimal = "DECIMAL"
@@ -31,20 +33,38 @@ class BigQueryDialect(Dialect):
     def __init__(self, parser: Parser):
         super().__init__(BIGQUERY)
         if parser:
-            self.account_info_dict = self.__parse_json_credential('account_info_json', parser)
+            self.account_info_dict = self.__parse_account_info_json('account_info_json', parser)
+            if not isinstance(self.account_info_dict, dict):
+                self.account_info_dict = parser.get_file_json_dict_optional_env('account_info_file')
+                if self.account_info_dict is None:
+                    parser.error(f'Either account_info_json or account_info_file is required')
             self.dataset_name = parser.get_str_required('dataset')
         self.client = None
+
+    @staticmethod
+    def __parse_account_info_json(credential_name, parser):
+        account_info_json_str = parser.get_str_optional_env(credential_name)
+        if isinstance(account_info_json_str, str):
+            try:
+                return json.loads(account_info_json_str)
+            except JSONDecodeError as e:
+                parser.error(f'Error parsing credential {credential_name}: {e}', credential_name)
+        return None
 
     def default_connection_properties(self, params: dict):
         return {
             KEY_WAREHOUSE_TYPE: BIGQUERY,
-            'account_info': 'env_var(BIGQUERY_ACCOUNT_INFO)',
+            'account_info_json': 'env_var(BIGQUERY_ACCOUNT_INFO_JSON)',
+            'account_info_file': 'env_var(BIGQUERY_ACCOUNT_INFO_FILE)',
             'dataset': params.get('database', 'Eg your_bigquery_dataset')
         }
 
     def default_env_vars(self, params: dict):
         return {
-            'BIGQUERY_ACCOUNT_INFO': '...'
+            'BIGQUERY_ACCOUNT_INFO_JSON': '| ...remove this text and leave the | and paste '
+                                          'the bigquery json below indented...',
+            'BIGQUERY_ACCOUNT_INFO_FILE': 'Put path to the account info file. '
+                                          'Full path or relative to warehouse.yml file'
         }
 
     def create_connection(self):
@@ -98,13 +118,6 @@ class BigQueryDialect(Dialect):
 
     def sql_expr_regexp_like(self, expr: str, pattern: str):
         return f"REGEXP_CONTAINS({expr}, r'{self.qualify_regex(pattern)}')"
-
-    @staticmethod
-    def __parse_json_credential(credential_name, parser):
-        try:
-            return json.loads(parser.get_credential(credential_name))
-        except JSONDecodeError as e:
-            parser.error(f'Error parsing credential {credential_name}: {e}', credential_name)
 
     def sql_expr_cast_text_to_number(self, quoted_column_name, validity_format):
         if validity_format == 'number_whole':

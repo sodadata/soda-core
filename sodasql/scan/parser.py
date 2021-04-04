@@ -18,6 +18,7 @@ from typing import Deque, List, Optional
 
 import yaml
 from sodasql.scan.aws_credentials import AwsCredentials
+from sodasql.scan.file_system import FileSystemSingleton
 from sodasql.scan.metric import Metric
 from sodasql.scan.test import Test
 
@@ -61,16 +62,13 @@ class Parser:
         self.description: str = description
         self.contexts: Deque[ParseContext] = deque()
         self.logs: List[ParseLog] = []
+        # If initialized, self.dir is used as relative dir for loading files
+        # See also Parser.set_dir(dir_path)
+        self.dir: Optional[str] = None
+        self.original_dir: Optional[str] = None
 
     def __str__(self):
         return '\n'.join([str(log) for log in self.logs])
-
-    def _read_file_as_string(self, file_path: str):
-        try:
-            with open(file_path) as f:
-                return f.read()
-        except Exception as e:
-            self.error(f"Couldn't read file {file_path}: {str(e)}")
 
     def _parse_yaml_str(self, yaml_str):
         try:
@@ -165,18 +163,42 @@ class Parser:
         if access_key_id or role_arn:
             return AwsCredentials(
                 access_key_id=access_key_id,
-                secret_access_key=self.get_credential('secret_access_key'),
+                secret_access_key=self.get_str_required_env('secret_access_key'),
                 role_arn=self.get_str_optional_env('role_arn'),
-                session_token=self.get_credential('session_token'),
+                session_token=self.get_str_optional_env('session_token'),
                 region_name=self.get_str_optional_env('region', 'eu-west-1'))
 
-    def get_file_json_dict_required(self, property_name: str):
-        file_str: str = self._read_file_as_string(property_name)
+    def get_file_json_dict_optional_env(self, property_name: str):
+        file_path: str = self.get_str_optional_env(property_name)
+        if isinstance(file_path, str):
+            file_system = FileSystemSingleton.INSTANCE
+            if file_system.is_file(file_path):
+                file_str = self._get_file_str(file_path)
+                if file_str:
+                    try:
+                        return json.loads(file_str)
+                    except Exception as e:
+                        self.error(f"Couldn't parse json configuration {property_name} for {self.description}: {str(e)}",
+                               property_name)
+                else:
+                    self.error(f"File empty {file_path}", property_name)
+            else:
+                self.error(f"File not found {file_path}", property_name)
+        elif file_path is not None:
+            self.error(f"Expected file path string for {property_name} but was {file_path}: ({type(file_path)}", property_name)
+
+    def _get_file_str(self, file_path: str):
+        if self.dir:
+            os.chdir(self.dir)
         try:
-            return json.loads(file_str)
+            expanded_file_path = os.path.expanduser(file_path)
+            with open(expanded_file_path) as f:
+                return f.read()
         except Exception as e:
-            self.error(f"Couldn't parse json configuration {property_name} for {self.description}: {str(e)}",
-                       property_name)
+            self.error(f"Couldn't read file {file_path}: {str(e)}")
+        finally:
+            if self.original_dir:
+                os.chdir(self.original_dir)
 
     def _get(self,
              property_name: str,
@@ -387,3 +409,13 @@ class Parser:
             test_id_dict['test_index'] = test_index
 
         return json.dumps(test_id_dict, separators=(',', ':'))
+
+    def set_dir(self, dir_path: str):
+        self.dir = None
+        self.original_dir = None
+        if isinstance(dir_path, str) and dir_path != '':
+            dir = os.path.expanduser(dir_path)
+            original_dir = os.path.expanduser(os.getcwd())
+            if self.dir != self.original_dir:
+                self.dir = dir
+                self.original_dir = original_dir

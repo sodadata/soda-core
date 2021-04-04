@@ -8,23 +8,8 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-import sys
-import traceback
-
-from click.testing import CliRunner
-
-from sodasql.cli.cli import main
+import os
 
 if __name__ == "__main__":
 
-    run_result = None
-    try:
-        runner = CliRunner()
-        runner.file = sys.stdout
-        run_result = runner.invoke(main, ['analyze', '~/Demo/bqft/warehouse.yml'])
-    except Exception as e:
-        traceback.print_exc()
-    if run_result:
-        print(f'\nConsole:')
-        print(run_result.output)
-    print(f'\nExit code {run_result.exit_code}')
+    print(os.path.dirname('warehouse.yml'))

@@ -25,9 +25,11 @@ class RedshiftFixture(WarehouseFixture):
         self.original_connection = self.warehouse.connection
         self.original_dialect = self.warehouse.dialect
         self.original_connection.set_isolation_level(0)
-        sql_update(self.original_connection, f'CREATE DATABASE {self.database}')
+        quoted_database_name = self.dialect.qualify_column_name(self.database)
+        sql_update(self.original_connection, f'CREATE DATABASE {quoted_database_name}')
 
         self.warehouse.dialect = self.warehouse.dialect.with_database(self.database)
+        self.dialect = self.warehouse.dialect
         self.warehouse.connection = self.warehouse.dialect.create_connection()
 
     def drop_database(self):

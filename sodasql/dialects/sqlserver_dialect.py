@@ -45,7 +45,7 @@ class SQLServerDialect(Dialect):
             self.port = parser.get_str_optional_env('port', '1433')
             self.driver = parser.get_str_optional_env('driver', 'ODBC Driver 17 for SQL Server')
             self.username = parser.get_str_required_env('username')
-            self.password = parser.get_credential('password')
+            self.password = parser.get_str_optional_env('password')
             self.database = parser.get_str_required_env('database')
             self.schema = parser.get_str_required_env('schema')
 

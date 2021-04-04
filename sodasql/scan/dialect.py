@@ -39,6 +39,7 @@ ALL_WAREHOUSE_TYPES = [POSTGRES,
 
 class Dialect:
 
+    # TODO move these to test warehouse fixture
     data_type_varchar_255 = "VARCHAR(255)"
     data_type_integer = "INTEGER"
     data_type_bigint = "BIGINT"
@@ -108,16 +109,8 @@ class Dialect:
     def is_time(self, column_type: str):
         raise RuntimeError('TODO override this method')
 
-    def create_scan(self, *args, **kwargs):
-        # Purpose of this method is to enable dialects to override and
-        # customize the scan implementation
-        from sodasql.scan.scan import Scan
-        return Scan(*args, **kwargs)
-
-    def is_supported(self, column_type: str):
-        return (self.is_text(column_type)
-                or self.is_number(column_type)
-                or self.is_time(column_type))
+    def sql_create_database(self, quoted_database_name: str) -> str:
+        return f'CREATE DATABASE IF NOT EXISTS {quoted_database_name}'
 
     def sql_create_table(
             self,
@@ -136,6 +129,17 @@ class Dialect:
 
     def sql_drop_table(self, table_name):
         return f"DROP TABLE IF EXISTS {self.qualify_writable_table_name(table_name)}"
+
+    def create_scan(self, *args, **kwargs):
+        # Purpose of this method is to enable dialects to override and
+        # customize the scan implementation
+        from sodasql.scan.scan import Scan
+        return Scan(*args, **kwargs)
+
+    def is_supported(self, column_type: str):
+        return (self.is_text(column_type)
+                or self.is_number(column_type)
+                or self.is_time(column_type))
 
     def sql_expr_count_all(self) -> str:
         return 'COUNT(*)'
@@ -390,3 +394,4 @@ class Dialect:
 
     def sql_columns_metadata(self, table_name: str) -> List[tuple]:
         return []
+

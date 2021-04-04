@@ -70,12 +70,14 @@ class WarehouseFixture:
             return dialect_parser.dialect
 
     def create_database(self):
-        self.database = self.create_unique_database_name()
-        self.warehouse.dialect.database = self.database
-        sql_updates(self.warehouse.connection, [
-            f'CREATE DATABASE IF NOT EXISTS {self.database}',
-            f'USE DATABASE {self.database}'])
-        self.warehouse.connection.commit()
+        pass
+
+    @classmethod
+    def create_unique_database_name(cls):
+        prefix: str = 'soda_test'
+        normalized_hostname = re.sub(r"(?i)[^a-zA-Z0-9]", "_", socket.gethostname()).lower()
+        random_suffix = ''.join(random.choice(string.ascii_lowercase + string.digits) for _ in range(10))
+        return f"{prefix}_{normalized_hostname}_{random_suffix}"
 
     def drop_database(self):
         sql_update(self.warehouse.connection,
@@ -87,13 +89,6 @@ class WarehouseFixture:
         return f"CREATE TABLE " \
                f"{self.warehouse.dialect.qualify_writable_table_name(table_name)} ( \n " \
                f"{columns_sql} );"
-
-    @classmethod
-    def create_unique_database_name(cls):
-        prefix: str = 'soda_test'
-        normalized_hostname = re.sub(r"(?i)[^a-zA-Z0-9]", "_", socket.gethostname()).lower()
-        random_suffix = ''.join(random.choice(string.ascii_lowercase + string.digits) for _ in range(10))
-        return f"{prefix}_{normalized_hostname}_{random_suffix}"
 
     def tear_down(self):
         logging.debug('Rolling back transaction on warehouse connection')

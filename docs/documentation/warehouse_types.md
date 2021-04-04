@@ -88,7 +88,10 @@ connection:
 name: my_bigquery_project
 connection:
     type: bigquery
-    # YOUR BIGQUERY SERVICE ACCOUNT INFO JSON FILE
+    # Either specify the contents of the BigQuery account info file in an environment variable 
+    account_info_json: env_var(BIGQUERY_ACCOUNT_INFO_JSON)
+    # Or specify the contents of the BigQuery account info file directly in the warehouse.yml
+    # WARNING: make sure you don't check in any credentials into your version control system
     account_info_json: >
       {
         "type": "service_account",
@@ -102,6 +105,8 @@ connection:
         "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
         "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/..."
       }
+    # Or specify the path to the account info file relative to the warehouse.yml file
+    account_info_file: ./my_bigquery_account_info_file.json
     dataset: sodasql
 ...
 ```
