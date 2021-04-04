@@ -240,6 +240,9 @@ class Dialect:
     def qualify_writable_table_name(self, table_name: str) -> str:
         return table_name
 
+    def quote_identifier_declaration(self, name: str) -> str:
+        return f'"{name}"'
+
     def qualify_regex(self, regex):
         return regex
 
