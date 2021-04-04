@@ -55,7 +55,7 @@ google-api-core[grpc]==1.24.1
     #   google-cloud-core
 google-auth==1.24.0
     # via google-api-core
-google-cloud-bigquery==2.6.2
+google-cloud-bigquery==2.5.0
     # via -r requirements.in
 google-cloud-core==1.5.0
     # via google-cloud-bigquery
@@ -146,6 +146,7 @@ six==1.15.0
     #   cryptography
     #   google-api-core
     #   google-auth
+    #   google-cloud-bigquery
     #   google-cloud-core
     #   google-resumable-media
     #   grpcio

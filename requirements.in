@@ -4,7 +4,7 @@ Jinja2==2.11.3
 snowflake-connector-python==2.4.0
 psycopg2-binary==2.8.5
 PyAthena==2.2.0
-google-cloud-bigquery==2.6.2
+google-cloud-bigquery==2.5.0
 cryptography==3.3.2
 pyodbc==4.0.30
 PyHive==0.6.3
