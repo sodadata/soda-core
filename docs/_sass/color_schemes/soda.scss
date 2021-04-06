@@ -33,6 +33,10 @@ $font-size-10: 32px;
 $font-size-10-sm: 32px;
 
 
+.site-nav ul {
+  list-style-type: none;
+}
+
 .site-footer {
   display: none !important;
 }
