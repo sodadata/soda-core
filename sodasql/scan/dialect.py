@@ -118,17 +118,17 @@ class Dialect:
             column_declarations: List[str]):
         columns_sql = ",\n  ".join(column_declarations)
         return f"CREATE TABLE " \
-               f"{self.qualify_writable_table_name(table_name)} ( \n" \
+               f"{self.quote_identifier_declaration(table_name)} ( \n" \
                f"  {columns_sql} )"
 
     def sql_insert_into(self, table_name, rows: list):
         rows_sql = ',\n  '.join(rows)
         return (f'INSERT INTO '
-                f"{self.qualify_writable_table_name(table_name)} VALUES \n"
+                f"{self.quote_identifier_declaration(table_name)} VALUES \n"
                 f"  {rows_sql}")
 
     def sql_drop_table(self, table_name):
-        return f"DROP TABLE IF EXISTS {self.qualify_writable_table_name(table_name)}"
+        return f"DROP TABLE IF EXISTS {self.quote_identifier(table_name)}"
 
     def create_scan(self, *args, **kwargs):
         # Purpose of this method is to enable dialects to override and
@@ -222,7 +222,9 @@ class Dialect:
         return f"DATE '{date_string}'"
 
     def literal(self, o: object):
-        if isinstance(o, Number):
+        if o is None:
+            return 'NULL'
+        elif isinstance(o, Number):
             return self.literal_number(o)
         elif isinstance(o, str):
             return self.literal_string(o)
@@ -239,6 +241,9 @@ class Dialect:
 
     def qualify_writable_table_name(self, table_name: str) -> str:
         return table_name
+
+    def quote_identifier(self, name: str) -> str:
+        return f'"{name}"'
 
     def quote_identifier_declaration(self, name: str) -> str:
         return f'"{name}"'

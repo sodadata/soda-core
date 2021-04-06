@@ -71,9 +71,10 @@ def sql_update(connection, sql: str):
     try:
         logging.debug(f'Executing SQL update: \n{sql}')
         start = datetime.now()
-        cursor.execute(sql)
+        rows_affected = cursor.execute(sql)
         delta = datetime.now() - start
-        logging.debug(f'SQL took {str(delta)}')
+        update_description = f'{rows_affected} rows updated' if isinstance(rows_affected, int) else ''
+        logging.debug(f'SQL took {str(delta)} {update_description}')
     finally:
         cursor.close()
 

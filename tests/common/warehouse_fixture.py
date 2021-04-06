@@ -18,11 +18,12 @@ from typing import Optional, List
 
 import yaml
 
-from sodasql.scan.db import sql_update, sql_updates
+from sodasql.scan.db import sql_update
 from sodasql.scan.dialect import Dialect
 from sodasql.scan.dialect_parser import DialectParser
 from sodasql.scan.warehouse import Warehouse
 from sodasql.scan.warehouse_yml import WarehouseYml
+from tests.common.table_creator import TableCreator
 
 
 class WarehouseFixture:
@@ -72,6 +73,12 @@ class WarehouseFixture:
     def create_database(self):
         pass
 
+    def drop_database(self):
+        quoted_database_name = self.dialect.quote_identifier(self.database)
+        sql_update(self.warehouse.connection,
+                   f'DROP DATABASE IF EXISTS {quoted_database_name} CASCADE')
+        self.warehouse.connection.commit()
+
     @classmethod
     def create_unique_database_name(cls):
         prefix: str = 'soda_test'
@@ -79,17 +86,16 @@ class WarehouseFixture:
         random_suffix = ''.join(random.choice(string.ascii_lowercase + string.digits) for _ in range(10))
         return f"{prefix}_{normalized_hostname}_{random_suffix}"
 
-    def drop_database(self):
-        sql_update(self.warehouse.connection,
-                   f'DROP DATABASE IF EXISTS {self.database} CASCADE')
-        self.warehouse.connection.commit()
-
     def sql_create_table(self, columns: List[str], table_name: str):
         columns_sql = ", ".join(columns)
+        quoted_table_name = self.dialect.quote_identifier_declaration(table_name)
         return f"CREATE TABLE " \
-               f"{self.warehouse.dialect.qualify_writable_table_name(table_name)} ( \n " \
+               f"{quoted_table_name} ( \n " \
                f"{columns_sql} );"
 
     def tear_down(self):
         logging.debug('Rolling back transaction on warehouse connection')
         self.warehouse.connection.rollback()
+
+    def new_table_creator(self, table_name: str):
+        return TableCreator(self, table_name)

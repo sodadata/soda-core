@@ -25,7 +25,7 @@ class RedshiftFixture(WarehouseFixture):
         self.original_connection = self.warehouse.connection
         self.original_dialect = self.warehouse.dialect
         self.original_connection.set_isolation_level(0)
-        quoted_database_name = self.dialect.qualify_column_name(self.database)
+        quoted_database_name = self.dialect.quote_identifier_declaration(self.database)
         sql_update(self.original_connection, f'CREATE DATABASE {quoted_database_name}')
 
         self.warehouse.dialect = self.warehouse.dialect.with_database(self.database)
@@ -37,7 +37,8 @@ class RedshiftFixture(WarehouseFixture):
             self.warehouse.connection.close()
         except Exception as e:
             logging.debug(f'Closing connection failed: {str(e)}')
-        sql_update(self.original_connection, f'DROP DATABASE {self.database}')
+        quoted_database_name = self.dialect.quote_identifier(self.database)
+        sql_update(self.original_connection, f'DROP DATABASE {quoted_database_name}')
 
 
 

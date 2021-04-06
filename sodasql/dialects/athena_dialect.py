@@ -95,6 +95,9 @@ class AthenaDialect(Dialect):
     def qualify_writable_table_name(self, table_name: str) -> str:
         return f'`{self.database}`.`{table_name}`'
 
+    def quote_identifier(self, name: str) -> str:
+        return f'`{name}`'
+
     def quote_identifier_declaration(self, name: str) -> str:
         return f'`{name}`'
 

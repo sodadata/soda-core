@@ -26,8 +26,8 @@ from sodasql.scan.scan_column import ScanColumn
 from sodasql.scan.scan_result import ScanResult
 from sodasql.scan.scan_yml_parser import KEY_TABLE_NAME, ScanYmlParser
 from sodasql.scan.warehouse import Warehouse
-from sodasql.scan.warehouse_yml import WarehouseYml
 from tests.common.mock_soda_server_client import MockSodaServerClient
+from tests.common.table_creator import TableCreator
 from tests.common.warehouse_fixture import WarehouseFixture
 
 LoggingHelper.configure_for_test()
@@ -123,13 +123,17 @@ class SqlTestCase(TestCase):
     def sql_updates(self, sqls: List[str]):
         return sql_updates(self.warehouse.connection, sqls)
 
+    def new_table_creator(self, table_name: str) -> TableCreator:
+        return self.warehouse_fixture.new_table_creator(table_name)
+
     def sql_recreate_table(self, columns: List[str], rows: List[str] = None, table_name: str = None):
         table_name = table_name if table_name else self.default_test_table_name
-        self.sql_update(f"DROP TABLE IF EXISTS {self.warehouse.dialect.qualify_writable_table_name(table_name)}")
+        quoted_table_name = self.dialect.quote_identifier(table_name)
+        self.sql_update(f"DROP TABLE IF EXISTS {quoted_table_name}")
         self.sql_update(self.sql_create_table(columns, table_name))
         if rows:
             joined_rows = ", ".join(rows)
-            self.sql_update(f"INSERT INTO {self.warehouse.dialect.qualify_table_name(table_name)} VALUES {joined_rows}")
+            self.sql_update(f"INSERT INTO {quoted_table_name} VALUES {joined_rows}")
         self.warehouse.connection.commit()
 
     def sql_create_table(self, columns: List[str], table_name: str):
