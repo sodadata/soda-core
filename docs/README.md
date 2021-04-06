@@ -1,7 +1,7 @@
 <p align="center"><img src="https://raw.githubusercontent.com/sodadata/soda-sql/main/docs/assets/images/soda-banner.png" alt="Soda logo" /></p>
 
 <h1 align="center">Soda SQL</h1>
-<p align="center"><b>Data testing, monitoring and profiling for SQL accessible data.</b></p>
+<p align="center"><b>Data testing, monitoring, and profiling for SQL-accessible data.</b></p>
 
 <p align="center">
   <a href="https://github.com/sodadata/soda-sql/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-Apache%202-blue.svg" alt="License: Apache 2.0"></a>
@@ -9,49 +9,61 @@
   <a href="https://pypi.org/project/soda-sql/"><img alt="Pypi Soda SQL" src="https://img.shields.io/badge/pypi-soda%20sql-green.svg"></a>
   <a href="https://github.com/sodadata/soda-sql/actions/workflows/build.yml"><img alt="Build soda-sql" src="https://github.com/sodadata/soda-sql/actions/workflows/build.yml/badge.svg"></a>
 </p>
- 
-**What does Soda SQL do?**
+ <br />
+ <br />
+**Soda SQL** is an open-source command-line tool. It utilizes user-defined input to prepare SQL queries that run tests on tables in a data warehouse to find invalid, missing, or unexpected data. When tests fail, they surface "bad" data that you can fix to ensure that downstream analysts are using "good" data to make decisions.
 
-Soda SQL allows you to
+**[Quick start tutorial]({% link getting-started/5_min_tutorial.md %})**
 
- * Stop your pipeline when bad data is detected
- * Extract metrics and column profiles through super efficient SQL
- * Full control over metrics and queries through declarative config files
+## Check your data
 
-**Why Soda SQL?**
+If your organization uses data to make decisions, you should always be checking your data. 
 
-To protect against silent data issues for the consumers of your data,
-it's best-practice to profile and test your data:
+- When data comes into a system, you should check it. 
+- When data is transformed or otherwise manipulated to fit into an app or other database, you should check it. 
+- When data is about to be exported, you should check it. 
+- Check to make sure data is unique.
+- Check that data is in an expected format, such as date or UUID.
+- Check that data doesn’t exceed limits or acceptable parameters. 
 
- * as it lands in your warehouse,
- * after every important data processing step
- * right before consumption.
+## Install Soda SQL
 
-This way you will prevent delivery of bad data to downstream consumers.
-You will spend less time firefighting and gain a better reputation.
+Requirements:
+- Python 3.7 or greater
+- Pip 21.0 or greater
 
-**How does Soda SQL work?**
+Install:
+```
+$ pip install soda-sql
+```
 
-Soda SQL is a Command Line Interface (CLI) and a Python library to measure
-and test your data using SQL.
+[Full installation instructions]({% link getting-started/installation.md %})
 
-As input, Soda SQL uses YAML configuration files that include:
- * SQL connection details
- * What metrics to compute
- * What tests to run on the measurements
+## Use Soda SQL
 
-Based on those configuration files, Soda SQL will perform scans.  A scan
-performs all measurements and runs all tests associated with one table.  Typically
-a scan is executed after new data has arrived.  All soda-sql configuration files
-can be checked into your version control system as part of your pipeline
-code.
+Install Soda SQL, then complete three basic tasks to start checking your data: 
 
-> Want to try Soda SQL? Head over to our ['Quick start tutorial'](https://docs.soda.io/soda-sql/getting-started/5_min_tutorial.html) and get started straight away!
+1. Create and configure a `warehouse.yml` file so that Soda SQL can connect to your data warehouse. 
+2. Create and configure a `scan.yml` file to define tests for "bad" data. Choose from a list of predefined metrics to define simple tests – is the table empty? – to more complex tests that borrow from SQL query logic.
+3. Run a scan from the command-line to test for "bad" data. Where the tests return “true”, all is well; where a test returns “false”, Soda SQL presents the issues in the command-line output. 
 
-**"[Show me the metrics](https://www.youtube.com/watch?v=1-mOKMq19zU)"**
+<p align="left"><img src="https://raw.githubusercontent.com/sodadata/soda-sql/main/docs/assets/images/scan-output-fail.png" alt="scan output" /></p>
 
-Let's walk through an example. Simple metrics and tests can be configured in scan YAML configuration 
-files. An example of the contents of such a file:
+[Full configuration instructions]({% link getting-started/configure.md %})
+
+
+## Show me the metrics!
+
+**See for yourself!** Follow the [Quick start tutorial]({% link getting-started/5_min_tutorial.md %}) to see Soda SQL up and running in five minutes.
+
+This example `scan.yml` file defines **four tests** that Soda SQL runs on data in a table in a data warehouse. 
+
+| Test | Description | Outcome |
+| ---- | ----------- | --------------- |
+| `tests: duplicate_count == 0` | Tests that there are no duplicate values in the `ID` column of the table. | The test fails if it finds duplicate values.|
+| `tests: missing_percentage < 3`| Tests that less than 3% of the values in the `CATEGORY` column match the values set under `missing_values`. | The test fails if more than 3% of the values in the column contain `n/a` or `No category`. |
+| `tests: max - min < 20` | Tests that the difference between the highest value and the lowest value in the `SIZE` column is less than 20. | The test fails if the difference exceeds 20. |
+| `tests: total_volume_us > 5000` | Tests that the sum total of US transactions in the `CUSTOMER_TRANSACTIONS` column is greater than 5000. | The test fails if the sum total is less than 5000.|
 
 ```yaml
 metrics:
@@ -105,10 +117,9 @@ sql_metrics:
         - total_volume_us > 5000
 ```
 
-Based on these configuration files, Soda SQL will scan your data
-each time new data arrived like this:
+When Soda SQL scans the table, it returns the following scan output in your command-line interface.
 
-```bash
+```shell
 $ soda scan ./soda/metrics my_warehouse my_dataset
 Soda 1.0 scan for dataset my_dataset on prod my_warehouse
   | SELECT column_name, data_type, is_nullable
@@ -141,17 +152,16 @@ max_length: 9
 All is good. No tests failed. Scan took 23.307 seconds
 ```
 
-The next step is to add Soda SQL scans in your favorite
-data pipeline orchestration solution like:
+## Go further
 
-* Airflow
-* AWS Glue
-* Prefect
-* Dagster
-* Fivetran
-* Matillion
-* Luigi
-
-If you like the goals of this project, encourage us! Star [sodadata/soda-sql on Github](https://github.com/sodadata/soda-sql).
-
-> Next, head over to our ['Quick start tutorial'](https://docs.soda.io/soda-sql/getting-started/5_min_tutorial.html) and get your first project going!
+- Learn how to automate Soda SQL scans using your [data pipeline orchestration tool]({% link documentation/orchestrate_scans.md %}) such as:
+   - Apache Airflow
+   - AWS Glue
+   - Prefect
+   - Dagster
+   - Fivetran
+   - Matillion
+   - Luigi
+- If you like the goals of this project, we welcome your [contribution](https://docs.soda.io/soda-sql/community.html)! 
+- Read more about [How Soda SQL works]({% link documentation/concepts.md %}).
+- Read more about [Metrics]({% link documentation/sql_metrics.md %}) and [Tests]({% link documentation/tests.md %}).

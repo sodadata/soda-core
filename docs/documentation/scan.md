@@ -125,9 +125,9 @@ To allow some databases, such as Snowflake, to cache scan results, the column qu
 
 ## Use the scan output
 
-Optionally, if you have a Soda Cloud account and you have [connected Soda SQL]({% link documentation/connect_to_cloud.md %}) to your account, Soda SQL automatically pushes the scan output to your Soda Cloud account. You can log in to view the Monitor Results; each row in the Monitor Results table represents the output of one scan.
+Optionally, if you have a Soda Cloud account and you have [connected Soda SQL]({% link documentation/connect_to_cloud.md %}) to your account, Soda SQL automatically pushes the scan output to Soda Cloud. You can log in to view the Monitor Results; each row in the Monitor Results table represents a test, and the icon indicates the result of the latest scan, pass or fail.
 
-Optionally, you can [insert]({% link documentation/orchestrate_scans.md %}) the output of Soda SQL scans into your data orchestration tool such as Dagster, or Apache Airflow. In your orchestration tool, you can use Soda SQL scan results to block the data pipeline if it encounters bad data, or to run in parallel to surface issues with your data.
+Optionally, you can insert the output of Soda SQL scans into your data orchestration tool such as Dagster, or Apache Airflow. In your orchestration tool, you can use Soda SQL scan results to block the data pipeline if it encounters bad data, or to run in parallel to surface issues with your data. Learn more about [orchestrating scans]({% link documentation/orchestrate_scans.md %}).
 
 ## Go further
 
