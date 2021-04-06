@@ -22,6 +22,7 @@ class Warehouse:
         self.name = warehouse_yml.name
         self.dialect: Dialect = warehouse_yml.dialect
         self.connection = self.dialect.create_connection()
+        self.analyze_templates = warehouse_yml.analyze_templates
 
     def sql_fetchone(self, sql) -> tuple:
         return sql_fetchone(self.connection, sql)

@@ -20,6 +20,7 @@ from sodasql.scan.warehouse_yml import WarehouseYml
 KEY_NAME = 'name'
 KEY_CONNECTION = 'connection'
 KEY_SODA_ACCOUNT = 'soda_account'
+KEY_ANALYZE_TEMPLATES = 'analyze_templates'
 
 SODA_KEY_HOST = 'host'
 SODA_KEY_PORT = 'port'
@@ -27,7 +28,7 @@ SODA_KEY_PROTOCOL = 'protocol'
 SODA_KEY_API_KEY_ID = 'api_key_id'
 SODA_KEY_API_KEY_SECRET = 'api_key_secret'
 
-VALID_WAREHOUSE_KEYS = [KEY_NAME, KEY_CONNECTION, KEY_SODA_ACCOUNT]
+VALID_WAREHOUSE_KEYS = [KEY_NAME, KEY_CONNECTION, KEY_SODA_ACCOUNT, KEY_ANALYZE_TEMPLATES]
 
 
 def read_warehouse_yml_file(warehouse_yml_file: str):
@@ -72,6 +73,12 @@ class WarehouseYmlParser(Parser):
                 self.warehouse_yml.soda_protocol = self.get_str_optional(SODA_KEY_PROTOCOL, 'https')
                 self.warehouse_yml.soda_api_key_id = self.get_str_required_env(SODA_KEY_API_KEY_ID)
                 self.warehouse_yml.soda_api_key_secret = self.get_str_required_env(SODA_KEY_API_KEY_SECRET)
+                self._pop_context()
+
+            analyze_templates_dict = self.get_dict_required(KEY_ANALYZE_TEMPLATES)
+            if analyze_templates_dict:
+                self._push_context(object=analyze_templates_dict, name=KEY_ANALYZE_TEMPLATES)
+                self.warehouse_yml.analyze_templates = analyze_templates_dict
                 self._pop_context()
 
             self.check_invalid_keys(VALID_WAREHOUSE_KEYS)

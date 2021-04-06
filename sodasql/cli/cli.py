@@ -48,12 +48,14 @@ def main():
 @click.option('-u', '--username',  required=False, default=None, help='The username to use for the connection, through env_var(...)')
 @click.option('-p', '--password',  required=False, default=None, help='The password to use for the connection, through env_var(...)')
 @click.option('-w', '--warehouse', required=False, default=None, help='The warehouse name')
+@click.option('-a', '--analyze_templates', required=False, default=None, help='The dictionary that contains the sql query templates for tables to be used to analyze columns')
 def create(warehouse_type: str,
            file: Optional[str],
            warehouse: Optional[str],
            database: Optional[str],
            username: Optional[str],
-           password: Optional[str]):
+           password: Optional[str],
+           analyze_templates: Optional[str]):
     """
     Creates a new warehouse.yml file and prepares credentials in your ~/.soda/env_vars.yml
     Nothing will be overwritten or removed, only added if it does not exist yet.
@@ -88,6 +90,10 @@ def create(warehouse_type: str,
         connection_properties = dialect.default_connection_properties(configuration_params)
         warehouse_env_vars_dict = dialect.default_env_vars(configuration_params)
 
+        import json
+        analyze_templates_params = json.loads(analyze_templates)
+        analyze_templates_dict = dialect.default_analyze_templates(analyze_templates_params)
+
         if file_system.file_exists(file):
             logging.info(f"Warehouse file {file} already exists")
         else:
@@ -99,7 +105,8 @@ def create(warehouse_type: str,
 
             warehouse_dict = {
                 'name': warehouse,
-                'connection': connection_properties
+                'connection': connection_properties,
+                'analyze_templates': analyze_templates_dict
             }
             warehouse_yml_str = yaml.dump(warehouse_dict, default_flow_style=False, sort_keys=False)
             file_system.file_write_from_str(file, warehouse_yml_str)

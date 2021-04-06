@@ -25,3 +25,4 @@ class WarehouseYml:
     soda_protocol: Optional[str] = None
     soda_api_key_id: Optional[str] = None
     soda_api_key_secret: Optional[str] = None
+    analyze_templates: Optional[dict] = None

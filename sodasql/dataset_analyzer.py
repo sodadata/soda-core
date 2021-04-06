@@ -37,6 +37,8 @@ class DatasetAnalyzer:
     def analyze(self, warehouse: Warehouse, table_name: str):
         dialect = warehouse.dialect
         qualified_table_name = dialect.qualify_table_name(table_name)
+        analyze_templates = warehouse.analyze_templates
+        analyze_template = analyze_templates[dialect.analyze_templates_default]
 
         analyze_results: List[ColumnAnalysisResult] = []
 
@@ -44,6 +46,7 @@ class DatasetAnalyzer:
         column_tuple_list = dialect.sql_columns_metadata(table_name)
         column_tuples = warehouse.sql_fetchall(sql) if len(
             column_tuple_list) == 0 else column_tuple_list
+
         for column_tuple in column_tuples:
             column_name = column_tuple[0]
             source_type = column_tuple[1]
@@ -68,11 +71,18 @@ class DatasetAnalyzer:
                     count_field = f'COUNT(CASE WHEN {regexp_like} THEN 1 END)'
                     validity_format_count_fields.append(count_field)
 
+                if table_name in analyze_templates:
+                    analyze_template = analyze_templates[table_name]
+
+                analyze_dataset_query = analyze_template\
+                    .replace('#column_name#', qualified_column_name)\
+                    .replace("#table_name#", qualified_table_name)
+
                 row = warehouse.sql_fetchone(
                     f'SELECT \n  ' +
                     (',\n  '.join(validity_format_count_fields)) + ',\n'
                     f'  COUNT({qualified_column_name}) \n'
-                    f'FROM (SELECT * FROM {qualified_table_name} LIMIT 1000) T'
+                    f'FROM ({analyze_dataset_query}) T'
                 )
 
                 values_count = row[len(validity_counts)]

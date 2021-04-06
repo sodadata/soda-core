@@ -100,7 +100,16 @@ class TestCli(SqlTestCase):
 
     def run_cli_create(self):
         runner = CliRunner()
-        result = runner.invoke(main, ['create', '-d', 'sodasql', '-u', 'sodasql', '-p', 'sodasql', '-w', 'local_postgres_tutorial', 'postgres'])
+        result = runner.invoke(main, [
+            'create',
+            '-d', 'sodasql',
+            '-u', 'sodasql',
+            '-p', 'sodasql',
+            '-w', 'local_postgres_tutorial', 'postgres',
+            '-a', '{"_default":"select #column_name# from #table_name# limit 1000",'
+                  '"demodata":"select #column_name# from #table_name# where COUNTRY=\'US\' limit 10",'
+                  '"test_table":"select #column_name# from #table_name# limit 5"}'
+        ])
         self.assertEqual(result.exit_code, 0)
         for file_name in self.mock_file_system.files:
             print(f'[{file_name}]')
