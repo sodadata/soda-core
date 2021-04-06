@@ -11,9 +11,9 @@
 </p>
  <br />
  <br />
-**Soda SQL** is an open-source command-line tool. It utilizes user-defined input to prepare SQL queries that run tests on tables in a data warehouse to find invalid, missing, or unexpected data. When tests fail, they surface "bad" data that you can fix to ensure that downstream analysts are using "good" data to make decisions.
-
-**[Quick start tutorial]({% link getting-started/5_min_tutorial.md %})**
+Soda SQL is an open-source command-line tool. It utilizes user-defined input to prepare SQL queries that run tests on tables in a data warehouse to find invalid, missing, or unexpected data. When tests fail, they surface "bad" data that you can fix to ensure that downstream analysts are using "good" data to make decisions.
+<br />
+[Quick start tutorial](https://docs.soda.io/soda-sql/getting-started/5_min_tutorial.html)
 
 ## Check your data
 
@@ -37,7 +37,7 @@ Install:
 $ pip install soda-sql
 ```
 
-[Full installation instructions]({% link getting-started/installation.md %})
+[Full installation instructions](https://docs.soda.io/soda-sql/getting-started/installation.html)
 
 ## Use Soda SQL
 
@@ -49,21 +49,15 @@ Install Soda SQL, then complete three basic tasks to start checking your data:
 
 <p align="left"><img src="https://raw.githubusercontent.com/sodadata/soda-sql/main/docs/assets/images/scan-output-fail.png" alt="scan output" /></p>
 
-[Full configuration instructions]({% link getting-started/configure.md %})
+[Full configuration instructions](https://docs.soda.io/soda-sql/getting-started/configure.html)
 
 
 ## Show me the metrics!
 
-**See for yourself!** Follow the [Quick start tutorial]({% link getting-started/5_min_tutorial.md %}) to see Soda SQL up and running in five minutes.
+**See for yourself!** Follow the [Quick start tutorial](https://docs.soda.io/soda-sql/getting-started/5_min_tutorial.html) to see Soda SQL up and running in five minutes.
 
 This example `scan.yml` file defines **four tests** that Soda SQL runs on data in a table in a data warehouse. 
 
-| Test | Description | Outcome |
-| ---- | ----------- | --------------- |
-| `tests: duplicate_count == 0` | Tests that there are no duplicate values in the `ID` column of the table. | The test fails if it finds duplicate values.|
-| `tests: missing_percentage < 3`| Tests that less than 3% of the values in the `CATEGORY` column match the values set under `missing_values`. | The test fails if more than 3% of the values in the column contain `n/a` or `No category`. |
-| `tests: max - min < 20` | Tests that the difference between the highest value and the lowest value in the `SIZE` column is less than 20. | The test fails if the difference exceeds 20. |
-| `tests: total_volume_us > 5000` | Tests that the sum total of US transactions in the `CUSTOMER_TRANSACTIONS` column is greater than 5000. | The test fails if the sum total is less than 5000.|
 
 ```yaml
 metrics:
@@ -117,6 +111,14 @@ sql_metrics:
         - total_volume_us > 5000
 ```
 
+
+| Test | Description | Outcome |
+| ---- | ----------- | --------------- |
+| `tests: duplicate_count == 0` | Tests that there are no duplicate values in the `ID` column of the table. | The test fails if it finds duplicate values.|
+| `tests: missing_percentage < 3`| Tests that less than 3% of the values in the `CATEGORY` column match the values set under `missing_values`. | The test fails if more than 3% of the values in the column contain `n/a` or `No category`. |
+| `tests: max - min < 20` | Tests that the difference between the highest value and the lowest value in the `SIZE` column is less than 20. | The test fails if the difference exceeds 20. |
+| `tests: total_volume_us > 5000` | Tests that the sum total of US transactions in the `CUSTOMER_TRANSACTIONS` column is greater than 5000. | The test fails if the sum total is less than 5000.|
+
 When Soda SQL scans the table, it returns the following scan output in your command-line interface.
 
 ```shell
@@ -154,7 +156,7 @@ All is good. No tests failed. Scan took 23.307 seconds
 
 ## Go further
 
-- Learn how to automate Soda SQL scans using your [data pipeline orchestration tool]({% link documentation/orchestrate_scans.md %}) such as:
+- Learn how to automate Soda SQL scans using your [data pipeline orchestration tool](https://docs.soda.io/soda-sql/documentation/orchestrate_scans.html) such as:
    - Apache Airflow
    - AWS Glue
    - Prefect
@@ -163,5 +165,4 @@ All is good. No tests failed. Scan took 23.307 seconds
    - Matillion
    - Luigi
 - If you like the goals of this project, we welcome your [contribution](https://docs.soda.io/soda-sql/community.html)! 
-- Read more about [How Soda SQL works]({% link documentation/concepts.md %}).
-- Read more about [Metrics]({% link documentation/sql_metrics.md %}) and [Tests]({% link documentation/tests.md %}).
+- Read more about [How Soda SQL works](https://docs.soda.io/soda-sql/documentation/concepts.html).
