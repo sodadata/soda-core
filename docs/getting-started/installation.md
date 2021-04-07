@@ -19,15 +19,7 @@ Soda SQL is a command-line interface (CLI) tool that enables you to scan the dat
 
 ## Compatibility
 
-Use Soda SQL with any of the following data warehouses:
-
-- Apache Hive
-- AWS Athena
-- AWS Redshift
-- Google Cloud Platform BigQuery
-- Microsoft SQL Server
-- PostgreSQL
-- Snowflake
+{% include compatible-warehouses.md %}
 
 
 ## Requirements

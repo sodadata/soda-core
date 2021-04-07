@@ -8,17 +8,12 @@ permalink: /
 
 <p align="center"><img src="https://raw.githubusercontent.com/sodadata/soda-sql/main/docs/assets/images/soda-banner.png" alt="Soda logo" /></p>
 
-# Soda SQL
+
+<p align="center"><img src="https://raw.githubusercontent.com/sodadata/soda-sql/main/docs/assets/images/soda-sql-index.png" alt="Soda SQL logo" width="700" height="700"/></p>
 
 **Soda SQL** is an open-source command-line tool. It utilizes user-defined input to prepare SQL queries that run tests on tables in a database to find invalid, missing, or unexpected data. When tests fail, they surface "bad" data that you and your data engineering team can fix, ensuring downstream analysts are using "good" data to make decisions.
 
-Use Soda SQL to scan a variety of data warehouses:<br />
-<table>
-  <tr>
-    <td>Apache Hive<br /> AWS Athena<br /> AWS Redshift<br /> GCP BigQuery<br /></td>
-    <td>Microsoft SQL Server <br /> PostgreSQL<br /> Snowflake<br /><br /></td>
-  </tr>
-</table>
+{% include compatible-warehouses.md %}
 
 
 * [Install Soda SQL]({% link getting-started/installation.md %}) from your command-line interface.
@@ -30,7 +25,7 @@ Use Soda SQL to scan a variety of data warehouses:<br />
 
 <br />
 
-# Soda Cloud
+<p align="center"><img src="https://raw.githubusercontent.com/sodadata/soda-sql/main/docs/assets/images/soda-cloud-index.png" alt="Soda Cloud logo" width="700" height="700"/></p>
 
 Connect Soda SQL to a free **Soda Cloud** account where you and your team can use the web application to monitor test results and collaborate to keep your data issue-free. 
 
@@ -38,3 +33,4 @@ Connect Soda SQL to a free **Soda Cloud** account where you and your team can us
 * Soda SQL can run without Soda Cloud, but Soda Cloud Free and Teams editions depend upon Soda SQL! Install Soda SQL, then [connect it to your Soda Cloud Account]({% link documentation/connect_to_cloud.md %}).
 * Learn more about [Soda Cloud architecture]({% link documentation/soda-cloud-architecture.md %}).
 * [Create monitors and alerts]({% link documentation/monitors.md %}) to notify your team about data issues.
+

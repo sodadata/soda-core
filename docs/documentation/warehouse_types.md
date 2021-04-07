@@ -10,8 +10,8 @@ nav_order: 4
 Soda SQL needs connection details in order to access your [warehouse]({% link documentation/glossary.md %}#warehouse) to scan your data. Each type of warehouse uses different configuration parameters. To set the warehouse configurations in your [warehouse YAML]({% link documentation/warehouse.md %}), use the following example configurations that correspond to each database type that Soda SQL supports.
 
 [Apache Hive](#apache-hive) <br />
-[AWS Athena](#aws-athena) <br />
-[AWS Redshift](#aws-redshift) <br />
+[Amazon Athena](#amazon-athena) <br />
+[Amazon Redshift](#amazon-redshift) <br />
 [Google Cloud Platform BigQuery](#gcp-bigquery) <br />
 [Microsoft SQL Server](#microsoft-sql-server) <br />
 [PostgreSQL](#postgresql) <br />
@@ -35,7 +35,7 @@ connection:
 ...
 ```
 
-## AWS Athena
+## Amazon Athena
 
 ```yaml
 name: my_athena_project
@@ -63,7 +63,7 @@ connection:
 | region | | Optional |
 
 
-## AWS Redshift
+## Amazon Redshift
 
 ```yaml
 name: my_redshift_project

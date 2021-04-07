@@ -7,7 +7,8 @@ nav_order: 16
 
 # Data types
 
-Soda SQL supports the following data types in columns it scans.
+Soda SQL supports the following data types in the columns it scans. <br />
+Currently, Soda SQL does not support complex data types.
 
 ### Apache Hive
 
@@ -16,7 +17,7 @@ Soda SQL supports the following data types in columns it scans.
 | text | CHAR, VARCHAR |
 | number | TINYINT, SMALLINT, INT, BIGINT, FLOAT, DOUBLE, DOUBLE PRECISION, DECIMAL, NUMERIC |
 
-### AWS Athena
+### Amazon Athena
 
 | Category | Data type | 
 | ---- | --------- |
@@ -24,7 +25,7 @@ Soda SQL supports the following data types in columns it scans.
 | number | TINYINT, SMALLINT, INT, INTEGER, BIGINT, DOUBLE, FLOAT, DECIMAL |
 | time | DATE, TIMESTAMP |
 
-### AWS Redshift
+### Amazon Redshift
 
 | Category | Data type | 
 | ---- | --------- |
