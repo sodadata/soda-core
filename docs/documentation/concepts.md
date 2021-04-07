@@ -21,7 +21,7 @@ This open-source, command-line tool exists to enable Data Engineers to access an
 - scan your [table]({% link documentation/glossary.md %}#table) to run tests for "bad" data.
 
 
-To **connect** to a data warehouse such as Snowflake, AWS Athena, or Google Cloud Products BigQuery, you use two files that Soda SQL creates for you when you run the `soda create` CLI command: 
+To **connect** to a data warehouse such as Snowflake, Amazon Athena, or Google Cloud Products BigQuery, you use two files that Soda SQL creates for you when you run the `soda create` CLI command: 
 - a `warehouse.yml` file which stores access details for your warehouse, and, 
 - an `env_vars.yml` file which securely stores warehouse login credentials.
 
@@ -110,3 +110,4 @@ To connect Soda SQL to Soda Cloud, you create API keys in your Soda Cloud accoun
 * Learn more about the [Metrics]({% link documentation/sql_metrics.md %}) you can use to define [Tests]({% link documentation/tests.md %}).
 * Learn how to [Connect to Soda Cloud]({% link documentation/connect_to_cloud.md %}).
 * See how to prepare [programmatic scans]({% link documentation/programmatic_scan.md %}) of your data.
+* Reference the [Data types]({% link documentation/supported-data-types.md %}) that Soda SQL supports when it scans columns.

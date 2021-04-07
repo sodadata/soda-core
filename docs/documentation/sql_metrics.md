@@ -88,7 +88,7 @@ Where a column metric references a valid or invalid value, or a limit, use the m
 | `metric_groups` | Specifies pre-defined groups of metrics that Soda SQL computes for this column. See [Metric groups and dependencies](#metric-groups-and-dependencies) for details.| `duplicates` <br /> `length` <br /> `missing`  <br /> `profiling` <br /> `statistics` <br /> `validity` |
 | `metrics` | Specifies extra metrics that Soda SQL computes for this column. |  - |
 | `missing_format` | Specifies missing values such as whitespace or empty strings.|   |
-| `missing_regex` | Use regex expressions to specify your own custom missing values.| regex |
+| `missing_regex` | Use regex expressions to specify your own custom missing values.| regex, no forward slash delimiters|
 | `missing_values` | Specifies the values that Soda SQL is to consider missing in list format.| integers in list |
 | `tests` | A section that contains the tests that Soda SQL runs on a column during a scan.| - |
 | `valid_format` | Specifies a named valid text format.| See Valid_format value table below.  |
@@ -96,7 +96,7 @@ Where a column metric references a valid or invalid value, or a limit, use the m
 | `valid_max_length` | Specifies a maximum string length for valid values. | integer |
 | `valid_min` | Specifies a minimum value for valid values. | integer |
 | `valid_min_length` | Specifies a minimum string length for valid values. | integer |
-| `valid_regex` | Use regex expressions to specify your own custom valid values. | regex |
+| `valid_regex` | Use regex expressions to specify your own custom valid values. | regex, no forward slash delimiters |
 | `valid_values` | Specifies several valid values in list format. | integers in list |
 
 
@@ -338,6 +338,8 @@ WHERE country = 'US'
 ```
 
 ## Go further
+
+* Reference the [Data types]({% link documentation/supported-data-types.md %}) that Soda SQL supports when it scans columns.
 * Learn [How Soda SQL works]({% link documentation/concepts.md %}).
 * Learn more about the [Scan YAML]({% link documentation/scan.md %}) file.
 * Learn more about configuring [tests]({% link documentation/tests.md %}).

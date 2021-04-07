@@ -2,7 +2,7 @@
 layout: default
 title: Glossary
 parent: Documentation
-nav_order: 16
+nav_order: 18
 ---
 
 # Glossary

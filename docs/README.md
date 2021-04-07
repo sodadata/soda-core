@@ -16,16 +16,16 @@ Soda SQL is an open-source command-line tool. It utilizes user-defined input to 
 
 [Quick start tutorial](https://docs.soda.io/soda-sql/getting-started/5_min_tutorial.html)
 
-## Check your data
+## Test your data
 
-If your organization uses data to make decisions, you should always be checking your data. 
+If your organization uses data to make decisions, you should always be testing your data. 
 
-- When data comes into a system, you should check it. 
-- When data is transformed or otherwise manipulated to fit into an app or other database, you should check it. 
-- When data is about to be exported, you should check it. 
-- Check to make sure data is unique.
-- Check that data is in an expected format, such as date or UUID.
-- Check that data doesn’t exceed limits or acceptable parameters. 
+- When data comes into a system, you should test it. 
+- When data is transformed or otherwise manipulated to fit into an app or other database, you should test it. 
+- When data is about to be exported, you should test it. 
+- Test to make sure data is unique.
+- Test that data is in an expected format, such as date or UUID.
+- Test that data doesn’t exceed limits or acceptable parameters. 
 
 ## Install Soda SQL
 
@@ -42,7 +42,7 @@ $ pip install soda-sql
 
 ## Use Soda SQL
 
-Install Soda SQL, then complete three basic tasks to start checking your data: 
+Install Soda SQL, then complete three basic tasks to start testing your data: 
 
 1. Create and configure a `warehouse.yml` file so that Soda SQL can connect to your data warehouse. 
 2. Create and configure a `scan.yml` file to define tests for "bad" data. Choose from a list of predefined metrics to define simple tests – is the table empty? – to more complex tests that borrow from SQL query logic.
@@ -167,3 +167,5 @@ All is good. No tests failed. Scan took 23.307 seconds
    - Luigi
 - If you like the goals of this project, we welcome your [contribution](https://docs.soda.io/soda-sql/community.html)! 
 - Read more about [How Soda SQL works](https://docs.soda.io/soda-sql/documentation/concepts.html).
+
+
