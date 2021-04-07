@@ -1,7 +1,13 @@
 <ul class="nav-list">
     {% for nav in site.data.nav %}
     {% if nav.subcategories != null %}
-    <li class="nav-list-item active">
+    {% assign current_parent = nav.subcategories | where:"page", page.path | size %}
+    {% if current_parent != 0 %}
+    {% assign classlist = "active" %}
+    {% else %}
+    {% assign classlist = "" %}
+    {% endif %}
+    <li class="nav-list-item {{classlist}}">
         <a href="#"
            class="nav-list-expander"><svg viewBox="0 0 24 24">
                 <use xlink:href="#svg-arrow-right"></use>
