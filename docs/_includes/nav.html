@@ -1,24 +1,42 @@
-<nav>
-    <ul>
-      {% for nav in site.data.nav %}
-        {% if nav.subcategories != null %}
-          <li>
-            <a href="{{ site.url }}{{ nav.url }}">{{ nav.title }} </a>
-            <ul>
-            {% for subcategory in nav.subcategories %}
-              <li><a href="{{ site.url }}{{ subcategory.subhref }}">{{ subcategory.subtitle }}</a></li>
-            {% endfor %}
-            </ul>
-          </li>
-        {% elsif nav.title == page.title %}
-           <li class="active">
-             <a href="{{ nav.url }}">{{ nav.title }}</a>
-           </li>
-        {% else %} 
-          <li>
-            <a href="{{ site.url }}{{ nav.href }}">{{ nav.title }}</a>
-          </li>
+<ul class="nav-list">
+    {% for nav in site.data.nav %}
+    {% if nav.subcategories != null %}
+    <li class="nav-list-item active">
+        <a href="#"
+           class="nav-list-expander"><svg viewBox="0 0 24 24">
+                <use xlink:href="#svg-arrow-right"></use>
+            </svg></a>
+        {% if nav.page %}
+        <a class="nav-list-link"
+           href="{% link {{ nav.page }}  %}">{{ nav.title }}</a>
+        {% else %}
+        <a class="nav-list-link"
+           href="#">{{ nav.title }}</a>
         {% endif %}
-      {% endfor %}
-    </ul>
-  </nav> 
+        <ul class="nav-list ">
+            {% for subcategory in nav.subcategories %}
+            {% if page.path == subcategory.page %}
+            {% assign classlist = "active" %}
+            {% else %}
+            {% assign classlist = "" %}
+            {% endif %}
+            <li class="nav-list-item">
+                <a class="nav-list-link {{ classlist }}"
+                   href="{% link {{ subcategory.page }} %}">{{ subcategory.subtitle }}</a>
+            </li>
+            {% endfor %}
+        </ul>
+    </li>
+    {% else %}
+    {% if page.path == nav.page %}
+    {% assign classlist = "active" %}
+    {% else %}
+    {% assign classlist = "" %}
+    {% endif %}
+    <li class="nav-list-item">
+        <a class="nav-list-link  {{classlist}}"
+           href="{% link {{ nav.page }} %}">{{ nav.title }}</a>
+    </li>
+    {% endif %}
+    {% endfor %}
+</ul>
