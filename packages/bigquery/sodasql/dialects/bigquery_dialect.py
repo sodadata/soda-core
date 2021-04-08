@@ -49,7 +49,10 @@ class BigQueryDialect(Dialect):
 
     def create_connection(self):
         try:
-            credentials = Credentials.from_service_account_info(self.account_info_dict)
+            auth_scopes = ['https://www.googleapis.com/auth/bigquery',
+                           'https://www.googleapis.com/auth/cloud-platform',
+                           'https://www.googleapis.com/auth/drive']
+            credentials = Credentials.from_service_account_info(self.account_info_dict, scopes=auth_scopes)
             project_id = self.account_info_dict['project_id']
             self.client = bigquery.Client(project=project_id, credentials=credentials)
             conn = dbapi.Connection(self.client)
