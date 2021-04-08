@@ -94,7 +94,7 @@ jobs:
       REPORTS_URL: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       TWINE_USERNAME: __token__
-      TWINE_PASSWORD: ${{ secrets.VK_TEST_PYPI_TOKEN }}
+      TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
     steps:
       - uses: actions/checkout@v2
       - name: Setup Python 3.8
@@ -111,14 +111,14 @@ jobs:
         run: |
           cd core
           python3 setup.py sdist bdist_wheel
-          twine upload --repository testpypi dist/*
+          twine upload dist/*
           cd ../packages
           for pack in *
           do
             pushd .
             cd $pack
             python3 setup.py sdist bdist_wheel
-            twine upload --repository testpypi dist/*
+            twine upload dist/*
             popd
           done
 
