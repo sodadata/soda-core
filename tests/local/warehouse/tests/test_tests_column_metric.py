@@ -70,4 +70,3 @@ class TestColumnMetricTests(SqlTestCase):
             }
         })
         self.assertTrue(scan_result.has_test_failures())
-
