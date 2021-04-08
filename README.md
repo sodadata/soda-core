@@ -1,4 +1,4 @@
-<p align="center"><img src="https://raw.githubusercontent.com/soda-sql/main/docs/soda-banner.png" alt="Soda logo" /></p>
+<p align="center"><img src="https://github.com/sodadata/docs/blob/main/assets/images/soda-banner.png" alt="Soda logo" width="600" /></p>
 
 <h1 align="center">Soda SQL</h1>
 <p align="center"><b>Data testing, monitoring, and profiling for SQL-accessible data.</b></p>
@@ -11,8 +11,8 @@
 </p>
  <br />
  <br />
-Soda SQL is an open-source command-line tool. It utilizes user-defined input to prepare SQL queries that run tests on tables in a data warehouse to find invalid, missing, or unexpected data. When tests fail, they surface "bad" data that you can fix to ensure that downstream analysts are using "good" data to make decisions.<br />
-
+Soda SQL is an open-source command-line tool. It utilizes user-defined input to prepare SQL queries that run tests on tables in a data warehouse to find invalid, missing, or unexpected data. When tests fail, they surface "bad" data that you can fix to ensure that downstream analysts are using "good" data to make decisions.
+<br />
 
 [Quick start tutorial](https://docs.soda.io/soda-sql/getting-started/5_min_tutorial.html)
 
@@ -58,7 +58,7 @@ Install Soda SQL, then complete three basic tasks to start testing your data:
 2. Create and configure a `scan.yml` file to define tests for "bad" data. Choose from a list of predefined metrics to define simple tests – is the table empty? – to more complex tests that borrow from SQL query logic.
 3. Run a scan from the command-line to test for "bad" data. Where the tests return “true”, all is well; where a test returns “false”, Soda SQL presents the issues in the command-line output. 
 
-<p align="center"><img src="https://raw.githubusercontent.com/soda-sql/main/docs/scan-output-fail.png" alt="Soda logo" /></p>
+<p align="left"><img src="https://github.com/sodadata/docs/blob/main/assets/images/scan-output-fail.png" alt="scan output" width="700" /></p>
 
 [Full configuration instructions](https://docs.soda.io/soda-sql/getting-started/configure.html)
 
