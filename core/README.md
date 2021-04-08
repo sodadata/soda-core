@@ -1,4 +1,4 @@
-<p align="center"><img src="https://raw.githubusercontent.com/sodadata/soda-sql/main/docs/assets/images/soda-banner.png" alt="Soda logo" /></p>
+<p align="center"><img src="https://raw.githubusercontent.com/sodadata/docs/main/assets/images/soda-banner.png" alt="Soda logo" /></p>
 
 <h1 align="center">Soda SQL</h1>
 <p align="center"><b>Data testing, monitoring and profiling for SQL accessible data.</b></p>
@@ -9,7 +9,7 @@
   <a href="https://pypi.org/project/soda-sql/"><img alt="Pypi Soda SQL" src="https://img.shields.io/badge/pypi-soda%20sql-green.svg"></a>
   <a href="https://github.com/sodadata/soda-sql/actions/workflows/build.yml"><img alt="Build soda-sql" src="https://github.com/sodadata/soda-sql/actions/workflows/build.yml/badge.svg"></a>
 </p>
- 
+
 **What does Soda SQL do?**
 
 Soda SQL allows you to
@@ -50,7 +50,7 @@ code.
 
 **"[Show me the metrics](https://www.youtube.com/watch?v=1-mOKMq19zU)"**
 
-Let's walk through an example. Simple metrics and tests can be configured in scan YAML configuration 
+Let's walk through an example. Simple metrics and tests can be configured in scan YAML configuration
 files. An example of the contents of such a file:
 
 ```yaml
