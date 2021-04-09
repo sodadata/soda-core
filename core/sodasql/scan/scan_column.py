@@ -94,7 +94,7 @@ class ScanColumn:
                                                                      dialect.sql_expr_cast_text_to_number(
                                                                          self.qualified_column_name, self.validity_format))
 
-            self.has_numeric_values = self.is_number or self.is_column_numeric_text_format
+            self.is_numeric = self.is_number or self.is_column_numeric_text_format
             self.mins_maxs_limit = self.scan_yml.get_mins_maxs_limit(self.column_name)
 
     def is_any_metric_enabled(self, metrics: List[str]):

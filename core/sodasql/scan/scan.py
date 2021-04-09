@@ -113,7 +113,8 @@ class Scan:
 
     def _query_columns_metadata(self):
         sql = self.warehouse.dialect.sql_columns_metadata_query(self.scan_yml.table_name)
-        column_tuples = self.warehouse.sql_fetchall(sql) if sql != '' else self.warehouse.dialect.sql_columns_metadata(self.scan_yml.table_name)
+        column_tuples = self.warehouse.sql_fetchall(sql) if sql != '' else self.warehouse.dialect.sql_columns_metadata(
+            self.scan_yml.table_name)
         self.queries_executed += 1
         self.column_metadatas = []
         for column_tuple in column_tuples:
@@ -194,7 +195,7 @@ class Scan:
                         fields.append(dialect.sql_expr_max(length_expr))
                         measurements.append(Measurement(Metric.MAX_LENGTH, column_name))
 
-                if scan_column.has_numeric_values:
+                if scan_column.is_numeric:
                     if scan_column.is_metric_enabled(Metric.MIN):
                         fields.append(dialect.sql_expr_min(scan_column.numeric_expr))
                         measurements.append(Measurement(Metric.MIN, column_name))
@@ -279,16 +280,16 @@ class Scan:
                 column_name = scan_column.column_name
 
                 if scan_column.is_any_metric_enabled(
-                    [Metric.DISTINCT, Metric.UNIQUENESS, Metric.UNIQUE_COUNT,
-                     Metric.MINS, Metric.MAXS, Metric.FREQUENT_VALUES, Metric.DUPLICATE_COUNT]):
+                        [Metric.DISTINCT, Metric.UNIQUENESS, Metric.UNIQUE_COUNT,
+                         Metric.MINS, Metric.MAXS, Metric.FREQUENT_VALUES, Metric.DUPLICATE_COUNT]):
 
                     group_by_cte = scan_column.get_group_by_cte()
                     numeric_value_expr = scan_column.get_group_by_cte_numeric_value_expression()
                     order_by_value_expr = scan_column.get_order_by_cte_value_expression(numeric_value_expr)
 
                     if self.scan_yml.is_any_metric_enabled(
-                        [Metric.DISTINCT, Metric.UNIQUENESS, Metric.UNIQUE_COUNT, Metric.DUPLICATE_COUNT],
-                        column_name):
+                            [Metric.DISTINCT, Metric.UNIQUENESS, Metric.UNIQUE_COUNT, Metric.DUPLICATE_COUNT],
+                            column_name):
 
                         sql = (f'{group_by_cte} \n'
                                f'SELECT COUNT(*), \n'
@@ -326,7 +327,8 @@ class Scan:
                         self.queries_executed += 1
 
                         mins = [row[0] for row in rows]
-                        self._log_and_append_query_measurement(measurements, Measurement(Metric.MINS, column_name, mins))
+                        self._log_and_append_query_measurement(measurements,
+                                                               Measurement(Metric.MINS, column_name, mins))
 
                     if self.scan_yml.is_metric_enabled(Metric.MAXS, column_name) and order_by_value_expr:
                         sql = (f'{group_by_cte} \n'
@@ -339,10 +341,10 @@ class Scan:
                         self.queries_executed += 1
 
                         maxs = [row[0] for row in rows]
-                        self._log_and_append_query_measurement(measurements, Measurement(Metric.MAXS, column_name, maxs))
+                        self._log_and_append_query_measurement(measurements,
+                                                               Measurement(Metric.MAXS, column_name, maxs))
 
-                    if self.scan_yml.is_metric_enabled(Metric.FREQUENT_VALUES, column_name) \
-                        and (scan_column.is_number or scan_column.is_column_numeric_text_format):
+                    if self.scan_yml.is_metric_enabled(Metric.FREQUENT_VALUES, column_name):
                         frequent_values_limit = self.scan_yml.get_frequent_values_limit(column_name)
                         sql = (f'{group_by_cte} \n'
                                f'SELECT value, frequency \n'
@@ -374,7 +376,7 @@ class Scan:
                     min_value = scan_column.get_metric_value(Metric.MIN)
                     max_value = scan_column.get_metric_value(Metric.MAX)
 
-                    if scan_column.has_numeric_values and min_value and max_value and min_value < max_value:
+                    if scan_column.is_numeric and min_value and max_value and min_value < max_value:
                         # Build the histogram query
                         min_value = floor(min_value * 1000) / 1000
                         max_value = ceil(max_value * 1000) / 1000
@@ -502,7 +504,8 @@ class Scan:
                 metric_values = {}
 
                 for i in range(len(row)):
-                    metric_name = sql_metric.metric_names[i] if sql_metric.metric_names is not None else description[i][0]
+                    metric_name = sql_metric.metric_names[i] if sql_metric.metric_names is not None else description[i][
+                        0]
                     metric_value = row[i]
                     if metric_name.lower() in group_fields_lower:
                         group[metric_name] = metric_value
@@ -642,8 +645,9 @@ class Scan:
         if self.soda_server_client:
             try:
                 for measurement in self.scan_result.measurements:
-                    if (measurement.metric in [Metric.ROW_COUNT, Metric.MISSING_COUNT, Metric.INVALID_COUNT, Metric.VALUES_COUNT, Metric.VALID_COUNT]
-                        and measurement.value > 0):
+                    if (measurement.metric in [Metric.ROW_COUNT, Metric.MISSING_COUNT, Metric.INVALID_COUNT,
+                                               Metric.VALUES_COUNT, Metric.VALID_COUNT]
+                            and measurement.value > 0):
                         samples_yml = self.scan_yml.get_sample_yml(measurement)
                         if samples_yml:
                             self.sampler.save_sample(samples_yml, measurement, self.scan_result.test_results)
@@ -662,9 +666,9 @@ class Scan:
 
     @classmethod
     def _log_and_append_derived_measurements(
-        cls,
-        measurements: List[Measurement],
-        derived_measurements: List[Measurement]):
+            cls,
+            measurements: List[Measurement],
+            derived_measurements: List[Measurement]):
         """
         Convenience method to log a list of derived measurements and append them to the given list of measurements.
         Logging will indicate it is a derived measurement
