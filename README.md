@@ -40,13 +40,13 @@ $ pip install soda-sql-yourdatawarehouse
 
 | Data warehouse | Install package |
 | -------------- | --------------- |
-| athena         | soda-sql-athena |
-| bigquery       | soda-sql-bigquery |
-| hive           | soda-sql-hive  |
-| postgres       | soda-sql-postgresql |
-| redshift       | soda-sql-redshift |
-| snowflake      | soda-sql-snowflake |
-| sqlserver      | soda-sql-sqlserver |
+| Amazon Athena  | soda-sql-athena |
+| Amazon Redshift | soda-sql-redshift |
+| Apache Hive    | soda-sql-hive  |
+| GCP BigQuery   | soda-sql-bigquery |
+| MS SQL Server  | soda-sql-sqlserver |
+| PostgreSQL     | soda-sql-postgresql |
+| Snowflake      | soda-sql-snowflake |
 
 [Full installation instructions](https://docs.soda.io/soda-sql/getting-started/installation.html)
 
