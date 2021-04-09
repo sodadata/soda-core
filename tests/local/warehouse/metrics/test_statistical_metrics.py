@@ -71,6 +71,5 @@ class TestStatisticalMetrics(SqlTestCase):
 
         self.assertMeasurementsAbsent(scan_result, 'txt', [
             Metric.MIN,
-            Metric.MAX,
-            Metric.FREQUENT_VALUES
+            Metric.MAX
         ])
