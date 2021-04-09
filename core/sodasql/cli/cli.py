@@ -8,7 +8,7 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-import datetime
+from datetime import datetime, timezone
 import logging
 import re
 import sys
@@ -235,7 +235,7 @@ def analyze(warehouse_file: str, include: str, exclude: str):
             table_name = row[0]
 
             if (matches_table_include(table_name, table_include_regex)
-                and matches_table_exclude(table_name, table_exclude_regex)):
+                    and matches_table_exclude(table_name, table_exclude_regex)):
                 dataset_analyzer = DatasetAnalyzer()
                 dataset_analyze_results = dataset_analyzer.analyze(warehouse, table_name)
 
@@ -321,7 +321,7 @@ def analyze(warehouse_file: str, include: str, exclude: str):
               help='Variables like -v start=2020-04-12.  Put values with spaces in single or double quotes.')
 @click.option('-t', '--time',
               required=False,
-              default=datetime.datetime.now().isoformat(timespec='seconds'),
+              default=datetime.now(tz=timezone.utc).isoformat(timespec='seconds'),
               help='The scan time in ISO8601 format like eg 2020-12-31T16:48:30Z')
 def scan(scan_yml_file: str, warehouse_yml_file: str, variables: tuple = None, time: str = None):
     """
