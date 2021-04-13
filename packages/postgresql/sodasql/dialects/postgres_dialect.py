@@ -79,7 +79,7 @@ class PostgresDialect(Dialect):
         return column_type.upper() in ['CHARACTER VARYING', 'CHARACTER', 'CHAR', 'TEXT']
 
     def is_number(self, column_type: str):
-        return column_type.upper() in ['SMALLINT', 'INTEGER', 'BIGINT', 'DECIMAL', 'NUMERIC	VARIABLE',
+        return column_type.upper() in ['SMALLINT', 'INTEGER', 'BIGINT', 'DECIMAL', 'NUMERIC',
                                        'REAL', 'DOUBLE PRECISION', 'SMALLSERIAL', 'SERIAL', 'BIGSERIAL']
 
     def is_time(self, column_type: str):
