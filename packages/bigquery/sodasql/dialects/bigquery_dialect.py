@@ -38,7 +38,7 @@ class BigQueryDialect(Dialect):
     def default_connection_properties(self, params: dict):
         return {
             KEY_WAREHOUSE_TYPE: BIGQUERY,
-            'account_info': 'env_var(BIGQUERY_ACCOUNT_INFO)',
+            'account_info_json': 'env_var(BIGQUERY_ACCOUNT_INFO)',
             'dataset': params.get('database', 'Eg your_bigquery_dataset')
         }
 
@@ -105,7 +105,10 @@ class BigQueryDialect(Dialect):
     @staticmethod
     def __parse_json_credential(credential_name, parser):
         try:
-            return json.loads(parser.get_credential(credential_name))
+            cred = parser.get_credential(credential_name)
+            # Prevent json load when the Dialect is init from create command
+            if cred is not None:
+                return json.loads(cred)
         except JSONDecodeError as e:
             parser.error(f'Error parsing credential {credential_name}: {e}', credential_name)
 

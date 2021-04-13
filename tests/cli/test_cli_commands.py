@@ -25,10 +25,10 @@ class TestCLICommands(unittest.TestCase):
         assert result.exception is None
         assert result.exit_code == 0
 
-    # def test_create_bigquery(self):
-    #     result = self.runner.invoke(create, ['bigquery'])
-    #     assert result.exception is None
-    #     assert result.exit_code == 0
+    def test_create_bigquery(self):
+        result = self.runner.invoke(create, ['bigquery'])
+        assert result.exception is None
+        assert result.exit_code == 0
 
     def test_create_hive(self):
         result = self.runner.invoke(create, ['hive'])
