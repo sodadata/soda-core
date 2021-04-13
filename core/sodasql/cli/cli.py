@@ -77,7 +77,7 @@ def create(warehouse_type: str,
         if not dialect:
             logging.info(
                 f"Invalid warehouse type {warehouse_type}, use one of {str(ALL_WAREHOUSE_TYPES)}")
-            return 1
+            sys.exit(1)
 
         configuration_params = {}
         if isinstance(database, str):
@@ -149,7 +149,7 @@ def create(warehouse_type: str,
         logging.info(f"Then run the soda analyze command")
     except Exception as e:
         logging.exception(f'Exception: {str(e)}')
-        return 1
+        sys.exit(1)
 
 
 def create_table_filter_regex(table_filter):
@@ -301,7 +301,7 @@ def analyze(warehouse_file: str, include: str, exclude: str):
 
     except Exception as e:
         logging.exception(f'Exception: {str(e)}')
-        return 1
+        sys.exit(1)
 
     finally:
         if warehouse and warehouse.connection:
