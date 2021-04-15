@@ -6,26 +6,34 @@
 #
 appdirs==1.4.4
     # via virtualenv
-attrs==20.3.0
-    # via pytest
+attrs==19.3.0
+    # via
+    #   pytest
+    #   tbump
 bleach==3.3.0
     # via readme-renderer
-bump2version==1.0.1
-    # via -r dev-requirements.in
 certifi==2020.12.5
     # via requests
 chardet==3.0.4
     # via requests
+cli-ui==0.10.3
+    # via tbump
 click==7.1.2
     # via pip-tools
 colorama==0.4.4
-    # via twine
+    # via
+    #   cli-ui
+    #   twine
+contextlib2==0.6.0.post1
+    # via schema
 coverage==5.4
     # via pytest-cov
 distlib==0.3.1
     # via virtualenv
 docker==4.4.1
     # via tox-docker
+docopt==0.6.2
+    # via tbump
 docutils==0.16
     # via readme-renderer
 faker==5.3.0
@@ -90,6 +98,8 @@ requests==2.23.0
     #   twine
 rfc3986==1.4.0
     # via twine
+schema==0.7.4
+    # via tbump
 six==1.15.0
     # via
     #   bleach
@@ -99,12 +109,18 @@ six==1.15.0
     #   tox
     #   virtualenv
     #   websocket-client
+tabulate==0.8.9
+    # via cli-ui
+tbump==6.3.1
+    # via -r dev-requirements.in
 text-unidecode==1.3
     # via faker
 toml==0.10.2
     # via
     #   pytest
     #   tox
+tomlkit==0.5.11
+    # via tbump
 tox-docker==2.0.0
     # via -r dev-requirements.in
 tox==3.15.2
@@ -115,6 +131,8 @@ tqdm==4.56.0
     # via twine
 twine==3.3.0
     # via -r dev-requirements.in
+unidecode==1.2.0
+    # via cli-ui
 urllib3==1.25.10
     # via requests
 virtualenv==20.4.2
