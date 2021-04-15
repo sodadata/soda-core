@@ -8,10 +8,10 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
+import itertools
 
 
 class Metric:
-
     ROW_COUNT = 'row_count'
     SCHEMA = 'schema'
 
@@ -55,10 +55,10 @@ class Metric:
         METRIC_GROUP_DUPLICATES: [DISTINCT, UNIQUE_COUNT, UNIQUENESS, DUPLICATE_COUNT],
         METRIC_GROUP_STATISTICS: [MIN, MAX, AVG, SUM, VARIANCE, STDDEV],
         METRIC_GROUP_LENGTH: [MIN_LENGTH, MAX_LENGTH, AVG_LENGTH],
-        METRIC_GROUP_PROFILING: [MAXS, MINS, FREQUENT_VALUES, HISTOGRAM],
-        METRIC_GROUP_ALL: (METRIC_GROUP_MISSING + METRIC_GROUP_VALIDITY + METRIC_GROUP_DUPLICATES +
-                           METRIC_GROUP_STATISTICS + METRIC_GROUP_LENGTH + METRIC_GROUP_PROFILING)
+        METRIC_GROUP_PROFILING: [MAXS, MINS, FREQUENT_VALUES, HISTOGRAM]
     }
+
+    METRIC_GROUPS[METRIC_GROUP_ALL] = list(itertools.chain.from_iterable(METRIC_GROUPS.values()))
 
     METRIC_TYPES = [
         ROW_COUNT,
