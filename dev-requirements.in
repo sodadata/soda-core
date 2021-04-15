@@ -8,4 +8,4 @@ pytest-html~=3.1.1
 pytest-cov~=2.10.1
 twine~=3.3.0
 Faker~=5.3.0
-bump2version==1.0.1
+tbump==6.3.1
