@@ -50,7 +50,6 @@ def equals_ignore_case(left, right):
 
 
 class SqlTestCase(TestCase):
-
     warehouse_fixtures_by_target = {}
     warehouses_close_enabled = True
 
@@ -184,7 +183,7 @@ class SqlTestCase(TestCase):
             fields.append(f'SUM({qualified_column_name})')
 
         sql = 'SELECT \n  ' + ',\n  '.join(fields) + ' \n' \
-              'FROM ' + scan.qualified_table_name
+                                                     'FROM ' + scan.qualified_table_name
 
         where_clauses = []
 

@@ -147,28 +147,32 @@ class ScanYmlParser(Parser):
 
         self._push_context(metrics, KEY_METRICS)
 
-        for metric_group_name in Metric.METRIC_GROUPS:
-            group_metrics = Metric.METRIC_GROUPS[metric_group_name]
-            for metric in metrics:
-                if metric in group_metrics:
-                    metrics_groups.add(metric_group_name)
+        # Add special case for all
+        if Metric.METRIC_GROUP_ALL in metrics_groups:
+            metrics.update(Metric.METRIC_TYPES)
+        else:
+            for metric_group_name in Metric.METRIC_GROUPS:
+                group_metrics = Metric.METRIC_GROUPS[metric_group_name]
+                for metric in metrics:
+                    if metric in group_metrics:
+                        metrics_groups.add(metric_group_name)
 
-        if Metric.METRIC_GROUP_VALIDITY in metrics_groups:
-            metrics_groups.add(Metric.METRIC_GROUP_MISSING)
+            if Metric.METRIC_GROUP_VALIDITY in metrics_groups:
+                metrics_groups.add(Metric.METRIC_GROUP_MISSING)
 
-        if Metric.METRIC_GROUP_MISSING in metrics_groups:
-            metrics.add(Metric.ROW_COUNT)
+            if Metric.METRIC_GROUP_MISSING in metrics_groups:
+                metrics.add(Metric.ROW_COUNT)
 
-        for metric_group_name in metrics_groups:
-            if metric_group_name in Metric.METRIC_GROUPS:
-                for group_metric in Metric.METRIC_GROUPS[metric_group_name]:
-                    metrics.add(group_metric)
-            else:
-                self.warning(f'Invalid metric_group {metric_group_name}')
+            for metric_group_name in metrics_groups:
+                if metric_group_name in Metric.METRIC_GROUPS:
+                    for group_metric in Metric.METRIC_GROUPS[metric_group_name]:
+                        metrics.add(group_metric)
+                else:
+                    self.warning(f'Invalid metric_group {metric_group_name}')
 
-        if Metric.HISTOGRAM in metrics:
-            metrics.add(Metric.MIN)
-            metrics.add(Metric.MAX)
+            if Metric.HISTOGRAM in metrics:
+                metrics.add(Metric.MIN)
+                metrics.add(Metric.MAX)
 
         self.check_invalid_keys(Metric.METRIC_TYPES)
 
@@ -393,8 +397,10 @@ class ScanYmlParser(Parser):
 
         test_name = sql_metric_name
         test_expression = f'{test_name} == 0'
-        test_id = self.create_test_id(test_expression, test_name, sql_metric_index, column_name, sql_metric_name, sql_metric_index)
-        test_title = self.create_test_title(test_expression, test_name, sql_metric_index, column_name, sql_metric_name, sql_metric_index)
+        test_id = self.create_test_id(test_expression, test_name, sql_metric_index, column_name, sql_metric_name,
+                                      sql_metric_index)
+        test_title = self.create_test_title(test_expression, test_name, sql_metric_index, column_name, sql_metric_name,
+                                            sql_metric_index)
 
         test = Test(id=test_id,
                     title=test_title,

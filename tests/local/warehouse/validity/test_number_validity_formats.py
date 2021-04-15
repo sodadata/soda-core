@@ -148,7 +148,7 @@ class TestNumberValidityFormats(SqlTestCase):
              f"('-9.99 USD')",
              "('3 sacks of cow dung')",
              "('2 goats and my daughter')"])
-    
+
         scan_result = self.scan({
             KEY_METRICS: [
                 Metric.INVALID_COUNT,
@@ -162,13 +162,14 @@ class TestNumberValidityFormats(SqlTestCase):
                 }
             }
         })
-    
+
+        print([m.metric for m in scan_result.measurements])
         self.assertEqual(scan_result.get(Metric.VALUES_COUNT, 'name'), 10)
         self.assertEqual(scan_result.get(Metric.INVALID_COUNT, 'name'), 2)
         self.assertEqual(scan_result.get(Metric.INVALID_PERCENTAGE, 'name'), 20.0)
         self.assertEqual(scan_result.get(Metric.VALID_COUNT, 'name'), 8)
         self.assertEqual(scan_result.get(Metric.VALID_PERCENTAGE, 'name'), 80.0)
-    
+
     def test_number_money_eur(self):
         self.sql_recreate_table(
             [f"name {self.dialect.data_type_varchar_255}"],
@@ -182,7 +183,7 @@ class TestNumberValidityFormats(SqlTestCase):
              f"('-9,99 EUR')",
              "('1000 Nis')",
              "('10 shrubberies')"])
-    
+
         scan_result = self.scan({
             KEY_METRICS: [
                 Metric.INVALID_COUNT,
@@ -196,13 +197,13 @@ class TestNumberValidityFormats(SqlTestCase):
                 }
             }
         })
-    
+
         self.assertEqual(scan_result.get(Metric.VALUES_COUNT, 'name'), 10)
         self.assertEqual(scan_result.get(Metric.INVALID_COUNT, 'name'), 2)
         self.assertEqual(scan_result.get(Metric.INVALID_PERCENTAGE, 'name'), 20.0)
         self.assertEqual(scan_result.get(Metric.VALID_COUNT, 'name'), 8)
         self.assertEqual(scan_result.get(Metric.VALID_PERCENTAGE, 'name'), 80.0)
-    
+
     def test_number_money_gbp(self):
         self.sql_recreate_table(
             [f"name {self.dialect.data_type_varchar_255}"],
@@ -216,7 +217,7 @@ class TestNumberValidityFormats(SqlTestCase):
              f"('-9.99 GBP')",
              "('1 hamster and 1 basket of elderberries')",
              "('12 million Twitter followers')"])
-    
+
         scan_result = self.scan({
             KEY_METRICS: [
                 Metric.INVALID_COUNT,
@@ -230,13 +231,13 @@ class TestNumberValidityFormats(SqlTestCase):
                 }
             }
         })
-    
+
         self.assertEqual(scan_result.get(Metric.VALUES_COUNT, 'name'), 10)
         self.assertEqual(scan_result.get(Metric.INVALID_COUNT, 'name'), 2)
         self.assertEqual(scan_result.get(Metric.INVALID_PERCENTAGE, 'name'), 20.0)
         self.assertEqual(scan_result.get(Metric.VALID_COUNT, 'name'), 8)
         self.assertEqual(scan_result.get(Metric.VALID_PERCENTAGE, 'name'), 80.0)
-    
+
     def test_number_money_rmb(self):
         self.sql_recreate_table(
             [f"name {self.dialect.data_type_varchar_255}"],
@@ -250,7 +251,7 @@ class TestNumberValidityFormats(SqlTestCase):
              f"('-9.99 RMB')",
              "('10 hugs')",
              "('1.67 x 10^21 water molecules')"])
-    
+
         scan_result = self.scan({
             KEY_METRICS: [
                 Metric.INVALID_COUNT,
@@ -264,13 +265,13 @@ class TestNumberValidityFormats(SqlTestCase):
                 }
             }
         })
-    
+
         self.assertEqual(scan_result.get(Metric.VALUES_COUNT, 'name'), 10)
         self.assertEqual(scan_result.get(Metric.INVALID_COUNT, 'name'), 2)
         self.assertEqual(scan_result.get(Metric.INVALID_PERCENTAGE, 'name'), 20.0)
         self.assertEqual(scan_result.get(Metric.VALID_COUNT, 'name'), 8)
         self.assertEqual(scan_result.get(Metric.VALID_PERCENTAGE, 'name'), 80.0)
-    
+
     def test_number_money_chf(self):
         self.sql_recreate_table(
             [f"name {self.dialect.data_type_varchar_255}"],
@@ -284,7 +285,7 @@ class TestNumberValidityFormats(SqlTestCase):
              self.qualify_string(f"('-9.99 CHF')"),
              "('1 Chuck Norris roundhouse kick')",
              "('16 candles')"])
-    
+
         scan_result = self.scan({
             KEY_METRICS: [
                 Metric.INVALID_COUNT,
@@ -298,13 +299,13 @@ class TestNumberValidityFormats(SqlTestCase):
                 }
             }
         })
-    
+
         self.assertEqual(scan_result.get(Metric.VALUES_COUNT, 'name'), 10)
         self.assertEqual(scan_result.get(Metric.INVALID_COUNT, 'name'), 2)
         self.assertEqual(scan_result.get(Metric.INVALID_PERCENTAGE, 'name'), 20.0)
         self.assertEqual(scan_result.get(Metric.VALID_COUNT, 'name'), 8)
         self.assertEqual(scan_result.get(Metric.VALID_PERCENTAGE, 'name'), 80.0)
-    
+
     def test_number_money(self):
         self.sql_recreate_table(
             [f"name {self.dialect.data_type_varchar_255}"],
@@ -324,7 +325,7 @@ class TestNumberValidityFormats(SqlTestCase):
              f"('-99.99 CHF')",
              "('2 garbage bags full of old hair and nails')",
              "('7 samurais')"])
-    
+
         scan_result = self.scan({
             KEY_METRICS: [
                 Metric.INVALID_COUNT,
@@ -338,7 +339,7 @@ class TestNumberValidityFormats(SqlTestCase):
                 }
             }
         })
-    
+
         self.assertEqual(scan_result.get(Metric.VALUES_COUNT, 'name'), 16)
         self.assertEqual(scan_result.get(Metric.INVALID_COUNT, 'name'), 2)
         self.assertEqual(scan_result.get(Metric.INVALID_PERCENTAGE, 'name'), 12.5)

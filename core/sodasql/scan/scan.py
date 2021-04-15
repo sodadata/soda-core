@@ -187,6 +187,10 @@ class Scan:
                         if scan_column.non_missing_and_valid_condition \
                         else dialect.sql_expr_length(scan_column.qualified_column_name)
 
+                    if self.scan_yml.is_metric_enabled(Metric.AVG_LENGTH, column_name):
+                        fields.append(dialect.sql_expr_avg(length_expr))
+                        measurements.append(Measurement(Metric.AVG_LENGTH, column_name))
+
                     if self.scan_yml.is_metric_enabled(Metric.MIN_LENGTH, column_name):
                         fields.append(dialect.sql_expr_min(length_expr))
                         measurements.append(Measurement(Metric.MIN_LENGTH, column_name))
