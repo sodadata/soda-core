@@ -67,7 +67,7 @@ class ScanColumn:
 
             self.validity_format = self.scan_yml.get_validity_format(column_metadata)
             self.is_valid_enabled = \
-                (self.validity is not None and self.is_validity_metric_enabled) \
+                (self.validity is not None or self.is_validity_metric_enabled) \
                 or self.scan_yml.is_any_metric_enabled([Metric.DISTINCT, Metric.UNIQUENESS], self.column_name)
 
             self.is_missing_enabled = self.is_valid_enabled or self.is_missing_metric_enabled
