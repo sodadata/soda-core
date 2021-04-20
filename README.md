@@ -133,7 +133,7 @@ sql_metrics:
 When Soda SQL scans the table, it returns the following scan output in your command-line interface.
 
 ```shell
-$ soda scan ./soda/metrics my_warehouse my_dataset
+$ soda scan warehouse.yml my_dataset.yml
 Soda 1.0 scan for dataset my_dataset on prod my_warehouse
   | SELECT column_name, data_type, is_nullable
   | FROM information_schema.columns
