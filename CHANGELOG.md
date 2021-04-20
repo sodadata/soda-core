@@ -4,6 +4,28 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.1.0b2] - 2021-04-20
+### Fixed
+- #277 Fixed metric_groups not calculating all relevant metrics
+- #235 Frequent values are calculated for al metric types
+- #262 Fix Soda CLI return code
+- #241 `soda create bigquery` command doesn't throw error anymore
+- #257 Added scopes to Bigquery credentials
+- Default scan time is set to UTC
+
+### Changed
+- Soda docs are now in a separate [repository](https://github.com/sodadata/docs)
+
+## [2.1.0b1] - 2021-04-08
+### Added
+- Separated code into different modules, see [RFC](https://github.com/sodadata/soda-sql/discussions/209)
+
+## [2.0.0b27] - 2021-04-08
+### Added
+- Documentation updates
+### Fixed
+- Warehouse fixture cleanup 
+
 ## [2.0.0b26] - 2021-03-31
 ### Changed
 - Update dependencies to their latest versions
