@@ -3,7 +3,7 @@ name: Build soda-sql
 on:
   push:
     paths-ignore:
-      - 'docs/**'
+      - '**.md'
 
 jobs:
   run-tests:
