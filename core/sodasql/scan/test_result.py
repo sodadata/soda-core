@@ -28,7 +28,7 @@ class TestResult:
     def __str__(self):
         return (f'Test {self.test.title} {"passed" if self.passed else "failed"}' +
                 (f" with group values {self.group_values}" if self.group_values else '') +
-                f' with metric values {json.dumps(JsonHelper.to_jsonnable(self.values))}')
+                f' with measurements {json.dumps(JsonHelper.to_jsonnable(self.values))}')
 
     def to_json(self):
         if not self.test or not self.test.expression:
