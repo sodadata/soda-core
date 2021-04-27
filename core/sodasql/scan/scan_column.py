@@ -88,11 +88,13 @@ class ScanColumn:
 
             elif self.is_column_numeric_text_format:
                 if self.is_default_non_missing_and_valid_condition:
-                    self.numeric_expr = dialect.sql_expr_cast_text_to_number(self.qualified_column_name, self.validity_format)
+                    self.numeric_expr = dialect.sql_expr_cast_text_to_number(self.qualified_column_name,
+                                                                             self.validity_format)
                 else:
                     self.numeric_expr = dialect.sql_expr_conditional(self.non_missing_and_valid_condition,
                                                                      dialect.sql_expr_cast_text_to_number(
-                                                                         self.qualified_column_name, self.validity_format))
+                                                                         self.qualified_column_name,
+                                                                         self.validity_format))
 
             self.is_numeric = self.is_number or self.is_column_numeric_text_format
             self.mins_maxs_limit = self.scan_yml.get_mins_maxs_limit(self.column_name)
@@ -105,12 +107,12 @@ class ScanColumn:
 
     def is_metric_enabled(self, metric: str):
         if self.scan_yml_column \
-                and self.scan_yml_column \
-                and metric in self.scan_yml_column.metrics:
+            and self.scan_yml_column \
+            and metric in self.scan_yml_column.metrics:
             return True
         if self.scan_yml \
-                and self.scan_yml.metrics \
-                and metric in self.scan_yml.metrics:
+            and self.scan_yml.metrics \
+            and metric in self.scan_yml.metrics:
             return True
 
     @classmethod
@@ -153,7 +155,10 @@ class ScanColumn:
             validity_clauses.append(f'{qualified_column_name} >= {validity.min}')
         if validity.max is not None:
             validity_clauses.append(f'{qualified_column_name} <= {validity.max}')
-        return '(' + ' AND '.join(validity_clauses) + ')', len(validity_clauses) == 0
+        if len(validity_clauses) != 0:
+            return '(' + ' AND '.join(validity_clauses) + ')', len(validity_clauses) == 0
+        else:
+            return '', True
 
     def __get_non_missing_and_valid_condition(self, non_missing_condition, valid_condition):
         if non_missing_condition and valid_condition:

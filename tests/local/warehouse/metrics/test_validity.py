@@ -71,8 +71,8 @@ class TestValidity(SqlTestCase):
                 }
             },
         })
-        with self.assertRaises(AssertionError):
-            scan_result.get(Metric.VALID_COUNT, 'score')
+
+        self.assertEqual(scan_result.get(Metric.VALID_COUNT, 'score'), 11)
 
     def test_numeric_column_validity_without_format(self):
         self.sql_recreate_table(
@@ -104,3 +104,28 @@ class TestValidity(SqlTestCase):
         self.assertEqual(scan_result.get(Metric.INVALID_PERCENTAGE), 0.0)
         self.assertEqual(scan_result.get(Metric.VALID_COUNT), 11)
         self.assertEqual(scan_result.get(Metric.VALID_PERCENTAGE), 91.66666666666667)
+
+    def test_date_column_validity(self):
+        self.sql_recreate_table(
+            [f"xyz {self.dialect.data_type_date}"],
+            ["('2021-01-01')",
+             "('2021-01-01')",
+             "('2021-01-02')",
+             "('2021-01-02')",
+             "('2021-01-02')",
+             "('2021-01-02')",
+             "('2021-01-02')", ]
+        )
+
+        scan_result = self.scan({
+            KEY_METRIC_GROUPS: [
+                Metric.METRIC_GROUP_VALIDITY
+            ],
+            KEY_COLUMNS: {
+                'xyz': {
+                    'valid_format': 'date_iso_8601'
+                }
+            },
+        })
+
+        self.assertEqual(scan_result.get(Metric.VALID_COUNT, 'xyz'), 7)
