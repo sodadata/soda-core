@@ -145,6 +145,12 @@ class Parser:
     def get_float_optional(self, property_name: str, default=None):
         return self._get(property_name, float, False, default)
 
+    def get_bool_required(self, property_name: str):
+        return self._get(property_name, bool, True)
+
+    def get_bool_optional(self, property_name: str, default=None):
+        return self._get(property_name, bool, False, default)
+
     def get_dict_required(self, property_name: str):
         return self._get(property_name, dict, True)
 
