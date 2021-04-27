@@ -325,7 +325,7 @@ class Scan:
                                f'SELECT value \n'
                                f'FROM group_by_value \n'
                                f'ORDER BY {order_by_value_expr} ASC \n'
-                               f'LIMIT {scan_column.mins_maxs_limit} \n')
+                               f'{self.dialect.sql_expr_limit(scan_column.mins_maxs_limit)}\n')
 
                         rows = self.warehouse.sql_fetchall(sql)
                         self.queries_executed += 1
@@ -339,7 +339,7 @@ class Scan:
                                f'SELECT value \n'
                                f'FROM group_by_value \n'
                                f'ORDER BY {order_by_value_expr} DESC \n'
-                               f'LIMIT {scan_column.mins_maxs_limit} \n')
+                               f'{self.dialect.sql_expr_limit(scan_column.mins_maxs_limit)}\n')
 
                         rows = self.warehouse.sql_fetchall(sql)
                         self.queries_executed += 1
@@ -354,7 +354,7 @@ class Scan:
                                f'SELECT value, frequency \n'
                                f'FROM group_by_value \n'
                                f'ORDER BY frequency DESC \n'
-                               f'LIMIT {frequent_values_limit} \n')
+                               f'{self.dialect.sql_expr_limit(scan_column.mins_maxs_limit)}\n')
 
                         rows = self.warehouse.sql_fetchall(sql)
                         self.queries_executed += 1
