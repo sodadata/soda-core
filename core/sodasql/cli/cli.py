@@ -20,6 +20,7 @@ import yaml
 
 from sodasql.cli.indenting_yaml_dumper import IndentingDumper
 from sodasql.common.logging_helper import LoggingHelper
+from sodasql.common.time_helper import TimeHelper
 from sodasql.dataset_analyzer import DatasetAnalyzer
 from sodasql.scan.file_system import FileSystemSingleton
 from sodasql.scan.metric import Metric
@@ -349,6 +350,8 @@ def scan(scan_yml_file: str, warehouse_yml_file: str, variables: tuple = None, t
         scan_builder = ScanBuilder()
         scan_builder.warehouse_yml_file = warehouse_yml_file
         scan_builder.scan_yml_file = scan_yml_file
+        if not TimeHelper.datetime_valid(time):
+            sys.exit(1)
         scan_builder.time = time
 
         logging.info(f'Scanning {scan_yml_file} ...')
