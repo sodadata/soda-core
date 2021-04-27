@@ -28,6 +28,12 @@ class SnowflakeDialect(Dialect):
             self.password = parser.get_credential('password')
             self.database = parser.get_str_optional_env('database')
             self.schema = parser.get_str_required_env('schema')
+            self.role = parser.get_str_optional('role')
+            self.passcode_in_password = parser.get_bool_optional('passcode_in_password', False)
+            self.private_key = parser.get_str_optional('private_key')
+            self.client_prefetch_threads = parser.get_int_optional('client_prefetch_threads', 4)
+            self.client_session_keep_alive = parser.get_bool_optional('client_session_keep_alive', False)
+            self.authenticator = parser.get_str_optional('authenticator', 'snowflake')
             self.connection_timeout = parser.get_int_optional(KEY_CONNECTION_TIMEOUT, DEFAULT_SOCKET_CONNECT_TIMEOUT)
 
     def default_connection_properties(self, params: dict):
@@ -57,6 +63,12 @@ class SnowflakeDialect(Dialect):
                 database=self.database,
                 schema=self.schema,
                 login_timeout=self.connection_timeout,
+                role=self.role,
+                passcode_in_password=self.passcode_in_password,
+                private_key=self.private_key,
+                client_prefetch_threads=self.client_prefetch_threads,
+                client_session_keep_alive=self.client_session_keep_alive,
+                authenticator=self.authenticator,
             )
             return conn
 
