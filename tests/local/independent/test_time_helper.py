@@ -11,19 +11,28 @@
 from datetime import datetime, timezone
 from unittest import TestCase
 
-from sodasql.common.time_helper import TimeHelper
-
 
 class TestIsoDate(TestCase):
 
     def test_default_date(self):
         default_date = datetime.now(tz=timezone.utc).isoformat(timespec='seconds')
-        self.assertTrue(TimeHelper.datetime_valid(default_date))
+        self.assertTrue(self.datetime_valid(default_date))
 
     def test_is_valid_iso_8601_date(self):
         compliant_date = "2021-04-15T09:00:00+02:00"
-        self.assertTrue(TimeHelper.datetime_valid(compliant_date))
+        self.assertTrue(self.datetime_valid(compliant_date))
+
+        compliant_date_2 = "2021-04-15T09:00:00+00:00"
+        self.assertTrue(self.datetime_valid(compliant_date_2))
 
     def test_is_not_valid_iso_8601_date(self):
-        TimeHelper.datetime_valid("2021-04-15T09:00:00+0200")
+        self.datetime_valid("2021-04-15T09:00:00+0200")
         self.assertRaises(ValueError)
+
+    @staticmethod
+    def datetime_valid(date: str):
+        try:
+            datetime.fromisoformat(date)
+        except Exception as e:
+            return False
+        return True
