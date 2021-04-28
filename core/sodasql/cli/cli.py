@@ -8,16 +8,17 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-from datetime import datetime, timezone
 import logging
 import re
 import sys
+from datetime import datetime, timezone
 from math import ceil
 from typing import Optional
 
 import click
 import yaml
 
+from sodasql.__version__ import SODA_SQL_VERSION
 from sodasql.cli.indenting_yaml_dumper import IndentingDumper
 from sodasql.common.logging_helper import LoggingHelper
 from sodasql.dataset_analyzer import DatasetAnalyzer
@@ -27,7 +28,6 @@ from sodasql.scan.scan_builder import ScanBuilder
 from sodasql.scan.warehouse import Warehouse
 from sodasql.scan.warehouse_yml_parser import (WarehouseYmlParser,
                                                read_warehouse_yml_file)
-from sodasql.__version__ import SODA_SQL_VERSION
 
 LoggingHelper.configure_for_cli()
 
@@ -322,7 +322,7 @@ def analyze(warehouse_file: str, include: str, exclude: str):
 @click.option('-t', '--time',
               required=False,
               default=datetime.now(tz=timezone.utc).isoformat(timespec='seconds'),
-              help='The scan time in ISO8601 format like eg 2020-12-31T16:48:30Z')
+              help='The scan time in ISO8601 format like eg 2021-04-28T09:00:00+02:00')
 def scan(scan_yml_file: str, warehouse_yml_file: str, variables: tuple = None, time: str = None):
     """
     Computes all measurements and runs all tests on one table.  Exit code 0 means all tests passed.
@@ -349,6 +349,7 @@ def scan(scan_yml_file: str, warehouse_yml_file: str, variables: tuple = None, t
         scan_builder = ScanBuilder()
         scan_builder.warehouse_yml_file = warehouse_yml_file
         scan_builder.scan_yml_file = scan_yml_file
+        datetime.fromisoformat(time)
         scan_builder.time = time
 
         logging.info(f'Scanning {scan_yml_file} ...')
