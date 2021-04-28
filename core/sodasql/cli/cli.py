@@ -8,19 +8,19 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-from datetime import datetime, timezone
 import logging
 import re
 import sys
+from datetime import datetime, timezone
 from math import ceil
 from typing import Optional
 
 import click
 import yaml
 
+from sodasql.__version__ import SODA_SQL_VERSION
 from sodasql.cli.indenting_yaml_dumper import IndentingDumper
 from sodasql.common.logging_helper import LoggingHelper
-from sodasql.common.time_helper import TimeHelper
 from sodasql.dataset_analyzer import DatasetAnalyzer
 from sodasql.scan.file_system import FileSystemSingleton
 from sodasql.scan.metric import Metric
@@ -28,7 +28,6 @@ from sodasql.scan.scan_builder import ScanBuilder
 from sodasql.scan.warehouse import Warehouse
 from sodasql.scan.warehouse_yml_parser import (WarehouseYmlParser,
                                                read_warehouse_yml_file)
-from sodasql.__version__ import SODA_SQL_VERSION
 
 LoggingHelper.configure_for_cli()
 
