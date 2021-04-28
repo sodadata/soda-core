@@ -323,7 +323,7 @@ def analyze(warehouse_file: str, include: str, exclude: str):
 @click.option('-t', '--time',
               required=False,
               default=datetime.now(tz=timezone.utc).isoformat(timespec='seconds'),
-              help='The scan time in ISO8601 format like eg 2021-04-28T09:00:00+02:00.')
+              help='The scan time in ISO8601 format like eg 2021-04-28T09:00:00+02:00')
 def scan(scan_yml_file: str, warehouse_yml_file: str, variables: tuple = None, time: str = None):
     """
     Computes all measurements and runs all tests on one table.  Exit code 0 means all tests passed.
