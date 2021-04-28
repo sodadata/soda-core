@@ -12,7 +12,7 @@ from datetime import datetime, timezone
 from unittest import TestCase
 
 
-class TestIsoDate(TestCase):
+class TestDateParser(TestCase):
 
     def test_default_date(self):
         default_date = datetime.now(tz=timezone.utc).isoformat(timespec='seconds')

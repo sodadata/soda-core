@@ -14,7 +14,7 @@ from unittest import TestCase
 from sodasql.common.json_helper import JsonHelper
 
 
-class TestMeasurementStr(TestCase):
+class TestJsonHelper(TestCase):
 
     def test_jsonize_date(self):
         self.assertEqual(JsonHelper.to_jsonnable(datetime.date(2021, 1, 2)), '2021-01-02')
@@ -24,4 +24,3 @@ class TestMeasurementStr(TestCase):
 
     def test_jsonize_time(self):
         self.assertEqual(JsonHelper.to_jsonnable(datetime.time(10, 5, 23)), '10:05:23')
-

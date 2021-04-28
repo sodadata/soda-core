@@ -16,7 +16,7 @@ from sodasql.scan.warehouse_yml_parser import KEY_NAME, KEY_SODA_ACCOUNT, \
     SODA_KEY_HOST, SODA_KEY_API_KEY_ID, SODA_KEY_API_KEY_SECRET, KEY_CONNECTION
 
 
-class TestMeasurementStr(TestCase):
+class TestSodaServerClientConfiguration(TestCase):
 
     def test_soda_server_client_configuration(self):
         scan_builder = ScanBuilder()
