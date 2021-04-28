@@ -1,8 +1,15 @@
 # Changelog
 All notable changes to this project will be documented in this file.
 
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
-and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
+
+## [2.1.0b2] - 2021-04-20
+### Fixed
+- #281 SQLServer: Fix soda analyze  
+- #159 SQLServer: Limit (TOP) works in queries
+- #261 Metrics: scan command fails when a date validation is added
+- #267 Metrics: scan command fails when valid_format is added to  
+- #283 Snowflake: role and other parameters can be configured in warehouse.yml
 
 ## [2.1.0b2] - 2021-04-20
 ### Fixed
