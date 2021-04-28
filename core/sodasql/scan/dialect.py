@@ -194,6 +194,12 @@ class Dialect:
     def sql_expr_regexp_like(self, expr: str, pattern: str):
         return f"REGEXP_LIKE({expr}, '{self.qualify_regex(pattern)}')"
 
+    def sql_expr_limit(self, count):
+        return f'LIMIT {count}'
+
+    def sql_select_with_limit(self, table_name, count):
+        return f'SELECT * FROM {table_name} LIMIT {count}'
+
     def sql_expr_list(self, column: ColumnMetadata, values: List[str]) -> str:
         if self.is_text(column.type):
             sql_values = [self.literal_string(value) for value in values]

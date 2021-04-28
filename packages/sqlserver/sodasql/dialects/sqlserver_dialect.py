@@ -113,7 +113,7 @@ class SQLServerDialect(Dialect):
         return f'"{table_name}"'
 
     def sql_expr_regexp_like(self, expr: str, pattern: str):
-        return f"{expr} ~* '{self.qualify_regex(pattern)}'"
+        return f"{expr} LIKE '{self.qualify_regex(pattern)}'"
 
     def sql_expr_length(self, expr):
         return f'LEN({expr})'
@@ -123,6 +123,12 @@ class SQLServerDialect(Dialect):
 
     def sql_expr_stddev(self, expr: str):
         return f'STDEV({expr})'
+
+    def sql_expr_limit(self, count):
+        return f'OFFSET 0 ROWS FETCH NEXT {count} ROWS ONLY'
+
+    def sql_select_with_limit(self, table_name, count):
+        return f'SELECT TOP {count} * FROM {table_name}'
 
     # TODO REGEX not supported by SQL SERVER
     def sql_expr_cast_text_to_number(self, quoted_column_name, validity_format):

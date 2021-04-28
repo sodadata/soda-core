@@ -53,6 +53,7 @@ class DatasetAnalyzer:
             analyze_results.append(column_analysis_result)
 
             qualified_column_name = dialect.qualify_column_name(column_name)
+            select_with_limit_query = dialect.sql_select_with_limit(qualified_table_name, 1000)
 
             if dialect.is_text(source_type):
                 column_analysis_result.is_text = True
@@ -72,7 +73,7 @@ class DatasetAnalyzer:
                     f'SELECT \n  ' +
                     (',\n  '.join(validity_format_count_fields)) + ',\n'
                     f'  COUNT({qualified_column_name}) \n'
-                    f'FROM (SELECT * FROM {qualified_table_name} LIMIT 1000) T'
+                    f'FROM ({select_with_limit_query}) T'
                 )
 
                 values_count = row[len(validity_counts)]
