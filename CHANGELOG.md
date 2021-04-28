@@ -3,7 +3,7 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
-## [2.1.0b2] - 2021-04-20
+## [2.1.0b3] - 2021-04-28
 ### Fixed
 - #281 SQLServer: Fix soda analyze  
 - #159 SQLServer: Limit (TOP) works in queries
