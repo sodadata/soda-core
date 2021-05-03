@@ -205,7 +205,11 @@ class TestMetricGroups(SqlTestCase):
             ]
         })
         self.assertEqual(scan_result.get(Metric.ROW_COUNT), 12)
-        self.assertEqual(scan_result.get(Metric.SCHEMA), [{'name': 'score', 'type': 'character varying'}])
+        self.assertDictEqual(scan_result.get(Metric.SCHEMA)[0], {'dataType': 'character varying',
+                                                                 'name': 'score',
+                                                                 'nullable': True,
+                                                                 'semanticType': 'text',
+                                                                 'type': 'character varying'})
         self.assertEqual(scan_result.get(Metric.AVG_LENGTH), 1)
         self.assertEqual(scan_result.get(Metric.DISTINCT), 5)
         self.assertEqual(scan_result.get(Metric.DUPLICATE_COUNT), 3)
@@ -253,7 +257,11 @@ class TestMetricGroups(SqlTestCase):
         })
 
         self.assertEqual(scan_result.get(Metric.ROW_COUNT), 12)
-        self.assertEqual(scan_result.get(Metric.SCHEMA), [{'name': 'score', 'type': 'integer'}])
+        self.assertDictEqual(scan_result.get(Metric.SCHEMA)[0], {'dataType': 'integer',
+                                                                 'name': 'score',
+                                                                 'nullable': True,
+                                                                 'semanticType': 'number',
+                                                                 'type': 'integer'})
         self.assertEqual(scan_result.get(Metric.AVG), 3.0)
         self.assertEqual(scan_result.get(Metric.DISTINCT), 5)
         self.assertEqual(scan_result.get(Metric.DUPLICATE_COUNT), 3)

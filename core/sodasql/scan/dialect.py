@@ -201,9 +201,9 @@ class Dialect:
         return f'SELECT * FROM {table_name} LIMIT {count}'
 
     def sql_expr_list(self, column: ColumnMetadata, values: List[str]) -> str:
-        if self.is_text(column.type):
+        if self.is_text(column.data_type):
             sql_values = [self.literal_string(value) for value in values]
-        elif self.is_number(column.type):
+        elif self.is_number(column.data_type):
             sql_values = [self.literal_number(value) for value in values]
         else:
             raise RuntimeError(

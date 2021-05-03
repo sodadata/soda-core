@@ -11,16 +11,21 @@
 
 class ColumnMetadata:
 
-    def __init__(self, name: str, type: str = None, nullable: bool = None):
+    def __init__(self, name: str, data_type: str = None, semantic_type: str = None, nullable: bool = None):
         self.name = name
-        self.type = type
+        self.data_type = data_type
         self.nullable = nullable
+        self.semantic_type = semantic_type
 
     def __str__(self):
-        return self.name+(' '+self.type if self.type else '')
+        return self.name + (' ' + self.type if self.type else '')
 
     def to_json(self):
         return {
             'name': self.name,
-            'type': self.type
+            # TODO kept backward compatibility, remove after https://github.com/sodadata/soda/issues/2385 is fixed
+            'type': self.data_type,
+            'dataType': self.data_type,
+            'nullable': self.nullable,
+            'semanticType': self.semantic_type,
         }
