@@ -37,10 +37,10 @@ class ScanColumn:
 
         dialect = self.scan.dialect
         self.qualified_column_name = dialect.qualify_column_name(self.column_name)
-        self.is_text: bool = dialect.is_text(column_metadata.type)
-        self.is_number: bool = dialect.is_number(column_metadata.type)
-        self.is_time: bool = dialect.is_time(column_metadata.type)
-        self.is_supported: bool = dialect.is_supported(column_metadata.type)
+        self.is_text: bool = dialect.is_text(column_metadata.data_type)
+        self.is_number: bool = dialect.is_number(column_metadata.data_type)
+        self.is_time: bool = dialect.is_time(column_metadata.data_type)
+        self.is_supported: bool = dialect.is_supported(column_metadata.data_type)
 
         if self.is_supported:
             self.missing = self.scan_yml.get_missing(self.column_name)

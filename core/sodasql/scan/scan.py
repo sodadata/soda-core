@@ -116,25 +116,33 @@ class Scan:
         column_tuples = self.warehouse.sql_fetchall(sql) if sql != '' else self.warehouse.dialect.sql_columns_metadata(
             self.scan_yml.table_name)
         self.queries_executed += 1
+
         self.column_metadatas = []
         for column_tuple in column_tuples:
             name = column_tuple[0]
-            type = column_tuple[1]
+            data_type = column_tuple[1]
             nullable = 'YES' == column_tuple[2].upper()
-            self.column_metadatas.append(ColumnMetadata(name, type, nullable))
-        logging.debug(str(len(self.column_metadatas)) + ' columns:')
+            self.column_metadatas.append(ColumnMetadata(name=name, data_type=data_type, nullable=nullable))
 
-        self.column_names: List[str] = [column_metadata.name for column_metadata in self.column_metadatas]
         self.scan_columns: dict = {}
+        self.column_names: List[str] = [column_metadata.name for column_metadata in self.column_metadatas]
         for column_metadata in self.column_metadatas:
             scan_column = ScanColumn(self, column_metadata)
+            if scan_column.is_text:
+                column_metadata.semantic_type = 'text'
+            elif scan_column.is_number:
+                column_metadata.semantic_type = 'number'
+            elif scan_column.is_time:
+                column_metadata.semantic_type = 'time'
+
             if scan_column.is_supported:
-                logging.debug(f'  {scan_column.column_name} ({scan_column.column.type}) '
+                logging.debug(f'  {scan_column.column_name} ({scan_column.column.data_type}) '
                               f'{"" if scan_column.column.nullable else "not null"}')
                 self.scan_columns[column_metadata.name.lower()] = scan_column
             else:
-                logging.debug(f'  {scan_column.column_name} ({scan_column.column.type}) -> unsupported, skipped!')
+                logging.debug(f'  {scan_column.column_name} ({scan_column.column.data_type}) -> unsupported, skipped!')
 
+        logging.debug(str(len(self.column_metadatas)) + ' columns:')
         schema_measurement_value = [column_metadata.to_json() for column_metadata in self.column_metadatas]
         schema_measurement = Measurement(Metric.SCHEMA, value=schema_measurement_value)
         self._log_measurement(schema_measurement)
@@ -284,16 +292,16 @@ class Scan:
                 column_name = scan_column.column_name
 
                 if scan_column.is_any_metric_enabled(
-                        [Metric.DISTINCT, Metric.UNIQUENESS, Metric.UNIQUE_COUNT,
-                         Metric.MINS, Metric.MAXS, Metric.FREQUENT_VALUES, Metric.DUPLICATE_COUNT]):
+                    [Metric.DISTINCT, Metric.UNIQUENESS, Metric.UNIQUE_COUNT,
+                     Metric.MINS, Metric.MAXS, Metric.FREQUENT_VALUES, Metric.DUPLICATE_COUNT]):
 
                     group_by_cte = scan_column.get_group_by_cte()
                     numeric_value_expr = scan_column.get_group_by_cte_numeric_value_expression()
                     order_by_value_expr = scan_column.get_order_by_cte_value_expression(numeric_value_expr)
 
                     if self.scan_yml.is_any_metric_enabled(
-                            [Metric.DISTINCT, Metric.UNIQUENESS, Metric.UNIQUE_COUNT, Metric.DUPLICATE_COUNT],
-                            column_name):
+                        [Metric.DISTINCT, Metric.UNIQUENESS, Metric.UNIQUE_COUNT, Metric.DUPLICATE_COUNT],
+                        column_name):
 
                         sql = (f'{group_by_cte} \n'
                                f'SELECT COUNT(*), \n'
@@ -651,7 +659,7 @@ class Scan:
                 for measurement in self.scan_result.measurements:
                     if (measurement.metric in [Metric.ROW_COUNT, Metric.MISSING_COUNT, Metric.INVALID_COUNT,
                                                Metric.VALUES_COUNT, Metric.VALID_COUNT]
-                            and measurement.value > 0):
+                        and measurement.value > 0):
                         samples_yml = self.scan_yml.get_sample_yml(measurement)
                         if samples_yml:
                             self.sampler.save_sample(samples_yml, measurement, self.scan_result.test_results)
@@ -670,9 +678,9 @@ class Scan:
 
     @classmethod
     def _log_and_append_derived_measurements(
-            cls,
-            measurements: List[Measurement],
-            derived_measurements: List[Measurement]):
+        cls,
+        measurements: List[Measurement],
+        derived_measurements: List[Measurement]):
         """
         Convenience method to log a list of derived measurements and append them to the given list of measurements.
         Logging will indicate it is a derived measurement

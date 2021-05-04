@@ -31,12 +31,12 @@ class TestSchema(SqlTestCase):
         columns_by_name_lower = {column['name'].lower(): column for column in measurement.value}
 
         column = columns_by_name_lower['id']
-        self.assertTrue(dialect.is_text(column['type']))
+        self.assertTrue(dialect.is_text(column['dataType']))
 
         column = columns_by_name_lower['name']
-        self.assertTrue(dialect.is_text(column['type']))
+        self.assertTrue(dialect.is_text(column['dataType']))
 
         column = columns_by_name_lower['size']
-        self.assertTrue(dialect.is_number(column['type']))
+        self.assertTrue(dialect.is_number(column['dataType']))
 
         self.assertIsNone(scan_result.find_measurement(Metric.ROW_COUNT))
