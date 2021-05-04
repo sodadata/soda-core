@@ -3,6 +3,13 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
+## [2.1.0b4] - 2021-05-04
+### Fixed
+- Logs error message when invalid columns are configured in yml (#297)
+- Adds nullable and semantic_type to schema metric (#294)
+- #200 Add warehouse dockerfile with pre-populated demodata
+- #284: validate scan time ISO 8601 compliance (#285)
+
 ## [2.1.0b3] - 2021-04-28
 ### Fixed
 - #281 SQLServer: Fix soda analyze  
