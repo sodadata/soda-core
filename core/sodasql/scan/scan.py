@@ -140,9 +140,16 @@ class Scan:
                               f'{"" if scan_column.column.nullable else "not null"}')
                 self.scan_columns[column_metadata.name.lower()] = scan_column
             else:
-                logging.debug(f'  {scan_column.column_name} ({scan_column.column.data_type}) -> unsupported, skipped!')
+                logging.error(f'  {scan_column.column_name} ({scan_column.column.data_type}) -> unsupported, skipped!')
 
         logging.debug(str(len(self.column_metadatas)) + ' columns:')
+
+        # Compare the column names in yml with valid column names from the table
+        invalid_column_names = set(self.scan_yml.columns.keys()) - set(self.scan_columns.keys())
+        if invalid_column_names:
+            logging.error(f'Unknown column names found in YML: {", ".join(invalid_column_names)} \n'
+                          f'Scan will continue for known columns.')
+
         schema_measurement_value = [column_metadata.to_json() for column_metadata in self.column_metadatas]
         schema_measurement = Measurement(Metric.SCHEMA, value=schema_measurement_value)
         self._log_measurement(schema_measurement)
