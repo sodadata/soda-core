@@ -117,13 +117,23 @@ class RedshiftDialect(PostgresDialect):
         return cluster_creds['DbUser'], cluster_creds['DbPassword']
 
     def is_text(self, column_type: str):
-        return column_type.upper() in ['CHARACTER VARYING', 'CHARACTER', 'CHAR', 'TEXT', 'NCHAR', 'NVARCHAR', 'BPCHAR']
+        return column_type.upper() in ['CHAR', 'CHARACTER', 'BPCHAR',
+                                       'VARCHAR', 'CHARACTER VARYING', 'NVARCHAR', 'TEXT']
 
     def is_number(self, column_type: str):
-        return column_type.upper() in ['SMALLINT', 'INT2', 'INTEGER', 'INT', 'INT4', 'BIGINT', 'INT8']
+        return column_type.upper() in ['SMALLINT', 'INT2',
+                                       'INTEGER', 'INT', 'INT4',
+                                       'BIGINT', 'INT8',
+                                       'DECIMAL', 'NUMERIC',
+                                       'REAL', 'FLOAT4',
+                                       'DOUBLE PRECISION', 'FLOAT8', 'FLOAT']
 
     def is_time(self, column_type: str):
-        return column_type.upper() in ['DATE', 'TIME', 'TIMETZ', 'TIMESTAMP', 'TIMESTAMPTZ']
+        return column_type.upper() in ['DATE',
+                                       'TIMESTAMP', 'TIMESTAMP WITHOUT TIME ZONE',
+                                       'TIMESTAMPTZ', 'TIMESTAMP WITH TIME ZONE',
+                                       'TIME', 'TIME WITHOUT TIME ZONE',
+                                       'TIMETZ', 'TIME WITH TIME ZONE']
 
     def qualify_regex(self, regex):
         return self.escape_metacharacters(regex)
