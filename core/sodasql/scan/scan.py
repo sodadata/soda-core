@@ -124,17 +124,14 @@ class Scan:
                 self.scan_result.add_error(SodaCloudScanError('Could not fetch custom metrics', e))
             if custom_metrics:
                 for monitor_metric_dict in custom_metrics:
-                    print("pricessing")
-                    print(monitor_metric_dict)
                     monitor_metric_parser = MonitorMetricParser(monitor_metric_dict, self)
                     if not monitor_metric_parser.has_warnings_or_errors():
                         monitor_metric = monitor_metric_parser.monitor_metric
                         monitor_measurement = monitor_metric.execute()
                         self.scan_result.measurements.append(monitor_measurement)
                         monitor_measurement_json = monitor_measurement.to_json()
-                        print(monitor_measurement_json)
-                        # self.soda_server_client.scan_monitor_measurements(self.scan_reference,
-                        #                                                   monitor_measurement_json)
+                        self.soda_server_client.scan_monitor_measurements(self.scan_reference,
+                                                                          monitor_measurement_json)
 
     def _query_columns_metadata(self):
         sql = self.warehouse.dialect.sql_columns_metadata_query(self.scan_yml.table_name)
