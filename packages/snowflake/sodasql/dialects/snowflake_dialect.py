@@ -111,10 +111,10 @@ class SnowflakeDialect(Dialect):
         return self.escape_metacharacters(regex)
 
     def qualify_column_name(self, column_name: str):
-        return f'"{column_name}"'
+        return f'{column_name}'
 
     def qualify_table_name(self, table_name: str) -> str:
-        return f'"{table_name.upper()}"'
+        return f'{table_name}'
 
     def is_connection_error(self, exception):
         if exception is None or exception.errno is None:
