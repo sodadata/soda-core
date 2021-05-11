@@ -3,6 +3,15 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
+## [2.1.0b5] - 2021-05-11 *Aragorn*
+### Fixed
+- #305 core: enable passing any parameters as environment variables
+- #177 core: remove mandatory parsing of env_vars unless env_var function is used
+- #307 soda cloud: Add support for custom cloud metrics
+- #300 redshift: Update supported datatypes
+- #311 snowflake: Don't upcase or quote identifiers
+- #295 sqlserver: add trusted_connection parameter for AD/Windows Authentication
+
 ## [2.1.0b4] - 2021-05-04
 ### Fixed
 - Logs error message when invalid columns are configured in yml (#297)
