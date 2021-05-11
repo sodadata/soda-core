@@ -88,6 +88,7 @@ class Scan:
                 self._query_histograms()
 
             self._query_sql_metrics_and_run_tests()
+            self._process_cloud_custom_metrics()
             self._run_table_tests()
             self._run_column_tests()
             self._take_samples()
@@ -110,6 +111,30 @@ class Scan:
                 self.warehouse.close()
 
         return self.scan_result
+
+    def _process_cloud_custom_metrics(self):
+        if self.soda_server_client:
+            from sodasql.soda_server_client.monitor_metric_parser import MonitorMetricParser
+            custom_metrics = []
+            try:
+                logging.debug(f'Fetching custom metrics with scanReference: {self.scan_reference}')
+                custom_metrics = self.soda_server_client.custom_metrics(self.scan_reference)
+            except Exception as e:
+                logging.error(f'Soda cloud error: Could not fetch custom_metrics: {e}')
+                self.scan_result.add_error(SodaCloudScanError('Could not fetch custom metrics', e))
+            if custom_metrics:
+                for monitor_metric_dict in custom_metrics:
+                    print("pricessing")
+                    print(monitor_metric_dict)
+                    monitor_metric_parser = MonitorMetricParser(monitor_metric_dict, self)
+                    if not monitor_metric_parser.has_warnings_or_errors():
+                        monitor_metric = monitor_metric_parser.monitor_metric
+                        monitor_measurement = monitor_metric.execute()
+                        self.scan_result.measurements.append(monitor_measurement)
+                        monitor_measurement_json = monitor_measurement.to_json()
+                        print(monitor_measurement_json)
+                        # self.soda_server_client.scan_monitor_measurements(self.scan_reference,
+                        #                                                   monitor_measurement_json)
 
     def _query_columns_metadata(self):
         sql = self.warehouse.dialect.sql_columns_metadata_query(self.scan_yml.table_name)
