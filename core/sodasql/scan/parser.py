@@ -176,7 +176,7 @@ class Parser:
              return_type: type,
              is_required: bool,
              default=None,
-             resolve_env: bool = False,
+             resolve_env: bool = True,
              env_required: bool = False):
         properties = self._get_current_context_object()
         if property_name in properties:
