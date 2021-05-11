@@ -125,13 +125,13 @@ class Parser:
         return self._get(property_name, str, False, default)
 
     def get_str_required_env(self, property_name: str):
-        return self._get(property_name, str, True, resolve_env=True)
+        return self._get(property_name, str, True)
 
     def get_credential(self, property_name: str):
-        return self._get(property_name, str, False, resolve_env=True, env_required=True)
+        return self._get(property_name, str, False)
 
     def get_str_optional_env(self, property_name: str, default=None):
-        return self._get(property_name, str, False, default, resolve_env=True)
+        return self._get(property_name, str, False, default)
 
     def get_int_required(self, property_name: str):
         return self._get(property_name, int, True)
