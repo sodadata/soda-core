@@ -166,6 +166,12 @@ class SodaServerClient:
             'monitorMeasurement': monitor_measurement_json
         })
 
+    def custom_metrics(self, scan_reference: dict):
+        return self.execute_query({
+            'type': 'sodaSqlCustomMetrics',
+            'scanReference': scan_reference
+        })
+
     def execute_command(self, command: dict):
         return self._execute_request('command', command, False)
 
