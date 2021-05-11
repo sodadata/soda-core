@@ -48,6 +48,7 @@ class SQLServerDialect(Dialect):
             self.password = parser.get_credential('password')
             self.database = parser.get_str_required_env('database')
             self.schema = parser.get_str_required_env('schema')
+            self.trusted_connection = parser.get_bool_optional('trusted_connection', False)
 
     def default_connection_properties(self, params: dict):
         return {
@@ -77,6 +78,7 @@ class SQLServerDialect(Dialect):
     def create_connection(self):
         try:
             conn = pyodbc.connect(
+                ('Trusted_Connection=YES;' if self.trusted_connection else '') +
                 'DRIVER={' + self.driver +
                 '};SERVER=' + self.host +
                 ';PORT=' + self.port +
