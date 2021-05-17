@@ -16,58 +16,89 @@ from tests.common.sql_test_case import SqlTestCase
 
 
 class TestMinsMaxs(SqlTestCase):
-
-    def test_scan_mins_maxs(self):
+    def test_varchar_numeric_max_min(self):
         self.sql_recreate_table(
-            [f"name {self.dialect.data_type_varchar_255}",
-             f"size {self.dialect.data_type_integer}",
-             f"width {self.dialect.data_type_varchar_255}",
-             f"date {self.dialect.data_type_date}"],
-            ["('one',    1,    '11', DATE '2020-01-01')",
-             "('two',    2,    '12', DATE '2020-01-01')",
-             "('three',  3,    '13', DATE '2020-01-01')",
-             "('four',   4,    '14', DATE '2020-01-02')",
-             "('five',   5,    '15', DATE '2020-01-02')",
-             "('six',    6,    '16', DATE '2020-01-02')",
-             "('seven',  7,    '17', DATE '2020-01-03')",
-             "('eight',  8,    '18', DATE '2020-01-03')",
-             "('ten',    9,    '19', DATE '2020-01-03')",
-             "('three',  10,   '20', DATE '2020-01-03')",
-             "(null,     null, null, null)"])
+            [f"numeric_varchar {self.dialect.data_type_varchar_255}"], [
+                "('1')",
+                "('2')",
+                "('3')",
+                "('4')",
+                "('7')",
+                "('11')",
+                "('12')",
+                "('13')",
+                "('14')",
+                "('17')",
+            ])
 
         scan_result = self.scan({
-            KEY_METRICS: [
-                Metric.MIN,
-                Metric.MAX,
-                Metric.MINS,
-                Metric.MAXS
-            ],
+            KEY_METRICS: [Metric.ROW_COUNT],
+            # KEY_TESTS:[]
+            KEY_COLUMNS: {
+                'numeric_varchar': {
+                    'valid_max': 7,
+                    'valid_min': 1,
+                    'tests': ['invalid_percentage == 0']
+                }
+            }
+        })
+
+        self.assertEqual(scan_result.get(Metric.INVALID_PERCENTAGE, 'numeric_varchar'), 50.0)
+
+    def test_scan_mins_maxs(self):
+        self.sql_recreate_table([
+            f"name {self.dialect.data_type_varchar_255}",
+            f"size {self.dialect.data_type_integer}",
+            f"width {self.dialect.data_type_varchar_255}",
+            f"date {self.dialect.data_type_date}"
+        ], [
+            "('one',    1,    '11', DATE '2020-01-01')",
+            "('two',    2,    '12', DATE '2020-01-01')",
+            "('three',  3,    '13', DATE '2020-01-01')",
+            "('four',   4,    '14', DATE '2020-01-02')",
+            "('five',   5,    '15', DATE '2020-01-02')",
+            "('six',    6,    '16', DATE '2020-01-02')",
+            "('seven',  7,    '17', DATE '2020-01-03')",
+            "('eight',  8,    '18', DATE '2020-01-03')",
+            "('ten',    9,    '19', DATE '2020-01-03')",
+            "('three',  10,   '20', DATE '2020-01-03')",
+            "(null,     null, null, null)"
+        ])
+
+        scan_result = self.scan({
+            KEY_METRICS: [Metric.MIN, Metric.MAX, Metric.MINS, Metric.MAXS],
             KEY_COLUMNS: {
                 'width': {
                     'valid_format': 'number_whole'
                 }
             },
             # default mins_maxs is 20
-            'mins_maxs_limit': 7
-
+            'mins_maxs_limit':
+            7
         })
 
         self.assertIsNone(scan_result.find_measurement(Metric.MIN, 'name'))
         self.assertIsNone(scan_result.find_measurement(Metric.MAX, 'name'))
-        self.assertEqual(scan_result.get(Metric.MINS, 'name'),
-                         ['eight', 'five', 'four', 'one', 'seven', 'six', 'ten'])
-        self.assertEqual(scan_result.get(Metric.MAXS, 'name'),
-                         ['two', 'three', 'ten', 'six', 'seven', 'one', 'four'])
+        self.assertEqual(
+            scan_result.get(Metric.MINS, 'name'),
+            ['eight', 'five', 'four', 'one', 'seven', 'six', 'ten'])
+        self.assertEqual(
+            scan_result.get(Metric.MAXS, 'name'),
+            ['two', 'three', 'ten', 'six', 'seven', 'one', 'four'])
 
-        self.assertEqual(scan_result.find_measurement(Metric.MIN, 'size').value, 1)
-        self.assertEqual(scan_result.find_measurement(Metric.MAX, 'size').value, 10)
+        self.assertEqual(
+            scan_result.find_measurement(Metric.MIN, 'size').value, 1)
+        self.assertEqual(
+            scan_result.find_measurement(Metric.MAX, 'size').value, 10)
         self.assertEqual(scan_result.get(Metric.MINS, 'size'),
                          [1, 2, 3, 4, 5, 6, 7])
         self.assertEqual(scan_result.get(Metric.MAXS, 'size'),
                          [10, 9, 8, 7, 6, 5, 4])
 
-        self.assertEqual(scan_result.find_measurement(Metric.MIN, 'width').value, 11.0)
-        self.assertEqual(scan_result.find_measurement(Metric.MAX, 'width').value, 20.0)
+        self.assertEqual(
+            scan_result.find_measurement(Metric.MIN, 'width').value, 11.0)
+        self.assertEqual(
+            scan_result.find_measurement(Metric.MAX, 'width').value, 20.0)
         self.assertEqual(scan_result.get(Metric.MINS, 'width'),
                          ['11', '12', '13', '14', '15', '16', '17'])
         self.assertEqual(scan_result.get(Metric.MAXS, 'width'),
@@ -75,7 +106,13 @@ class TestMinsMaxs(SqlTestCase):
 
         self.assertIsNone(scan_result.find_measurement(Metric.MIN, 'date'))
         self.assertIsNone(scan_result.find_measurement(Metric.MAX, 'date'))
-        self.assertEqual(scan_result.get(Metric.MINS, 'date'),
-                         [date(2020, 1, 1), date(2020, 1, 2), date(2020, 1, 3)])
-        self.assertEqual(scan_result.get(Metric.MAXS, 'date'),
-                         [date(2020, 1, 3), date(2020, 1, 2), date(2020, 1, 1)])
+        self.assertEqual(
+            scan_result.get(Metric.MINS, 'date'),
+            [date(2020, 1, 1),
+             date(2020, 1, 2),
+             date(2020, 1, 3)])
+        self.assertEqual(
+            scan_result.get(Metric.MAXS, 'date'),
+            [date(2020, 1, 3),
+             date(2020, 1, 2),
+             date(2020, 1, 1)])

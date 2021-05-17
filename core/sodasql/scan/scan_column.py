@@ -44,6 +44,7 @@ class ScanColumn:
 
         if self.is_supported:
             self.missing = self.scan_yml.get_missing(self.column_name)
+            self.validity_format = self.scan_yml.get_validity_format(column_metadata)
             self.is_missing_metric_enabled = self.scan_yml.is_any_metric_enabled(
                 [Metric.MISSING_COUNT, Metric.MISSING_PERCENTAGE,
                  Metric.VALUES_COUNT, Metric.VALUES_PERCENTAGE],
@@ -65,7 +66,7 @@ class ScanColumn:
             self.is_default_non_missing_and_valid_condition = \
                 self.is_default_missing_condition and self.is_default_valid_condition
 
-            self.validity_format = self.scan_yml.get_validity_format(column_metadata)
+
             self.is_valid_enabled = \
                 (self.validity is not None or self.is_validity_metric_enabled) \
                 or self.scan_yml.is_any_metric_enabled([Metric.DISTINCT, Metric.UNIQUENESS], self.column_name)
@@ -153,8 +154,12 @@ class ScanColumn:
             validity_clauses.append(f'{dialect.sql_expr_length(qualified_column_name)} <= {validity.max_length}')
         if validity.min is not None and self.is_number:
             validity_clauses.append(f'{qualified_column_name} >= {validity.min}')
-        if validity.max is not None:
+        if validity.max is not None and self.is_number:
             validity_clauses.append(f'{qualified_column_name} <= {validity.max}')
+        if validity.min is not None and self.is_text:
+            validity_clauses.append(f'{dialect.sql_expr_cast_text_to_number(qualified_column_name, self.validity_format)} >= {validity.min}')
+        if validity.max is not None and self.is_text:
+            validity_clauses.append(f'{dialect.sql_expr_cast_text_to_number(qualified_column_name, self.validity_format)} <= {validity.max}')
         if len(validity_clauses) != 0:
             return '(' + ' AND '.join(validity_clauses) + ')', len(validity_clauses) == 0
         else:
