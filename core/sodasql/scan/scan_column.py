@@ -77,6 +77,10 @@ class ScanColumn:
                 isinstance(self.validity_format, str) \
                 and self.validity_format.startswith('number_')
 
+            self.is_column_temporal_text_format = \
+                isinstance(self.validity_format, str) \
+                and self.validity_format.startswith(('date', 'time'))
+
             self.numeric_expr = None
             self.mins_maxs_order_by_expr = dialect.qualify_column_name('value')
 
@@ -98,6 +102,7 @@ class ScanColumn:
                                                                          self.validity_format))
 
             self.is_numeric = self.is_number or self.is_column_numeric_text_format
+            self.is_temporal = self.is_time or self.is_column_temporal_text_format
             self.mins_maxs_limit = self.scan_yml.get_mins_maxs_limit(self.column_name)
 
     def is_any_metric_enabled(self, metrics: List[str]):

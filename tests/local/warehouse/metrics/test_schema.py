@@ -40,3 +40,48 @@ class TestSchema(SqlTestCase):
         self.assertTrue(dialect.is_number(column['dataType']))
 
         self.assertIsNone(scan_result.find_measurement(Metric.ROW_COUNT))
+
+    def test_schema_semantic_types(self):
+        self.sql_recreate_table(
+            [f"text_column {self.dialect.data_type_varchar_255}",
+             f"text_with_numeric_data {self.dialect.data_type_varchar_255}",
+             f"text_with_date {self.dialect.data_type_varchar_255}",
+             f"numeric {self.dialect.data_type_integer}"],
+            ["('1', '22', '2020-01-01', 1)"])
+
+        scan_result = self.scan({
+            'columns':
+                {'text_with_numeric_data': {'valid_format': 'number_whole'},
+                 'text_with_date': {'valid_format': 'date_iso_8601'}
+                 }
+        })
+
+        schema = scan_result.get(Metric.SCHEMA)
+
+        self.assertDictEqual(next(filter(lambda x: x['name'] == 'text_column', schema)),
+                             {'dataType': 'character varying',
+                              'name': 'text_column',
+                              'nullable': True,
+                              'semanticType': 'text',
+                              'type': 'character varying'})
+
+        self.assertDictEqual(next(filter(lambda x: x['name'] == 'text_with_numeric_data', schema)),
+                             {'dataType': 'character varying',
+                              'name': 'text_with_numeric_data',
+                              'nullable': True,
+                              'semanticType': 'number',
+                              'type': 'character varying'})
+
+        self.assertDictEqual(next(filter(lambda x: x['name'] == 'text_with_date', schema)),
+                             {'dataType': 'character varying',
+                              'name': 'text_with_date',
+                              'nullable': True,
+                              'semanticType': 'time',
+                              'type': 'character varying'})
+
+        self.assertDictEqual(next(filter(lambda x: x['name'] == 'numeric', schema)),
+                             {'dataType': 'integer',
+                              'name': 'numeric',
+                              'nullable': True,
+                              'semanticType': 'number',
+                              'type': 'integer'})
