@@ -3,6 +3,13 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
+## [2.1.0b6] - 2021-05-18 *Arwen*
+### Fixed 
+- #322 core: Add is_temporal to identify  date/time semantic type
+- #314 core: Fix valid_min and valid_max calculation for varchar with numeric data 
+- #307 soda cloud: Add support for IS NULL sql expression
+- #315 snowflake: Privatekey authentication support
+
 ## [2.1.0b5] - 2021-05-11 *Aragorn*
 ### Fixed
 - #305 core: enable passing any parameters as environment variables
