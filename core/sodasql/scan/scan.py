@@ -150,17 +150,17 @@ class Scan:
         self.column_names: List[str] = [column_metadata.name for column_metadata in self.column_metadatas]
         for column_metadata in self.column_metadatas:
             scan_column = ScanColumn(self, column_metadata)
-            if scan_column.is_numeric:
-                column_metadata.semantic_type = 'number'
-            elif scan_column.is_temporal:
-                column_metadata.semantic_type = 'time'
-            # WARN: Order of conditions is important here, because the is_text is based on database data type,
-            # and is_numeric, is_temporal are calculated based on validity format. So both is_text and
-            # (is_temporal|is_numeric) can be true.
-            elif scan_column.is_text:
-                column_metadata.semantic_type = 'text'
-
             if scan_column.is_supported:
+                if scan_column.is_numeric:
+                    column_metadata.semantic_type = 'number'
+                elif scan_column.is_temporal:
+                    column_metadata.semantic_type = 'time'
+                # WARN: Order of conditions is important here, because the is_text is based on database data type,
+                # and is_numeric, is_temporal are calculated based on validity format. So both is_text and
+                # (is_temporal|is_numeric) can be true.
+                elif scan_column.is_text:
+                    column_metadata.semantic_type = 'text'
+
                 logging.debug(f'  {scan_column.column_name} ({scan_column.column.data_type}) '
                               f'{"" if scan_column.column.nullable else "not null"}')
                 self.scan_columns[column_metadata.name.lower()] = scan_column
