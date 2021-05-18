@@ -362,12 +362,17 @@ class Dialect:
         elif type == 'or':
             sql = '(' + (') OR ('.join([self.sql_expression(e, **kwargs)
                                         for e in expression_dict['orExpressions']])) + ')'
+        elif type == 'null':
+            sql = f'null'
         else:
             raise RuntimeError(f'Unsupported expression type: {type}')
         return sql
 
     def sql_expr_equal(self, left, right):
-        return f'{left} = {right}'
+        if right == 'null':
+            return f'{left} IS NULL'
+        else:
+            return f'{left} = {right}'
 
     def sql_expr_less_than(self, left, right):
         return f'{left} < {right}'
