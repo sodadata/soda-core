@@ -10,6 +10,7 @@
 #  limitations under the License.
 from sodasql.scan.metric import Metric
 from tests.common.sql_test_case import SqlTestCase
+import pytest
 
 
 class TestSchema(SqlTestCase):
@@ -41,6 +42,7 @@ class TestSchema(SqlTestCase):
 
         self.assertIsNone(scan_result.find_measurement(Metric.ROW_COUNT))
 
+    @pytest.mark.skip(reason="no easy way to do this for all warehouses")
     def test_schema_semantic_types(self):
         self.sql_recreate_table(
             [f"text_column {self.dialect.data_type_varchar_255}",
