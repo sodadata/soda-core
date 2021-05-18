@@ -9,6 +9,9 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
+from cryptography.hazmat.backends import default_backend
+from cryptography.hazmat.primitives import serialization
+
 from snowflake import connector
 from snowflake.connector import errorcode
 from snowflake.connector.network import DEFAULT_SOCKET_CONNECT_TIMEOUT
@@ -30,7 +33,9 @@ class SnowflakeDialect(Dialect):
             self.schema = parser.get_str_required_env('schema')
             self.role = parser.get_str_optional('role')
             self.passcode_in_password = parser.get_bool_optional('passcode_in_password', False)
+            self.private_key_passphrase = parser.get_str_optional('private_key_passphrase')
             self.private_key = parser.get_str_optional('private_key')
+            self.private_key_path = parser.get_str_optional('private_key_path')
             self.client_prefetch_threads = parser.get_int_optional('client_prefetch_threads', 4)
             self.client_session_keep_alive = parser.get_bool_optional('client_session_keep_alive', False)
             self.authenticator = parser.get_str_optional('authenticator', 'snowflake')
@@ -53,6 +58,32 @@ class SnowflakeDialect(Dialect):
             'SNOWFLAKE_PASSWORD': params.get('password', 'YOUR_SNOWFLAKE_PASSWORD_GOES_HERE')
         }
 
+    def __get_private_key(self):
+        if not (self.private_key_path or self.private_key):
+            return None
+
+        if self.private_key_passphrase:
+            encoded_passphrase = self.private_key_passphrase.encode()
+        else:
+            encoded_passphrase = None
+
+        pk_bytes = None
+        if self.private_key:
+            pk_bytes = self.private_key.encode()
+        elif self.private_key_path:
+            with open(self.private_key_path, 'rb') as pk:
+                pk_bytes = pk.read()
+
+        p_key = serialization.load_pem_private_key(
+            pk_bytes,
+            password=encoded_passphrase,
+            backend=default_backend())
+
+        return p_key.private_bytes(
+            encoding=serialization.Encoding.DER,
+            format=serialization.PrivateFormat.PKCS8,
+            encryption_algorithm=serialization.NoEncryption())
+
     def create_connection(self):
         try:
             conn = connector.connect(
@@ -65,7 +96,7 @@ class SnowflakeDialect(Dialect):
                 login_timeout=self.connection_timeout,
                 role=self.role,
                 passcode_in_password=self.passcode_in_password,
-                private_key=self.private_key,
+                private_key=self.__get_private_key(),
                 client_prefetch_threads=self.client_prefetch_threads,
                 client_session_keep_alive=self.client_session_keep_alive,
                 authenticator=self.authenticator,
