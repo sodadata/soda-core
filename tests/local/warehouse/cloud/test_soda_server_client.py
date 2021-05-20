@@ -40,7 +40,7 @@ class TestSodaServerClient(SqlTestCase):
             'sql_metrics': [{
                 'sql': f'SELECT 0 AS zero FROM {self.default_test_table_name}',
                 'tests': [
-                        'zero == 0'
+                    'zero == 0'
                 ]
             }],
             'columns': {
@@ -75,7 +75,7 @@ class TestSodaServerClient(SqlTestCase):
                 # The first non-start command should be a scanMeasurements command with a schema measurement
                 self.assertEqual(command_type, 'sodaSqlScanMeasurements')
                 self.assertEqual(command['measurements'][0]['metric'], Metric.SCHEMA)
-            elif i == len(commands)-1:
+            elif i == len(commands) - 1:
                 # The last command should be a scanEnd command
                 self.assertEqual('sodaSqlScanEnd', command_type)
             else:
@@ -84,9 +84,34 @@ class TestSodaServerClient(SqlTestCase):
                 elif command_type == 'sodaSqlScanTestResults':
                     scan_test_result_count += 1
 
-        logging.debug('Commands from Soda SQL to Server: \n'+commands_log)
+        logging.debug('Commands from Soda SQL to Server: \n' + commands_log)
 
         # There should at least be one scanMeasurement command
         self.assertGreater(scan_measurement_count, 0)
         # There should at least be one scanTestResults command
         self.assertGreater(scan_test_result_count, 0)
+
+    def test_cloud_metrics_filters(self):
+        self.use_mock_soda_server_client()
+        self.sql_recreate_table(
+            [f"id {self.dialect.data_type_varchar_255}",
+             f"maturity {self.dialect.data_type_varchar_255}",
+             f"length {self.dialect.data_type_decimal}"],
+            ["('1',     '2020-01-01',   3.45678)",
+             "('3',     '2021-02-03',    3.45678)",
+             "('45',    '2013-07-09',   3.45678)",
+             "(null,        null,           null)"])
+
+        self.scan({
+            'metrics': [
+                Metric.ROW_COUNT,
+
+            ],
+            'columns': {
+                'maturity': {
+                    'valid_format': 'date_inverse',
+                    'tests': [
+                        'invalid_percentage == 0'
+                    ]}
+            }
+        })
