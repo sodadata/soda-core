@@ -37,7 +37,9 @@ class MonitorMetricParser(Parser):
             if group_by_column_names:
                 qualified_group_column_names = [self.dialect.qualify_column_name(group_field)
                                                 for group_field in group_by_column_names]
-            filter_condition = self.dialect.sql_expression(expression_dict=filter_expression_dict, scan_time=scan.time)
+            filter_condition = self.dialect.sql_expression(expression_dict=filter_expression_dict,
+                                                           scan_time=scan.time,
+                                                           scan_columns=scan.scan_columns)
 
             self.monitor_metric.build_sql(
                 qualified_group_column_names,

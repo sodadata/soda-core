@@ -13,7 +13,7 @@ import logging
 import os
 from typing import List, Optional
 from unittest import TestCase
-
+from datetime import datetime
 import yaml
 
 from sodasql.common.logging_helper import LoggingHelper
@@ -147,7 +147,8 @@ class SqlTestCase(TestCase):
 
         scan = self.warehouse.create_scan(scan_yml=scan_configuration_parser.scan_yml,
                                           variables=variables,
-                                          soda_server_client=self.mock_soda_server_client)
+                                          soda_server_client=self.mock_soda_server_client,
+                                          time=datetime.now().isoformat(timespec='seconds'))
         scan.close_warehouse = False
         return scan.execute()
 
@@ -159,7 +160,8 @@ class SqlTestCase(TestCase):
             scan_dict[KEY_TABLE_NAME] = self.default_test_table_name
         scan_configuration_parser = ScanYmlParser(scan_dict, 'test-scan')
         scan_configuration_parser.assert_no_warnings_or_errors()
-        scan = warehouse.create_scan(scan_yml=scan_configuration_parser.scan_yml)
+        scan = warehouse.create_scan(scan_yml=scan_configuration_parser.scan_yml,
+                                     time=datetime.now().isoformat(timespec='seconds'))
         scan.close_warehouse = False
         scan.execute()
 

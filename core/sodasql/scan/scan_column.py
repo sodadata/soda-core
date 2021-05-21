@@ -105,6 +105,9 @@ class ScanColumn:
             self.is_temporal = self.is_time or self.is_column_temporal_text_format
             self.mins_maxs_limit = self.scan_yml.get_mins_maxs_limit(self.column_name)
 
+    def __str__(self):
+        return f"{self.column_name}"
+
     def is_any_metric_enabled(self, metrics: List[str]):
         for metric in metrics:
             if self.is_metric_enabled(metric):
@@ -162,9 +165,11 @@ class ScanColumn:
         if validity.max is not None and self.is_number:
             validity_clauses.append(f'{qualified_column_name} <= {validity.max}')
         if validity.min is not None and self.is_text:
-            validity_clauses.append(f'{dialect.sql_expr_cast_text_to_number(qualified_column_name, self.validity_format)} >= {validity.min}')
+            validity_clauses.append(
+                f'{dialect.sql_expr_cast_text_to_number(qualified_column_name, self.validity_format)} >= {validity.min}')
         if validity.max is not None and self.is_text:
-            validity_clauses.append(f'{dialect.sql_expr_cast_text_to_number(qualified_column_name, self.validity_format)} <= {validity.max}')
+            validity_clauses.append(
+                f'{dialect.sql_expr_cast_text_to_number(qualified_column_name, self.validity_format)} <= {validity.max}')
         if len(validity_clauses) != 0:
             return '(' + ' AND '.join(validity_clauses) + ')', len(validity_clauses) == 0
         else:
