@@ -293,17 +293,7 @@ class Dialect:
             else:
                 raise RuntimeError('Unsupported time comparison! Only "scanTime" is supported')
         elif type == 'columnValue':
-            column_name = expression_dict['columnName']
-            scan_columns = kwargs.get('scan_columns')
-            if scan_columns is not None:
-                scan_column = scan_columns.get(column_name)
-                # TODO make sure that all varchar as some other data types are cast properly
-                if scan_column.is_column_temporal_text_format:
-                    sql = f"CAST ({expression_dict['columnName']} AS DATE)"
-                else:
-                    sql = expression_dict['columnName']
-            else:
-                sql = expression_dict['columnName']
+            sql = expression_dict['columnName']
         elif type == 'collection':
             # collection of string or number literals
             value = expression_dict['value']

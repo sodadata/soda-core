@@ -81,7 +81,11 @@ class TestSamplesAndFailedRows(SqlTestCase):
                     'tests': [
                         'invalid_count == 0'
                     ]
+                },
+                'date': {
+                    'valid_format': 'date_eu'
                 }
+
             },
             'sql_metrics': [
                 {
