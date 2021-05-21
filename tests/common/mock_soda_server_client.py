@@ -54,7 +54,7 @@ class MockSodaServerClient(SodaServerClient):
                     "type": "greaterThanOrEqual",
                     "left": {
                         "type": "columnValue",
-                        "columnName": "maturity"
+                        "columnName": "date"
                     },
                     "right": {
                         "type": "time",

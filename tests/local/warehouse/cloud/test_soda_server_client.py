@@ -95,7 +95,7 @@ class TestSodaServerClient(SqlTestCase):
         self.use_mock_soda_server_client()
         self.sql_recreate_table(
             [f"id {self.dialect.data_type_varchar_255}",
-             f"maturity {self.dialect.data_type_varchar_255}",
+             f"date {self.dialect.data_type_varchar_255}",
              f"length {self.dialect.data_type_decimal}"],
             ["('1',     '2020-01-01',   3.45678)",
              "('3',     '2021-02-03',    3.45678)",
@@ -108,7 +108,7 @@ class TestSodaServerClient(SqlTestCase):
 
             ],
             'columns': {
-                'maturity': {
+                'date': {
                     'valid_format': 'date_inverse',
                     'tests': [
                         'invalid_percentage == 0'
