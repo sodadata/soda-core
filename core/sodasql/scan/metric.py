@@ -88,4 +88,10 @@ class Metric:
         METRIC_GROUP_VALIDITY: [INVALID_COUNT, INVALID_PERCENTAGE, VALID_COUNT, VALID_PERCENTAGE],
     }
 
-    # METRIC_GROUPS[METRIC_GROUP_ALL] = list(itertools.chain.from_iterable(METRIC_GROUPS.values()))
+    # One or more metrics in these groups are calculated in python rather than in SQL
+    # e.g. missing_count = row_count - values_count etc.
+    DERIVED_METRIC_GROUPS = {
+        METRIC_GROUP_MISSING: [MISSING_COUNT, MISSING_PERCENTAGE, VALUES_COUNT, VALUES_PERCENTAGE],
+        METRIC_GROUP_VALIDITY: [INVALID_COUNT, INVALID_PERCENTAGE, VALID_COUNT, VALID_PERCENTAGE],
+    }
+
