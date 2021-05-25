@@ -151,7 +151,7 @@ class ScanYmlParser(Parser):
         if Metric.METRIC_GROUP_ALL in metrics_groups:
             metrics.update(Metric.METRIC_TYPES)
         else:
-            for metric_group_name in Metric.METRIC_GROUPS:
+            for metric_group_name in Metric.DERIVED_METRIC_GROUPS:
                 group_metrics = Metric.METRIC_GROUPS[metric_group_name]
                 for metric in metrics:
                     if metric in group_metrics:
