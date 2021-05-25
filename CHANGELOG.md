@@ -1,7 +1,15 @@
+
 # Changelog
 All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
+
+## [2.1.0b6] - 2021-05-25 *Frodo Baggins*
+### Fixed
+- #322 Soda CLoud: Add support for custom metrics, filter with different semantic types 
+- #335 core: Fix unspecified metrics calculation  
+### In-Progress
+- SQLServer test coverage 
 
 ## [2.1.0b6] - 2021-05-18 *Arwen*
 ### Fixed 
