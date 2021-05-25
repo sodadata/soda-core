@@ -12,7 +12,7 @@ package_name = "soda-sql-core"
 # Managed by tbump - don't change manually
 # And we can't have nice semver (<major>.<minor>.<patch>-<pre-release>-<build>)
 # like "-alpha-1" as long as this is open >> https://github.com/pypa/setuptools/issues/2181
-package_version = '2.1.0b6'
+package_version = '2.1.0b7'
 description = "Soda SQL Core"
 
 long_description = (pathlib.Path(__file__).parent / "README.md").read_text()
