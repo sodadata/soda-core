@@ -18,15 +18,21 @@ from sodasql.scan.test import Test
 
 @dataclass
 class TestResult:
-
     test: Test
     passed: bool
+    skipped: bool
     values: Optional[dict] = None
     error: Optional[Exception] = None
     group_values: Optional[dict] = None
 
     def __str__(self):
-        return (f'Test {self.test.title} {"passed" if self.passed else "failed"}' +
+        if self.passed:
+            status_str = 'passed'
+        elif self.skipped:
+            status_str = 'skipped'
+        else:
+            status_str = 'failed'
+        return (f'Test {self.test.title} {status_str}' +
                 (f" with group values {self.group_values}" if self.group_values else '') +
                 f' with measurements {json.dumps(JsonHelper.to_jsonnable(self.values))}')
 
@@ -39,7 +45,7 @@ class TestResult:
         test_result_json = {
             'id': self.test.id,
             'title': self.test.title,
-            'description': self.test.title, # for backwards compatibility
+            'description': self.test.title,  # for backwards compatibility
             'expression': self.test.expression
         }
 
@@ -50,6 +56,7 @@ class TestResult:
             test_result_json['error'] = str(self.error)
         else:
             test_result_json['passed'] = self.passed
+            test_result_json['skipped'] = self.skipped
             test_result_json['values'] = JsonHelper.to_jsonnable(self.values)
 
         if self.group_values:
