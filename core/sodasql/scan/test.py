@@ -15,7 +15,6 @@ from typing import Optional, List
 
 @dataclass
 class Test:
-
     id: str
     title: str
     expression: str
@@ -24,12 +23,18 @@ class Test:
 
     def evaluate(self, test_variables: dict, group_values: Optional[dict] = None):
         from sodasql.scan.test_result import TestResult
+
         try:
-            passed = bool(eval(self.expression, test_variables))
             values = {key: test_variables[key] for key in test_variables if key in self.metrics}
-            test_result = TestResult(test=self, passed=passed, values=values, group_values=group_values)
-            logging.debug(str(test_result))
-            return test_result
+            if 'None' not in self.expression and any(v is None for v in values.values()):
+                logging.warning(f'Skipping test {self.expression} since corresponding metrics are None ({values}) ')
+                return TestResult(test=self, skipped=True, passed=True, values=values, group_values=group_values)
+            else:
+                passed = bool(eval(self.expression, test_variables))
+                test_result = TestResult(test=self, passed=passed, skipped=False, values=values,
+                                         group_values=group_values)
+                logging.debug(str(test_result))
+                return test_result
         except Exception as e:
             logging.error(f'Test error for "{self.expression}": {e}')
-            return TestResult(test=self, passed=False, error=e, group_values=group_values)
+            return TestResult(test=self, passed=False, skipped=False, error=e, group_values=group_values)

@@ -10,7 +10,7 @@
 #  limitations under the License.
 
 from sodasql.scan.metric import Metric
-from sodasql.scan.scan_yml_parser import KEY_METRIC_GROUPS
+from sodasql.scan.scan_yml_parser import KEY_METRIC_GROUPS, KEY_METRICS, KEY_COLUMNS, COLUMN_KEY_TESTS
 from tests.common.sql_test_case import SqlTestCase
 from decimal import *
 
@@ -311,3 +311,23 @@ class TestMetricGroups(SqlTestCase):
         self.assertEqual(scan_result.get(Metric.VALUES_PERCENTAGE), 91.66666666666667)
         self.assertAlmostEqual(scan_result.get(Metric.VARIANCE), Decimal(1.2000), 4)
         self.assertEqual(24, len(scan_result.measurements))
+
+    def test_empty_table_metrics(self):
+        self.sql_recreate_table(
+            [f"score {self.dialect.data_type_integer}"])
+
+        scan_result = self.scan({
+            KEY_METRICS: [
+                Metric.MAX,
+                Metric.ROW_COUNT
+            ],
+            KEY_COLUMNS: {
+                'score': {
+                    COLUMN_KEY_TESTS: [
+                        'max == None',
+                        'max < 5'
+                    ]
+                }
+            }
+        })
+
