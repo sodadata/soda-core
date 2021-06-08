@@ -110,7 +110,7 @@ class TestSamplesAndFailedRows(SqlTestCase):
                                     if (command['type'] == 'sodaSqlScanTestResults'))
 
         self.assertFalse(test_results_command['testResults'][0]['passed'])
-        self.assertEqual(3, test_results_command['testResults'][0]['values']['bad_row_count'])
+        self.assertEqual(10, test_results_command['testResults'][0]['values']['bad_row_count'])
 
     def get_file_data(self, sample_type: str, column_name=None, sql_metric_name=None):
         command = self.find_scan_file_command(sample_type, column_name, sql_metric_name)
