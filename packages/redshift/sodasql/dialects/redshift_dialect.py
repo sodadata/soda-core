@@ -139,10 +139,10 @@ class RedshiftDialect(PostgresDialect):
         return self.escape_metacharacters(regex)
 
     def sql_expr_avg(self, expr: str):
-        return f"AVG({expr}::DECIMAL(38, 0))"
+        return f"AVG({expr})"
 
     def sql_expr_sum(self, expr: str):
-        return f"SUM({expr}::DECIMAL(38, 0))"
+        return f"SUM({expr})"
 
     def sql_expr_cast_text_to_number(self, quoted_column_name, validity_format):
         if validity_format == 'number_whole':

@@ -36,7 +36,7 @@ class TestStatisticalMetrics(SqlTestCase):
             ],
             KEY_COLUMNS: {
                 'score': {
-                  COLUMN_KEY_VALID_FORMAT: 'number_whole'
+                    COLUMN_KEY_VALID_FORMAT: 'number_whole'
                 }
             }
         })
