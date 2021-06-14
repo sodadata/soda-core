@@ -115,6 +115,7 @@ class Scan:
     def _process_cloud_custom_metrics(self):
         if self.soda_server_client:
             from sodasql.soda_server_client.monitor_metric_parser import MonitorMetricParser
+            from sodasql.soda_server_client.monitor_metric import MonitorMetricType
             custom_metrics = []
             try:
                 logging.debug(f'Fetching custom metrics with scanReference: {self.scan_reference}')
@@ -132,6 +133,21 @@ class Scan:
                         monitor_measurement_json = monitor_measurement.to_json()
                         self.soda_server_client.scan_monitor_measurements(self.scan_reference,
                                                                           monitor_measurement_json)
+                        if monitor_metric.metric_type in [MonitorMetricType.MISSING_VALUES_COUNT,
+                                                          MonitorMetricType.MISSING_VALUES_PERCENTAGE,
+                                                          MonitorMetricType.INVALID_VALUES_COUNT,
+                                                          MonitorMetricType.INVALID_VALUES_PERCENTAGE,
+                                                          MonitorMetricType.DISTINCT_VALUES_COUNT,
+                                                          ]:
+                            logging.debug(
+                                f'Sending failed rows for {monitor_metric.metric_type} to Soda Cloud')
+                            self._send_failed_rows_custom_metric(metric_name="custom_metric",
+                                                                 sql=monitor_metric.sql,
+                                                                 column_name=monitor_metric.column_name,
+                                                                 metric_id=monitor_metric.metric_id)
+                        else:
+                            logging.debug(
+                                f'{monitor_metric.metric_type} is not "negative values metric", failed rows are not sent to Soda Cloud')
 
     def _query_columns_metadata(self):
         sql = self.warehouse.dialect.sql_columns_metadata_query(self.scan_yml.table_name)
@@ -586,6 +602,60 @@ class Scan:
         except Exception as e:
             self.scan_result.add_error(ScanError(f'Exception during sql metric groups query {resolved_sql}', e))
 
+    def _send_failed_rows_custom_metric(self,
+                                        metric_name: str,
+                                        column_name: str,
+                                        sql: str,
+                                        metric_id: str):
+        try:
+            if self.soda_server_client:
+
+                logging.debug(f'Sending failed rows for {metric_id} to Soda Cloud')
+                with tempfile.TemporaryFile() as temp_file:
+
+                    failed_limit = 5  # TODO: default for custom metrics
+
+                    stored_failed_rows, sample_columns, total_failed_rows = \
+                        self.sampler.save_sample_to_local_file_with_limit(sql, temp_file, failed_limit)
+
+                    if stored_failed_rows > 0:
+                        temp_file_size_in_bytes = temp_file.tell()
+                        temp_file.seek(0)
+
+                        file_path = self.sampler.create_file_path_failed_rows_sql_metric(column_name=column_name,
+                                                                                         metric_name=metric_name)
+                        print(f"==================== file : {file_path}")
+                        file_id = self.soda_server_client.scan_upload(self.scan_reference,
+                                                                      file_path,
+                                                                      temp_file,
+                                                                      temp_file_size_in_bytes)
+
+                        self.soda_server_client.scan_file(
+                            scan_reference=self.scan_reference,
+                            sample_type='failedRowsSample',
+                            stored=int(stored_failed_rows),
+                            total=int(total_failed_rows),
+                            source_columns=sample_columns,
+                            file_id=file_id,
+                            column_name=column_name,
+                            test_ids=[],
+                            sql_metric_name=metric_name,
+                            custom_metric_id=metric_id)
+                        logging.debug(
+                            f'Sent failed rows for id: {metric_id} ({stored_failed_rows}/{total_failed_rows}) to Soda Cloud')
+                    else:
+                        logging.debug(f'No failed rows for custom metric ({metric_name} with id {metric_id})')
+            else:
+                failed_rows_tuples, description = self.warehouse.sql_fetchall_description(sql=sql)
+                if len(failed_rows_tuples) > 0:
+                    table_text = self._table_to_text(failed_rows_tuples, description)
+                    logging.debug(f'Failed rows for sql metric sql {metric_name}:\n' + table_text)
+                else:
+                    logging.debug(f'No failed rows for custom metric ({metric_name} with id {metric_id})')
+        except Exception as e:
+            logging.exception(f'Could not perform sql metric failed rows \n{sql}', e)
+            self.scan_result.add_error(ScanError(f'Exception during sql metric failed rows query {sql}', e))
+
     def _run_sql_metric_failed_rows(self,
                                     sql_metric_yml: SqlMetricYml,
                                     resolved_sql: str,
@@ -603,7 +673,8 @@ class Scan:
                         self.sampler.save_sample_to_local_file_with_limit(resolved_sql, temp_file, failed_limit)
 
                     column_name = scan_column.column_name if scan_column else None
-                    measurement = Measurement(metric=sql_metric_yml.name, value=total_failed_rows, column_name=column_name)
+                    measurement = Measurement(metric=sql_metric_yml.name, value=total_failed_rows,
+                                              column_name=column_name)
 
                     measurements = []
                     self._log_and_append_query_measurement(measurements, measurement)
@@ -622,7 +693,9 @@ class Scan:
                         temp_file_size_in_bytes = temp_file.tell()
                         temp_file.seek(0)
 
-                        file_path = self.sampler.create_file_path_failed_rows_sql_metric(sql_metric_yml)
+                        file_path = self.sampler.create_file_path_failed_rows_sql_metric(
+                            column_name=sql_metric_yml.column_name,
+                            metric_name=sql_metric_yml.name)
 
                         file_id = self.soda_server_client.scan_upload(self.scan_reference,
                                                                       file_path,
@@ -639,7 +712,8 @@ class Scan:
                             column_name=sql_metric_yml.column_name,
                             test_ids=[test.id],
                             sql_metric_name=sql_metric_yml.name)
-                        logging.debug(f'Sent failed rows for sql metric ({stored_failed_rows}/{total_failed_rows}) to Soda Cloud')
+                        logging.debug(
+                            f'Sent failed rows for sql metric ({stored_failed_rows}/{total_failed_rows}) to Soda Cloud')
                     else:
                         logging.debug(f'No failed rows for sql metric ({sql_metric_yml.name})')
             else:
