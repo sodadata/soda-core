@@ -55,7 +55,7 @@ jobs:
           path: ./reports
           retention-days: 5
       - name: Notify on Test Failure
-        if: failure()
+        if: ${{ failure() }} || ${{ cancelled() }}
         env:
           JOB_ID: ${{ github.job }}
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
@@ -123,7 +123,7 @@ jobs:
           done
 
       - name: Notify on Release Failure
-        if: failure()
+        if: ${{ failure() }} || ${{ cancelled() }}
         working-directory: .github/scripts
         run: |
           pip3 install -r requirements.txt
