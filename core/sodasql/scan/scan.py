@@ -624,7 +624,6 @@ class Scan:
 
                         file_path = self.sampler.create_file_path_failed_rows_sql_metric(column_name=column_name,
                                                                                          metric_name=metric_name)
-                        print(f"==================== file : {file_path}")
                         file_id = self.soda_server_client.scan_upload(self.scan_reference,
                                                                       file_path,
                                                                       temp_file,

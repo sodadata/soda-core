@@ -188,7 +188,6 @@ class Sampler:
                     sample_values = []
                     for i in range(0, len(row)):
                         sample_values.append(self.__serialize_file_upload_value(row[i]))
-                    print(f"====== writing: {json.dumps(sample_values)}")
                     temp_file.write(bytearray(json.dumps(sample_values), 'utf-8'))
                     temp_file.write(b'\n')
                     stored_rows += 1
