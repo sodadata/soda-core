@@ -21,7 +21,8 @@ class Sampler:
         self.scan_folder_name = (f'{self._fileify(self.scan.warehouse.name)}' +
                                  f'-{self._fileify(self.scan.scan_yml.table_name)}' +
                                  (f'-{self._fileify(self.scan.time)}' if isinstance(self.scan.time, str) else '') +
-                                 (f'-{self.scan.time.strftime("%Y%m%d%H%M%S")}' if isinstance(self.scan.time, datetime) else '') +
+                                 (f'-{self.scan.time.strftime("%Y%m%d%H%M%S")}' if isinstance(self.scan.time,
+                                                                                              datetime) else '') +
                                  f'-{datetime.now().strftime("%Y%m%d%H%M%S")}')
 
     def _fileify(self, name: str):
@@ -58,6 +59,7 @@ class Sampler:
 
             def is_missing_test(test):
                 return test.metrics == [Metric.MISSING_COUNT] or test.metrics == [Metric.MISSING_PERCENTAGE]
+
             test_ids = [test.id for test in tests if is_missing_test(test) and test.column == column_name]
         elif measurement.metric == Metric.VALUES_COUNT:
             sample_name = 'values'
@@ -72,6 +74,7 @@ class Sampler:
 
             def is_invalid_test(test):
                 return test.metrics == [Metric.INVALID_COUNT] or test.metrics == [Metric.INVALID_PERCENTAGE]
+
             test_ids = [test.id for test in tests if is_invalid_test(test) and test.column == column_name]
         elif measurement.metric == Metric.VALID_COUNT:
             sample_name = 'valid'
@@ -120,19 +123,18 @@ class Sampler:
                 test_ids=test_ids)
         logging.debug(f'Sent sample {sample_description} ({rows_stored}/{rows_total}) to Soda Cloud')
 
-    def create_file_path_failed_rows_sql_metric(self, failed_rows_sql_metric_yml: SqlMetricYml):
-        column_name = failed_rows_sql_metric_yml.column_name
+    def create_file_path_failed_rows_sql_metric(self, column_name: str, metric_name: str):
         return (f'{self.scan_folder_name}/' +
                 (f'{self._fileify(column_name)}_' if column_name else '') +
                 'failed_rows_' +
-                f'{self._fileify(failed_rows_sql_metric_yml.name)}' +
+                f'{self._fileify(metric_name)}' +
                 '.jsonl')
 
     def __serialize_file_upload_value(self, value):
         if value is None \
-                or isinstance(value, str) \
-                or isinstance(value, int) \
-                or isinstance(value, float):
+            or isinstance(value, str) \
+            or isinstance(value, int) \
+            or isinstance(value, float):
             return value
         return str(value)
 
@@ -186,6 +188,7 @@ class Sampler:
                     sample_values = []
                     for i in range(0, len(row)):
                         sample_values.append(self.__serialize_file_upload_value(row[i]))
+                    print(f"====== writing: {json.dumps(sample_values)}")
                     temp_file.write(bytearray(json.dumps(sample_values), 'utf-8'))
                     temp_file.write(b'\n')
                     stored_rows += 1

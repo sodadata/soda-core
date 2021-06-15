@@ -141,7 +141,8 @@ class SodaServerClient:
                   file_id: str,
                   column_name: Optional[str],
                   test_ids: List[str],
-                  sql_metric_name: Optional[str] = None):
+                  sql_metric_name: Optional[str] = None,
+                  custom_metric_id: str = None):
         command_json = {
             'type': 'sodaSqlScanFile',
             'scanReference': scan_reference,
@@ -157,6 +158,8 @@ class SodaServerClient:
             command_json['testSodaSqlIds'] = test_ids
         if sql_metric_name:
             command_json['sqlMetricName'] = sql_metric_name
+        if custom_metric_id:
+            command_json['customMetricId'] = custom_metric_id
         self.execute_command(command_json)
 
     def scan_monitor_measurements(self, scan_reference: dict, monitor_measurement_json: dict):
@@ -173,6 +176,7 @@ class SodaServerClient:
         })
 
     def execute_command(self, command: dict):
+        logging.debug(f'executing {command}')
         return self._execute_request('command', command, False)
 
     def execute_query(self, command: dict):
