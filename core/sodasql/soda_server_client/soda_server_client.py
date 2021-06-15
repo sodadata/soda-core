@@ -40,7 +40,8 @@ class SodaServerClient:
         self.api_key_secret: Optional[str] = api_key_secret
         self.token: Optional[str] = token
 
-    def scan_start(self, warehouse, scan_yml: ScanYml, scan_time):
+    def scan_start(self, warehouse, scan_yml: ScanYml, scan_time,
+                   origin: str = 'external'):
         soda_column_cfgs = {}
         if scan_yml.columns:
             for column_name in scan_yml.columns:
@@ -73,7 +74,8 @@ class SodaServerClient:
             'warehouseType': warehouse.dialect.type,
             'tableName': scan_yml.table_name,
             'scanTime': scan_time,
-            'columns': soda_column_cfgs
+            'columns': soda_column_cfgs,
+            'origin': origin
         })
 
     def scan_ended(self, scan_reference, errors: List[ScanError] = None):
