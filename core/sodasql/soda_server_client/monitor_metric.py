@@ -34,12 +34,12 @@ class MonitorMetricType:
 
 @dataclass
 class MonitorMetric:
-
     scan: Scan
     metric_id: str
     metric_type: str
     column_name: str
     group_by_column_names: List[str]
+    metric_sql: str = None
     sql: str = None
 
     def build_sql(self,
@@ -54,66 +54,80 @@ class MonitorMetric:
 
         dialect: Dialect = self.scan.warehouse.dialect
 
+        metric_select_fields = []
         select_fields = []
 
         if qualified_group_column_names:
+            metric_select_fields.extend(qualified_group_column_names)
             select_fields.extend(qualified_group_column_names)
 
         if self.metric_type == MonitorMetricType.ROW_COUNT:
-            select_fields.append(dialect.sql_expr_count_all())
+            metric_select_fields.append(dialect.sql_expr_count_all())
         elif scan_column:
+            select_fields.append(scan_column.qualified_column_name)
             if self.metric_type == MonitorMetricType.MISSING_VALUES_COUNT:
-                select_fields.append(dialect.sql_expr_count_conditional(scan_column.missing_condition))
+                metric_select_fields.append(dialect.sql_expr_count_conditional(scan_column.missing_condition))
             elif self.metric_type == MonitorMetricType.MISSING_VALUES_PERCENTAGE:
-                select_fields.append(dialect.sql_expr_count_all())
-                select_fields.append(dialect.sql_expr_count_conditional(scan_column.missing_condition))
+                metric_select_fields.append(dialect.sql_expr_count_all())
+                metric_select_fields.append(dialect.sql_expr_count_conditional(scan_column.missing_condition))
             elif self.metric_type == MonitorMetricType.VALID_VALUES_COUNT:
-                select_fields.append(dialect.sql_expr_count_conditional(scan_column.non_missing_and_valid_condition))
+                metric_select_fields.append(
+                    dialect.sql_expr_count_conditional(scan_column.non_missing_and_valid_condition))
             elif self.metric_type in [MonitorMetricType.VALID_VALUES_PERCENTAGE,
                                       MonitorMetricType.INVALID_VALUES_COUNT,
                                       MonitorMetricType.INVALID_VALUES_PERCENTAGE]:
-                select_fields.append(dialect.sql_expr_count_conditional(scan_column.non_missing_condition))
-                select_fields.append(dialect.sql_expr_count_conditional(scan_column.non_missing_and_valid_condition))
+                metric_select_fields.append(dialect.sql_expr_count_conditional(scan_column.non_missing_condition))
+                metric_select_fields.append(
+                    dialect.sql_expr_count_conditional(scan_column.non_missing_and_valid_condition))
             elif self.metric_type == MonitorMetricType.UNIQUENESS_PERCENTAGE:
-                select_fields.append(dialect.sql_expr_count_conditional(scan_column.non_missing_and_valid_condition))
-                select_fields.append(dialect.sql_expr_count(dialect.sql_expr_distinct(dialect.sql_expr_conditional(scan_column.non_missing_and_valid_condition, scan_column.qualified_column_name))))
+                metric_select_fields.append(
+                    dialect.sql_expr_count_conditional(scan_column.non_missing_and_valid_condition))
+                metric_select_fields.append(dialect.sql_expr_count(dialect.sql_expr_distinct(
+                    dialect.sql_expr_conditional(scan_column.non_missing_and_valid_condition,
+                                                 scan_column.qualified_column_name))))
             elif self.metric_type == MonitorMetricType.MINIMUM_VALUE:
-                select_fields.append(dialect.sql_expr_min(scan_column.numeric_expr))
+                metric_select_fields.append(dialect.sql_expr_min(scan_column.numeric_expr))
             elif self.metric_type == MonitorMetricType.MAXIMUM_VALUE:
-                select_fields.append(dialect.sql_expr_max(scan_column.numeric_expr))
+                metric_select_fields.append(dialect.sql_expr_max(scan_column.numeric_expr))
             elif self.metric_type == MonitorMetricType.AVERAGE:
-                select_fields.append(dialect.sql_expr_avg(scan_column.numeric_expr))
+                metric_select_fields.append(dialect.sql_expr_avg(scan_column.numeric_expr))
             elif self.metric_type == MonitorMetricType.SUM:
-                select_fields.append(dialect.sql_expr_sum(scan_column.numeric_expr))
+                metric_select_fields.append(dialect.sql_expr_sum(scan_column.numeric_expr))
             else:
                 raise RuntimeError(f'Unsupported metric type: {self.metric_type}')
 
+        metric_fields = ", \n       ".join(metric_select_fields)
+        self.metric_sql = (f'SELECT {metric_fields} \n'
+                           f'FROM {qualified_table_name}')
+
         fields = ", \n       ".join(select_fields)
-        self.sql = (f'SELECT {fields} \n'
+        self.sql = (f'SELECT * \n'
                     f'FROM {qualified_table_name}')
 
         if filter_condition:
+            self.metric_sql += f' \nWHERE {filter_condition}'
             self.sql += f' \nWHERE {filter_condition}'
 
         if qualified_group_column_names:
+            self.metric_sql += f' \nGROUP BY {", ".join(qualified_group_column_names)}'
             self.sql += f' \nGROUP BY {", ".join(qualified_group_column_names)}'
 
     def execute(self) -> MonitorMeasurement:
         if not self.group_by_column_names:
             start = datetime.now()
-            row = self.scan.warehouse.sql_fetchone(self.sql)
+            row = self.scan.warehouse.sql_fetchone(self.metric_sql)
             query_milliseconds = int(((datetime.now() - start).total_seconds()) * 1000)
             value = self.get_value(row)
             return MonitorMeasurement(
                 metric=self.metric_type,
                 metric_id=self.metric_id,
-                sql=self.sql,
+                sql=self.metric_sql,
                 column_name=self.column_name,
                 value=value,
                 query_milliseconds=query_milliseconds)
         else:
             start = datetime.now()
-            rows = self.scan.warehouse.sql_fetchall(self.sql)
+            rows = self.scan.warehouse.sql_fetchall(self.metric_sql)
             query_milliseconds = int(((datetime.now() - start).total_seconds()) * 1000)
 
             group_values = []
@@ -128,7 +142,7 @@ class MonitorMetric:
             return MonitorMeasurement(
                 metric=self.metric_type,
                 metric_id=self.metric_id,
-                sql=self.sql,
+                sql=self.metric_sql,
                 column_name=self.column_name,
                 group_values=group_values,
                 query_milliseconds=query_milliseconds)

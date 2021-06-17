@@ -9,7 +9,6 @@ from sodasql.scan.metric import Metric
 from sodasql.scan.samples_yml import SamplesYml
 from sodasql.scan.scan import Scan
 from sodasql.scan.scan_column import ScanColumn
-from sodasql.scan.sql_metric_yml import SqlMetricYml
 from sodasql.scan.test_result import TestResult
 
 
