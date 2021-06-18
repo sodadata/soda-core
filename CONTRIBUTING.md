@@ -50,7 +50,7 @@ tbump 2.1.0b3
 
 ## Adding a new warehouse dialect
 
-Take the following steps to add a dialect:
+Take the following steps to add a warehouse dialect:
 1. Create docker container containing a warehouse. For example, 
    [this Docker compose](tests/postgres_container/docker-compose.yml) contains
    the Docker container for the **postgres**.
