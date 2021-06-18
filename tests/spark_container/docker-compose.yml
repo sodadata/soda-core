@@ -12,7 +12,7 @@ services:
       --name Thrift JDBC/ODBC Server
     volumes:
       - ./.spark-warehouse/:/spark-warehouse/
-      - ./docker/hive-site.xml:/usr/spark/conf/hive-site.xml
+      - ./hive-site.xml:/usr/spark/conf/hive-site.xml
     environment:
       - WAIT_FOR=hive-metastore:5432
 
