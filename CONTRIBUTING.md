@@ -77,6 +77,7 @@ Take the following steps to add a warehouse dialect:
 
 The warehouse dialect defines (i) a couple methods specific to the SQL dialect
 and (ii) the connection to the warehouse. For reference, see the 
+[base dialect class](core/sodasql/scan/dialect.py) and the
 [Postgres dialect](packages/postgresql/sodasql/dialect.py).
 
 1. **dialect methods**:
