@@ -47,3 +47,28 @@ Pushing a release is fully automated and only requires to bump the version using
 ```shell
 tbump 2.1.0b3
 ```
+
+## Adding a new warehouse dialect
+
+Take the following steps to add a dialect:
+1. Create docker container containing a warehouse. For example, 
+   [this Docker compose](tests/postgres_container/docker-compose.yml) contains
+   the Docker container for the **postgres**.
+2. Add the warehouse `config`, `suite` and `fixture` to the [warehouse tests](tests/warehouses)
+   - `config`: is the `warehouse.yml` configuration. Name the file
+   `<warehouse>_cfg.yml`, for example, the Postgres configuration: 
+     [`postgres_cfg.yml`](tests/warehouses/postgres_cfg.yml)
+   - `suite`: contains the setup for the warehouse test suite. Name the file
+   `<warehouse>_suite.py`, for example, the Postgres suite:
+     [`postgres_suite.py`](tests/warehouses/postgres_suite.py)
+   - `fixture`: the fixture for the warehouse tests. Name the file
+   `<warehouse_fixture.py`, for example, the Postgres fixture:
+     [`postgres_fixture.py`](tests/warehouses/postgres_fixture.py)
+3. Add the `fixture` to the 
+  [general warehouse fixture](tests/common/warehouse_fixture.py).
+4 Add the warehouse dialect under [`packages`](packages):
+   - `setup.py` : setup to install the dialect.
+   - `sodasql/dialects/<warehouse>_dialect.py`: the [ware house
+     dialect](#warehouse-dialect).
+  For example the [postgres dialect](packages/postgresql).
+5. Add the dialect to [dialect.py](core/sodasql/scan/dialect.py).
