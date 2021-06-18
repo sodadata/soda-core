@@ -53,7 +53,7 @@ tbump 2.1.0b3
 Take the following steps to add a warehouse dialect:
 1. Create docker container containing a warehouse. For example, 
    [this Docker compose](tests/postgres_container/docker-compose.yml) contains
-   the Docker container for the **postgres**.
+   the Docker container for the **postgres** warehouse.
 2. Add the warehouse `config`, `suite` and `fixture` to the [warehouse tests](tests/warehouses)
    - `config`: is the `warehouse.yml` configuration. Name the file
    `<warehouse>_cfg.yml`, for example, the Postgres configuration: 
