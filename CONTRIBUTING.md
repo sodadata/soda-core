@@ -72,3 +72,24 @@ Take the following steps to add a warehouse dialect:
      dialect](#warehouse-dialect).
   For example the [postgres dialect](packages/postgresql).
 5. Add the dialect to [dialect.py](core/sodasql/scan/dialect.py).
+
+### Warehouse dialect
+
+The warehouse dialect defines (i) a couple methods specific to SQL of the dialect
+and (ii) the connection to the warehouse. For example the 
+[Postgres dialect](packages/postgresql/sodasql/dialect.py).
+
+1. **dialect methods**:
+   Amongst others, this includes methods like:
+   - `is_text` and `is_number` for detecting the data type
+   - `sql_tables_metadata_query` and `sql_columns_metadata_query` for the
+     metadata
+   - `qualify_table_name` and `qualify_column_name` for the table and column
+     name.
+   - `sql_expr_` for some sql expressions.
+2. **warehouse connection**
+   A connection to the warehouse is created with `create_connection`. The
+   connection engine should be 
+   [Python database API](https://www.python.org/dev/peps/pep-0249/) compatible.
+   The connection has two helper method: `is_connection_error`
+   and `is_authentication_error`.
