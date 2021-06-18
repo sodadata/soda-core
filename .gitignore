@@ -134,3 +134,6 @@ dmypy.json
 reports/*
 !reports/index.html
 
+# Spark
+.hive-metastore/
+.spark-warehouse/
