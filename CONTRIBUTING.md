@@ -66,7 +66,7 @@ Take the following steps to add a warehouse dialect:
      [`postgres_fixture.py`](tests/warehouses/postgres_fixture.py)
 3. Add the `fixture` to the 
   [general warehouse fixture](tests/common/warehouse_fixture.py). 
-4 Add the warehouse dialect under [`packages`](packages):
+4. Add the warehouse dialect under [`packages`](packages):
    - `setup.py` : setup to install the dialect.
    - `sodasql/dialects/<warehouse>_dialect.py`: the [ware house
      dialect](#warehouse-dialect).
