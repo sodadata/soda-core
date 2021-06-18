@@ -75,15 +75,15 @@ Take the following steps to add a warehouse dialect:
 
 ### Warehouse dialect
 
-The warehouse dialect defines (i) a couple methods specific to SQL of the dialect
-and (ii) the connection to the warehouse. For example the 
+The warehouse dialect defines (i) a couple methods specific to the SQL dialect
+and (ii) the connection to the warehouse. For reference, see the 
 [Postgres dialect](packages/postgresql/sodasql/dialect.py).
 
 1. **dialect methods**:
    Amongst others, this includes methods like:
-   - `is_text` and `is_number` for detecting the data type
-   - `sql_tables_metadata_query` and `sql_columns_metadata_query` for the
-     metadata
+   - `is_text` and `is_number` for detecting the data types
+   - `sql_tables_metadata_query` and `sql_columns_metadata_query` for 
+   fetching metadata
    - `qualify_table_name` and `qualify_column_name` for the table and column
      name.
    - `sql_expr_` for some sql expressions.
