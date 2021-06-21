@@ -82,6 +82,29 @@ jobs:
         run: |
           pip3 install -r requirements.txt
           python3 report_test_success.py
+
+  ping-repos:
+    name: Dispatch repos
+    needs: [ inform-test-success ]
+    timeout-minutes: 10
+    runs-on: ubuntu-20.04
+    strategy:
+      matrix:
+        deploy-environment: [ LDA, SCS ]
+        include:
+          - deploy-environment: LDA
+            targetrepo: sodadata/live-data-accessor
+          - deploy-environment: SCS
+            targetrepo: sodadata/cloud-scanner
+    steps:
+      - name: Repository Dispatch
+        uses: sodadata/repository-dispatch@v1
+        with:
+          token: ${{ secrets.REPO_ACCESS_TOKEN_DISPATCH }}
+          repository: ${{ matrix.targetrepo }}
+          event-type: started-from-soda-sql
+          client-payload: '{"ref": "${{ github.ref }}", "sha": "${{ github.sha }}"}'
+          
   publish-pypi:
     name: Build & Publish Package
     if: contains(github.ref, 'refs/tags/')
@@ -143,24 +166,3 @@ jobs:
         run: |
           pip3 install -r requirements.txt
           python3 report_release_success.py
-  ping-repos:
-    name: Dispatch repos
-    needs: [ inform-release-success ]
-    timeout-minutes: 10
-    runs-on: ubuntu-20.04
-    strategy:
-      matrix:
-        deploy-environment: [ LDA, SCS ]
-        include:
-          - deploy-environment: LDA
-            targetrepo: sodadata/live-data-accessor
-          - deploy-environment: SCS
-            targetrepo: sodadata/cloud-scanner
-    steps:
-      - name: Repository Dispatch
-        uses: sodadata/repository-dispatch@v1
-        with:
-          token: ${{ secrets.REPO_ACCESS_TOKEN_DISPATCH }}
-          repository: ${{ matrix.targetrepo }}
-          event-type: started-from-soda-sql
-          client-payload: '{"ref": "${{ github.ref }}", "sha": "${{ github.sha }}"}'
