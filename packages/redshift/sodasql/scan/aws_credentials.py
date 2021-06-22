@@ -21,11 +21,13 @@ class AwsCredentials:
                  secret_access_key: Optional[str] = None,
                  role_arn: Optional[str] = None,
                  session_token: Optional[str] = None,
+                 profile_name: Optional[str] = None,
                  region_name: Optional[str] = 'eu-west-1'):
         self.access_key_id = access_key_id
         self.secret_access_key = secret_access_key
         self.role_arn = role_arn
         self.session_token = session_token
+        self.profile_name = profile_name
         self.region_name = region_name
 
     @classmethod
