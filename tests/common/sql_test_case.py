@@ -39,6 +39,7 @@ TARGET_ATHENA = 'athena'
 TARGET_BIGQUERY = 'bigquery'
 TARGET_SQLSERVER = 'sqlserver'
 TARGET_HIVE = 'hive'
+TARGET_SPARK = 'spark'
 
 
 def equals_ignore_case(left, right):
