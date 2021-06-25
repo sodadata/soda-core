@@ -71,7 +71,10 @@ class SparkDialect(Dialect):
         return column_type.upper() in ("DATE", "TIMESTAMP")
 
     def is_text(self, column_type: str):
-        return column_type.upper() in ['CHAR', 'VARCHAR', 'STRING']
+        return (
+            column_type.upper() in ['CHAR', 'STRING'] or
+            column_type.upper().startswith('VARCHAR')
+        )
 
     def is_number(self, column_type: str):
         return column_type.upper() in [
