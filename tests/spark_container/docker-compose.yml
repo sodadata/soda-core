@@ -24,9 +24,3 @@ services:
       - POSTGRES_USER=soda
       - POSTGRES_PASSWORD=soda
       - POSTGRES_DB=metastore
-    healthcheck:
-      test: ["CMD", "PGPASSWORD=soda", "psql", "--user=soda", "--dbname=soda", "--host=127.0.0.1", "--quiet", "--no-align", "--tuples-only", "-1", "--command='SELECT 1'"]
-      interval: 1s
-      timeout: 10s
-      retries: 30
-      start_period: 1s
