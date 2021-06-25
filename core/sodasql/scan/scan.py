@@ -425,13 +425,12 @@ class Scan:
                 self.scan_result.add_error(ScanError(f'Exception during column group by value queries', e))
 
     def _query_histograms(self):
-        measurements = []
+
         for column_name_lower, scan_column in self.scan_columns.items():
             column_name = scan_column.column_name
-
             try:
                 if scan_column.is_metric_enabled(Metric.HISTOGRAM) and scan_column.numeric_expr:
-
+                    measurements = []
                     buckets: int = scan_column.get_histogram_buckets()
 
                     min_value = scan_column.get_metric_value(Metric.MIN)
@@ -482,7 +481,7 @@ class Scan:
 
                         self._log_and_append_query_measurement(measurements,
                                                                Measurement(Metric.HISTOGRAM, column_name, histogram))
-                    self._flush_measurements(measurements)
+                        self._flush_measurements(measurements)
             except Exception as e:
                 self.scan_result.add_error(ScanError(f'Exception during histogram query for {column_name}', e))
 
