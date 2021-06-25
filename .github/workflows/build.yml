@@ -38,6 +38,7 @@ jobs:
         id: extract_branch
       - name: Run Tox
         run: |
+          apt-get install -y python-dev
           pip install --upgrade pip
           cat dev-requirements.in | grep tox | xargs pip install
           pip install -r requirements.txt
