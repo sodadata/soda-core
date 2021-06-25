@@ -38,6 +38,7 @@ jobs:
         id: extract_branch
       - name: Run Tox
         run: |
+          pip install --upgrade pip
           cat dev-requirements.in | grep tox | xargs pip install
           pip install -r requirements.txt
           tox -- \
@@ -105,7 +106,7 @@ jobs:
           repository: ${{ matrix.targetrepo }}
           event-type: started-from-soda-sql
           client-payload: '{"ref": "${{ github.ref }}", "sha": "${{ github.sha }}"}'
-          
+
   publish-pypi:
     name: Build & Publish Package
     if: contains(github.ref, 'refs/tags/')
