@@ -73,7 +73,7 @@ class ScanBuilder:
         self._build_scan_yml()
 
         for parser in self.parsers:
-            parser.assert_no_warnings_or_errors()
+           parser.assert_no_warnings_or_errors()
         if not self.scan_yml or not self.warehouse_yml:
             return
 
