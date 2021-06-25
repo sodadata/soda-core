@@ -15,7 +15,9 @@ description = "Soda SQL Apache Spark"
 requires = [
     f'soda-sql-core=={package_version}',
     'PyHive==0.6.3',
-    'thrift==0.13.0'
+    'thrift==0.13.0',
+    'sasl==0.3.1',
+    'thrift-sasl==0.4.3',
 ]
 # TODO Fix the params
 # TODO Add a warning that installing core doesn't give any warehouse functionality
