@@ -52,7 +52,6 @@ class SparkDialect(Dialect):
                 host=self.host,
                 port=self.port,
                 database=self.database,
-                # https://github.com/jaegertracing/jaeger-client-python/issues/151
                 auth=None)
             return conn
         except Exception as e:
