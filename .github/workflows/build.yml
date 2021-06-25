@@ -1,6 +1,7 @@
 name: Build soda-sql
 
 on:
+  pull_request:
   push:
     paths-ignore:
       - '**.md'
