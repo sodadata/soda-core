@@ -19,7 +19,7 @@ class MonitorMetricType:
     INVALID_VALUES_COUNT = 'invalidValuesCount'
     INVALID_VALUES_PERCENTAGE = 'invalidValuesPercentage'
     MINIMUM_VALUE = 'minimumValue'
-    MAXIMUM_VALUE = 'minimumValue'
+    MAXIMUM_VALUE = 'maximumValue'
     UNIQUE_VALUES_COUNT = 'uniqueValuesCount'
     DISTINCT_VALUES_COUNT = 'distinctValuesCount'
     UNIQUENESS_PERCENTAGE = 'uniquenessPercentage'
