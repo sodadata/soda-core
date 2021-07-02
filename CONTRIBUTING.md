@@ -94,3 +94,4 @@ Take the following steps to add a warehouse dialect:
      dialect](#warehouse-dialect).
   For example the [postgres dialect](packages/postgresql).
 5. Add the dialect to [dialect.py](core/sodasql/scan/dialect.py).
+6. Add the dialect to [`requirements.txt`](requirements.txt)

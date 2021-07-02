@@ -1,7 +1,7 @@
 version: "3.7"
 services:
   spark2-thrift:
-    image: godatadriven/spark:2
+    image: godatadriven/pyspark:3.1
     ports:
       - "10000:10000"
       - "4040:4040"
