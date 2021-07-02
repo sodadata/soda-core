@@ -30,6 +30,7 @@ POSTGRES = 'postgres'
 REDSHIFT = 'redshift'
 SNOWFLAKE = 'snowflake'
 SQLSERVER = 'sqlserver'
+SPARK = 'spark'
 
 ALL_WAREHOUSE_TYPES = [ATHENA,
                        BIGQUERY,
@@ -37,7 +38,8 @@ ALL_WAREHOUSE_TYPES = [ATHENA,
                        POSTGRES,
                        REDSHIFT,
                        SNOWFLAKE,
-                       SQLSERVER]
+                       SQLSERVER,
+                       SPARK]
 
 
 class Dialect:
@@ -86,6 +88,8 @@ class Dialect:
                 _warehouse_class = Dialect._import_class('sodasql.dialects.snowflake_dialect', 'SnowflakeDialect')
             if warehouse_type == SQLSERVER:
                 _warehouse_class = Dialect._import_class('sodasql.dialects.sqlserver_dialect', 'SQLServerDialect')
+            if warehouse_type == SPARK:
+                _warehouse_class = Dialect._import_class('sodasql.dialects.spark_dialect', 'SparkDialect')
         return _warehouse_class(parser)
 
     @classmethod
