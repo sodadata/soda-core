@@ -21,11 +21,13 @@ class AwsCredentials:
                  secret_access_key: Optional[str] = None,
                  role_arn: Optional[str] = None,
                  session_token: Optional[str] = None,
+                 profile_name: Optional[str] = None,
                  region_name: Optional[str] = 'eu-west-1'):
         self.access_key_id = access_key_id
         self.secret_access_key = secret_access_key
         self.role_arn = role_arn
         self.session_token = session_token
+        self.profile_name = profile_name
         self.region_name = region_name
 
     @classmethod
@@ -41,6 +43,7 @@ class AwsCredentials:
             secret_access_key=configuration.get('secret_access_key'),
             role_arn=configuration.get('role_arn'),
             session_token=configuration.get('session_token'),
+            profile_name=configuration.get('profile_name'),
             region_name=configuration.get('region', 'eu-west-1'))
 
     def resolve_role(self, role_session_name: str):
@@ -52,8 +55,8 @@ class AwsCredentials:
         return isinstance(self.role_arn, str)
 
     def assume_role(self, role_session_name: str):
-        self.region_name = self.region_name
-        self.sts_client = boto3.client(
+        aws = boto3.session.Session(profile_name=self.profile_name) if self.profile_name else boto3
+        self.sts_client = aws.client(
             'sts',
             region_name=self.region_name,
             aws_access_key_id=self.access_key_id,

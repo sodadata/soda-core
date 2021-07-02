@@ -26,7 +26,8 @@ class RedshiftDialect(PostgresDialect):
     def get_aws_credentials_optional(parser: Parser):
         access_key_id = parser.get_str_optional_env('access_key_id')
         role_arn = parser.get_str_optional_env('role_arn')
-        if access_key_id or role_arn:
+        profile_name = parser.get_str_optional_env('profile_name')
+        if access_key_id or role_arn or profile_name:
             return AwsCredentials(
                 access_key_id=access_key_id,
                 secret_access_key=parser.get_credential('secret_access_key'),

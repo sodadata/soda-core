@@ -22,13 +22,15 @@ class AthenaDialect(Dialect):
     def get_aws_credentials_optional(parser: Parser):
         access_key_id = parser.get_str_optional_env('access_key_id')
         role_arn = parser.get_str_optional_env('role_arn')
-        if access_key_id or role_arn:
+        profile_name = parser.get_str_optional_env('profile_name')
+        if access_key_id or role_arn or profile_name:
             return AwsCredentials(
                 access_key_id=access_key_id,
                 secret_access_key=parser.get_credential('secret_access_key'),
                 role_arn=parser.get_str_optional_env('role_arn'),
                 session_token=parser.get_credential('session_token'),
-                region_name=parser.get_str_optional_env('region', 'eu-west-1'))
+                region_name=parser.get_str_optional_env('region', 'eu-west-1'),
+                profile_name=profile_name)
 
     def __init__(self, parser: Parser):
         super().__init__(ATHENA)
@@ -63,6 +65,7 @@ class AthenaDialect(Dialect):
         # pyathena will automatically resolve to the user's local
         # AWS configuration or environment vars.
         conn = pyathena.connect(
+            profile_name=self.aws_credentials.profile_name if self.aws_credentials else None,
             aws_access_key_id=self.aws_credentials.access_key_id if self.aws_credentials else None,
             aws_secret_access_key=self.aws_credentials.secret_access_key if self.aws_credentials else None,
             s3_staging_dir=self.athena_staging_dir,
