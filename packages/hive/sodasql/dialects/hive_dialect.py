@@ -66,6 +66,7 @@ class HiveDialect(Dialect):
             result = cursor.fetchall()[0][0]
             if result is not None:
                 result_json = json.loads(result)
+
                 for column in result_json['columns']:
                     column_tuples.append(
                         (column['name'], column['type'], 'YES'))
@@ -78,12 +79,16 @@ class HiveDialect(Dialect):
         return ''
 
     def is_text(self, column_type: str):
-        return column_type.upper() in ['CHAR', 'VARCHAR']
+        return column_type.upper() in ['CHAR', 'STRING', 'VARCHAR']
 
     def is_number(self, column_type: str):
         return column_type.upper() in [
             'TINYINT', 'SMALLINT', 'INT', 'BIGINT',
             'FLOAT', 'DOUBLE', 'DOUBLE PRECISION', 'DECIMAL', 'NUMERIC']
+
+    def is_time(self, column_type: str):
+        return column_type.upper() in [
+            'TIMESTAMP', 'DATE', 'INTERVAL']
 
     def qualify_table_name(self, table_name: str) -> str:
         return f'{self.database}.{table_name}'
