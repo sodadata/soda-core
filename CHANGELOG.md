@@ -4,9 +4,40 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
-## [2.1.0b6] - 2021-05-25 *Frodo Baggins*
+## [2.1.0b11] - 2021-07-07 *Fredegar Bolger*
+### Fixes
+- #368 Hive: Add 'authentication' parameter to warehouse config
+- #369 Hive: Add string type
+- #374 Hive: Implement is_time function
+- #370 Soda Cloud: Fix maximumValue monitor type
+- #364 Soda Cloud: Prevent memory issues when flushing measurements
+- #352 Soda Cloud: Failed rows should add all columns  
+- #372 Athena/Redshift: Add AWS profile support (Thank you! @Tonkonozhenko)
+- #360 Athena: Fix is_number (Thank you! @Tonkonozhenko)
+- #355 Docs: Document creating a new dialect (Thank you! @JCZuurmond)
+## In-progress:
+- SQLServer Quoting issues
+- spark-sql dialect (Kudos @JCZuurmond and @jchoekstra) https://github.com/sodadata/soda-sql/tree/feature/spark-sql-dialect
+
+## [2.1.0b10] - 2021-06-15 *Bilbo Baggins*
 ### Fixed
-- #322 Soda CLoud: Add support for custom metrics, filter with different semantic types 
+- #349 Soda Cloud: Add origin 'external' to Soda Cloud scan start
+- #347 Athena: Add cast to decimal for numeric ops 
+- #345 Soda Cloud: Send failed rows for custom cloud metrics (aka negative value metrics)
+- Github Actions/CI improvements
+
+## [2.1.0b9] - 2021-06-09 *Bergil*
+### Fixed 
+- #338 Athena/Redshift: Fix unwanted precision loss for doubles
+- #302 Soda Cloud: Fix failed row count measurements sent to Soda Cloud
+
+## [2.1.0b8] - 2021-06-03 *Beregond*
+## Fixed
+ - #334 core: Skip tests when metrics are null
+
+## [2.1.0b7] - 2021-05-26 *Frodo Baggins*
+### Fixed
+- #322 Soda Cloud: Add support for custom metrics, filter with different semantic types 
 - #335 core: Fix unspecified metrics calculation  
 ### In-Progress
 - SQLServer test coverage 
