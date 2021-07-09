@@ -10,6 +10,7 @@
 #  limitations under the License.
 
 import logging
+import os
 import tempfile
 from datetime import datetime
 from math import floor, ceil
@@ -833,7 +834,8 @@ class Scan:
                 self.start_scan_response = self.soda_server_client.scan_start(
                     self.warehouse,
                     self.scan_yml,
-                    self.time)
+                    self.time,
+                    origin=os.environ.get('SODA_SCAN_ORIGIN', 'external'))
                 self.scan_reference = self.start_scan_response['scanReference']
             except Exception as e:
                 logging.error(f'Soda Cloud error: Could not start scan: {e}')
