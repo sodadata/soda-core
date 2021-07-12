@@ -1,0 +1,3 @@
+[console_scripts]
+soda = sodasql.cli.cli:main
+

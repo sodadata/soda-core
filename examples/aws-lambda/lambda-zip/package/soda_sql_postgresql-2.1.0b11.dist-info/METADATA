@@ -1,0 +1,12 @@
+Metadata-Version: 2.1
+Name: soda-sql-postgresql
+Version: 2.1.0b11
+Summary: UNKNOWN
+Home-page: UNKNOWN
+License: UNKNOWN
+Platform: UNKNOWN
+Requires-Dist: soda-sql-core (==2.1.0b11)
+Requires-Dist: psycopg2-binary (>=2.8.5)
+
+UNKNOWN
+

@@ -1,0 +1,8 @@
+soda_sql_postgresql-2.1.0b11.dist-info/INSTALLER,sha256=zuuue4knoyJ-UwPPXg8fezS7VCrXJQrAP7zeNuwvFQg,4
+soda_sql_postgresql-2.1.0b11.dist-info/METADATA,sha256=T8Ql7nrZYUte1AwDCpykoZGi2qly4WPA2oyp2mPJ-KA,230
+soda_sql_postgresql-2.1.0b11.dist-info/RECORD,,
+soda_sql_postgresql-2.1.0b11.dist-info/REQUESTED,sha256=47DEQpj8HBSa-_TImW-5JCeuQeRkm5NMpJWZG3hSuFU,0
+soda_sql_postgresql-2.1.0b11.dist-info/WHEEL,sha256=OqRkF0eY5GHssMorFjlbTIq072vpHpF60fIQA6lS9xA,92
+soda_sql_postgresql-2.1.0b11.dist-info/top_level.txt,sha256=iWRgaTzdfqDF5qGyrChKrnJh7tIweOrFM4J4_Lun_Xc,8
+sodasql/dialects/__pycache__/postgres_dialect.cpython-39.pyc,,
+sodasql/dialects/postgres_dialect.py,sha256=WHNz3N7S8S_lhwtsgMcQDZxAn-k7_3KTVhpXkURgXik,17693
