@@ -1,0 +1,5 @@
+table_name: product
+metrics:
+  - row_count
+tests:
+  - row_count > 0

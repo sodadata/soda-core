@@ -1,4 +1,4 @@
-#!/Users/vijay/.pyenv/versions/3.9.4/bin/python3.9
+#!/usr/bin/python3
 # -*- coding: utf-8 -*-
 import re
 import sys
