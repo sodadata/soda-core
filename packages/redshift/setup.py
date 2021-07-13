@@ -15,7 +15,7 @@ description = "Soda SQL Redshift"
 requires = [
     f'soda-sql-core=={package_version}',
     f'soda-sql-postgresql=={package_version}',
-    'boto3>=1.15.18'
+    'boto3==1.15.18'
 ]
 # TODO Fix the params
 setup(
