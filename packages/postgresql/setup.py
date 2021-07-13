@@ -14,7 +14,7 @@ description = "Soda SQL PostgreSQL"
 
 requires = [
     f'soda-sql-core=={package_version}',
-    'psycopg2-binary>=2.8.5'
+    'psycopg2-binary==2.8.5'
 ]
 # TODO Fix the params
 # TODO Add a warning that installing core doesn't give any warehouse functionality

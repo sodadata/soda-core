@@ -18,11 +18,11 @@ description = "Soda SQL Core"
 long_description = (pathlib.Path(__file__).parent / "README.md").read_text()
 
 requires = [
-    'Jinja2>=2.11.3',
-    'click>=7.1.2',
-    'cryptography>=3.3.2',
-    'pyyaml>=5.4.1',
-    'requests>=2.23.0'
+    'Jinja2==2.11.3',
+    'click==7.1.2',
+    'cryptography==3.3.2',
+    'pyyaml==5.4.1',
+    'requests==2.23.0'
 ]
 # TODO Fix the params
 # TODO Add a warning that installing core doesn't give any warehouse functionality
