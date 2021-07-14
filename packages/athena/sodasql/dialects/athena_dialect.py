@@ -71,8 +71,7 @@ class AthenaDialect(Dialect):
             s3_staging_dir=self.athena_staging_dir,
             region_name=self.aws_credentials.region_name if self.aws_credentials else None,
             role_arn=self.aws_credentials.role_arn if self.aws_credentials else None,
-            catalog_name=self.catalog,
-            duration_seconds=3600 * 6)
+            catalog_name=self.catalog)
         return conn
 
     def is_text(self, column_type: str):
