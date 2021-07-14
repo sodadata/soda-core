@@ -181,7 +181,7 @@ class Scan:
                               f'{"" if scan_column.column.nullable else "not null"}')
                 self.scan_columns[column_metadata.name.lower()] = scan_column
             else:
-                logging.error(f'  {scan_column.column_name} ({scan_column.column.data_type}) -> unsupported, skipped!')
+                logging.info(f'  {scan_column.column_name} ({scan_column.column.data_type}) -> unsupported, skipped!')
 
         logging.debug(str(len(self.column_metadatas)) + ' columns:')
 
