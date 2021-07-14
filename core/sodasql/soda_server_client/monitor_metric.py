@@ -100,7 +100,6 @@ class MonitorMetric:
         self.metric_sql = (f'SELECT {metric_fields} \n'
                            f'FROM {qualified_table_name}')
 
-        fields = ", \n       ".join(select_fields)
         self.sql = (f'SELECT * \n'
                     f'FROM {qualified_table_name}')
 

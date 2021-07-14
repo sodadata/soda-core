@@ -614,6 +614,7 @@ class Scan:
                 with tempfile.TemporaryFile() as temp_file:
 
                     failed_limit = 5  # TODO: default for custom metrics
+                    sql += f'\nLIMIT {failed_limit}'
 
                     stored_failed_rows, sample_columns, total_failed_rows = \
                         self.sampler.save_sample_to_local_file_with_limit(sql, temp_file, failed_limit)
