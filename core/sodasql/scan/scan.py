@@ -613,7 +613,9 @@ class Scan:
                 logging.debug(f'Sending failed rows for {metric_id} to Soda Cloud')
                 with tempfile.TemporaryFile() as temp_file:
 
-                    failed_limit = 5  # TODO: default for custom metrics
+                    failed_limit = 5
+                    if self.scan_yml.samples_yml is not None:
+                        failed_limit = self.scan_yml.samples_yml.failed_limit or 5
                     sql += f'\nLIMIT {failed_limit}'
 
                     stored_failed_rows, sample_columns, total_failed_rows = \
