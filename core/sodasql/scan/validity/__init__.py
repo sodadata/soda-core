@@ -12,6 +12,7 @@ from sodasql.scan.validity.money_patterns import MoneyPatternHelper
 from sodasql.scan.validity.money_patterns import MONEY_USD_PATTERN, MONEY_EUR_PATTERN, MONEY_GBP_PATTERN, \
     MONEY_RMB_PATTERN, MONEY_CHF_PATTERN
 
+
 class Validity:
     """
     For the sake of compatibility with all warehouses, we only support POSIX regexes. POSIX does not support ERE.
@@ -27,6 +28,8 @@ class Validity:
         'number_decimal_point': r'^\-?\d+\.\d+$',
         'number_decimal_comma': r'^\-?\d+,\d+$',
         'number_percentage': r'^\-?\d+([\.,]\d+)? ?%$',
+        'number_percentage_point': r'^\-?\d+([\.]\d+)? ?%$',
+        'number_percentage_comma': r'^\-?\d+([,]\d+)? ?%$',
         'number_money_usd': MoneyPatternHelper.enclose_pattern(MONEY_USD_PATTERN),
         'number_money_eur': MoneyPatternHelper.enclose_pattern(MONEY_EUR_PATTERN),
         'number_money_gbp': MoneyPatternHelper.enclose_pattern(MONEY_GBP_PATTERN),
@@ -43,6 +46,8 @@ class Validity:
         'date_eu': r'^([1-9]|0[1-9]|[12][0-9]|3[01])[-\./]([1-9]|0[1-9]|1[012])[-\./](19|20)?\d\d',
         'date_us': r'^([1-9]|0[1-9]|1[012])[-\./]([1-9]|0[1-9]|[12][0-9]|3[01])[-\./](19|20)?\d\d',
         'date_inverse': r'^(19|20)\d\d[-\./]?([1-9]|0[1-9]|1[012])[-\./]?([1-9]|0[1-9]|[12][0-9]|3[01])',
+        'time_24h': r'^([01][0-9]|2[0-3]):([0-5][0-9])$',
+        'time_12h': r'^(1[0-2]|0?[1-9]):[0-5][0-9]$',
         'time': r'([0-9]|1[0-9]|2[0-4])[:-]([0-9]|[0-5][0-9])([:-]([0-9]|[0-5][0-9])(,\d+)?)?$',
         'date_iso_8601':
             r'^'
@@ -56,10 +61,13 @@ class Validity:
 
         'uuid': r'^[0-9a-fA-F]{8}\-[0-9a-fA-F]{4}\-[0-9a-fA-F]{4}\-[0-9a-fA-F]{4}\-[0-9a-fA-F]{12}$',
         'ip_address': r'^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$',
+        'ipv4_address': r'^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$',
+        # scary - but covers all cases
+        'ipv6_address': r'^(([0-9a-fA-F]{1,4}:){7,7}[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,7}:|([0-9a-fA-F]{1,4}:){1,6}:[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,5}(:[0-9a-fA-F]{1,4}){1,2}|([0-9a-fA-F]{1,4}:){1,4}(:[0-9a-fA-F]{1,4}){1,3}|([0-9a-fA-F]{1,4}:){1,3}(:[0-9a-fA-F]{1,4}){1,4}|([0-9a-fA-F]{1,4}:){1,2}(:[0-9a-fA-F]{1,4}){1,5}|[0-9a-fA-F]{1,4}:((:[0-9a-fA-F]{1,4}){1,6})|:((:[0-9a-fA-F]{1,4}){1,7}|:)|fe80:(:[0-9a-fA-F]{0,4}){0,4}%[0-9a-zA-Z]{1,}|::(ffff(:0{1,4}){0,1}:){0,1}((25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])\.){3,3}(25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])|([0-9a-fA-F]{1,4}:){1,4}:((25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])\.){3,3}(25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9]))$',
 
         'email': r'^[A-Za-z0-9.-_%]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,4}$',
         'phone_number': r'^((\+\d{1,2}\s)?\(?\d{3}\)?[\s.-])?\d{3}[\s.-]\d{4}$',
-        'credit_card_number': r'^\d{16}|(\d{4}-){3}\d{4}|(\d{4} ){3}\d{4}$',
+        'credit_card_number': r'^\d{14}|\d{15}|\d{16}|\d{17}|\d{18}|\d{19}|(\d{4}-){3}\d{4}|(\d{4} ){3}\d{4}$',
     }
 
     def __init__(self):
