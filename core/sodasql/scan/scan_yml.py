@@ -27,6 +27,7 @@ class ScanYml:
     tests: List[Test] = None
     # maps column_name.lower() to ScanYamlColumn's
     columns: dict = None
+    excluded_columns: list = None
     filter: str = None
     filter_template: Template = None
     sample_percentage: float = None
