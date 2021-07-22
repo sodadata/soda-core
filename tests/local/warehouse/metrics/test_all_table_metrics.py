@@ -208,6 +208,7 @@ class TestMetricGroups(SqlTestCase):
         self.assertDictEqual(scan_result.get(Metric.SCHEMA)[0], {'dataType': 'character varying',
                                                                  'name': 'score',
                                                                  'nullable': True,
+                                                                 'logicalType': 'text',
                                                                  'semanticType': 'text',
                                                                  'type': 'character varying'})
         self.assertEqual(scan_result.get(Metric.AVG_LENGTH), 1)
@@ -260,6 +261,7 @@ class TestMetricGroups(SqlTestCase):
         self.assertDictEqual(scan_result.get(Metric.SCHEMA)[0], {'dataType': 'integer',
                                                                  'name': 'score',
                                                                  'nullable': True,
+                                                                 'logicalType': 'number',
                                                                  'semanticType': 'number',
                                                                  'type': 'integer'})
         self.assertEqual(scan_result.get(Metric.AVG), 3.0)

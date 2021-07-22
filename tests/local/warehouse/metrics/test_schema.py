@@ -43,7 +43,7 @@ class TestSchema(SqlTestCase):
         self.assertIsNone(scan_result.find_measurement(Metric.ROW_COUNT))
 
     @pytest.mark.skip(reason="no easy way to do this for all warehouses")
-    def test_schema_semantic_types(self):
+    def test_schema_logical_types(self):
         self.sql_recreate_table(
             [f"text_column {self.dialect.data_type_varchar_255}",
              f"text_with_numeric_data {self.dialect.data_type_varchar_255}",
@@ -64,6 +64,7 @@ class TestSchema(SqlTestCase):
                              {'dataType': 'character varying',
                               'name': 'text_column',
                               'nullable': True,
+                              'logicalType': 'text',
                               'semanticType': 'text',
                               'type': 'character varying'})
 
@@ -71,6 +72,7 @@ class TestSchema(SqlTestCase):
                              {'dataType': 'character varying',
                               'name': 'text_with_numeric_data',
                               'nullable': True,
+                              'logicalType': 'number',
                               'semanticType': 'number',
                               'type': 'character varying'})
 
@@ -78,6 +80,7 @@ class TestSchema(SqlTestCase):
                              {'dataType': 'character varying',
                               'name': 'text_with_date',
                               'nullable': True,
+                              'logicalType': 'time',
                               'semanticType': 'time',
                               'type': 'character varying'})
 
@@ -85,5 +88,6 @@ class TestSchema(SqlTestCase):
                              {'dataType': 'integer',
                               'name': 'numeric',
                               'nullable': True,
+                              'logicalType': 'number',
                               'semanticType': 'number',
                               'type': 'integer'})
