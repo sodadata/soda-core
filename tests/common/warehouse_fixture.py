@@ -30,7 +30,7 @@ class WarehouseFixture:
     @classmethod
     def create(cls, target: str):
         from tests.common.sql_test_case import TARGET_SNOWFLAKE, TARGET_POSTGRES, TARGET_REDSHIFT, TARGET_ATHENA, \
-            TARGET_BIGQUERY, TARGET_HIVE
+            TARGET_BIGQUERY, TARGET_HIVE, TARGET_MYSQL
         if target == TARGET_POSTGRES:
             from tests.warehouses.postgres_fixture import PostgresFixture
             return PostgresFixture(target)
@@ -49,6 +49,9 @@ class WarehouseFixture:
         elif target == TARGET_HIVE:
             from tests.warehouses.hive_fixture import HiveFixture
             return HiveFixture(target)
+        elif target == TARGET_MYSQL:
+            from tests.warehouses.mysql_fixture import MySQLFixture
+            return MySQLFixture(target)
         raise RuntimeError(f'Invalid target {target}')
 
     def __init__(self, target: str) -> None:
