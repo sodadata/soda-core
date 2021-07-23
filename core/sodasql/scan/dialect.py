@@ -27,6 +27,7 @@ ATHENA = 'athena'
 BIGQUERY = 'bigquery'
 HIVE = 'hive'
 POSTGRES = 'postgres'
+MYSQL = 'mysql'
 REDSHIFT = 'redshift'
 SNOWFLAKE = 'snowflake'
 SQLSERVER = 'sqlserver'
@@ -35,6 +36,7 @@ ALL_WAREHOUSE_TYPES = [ATHENA,
                        BIGQUERY,
                        HIVE,
                        POSTGRES,
+                       MYSQL,
                        REDSHIFT,
                        SNOWFLAKE,
                        SQLSERVER]
@@ -80,6 +82,8 @@ class Dialect:
                 _warehouse_class = Dialect._import_class('sodasql.dialects.hive_dialect', 'HiveDialect')
             if warehouse_type == POSTGRES:
                 _warehouse_class = Dialect._import_class('sodasql.dialects.postgres_dialect', 'PostgresDialect')
+            if warehouse_type == MYSQL:
+                _warehouse_class = Dialect._import_class('sodasql.dialects.mysql_dialect', 'MySQLDialect')
             if warehouse_type == REDSHIFT:
                 _warehouse_class = Dialect._import_class('sodasql.dialects.redshift_dialect', 'RedshiftDialect')
             if warehouse_type == SNOWFLAKE:
