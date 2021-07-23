@@ -44,3 +44,7 @@ search = "package_version = '{current_version}'"
 [[file]]
 src = "packages/sqlserver/setup.py"
 search = "package_version = '{current_version}'"
+
+[[file]]
+src = "packages/mysql/setup.py"
+search = "package_version = '{current_version}'"
