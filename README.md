@@ -46,6 +46,7 @@ $ pip install soda-sql-yourdatawarehouse
 | Apache Hive    | soda-sql-hive  |
 | GCP BigQuery   | soda-sql-bigquery |
 | MS SQL Server  | soda-sql-sqlserver |
+| MySQL.         | soda-sql-mysql |
 | PostgreSQL     | soda-sql-postgresql |
 | Snowflake      | soda-sql-snowflake |
 
