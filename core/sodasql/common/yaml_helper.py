@@ -17,5 +17,5 @@ class YamlHelper:
         if value is not None and isinstance(value, int):
             return value
         else:
-            logging.error(f'{column_name} could not be parsed: {value} is not of a numeric type.')
+            logging.warning(f'{column_name} could not be parsed: {value} is not of a numeric type.')
             raise Exception(f'{column_name} could not be parsed: {key}-{value} is not of a numeric type.')
