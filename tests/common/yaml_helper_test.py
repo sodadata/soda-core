@@ -4,8 +4,12 @@ from sodasql.common.yaml_helper import YamlHelper
 
 class YamlHelperTest(unittest.TestCase):
     def test_valid_numeric_value(self):
-        value = YamlHelper.validate_numeric_value("column_name", 2)
+        value = YamlHelper.validate_numeric_value("column_name", "key", 2)
         self.assertEqual(value, 2)
+
+    def test_valid_array_value(self):
+        value = YamlHelper.validate_array_value("column_name", "key", [1, 2, 3])
+        self.assertEqual(value, [1, 2, 3])
 
 
 if __name__ == '__main__':
