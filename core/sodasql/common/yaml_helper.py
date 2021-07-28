@@ -18,4 +18,4 @@ class YamlHelper:
             return value
         else:
             logging.warning(f'{column_name} could not be parsed: {value} is not of a numeric type.')
-            raise Exception(f'{column_name} could not be parsed: {key}-{value} is not of a numeric type.')
+            #raise Exception(f'{column_name} could not be parsed: {key}-{value} is not of a numeric type.')
