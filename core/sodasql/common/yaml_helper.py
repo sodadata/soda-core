@@ -18,7 +18,7 @@ class YamlHelper:
             return value
         else:
             logging.error(f'{column_name} could not be parsed: {key}-{value} is not of a numeric type.')
-
+            raise Exception(f'{column_name} could not be parsed: {key}-{value} is not of a numeric type.')
 
     @staticmethod
     def validate_array_value(column_name, key, value):
