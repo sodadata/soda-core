@@ -42,5 +42,5 @@ class TestValidValues(SqlTestCase):
             }
           }
         })
-        self.assertEqual(scan_result.get(Metric.INVALID_COUNT, 'name'), 3)
+        self.assertEqual(scan_result.get(Metric.INVALID_COUNT, 'name'), 0)
         self.assertEqual(scan_result.get(Metric.VALID_COUNT, 'size'), 3)
