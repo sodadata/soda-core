@@ -13,10 +13,9 @@ class YamlHelper:
             logging.error(f'Parsing YAML failed: {str(e)}: ({description if description else yaml_str})xWW4')
 
     @staticmethod
-    def validate_numeric_value(column_name, value):
-        if isinstance(value, int):
-            logging.info("all good!")
+    def validate_numeric_value(column_name, key, value):
+        if value is not None and isinstance(value, int):
             return value
         else:
             logging.error(f'{column_name} could not be parsed: {value} is not of a numeric type.')
-            sys.exit(1)
+            raise Exception(f'{column_name} could not be parsed: {key}-{value} is not of a numeric type.')
