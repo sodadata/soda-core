@@ -10,8 +10,7 @@
 #  limitations under the License.
 
 from sodasql.scan.metric import Metric
-from sodasql.scan.scan_yml_parser import KEY_COLUMNS, KEY_METRICS, COLUMN_KEY_VALID_FORMAT, KEY_METRIC_GROUPS, \
-    COLUMN_KEY_VALID_VALUES
+from sodasql.scan.scan_yml_parser import KEY_METRICS
 from tests.common.sql_test_case import SqlTestCase
 
 
@@ -44,6 +43,4 @@ class TestValidValues(SqlTestCase):
           }
         })
         self.assertEqual(scan_result.get(Metric.INVALID_COUNT, 'name'), 3)
-        self.assertEqual(scan_result.get(Metric.VALID_COUNT, 'name'), 2)
-
         self.assertEqual(scan_result.get(Metric.VALID_COUNT, 'size'), 3)
