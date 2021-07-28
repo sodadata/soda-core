@@ -17,5 +17,12 @@ class YamlHelper:
         if value is not None and isinstance(value, int):
             return value
         else:
-            logging.warning(f'{column_name} could not be parsed: {value} is not of a numeric type.')
-            #raise Exception(f'{column_name} could not be parsed: {key}-{value} is not of a numeric type.')
+            logging.error(f'{column_name} could not be parsed: {key}-{value} is not of a numeric type.')
+
+
+    @staticmethod
+    def validate_array_value(column_name, key, value):
+        if value is not None and isinstance(value, list):
+            return value
+        else:
+            logging.error(f'{column_name} could not be parsed: {key}-{value} is not a list.')
