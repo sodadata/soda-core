@@ -25,7 +25,6 @@ from sodasql.scan.test import Test
 from sodasql.scan.validity import Validity
 from sodasql.common.yaml_helper import YamlHelper
 
-
 KEY_TABLE_NAME = 'table_name'
 KEY_METRICS = 'metrics'
 KEY_METRIC_GROUPS = 'metric_groups'
@@ -256,8 +255,8 @@ class ScanYmlParser(Parser):
                     if validity.format is not None and Validity.FORMATS.get(validity.format) is None:
                         self.warning(f'Invalid {column_name}.{COLUMN_KEY_VALID_FORMAT}: {validity.format}')
                     validity.regex = column_dict.get(COLUMN_KEY_VALID_REGEX)
-                    validity.values = YamlHelper.validate_numeric_value(column_name, COLUMN_KEY_VALID_VALUES,
-                                                                        column_dict.get(COLUMN_KEY_VALID_VALUES))
+                    validity.values = YamlHelper.validate_array_value(column_name, COLUMN_KEY_VALID_VALUES,
+                                                                      column_dict.get(COLUMN_KEY_VALID_VALUES))
                     validity.min = YamlHelper.validate_numeric_value(column_name, COLUMN_KEY_VALID_MIN,
                                                                      column_dict.get(COLUMN_KEY_VALID_MIN))
                     validity.max = column_dict.get(COLUMN_KEY_VALID_MAX)
