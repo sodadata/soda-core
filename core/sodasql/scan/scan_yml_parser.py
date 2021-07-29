@@ -259,7 +259,8 @@ class ScanYmlParser(Parser):
                                                                       column_dict.get(COLUMN_KEY_VALID_VALUES))
                     validity.min = YamlHelper.validate_numeric_value(column_name, COLUMN_KEY_VALID_MIN,
                                                                      column_dict.get(COLUMN_KEY_VALID_MIN))
-                    validity.max = column_dict.get(COLUMN_KEY_VALID_MAX)
+                    validity.max = YamlHelper.validate_numeric_value(column_name, COLUMN_KEY_VALID_MAX,
+                                                                     column_dict.get(COLUMN_KEY_VALID_MAX))
                     validity.min_length = column_dict.get(COLUMN_KEY_VALID_MIN_LENGTH)
                     validity.max_length = column_dict.get(COLUMN_KEY_VALID_MAX_LENGTH)
 
