@@ -15,7 +15,7 @@ class YamlHelper:
     @staticmethod
     def validate_numeric_value(column_name, key, value):
         if value is None:
-            logging.info(f'There is no {key} key of this column name {column_name} to be validated')
+            logging.info(f'There is no value specified for {key} for column {column_name}')
         elif value is isinstance(value, int):
             logging.error(f'{column_name} could not be parsed: {key}-{value} is not of a numeric type.')
             raise Exception(f'{column_name} could not be parsed: {key}-{value} is not of a numeric type.')
@@ -23,9 +23,9 @@ class YamlHelper:
             return value
 
     @staticmethod
-    def validate_array_value(column_name, key, value):
+    def validate_list_value(column_name, key, value):
         if value is None:
-            logging.info(f'There is no {key} key of this column name {column_name} to be validated')
+            logging.info(f'There is no value specified for {key} for column {column_name}')
         elif value is isinstance(value, list):
             logging.error(f'{column_name} could not be parsed: {key}-{value} is not of a list type.')
             raise Exception(f'{column_name} could not be parsed: {key}-{value} is not of a list type.')
