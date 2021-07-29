@@ -14,10 +14,15 @@ class YamlHelper:
 
     @staticmethod
     def validate_numeric_value(column_name, key, value):
-        if value is not None and isinstance(value, int):
-            return value
-        else:
+        if key is None:
+            print("key none")
+            logging.info(f'There is no {key} key to be validated')
+        elif value is None or not isinstance(value, int):
             logging.error(f'{column_name} could not be parsed: {key}-{value} is not of a numeric type.')
+            raise Exception(f'{column_name} could not be parsed: {key}-{value} is not of a numeric type.')
+        else:
+            return value
+
 
     @staticmethod
     def validate_array_value(column_name, key, value):

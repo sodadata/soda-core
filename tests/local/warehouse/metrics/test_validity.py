@@ -129,3 +129,4 @@ class TestValidity(SqlTestCase):
         })
 
         self.assertEqual(scan_result.get(Metric.VALID_COUNT, 'xyz'), 7)
+
