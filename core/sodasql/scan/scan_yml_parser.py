@@ -23,6 +23,7 @@ from sodasql.scan.scan_yml_column import ScanYmlColumn
 from sodasql.scan.sql_metric_yml import SqlMetricYml
 from sodasql.scan.test import Test
 from sodasql.scan.validity import Validity
+from sodasql.common.yaml_helper import YamlHelper
 
 KEY_TABLE_NAME = 'table_name'
 KEY_METRICS = 'metrics'
@@ -254,9 +255,12 @@ class ScanYmlParser(Parser):
                     if validity.format is not None and Validity.FORMATS.get(validity.format) is None:
                         self.warning(f'Invalid {column_name}.{COLUMN_KEY_VALID_FORMAT}: {validity.format}')
                     validity.regex = column_dict.get(COLUMN_KEY_VALID_REGEX)
-                    validity.values = column_dict.get(COLUMN_KEY_VALID_VALUES)
-                    validity.min = column_dict.get(COLUMN_KEY_VALID_MIN)
-                    validity.max = column_dict.get(COLUMN_KEY_VALID_MAX)
+                    validity.values = YamlHelper.validate_list_value(column_name, COLUMN_KEY_VALID_VALUES,
+                                                                     column_dict.get(COLUMN_KEY_VALID_VALUES))
+                    validity.min = YamlHelper.validate_numeric_value(column_name, COLUMN_KEY_VALID_MIN,
+                                                                     column_dict.get(COLUMN_KEY_VALID_MIN))
+                    validity.max = YamlHelper.validate_numeric_value(column_name, COLUMN_KEY_VALID_MAX,
+                                                                     column_dict.get(COLUMN_KEY_VALID_MAX))
                     validity.min_length = column_dict.get(COLUMN_KEY_VALID_MIN_LENGTH)
                     validity.max_length = column_dict.get(COLUMN_KEY_VALID_MAX_LENGTH)
 

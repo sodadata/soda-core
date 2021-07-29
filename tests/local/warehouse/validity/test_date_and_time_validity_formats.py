@@ -156,7 +156,7 @@ class TestDateAndTimeValidityFormats(SqlTestCase):
              "('2021, January 21')",
              "('October 21, 2015')",
              "(null)"])
-    
+
         scan_result = self.scan({
             KEY_METRICS: [
                 Metric.INVALID_COUNT,
@@ -170,7 +170,7 @@ class TestDateAndTimeValidityFormats(SqlTestCase):
                 }
             }
         })
-    
+
         self.assertEqual(scan_result.get(Metric.VALUES_COUNT, 'name'), 4)
         self.assertEqual(scan_result.get(Metric.INVALID_COUNT, 'name'), 2)
         self.assertEqual(scan_result.get(Metric.INVALID_PERCENTAGE, 'name'), 40.0)
