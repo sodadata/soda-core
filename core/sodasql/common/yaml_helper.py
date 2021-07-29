@@ -17,7 +17,7 @@ class YamlHelper:
         if value is None:
             print("column none")
             logging.info(f'There is no {column_name} key to be validated')
-        elif value is not isinstance(value, int):
+        elif value is isinstance(value, int):
             logging.error(f'{column_name} could not be parsed: {key}-{value} is not of a numeric type.')
             raise Exception(f'{column_name} could not be parsed: {key}-{value} is not of a numeric type.')
         else:
