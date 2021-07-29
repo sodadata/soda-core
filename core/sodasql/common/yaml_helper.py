@@ -22,7 +22,6 @@ class YamlHelper:
         else:
             return value
 
-
     @staticmethod
     def validate_array_value(column_name, key, value):
         if value is None:
