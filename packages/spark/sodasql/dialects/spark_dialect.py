@@ -17,6 +17,7 @@ class SparkDialect(Dialect):
             self.username = parser.get_credential('username')
             self.password = parser.get_credential('password')
             self.database = parser.get_str_optional('database', 'default')
+            self.auth_method = parser.get_str_optional('authentication', None)
             self.configuration = parser.get_dict_optional('configuration')
 
     def default_connection_properties(self, params: dict):
@@ -52,7 +53,7 @@ class SparkDialect(Dialect):
                 host=self.host,
                 port=self.port,
                 database=self.database,
-                auth=None)
+                auth=self.auth_method)
             return conn
         except Exception as e:
             self.try_to_raise_soda_sql_exception(e)
