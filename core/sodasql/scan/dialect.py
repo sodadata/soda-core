@@ -25,6 +25,7 @@ KEY_CONNECTION_TIMEOUT = 'connection_timeout_sec'
 
 ATHENA = 'athena'
 BIGQUERY = 'bigquery'
+DBT = 'dbt'
 HIVE = 'hive'
 POSTGRES = 'postgres'
 MYSQL = 'mysql'
@@ -34,6 +35,7 @@ SQLSERVER = 'sqlserver'
 
 ALL_WAREHOUSE_TYPES = [ATHENA,
                        BIGQUERY,
+                       DBT,
                        HIVE,
                        POSTGRES,
                        MYSQL,
@@ -78,6 +80,8 @@ class Dialect:
                 _warehouse_class = Dialect._import_class('sodasql.dialects.athena_dialect', 'AthenaDialect')
             if warehouse_type == BIGQUERY:
                 _warehouse_class = Dialect._import_class('sodasql.dialects.bigquery_dialect', 'BigQueryDialect')
+            if warehouse_type == DBT:
+                _warehouse_class = Dialect._import_class('sodasql.dialects.dbt_dialect', 'DBTDialect')
             if warehouse_type == HIVE:
                 _warehouse_class = Dialect._import_class('sodasql.dialects.hive_dialect', 'HiveDialect')
             if warehouse_type == POSTGRES:
