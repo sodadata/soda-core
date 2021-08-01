@@ -6,4 +6,3 @@
 ./packages/mysql
 ./packages/redshift
 ./packages/snowflake
-./packages/sqlserver
