@@ -90,7 +90,7 @@ class MySQLDialect(Dialect):
         return f'{column_name}'
 
     def sql_expr_regexp_like(self, expr: str, pattern: str):
-        return f"{expr} ~* '{self.qualify_regex(pattern)}'"
+        return f"{expr} regexp '{self.qualify_regex(pattern)}'"
 
     def sql_expr_cast_text_to_number(self, quoted_column_name, validity_format):
         if validity_format == 'number_whole':
