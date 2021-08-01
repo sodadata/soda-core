@@ -24,12 +24,12 @@ class Validity:
     """
 
     FORMATS = {
-        'number_whole': r'^\-?\d+$',
-        'number_decimal_point': r'^\-?\d+\.\d+$',
-        'number_decimal_comma': r'^\-?\d+,\d+$',
-        'number_percentage': r'^\-?\d+([\.,]\d+)? ?%$',
-        'number_percentage_point': r'^\-?\d+([\.]\d+)? ?%$',
-        'number_percentage_comma': r'^\-?\d+([,]\d+)? ?%$',
+        'number_whole': r'^\\-?[0-9]+$',
+        'number_decimal_point': r'^\\-?[0-9]+\\.[0-9]+$',
+        'number_decimal_comma': r'^\\-?[0-9]+,[0-9]+$',
+        'number_percentage': r'^\\-?[0-9]+([\\.,][0-9]+)? ?%$',
+        'number_percentage_point': r'^\\-?[0-9]+([\\.][0-9]+)? ?%$',
+        'number_percentage_comma': r'^\\-?[0-9]+([,][0-9]+)? ?%$',
         'number_money_usd': MoneyPatternHelper.enclose_pattern(MONEY_USD_PATTERN),
         'number_money_eur': MoneyPatternHelper.enclose_pattern(MONEY_EUR_PATTERN),
         'number_money_gbp': MoneyPatternHelper.enclose_pattern(MONEY_GBP_PATTERN),
