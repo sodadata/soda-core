@@ -95,7 +95,7 @@ class MySQLDialect(Dialect):
     def sql_expr_cast_text_to_number(self, quoted_column_name, validity_format):
         if validity_format == 'number_whole':
             return f"CAST({quoted_column_name} AS {self.data_type_decimal})"
-        not_number_pattern = self.qualify_regex(r"[^-\d\.\,]")
-        comma_pattern = self.qualify_regex(r"\,")
+        not_number_pattern = self.qualify_regex(r"[^-[0-9]\\.\\,]")
+        comma_pattern = self.qualify_regex(r"\\,")
         return f"CAST(REGEXP_REPLACE(REGEXP_REPLACE({quoted_column_name}, '{not_number_pattern}', '', 'g'), " \
                f"'{comma_pattern}', '.', 'g') AS {self.data_type_decimal})"

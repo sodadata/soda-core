@@ -14,6 +14,7 @@ from sodasql.scan.metric import Metric
 from sodasql.scan.scan_yml_parser import KEY_METRIC_GROUPS, KEY_METRICS, KEY_COLUMNS, COLUMN_KEY_TESTS
 from tests.common.sql_test_case import SqlTestCase
 from decimal import *
+import json
 
 
 class TestMetricGroups(SqlTestCase):
@@ -206,12 +207,19 @@ class TestMetricGroups(SqlTestCase):
             ]
         })
         self.assertEqual(scan_result.get(Metric.ROW_COUNT), 12)
-        self.assertDictEqual(scan_result.get(Metric.SCHEMA)[0], {'dataType': 'varchar',
-                                                                 'name': 'score',
-                                                                 'nullable': True,
-                                                                 'logicalType': 'text',
-                                                                 'semanticType': 'text',
-                                                                 'type': 'varchar'})
+
+        self.assertTrue(scan_result.get(Metric.SCHEMA)[0] == {'dataType': 'character varying',
+                                                              'name': 'score',
+                                                              'nullable': True,
+                                                              'logicalType': 'text',
+                                                              'semanticType': 'text',
+                                                              'type': 'character varying'} or
+                        scan_result.get(Metric.SCHEMA)[0] == {'dataType': 'varchar',
+                                                              'name': 'score',
+                                                              'nullable': True,
+                                                              'logicalType': 'text',
+                                                              'semanticType': 'text',
+                                                              'type': 'varchar'})
         self.assertEqual(scan_result.get(Metric.AVG_LENGTH), 1)
         self.assertEqual(scan_result.get(Metric.DISTINCT), 5)
         self.assertEqual(scan_result.get(Metric.DUPLICATE_COUNT), 3)
@@ -259,12 +267,19 @@ class TestMetricGroups(SqlTestCase):
         })
 
         self.assertEqual(scan_result.get(Metric.ROW_COUNT), 12)
-        self.assertDictEqual(scan_result.get(Metric.SCHEMA)[0], {'dataType': 'int',
-                                                                 'name': 'score',
-                                                                 'nullable': True,
-                                                                 'logicalType': 'number',
-                                                                 'semanticType': 'number',
-                                                                 'type': 'int'})
+
+        self.assertTrue(scan_result.get(Metric.SCHEMA)[0] == {'dataType': 'int',
+                                                              'name': 'score',
+                                                              'nullable': True,
+                                                              'logicalType': 'number',
+                                                              'semanticType': 'number',
+                                                              'type': 'int'} or
+                        scan_result.get(Metric.SCHEMA)[0] == {'dataType': 'integer',
+                                                              'name': 'score',
+                                                              'nullable': True,
+                                                              'logicalType': 'number',
+                                                              'semanticType': 'number',
+                                                              'type': 'integer'})
         self.assertEqual(scan_result.get(Metric.AVG), 3.0)
         self.assertEqual(scan_result.get(Metric.DISTINCT), 5)
         self.assertEqual(scan_result.get(Metric.DUPLICATE_COUNT), 3)
@@ -333,4 +348,3 @@ class TestMetricGroups(SqlTestCase):
                 }
             }
         })
-
