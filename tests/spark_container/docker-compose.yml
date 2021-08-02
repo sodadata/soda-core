@@ -11,7 +11,7 @@ services:
       --class org.apache.spark.sql.hive.thriftserver.HiveThriftServer2
       --name Thrift JDBC/ODBC Server
     volumes:
-      - ./.spark-warehouse/:/spark-warehouse/
+      - /tmp/.spark-warehouse/:/spark-warehouse/
       - ./hive-site.xml:/usr/spark/conf/hive-site.xml
     environment:
       - WAIT_FOR=hive-metastore:5432
@@ -19,7 +19,7 @@ services:
   hive-metastore:
     image: postgres:9.6.17-alpine
     volumes:
-      - ./.hive-metastore/:/var/lib/postgresql/data
+      - /tmp/.hive-metastore/:/var/lib/postgresql/data
     environment:
       - POSTGRES_USER=soda
       - POSTGRES_PASSWORD=soda
