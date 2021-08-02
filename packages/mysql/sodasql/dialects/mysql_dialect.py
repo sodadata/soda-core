@@ -97,5 +97,5 @@ class MySQLDialect(Dialect):
             return f"CAST({quoted_column_name} AS {self.data_type_decimal})"
         not_number_pattern = self.qualify_regex(r"[^-[0-9]\\.\\,]")
         comma_pattern = self.qualify_regex(r"\\,")
-        return f"CAST(REGEXP_REPLACE(REGEXP_REPLACE({quoted_column_name}, '{not_number_pattern}', '', 'g'), " \
-               f"'{comma_pattern}', '.', 'g') AS {self.data_type_decimal})"
+        return f"CAST(REGEXP_REPLACE(REGEXP_REPLACE({quoted_column_name}, '{not_number_pattern}', ''), " \
+               f"'{comma_pattern}', '\\.') AS {self.data_type_decimal})"
