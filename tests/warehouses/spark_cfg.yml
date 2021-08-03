@@ -1,0 +1,5 @@
+type: spark
+host: localhost
+port: 10000
+database: default
+token: env_var(SPARK_TOKEN)

@@ -1,6 +1,7 @@
 name: Build soda-sql
 
 on:
+  pull_request:
   push:
     paths-ignore:
       - '**.md'
@@ -14,7 +15,7 @@ jobs:
       fail-fast: false
       matrix:
         python-version: [ 3.7, 3.8, 3.9 ]
-        test-module: [ local, RedshiftSuite, SnowflakeSuite, AthenaSuite, BigQuerySuite ]
+        test-module: [ local, RedshiftSuite, SnowflakeSuite, AthenaSuite, BigQuerySuite, SparkSuite ]
     env:
       TEST_MODULE: ${{ matrix.test-module }}
       PYTHON_VERSION: ${{ matrix.python-version }}
@@ -37,6 +38,8 @@ jobs:
         id: extract_branch
       - name: Run Tox
         run: |
+          sudo apt-get install -y libsasl2-dev python-dev
+          pip install --upgrade pip
           cat dev-requirements.in | grep tox | xargs pip install
           pip install -r requirements.txt
           tox -- \
@@ -104,7 +107,7 @@ jobs:
           repository: ${{ matrix.targetrepo }}
           event-type: started-from-soda-sql
           client-payload: '{"ref": "${{ github.ref }}", "sha": "${{ github.sha }}"}'
-          
+
   publish-pypi:
     name: Build & Publish Package
     if: contains(github.ref, 'refs/tags/')
