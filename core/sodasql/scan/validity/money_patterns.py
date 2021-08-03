@@ -15,7 +15,7 @@ class MoneyPatternHelper:
 
     @staticmethod
     def currency_number_pattern(thousands_separator, decimal_separator):
-        return rf"(\d+[{thousands_separator}])*(\d+)({decimal_separator}\d+)?"
+        return rf"([0-9]+[{thousands_separator}])*([0-9]+)({decimal_separator}[0-9]+)?"
 
     @staticmethod
     def currency_prefix_pattern(currency_symbol):

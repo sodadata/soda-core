@@ -56,7 +56,7 @@ class TestPersonalInfoValidityFormats(SqlTestCase):
              "('+12 123 123-1234')",
              "('555-2368')",
              "('555-ABCD')"])
-    
+
         scan_result = self.scan({
             KEY_METRICS: [
                 Metric.INVALID_COUNT,
@@ -70,7 +70,7 @@ class TestPersonalInfoValidityFormats(SqlTestCase):
                 }
             }
         })
-    
+
         self.assertEqual(scan_result.get(Metric.VALUES_COUNT, 'name'), 8)
         self.assertEqual(scan_result.get(Metric.INVALID_COUNT, 'name'), 1)
         self.assertEqual(scan_result.get(Metric.INVALID_PERCENTAGE, 'name'), 12.5)

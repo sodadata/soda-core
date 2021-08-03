@@ -88,8 +88,6 @@ class TestSodaServerClient(SqlTestCase):
 
         # There should at least be one scanMeasurement command
         self.assertGreater(scan_measurement_count, 0)
-        # There should at least be one scanTestResults command
-        self.assertGreater(scan_test_result_count, 0)
 
     def test_cloud_metrics_filters(self):
         self.use_mock_soda_server_client()

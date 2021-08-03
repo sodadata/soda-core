@@ -18,7 +18,7 @@ class TestMissingAndInvalidCustomizations(SqlTestCase):
 
     def test_scan_customized_missing_values(self):
         self.sql_recreate_table(
-            [f"name {self.dialect.data_type_varchar_255}"],
+            [f"col_name {self.dialect.data_type_varchar_255}"],
             ["('one')",
              "('')",
              "('  ')",
@@ -27,7 +27,7 @@ class TestMissingAndInvalidCustomizations(SqlTestCase):
 
         scan_result = self.scan({
           KEY_COLUMNS: {
-            'name': {
+            'col_name': {
               KEY_METRIC_GROUPS: [
                 Metric.METRIC_GROUP_MISSING
               ],
@@ -37,14 +37,14 @@ class TestMissingAndInvalidCustomizations(SqlTestCase):
             }
           }
         })
-        self.assertEqual(scan_result.get(Metric.MISSING_COUNT, 'name'), 2)
-        self.assertEqual(scan_result.get(Metric.MISSING_PERCENTAGE, 'name'), 40.0)
-        self.assertEqual(scan_result.get(Metric.VALUES_COUNT, 'name'), 3)
-        self.assertEqual(scan_result.get(Metric.VALUES_PERCENTAGE, 'name'), 60.0)
+        self.assertEqual(scan_result.get(Metric.MISSING_COUNT, 'col_name'), 2)
+        self.assertEqual(scan_result.get(Metric.MISSING_PERCENTAGE, 'col_name'), 40.0)
+        self.assertEqual(scan_result.get(Metric.VALUES_COUNT, 'col_name'), 3)
+        self.assertEqual(scan_result.get(Metric.VALUES_PERCENTAGE, 'col_name'), 60.0)
 
     def test_scan_customized_missing_format_empty(self):
         self.sql_recreate_table(
-            [f"name {self.dialect.data_type_varchar_255}"],
+            [f"col_name {self.dialect.data_type_varchar_255}"],
             ["('one')",
              "('two')",
              "('three')",
@@ -58,7 +58,7 @@ class TestMissingAndInvalidCustomizations(SqlTestCase):
 
         scan_result = self.scan({
           KEY_COLUMNS: {
-            'name': {
+            'col_name': {
               KEY_METRIC_GROUPS: [
                 Metric.METRIC_GROUP_MISSING
               ],
@@ -66,10 +66,10 @@ class TestMissingAndInvalidCustomizations(SqlTestCase):
             }
           }
         })
-        self.assertEqual(scan_result.get(Metric.MISSING_COUNT, 'name'), 4)
-        self.assertEqual(scan_result.get(Metric.MISSING_PERCENTAGE, 'name'), 40.0)
-        self.assertEqual(scan_result.get(Metric.VALUES_COUNT, 'name'), 6)
-        self.assertEqual(scan_result.get(Metric.VALUES_PERCENTAGE, 'name'), 60.0)
+        self.assertEqual(scan_result.get(Metric.MISSING_COUNT, 'col_name'), 4)
+        self.assertEqual(scan_result.get(Metric.MISSING_PERCENTAGE, 'col_name'), 40.0)
+        self.assertEqual(scan_result.get(Metric.VALUES_COUNT, 'col_name'), 6)
+        self.assertEqual(scan_result.get(Metric.VALUES_PERCENTAGE, 'col_name'), 60.0)
 
     def test_scan_customized_missing_format_whitespace(self):
         self.sql_recreate_table(
