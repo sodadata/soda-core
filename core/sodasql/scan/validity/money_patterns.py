@@ -19,7 +19,7 @@ class MoneyPatternHelper:
 
     @staticmethod
     def currency_prefix_pattern(currency_symbol):
-        return rf"({currency_symbol})? ?(\\-)?"
+        return rf"({currency_symbol})? ?(\-)?"
 
     @staticmethod
     def currency_suffix_pattern(currency_symbol, currency_name):
@@ -40,8 +40,8 @@ class MoneyPatternHelper:
         return r'^' + pattern + r'$'
 
 
-MONEY_USD_PATTERN = MoneyPatternHelper.money_pattern(r',', r'\\.', r'\\$', r'usd')
+MONEY_USD_PATTERN = MoneyPatternHelper.money_pattern(r',', r'\.', r'\$', r'usd')
 MONEY_EUR_PATTERN = MoneyPatternHelper.money_pattern(r' ', r',', r'€', r'eur')
-MONEY_GBP_PATTERN = MoneyPatternHelper.money_pattern(r',', r'\\.', r'£', r'gbp')
-MONEY_RMB_PATTERN = MoneyPatternHelper.money_pattern(r',', r'\\.', r'¥', r'rmb')
-MONEY_CHF_PATTERN = MoneyPatternHelper.money_pattern(r"''", r'\\.', r'CHf', r'chf')
+MONEY_GBP_PATTERN = MoneyPatternHelper.money_pattern(r',', r'\.', r'£', r'gbp')
+MONEY_RMB_PATTERN = MoneyPatternHelper.money_pattern(r',', r'\.', r'¥', r'rmb')
+MONEY_CHF_PATTERN = MoneyPatternHelper.money_pattern(r"''", r'\.', r'CHf', r'chf')
