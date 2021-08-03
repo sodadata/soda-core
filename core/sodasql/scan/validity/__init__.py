@@ -27,7 +27,7 @@ class Validity:
         'number_whole': r'^\-?[0-9]+$',
         'number_decimal_point': r'^\-?[0-9]+\.[0-9]+$',
         'number_decimal_comma': r'^\-?[0-9]+,[0-9]+$',
-        'number_percentage': r'^\-?[0-9]+([\\.,][0-9]+)? ?%$',
+        'number_percentage': r'^\-?[0-9]+([\.,][0-9]+)? ?%$',
         'number_percentage_point': r'^\-?[0-9]+([\.][0-9]+)? ?%$',
         'number_percentage_comma': r'^\-?[0-9]+([,][0-9]+)? ?%$',
         'number_money_usd': MoneyPatternHelper.enclose_pattern(MONEY_USD_PATTERN),
