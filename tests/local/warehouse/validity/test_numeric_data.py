@@ -31,7 +31,7 @@ class TestNumericData(SqlTestCase):
     def test_numeric_parsing(self):
         self.sql_recreate_table(
             [f"name {self.dialect.data_type_varchar_255}"],
-            ["('1%')",
+            ["('1.0%')",
              "('2.0%')",
              "('3,0%')"])
 
