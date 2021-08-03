@@ -33,6 +33,10 @@ class BigQueryDialect(Dialect):
         if parser:
             self.account_info_dict = self.__parse_json_credential('account_info_json', parser)
             self.dataset_name = parser.get_str_required('dataset')
+            default_auth_scopes = ['https://www.googleapis.com/auth/bigquery',
+                                   'https://www.googleapis.com/auth/cloud-platform',
+                                   'https://www.googleapis.com/auth/drive']
+            self.auth_scopes = parser.get_dict_optional('auth_scopes', default_auth_scopes)
         self.client = None
 
     def default_connection_properties(self, params: dict):
@@ -49,10 +53,7 @@ class BigQueryDialect(Dialect):
 
     def create_connection(self):
         try:
-            auth_scopes = ['https://www.googleapis.com/auth/bigquery',
-                           'https://www.googleapis.com/auth/cloud-platform',
-                           'https://www.googleapis.com/auth/drive']
-            credentials = Credentials.from_service_account_info(self.account_info_dict, scopes=auth_scopes)
+            credentials = Credentials.from_service_account_info(self.account_info_dict, scopes=self.auth_scopes)
             project_id = self.account_info_dict['project_id']
             self.client = bigquery.Client(project=project_id, credentials=credentials)
             conn = dbapi.Connection(self.client)

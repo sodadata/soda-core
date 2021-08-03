@@ -852,7 +852,7 @@ class Scan:
                 self.soda_server_client = None
 
     def evaluate_test(self, test, test_variables, group_values: Optional[dict] = None) -> TestResult:
-        test_result = test.evaluate(test_variables, group_values)
+        test_result = test.evaluate(test_variables, group_values, self.variables)
         if test_result.error:
             self.scan_result.add_error(TestExecutionScanError(
                 message=f'Test "{test_result.test.expression}" failed',
