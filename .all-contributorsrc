@@ -23,6 +23,22 @@
         "code",
         "doc"
       ]
+     },
+     {
+      "login": "milanaleksic",
+      "name": "Milan Aleksić",
+      "avatar_url": "https://avatars.githubusercontent.com/u/50055?v=4",
+      "profile": "https://aleksic.dev",
+      "contributions": [
+        "infra"
+      ]
+      "login": "fakirAyoub",
+      "name": "Ayoub Fakir",
+      "avatar_url": "https://avatars.githubusercontent.com/u/5069674?v=4",
+      "profile": "http://www.fakir.dev",
+      "contributions": [
+        "code"
+      ]
     }
   ],
   "contributorsPerLine": 7,

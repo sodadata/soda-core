@@ -196,6 +196,8 @@ Thanks goes to these wonderful people ([emoji key](https://allcontributors.org/d
   <tr>
     <td align="center"><a href="https://www.vijaykiran.com"><img src="https://avatars.githubusercontent.com/u/23506?v=4?s=100" width="100px;" alt=""/><br /><sub><b>Vijay Kiran</b></sub></a><br /><a href="https://github.com/sodadata/soda-sql/commits?author=vijaykiran" title="Code">💻</a></td>
     <td align="center"><a href="https://github.com/JCZuurmond"><img src="https://avatars.githubusercontent.com/u/5946784?v=4?s=100" width="100px;" alt=""/><br /><sub><b>Cor</b></sub></a><br /><a href="https://github.com/sodadata/soda-sql/commits?author=JCZuurmond" title="Code">💻</a> <a href="https://github.com/sodadata/soda-sql/commits?author=JCZuurmond" title="Documentation">📖</a></td>
+    <td align="center"><a href="https://aleksic.dev"><img src="https://avatars.githubusercontent.com/u/50055?v=4?s=100" width="100px;" alt=""/><br /><sub><b>Milan Aleksić</b></sub></a><br /><a href="#infra-milanaleksic" title="Infrastructure (Hosting, Build-Tools, etc)">🚇</a></td>
+    <td align="center"><a href="http://www.fakir.dev"><img src="https://avatars.githubusercontent.com/u/5069674?v=4?s=100" width="100px;" alt=""/><br /><sub><b>Ayoub Fakir</b></sub></a><br /><a href="https://github.com/sodadata/soda-sql/commits?author=fakirAyoub" title="Code">💻</a></td>
   </tr>
 </table>
 
