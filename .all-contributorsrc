@@ -15,6 +15,15 @@
       ]
     },
     {
+      "login": "abhishek-khare",
+      "name": "abhishek khare",
+      "avatar_url": "https://avatars.githubusercontent.com/u/44169877?v=4",
+      "profile": "https://github.com/abhishek-khare",
+      "contributions": [
+        "code"
+      ]
+    },
+    {
       "login": "jcshoekstra",
       "name": "Jelte Hoekstra",
       "avatar_url": "https://avatars.githubusercontent.com/u/6941860?v=4",
@@ -23,7 +32,8 @@
         "code",
         "doc"
       ]
-  }
+     },
+     {
       "login": "JCZuurmond",
       "name": "Cor",
       "avatar_url": "https://avatars.githubusercontent.com/u/5946784?v=4",
@@ -41,7 +51,8 @@
       "profile": "https://aleksic.dev",
       "contributions": [
         "infra"
-      ]
+        ]
+      },
       "login": "fakirAyoub",
       "name": "Ayoub Fakir",
       "avatar_url": "https://avatars.githubusercontent.com/u/5069674?v=4",
@@ -49,7 +60,6 @@
       "contributions": [
         "code"
       ]
-
     }
   ],
   "contributorsPerLine": 7,
