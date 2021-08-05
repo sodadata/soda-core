@@ -13,6 +13,16 @@
       "contributions": [
         "code"
       ]
+    },
+    {
+      "login": "JCZuurmond",
+      "name": "Cor",
+      "avatar_url": "https://avatars.githubusercontent.com/u/5946784?v=4",
+      "profile": "https://github.com/JCZuurmond",
+      "contributions": [
+        "code",
+        "doc"
+      ]
     }
   ],
   "contributorsPerLine": 7,
