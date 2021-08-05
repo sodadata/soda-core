@@ -105,6 +105,15 @@
       "contributions": [
         "code"
       ]
+    },
+    {
+      "login": "janet-can",
+      "name": "Janet R",
+      "avatar_url": "https://avatars.githubusercontent.com/u/63879030?v=4",
+      "profile": "https://github.com/janet-can",
+      "contributions": [
+        "doc"
+      ]
     }
   ],
   "contributorsPerLine": 7,
