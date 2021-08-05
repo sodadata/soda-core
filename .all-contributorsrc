@@ -13,6 +13,15 @@
       "contributions": [
         "code"
       ]
+    },
+    {
+      "login": "milanaleksic",
+      "name": "Milan Aleksić",
+      "avatar_url": "https://avatars.githubusercontent.com/u/50055?v=4",
+      "profile": "https://aleksic.dev",
+      "contributions": [
+        "infra"
+      ]
     }
   ],
   "contributorsPerLine": 7,
