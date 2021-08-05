@@ -1,71 +1,80 @@
 {
-    "files": [
-        "README.md"
-    ],
-    "imageSize": 100,
-    "commit": false,
-    "contributors": [
-        {
-            "login": "vijaykiran",
-            "name": "Vijay Kiran",
-            "avatar_url": "https://avatars.githubusercontent.com/u/23506?v=4",
-            "profile": "https://www.vijaykiran.com",
-            "contributions": [
-                "code"
-            ]
-        },
-        {
-            "login": "abhishek-khare",
-            "name": "abhishek khare",
-            "avatar_url": "https://avatars.githubusercontent.com/u/44169877?v=4",
-            "profile": "https://github.com/abhishek-khare",
-            "contributions": [
-                "code"
-            ]
-        },
-        {
-            "login": "jcshoekstra",
-            "name": "Jelte Hoekstra",
-            "avatar_url": "https://avatars.githubusercontent.com/u/6941860?v=4",
-            "profile": "https://github.com/jcshoekstra",
-            "contributions": [
-                "code",
-                "doc"
-            ]
-        },
-        {
-            "login": "JCZuurmond",
-            "name": "Cor",
-            "avatar_url": "https://avatars.githubusercontent.com/u/5946784?v=4",
-            "profile": "https://github.com/JCZuurmond",
-            "contributions": [
-                "code",
-                "doc"
-            ]
-        },
-        {
-            "login": "milanaleksic",
-            "name": "Milan Aleksić",
-            "avatar_url": "https://avatars.githubusercontent.com/u/50055?v=4",
-            "profile": "https://aleksic.dev",
-            "contributions": [
-                "infra"
-            ]
-        },
-        {
-            "login": "fakirAyoub",
-            "name": "Ayoub Fakir",
-            "avatar_url": "https://avatars.githubusercontent.com/u/5069674?v=4",
-            "profile": "http://www.fakir.dev",
-            "contributions": [
-                "code"
-            ]
-        }
-    ],
-    "contributorsPerLine": 7,
-    "projectName": "soda-sql",
-    "projectOwner": "sodadata",
-    "repoType": "github",
-    "repoHost": "https://github.com",
-    "skipCi": true
+  "files": [
+    "README.md"
+  ],
+  "imageSize": 100,
+  "commit": false,
+  "contributors": [
+    {
+      "login": "vijaykiran",
+      "name": "Vijay Kiran",
+      "avatar_url": "https://avatars.githubusercontent.com/u/23506?v=4",
+      "profile": "https://www.vijaykiran.com",
+      "contributions": [
+        "code"
+      ]
+    },
+    {
+      "login": "abhishek-khare",
+      "name": "abhishek khare",
+      "avatar_url": "https://avatars.githubusercontent.com/u/44169877?v=4",
+      "profile": "https://github.com/abhishek-khare",
+      "contributions": [
+        "code"
+      ]
+    },
+    {
+      "login": "jcshoekstra",
+      "name": "Jelte Hoekstra",
+      "avatar_url": "https://avatars.githubusercontent.com/u/6941860?v=4",
+      "profile": "https://github.com/jcshoekstra",
+      "contributions": [
+        "code",
+        "doc"
+      ]
+    },
+    {
+      "login": "JCZuurmond",
+      "name": "Cor",
+      "avatar_url": "https://avatars.githubusercontent.com/u/5946784?v=4",
+      "profile": "https://github.com/JCZuurmond",
+      "contributions": [
+        "code",
+        "doc"
+      ]
+    },
+    {
+      "login": "milanaleksic",
+      "name": "Milan Aleksić",
+      "avatar_url": "https://avatars.githubusercontent.com/u/50055?v=4",
+      "profile": "https://aleksic.dev",
+      "contributions": [
+        "infra"
+      ]
+    },
+    {
+      "login": "fakirAyoub",
+      "name": "Ayoub Fakir",
+      "avatar_url": "https://avatars.githubusercontent.com/u/5069674?v=4",
+      "profile": "http://www.fakir.dev",
+      "contributions": [
+        "code"
+      ]
+    },
+    {
+      "login": "Tonkonozhenko",
+      "name": "Alex Tonkonozhenko",
+      "avatar_url": "https://avatars.githubusercontent.com/u/1307646?v=4",
+      "profile": "https://tonkonozhenko.com",
+      "contributions": [
+        "code"
+      ]
+    }
+  ],
+  "contributorsPerLine": 7,
+  "projectName": "soda-sql",
+  "projectOwner": "sodadata",
+  "repoType": "github",
+  "repoHost": "https://github.com",
+  "skipCi": true
 }
