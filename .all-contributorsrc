@@ -123,6 +123,15 @@
       "contributions": [
         "code"
       ]
+    },
+    {
+      "login": "tombaeyens",
+      "name": "Tom Baeyens",
+      "avatar_url": "https://avatars.githubusercontent.com/u/944245?v=4",
+      "profile": "https://twitter.com/tombaeyens",
+      "contributions": [
+        "code"
+      ]
     }
   ],
   "contributorsPerLine": 7,
