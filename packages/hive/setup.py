@@ -14,8 +14,8 @@ description = "Soda SQL Apache Hive"
 
 requires = [
     f'soda-sql-core=={package_version}',
-    'PyHive==0.6.3',
-    'thrift==0.13.0'
+    'PyHive>=0.6.3, <1.0',
+    'thrift>=0.13.0, <1.0'
 
 ]
 # TODO Fix the params
