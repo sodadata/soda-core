@@ -1,6 +1,6 @@
 <p align="center"><img src="https://github.com/sodadata/docs/blob/main/assets/images/soda-sql-logo.png" alt="Soda logo" width="300" /></p>
 <!-- ALL-CONTRIBUTORS-BADGE:START - Do not remove or modify this section -->
-[![All Contributors](https://img.shields.io/badge/all_contributors-13-orange.svg?style=flat-square)](#contributors-)
+[![All Contributors](https://img.shields.io/badge/all_contributors-14-orange.svg?style=flat-square)](#contributors-)
 <!-- ALL-CONTRIBUTORS-BADGE:END -->
 
 <h1 align="center">Soda SQL</h1>
@@ -209,6 +209,7 @@ Thanks goes to these wonderful people ([emoji key](https://allcontributors.org/d
     <td align="center"><a href="http://www.webunit.be"><img src="https://avatars.githubusercontent.com/u/1439383?v=4?s=100" width="100px;" alt=""/><br /><sub><b>cwouter</b></sub></a><br /><a href="https://github.com/sodadata/soda-sql/commits?author=cwouter" title="Code">💻</a></td>
     <td align="center"><a href="https://github.com/janet-can"><img src="https://avatars.githubusercontent.com/u/63879030?v=4?s=100" width="100px;" alt=""/><br /><sub><b>Janet R</b></sub></a><br /><a href="https://github.com/sodadata/soda-sql/commits?author=janet-can" title="Documentation">📖</a></td>
     <td align="center"><a href="http://www.bastienboutonnet.com"><img src="https://avatars.githubusercontent.com/u/4304794?v=4?s=100" width="100px;" alt=""/><br /><sub><b>Bastien Boutonnet</b></sub></a><br /><a href="https://github.com/sodadata/soda-sql/commits?author=bastienboutonnet" title="Code">💻</a></td>
+    <td align="center"><a href="https://twitter.com/tombaeyens"><img src="https://avatars.githubusercontent.com/u/944245?v=4?s=100" width="100px;" alt=""/><br /><sub><b>Tom Baeyens</b></sub></a><br /><a href="https://github.com/sodadata/soda-sql/commits?author=tombaeyens" title="Code">💻</a></td>
   </tr>
 </table>
 
