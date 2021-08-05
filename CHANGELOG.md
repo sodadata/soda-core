@@ -4,7 +4,15 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
-## [2.1.0b12] - 2021-07-23 *Frodo Baggins*
+## [2.1.0b13] - 2021-08-03 *Boromir*
+  - Core: Add validation to valid_min, valid_max, and valid_values
+  - Core: Add support for using variables in tests
+  - BigQuery: Make AuthScopes configurable
+  - MySQL: More tests to check the completeness
+  - Spark: Merge and release first version of Spark dialect
+  
+
+## [2.1.0b12] - 2021-07-23 *Tom Bombadil*
  - MySQL: Experimental MySQL Support
  - Core: Add excluded_columns feature
  - Core: Add limit to custom metrics failed_rows query (#392)

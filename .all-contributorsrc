@@ -1,0 +1,179 @@
+{
+  "files": [
+    "README.md"
+  ],
+  "imageSize": 100,
+  "commit": false,
+  "contributors": [
+    {
+      "login": "vijaykiran",
+      "name": "Vijay Kiran",
+      "avatar_url": "https://avatars.githubusercontent.com/u/23506?v=4",
+      "profile": "https://www.vijaykiran.com",
+      "contributions": [
+        "code"
+      ]
+    },
+    {
+      "login": "abhishek-khare",
+      "name": "abhishek khare",
+      "avatar_url": "https://avatars.githubusercontent.com/u/44169877?v=4",
+      "profile": "https://github.com/abhishek-khare",
+      "contributions": [
+        "code"
+      ]
+    },
+    {
+      "login": "jcshoekstra",
+      "name": "Jelte Hoekstra",
+      "avatar_url": "https://avatars.githubusercontent.com/u/6941860?v=4",
+      "profile": "https://github.com/jcshoekstra",
+      "contributions": [
+        "code",
+        "doc"
+      ]
+    },
+    {
+      "login": "JCZuurmond",
+      "name": "Cor",
+      "avatar_url": "https://avatars.githubusercontent.com/u/5946784?v=4",
+      "profile": "https://github.com/JCZuurmond",
+      "contributions": [
+        "code",
+        "doc"
+      ]
+    },
+    {
+      "login": "milanaleksic",
+      "name": "Milan Aleksić",
+      "avatar_url": "https://avatars.githubusercontent.com/u/50055?v=4",
+      "profile": "https://aleksic.dev",
+      "contributions": [
+        "infra"
+      ]
+    },
+    {
+      "login": "fakirAyoub",
+      "name": "Ayoub Fakir",
+      "avatar_url": "https://avatars.githubusercontent.com/u/5069674?v=4",
+      "profile": "http://www.fakir.dev",
+      "contributions": [
+        "code"
+      ]
+    },
+    {
+      "login": "Tonkonozhenko",
+      "name": "Alex Tonkonozhenko",
+      "avatar_url": "https://avatars.githubusercontent.com/u/1307646?v=4",
+      "profile": "https://tonkonozhenko.com",
+      "contributions": [
+        "code"
+      ]
+    },
+    {
+      "login": "toddy86",
+      "name": "Todd de Quincey",
+      "avatar_url": "https://avatars.githubusercontent.com/u/10559757?v=4",
+      "profile": "https://toddy86.github.io/blog/",
+      "contributions": [
+        "code"
+      ]
+    },
+    {
+      "login": "Antoninj",
+      "name": "Antonin Jousson",
+      "avatar_url": "https://avatars.githubusercontent.com/u/18756890?v=4",
+      "profile": "https://antoninjsn.netlify.app",
+      "contributions": [
+        "code"
+      ]
+    },
+    {
+      "login": "jmarien",
+      "name": "Jonas",
+      "avatar_url": "https://avatars.githubusercontent.com/u/153805?v=4",
+      "profile": "http://www.omeyocan.be",
+      "contributions": [
+        "infra"
+      ]
+    },
+    {
+      "login": "cwouter",
+      "name": "cwouter",
+      "avatar_url": "https://avatars.githubusercontent.com/u/1439383?v=4",
+      "profile": "http://www.webunit.be",
+      "contributions": [
+        "code"
+      ]
+    },
+    {
+      "login": "janet-can",
+      "name": "Janet R",
+      "avatar_url": "https://avatars.githubusercontent.com/u/63879030?v=4",
+      "profile": "https://github.com/janet-can",
+      "contributions": [
+        "doc"
+      ]
+    },
+    {
+      "login": "bastienboutonnet",
+      "name": "Bastien Boutonnet",
+      "avatar_url": "https://avatars.githubusercontent.com/u/4304794?v=4",
+      "profile": "http://www.bastienboutonnet.com",
+      "contributions": [
+        "code"
+      ]
+    },
+    {
+      "login": "tombaeyens",
+      "name": "Tom Baeyens",
+      "avatar_url": "https://avatars.githubusercontent.com/u/944245?v=4",
+      "profile": "https://twitter.com/tombaeyens",
+      "contributions": [
+        "code"
+      ]
+    },
+    {
+      "login": "AlessandroLollo",
+      "name": "AlessandroLollo",
+      "avatar_url": "https://avatars.githubusercontent.com/u/1206243?v=4",
+      "profile": "https://github.com/AlessandroLollo",
+      "contributions": [
+        "code"
+      ]
+    },
+    {
+      "login": "mmigdiso",
+      "name": "mmigdiso",
+      "avatar_url": "https://avatars.githubusercontent.com/u/4024345?v=4",
+      "profile": "https://www.linkedin.com/in/migdisoglu/",
+      "contributions": [
+        "code"
+      ]
+    },
+    {
+      "login": "ericmuijs",
+      "name": "ericmuijs",
+      "avatar_url": "https://avatars.githubusercontent.com/u/17954084?v=4",
+      "profile": "https://github.com/ericmuijs",
+      "contributions": [
+        "code"
+      ]
+    },
+    {
+      "login": "lgov",
+      "name": "Lieven Govaerts",
+      "avatar_url": "https://avatars.githubusercontent.com/u/1313689?v=4",
+      "profile": "https://www.elaidata.com",
+      "contributions": [
+        "code"
+      ]
+    }
+  ],
+  "contributorsPerLine": 7,
+  "projectName": "soda-sql",
+  "projectOwner": "sodadata",
+  "repoType": "github",
+  "repoHost": "https://github.com",
+  "skipCi": true
+}

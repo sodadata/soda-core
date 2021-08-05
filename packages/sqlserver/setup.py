@@ -14,7 +14,7 @@ description = "Soda SQL Microsoft SQLServer"
 
 requires = [
     f'soda-sql-core=={package_version}',
-    'pyodbc==4.0.30'
+    'pyodbc>=4.0.30, <5.0'
 ]
 # TODO Fix the params
 setup(
