@@ -1,6 +1,6 @@
 <p align="center"><img src="https://github.com/sodadata/docs/blob/main/assets/images/soda-sql-logo.png" alt="Soda logo" width="300" /></p>
 <!-- ALL-CONTRIBUTORS-BADGE:START - Do not remove or modify this section -->
-[![All Contributors](https://img.shields.io/badge/all_contributors-1-orange.svg?style=flat-square)](#contributors-)
+[![All Contributors](https://img.shields.io/badge/all_contributors-2-orange.svg?style=flat-square)](#contributors-)
 <!-- ALL-CONTRIBUTORS-BADGE:END -->
 
 <h1 align="center">Soda SQL</h1>
@@ -195,6 +195,7 @@ Thanks goes to these wonderful people ([emoji key](https://allcontributors.org/d
 <table>
   <tr>
     <td align="center"><a href="https://www.vijaykiran.com"><img src="https://avatars.githubusercontent.com/u/23506?v=4?s=100" width="100px;" alt=""/><br /><sub><b>Vijay Kiran</b></sub></a><br /><a href="https://github.com/sodadata/soda-sql/commits?author=vijaykiran" title="Code">💻</a></td>
+    <td align="center"><a href="https://github.com/abhishek-khare"><img src="https://avatars.githubusercontent.com/u/44169877?v=4?s=100" width="100px;" alt=""/><br /><sub><b>abhishek khare</b></sub></a><br /><a href="https://github.com/sodadata/soda-sql/commits?author=abhishek-khare" title="Code">💻</a></td>
   </tr>
 </table>
 
