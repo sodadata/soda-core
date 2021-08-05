@@ -15,10 +15,20 @@
       ]
     },
     {
+      "login": "jcshoekstra",
+      "name": "Jelte Hoekstra",
+      "avatar_url": "https://avatars.githubusercontent.com/u/6941860?v=4",
+      "profile": "https://github.com/jcshoekstra",
+          "contributions": [
+        "code",
+        "doc"
+      ]
+  }
       "login": "JCZuurmond",
       "name": "Cor",
       "avatar_url": "https://avatars.githubusercontent.com/u/5946784?v=4",
       "profile": "https://github.com/JCZuurmond",
+
       "contributions": [
         "code",
         "doc"
@@ -39,6 +49,7 @@
       "contributions": [
         "code"
       ]
+
     }
   ],
   "contributorsPerLine": 7,
