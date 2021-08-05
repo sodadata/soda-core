@@ -114,6 +114,15 @@
       "contributions": [
         "doc"
       ]
+    },
+    {
+      "login": "bastienboutonnet",
+      "name": "Bastien Boutonnet",
+      "avatar_url": "https://avatars.githubusercontent.com/u/4304794?v=4",
+      "profile": "http://www.bastienboutonnet.com",
+      "contributions": [
+        "code"
+      ]
     }
   ],
   "contributorsPerLine": 7,
