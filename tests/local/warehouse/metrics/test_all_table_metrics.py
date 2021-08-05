@@ -8,11 +8,13 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
+import math
 
 from sodasql.scan.metric import Metric
 from sodasql.scan.scan_yml_parser import KEY_METRIC_GROUPS, KEY_METRICS, KEY_COLUMNS, COLUMN_KEY_TESTS
 from tests.common.sql_test_case import SqlTestCase
 from decimal import *
+import json
 
 
 class TestMetricGroups(SqlTestCase):
@@ -153,8 +155,8 @@ class TestMetricGroups(SqlTestCase):
         self.assertEqual(scan_result.get(Metric.SUM), 33)
         self.assertEqual(scan_result.get(Metric.MAX), 5)
         self.assertEqual(scan_result.get(Metric.MIN), 1)
-        self.assertAlmostEqual(scan_result.get(Metric.STDDEV), Decimal(1.09544), 4)
-        self.assertAlmostEqual(scan_result.get(Metric.VARIANCE), Decimal(1.2000), 4)
+        assert math.isclose(Decimal(scan_result.get(Metric.STDDEV)), Decimal(1.09544), rel_tol=0.06)
+        assert math.isclose(Decimal(scan_result.get(Metric.VARIANCE)), Decimal(1.2000), rel_tol=0.1)
 
     def test_metric_group_validity(self):
         self.sql_recreate_table(
@@ -205,11 +207,19 @@ class TestMetricGroups(SqlTestCase):
             ]
         })
         self.assertEqual(scan_result.get(Metric.ROW_COUNT), 12)
-        self.assertDictEqual(scan_result.get(Metric.SCHEMA)[0], {'dataType': 'character varying',
-                                                                 'name': 'score',
-                                                                 'nullable': True,
-                                                                 'semanticType': 'text',
-                                                                 'type': 'character varying'})
+
+        self.assertTrue(scan_result.get(Metric.SCHEMA)[0] == {'dataType': 'character varying',
+                                                              'name': 'score',
+                                                              'nullable': True,
+                                                              'logicalType': 'text',
+                                                              'semanticType': 'text',
+                                                              'type': 'character varying'} or
+                        scan_result.get(Metric.SCHEMA)[0] == {'dataType': 'varchar',
+                                                              'name': 'score',
+                                                              'nullable': True,
+                                                              'logicalType': 'text',
+                                                              'semanticType': 'text',
+                                                              'type': 'varchar'})
         self.assertEqual(scan_result.get(Metric.AVG_LENGTH), 1)
         self.assertEqual(scan_result.get(Metric.DISTINCT), 5)
         self.assertEqual(scan_result.get(Metric.DUPLICATE_COUNT), 3)
@@ -257,11 +267,19 @@ class TestMetricGroups(SqlTestCase):
         })
 
         self.assertEqual(scan_result.get(Metric.ROW_COUNT), 12)
-        self.assertDictEqual(scan_result.get(Metric.SCHEMA)[0], {'dataType': 'integer',
-                                                                 'name': 'score',
-                                                                 'nullable': True,
-                                                                 'semanticType': 'number',
-                                                                 'type': 'integer'})
+
+        self.assertTrue(scan_result.get(Metric.SCHEMA)[0] == {'dataType': 'int',
+                                                              'name': 'score',
+                                                              'nullable': True,
+                                                              'logicalType': 'number',
+                                                              'semanticType': 'number',
+                                                              'type': 'int'} or
+                        scan_result.get(Metric.SCHEMA)[0] == {'dataType': 'integer',
+                                                              'name': 'score',
+                                                              'nullable': True,
+                                                              'logicalType': 'number',
+                                                              'semanticType': 'number',
+                                                              'type': 'integer'})
         self.assertEqual(scan_result.get(Metric.AVG), 3.0)
         self.assertEqual(scan_result.get(Metric.DISTINCT), 5)
         self.assertEqual(scan_result.get(Metric.DUPLICATE_COUNT), 3)
@@ -301,7 +319,7 @@ class TestMetricGroups(SqlTestCase):
         self.assertEqual(scan_result.get(Metric.MINS), [1, 2, 3, 4, 5])
         self.assertEqual(scan_result.get(Metric.MISSING_COUNT), 1)
         self.assertEqual(scan_result.get(Metric.MISSING_PERCENTAGE), 8.333333333333334)
-        self.assertAlmostEqual(scan_result.get(Metric.STDDEV), Decimal(1.09544), 4)
+        assert math.isclose(Decimal(scan_result.get(Metric.STDDEV)), Decimal(1.09544), rel_tol=0.06)
         self.assertEqual(scan_result.get(Metric.SUM), 33)
         self.assertEqual(scan_result.get(Metric.UNIQUENESS), 40)
         self.assertEqual(scan_result.get(Metric.UNIQUE_COUNT), 2)
@@ -309,7 +327,7 @@ class TestMetricGroups(SqlTestCase):
         self.assertEqual(scan_result.get(Metric.VALID_PERCENTAGE), 91.66666666666667)
         self.assertEqual(scan_result.get(Metric.VALUES_COUNT), 11)
         self.assertEqual(scan_result.get(Metric.VALUES_PERCENTAGE), 91.66666666666667)
-        self.assertAlmostEqual(scan_result.get(Metric.VARIANCE), Decimal(1.2000), 4)
+        assert math.isclose(Decimal(scan_result.get(Metric.VARIANCE)), Decimal(1.2000), rel_tol=0.1)
         self.assertEqual(24, len(scan_result.measurements))
 
     def test_empty_table_metrics(self):
@@ -330,4 +348,3 @@ class TestMetricGroups(SqlTestCase):
                 }
             }
         })
-

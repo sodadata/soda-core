@@ -341,6 +341,7 @@ class TestNumberValidityFormats(SqlTestCase):
         })
 
         self.assertEqual(scan_result.get(Metric.VALUES_COUNT, 'name'), 16)
+
         self.assertEqual(scan_result.get(Metric.INVALID_COUNT, 'name'), 2)
         self.assertEqual(scan_result.get(Metric.INVALID_PERCENTAGE, 'name'), 12.5)
         self.assertEqual(scan_result.get(Metric.VALID_COUNT, 'name'), 14)

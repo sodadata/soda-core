@@ -27,17 +27,21 @@ ATHENA = 'athena'
 BIGQUERY = 'bigquery'
 HIVE = 'hive'
 POSTGRES = 'postgres'
+MYSQL = 'mysql'
 REDSHIFT = 'redshift'
 SNOWFLAKE = 'snowflake'
 SQLSERVER = 'sqlserver'
+SPARK = 'spark'
 
 ALL_WAREHOUSE_TYPES = [ATHENA,
                        BIGQUERY,
                        HIVE,
                        POSTGRES,
+                       MYSQL,
                        REDSHIFT,
                        SNOWFLAKE,
-                       SQLSERVER]
+                       SQLSERVER,
+                       SPARK]
 
 
 class Dialect:
@@ -80,12 +84,16 @@ class Dialect:
                 _warehouse_class = Dialect._import_class('sodasql.dialects.hive_dialect', 'HiveDialect')
             if warehouse_type == POSTGRES:
                 _warehouse_class = Dialect._import_class('sodasql.dialects.postgres_dialect', 'PostgresDialect')
+            if warehouse_type == MYSQL:
+                _warehouse_class = Dialect._import_class('sodasql.dialects.mysql_dialect', 'MySQLDialect')
             if warehouse_type == REDSHIFT:
                 _warehouse_class = Dialect._import_class('sodasql.dialects.redshift_dialect', 'RedshiftDialect')
             if warehouse_type == SNOWFLAKE:
                 _warehouse_class = Dialect._import_class('sodasql.dialects.snowflake_dialect', 'SnowflakeDialect')
             if warehouse_type == SQLSERVER:
                 _warehouse_class = Dialect._import_class('sodasql.dialects.sqlserver_dialect', 'SQLServerDialect')
+            if warehouse_type == SPARK:
+                _warehouse_class = Dialect._import_class('sodasql.dialects.spark_dialect', 'SparkDialect')
         return _warehouse_class(parser)
 
     @classmethod
@@ -214,8 +222,8 @@ class Dialect:
         self, quoted_column_name, validity_format):
         if validity_format == 'number_whole':
             return f"CAST({quoted_column_name} AS {self.data_type_decimal})"
-        not_number_pattern = self.qualify_regex(r"[^-\d\.\,]")
-        comma_pattern = self.qualify_regex(r"\,")
+        not_number_pattern = self.qualify_regex(r"[^-[0-9]\.\,]")
+        comma_pattern = self.qualify_regex(r"\\,")
         return f"CAST(REGEXP_REPLACE(REGEXP_REPLACE({quoted_column_name}, '{not_number_pattern}', ''), " \
                f"'{comma_pattern}', '.') AS {self.data_type_decimal})"
 

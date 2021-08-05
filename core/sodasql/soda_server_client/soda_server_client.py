@@ -59,7 +59,7 @@ class SodaServerClient:
                     soda_column_cfg['validity'] = {
                         'namedFormat': validity.format,
                         'regexFormat': validity.regex,
-                        'allowedValues': validity.values,
+                        'validValues': validity.values,
                         'minLength': validity.min_length,
                         'maxLength': validity.max_length,
                         'minValue': validity.min,

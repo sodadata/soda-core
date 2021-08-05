@@ -40,12 +40,10 @@ class SodaCloudScanError(ScanError):
     def get_type(self) -> str:
         return 'soda_cloud_error'
 
-
 @dataclass
 class WarehouseAuthenticationScanError(ScanError):
     def get_type(self) -> str:
         return 'warehouse_authentication_error'
-
 
 @dataclass
 class WarehouseConnectionScanError(ScanError):

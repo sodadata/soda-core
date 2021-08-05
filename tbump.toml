@@ -1,5 +1,5 @@
 [version]
-current = "2.1.0b11"
+current = "2.1.0b13"
 
 regex = '''
   (?P<major>\d+)\.(?P<minor>\d+)\.(?P<patch>\d+)((?P<prerelease>[a-z]+)(?P<build>\d+))?
@@ -43,4 +43,12 @@ search = "package_version = '{current_version}'"
 
 [[file]]
 src = "packages/sqlserver/setup.py"
+search = "package_version = '{current_version}'"
+
+[[file]]
+src = "packages/mysql/setup.py"
+search = "package_version = '{current_version}'"
+
+[[file]]
+src = "packages/spark/setup.py"
 search = "package_version = '{current_version}'"

@@ -82,6 +82,7 @@ class TestMinsMaxs(SqlTestCase):
         self.assertEqual(
             scan_result.get(Metric.MINS, 'name'),
             ['eight', 'five', 'four', 'one', 'seven', 'six', 'ten'])
+
         self.assertEqual(
             scan_result.get(Metric.MAXS, 'name'),
             ['two', 'three', 'ten', 'six', 'seven', 'one', 'four'])

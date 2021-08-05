@@ -1,5 +1,7 @@
 .idea/
 .postgres/
+.sqlserver/
+.mysql/
 .vscode/
 # Byte-compiled / optimized / DLL files
 __pycache__/
@@ -130,7 +132,9 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
-*.xml
 reports/*
 !reports/index.html
 
+# Spark
+.hive-metastore/
+.spark-warehouse/

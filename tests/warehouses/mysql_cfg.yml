@@ -1,0 +1,5 @@
+type: mysql
+host: localhost
+username: sodasql
+password: sodasql
+database: sodasql

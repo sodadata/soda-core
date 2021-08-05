@@ -11,11 +11,11 @@
 
 class ColumnMetadata:
 
-    def __init__(self, name: str, data_type: str = None, semantic_type: str = None, nullable: bool = None):
+    def __init__(self, name: str, data_type: str = None, logical_type: str = None, nullable: bool = None):
         self.name = name
         self.data_type = data_type
         self.nullable = nullable
-        self.semantic_type = semantic_type
+        self.logical_type = logical_type
 
     def __str__(self):
         return self.name + (' ' + self.type if self.type else '')
@@ -27,5 +27,7 @@ class ColumnMetadata:
             'type': self.data_type,
             'dataType': self.data_type,
             'nullable': self.nullable,
-            'semanticType': self.semantic_type,
+            'logicalType': self.logical_type,
+            # deprecated, use logicalType
+            'semanticType': self.logical_type,
         }

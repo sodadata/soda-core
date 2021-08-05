@@ -11,6 +11,7 @@
 import logging
 from dataclasses import dataclass
 from typing import Optional, List
+from jinja2 import Template
 
 
 @dataclass
@@ -21,11 +22,14 @@ class Test:
     metrics: List[str]
     column: Optional[str]
 
-    def evaluate(self, test_variables: dict, group_values: Optional[dict] = None):
+    def evaluate(self, test_variables: dict, group_values: Optional[dict] = None,
+                 template_variables: Optional[dict] = None):
         from sodasql.scan.test_result import TestResult
 
         try:
             values = {key: test_variables[key] for key in test_variables if key in self.metrics}
+            if template_variables is not None:
+                self.expression = Template(self.expression).render(template_variables)
             if 'None' not in self.expression and any(v is None for v in values.values()):
                 logging.warning(f'Skipping test {self.expression} since corresponding metrics are None ({values}) ')
                 return TestResult(test=self, skipped=True, passed=True, values=values, group_values=group_values)

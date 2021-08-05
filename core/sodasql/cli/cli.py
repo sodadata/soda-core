@@ -225,8 +225,12 @@ def analyze(warehouse_file: str, include: str, exclude: str):
         first_table_scan_yml_file = None
 
         dialect = warehouse.dialect
-        tables_metadata_query = dialect.sql_tables_metadata_query()
-        rows = warehouse.sql_fetchall(tables_metadata_query)
+
+        if hasattr(dialect, "sql_tables_metadata"):
+            rows = dialect.sql_tables_metadata()
+        else:
+            tables_metadata_query = dialect.sql_tables_metadata_query()
+            rows = warehouse.sql_fetchall(tables_metadata_query)
 
         table_include_regex = create_table_filter_regex(include)
         table_exclude_regex = create_table_filter_regex(exclude)

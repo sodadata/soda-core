@@ -166,24 +166,29 @@ class Scan:
         self.scan_columns: dict = {}
         self.column_names: List[str] = [column_metadata.name for column_metadata in self.column_metadatas]
         for column_metadata in self.column_metadatas:
-            scan_column = ScanColumn(self, column_metadata)
-            if scan_column.is_supported:
-                if scan_column.is_numeric:
-                    column_metadata.semantic_type = 'number'
-                elif scan_column.is_temporal:
-                    column_metadata.semantic_type = 'time'
-                # WARN: Order of conditions is important here, because the is_text is based on database data type,
-                # and is_numeric, is_temporal are calculated based on validity format. So both is_text and
-                # (is_temporal|is_numeric) can be true.
-                elif scan_column.is_text:
-                    column_metadata.semantic_type = 'text'
+            if (self.scan_yml.excluded_columns is not None) and (
+                  column_metadata.name in self.scan_yml.excluded_columns):
+                logging.info(f'  column {column_metadata.name} is excluded based on configuration!')
 
-                logging.debug(f'  {scan_column.column_name} ({scan_column.column.data_type}) '
-                              f'{"" if scan_column.column.nullable else "not null"}')
-                self.scan_columns[column_metadata.name.lower()] = scan_column
             else:
-                logging.info(f'  {scan_column.column_name} ({scan_column.column.data_type}) -> unsupported, skipped!')
+                scan_column = ScanColumn(self, column_metadata)
+                if scan_column.is_supported:
+                    if scan_column.is_numeric:
+                        column_metadata.logical_type = 'number'
+                    elif scan_column.is_temporal:
+                        column_metadata.logical_type = 'time'
+                    # WARN: Order of conditions is important here, because the is_text is based on database data type,
+                    # and is_numeric, is_temporal are calculated based on validity format. So both is_text and
+                    # (is_temporal|is_numeric) can be true.
+                    elif scan_column.is_text:
+                        column_metadata.logical_type = 'text'
 
+                    logging.debug(f'  {scan_column.column_name} ({scan_column.column.data_type}) '
+                                  f'{"" if scan_column.column.nullable else "not null"}')
+                    self.scan_columns[column_metadata.name.lower()] = scan_column
+                else:
+                    logging.info(
+                        f'  {scan_column.column_name} ({scan_column.column.data_type}) -> unsupported, skipped!')
         logging.debug(str(len(self.column_metadatas)) + ' columns:')
 
         # Compare the column names in yml with valid column names from the table
@@ -847,7 +852,7 @@ class Scan:
                 self.soda_server_client = None
 
     def evaluate_test(self, test, test_variables, group_values: Optional[dict] = None) -> TestResult:
-        test_result = test.evaluate(test_variables, group_values)
+        test_result = test.evaluate(test_variables, group_values, self.variables)
         if test_result.error:
             self.scan_result.add_error(TestExecutionScanError(
                 message=f'Test "{test_result.test.expression}" failed',

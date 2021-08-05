@@ -4,6 +4,21 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
+## [2.1.0b12] - 2021-07-23 *Frodo Baggins*
+ - MySQL: Experimental MySQL Support
+ - Core: Add excluded_columns feature
+ - Core: Add limit to custom metrics failed_rows query (#392)
+ - Core: Updates log level from error to warning for columns with unsupported data types (#391)
+ - Core: Use the sampler failed_limit for failed rows limit (#394)
+ - Soda Cloud: Rename validValues -> allowedValues
+ - Soda Cloud: Rename semanticType to logicalType
+ - Soda Cloud: Update validity formats
+ - Soda Cloud: Add SODA_SCAN_ORIGIN env var support (#386)
+ - Maintenance: Update urllib3
+ - Maintenance: Pin dependencies to known working versions (#389)
+ - Maintenance: make the recreate_venv.sh script work again (#381)
+ - Examples/Docs: Add example AWS lambda function
+
 ## [2.1.0b11] - 2021-07-07 *Fredegar Bolger*
 ### Fixes
 - #368 Hive: Add 'authentication' parameter to warehouse config

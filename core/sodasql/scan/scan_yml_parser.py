@@ -23,6 +23,7 @@ from sodasql.scan.scan_yml_column import ScanYmlColumn
 from sodasql.scan.sql_metric_yml import SqlMetricYml
 from sodasql.scan.test import Test
 from sodasql.scan.validity import Validity
+from sodasql.common.yaml_helper import YamlHelper
 
 KEY_TABLE_NAME = 'table_name'
 KEY_METRICS = 'metrics'
@@ -30,6 +31,7 @@ KEY_METRIC_GROUPS = 'metric_groups'
 KEY_SQL_METRICS = 'sql_metrics'
 KEY_TESTS = 'tests'
 KEY_COLUMNS = 'columns'
+KEY_EXCLUDED_COLUMNS = 'excluded_columns'
 KEY_MINS_MAXS_LIMIT = 'mins_maxs_limit'
 KEY_FREQUENT_VALUES_LIMIT = 'frequent_values_limit'
 KEY_SAMPLE_PERCENTAGE = 'sample_percentage'
@@ -39,7 +41,7 @@ KEY_SAMPLES = 'samples'
 
 VALID_SCAN_YML_KEYS = [KEY_TABLE_NAME, KEY_METRICS, KEY_METRIC_GROUPS, KEY_SQL_METRICS,
                        KEY_TESTS, KEY_COLUMNS, KEY_MINS_MAXS_LIMIT, KEY_FREQUENT_VALUES_LIMIT,
-                       KEY_SAMPLE_PERCENTAGE, KEY_SAMPLE_METHOD, KEY_FILTER, KEY_SAMPLES]
+                       KEY_SAMPLE_PERCENTAGE, KEY_SAMPLE_METHOD, KEY_FILTER, KEY_SAMPLES, KEY_EXCLUDED_COLUMNS]
 
 COLUMN_KEY_METRICS = KEY_METRICS
 COLUMN_KEY_METRIC_GROUPS = KEY_METRIC_GROUPS
@@ -117,6 +119,7 @@ class ScanYmlParser(Parser):
         table_name = self.get_str_required(KEY_TABLE_NAME)
         self.scan_yml.table_name = table_name
         self.scan_yml.metrics = self.parse_metrics()
+        self.scan_yml.excluded_columns = self.get_list_optional(KEY_EXCLUDED_COLUMNS)
 
         self.scan_yml.sql_metric_ymls = self.parse_sql_metric_ymls(KEY_SQL_METRICS)
 
@@ -252,9 +255,12 @@ class ScanYmlParser(Parser):
                     if validity.format is not None and Validity.FORMATS.get(validity.format) is None:
                         self.warning(f'Invalid {column_name}.{COLUMN_KEY_VALID_FORMAT}: {validity.format}')
                     validity.regex = column_dict.get(COLUMN_KEY_VALID_REGEX)
-                    validity.values = column_dict.get(COLUMN_KEY_VALID_VALUES)
-                    validity.min = column_dict.get(COLUMN_KEY_VALID_MIN)
-                    validity.max = column_dict.get(COLUMN_KEY_VALID_MAX)
+                    validity.values = YamlHelper.validate_list_value(column_name, COLUMN_KEY_VALID_VALUES,
+                                                                     column_dict.get(COLUMN_KEY_VALID_VALUES))
+                    validity.min = YamlHelper.validate_numeric_value(column_name, COLUMN_KEY_VALID_MIN,
+                                                                     column_dict.get(COLUMN_KEY_VALID_MIN))
+                    validity.max = YamlHelper.validate_numeric_value(column_name, COLUMN_KEY_VALID_MAX,
+                                                                     column_dict.get(COLUMN_KEY_VALID_MAX))
                     validity.min_length = column_dict.get(COLUMN_KEY_VALID_MIN_LENGTH)
                     validity.max_length = column_dict.get(COLUMN_KEY_VALID_MAX_LENGTH)
 
