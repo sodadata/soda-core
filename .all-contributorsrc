@@ -87,6 +87,15 @@
       "contributions": [
         "code"
       ]
+    },
+    {
+      "login": "jmarien",
+      "name": "Jonas",
+      "avatar_url": "https://avatars.githubusercontent.com/u/153805?v=4",
+      "profile": "http://www.omeyocan.be",
+      "contributions": [
+        "infra"
+      ]
     }
   ],
   "contributorsPerLine": 7,
