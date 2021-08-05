@@ -14,7 +14,7 @@ description = "Soda SQL MySQL"
 
 requires = [
     f'soda-sql-core=={package_version}',
-    'mysql-connector-python==8.0.26'
+    'mysql-connector-python>=8.0.26, <9.0'
 ]
 # TODO Fix the params
 setup(
