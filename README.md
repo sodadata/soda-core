@@ -172,14 +172,7 @@ All is good. No tests failed. Scan took 23.307 seconds
 
 ## Go further
 
-- Learn how to automate Soda SQL scans using your [data pipeline orchestration tool](https://docs.soda.io/soda-sql/documentation/orchestrate_scans.html) such as:
-   - Apache Airflow
-   - AWS Glue
-   - Prefect
-   - Dagster
-   - Fivetran
-   - Matillion
-   - Luigi
+- Learn how to automate Soda SQL scans using your [data pipeline orchestration tool](https://docs.soda.io/soda-sql/documentation/orchestrate_scans.html) such as  Apache Airflow or AWS lambda.
 - If you like the goals of this project, we welcome your [contribution](https://docs.soda.io/soda-sql/community.html)! 
 - Read more about [How Soda SQL works](https://docs.soda.io/soda-sql/documentation/concepts.html).
 
