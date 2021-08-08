@@ -70,7 +70,7 @@ class BigQueryDialect(Dialect):
         """
         return query
 
-    def sql_connection_test(self, dataset_id) -> Union[str, bool]:
+    def sql_test_connection(self, dataset_id) -> Union[str, bool]:
         logging.info(f'Listing tables to check connection')
         try:
             tables = self.client.list_tables(dataset_id)
