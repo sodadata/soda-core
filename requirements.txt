@@ -1,2 +1,10 @@
 ./core
+./packages/athena
 ./packages/bigquery
+./packages/hive
+./packages/postgresql
+./packages/mysql
+./packages/redshift
+./packages/snowflake
+./packages/sqlserver
+./packages/spark
