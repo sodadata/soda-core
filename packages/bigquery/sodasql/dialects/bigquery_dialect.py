@@ -71,12 +71,14 @@ class BigQueryDialect(Dialect):
 
     def sql_connection_test(self, dataset_id):
         logging.info(f'Listing tables to check connection')
-        tables = self.client.list_tables(dataset_id)
-
-        print("Tables contained in '{}':".format(dataset_id))
-        for table in tables:
-            print("{}.{}.{}".format(table.project, table.dataset_id, table.table_id))
-            self.client.query(self.__query_table(table))
+        tables = self.client.list_tables('bad_id')
+        if tables:
+            print("Tables contained in '{}':".format(dataset_id))
+            for table in tables:
+                print("{}.{}.{}".format(table.project, table.dataset_id, table.table_id))
+                self.client.query(self.__query_table(table))
+        else:
+            raise Exception('Cannot list tables!')
         return tables
 
     def sql_tables_metadata_query(self, limit: str = 10, filter: str = None):
