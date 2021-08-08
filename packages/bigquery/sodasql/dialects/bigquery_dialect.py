@@ -11,6 +11,7 @@
 import logging
 import json
 from json.decoder import JSONDecodeError
+from typing import Optional, Union
 
 from google.api_core.exceptions import Forbidden, NotFound
 from google.auth.exceptions import GoogleAuthError, TransportError
@@ -69,7 +70,7 @@ class BigQueryDialect(Dialect):
         """
         return query
 
-    def sql_connection_test(self, dataset_id):
+    def sql_connection_test(self, dataset_id) -> Union[str, bool]:
         logging.info(f'Listing tables to check connection')
         try:
             tables = self.client.list_tables(dataset_id)
@@ -79,13 +80,14 @@ class BigQueryDialect(Dialect):
                     print("{}.{}.{}".format(table.project, table.dataset_id, table.table_id))
                     try:
                         self.client.query(self.__query_table(table))
-                    except Exception:
-                        raise Exception("Unable to query table: {} from the dataset: {}".format(table, dataset_id))
+                        return True
+                    except Exception as e:
+                        return "Unable to query table: {} from the dataset: {}. Exception: {}".format(table, dataset_id, e)
+                return True
             else:
-                raise Exception("{} dataset does not contain any tables".format(dataset_id))
-        except Exception:
-            raise Exception("Unable to list tables from: {}".format(dataset_id))
-        return tables
+                return "{} dataset does not contain any tables".format(dataset_id)
+        except Exception as e:
+            return "Unable to list tables from: {}. Exception: {}".format(dataset_id, e)
 
     def sql_tables_metadata_query(self, limit: str = 10, filter: str = None):
         return (f"SELECT table_name \n"
