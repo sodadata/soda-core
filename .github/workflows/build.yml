@@ -108,6 +108,7 @@ jobs:
           event-type: started-from-soda-sql
           client-payload: '{"ref": "${{ github.ref }}", "sha": "${{ github.sha }}"}'
 
+
   publish-pypi:
     name: Build & Publish Package
     if: contains(github.ref, 'refs/tags/')
