@@ -45,8 +45,9 @@ class WarehouseFixture:
             return AthenaFixture(target)
         elif target == TARGET_BIGQUERY:
             from tests.warehouses.bigquery_fixture import BigQueryFixture
-            BigQueryFixture.test_connection_warehouse()
-            return BigQueryFixture(target)
+            bqf = BigQueryFixture(target)
+            bqf.test_connection_warehouse()
+            return bqf
         elif target == TARGET_HIVE:
             from tests.warehouses.hive_fixture import HiveFixture
             return HiveFixture(target)
@@ -66,7 +67,6 @@ class WarehouseFixture:
         self.warehouse: Optional[Warehouse] = Warehouse(self.warehouse_yml)
         self.database: Optional[str] = None
         self.create_database()
-
 
     def create_dialect(cls, target: str) -> Dialect:
         tests_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
