@@ -8,3 +8,10 @@
 ./packages/snowflake
 ./packages/sqlserver
 ./packages/spark
+
+PyYAML~=5.4.1
+Jinja2~=3.0.1
+setuptools~=49.2.1
+boto3~=1.18.14
+pyathena~=2.3.0
+botocore~=1.21.14

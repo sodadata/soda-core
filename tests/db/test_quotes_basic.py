@@ -9,7 +9,7 @@ from google.cloud import bigquery
 from google.cloud.bigquery import dbapi
 from google.oauth2.service_account import Credentials
 from snowflake import connector
-
+import mysql.connector
 from sodasql.common.logging_helper import LoggingHelper
 from sodasql.scan.aws_credentials import AwsCredentials
 from sodasql.scan.db import sql_update, sql_fetchone
@@ -62,6 +62,23 @@ class TestSqlQuotes(TestCase):
 
         finally:
             connection.close()
+
+    def test_mysql(self):
+        database = 'sodasql'
+        schema = 'public'
+
+        connection = mysql.connector.connect(
+            host='localhost',
+            user='sodasql',
+            password='sodasql'
+            )
+        mycursor = connection.cursor()
+
+        mycursor.execute(f"CREATE DATABASE IF NOT EXISTS {database}")
+        mycursor.execute(f"CREATE TABLE IF NOT EXISTS test_table (f1 VARCHAR(255), "
+                         f"f2 TEXT, f3 INT, f4 FLOAT)")
+
+
 
     def test_redshift(self):
         database = 'soda_test_quotes_db'

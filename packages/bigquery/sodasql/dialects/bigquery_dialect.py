@@ -8,7 +8,7 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-
+import logging
 import json
 from json.decoder import JSONDecodeError
 
@@ -60,6 +60,15 @@ class BigQueryDialect(Dialect):
             return conn
         except Exception as e:
             self.try_to_raise_soda_sql_exception(e)
+
+    def sql_connection_test(self, dataset_id):
+        connection = self.create_connection()
+        logging.info(f'Listing tables to check connection')
+        tables = connection.list_tables(dataset_id)
+        print("Tables contained in '{}':".format(dataset_id))
+        for table in tables:
+            print("{}.{}.{}".format(table.project, table.dataset_id, table.table_id))
+        return tables
 
     def sql_tables_metadata_query(self, limit: str = 10, filter: str = None):
         return (f"SELECT table_name \n"

@@ -20,7 +20,7 @@ def sql_fetchone(connection, sql: str) -> tuple:
     return sql_fetchone_description(connection, sql)[0]
 
 
-def sql_fetchone_description(connection, sql: str) -> tuple:
+def  sql_fetchone_description(connection, sql: str) -> tuple:
     """
     Returns a tuple with 2 elements:
     1) the tuple obtained by cursor.fetchone()

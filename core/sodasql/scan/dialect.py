@@ -110,7 +110,7 @@ class Dialect:
     def default_env_vars(self, params: dict):
         pass
 
-    def sql_connection_test(self):
+    def sql_connection_test(self, dataset_id):
         return "select 1"
 
     def create_connection(self):
