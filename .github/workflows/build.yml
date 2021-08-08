@@ -15,7 +15,7 @@ jobs:
       fail-fast: false
       matrix:
         python-version: [ 3.7, 3.8, 3.9 ]
-        test-module: [ local, RedshiftSuite, SnowflakeSuite, AthenaSuite, BigQuerySuite, SparkSuite ]
+        test-module: [ BigQuerySuite ]
     env:
       TEST_MODULE: ${{ matrix.test-module }}
       PYTHON_VERSION: ${{ matrix.python-version }}
