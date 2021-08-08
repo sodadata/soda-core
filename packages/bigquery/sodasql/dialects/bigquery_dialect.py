@@ -62,9 +62,8 @@ class BigQueryDialect(Dialect):
             self.try_to_raise_soda_sql_exception(e)
 
     def sql_connection_test(self, dataset_id):
-        connection = self.create_connection()
         logging.info(f'Listing tables to check connection')
-        tables = connection.list_tables(dataset_id)
+        tables = self.client.list_tables(dataset_id)
         print("Tables contained in '{}':".format(dataset_id))
         for table in tables:
             print("{}.{}.{}".format(table.project, table.dataset_id, table.table_id))
