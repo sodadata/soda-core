@@ -111,7 +111,7 @@ class Dialect:
         pass
 
     def sql_test_connection(self, dataset_id):
-        pass
+        return "select 1"
 
     def sql_connection_test(self):
         return "select 1"
