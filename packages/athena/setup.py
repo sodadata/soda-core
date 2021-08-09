@@ -14,7 +14,7 @@ description = "Soda SQL Amazon Athena"
 
 requires = [
     f'soda-sql-core=={package_version}',
-    'PyAthena==2.2.0'
+    'PyAthena>=2.2.0, <3.0'
 ]
 # TODO Fix the params
 # TODO Add a warning that installing core doesn't give any warehouse functionality
