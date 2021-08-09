@@ -31,7 +31,7 @@ class BigQueryFixture(WarehouseFixture):
 
     def test_connection_warehouse(self):
         dataset_id = f"{self.project_id}.{self.database}"
-        assert (self.warehouse.dialect.sql_test_connection(dataset_id))
+        assert (self.warehouse.dialect.sql_test_connection('bad_id'))
 
     def drop_database(self):
         dataset_id = f"{self.project_id}.{self.database}"
