@@ -11,7 +11,7 @@
 import logging
 import json
 from json.decoder import JSONDecodeError
-from typing import Optional, Union
+from typing import Union
 
 from google.api_core.exceptions import Forbidden, NotFound
 from google.auth.exceptions import GoogleAuthError, TransportError
@@ -75,9 +75,9 @@ class BigQueryDialect(Dialect):
         try:
             tables = self.client.list_tables(dataset_id)
             if tables:
-                print("Tables contained in '{}':".format(dataset_id))
+                logging.info("Tables contained in '{}':".format(dataset_id))
                 for table in tables:
-                    print("{}.{}.{}".format(table.project, table.dataset_id, table.table_id))
+                    logging.info("{}.{}.{}".format(table.project, table.dataset_id, table.table_id))
                     try:
                         self.client.query(self.__query_table(table))
                         return True
