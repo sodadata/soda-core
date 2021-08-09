@@ -75,19 +75,17 @@ class BigQueryDialect(Dialect):
         try:
             tables = self.client.list_tables(dataset_id)
             if tables:
-                logging.info("Tables contained in '{}':".format(dataset_id))
+                logging.info(f'Tables contained in {dataset_id}')
                 for table in tables:
-                    logging.info("{}.{}.{}".format(table.project, table.dataset_id, table.table_id))
                     try:
                         self.client.query(self.__query_table(table))
-                        return True
                     except Exception as e:
-                        raise Exception("Unable to query table: {} from the dataset: {}. Exception: {}".format(table, dataset_id, e))
+                        raise Exception(f'Unable to query table: {table} from the dataset: {dataset_id}. Exception: {e}')
                 return True
             else:
-                raise Exception("{} dataset does not contain any tables".format(dataset_id))
+                logging.error(f'Unable to query tables from dataset {dataset_id}')
         except Exception as e:
-            raise Exception("Unable to list tables from: {}. Exception: {}".format(dataset_id, e))
+            raise Exception(f'Unable to list tables from: {dataset_id}. Exception: {e}')
 
     def sql_tables_metadata_query(self, limit: str = 10, filter: str = None):
         return (f"SELECT table_name \n"
