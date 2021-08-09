@@ -9,7 +9,6 @@ from google.cloud import bigquery
 from google.cloud.bigquery import dbapi
 from google.oauth2.service_account import Credentials
 from snowflake import connector
-
 from sodasql.common.logging_helper import LoggingHelper
 from sodasql.scan.aws_credentials import AwsCredentials
 from sodasql.scan.db import sql_update, sql_fetchone

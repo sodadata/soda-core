@@ -8,9 +8,10 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-
+import logging
 import json
 from json.decoder import JSONDecodeError
+from typing import Union
 
 from google.api_core.exceptions import Forbidden, NotFound
 from google.auth.exceptions import GoogleAuthError, TransportError
@@ -60,6 +61,31 @@ class BigQueryDialect(Dialect):
             return conn
         except Exception as e:
             self.try_to_raise_soda_sql_exception(e)
+
+    def __query_table(self, table_name):
+        query = f"""
+            SELECT *
+            FROM {table_name}
+            LIMIT 1
+        """
+        return query
+
+    def sql_test_connection(self, dataset_id) -> Union[Exception, bool]:
+        logging.info(f'Listing tables to check connection')
+        try:
+            tables = self.client.list_tables(dataset_id)
+            if tables:
+                logging.info(f'Tables contained in {dataset_id}')
+                for table in tables:
+                    try:
+                        self.client.query(self.__query_table(table))
+                    except Exception as e:
+                        raise Exception(f'Unable to query table: {table} from the dataset: {dataset_id}. Exception: {e}')
+                return True
+            else:
+                logging.error(f'Unable to query tables from dataset {dataset_id}')
+        except Exception as e:
+            raise Exception(f'Unable to list tables from: {dataset_id}. Exception: {e}')
 
     def sql_tables_metadata_query(self, limit: str = 10, filter: str = None):
         return (f"SELECT table_name \n"

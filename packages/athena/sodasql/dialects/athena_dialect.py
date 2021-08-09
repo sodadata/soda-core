@@ -11,7 +11,6 @@
 import re
 from datetime import date
 import pyathena
-
 from sodasql.scan.dialect import ATHENA, KEY_WAREHOUSE_TYPE, Dialect
 from sodasql.scan.parser import Parser
 from sodasql.scan.aws_credentials import AwsCredentials
