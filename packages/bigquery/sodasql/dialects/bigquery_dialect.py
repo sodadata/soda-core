@@ -70,7 +70,7 @@ class BigQueryDialect(Dialect):
         """
         return query
 
-    def sql_test_connection(self, dataset_id) -> Union[str, bool]:
+    def sql_test_connection(self, dataset_id) -> Union[Exception, bool]:
         logging.info(f'Listing tables to check connection')
         try:
             tables = self.client.list_tables(dataset_id)
@@ -82,12 +82,12 @@ class BigQueryDialect(Dialect):
                         self.client.query(self.__query_table(table))
                         return True
                     except Exception as e:
-                        return "Unable to query table: {} from the dataset: {}. Exception: {}".format(table, dataset_id, e)
+                        raise Exception("Unable to query table: {} from the dataset: {}. Exception: {}".format(table, dataset_id, e))
                 return True
             else:
-                return "{} dataset does not contain any tables".format(dataset_id)
+                raise Exception("{} dataset does not contain any tables".format(dataset_id))
         except Exception as e:
-            return "Unable to list tables from: {}. Exception: {}".format(dataset_id, e)
+            raise Exception("Unable to list tables from: {}. Exception: {}".format(dataset_id, e))
 
     def sql_tables_metadata_query(self, limit: str = 10, filter: str = None):
         return (f"SELECT table_name \n"
