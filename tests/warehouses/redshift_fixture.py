@@ -29,6 +29,7 @@ class RedshiftFixture(WarehouseFixture):
 
         self.warehouse.dialect = self.warehouse.dialect.with_database(self.database)
         self.warehouse.connection = self.warehouse.dialect.create_connection()
+        self.warehouse.dialect.sql_test_connection()
 
     def drop_database(self):
         try:

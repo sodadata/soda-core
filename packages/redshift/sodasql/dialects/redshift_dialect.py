@@ -12,7 +12,8 @@
 import boto3
 import psycopg2
 from botocore.exceptions import ClientError, ValidationError, ParamValidationError
-
+import logging
+from typing import Union
 from sodasql.dialects.postgres_dialect import PostgresDialect
 from sodasql.scan.dialect import REDSHIFT, KEY_WAREHOUSE_TYPE
 from sodasql.scan.dialect_parser import DialectParser
@@ -116,6 +117,34 @@ class RedshiftDialect(PostgresDialect):
                                                        DurationSeconds=3600)
 
         return cluster_creds['DbUser'], cluster_creds['DbPassword']
+
+    def __query_table(self, table_name):
+        query = f"""
+        SELECT *
+        FROM {table_name}
+        LIMIT 1
+        """
+        return query
+
+    def sql_test_connection(self) -> Union[Exception, bool]:
+        conn = self.create_connection()
+        cursor = conn.cursor()
+        try:
+            cursor.execute(f"USE {self.database}")
+            cursor.execute("SHOW TABLES")
+            tables = cursor.fetchall()
+        except Exception as e:
+            raise Exception(f'Unable to target database: {self.database} or to list tables. Exception: {e}')
+        if tables:
+            for (table_name,) in cursor:
+                test_query = self.__query_table(table_name)
+                try:
+                    cursor.execute(test_query)
+                except psycopg2.Error as e:
+                    raise Exception(f'Unable to query table: {table_name} from the database: {self.database}. Exception: {e}')
+        else:
+            logging.warning(f'{self.database} does not contain any tables.')
+        return True
 
     def is_text(self, column_type: str):
         return column_type.upper() in ['CHAR', 'CHARACTER', 'BPCHAR',
