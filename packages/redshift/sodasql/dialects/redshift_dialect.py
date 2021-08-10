@@ -130,7 +130,6 @@ class RedshiftDialect(PostgresDialect):
         conn = self.create_connection()
         cursor = conn.cursor()
         try:
-            cursor.execute(f"USE '{self.database}'")
             cursor.execute("SHOW TABLES")
             tables = cursor.fetchall()
         except Exception as e:
