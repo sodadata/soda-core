@@ -45,9 +45,7 @@ class WarehouseFixture:
             return AthenaFixture(target)
         elif target == TARGET_BIGQUERY:
             from tests.warehouses.bigquery_fixture import BigQueryFixture
-            bqf = BigQueryFixture(target)
-            bqf.test_connection_warehouse()
-            return bqf
+            return BigQueryFixture(target)
         elif target == TARGET_HIVE:
             from tests.warehouses.hive_fixture import HiveFixture
             return HiveFixture(target)
