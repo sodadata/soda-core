@@ -85,16 +85,11 @@ class AthenaDialect(Dialect):
     def sql_test_connection(self) -> Union[Exception, bool]:
         conn = self.create_connection()
         cursor = conn.cursor()
-        tables = cursor.fetchall()
-        if tables:
-            for (table_name,) in cursor:
-                test_query = self.__query_table(table_name)
-                try:
-                    cursor.execute(test_query)
-                except Exception as e:
-                    raise Exception(f'Unable to query table: {table_name} from the database: {self.database}. Exception: {e}')
-        else:
-            logging.warning(f'{self.database} does not contain any tables.')
+        try:
+            cursor.execute(self.sql_tables_metadata_query())
+        except Exception as e:
+            raise Exception(f'Unable to get tables metadata from database: {self.database}. Exception: {e}')
+
         return True
 
     def is_text(self, column_type: str):
