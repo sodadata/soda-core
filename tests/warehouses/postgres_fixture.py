@@ -19,3 +19,6 @@ class PostgresFixture(WarehouseFixture):
 
     def drop_database(self):
         pass
+
+    def test_warehouse_connection(self):
+        assert(self.warehouse.dialect.sql_test_connection())
