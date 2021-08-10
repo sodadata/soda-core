@@ -36,6 +36,7 @@ class AthenaFixture(WarehouseFixture):
     def create_database(self):
         self.database = self.create_unique_database_name()
         self.warehouse.dialect.database = self.database
+        
         sql_updates(self.warehouse.connection, [
             f'CREATE DATABASE IF NOT EXISTS {self.database}'])
         self.warehouse.dialect.sql_test_connection()
