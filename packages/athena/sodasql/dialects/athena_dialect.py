@@ -9,6 +9,8 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 import re
+import logging
+from typing import Union
 from datetime import date
 import pyathena
 from sodasql.scan.dialect import ATHENA, KEY_WAREHOUSE_TYPE, Dialect
@@ -71,6 +73,29 @@ class AthenaDialect(Dialect):
             role_arn=self.aws_credentials.role_arn if self.aws_credentials else None,
             catalog_name=self.catalog)
         return conn
+
+    def __query_table(self, table_name):
+        query = f"""
+        SELECT *
+        FROM {table_name}
+        LIMIT 1
+        """
+        return query
+
+    def sql_test_connection(self) -> Union[Exception, bool]:
+        conn = self.create_connection()
+        cursor = conn.cursor()
+        tables = cursor.fetchall()
+        if tables:
+            for (table_name,) in cursor:
+                test_query = self.__query_table(table_name)
+                try:
+                    cursor.execute(test_query)
+                except Exception as e:
+                    raise Exception(f'Unable to query table: {table_name} from the database: {self.database}. Exception: {e}')
+        else:
+            logging.warning(f'{self.database} does not contain any tables.')
+        return True
 
     def is_text(self, column_type: str):
         column_type_upper = column_type.upper()
