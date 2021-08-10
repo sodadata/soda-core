@@ -74,6 +74,7 @@ class BigQueryDialect(Dialect):
         logging.info(f'Listing tables to check connection')
         try:
             tables = self.client.list_tables(dataset_id)
+            logging.info(f'dataset_id = {dataset_id}')
             if tables:
                 logging.info(f'Tables contained in {dataset_id}')
                 for table in tables:
