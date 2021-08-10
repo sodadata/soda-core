@@ -88,7 +88,7 @@ class AthenaDialect(Dialect):
         try:
             cursor.execute(self.sql_tables_metadata_query())
         except Exception as e:
-            raise Exception(f'Unable to get tables metadata from database: {self.database}. Exception: {e}')
+            raise Exception(f'Unable to get tables metadata from database: {self.database}. Exception {e}')
         return True
 
     def is_text(self, column_type: str):
