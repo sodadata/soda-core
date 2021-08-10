@@ -66,7 +66,9 @@ class WarehouseFixture:
             return msf
         elif target == TARGET_SPARK:
             from tests.warehouses.spark_fixture import SparkFixture
-            return SparkFixture(target)
+            sf =  SparkFixture(target)
+            sf.test_warehouse_connection()
+            return sf
         raise RuntimeError(f'Invalid target {target}')
 
     def __init__(self, target: str) -> None:

@@ -19,3 +19,6 @@ class SparkFixture(WarehouseFixture):
         return f"CREATE TABLE " \
                f"{self.warehouse.dialect.qualify_writable_table_name(table_name)} ( \n " \
                f"{columns_sql} )"
+
+    def test_warehouse_connection(self):
+        assert(self.warehouse.dialect.sql_test_connection())
