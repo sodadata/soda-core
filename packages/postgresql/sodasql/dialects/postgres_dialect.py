@@ -78,8 +78,7 @@ class PostgresDialect(Dialect):
         conn = self.create_connection()
         cursor = conn.cursor()
         try:
-            cursor.execute(f"USE {self.database}")
-            cursor.execute("SHOW TABLES")
+            cursor.execute("select table_name from information_schema.tables")
             tables = cursor.fetchall()
         except Exception as e:
             raise Exception(f'Unable to target database: {self.database} or to list tables. Exception: {e}')

@@ -57,6 +57,7 @@ class WarehouseFixture:
         elif target == TARGET_HIVE:
             from tests.warehouses.hive_fixture import HiveFixture
             hf = HiveFixture(target)
+            hf.test_warehouse_connection()
             return hf
         elif target == TARGET_MYSQL:
             from tests.warehouses.mysql_fixture import MySQLFixture
