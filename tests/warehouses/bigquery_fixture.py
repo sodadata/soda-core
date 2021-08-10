@@ -33,10 +33,7 @@ class BigQueryFixture(WarehouseFixture):
         dataset.location = "EU"
         self.warehouse.dialect.client.create_dataset(dataset, timeout=30)
         self.warehouse.dialect.sql_test_connection()
-
-    def test_connection_warehouse(self):
-        dataset_id = f"{self.project_id}.{self.database}"
-        assert (self.warehouse.dialect.sql_test_connection())
+        
 
     def drop_database(self):
         dataset_id = f"{self.project_id}.{self.database}"

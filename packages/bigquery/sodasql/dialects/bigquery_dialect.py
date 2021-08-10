@@ -73,9 +73,7 @@ class BigQueryDialect(Dialect):
     def sql_test_connection(self) -> Union[Exception, bool]:
         logging.info(f'Listing tables to check connection')
         project_id = self.account_info_dict['project_id']
-        logging.info(f'method: project_id= {project_id}')
         dataset_id = f'{project_id}.{self.dataset_name}'
-        logging.info(f'method: dataset_id= {dataset_id}')
         try:
             tables = self.client.list_tables(dataset_id)
             logging.info(f'dataset_id = {dataset_id}')
