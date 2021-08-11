@@ -74,14 +74,6 @@ class AthenaDialect(Dialect):
             catalog_name=self.catalog)
         return conn
 
-    def __query_table(self, table_name):
-        query = f"""
-        SELECT *
-        FROM {table_name}
-        LIMIT 1
-        """
-        return query
-
     def sql_test_connection(self) -> Union[Exception, bool]:
         conn = self.create_connection()
         cursor = conn.cursor()

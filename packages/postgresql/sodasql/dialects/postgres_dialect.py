@@ -67,6 +67,7 @@ class PostgresDialect(Dialect):
             self.try_to_raise_soda_sql_exception(e)
 
     def __query_table(self, table_name):
+
         query = f"""
         SELECT *
         FROM {table_name}
@@ -74,8 +75,9 @@ class PostgresDialect(Dialect):
         """
         return query
 
-    def sql_test_connection(self) -> Union[Exception, bool]:
+    def sql_test_connection(self) -> bool:
         conn = self.create_connection()
+
         cursor = conn.cursor()
         try:
             cursor.execute("select table_name from information_schema.tables")

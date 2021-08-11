@@ -115,7 +115,7 @@ class SnowflakeDialect(Dialect):
         """
         return query
 
-    def sql_test_connection(self) -> Union[Exception, bool]:
+    def sql_test_connection(self) -> bool:
         conn = self.create_connection()
         cursor = conn.cursor()
         try:
