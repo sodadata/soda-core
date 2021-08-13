@@ -12,7 +12,8 @@
 import boto3
 import psycopg2
 from botocore.exceptions import ClientError, ValidationError, ParamValidationError
-
+import logging
+from typing import Union
 from sodasql.dialects.postgres_dialect import PostgresDialect
 from sodasql.scan.dialect import REDSHIFT, KEY_WAREHOUSE_TYPE
 from sodasql.scan.dialect_parser import DialectParser

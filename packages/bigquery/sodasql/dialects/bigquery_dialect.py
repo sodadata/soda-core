@@ -62,17 +62,12 @@ class BigQueryDialect(Dialect):
         except Exception as e:
             self.try_to_raise_soda_sql_exception(e)
 
-    def __query_table(self, table_name):
-        query = f"""
-            SELECT *
-            FROM {table_name}
-            LIMIT 1
-        """
-        return query
-
-    def sql_test_connection(self, dataset_id) -> Union[Exception, bool]:
-        logging.info(f'Listing tables to check connection')
+    def sql_test_connection(self) -> bool:
+        logging.info('Listing tables to check connection')
+        project_id = self.account_info_dict['project_id']
+        dataset_id = f'{project_id}.{self.dataset_name}'
         try:
+            logging.info(f'dataset_id = {dataset_id}')
             tables = self.client.list_tables(dataset_id)
             if tables:
                 logging.info(f'Tables contained in {dataset_id}')

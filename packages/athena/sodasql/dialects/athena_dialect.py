@@ -9,6 +9,8 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 import re
+import logging
+from typing import Union
 from datetime import date
 import pyathena
 from sodasql.scan.dialect import ATHENA, KEY_WAREHOUSE_TYPE, Dialect
@@ -71,6 +73,15 @@ class AthenaDialect(Dialect):
             role_arn=self.aws_credentials.role_arn if self.aws_credentials else None,
             catalog_name=self.catalog)
         return conn
+
+    def sql_test_connection(self) -> Union[Exception, bool]:
+        conn = self.create_connection()
+        cursor = conn.cursor()
+        try:
+            cursor.execute(self.sql_tables_metadata_query())
+        except Exception as e:
+            raise Exception(f'Unable to get tables metadata from database: {self.database}. Exception {e}')
+        return True
 
     def is_text(self, column_type: str):
         column_type_upper = column_type.upper()

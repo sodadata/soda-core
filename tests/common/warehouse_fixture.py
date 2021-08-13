@@ -33,27 +33,37 @@ class WarehouseFixture:
             TARGET_BIGQUERY, TARGET_HIVE, TARGET_MYSQL, TARGET_SPARK
         if target == TARGET_POSTGRES:
             from tests.warehouses.postgres_fixture import PostgresFixture
-            return PostgresFixture(target)
+            pf = PostgresFixture(target)
+            pf.test_warehouse_connection()
+            return pf
         elif target == TARGET_SNOWFLAKE:
             from tests.warehouses.snowflake_fixture import SnowflakeFixture
-            return SnowflakeFixture(target)
+            sff = SnowflakeFixture(target)
+            sff.test_warehouse_connection()
+            return sff
         elif target == TARGET_REDSHIFT:
             from tests.warehouses.redshift_fixture import RedshiftFixture
-            return RedshiftFixture(target)
+            rsf = RedshiftFixture(target)
+            rsf.test_warehouse_connection()
+            return rsf
         elif target == TARGET_ATHENA:
             from tests.warehouses.athena_fixture import AthenaFixture
-            return AthenaFixture(target)
+            af = AthenaFixture(target)
+            af.test_warehouse_connection()
+            return af
         elif target == TARGET_BIGQUERY:
             from tests.warehouses.bigquery_fixture import BigQueryFixture
-            bqf = BigQueryFixture(target)
-            bqf.test_connection_warehouse()
-            return bqf
+            return BigQueryFixture(target)
         elif target == TARGET_HIVE:
             from tests.warehouses.hive_fixture import HiveFixture
-            return HiveFixture(target)
+            hf = HiveFixture(target)
+            hf.test_warehouse_connection()
+            return hf
         elif target == TARGET_MYSQL:
             from tests.warehouses.mysql_fixture import MySQLFixture
-            return MySQLFixture(target)
+            msf = MySQLFixture(target)
+            msf.test_warehouse_connection()
+            return msf
         elif target == TARGET_SPARK:
             from tests.warehouses.spark_fixture import SparkFixture
             return SparkFixture(target)

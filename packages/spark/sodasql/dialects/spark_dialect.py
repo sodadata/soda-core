@@ -1,6 +1,8 @@
 from pyhive import hive
 from pyhive.exc import Error
 from thrift.transport.TTransport import TTransportException
+import logging
+from typing import Union
 
 from sodasql.scan.dialect import Dialect, SPARK, KEY_WAREHOUSE_TYPE
 from sodasql.scan.parser import Parser
@@ -57,6 +59,21 @@ class SparkDialect(Dialect):
             return conn
         except Exception as e:
             self.try_to_raise_soda_sql_exception(e)
+
+    def sql_test_connection(self) -> bool:
+        conn = self.create_connection()
+        cursor = conn.cursor()
+        tables = cursor.fetchall()
+        if tables:
+            for (table_name,) in cursor:
+                test_query = self.__query_table(table_name)
+                try:
+                    cursor.execute(test_query)
+                except Exception as e:
+                    raise Exception(f'Unable to query table: {table_name} from the database: {self.database}. Exception: {e}')
+        else:
+            logging.warning(f'{self.database} does not contain any tables.')
+        return True
 
     def sql_columns_metadata(self, table_name: str):
         with self.create_connection().cursor() as cursor:

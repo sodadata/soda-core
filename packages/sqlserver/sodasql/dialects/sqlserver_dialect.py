@@ -11,6 +11,8 @@
 from datetime import date
 
 import pyodbc
+import logging
+from typing import Union
 
 from sodasql.scan.dialect import Dialect, SQLSERVER, KEY_WAREHOUSE_TYPE
 from sodasql.scan.parser import Parser
@@ -88,6 +90,29 @@ class SQLServerDialect(Dialect):
             return conn
         except Exception as e:
             self.try_to_raise_soda_sql_exception(e)
+
+    def __query_table(self, table_name):
+        query = f"""
+        SELECT *
+        FROM {table_name}
+        LIMIT 1
+        """
+        return query
+
+    def sql_test_connection(self) -> Union[Exception, bool]:
+        conn = self.create_connection()
+        cursor = conn.cursor()
+        tables = cursor.tables()
+        if tables:
+            for (table_name,) in cursor:
+                test_query = self.__query_table(table_name)
+                try:
+                    cursor.execute(test_query)
+                except Exception as e:
+                    raise Exception(f'Unable to query table: {table_name} from the database: {self.database}. Exception: {e}')
+        else:
+            logging.warning(f'{self.database} does not contain any tables.')
+        return True
 
     def sql_columns_metadata_query(self, table_name: str) -> str:
         sql = (f"SELECT column_name, data_type, is_nullable \n"

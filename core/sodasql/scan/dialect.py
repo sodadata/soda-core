@@ -110,7 +110,15 @@ class Dialect:
     def default_env_vars(self, params: dict):
         pass
 
-    def sql_test_connection(self, dataset_id):
+    def __query_table(self, table_name):
+        query = f"""
+            SELECT *
+            FROM {table_name}
+            LIMIT 1
+        """
+        return query
+
+    def sql_test_connection(self):
         return "select 1"
 
     def sql_connection_test(self):
