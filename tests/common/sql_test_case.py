@@ -96,7 +96,7 @@ class SqlTestCase(TestCase):
     def create_dialect(cls, target: str) -> Dialect:
         tests_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         test_warehouse_cfg_path = f'{tests_dir}/warehouses/{target}_cfg.yml'
-        with open(test_warehouse_cfg_path) as f:
+        with open(test_warehouse_cfg_path, encoding='utf-8') as f:
             warehouse_configuration_dict = yaml.load(f, Loader=yaml.SafeLoader)
             dialect_parser = DialectParser(warehouse_configuration_dict)
             dialect_parser.assert_no_warnings_or_errors()

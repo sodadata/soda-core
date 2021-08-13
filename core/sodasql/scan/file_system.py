@@ -56,7 +56,8 @@ class FileSystem:
     def file_read_as_str(self, path: str) -> str:
         expanded_path = os.path.expanduser(path)
         try:
-            with open(expanded_path) as f:
+            # Add encoding
+            with open(expanded_path, encoding='utf-8') as f:
                 return f.read()
         except Exception as e:
             logging.debug(f"Couldn't read {str(path)}: {str(e)}")
@@ -66,7 +67,7 @@ class FileSystem:
         path_path: Path = Path(expanded_path)
         is_new = not path_path.exists()
         try:
-            with open(path_path, 'w+') as f:
+            with open(path_path, 'w+', encoding='utf-8') as f:
                 f.write(file_content_str)
             if is_new:
                 os.chmod(path, 0o666)
