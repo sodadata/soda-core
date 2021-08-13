@@ -1,4 +1,13 @@
+<p align="center"><img src="https://github.com/sodadata/docs/blob/main/assets/images/mission-fit-banner-1.png" alt="Hackathon banner" width="900" /></p>
+
+Join the fun in the <a href="https://dama-ga.org/announcements.php?id=2" target="_blank">DAMA Georgia & Soda Mission Fit Data Hackathon</a> taking place August 12 to September 02 2021. 
+
+<a href="https://dama-ga.org/announcements.php?id=2" target="_blank">Register</a> your team by **Friday, August 20, 2021**.
+
+---
+
 <p align="center"><img src="https://github.com/sodadata/docs/blob/main/assets/images/soda-sql-logo.png" alt="Soda logo" width="300" /></p>
+
 
 <h1 align="center">Soda SQL</h1>
 <p align="center"><b>Data testing, monitoring, and profiling for SQL-accessible data.</b></p>

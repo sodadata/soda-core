@@ -8,10 +8,10 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-from datetime import date
+import logging
 
 import mysql.connector
-
+from typing import Union
 from sodasql.scan.dialect import Dialect, SQLSERVER, KEY_WAREHOUSE_TYPE
 from sodasql.scan.parser import Parser
 
@@ -59,7 +59,27 @@ class MySQLDialect(Dialect):
                                            database=self.database)
             return conn
         except Exception as e:
-            self.try_to_raise_soda_sql_exception
+            self.try_to_raise_soda_sql_exception(e)
+
+    def sql_test_connection(self) -> bool:
+        conn = self.create_connection()
+        cursor = conn.cursor()
+        try:
+            cursor.execute(f"USE {self.database}")
+            cursor.execute("SHOW TABLES")
+            tables = cursor.fetchall()
+        except Exception as e:
+            raise Exception(f'Unable to target database: {self.database} or to list tables. Exception: {e}')
+        if tables:
+            for (table_name,) in cursor:
+                test_query = self.__query_table(table_name)
+                try:
+                    cursor.execute(test_query)
+                except Exception as e:
+                    raise Exception(f'Unable to query table: {table_name} from the database: {self.database}. Exception: {e}')
+        else:
+            logging.warning(f'{self.database} does not contain any tables.')
+        return True
 
     def sql_columns_metadata_query(self, table_name: str) -> str:
         sql = (f"SELECT column_name, data_type, is_nullable \n"
