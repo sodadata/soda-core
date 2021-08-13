@@ -91,7 +91,7 @@ class TestCli(SqlTestCase):
 
     def load_demo_data(self):
         demodata_path = os.path.normpath(os.path.join(os.path.dirname(__file__), '../..', '..', 'demo', 'demodata.sql'))
-        with open(demodata_path) as f:
+        with open(demodata_path, encoding='utf-8') as f:
             sql_statements_str = f.read()
             for sql_statement in sql_statements_str.split(';'):
                 if sql_statement.strip():

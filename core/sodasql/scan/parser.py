@@ -65,7 +65,7 @@ class Parser:
 
     def _read_file_as_string(self, file_path: str):
         try:
-            with open(file_path) as f:
+            with open(file_path, encoding='utf-8') as f:
                 return f.read()
         except Exception as e:
             self.error(f"Couldn't read file {file_path}: {str(e)}")
