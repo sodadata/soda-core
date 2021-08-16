@@ -10,14 +10,26 @@
 #  limitations under the License.
 
 import logging
+import os
 import sys
 
 
 class LoggingHelper:
+    log_format = "  | %(message)s"
 
     @classmethod
     def configure_for_cli(cls):
-        cls.configure_for_test()
+        cls.configure()
+
+    @classmethod
+    def configure(cls):
+        logging.basicConfig(
+            level=os.getenv("SODA_LOGGING_LEVEL", logging.DEBUG),
+            # https://docs.python.org/3/library/logging.html#logrecord-attributes
+            # %(name)s
+            format=cls.log_format,
+            handlers=[logging.StreamHandler(sys.stdout)]
+        )
 
     @classmethod
     def configure_for_test(cls):
@@ -28,8 +40,9 @@ class LoggingHelper:
         logging.getLogger('snowflake').setLevel(logging.WARNING)
         logging.basicConfig(
             level=logging.DEBUG,
+            force=True, # Override any previously set handlers.
             # https://docs.python.org/3/library/logging.html#logrecord-attributes
             # %(name)s
-            format="  | %(message)s",
+            format=cls.log_format,
             handlers=[logging.StreamHandler(sys.stdout)]
         )
