@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 
+from sodasql.exceptions.exceptions import SodaSqlError
 from sodasql.scan.test import Test
 
 
@@ -18,6 +19,9 @@ class ScanError:
         }
         if self.exception is not None:
             json['exception'] = str(self.exception)
+
+            if hasattr(self.exception, "error_code"):
+                json['errorCode'] = self.exception.error_code
         return json
 
     def get_type(self) -> str:
