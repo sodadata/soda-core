@@ -16,7 +16,6 @@ from sodasql.common.json_helper import JsonHelper
 
 @dataclass
 class GroupValue:
-
     group: dict
     value: object
 
@@ -31,7 +30,7 @@ class GroupValue:
         )
 
     @classmethod
-    def from_json_list(cls, json_list: list):
+    def from_json_list(cls, json_list: List):
         if json_list is None:
             return None
         assert isinstance(json_list, list)
@@ -47,4 +46,3 @@ class GroupValue:
             'group': JsonHelper.to_jsonnable(self.group),
             'value': JsonHelper.to_jsonnable(self.value)
         }
-

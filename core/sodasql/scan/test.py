@@ -13,6 +13,7 @@ from dataclasses import dataclass
 from typing import Optional, List
 from jinja2 import Template
 
+logger = logging.getLogger(__name__)
 
 @dataclass
 class Test:
@@ -31,14 +32,14 @@ class Test:
             if template_variables is not None:
                 self.expression = Template(self.expression).render(template_variables)
             if 'None' not in self.expression and any(v is None for v in values.values()):
-                logging.warning(f'Skipping test {self.expression} since corresponding metrics are None ({values}) ')
+                logger.warning(f'Skipping test {self.expression} since corresponding metrics are None ({values}) ')
                 return TestResult(test=self, skipped=True, passed=True, values=values, group_values=group_values)
             else:
                 passed = bool(eval(self.expression, test_variables))
                 test_result = TestResult(test=self, passed=passed, skipped=False, values=values,
                                          group_values=group_values)
-                logging.debug(str(test_result))
+                logger.debug(str(test_result))
                 return test_result
         except Exception as e:
-            logging.error(f'Test error for "{self.expression}": {e}')
+            logger.error(f'Test error for "{self.expression}": {e}')
             return TestResult(test=self, passed=False, skipped=False, error=e, group_values=group_values)

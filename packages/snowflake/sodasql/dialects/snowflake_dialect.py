@@ -12,13 +12,14 @@
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import serialization
 import logging
-from typing import Union
 from snowflake import connector
 from snowflake.connector import errorcode
 from snowflake.connector.network import DEFAULT_SOCKET_CONNECT_TIMEOUT
 
 from sodasql.scan.dialect import Dialect, SNOWFLAKE, KEY_WAREHOUSE_TYPE, KEY_CONNECTION_TIMEOUT
 from sodasql.scan.parser import Parser
+
+logger = logging.getLogger(__name__)
 
 
 class SnowflakeDialect(Dialect):
@@ -130,9 +131,10 @@ class SnowflakeDialect(Dialect):
                 try:
                     cursor.execute(test_query)
                 except Exception as e:
-                    raise Exception(f'Unable to query table: {table_name} from the database: {self.database}. Exception: {e}')
+                    raise Exception(
+                        f'Unable to query table: {table_name} from the database: {self.database}. Exception: {e}')
         else:
-            logging.warning(f'{self.database} does not contain any tables.')
+            logger.warning(f'{self.database} does not contain any tables.')
         return True
 
     def is_text(self, column_type: str):

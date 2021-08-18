@@ -12,12 +12,10 @@ from dataclasses import dataclass
 from typing import Optional
 
 from sodasql.scan.dialect import Dialect
-from sodasql.soda_server_client.soda_server_client import SodaServerClient
 
 
 @dataclass
 class WarehouseYml:
-
     dialect: Dialect = None
     name: str = None
     soda_host: Optional[str] = None

@@ -1,3 +1,14 @@
+#  Copyright 2020 Soda
+#  Licensed under the Apache License, Version 2.0 (the "License");
+#  you may not use this file except in compliance with the License.
+#  You may obtain a copy of the License at
+#   http://www.apache.org/licenses/LICENSE-2.0
+#  Unless required by applicable law or agreed to in writing, software
+#  distributed under the License is distributed on an "AS IS" BASIS,
+#  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#  See the License for the specific language governing permissions and
+#  limitations under the License.
+
 import json
 import logging
 import re
@@ -10,6 +21,8 @@ from sodasql.scan.samples_yml import SamplesYml
 from sodasql.scan.scan import Scan
 from sodasql.scan.scan_column import ScanColumn
 from sodasql.scan.test_result import TestResult
+
+logger = logging.getLogger(__name__)
 
 
 class Sampler:
@@ -99,7 +112,7 @@ class Sampler:
         sample_description = (f'{self.scan.scan_yml.table_name}.sample'
                               if sample_name == 'dataset' else f'{self.scan.scan_yml.table_name}.{column_name}.{sample_name}')
 
-        logging.debug(f'Sending sample {sample_description}')
+        logger.debug(f'Sending sample {sample_description}')
         with tempfile.TemporaryFile() as temp_file:
             rows_stored, sample_columns = self.save_sample_to_local_file(sql, temp_file)
 
@@ -120,7 +133,7 @@ class Sampler:
                 file_id=file_id,
                 column_name=column_name,
                 test_ids=test_ids)
-        logging.debug(f'Sent sample {sample_description} ({rows_stored}/{rows_total}) to Soda Cloud')
+        logger.debug(f'Sent sample {sample_description} ({rows_stored}/{rows_total}) to Soda Cloud')
 
     def create_file_path_failed_rows_sql_metric(self, column_name: str, metric_name: str):
         return (f'{self.scan_folder_name}/' +
@@ -147,7 +160,7 @@ class Sampler:
     def save_sample_to_local_file(self, sql, temp_file):
         cursor = self.scan.warehouse.connection.cursor()
         try:
-            logging.debug(f'Executing SQL query: \n{sql}')
+            logger.debug(f'Executing SQL query: \n{sql}')
             start = datetime.now()
             cursor.execute(sql)
             sample_columns = self.__get_sample_columns(cursor)
@@ -164,7 +177,7 @@ class Sampler:
                 row = cursor.fetchone()
 
             delta = datetime.now() - start
-            logging.debug(f'SQL took {str(delta)}')
+            logger.debug(f'SQL took {str(delta)}')
 
         finally:
             cursor.close()
@@ -175,7 +188,7 @@ class Sampler:
 
         cursor = self.scan.warehouse.connection.cursor()
         try:
-            logging.debug(f'Executing SQL query: \n{sql}')
+            logger.debug(f'Executing SQL query: \n{sql}')
             start = datetime.now()
             cursor.execute(sql)
             sample_columns = self.__get_sample_columns(cursor)
@@ -194,7 +207,7 @@ class Sampler:
                 row = cursor.fetchone()
 
             delta = datetime.now() - start
-            logging.debug(f'SQL took {str(delta)}')
+            logger.debug(f'SQL took {str(delta)}')
 
         finally:
             cursor.close()

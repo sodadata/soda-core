@@ -18,7 +18,6 @@ import logging
 from sodasql.exceptions.exceptions import WarehouseConnectionError, WarehouseAuthenticationError
 from sodasql.scan.column_metadata import ColumnMetadata
 from sodasql.scan.parser import Parser
-from sodasql.__version__ import SODA_SQL_VERSION
 
 KEY_WAREHOUSE_TYPE = 'type'
 KEY_CONNECTION_TIMEOUT = 'connection_timeout_sec'
@@ -43,6 +42,7 @@ ALL_WAREHOUSE_TYPES = [ATHENA,
                        SQLSERVER,
                        SPARK]
 
+logger = logging.getLogger(__name__)
 
 class Dialect:
     data_type_varchar_255 = "VARCHAR(255)"
@@ -61,9 +61,9 @@ class Dialect:
             _module = importlib.import_module(module_name)
             _class_attr = getattr(_module, class_name)
         except ImportError:
-            logging.error(f'Module {module_name} not found. Are you sure you installed appropriate warehouse package?')
+            logger.error(f'Module {module_name} not found. Are you sure you installed appropriate warehouse package?')
         except AttributeError:
-            logging.error(f'Class {class_name} not found in {module_name}, Are you sure you installed '
+            logger.error(f'Class {class_name} not found in {module_name}, Are you sure you installed '
                           f'appropriate warehouse package?')
 
         return _class_attr
@@ -73,7 +73,7 @@ class Dialect:
         _warehouse_class = None
         warehouse_type = parser.get_str_optional(KEY_WAREHOUSE_TYPE)
         if warehouse_type not in ALL_WAREHOUSE_TYPES:
-            logging.error(
+            logger.error(
                 f'Invalid warehouse type: {warehouse_type}, it must be one of {", ".join(ALL_WAREHOUSE_TYPES)}')
         else:
             if warehouse_type == ATHENA:
