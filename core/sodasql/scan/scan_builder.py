@@ -69,7 +69,7 @@ class ScanBuilder:
         self.assert_no_warnings_or_errors = True
         self.soda_server_client: SodaServerClient = None
 
-    def build(self):
+    def build(self, offline: bool=False):
         self._build_warehouse_yml()
         self._build_scan_yml()
 
@@ -81,7 +81,8 @@ class ScanBuilder:
         from sodasql.scan.warehouse import Warehouse
         warehouse = Warehouse(self.warehouse_yml)
 
-        self._create_soda_server_client()
+        if not offline:
+            self._create_soda_server_client()
 
         return Scan(warehouse=warehouse,
                     scan_yml=self.scan_yml,
