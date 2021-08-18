@@ -31,6 +31,8 @@ from sodasql.scan.test_result import TestResult
 from sodasql.scan.warehouse import Warehouse
 from sodasql.soda_server_client.soda_server_client import SodaServerClient
 
+logger = logging.getLogger(__name__)
+
 
 class Scan:
 
@@ -74,7 +76,7 @@ class Scan:
     def execute(self) -> ScanResult:
         self.start_time = datetime.now()
         if self.soda_server_client:
-            logging.debug(f'Soda cloud: {self.soda_server_client.host}')
+            logger.debug(f'Soda cloud: {self.soda_server_client.host}')
             self._ensure_scan_reference()
 
         from sodasql.scan.sampler import Sampler
@@ -94,10 +96,10 @@ class Scan:
             self._run_column_tests()
             self._take_samples()
 
-            logging.debug(f'Executed {self.queries_executed} queries in {(datetime.now() - self.start_time)}')
+            logger.debug(f'Executed {self.queries_executed} queries in {(datetime.now() - self.start_time)}')
 
         except Exception as e:
-            logging.exception('Exception during scan')
+            logger.exception('Exception during scan')
             self.scan_result.add_error(ScanError('Exception during scan', e))
 
         finally:
@@ -105,7 +107,7 @@ class Scan:
                 try:
                     self.soda_server_client.scan_ended(self.scan_reference, self.scan_result.errors)
                 except Exception as e:
-                    logging.error(f'Soda Cloud error: Could not end scan: {e}')
+                    logger.error(f'Soda Cloud error: Could not end scan: {e}')
                     self.scan_result.add_error(SodaCloudScanError('Could not end scan', e))
 
             if self.close_warehouse:
@@ -119,10 +121,10 @@ class Scan:
             from sodasql.soda_server_client.monitor_metric import MonitorMetricType
             custom_metrics = []
             try:
-                logging.debug(f'Fetching custom metrics with scanReference: {self.scan_reference}')
+                logger.debug(f'Fetching custom metrics with scanReference: {self.scan_reference}')
                 custom_metrics = self.soda_server_client.custom_metrics(self.scan_reference)
             except Exception as e:
-                logging.error(f'Soda cloud error: Could not fetch custom_metrics: {e}')
+                logger.error(f'Soda cloud error: Could not fetch custom_metrics: {e}')
                 self.scan_result.add_error(SodaCloudScanError('Could not fetch custom metrics', e))
             if custom_metrics:
                 for monitor_metric_dict in custom_metrics:
@@ -140,14 +142,14 @@ class Scan:
                                                           MonitorMetricType.INVALID_VALUES_PERCENTAGE,
                                                           MonitorMetricType.DISTINCT_VALUES_COUNT,
                                                           ]:
-                            logging.debug(
+                            logger.debug(
                                 f'Sending failed rows for {monitor_metric.metric_type} to Soda Cloud')
                             self._send_failed_rows_custom_metric(metric_name="custom_metric",
                                                                  sql=monitor_metric.sql,
                                                                  column_name=monitor_metric.column_name,
                                                                  metric_id=monitor_metric.metric_id)
                         else:
-                            logging.debug(
+                            logger.debug(
                                 f'{monitor_metric.metric_type} is not "negative values metric", failed rows are not sent to Soda Cloud')
 
     def _query_columns_metadata(self):
@@ -167,8 +169,8 @@ class Scan:
         self.column_names: List[str] = [column_metadata.name for column_metadata in self.column_metadatas]
         for column_metadata in self.column_metadatas:
             if (self.scan_yml.excluded_columns is not None) and (
-                  column_metadata.name in self.scan_yml.excluded_columns):
-                logging.info(f'  column {column_metadata.name} is excluded based on configuration!')
+                column_metadata.name in self.scan_yml.excluded_columns):
+                logger.info(f'  column {column_metadata.name} is excluded based on configuration!')
 
             else:
                 scan_column = ScanColumn(self, column_metadata)
@@ -183,19 +185,19 @@ class Scan:
                     elif scan_column.is_text:
                         column_metadata.logical_type = 'text'
 
-                    logging.debug(f'  {scan_column.column_name} ({scan_column.column.data_type}) '
-                                  f'{"" if scan_column.column.nullable else "not null"}')
+                    logger.debug(f'  {scan_column.column_name} ({scan_column.column.data_type}) '
+                                 f'{"" if scan_column.column.nullable else "not null"}')
                     self.scan_columns[column_metadata.name.lower()] = scan_column
                 else:
-                    logging.info(
+                    logger.info(
                         f'  {scan_column.column_name} ({scan_column.column.data_type}) -> unsupported, skipped!')
-        logging.debug(str(len(self.column_metadatas)) + ' columns:')
+        logger.debug(str(len(self.column_metadatas)) + ' columns:')
 
         # Compare the column names in yml with valid column names from the table
         invalid_column_names = set(self.scan_yml.columns.keys()) - set(self.scan_columns.keys())
         if invalid_column_names:
-            logging.error(f'Unknown column names found in YML: {", ".join(invalid_column_names)} \n'
-                          f'Scan will continue for known columns.')
+            logger.error(f'Unknown column names found in YML: {", ".join(invalid_column_names)} \n'
+                         f'Scan will continue for known columns.')
 
         schema_measurement_value = [column_metadata.to_json() for column_metadata in self.column_metadatas]
         schema_measurement = Measurement(Metric.SCHEMA, value=schema_measurement_value)
@@ -336,7 +338,7 @@ class Scan:
 
             self._flush_measurements(measurements)
         except Exception as e:
-            logging.debug(f'Exception during aggregation query', e)
+            logger.debug(f'Exception during aggregation query', e)
             self.scan_result.add_error(ScanError(f'Exception during aggregation query', e))
 
     def _query_group_by_value(self):
@@ -513,7 +515,7 @@ class Scan:
                         self._run_sql_metric_failed_rows(sql_metric, resolved_sql, scan_column)
                 except Exception as e:
                     msg = f"Couldn't run sql metric {sql_metric}: {e}"
-                    logging.exception(msg)
+                    logger.exception(msg)
                     self.scan_result.add_error(ScanError(f'Could not run sql metric {sql_metric}', e))
 
     def resolve_sql_metric_sql(self, sql_metric):
@@ -540,7 +542,7 @@ class Scan:
             for i in range(len(row_tuple)):
                 metric_name = sql_metric.metric_names[i] if sql_metric.metric_names is not None else description[i][0]
                 metric_value = row_tuple[i]
-                logging.debug(f'SQL metric {sql_metric.title} {metric_name} -> {metric_value}')
+                logger.debug(f'SQL metric {sql_metric.title} {metric_name} -> {metric_value}')
                 measurement = Measurement(metric=metric_name, value=metric_value, column_name=column_name)
                 test_variables[metric_name] = metric_value
                 self._log_and_append_query_measurement(measurements, measurement)
@@ -579,8 +581,8 @@ class Scan:
                         metric_values[metric_name] = metric_value
 
                 if not group:
-                    logging.error(f'None of the declared group_fields were found in '
-                                  f'result: {sql_metric.group_fields}. Skipping result.')
+                    logger.error(f'None of the declared group_fields were found in '
+                                 f'result: {sql_metric.group_fields}. Skipping result.')
                 else:
                     for metric_name in metric_values:
                         metric_value = metric_values[metric_name]
@@ -588,7 +590,7 @@ class Scan:
                             group_values_by_metric_name[metric_name] = []
                         group_values = group_values_by_metric_name[metric_name]
                         group_values.append(GroupValue(group=group, value=metric_value))
-                        logging.debug(f'SQL metric {sql_metric.title} {metric_name} {group} -> {metric_value}')
+                        logger.debug(f'SQL metric {sql_metric.title} {metric_name} {group} -> {metric_value}')
 
                     sql_metric_tests = sql_metric.tests
                     test_variables = self._get_test_variables(scan_column)
@@ -615,7 +617,7 @@ class Scan:
         try:
             if self.soda_server_client:
 
-                logging.debug(f'Sending failed rows for {metric_id} to Soda Cloud')
+                logger.debug(f'Sending failed rows for {metric_id} to Soda Cloud')
                 with tempfile.TemporaryFile() as temp_file:
 
                     failed_limit = 5
@@ -648,19 +650,19 @@ class Scan:
                             test_ids=[],
                             sql_metric_name=metric_name,
                             custom_metric_id=metric_id)
-                        logging.debug(
+                        logger.debug(
                             f'Sent failed rows for id: {metric_id} ({stored_failed_rows}/{total_failed_rows}) to Soda Cloud')
                     else:
-                        logging.debug(f'No failed rows for custom metric ({metric_name} with id {metric_id})')
+                        logger.debug(f'No failed rows for custom metric ({metric_name} with id {metric_id})')
             else:
                 failed_rows_tuples, description = self.warehouse.sql_fetchall_description(sql=sql)
                 if len(failed_rows_tuples) > 0:
                     table_text = self._table_to_text(failed_rows_tuples, description)
-                    logging.debug(f'Failed rows for sql metric sql {metric_name}:\n' + table_text)
+                    logger.debug(f'Failed rows for sql metric sql {metric_name}:\n' + table_text)
                 else:
-                    logging.debug(f'No failed rows for custom metric ({metric_name} with id {metric_id})')
+                    logger.debug(f'No failed rows for custom metric ({metric_name} with id {metric_id})')
         except Exception as e:
-            logging.exception(f'Could not perform sql metric failed rows \n{sql}', e)
+            logger.exception(f'Could not perform sql metric failed rows \n{sql}', e)
             self.scan_result.add_error(ScanError(f'Exception during sql metric failed rows query {sql}', e))
 
     def _run_sql_metric_failed_rows(self,
@@ -671,7 +673,7 @@ class Scan:
         try:
             if self.soda_server_client:
 
-                logging.debug(f'Sending failed rows for sql metric {sql_metric_yml.name} to Soda Cloud')
+                logger.debug(f'Sending failed rows for sql metric {sql_metric_yml.name} to Soda Cloud')
                 with tempfile.TemporaryFile() as temp_file:
 
                     failed_limit = self.scan_yml.get_sql_metric_failed_rows_limit(sql_metric_yml)
@@ -719,19 +721,19 @@ class Scan:
                             column_name=sql_metric_yml.column_name,
                             test_ids=[test.id],
                             sql_metric_name=sql_metric_yml.name)
-                        logging.debug(
+                        logger.debug(
                             f'Sent failed rows for sql metric ({stored_failed_rows}/{total_failed_rows}) to Soda Cloud')
                     else:
-                        logging.debug(f'No failed rows for sql metric ({sql_metric_yml.name})')
+                        logger.debug(f'No failed rows for sql metric ({sql_metric_yml.name})')
             else:
                 failed_rows_tuples, description = self.warehouse.sql_fetchall_description(sql=resolved_sql)
                 if len(failed_rows_tuples) > 0:
                     table_text = self._table_to_text(failed_rows_tuples, description)
-                    logging.debug(f'Failed rows for sql metric sql {sql_metric_yml.name}:\n' + table_text)
+                    logger.debug(f'Failed rows for sql metric sql {sql_metric_yml.name}:\n' + table_text)
                 else:
-                    logging.debug(f'No failed rows for sql metric sql {sql_metric_yml.name}')
+                    logger.debug(f'No failed rows for sql metric sql {sql_metric_yml.name}')
         except Exception as e:
-            logging.exception(f'Could not perform sql metric failed rows \n{resolved_sql}', e)
+            logger.exception(f'Could not perform sql metric failed rows \n{resolved_sql}', e)
             self.scan_result.add_error(ScanError(f'Exception during sql metric failed rows query {resolved_sql}', e))
 
     def _get_test_variables(self, scan_column: Optional[ScanColumn] = None):
@@ -778,7 +780,7 @@ class Scan:
                         if samples_yml:
                             self.sampler.save_sample(samples_yml, measurement, self.scan_result.test_results)
             except Exception as e:
-                logging.exception(f'Soda cloud error: Could not upload samples: {e}')
+                logger.exception(f'Soda cloud error: Could not upload samples: {e}')
                 self.scan_result.add_error(SodaCloudScanError('Could not upload samples', e))
 
     @classmethod
@@ -806,7 +808,7 @@ class Scan:
     @classmethod
     def _log_measurement(cls, measurement, is_derived: bool = False):
         measurement_type = "Derived" if is_derived else "Query"
-        logging.debug(f'{measurement_type} measurement: {measurement}')
+        logger.debug(f'{measurement_type} measurement: {measurement}')
 
     def _flush_measurements(self, measurements: List[Measurement]):
         """
@@ -818,7 +820,7 @@ class Scan:
             try:
                 self.soda_server_client.scan_measurements(self.scan_reference, measurement_jsons)
             except Exception as e:
-                logging.error(f'Soda Cloud error: Could not send measurements: {e}')
+                logger.error(f'Soda Cloud error: Could not send measurements: {e}')
                 self.scan_result.add_error(SodaCloudScanError('Could not send measurements', e))
 
     def _flush_test_results(self, test_results: List[TestResult]):
@@ -833,7 +835,7 @@ class Scan:
                 try:
                     self.soda_server_client.scan_test_results(self.scan_reference, test_result_jsons)
                 except Exception as e:
-                    logging.error(f'Soda Cloud error: Could not send test results: {e}')
+                    logger.error(f'Soda Cloud error: Could not send test results: {e}')
                     self.scan_result.add_error(SodaCloudScanError('Could not send test results', e))
 
     def _ensure_scan_reference(self):
@@ -846,8 +848,8 @@ class Scan:
                     origin=os.environ.get('SODA_SCAN_ORIGIN', 'external'))
                 self.scan_reference = self.start_scan_response['scanReference']
             except Exception as e:
-                logging.error(f'Soda Cloud error: Could not start scan: {e}')
-                logging.error(f'Skipping subsequent Soda Cloud communication but continuing the scan')
+                logger.error(f'Soda Cloud error: Could not start scan: {e}')
+                logger.error(f'Skipping subsequent Soda Cloud communication but continuing the scan')
                 self.scan_result.add_error(SodaCloudScanError('Could not start scan', e))
                 self.soda_server_client = None
 

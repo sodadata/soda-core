@@ -16,6 +16,8 @@ import logging
 from sodasql.scan.dialect import Dialect, POSTGRES, KEY_WAREHOUSE_TYPE, KEY_CONNECTION_TIMEOUT
 from sodasql.scan.parser import Parser
 
+logger = logging.getLogger(__name__)
+
 
 class PostgresDialect(Dialect):
 
@@ -90,9 +92,10 @@ class PostgresDialect(Dialect):
                 try:
                     cursor.execute(test_query)
                 except psycopg2.Error as e:
-                    raise Exception(f'Unable to query table: {table_name} from the database: {self.database}. Exception: {e}')
+                    raise Exception(
+                        f'Unable to query table: {table_name} from the database: {self.database}. Exception: {e}')
         else:
-            logging.warning(f'{self.database} does not contain any tables.')
+            logger.warning(f'{self.database} does not contain any tables.')
         return True
 
     def sql_columns_metadata_query(self, table_name: str) -> str:

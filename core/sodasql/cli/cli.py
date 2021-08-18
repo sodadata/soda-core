@@ -30,6 +30,7 @@ from sodasql.scan.warehouse_yml_parser import (WarehouseYmlParser,
                                                read_warehouse_yml_file)
 
 LoggingHelper.configure_for_cli()
+logger = logging.getLogger(__name__)
 
 
 @click.group(help=f"Soda CLI version {SODA_SQL_VERSION}")
@@ -65,7 +66,7 @@ def create(warehouse_type: str,
         """
         Creates a warehouse.yml file
         """
-        logging.info(f"Soda CLI version {SODA_SQL_VERSION}")
+        logger.info(f"Soda CLI version {SODA_SQL_VERSION}")
         file_system = FileSystemSingleton.INSTANCE
 
         # if not warehouse:
@@ -75,7 +76,7 @@ def create(warehouse_type: str,
         from sodasql.scan.dialect import ALL_WAREHOUSE_TYPES, Dialect
         dialect = Dialect.create_for_warehouse_type(warehouse_type)
         if not dialect:
-            logging.info(
+            logger.info(
                 f"Invalid warehouse type {warehouse_type}, use one of {str(ALL_WAREHOUSE_TYPES)}")
             sys.exit(1)
 
@@ -90,9 +91,9 @@ def create(warehouse_type: str,
         warehouse_env_vars_dict = dialect.default_env_vars(configuration_params)
 
         if file_system.file_exists(file):
-            logging.info(f"Warehouse file {file} already exists")
+            logger.info(f"Warehouse file {file} already exists")
         else:
-            logging.info(f"Creating warehouse YAML file {file} ...")
+            logger.info(f"Creating warehouse YAML file {file} ...")
             file_system.mkdirs(file_system.dirname(file))
 
             if not warehouse:
@@ -116,7 +117,7 @@ def create(warehouse_type: str,
             env_vars_yml_str = file_system.file_read_as_str(env_vars_file)
             existing_env_vars_yml_dict = yaml.load(env_vars_yml_str, Loader=yaml.SafeLoader)
             if isinstance(existing_env_vars_yml_dict, dict) and warehouse in existing_env_vars_yml_dict:
-                logging.info(f"Warehouse section {warehouse} already exists in {env_vars_file}.  Skipping...")
+                logger.info(f"Warehouse section {warehouse} already exists in {env_vars_file}.  Skipping...")
                 warehouse_env_vars_dict = None
 
         if warehouse_env_vars_dict:
@@ -132,23 +133,23 @@ def create(warehouse_type: str,
                                           sort_keys=False)
 
             if env_vars_file_exists:
-                logging.info(
+                logger.info(
                     f"Adding env vars for {warehouse} to {env_vars_file}")
             else:
-                logging.info(
+                logger.info(
                     f"Creating {env_vars_file} with example env vars in section {warehouse}")
 
             file_system.file_write_from_str(env_vars_file, env_vars_yml_str)
 
-        logging.info(f"Review warehouse.yml by running command")
-        logging.info(f"  cat {file}")
+        logger.info(f"Review warehouse.yml by running command")
+        logger.info(f"  cat {file}")
         if warehouse_env_vars_dict:
-            logging.info(
+            logger.info(
                 f"Review section {warehouse} in ~/.soda/env_vars.yml by running command")
-            logging.info(f"  cat ~/.soda/env_vars.yml")
-        logging.info(f"Then run the soda analyze command")
+            logger.info(f"  cat ~/.soda/env_vars.yml")
+        logger.info(f"Then run the soda analyze command")
     except Exception as e:
-        logging.exception(f'Exception: {str(e)}')
+        logger.exception(f'Exception: {str(e)}')
         sys.exit(1)
 
 
@@ -196,18 +197,18 @@ def analyze(warehouse_file: str, include: str, exclude: str):
     WAREHOUSE_FILE contains the connection details to the warehouse. This file can be created using the `soda create` command.
     The warehouse file argument is optional and defaults to 'warehouse.yml'.
     """
-    logging.info(SODA_SQL_VERSION)
+    logger.info(SODA_SQL_VERSION)
     file_system = FileSystemSingleton.INSTANCE
     warehouse = None
 
     try:
-        logging.info(f'Analyzing {warehouse_file} ...')
+        logger.info(f'Analyzing {warehouse_file} ...')
 
         warehouse_yml_dict = read_warehouse_yml_file(warehouse_file)
         warehouse_yml_parser = WarehouseYmlParser(warehouse_yml_dict, warehouse_file)
         warehouse = Warehouse(warehouse_yml_parser.warehouse_yml)
 
-        logging.info('Querying warehouse for tables')
+        logger.info('Querying warehouse for tables')
         warehouse_dir = file_system.dirname(warehouse_file)
 
         file_system = FileSystemSingleton.INSTANCE
@@ -217,10 +218,10 @@ def analyze(warehouse_file: str, include: str, exclude: str):
 
         table_dir = file_system.join(warehouse_dir, 'tables')
         if not file_system.file_exists(table_dir):
-            logging.info(f'Creating tables directory {table_dir}')
+            logger.info(f'Creating tables directory {table_dir}')
             file_system.mkdirs(table_dir)
         else:
-            logging.info(f'Directory {table_dir} already exists')
+            logger.info(f'Directory {table_dir} already exists')
 
         first_table_scan_yml_file = None
 
@@ -249,9 +250,9 @@ def analyze(warehouse_file: str, include: str, exclude: str):
                     first_table_scan_yml_file = table_scan_yaml_file
 
                 if file_system.file_exists(table_scan_yaml_file):
-                    logging.info(f"Scan file {table_scan_yaml_file} already exists")
+                    logger.info(f"Scan file {table_scan_yaml_file} already exists")
                 else:
-                    logging.info(f"Creating {table_scan_yaml_file} ...")
+                    logger.info(f"Creating {table_scan_yaml_file} ...")
                     from sodasql.scan.scan_yml_parser import (KEY_METRICS,
                                                               KEY_TABLE_NAME,
                                                               KEY_TESTS,
@@ -298,13 +299,13 @@ def analyze(warehouse_file: str, include: str, exclude: str):
                                              default_flow_style=False)
                     file_system.file_write_from_str(table_scan_yaml_file, scan_yml_str)
             else:
-                logging.info(f"Skipping table {table_name}")
+                logger.info(f"Skipping table {table_name}")
 
-        logging.info(
+        logger.info(
             f"Next run 'soda scan {warehouse_file} {first_table_scan_yml_file}' to calculate measurements and run tests")
 
     except Exception as e:
-        logging.exception(f'Exception: {str(e)}')
+        logger.exception(f'Exception: {str(e)}')
         sys.exit(1)
 
     finally:
@@ -312,7 +313,7 @@ def analyze(warehouse_file: str, include: str, exclude: str):
             try:
                 warehouse.connection.close()
             except Exception as e:
-                logging.debug(f'Closing connection failed: {str(e)}')
+                logger.debug(f'Closing connection failed: {str(e)}')
 
 
 @main.command()
@@ -337,7 +338,7 @@ def scan(scan_yml_file: str, warehouse_yml_file: str, variables: tuple = None, t
 
     SCAN_YML_FILE is the scan YAML file that contains the metrics and tests for a table to run.
     """
-    logging.info(SODA_SQL_VERSION)
+    logger.info(SODA_SQL_VERSION)
 
     try:
         variables_dict = {}
@@ -348,7 +349,7 @@ def scan(scan_yml_file: str, warehouse_yml_file: str, variables: tuple = None, t
                     variable_name = variable[0:assign_index]
                     variable_value = variable[assign_index + 1:]
                     variables_dict[variable_name] = variable_value
-            logging.debug(f'Variables {variables_dict}')
+            logger.debug(f'Variables {variables_dict}')
 
         scan_builder = ScanBuilder()
         scan_builder.warehouse_yml_file = warehouse_yml_file
@@ -356,40 +357,40 @@ def scan(scan_yml_file: str, warehouse_yml_file: str, variables: tuple = None, t
         datetime.fromisoformat(time)
         scan_builder.time = time
 
-        logging.info(f'Scanning {scan_yml_file} ...')
+        logger.info(f'Scanning {scan_yml_file} ...')
 
         scan_builder.variables = variables_dict
         scan = scan_builder.build()
         if not scan:
-            logging.error(f'Could not read scan configurations. Aborting before scan started.')
+            logger.error(f'Could not read scan configurations. Aborting before scan started.')
             sys.exit(1)
 
         from sodasql.scan.scan_result import ScanResult
         scan_result: ScanResult = scan.execute()
 
-        logging.info(f'Scan summary ------')
-        logging.info(f'{len(scan_result.measurements)} measurements computed')
-        logging.info(f'{len(scan_result.test_results)} tests executed')
+        logger.info(f'Scan summary ------')
+        logger.info(f'{len(scan_result.measurements)} measurements computed')
+        logger.info(f'{len(scan_result.test_results)} tests executed')
 
         if scan_result.has_test_failures():
-            logging.info(f'{scan_result.get_test_failures_count()} of {len(scan_result.test_results)} tests failed:')
+            logger.info(f'{scan_result.get_test_failures_count()} of {len(scan_result.test_results)} tests failed:')
             for test_result in scan_result.test_results:
                 if not test_result.passed:
-                    logging.info(f'  {test_result}')
+                    logger.info(f'  {test_result}')
 
         if scan_result.has_errors():
-            logging.info(f'Errors occurred!')
+            logger.info(f'Errors occurred!')
             for error in scan_result.get_errors():
-                logging.error(f'  {error}')
+                logger.error(f'  {error}')
 
         if scan_result.is_passed():
-            logging.info(f'All is good. No tests failed.')
+            logger.info(f'All is good. No tests failed.')
 
         exit_code = 0 if scan_result.is_passed() else 1
-        logging.info(f'Exiting with code {exit_code}')
+        logger.info(f'Exiting with code {exit_code}')
         sys.exit(exit_code)
 
     except Exception as e:
-        logging.exception(f'Scan failed: {str(e)}')
-        logging.info(f'Exiting with code 1')
+        logger.exception(f'Scan failed: {str(e)}')
+        logger.info(f'Exiting with code 1')
         sys.exit(1)

@@ -15,6 +15,8 @@ from sodasql.scan.db import sql_fetchone, sql_fetchall, sql_fetchone_description
 from sodasql.scan.dialect import Dialect
 from sodasql.scan.warehouse_yml import WarehouseYml
 
+logger = logging.getLogger(__name__)
+
 
 class Warehouse:
 
@@ -43,5 +45,4 @@ class Warehouse:
             try:
                 self.connection.close()
             except Exception as e:
-                logging.debug(f'Closing connection failed: {str(e)}')
-
+                logger.debug(f'Closing connection failed: {str(e)}')

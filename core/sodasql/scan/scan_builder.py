@@ -21,6 +21,7 @@ from sodasql.scan.warehouse_yml import WarehouseYml
 from sodasql.scan.warehouse_yml_parser import read_warehouse_yml_file
 from sodasql.soda_server_client.soda_server_client import SodaServerClient
 
+logger = logging.getLogger(__name__)
 
 class ScanBuilder:
     """
@@ -90,12 +91,12 @@ class ScanBuilder:
 
     def _build_warehouse_yml(self):
         if not self.warehouse_yml_file and not self.warehouse_yml_dict and not self.warehouse_yml:
-            logging.error(f'No warehouse specified')
+            logger.error(f'No warehouse specified')
             return
 
         elif self.warehouse_yml_file and not self.warehouse_yml_dict and not self.warehouse_yml:
             if not isinstance(self.warehouse_yml_file, str):
-                logging.error(f'scan_builder.warehouse_yml_file must be str, but was {type(self.warehouse_yml_file)}: {self.warehouse_yml_file}')
+                logger.error(f'scan_builder.warehouse_yml_file must be str, but was {type(self.warehouse_yml_file)}: {self.warehouse_yml_file}')
             else:
                 self.warehouse_yml_dict = read_warehouse_yml_file(self.warehouse_yml_file)
 
@@ -112,18 +113,18 @@ class ScanBuilder:
         file_system = FileSystemSingleton.INSTANCE
 
         if not self.scan_yml_file and not self.scan_yml_dict and not self.scan_yml:
-            logging.error(f'No scan specified')
+            logger.error(f'No scan specified')
             return
 
         elif self.scan_yml_file and not self.scan_yml_dict and not self.scan_yml:
             if not isinstance(self.scan_yml_file, str):
-                logging.error(f'scan_builder.scan_yml_file must be str, but was {type(self.scan_yml_file)}: {self.scan_yml_file}')
+                logger.error(f'scan_builder.scan_yml_file must be str, but was {type(self.scan_yml_file)}: {self.scan_yml_file}')
             elif file_system.is_readable_file(self.scan_yml_file):
                 scan_yml_str = self.file_system.file_read_as_str(self.scan_yml_file)
                 if scan_yml_str:
                     self.scan_yml_dict = YamlHelper.parse_yaml(scan_yml_str, self.scan_yml_file)
                 else:
-                    logging.error(f'Failed to file scan yaml file: {self.scan_yml_file}')
+                    logger.error(f'Failed to file scan yaml file: {self.scan_yml_file}')
 
         if self.scan_yml_dict and not self.scan_yml:
             from sodasql.scan.scan_yml_parser import ScanYmlParser
@@ -154,4 +155,4 @@ class ScanBuilder:
                                                            protocol=protocol,
                                                            port=port)
             else:
-                logging.debug("No Soda Cloud account configured")
+                logger.debug("No Soda Cloud account configured")

@@ -19,6 +19,8 @@ from sodasql.scan.scan_yml import ScanYml
 from sodasql.scan.scan_yml_column import ScanYmlColumn
 from sodasql.__version__ import SODA_SQL_VERSION
 
+logger = logging.getLogger(__name__)
+
 
 class SodaServerClient:
 
@@ -67,7 +69,7 @@ class SodaServerClient:
                     }
                 soda_column_cfgs[column_name] = soda_column_cfg
 
-        logging.debug(f'Soda Cloud scan start')
+        logger.debug(f'Soda Cloud scan start')
         return self.execute_command({
             'type': 'sodaSqlScanStart',
             'warehouseName': warehouse.name,
@@ -84,14 +86,14 @@ class SodaServerClient:
             'scanReference': scan_reference
         }
         if errors:
-            logging.debug(f'Soda Cloud scan end with errors')
+            logger.debug(f'Soda Cloud scan end with errors')
             scan_end_command['errors'] = [error.to_json() for error in errors]
         else:
-            logging.debug(f'Soda Cloud scan end ok')
+            logger.debug(f'Soda Cloud scan end ok')
         self.execute_command(scan_end_command)
 
     def scan_measurements(self, scan_reference: dict, measurement_jsons: List[dict]):
-        logging.debug(f'Soda Cloud scan send measurements')
+        logger.debug(f'Soda Cloud scan send measurements')
         return self.execute_command({
             'type': 'sodaSqlScanMeasurements',
             'scanReference': scan_reference,
@@ -99,7 +101,7 @@ class SodaServerClient:
         })
 
     def scan_test_results(self, scan_reference: dict, test_result_jsons: list):
-        logging.debug(f'Soda Cloud scan send test results')
+        logger.debug(f'Soda Cloud scan send test results')
         return self.execute_command({
             'type': 'sodaSqlScanTestResults',
             'scanReference': scan_reference,
@@ -117,14 +119,14 @@ class SodaServerClient:
         if file_size_in_bytes == 0:
             # because of https://github.com/psf/requests/issues/4215 we can't send content size
             # when the size is 0 since requests blocks then on I/O indefinitely
-            logging.warning("Empty file upload detected, not sending Content-Length header")
+            logger.warning("Empty file upload detected, not sending Content-Length header")
         else:
             headers['Content-Length'] = str(file_size_in_bytes)
 
         upload_response_json = self._upload_file(headers, temp_file)
 
         if 'fileId' not in upload_response_json:
-            logging.error(f"No fileId received in response: {upload_response_json}")
+            logger.error(f"No fileId received in response: {upload_response_json}")
         return upload_response_json['fileId']
 
     def _upload_file(self, headers, temp_file):
@@ -178,21 +180,21 @@ class SodaServerClient:
         })
 
     def execute_command(self, command: dict):
-        logging.debug(f'executing {command}')
+        logger.debug(f'executing {command}')
         return self._execute_request('command', command, False)
 
     def execute_query(self, command: dict):
         return self._execute_request('query', command, False)
 
     def _execute_request(self, request_type: str, request_body: dict, is_retry: bool):
-        # logging.debug(f'> /api/{request_type} {json.dumps(request_body, indent=2)}')
+        # logger.debug(f'> /api/{request_type} {json.dumps(request_body, indent=2)}')
         request_body['token'] = self.get_token()
         request_body['sodaSqlVersion'] = SODA_SQL_VERSION
         response = requests.post(f'{self.api_url}/{request_type}', json=request_body)
         response_json = response.json()
-        # logging.debug(f'< {response.status_code} {json.dumps(response_json, indent=2)}')
+        # logger.debug(f'< {response.status_code} {json.dumps(response_json, indent=2)}')
         if response.status_code == 401 and not is_retry:
-            logging.debug(f'Authentication failed. Probably token expired. Reauthenticating...')
+            logger.debug(f'Authentication failed. Probably token expired. Reauthenticating...')
             self.token = None
             response_json = self._execute_request(request_type, request_body, True)
         else:
@@ -205,11 +207,11 @@ class SodaServerClient:
                 'type': 'login'
             }
             if self.api_key_id and self.api_key_secret:
-                logging.debug('> /api/command (login with API key credentials)')
+                logger.debug('> /api/command (login with API key credentials)')
                 login_command['apiKeyId'] = self.api_key_id
                 login_command['apiKeySecret'] = self.api_key_secret
             elif self.username and self.password:
-                logging.debug('> /api/command (login with username and password)')
+                logger.debug('> /api/command (login with username and password)')
                 login_command['username'] = self.username
                 login_command['password'] = self.password
             else:
@@ -222,5 +224,5 @@ class SodaServerClient:
             login_response_json = login_response.json()
             self.token = login_response_json.get('token')
             assert self.token, 'No token in login response?!'
-            logging.debug('< 200 (login ok, token received)')
+            logger.debug('< 200 (login ok, token received)')
         return self.token

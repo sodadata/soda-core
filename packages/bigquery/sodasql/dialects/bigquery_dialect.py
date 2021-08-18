@@ -22,6 +22,8 @@ from google.oauth2.service_account import Credentials
 from sodasql.scan.dialect import Dialect, BIGQUERY, KEY_WAREHOUSE_TYPE
 from sodasql.scan.parser import Parser
 
+logger = logging.getLogger(__name__)
+
 
 class BigQueryDialect(Dialect):
     data_type_varchar_255 = "STRING"
@@ -63,22 +65,23 @@ class BigQueryDialect(Dialect):
             self.try_to_raise_soda_sql_exception(e)
 
     def sql_test_connection(self) -> bool:
-        logging.info('Listing tables to check connection')
+        logger.info('Listing tables to check connection')
         project_id = self.account_info_dict['project_id']
         dataset_id = f'{project_id}.{self.dataset_name}'
         try:
-            logging.info(f'dataset_id = {dataset_id}')
+            logger.info(f'dataset_id = {dataset_id}')
             tables = self.client.list_tables(dataset_id)
             if tables:
-                logging.info(f'Tables contained in {dataset_id}')
+                logger.info(f'Tables contained in {dataset_id}')
                 for table in tables:
                     try:
                         self.client.query(self.__query_table(table))
                     except Exception as e:
-                        raise Exception(f'Unable to query table: {table} from the dataset: {dataset_id}. Exception: {e}')
+                        raise Exception(
+                            f'Unable to query table: {table} from the dataset: {dataset_id}. Exception: {e}')
                 return True
             else:
-                logging.error(f'Unable to query tables from dataset {dataset_id}')
+                logger.error(f'Unable to query tables from dataset {dataset_id}')
         except Exception as e:
             raise Exception(f'Unable to list tables from: {dataset_id}. Exception: {e}')
 

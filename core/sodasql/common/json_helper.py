@@ -1,3 +1,14 @@
+#  Copyright 2020 Soda
+#  Licensed under the Apache License, Version 2.0 (the "License");
+#  you may not use this file except in compliance with the License.
+#  You may obtain a copy of the License at
+#   http://www.apache.org/licenses/LICENSE-2.0
+#  Unless required by applicable law or agreed to in writing, software
+#  distributed under the License is distributed on an "AS IS" BASIS,
+#  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#  See the License for the specific language governing permissions and
+#  limitations under the License.
+
 import datetime
 import json
 from decimal import Decimal
@@ -16,10 +27,10 @@ class JsonHelper:
     @staticmethod
     def to_jsonnable(o):
         if o is None \
-                or isinstance(o, str) \
-                or isinstance(o, int) \
-                or isinstance(o, float) \
-                or isinstance(o, bool):
+            or isinstance(o, str) \
+            or isinstance(o, int) \
+            or isinstance(o, float) \
+            or isinstance(o, bool):
             return o
         if isinstance(o, dict):
             for key, value in o.items():

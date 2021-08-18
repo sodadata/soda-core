@@ -12,6 +12,8 @@ import logging
 from datetime import datetime
 from typing import List
 
+logger = logging.getLogger(__name__)
+
 
 def sql_fetchone(connection, sql: str) -> tuple:
     """
@@ -20,7 +22,7 @@ def sql_fetchone(connection, sql: str) -> tuple:
     return sql_fetchone_description(connection, sql)[0]
 
 
-def  sql_fetchone_description(connection, sql: str) -> tuple:
+def sql_fetchone_description(connection, sql: str) -> tuple:
     """
     Returns a tuple with 2 elements:
     1) the tuple obtained by cursor.fetchone()
@@ -28,13 +30,13 @@ def  sql_fetchone_description(connection, sql: str) -> tuple:
     """
     cursor = connection.cursor()
     try:
-        logging.debug(f'Executing SQL query: \n{sql}')
+        logger.debug(f'Executing SQL query: \n{sql}')
         start = datetime.now()
         cursor.execute(sql)
         row_tuple = cursor.fetchone()
         description = cursor.description
         delta = datetime.now() - start
-        logging.debug(f'SQL took {str(delta)}')
+        logger.debug(f'SQL took {str(delta)}')
         return row_tuple, description
     finally:
         cursor.close()
@@ -55,12 +57,12 @@ def sql_fetchall_description(connection, sql: str) -> tuple:
     """
     cursor = connection.cursor()
     try:
-        logging.debug(f'Executing SQL query: \n{sql}')
+        logger.debug(f'Executing SQL query: \n{sql}')
         start = datetime.now()
         cursor.execute(sql)
         rows = cursor.fetchall()
         delta = datetime.now() - start
-        logging.debug(f'SQL took {str(delta)}')
+        logger.debug(f'SQL took {str(delta)}')
         return rows, cursor.description
     finally:
         cursor.close()
@@ -69,11 +71,11 @@ def sql_fetchall_description(connection, sql: str) -> tuple:
 def sql_update(connection, sql: str):
     cursor = connection.cursor()
     try:
-        logging.debug(f'Executing SQL update: \n{sql}')
+        logger.debug(f'Executing SQL update: \n{sql}')
         start = datetime.now()
         cursor.execute(sql)
         delta = datetime.now() - start
-        logging.debug(f'SQL took {str(delta)}')
+        logger.debug(f'SQL took {str(delta)}')
     finally:
         cursor.close()
 

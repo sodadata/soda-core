@@ -12,6 +12,8 @@ import logging
 import os
 from pathlib import Path
 
+logger = logging.getLogger(__name__)
+
 
 class FileSystem:
 
@@ -60,7 +62,7 @@ class FileSystem:
             with open(expanded_path, encoding='utf-8') as f:
                 return f.read()
         except Exception as e:
-            logging.debug(f"Couldn't read {str(path)}: {str(e)}")
+            logger.debug(f"Couldn't read {str(path)}: {str(e)}")
 
     def file_write_from_str(self, path: str, file_content_str):
         expanded_path = os.path.expanduser(path)
@@ -72,17 +74,17 @@ class FileSystem:
             if is_new:
                 os.chmod(path, 0o666)
         except Exception as e:
-            logging.debug(f"Couldn't write {str(path)}: {str(e)}")
+            logger.debug(f"Couldn't write {str(path)}: {str(e)}")
 
     def is_readable_file(self, file_path: str):
         if not self.file_exists(file_path):
-            logging.error(f'{file_path} does not exist')
+            logger.error(f'{file_path} does not exist')
             return False
         elif not self.is_file(file_path):
-            logging.error(f'{file_path} is not a file')
+            logger.error(f'{file_path} is not a file')
             return False
         elif not self.is_readable(file_path):
-            logging.error(f'{file_path} is not readable')
+            logger.error(f'{file_path} is not readable')
             return False
         return True
 

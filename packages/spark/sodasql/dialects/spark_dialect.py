@@ -1,11 +1,23 @@
+#  Copyright 2020 Soda
+#  Licensed under the Apache License, Version 2.0 (the "License");
+#  you may not use this file except in compliance with the License.
+#  You may obtain a copy of the License at
+#   http://www.apache.org/licenses/LICENSE-2.0
+#  Unless required by applicable law or agreed to in writing, software
+#  distributed under the License is distributed on an "AS IS" BASIS,
+#  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#  See the License for the specific language governing permissions and
+#  limitations under the License.
+
 from pyhive import hive
 from pyhive.exc import Error
 from thrift.transport.TTransport import TTransportException
 import logging
-from typing import Union
 
 from sodasql.scan.dialect import Dialect, SPARK, KEY_WAREHOUSE_TYPE
 from sodasql.scan.parser import Parser
+
+logger = logging.getLogger(__name__)
 
 
 class SparkDialect(Dialect):
@@ -70,9 +82,10 @@ class SparkDialect(Dialect):
                 try:
                     cursor.execute(test_query)
                 except Exception as e:
-                    raise Exception(f'Unable to query table: {table_name} from the database: {self.database}. Exception: {e}')
+                    raise Exception(
+                        f'Unable to query table: {table_name} from the database: {self.database}. Exception: {e}')
         else:
-            logging.warning(f'{self.database} does not contain any tables.')
+            logger.warning(f'{self.database} does not contain any tables.')
         return True
 
     def sql_columns_metadata(self, table_name: str):

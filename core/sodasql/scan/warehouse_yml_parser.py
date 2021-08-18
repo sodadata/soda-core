@@ -29,6 +29,8 @@ SODA_KEY_API_KEY_SECRET = 'api_key_secret'
 
 VALID_WAREHOUSE_KEYS = [KEY_NAME, KEY_CONNECTION, KEY_SODA_ACCOUNT]
 
+logger = logging.getLogger(__name__)
+
 
 def read_warehouse_yml_file(warehouse_yml_file: str):
     file_system = FileSystemSingleton.INSTANCE
@@ -37,7 +39,7 @@ def read_warehouse_yml_file(warehouse_yml_file: str):
         if warehouse_yaml_str:
             return YamlHelper.parse_yaml(warehouse_yaml_str, warehouse_yml_file)
         else:
-            logging.error(f'Failed to read warehouse yaml file: {warehouse_yml_file}')
+            logger.error(f'Failed to read warehouse yaml file: {warehouse_yml_file}')
 
 
 class WarehouseYmlParser(Parser):

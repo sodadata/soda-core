@@ -37,6 +37,8 @@ with pyodbc.connect('DRIVER='+driver+';SERVER='+server+';PORT=1433;DATABASE='+da
 
 """
 
+logger = logging.getLogger(__name__)
+
 
 class SQLServerDialect(Dialect):
 
@@ -109,9 +111,10 @@ class SQLServerDialect(Dialect):
                 try:
                     cursor.execute(test_query)
                 except Exception as e:
-                    raise Exception(f'Unable to query table: {table_name} from the database: {self.database}. Exception: {e}')
+                    raise Exception(
+                        f'Unable to query table: {table_name} from the database: {self.database}. Exception: {e}')
         else:
-            logging.warning(f'{self.database} does not contain any tables.')
+            logger.warning(f'{self.database} does not contain any tables.')
         return True
 
     def sql_columns_metadata_query(self, table_name: str) -> str:
