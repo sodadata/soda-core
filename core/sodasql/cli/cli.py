@@ -328,7 +328,12 @@ def analyze(warehouse_file: str, include: str, exclude: str):
               required=False,
               default=datetime.now(tz=timezone.utc).isoformat(timespec='seconds'),
               help='The scan time in ISO8601 format like eg 2021-04-28T09:00:00+02:00')
-def scan(scan_yml_file: str, warehouse_yml_file: str, variables: tuple = None, time: str = None):
+@click.option( '--offline',
+              required=False,
+              is_flag=True,
+              default=False,
+              help='Run scan offline, do not push to Soda Cloud even if it is configured')
+def scan(scan_yml_file: str, warehouse_yml_file: str, variables: tuple, time: str, offline: bool):
     """
     Computes all measurements and runs all tests on one table.  Exit code 0 means all tests passed.
     Non zero exit code means tests have failed or an exception occurred.
@@ -339,6 +344,9 @@ def scan(scan_yml_file: str, warehouse_yml_file: str, variables: tuple = None, t
     SCAN_YML_FILE is the scan YAML file that contains the metrics and tests for a table to run.
     """
     logger.info(SODA_SQL_VERSION)
+
+    if offline:
+        logger.info('Running in offline mode, scan results will NOT be pushed to Soda Cloud.')
 
     try:
         variables_dict = {}
@@ -360,7 +368,7 @@ def scan(scan_yml_file: str, warehouse_yml_file: str, variables: tuple = None, t
         logger.info(f'Scanning {scan_yml_file} ...')
 
         scan_builder.variables = variables_dict
-        scan = scan_builder.build()
+        scan = scan_builder.build(offline=offline)
         if not scan:
             logger.error(f'Could not read scan configurations. Aborting before scan started.')
             sys.exit(1)
