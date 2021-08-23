@@ -21,6 +21,7 @@ from sodasql.scan.parser import Parser
 
 KEY_WAREHOUSE_TYPE = 'type'
 KEY_CONNECTION_TIMEOUT = 'connection_timeout_sec'
+KEY_ACCOUNT_INFO_JSON_PATH = 'account_info_json_path'
 
 ATHENA = 'athena'
 BIGQUERY = 'bigquery'
