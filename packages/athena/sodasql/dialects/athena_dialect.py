@@ -90,7 +90,8 @@ class AthenaDialect(Dialect):
 
     def is_number(self, column_type: str):
         column_type_upper = column_type.upper()
-        return (column_type_upper in ['TINYINT', 'SMALLINT', 'INT', 'INTEGER', 'BIGINT', 'DOUBLE', 'FLOAT', 'REAL', 'DECIMAL']
+        return (column_type_upper in ['TINYINT', 'SMALLINT', 'INT', 'INTEGER', 'BIGINT', 'DOUBLE', 'FLOAT', 'REAL',
+                                      'DECIMAL']
                 or re.match(r'^DECIMAL\([0-9]+(,[0-9]+)?\)$', column_type_upper))
 
     def is_time(self, column_type: str):
@@ -140,4 +141,6 @@ class AthenaDialect(Dialect):
         error_message = str(exception)
         return error_message.find('InvalidSignatureException') != -1 or \
                error_message.find('Access denied when writing output') != -1 or \
-               error_message.find('The security token included in the request is invalid') != -1
+               error_message.find('The security token included in the request is invalid') != -1 or \
+               isinstance(exception, pyathena.DatabaseError) or \
+               isinstance(exception, pyathena.OperationalError)
