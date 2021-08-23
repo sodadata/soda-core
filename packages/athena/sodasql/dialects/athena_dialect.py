@@ -27,7 +27,7 @@ class AthenaDialect(Dialect):
         return AwsCredentials(
             access_key_id=access_key_id,
             secret_access_key=parser.get_credential('secret_access_key'),
-            role_arn=parser.get_str_optional_env('role_arn'),
+            role_arn=role_arn,
             session_token=parser.get_credential('session_token'),
             region_name=parser.get_str_optional_env('region', 'eu-west-1'),
             profile_name=profile_name)
