@@ -27,6 +27,7 @@ from sodasql.scan.scan_error import SodaCloudScanError, ScanError, TestExecution
 from sodasql.scan.scan_result import ScanResult
 from sodasql.scan.scan_yml import ScanYml
 from sodasql.scan.sql_metric_yml import SqlMetricYml
+from sodasql.scan.test import Test
 from sodasql.scan.test_result import TestResult
 from sodasql.scan.warehouse import Warehouse
 from sodasql.soda_server_client.soda_server_client import SodaServerClient
@@ -760,7 +761,7 @@ class Scan:
             test_results.extend(column_test_results)
         self._flush_test_results(test_results)
 
-    def _execute_tests(self, tests, variables, group_values: Optional[dict] = None):
+    def _execute_tests(self, tests: List[Test], variables, group_values: Optional[dict] = None):
         test_results = []
         if tests:
             for test in tests:
@@ -853,7 +854,7 @@ class Scan:
                 self.scan_result.add_error(SodaCloudScanError('Could not start scan', e))
                 self.soda_server_client = None
 
-    def evaluate_test(self, test, test_variables, group_values: Optional[dict] = None) -> TestResult:
+    def evaluate_test(self, test: Test, test_variables, group_values: Optional[dict] = None) -> TestResult:
         test_result = test.evaluate(test_variables, group_values, self.variables)
         if test_result.error:
             self.scan_result.add_error(TestExecutionScanError(

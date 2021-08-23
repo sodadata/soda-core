@@ -22,6 +22,7 @@ class Test:
     expression: str
     metrics: List[str]
     column: Optional[str]
+    expression_delimiters = ['<=', '>=', '<', '>', '==']
 
     def evaluate(self, test_variables: dict, group_values: Optional[dict] = None,
                  template_variables: Optional[dict] = None):
@@ -36,6 +37,18 @@ class Test:
                 return TestResult(test=self, skipped=True, passed=True, values=values, group_values=group_values)
             else:
                 passed = bool(eval(self.expression, test_variables))
+
+                # Evaluate more complex expressions and save result of the expression.
+                for delimiter in self.expression_delimiters:
+                    if delimiter in self.expression:
+                        left, _, _ = self.expression.partition(delimiter)
+                        # Make sure the expression result is the first key in the resulting dict.
+                        expression_result = {'expression_result': eval(left, test_variables)}
+                        expression_result.update(values)
+                        values = expression_result
+
+                        break
+
                 test_result = TestResult(test=self, passed=passed, skipped=False, values=values,
                                          group_values=group_values)
                 logger.debug(str(test_result))
