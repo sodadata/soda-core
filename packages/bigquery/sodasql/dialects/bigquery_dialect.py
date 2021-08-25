@@ -128,10 +128,10 @@ class BigQueryDialect(Dialect):
 
     @staticmethod
     def __parse_json_credential(credential_name, parser):
-        account_info_dict_path = parser.get_str_optional('account_info_json_path')
+        account_info_path = parser.get_str_optional('account_info_json_path')
         try:
-            if account_info_dict_path:
-                account_info = parser._read_file_as_string(account_info_dict_path)
+            if account_info_path:
+                account_info = parser._read_file_as_string(account_info_path)
                 if account_info is not None:
                     return json.loads(account_info)
             else:
