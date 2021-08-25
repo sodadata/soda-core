@@ -331,7 +331,7 @@ def analyze(warehouse_file: str, include: str, exclude: str):
               is_flag=True,
               required=False,
               help='Use this flag if you want to skip confirmations and run the scan.')
-def scan(scan_yml_file: str, warehouse_yml_file: str, variables: tuple = None, time: str = None, non_interactive: bool=False):
+def scan(scan_yml_file: str, warehouse_yml_file: str, variables: tuple = None, time: str = None, non_interactive: bool=True):
     """
     Computes all measurements and runs all tests on one table.  Exit code 0 means all tests passed.
     Non zero exit code means tests have failed or an exception occurred.
