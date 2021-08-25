@@ -407,8 +407,9 @@ class Scan:
                         self.queries_executed += 1
 
                         mins = [row[0] for row in rows]
+                        truncated_mins = map(lambda x: self.__truncate_value(x, 200), mins)
                         self._log_and_append_query_measurement(measurements,
-                                                               Measurement(Metric.MINS, column_name, mins))
+                                                               Measurement(Metric.MINS, column_name, truncated_mins))
 
                     if self.scan_yml.is_metric_enabled(Metric.MAXS, column_name) and order_by_value_expr:
                         sql = (f'{group_by_cte} \n'
@@ -421,8 +422,9 @@ class Scan:
                         self.queries_executed += 1
 
                         maxs = [row[0] for row in rows]
+                        truncated_maxs = map(lambda x: self.__truncate_value(x, 200), maxs)
                         self._log_and_append_query_measurement(measurements,
-                                                               Measurement(Metric.MAXS, column_name, maxs))
+                                                               Measurement(Metric.MAXS, column_name, truncated_maxs))
 
                     if self.scan_yml.is_metric_enabled(Metric.FREQUENT_VALUES, column_name):
                         frequent_values_limit = self.scan_yml.get_frequent_values_limit(column_name)
