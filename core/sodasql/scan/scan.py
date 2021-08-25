@@ -344,8 +344,13 @@ class Scan:
 
     def __truncate_value(self, value: str, length):
         if len(value) > length:
+            print('VALL')
+            print(value[0:length])
             return value[0:length]
-        return value
+        else:
+            print('VALL')
+            print(value)
+            return value
 
     def _query_group_by_value(self):
         for column_name_lower, scan_column in self.scan_columns.items():
