@@ -4,4 +4,4 @@
 
 . .venv/bin/activate
 
-python -m pytest tests/local
+python -m pytest tests/local "$@"
