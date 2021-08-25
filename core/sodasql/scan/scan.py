@@ -342,14 +342,17 @@ class Scan:
             logger.debug(f'Exception during aggregation query', e)
             self.scan_result.add_error(ScanError(f'Exception during aggregation query', e))
 
-    def __truncate_value(self, value: str, length):
-        if len(value) > length:
-            print('VALL')
-            print(value[0:length])
-            return value[0:length]
+    def __truncate_value(self, value, length):
+        if isinstance(value, str):
+            if len(value) > length:
+                print('VALL')
+                print(value[0:length])
+                return value[0:length]
+            else:
+                print('VALL_FULL')
+                print(value)
+                return value
         else:
-            print('VALL_FULL')
-            print(value)
             return value
 
     def _query_group_by_value(self):
@@ -406,10 +409,9 @@ class Scan:
                         rows = self.warehouse.sql_fetchall(sql)
                         self.queries_executed += 1
 
-                        mins = [row[0] for row in rows]
-                        truncated_mins = map(lambda x: self.__truncate_value(x, 200), mins)
+                        mins = [self.__truncate_value(row[0], 200) for row in rows]
                         self._log_and_append_query_measurement(measurements,
-                                                               Measurement(Metric.MINS, column_name, truncated_mins))
+                                                               Measurement(Metric.MINS, column_name, mins))
 
                     if self.scan_yml.is_metric_enabled(Metric.MAXS, column_name) and order_by_value_expr:
                         sql = (f'{group_by_cte} \n'
@@ -421,10 +423,9 @@ class Scan:
                         rows = self.warehouse.sql_fetchall(sql)
                         self.queries_executed += 1
 
-                        maxs = [row[0] for row in rows]
-                        truncated_maxs = map(lambda x: self.__truncate_value(x, 200), maxs)
+                        maxs = [self.__truncate_value(row[0], 200) for row in rows]
                         self._log_and_append_query_measurement(measurements,
-                                                               Measurement(Metric.MAXS, column_name, truncated_maxs))
+                                                               Measurement(Metric.MAXS, column_name, maxs))
 
                     if self.scan_yml.is_metric_enabled(Metric.FREQUENT_VALUES, column_name):
                         frequent_values_limit = self.scan_yml.get_frequent_values_limit(column_name)
