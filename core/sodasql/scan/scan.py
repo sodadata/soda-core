@@ -345,12 +345,8 @@ class Scan:
     def __truncate_value(self, value, length):
         if isinstance(value, str):
             if len(value) > length:
-                print('VALL')
-                print(value[0:length])
                 return value[0:length]
             else:
-                print('VALL_FULL')
-                print(value)
                 return value
         else:
             return value
@@ -437,7 +433,7 @@ class Scan:
 
                         rows = self.warehouse.sql_fetchall(sql)
                         self.queries_executed += 1
-                        frequent_values = [{'value': row[0], 'frequency': row[1]} for row in rows]
+                        frequent_values = [{'value': self.__truncate_value(row[0], 200), 'frequency': row[1]} for row in rows]
                         self._log_and_append_query_measurement(
                             measurements, Measurement(Metric.FREQUENT_VALUES, column_name, frequent_values))
 
