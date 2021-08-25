@@ -406,7 +406,7 @@ class Scan:
                         rows = self.warehouse.sql_fetchall(sql)
                         self.queries_executed += 1
 
-                        mins = [row[0], 200 for row in rows]
+                        mins = [row[0] for row in rows]
                         self._log_and_append_query_measurement(measurements,
                                                                Measurement(Metric.MINS, column_name, mins))
 
