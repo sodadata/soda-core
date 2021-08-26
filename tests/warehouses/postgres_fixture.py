@@ -21,4 +21,4 @@ class PostgresFixture(WarehouseFixture):
         pass
 
     def test_warehouse_connection(self):
-        pass
+        assert(self.warehouse.dialect.sql_test_connection())

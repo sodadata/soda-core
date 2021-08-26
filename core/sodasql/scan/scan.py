@@ -342,14 +342,9 @@ class Scan:
             logger.debug(f'Exception during aggregation query', e)
             self.scan_result.add_error(ScanError(f'Exception during aggregation query', e))
 
-    def __truncate_value(self, value, length):
-        if isinstance(value, str):
-            if len(value) > length:
-                return value[0:length]
-            else:
-                return value
-        else:
-            return value
+    def __truncate_value(self, value: str, length: int):
+        return value[:length] if isinstance(value, str) else value
+
 
     def _query_group_by_value(self):
         for column_name_lower, scan_column in self.scan_columns.items():
@@ -433,7 +428,8 @@ class Scan:
 
                         rows = self.warehouse.sql_fetchall(sql)
                         self.queries_executed += 1
-                        frequent_values = [{'value': self.__truncate_value(row[0], 200), 'frequency': row[1]} for row in rows]
+                        frequent_values = [{'value': self.__truncate_value(row[0], 200), 'frequency': row[1]} for row in
+                                           rows]
                         self._log_and_append_query_measurement(
                             measurements, Measurement(Metric.FREQUENT_VALUES, column_name, frequent_values))
 
