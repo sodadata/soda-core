@@ -8,10 +8,12 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
+from __future__ import annotations
+
 import re
 from datetime import date
 from numbers import Number
-from typing import List
+from typing import List, Optional
 import importlib
 import logging
 
@@ -70,7 +72,7 @@ class Dialect:
         return _class_attr
 
     @classmethod
-    def create(cls, parser: Parser):
+    def create(cls, parser: Parser) -> Optional[Dialect]:
         _warehouse_class = None
         warehouse_type = parser.get_str_optional(KEY_WAREHOUSE_TYPE)
         if warehouse_type not in ALL_WAREHOUSE_TYPES:
@@ -441,3 +443,6 @@ class Dialect:
 
     def sql_columns_metadata(self, table_name: str) -> List[tuple]:
         return []
+
+    def validate_connection(self):
+        pass

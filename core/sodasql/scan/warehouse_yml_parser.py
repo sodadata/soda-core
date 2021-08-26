@@ -64,6 +64,8 @@ class WarehouseYmlParser(Parser):
             if connection_dict:
                 self._push_context(object=connection_dict, name=KEY_CONNECTION)
                 self.warehouse_yml.dialect = Dialect.create(self)
+                if self.warehouse_yml.dialect:
+                    self.warehouse_yml.dialect.validate_connection()
                 self._pop_context()
 
             soda_account_dict = self.get_dict_optional(KEY_SODA_ACCOUNT)
