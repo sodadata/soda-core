@@ -138,9 +138,5 @@ class AthenaDialect(Dialect):
     def is_authentication_error(self, exception):
         if exception is None:
             return False
-        error_message = str(exception)
-        return error_message.find('InvalidSignatureException') != -1 or \
-               error_message.find('Access denied when writing output') != -1 or \
-               error_message.find('The security token included in the request is invalid') != -1 or \
-               isinstance(exception, pyathena.DatabaseError) or \
+        return isinstance(exception, pyathena.DatabaseError) or \
                isinstance(exception, pyathena.OperationalError)
