@@ -27,7 +27,7 @@ class AthenaDialect(Dialect):
         return AwsCredentials(
             access_key_id=access_key_id,
             secret_access_key=parser.get_credential('secret_access_key'),
-            role_arn=parser.get_str_optional_env('role_arn'),
+            role_arn=role_arn,
             session_token=parser.get_credential('session_token'),
             region_name=parser.get_str_optional_env('region', 'eu-west-1'),
             profile_name=profile_name)
@@ -90,7 +90,8 @@ class AthenaDialect(Dialect):
 
     def is_number(self, column_type: str):
         column_type_upper = column_type.upper()
-        return (column_type_upper in ['TINYINT', 'SMALLINT', 'INT', 'INTEGER', 'BIGINT', 'DOUBLE', 'FLOAT', 'REAL', 'DECIMAL']
+        return (column_type_upper in ['TINYINT', 'SMALLINT', 'INT', 'INTEGER', 'BIGINT', 'DOUBLE', 'FLOAT', 'REAL',
+                                      'DECIMAL']
                 or re.match(r'^DECIMAL\([0-9]+(,[0-9]+)?\)$', column_type_upper))
 
     def is_time(self, column_type: str):
@@ -137,7 +138,5 @@ class AthenaDialect(Dialect):
     def is_authentication_error(self, exception):
         if exception is None:
             return False
-        error_message = str(exception)
-        return error_message.find('InvalidSignatureException') != -1 or \
-               error_message.find('Access denied when writing output') != -1 or \
-               error_message.find('The security token included in the request is invalid') != -1
+        return isinstance(exception, pyathena.DatabaseError) or \
+               isinstance(exception, pyathena.OperationalError)
