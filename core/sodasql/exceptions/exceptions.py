@@ -54,3 +54,9 @@ class TestFailureError(SodaSqlError):
                                                original_exception)
         self.error_code = ERROR_CODE_TEST_FAILED
         self.errors_number = errors_count
+
+class InvalidWarehouseYaml(Exception):
+
+    def __init__(self, exception_detail):
+        super(InvalidWarehouseYaml, self).__init__(
+            f"Invalid Warehouse YAML. {exception_detail}")

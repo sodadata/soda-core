@@ -11,7 +11,6 @@
 import logging
 import json
 from json.decoder import JSONDecodeError
-from typing import Union
 
 from google.api_core.exceptions import Forbidden, NotFound
 from google.auth.exceptions import GoogleAuthError, TransportError
@@ -129,11 +128,17 @@ class BigQueryDialect(Dialect):
 
     @staticmethod
     def __parse_json_credential(credential_name, parser):
+        account_info_path = parser.get_str_optional('account_info_json_path')
         try:
-            cred = parser.get_credential(credential_name)
-            # Prevent json load when the Dialect is init from create command
-            if cred is not None:
-                return json.loads(cred)
+            if account_info_path:
+                account_info = parser._read_file_as_string(account_info_path)
+                if account_info is not None:
+                    return json.loads(account_info)
+            else:
+                cred = parser.get_credential(credential_name)
+                # Prevent json load when the Dialect is init from create command
+                if cred is not None:
+                    return json.loads(cred)
         except JSONDecodeError as e:
             parser.error(f'Error parsing credential {credential_name}: {e}', credential_name)
 

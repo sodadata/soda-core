@@ -13,6 +13,7 @@ import boto3
 import psycopg2
 from botocore.exceptions import ClientError, ValidationError, ParamValidationError
 from sodasql.dialects.postgres_dialect import PostgresDialect
+from sodasql.exceptions.exceptions import InvalidWarehouseYaml
 from sodasql.scan.dialect import REDSHIFT, KEY_WAREHOUSE_TYPE
 from sodasql.scan.dialect_parser import DialectParser
 from sodasql.scan.parser import Parser
@@ -94,6 +95,10 @@ class RedshiftDialect(PostgresDialect):
             return conn
         except Exception as e:
             self.try_to_raise_soda_sql_exception(e)
+
+    def validate_connection(self):
+        if not self.password and not self.aws_credentials:
+            raise InvalidWarehouseYaml('Password or AWS credentials are required.')
 
     def __get_cluster_credentials(self):
         resolved_aws_credentials = self.aws_credentials.resolve_role(
