@@ -9,9 +9,10 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 import re
-import logging
 from typing import Union
 from datetime import date
+from botocore.exceptions import ConnectionError, ClientError, ValidationError, ParamValidationError
+
 import pyathena
 from sodasql.scan.dialect import ATHENA, KEY_WAREHOUSE_TYPE, Dialect
 from sodasql.scan.parser import Parser
@@ -132,8 +133,10 @@ class AthenaDialect(Dialect):
     def is_connection_error(self, exception):
         if exception is None:
             return False
-        error_message = str(exception)
-        return error_message.find('Could not connect to the endpoint URL') != -1
+        return isinstance(exception, ConnectionError) or \
+               isinstance(exception, ClientError) or \
+               isinstance(exception, ValidationError) or \
+               isinstance(exception, ParamValidationError)
 
     def is_authentication_error(self, exception):
         if exception is None:
