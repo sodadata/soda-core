@@ -197,8 +197,8 @@ class Scan:
         # Compare the column names in yml with valid column names from the table
         invalid_column_names = set(self.scan_yml.columns.keys()) - set(self.scan_columns.keys())
         if invalid_column_names:
-            logger.error(f'Unknown column names found in YML: {", ".join(invalid_column_names)} \n'
-                         f'Scan will continue for known columns.')
+            logger.warning(f'Unknown or unsupported columns found in YML: {", ".join(invalid_column_names)} \n'
+                         f'Scan will continue for known/supported columns.')
 
         schema_measurement_value = [column_metadata.to_json() for column_metadata in self.column_metadatas]
         schema_measurement = Measurement(Metric.SCHEMA, value=schema_measurement_value)
