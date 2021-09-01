@@ -4,6 +4,18 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
+## [2.1.0b15] - 2021-09-01 *Barliman Butterbur*
+
+- Core: Implement option to limit the number of tables analyzed (#466)
+- Core: Add --offline flag to scan cli to skip sending results to Soda Cloud (#192) (#448)
+- Core: Update logging with module names (#447)
+- Core: add --non-interactive and --time flag (#455)
+- Core: Update unsupported columns message as warning (#460)
+- Core/Soda Cloud: Validate warehouse connection method, basic Redshift connection validation (#125) (#454)
+- Soda Cloud: truncate columns longer than a length of 200 (#453)
+- Soda Cloud: Evaluate test expressions and send them to the cloud to be displayed (#239) (#449)
+- BigQuery: Get bigquery account info from reading an external path (#451)
+
 ## [2.1.0b14] - 2021-08-18 *Meriadoc Brandybuck*
 
 - Core: Change dependencies to use ranges (#435)
@@ -94,10 +106,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ### Fixed
 
--  core: Add is_temporal to identify  date/time semantic type
--  core: Fix valid_min and valid_max calculation for varchar with numeric data
--  soda cloud: Add support for IS NULL sql expression
--  snowflake: Privatekey authentication support
+- core: Add is_temporal to identify date/time semantic type
+- core: Fix valid_min and valid_max calculation for varchar with numeric data
+- soda cloud: Add support for IS NULL sql expression
+- snowflake: Privatekey authentication support
 
 ## [2.1.0b5] - 2021-05-11 *Aragorn*
 
@@ -123,11 +135,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ### Fixed
 
--  SQLServer: Fix soda analyze
--  SQLServer: Limit (TOP) works in queries
--  Metrics: scan command fails when a date validation is added
--  Metrics: scan command fails when valid_format is added to
--  Snowflake: role and other parameters can be configured in warehouse.yml
+- SQLServer: Fix soda analyze
+- SQLServer: Limit (TOP) works in queries
+- Metrics: scan command fails when a date validation is added
+- Metrics: scan command fails when valid_format is added to
+- Snowflake: role and other parameters can be configured in warehouse.yml
 
 ## [2.1.0b2] - 2021-04-20
 
