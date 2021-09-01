@@ -15,6 +15,7 @@ import logging
 from snowflake import connector
 from snowflake.connector import errorcode
 from snowflake.connector.network import DEFAULT_SOCKET_CONNECT_TIMEOUT
+from typing import Optional
 
 from sodasql.scan.dialect import Dialect, SNOWFLAKE, KEY_WAREHOUSE_TYPE, KEY_CONNECTION_TIMEOUT
 from sodasql.scan.parser import Parser
@@ -149,14 +150,14 @@ class SnowflakeDialect(Dialect):
         return column_type.upper() in ['DATE', 'DATETIME', 'TIME', 'TIMESTAMP',
                                        'TIMESTAMP_LTZ', 'TIMESTAMP_NTZ', 'TIMESTAMP_TZ']
 
-    def sql_tables_metadata_query(self, limit: str = 10, filter: str = None):
+    def sql_tables_metadata_query(self, limit: Optional[int] = None, filter: str = None):
         sql = (f"SELECT table_name \n"
                f"FROM information_schema.tables \n"
                f"WHERE lower(table_schema)='{self.schema.lower()}'")
         if self.database:
-            sql += f" \n  AND lower(table_catalog) = '{self.database.lower()}'"
-        if isinstance(limit, int):
-            sql += f" \nLIMIT {limit}"
+            sql += f"\n  AND lower(table_catalog) = '{self.database.lower()}'"
+        if limit is not None:
+            sql += f"\n LIMIT {limit}"
         return sql
 
     def sql_columns_metadata_query(self, table_name: str) -> str:

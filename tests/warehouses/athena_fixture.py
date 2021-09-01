@@ -41,7 +41,7 @@ class AthenaFixture(WarehouseFixture):
             f'CREATE DATABASE IF NOT EXISTS {self.database}'])
 
     def test_warehouse_connection(self):
-        assert(self.warehouse.dialect.sql_test_connection())
+        assert (self.warehouse.dialect.sql_test_connection())
 
     def sql_create_table(self, columns: List[str], table_name: str):
         columns_sql = ", ".join(columns)
@@ -84,7 +84,6 @@ class AthenaFixture(WarehouseFixture):
             f"{len(object_keys)} objects exceeds the limit."
         if object_keys:
             s3_client.delete_objects(Bucket=bucket, Delete={'Objects': object_keys})
-
 
     @staticmethod
     def _extract_object_keys(response):

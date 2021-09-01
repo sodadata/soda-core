@@ -12,7 +12,7 @@ from datetime import date
 
 import pyodbc
 import logging
-from typing import Union
+from typing import Union, Optional
 
 from sodasql.scan.dialect import Dialect, SQLSERVER, KEY_WAREHOUSE_TYPE
 from sodasql.scan.parser import Parser
@@ -71,10 +71,13 @@ class SQLServerDialect(Dialect):
             'SQLSERVER_PASSWORD': params.get('password', 'Eg abc123')
         }
 
-    def sql_tables_metadata_query(self, limit: str = 10, filter: str = None):
-        return (f"SELECT TABLE_NAME \n"
-                f"FROM information_schema.tables \n"
-                f"WHERE lower(table_schema)='{self.schema.lower()}'")
+    def sql_tables_metadata_query(self, limit: Optional[int] = None, filter: str = None):
+        sql = (f"SELECT TABLE_NAME \n"
+               f"FROM information_schema.tables \n"
+               f"WHERE lower(table_schema)='{self.schema.lower()}'")
+        if limit is not None:
+            sql += f"\n LIMIT {limit}"
+        return sql
 
     def sql_connection_test(self):
         pass

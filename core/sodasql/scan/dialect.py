@@ -47,6 +47,7 @@ ALL_WAREHOUSE_TYPES = [ATHENA,
 
 logger = logging.getLogger(__name__)
 
+
 class Dialect:
     data_type_varchar_255 = "VARCHAR(255)"
     data_type_integer = "INTEGER"
@@ -67,7 +68,7 @@ class Dialect:
             logger.error(f'Module {module_name} not found. Are you sure you installed appropriate warehouse package?')
         except AttributeError:
             logger.error(f'Class {class_name} not found in {module_name}, Are you sure you installed '
-                          f'appropriate warehouse package?')
+                         f'appropriate warehouse package?')
 
         return _class_attr
 
@@ -133,7 +134,7 @@ class Dialect:
     def sql_columns_metadata_query(self, table_name: str) -> str:
         raise RuntimeError('TODO override and implement this abstract method')
 
-    def sql_tables_metadata_query(self, limit: str = 10, filter: str = None):
+    def sql_tables_metadata_query(self, limit: Optional[int] = None, filter: str = None):
         raise RuntimeError('TODO override and implement this abstract method')
 
     def is_text(self, column_type: str):

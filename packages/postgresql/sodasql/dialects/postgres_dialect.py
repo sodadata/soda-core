@@ -11,7 +11,7 @@
 import re
 
 import psycopg2
-from typing import Union
+from typing import Optional
 import logging
 from sodasql.scan.dialect import Dialect, POSTGRES, KEY_WAREHOUSE_TYPE, KEY_CONNECTION_TIMEOUT
 from sodasql.scan.parser import Parser
@@ -49,10 +49,13 @@ class PostgresDialect(Dialect):
             'POSTGRES_PASSWORD': params.get('password', 'Eg abc123')
         }
 
-    def sql_tables_metadata_query(self, limit: str = 10, filter: str = None):
-        return (f"SELECT table_name \n"
-                f"FROM information_schema.tables \n"
-                f"WHERE lower(table_schema)='{self.schema.lower()}'")
+    def sql_tables_metadata_query(self, limit: Optional[int] = None, filter: str = None):
+        sql = (f"SELECT table_name \n"
+               f"FROM information_schema.tables \n"
+               f"WHERE lower(table_schema)='{self.schema.lower()}'")
+        if limit is not None:
+            sql += f"\n LIMIT {limit}"
+        return sql
 
     def create_connection(self):
         try:

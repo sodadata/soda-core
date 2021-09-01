@@ -189,7 +189,12 @@ def matches_table_exclude(table_name: str, table_exclude_pattern):
 @click.option('-e', '--exclude',
               required=False,
               help='Table name exclusion filter, case insensitive, comma separated list, use * as a wild card')
-def analyze(warehouse_file: str, include: str, exclude: str):
+@click.option('-l', '--limit',
+              type=int,
+              required=False,
+              help='Limit the number of tables analyzed. This option is ignored for Hive and Spark dialects'
+              )
+def analyze(warehouse_file: str, include: str, exclude: str, limit: int):
     """
     Analyzes tables in the warehouse and creates scan YAML files based on the data in the table. By default it creates
     files in a subdirectory called "tables" on the same level as the warehouse file.
@@ -230,7 +235,7 @@ def analyze(warehouse_file: str, include: str, exclude: str):
         if hasattr(dialect, "sql_tables_metadata"):
             rows = dialect.sql_tables_metadata()
         else:
-            tables_metadata_query = dialect.sql_tables_metadata_query()
+            tables_metadata_query = dialect.sql_tables_metadata_query(limit=limit)
             rows = warehouse.sql_fetchall(tables_metadata_query)
 
         table_include_regex = create_table_filter_regex(include)
