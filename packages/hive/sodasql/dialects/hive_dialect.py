@@ -12,7 +12,7 @@
 from pyhive import hive
 from pyhive.exc import Error
 from thrift.transport.TTransport import TTransportException
-
+from typing import Optional
 from sodasql.scan.dialect import Dialect, HIVE, KEY_WAREHOUSE_TYPE
 from sodasql.scan.parser import Parser
 import json
@@ -51,7 +51,8 @@ class HiveDialect(Dialect):
             'HIVE_PASSWORD': params.get('password', 'hive_password_goes_here')
         }
 
-    def sql_tables_metadata_query(self, limit: str = 10, filter: str = None):
+    def sql_tables_metadata_query(self, limit: Optional[int] = None, filter: str = None):
+        # TODO Implement limit
         return (f"use {self.database.lower()};\n"
                 f"show tables;")
 

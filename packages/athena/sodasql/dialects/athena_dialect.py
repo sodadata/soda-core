@@ -9,7 +9,7 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 import re
-from typing import Union
+from typing import Union, Optional
 from datetime import date
 from botocore.exceptions import ConnectionError, ClientError, ValidationError, ParamValidationError
 
@@ -98,12 +98,15 @@ class AthenaDialect(Dialect):
     def is_time(self, column_type: str):
         return column_type.upper() in ['DATE', 'TIMESTAMP']
 
-    def sql_tables_metadata_query(self, limit: str = 10, filter: str = None):
+    def sql_tables_metadata_query(self, limit: Optional[int] = None, filter: str = None):
         # Alternative ( https://github.com/sodadata/soda-sql/pull/98/files )
         # return (f"SHOW tables IN `{self.database.lower()}`;")
-        return (f"SELECT table_name \n"
-                f"FROM information_schema.tables \n"
-                f"WHERE lower(table_schema) = '{self.database.lower()}';")
+        sql = (f"SELECT table_name \n"
+               f"FROM information_schema.tables \n"
+               f"WHERE lower(table_schema) = '{self.database.lower()}'")
+        if limit is not None:
+            sql += f"\n LIMIT {limit}"
+        return sql + ';'
 
     def sql_columns_metadata_query(self, table_name: str):
         return (f"SELECT column_name, data_type, is_nullable \n"

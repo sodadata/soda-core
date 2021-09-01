@@ -11,6 +11,7 @@
 import logging
 import json
 from json.decoder import JSONDecodeError
+from typing import Optional
 
 from google.api_core.exceptions import Forbidden, NotFound
 from google.auth.exceptions import GoogleAuthError, TransportError
@@ -84,9 +85,12 @@ class BigQueryDialect(Dialect):
         except Exception as e:
             raise Exception(f'Unable to list tables from: {dataset_id}. Exception: {e}')
 
-    def sql_tables_metadata_query(self, limit: str = 10, filter: str = None):
-        return (f"SELECT table_name \n"
-                f"FROM `{self.dataset_name}.INFORMATION_SCHEMA.TABLES`;")
+    def sql_tables_metadata_query(self, limit: Optional[int] = None, filter: str = None):
+        sql = (f"SELECT table_name \n"
+               f"FROM `{self.dataset_name}.INFORMATION_SCHEMA.TABLES`")
+        if limit is not None:
+            sql += f"\n LIMIT {limit}"
+        return sql + ';'
 
     def sql_columns_metadata_query(self, table_name: str):
         return (f"SELECT column_name, data_type, is_nullable "
