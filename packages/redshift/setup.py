@@ -8,7 +8,7 @@ if sys.version_info < (3, 7):
     sys.exit(1)
 
 package_name = "soda-sql-redshift"
-package_version = '2.1.0b14'
+package_version = '2.1.0b15'
 # TODO Add proper description
 description = "Soda SQL Redshift"
 
