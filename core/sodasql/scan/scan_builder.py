@@ -111,8 +111,6 @@ class ScanBuilder:
         self.warehouse_yml = warehouse_parser.warehouse_yml
 
     def _build_scan_yml(self):
-        file_system = FileSystemSingleton.INSTANCE
-
         if not self.scan_yml_file and not self.scan_yml_dict and not self.scan_yml:
             logger.error(f'No scan specified')
             return
@@ -120,7 +118,7 @@ class ScanBuilder:
         elif self.scan_yml_file and not self.scan_yml_dict and not self.scan_yml:
             if not isinstance(self.scan_yml_file, str):
                 logger.error(f'scan_builder.scan_yml_file must be str, but was {type(self.scan_yml_file)}: {self.scan_yml_file}')
-            elif file_system.is_readable_file(self.scan_yml_file):
+            elif self.file_system.is_readable_file(self.scan_yml_file):
                 scan_yml_str = self.file_system.file_read_as_str(self.scan_yml_file)
                 if scan_yml_str:
                     self.scan_yml_dict = YamlHelper.parse_yaml(scan_yml_str, self.scan_yml_file)
