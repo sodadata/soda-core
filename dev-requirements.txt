@@ -14,7 +14,7 @@ bleach==3.3.0
     # via readme-renderer
 certifi==2020.12.5
     # via requests
-chardet==3.0.4
+charset-normalizer==2.0.4
     # via requests
 cli-ui==0.10.3
     # via tbump
@@ -44,6 +44,8 @@ filelock==3.0.12
     #   virtualenv
 idna==2.10
     # via requests
+importlib-metadata==4.8.1
+    # via twine
 iniconfig==1.1.1
     # via pytest
 keyring==22.0.1
@@ -91,8 +93,9 @@ readme-renderer==28.0
     # via twine
 requests-toolbelt==0.9.1
     # via twine
-requests==2.23.0
+requests==2.26.0
     # via
+    #   -r dev-requirements.in
     #   docker
     #   requests-toolbelt
     #   twine
@@ -129,19 +132,22 @@ tox==3.15.2
     #   tox-docker
 tqdm==4.56.0
     # via twine
-twine==3.3.0
+twine==3.4.2
     # via -r dev-requirements.in
 unidecode==1.2.0
     # via cli-ui
-urllib3==1.25.10
-    # via requests
+urllib3==1.26.5
+    # via
+    #   -r dev-requirements.in
+    #   requests
 virtualenv==20.4.2
     # via tox
 webencodings==0.5.1
     # via bleach
 websocket-client==0.57.0
     # via docker
+zipp==3.5.0
+    # via importlib-metadata
 
 # The following packages are considered to be unsafe in a requirements file:
 # pip
-# setuptools
