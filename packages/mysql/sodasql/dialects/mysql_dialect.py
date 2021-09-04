@@ -12,7 +12,7 @@ import logging
 
 import mysql.connector
 from typing import Optional
-from sodasql.scan.dialect import Dialect, SQLSERVER, KEY_WAREHOUSE_TYPE
+from sodasql.scan.dialect import Dialect, MYSQL, KEY_WAREHOUSE_TYPE
 from sodasql.scan.parser import Parser
 
 logger = logging.getLogger(__name__)
@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 
 class MySQLDialect(Dialect):
 
-    def __init__(self, parser: Parser = None, type: str = SQLSERVER):
+    def __init__(self, parser: Parser = None, type: str = MYSQL):
         super().__init__(type)
         if parser:
             self.host = parser.get_str_optional_env('host', 'localhost')
@@ -31,7 +31,7 @@ class MySQLDialect(Dialect):
 
     def default_connection_properties(self, params: dict):
         return {
-            KEY_WAREHOUSE_TYPE: SQLSERVER,
+            KEY_WAREHOUSE_TYPE: MYSQL,
             'host': 'localhost',
             'port': '3306',
             'username': 'env_var(MYSQL_USERNAME)',
@@ -48,7 +48,7 @@ class MySQLDialect(Dialect):
     def sql_tables_metadata_query(self, limit: Optional[int] = None, filter: str = None):
         sql = (f"SELECT TABLE_NAME \n"
                f"FROM information_schema.tables \n"
-               f"WHERE lower(table_schema)='{self.schema.lower()}'")
+               f"WHERE lower(table_schema)='{self.database.lower()}'")
         if limit is not None:
             sql += f"\n LIMIT {limit}"
         return sql
@@ -114,6 +114,12 @@ class MySQLDialect(Dialect):
 
     def qualify_column_name(self, column_name: str):
         return f'{column_name}'
+
+    def sql_expr_count_conditional(self, condition: str):
+        return f'COUNT(CASE WHEN {condition} THEN 1 END) AS _'
+
+    def qualify_regex(self, regex) -> str:
+        return self.escape_metacharacters(regex)
 
     def sql_expr_regexp_like(self, expr: str, pattern: str):
         return f"{expr} regexp '{self.qualify_regex(pattern)}'"

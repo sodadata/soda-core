@@ -12,7 +12,7 @@ from tests.common.sql_test_case import TARGET_MYSQL
 from tests.common.sql_test_suite import SqlTestSuite
 
 
-class PostgresSuite(SqlTestSuite):
+class MySqlSuite(SqlTestSuite):
 
     def setUp(self) -> None:
         self.target = TARGET_MYSQL
