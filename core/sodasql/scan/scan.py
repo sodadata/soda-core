@@ -339,7 +339,7 @@ class Scan:
 
             self._flush_measurements(measurements)
         except Exception as e:
-            logger.debug(f'Exception during aggregation query', e)
+            logger.debug(f'Exception during aggregation query', exc_info=e)
             self.scan_result.add_error(ScanError(f'Exception during aggregation query', e))
 
     def _query_group_by_value(self):
