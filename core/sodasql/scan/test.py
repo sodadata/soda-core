@@ -9,11 +9,16 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, astuple
 from typing import Optional, List
 from jinja2 import Template
 
 logger = logging.getLogger(__name__)
+
+
+def is_equal_or_both_none(left, right):
+    return (left == right) or (left is None and right is None)
+
 
 @dataclass
 class Test:
@@ -56,3 +61,12 @@ class Test:
         except Exception as e:
             logger.error(f'Test error for "{self.expression}": {e}')
             return TestResult(test=self, passed=False, skipped=False, error=e, group_values=group_values)
+
+    def __eq__(self, other):
+        return (
+            isinstance(other, self.__class__)
+            and all(
+                is_equal_or_both_none(self_field, other_field)
+                for self_field, other_field in zip(astuple(self), astuple(other))
+            )
+        )
