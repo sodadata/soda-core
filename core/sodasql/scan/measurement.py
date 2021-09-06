@@ -8,11 +8,15 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-from dataclasses import dataclass
+from dataclasses import dataclass, astuple
 from typing import Optional, List
 
 from sodasql.common.json_helper import JsonHelper
 from sodasql.scan.group_value import GroupValue
+
+
+def is_equal_or_both_none(left, right):
+    return (left == right) or (left is None and right is None)
 
 
 @dataclass
@@ -49,3 +53,12 @@ class Measurement:
             json['columnName'] = self.column_name
 
         return json
+
+    def __eq__(self, other):
+        return (
+            isinstance(other, self.__class__)
+            and all(
+                is_equal_or_both_none(self_field, other_field)
+                for self_field, other_field in zip(astuple(self), astuple(other))
+            )
+        )
