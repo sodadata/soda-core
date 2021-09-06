@@ -9,11 +9,15 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 import json
-from dataclasses import dataclass
+from dataclasses import dataclass, astuple
 from typing import Optional
 
 from sodasql.common.json_helper import JsonHelper
 from sodasql.scan.test import Test
+
+
+def is_equal_or_both_none(left, right):
+    return (left == right) or (left is None and right is None)
 
 
 @dataclass
@@ -63,3 +67,12 @@ class TestResult:
             test_result_json['groupValues'] = JsonHelper.to_jsonnable(self.group_values)
 
         return test_result_json
+
+    def __eq__(self, other):
+        return (
+            isinstance(other, self.__class__)
+            and all(
+                is_equal_or_both_none(self_field, other_field)
+                for self_field, other_field in zip(astuple(self), astuple(other))
+            )
+        )
