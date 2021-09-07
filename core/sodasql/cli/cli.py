@@ -377,7 +377,7 @@ def scan(scan_yml_file: str, warehouse_yml_file: str, variables: tuple, time: st
         scan_builder.non_interactive = non_interactive
 
         if non_interactive:
-            if time:
+            if not time == datetime.now(tz=timezone.utc).isoformat(timespec='seconds'):
                 logging.warning(f'You are using the --time option with the following value: {time}, meaning that the '
                                 f'actual date of the scan is being altered manually.')
                 answer = input("Are you sure you wish to continue with the --time option? Press 'y' to continue... ")
