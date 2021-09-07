@@ -56,11 +56,14 @@ class BigQueryDialect(Dialect):
 
     def create_connection(self):
         try:
-            credentials = Credentials.from_service_account_info(self.account_info_dict, scopes=self.auth_scopes)
-            project_id = self.account_info_dict['project_id']
-            self.client = bigquery.Client(project=project_id, credentials=credentials)
-            conn = dbapi.Connection(self.client)
-            return conn
+            if not self.account_info_dict or self.account_info_dict is None:
+                raise Exception("Account_info_json is not provided")
+            else:
+                credentials = Credentials.from_service_account_info(self.account_info_dict, scopes=self.auth_scopes)
+                project_id = self.account_info_dict['project_id']
+                self.client = bigquery.Client(project=project_id, credentials=credentials)
+                conn = dbapi.Connection(self.client)
+                return conn
         except Exception as e:
             self.try_to_raise_soda_sql_exception(e)
 
@@ -143,6 +146,8 @@ class BigQueryDialect(Dialect):
                 # Prevent json load when the Dialect is init from create command
                 if cred is not None:
                     return json.loads(cred)
+                else:
+                    raise Exception("Cannot read credentials from account_info_json")
         except JSONDecodeError as e:
             parser.error(f'Error parsing credential {credential_name}: {e}', credential_name)
 
