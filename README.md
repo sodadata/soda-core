@@ -19,14 +19,14 @@ Soda SQL is an open-source command-line tool. It utilizes user-defined input to 
 
 ## Test your data
 
-If your organization uses data to make decisions, you should always be testing your data. 
+If your organization uses data to make decisions, you should always be testing your data.
 
-- When data comes into a system, you should test it. 
-- When data is transformed or otherwise manipulated to fit into an app or other database, you should test it. 
-- When data is about to be exported, you should test it. 
+- When data comes into a system, you should test it.
+- When data is transformed or otherwise manipulated to fit into an app or other database, you should test it.
+- When data is about to be exported, you should test it.
 - Test to make sure data is unique.
 - Test that data is in an expected format, such as date or UUID.
-- Test that data doesn’t exceed limits or acceptable parameters. 
+- Test that data doesn’t exceed limits or acceptable parameters.
 
 ## Install Soda SQL
 
@@ -39,26 +39,27 @@ Install:
 $ pip install soda-sql-yourdatawarehouse
 ```
 
-| Data warehouse | Install package |
-| -------------- | --------------- |
-| Amazon Athena  | soda-sql-athena |
-| Amazon Redshift | soda-sql-redshift |
-| Apache Hive    | soda-sql-hive  |
-| GCP BigQuery   | soda-sql-bigquery |
-| MS SQL Server  | soda-sql-sqlserver |
-| MySQL.         | soda-sql-mysql |
-| PostgreSQL     | soda-sql-postgresql |
-| Snowflake      | soda-sql-snowflake |
+| Data warehouse    | Install package       | Status                |
+| ----------------- | --------------------- | --------------------- |
+| Amazon Athena     | soda-sql-athena       | fully supported       |
+| Amazon Redshift   | soda-sql-redshift     | fully supported       |
+| Apache Hive       | soda-sql-hive         | experimental          |
+| GCP BigQuery      | soda-sql-bigquery     | fully supported       |
+| MS SQL Server     | soda-sql-sqlserver    | experimental          |
+| MySQL             | soda-sql-mysql        | experimental          |
+| PostgreSQL        | soda-sql-postgresql   | fully supported       |
+| Snowflake         | soda-sql-snowflake    | fully supported       |
+| Spark-sql         | soda-sql-spark        | community supported   |
 
 [Full installation instructions](https://docs.soda.io/soda-sql/getting-started/installation.html)
 
 ## Use Soda SQL
 
-Install Soda SQL, then complete three basic tasks to start testing your data: 
+Install Soda SQL, then complete three basic tasks to start testing your data:
 
-1. Create and configure a `warehouse.yml` file so that Soda SQL can connect to your data warehouse. 
+1. Create and configure a `warehouse.yml` file so that Soda SQL can connect to your data warehouse.
 2. Create and configure a `scan.yml` file to define tests for "bad" data. Choose from a list of predefined metrics to define simple tests – is the table empty? – to more complex tests that borrow from SQL query logic.
-3. Run a scan from the command-line to test for "bad" data. Where the tests return “true”, all is well; where a test returns “false”, Soda SQL presents the issues in the command-line output. 
+3. Run a scan from the command-line to test for "bad" data. Where the tests return “true”, all is well; where a test returns “false”, Soda SQL presents the issues in the command-line output.
 
 <p align="left"><img src="https://github.com/sodadata/docs/blob/main/assets/images/scan-output-fail.png" alt="scan output" width="700" /></p>
 
@@ -69,7 +70,7 @@ Install Soda SQL, then complete three basic tasks to start testing your data:
 
 **See for yourself!** Follow the [Quick start tutorial](https://docs.soda.io/soda-sql/getting-started/5_min_tutorial.html) to see Soda SQL up and running in five minutes.
 
-This example `scan.yml` file defines **four tests** that Soda SQL runs on data in a table in a data warehouse. 
+This example `scan.yml` file defines **four tests** that Soda SQL runs on data in a table in a data warehouse.
 
 
 ```yaml
@@ -170,7 +171,7 @@ All is good. No tests failed. Scan took 23.307 seconds
 ## Go further
 
 - Learn how to automate Soda SQL scans using your [data pipeline orchestration tool](https://docs.soda.io/soda-sql/documentation/orchestrate_scans.html) such as  Apache Airflow or AWS lambda.
-- If you like the goals of this project, we welcome your [contribution](https://docs.soda.io/soda-sql/community.html)! 
+- If you like the goals of this project, we welcome your [contribution](https://docs.soda.io/soda-sql/community.html)!
 - Read more about [How Soda SQL works](https://docs.soda.io/soda-sql/documentation/concepts.html).
 
 
