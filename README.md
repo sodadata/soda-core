@@ -207,6 +207,7 @@ Thanks goes to these wonderful people ([emoji key](https://allcontributors.org/d
     <td align="center"><a href="https://www.linkedin.com/in/migdisoglu/"><img src="https://avatars.githubusercontent.com/u/4024345?v=4?s=100" width="100px;" alt=""/><br /><sub><b>mmigdiso</b></sub></a><br /><a href="https://github.com/sodadata/soda-sql/commits?author=mmigdiso" title="Code">💻</a></td>
     <td align="center"><a href="https://github.com/ericmuijs"><img src="https://avatars.githubusercontent.com/u/17954084?v=4?s=100" width="100px;" alt=""/><br /><sub><b>ericmuijs</b></sub></a><br /><a href="https://github.com/sodadata/soda-sql/commits?author=ericmuijs" title="Code">💻</a></td>
     <td align="center"><a href="https://www.elaidata.com"><img src="https://avatars.githubusercontent.com/u/1313689?v=4?s=100" width="100px;" alt=""/><br /><sub><b>Lieven Govaerts</b></sub></a><br /><a href="https://github.com/sodadata/soda-sql/commits?author=lgov" title="Code">💻</a></td>
+    <td align="center"><a href="http://justsomegeek.com"><img src="https://avatars.githubusercontent.com/u/582933?v=4?s=100" width="100px;" alt=""/><br /><sub><b>Milan Lukac</b></sub></a><br /><a href="https://github.com/sodadata/soda-sql/commits?author=m1n0" title="Code">💻</a></td>
   </tr>
 </table>
 
