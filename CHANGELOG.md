@@ -4,6 +4,17 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
+## [2.1.0b16] - 2021-09-07 *Celeborn*
+
+- Core:  fix time option as it's always set to now by default (#473)
+- Core: Update dev requirements
+- Core: Update readme with dialect status (#477)
+- Core: Update Tox in dev requirements to prevent version deadlock (#474)
+- BigQuery: fix NoneType issue when credentials are not sufficient for BigQuery (#472)
+- BigQuery: Update bigquery dependency version (#470)
+- MySQL: Fix MySQL dialect issues (#475)
+
+
 ## [2.1.0b15] - 2021-09-01 *Barliman Butterbur*
 
 - Core: Implement option to limit the number of tables analyzed (#466)
