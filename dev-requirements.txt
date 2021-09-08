@@ -45,13 +45,7 @@ filelock==3.0.12
 idna==2.10
     # via requests
 importlib-metadata==4.8.1
-    # via
-    #   keyring
-    #   pluggy
-    #   pytest
-    #   tox
-    #   twine
-    #   virtualenv
+    # via twine
 iniconfig==1.1.1
     # via pytest
 keyring==22.0.1
@@ -75,8 +69,10 @@ py==1.10.0
     # via
     #   pytest
     #   tox
-pygments==2.7.4
-    # via readme-renderer
+pygments==2.10.0
+    # via
+    #   -r dev-requirements.in
+    #   readme-renderer
 pyparsing==2.4.7
     # via packaging
 pytest-cov==2.10.1
@@ -140,8 +136,6 @@ tqdm==4.56.0
     # via twine
 twine==3.4.2
     # via -r dev-requirements.in
-typing-extensions==3.10.0.2
-    # via importlib-metadata
 unidecode==1.2.0
     # via cli-ui
 urllib3==1.26.5
