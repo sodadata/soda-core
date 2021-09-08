@@ -91,8 +91,10 @@ python-dateutil==2.8.1
     # via faker
 python-dotenv==0.13.0
     # via -r dev-requirements.in
-readme-renderer==28.0
-    # via twine
+readme-renderer==29.0
+    # via
+    #   -r dev-requirements.in
+    #   twine
 requests-toolbelt==0.9.1
     # via twine
 requests==2.26.0
@@ -113,7 +115,6 @@ six==1.15.0
     #   readme-renderer
     #   tox
     #   virtualenv
-    #   websocket-client
 tabulate==0.8.9
     # via cli-ui
 tbump==6.3.1
