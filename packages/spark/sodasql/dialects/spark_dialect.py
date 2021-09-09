@@ -125,7 +125,7 @@ def odbc_connection_function(
         LCaseSspKeyName=0 if server_side_parameters else 1,
         **server_side_parameters,
     )
-    connection = pyodbc.connect(connection_str)
+    connection = pyodbc.connect(connection_str, autocommit=True)
 
     return connection
 
