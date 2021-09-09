@@ -9,12 +9,13 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
+import pyodbc
 from enum import Enum
 from pyhive import hive
 from pyhive.exc import Error
 from thrift.transport.TTransport import TTransportException
 import logging
-from typing import Optional
+from typing import Any, Optional
 
 from sodasql.exceptions.exceptions import WarehouseConnectionError
 from sodasql.scan.dialect import Dialect, SPARK, KEY_WAREHOUSE_TYPE
@@ -66,8 +67,68 @@ def hive_connection_function(
     return connection
 
 
+def _build_odbc_connnection_string(**kwargs: Any) -> str:
+    return ";".join([f"{k}={v}" for k, v in kwargs.items()])
+
+
+def odbc_connection_function(
+    driver: str,
+    host: str,
+    port: str,
+    token: str,
+    http_path: str,
+    user_agent_entry: str,
+    ssp: Dict[str],
+    **kwargs,
+) -> pyodbc.Connection:
+    """
+    Connect to hive.
+
+    Parameters
+    ----------
+    driver : str
+        The path to the driver
+    host: str
+        The host.
+    port : str
+        The port
+    token : str
+        The login token
+    http_path : str
+        The http path
+    user_agent_entry : str
+        The user agent entry
+    ssp : Dict[str]
+        The ssp
+
+    Returns
+    -------
+    out : pyobv.Connection
+        The connection
+    """
+    connection_str = _build_odbc_connnection_string(
+        DRIVER=driver,
+        HOST=host,
+        PORT=port,
+        UID="token",
+        PWD=token,
+        HTTPPath=http_path,
+        AuthMech=3,
+        SparkServerType=3,
+        ThriftTransport=2,
+        SSL=1,
+        UserAgentEntry=user_agent_entry,
+        LCaseSspKeyName=0 if ssp else 1,
+        **ssp,
+    )
+
+    connection = pyodbc.connect(connection_str)
+    return connection
+
+
 class SparkConnectionMethod(str, Enum):
     HIVE = "hive"
+    ODBC = "odbc"
 
 
 class SparkDialect(Dialect):
@@ -114,6 +175,8 @@ class SparkDialect(Dialect):
     def create_connection(self, *args, **kwargs):
         if self.mehod == SparkConnectionMethod.HIVE:
             connection_function = hive_connection_function
+        elif self.mehod == SparkConnectionMethod.ODBC:
+            connection_function = odbc_connection_function
         else:
             raise NotImplementedError(f"Unknown Spark connection method {self.method}")
         try:
