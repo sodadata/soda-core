@@ -66,7 +66,6 @@ class ScanColumn:
             self.is_default_non_missing_and_valid_condition = \
                 self.is_default_missing_condition and self.is_default_valid_condition
 
-
             self.is_valid_enabled = \
                 (self.validity is not None or self.is_validity_metric_enabled) \
                 or self.scan_yml.is_any_metric_enabled([Metric.DISTINCT, Metric.UNIQUENESS], self.column_name)
@@ -116,7 +115,6 @@ class ScanColumn:
 
     def is_metric_enabled(self, metric: str):
         if self.scan_yml_column \
-            and self.scan_yml_column \
             and metric in self.scan_yml_column.metrics:
             return True
         if self.scan_yml \
