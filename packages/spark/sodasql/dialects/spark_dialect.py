@@ -15,7 +15,7 @@ from pyhive import hive
 from pyhive.exc import Error
 from thrift.transport.TTransport import TTransportException
 import logging
-from typing import Any, Optional
+from typing import Any, Dict, Optional
 
 from sodasql.exceptions.exceptions import WarehouseConnectionError
 from sodasql.__version__ import SODA_SQL_VERSION
@@ -79,7 +79,7 @@ def odbc_connection_function(
     token: str,
     organization: str,
     cluster: str,
-    server_side_parameters: Dict[str],
+    server_side_parameters: Dict[str, str],
     **kwargs,
 ) -> pyodbc.Connection:
     """
@@ -148,14 +148,14 @@ class SparkDialect(Dialect):
             self.password = parser.get_credential('password')
             self.database = parser.get_str_optional('database', 'default')
             self.auth_method = parser.get_str_optional('authentication', None)
-            self.configuration = parser.get_dict_optional('configuration')
+            self.configuration = parser.get_dict_optional('configuration', {})
             self.driver = parser.get_str_optional('driver', None)
-            self.token = parser.get_str_optional('token', None)
+            self.token = parser.get_credential('token')
             self.organization = parser.get_str_optional('organization', None)
             self.cluster = parser.get_str_optional('cluster', None)
             self.server_side_parameters = {
                 f"SSP_{k}": f"{{{v}}}"
-                for k, v in parser.get_dict_optional("server_side_parameters")
+                for k, v in parser.get_dict_optional("server_side_parameters", {})
             }
 
     def default_connection_properties(self, params: dict):
@@ -185,9 +185,9 @@ class SparkDialect(Dialect):
             return [(row[1],) for row in cursor.fetchall()]
 
     def create_connection(self, *args, **kwargs):
-        if self.mehod == SparkConnectionMethod.HIVE:
+        if self.method == SparkConnectionMethod.HIVE:
             connection_function = hive_connection_function
-        elif self.mehod == SparkConnectionMethod.ODBC:
+        elif self.method == SparkConnectionMethod.ODBC:
             connection_function = odbc_connection_function
         else:
             raise NotImplementedError(f"Unknown Spark connection method {self.method}")
