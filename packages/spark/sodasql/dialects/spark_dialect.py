@@ -18,6 +18,7 @@ import logging
 from typing import Any, Optional
 
 from sodasql.exceptions.exceptions import WarehouseConnectionError
+from sodasql.__version__ import SODA_SQL_VERSION
 from sodasql.scan.dialect import Dialect, SPARK, KEY_WAREHOUSE_TYPE
 from sodasql.scan.parser import Parser
 
@@ -76,9 +77,9 @@ def odbc_connection_function(
     host: str,
     port: str,
     token: str,
-    http_path: str,
-    user_agent_entry: str,
-    ssp: Dict[str],
+    organization: str,
+    cluster: str,
+    server_side_parameters: Dict[str],
     **kwargs,
 ) -> pyodbc.Connection:
     """
@@ -94,18 +95,21 @@ def odbc_connection_function(
         The port
     token : str
         The login token
-    http_path : str
-        The http path
-    user_agent_entry : str
-        The user agent entry
-    ssp : Dict[str]
-        The ssp
+    organization : str
+        The organization
+    cluster : str
+        The cluster
+    server_side_parameters : Dict[str]
+        The server side parameters
 
     Returns
     -------
     out : pyobv.Connection
         The connection
     """
+    http_path = f"/sql/protocolv1/o/{organization}/{cluster}"
+    user_agent_entry = f"soda-sql-spark/{SODA_SQL_VERSION} (Databricks)"
+
     connection_str = _build_odbc_connnection_string(
         DRIVER=driver,
         HOST=host,
@@ -118,11 +122,11 @@ def odbc_connection_function(
         ThriftTransport=2,
         SSL=1,
         UserAgentEntry=user_agent_entry,
-        LCaseSspKeyName=0 if ssp else 1,
-        **ssp,
+        LCaseSspKeyName=0 if server_side_parameters else 1,
+        **server_side_parameters,
     )
-
     connection = pyodbc.connect(connection_str)
+
     return connection
 
 
@@ -145,6 +149,14 @@ class SparkDialect(Dialect):
             self.database = parser.get_str_optional('database', 'default')
             self.auth_method = parser.get_str_optional('authentication', None)
             self.configuration = parser.get_dict_optional('configuration')
+            self.driver = parser.get_str_optional('driver', None)
+            self.token = parser.get_str_optional('token', None)
+            self.organization = parser.get_str_optional('organization', None)
+            self.cluster = parser.get_str_optional('cluster', None)
+            self.server_side_parameters = {
+                f"SSP_{k}": f"{{{v}}}"
+                for k, v in parser.get_dict_optional("server_side_parameters")
+            }
 
     def default_connection_properties(self, params: dict):
         return {
@@ -179,6 +191,7 @@ class SparkDialect(Dialect):
             connection_function = odbc_connection_function
         else:
             raise NotImplementedError(f"Unknown Spark connection method {self.method}")
+
         try:
             connection = connection_function(
                 username=self.username,
@@ -187,6 +200,11 @@ class SparkDialect(Dialect):
                 port=self.port,
                 database=self.database,
                 auth_method=self.auth_method,
+                driver=self.driver,
+                token=self.token,
+                organization=self.organization,
+                cluster=self.cluster,
+                server_side_parameters=self.server_side_parameters,
             )
         except Exception as e:
             self.try_to_raise_soda_sql_exception(e)
