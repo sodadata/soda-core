@@ -181,7 +181,7 @@ class SparkDialect(Dialect):
     def sql_tables_metadata(self, limit: str = 10, filter: str = None):
         # TODO Implement limit
         with self.create_connection().cursor() as cursor:
-            cursor.execute(f"SHOW TABLES FROM {self.database};")
+            cursor.execute(f"SHOW TABLES FROM {self.database}")
             return [(row[1],) for row in cursor.fetchall()]
 
     def create_connection(self, *args, **kwargs):
