@@ -9,6 +9,7 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
+from enum import Enum
 from pyhive import hive
 from pyhive.exc import Error
 from thrift.transport.TTransport import TTransportException
@@ -20,6 +21,10 @@ from sodasql.scan.dialect import Dialect, SPARK, KEY_WAREHOUSE_TYPE
 from sodasql.scan.parser import Parser
 
 logger = logging.getLogger(__name__)
+
+
+class SparkConnectionMethod(str, Enum):
+    HIVE = "hive"
 
 
 class SparkDialect(Dialect):
