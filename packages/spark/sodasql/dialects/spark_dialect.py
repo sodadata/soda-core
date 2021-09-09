@@ -23,6 +23,49 @@ from sodasql.scan.parser import Parser
 logger = logging.getLogger(__name__)
 
 
+def hive_connection_function(
+    username: str,
+    password: str,
+    host: str,
+    port: str,
+    database: str,
+    auth_method: str,
+    **kwargs,
+) -> hive.Connection:
+    """
+    Connect to hive.
+
+    Parameters
+    ----------
+    username : str
+        The user name
+    password : str
+        The password
+    host: str
+        The host.
+    port : str
+        The port
+    database : str
+        The databse
+    auth_method : str
+        The authentication method
+
+    Returns
+    -------
+    out : hive.Connection
+        The hive connection
+    """
+    connection = hive.connect(
+        username=username,
+        password=password,
+        host=host,
+        port=port,
+        database=database,
+        auth=auth_method
+    )
+    return connection
+
+
 class SparkConnectionMethod(str, Enum):
     HIVE = "hive"
 
@@ -69,17 +112,23 @@ class SparkDialect(Dialect):
             return [(row[1],) for row in cursor.fetchall()]
 
     def create_connection(self, *args, **kwargs):
+        if self.mehod == SparkConnectionMethod.HIVE:
+            connection_function = hive_connection_function
+        else:
+            raise NotImplementedError(f"Unknown Spark connection method {self.method}")
         try:
-            conn = hive.connect(
+            connection = connection_function(
                 username=self.username,
                 password=self.password,
                 host=self.host,
                 port=self.port,
                 database=self.database,
-                auth=self.auth_method)
-            return conn
+                auth_method=self.auth_method,
+            )
         except Exception as e:
             self.try_to_raise_soda_sql_exception(e)
+        else:
+            return connection
 
     def sql_test_connection(self) -> bool:
         conn = self.create_connection()
