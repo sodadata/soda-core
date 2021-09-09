@@ -104,7 +104,7 @@ def odbc_connection_function(
 
     Returns
     -------
-    out : pyobv.Connection
+    out : pyobc.Connection
         The connection
     """
     http_path = f"/sql/protocolv1/o/{organization}/{cluster}"
