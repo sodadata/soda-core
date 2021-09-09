@@ -28,6 +28,7 @@ class SparkDialect(Dialect):
     def __init__(self, parser: Parser):
         super().__init__(SPARK)
         if parser:
+            self.method = parser.get_str_optional('method', 'hive')
             self.host = parser.get_str_required('host')
             self.port = parser.get_int_optional('port', '10000')
             self.username = parser.get_credential('username')
