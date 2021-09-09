@@ -72,28 +72,6 @@ def _build_odbc_connnection_string(**kwargs: Any) -> str:
     return ";".join([f"{k}={v}" for k, v in kwargs.items()])
 
 
-def decode_sketchy_utf8(raw_bytes: bytes) -> bytes:
-    """
-    Decode sketch utf8 characters.
-
-    Parameters
-    ----------
-    raw_bytes : bytes
-        The bytest to handle
-
-    Returns
-    -------
-    out : bytes
-        The handled bytes.
-
-    Source
-    ------
-    https://github.com/mkleehammer/pyodbc/issues/328
-    """
-    null_terminated_bytes = raw_bytes.split(b'\x00')[0]
-    return null_terminated_bytes.decode('utf-8')
-
-
 def odbc_connection_function(
     driver: str,
     host: str,
@@ -148,7 +126,6 @@ def odbc_connection_function(
         **server_side_parameters,
     )
     connection = pyodbc.connect(connection_str, autocommit=True)
-    connection.add_output_converter(pyodbc.SQL_VARCHAR, decode_sketchy_utf8)
     return connection
 
 
