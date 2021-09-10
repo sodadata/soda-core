@@ -94,7 +94,8 @@ class SparkDialect(Dialect):
 
     def sql_columns_metadata(self, table_name: str):
         with self.create_connection().cursor() as cursor:
-            cursor.execute(f"DESCRIBE TABLE {self.database}.{table_name}")
+            qualified_table_name = self.qualify_table_name(table_name)
+            cursor.execute(f"DESCRIBE TABLE {qualified_table_name}")
             return [(row[0], row[1], "YES") for row in cursor.fetchall()]
 
     def sql_columns_metadata_query(self, table_name: str) -> str:
