@@ -116,7 +116,11 @@ class SparkDialect(Dialect):
             'FLOAT', 'DOUBLE', 'DOUBLE PRECISION', 'DECIMAL', 'NUMERIC']
 
     def qualify_table_name(self, table_name: str) -> str:
-        return f'{self.database}.{table_name}'
+        if self.database is None:
+            qualified_table_name = table_name
+        else:
+            qualified_table_name = f'{self.database}.{table_name}'
+        return qualified_table_name
 
     def qualify_writable_table_name(self, table_name: str) -> str:
         return self.qualify_table_name(table_name)
