@@ -32,7 +32,7 @@ class SparkDialect(Dialect):
             self.port = parser.get_int_optional('port', '10000')
             self.username = parser.get_credential('username')
             self.password = parser.get_credential('password')
-            self.database = parser.get_str_optional('database', 'default')
+            self.database = parser.get_str_optional('database')
             self.auth_method = parser.get_str_optional('authentication', None)
             self.configuration = parser.get_dict_optional('configuration')
 
