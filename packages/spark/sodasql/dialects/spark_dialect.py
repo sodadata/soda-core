@@ -145,7 +145,7 @@ class SparkDialect(Dialect):
             self.port = parser.get_int_optional('port', '10000')
             self.username = parser.get_credential('username')
             self.password = parser.get_credential('password')
-            self.database = parser.get_str_optional('database', 'default')
+            self.database = parser.get_str_optional('database')
             self.auth_method = parser.get_str_optional('authentication', None)
             self.configuration = parser.get_dict_optional('configuration', {})
             self.driver = parser.get_str_optional('driver', None)
@@ -179,6 +179,9 @@ class SparkDialect(Dialect):
 
     def sql_tables_metadata(self, limit: str = 10, filter: str = None):
         # TODO Implement limit
+        if self.database is None:
+            raise NotImplementedError("Cannot query for tables when database is not given.")
+
         with self.create_connection().cursor() as cursor:
             cursor.execute(f"SHOW TABLES FROM {self.database}")
             return [(row[1],) for row in cursor.fetchall()]
@@ -229,7 +232,8 @@ class SparkDialect(Dialect):
 
     def sql_columns_metadata(self, table_name: str):
         with self.create_connection().cursor() as cursor:
-            cursor.execute(f"DESCRIBE TABLE {self.database}.{table_name}")
+            qualified_table_name = self.qualify_table_name(table_name)
+            cursor.execute(f"DESCRIBE TABLE {qualified_table_name}")
             return [(row[0], row[1], "YES") for row in cursor.fetchall()]
 
     def sql_columns_metadata_query(self, table_name: str) -> str:
@@ -251,7 +255,11 @@ class SparkDialect(Dialect):
             'FLOAT', 'DOUBLE', 'DOUBLE PRECISION', 'DECIMAL', 'NUMERIC']
 
     def qualify_table_name(self, table_name: str) -> str:
-        return f'{self.database}.{table_name}'
+        if self.database is None:
+            qualified_table_name = table_name
+        else:
+            qualified_table_name = f'{self.database}.{table_name}'
+        return qualified_table_name
 
     def qualify_writable_table_name(self, table_name: str) -> str:
         return self.qualify_table_name(table_name)
