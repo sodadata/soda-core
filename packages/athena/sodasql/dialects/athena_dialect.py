@@ -14,6 +14,8 @@ from datetime import date
 from botocore.exceptions import ConnectionError, ClientError, ValidationError, ParamValidationError
 
 import pyathena
+
+from sodasql.exceptions.exceptions import WarehouseConnectionError
 from sodasql.scan.dialect import ATHENA, KEY_WAREHOUSE_TYPE, Dialect
 from sodasql.scan.parser import Parser
 from sodasql.scan.aws_credentials import AwsCredentials
@@ -81,7 +83,9 @@ class AthenaDialect(Dialect):
         try:
             cursor.execute(self.sql_tables_metadata_query())
         except Exception as e:
-            raise Exception(f'Unable to get tables metadata from database: {self.database}. Exception {e}')
+            raise WarehouseConnectionError(
+                warehouse_type=self.type,
+                original_exception=Exception(f'Unable to get tables metadata from database: {self.database}. Exception {e}'))
         return True
 
     def is_text(self, column_type: str):

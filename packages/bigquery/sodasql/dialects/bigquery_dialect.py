@@ -19,6 +19,7 @@ from google.cloud import bigquery
 from google.cloud.bigquery import dbapi
 from google.oauth2.service_account import Credentials
 
+from sodasql.exceptions.exceptions import WarehouseConnectionError
 from sodasql.scan.dialect import Dialect, BIGQUERY, KEY_WAREHOUSE_TYPE
 from sodasql.scan.parser import Parser
 
@@ -80,13 +81,16 @@ class BigQueryDialect(Dialect):
                     try:
                         self.client.query(self.__query_table(table))
                     except Exception as e:
-                        raise Exception(
-                            f'Unable to query table: {table} from the dataset: {dataset_id}. Exception: {e}')
+                        raise WarehouseConnectionError(
+                            warehouse_type=self.type,
+                            original_exception=Exception(f'Unable to query table: {table} from the dataset: {dataset_id}. Exception: {e}'))
                 return True
             else:
                 logger.error(f'Unable to query tables from dataset {dataset_id}')
         except Exception as e:
-            raise Exception(f'Unable to list tables from: {dataset_id}. Exception: {e}')
+            raise WarehouseConnectionError(
+                warehouse_type=self.type,
+                original_exception=Exception(f'Unable to list tables from: {dataset_id}. Exception: {e}'))
 
     def sql_tables_metadata_query(self, limit: Optional[int] = None, filter: str = None):
         sql = (f"SELECT table_name \n"
