@@ -13,12 +13,14 @@ import json
 from json.decoder import JSONDecodeError
 from typing import Optional
 
+import itertools
 from google.api_core.exceptions import Forbidden, NotFound
 from google.auth.exceptions import GoogleAuthError, TransportError
 from google.cloud import bigquery
 from google.cloud.bigquery import dbapi
 from google.oauth2.service_account import Credentials
 
+from sodasql.exceptions.exceptions import WarehouseConnectionError
 from sodasql.scan.dialect import Dialect, BIGQUERY, KEY_WAREHOUSE_TYPE
 from sodasql.scan.parser import Parser
 
@@ -67,6 +69,13 @@ class BigQueryDialect(Dialect):
         except Exception as e:
             self.try_to_raise_soda_sql_exception(e)
 
+    def is_iterable_empty(self, iterable):
+        try:
+            first = next(iterable)
+        except StopIteration:
+            return None
+        return first, itertools.chain([first], iterable)
+
     def sql_test_connection(self) -> bool:
         logger.info('Listing tables to check connection')
         project_id = self.account_info_dict['project_id']
@@ -74,19 +83,26 @@ class BigQueryDialect(Dialect):
         try:
             logger.info(f'dataset_id = {dataset_id}')
             tables = self.client.list_tables(dataset_id)
-            if tables:
+            if self.is_iterable_empty(tables) is not None:
                 logger.info(f'Tables contained in {dataset_id}')
                 for table in tables:
                     try:
-                        self.client.query(self.__query_table(table))
+                        self.client.query(self.query_table(table))
                     except Exception as e:
-                        raise Exception(
-                            f'Unable to query table: {table} from the dataset: {dataset_id}. Exception: {e}')
+                        raise WarehouseConnectionError(
+                            warehouse_type=self.type,
+                            original_exception=Exception(
+                                f'Unable to query table: {table} from the dataset: {dataset_id}. Exception: {e}'))
                 return True
             else:
-                logger.error(f'Unable to query tables from dataset {dataset_id}')
+                raise WarehouseConnectionError(
+                    warehouse_type=self.type,
+                    original_exception=Exception(f'Unable to query tables from dataset {dataset_id}, none were found.'))
+
         except Exception as e:
-            raise Exception(f'Unable to list tables from: {dataset_id}. Exception: {e}')
+            raise WarehouseConnectionError(
+                warehouse_type=self.type,
+                original_exception=Exception(f'Unable to list tables from: {dataset_id}. Exception: {e}'))
 
     def sql_tables_metadata_query(self, limit: Optional[int] = None, filter: str = None):
         sql = (f"SELECT table_name \n"

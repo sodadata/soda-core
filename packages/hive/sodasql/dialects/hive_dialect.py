@@ -13,6 +13,8 @@ from pyhive import hive
 from pyhive.exc import Error
 from thrift.transport.TTransport import TTransportException
 from typing import Optional
+
+from sodasql.exceptions.exceptions import WarehouseConnectionError
 from sodasql.scan.dialect import Dialect, HIVE, KEY_WAREHOUSE_TYPE
 from sodasql.scan.parser import Parser
 import json
@@ -79,12 +81,13 @@ class HiveDialect(Dialect):
         tables = cursor.fetchall()
         if tables:
             for (table_name,) in cursor:
-                test_query = self.__query_table(table_name)
+                test_query = self.query_table(table_name)
                 try:
                     cursor.execute(test_query)
                 except Exception as e:
-                    raise Exception(
-                        f'Unable to query table: {table_name} from the database: {self.database}. Exception: {e}')
+                    raise WarehouseConnectionError(
+                        warehouse_type=self.type,
+                        original_exception=Exception(f'Unable to query table: {table_name} from the database: {self.database}. Exception: {e}'))
         else:
             logger.warning(f'{self.database} does not contain any tables.')
         return True

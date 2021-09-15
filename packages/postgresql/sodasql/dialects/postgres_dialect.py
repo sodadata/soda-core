@@ -13,6 +13,8 @@ import re
 import psycopg2
 from typing import Optional
 import logging
+
+from sodasql.exceptions.exceptions import WarehouseConnectionError
 from sodasql.scan.dialect import Dialect, POSTGRES, KEY_WAREHOUSE_TYPE, KEY_CONNECTION_TIMEOUT
 from sodasql.scan.parser import Parser
 
@@ -71,7 +73,7 @@ class PostgresDialect(Dialect):
         except Exception as e:
             self.try_to_raise_soda_sql_exception(e)
 
-    def __query_table(self, table_name):
+    def query_table(self, table_name):
 
         query = f"""
         SELECT *
@@ -88,10 +90,12 @@ class PostgresDialect(Dialect):
             cursor.execute("select table_name from information_schema.tables")
             tables = cursor.fetchall()
         except Exception as e:
-            raise Exception(f'Unable to target database: {self.database} or to list tables. Exception: {e}')
+            raise WarehouseConnectionError(
+                warehouse_type=self.type,
+                original_exception=Exception(f'Unable to target database: {self.database} or to list tables. Exception: {e}'))
         if tables:
             for (table_name,) in cursor:
-                test_query = self.__query_table(table_name)
+                test_query = self.query_table(table_name)
                 try:
                     cursor.execute(test_query)
                 except psycopg2.Error as e:

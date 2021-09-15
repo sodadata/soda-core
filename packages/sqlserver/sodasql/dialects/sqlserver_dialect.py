@@ -14,6 +14,7 @@ import pyodbc
 import logging
 from typing import Union, Optional
 
+from sodasql.exceptions.exceptions import WarehouseConnectionError
 from sodasql.scan.dialect import Dialect, SQLSERVER, KEY_WAREHOUSE_TYPE
 from sodasql.scan.parser import Parser
 
@@ -96,7 +97,7 @@ class SQLServerDialect(Dialect):
         except Exception as e:
             self.try_to_raise_soda_sql_exception(e)
 
-    def __query_table(self, table_name):
+    def query_table(self, table_name):
         query = f"""
         SELECT *
         FROM {table_name}
@@ -110,12 +111,13 @@ class SQLServerDialect(Dialect):
         tables = cursor.tables()
         if tables:
             for (table_name,) in cursor:
-                test_query = self.__query_table(table_name)
+                test_query = self.query_table(table_name)
                 try:
                     cursor.execute(test_query)
                 except Exception as e:
-                    raise Exception(
-                        f'Unable to query table: {table_name} from the database: {self.database}. Exception: {e}')
+                    raise WarehouseConnectionError(
+                        warehouse_type=self.type,
+                        original_exception=Exception(f'Unable to query table: {table_name} from the database: {self.database}. Exception: {e}'))
         else:
             logger.warning(f'{self.database} does not contain any tables.')
         return True
