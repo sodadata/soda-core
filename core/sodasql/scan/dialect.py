@@ -114,7 +114,7 @@ class Dialect:
     def default_env_vars(self, params: dict):
         pass
 
-    def __query_table(self, table_name):
+    def query_table(self, table_name):
         query = f"""
             SELECT *
             FROM {table_name}

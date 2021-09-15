@@ -87,7 +87,7 @@ class BigQueryDialect(Dialect):
                 logger.info(f'Tables contained in {dataset_id}')
                 for table in tables:
                     try:
-                        self.client.query(self.__query_table(table))
+                        self.client.query(self.query_table(table))
                     except Exception as e:
                         raise WarehouseConnectionError(
                             warehouse_type=self.type,

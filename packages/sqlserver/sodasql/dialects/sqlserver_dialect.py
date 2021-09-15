@@ -97,7 +97,7 @@ class SQLServerDialect(Dialect):
         except Exception as e:
             self.try_to_raise_soda_sql_exception(e)
 
-    def __query_table(self, table_name):
+    def query_table(self, table_name):
         query = f"""
         SELECT *
         FROM {table_name}
@@ -111,7 +111,7 @@ class SQLServerDialect(Dialect):
         tables = cursor.tables()
         if tables:
             for (table_name,) in cursor:
-                test_query = self.__query_table(table_name)
+                test_query = self.query_table(table_name)
                 try:
                     cursor.execute(test_query)
                 except Exception as e:

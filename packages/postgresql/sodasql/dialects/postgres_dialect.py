@@ -73,7 +73,7 @@ class PostgresDialect(Dialect):
         except Exception as e:
             self.try_to_raise_soda_sql_exception(e)
 
-    def __query_table(self, table_name):
+    def query_table(self, table_name):
 
         query = f"""
         SELECT *
@@ -95,7 +95,7 @@ class PostgresDialect(Dialect):
                 original_exception=Exception(f'Unable to target database: {self.database} or to list tables. Exception: {e}'))
         if tables:
             for (table_name,) in cursor:
-                test_query = self.__query_table(table_name)
+                test_query = self.query_table(table_name)
                 try:
                     cursor.execute(test_query)
                 except psycopg2.Error as e:

@@ -82,7 +82,7 @@ class MySQLDialect(Dialect):
 
         if tables:
             for (table_name,) in cursor:
-                test_query = self.__query_table(table_name)
+                test_query = self.query_table(table_name)
                 try:
                     cursor.execute(test_query)
                 except Exception as e:
