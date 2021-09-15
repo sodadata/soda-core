@@ -13,6 +13,7 @@ import json
 from json.decoder import JSONDecodeError
 from typing import Optional
 
+import itertools
 from google.api_core.exceptions import Forbidden, NotFound
 from google.auth.exceptions import GoogleAuthError, TransportError
 from google.cloud import bigquery
@@ -67,6 +68,13 @@ class BigQueryDialect(Dialect):
                 return conn
         except Exception as e:
             self.try_to_raise_soda_sql_exception(e)
+
+    def is_iterable_empty(self, iterable):
+        try:
+            first = next(iterable)
+        except StopIteration:
+            return None
+        return first, itertools.chain([first], iterable)
 
     def sql_test_connection(self) -> bool:
         logger.info('Listing tables to check connection')
