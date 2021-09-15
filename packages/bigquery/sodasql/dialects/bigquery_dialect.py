@@ -83,7 +83,8 @@ class BigQueryDialect(Dialect):
         try:
             logger.info(f'dataset_id = {dataset_id}')
             tables = self.client.list_tables(dataset_id)
-            if self.is_iterable_empty(tables) is not None:
+            tables_list_length = len(list(tables))
+            if tables_list_length > 0:
                 logger.info(f'Tables contained in {dataset_id}')
                 for table in tables:
                     try:
