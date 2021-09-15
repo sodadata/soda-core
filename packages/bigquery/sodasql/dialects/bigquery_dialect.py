@@ -77,7 +77,8 @@ class BigQueryDialect(Dialect):
             conn = dbapi.Connection(self.client)
             cur = conn.cursor()
             tables = []
-            rows = cur.execute(self.sql_tables_metadata_query)
+            cur.execute(self.sql_tables_metadata_query)
+            rows = cur.fetchall()
             for row in rows:
                 table_name = row[0]
                 tables.append(table_name)
