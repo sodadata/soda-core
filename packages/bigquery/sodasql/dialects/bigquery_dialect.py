@@ -74,13 +74,19 @@ class BigQueryDialect(Dialect):
         dataset_id = f'{project_id}.{self.dataset_name}'
         try:
             logger.info(f'dataset_id = {dataset_id}')
-            tables = self.client.list_tables(dataset_id)
+            conn = dbapi.Connection(self.client)
+            cur = conn.cursor()
+            tables = []
+            rows = cur.execute(self.sql_tables_metadata_query)
+            for row in rows:
+                table_name = row[0]
+                tables.append(table_name)
             tables_list_length = len(list(tables))
             if tables_list_length > 0:
                 logger.info(f'Tables contained in {dataset_id}')
                 for table in tables:
                     try:
-                        self.client.query(self.query_table(table))
+                        cur.execute(self.query_table(table))
                     except Exception as e:
                         raise WarehouseConnectionError(
                             warehouse_type=self.type,
