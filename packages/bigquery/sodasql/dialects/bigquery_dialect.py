@@ -87,7 +87,8 @@ class BigQueryDialect(Dialect):
                 logger.info(f'Tables contained in {dataset_id}')
                 for table in tables:
                     try:
-                        cur.execute(self.query_table(table))
+                        table_full_name = dataset_id + "." + table
+                        cur.execute(self.query_table(table_full_name))
                     except Exception as e:
                         raise WarehouseConnectionError(
                             warehouse_type=self.type,
