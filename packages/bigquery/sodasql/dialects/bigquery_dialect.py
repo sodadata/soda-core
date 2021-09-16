@@ -13,7 +13,6 @@ import json
 from json.decoder import JSONDecodeError
 from typing import Optional
 
-import itertools
 from google.api_core.exceptions import Forbidden, NotFound
 from google.auth.exceptions import GoogleAuthError, TransportError
 from google.cloud import bigquery
@@ -69,25 +68,27 @@ class BigQueryDialect(Dialect):
         except Exception as e:
             self.try_to_raise_soda_sql_exception(e)
 
-    def is_iterable_empty(self, iterable):
-        try:
-            first = next(iterable)
-        except StopIteration:
-            return None
-        return first, itertools.chain([first], iterable)
-
     def sql_test_connection(self) -> bool:
         logger.info('Listing tables to check connection')
         project_id = self.account_info_dict['project_id']
         dataset_id = f'{project_id}.{self.dataset_name}'
         try:
             logger.info(f'dataset_id = {dataset_id}')
-            tables = self.client.list_tables(dataset_id)
-            if self.is_iterable_empty(tables) is not None:
+            conn = dbapi.Connection(self.client)
+            cur = conn.cursor()
+            tables = []
+            cur.execute(self.sql_tables_metadata_query)
+            rows = cur.fetchall()
+            for row in rows:
+                table_name = row[0]
+                tables.append(table_name)
+            tables_list_length = len(list(tables))
+            if tables_list_length > 0:
                 logger.info(f'Tables contained in {dataset_id}')
                 for table in tables:
                     try:
-                        self.client.query(self.query_table(table))
+                        table_full_name = dataset_id + "." + table
+                        cur.execute(self.query_table(table_full_name))
                     except Exception as e:
                         raise WarehouseConnectionError(
                             warehouse_type=self.type,
