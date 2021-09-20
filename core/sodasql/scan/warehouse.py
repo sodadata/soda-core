@@ -49,3 +49,7 @@ class Warehouse:
                 self._connection.close()
             except Exception as e:
                 logger.debug(f'Closing connection failed: {str(e)}')
+
+    def rollback(self):
+        if self._connection is not None:
+            self._connection.rollback()
