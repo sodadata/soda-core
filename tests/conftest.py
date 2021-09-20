@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import json
+import os
+import sys
 from pathlib import Path
 
 import pytest
@@ -11,6 +13,11 @@ from sodasql.telemetry.soda_telemetry import SodaTelemetry
 
 # Re-initialize telemetry in test mode.
 soda_telemetry = SodaTelemetry.get_instance(test_mode=True)
+
+# It is not preferred to change the python sys.path like this, however it is
+# required since we are importing from the tests folder like:
+# from tests.common.sql_test_case import SqlTestCase
+sys.path = [os.getcwd()] + sys.path
 
 
 @pytest.fixture
