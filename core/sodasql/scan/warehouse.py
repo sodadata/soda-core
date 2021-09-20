@@ -24,28 +24,28 @@ class Warehouse:
     def __init__(self, warehouse_yml: WarehouseYml):
         self.name = warehouse_yml.name
         self.dialect: Dialect = warehouse_yml.dialect
-        self.connection = self.dialect.create_connection()
+        self._connection = self.dialect.create_connection()
         soda_telemetry.set_attribute('datasource_type', self.dialect.type)
         soda_telemetry.set_attribute('datasource_id', soda_telemetry.obtain_datasource_hash(self.dialect))
 
     def sql_fetchone(self, sql) -> tuple:
-        return sql_fetchone(self.connection, sql)
+        return sql_fetchone(self._connection, sql)
 
     def sql_fetchone_description(self, sql) -> tuple:
-        return sql_fetchone_description(self.connection, sql)
+        return sql_fetchone_description(self._connection, sql)
 
     def sql_fetchall(self, sql) -> List[tuple]:
-        return sql_fetchall(self.connection, sql)
+        return sql_fetchall(self._connection, sql)
 
     def sql_fetchall_description(self, sql) -> tuple:
-        return sql_fetchall_description(self.connection, sql)
+        return sql_fetchall_description(self._connection, sql)
 
     def create_scan(self, *args, **kwargs):
         return self.dialect.create_scan(self, *args, **kwargs)
 
     def close(self):
-        if self.connection:
+        if self._connection:
             try:
-                self.connection.close()
+                self._connection.close()
             except Exception as e:
                 logger.debug(f'Closing connection failed: {str(e)}')
