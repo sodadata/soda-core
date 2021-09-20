@@ -14,6 +14,7 @@ description = "Soda SQL Apache Spark"
 
 requires = [
     f'soda-sql-core=={package_version}',
+    'pyodbc>=4.0,<5.0',
     'PyHive>=0.6.3, <1.0',
     'thrift>=0.13.0, <1.0',
     'sasl>=0.3.1, <1.0',
