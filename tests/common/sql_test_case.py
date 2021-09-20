@@ -17,7 +17,7 @@ from datetime import datetime
 import yaml
 
 from sodasql.common.logging_helper import LoggingHelper
-from sodasql.scan.db import sql_update, sql_updates
+from sodasql.scan.db import sql_updates
 from sodasql.scan.dialect import Dialect
 from sodasql.scan.dialect_parser import DialectParser
 from sodasql.scan.env_vars import EnvVars
@@ -118,7 +118,7 @@ class SqlTestCase(TestCase):
         SqlTestCase.warehouse_fixtures_by_target = {}
 
     def sql_update(self, sql: str) -> int:
-        return sql_update(self.warehouse.connection, sql)
+        return self.warehouse.sql_update(sql)
 
     def sql_updates(self, sqls: List[str]):
         return sql_updates(self.warehouse.connection, sqls)
