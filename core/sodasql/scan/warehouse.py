@@ -28,6 +28,9 @@ class Warehouse:
         soda_telemetry.set_attribute('datasource_type', self.dialect.type)
         soda_telemetry.set_attribute('datasource_id', soda_telemetry.obtain_datasource_hash(self.dialect))
 
+    def commit(self) -> None:
+        self._connection.commit()
+
     def sql_fetchone(self, sql) -> tuple:
         return sql_fetchone(self._connection, sql)
 
