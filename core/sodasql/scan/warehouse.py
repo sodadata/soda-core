@@ -11,7 +11,7 @@
 import logging
 from typing import List
 
-from sodasql.scan.db import sql_fetchone, sql_fetchall, sql_fetchone_description, sql_fetchall_description
+from sodasql.scan.db import sql_fetchone, sql_fetchall, sql_fetchone_description, sql_fetchall_description, sql_update
 from sodasql.scan.dialect import Dialect
 from sodasql.scan.warehouse_yml import WarehouseYml
 from sodasql.telemetry.soda_telemetry import SodaTelemetry
@@ -39,6 +39,9 @@ class Warehouse:
 
     def sql_fetchall_description(self, sql) -> tuple:
         return sql_fetchall_description(self._connection, sql)
+
+    def sql_update(self, sql) -> None:
+        return sql_update(self._connection, sql)
 
     def create_scan(self, *args, **kwargs):
         return self.dialect.create_scan(self, *args, **kwargs)
