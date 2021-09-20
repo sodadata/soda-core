@@ -191,66 +191,59 @@ class Sampler:
             return value
         return str(value)
 
-    def __get_sample_columns(self, cursor):
+    def __get_sample_columns(self, description):
         return [
             {'name': d[0],
              'type': self.scan.warehouse.dialect.get_type_name(d)}
-            for d in cursor.description
+            for d in description
         ]
 
     def _get_query_results_with_limit(self, sql: str, limit: int):
-        cursor = self.scan.warehouse.connection.cursor()
-        try:
-            logger.debug(f'Executing SQL query: \n{sql}')
-            start = datetime.now()
-            cursor.execute(sql)
-            sample_columns = self.__get_sample_columns(cursor)
-            stored_rows = total_rows = 0
-            row = cursor.fetchone()
-            sample_rows = []
-            while row is not None:
+        logger.debug(f'Executing SQL query: \n{sql}')
+        start = datetime.now()
+        rows, description = self.scan.warehouse.sql_fetchall_description(sql)
+        sample_columns = self.__get_sample_columns(description)
+
+        stored_rows = total_rows = 0
+        sample_rows = []
+        for row in rows:
+            if limit is None or stored_rows < limit:
                 sample_values = []
-                if stored_rows < limit:
-                    for i in range(0, len(row)):
-                        sample_values.append(self.__serialize_file_upload_value(row[i]))
-                    stored_rows += 1
-                total_rows += 1
-                sample_rows.append(sample_values)
-                row = cursor.fetchone()
+                for i in range(0, len(row)):
+                    sample_values.append(self.__serialize_file_upload_value(row[i]))
+                stored_rows += 1
+            total_rows += 1
+            sample_rows.append(sample_values)
 
-            delta = datetime.now() - start
-            logger.debug(f'SQL took {str(delta)}')
-
-        finally:
-            cursor.close()
+        delta = datetime.now() - start
+        logger.debug(f'SQL took {str(delta)}')
 
         return sample_columns, sample_rows, total_rows
 
+    def save_sample_to_local_file(self, sql, temp_file, *, limit = None):
+        logger.debug(f'Executing SQL query: \n{sql}')
+        start = datetime.now()
+        rows, description = self.scan.warehouse.sql_fetchall_description(sql)
+        sample_columns = self.__get_sample_columns(description)
+
+        stored_rows = total_rows = 0
+        for row in rows:
+            if limit is None or stored_rows < limit:
+                sample_values = []
+                for i in range(0, len(row)):
+                    sample_values.append(self.__serialize_file_upload_value(row[i]))
+                temp_file.write(bytearray(json.dumps(sample_values), 'utf-8'))
+                temp_file.write(b'\n')
+                stored_rows += 1
+            total_rows += 1
+
+        delta = datetime.now() - start
+        logger.debug(f'SQL took {str(delta)}')
+
+        if limit is not None:
+            return stored_rows, sample_columns, total_rows
+        else:
+            return stored_rows, sample_columns
+
     def save_sample_to_local_file_with_limit(self, sql, temp_file, limit: int):
-        cursor = self.scan.warehouse.connection.cursor()
-        try:
-            logger.debug(f'Executing SQL query: \n{sql}')
-            start = datetime.now()
-            cursor.execute(sql)
-            sample_columns = self.__get_sample_columns(cursor)
-
-            stored_rows = total_rows = 0
-            row = cursor.fetchone()
-            while row is not None:
-                if stored_rows < limit:
-                    sample_values = []
-                    for i in range(0, len(row)):
-                        sample_values.append(self.__serialize_file_upload_value(row[i]))
-                    temp_file.write(bytearray(json.dumps(sample_values), 'utf-8'))
-                    temp_file.write(b'\n')
-                    stored_rows += 1
-                total_rows += 1
-                row = cursor.fetchone()
-
-            delta = datetime.now() - start
-            logger.debug(f'SQL took {str(delta)}')
-
-        finally:
-            cursor.close()
-
-        return stored_rows, sample_columns, total_rows
+        return self.save_sample_to_local_file(sql, temp_file, limit=limit)
