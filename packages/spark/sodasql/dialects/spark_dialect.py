@@ -9,17 +9,129 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
+import pyodbc
+from enum import Enum
 from pyhive import hive
 from pyhive.exc import Error
 from thrift.transport.TTransport import TTransportException
 import logging
-from typing import Optional
+from typing import Any, Dict, Optional
 
 from sodasql.exceptions.exceptions import WarehouseConnectionError
+from sodasql.__version__ import SODA_SQL_VERSION
 from sodasql.scan.dialect import Dialect, SPARK, KEY_WAREHOUSE_TYPE
 from sodasql.scan.parser import Parser
 
 logger = logging.getLogger(__name__)
+
+
+def hive_connection_function(
+    username: str,
+    password: str,
+    host: str,
+    port: str,
+    database: str,
+    auth_method: str,
+    **kwargs,
+) -> hive.Connection:
+    """
+    Connect to hive.
+
+    Parameters
+    ----------
+    username : str
+        The user name
+    password : str
+        The password
+    host: str
+        The host.
+    port : str
+        The port
+    database : str
+        The databse
+    auth_method : str
+        The authentication method
+
+    Returns
+    -------
+    out : hive.Connection
+        The hive connection
+    """
+    connection = hive.connect(
+        username=username,
+        password=password,
+        host=host,
+        port=port,
+        database=database,
+        auth=auth_method
+    )
+    return connection
+
+
+def _build_odbc_connnection_string(**kwargs: Any) -> str:
+    return ";".join([f"{k}={v}" for k, v in kwargs.items()])
+
+
+def odbc_connection_function(
+    driver: str,
+    host: str,
+    port: str,
+    token: str,
+    organization: str,
+    cluster: str,
+    server_side_parameters: Dict[str, str],
+    **kwargs,
+) -> pyodbc.Connection:
+    """
+    Connect to hive.
+
+    Parameters
+    ----------
+    driver : str
+        The path to the driver
+    host: str
+        The host.
+    port : str
+        The port
+    token : str
+        The login token
+    organization : str
+        The organization
+    cluster : str
+        The cluster
+    server_side_parameters : Dict[str]
+        The server side parameters
+
+    Returns
+    -------
+    out : pyobc.Connection
+        The connection
+    """
+    http_path = f"/sql/protocolv1/o/{organization}/{cluster}"
+    user_agent_entry = f"soda-sql-spark/{SODA_SQL_VERSION} (Databricks)"
+
+    connection_str = _build_odbc_connnection_string(
+        DRIVER=driver,
+        HOST=host,
+        PORT=port,
+        UID="token",
+        PWD=token,
+        HTTPPath=http_path,
+        AuthMech=3,
+        SparkServerType=3,
+        ThriftTransport=2,
+        SSL=1,
+        UserAgentEntry=user_agent_entry,
+        LCaseSspKeyName=0 if server_side_parameters else 1,
+        **server_side_parameters,
+    )
+    connection = pyodbc.connect(connection_str, autocommit=True)
+    return connection
+
+
+class SparkConnectionMethod(str, Enum):
+    HIVE = "hive"
+    ODBC = "odbc"
 
 
 class SparkDialect(Dialect):
@@ -28,13 +140,22 @@ class SparkDialect(Dialect):
     def __init__(self, parser: Parser):
         super().__init__(SPARK)
         if parser:
+            self.method = parser.get_str_optional('method', 'hive')
             self.host = parser.get_str_required('host')
             self.port = parser.get_int_optional('port', '10000')
             self.username = parser.get_credential('username')
             self.password = parser.get_credential('password')
             self.database = parser.get_str_optional('database')
             self.auth_method = parser.get_str_optional('authentication', None)
-            self.configuration = parser.get_dict_optional('configuration')
+            self.configuration = parser.get_dict_optional('configuration', {})
+            self.driver = parser.get_str_optional('driver', None)
+            self.token = parser.get_credential('token')
+            self.organization = parser.get_str_optional('organization', None)
+            self.cluster = parser.get_str_optional('cluster', None)
+            self.server_side_parameters = {
+                f"SSP_{k}": f"{{{v}}}"
+                for k, v in parser.get_dict_optional("server_side_parameters", {})
+            }
 
     def default_connection_properties(self, params: dict):
         return {
@@ -62,21 +183,35 @@ class SparkDialect(Dialect):
             raise NotImplementedError("Cannot query for tables when database is not given.")
 
         with self.create_connection().cursor() as cursor:
-            cursor.execute(f"SHOW TABLES FROM {self.database};")
+            cursor.execute(f"SHOW TABLES FROM {self.database}")
             return [(row[1],) for row in cursor.fetchall()]
 
     def create_connection(self, *args, **kwargs):
+        if self.method == SparkConnectionMethod.HIVE:
+            connection_function = hive_connection_function
+        elif self.method == SparkConnectionMethod.ODBC:
+            connection_function = odbc_connection_function
+        else:
+            raise NotImplementedError(f"Unknown Spark connection method {self.method}")
+
         try:
-            conn = hive.connect(
+            connection = connection_function(
                 username=self.username,
                 password=self.password,
                 host=self.host,
                 port=self.port,
                 database=self.database,
-                auth=self.auth_method)
-            return conn
+                auth_method=self.auth_method,
+                driver=self.driver,
+                token=self.token,
+                organization=self.organization,
+                cluster=self.cluster,
+                server_side_parameters=self.server_side_parameters,
+            )
         except Exception as e:
             self.try_to_raise_soda_sql_exception(e)
+        else:
+            return connection
 
     def sql_test_connection(self) -> bool:
         conn = self.create_connection()

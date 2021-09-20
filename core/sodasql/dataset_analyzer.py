@@ -66,7 +66,7 @@ class DatasetAnalyzer:
                     qualified_regex = dialect.qualify_regex(format_regex)
                     regexp_like = dialect.sql_expr_regexp_like(
                         qualified_column_name, qualified_regex)
-                    count_field = f'COUNT(CASE WHEN {regexp_like} THEN 1 END)'
+                    count_field = f'COUNT(CASE WHEN {regexp_like} THEN 1 END) AS {validity_format}'
                     validity_format_count_fields.append(count_field)
 
                 row = warehouse.sql_fetchone(
