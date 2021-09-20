@@ -103,8 +103,7 @@ class SqlTestCase(TestCase):
             return dialect_parser.dialect
 
     def tearDown(self) -> None:
-        if self.warehouse.connection:
-            self.warehouse_fixture.tear_down()
+        self.warehouse_fixture.tear_down()
 
     @classmethod
     def tearDownClass(cls) -> None:
