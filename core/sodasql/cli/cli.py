@@ -353,9 +353,9 @@ def analyze(warehouse_yml_file: str, include: str, exclude: str, limit: int):
         sys.exit(1)
 
     finally:
-        if warehouse and warehouse.connection:
+        if warehouse:
             try:
-                warehouse.connection.close()
+                warehouse.close()
             except Exception as e:
                 logger.debug(f'Closing connection failed: {str(e)}')
 
