@@ -113,4 +113,4 @@ class WarehouseFixture:
 
     def tear_down(self):
         logging.debug('Rolling back transaction on warehouse connection')
-        self.warehouse.connection.rollback()
+        self.warehouse.rollback()
