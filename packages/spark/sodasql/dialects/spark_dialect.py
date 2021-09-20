@@ -59,7 +59,7 @@ class SparkDialect(Dialect):
     def sql_tables_metadata(self, limit: str = 10, filter: str = None):
         # TODO Implement limit
         if self.database is None:
-            raise NotImplementedError("Can not query for tables when database is not given.")
+            raise NotImplementedError("Cannot query for tables when database is not given.")
 
         with self.create_connection().cursor() as cursor:
             cursor.execute(f"SHOW TABLES FROM {self.database};")
