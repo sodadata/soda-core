@@ -10,6 +10,7 @@
 #  limitations under the License.
 
 import pyodbc
+from collections import namedtuple
 from enum import Enum
 from pyhive import hive
 from pyhive.exc import Error
@@ -23,6 +24,7 @@ from sodasql.scan.dialect import Dialect, SPARK, KEY_WAREHOUSE_TYPE
 from sodasql.scan.parser import Parser
 
 logger = logging.getLogger(__name__)
+ColumnMetadata = namedtuple("ColumnMetadata", ["name", "data_type", "is_nullable"])
 
 
 def hive_connection_function(
