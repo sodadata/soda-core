@@ -231,10 +231,18 @@ class SparkDialect(Dialect):
         return True
 
     def sql_columns_metadata(self, table_name: str):
+        columns_metadata = []
+
         with self.create_connection().cursor() as cursor:
             qualified_table_name = self.qualify_table_name(table_name)
-            cursor.execute(f"DESCRIBE TABLE {qualified_table_name}")
-            return [(row[0], row[1], "YES") for row in cursor.fetchall()]
+            cursor.execute(f"SHOW COLUMNS IN {qualified_table_name}")
+            columns = cursor.fetchall()
+            for column, in columns:
+                cursor.execute(f"DESCRIBE TABLE {qualified_table_name} {column}")
+                data_type = cursor.fetchall()[1][1]
+                columns_metadata.append((column, data_type, "YES"))
+
+        return columns_metadata
 
     def sql_columns_metadata_query(self, table_name: str) -> str:
         # hive_version < 3.x does not support information_schema.columns
