@@ -16,7 +16,7 @@ from pyhive import hive
 from pyhive.exc import Error
 from thrift.transport.TTransport import TTransportException
 import logging
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 from sodasql.exceptions.exceptions import WarehouseConnectionError
 from sodasql.__version__ import SODA_SQL_VERSION
@@ -232,18 +232,25 @@ class SparkDialect(Dialect):
             logger.warning(f'{self.database} does not contain any tables.')
         return True
 
-    def sql_columns_metadata(self, table_name: str):
-        columns_metadata = []
+    def show_columns(self, table_name: str) -> List[str]:
+        """
+        Show columns in table.
 
+        Parameters
+        ----------
+        table_name : str
+            The table to show columns in.
+
+        Returns
+        -------
+        out : List[str]
+            The column names.
+        """
+        qualified_table_name = self.qualify_table_name(table_name)
         with self.create_connection().cursor() as cursor:
-            qualified_table_name = self.qualify_table_name(table_name)
             cursor.execute(f"SHOW COLUMNS IN {qualified_table_name}")
             columns = cursor.fetchall()
-            for column, in columns:
-                cursor.execute(f"DESCRIBE TABLE {qualified_table_name} {column}")
-                data_type = cursor.fetchall()[1][1]
-                columns_metadata.append((column, data_type, "YES"))
-
+        return [column[0] for column in columns]
 
     def describe_column(
             self, table_name: str, column_name: str) -> ColumnMetadata:
@@ -267,6 +274,26 @@ class SparkDialect(Dialect):
             cursor.execute(f"DESCRIBE TABLE {qualified_table_name} {column_name}")
             data_type = cursor.fetchall()[1][1]
         return ColumnMetadata(column_name, data_type, is_nullable="YES")
+
+    def sql_columns_metadata(self, table_name: str) -> List[ColumnMetadata]:
+        """
+        Get the metadata for all columns.
+
+        Parameters
+        ----------
+        table_name : str
+            The table name.
+
+        Returns
+        -------
+        out : List[ColumnMetada]
+            The metadata about each column.
+        """
+        columns = self.show_columns(table_name)
+        columns_metadata = [
+            self.describe_column(table_name, column)
+            for column in columns
+        ]
         return columns_metadata
 
     def sql_columns_metadata_query(self, table_name: str) -> str:
