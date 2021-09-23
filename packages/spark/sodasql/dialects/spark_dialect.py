@@ -244,6 +244,29 @@ class SparkDialect(Dialect):
                 data_type = cursor.fetchall()[1][1]
                 columns_metadata.append((column, data_type, "YES"))
 
+
+    def describe_column(
+            self, table_name: str, column_name: str) -> ColumnMetadata:
+        """
+        Describe a column.
+
+        Parameters
+        ----------
+        table_name: str
+            The table name.
+        column_name: str
+            The column name.
+
+        Returns
+        -------
+        out : ColumnMetadata
+            The column metadata.
+        """
+        qualified_table_name = self.qualify_table_name(table_name)
+        with self.create_connection().cursor() as cursor:
+            cursor.execute(f"DESCRIBE TABLE {qualified_table_name} {column_name}")
+            data_type = cursor.fetchall()[1][1]
+        return ColumnMetadata(column_name, data_type, is_nullable="YES")
         return columns_metadata
 
     def sql_columns_metadata_query(self, table_name: str) -> str:
