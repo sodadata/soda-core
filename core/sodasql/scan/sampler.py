@@ -181,9 +181,13 @@ class Sampler:
         return sample_columns, sample_rows, total_rows
 
     def save_sample_to_local_file(self, sql, temp_file, *, limit = None):
+
         logger.debug('Executing SQL query: \n%s', sql)
         start = datetime.now()
         rows, description = self.scan.warehouse.sql_fetchall_description(sql)
+        delta = datetime.now() - start
+        logger.debug('SQL took %s', str(delta))
+
         sample_columns = self.__get_sample_columns(description)
 
         limit = limit or len(rows)
@@ -195,8 +199,6 @@ class Sampler:
             temp_file.write(bytearray(json.dumps(sample_values), 'utf-8'))
             temp_file.write(b'\n')
 
-        delta = datetime.now() - start
-        logger.debug('SQL took %s', str(delta))
 
         return limit, sample_columns, len(rows)
 
