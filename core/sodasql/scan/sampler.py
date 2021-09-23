@@ -181,26 +181,24 @@ class Sampler:
         return sample_columns, sample_rows, total_rows
 
     def save_sample_to_local_file(self, sql, temp_file, *, limit = None):
-        logger.debug(f'Executing SQL query: \n{sql}')
+        logger.debug('Executing SQL query: \n%s', sql)
         start = datetime.now()
         rows, description = self.scan.warehouse.sql_fetchall_description(sql)
         sample_columns = self.__get_sample_columns(description)
 
-        stored_rows = total_rows = 0
-        for row in rows:
-            if limit is None or stored_rows < limit:
-                sample_values = []
-                for i in range(0, len(row)):
-                    sample_values.append(self.__serialize_file_upload_value(row[i]))
-                temp_file.write(bytearray(json.dumps(sample_values), 'utf-8'))
-                temp_file.write(b'\n')
-                stored_rows += 1
-            total_rows += 1
+        limit = limit or len(rows)
+        for row_index, row in enumerate(rows):
+            if row_index == limit:
+                break
+
+            sample_values = [self.__serialize_file_upload_value(el) for el in row]
+            temp_file.write(bytearray(json.dumps(sample_values), 'utf-8'))
+            temp_file.write(b'\n')
 
         delta = datetime.now() - start
-        logger.debug(f'SQL took {str(delta)}')
+        logger.debug('SQL took %s', str(delta))
 
-        return stored_rows, sample_columns, total_rows
+        return limit, sample_columns, len(rows)
 
     def save_sample_to_local_file_with_limit(self, sql, temp_file, limit: int):
         return self.save_sample_to_local_file(sql, temp_file, limit=limit)
