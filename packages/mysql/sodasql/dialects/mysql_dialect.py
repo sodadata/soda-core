@@ -69,7 +69,7 @@ class MySQLDialect(Dialect):
             self.try_to_raise_soda_sql_exception(e)
 
     def sql_test_connection(self) -> bool:
-        logger.info("Connection Validation")
+        return True
 
     def sql_columns_metadata_query(self, table_name: str) -> str:
         sql = (f"SELECT column_name, data_type, is_nullable \n"

@@ -106,7 +106,7 @@ class SQLServerDialect(Dialect):
         return query
 
     def sql_test_connection(self) -> Union[Exception, bool]:
-        logger.info("Connection Validation")
+        return True
 
     def sql_columns_metadata_query(self, table_name: str) -> str:
         sql = (f"SELECT column_name, data_type, is_nullable \n"

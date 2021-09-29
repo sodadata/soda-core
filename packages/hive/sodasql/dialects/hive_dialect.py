@@ -76,7 +76,7 @@ class HiveDialect(Dialect):
             self.try_to_raise_soda_sql_exception(e)
 
     def sql_test_connection(self) -> bool:
-        logger.info("Connection Validation")
+        return True
 
     def sql_columns_metadata(self, table_name: str):
         # getting columns info from hive which version <3.x needs to be parsed

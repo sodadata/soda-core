@@ -118,7 +118,7 @@ class SnowflakeDialect(Dialect):
         return query
 
     def sql_test_connection(self) -> bool:
-        logger.info("Connection Validation")
+        return True
 
     def is_text(self, column_type: str):
         return column_type.upper() in ['VARCHAR', 'CHAR', 'CHARACTER', 'STRING', 'TEXT']

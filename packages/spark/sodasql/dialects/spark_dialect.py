@@ -216,7 +216,7 @@ class SparkDialect(Dialect):
             return connection
 
     def sql_test_connection(self) -> bool:
-        logger.info("Connection Validation")
+        return True
 
     def show_columns(self, table_name: str) -> List[str]:
         """
