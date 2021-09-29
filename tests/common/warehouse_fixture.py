@@ -34,22 +34,18 @@ class WarehouseFixture:
         if target == TARGET_POSTGRES:
             from tests.warehouses.postgres_fixture import PostgresFixture
             pf = PostgresFixture(target)
-            pf.test_warehouse_connection()
             return pf
         elif target == TARGET_SNOWFLAKE:
             from tests.warehouses.snowflake_fixture import SnowflakeFixture
             sff = SnowflakeFixture(target)
-            sff.test_warehouse_connection()
             return sff
         elif target == TARGET_REDSHIFT:
             from tests.warehouses.redshift_fixture import RedshiftFixture
             rsf = RedshiftFixture(target)
-            rsf.test_warehouse_connection()
             return rsf
         elif target == TARGET_ATHENA:
             from tests.warehouses.athena_fixture import AthenaFixture
             af = AthenaFixture(target)
-            af.test_warehouse_connection()
             return af
         elif target == TARGET_BIGQUERY:
             from tests.warehouses.bigquery_fixture import BigQueryFixture
@@ -57,12 +53,10 @@ class WarehouseFixture:
         elif target == TARGET_HIVE:
             from tests.warehouses.hive_fixture import HiveFixture
             hf = HiveFixture(target)
-            hf.test_warehouse_connection()
             return hf
         elif target == TARGET_MYSQL:
             from tests.warehouses.mysql_fixture import MySQLFixture
             msf = MySQLFixture(target)
-            msf.test_warehouse_connection()
             return msf
         elif target == TARGET_SPARK:
             from tests.warehouses.spark_fixture import SparkFixture
