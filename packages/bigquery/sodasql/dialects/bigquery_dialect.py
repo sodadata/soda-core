@@ -69,41 +69,7 @@ class BigQueryDialect(Dialect):
             self.try_to_raise_soda_sql_exception(e)
 
     def sql_test_connection(self) -> bool:
-        logger.info('Listing tables to check connection')
-        project_id = self.account_info_dict['project_id']
-        dataset_id = f'{project_id}.{self.dataset_name}'
-        try:
-            logger.info(f'dataset_id = {dataset_id}')
-            conn = dbapi.Connection(self.client)
-            cur = conn.cursor()
-            tables = []
-            cur.execute(self.sql_tables_metadata_query())
-            rows = cur.fetchall()
-            for row in rows:
-                table_name = row[0]
-                tables.append(table_name)
-            tables_list_length = len(list(tables))
-            if tables_list_length > 0:
-                logger.info(f'Tables contained in {dataset_id}')
-                for table in tables:
-                    try:
-                        table_full_name = dataset_id + "." + table
-                        cur.execute(self.query_table(table_full_name))
-                    except Exception as e:
-                        raise WarehouseConnectionError(
-                            warehouse_type=self.type,
-                            original_exception=Exception(
-                                f'Unable to query table: {table} from the dataset: {dataset_id}. Exception: {e}'))
-                return True
-            else:
-                raise WarehouseConnectionError(
-                    warehouse_type=self.type,
-                    original_exception=Exception(f'Unable to query tables from dataset {dataset_id}, none were found.'))
-
-        except Exception as e:
-            raise WarehouseConnectionError(
-                warehouse_type=self.type,
-                original_exception=Exception(f'Unable to list tables from: {dataset_id}. Exception: {e}'))
+        logger.info("Connection Validation")
 
     def sql_tables_metadata_query(self, limit: Optional[int] = None, filter: str = None):
         sql = (f"SELECT table_name \n"
