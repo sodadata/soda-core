@@ -69,27 +69,6 @@ class MySQLDialect(Dialect):
             self.try_to_raise_soda_sql_exception(e)
 
     def sql_test_connection(self) -> bool:
-        conn = self.create_connection()
-        cursor = conn.cursor()
-        try:
-            cursor.execute(f"USE {self.database}")
-            cursor.execute("SHOW TABLES")
-            tables = cursor.fetchall()
-        except Exception as e:
-            raise WarehouseConnectionError(
-                warehouse_type=self.type,
-                original_exception=Exception(f'Unable to target database: {self.database} or to list tables. Exception: {e}'))
-
-        if tables:
-            for (table_name,) in cursor:
-                test_query = self.query_table(table_name)
-                try:
-                    cursor.execute(test_query)
-                except Exception as e:
-                    raise Exception(
-                        f'Unable to query table: {table_name} from the database: {self.database}. Exception: {e}')
-        else:
-            logger.warning(f'{self.database} does not contain any tables.')
         return True
 
     def sql_columns_metadata_query(self, table_name: str) -> str:
