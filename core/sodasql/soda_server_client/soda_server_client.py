@@ -69,7 +69,6 @@ class SodaServerClient:
                     }
                 soda_column_cfgs[column_name] = soda_column_cfg
 
-        logger.debug(f'Soda Cloud scan start')
         return self.execute_command({
             'type': 'sodaSqlScanStart',
             'warehouseName': warehouse.name,
@@ -152,8 +151,8 @@ class SodaServerClient:
             'scanReference': scan_reference,
             'fileId': file_id,
             'sampleType': sample_type,
-            'stored': str(stored),
-            'total': str(total),
+            'stored': stored,
+            'total': total,
             'sourceColumns': source_columns
         }
         if column_name:
