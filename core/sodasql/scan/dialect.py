@@ -190,9 +190,6 @@ class Dialect:
     def sql_expr_distinct(self, expr):
         return f'DISTINCT({expr})'
 
-    def sql_expr_min(self, expr):
-        return f'MIN({expr})'
-
     def sql_expr_length(self, expr):
         return f'LENGTH({expr})'
 
