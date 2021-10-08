@@ -131,7 +131,7 @@ class AthenaDialect(Dialect):
         return f"AVG(CAST({expr} as DECIMAL(38, 0)))"
 
     def sql_expr_sum(self, expr: str):
-        return f"SUM(CAST ({expr} as DECIMAL(38, 0)))"
+        return f"SUM(CAST({expr} as DECIMAL(38, 0)))"
 
     def literal_date(self, date: date):
         date_string = date.strftime("%Y-%m-%d")
