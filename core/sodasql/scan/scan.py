@@ -53,6 +53,7 @@ class Scan:
         self.dialect = warehouse.dialect
         self.qualified_table_name = self.dialect.qualify_table_name(scan_yml.table_name)
         self.scan_reference = None
+        self.disable_sample_collection = False
         self.column_metadatas: List[ColumnMetadata] = []
         self.column_names: List[str] = []
         # maps column names (lower case) to ScanColumn's
@@ -95,7 +96,8 @@ class Scan:
             self._process_cloud_custom_metrics()
             self._run_table_tests()
             self._run_column_tests()
-            self._take_samples()
+            if not self.disable_sample_collection:
+                self._take_samples()
 
             logger.debug(f'Executed {self.queries_executed} queries in {(datetime.now() - self.start_time)}')
 
@@ -137,21 +139,25 @@ class Scan:
                         monitor_measurement_json = monitor_measurement.to_json()
                         self.soda_server_client.scan_monitor_measurements(self.scan_reference,
                                                                           monitor_measurement_json)
-                        if monitor_metric.metric_type in [MonitorMetricType.MISSING_VALUES_COUNT,
-                                                          MonitorMetricType.MISSING_VALUES_PERCENTAGE,
-                                                          MonitorMetricType.INVALID_VALUES_COUNT,
-                                                          MonitorMetricType.INVALID_VALUES_PERCENTAGE,
-                                                          MonitorMetricType.DISTINCT_VALUES_COUNT,
-                                                          ]:
-                            logger.debug(
-                                f'Sending failed rows for {monitor_metric.metric_type} to Soda Cloud')
-                            self._send_failed_rows_custom_metric(metric_name="custom_metric",
-                                                                 sql=monitor_metric.sql,
-                                                                 column_name=monitor_metric.column_name,
-                                                                 metric_id=monitor_metric.metric_id)
+                        if self.disable_sample_collection:
+                            logger.info(
+                                'failed rows are not sent to Soda Cloud because sample collection is disabled')
                         else:
-                            logger.debug(
-                                f'{monitor_metric.metric_type} is not "negative values metric", failed rows are not sent to Soda Cloud')
+                            if monitor_metric.metric_type in [
+                                MonitorMetricType.MISSING_VALUES_COUNT,
+                                MonitorMetricType.MISSING_VALUES_PERCENTAGE,
+                                MonitorMetricType.INVALID_VALUES_COUNT,
+                                MonitorMetricType.INVALID_VALUES_PERCENTAGE,
+                                MonitorMetricType.DISTINCT_VALUES_COUNT]:
+                                logger.debug(
+                                    f'Sending failed rows for {monitor_metric.metric_type} to Soda Cloud')
+                                self._send_failed_rows_custom_metric(metric_name="custom_metric",
+                                                                     sql=monitor_metric.sql,
+                                                                     column_name=monitor_metric.column_name,
+                                                                     metric_id=monitor_metric.metric_id)
+                            else:
+                                logger.info(
+                                    f'{monitor_metric.metric_type} is not "negative values metric", failed rows are not sent to Soda Cloud')
 
     def _query_columns_metadata(self):
         sql = self.warehouse.dialect.sql_columns_metadata_query(self.scan_yml.table_name)
@@ -198,7 +204,7 @@ class Scan:
         invalid_column_names = set(self.scan_yml.columns.keys()) - set(self.scan_columns.keys())
         if invalid_column_names:
             logger.warning(f'Unknown or unsupported columns found in YML: {", ".join(invalid_column_names)} \n'
-                         f'Scan will continue for known/supported columns.')
+                           f'Scan will continue for known/supported columns.')
 
         schema_measurement_value = [column_metadata.to_json() for column_metadata in self.column_metadatas]
         schema_measurement = Measurement(Metric.SCHEMA, value=schema_measurement_value)
@@ -511,7 +517,7 @@ class Scan:
                         self._run_sql_metric_default_and_run_tests(sql_metric, resolved_sql, scan_column)
                     elif sql_metric.type == 'numeric_groups':
                         self._run_sql_metric_with_groups_and_run_tests(sql_metric, resolved_sql, scan_column)
-                    elif sql_metric.type == 'failed_rows':
+                    elif sql_metric.type == 'failed_rows' and not self.disable_sample_collection:
                         self._run_sql_metric_failed_rows(sql_metric, resolved_sql, scan_column)
                 except Exception as e:
                     msg = f"Couldn't run sql metric {sql_metric}: {e}"
@@ -847,6 +853,9 @@ class Scan:
                     self.time,
                     origin=os.environ.get('SODA_SCAN_ORIGIN', 'external'))
                 self.scan_reference = self.start_scan_response['scanReference']
+                if 'disableCollectingWarehouseData' in self.start_scan_response:
+                    self.disable_sample_collection = self.start_scan_response['disableCollectingWarehouseData']
+
             except Exception as e:
                 logger.error(f'Soda Cloud error: Could not start scan: {e}')
                 logger.error(f'Skipping subsequent Soda Cloud communication but continuing the scan')

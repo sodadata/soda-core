@@ -73,7 +73,7 @@ class ScanYml:
         return self.mins_maxs_limit
 
     def get_frequent_values_limit(self, column_name):
-        return self.mins_maxs_limit
+        return self.frequent_values_limit
 
     def get_scan_yaml_column(self, column_name: str):
         return self.columns.get(column_name.lower())
