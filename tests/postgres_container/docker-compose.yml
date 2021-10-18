@@ -1,11 +1,11 @@
 version: "3.7"
 services:
   soda-sql-postgres:
-    image: postgres:9.6.17-alpine
+    image: postgres:10.18-alpine
     ports:
-      - "5432:5432"
+      - "5435:5432"
     volumes:
-      - ./.postgres/:/var/lib/postgresql/data
+      - ./.postgres10/:/var/lib/postgresql/data
     environment:
       - POSTGRES_USER=sodasql
       - POSTGRES_DB=sodasql

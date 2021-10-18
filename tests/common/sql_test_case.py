@@ -40,6 +40,7 @@ TARGET_BIGQUERY = 'bigquery'
 TARGET_SQLSERVER = 'sqlserver'
 TARGET_HIVE = 'hive'
 TARGET_MYSQL = 'mysql'
+TARGET_SQLITE = 'sqlite'
 TARGET_SPARK = 'spark'
 
 

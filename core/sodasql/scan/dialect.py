@@ -33,6 +33,7 @@ MYSQL = 'mysql'
 REDSHIFT = 'redshift'
 SNOWFLAKE = 'snowflake'
 SQLSERVER = 'sqlserver'
+SQLITE = 'sqlite'
 SPARK = 'spark'
 
 ALL_WAREHOUSE_TYPES = [ATHENA,
@@ -43,6 +44,7 @@ ALL_WAREHOUSE_TYPES = [ATHENA,
                        REDSHIFT,
                        SNOWFLAKE,
                        SQLSERVER,
+                       SQLITE,
                        SPARK]
 
 logger = logging.getLogger(__name__)
@@ -96,6 +98,8 @@ class Dialect:
                 _warehouse_class = Dialect._import_class('sodasql.dialects.snowflake_dialect', 'SnowflakeDialect')
             if warehouse_type == SQLSERVER:
                 _warehouse_class = Dialect._import_class('sodasql.dialects.sqlserver_dialect', 'SQLServerDialect')
+            if warehouse_type == SQLITE:
+                _warehouse_class = Dialect._import_class('sodasql.dialects.sqlite_dialect', 'SQLiteDialect')
             if warehouse_type == SPARK:
                 _warehouse_class = Dialect._import_class('sodasql.dialects.spark_dialect', 'SparkDialect')
         return _warehouse_class(parser)

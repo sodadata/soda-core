@@ -219,7 +219,14 @@ class TestMetricGroups(SqlTestCase):
                                                               'nullable': True,
                                                               'logicalType': 'text',
                                                               'semanticType': 'text',
-                                                              'type': 'varchar'})
+                                                              'type': 'varchar'} or
+                        scan_result.get(Metric.SCHEMA)[0] == {'dataType': 'VARCHAR(255)',
+                                                              'name': 'score',
+                                                              'nullable': True,
+                                                              'logicalType': 'text',
+                                                              'semanticType': 'text',
+                                                              'type': 'VARCHAR(255)'}
+                        )
         self.assertEqual(scan_result.get(Metric.AVG_LENGTH), 1)
         self.assertEqual(scan_result.get(Metric.DISTINCT), 5)
         self.assertEqual(scan_result.get(Metric.DUPLICATE_COUNT), 3)
@@ -274,6 +281,12 @@ class TestMetricGroups(SqlTestCase):
                                                               'logicalType': 'number',
                                                               'semanticType': 'number',
                                                               'type': 'int'} or
+                        scan_result.get(Metric.SCHEMA)[0] == {'dataType': 'INTEGER',
+                                                              'name': 'score',
+                                                              'nullable': True,
+                                                              'logicalType': 'number',
+                                                              'semanticType': 'number',
+                                                              'type': 'INTEGER'} or
                         scan_result.get(Metric.SCHEMA)[0] == {'dataType': 'integer',
                                                               'name': 'score',
                                                               'nullable': True,
