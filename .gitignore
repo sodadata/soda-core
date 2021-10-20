@@ -138,3 +138,6 @@ reports/*
 # Spark
 .hive-metastore/
 .spark-warehouse/
+
+#warehouse files
+warehouse.yml
