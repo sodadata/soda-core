@@ -109,9 +109,11 @@ class Dialect:
                     KEY_WAREHOUSE_TYPE: warehouse_type}))
 
     def default_connection_properties(self, params: dict):
+        # to be overriden by subclass
         pass
 
     def default_env_vars(self, params: dict):
+        # to be overriden by subclass
         pass
 
     def query_table(self, table_name):
@@ -129,22 +131,22 @@ class Dialect:
         return "select 1"
 
     def create_connection(self):
-        raise RuntimeError('TODO override and implement this abstract method')
+        raise RuntimeError('Unimplemented')
 
     def sql_columns_metadata_query(self, table_name: str) -> str:
-        raise RuntimeError('TODO override and implement this abstract method')
+        raise RuntimeError('Unimplemented')
 
     def sql_tables_metadata_query(self, limit: Optional[int] = None, filter: str = None):
-        raise RuntimeError('TODO override and implement this abstract method')
+        raise RuntimeError('Unimplemented')
 
     def is_text(self, column_type: str):
-        raise RuntimeError('TODO override this method')
+        raise RuntimeError('Unimplemented')
 
     def is_number(self, column_type: str):
-        raise RuntimeError('TODO override this method')
+        raise RuntimeError('Unimplemented')
 
     def is_time(self, column_type: str):
-        raise RuntimeError('TODO override this method')
+        raise RuntimeError('Unimplemented')
 
     def create_scan(self, *args, **kwargs):
         # Purpose of this method is to enable dialects to override and
@@ -195,9 +197,6 @@ class Dialect:
 
     def sql_expr_length(self, expr):
         return f'LENGTH({expr})'
-
-    def sql_expr_min(self, expr: str):
-        return f'MIN({expr})'
 
     def sql_expr_max(self, expr: str):
         return f'MAX({expr})'
@@ -305,43 +304,43 @@ class Dialect:
     def sql_expression(self, expression_dict: dict, **kwargs):
         if expression_dict is None:
             return None
-        type = expression_dict['type']
-        if type == 'number':
+        expr_type = expression_dict['type']
+        if expr_type == 'number':
             sql = self.literal_number(expression_dict['value'])
-        elif type == 'string':
+        elif expr_type == 'string':
             sql = self.literal_string(expression_dict['value'])
-        elif type == 'time':
+        elif expr_type == 'time':
             if expression_dict['scanTime']:
                 sql = self.literal(kwargs['scan_time'])
             else:
                 raise RuntimeError('Unsupported time comparison! Only "scanTime" is supported')
-        elif type == 'columnValue':
+        elif expr_type == 'columnValue':
             sql = expression_dict['columnName']
-        elif type == 'collection':
+        elif expr_type == 'collection':
             # collection of string or number literals
             value = expression_dict['value']
             sql = self.literal_list(value)
-        elif type == 'equals':
+        elif expr_type == 'equals':
             left = self.sql_expression(expression_dict['left'], **kwargs)
             right = self.sql_expression(expression_dict['right'], **kwargs)
             sql = self.sql_expr_equal(left, right)
-        elif type == 'lessThan':
+        elif expr_type == 'lessThan':
             left = self.sql_expression(expression_dict['left'], **kwargs)
             right = self.sql_expression(expression_dict['right'], **kwargs)
             sql = self.sql_expr_less_than(left, right)
-        elif type == 'lessThanOrEqual':
+        elif expr_type == 'lessThanOrEqual':
             left = self.sql_expression(expression_dict['left'], **kwargs)
             right = self.sql_expression(expression_dict['right'], **kwargs)
             sql = self.sql_expr_less_than_or_equal(left, right)
-        elif type == 'greaterThan':
+        elif expr_type == 'greaterThan':
             left = self.sql_expression(expression_dict['left'], **kwargs)
             right = self.sql_expression(expression_dict['right'], **kwargs)
             sql = self.sql_expr_greater_than(left, right)
-        elif type == 'greaterThanOrEqual':
+        elif expr_type == 'greaterThanOrEqual':
             left = self.sql_expression(expression_dict['left'], **kwargs)
             right = self.sql_expression(expression_dict['right'], **kwargs)
             sql = self.sql_expr_greater_than_or_equal(left, right)
-        elif type == 'between':
+        elif expr_type == 'between':
             clauses = []
             value = self.sql_expression(expression_dict['value'], **kwargs)
             gte = self.literal_number(expression_dict.get('gte'))
@@ -357,38 +356,38 @@ class Dialect:
             elif lt:
                 clauses.append(self.sql_expr_less_than(value, lt))
             sql = ' AND '.join(clauses)
-        elif type == 'in':
+        elif expr_type == 'in':
             left = self.sql_expression(expression_dict['left'], **kwargs)
             right = self.sql_expression(expression_dict['right'], **kwargs)
             sql = self.sql_expr_in(left, right)
-        elif type == 'contains':
+        elif expr_type == 'contains':
             value = self.sql_expression(expression_dict['left'], **kwargs)
             substring = self.escape_metacharacters(
                 expression_dict['right']['value'])
             sql = self.sql_expr_contains(value, substring)
-        elif type == 'startsWith':
+        elif expr_type == 'startsWith':
             value = self.sql_expression(expression_dict['left'], **kwargs)
             substring = self.escape_metacharacters(
                 expression_dict['right']['value'])
             sql = self.sql_expr_starts_with(value, substring)
-        elif type == 'endsWith':
+        elif expr_type == 'endsWith':
             value = self.sql_expression(expression_dict['left'], **kwargs)
             substring = self.escape_metacharacters(
                 expression_dict['right']['value'])
             sql = self.sql_expr_ends_with(value, substring)
-        elif type == 'not':
+        elif expr_type == 'not':
             sql = 'NOT (' + \
                   self.sql_expression(expression_dict['expression'], **kwargs) + ')'
-        elif type == 'and':
+        elif expr_type == 'and':
             sql = '(' + (') AND ('.join([self.sql_expression(e, **kwargs)
                                          for e in expression_dict['andExpressions']])) + ')'
-        elif type == 'or':
+        elif expr_type == 'or':
             sql = '(' + (') OR ('.join([self.sql_expression(e, **kwargs)
                                         for e in expression_dict['orExpressions']])) + ')'
-        elif type == 'null':
+        elif expr_type == 'null':
             sql = 'null'
         else:
-            raise RuntimeError(f'Unsupported expression type: {type}')
+            raise RuntimeError(f'Unsupported expression type: {expr_type}')
         return sql
 
     def sql_expr_equal(self, left, right):
@@ -446,4 +445,5 @@ class Dialect:
         return []
 
     def validate_connection(self):
+        # to be overriden by subclass
         pass
