@@ -40,7 +40,7 @@ class BigQueryDialect(Dialect):
             default_auth_scopes = ['https://www.googleapis.com/auth/bigquery',
                                    'https://www.googleapis.com/auth/cloud-platform',
                                    'https://www.googleapis.com/auth/drive']
-            self.auth_scopes = parser.get_dict_optional('auth_scopes', default_auth_scopes)
+            self.auth_scopes = parser.get_list_optional('auth_scopes', default_auth_scopes)
         self.client = None
 
     def default_connection_properties(self, params: dict):
