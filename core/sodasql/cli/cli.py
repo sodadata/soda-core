@@ -69,24 +69,17 @@ def create(warehouse_type: str,
         welcome_file = Path(".welcome")
         if not welcome_file.is_file():
             if cli_helper.CLIHelper.is_directory_writable():
-                logger.info("""
-  ▓▓▓▓▓▓▓▓▓▓▓     ▓▓▓▓▓▓▓▓▓▓▓▓      ▓▓▓▓▓▓▓▓▓▓▓▓▓          ▓▓▓      ▓▓▓
-  ▓▓▓▓▓▓▓▓▓▓▓    ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓   ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓        ▓▓▓▓     ░▓▓▓▓
- ▓▓▓▓▓▓▓        ▓▓▓▓▓▓▓▓  ▓▓▓▓▓▓▓▓  ▓▓▓▓▓▓   ▓▓▓▓▓▓▓      ▓▓▓▓▓▓▓
- ▓▓▓▓▓▓▓▓▓▓▓▓   ▓▓▓▓▓▓      ▓▓▓▓▓▓  ▓▓▓▓▓▓    ▓▓▓▓▓▓    ▓▓▓▓▓▓▓▓▓▓      ▒▓▓▓▓
-   ▓▓▓▓▓▓▓▓▓▓▓▓ ▓▓▓▓▓▓      ▓▓▓▓▓▓  ▓▓▓▓▓▓    ▓▓▓▓▓▓   ▓▓▓▓▓  ▓▓▓▓▓     ▓▓▓▓▓
-  ▓      ▓▓▓▓▓▓ ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓  ▓▓▓▓▓▓   ▓▓▓▓▓▓▓  ▓▓▓▓▓▓▓▓▓▓▓▓▓▓
-  ▓▓▓▓▓▓▓▓▓▓▓▓▓  ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓   ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓  ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓       ▓▓▓▓
- ▓▓▓▓▓▓▓▓▓▓▓▓      ▓▓▓▓▓▓▓▓▓▓▓▓     ▓▓▓▓▓▓▓▓▓▓▓▓▓   ▓▓▓▓▓       ▓▓▓▓▓▓▓     ▓▓▓▓
-                """)
-                logger.info(""" ________________________________________
+                f = open('ansi-logo.txt', 'r')
+                ansi_logo = f.read()
+                logger.info(ansi_logo)
+                logger.info("""   ________________________________________________
                                 / Welcome to Soda SQL! Hope you enjoy your\n      \
                                 | Data Quality journey with us! For any question\n|
                                 | please refer to our Github page at: \n          |
                                 | https://github.com/sodadata/soda-sql, and join\n|
                                 | our Community on Slack: \n                      |
                                 / http://community.soda.io/slack                  \
-                                ----------------------------------------""")
+                                ---------------------------------------------------""")
                 try:
                     with open(welcome_file, "w"):
                         pass
