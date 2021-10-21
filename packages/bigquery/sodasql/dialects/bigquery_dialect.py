@@ -130,7 +130,7 @@ class BigQueryDialect(Dialect):
                 if cred is not None:
                     return json.loads(cred)
                 else:
-                    raise Exception("Cannot read credentials from account_info_json")
+                    logger.warning("Dialect initiated from the create command, cred is None.")
         except JSONDecodeError as e:
             parser.error(f'Error parsing credential {credential_name}: {e}', credential_name)
 
