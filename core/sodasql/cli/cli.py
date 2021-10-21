@@ -14,7 +14,7 @@ import sys
 from datetime import datetime, timezone
 from math import ceil
 from typing import Optional
-
+from pathlib import Path
 import click
 import yaml
 
@@ -63,6 +63,26 @@ def create(warehouse_type: str,
     WAREHOUSE_TYPE is one of {postgres, snowflake, redshift, bigquery, athena}
     """
     try:
+        """
+        Welcome message in case of the first time we run Soda SQL
+        """
+        welcome_file = Path(".welcome")
+        if not welcome_file.is_file():
+            logger.info(""" ________________________________________
+                            / Welcome to Soda SQL! Hope you enjoy your\n      \
+                            | Data Quality journey with us! For any question\n|
+                            | please refer to our Github page at: \n          |
+                            | https://github.com/sodadata/soda-sql, and join\n|
+                            | our Community on Slack: \n                      |
+                            / http://community.soda.io/slack                  \
+                            ----------------------------------------""")
+            try:
+                with open(welcome_file, "w") as f:
+                    pass
+            except:
+                pass
+        else:
+            pass
         """
         Creates a warehouse.yml file
         """
