@@ -432,6 +432,8 @@ class Dialect:
 
     def try_to_raise_soda_sql_exception(
         self, exception: Exception) -> Exception:
+        logger.error("Raising Exception... if applicable, you can open an issue at"
+                     "https://github.com/sodadata/soda-sql/issues/new/choose")
         if self.is_connection_error(exception):
             raise WarehouseConnectionError(
                 warehouse_type=self.type,
