@@ -17,7 +17,7 @@ from typing import Optional
 from pathlib import Path
 import click
 import yaml
-
+from sodasql.common import cli_helper
 from sodasql.__version__ import SODA_SQL_VERSION
 from sodasql.cli.indenting_yaml_dumper import IndentingDumper
 from sodasql.common.logging_helper import LoggingHelper
@@ -68,21 +68,25 @@ def create(warehouse_type: str,
         """
         welcome_file = Path(".welcome")
         if not welcome_file.is_file():
-            logger.info(""" ________________________________________
-                            / Welcome to Soda SQL! Hope you enjoy your\n      \
-                            | Data Quality journey with us! For any question\n|
-                            | please refer to our Github page at: \n          |
-                            | https://github.com/sodadata/soda-sql, and join\n|
-                            | our Community on Slack: \n                      |
-                            / http://community.soda.io/slack                  \
-                            ----------------------------------------""")
-            try:
-                with open(welcome_file, "w") as f:
+            if cli_helper.CLIHelper.is_directory_writable():
+                logger.info(""" ________________________________________
+                                / Welcome to Soda SQL! Hope you enjoy your\n      \
+                                | Data Quality journey with us! For any question\n|
+                                | please refer to our Github page at: \n          |
+                                | https://github.com/sodadata/soda-sql, and join\n|
+                                | our Community on Slack: \n                      |
+                                / http://community.soda.io/slack                  \
+                                ----------------------------------------""")
+                try:
+                    with open(welcome_file, "w"):
+                        pass
+                except:
                     pass
-            except:
+            else:
                 pass
         else:
             pass
+
         """
         Creates a warehouse.yml file
         """
