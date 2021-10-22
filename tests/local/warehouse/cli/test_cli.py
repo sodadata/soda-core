@@ -86,8 +86,8 @@ class TestCli(SqlTestCase):
         if isinstance(self.warehouse.dialect, PostgresDialect):
             self.load_demo_data()
             self.run_cli_create()
-            self.run_cli_analyze()
             self.run_cli_scan()
+            self.run_cli_analyze()
 
     def load_demo_data(self):
         demodata_path = os.path.normpath(os.path.join(os.path.dirname(__file__), '../..', '..', 'demo', 'demodata.sql'))
