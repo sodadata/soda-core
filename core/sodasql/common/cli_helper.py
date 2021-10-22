@@ -8,10 +8,47 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-import os
+from pathlib import Path
+import yaml
+import logging
 
 
 class CLIHelper:
+
     @staticmethod
-    def is_directory_writable():
-        return os.access('.', os.W_OK)
+    def set_yaml_value(first_run_value):
+        file_name = ".soda/config.yml"
+        with open(file_name) as f:
+            doc = yaml.safe_load(f)
+        doc['first_run'] = first_run_value
+        with open(file_name, 'w') as f:
+            yaml.safe_dump(doc, f, default_flow_style=False)
+
+    @staticmethod
+    def welcome_message():
+        logger = logging.getLogger(__name__)
+        home = str(Path.home())
+        config_file = Path(f"{home}/.soda/config.yml")
+        with open(config_file, "r") as s:
+            try:
+                first_run_value = yaml.safe_load(s)["first_run"]
+                if first_run_value == "yes":
+                    logger.info("""   _____________________________________________________
+                            / Welcome to Soda SQL! \n                              \
+                            | If you have any questions, consider joining\n        |
+                            | our Slack Community https://community.soda.io/slack\n|
+                            | You can report any issues you found on our Github \n |
+                            / https://github.com/sodadata/soda-sql                 \
+                             -----------------------------------------------------""")
+                    file_name = f"{home}/.soda/config.yml"
+                    with open(file_name) as f:
+                        doc = yaml.safe_load(f)
+                    doc['first_run'] = "no"
+                    with open(file_name, 'w') as f:
+                        yaml.safe_dump(doc, f, default_flow_style=False)
+                else:
+                    pass
+            except Exception as e:
+                logger.error(e)
+
+

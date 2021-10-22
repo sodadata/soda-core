@@ -66,27 +66,17 @@ def create(warehouse_type: str,
         """
         Welcome message in case of the first time we run Soda SQL
         """
-        welcome_file = Path(".welcome")
-        if not welcome_file.is_file():
-            if cli_helper.CLIHelper.is_directory_writable():
-                f = open('ansi-logo.txt', 'r')
-                ansi_logo = f.read()
-                logger.info(ansi_logo)
-                logger.info("""   ________________________________________________
-                                / Welcome to Soda SQL! Hope you enjoy your\n      \
-                                | Data Quality journey with us! For any question\n|
-                                | please refer to our Github page at: \n          |
-                                | https://github.com/sodadata/soda-sql, and join\n|
-                                | our Community on Slack: \n                      |
-                                / http://community.soda.io/slack                  \
-                                ---------------------------------------------------""")
-                try:
-                    with open(welcome_file, "w"):
-                        pass
-                except:
-                    pass
-            else:
+        config_file = Path(".soda/config.yml")
+        if not config_file.is_file():
+            try:
+                with open(config_file, "w+") as f:
+                    first_run_conf = {
+                        "first_run": "yes"
+                    }
+                    yaml.dump(first_run_conf, f)
+            except:
                 pass
+
         else:
             pass
 
@@ -231,8 +221,9 @@ def analyze(warehouse_file: str, include: str, exclude: str, limit: int):
     """
     logger.info(SODA_SQL_VERSION)
     file_system = FileSystemSingleton.INSTANCE
-    warehouse = None
 
+    warehouse = None
+    cli_helper.CLIHelper.welcome_message()
     try:
         logger.info(f'Analyzing {warehouse_file} ...')
 
@@ -381,7 +372,7 @@ def scan(scan_yml_file: str, warehouse_yml_file: str, variables: tuple, time: st
     SCAN_YML_FILE is the scan YAML file that contains the metrics and tests for a table to run.
     """
     logger.info(SODA_SQL_VERSION)
-
+    cli_helper.CLIHelper.welcome_message()
     if offline:
         logger.info('Running in offline mode, scan results will NOT be pushed to Soda Cloud.')
 
