@@ -44,7 +44,7 @@ class CLIHelper:
                     CLIHelper.set_yaml_value("no")
                 else:
                     pass
-            except Exception as e:
-                logger.error(e)
+            except:
+                pass
 
 
