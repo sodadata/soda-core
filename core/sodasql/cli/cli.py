@@ -66,7 +66,8 @@ def create(warehouse_type: str,
         """
         Welcome message in case of the first time we run Soda SQL
         """
-        config_file = Path(".soda/config.yml")
+        home_folder = str(Path.home())
+        config_file = Path(f"{home_folder}/.soda/config.yml")
         if not config_file.is_file():
             try:
                 with open(config_file, "w+") as f:

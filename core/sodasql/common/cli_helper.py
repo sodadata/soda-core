@@ -17,7 +17,8 @@ class CLIHelper:
 
     @staticmethod
     def set_yaml_value(first_run_value):
-        file_name = ".soda/config.yml"
+        home_folder = str(Path.home())
+        file_name = f"{home_folder}/.soda/config.yml"
         with open(file_name) as f:
             doc = yaml.safe_load(f)
         doc['first_run'] = first_run_value
@@ -27,8 +28,8 @@ class CLIHelper:
     @staticmethod
     def welcome_message():
         logger = logging.getLogger(__name__)
-        home = str(Path.home())
-        config_file = Path(f"{home}/.soda/config.yml")
+        home_folder = str(Path.home())
+        config_file = Path(f"{home_folder}/.soda/config.yml")
         with open(config_file, "r") as s:
             try:
                 first_run_value = yaml.safe_load(s)["first_run"]
@@ -40,12 +41,7 @@ class CLIHelper:
                             | You can report any issues you found on our Github \n |
                             / https://github.com/sodadata/soda-sql                 \
                              -----------------------------------------------------""")
-                    file_name = f"{home}/.soda/config.yml"
-                    with open(file_name) as f:
-                        doc = yaml.safe_load(f)
-                    doc['first_run'] = "no"
-                    with open(file_name, 'w') as f:
-                        yaml.safe_dump(doc, f, default_flow_style=False)
+                    CLIHelper.set_yaml_value("no")
                 else:
                     pass
             except Exception as e:
