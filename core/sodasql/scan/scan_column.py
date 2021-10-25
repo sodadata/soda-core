@@ -224,6 +224,9 @@ class ScanColumn:
     def get_tests(self):
         return self.scan_yml_column.tests if self.scan_yml_column and self.scan_yml_column.tests else []
 
+    def get_historic_metrics(self):
+        return self.scan_yml_column.historic_metrics if self.scan_yml_column and self.scan_yml_column.historic_metrics else []
+
     def get_histogram_buckets(self) -> int:
         # TODO make configurable
         return 20

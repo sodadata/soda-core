@@ -172,6 +172,14 @@ class SodaServerClient:
             'monitorMeasurement': monitor_measurement_json
         })
 
+    def historic_metrics(self, warehouse, table_name,  metrics):
+        return self.execute_query({
+            'type': 'sodaSqlHistoricMeasurements',
+            'warehouseName': warehouse.name,
+            'tableName': table_name,
+            'metrics': metrics
+        })
+
     def custom_metrics(self, scan_reference: dict):
         return self.execute_query({
             'type': 'sodaSqlCustomMetrics',
