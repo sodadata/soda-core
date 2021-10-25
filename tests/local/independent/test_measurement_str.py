@@ -22,43 +22,43 @@ class TestMeasurementStr(TestCase):
     def test_row_count(self):
         measurement = Measurement(metric=Metric.ROW_COUNT, value=5)
         self.assertEqual('row_count = 5', str(measurement))
-        JsonHelper.to_json(JsonHelper.to_jsonnable(measurement.to_json()))
+        JsonHelper.to_json(JsonHelper.to_jsonnable(measurement.to_dict()))
 
     def test_column_measurement(self):
         measurement = Measurement(metric=Metric.MIN, column_name='AGE', value=3.4)
         self.assertEqual('min(AGE) = 3.4', str(measurement))
-        JsonHelper.to_json(JsonHelper.to_jsonnable(measurement.to_json()))
+        JsonHelper.to_json(JsonHelper.to_jsonnable(measurement.to_dict()))
 
     def test_column_measurement_list_value(self):
         measurement = Measurement(metric=Metric.MINS, column_name='chars', value=['a', 'b'])
         self.assertEqual("mins(chars) = ['a', 'b']", str(measurement))
-        JsonHelper.to_json(JsonHelper.to_jsonnable(measurement.to_json()))
+        JsonHelper.to_json(JsonHelper.to_jsonnable(measurement.to_dict()))
 
     def test_column_group_measurement(self):
         measurement = Measurement(metric=Metric.MIN,
                                   column_name='AGE',
                                   group_values=[GroupValue(group={'country': 'US'}, value=3.4)])
         self.assertEqual("min(AGE): \n  group{'country': 'US'} = 3.4", str(measurement))
-        JsonHelper.to_json(JsonHelper.to_jsonnable(measurement.to_json()))
+        JsonHelper.to_json(JsonHelper.to_jsonnable(measurement.to_dict()))
 
     def test_column_group_measurement_decimal(self):
         measurement = Measurement(metric=Metric.MIN,
                                   column_name='AGE',
                                   group_values=[GroupValue(group={'country': 'US'}, value=decimal.Decimal(4.5))])
         self.assertEqual("min(AGE): \n  group{'country': 'US'} = 4.5", str(measurement))
-        JsonHelper.to_json(JsonHelper.to_jsonnable(measurement.to_json()))
+        JsonHelper.to_json(JsonHelper.to_jsonnable(measurement.to_dict()))
 
     def test_column_group_measurement_decimal_value(self):
         measurement = Measurement(metric=Metric.MIN,
                                   column_name='AGE',
                                   group_values=[GroupValue(group={'country': 'US'}, value=decimal.Decimal(3))])
         self.assertEqual("min(AGE): \n  group{'country': 'US'} = 3", str(measurement))
-        JsonHelper.to_json(JsonHelper.to_jsonnable(measurement.to_json()))
+        JsonHelper.to_json(JsonHelper.to_jsonnable(measurement.to_dict()))
 
     def test_column_group_measurement_empty_list(self):
         measurement = Measurement(metric=Metric.MIN,
                                   column_name='AGE',
                                   group_values=[])
         self.assertEqual('min(AGE): no groups', str(measurement))
-        JsonHelper.to_json(JsonHelper.to_jsonnable(measurement.to_json()))
+        JsonHelper.to_json(JsonHelper.to_jsonnable(measurement.to_dict()))
 

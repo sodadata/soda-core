@@ -10,7 +10,7 @@
 #  limitations under the License.
 from dataclasses import dataclass
 from typing import Optional, List
-
+from deprecated import deprecated
 from sodasql.common.json_helper import JsonHelper
 from sodasql.scan.group_value import GroupValue
 
@@ -35,17 +35,21 @@ class Measurement:
         else:
             return f'{self.metric}{column_str} = {self.value}'
 
-    def to_json(self):
-        json = {
+    def to_dict(self) -> dict:
+        dictionary = {
             'metric': self.metric,
         }
 
         if self.group_values is None:
-            json['value'] = JsonHelper.to_jsonnable(self.value)
+            dictionary['value'] = JsonHelper.to_jsonnable(self.value)
         else:
-            json['groupValues'] = [group_value.to_json() for group_value in self.group_values]
+            dictionary['groupValues'] = [group_value.to_dict() for group_value in self.group_values]
 
         if self.column_name is not None:
-            json['columnName'] = self.column_name
+            dictionary['columnName'] = self.column_name
 
-        return json
+        return dictionary
+
+    @deprecated(version='2.1.0b19', reason='This function is deprecated, please use to_dict')
+    def to_json(self):
+        return self.to_dict()

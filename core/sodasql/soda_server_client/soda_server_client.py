@@ -86,7 +86,7 @@ class SodaServerClient:
         }
         if errors:
             logger.debug(f'Soda Cloud scan end with errors')
-            scan_end_command['errors'] = [error.to_json() for error in errors]
+            scan_end_command['errors'] = [error.to_dict() for error in errors]
         else:
             logger.debug(f'Soda Cloud scan end ok')
         self.execute_command(scan_end_command)

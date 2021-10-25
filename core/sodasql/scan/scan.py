@@ -137,7 +137,7 @@ class Scan:
                         monitor_metric = monitor_metric_parser.monitor_metric
                         monitor_measurement = monitor_metric.execute()
                         self.scan_result.measurements.append(monitor_measurement)
-                        monitor_measurement_json = monitor_measurement.to_json()
+                        monitor_measurement_json = monitor_measurement.to_dict()
                         self.soda_server_client.scan_monitor_measurements(self.scan_reference,
                                                                           monitor_measurement_json)
                         if self.disable_sample_collection:
@@ -207,7 +207,7 @@ class Scan:
             logger.warning(f'Unknown or unsupported columns found in YML: {", ".join(invalid_column_names)} \n'
                            f'Scan will continue for known/supported columns.')
 
-        schema_measurement_value = [column_metadata.to_json() for column_metadata in self.column_metadatas]
+        schema_measurement_value = [column_metadata.to_dict() for column_metadata in self.column_metadatas]
         schema_measurement = Measurement(Metric.SCHEMA, value=schema_measurement_value)
         self._log_measurement(schema_measurement)
         self._flush_measurements([schema_measurement])
@@ -861,7 +861,7 @@ class Scan:
         """
         self.scan_result.measurements.extend(measurements)
         if self.soda_server_client and measurements:
-            measurement_jsons = [measurement.to_json() for measurement in measurements]
+            measurement_jsons = [measurement.to_dict() for measurement in measurements]
             try:
                 self.soda_server_client.scan_measurements(self.scan_reference, measurement_jsons)
             except Exception as e:
@@ -876,7 +876,7 @@ class Scan:
             self.scan_result.add_test_results(test_results)
 
             if self.soda_server_client:
-                test_result_jsons = [test_result.to_json() for test_result in test_results]
+                test_result_jsons = [test_result.to_dict() for test_result in test_results]
                 try:
                     self.soda_server_client.scan_test_results(self.scan_reference, test_result_jsons)
                 except Exception as e:
