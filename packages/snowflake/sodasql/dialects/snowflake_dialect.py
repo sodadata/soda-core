@@ -42,6 +42,7 @@ class SnowflakeDialect(Dialect):
             self.client_prefetch_threads = parser.get_int_optional('client_prefetch_threads', 4)
             self.client_session_keep_alive = parser.get_bool_optional('client_session_keep_alive', False)
             self.authenticator = parser.get_str_optional('authenticator', 'snowflake')
+            self.session_params = parser.get_dict_optional('session_parameters', None)
             self.connection_timeout = parser.get_int_optional(KEY_CONNECTION_TIMEOUT, DEFAULT_SOCKET_CONNECT_TIMEOUT)
 
     def default_connection_properties(self, params: dict):
@@ -103,6 +104,7 @@ class SnowflakeDialect(Dialect):
                 client_prefetch_threads=self.client_prefetch_threads,
                 client_session_keep_alive=self.client_session_keep_alive,
                 authenticator=self.authenticator,
+                session_parameters = self.session_params
             )
             return conn
 
