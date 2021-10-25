@@ -13,6 +13,8 @@ from typing import List
 
 from sodasql.common.json_helper import JsonHelper
 
+from deprecated import deprecated
+
 
 @dataclass
 class GroupValue:
@@ -41,8 +43,12 @@ class GroupValue:
                 group_values.append(group_value)
         return group_values
 
-    def to_json(self):
+    def to_dict(self):
         return {
             'group': JsonHelper.to_jsonnable(self.group),
             'value': JsonHelper.to_jsonnable(self.value)
         }
+
+    @deprecated(version='2.1.0b19', reason='This function is deprecated, please use to_dict')
+    def to_json(self):
+        return self.to_dict()

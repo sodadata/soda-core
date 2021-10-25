@@ -10,6 +10,7 @@
 #  limitations under the License.
 import json
 from dataclasses import dataclass
+from deprecated import deprecated
 from typing import Optional
 
 from sodasql.common.json_helper import JsonHelper
@@ -36,7 +37,7 @@ class TestResult:
                 (f" with group values {self.group_values}" if self.group_values else '') +
                 f' with measurements {json.dumps(JsonHelper.to_jsonnable(self.values))}')
 
-    def to_json(self):
+    def to_dict(self) -> dict:
         if not self.test or not self.test.expression:
             return {
                 'error': 'Invalid test result'
@@ -63,3 +64,7 @@ class TestResult:
             test_result_json['groupValues'] = JsonHelper.to_jsonnable(self.group_values)
 
         return test_result_json
+
+    @deprecated(version='2.1.0b19', reason='This function is deprecated, please use to_dict')
+    def to_json(self):
+        return self.to_dict()

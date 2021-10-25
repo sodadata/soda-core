@@ -9,6 +9,7 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 from typing import List
+from deprecated import deprecated
 
 from sodasql.scan.measurement import Measurement
 from sodasql.scan.scan_error import ScanError
@@ -61,12 +62,16 @@ class ScanResult:
     def is_passed(self) -> bool:
         return not (self.has_test_failures() or self.has_errors())
 
-    def to_json(self) -> dict:
+    def to_dict(self) -> dict:
         return {
-            'measurements': [measurement.to_json() for measurement in self.measurements],
-            'testResults': [test_result.to_json() for test_result in self.test_results],
-            'errors': [scan_error.to_json() for scan_error in self.errors]
+            'measurements': [measurement.to_dict() for measurement in self.measurements],
+            'testResults': [test_result.to_dict() for test_result in self.test_results],
+            'errors': [scan_error.to_dict() for scan_error in self.errors]
         }
+
+    @deprecated(version='2.1.0b19', reason='This function is deprecated, please use to_dict')
+    def to_json(self):
+        return self.to_dict()
 
     def find_measurement(self, metric_type: str, column_name: str = None) -> Measurement:
         """

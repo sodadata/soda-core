@@ -28,4 +28,4 @@ def lambda_handler(event, context):
     scan_result = scan.execute()
 
     print("Finished: Soda Scan")
-    print(scan_result.to_json())
+    print(scan_result.to_dict())
