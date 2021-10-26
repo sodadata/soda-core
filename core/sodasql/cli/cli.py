@@ -14,10 +14,10 @@ import sys
 from datetime import datetime, timezone
 from math import ceil
 from typing import Optional
-
+from pathlib import Path
 import click
 import yaml
-
+from sodasql.common import cli_helper
 from sodasql.__version__ import SODA_SQL_VERSION
 from sodasql.cli.indenting_yaml_dumper import IndentingDumper
 from sodasql.common.logging_helper import LoggingHelper
@@ -63,6 +63,24 @@ def create(warehouse_type: str,
     WAREHOUSE_TYPE is one of {postgres, snowflake, redshift, bigquery, athena}
     """
     try:
+        """
+        Welcome message in case of the first time we run Soda SQL
+        """
+        home_folder = str(Path.home())
+        config_file = Path(f"{home_folder}/.soda/config.yml")
+        if not config_file.is_file():
+            try:
+                with open(config_file, "w+") as f:
+                    first_run_conf = {
+                        "first_run": "yes"
+                    }
+                    yaml.dump(first_run_conf, f)
+            except:
+                pass
+
+        else:
+            pass
+
         """
         Creates a warehouse.yml file
         """
@@ -204,8 +222,9 @@ def analyze(warehouse_file: str, include: str, exclude: str, limit: int):
     """
     logger.info(SODA_SQL_VERSION)
     file_system = FileSystemSingleton.INSTANCE
-    warehouse = None
 
+    warehouse = None
+    cli_helper.CLIHelper.welcome_message()
     try:
         logger.info(f'Analyzing {warehouse_file} ...')
 
@@ -354,7 +373,7 @@ def scan(scan_yml_file: str, warehouse_yml_file: str, variables: tuple, time: st
     SCAN_YML_FILE is the scan YAML file that contains the metrics and tests for a table to run.
     """
     logger.info(SODA_SQL_VERSION)
-
+    cli_helper.CLIHelper.welcome_message()
     if offline:
         logger.info('Running in offline mode, scan results will NOT be pushed to Soda Cloud.')
 
