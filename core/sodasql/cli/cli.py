@@ -150,6 +150,8 @@ def create(warehouse_type: str,
         logger.info(f"Then run the soda analyze command")
     except Exception as e:
         logger.exception(f'Exception: {str(e)}')
+        logger.info("If you think this is a bug in Soda SQL, please open an issue at: "
+                    "https://github.com/sodadata/soda-sql/issues/new/choose")
         sys.exit(1)
 
 
@@ -311,6 +313,8 @@ def analyze(warehouse_file: str, include: str, exclude: str, limit: int):
 
     except Exception as e:
         logger.exception(f'Exception: {str(e)}')
+        logger.info("If you think this is a bug in Soda SQL, please open an issue at"
+                    "https://github.com/sodadata/soda-sql/issues/new/choose")
         sys.exit(1)
 
     finally:
@@ -421,5 +425,7 @@ def scan(scan_yml_file: str, warehouse_yml_file: str, variables: tuple, time: st
 
     except Exception as e:
         logger.exception(f'Scan failed: {str(e)}')
+        logger.info("If you think this is a bug in Soda SQL, please open an issue at: "
+                    "https://github.com/sodadata/soda-sql/issues/new/choose")
         logger.info(f'Exiting with code 1')
         sys.exit(1)
