@@ -11,7 +11,7 @@
 from pathlib import Path
 import yaml
 import logging
-
+from os.path import exists
 
 class CLIHelper:
 
@@ -21,7 +21,7 @@ class CLIHelper:
         file_name = f"{home_folder}/.soda/config.yml"
         with open(file_name) as f:
             doc = yaml.safe_load(f)
-        doc['key'] = value
+        doc[key] = value
         with open(file_name, 'w') as f:
             yaml.safe_dump(doc, f, default_flow_style=False)
 
@@ -30,8 +30,8 @@ class CLIHelper:
         logger = logging.getLogger(__name__)
         home_folder = str(Path.home())
         config_file = Path(f"{home_folder}/.soda/config.yml")
-        with open(config_file, "r") as s:
-            try:
+        if exists(config_file):
+            with open(config_file, "r") as s:
                 first_run_value = yaml.safe_load(s)["first_run"]
                 if first_run_value == "yes":
                     logger.info("""   _____________________________________________________
@@ -44,5 +44,5 @@ class CLIHelper:
                     CLIHelper.set_yaml_value("first_run", "no")
                 else:
                     pass
-            except Exception as e:
-                logger.error(e)
+        else:
+            logger.error("Config file doesn't exists.")
