@@ -29,8 +29,8 @@ class WarehouseFixture:
 
     @classmethod
     def create(cls, target: str):
-        from tests.common.sql_test_case import TARGET_SNOWFLAKE, TARGET_SQLSERVER, TARGET_POSTGRES, TARGET_REDSHIFT, TARGET_ATHENA, \
-            TARGET_BIGQUERY, TARGET_HIVE, TARGET_MYSQL, TARGET_SPARK
+        from tests.common.sql_test_case import TARGET_SNOWFLAKE, TARGET_POSTGRES, TARGET_REDSHIFT, TARGET_ATHENA, \
+            TARGET_BIGQUERY, TARGET_HIVE, TARGET_MYSQL, TARGET_SPARK, TARGET_SQLSERVER, TARGET_TRINO
         if target == TARGET_POSTGRES:
             from tests.warehouses.postgres_fixture import PostgresFixture
             pf = PostgresFixture(target)
@@ -65,6 +65,9 @@ class WarehouseFixture:
         elif target == TARGET_SPARK:
             from tests.warehouses.spark_fixture import SparkFixture
             return SparkFixture(target)
+        elif target == TARGET_TRINO:
+            from tests.warehouses.trino_fixture import TrinoFixture
+            return TrinoFixture(target)
         raise RuntimeError(f'Invalid target {target}')
 
     def __init__(self, target: str) -> None:

@@ -1,0 +1,8 @@
+type: trino
+host: localhost
+port: 8080
+http_scheme: https
+catalog: memory
+schema: sodasql
+#username:
+#password:

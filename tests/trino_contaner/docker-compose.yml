@@ -1,0 +1,9 @@
+version: "3.7"
+services:
+  soda-sql-trino:
+    image: trinodb/trino
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./.trino/:/data/trino
+    command: sh -c "sleep 15 && /usr/bin/trino --execute='create schema memory.sodasql; use memory.sodasql'"
