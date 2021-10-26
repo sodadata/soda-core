@@ -10,7 +10,7 @@
 #  limitations under the License.
 
 from dataclasses import dataclass
-
+from deprecated import deprecated
 from sodasql.scan.test import Test
 
 
@@ -22,7 +22,7 @@ class ScanError:
     def __str__(self) -> str:
         return f'[{self.get_type()}] {self.get_message()}'
 
-    def to_json(self) -> dict:
+    def to_dict(self) -> dict:
         json = {
             'type': self.get_type(),
             'message': self.get_message()
@@ -33,6 +33,10 @@ class ScanError:
             if hasattr(self.exception, "error_code"):
                 json['errorCode'] = self.exception.error_code
         return json
+
+    @deprecated(version='2.1.0b19', reason='This function is deprecated, please use to_dict')
+    def to_json(self):
+        return self.to_dict()
 
     def get_type(self) -> str:
         return 'error'

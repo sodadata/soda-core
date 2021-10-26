@@ -86,7 +86,7 @@ class SodaServerClient:
         }
         if errors:
             logger.debug(f'Soda Cloud scan end with errors')
-            scan_end_command['errors'] = [error.to_json() for error in errors]
+            scan_end_command['errors'] = [error.to_dict() for error in errors]
         else:
             logger.debug(f'Soda Cloud scan end ok')
         self.execute_command(scan_end_command)
@@ -170,6 +170,14 @@ class SodaServerClient:
             'type': 'sodaSqlMonitorMeasurement',
             'scanReference': scan_reference,
             'monitorMeasurement': monitor_measurement_json
+        })
+
+    def historic_metrics(self, warehouse, table_name,  metrics):
+        return self.execute_query({
+            'type': 'sodaSqlHistoricMeasurements',
+            'warehouseName': warehouse.name,
+            'tableName': table_name,
+            'metrics': metrics
         })
 
     def custom_metrics(self, scan_reference: dict):

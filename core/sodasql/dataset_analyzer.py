@@ -13,6 +13,7 @@ from typing import List
 
 from sodasql.scan.validity import Validity
 from sodasql.scan.warehouse import Warehouse
+from deprecated import deprecated
 
 
 @dataclass
@@ -24,12 +25,16 @@ class ColumnAnalysisResult:
     values_count: int = None
     valid_count: int = None
 
-    def to_json(self):
+    def to_dict(self):
         return {
             'columnName': self.column_name,
             'sourceType': self.source_type,
             'validityFormat': self.validity_format
         }
+
+    @deprecated(version='2.1.0b19', reason='This function is deprecated, please use to_dict')
+    def to_json(self):
+        return self.to_dict()
 
 
 class DatasetAnalyzer:
@@ -72,8 +77,8 @@ class DatasetAnalyzer:
                 row = warehouse.sql_fetchone(
                     f'SELECT \n  ' +
                     (',\n  '.join(validity_format_count_fields)) + ',\n'
-                    f'  COUNT({qualified_column_name}) \n'
-                    f'FROM ({select_with_limit_query}) T'
+                                                                   f'  COUNT({qualified_column_name}) \n'
+                                                                   f'FROM ({select_with_limit_query}) T'
                 )
 
                 values_count = row[len(validity_counts)]

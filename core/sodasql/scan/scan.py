@@ -17,6 +17,7 @@ from math import floor, ceil
 from typing import List, Optional
 
 from jinja2 import Template
+from sodasql.scan.historic_metric_yml import HistoricMetricYml
 
 from sodasql.scan.column_metadata import ColumnMetadata
 from sodasql.scan.group_value import GroupValue
@@ -136,7 +137,7 @@ class Scan:
                         monitor_metric = monitor_metric_parser.monitor_metric
                         monitor_measurement = monitor_metric.execute()
                         self.scan_result.measurements.append(monitor_measurement)
-                        monitor_measurement_json = monitor_measurement.to_json()
+                        monitor_measurement_json = monitor_measurement.to_dict()
                         self.soda_server_client.scan_monitor_measurements(self.scan_reference,
                                                                           monitor_measurement_json)
                         if self.disable_sample_collection:
@@ -206,7 +207,7 @@ class Scan:
             logger.warning(f'Unknown or unsupported columns found in YML: {", ".join(invalid_column_names)} \n'
                            f'Scan will continue for known/supported columns.')
 
-        schema_measurement_value = [column_metadata.to_json() for column_metadata in self.column_metadatas]
+        schema_measurement_value = [column_metadata.to_dict() for column_metadata in self.column_metadatas]
         schema_measurement = Measurement(Metric.SCHEMA, value=schema_measurement_value)
         self._log_measurement(schema_measurement)
         self._flush_measurements([schema_measurement])
@@ -742,6 +743,41 @@ class Scan:
             logger.exception(f'Could not perform sql metric failed rows \n{resolved_sql}', e)
             self.scan_result.add_error(ScanError(f'Exception during sql metric failed rows query {resolved_sql}', e))
 
+    def _get_historic_metric_variables(self, scan_column: ScanColumn):
+        historic_metrics: List[HistoricMetricYml] = scan_column.get_historic_metrics()
+        historic_variables = {}
+        if historic_metrics:
+            logger.info('Fetching historic metrics')
+            if self.soda_server_client:
+                metrics = []
+                for hmc in historic_metrics:
+                    metric = {
+                        'key': hmc.name,
+                        'metricType': hmc.metric,
+                    }
+                    if hmc.type == 'prev':
+                        metric['previousCompare'] = {'count': hmc.count}
+                    else:
+                        metric['aggregatedCompare'] = {
+                            'type': hmc.type,
+                            'count': hmc.count
+                        }
+                    metric['columnName'] = scan_column.column_name
+                    metrics.append(metric)
+                results = self.soda_server_client.historic_metrics(self.warehouse, self.scan_yml.table_name, metrics)
+                measurements = results['measurements']
+                errors = []
+                for name, val in measurements.items():
+                    if 'value' in val:
+                        historic_variables[name] = val['value']
+                    elif 'error' in val:
+                        errors.append(f"Error in fetching historical metric {name}: {val['error']['message']}")
+                if errors:
+                    raise RuntimeError('\n'.join(errors))
+            else:
+                raise RuntimeError("Can't use historic metrics in tests without a connection to Soda Cloud")
+        return historic_variables
+
     def _get_test_variables(self, scan_column: Optional[ScanColumn] = None):
         column_name_lower = scan_column.column_name_lower if scan_column is not None else None
         return {
@@ -762,6 +798,9 @@ class Scan:
         for column_name_lower, scan_column in self.scan_columns.items():
             column_tests = scan_column.get_tests()
             test_variables = self._get_test_variables(scan_column)
+            historic_metric_variables = self._get_historic_metric_variables(scan_column)
+            # Shallow merge two variable dicts
+            test_variables = {**test_variables, **historic_metric_variables}
             column_test_results = self._execute_tests(column_tests, test_variables)
             test_results.extend(column_test_results)
         self._flush_test_results(test_results)
@@ -822,7 +861,7 @@ class Scan:
         """
         self.scan_result.measurements.extend(measurements)
         if self.soda_server_client and measurements:
-            measurement_jsons = [measurement.to_json() for measurement in measurements]
+            measurement_jsons = [measurement.to_dict() for measurement in measurements]
             try:
                 self.soda_server_client.scan_measurements(self.scan_reference, measurement_jsons)
             except Exception as e:
@@ -837,7 +876,7 @@ class Scan:
             self.scan_result.add_test_results(test_results)
 
             if self.soda_server_client:
-                test_result_jsons = [test_result.to_json() for test_result in test_results]
+                test_result_jsons = [test_result.to_dict() for test_result in test_results]
                 try:
                     self.soda_server_client.scan_test_results(self.scan_reference, test_result_jsons)
                 except Exception as e:

@@ -9,23 +9,12 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 from dataclasses import dataclass
-from typing import Set, List, Optional
-
-from sodasql.scan.missing import Missing
-from sodasql.scan.samples_yml import SamplesYml
-from sodasql.scan.sql_metric_yml import SqlMetricYml
-from sodasql.scan.historic_metric_yml import HistoricMetricYml
-from sodasql.scan.test import Test
-from sodasql.scan.validity import Validity
+from typing import Optional
 
 
 @dataclass
-class ScanYmlColumn:
-
-    metrics: Set[str]
-    sql_metric_ymls: List[SqlMetricYml]
-    missing: Missing
-    validity: Validity
-    tests: List[Test]
-    samples_yml: Optional[SamplesYml]
-    historic_metrics: List[HistoricMetricYml]
+class HistoricMetricYml:
+    name: str
+    type: str
+    metric: str
+    count: int = 1

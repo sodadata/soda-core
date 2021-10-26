@@ -14,6 +14,7 @@ from typing import List, Optional, Set
 from jinja2 import Template
 
 from sodasql.scan.file_system import FileSystemSingleton
+from sodasql.scan.historic_metric_yml import HistoricMetricYml
 from sodasql.scan.metric import Metric
 from sodasql.scan.missing import Missing
 from sodasql.scan.parser import Parser
@@ -27,6 +28,7 @@ from sodasql.common.yaml_helper import YamlHelper
 
 KEY_TABLE_NAME = 'table_name'
 KEY_METRICS = 'metrics'
+KEY_HISTORIC_METRICS = 'historic_metrics'
 KEY_METRIC_GROUPS = 'metric_groups'
 KEY_SQL_METRICS = 'sql_metrics'
 KEY_TESTS = 'tests'
@@ -48,6 +50,7 @@ COLUMN_KEY_METRIC_GROUPS = KEY_METRIC_GROUPS
 COLUMN_KEY_SQL_METRICS = KEY_SQL_METRICS
 COLUMN_KEY_TESTS = KEY_TESTS
 COLUMN_KEY_SAMPLES = KEY_SAMPLES
+COLUMN_KEY_HISTORIC_METRICS = KEY_HISTORIC_METRICS
 
 COLUMN_KEY_MISSING_VALUES = 'missing_values'
 COLUMN_KEY_MISSING_FORMAT = 'missing_format'
@@ -80,7 +83,8 @@ VALID_COLUMN_KEYS = COLUMN_MISSING_KEYS + COLUMN_VALID_KEYS + [
     COLUMN_KEY_METRIC_GROUPS,
     COLUMN_KEY_SQL_METRICS,
     COLUMN_KEY_TESTS,
-    COLUMN_KEY_SAMPLES]
+    COLUMN_KEY_SAMPLES,
+    COLUMN_KEY_HISTORIC_METRICS]
 
 SAMPLES_KEY_DATASET_LIMIT = 'table_limit'
 SAMPLES_KEY_DATASET_TABLESAMPLE = 'table_tablesample'
@@ -143,6 +147,21 @@ class ScanYmlParser(Parser):
                 self.error(f"Couldn't parse filter '{filter}': {str(e)}", KEY_FILTER)
 
         self.check_invalid_keys(VALID_SCAN_YML_KEYS)
+
+    def parse_historic_metrics(self):
+        historic_metrics_yml = self.get_list_optional(KEY_HISTORIC_METRICS, [])
+        historic_metrics: List[HistoricMetricYml] = []
+        self._push_context(historic_metrics, KEY_HISTORIC_METRICS)
+        for hmc in historic_metrics_yml:
+            historic_metrics.append(
+                HistoricMetricYml(name=hmc['name'],
+                                  type=hmc['type'],
+                                  metric=hmc['metric'],
+                                  count=1 if hmc['count'] is None else hmc['count'])
+            )
+
+        self._pop_context()
+        return historic_metrics
 
     def parse_metrics(self):
         metrics: Set[str] = set(self.get_list_optional(KEY_METRICS, []))
@@ -280,6 +299,8 @@ class ScanYmlParser(Parser):
 
                 self.check_invalid_keys(VALID_COLUMN_KEYS)
 
+                historic_metrics = self.parse_historic_metrics()
+
                 column_name_lower = column_name.lower()
                 scan_configuration_columns[column_name_lower] = ScanYmlColumn(
                     metrics=metrics,
@@ -287,7 +308,9 @@ class ScanYmlParser(Parser):
                     missing=missing,
                     validity=validity,
                     tests=tests,
-                    samples_yml=samples_yml)
+                    samples_yml=samples_yml,
+                    historic_metrics=historic_metrics
+                )
 
                 self._pop_context()
 

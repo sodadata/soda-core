@@ -37,9 +37,9 @@ class TestScanResult(SqlTestCase):
         scan_result = self.scan(scan_yml_dict)
         self.assertTrue(scan_result.has_test_failures())
         self.assertEqual(len(scan_result.errors), 1)
-        error_json = scan_result.errors[0].to_json()
-        self.assertEqual(error_json['type'], 'test_execution_error')
-        self.assertIsNotNone(error_json['message'])
+        errors = scan_result.errors[0].to_dict()
+        self.assertEqual(errors['type'], 'test_execution_error')
+        self.assertIsNotNone(errors['message'])
 
     def test_scan_result_with_test_errors(self):
         scan_yml_dict = {
@@ -55,10 +55,10 @@ class TestScanResult(SqlTestCase):
         self.assertTrue(scan_result.has_test_failures())
         self.assertEqual(len(scan_result.errors), 2)
 
-        error_json = scan_result.errors[0].to_json()
-        self.assertEqual(error_json['type'], 'test_execution_error')
-        self.assertIn('10 < error < 20', error_json['message'])
+        errors = scan_result.errors[0].to_dict()
+        self.assertEqual(errors['type'], 'test_execution_error')
+        self.assertIn('10 < error < 20', errors['message'])
 
-        error_json = scan_result.errors[1].to_json()
-        self.assertEqual(error_json['type'], 'test_execution_error')
-        self.assertIn('lskdfj(lkj)', error_json['message'])
+        errors = scan_result.errors[1].to_dict()
+        self.assertEqual(errors['type'], 'test_execution_error')
+        self.assertIn('lskdfj(lkj)', errors['message'])

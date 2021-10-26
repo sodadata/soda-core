@@ -8,6 +8,8 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
+from deprecated import deprecated
+
 
 class ColumnMetadata:
 
@@ -20,7 +22,7 @@ class ColumnMetadata:
     def __str__(self):
         return self.name + (' ' + self.type if self.type else '')
 
-    def to_json(self):
+    def to_dict(self):
         return {
             'name': self.name,
             # TODO kept backward compatibility, remove after https://github.com/sodadata/soda/issues/2385 is fixed
@@ -31,3 +33,7 @@ class ColumnMetadata:
             # deprecated, use logicalType
             'semanticType': self.logical_type,
         }
+
+    @deprecated(version='2.1.0b19', reason='This function is deprecated, please use to_dict')
+    def to_json(self):
+        return self.to_dict()
