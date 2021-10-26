@@ -16,12 +16,12 @@ import logging
 class CLIHelper:
 
     @staticmethod
-    def set_yaml_value(first_run_value):
+    def set_yaml_value(key, value):
         home_folder = str(Path.home())
         file_name = f"{home_folder}/.soda/config.yml"
         with open(file_name) as f:
             doc = yaml.safe_load(f)
-        doc['first_run'] = first_run_value
+        doc['key'] = value
         with open(file_name, 'w') as f:
             yaml.safe_dump(doc, f, default_flow_style=False)
 
@@ -41,7 +41,7 @@ class CLIHelper:
                             | You can report any issues you found on our Github \n |
                             / https://github.com/sodadata/soda-sql                 \
                              -----------------------------------------------------""")
-                    CLIHelper.set_yaml_value("no")
+                    CLIHelper.set_yaml_value("first_run", "no")
                 else:
                     pass
             except Exception as e:
