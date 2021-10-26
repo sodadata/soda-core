@@ -98,7 +98,9 @@ class ScanResult:
             raise AssertionError(
                 f'No measurement found for metric {metric_type}' +
                 (f' and column {column_name}' if column_name else '') + '\n' +
-                '\n'.join([str(m) for m in self.measurements]))
+                '\n'.join([str(m) for m in self.measurements])+'\n'+
+                'To get help from the community, '
+                'please join our Slack at:  https://community.soda.io')
         return measurement
 
     def get(self, metric_type: str, column_name: str = None):

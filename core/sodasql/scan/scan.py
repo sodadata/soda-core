@@ -73,6 +73,8 @@ class Scan:
         self.filter_sql = None
         if scan_yml.filter_template:
             if not variables:
+                logger.info("Raising Exception... To get help from the community, "
+                            "please join our Slack at:  https://community.soda.io")
                 raise RuntimeError(f'No variables provided while filter "{str(scan_yml.filter)}" specified')
             self.filter_sql = scan_yml.filter_template.render(variables)
 
@@ -104,6 +106,7 @@ class Scan:
 
         except Exception as e:
             logger.exception('Exception during scan')
+            logger.info("To get help from the community, please join our Slack at:  https://community.soda.io")
             self.scan_result.add_error(ScanError('Exception during scan', e))
 
         finally:
@@ -112,6 +115,7 @@ class Scan:
                     self.soda_server_client.scan_ended(self.scan_reference, self.scan_result.errors)
                 except Exception as e:
                     logger.error(f'Soda Cloud error: Could not end scan: {e}')
+                    logger.info("To get help from the community, please join our Slack at:  https://community.soda.io")
                     self.scan_result.add_error(SodaCloudScanError('Could not end scan', e))
 
             if self.close_warehouse:
@@ -129,6 +133,7 @@ class Scan:
                 custom_metrics = self.soda_server_client.custom_metrics(self.scan_reference)
             except Exception as e:
                 logger.error(f'Soda cloud error: Could not fetch custom_metrics: {e}')
+                logger.info("To get help from the community, please join our Slack at:  https://community.soda.io")
                 self.scan_result.add_error(SodaCloudScanError('Could not fetch custom metrics', e))
             if custom_metrics:
                 for monitor_metric_dict in custom_metrics:
@@ -347,6 +352,7 @@ class Scan:
             self._flush_measurements(measurements)
         except Exception as e:
             logger.debug(f'Exception during aggregation query', exc_info=e)
+            logger.info("To get help from the community, please join our Slack at:  https://community.soda.io")
             self.scan_result.add_error(ScanError(f'Exception during aggregation query', e))
 
     def _query_group_by_value(self):
@@ -437,6 +443,8 @@ class Scan:
 
                 self._flush_measurements(measurements)
             except Exception as e:
+                logger.info("Raising Exception... To get help from the community, "
+                            "please join our Slack at:  https://community.soda.io")
                 self.scan_result.add_error(ScanError(f'Exception during column group by value queries', e))
 
     def _query_histograms(self):
@@ -498,6 +506,8 @@ class Scan:
                                                                Measurement(Metric.HISTOGRAM, column_name, histogram))
                         self._flush_measurements(measurements)
             except Exception as e:
+                logger.info("Raising Exception... To get help from the community, "
+                            "please join our Slack at:  https://community.soda.io")
                 self.scan_result.add_error(ScanError(f'Exception during histogram query for {column_name}', e))
 
     def _query_sql_metrics_and_run_tests(self):
@@ -521,6 +531,8 @@ class Scan:
                     elif sql_metric.type == 'failed_rows' and not self.disable_sample_collection:
                         self._run_sql_metric_failed_rows(sql_metric, resolved_sql, scan_column)
                 except Exception as e:
+                    logger.info("Raising Exception... To get help from the community, "
+                                "please join our Slack at:  https://community.soda.io")
                     msg = f"Couldn't run sql metric {sql_metric}: {e}"
                     logger.exception(msg)
                     self.scan_result.add_error(ScanError(f'Could not run sql metric {sql_metric}', e))
@@ -559,6 +571,8 @@ class Scan:
             sql_metric_test_results = self._execute_tests(sql_metric.tests, test_variables)
             self._flush_test_results(sql_metric_test_results)
         except Exception as e:
+            logger.info("Raising Exception... To get help from the community, "
+                        "please join our Slack at:  https://community.soda.io")
             self.scan_result.add_error(ScanError(f'Exception during sql metric query {resolved_sql}', e))
 
     def _run_sql_metric_with_groups_and_run_tests(self,
@@ -614,6 +628,8 @@ class Scan:
             self._flush_measurements(measurements)
             self._flush_test_results(test_results)
         except Exception as e:
+            logger.info("Raising Exception... To get help from the community, "
+                        "please join our Slack at:  https://community.soda.io")
             self.scan_result.add_error(ScanError(f'Exception during sql metric groups query {resolved_sql}', e))
 
     def _send_failed_rows_custom_metric(self,
@@ -670,6 +686,8 @@ class Scan:
                     logger.debug(f'No failed rows for custom metric ({metric_name} with id {metric_id})')
         except Exception as e:
             logger.exception(f'Could not perform sql metric failed rows \n{sql}', e)
+            logger.info("To get help from the community, "
+                        "please join our Slack at:  https://community.soda.io")
             self.scan_result.add_error(ScanError(f'Exception during sql metric failed rows query {sql}', e))
 
     def _run_sql_metric_failed_rows(self,
@@ -741,6 +759,8 @@ class Scan:
                     logger.debug(f'No failed rows for sql metric sql {sql_metric_yml.name}')
         except Exception as e:
             logger.exception(f'Could not perform sql metric failed rows \n{resolved_sql}', e)
+            logger.info("To get help from the community, "
+                        "please join our Slack at:  https://community.soda.io")
             self.scan_result.add_error(ScanError(f'Exception during sql metric failed rows query {resolved_sql}', e))
 
     def _get_historic_metric_variables(self, scan_column: ScanColumn):
@@ -775,6 +795,8 @@ class Scan:
                 if errors:
                     raise RuntimeError('\n'.join(errors))
             else:
+                logger.info("Raising Exception... To get help from the community, "
+                            "please join our Slack at:  https://community.soda.io")
                 raise RuntimeError("Can't use historic metrics in tests without a connection to Soda Cloud")
         return historic_variables
 
@@ -898,6 +920,8 @@ class Scan:
             except Exception as e:
                 logger.error(f'Soda Cloud error: Could not start scan: {e}')
                 logger.error(f'Skipping subsequent Soda Cloud communication but continuing the scan')
+                logger.info("Raising Exception... To get help from the community, "
+                            "please join our Slack at:  https://community.soda.io")
                 self.scan_result.add_error(SodaCloudScanError('Could not start scan', e))
                 self.soda_server_client = None
 

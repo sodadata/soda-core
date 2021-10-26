@@ -82,3 +82,5 @@ class WarehouseYmlParser(Parser):
 
         else:
             self.error('No warehouse configuration provided')
+            logger.info("To get help from the community, "
+                        "please join our Slack at:  https://community.soda.io")
