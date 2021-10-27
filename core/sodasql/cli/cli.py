@@ -29,8 +29,13 @@ from sodasql.scan.warehouse import Warehouse
 from sodasql.scan.warehouse_yml_parser import (WarehouseYmlParser,
                                                read_warehouse_yml_file)
 
+from sodasql.telemetry.soda_telemetry import SodaTelemetry
+from opentelemetry import trace
+
 LoggingHelper.configure_for_cli()
 logger = logging.getLogger(__name__)
+soda_telmetry = SodaTelemetry()
+tracer = trace.get_tracer(__name__)
 
 
 @click.group(help=f"Soda CLI version {SODA_SQL_VERSION}")
@@ -62,10 +67,13 @@ def create(warehouse_type: str,
 
     WAREHOUSE_TYPE is one of {postgres, snowflake, redshift, bigquery, athena}
     """
+
     try:
         """
         Creates a warehouse.yml file
         """
+        with tracer.start_as_current_span("CLI.create"):
+            print("create command ")
         logger.info(f"Soda CLI version {SODA_SQL_VERSION}")
         file_system = FileSystemSingleton.INSTANCE
 
