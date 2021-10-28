@@ -14,7 +14,7 @@ import sys
 from datetime import datetime, timezone
 from math import ceil
 from typing import Optional
-
+import luddite
 import click
 import yaml
 
@@ -31,7 +31,10 @@ from sodasql.scan.warehouse_yml_parser import (WarehouseYmlParser,
 
 LoggingHelper.configure_for_cli()
 logger = logging.getLogger(__name__)
-
+latest_version = luddite.get_version_pypi('soda-sql')
+if SODA_SQL_VERSION != latest_version:
+    logger.warning(f"You are using an old soda-sql version: {SODA_SQL_VERSION}, "
+                   f"please upgrade to the latest one: {latest_version}")
 
 @click.group(help=f"Soda CLI version {SODA_SQL_VERSION}")
 def main():
