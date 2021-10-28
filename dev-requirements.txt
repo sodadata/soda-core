@@ -151,7 +151,5 @@ websocket-client==0.57.0
     # via docker
 zipp==3.5.0
     # via importlib-metadata
-luddite==1.0.2
-
 # The following packages are considered to be unsafe in a requirements file:
 # pip

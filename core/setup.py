@@ -23,7 +23,8 @@ requires = [
     'cryptography==3.3.2',
     'pyyaml>=5.4.1, <6.0',
     'requests>=2.23.0, <3.0',
-    'Deprecated>=1.2.13, <1.3'
+    'Deprecated>=1.2.13, <1.3',
+    'luddite==1.0.2'
 ]
 # TODO Fix the params
 # TODO Add a warning that installing core doesn't give any warehouse functionality
