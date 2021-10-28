@@ -13,4 +13,3 @@ tbump==6.3.1
 urllib3==1.26.5
 pygments==2.10.0
 readme-renderer==29.0
-luddite==1.0.2
