@@ -23,6 +23,8 @@ from sodasql.scan.warehouse_yml import WarehouseYml
 from sodasql.scan.warehouse_yml_parser import read_warehouse_yml_file
 from sodasql.soda_server_client.soda_server_client import SodaServerClient
 import luddite
+from contextlib import suppress
+
 
 
 class ScanBuilder:
@@ -77,6 +79,7 @@ class ScanBuilder:
             latest_version = luddite.get_version_pypi('soda-sql-core')
         except:
             logger.warning("Cannot check Soda SQL version.")
+            pass
         if SODA_SQL_VERSION != latest_version:
             logger.warning(f"You are using an old soda-sql version: {SODA_SQL_VERSION}, "
                            f"please upgrade to the latest one: {latest_version}")
