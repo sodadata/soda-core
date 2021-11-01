@@ -25,8 +25,8 @@ from sodasql.soda_server_client.soda_server_client import SodaServerClient
 import luddite
 
 
-
 class ScanBuilder:
+
     """
     Programmatic scan execution based on default dir structure:
 
@@ -71,15 +71,18 @@ class ScanBuilder:
         self.parsers: List[Parser] = []
         self.assert_no_warnings_or_errors = True
         self.soda_server_client: SodaServerClient = None
-
-    def __call__(self, *args, **kwargs):
         logger = logging.getLogger(__name__)
-        latest_version = luddite.get_version_pypi('soda-sql-core')
+        latest_version = ""
+        try:
+            latest_version = luddite.get_version_pypi('soda-sql-core')
+        except:
+            logger.warning("Cannot check Soda SQL version.")
         if SODA_SQL_VERSION != latest_version:
             logger.warning(f"You are using an old soda-sql version: {SODA_SQL_VERSION}, "
                            f"please upgrade to the latest one: {latest_version}")
 
-    def build(self, offline: bool=False):
+
+    def build(self, offline: bool = False):
 
         self._build_warehouse_yml()
         self._build_scan_yml()
@@ -108,7 +111,8 @@ class ScanBuilder:
 
         elif self.warehouse_yml_file and not self.warehouse_yml_dict and not self.warehouse_yml:
             if not isinstance(self.warehouse_yml_file, str):
-                logger.error(f'scan_builder.warehouse_yml_file must be str, but was {type(self.warehouse_yml_file)}: {self.warehouse_yml_file}')
+                logger.error(
+                    f'scan_builder.warehouse_yml_file must be str, but was {type(self.warehouse_yml_file)}: {self.warehouse_yml_file}')
             else:
                 self.warehouse_yml_dict = read_warehouse_yml_file(self.warehouse_yml_file)
 
@@ -128,7 +132,8 @@ class ScanBuilder:
 
         elif self.scan_yml_file and not self.scan_yml_dict and not self.scan_yml:
             if not isinstance(self.scan_yml_file, str):
-                logger.error(f'scan_builder.scan_yml_file must be str, but was {type(self.scan_yml_file)}: {self.scan_yml_file}')
+                logger.error(
+                    f'scan_builder.scan_yml_file must be str, but was {type(self.scan_yml_file)}: {self.scan_yml_file}')
             elif self.file_system.is_readable_file(self.scan_yml_file):
                 scan_yml_str = self.file_system.file_read_as_str(self.scan_yml_file)
                 if scan_yml_str:
