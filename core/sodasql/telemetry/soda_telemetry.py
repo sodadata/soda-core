@@ -4,6 +4,7 @@ from opentelemetry.sdk.trace.export import (
     BatchSpanProcessor,
     ConsoleSpanExporter
 )
+
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
 
 ENDPOINT = 'https://collect.dev.sodadata.io/v1/traces'
@@ -19,3 +20,7 @@ class SodaTelemetry:
         # otlp_processor = BatchSpanProcessor(otlp_exporter)
         # provider.add_span_processor(otlp_processor)
         trace.set_tracer_provider(provider)
+
+
+# Global
+soda_telmetry = SodaTelemetry()
