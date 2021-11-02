@@ -9,6 +9,7 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 import logging
+import platform
 import re
 import sys
 from datetime import datetime, timezone
@@ -34,7 +35,6 @@ from opentelemetry import trace
 
 LoggingHelper.configure_for_cli()
 logger = logging.getLogger(__name__)
-soda_telmetry = SodaTelemetry()
 tracer = trace.get_tracer(__name__)
 
 
@@ -55,6 +55,7 @@ def main():
 @click.option('-p', '--password', required=False, default=None,
               help='The password to use for the connection, through env_var(...)')
 @click.option('-w', '--warehouse', required=False, default=None, help='The warehouse name')
+
 def create(warehouse_type: str,
            file: Optional[str],
            warehouse: Optional[str],
@@ -72,8 +73,14 @@ def create(warehouse_type: str,
         """
         Creates a warehouse.yml file
         """
-        with tracer.start_as_current_span("CLI.create"):
-            print("create command ")
+
+        with tracer.start_span("CLI.create") as span:
+            span.set_attribute('SODA_SQL_VERSION', SODA_SQL_VERSION)
+            span.set_attribute('PYTHON_VERSION', platform.python_version())
+            span.set_attribute('PYTHON_IMPLEMENTATION', platform.python_implementation())
+            span.set_attribute('ARCHITECTURE', platform.architecture())
+            span.set_attribute('SODA_CLI_COMMAND', 'create')
+
         logger.info(f"Soda CLI version {SODA_SQL_VERSION}")
         file_system = FileSystemSingleton.INSTANCE
 
@@ -81,7 +88,7 @@ def create(warehouse_type: str,
         #     warehouse_dir_parent, warehouse_dir_name = file_system.split(warehouse_dir)
         #     warehouse = warehouse_dir_name if warehouse_dir_name != '.' else warehouse_type
 
-        from sodasql.scan.dialect import ALL_WAREHOUSE_TYPES, Dialect
+        from sodasql.scan.dialec slit import ALL_WAREHOUSE_TYPES, Dialect
         dialect = Dialect.create_for_warehouse_type(warehouse_type)
         if not dialect:
             logger.info(
@@ -161,6 +168,8 @@ def create(warehouse_type: str,
         logger.info("If you think this is a bug in Soda SQL, please open an issue at: "
                     "https://github.com/sodadata/soda-sql/issues/new/choose")
         sys.exit(1)
+    finally:
+        trace.get_current_span().end()
 
 
 def create_table_filter_regex(table_filter):
