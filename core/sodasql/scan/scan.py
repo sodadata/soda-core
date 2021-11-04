@@ -55,7 +55,8 @@ class Scan:
 
         self.scan_result = ScanResult()
         self.dialect = warehouse.dialect
-        self.qualified_table_name = self.dialect.qualify_table_name(scan_yml.table_name)
+        self.qualified_table_name = self.dialect.qualify_table_name(scan_yml.table_name) \
+            if self.dialect.type != 'sqlserver' else scan_yml.table_name
         self.scan_reference = None
         self.disable_sample_collection = False
         self.column_metadatas: List[ColumnMetadata] = []
@@ -128,6 +129,7 @@ class Scan:
         return self.scan_result
 
     def _process_cloud_custom_metrics(self):
+
         if self.soda_server_client:
             from sodasql.soda_server_client.monitor_metric_parser import MonitorMetricParser
             from sodasql.soda_server_client.monitor_metric import MonitorMetricType
@@ -247,7 +249,7 @@ class Scan:
                 if scan_column.is_missing_enabled:
                     metric_indices['non_missing'] = len(measurements)
                     if scan_column.non_missing_condition:
-                        fields.append(dialect.sql_expr_count_conditional(scan_column.non_missing_condition))
+                        fields.append(dialect.sql_expr_count_conditional(scan_column.non_missing_condition, column_name, ))
                     else:
                         fields.append(dialect.sql_expr_count(scan_column.qualified_column_name))
                     measurements.append(Measurement(Metric.VALUES_COUNT, column_name))
@@ -255,7 +257,7 @@ class Scan:
                 if scan_column.is_valid_enabled:
                     metric_indices['valid'] = len(measurements)
                     if scan_column.non_missing_and_valid_condition:
-                        fields.append(dialect.sql_expr_count_conditional(scan_column.non_missing_and_valid_condition))
+                        fields.append(dialect.sql_expr_count_conditional(scan_column.non_missing_and_valid_condition, column_name))
                     else:
                         fields.append(dialect.sql_expr_count(scan_column.qualified_column_name))
                     measurements.append(Measurement(Metric.VALID_COUNT, column_name))
@@ -263,45 +265,45 @@ class Scan:
                 if scan_column.is_text:
                     length_expr = dialect.sql_expr_conditional(
                         scan_column.non_missing_and_valid_condition,
-                        dialect.sql_expr_length(scan_column.qualified_column_name)) \
+                        dialect.sql_expr_length(scan_column.qualified_column_name, column_name)) \
                         if scan_column.non_missing_and_valid_condition \
                         else dialect.sql_expr_length(scan_column.qualified_column_name)
 
                     if self.scan_yml.is_metric_enabled(Metric.AVG_LENGTH, column_name):
-                        fields.append(dialect.sql_expr_avg(length_expr))
+                        fields.append(dialect.sql_expr_avg(length_expr, column_name))
                         measurements.append(Measurement(Metric.AVG_LENGTH, column_name))
 
                     if self.scan_yml.is_metric_enabled(Metric.MIN_LENGTH, column_name):
-                        fields.append(dialect.sql_expr_min(length_expr))
+                        fields.append(dialect.sql_expr_min(length_expr, column_name))
                         measurements.append(Measurement(Metric.MIN_LENGTH, column_name))
 
                     if self.scan_yml.is_metric_enabled(Metric.MAX_LENGTH, column_name):
-                        fields.append(dialect.sql_expr_max(length_expr))
+                        fields.append(dialect.sql_expr_max(length_expr, column_name))
                         measurements.append(Measurement(Metric.MAX_LENGTH, column_name))
 
                 if scan_column.is_numeric:
                     if scan_column.is_metric_enabled(Metric.MIN):
-                        fields.append(dialect.sql_expr_min(scan_column.numeric_expr))
+                        fields.append(dialect.sql_expr_min(scan_column.numeric_expr, column_name))
                         measurements.append(Measurement(Metric.MIN, column_name))
 
                     if scan_column.is_metric_enabled(Metric.MAX):
-                        fields.append(dialect.sql_expr_max(scan_column.numeric_expr))
+                        fields.append(dialect.sql_expr_max(scan_column.numeric_expr, column_name))
                         measurements.append(Measurement(Metric.MAX, column_name))
 
                     if scan_column.is_metric_enabled(Metric.AVG):
-                        fields.append(dialect.sql_expr_avg(scan_column.numeric_expr))
+                        fields.append(dialect.sql_expr_avg(scan_column.numeric_expr, column_name))
                         measurements.append(Measurement(Metric.AVG, column_name))
 
                     if scan_column.is_metric_enabled(Metric.SUM):
-                        fields.append(dialect.sql_expr_sum(scan_column.numeric_expr))
+                        fields.append(dialect.sql_expr_sum(scan_column.numeric_expr, column_name))
                         measurements.append(Measurement(Metric.SUM, column_name))
 
                     if scan_column.is_metric_enabled(Metric.VARIANCE):
-                        fields.append(dialect.sql_expr_variance(scan_column.numeric_expr))
+                        fields.append(dialect.sql_expr_variance(scan_column.numeric_expr, column_name))
                         measurements.append(Measurement(Metric.VARIANCE, column_name))
 
                     if scan_column.is_metric_enabled(Metric.STDDEV):
-                        fields.append(dialect.sql_expr_stddev(scan_column.numeric_expr))
+                        fields.append(dialect.sql_expr_stddev(scan_column.numeric_expr, column_name))
                         measurements.append(Measurement(Metric.STDDEV, column_name))
 
             if len(fields) > 0:
@@ -638,7 +640,10 @@ class Scan:
                     failed_limit = 5
                     if self.scan_yml.samples_yml is not None:
                         failed_limit = self.scan_yml.samples_yml.failed_limit or 5
-                    sql += f'\nLIMIT {failed_limit}'
+                    if self.warehouse.dialect.type == 'sqlserver':
+                        sql += f' ORDER BY 1 OFFSET 0 ROWS FETCH NEXT {failed_limit} ROWS ONLY'
+                    else:
+                        sql += f'\nLIMIT {failed_limit}'
 
                     stored_failed_rows, sample_columns, total_failed_rows = \
                         self.sampler.save_sample_to_local_file_with_limit(sql, temp_file, failed_limit)

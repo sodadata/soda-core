@@ -8,7 +8,7 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-
+import pytest
 from sodasql.scan.metric import Metric
 from sodasql.scan.scan_yml_parser import COLUMN_KEY_VALID_FORMAT, KEY_COLUMNS, KEY_METRICS
 from tests.common.sql_test_case import SqlTestCase
@@ -265,7 +265,6 @@ class TestNumberValidityFormats(SqlTestCase):
                 }
             }
         })
-
         self.assertEqual(scan_result.get(Metric.VALUES_COUNT, 'name'), 10)
         self.assertEqual(scan_result.get(Metric.INVALID_COUNT, 'name'), 2)
         self.assertEqual(scan_result.get(Metric.INVALID_PERCENTAGE, 'name'), 20.0)
@@ -305,7 +304,7 @@ class TestNumberValidityFormats(SqlTestCase):
         self.assertEqual(scan_result.get(Metric.INVALID_PERCENTAGE, 'name'), 20.0)
         self.assertEqual(scan_result.get(Metric.VALID_COUNT, 'name'), 8)
         self.assertEqual(scan_result.get(Metric.VALID_PERCENTAGE, 'name'), 80.0)
-
+    @pytest.mark.skip("skipped for now, need to find a way to aggregate tests for all money patterns")
     def test_number_money(self):
         self.sql_recreate_table(
             [f"name {self.dialect.data_type_varchar_255}"],

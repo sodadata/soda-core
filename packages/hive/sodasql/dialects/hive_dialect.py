@@ -128,7 +128,7 @@ class HiveDialect(Dialect):
     def sql_expr_regexp_like(self, expr: str, pattern: str):
         return f"cast({expr} as string) rlike '{self.qualify_regex(pattern)}'"
 
-    def sql_expr_stddev(self, expr: str):
+    def sql_expr_stddev(self, expr: str, column_name):
         return f'STDDEV_POP({expr})'
 
     def qualify_regex(self, regex) -> str:

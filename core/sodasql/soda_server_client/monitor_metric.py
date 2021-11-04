@@ -77,22 +77,22 @@ class MonitorMetric:
         elif scan_column:
             select_fields.append(scan_column.qualified_column_name)
             if self.metric_type == MonitorMetricType.MISSING_VALUES_COUNT:
-                metric_select_fields.append(dialect.sql_expr_count_conditional(scan_column.missing_condition))
+                metric_select_fields.append(dialect.sql_expr_count_conditional(scan_column.missing_condition, scan_column.column_name))
             elif self.metric_type == MonitorMetricType.MISSING_VALUES_PERCENTAGE:
                 metric_select_fields.append(dialect.sql_expr_count_all())
-                metric_select_fields.append(dialect.sql_expr_count_conditional(scan_column.missing_condition))
+                metric_select_fields.append(dialect.sql_expr_count_conditional(scan_column.missing_condition, scan_column.column_name))
             elif self.metric_type == MonitorMetricType.VALID_VALUES_COUNT:
                 metric_select_fields.append(
-                    dialect.sql_expr_count_conditional(scan_column.non_missing_and_valid_condition))
+                    dialect.sql_expr_count_conditional(scan_column.non_missing_and_valid_condition, scan_column.column_name))
             elif self.metric_type in [MonitorMetricType.VALID_VALUES_PERCENTAGE,
                                       MonitorMetricType.INVALID_VALUES_COUNT,
                                       MonitorMetricType.INVALID_VALUES_PERCENTAGE]:
-                metric_select_fields.append(dialect.sql_expr_count_conditional(scan_column.non_missing_condition))
+                metric_select_fields.append(dialect.sql_expr_count_conditional(scan_column.non_missing_condition, scan_column.column_name))
                 metric_select_fields.append(
-                    dialect.sql_expr_count_conditional(scan_column.non_missing_and_valid_condition))
+                    dialect.sql_expr_count_conditional(scan_column.non_missing_and_valid_condition, scan_column.column_name))
             elif self.metric_type == MonitorMetricType.UNIQUENESS_PERCENTAGE:
                 metric_select_fields.append(
-                    dialect.sql_expr_count_conditional(scan_column.non_missing_and_valid_condition))
+                    dialect.sql_expr_count_conditional(scan_column.non_missing_and_valid_condition, scan_column.column_name))
                 metric_select_fields.append(dialect.sql_expr_count(dialect.sql_expr_distinct(
                     dialect.sql_expr_conditional(scan_column.non_missing_and_valid_condition,
                                                  scan_column.qualified_column_name))))

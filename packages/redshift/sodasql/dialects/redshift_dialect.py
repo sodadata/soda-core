@@ -143,10 +143,10 @@ class RedshiftDialect(PostgresDialect):
     def qualify_regex(self, regex):
         return self.escape_metacharacters(regex)
 
-    def sql_expr_avg(self, expr: str):
+    def sql_expr_avg(self, expr: str, column_name):
         return f"AVG({expr})"
 
-    def sql_expr_sum(self, expr: str):
+    def sql_expr_sum(self, expr: str, column_name):
         return f"SUM({expr})"
 
     def sql_expr_cast_text_to_number(self, quoted_column_name, validity_format):

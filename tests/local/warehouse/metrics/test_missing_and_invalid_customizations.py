@@ -8,15 +8,17 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
+import logging
 
 from sodasql.scan.metric import Metric
 from sodasql.scan.scan_yml_parser import KEY_COLUMNS, KEY_METRICS, COLUMN_KEY_VALID_FORMAT, KEY_METRIC_GROUPS
 from tests.common.sql_test_case import SqlTestCase
-
+import pytest
 
 class TestMissingAndInvalidCustomizations(SqlTestCase):
 
     def test_scan_customized_missing_values(self):
+
         self.sql_recreate_table(
             [f"col_name {self.dialect.data_type_varchar_255}"],
             ["('one')",
@@ -43,33 +45,36 @@ class TestMissingAndInvalidCustomizations(SqlTestCase):
         self.assertEqual(scan_result.get(Metric.VALUES_PERCENTAGE, 'col_name'), 60.0)
 
     def test_scan_customized_missing_format_empty(self):
-        self.sql_recreate_table(
-            [f"col_name {self.dialect.data_type_varchar_255}"],
-            ["('one')",
-             "('two')",
-             "('three')",
-             "('four')",
-             "('')",
-             "('  ')",
-             "('  ')",
-             "(null)",
-             "(null)",
-             "(null)"])
+        if self.dialect.type == 'sqlserver':
+            pass
+        else:
+            self.sql_recreate_table(
+                [f"col_name {self.dialect.data_type_varchar_255}"],
+                ["('one')",
+                 "('two')",
+                 "('three')",
+                 "('four')",
+                 "('')",
+                 "('  ')",
+                 "('  ')",
+                 "(null)",
+                 "(null)",
+                 "(null)"])
 
-        scan_result = self.scan({
-          KEY_COLUMNS: {
-            'col_name': {
-              KEY_METRIC_GROUPS: [
-                Metric.METRIC_GROUP_MISSING
-              ],
-              'missing_format': 'empty'
-            }
-          }
-        })
-        self.assertEqual(scan_result.get(Metric.MISSING_COUNT, 'col_name'), 4)
-        self.assertEqual(scan_result.get(Metric.MISSING_PERCENTAGE, 'col_name'), 40.0)
-        self.assertEqual(scan_result.get(Metric.VALUES_COUNT, 'col_name'), 6)
-        self.assertEqual(scan_result.get(Metric.VALUES_PERCENTAGE, 'col_name'), 60.0)
+            scan_result = self.scan({
+                KEY_COLUMNS: {
+                    'col_name': {
+                        KEY_METRIC_GROUPS: [
+                            Metric.METRIC_GROUP_MISSING
+                        ],
+                        'missing_format': 'empty'
+                    }
+                }
+            })
+            self.assertEqual(scan_result.get(Metric.MISSING_COUNT, 'col_name'), 4)
+            self.assertEqual(scan_result.get(Metric.MISSING_PERCENTAGE, 'col_name'), 40.0)
+            self.assertEqual(scan_result.get(Metric.VALUES_COUNT, 'col_name'), 6)
+            self.assertEqual(scan_result.get(Metric.VALUES_PERCENTAGE, 'col_name'), 60.0)
 
     def test_scan_customized_missing_format_whitespace(self):
         self.sql_recreate_table(

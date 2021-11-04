@@ -103,7 +103,10 @@ class Sampler:
         if tablesample is not None:
             sql += f" \nTABLESAMPLE {tablesample};"
         else:
-            sql += f" \nLIMIT {limit};"
+            if self.scan.warehouse.dialect.type == 'sqlserver':
+                sql += f" ORDER BY 1 OFFSET 0 ROWS FETCH NEXT {limit} ROWS ONLY"
+            else:
+                sql += f" \nLIMIT {limit};"
 
         file_path = (f'{self.scan_folder_name}/' +
                      (f'{self._fileify(column_name)}_' if column_name else '') +
