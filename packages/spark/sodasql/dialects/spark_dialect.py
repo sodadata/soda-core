@@ -239,7 +239,7 @@ class SparkDialect(Dialect):
         return [column[0] for column in columns]
 
     def describe_column(
-            self, table_name: str, column_name: str) -> ColumnMetadata:
+        self, table_name: str, column_name: str) -> ColumnMetadata:
         """
         Describe a column.
 
@@ -290,15 +290,23 @@ class SparkDialect(Dialect):
         return column_type.upper() in ("DATE", "TIMESTAMP")
 
     def is_text(self, column_type: str):
-        return (
-            column_type.upper() in ['CHAR', 'STRING'] or
-            column_type.upper().startswith('VARCHAR')
-        )
+        return column_type \
+            .upper(). \
+            startswith(('CHAR', 'STRING', 'VARCHAR'))
 
     def is_number(self, column_type: str):
-        return column_type.upper() in [
-            'TINYINT', 'SMALLINT', 'INT', 'BIGINT',
-            'FLOAT', 'DOUBLE', 'DOUBLE PRECISION', 'DECIMAL', 'NUMERIC']
+        # https://spark.apache.org/docs/latest/sql-ref-datatypes.html
+        # TINYINT is treated as ByteType
+        # startswith INTEGER is redundant, here for the sake of completeness same goes for DECIMAL
+        return column_type \
+            .upper() \
+            .startswith(('TINYINT',
+                         'SHORT', 'SMALLINT',
+                         'INT', 'INTEGER',
+                         'LONG', 'BIGINT',
+                         'FLOAT', 'REAL',
+                         'DOUBLE',
+                         'DEC', 'DECIMAL', 'NUMERIC'))
 
     def qualify_table_name(self, table_name: str) -> str:
         if self.database is None:
