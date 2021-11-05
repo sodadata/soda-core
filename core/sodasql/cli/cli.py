@@ -38,7 +38,7 @@ def main():
     pass
 
 
-@main.command()
+@main.command(short_help='Create a template wareshouse.yml file')
 @click.argument('warehouse_type')
 @click.option('-f', '--file',
               required=False,
@@ -183,7 +183,7 @@ def matches_table_exclude(table_name: str, table_exclude_pattern):
     return table_exclude_pattern is None or not re.match(table_exclude_pattern, table_name, re.IGNORECASE)
 
 
-@main.command()
+@main.command(short_help='Analyze tables and scaffold SCAN YAML')
 @click.argument('warehouse_file', required=False, default='warehouse.yml')
 @click.option('-i', '--include',
               required=False,
@@ -325,7 +325,7 @@ def analyze(warehouse_file: str, include: str, exclude: str, limit: int):
                 logger.debug(f'Closing connection failed: {str(e)}')
 
 
-@main.command()
+@main.command(short_help='Compute metrics and run tests for a given table')
 @click.argument('warehouse_yml_file')
 @click.argument('scan_yml_file')
 @click.option('-v', '--variables',
