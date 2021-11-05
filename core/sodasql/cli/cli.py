@@ -30,11 +30,12 @@ from sodasql.scan.warehouse import Warehouse
 from sodasql.scan.warehouse_yml_parser import (WarehouseYmlParser,
                                                read_warehouse_yml_file)
 
-from sodasql.telemetry.soda_telemetry import SodaTelemetry
+from sodasql.telemetry.soda_tracer import soda_trace, span_setup_function_args
 from opentelemetry import trace
 
 LoggingHelper.configure_for_cli()
 logger = logging.getLogger(__name__)
+
 tracer = trace.get_tracer(__name__)
 
 
@@ -56,6 +57,7 @@ def main():
               help='The password to use for the connection, through env_var(...)')
 @click.option('-w', '--warehouse', required=False, default=None, help='The warehouse name')
 
+@soda_trace
 def create(warehouse_type: str,
            file: Optional[str],
            warehouse: Optional[str],
@@ -69,18 +71,22 @@ def create(warehouse_type: str,
     WAREHOUSE_TYPE is one of {postgres, snowflake, redshift, bigquery, athena}
     """
 
+    current_span = trace.get_current_span()
+    current_span.set_attribute('SODA_CLI_COMMAND', 'create')
+
+    span_setup_function_args(
+        current_span,
+        locals(),
+        {
+            "ARGUMENT": ['warehouse_type'],
+            "OPTION": ['file', 'warehouse', 'database', 'username', 'password'],
+        }
+    )
+
     try:
         """
         Creates a warehouse.yml file
         """
-
-        with tracer.start_span("CLI.create") as span:
-            span.set_attribute('SODA_SQL_VERSION', SODA_SQL_VERSION)
-            span.set_attribute('PYTHON_VERSION', platform.python_version())
-            span.set_attribute('PYTHON_IMPLEMENTATION', platform.python_implementation())
-            span.set_attribute('ARCHITECTURE', platform.architecture())
-            span.set_attribute('SODA_CLI_COMMAND', 'create')
-
         logger.info(f"Soda CLI version {SODA_SQL_VERSION}")
         file_system = FileSystemSingleton.INSTANCE
 
@@ -88,7 +94,7 @@ def create(warehouse_type: str,
         #     warehouse_dir_parent, warehouse_dir_name = file_system.split(warehouse_dir)
         #     warehouse = warehouse_dir_name if warehouse_dir_name != '.' else warehouse_type
 
-        from sodasql.scan.dialec slit import ALL_WAREHOUSE_TYPES, Dialect
+        from sodasql.scan.dialect import ALL_WAREHOUSE_TYPES, Dialect
         dialect = Dialect.create_for_warehouse_type(warehouse_type)
         if not dialect:
             logger.info(
@@ -213,6 +219,7 @@ def matches_table_exclude(table_name: str, table_exclude_pattern):
               required=False,
               help='Limit the number of tables analyzed. This option is ignored for Hive and Spark dialects'
               )
+@soda_trace
 def analyze(warehouse_file: str, include: str, exclude: str, limit: int):
     """
     Analyzes tables in the warehouse and creates scan YAML files based on the data in the table. By default it creates
@@ -224,6 +231,18 @@ def analyze(warehouse_file: str, include: str, exclude: str, limit: int):
     logger.info(SODA_SQL_VERSION)
     file_system = FileSystemSingleton.INSTANCE
     warehouse = None
+
+    current_span = trace.get_current_span()
+    current_span.set_attribute('SODA_CLI_COMMAND', 'analyze')
+
+    span_setup_function_args(
+        current_span,
+        locals(),
+        {
+            "ARGUMENT": ['warehouse_file'],
+            "OPTION": ['include', 'exclude', 'limit'],
+        }
+    )
 
     try:
         logger.info(f'Analyzing {warehouse_file} ...')
@@ -363,6 +382,7 @@ def analyze(warehouse_file: str, include: str, exclude: str, limit: int):
               is_flag=True,
               default=False,
               help='Use this flag if you want to skip confirmations and run the scan.')
+@soda_trace
 def scan(scan_yml_file: str, warehouse_yml_file: str, variables: tuple, time: str, offline: bool,
          non_interactive: bool = False):
     """
@@ -375,6 +395,18 @@ def scan(scan_yml_file: str, warehouse_yml_file: str, variables: tuple, time: st
     SCAN_YML_FILE is the scan YAML file that contains the metrics and tests for a table to run.
     """
     logger.info(SODA_SQL_VERSION)
+
+    current_span = trace.get_current_span()
+    current_span.set_attribute('SODA_CLI_COMMAND', 'analyze')
+
+    span_setup_function_args(
+        current_span,
+        locals(),
+        {
+            "ARGUMENT": ['warehouse_yml_file', 'scan_yml_file'],
+            "OPTION": ['variables', 'time', 'offline', 'non_interactive'],
+        }
+    )
 
     if offline:
         logger.info('Running in offline mode, scan results will NOT be pushed to Soda Cloud.')
