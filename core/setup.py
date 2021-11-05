@@ -26,7 +26,7 @@ requires = [
     'Deprecated>=1.2.13, <1.3',
     'opentelemetry-api>=1.6.2,<1.7',
     'opentelemetry-sdk>=1.6.2,<1.7',
-    'opentelemetry-exporter-otlp-proto-http>=1.6.2,<1.7'
+    'opentelemetry-exporter-otlp-proto-http>=1.6.2,<1.7',
 ]
 # TODO Fix the params
 # TODO Add a warning that installing core doesn't give any warehouse functionality
