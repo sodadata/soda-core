@@ -87,15 +87,18 @@ def soda_trace(fn: callable):
         return result
     return wrapper
 
-def extract_args(arguments: List, values: Dict, type: str)  -> Dict:
+def extract_args(arguments: List, values: Dict, type: str, aliases: Optional[Dict] = {})  -> Dict:
     result = {}
     for key, value in values.items():
         if key in arguments:
-            result[f'SODA_{type}_{key.upper()}'] = value or ""
+            name = key
+            if key in aliases:
+                name = aliases[key]
+            result[f'SODA_{type}_{name.upper()}'] = value or ""
 
     return result
 
-def span_setup_function_args(span: Span, args: Dict, config: Dict):
+def span_setup_function_args(span: Span, args: Dict, config: Dict, aliases: Optional[Dict] = {}):
     for arg_type, args_to_extract in config.items():
-        for span_arg_key, span_arg_value in extract_args(args_to_extract, args, arg_type).items():
+        for span_arg_key, span_arg_value in extract_args(args_to_extract, args, arg_type, aliases).items():
             span.set_attribute(span_arg_key, span_arg_value)

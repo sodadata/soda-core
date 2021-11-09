@@ -79,8 +79,9 @@ def create(warehouse_type: str,
         locals(),
         {
             "ARGUMENT": ['warehouse_type'],
-            "OPTION": ['file', 'warehouse', 'database', 'username', 'password'],
-        }
+            "OPTION": ['file', 'warehouse', 'database', 'username'],
+        },
+        {'warehouse_type': 'datasource_type'}
     )
 
     try:
