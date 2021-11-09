@@ -4,16 +4,42 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
+## [2.1.0b20] - 2021-11-09 *Elrond*
+
+- Core: Fix redshift CI test details
+- Core: Fix typo in comand helop
+
+## [2.1.0b19] - 2021-11-09 *Elrohir*
+
+- Core/Cloud: Add Soda Cloud metrics store support (#528)
+- Core: Disable samples and failed row collection based on a setting (#517)
+- Core: deprecate to_json and introduce to_dict (#510)
+- Core: Add short_help (#546)
+- Core: Add github issue link in exception messages (#530)
+- BigQuery: Fix auth scope parsing as a list (#524)
+- BigQuery: remove unnecessary error during create (#520)
+- Snowflake: Add support to set session parameters (#514)
+
+## [2.1.0b18] - 2021-10-05 *Elladan*
+
+- Core: Fix timeout validation
+- Spark: Filter columns in spark dialect
+
+## [2.1.0b17] - 2021-09-21 *Denethor II*
+
+- Core: Fix test connection method
+- Spark: Add support for pyodbc/databricks
+- Spark: Allow spark dialect to work without database specified
+
 ## [2.1.0b16] - 2021-09-07 *Celeborn*
 
-- Core:  fix time option as it's always set to now by default (#473)
+- Core: fix time option as it's always set to now by default (#473)
 - Core: Update dev requirements
 - Core: Update readme with dialect status (#477)
 - Core: Update Tox in dev requirements to prevent version deadlock (#474)
 - BigQuery: fix NoneType issue when credentials are not sufficient for BigQuery (#472)
 - BigQuery: Update bigquery dependency version (#470)
 - MySQL: Fix MySQL dialect issues (#475)
-
 
 ## [2.1.0b15] - 2021-09-01 *Barliman Butterbur*
 
