@@ -150,9 +150,6 @@ def create(warehouse_type: str,
         logger.info(f"Then run the soda analyze command")
     except Exception as e:
         logger.exception(f'Exception: {str(e)}')
-        logger.info("If you think this is a bug in Soda SQL, please open an issue at: "
-                    "https://github.com/sodadata/soda-sql/issues/new/choose")
-        logger.info("To get help from the community, please join our Slack at: https://community.soda.io")
         sys.exit(1)
 
 
