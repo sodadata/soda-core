@@ -72,15 +72,13 @@ class ScanBuilder:
         self.parsers: List[Parser] = []
         self.assert_no_warnings_or_errors = True
         self.soda_server_client: SodaServerClient = None
-        latest_version = ""
         try:
             latest_version = luddite.get_version_pypi('soda-sql-core')
+            if SODA_SQL_VERSION != latest_version:
+                logger.warning(f"You are using an old soda-sql version: {SODA_SQL_VERSION}, "
+                               f"please upgrade to the latest one: {latest_version}")
         except:
-            logger.warning("Cannot check Soda SQL version.")
-
-        if SODA_SQL_VERSION != latest_version:
-            logger.warning(f"You are using an old soda-sql version: {SODA_SQL_VERSION}, "
-                           f"please upgrade to the latest one: {latest_version}")
+            pass
 
     def build(self, offline: bool = False):
         self._build_warehouse_yml()

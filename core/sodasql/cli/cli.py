@@ -31,14 +31,13 @@ from sodasql.scan.warehouse_yml_parser import (WarehouseYmlParser,
 
 LoggingHelper.configure_for_cli()
 logger = logging.getLogger(__name__)
-latest_version = ""
 try:
     latest_version = luddite.get_version_pypi('soda-sql-core')
+    if SODA_SQL_VERSION != latest_version:
+        logger.warning(f"You are using an old soda-sql version: {SODA_SQL_VERSION}, "
+                       f"please upgrade to the latest one: {latest_version}")
 except:
-    logger.warning("Cannot check Soda SQL version.")
-if SODA_SQL_VERSION != latest_version:
-    logger.warning(f"You are using an old soda-sql version: {SODA_SQL_VERSION}, "
-                   f"please upgrade to the latest one: {latest_version}")
+    pass
 
 @click.group(help=f"Soda CLI version {SODA_SQL_VERSION}")
 def main():
