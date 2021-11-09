@@ -73,13 +73,14 @@ def create(warehouse_type: str,
 
     current_span = trace.get_current_span()
     current_span.set_attribute('SODA_CLI_COMMAND', 'create')
+    current_span.set_attribute('SODA_DATASOURCE_TYPE', warehouse_type)
 
     span_setup_function_args(
         current_span,
         locals(),
         {
-            "ARGUMENT": ['warehouse_type'],
-            "OPTION": ['file', 'warehouse', 'database', 'username'],
+            "CLI_ARGUMENT": ['warehouse_type'],
+            "CLI_OPTION": ['file', 'warehouse', 'database', 'username'],
         },
         {'warehouse_type': 'datasource_type'}
     )
@@ -240,8 +241,8 @@ def analyze(warehouse_file: str, include: str, exclude: str, limit: int):
         current_span,
         locals(),
         {
-            "ARGUMENT": ['warehouse_file'],
-            "OPTION": ['include', 'exclude', 'limit'],
+            "CLI_ARGUMENT": ['warehouse_file'],
+            "CLI_OPTION": ['include', 'exclude', 'limit'],
         }
     )
 
@@ -404,8 +405,8 @@ def scan(scan_yml_file: str, warehouse_yml_file: str, variables: tuple, time: st
         current_span,
         locals(),
         {
-            "ARGUMENT": ['warehouse_yml_file', 'scan_yml_file'],
-            "OPTION": ['variables', 'time', 'offline', 'non_interactive'],
+            "CLI_ARGUMENT": ['warehouse_yml_file', 'scan_yml_file'],
+            "CLI_OPTION": ['variables', 'time', 'offline', 'non_interactive'],
         }
     )
 

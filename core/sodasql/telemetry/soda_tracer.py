@@ -1,6 +1,5 @@
 from functools import wraps
 from os import name
-import platform
 import textwrap
 from typing import Any, Dict, List, Optional
 
@@ -10,7 +9,7 @@ from opentelemetry.trace.span import Span
 import ast
 import inspect
 
-from sodasql.__version__ import SODA_SQL_VERSION
+from opentelemetry.trace.status import Status, StatusCode
 
 tracer = trace.get_tracer_provider().get_tracer(__name__)
 
@@ -58,14 +57,10 @@ trace_context_carrier = {}
 
 def soda_trace(fn: callable):
     def _before_exec(span: Span, fn: callable):
-        span.set_attribute('SODA_SQL_VERSION', SODA_SQL_VERSION)
-        span.set_attribute('PYTHON_VERSION', platform.python_version())
-        span.set_attribute('PYTHON_IMPLEMENTATION', platform.python_implementation())
-        span.set_attribute('ARCHITECTURE', platform.architecture())
+        pass
 
     def _after_exec(span: Span, error: Optional[Exception] = None):
-        if error:
-            span.set_attribute('Error', error.__str__)
+        pass
 
 
     @wraps(fn)
@@ -80,6 +75,7 @@ def soda_trace(fn: callable):
                 # print(get_decorators(fn))
                 _before_exec(span, fn)
                 result = fn(*original_args, **original_kwargs)
+                span.set_status(Status(StatusCode.OK))
                 _after_exec(span)
             except Exception as e:
                 _after_exec(span, error=e)
