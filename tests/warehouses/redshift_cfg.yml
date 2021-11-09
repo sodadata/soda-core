@@ -1,7 +1,7 @@
 type: redshift
-host: soda-agent-test.c0l8nhpcaknw.eu-west-1.redshift.amazonaws.com
+host: env_var(SODA_REDSHIFT_ENDPOINT)
 # See ../example_userhome_env_vars.yml for instructions on setting the env vars
 username: env_var(SODA_REDSHIFT_USERNAME)
 password: env_var(SODA_REDSHIFT_PASSWORD)
-database: soda_agent_test
+database: soda_test
 schema: public
