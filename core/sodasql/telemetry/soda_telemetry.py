@@ -10,7 +10,6 @@ from opentelemetry.sdk.trace.export import (
 )
 
 from sodasql.__version__ import SODA_SQL_VERSION
-
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
 
 ENDPOINT = 'https://collect.dev.sodadata.io/v1/traces'
