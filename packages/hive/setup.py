@@ -8,7 +8,7 @@ if sys.version_info < (3, 7):
     sys.exit(1)
 
 package_name = "soda-sql-hive"
-package_version = '2.1.0b18'
+package_version = '2.1.0b19'
 # TODO Add proper description
 description = "Soda SQL Apache Hive"
 
