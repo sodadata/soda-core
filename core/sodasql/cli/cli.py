@@ -38,7 +38,7 @@ def main():
     pass
 
 
-@main.command(short_help='Create a template wareshouse.yml file')
+@main.command(short_help='Create a template warehouse.yml file')
 @click.argument('warehouse_type')
 @click.option('-f', '--file',
               required=False,
