@@ -314,9 +314,6 @@ def analyze(warehouse_file: str, include: str, exclude: str, limit: int):
 
     except Exception as e:
         logger.exception(f'Exception: {str(e)}')
-        logger.info("If you think this is a bug in Soda SQL, please open an issue at"
-                    "https://github.com/sodadata/soda-sql/issues/new/choose")
-        logger.info("To get help from the community, please join our Slack at: https://community.soda.io")
         sys.exit(1)
 
     finally:

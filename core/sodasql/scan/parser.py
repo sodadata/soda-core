@@ -193,8 +193,6 @@ class Parser:
                 elif env_required:
                     self.error(f'{self._get_context_description()}.{property_name} is considered a credential and '
                                f'must be passed as an environment variable eg: env_var(YOUR_ENVIRONMENT_VAR)')
-                    self.info("To get help from the community, please join our Slack at:  https://community.soda.io")
-
             if value is None or isinstance(value, return_type):
                 return value
             try:

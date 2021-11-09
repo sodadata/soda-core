@@ -23,14 +23,15 @@ class WarehouseTestHelper:
 
     @classmethod
     def create(cls, target: str):
-        from tests.common.sql_test_case import TARGET_SNOWFLAKE, TARGET_POSTGRES, TARGET_REDSHIFT, TARGET_ATHENA, \
+        from tests.common.sql_test_case import TARGET_SNOWFLAKE, TARGET_SQLSERVER, TARGET_POSTGRES, TARGET_REDSHIFT, \
+            TARGET_ATHENA, \
             TARGET_BIGQUERY
         if target == TARGET_POSTGRES:
             from tests.warehouses.postgres_fixture import PostgresFixture
             return PostgresFixture(target)
-        # elif target == TARGET_SNOWFLAKE:
-        #     from tests.warehouses.snowflake_fixture import SnowflakeFixture
-        #     return SnowflakeFixture(target)
+        elif target == TARGET_SQLSERVER:
+            from tests.warehouses.sqlserver_fixture import SQLServerFixture
+            return SQLServerFixture(target)
         # elif target == TARGET_REDSHIFT:
         #     from tests.warehouses.redshift_fixture import RedshiftFixture
         #     return RedshiftFixture(target)
