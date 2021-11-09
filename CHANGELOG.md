@@ -7,7 +7,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 ## [2.1.0b20] - 2021-11-09 *Elrond*
 
 - Core: Fix redshift CI test details
-- Core: Fix typo in comand helop
+- Core: Fix typo in command help
 
 ## [2.1.0b19] - 2021-11-09 *Elrohir*
 
