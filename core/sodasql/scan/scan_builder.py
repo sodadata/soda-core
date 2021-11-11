@@ -97,7 +97,7 @@ class ScanBuilder:
             return
 
         elif self.warehouse_yml_file and not self.warehouse_yml_dict and not self.warehouse_yml:
-            if isinstance(self.warehouse_yml_file, pathlib.PosixPath):
+            if isinstance(self.warehouse_yml_file, pathlib.PurePath):
                 warehouse_yml_file_str = str(self.warehouse_yml_file)
             else:
                 warehouse_yml_file_str = self.warehouse_yml_file
@@ -122,7 +122,7 @@ class ScanBuilder:
             return
 
         elif self.scan_yml_file and not self.scan_yml_dict and not self.scan_yml:
-            if isinstance(self.scan_yml_file, pathlib.PosixPath):
+            if isinstance(self.scan_yml_file, pathlib.PurePath):
                 scan_yml_file_str = str(self.scan_yml_file)
             else:
                 scan_yml_file_str = self.scan_yml_file
