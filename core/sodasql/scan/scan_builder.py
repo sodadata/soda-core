@@ -10,6 +10,7 @@
 #  limitations under the License.
 import logging
 import os
+import pathlib
 from typing import List
 
 from sodasql.common.yaml_helper import YamlHelper
@@ -96,10 +97,15 @@ class ScanBuilder:
             return
 
         elif self.warehouse_yml_file and not self.warehouse_yml_dict and not self.warehouse_yml:
-            if not isinstance(self.warehouse_yml_file, str):
-                logger.error(f'scan_builder.warehouse_yml_file must be str, but was {type(self.warehouse_yml_file)}: {self.warehouse_yml_file}')
+            if isinstance(self.warehouse_yml_file, pathlib.PosixPath):
+                warehouse_yml_file_str = str(self.warehouse_yml_file)
             else:
-                self.warehouse_yml_dict = read_warehouse_yml_file(self.warehouse_yml_file)
+                warehouse_yml_file_str = self.warehouse_yml_file
+
+            if not isinstance(warehouse_yml_file_str, str):
+                logger.error(f'scan_builder.warehouse_yml_file must be str, but was {type(warehouse_yml_file_str)}: {warehouse_yml_file_str}')
+            else:
+                self.warehouse_yml_dict = read_warehouse_yml_file(warehouse_yml_file_str)
 
         if self.warehouse_yml_dict and not self.warehouse_yml:
             from sodasql.scan.warehouse_yml_parser import WarehouseYmlParser
@@ -116,14 +122,19 @@ class ScanBuilder:
             return
 
         elif self.scan_yml_file and not self.scan_yml_dict and not self.scan_yml:
-            if not isinstance(self.scan_yml_file, str):
-                logger.error(f'scan_builder.scan_yml_file must be str, but was {type(self.scan_yml_file)}: {self.scan_yml_file}')
-            elif self.file_system.is_readable_file(self.scan_yml_file):
-                scan_yml_str = self.file_system.file_read_as_str(self.scan_yml_file)
+            if isinstance(self.scan_yml_file, pathlib.PosixPath):
+                scan_yml_file_str = str(self.scan_yml_file)
+            else:
+                scan_yml_file_str = self.scan_yml_file
+
+            if not isinstance(scan_yml_file_str, str):
+                logger.error(f'scan_builder.scan_yml_file must be str, but was {type(scan_yml_file_str)}: {scan_yml_file_str}')
+            elif self.file_system.is_readable_file(scan_yml_file_str):
+                scan_yml_str = self.file_system.file_read_as_str(scan_yml_file_str)
                 if scan_yml_str:
-                    self.scan_yml_dict = YamlHelper.parse_yaml(scan_yml_str, self.scan_yml_file)
+                    self.scan_yml_dict = YamlHelper.parse_yaml(scan_yml_str, scan_yml_file_str)
                 else:
-                    logger.error(f'Failed to file scan yaml file: {self.scan_yml_file}')
+                    logger.error(f'Failed to file scan yaml file: {scan_yml_file_str}')
 
         if self.scan_yml_dict and not self.scan_yml:
             from sodasql.scan.scan_yml_parser import ScanYmlParser
