@@ -1,4 +1,9 @@
+import hashlib
+import json
+import logging
 import platform
+from typing import Dict
+
 
 from opentelemetry import trace
 from opentelemetry.sdk.resources import Resource
@@ -8,16 +13,31 @@ from opentelemetry.sdk.trace.export import (
     BatchSpanProcessor,
     ConsoleSpanExporter
 )
+from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
+from requests.sessions import session
 
 from sodasql.__version__ import SODA_SQL_VERSION
-from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
+from sodasql.common.config_helper import ConfigHelper
 
-ENDPOINT = 'https://collect.dev.sodadata.io/v1/traces'
-
+logger = logging.getLogger(__name__)
+soda_config = ConfigHelper.get_instance()
 
 class SodaTelemetry:
+    ENDPOINT = 'https://collect.dev.sodadata.io/v1/traces'
+    __skip = False
+    soda_config = ConfigHelper.get_instance()
 
-    def __init__(self):
+    def __init__(self,  skip: bool = False):
+        self.__skip = skip
+        if self.__skip:
+            logger.info("Skipping usage telemetry.")
+        else:
+            logger.info("Sending usage telemetry.")
+            self.__setup()
+
+    def __setup(self):
+        session
+
         provider = TracerProvider(
             resource=Resource.create(
                 {
@@ -28,7 +48,9 @@ class SodaTelemetry:
                     ResourceAttributes.OS_VERSION: platform.version(),
                     'platform': platform.platform(),
                     ResourceAttributes.SERVICE_VERSION: SODA_SQL_VERSION,
-                    ResourceAttributes.SERVICE_NAME: 'soda-sql',
+                    ResourceAttributes.SERVICE_NAME: 'soda',
+                    ResourceAttributes.SERVICE_NAMESPACE: 'soda-sql',
+                    ResourceAttributes.SERVICE_INSTANCE_ID: self.session_id,
                 }
             )
         )
@@ -39,5 +61,33 @@ class SodaTelemetry:
         # provider.add_span_processor(otlp_processor)
         trace.set_tracer_provider(provider)
 
+    def set_attribute(self, key: str, value: str) -> None:
+        if not self.__skip:
+            current_span = trace.get_current_span()
+            current_span.set_attribute(key, value)
+
+    def compute_datasource_hash(self, connection):
+        # TBD
+        return 'connection hash'
+
+    @property
+    def session_id(self) -> str:
+        return self.soda_config.get_value('session_id')
+
+    @property
+    def invocation_context(self) -> Dict:
+        ctx = trace.get_current_span().context
+        return {
+            'trace_id': ctx.trace_id,
+            'span_id': ctx.span_id,
+            # Not serializable out of the box and does not really have any states in it with current usage.
+            # 'trace_state': ctx.trace_state,
+        }
+
+    @property
+    def invocation_hash(self) -> Dict:
+        encoded = json.dumps(self.invocation_context, sort_keys=True).encode()
+        return hashlib.sha256(encoded).hexdigest()
+
 # Global
-soda_telmetry = SodaTelemetry()
+soda_telemetry = SodaTelemetry(skip=soda_config.skip_telemetry)

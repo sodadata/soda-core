@@ -14,10 +14,9 @@ from typing import List
 from sodasql.scan.db import sql_fetchone, sql_fetchall, sql_fetchone_description, sql_fetchall_description
 from sodasql.scan.dialect import Dialect
 from sodasql.scan.warehouse_yml import WarehouseYml
+from sodasql.telemetry.soda_telemetry import soda_telemetry
 
 logger = logging.getLogger(__name__)
-
-from opentelemetry import trace
 
 class Warehouse:
 
@@ -25,8 +24,8 @@ class Warehouse:
         self.name = warehouse_yml.name
         self.dialect: Dialect = warehouse_yml.dialect
         self.connection = self.dialect.create_connection()
-        current_span = trace.get_current_span()
-        current_span.set_attribute('SODA_DATASOURCE_TYPE', self.dialect.type)
+        soda_telemetry.set_attribute('SODA_DATASOURCE_TYPE', self.dialect.type)
+        soda_telemetry.set_attribute('SODA_DATASOURCE_HASH', soda_telemetry.compute_datasource_hash(self.connection))
 
     def sql_fetchone(self, sql) -> tuple:
         return sql_fetchone(self.connection, sql)

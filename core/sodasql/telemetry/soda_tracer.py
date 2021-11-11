@@ -10,6 +10,12 @@ import ast
 import inspect
 
 from opentelemetry.trace.status import Status, StatusCode
+from opentelemetry.trace.propagation.tracecontext import \
+    TraceContextTextMapPropagator
+
+from sodasql.telemetry.soda_telemetry import soda_telemetry
+trace_context_propagator = TraceContextTextMapPropagator()
+trace_context_carrier = {}
 
 tracer = trace.get_tracer_provider().get_tracer(__name__)
 
@@ -48,13 +54,6 @@ def get_decorators(function):
 
 
 
-from opentelemetry.trace.propagation.tracecontext import \
-    TraceContextTextMapPropagator
-trace_context_propagator = TraceContextTextMapPropagator()
-trace_context_carrier = {}
-
-
-
 def soda_trace(fn: callable):
     def _before_exec(span: Span, fn: callable):
         pass
@@ -75,6 +74,7 @@ def soda_trace(fn: callable):
                 # print(get_decorators(fn))
                 _before_exec(span, fn)
                 result = fn(*original_args, **original_kwargs)
+                soda_telemetry.set_attribute('SODA_INVOCATION_HASH', soda_telemetry.invocation_hash)
                 span.set_status(Status(StatusCode.OK))
                 _after_exec(span)
             except Exception as e:
@@ -94,7 +94,7 @@ def extract_args(arguments: List, values: Dict, type: str, aliases: Optional[Dic
 
     return result
 
-def span_setup_function_args(span: Span, args: Dict, config: Dict, aliases: Optional[Dict] = {}):
+def span_setup_function_args(args: Dict, config: Dict, aliases: Optional[Dict] = {}):
     for arg_type, args_to_extract in config.items():
         for span_arg_key, span_arg_value in extract_args(args_to_extract, args, arg_type, aliases).items():
-            span.set_attribute(span_arg_key, span_arg_value)
+            soda_telemetry.set_attribute(span_arg_key, span_arg_value)

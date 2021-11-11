@@ -9,7 +9,6 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 import logging
-import platform
 import re
 import sys
 from datetime import datetime, timezone
@@ -31,12 +30,10 @@ from sodasql.scan.warehouse_yml_parser import (WarehouseYmlParser,
                                                read_warehouse_yml_file)
 
 from sodasql.telemetry.soda_tracer import soda_trace, span_setup_function_args
-from opentelemetry import trace
+from sodasql.telemetry.soda_telemetry import soda_telemetry
 
 LoggingHelper.configure_for_cli()
 logger = logging.getLogger(__name__)
-
-tracer = trace.get_tracer(__name__)
 
 
 @click.group(help=f"Soda CLI version {SODA_SQL_VERSION}")
@@ -71,12 +68,10 @@ def create(warehouse_type: str,
     WAREHOUSE_TYPE is one of {postgres, snowflake, redshift, bigquery, athena}
     """
 
-    current_span = trace.get_current_span()
-    current_span.set_attribute('SODA_CLI_COMMAND', 'create')
-    current_span.set_attribute('SODA_DATASOURCE_TYPE', warehouse_type)
+    soda_telemetry.set_attribute('SODA_CLI_COMMAND', 'create')
+    soda_telemetry.set_attribute('SODA_DATASOURCE_TYPE', warehouse_type)
 
     span_setup_function_args(
-        current_span,
         locals(),
         {
             "CLI_ARGUMENT": ['warehouse_type'],
@@ -234,11 +229,9 @@ def analyze(warehouse_file: str, include: str, exclude: str, limit: int):
     file_system = FileSystemSingleton.INSTANCE
     warehouse = None
 
-    current_span = trace.get_current_span()
-    current_span.set_attribute('SODA_CLI_COMMAND', 'analyze')
+    soda_telemetry.set_attribute('SODA_CLI_COMMAND', 'analyze')
 
     span_setup_function_args(
-        current_span,
         locals(),
         {
             "CLI_ARGUMENT": ['warehouse_file'],
@@ -398,11 +391,9 @@ def scan(scan_yml_file: str, warehouse_yml_file: str, variables: tuple, time: st
     """
     logger.info(SODA_SQL_VERSION)
 
-    current_span = trace.get_current_span()
-    current_span.set_attribute('SODA_CLI_COMMAND', 'analyze')
+    soda_telemetry.set_attribute('SODA_CLI_COMMAND', 'analyze')
 
     span_setup_function_args(
-        current_span,
         locals(),
         {
             "CLI_ARGUMENT": ['warehouse_yml_file', 'scan_yml_file'],
