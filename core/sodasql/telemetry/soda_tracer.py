@@ -58,8 +58,15 @@ def soda_trace(fn: callable):
     def _before_exec(span: Span, fn: callable):
         span.set_attribute("user_cookie_id", soda_telemetry.user_cookie_id)
 
-    def _after_exec(span: Span, error: Optional[Exception] = None):
-        pass
+    def _after_exec(span: Span, error: Optional[BaseException] = None):
+        if str(error) == "0":
+            pass
+            # This is an OK cli exit state
+            span.set_status(Status(StatusCode.OK))
+        else:
+            span.set_status(Status(StatusCode.ERROR))
+            # TODO: this will now produce an "error" attribute with value "1" for CLI as all Exceptions are caught and re-raised as system.exit(1). Revisit error handling in CLI for more useful info in traces.
+            span.add_event("error", {"error": str(error)})
 
 
     @wraps(fn)
@@ -70,30 +77,20 @@ def soda_trace(fn: callable):
         ctx = trace_context_propagator.extract(carrier=trace_context_carrier)
         with tracer.start_as_current_span(f"{fn.__module__}.{fn.__name__}", context=ctx) as span:
             trace_context_propagator.inject(carrier=trace_context_carrier)
+            result = None
             try:
                 # print(get_decorators(fn))
                 _before_exec(span, fn)
                 result = fn(*original_args, **original_kwargs)
                 span.set_status(Status(StatusCode.OK))
                 _after_exec(span)
-            except Exception as e:
-                _after_exec(span, error=e)
-                raise
+            except BaseException as e:
+                # Catch base exception to deal with exit codes as well.
+                _after_exec(span, e)
         return result
     return wrapper
 
-def extract_args(arguments: List, values: Dict, type: str, aliases: Optional[Dict] = {})  -> Dict:
-    result = {}
-    for key, value in values.items():
-        if key in arguments:
-            name = key
-            if key in aliases:
-                name = aliases[key]
-            result[f'{type}_{name}'] = value or ""
-
-    return result
-
-def span_setup_function_args(args: Dict, config: Dict, aliases: Optional[Dict] = {}):
-    for arg_type, args_to_extract in config.items():
-        for span_arg_key, span_arg_value in extract_args(args_to_extract, args, arg_type, aliases).items():
-            soda_telemetry.set_attribute(span_arg_key, span_arg_value)
+def span_setup_function_args(args: Dict):
+    for prefix, values in args.items():
+        for key, value in values.items():
+            soda_telemetry.set_attribute(f'{prefix}_{key}', value or "")

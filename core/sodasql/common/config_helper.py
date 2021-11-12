@@ -23,22 +23,22 @@ class ConfigHelper:
     """Helper class for handling global Soda config.
     """
     DEFAULT_CONFIG = {
-        'skip_telemetry': False,
+        'send_anonymous_usage_stats': True,
         'user_cookie_id': str(uuid.uuid4())
     }
     LOAD_PATHS = ["~/.soda/config.yml", ".soda/config.yml"]
     __instance = None
-    __config: Dict = None
+    __config: Dict = {}
     file_system = FileSystemSingleton.INSTANCE
 
     @staticmethod
     def get_instance(path: Optional[str] = None):
-        if ConfigHelper.__instance == None:
+        if ConfigHelper.__instance is None:
             ConfigHelper()
         return ConfigHelper.__instance
 
     def __init__(self, path: Optional[str] = None):
-        if ConfigHelper.__instance != None:
+        if ConfigHelper.__instance is not None:
             raise Exception("This class is a singleton!")
         else:
             ConfigHelper.__instance = self
@@ -60,31 +60,34 @@ class ConfigHelper:
     @property
     def config(self) -> Dict:
         if not self.__config:
-            self.reload_config()
+            self.__config = self.load_config()
 
         return self.__config
 
-    def reload_config(self) -> Dict:
+    def load_config(self) -> Dict:
+        config = {}
         for path in self.LOAD_PATHS:
-            logger.info(f"Trying to load Soda Config file {path}.")
+            logger.debug(f"Trying to load Soda Config file {path}.")
 
             if self.file_system.file_exists(path):
-                self.__config = yaml.load(
+                config = yaml.load(
                     self.file_system.file_read_as_str(path),
                     Loader=yaml.SafeLoader
                 )
                 break
 
-    def get_value(self, key: str):
+        return config
+
+    def get_value(self, key: str, default_value = None):
         """Get value from loaded config."""
-        return self.config.get(key, None)
+        return self.config.get(key, default_value)
 
     def init_config_file(self) -> None:
         """Init default config file if not present."""
         destination = self.config_path
 
         if self.file_system.file_exists(destination):
-            logger.info(f"Config file {destination} already exists")
+            logger.debug(f"Config file {destination} already exists")
         else:
             logger.info(f"Creating config YAML file {destination} ...")
             self.file_system.mkdirs(self.file_system.dirname(destination))
@@ -95,7 +98,7 @@ class ConfigHelper:
         config = self.config
         config[key] = value
         self.upsert_config_file(config)
-        self.reload_config()
+        self.__config = self.load_config()
 
     def upsert_config_file(self, config: Dict):
         """Write provided config into a yaml file."""
@@ -108,7 +111,8 @@ class ConfigHelper:
             )
         )
 
-    def generate_user_cookie_id(self) -> str:
+    @classmethod
+    def generate_user_cookie_id() -> str:
         return str(uuid.uuid4())
 
     def __ensure_basic_config(self) -> None:
@@ -117,5 +121,5 @@ class ConfigHelper:
                 self.upsert_value(key, value)
 
     @property
-    def skip_telemetry(self) -> bool:
-        return self.config.get("skip_telemetry", False)
+    def send_anonymous_usage_stats(self) -> bool:
+        return self.config.get("send_anonymous_usage_stats", True)

@@ -1,5 +1,3 @@
-import hashlib
-import json
 import logging
 import platform
 from typing import Dict
@@ -41,20 +39,18 @@ class SodaTelemetry:
     """
 
     ENDPOINT = 'https://collect.dev.sodadata.io/v1/traces'
-    __skip = False
+    __send = True
     soda_config = ConfigHelper.get_instance()
 
-    def __init__(self,  skip: bool = False):
-        self.__skip = skip
-        if self.__skip:
-            logger.info("Skipping usage telemetry.")
-        else:
+    def __init__(self,  send_anonymous_usage_stats: bool = True):
+        self.__send = send_anonymous_usage_stats
+        if self.__send:
             logger.info("Sending usage telemetry.")
             self.__setup()
+        else:
+            logger.info("Skipping usage telemetry.")
 
     def __setup(self):
-        session
-
         provider = TracerProvider(
             resource=Resource.create(
                 {
@@ -71,23 +67,30 @@ class SodaTelemetry:
             )
         )
         console_span_processor = BatchSpanProcessor(ConsoleSpanExporter())
-        provider.add_span_processor(console_span_processor)
-        # otlp_exporter = OTLPSpanExporter(endpoint=ENDPOINT)
-        # otlp_processor = BatchSpanProcessor(otlp_exporter)
-        # provider.add_span_processor(otlp_processor)
+        local_debug_mode = self.soda_config.get_value('tracing_local_debug_mode')
+
+        if local_debug_mode or logger.getEffectiveLevel() == logging.DEBUG:
+            provider.add_span_processor(console_span_processor)
+
+        if not local_debug_mode:
+            otlp_exporter = OTLPSpanExporter(endpoint=self.ENDPOINT)
+            otlp_processor = BatchSpanProcessor(otlp_exporter)
+            provider.add_span_processor(otlp_processor)
+
         trace.set_tracer_provider(provider)
 
     def set_attribute(self, key: str, value: str) -> None:
-        if not self.__skip:
+        if self.__send:
             current_span = trace.get_current_span()
             current_span.set_attribute(key, value)
 
-    def obtain_datasource_hash(self, connection: Dialect):
-        return connection.generate_hash_safe()
+    @staticmethod
+    def obtain_datasource_hash(dialect: Dialect):
+        return dialect.generate_hash_safe()
 
     @property
     def user_cookie_id(self) -> str:
         return self.soda_config.get_value('user_cookie_id')
 
 # Global
-soda_telemetry = SodaTelemetry(skip=soda_config.skip_telemetry)
+soda_telemetry = SodaTelemetry(soda_config.send_anonymous_usage_stats)

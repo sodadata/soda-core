@@ -53,7 +53,6 @@ def main():
 @click.option('-p', '--password', required=False, default=None,
               help='The password to use for the connection, through env_var(...)')
 @click.option('-w', '--warehouse', required=False, default=None, help='The warehouse name')
-
 @soda_trace
 def create(warehouse_type: str,
            file: Optional[str],
@@ -72,12 +71,16 @@ def create(warehouse_type: str,
     soda_telemetry.set_attribute('datasource_type', warehouse_type)
 
     span_setup_function_args(
-        locals(),
         {
-            "command_argument": ['warehouse_type'],
-            "command_option": ['file', 'warehouse', 'database', 'username'],
+            'command_argument': {'datasource_type': warehouse_type},
+            'command_option':
+                {
+                    'file': file,
+                    'warehouse': warehouse,
+                    'database': database,
+                    'username': username
+                },
         },
-        {'warehouse_type': 'datasource_type'}
     )
 
     try:
@@ -171,8 +174,6 @@ def create(warehouse_type: str,
         logger.info("If you think this is a bug in Soda SQL, please open an issue at: "
                     "https://github.com/sodadata/soda-sql/issues/new/choose")
         sys.exit(1)
-    finally:
-        trace.get_current_span().end()
 
 
 def create_table_filter_regex(table_filter):
@@ -232,10 +233,14 @@ def analyze(warehouse_file: str, include: str, exclude: str, limit: int):
     soda_telemetry.set_attribute('cli_command_name', 'analyze')
 
     span_setup_function_args(
-        locals(),
         {
-            "command_argument": ['warehouse_file'],
-            "command_option": ['include', 'exclude', 'limit'],
+            'command_argument': {'warehouse_file': warehouse_file},
+            'command_option':
+                {
+                    'include': include,
+                    'exclude': exclude,
+                    'limit': limit
+                },
         }
     )
 
@@ -394,10 +399,19 @@ def scan(scan_yml_file: str, warehouse_yml_file: str, variables: tuple, time: st
     soda_telemetry.set_attribute('cli_command_name', 'analyze')
 
     span_setup_function_args(
-        locals(),
         {
-            "command_argument": ['warehouse_yml_file', 'scan_yml_file'],
-            "command_option": ['variables', 'time', 'offline', 'non_interactive'],
+            'command_argument':
+                {
+                    'warehouse_yml_file': warehouse_yml_file,
+                    'scan_yml_file': scan_yml_file
+                },
+            'command_option':
+                {
+                    'variables': variables,
+                    'time': time,
+                    'offline': offline,
+                    'non_interactive': non_interactive
+                },
         }
     )
 
@@ -460,7 +474,6 @@ def scan(scan_yml_file: str, warehouse_yml_file: str, variables: tuple, time: st
 
         if scan_result.is_passed():
             logger.info(f'All is good. No tests failed.')
-
         exit_code = 0 if scan_result.is_passed() else 1
         logger.info(f'Exiting with code {exit_code}')
         sys.exit(exit_code)
