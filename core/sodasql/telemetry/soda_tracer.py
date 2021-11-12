@@ -56,7 +56,7 @@ def get_decorators(function):
 
 def soda_trace(fn: callable):
     def _before_exec(span: Span, fn: callable):
-        pass
+        span.set_attribute("user_cookie_id", soda_telemetry.user_cookie_id)
 
     def _after_exec(span: Span, error: Optional[Exception] = None):
         pass
@@ -74,7 +74,6 @@ def soda_trace(fn: callable):
                 # print(get_decorators(fn))
                 _before_exec(span, fn)
                 result = fn(*original_args, **original_kwargs)
-                soda_telemetry.set_attribute('SODA_INVOCATION_HASH', soda_telemetry.invocation_hash)
                 span.set_status(Status(StatusCode.OK))
                 _after_exec(span)
             except Exception as e:
@@ -90,7 +89,7 @@ def extract_args(arguments: List, values: Dict, type: str, aliases: Optional[Dic
             name = key
             if key in aliases:
                 name = aliases[key]
-            result[f'SODA_{type}_{name.upper()}'] = value or ""
+            result[f'{type}_{name}'] = value or ""
 
     return result
 

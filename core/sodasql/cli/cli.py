@@ -68,14 +68,14 @@ def create(warehouse_type: str,
     WAREHOUSE_TYPE is one of {postgres, snowflake, redshift, bigquery, athena}
     """
 
-    soda_telemetry.set_attribute('SODA_CLI_COMMAND', 'create')
-    soda_telemetry.set_attribute('SODA_DATASOURCE_TYPE', warehouse_type)
+    soda_telemetry.set_attribute('cli_command_name', 'create')
+    soda_telemetry.set_attribute('datasource_type', warehouse_type)
 
     span_setup_function_args(
         locals(),
         {
-            "CLI_ARGUMENT": ['warehouse_type'],
-            "CLI_OPTION": ['file', 'warehouse', 'database', 'username'],
+            "command_argument": ['warehouse_type'],
+            "command_option": ['file', 'warehouse', 'database', 'username'],
         },
         {'warehouse_type': 'datasource_type'}
     )
@@ -229,13 +229,13 @@ def analyze(warehouse_file: str, include: str, exclude: str, limit: int):
     file_system = FileSystemSingleton.INSTANCE
     warehouse = None
 
-    soda_telemetry.set_attribute('SODA_CLI_COMMAND', 'analyze')
+    soda_telemetry.set_attribute('cli_command_name', 'analyze')
 
     span_setup_function_args(
         locals(),
         {
-            "CLI_ARGUMENT": ['warehouse_file'],
-            "CLI_OPTION": ['include', 'exclude', 'limit'],
+            "command_argument": ['warehouse_file'],
+            "command_option": ['include', 'exclude', 'limit'],
         }
     )
 
@@ -391,13 +391,13 @@ def scan(scan_yml_file: str, warehouse_yml_file: str, variables: tuple, time: st
     """
     logger.info(SODA_SQL_VERSION)
 
-    soda_telemetry.set_attribute('SODA_CLI_COMMAND', 'analyze')
+    soda_telemetry.set_attribute('cli_command_name', 'analyze')
 
     span_setup_function_args(
         locals(),
         {
-            "CLI_ARGUMENT": ['warehouse_yml_file', 'scan_yml_file'],
-            "CLI_OPTION": ['variables', 'time', 'offline', 'non_interactive'],
+            "command_argument": ['warehouse_yml_file', 'scan_yml_file'],
+            "command_option": ['variables', 'time', 'offline', 'non_interactive'],
         }
     )
 

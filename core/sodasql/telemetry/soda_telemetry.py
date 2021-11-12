@@ -50,7 +50,6 @@ class SodaTelemetry:
                     ResourceAttributes.SERVICE_VERSION: SODA_SQL_VERSION,
                     ResourceAttributes.SERVICE_NAME: 'soda',
                     ResourceAttributes.SERVICE_NAMESPACE: 'soda-sql',
-                    ResourceAttributes.SERVICE_INSTANCE_ID: self.session_id,
                 }
             )
         )
@@ -71,23 +70,8 @@ class SodaTelemetry:
         return 'connection hash'
 
     @property
-    def session_id(self) -> str:
-        return self.soda_config.get_value('session_id')
-
-    @property
-    def invocation_context(self) -> Dict:
-        ctx = trace.get_current_span().context
-        return {
-            'trace_id': ctx.trace_id,
-            'span_id': ctx.span_id,
-            # Not serializable out of the box and does not really have any states in it with current usage.
-            # 'trace_state': ctx.trace_state,
-        }
-
-    @property
-    def invocation_hash(self) -> Dict:
-        encoded = json.dumps(self.invocation_context, sort_keys=True).encode()
-        return hashlib.sha256(encoded).hexdigest()
+    def user_cookie_id(self) -> str:
+        return self.soda_config.get_value('user_cookie_id')
 
 # Global
 soda_telemetry = SodaTelemetry(skip=soda_config.skip_telemetry)

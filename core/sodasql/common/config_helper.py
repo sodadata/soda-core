@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 class ConfigHelper:
     DEFAULT_CONFIG = {
         'skip_telemetry': False,
-        'session_id': str(uuid.uuid4())
+        'user_cookie_id': str(uuid.uuid4())
     }
     LOAD_PATHS = ["~/.soda/config.yml", ".soda/config.yml"]
     __instance = None
@@ -102,7 +102,7 @@ class ConfigHelper:
             )
         )
 
-    def generate_session_id(self) -> str:
+    def generate_user_cookie_id(self) -> str:
         return str(uuid.uuid4())
 
     def __ensure_basic_config(self) -> None:

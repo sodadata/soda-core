@@ -24,8 +24,8 @@ class Warehouse:
         self.name = warehouse_yml.name
         self.dialect: Dialect = warehouse_yml.dialect
         self.connection = self.dialect.create_connection()
-        soda_telemetry.set_attribute('SODA_DATASOURCE_TYPE', self.dialect.type)
-        soda_telemetry.set_attribute('SODA_DATASOURCE_HASH', soda_telemetry.compute_datasource_hash(self.connection))
+        soda_telemetry.set_attribute('datasource_type', self.dialect.type)
+        soda_telemetry.set_attribute('datasource_hash', soda_telemetry.compute_datasource_hash(self.connection))
 
     def sql_fetchone(self, sql) -> tuple:
         return sql_fetchone(self.connection, sql)
