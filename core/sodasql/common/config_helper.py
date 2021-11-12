@@ -20,6 +20,8 @@ from sodasql.scan.file_system import FileSystemSingleton
 logger = logging.getLogger(__name__)
 
 class ConfigHelper:
+    """Helper class for handling global Soda config.
+    """
     DEFAULT_CONFIG = {
         'skip_telemetry': False,
         'user_cookie_id': str(uuid.uuid4())
@@ -74,9 +76,11 @@ class ConfigHelper:
                 break
 
     def get_value(self, key: str):
+        """Get value from loaded config."""
         return self.config.get(key, None)
 
     def init_config_file(self) -> None:
+        """Init default config file if not present."""
         destination = self.config_path
 
         if self.file_system.file_exists(destination):
@@ -87,12 +91,14 @@ class ConfigHelper:
             self.upsert_config_file(self.DEFAULT_CONFIG)
 
     def upsert_value(self, key: str, value: str):
+        """Update or insert a value in the config file and refresh loaded state."""
         config = self.config
         config[key] = value
         self.upsert_config_file(config)
         self.reload_config()
 
     def upsert_config_file(self, config: Dict):
+        """Write provided config into a yaml file."""
         self.file_system.file_write_from_str(
             self.config_path,
             yaml.dump(
