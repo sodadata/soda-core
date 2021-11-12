@@ -56,6 +56,17 @@ class SnowflakeDialect(Dialect):
             'schema': 'PUBLIC'
         }
 
+    def safe_connection_data(self):
+        return [
+            self.type,
+            self.database,
+            self.account,
+            self.username,
+            self.warehouse,
+            self.schema,
+            self.session_params
+        ]
+
     def default_env_vars(self, params: dict):
         return {
             'SNOWFLAKE_USERNAME': params.get('username', 'YOUR_SNOWFLAKE_USERNAME_GOES_HERE'),

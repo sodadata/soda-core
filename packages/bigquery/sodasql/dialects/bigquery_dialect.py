@@ -50,6 +50,15 @@ class BigQueryDialect(Dialect):
             'dataset': params.get('database', 'Eg your_bigquery_dataset')
         }
 
+    def safe_connection_data(self):
+        return [
+            self.type,
+            self.dataset_name,
+            self.account_info_dict['type'] or None,
+            self.account_info_dict['project_id'] or None,
+            self.account_info_dict['client_id'] or None,
+        ]
+
     def default_env_vars(self, params: dict):
         return {
             'BIGQUERY_ACCOUNT_INFO': '...'

@@ -18,6 +18,7 @@ from requests.sessions import session
 
 from sodasql.__version__ import SODA_SQL_VERSION
 from sodasql.common.config_helper import ConfigHelper
+from sodasql.scan.dialect import Dialect
 
 logger = logging.getLogger(__name__)
 soda_config = ConfigHelper.get_instance()
@@ -65,9 +66,8 @@ class SodaTelemetry:
             current_span = trace.get_current_span()
             current_span.set_attribute(key, value)
 
-    def compute_datasource_hash(self, connection):
-        # TBD
-        return 'connection hash'
+    def obtain_datasource_hash(self, connection: Dialect):
+        return connection.generate_hash_safe()
 
     @property
     def user_cookie_id(self) -> str:

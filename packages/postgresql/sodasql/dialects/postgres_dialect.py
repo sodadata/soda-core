@@ -45,6 +45,16 @@ class PostgresDialect(Dialect):
             'schema': 'public'
         }
 
+    def safe_connection_data(self):
+        return [
+            self.type,
+            self.host,
+            self.port,
+            self.database,
+            self.schema,
+            self.username,
+        ]
+
     def default_env_vars(self, params: dict):
         return {
             'POSTGRES_USERNAME': params.get('username', 'Eg johndoe'),
