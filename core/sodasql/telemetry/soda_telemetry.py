@@ -24,6 +24,22 @@ logger = logging.getLogger(__name__)
 soda_config = ConfigHelper.get_instance()
 
 class SodaTelemetry:
+    """Main entry point for Open Telemetry tracing.
+
+    For more info about what and why visit https://github.com/sodadata/soda-sql/issues/543.
+
+    The main goal of this class is to concentrate as much tracing data and logic as reasonable.
+    This code design means that compromises have been made on code design in order to facilitate maximum
+    transparency and avoid scattering tracing code around the codebase.
+
+    With that being said, some tracing is still present in other files, e.g.:
+    - `/core/sodasql/cli/cli.py` - CLI arguments and options tracing
+    - `/core/sodasql/scan/warehouse.py` - safe datasource type and hash tracing
+
+    This list is not necessarily exhaustive, search for `from sodasql.telemetry.soda_telemetry import soda_telemetry` imports OR
+    `set_attribute` method usage to obtain the full list.
+    """
+
     ENDPOINT = 'https://collect.dev.sodadata.io/v1/traces'
     __skip = False
     soda_config = ConfigHelper.get_instance()
