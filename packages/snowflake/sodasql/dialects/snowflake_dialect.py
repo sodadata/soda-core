@@ -60,7 +60,6 @@ class SnowflakeDialect(Dialect):
         return [
             self.type,
             self.account,
-            self.warehouse,
         ]
 
     def default_env_vars(self, params: dict):

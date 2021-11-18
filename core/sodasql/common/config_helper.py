@@ -111,7 +111,7 @@ class ConfigHelper:
             )
         )
 
-    @classmethod
+    @staticmethod
     def generate_user_cookie_id() -> str:
         return str(uuid.uuid4())
 
