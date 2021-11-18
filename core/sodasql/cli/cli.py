@@ -346,8 +346,12 @@ def analyze(warehouse_file: str, include: str, exclude: str, limit: int):
               is_flag=True,
               default=False,
               help='Use this flag if you want to skip confirmations and run the scan.')
+@click.option('-srf', '--scan-results-file',
+              required=False,
+              default=None,
+              help='Specify the file path where the scan results as json will be stored')
 def scan(scan_yml_file: str, warehouse_yml_file: str, variables: tuple, time: str, offline: bool,
-         non_interactive: bool = False):
+         non_interactive: bool = False, scan_results_file: str = None):
     """
     Computes all measurements and runs all tests on one table.  Exit code 0 means all tests passed.
     Non zero exit code means tests have failed or an exception occurred.
@@ -379,16 +383,14 @@ def scan(scan_yml_file: str, warehouse_yml_file: str, variables: tuple, time: st
         datetime.fromisoformat(time)
         scan_builder.time = time
         scan_builder.non_interactive = non_interactive
+        scan_builder.scan_results_json_path = scan_results_file
 
-        if non_interactive:
-            if not time == datetime.now(tz=timezone.utc).isoformat(timespec='seconds'):
-                logging.warning(f'You are using the --time option with the following value: {time}, meaning that the '
-                                f'actual date of the scan is being altered manually.')
-                answer = input("Are you sure you wish to continue with the --time option? Press 'y' to continue... ")
-                if answer == 'y':
-                    pass
-                else:
-                    sys.exit(1)
+        if non_interactive and not time == datetime.now(tz=timezone.utc).isoformat(timespec='seconds'):
+            logging.warning(f'You are using the --time option with the following value: {time}, meaning that the '
+                            f'actual date of the scan is being altered manually.')
+            answer = input("Are you sure you wish to continue with the --time option? Press 'y' to continue... ")
+            if answer != 'y':
+                sys.exit(1)
 
         logger.info(f'Scanning {scan_yml_file} ...')
 
