@@ -10,11 +10,11 @@
 #  limitations under the License.
 from unittest import TestCase
 
-from sodasql.scan.dialect import Dialect
+from tests.common.mock_dialect import MockDialect
 
 
 class TestSqlExpressions(TestCase):
-    dialect = Dialect('test')
+    dialect = MockDialect('test')
 
     def test_string(self):
         self.assertEqual("'hello'", self.dialect.sql_expression({
