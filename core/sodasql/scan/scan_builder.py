@@ -10,7 +10,7 @@
 #  limitations under the License.
 import logging
 import os
-from typing import List
+from typing import List, Optional
 
 from sodasql.common.yaml_helper import YamlHelper
 from sodasql.scan.file_system import FileSystemSingleton
@@ -59,17 +59,18 @@ class ScanBuilder:
 
     def __init__(self):
         self.file_system = FileSystemSingleton.INSTANCE
-        self.warehouse_yml_file: str = None
-        self.warehouse_yml_dict: dict = None
-        self.warehouse_yml: WarehouseYml = None
-        self.scan_yml_file: str = None
-        self.time: str = None
-        self.scan_yml_dict: dict = None
-        self.scan_yml: ScanYml = None
+        self.warehouse_yml_file: Optional[str] = None
+        self.warehouse_yml_dict: Optional[dict] = None
+        self.warehouse_yml: Optional[WarehouseYml] = None
+        self.scan_yml_file: Optional[str] = None
+        self.time: Optional[str] = None
+        self.scan_yml_dict: Optional[dict] = None
+        self.scan_yml: Optional[ScanYml] = None
         self.variables: dict = {}
         self.parsers: List[Parser] = []
         self.assert_no_warnings_or_errors = True
-        self.soda_server_client: SodaServerClient = None
+        self.soda_server_client: Optional[SodaServerClient] = None
+        self.scan_results_json_path: Optional[str] = None
 
     def build(self, offline: bool = False):
         self._build_warehouse_yml()
@@ -90,7 +91,8 @@ class ScanBuilder:
                     scan_yml=self.scan_yml,
                     variables=self.variables,
                     soda_server_client=self.soda_server_client,
-                    time=self.time)
+                    time=self.time,
+                    scan_results_file=self.scan_results_json_path)
 
     def _build_warehouse_yml(self):
         if not self.warehouse_yml_file and not self.warehouse_yml_dict and not self.warehouse_yml:

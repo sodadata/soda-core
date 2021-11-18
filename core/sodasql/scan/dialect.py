@@ -10,6 +10,7 @@
 #  limitations under the License.
 from __future__ import annotations
 
+import abc
 import re
 from datetime import date
 import hashlib
@@ -50,7 +51,7 @@ ALL_WAREHOUSE_TYPES = [ATHENA,
 logger = logging.getLogger(__name__)
 
 
-class Dialect:
+class Dialect(metaclass=abc.ABCMeta):
     data_type_varchar_255 = "VARCHAR(255)"
     data_type_integer = "INTEGER"
     data_type_bigint = "BIGINT"
@@ -154,23 +155,29 @@ class Dialect:
     def sql_connection_test(self):
         return "select 1"
 
+    @abc.abstractmethod
     def create_connection(self):
-        raise RuntimeError('Unimplemented')
+        pass
 
+    @abc.abstractmethod
     def sql_columns_metadata_query(self, table_name: str) -> str:
-        raise RuntimeError('Unimplemented')
+        pass
 
+    @abc.abstractmethod
     def sql_tables_metadata_query(self, limit: Optional[int] = None, filter: str = None):
-        raise RuntimeError('Unimplemented')
+        pass
 
+    @abc.abstractmethod
     def is_text(self, column_type: str):
-        raise RuntimeError('Unimplemented')
+        pass
 
+    @abc.abstractmethod
     def is_number(self, column_type: str):
-        raise RuntimeError('Unimplemented')
+        pass
 
+    @abc.abstractmethod
     def is_time(self, column_type: str):
-        raise RuntimeError('Unimplemented')
+        pass
 
     def create_scan(self, *args, **kwargs):
         # Purpose of this method is to enable dialects to override and

@@ -63,13 +63,13 @@ class TestSqlQuotes(TestCase):
             connection.close()
 
     def test_redshift(self):
-        database = 'soda_test_quotes_db'
+        database = 'soda_test'
         schema = 'public'
 
         connection = psycopg2.connect(
             user=os.getenv('SODA_REDSHIFT_USERNAME'),
             password=os.getenv('SODA_REDSHIFT_PASSWORD'),
-            host='soda-agent-test.c0l8nhpcaknw.eu-west-1.redshift.amazonaws.com',
+            host=os.getenv('SODA_REDSHIFT_ENDPOINT'),
             port='5439',
             database=database)
 
