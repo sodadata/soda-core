@@ -392,13 +392,20 @@ def analyze(warehouse_yml_file: str, include: str, exclude: str, limit: int):
 def scan(scan_yml_file: str, warehouse_yml_file: str, variables: tuple, time: str, offline: bool,
          non_interactive: bool = False, scan_results_file: Optional[str] = None, failed_rows_dir: Optional[str] = None):
     """
-    Computes all measurements and runs all tests on one table.  Exit code 0 means all tests passed.
-    Non zero exit code means tests have failed or an exception occurred.
-    If the warehouse YAML file has a Soda cloud account configured, measurements and test results will be uploaded.
+    Computes all measurements and runs all tests on one table.
+
+    Exit codes:
+    - 0 : all tests passed
+    - 1 : an exception occured
+    - 2 : at least one test failed
+
+    If the warehouse YAML file has a Soda cloud account configured, measurements
+    and test results will be uploaded.
 
     WAREHOUSE_YML_FILE is the warehouse YAML file containing connection details.
 
-    SCAN_YML_FILE is the scan YAML file that contains the metrics and tests for a table to run.
+    SCAN_YML_FILE is the scan YAML file that contains the metrics and tests for
+    a table to run.
     """
     logger.info(SODA_SQL_VERSION)
     exit_code = 0
@@ -482,7 +489,9 @@ def scan(scan_yml_file: str, warehouse_yml_file: str, variables: tuple, time: st
 
         if scan_result.is_passed():
             logger.info('All is good. No tests failed.')
-        exit_code = 0 if scan_result.is_passed() else 1
+        exit_code = 0 if scan_result.is_passed() else 2
+        logger.info(f'Exiting with code {exit_code}')
+        sys.exit(exit_code)
 
     except Exception as e:
         exit_code = 1
