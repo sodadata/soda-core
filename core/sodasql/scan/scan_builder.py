@@ -20,6 +20,7 @@ from sodasql.scan.scan_yml import ScanYml
 from sodasql.scan.warehouse_yml import WarehouseYml
 from sodasql.scan.warehouse_yml_parser import read_warehouse_yml_file
 from sodasql.soda_server_client.soda_server_client import SodaServerClient
+from sodasql.telemetry.soda_telemetry import SodaTelemetry
 
 logger = logging.getLogger(__name__)
 

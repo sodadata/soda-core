@@ -13,6 +13,8 @@ from __future__ import annotations
 import abc
 import re
 from datetime import date
+import hashlib
+import json
 from numbers import Number
 from typing import List, Optional
 import importlib
@@ -110,8 +112,30 @@ class Dialect(metaclass=abc.ABCMeta):
                     KEY_WAREHOUSE_TYPE: warehouse_type}))
 
     def default_connection_properties(self, params: dict):
-        # to be overriden by subclass
+        # to be overridden by subclass
         pass
+
+    def safe_connection_data(self):
+        """Return non-critically sensitive connection details.
+
+        Useful for debugging.
+        """
+        # to be overridden by subclass
+        pass
+
+    def generate_hash_safe(self):
+        """Generates a safe hash from non-sensitive connection details.
+
+        Useful for debugging, identifying data sources anonymously and tracing.
+        """
+        data = self.safe_connection_data()
+
+        return self.hash_data(data)
+
+    def hash_data(self, data) -> str:
+        """Hash provided data using a non-reversible hashing algorithm."""
+        encoded = json.dumps(data, sort_keys=True).encode()
+        return hashlib.sha256(encoded).hexdigest()
 
     def default_env_vars(self, params: dict):
         # to be overriden by subclass

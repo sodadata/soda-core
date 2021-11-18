@@ -29,6 +29,9 @@ from sodasql.scan.warehouse import Warehouse
 from sodasql.scan.warehouse_yml_parser import (WarehouseYmlParser,
                                                read_warehouse_yml_file)
 
+from sodasql.telemetry.soda_tracer import soda_trace, span_setup_function_args
+from sodasql.telemetry.soda_telemetry import soda_telemetry
+
 LoggingHelper.configure_for_cli()
 logger = logging.getLogger(__name__)
 
@@ -50,6 +53,7 @@ def main():
 @click.option('-p', '--password', required=False, default=None,
               help='The password to use for the connection, through env_var(...)')
 @click.option('-w', '--warehouse', required=False, default=None, help='The warehouse name')
+@soda_trace
 def create(warehouse_type: str,
            file: Optional[str],
            warehouse: Optional[str],
@@ -62,6 +66,23 @@ def create(warehouse_type: str,
 
     WAREHOUSE_TYPE is one of {postgres, snowflake, redshift, bigquery, athena}
     """
+
+    soda_telemetry.set_attribute('cli_command_name', 'create')
+    soda_telemetry.set_attribute('datasource_type', warehouse_type)
+
+    span_setup_function_args(
+        {
+            'command_argument': {'datasource_type': warehouse_type},
+            'command_option':
+                {
+                    'file': file,
+                    'using_warehouse': bool(warehouse),
+                    'using_database': bool(database),
+                    'using_username': bool(username)
+                },
+        },
+    )
+
     try:
         """
         Creates a warehouse.yml file
@@ -196,6 +217,7 @@ def matches_table_exclude(table_name: str, table_exclude_pattern):
               required=False,
               help='Limit the number of tables analyzed. This option is ignored for Hive and Spark dialects'
               )
+@soda_trace
 def analyze(warehouse_file: str, include: str, exclude: str, limit: int):
     """
     Analyzes tables in the warehouse and creates scan YAML files based on the data in the table. By default it creates
@@ -207,6 +229,20 @@ def analyze(warehouse_file: str, include: str, exclude: str, limit: int):
     logger.info(SODA_SQL_VERSION)
     file_system = FileSystemSingleton.INSTANCE
     warehouse = None
+
+    soda_telemetry.set_attribute('cli_command_name', 'analyze')
+
+    span_setup_function_args(
+        {
+            'command_argument': {'warehouse_file': warehouse_file},
+            'command_option':
+                {
+                    'include': include,
+                    'exclude': exclude,
+                    'limit': limit
+                },
+        }
+    )
 
     try:
         logger.info(f'Analyzing {warehouse_file} ...')
@@ -350,6 +386,7 @@ def analyze(warehouse_file: str, include: str, exclude: str, limit: int):
               required=False,
               default=None,
               help='Specify the file path where the scan results as json will be stored')
+@soda_trace
 def scan(scan_yml_file: str, warehouse_yml_file: str, variables: tuple, time: str, offline: bool,
          non_interactive: bool = False, scan_results_file: str = None):
     """
@@ -362,6 +399,26 @@ def scan(scan_yml_file: str, warehouse_yml_file: str, variables: tuple, time: st
     SCAN_YML_FILE is the scan YAML file that contains the metrics and tests for a table to run.
     """
     logger.info(SODA_SQL_VERSION)
+
+    soda_telemetry.set_attribute('cli_command_name', 'analyze')
+
+    span_setup_function_args(
+        {
+            'command_argument':
+                {
+                    'warehouse_yml_file': warehouse_yml_file,
+                    'scan_yml_file': scan_yml_file
+                },
+            'command_option':
+                {
+                    'variables': variables,
+                    'time': time,
+                    'offline': offline,
+                    'non_interactive': non_interactive,
+                    'scan_results_file': scan_results_file
+                },
+        }
+    )
 
     if offline:
         logger.info('Running in offline mode, scan results will NOT be pushed to Soda Cloud.')
@@ -420,7 +477,6 @@ def scan(scan_yml_file: str, warehouse_yml_file: str, variables: tuple, time: st
 
         if scan_result.is_passed():
             logger.info(f'All is good. No tests failed.')
-
         exit_code = 0 if scan_result.is_passed() else 1
         logger.info(f'Exiting with code {exit_code}')
         sys.exit(exit_code)
