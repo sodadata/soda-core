@@ -76,9 +76,9 @@ def create(warehouse_type: str,
             'command_option':
                 {
                     'file': file,
-                    'warehouse': warehouse,
-                    'database': database,
-                    'username': username
+                    'using_warehouse': bool(warehouse),
+                    'using_database': bool(database),
+                    'using_username': bool(username)
                 },
         },
     )
