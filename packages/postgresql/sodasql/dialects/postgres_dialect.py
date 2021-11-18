@@ -51,8 +51,6 @@ class PostgresDialect(Dialect):
             self.host,
             self.port,
             self.database,
-            self.schema,
-            self.username,
         ]
 
     def default_env_vars(self, params: dict):

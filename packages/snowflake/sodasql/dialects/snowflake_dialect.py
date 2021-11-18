@@ -59,12 +59,8 @@ class SnowflakeDialect(Dialect):
     def safe_connection_data(self):
         return [
             self.type,
-            self.database,
             self.account,
-            self.username,
             self.warehouse,
-            self.schema,
-            self.session_params
         ]
 
     def default_env_vars(self, params: dict):

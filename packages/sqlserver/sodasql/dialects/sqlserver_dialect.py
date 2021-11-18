@@ -71,10 +71,7 @@ class SQLServerDialect(Dialect):
             self.type,
             self.host,
             self.port,
-            self.username,
-            self.warehouse,
             self.database,
-            self.schema,
         ]
 
     def default_env_vars(self, params: dict):

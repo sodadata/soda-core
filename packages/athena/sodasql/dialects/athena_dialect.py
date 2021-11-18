@@ -60,8 +60,6 @@ class AthenaDialect(Dialect):
         return [
             self.type,
             self.athena_staging_dir,
-            self.database,
-            self.catalog,
         ]
 
     def default_env_vars(self, params: dict):

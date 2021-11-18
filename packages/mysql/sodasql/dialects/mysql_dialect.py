@@ -47,7 +47,6 @@ class MySQLDialect(Dialect):
             self.host,
             self.port,
             self.database,
-            self.username,
         ]
 
     def default_env_vars(self, params: dict):

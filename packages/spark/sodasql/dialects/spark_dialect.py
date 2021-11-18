@@ -174,10 +174,7 @@ class SparkDialect(Dialect):
             self.type,
             self.host,
             self.port,
-            self.username,
             self.database,
-            self.organization,
-            self.cluster,
         ]
 
     def default_env_vars(self, params: dict):
