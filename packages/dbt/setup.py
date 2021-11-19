@@ -14,6 +14,7 @@ description = "Soda SQL DBT"
 
 requires = [
     f'soda-sql-core=={package_version}',
+    "dbt-core!=0.21.0",
 ]
 # TODO Fix the params
 # TODO Add a warning that installing core doesn't give any warehouse functionality
