@@ -35,7 +35,6 @@ class Node:
     """
 
     raw_sql: str
-    test_metadata: dict
     compiled: bool
     database: str | None
     schema: str
@@ -68,8 +67,9 @@ class Node:
     extra_ctes_injected: bool
     extra_ctes: list[dict]
     relation_name: str
-    column_name: str
+    test_metadata: dict | None = None
     config_call_dict: dict | None = None
+    column_name: str | None = None
 
 
 def parse_manifest(manifest: dict[str, Any]) -> dict[str, Node]:
