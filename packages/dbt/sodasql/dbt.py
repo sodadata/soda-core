@@ -6,73 +6,11 @@ import dataclasses
 import enum
 from typing import Any
 
-
-@enum.unique
-class ResourceType(str, enum.Enum):
-    """
-    Resource type
-
-    Source
-    ------
-    https://schemas.getdbt.com/dbt/manifest/v3/index.html#nodes_additionalProperties_oneOf_i0_resource_type
-    """
-
-    ANALYSIS = "analysis"
-    MACRO = "macro"
-    MODEL = "model"
-    SEED = "seed"
-    TEST = "test"
+from dbt.contracts.graph.compiled import CompiledSchemaTestNode
+from dbt.node_types import NodeType
 
 
-@dataclasses.dataclass(frozen=True)
-class Node:
-    """
-    A manifest node.
-
-    Source
-    ------
-    https://schemas.getdbt.com/dbt/manifest/v3/index.html#nodes
-    """
-
-    raw_sql: str
-    compiled: bool
-    database: str | None
-    schema: str
-    fqn: list[str]
-    unique_id: str
-    package_name: str
-    root_path: str
-    path: str
-    original_file_path: str
-    name: str
-    resource_type: ResourceType
-    alias: str
-    checksum: dict
-    config: dict
-    tags: list[str]
-    refs: list[list[str]]
-    sources: list[str]
-    depends_on: dict
-    description: str
-    columns: dict
-    meta: dict
-    docs: dict
-    patch_path: str | None
-    compiled_path: str | None
-    build_path: str | None
-    deferred: bool
-    unrendered_config: dict
-    created_at: int
-    compiled_sql: str
-    extra_ctes_injected: bool
-    extra_ctes: list[dict]
-    relation_name: str
-    test_metadata: dict | None = None
-    config_call_dict: dict | None = None
-    column_name: str | None = None
-
-
-def parse_manifest(manifest: dict[str, Any]) -> dict[str, Node]:
+def parse_manifest(manifest: dict[str, Any]) -> dict[str, CompiledSchemaTestNode]:
     """
     Parse the manifest.
 
@@ -85,7 +23,7 @@ def parse_manifest(manifest: dict[str, Any]) -> dict[str, Node]:
 
     Returns
     -------
-    out : dict[str, Node]
+    out : dict[str, CompiledSchemaTestNode]
         The parsed manifest.
 
     Raises
@@ -102,9 +40,9 @@ def parse_manifest(manifest: dict[str, Any]) -> dict[str, Node]:
         raise NotImplementedError("Dbt manifest parsing only supported for V3 schema.")
 
     nodes = {
-        node_name: Node(**node)
+        node_name: CompiledSchemaTestNode(**node)
         for node_name, node in manifest["nodes"].items()
-        if node["resource_type"] == ResourceType.TEST
+        if node["resource_type"] == NodeType.Test
     }
     return nodes
 
