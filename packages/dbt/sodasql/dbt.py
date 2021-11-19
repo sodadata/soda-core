@@ -7,6 +7,23 @@ import enum
 from typing import Any
 
 
+@enum.unique
+class ResourceType(str, enum.Enum):
+    """
+    Resource type
+
+    Source
+    ------
+    https://schemas.getdbt.com/dbt/manifest/v3/index.html#nodes_additionalProperties_oneOf_i0_resource_type
+    """
+
+    ANALYSIS = "analysis"
+    MACRO = "macro"
+    MODEL = "model"
+    SEED = "seed"
+    TEST = "test"
+
+
 @dataclasses.dataclass(frozen=True)
 class Node:
     """
@@ -16,9 +33,43 @@ class Node:
     ------
     https://schemas.getdbt.com/dbt/manifest/v3/index.html#nodes
     """
-    refs: list[list[str]]
-    compiled_sql: str
+
+    raw_sql: str
+    test_metadata: dict
+    compiled: bool
+    database: str | None
+    schema: str
+    fqn: list[str]
     unique_id: str
+    package_name: str
+    root_path: str
+    path: str
+    original_file_path: str
+    name: str
+    resource_type: ResourceType
+    alias: str
+    checksum: dict
+    config: dict
+    tags: list[str]
+    refs: list[list[str]]
+    sources: list[str]
+    depends_on: dict
+    description: str
+    columns: dict
+    meta: dict
+    docs: dict
+    patch_path: str | None
+    compiled_path: str | None
+    build_path: str | None
+    deferred: bool
+    unrendered_config: dict
+    created_at: int
+    compiled_sql: str
+    extra_ctes_injected: bool
+    extra_ctes: list[dict]
+    relation_name: str
+    column_name: str
+    config_call_dict: dict | None = None
 
 
 def parse_manifest(manifest: dict[str, Any]) -> dict[str, Node]:
@@ -50,7 +101,11 @@ def parse_manifest(manifest: dict[str, Any]) -> dict[str, Node]:
     if manifest["metadata"]["dbt_schema_version"] != dbt_v3_schema:
         raise NotImplementedError("Dbt manifest parsing only supported for V3 schema.")
 
-    nodes = {node_name: Node(**node) for node_name, node in manifest["node"].items()}
+    nodes = {
+        node_name: Node(**node)
+        for node_name, node in manifest["nodes"].items()
+        if node["resource_type"] == ResourceType.TEST
+    }
     return nodes
 
 
