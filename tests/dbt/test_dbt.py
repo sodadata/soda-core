@@ -78,3 +78,20 @@ def test_parse_run_results_status(
     parsed_run_results = soda_dbt.parse_run_results(RUN_RESULTS)
 
     assert parsed_run_results[result_index].status == status
+
+
+@pytest.mark.parametrize(
+    "result_index, failures",
+    [
+        (0, 0),
+        (1, 3),
+    ],
+)
+def test_parse_run_results_failures(
+    result_index: int,
+    failures: int,
+) -> None:
+    """Validate the failures of the nth result."""
+    parsed_run_results = soda_dbt.parse_run_results(RUN_RESULTS)
+
+    assert parsed_run_results[result_index].failures == failures
