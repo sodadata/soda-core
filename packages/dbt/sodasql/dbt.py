@@ -7,6 +7,53 @@ import enum
 from typing import Any
 
 
+@dataclasses.dataclass(frozen=True)
+class Node:
+    """
+    A manifest node.
+
+    Source
+    ------
+    https://schemas.getdbt.com/dbt/manifest/v3/index.html#nodes
+    """
+    refs: list[list[str]]
+    compiled_sql: str
+    unique_id: str
+
+
+def parse_manifest(manifest: dict[str, Any]) -> dict[str, Node]:
+    """
+    Parse the manifest.
+
+    Only V3 manifest is supported.
+
+    Parameters
+    ----------
+    run_results : dict[str, Any]
+        The raw manifest.
+
+    Returns
+    -------
+    out : dict[str, Node]
+        The parsed manifest.
+
+    Raises
+    ------
+    NotImplementedError :
+        If the dbt schema is not equal to the V3 manifest
+
+    Source
+    ------
+    https://docs.getdbt.com/reference/artifacts/manifest-json
+    """
+    dbt_v3_schema = "https://schemas.getdbt.com/dbt/manifest/v3.json"
+    if manifest["metadata"]["dbt_schema_version"] != dbt_v3_schema:
+        raise NotImplementedError("Dbt manifest parsing only supported for V3 schema.")
+
+    nodes = {node_name: Node(**node) for node_name, node in manifest["node"].items()}
+    return nodes
+
+
 @enum.unique
 class Status(str, enum.Enum):
     """

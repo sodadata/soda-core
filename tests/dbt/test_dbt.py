@@ -198,6 +198,14 @@ RUN_RESULTS = {
 }
 
 
+def test_parse_manifest_raises_not_implemented_error() -> None:
+    """
+    A NotImplementedError should be raised when manifest version is not v3.
+    """
+    with pytest.raises(NotImplementedError):
+        soda_dbt.parse_manifest({"metadata": {"dbt_schema_version": "not v3"}})
+
+
 def test_parse_run_results_raises_not_implemented_error() -> None:
     """
     A NotImplementedError should be raised when run results version is not v3.
