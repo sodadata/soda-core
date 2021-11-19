@@ -4,12 +4,14 @@ from __future__ import annotations
 
 from typing import Any
 
-from dbt.contracts.graph.compiled import CompiledSchemaTestNode
+from dbt.contracts.graph.compiled import ParsedModelNode, CompiledSchemaTestNode
 from dbt.contracts.results import RunResultOutput
 from dbt.node_types import NodeType
 
 
-def parse_manifest(manifest: dict[str, Any]) -> dict[str, CompiledSchemaTestNode]:
+def parse_manifest(
+    manifest: dict[str, Any]
+) -> tuple[dict[str, ParsedModelNode], dict[str, CompiledSchemaTestNode]]:
     """
     Parse the manifest.
 
@@ -22,7 +24,7 @@ def parse_manifest(manifest: dict[str, Any]) -> dict[str, CompiledSchemaTestNode
 
     Returns
     -------
-    out : dict[str, CompiledSchemaTestNode]
+    out : tuple[dict[str, ParsedModelNode], dict[str, CompiledSchemaTestNode]]
         The parsed manifest.
 
     Raises
@@ -38,12 +40,17 @@ def parse_manifest(manifest: dict[str, Any]) -> dict[str, CompiledSchemaTestNode
     if manifest["metadata"]["dbt_schema_version"] != dbt_v3_schema:
         raise NotImplementedError("Dbt manifest parsing only supported for V3 schema.")
 
-    nodes = {
+    model_nodes = {
+        node_name: ParsedModelNode(**node)
+        for node_name, node in manifest["nodes"].items()
+        if node["resource_type"] == NodeType.Model
+    }
+    test_nodes = {
         node_name: CompiledSchemaTestNode(**node)
         for node_name, node in manifest["nodes"].items()
         if node["resource_type"] == NodeType.Test
     }
-    return nodes
+    return model_nodes, test_nodes
 
 
 def parse_run_results(run_results: dict[str, Any]) -> list[RunResultOutput]:
@@ -77,5 +84,7 @@ def parse_run_results(run_results: dict[str, Any]) -> list[RunResultOutput]:
             "Dbt run results parsing only supported for V3 schema."
         )
 
-    parsed_run_results = [RunResultOutput(**result) for result in run_results["results"]]
+    parsed_run_results = [
+        RunResultOutput(**result) for result in run_results["results"]
+    ]
     return parsed_run_results

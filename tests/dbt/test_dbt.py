@@ -283,6 +283,14 @@ def test_parse_manifest_raises_not_implemented_error() -> None:
         soda_dbt.parse_manifest({"metadata": {"dbt_schema_version": "not v3"}})
 
 
+@pytest.mark.parametrize("unique_id", ["model.soda.stg_soda__scan"])
+def test_parse_manifest_contains_model_unique_ids(unique_id: str) -> None:
+    """Validate the model unique_id are present in the test_nodes."""
+    model_nodes, _ = soda_dbt.parse_manifest(MANIFEST)
+
+    assert unique_id in model_nodes.keys()
+
+
 @pytest.mark.parametrize(
     "unique_id",
     [
@@ -290,11 +298,11 @@ def test_parse_manifest_raises_not_implemented_error() -> None:
         "test.soda.accepted_values_stg_soda__scan__warehouse__spark__postgres.2e",
     ],
 )
-def test_parse_manifest_contains_unique_ids(unique_id: str) -> None:
-    """Validate the unique_id are present."""
-    parsed_manifest = soda_dbt.parse_manifest(MANIFEST)
+def test_parse_manifest_contains_test_unique_ids(unique_id: str) -> None:
+    """Validate the test unique_id are present in the test_nodes."""
+    _, test_nodes = soda_dbt.parse_manifest(MANIFEST)
 
-    assert unique_id in parsed_manifest.keys()
+    assert unique_id in test_nodes.keys()
 
 
 def test_parse_run_results_raises_not_implemented_error() -> None:
