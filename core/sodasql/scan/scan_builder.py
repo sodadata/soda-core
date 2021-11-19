@@ -21,6 +21,7 @@ from sodasql.scan.scan_yml import ScanYml
 from sodasql.scan.warehouse_yml import WarehouseYml
 from sodasql.scan.warehouse_yml_parser import read_warehouse_yml_file
 from sodasql.soda_server_client.soda_server_client import SodaServerClient
+from sodasql.scan.failed_rows_processor import FailedRowsProcessor
 
 logger = logging.getLogger(__name__)
 
@@ -71,6 +72,8 @@ class ScanBuilder:
         self.assert_no_warnings_or_errors = True
         self.soda_server_client: Optional[SodaServerClient] = None
         self.scan_results_json_path: Optional[str] = None
+        self.failed_rows_dir_path: Optional[str] = None
+        self.failed_rows_processor: Optional[FailedRowsProcessor] = None
 
     def build(self, offline: bool = False):
         self._build_warehouse_yml()
@@ -92,7 +95,8 @@ class ScanBuilder:
                     variables=self.variables,
                     soda_server_client=self.soda_server_client,
                     time=self.time,
-                    scan_results_file=self.scan_results_json_path)
+                    scan_results_file=self.scan_results_json_path,
+                    failed_rows_processor=self.failed_rows_processor)
 
     def _build_warehouse_yml(self):
         warehouse_yml_file_str: Optional[str] = None
