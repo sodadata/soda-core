@@ -65,6 +65,8 @@ def parse_run_results(run_results: dict[str, Any]) -> list[Result]:
     """
     Parse the run results.
 
+    Only V3 run results is supported.
+
     Parameters
     ----------
     run_results : dict[str, Any]
@@ -74,6 +76,15 @@ def parse_run_results(run_results: dict[str, Any]) -> list[Result]:
     -------
     out : list[Result]
         The parsed run results.
+
+    Raises
+    ------
+    NotImplementedError :
+        If the dbt schema is not equal to the V3 run results.
+
+    Source
+    ------
+    https://docs.getdbt.com/reference/artifacts/run-results-json
     """
     dbt_v3_schema = "https://schemas.getdbt.com/dbt/run-results/v3.json"
     if run_results["metadata"]["dbt_schema_version"] != dbt_v3_schema:
