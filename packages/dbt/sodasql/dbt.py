@@ -2,11 +2,10 @@
 
 from __future__ import annotations
 
-import dataclasses
-import enum
 from typing import Any
 
 from dbt.contracts.graph.compiled import CompiledSchemaTestNode
+from dbt.contracts.results import RunResultOutput
 from dbt.node_types import NodeType
 
 
@@ -47,61 +46,7 @@ def parse_manifest(manifest: dict[str, Any]) -> dict[str, CompiledSchemaTestNode
     return nodes
 
 
-@enum.unique
-class Status(str, enum.Enum):
-    """
-    Result status.
-
-    Source
-    ------
-    https://schemas.getdbt.com/dbt/run-results/v3/index.html#results_items_status
-    """
-
-    SUCCES = "succes"
-    ERROR = "error"
-    SKIPPED = "skipped"
-    PASS = "pass"
-    FAIL = "fail"
-    WARN = "warn"
-    RUNTIME_ERROR = "runtime error"
-
-
-@dataclasses.dataclass(frozen=True)
-class Timing:
-    """
-    Result timing.
-
-    Source
-    ------
-    https://schemas.getdbt.com/dbt/run-results/v3/index.html#results_items_timing
-    """
-
-    name: str
-    started_at: str
-    completed_at: str
-
-
-@dataclasses.dataclass(frozen=True)
-class Result:
-    """
-    Results in run results.
-
-    Source
-    ------
-    https://schemas.getdbt.com/dbt/run-results/v3/index.html#results
-    """
-
-    status: Status
-    timing: list[Timing]
-    thread_id: str
-    execution_time: float
-    adapter_response: dict[str, Any]
-    message: str | None
-    failures: int | None
-    unique_id: str
-
-
-def parse_run_results(run_results: dict[str, Any]) -> list[Result]:
+def parse_run_results(run_results: dict[str, Any]) -> list[RunResultOutput]:
     """
     Parse the run results.
 
@@ -114,7 +59,7 @@ def parse_run_results(run_results: dict[str, Any]) -> list[Result]:
 
     Returns
     -------
-    out : list[Result]
+    out : list[RunResultOutput]
         The parsed run results.
 
     Raises
@@ -132,5 +77,5 @@ def parse_run_results(run_results: dict[str, Any]) -> list[Result]:
             "Dbt run results parsing only supported for V3 schema."
         )
 
-    parsed_run_results = [Result(**result) for result in run_results["results"]]
+    parsed_run_results = [RunResultOutput(**result) for result in run_results["results"]]
     return parsed_run_results

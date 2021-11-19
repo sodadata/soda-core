@@ -1,5 +1,7 @@
 import pytest
 
+from dbt.contracts.results import TestStatus
+
 from sodasql import dbt as soda_dbt
 
 
@@ -233,13 +235,13 @@ def test_parse_run_results_raises_not_implemented_error() -> None:
 @pytest.mark.parametrize(
     "result_index, status",
     [
-        (0, soda_dbt.Status.PASS),
-        (1, soda_dbt.Status.FAIL),
+        (0, TestStatus.Pass),
+        (1, TestStatus.Fail),
     ],
 )
 def test_parse_run_results_status(
     result_index: int,
-    status: soda_dbt.Status,
+    status: TestStatus,
 ) -> None:
     """Validate the status of the nth result."""
     parsed_run_results = soda_dbt.parse_run_results(RUN_RESULTS)
