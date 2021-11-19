@@ -95,3 +95,20 @@ def test_parse_run_results_failures(
     parsed_run_results = soda_dbt.parse_run_results(RUN_RESULTS)
 
     assert parsed_run_results[result_index].failures == failures
+
+
+@pytest.mark.parametrize(
+    "result_index, unique_id",
+    [
+        (0, "test.soda.accepted_values_soda_scan__pass_fail.81f"),
+        (1, "test.ritoku.accepted_values_soda_warehouse__spark__postgres.2e"),
+    ],
+)
+def test_parse_run_results_unique_id(
+    result_index: int,
+    unique_id: str
+) -> None:
+    """Validate the unique_id of the nth result."""
+    parsed_run_results = soda_dbt.parse_run_results(RUN_RESULTS)
+
+    assert parsed_run_results[result_index].unique_id == unique_id
