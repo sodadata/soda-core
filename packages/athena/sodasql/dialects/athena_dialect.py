@@ -56,6 +56,12 @@ class AthenaDialect(Dialect):
             'catalog': 'AwsDataCatalog'
         }
 
+    def safe_connection_data(self):
+        return [
+            self.type,
+            self.athena_staging_dir,
+        ]
+
     def default_env_vars(self, params: dict):
         return {
             'ATHENA_ACCESS_KEY_ID': '...',

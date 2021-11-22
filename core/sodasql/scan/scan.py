@@ -11,6 +11,7 @@
 
 import logging
 import os
+import json
 import tempfile
 from datetime import datetime
 from math import floor, ceil
@@ -43,12 +44,14 @@ class Scan:
                  scan_yml: ScanYml = None,
                  soda_server_client: SodaServerClient = None,
                  variables: dict = None,
-                 time: str = None):
+                 time: str = None,
+                 scan_results_file: str = None):
         self.warehouse = warehouse
         self.scan_yml = scan_yml
         self.soda_server_client = soda_server_client
         self.variables = variables
         self.time = time
+        self.scan_results_file = scan_results_file
 
         self.scan_result = ScanResult()
         self.dialect = warehouse.dialect
@@ -118,6 +121,11 @@ class Scan:
 
             if self.close_warehouse:
                 self.warehouse.close()
+
+        if self.scan_results_file is not None:
+            logger.info(f'Saving scan results to {self.scan_results_file}')
+            with open(self.scan_results_file, 'w') as f:
+                json.dump(self.scan_result.to_dict(), f)
 
         return self.scan_result
 

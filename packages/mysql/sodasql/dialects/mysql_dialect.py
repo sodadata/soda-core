@@ -41,6 +41,14 @@ class MySQLDialect(Dialect):
             'database': params.get('database', 'your_database')
         }
 
+    def safe_connection_data(self):
+        return [
+            self.type,
+            self.host,
+            self.port,
+            self.database,
+        ]
+
     def default_env_vars(self, params: dict):
         return {
             'MYSQL_USERNAME': params.get('username', 'Eg johndoe'),
