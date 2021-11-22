@@ -22,7 +22,8 @@ class TestDateAndTimeValidityFormats(SqlTestCase):
     def test_date_eu(self):
         self.sql_recreate_table(
             [f"name {self.dialect.data_type_varchar_255}"],
-            ["('01/08/2020')",
+            ["('21-01-2021')",
+             "('01/08/2020')",
              "('21.01.2021')",
              "('21/01/2021')",
              "('21/01/21')",
