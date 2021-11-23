@@ -52,3 +52,7 @@ search = "package_version = '{current_version}'"
 [[file]]
 src = "packages/spark/setup.py"
 search = "package_version = '{current_version}'"
+
+[[file]]
+src = "packages/dbt/setup.py"
+search = "package_version = '{current_version}'"
