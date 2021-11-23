@@ -16,6 +16,8 @@ import tempfile
 from datetime import datetime
 from typing import List
 
+from deprecated import deprecated
+
 from sodasql.scan.metric import Metric
 from sodasql.scan.samples_yml import SamplesYml
 from sodasql.scan.scan import Scan
@@ -40,7 +42,7 @@ class Sampler:
     def _fileify(self, name: str):
         return re.sub(r'[^A-Za-z0-9_.]*', '', name).lower()
 
-    def save_sample(self, samples_yml: SamplesYml, measurement, test_results: List[TestResult]):
+    def get_samples(self, samples_yml: SamplesYml, measurement, test_results: List[TestResult]):
         """
         Builds and executes SQL to save a sample for the given measurement
         Args:
@@ -98,42 +100,78 @@ class Sampler:
                f"FROM {self.scan.qualified_table_name}")
 
         if where_clause:
-            sql += f" \nWHERE {where_clause}"
+            sql += f" \nWHERE {where_clause} "
 
         if tablesample is not None:
             sql += f" \nTABLESAMPLE {tablesample};"
         else:
             sql += f" \nLIMIT {limit};"
 
-        file_path = (f'{self.scan_folder_name}/' +
-                     (f'{self._fileify(column_name)}_' if column_name else '') +
-                     f'{sample_name}.jsonl')
-
         sample_description = (f'{self.scan.scan_yml.table_name}.sample'
                               if sample_name == 'dataset' else f'{self.scan.scan_yml.table_name}.{column_name}.{sample_name}')
 
         logger.debug(f'Sending sample {sample_description}')
-        with tempfile.TemporaryFile() as temp_file:
-            rows_stored, sample_columns = self.save_sample_to_local_file(sql, temp_file)
 
-            temp_file_size_in_bytes = temp_file.tell()
-            temp_file.seek(0)
+        sample_columns, sample_rows, total_row_count = self._get_query_results_with_limit(sql, limit or 5)
 
-            file_id = self.scan.soda_server_client.scan_upload(self.scan_reference,
-                                                               file_path,
-                                                               temp_file,
-                                                               temp_file_size_in_bytes)
+        return {'sample_name': sample_name,
+                'column_name': column_name,
+                'test_ids': test_ids,
+                'sample_columns': sample_columns,
+                'sample_rows': sample_rows,
+                'sample_description': sample_description,
+                'total_row_count': rows_total}
 
-            self.scan.soda_server_client.scan_file(
-                scan_reference=self.scan_reference,
-                sample_type=sample_name + 'Sample',
-                stored=int(rows_stored),
-                total=int(rows_total),
-                source_columns=sample_columns,
-                file_id=file_id,
-                column_name=column_name,
-                test_ids=test_ids)
-        logger.debug(f'Sent sample {sample_description} ({rows_stored}/{rows_total}) to Soda Cloud')
+    def send_samples_to_soda_cloud(self, samples_context):
+
+        sample_name = samples_context.get('sample_name')
+        column_name = samples_context.get('column_name')
+        test_ids = samples_context.get('test_ids')
+        sample_columns = samples_context.get('sample_columns')
+        sample_description = samples_context.get('sample_description')
+        total_row_count = samples_context.get('total_row_count')
+        sample_rows = samples_context.get('sample_rows')
+        stored_row_count = len(sample_rows)
+
+        scan_folder_name = (f'{self._fileify(self.scan.warehouse.name)}' +
+                            f'-{self._fileify(self.scan.scan_yml.table_name)}' +
+                            (f'-{self._fileify(self.scan.time)}' if isinstance(self.scan.time, str) else '') +
+                            (f'-{self.scan.time.strftime("%Y%m%d%H%M%S")}' if isinstance(self.scan.time,
+                                                                                         datetime) else '') +
+                            f'-{datetime.now().strftime("%Y%m%d%H%M%S")}')
+        try:
+
+            with tempfile.TemporaryFile() as temp_file:
+                for row in sample_rows:
+                    temp_file.write(bytearray(json.dumps(row), 'utf-8'))
+                    temp_file.write(b'\n')
+
+                temp_file_size_in_bytes = temp_file.tell()
+                temp_file.seek(0)
+
+                file_path = (f'{scan_folder_name}/' +
+                             (f'{self._fileify(column_name)}_' if column_name else '') +
+                             f'{sample_name}.jsonl')
+
+                file_id = self.scan.soda_server_client.scan_upload(self.scan.scan_reference,
+                                                                   file_path,
+                                                                   temp_file,
+                                                                   temp_file_size_in_bytes)
+
+                self.scan.soda_server_client.scan_file(
+                    scan_reference=self.scan.scan_reference,
+                    sample_type=sample_name + 'Sample',
+                    stored=stored_row_count,
+                    total=total_row_count,
+                    source_columns=sample_columns,
+                    file_id=file_id,
+                    column_name=column_name,
+                    test_ids=test_ids)
+
+                logger.debug(f'Sent sample {sample_description} ({stored_row_count}/{total_row_count}) to Soda Cloud')
+        except Exception as e:
+            logger.exception(f'Soda cloud error: Could not upload samples: {e}')
+            raise e
 
     def create_file_path_failed_rows_sql_metric(self, column_name: str, metric_name: str):
         return (f'{self.scan_folder_name}/' +
@@ -157,23 +195,24 @@ class Sampler:
             for d in cursor.description
         ]
 
-    def save_sample_to_local_file(self, sql, temp_file):
+    def _get_query_results_with_limit(self, sql: str, limit: int):
         cursor = self.scan.warehouse.connection.cursor()
         try:
             logger.debug(f'Executing SQL query: \n{sql}')
             start = datetime.now()
             cursor.execute(sql)
             sample_columns = self.__get_sample_columns(cursor)
-
-            stored_rows = 0
+            stored_rows = total_rows = 0
             row = cursor.fetchone()
+            sample_rows = []
             while row is not None:
                 sample_values = []
-                for i in range(0, len(row)):
-                    sample_values.append(self.__serialize_file_upload_value(row[i]))
-                temp_file.write(bytearray(json.dumps(sample_values), 'utf-8'))
-                temp_file.write(b'\n')
-                stored_rows += 1
+                if stored_rows < limit:
+                    for i in range(0, len(row)):
+                        sample_values.append(self.__serialize_file_upload_value(row[i]))
+                    stored_rows += 1
+                total_rows += 1
+                sample_rows.append(sample_values)
                 row = cursor.fetchone()
 
             delta = datetime.now() - start
@@ -182,10 +221,9 @@ class Sampler:
         finally:
             cursor.close()
 
-        return stored_rows, sample_columns
+        return sample_columns, sample_rows, total_rows
 
     def save_sample_to_local_file_with_limit(self, sql, temp_file, limit: int):
-
         cursor = self.scan.warehouse.connection.cursor()
         try:
             logger.debug(f'Executing SQL query: \n{sql}')

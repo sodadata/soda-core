@@ -90,10 +90,6 @@ def create(warehouse_type: str,
         logger.info(f"Soda CLI version {SODA_SQL_VERSION}")
         file_system = FileSystemSingleton.INSTANCE
 
-        # if not warehouse:
-        #     warehouse_dir_parent, warehouse_dir_name = file_system.split(warehouse_dir)
-        #     warehouse = warehouse_dir_name if warehouse_dir_name != '.' else warehouse_type
-
         from sodasql.scan.dialect import ALL_WAREHOUSE_TYPES, Dialect
         dialect = Dialect.create_for_warehouse_type(warehouse_type)
         if not dialect:
@@ -386,9 +382,12 @@ def analyze(warehouse_file: str, include: str, exclude: str, limit: int):
               required=False,
               default=None,
               help='Specify the file path where the scan results as json will be stored')
+@click.option('-frd', '--failed-rows-dir',
+              required=False,
+              help='Specify the directory to store the failed rows')
 @soda_trace
 def scan(scan_yml_file: str, warehouse_yml_file: str, variables: tuple, time: str, offline: bool,
-         non_interactive: bool = False, scan_results_file: str = None):
+         non_interactive: bool = False, scan_results_file: Optional[str] = None, failed_rows_dir: Optional[str] = None):
     """
     Computes all measurements and runs all tests on one table.  Exit code 0 means all tests passed.
     Non zero exit code means tests have failed or an exception occurred.
@@ -441,6 +440,8 @@ def scan(scan_yml_file: str, warehouse_yml_file: str, variables: tuple, time: st
         scan_builder.time = time
         scan_builder.non_interactive = non_interactive
         scan_builder.scan_results_json_path = scan_results_file
+        # TODO Failed Rows Dir
+        scan_builder.failed_rows_dir = failed_rows_dir
 
         if non_interactive and not time == datetime.now(tz=timezone.utc).isoformat(timespec='seconds'):
             logging.warning(f'You are using the --time option with the following value: {time}, meaning that the '
