@@ -122,4 +122,5 @@ class ConfigHelper:
 
     @property
     def send_anonymous_usage_stats(self) -> bool:
-        return self.config.get("send_anonymous_usage_stats", True)
+        # TODO set to True after we enable production collector
+        return self.config.get("send_anonymous_usage_stats", False)
