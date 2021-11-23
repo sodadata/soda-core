@@ -4,6 +4,16 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
+## [2.1.0b22] - 2021-11-23 *Éowyn*
+- dbt: Add dbt package to releases
+
+## [2.1.0b21] - 2021-11-23 *Éomer*
+ - Core: Use abstract method instead of exceptions (#566) 
+ - Core: Save scan results to a json file (#569)
+ - Core: Introduce Open Telemetry tracing (off by default) (#563)
+ - Core: Support pathlib.Purepath for yaml files (#573)
+ - dbt: Add dbt package to parse manifest and run_results (#572)
+  
 ## [2.1.0b20] - 2021-11-09 *Elrond*
 
 - Core: Fix redshift CI test details
