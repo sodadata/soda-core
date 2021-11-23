@@ -8,7 +8,7 @@ if sys.version_info < (3, 7):
     sys.exit(1)
 
 package_name = "soda-sql-postgresql"
-package_version = '2.1.0b20'
+package_version = '2.1.0b21'
 # TODO Add proper description
 description = "Soda SQL PostgreSQL"
 
