@@ -51,39 +51,34 @@ def create_dbt_test_results_iterator(
     model_nodes, test_nodes = soda_dbt.parse_manifest(manifest)
     parsed_run_results = soda_dbt.parse_run_results(run_results)
 
-    test_run_results_with_node = [
-        (run_result, test_nodes[run_result.unique_id])
-        for run_result in parsed_run_results
-        if run_result.unique_id in test_nodes.keys()
-    ]
-
-    tests = [
+    dbt_tests_with_soda_test = {
+        test_node.unique_id:
         Test(
             id=Parser.create_test_id(
                 test_expression=test_node.compiled_sql if isinstance(test_node, CompiledSchemaTestNode) else None,
-                test_name=test_run_result.unique_id,
+                test_name=test_node.unique_id,
                 test_index=index,
                 context_column_name=test_node.column_name,
                 context_sql_metric_name=None,
                 context_sql_metric_index=None,
             ),
-            title=f"dbt test - number of failures for {test_run_result.unique_id}",
+            title=f"dbt test - number of failures for {test_node.unique_id}",
             expression=test_node.compiled_sql if isinstance(test_node, CompiledSchemaTestNode) else None,
             metrics=None,
             column=test_node.column_name,
         )
-        for index, (test_run_result, test_node) in enumerate(test_run_results_with_node)
-    ]
+        for index, test_node in enumerate(test_nodes.values())
+    }
 
     tests_with_test_result = {
-        test_run_result.unique_id:
+        run_result.unique_id:
         TestResult(
-            test,
-            passed=test_run_result.status == TestStatus.Pass,
-            skipped=test_run_result.status == TestStatus.Skipped,
-            values={"failures": test_run_result.failures},
+            dbt_tests_with_soda_test[run_result.unique_id],
+            passed=run_result.status == TestStatus.Pass,
+            skipped=run_result.status == TestStatus.Skipped,
+            values={"failures": run_result.failures},
         )
-        for test, (test_run_result, _) in zip(tests, test_run_results_with_node)
+        for run_result in parsed_run_results
     }
 
     models_with_tests = soda_dbt.create_models_to_tests_mapping(
