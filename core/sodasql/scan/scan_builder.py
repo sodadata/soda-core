@@ -26,6 +26,47 @@ from sodasql.scan.failed_rows_processor import FailedRowsProcessor
 logger = logging.getLogger(__name__)
 
 
+def create_soda_server_client(
+    warehouse_yml: Optional[WarehouseYml] = None,
+) -> SodaServerClient:
+    """
+    Create a Soda server client.
+
+    Use the API key from the warehouse yml or from environment variables.
+
+    Parameters
+    ----------
+    warehouse_yml : Optional[WarehouseYml], optional (default: None)
+        The warehouse yml.
+
+    Returns
+    -------
+    out : SodaServerClient
+        The soda server client.
+    """
+    if warehouse_yml.soda_api_key_id and warehouse_yml.soda_api_key_secret:
+        host = warehouse_yml.soda_host
+        api_key_id = warehouse_yml.soda_api_key_id
+        api_key_secret = warehouse_yml.soda_api_key_secret
+        port = str(warehouse_yml.soda_port)
+        protocol = warehouse_yml.soda_protocol
+    else:
+        host = os.getenv('SODA_HOST', 'cloud.soda.io')
+        api_key_id = os.getenv('SODA_SERVER_API_KEY_ID', None)
+        api_key_secret = os.getenv('SODA_SERVER_API_KEY_SECRET', None)
+        port = os.getenv('SODA_PORT', '443')
+        protocol = os.getenv('SODA_PROTOCOL', 'https')
+
+    soda_server_client = SodaServerClient(
+        host,
+        api_key_id=api_key_id,
+        api_key_secret=api_key_secret,
+        protocol=protocol,
+        port=port,
+    )
+    return soda_server_client
+
+
 class ScanBuilder:
     """
     Programmatic scan execution based on default dir structure:
@@ -155,24 +196,8 @@ class ScanBuilder:
 
     def _create_soda_server_client(self):
         if not self.soda_server_client:
-            if self.warehouse_yml.soda_api_key_id and self.warehouse_yml.soda_api_key_secret:
-                host = self.warehouse_yml.soda_host
-                api_key_id = self.warehouse_yml.soda_api_key_id
-                api_key_secret = self.warehouse_yml.soda_api_key_secret
-                port = str(self.warehouse_yml.soda_port)
-                protocol = self.warehouse_yml.soda_protocol
-            else:
-                host = os.getenv('SODA_HOST', 'cloud.soda.io')
-                api_key_id = os.getenv('SODA_SERVER_API_KEY_ID', None)
-                api_key_secret = os.getenv('SODA_SERVER_API_KEY_SECRET', None)
-                port = os.getenv('SODA_PORT', '443')
-                protocol = os.getenv('SODA_PROTOCOL', 'https')
-
-            if api_key_id and api_key_secret:
-                self.soda_server_client = SodaServerClient(host,
-                                                           api_key_id=api_key_id,
-                                                           api_key_secret=api_key_secret,
-                                                           protocol=protocol,
-                                                           port=port)
+            soda_server_client = create_soda_server_client(self.warehouse_yml)
+            if soda_server_client.api_key_id and soda_server_client.api_key_secret:
+                self.soda_server_client = soda_server_client
             else:
                 logger.debug("No Soda Cloud account configured")
