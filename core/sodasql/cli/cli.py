@@ -25,11 +25,14 @@ from sodasql.common.logging_helper import LoggingHelper
 from sodasql.dataset_analyzer import DatasetAnalyzer
 from sodasql.scan.file_system import FileSystemSingleton
 from sodasql.scan.metric import Metric
+from sodasql.scan.parser import Parser
 from sodasql.scan.scan_builder import (
     ScanBuilder,
     build_warehouse_yml_parser,
     create_soda_server_client,
 )
+from sodasql.scan.test import Test
+from sodasql.scan.test_result import TestResult
 from sodasql.scan.warehouse import Warehouse
 from sodasql.scan.warehouse_yml_parser import (WarehouseYmlParser,
                                                read_warehouse_yml_file)
@@ -542,6 +545,7 @@ def ingest(
     logger.info(SODA_SQL_VERSION)
     if tool == "dbt":
         try:
+            from dbt.contracts.results import TestStatus
             from sodasql import dbt as soda_dbt
         except ImportError as e:
             raise RuntimeError(
@@ -567,6 +571,46 @@ def ingest(
         models_that_tests_depends_on = soda_dbt.find_models_on_which_tests_depends(
             model_nodes, test_nodes, parsed_run_results
         )
+
+        tests_in_run_results = [
+            run_result
+            for run_result in parsed_run_results
+            if run_result.unique_id in test_nodes.keys()
+        ]
+
+        tests = [
+            Test(
+                id=Parser.create_test_id(
+                    test_expression=test_nodes[test_run_results.unique_id].compiled_sql,
+                    test_name=test_run_results.unique_id,
+                    test_index=index,
+                    context_column_name=test_nodes[test_run_results.unique_id].column_name,
+                    context_sql_metric_name=None,
+                    context_sql_metric_index=None,
+                ),
+                title=Parser.create_test_title(
+                    test_expression=test_nodes[test_run_results.unique_id].compiled_sql,
+                    test_name=test_run_results.unique_id,
+                    test_index=index,
+                    context_column_name=test_nodes[test_run_results.unique_id].column_name,
+                    context_sql_metric_name=None,
+                    context_sql_metric_index=None,
+                ),
+                expression=test_nodes[test_run_results.unique_id].compiled_sql,
+                metrics=None,
+                column=test_nodes[test_run_results.unique_id].column_name,
+            )
+            for index, test_run_results in enumerate(tests_in_run_results)
+        ]
+
+        test_results = [
+            TestResult(
+                test,
+                passed=test_run_results.status == TestStatus.Pass,
+                skipped=test_run_results.status == TestStatus.Skipped
+            )
+            for test_run_results, test in zip(tests_in_run_results, tests)
+        ]
 
         test_result_jsons = [test_result.to_dict() for test_result in test_results]
         soda_server_client.scan_test_results(scan_reference, test_result_jsons)
