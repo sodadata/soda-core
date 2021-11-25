@@ -21,35 +21,30 @@ from sodasql.scan.test import Test
 from sodasql.scan.test_result import TestResult
 
 
-def create_dbt_test_results_iterator(
-    manifest: dict, run_results: dict
-) -> Iterator[tuple[str, list[TestResult]]]:
+
+def create_dbt_run_result_to_test_result_mapping(
+    test_nodes: dict[str, CompiledSchemaTestNode],
+    run_results: list[RunResultOutput],
+):
     """
-    Create an iterator for the dbt test results.
+    Create a mapping with which test result belong to which run result.
 
     Parameters
     ----------
-    manifest : dict
-        The manifest.
-    run_results : Path
+    model_nodes : Dict[str: ParsedModelNode]
+        The parsed model nodes.
+    test_nodes : Dict[str: CompiledSchemaTestNode]
+        The compiled schema test nodes.
+    run_results : List[RunResultOutput]
         The run results.
 
     Returns
     -------
-    out : Iterator[tuple[str, list[TestResult]]]
-        The table name and its corresponding test results.
+    out : Dict[str, set[ParseModelNode]]
+        A mapping from run result to test result.
     """
-    try:
-        from dbt.contracts.results import TestStatus
-        from dbt.contracts.graph.compiled import CompiledSchemaTestNode
-        from sodasql import dbt as soda_dbt
-    except ImportError as e:
-        raise RuntimeError(
-            "Soda SQL dbt extension is not installed: $ pip install soda-sql-dbt"
-        ) from e
-
-    model_nodes, test_nodes = soda_dbt.parse_manifest(manifest)
-    parsed_run_results = soda_dbt.parse_run_results(run_results)
+    from dbt.contracts.results import TestStatus
+    from dbt.contracts.graph.compiled import CompiledSchemaTestNode
 
     dbt_tests_with_soda_test = {
         test_node.unique_id:
@@ -78,9 +73,41 @@ def create_dbt_test_results_iterator(
             skipped=run_result.status == TestStatus.Skipped,
             values={"failures": run_result.failures},
         )
-        for run_result in parsed_run_results
+        for run_result in run_results
     }
+    return tests_with_test_result
 
+
+def create_dbt_test_results_iterator(
+    manifest: dict, run_results: dict
+) -> Iterator[tuple[str, list[TestResult]]]:
+    """
+    Create an iterator for the dbt test results.
+
+    Parameters
+    ----------
+    manifest : dict
+        The manifest.
+    run_results : Path
+        The run results.
+
+    Returns
+    -------
+    out : Iterator[tuple[str, list[TestResult]]]
+        The table name and its corresponding test results.
+    """
+    try:
+        from sodasql import dbt as soda_dbt
+    except ImportError as e:
+        raise RuntimeError(
+            "Soda SQL dbt extension is not installed: $ pip install soda-sql-dbt"
+        ) from e
+
+    model_nodes, test_nodes = soda_dbt.parse_manifest(manifest)
+    parsed_run_results = soda_dbt.parse_run_results(run_results)
+    tests_with_test_result = create_dbt_run_result_to_test_result_mapping(
+        test_nodes, parsed_run_results
+    )
     models_with_tests = soda_dbt.create_models_to_tests_mapping(
         model_nodes, test_nodes, parsed_run_results
     )
