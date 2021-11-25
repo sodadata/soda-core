@@ -19,7 +19,7 @@ def parse_manifest(
 
     Parameters
     ----------
-    run_results : dict[str, Any]
+    manifest : dict[str, Any]
         The raw manifest.
 
     Returns
