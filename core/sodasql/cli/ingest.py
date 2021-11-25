@@ -9,6 +9,7 @@ import json
 import logging
 import os
 from pathlib import Path
+from typing import Iterator
 
 from sodasql.__version__ import SODA_SQL_VERSION
 from sodasql.scan.parser import Parser
@@ -21,17 +22,17 @@ from sodasql.scan.test_result import TestResult
 
 
 def create_dbt_test_results_iterator(
-    dbt_manifest: Path, dbt_run_results: Path
+    manifest: dict, run_results: dict
 ) -> Iterator[tuple[str, list[TestResult]]]:
     """
     Create an iterator for the dbt test results.
 
     Parameters
     ----------
-    dbt_manifest : Path
-        The path to the dbt manifest.
-    dbt_run_results : Path
-        The path to the dbt run results.
+    manifest : dict
+        The manifest.
+    run_results : Path
+        The run results.
 
     Returns
     -------
@@ -47,12 +48,10 @@ def create_dbt_test_results_iterator(
             "Soda SQL dbt extension is not installed: $ pip install soda-sql-dbt"
         ) from e
 
-    with dbt_manifest.open("r") as manifest:
-        model_nodes, test_nodes = soda_dbt.parse_manifest(json.load(manifest))
-    with dbt_run_results.open("r") as run_results:
-        parsed_run_results = soda_dbt.parse_run_results(json.load(run_results))
+    model_nodes, test_nodes = soda_dbt.parse_manifest(manifest)
+    parsed_run_results = soda_dbt.parse_run_results(run_results)
 
-    tests_in_run_results = [
+    test_run_results_with_node = [
         (run_result, test_nodes[run_result.unique_id])
         for run_result in parsed_run_results
         if run_result.unique_id in test_nodes.keys()
@@ -62,29 +61,29 @@ def create_dbt_test_results_iterator(
         Test(
             id=Parser.create_test_id(
                 test_expression=test_node.compiled_sql if isinstance(test_node, CompiledSchemaTestNode) else None,
-                test_name=test_run_results.unique_id,
+                test_name=test_run_result.unique_id,
                 test_index=index,
                 context_column_name=test_node.column_name,
                 context_sql_metric_name=None,
                 context_sql_metric_index=None,
             ),
-            title=f"dbt test - number of failures for {test_run_results.unique_id}",
+            title=f"dbt test - number of failures for {test_run_result.unique_id}",
             expression=test_node.compiled_sql if isinstance(test_node, CompiledSchemaTestNode) else None,
             metrics=None,
             column=test_node.column_name,
         )
-        for index, (test_run_results, test_node) in enumerate(tests_in_run_results)
+        for index, (test_run_result, test_node) in enumerate(test_run_results_with_node)
     ]
 
-    test_results_mapping = {
-        test_run_results.unique_id:
+    tests_with_test_result = {
+        test_run_result.unique_id:
         TestResult(
             test,
-            passed=test_run_results.status == TestStatus.Pass,
-            skipped=test_run_results.status == TestStatus.Skipped,
-            values={"failures": test_run_results.failures},
+            passed=test_run_result.status == TestStatus.Pass,
+            skipped=test_run_result.status == TestStatus.Skipped,
+            values={"failures": test_run_result.failures},
         )
-        for (test_run_results, _), test in zip(tests_in_run_results, tests)
+        for test, (test_run_result, _) in zip(tests, test_run_results_with_node)
     }
 
     models_with_tests = soda_dbt.create_models_to_tests_mapping(
@@ -94,7 +93,7 @@ def create_dbt_test_results_iterator(
     for model_unique_id, test_unique_ids in models_with_tests.items():
         table_name = model_nodes[model_unique_id].alias
         test_results = [
-            test_results_mapping[test_unique_id]
+            tests_with_test_result[test_unique_id]
             for test_unique_id in test_unique_ids
         ]
 
@@ -137,11 +136,21 @@ def ingest(
         raise ValueError("Missing Soda cloud api key id and/or secret.")
 
     if tool == "dbt":
-        iterator = create_dbt_test_results_iterator(dbt_manifest, dbt_run_results)
+        if dbt_manifest is None:
+            raise ValueError(f"Dbt manifest is required: {dbt_manifest}")
+        if dbt_run_results is None:
+            raise ValueError(f"Dbt run results is required: {dbt_run_results}")
+
+        with dbt_manifest.open("r") as file:
+            manifest = json.load(file)
+        with dbt_run_results.open("r") as file:
+            run_results = json.load(file)
+
+        test_results_iterator = create_dbt_test_results_iterator(manifest, run_results)
     else:
         raise ValueError(f"Unknown tool: {tool}")
 
-    for table_name, test_results in iterator:
+    for table_name, test_results in test_results_iterator:
         start_scan_response = soda_server_client.scan_start(
             warehouse_yml.name,
             warehouse_yml.dialect.type,
@@ -151,9 +160,9 @@ def ingest(
             origin=os.environ.get("SODA_SCAN_ORIGIN", "external")
         )
 
-        test_result_jsons = [test_result.to_dict() for test_result in test_results]
+        test_results_jsons = [test_result.to_dict() for test_result in test_results]
         soda_server_client.scan_test_results(
-            start_scan_response["scanReference"], test_result_jsons
+            start_scan_response["scanReference"], test_results_jsons
         )
 
         soda_server_client.scan_ended(start_scan_response["scanReference"])
