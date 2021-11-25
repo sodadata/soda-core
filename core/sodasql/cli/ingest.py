@@ -79,7 +79,7 @@ def create_dbt_run_result_to_test_result_mapping(
 
 
 def create_dbt_test_results_iterator(
-    manifest: dict, run_results: dict
+    manifest_file: Path, run_results_file: Path
 ) -> Iterator[tuple[str, list[TestResult]]]:
     """
     Create an iterator for the dbt test results.
@@ -87,9 +87,9 @@ def create_dbt_test_results_iterator(
     Parameters
     ----------
     manifest : dict
-        The manifest.
+        The path to the manifest file.
     run_results : Path
-        The run results.
+        The path to the run results file.
 
     Returns
     -------
@@ -102,6 +102,11 @@ def create_dbt_test_results_iterator(
         raise RuntimeError(
             "Soda SQL dbt extension is not installed: $ pip install soda-sql-dbt"
         ) from e
+
+    with manifest_file.open("r") as file:
+        manifest = json.load(file)
+    with run_results_file.open("r") as file:
+        run_results = json.load(file)
 
     model_nodes, test_nodes = soda_dbt.parse_manifest(manifest)
     parsed_run_results = soda_dbt.parse_run_results(run_results)
@@ -162,13 +167,7 @@ def ingest(
             raise ValueError(f"Dbt manifest is required: {dbt_manifest}")
         if dbt_run_results is None:
             raise ValueError(f"Dbt run results is required: {dbt_run_results}")
-
-        with dbt_manifest.open("r") as file:
-            manifest = json.load(file)
-        with dbt_run_results.open("r") as file:
-            run_results = json.load(file)
-
-        test_results_iterator = create_dbt_test_results_iterator(manifest, run_results)
+        test_results_iterator = create_dbt_test_results_iterator(dbt_manifest, dbt_run_results)
     else:
         raise ValueError(f"Unknown tool: {tool}")
 
