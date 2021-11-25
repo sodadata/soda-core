@@ -81,18 +81,22 @@ def create_soda_server_client(
     out : SodaServerClient
         The soda server client.
     """
-    if warehouse_yml.soda_api_key_id and warehouse_yml.soda_api_key_secret:
+    if (
+        warehouse_yml is not None
+        and warehouse_yml.soda_api_key_id
+        and warehouse_yml.soda_api_key_secret
+    ):
         host = warehouse_yml.soda_host
         api_key_id = warehouse_yml.soda_api_key_id
         api_key_secret = warehouse_yml.soda_api_key_secret
         port = str(warehouse_yml.soda_port)
         protocol = warehouse_yml.soda_protocol
     else:
-        host = os.getenv('SODA_HOST', 'cloud.soda.io')
-        api_key_id = os.getenv('SODA_SERVER_API_KEY_ID', None)
-        api_key_secret = os.getenv('SODA_SERVER_API_KEY_SECRET', None)
-        port = os.getenv('SODA_PORT', '443')
-        protocol = os.getenv('SODA_PROTOCOL', 'https')
+        host = os.getenv("SODA_HOST", "cloud.soda.io")
+        api_key_id = os.getenv("SODA_SERVER_API_KEY_ID", None)
+        api_key_secret = os.getenv("SODA_SERVER_API_KEY_SECRET", None)
+        port = os.getenv("SODA_PORT", "443")
+        protocol = os.getenv("SODA_PROTOCOL", "https")
 
     soda_server_client = SodaServerClient(
         host,
