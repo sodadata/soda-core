@@ -532,14 +532,14 @@ def ingest(
     if tool == "dbt":
         try:
             from sodasql import dbt as soda_dbt
-        except ImporError as e:
+        except ImportError as e:
             raise RuntimeError(
                 "Soda SQL dbt extension is not installed: $ pip install soda-sql-dbt"
             ) from e
         if dbt_manifest is None:
             raise ValueError(f"Dbt manifest is required: {dbt_manifest}")
         if dbt_run_results is None:
-            raise ValueError(f"Dbt run results ({dbt_run_results})")
+            raise ValueError(f"Dbt run results is required: {dbt_run_results}")
 
         model_nodes, test_nodes = soda_dbt.parse_manifest(dbt_manifest)
         parsed_run_results = soda_dbt.parse_run_results(dbt_run_results)
