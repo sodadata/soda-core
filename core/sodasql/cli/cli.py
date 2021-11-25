@@ -530,6 +530,12 @@ def ingest(
     logger.info(SODA_SQL_VERSION)
 
     if tool == "dbt":
+        try:
+            from sodasql import dbt as soda_dbt
+        except ImporError as e:
+            raise RuntimeError(
+                "Soda SQL dbt extension is not installed: $ pip install soda-sql-dbt"
+            ) from e
         if dbt_manifest is None:
             raise ValueError(f"Dbt manifest is required: {dbt_manifest}")
         if dbt_run_results is None:
