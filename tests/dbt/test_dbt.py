@@ -364,32 +364,31 @@ def test_parse_run_results_unique_id(result_index: int, unique_id: str) -> None:
 
 
 @pytest.mark.parametrize(
-    "test_name, model_names",
+    "model_name, test_names",
     [
         (
-            "test.soda.accepted_values_stg_soda__scan__result__pass_fail.81f",
-            {"model.soda.stg_soda__scan"},
-        ),
-        (
-            "test.soda.accepted_values_stg_soda__scan__warehouse__spark__postgres.2e",
-            {"model.soda.stg_soda__scan"},
+            "model.soda.stg_soda__scan",
+            {
+                "test.soda.accepted_values_stg_soda__scan__result__pass_fail.81f",
+                "test.soda.accepted_values_stg_soda__scan__warehouse__spark__postgres.2e",
+            },
         ),
     ],
 )
-def test_find_models_that_tests_depends_on(
-    test_name: str,
-    model_names: set[str],
+def test_create_models_to_test_mapping(
+    model_name: str,
+    test_names: set[str],
 ):
     """Check if the expected models are found."""
 
     model_nodes, test_nodes = soda_dbt.parse_manifest(MANIFEST)
     parsed_run_results = soda_dbt.parse_run_results(RUN_RESULTS)
 
-    models_that_tests_depends_on = soda_dbt.find_models_on_which_tests_depends(
+    models_with_tests = soda_dbt.create_models_to_tests_mapping(
         model_nodes, test_nodes, parsed_run_results
     )
 
     assert all(
-        model_name in model_names
-        for model_name in models_that_tests_depends_on[test_name]
+        test_name in test_names
+        for test_name in models_with_tests[model_name]
     )

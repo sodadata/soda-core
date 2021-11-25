@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+from collections import defaultdict
+from functools import reduce
+from operator import or_
 from typing import Any
 
 from dbt.contracts.graph.compiled import (
@@ -94,13 +97,13 @@ def parse_run_results(run_results: dict[str, Any]) -> list[RunResultOutput]:
     return parsed_run_results
 
 
-def find_models_on_which_tests_depends(
+def create_models_to_tests_mapping(
     model_nodes: dict[str, ParsedModelNode],
     test_nodes: dict[str, CompiledSchemaTestNode],
     run_results: list[RunResultOutput],
 ) -> dict[str, set[ParsedModelNode]]:
     """
-    Find the models on which the tests depends on.
+    Create a mapping with which tests belong to which model.
 
     Parameters
     ----------
@@ -114,7 +117,7 @@ def find_models_on_which_tests_depends(
     Returns
     -------
     out : Dict[str, set[ParseModelNode]]
-        The models that a test depends on.
+        A mapping from models to tests.
     """
     test_unique_ids = [
         run_result.unique_id
@@ -127,4 +130,15 @@ def find_models_on_which_tests_depends(
         for test_unique_id in test_unique_ids
     }
 
-    return models_that_tests_depends_on
+    model_node_ids = reduce(
+        or_,
+        [model_node_ids for model_node_ids in models_that_tests_depends_on.values()]
+    )
+
+    models_with_tests = defaultdict(set)
+    for model_node_id in model_node_ids:
+        for test_unique_id, model_node_ids_of_tests in models_that_tests_depends_on.items():
+            if model_node_id in model_node_ids_of_tests:
+                models_with_tests[model_node_id].add(test_unique_id)
+
+    return models_with_tests
