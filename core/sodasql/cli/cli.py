@@ -604,7 +604,8 @@ def ingest(
             TestResult(
                 test,
                 passed=test_run_results.status == TestStatus.Pass,
-                skipped=test_run_results.status == TestStatus.Skipped
+                skipped=test_run_results.status == TestStatus.Skipped,
+                values={"failures": test_run_results.failures},
             )
             for (test_run_results, _), test in zip(tests_in_run_results, tests)
         }
