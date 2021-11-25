@@ -13,6 +13,7 @@ import re
 import sys
 from datetime import datetime, timezone
 from math import ceil
+from pathlib import Path
 from typing import Optional
 
 import click
@@ -489,3 +490,47 @@ def scan(scan_yml_file: str, warehouse_yml_file: str, variables: tuple, time: st
                     "https://github.com/sodadata/soda-sql/issues/new/choose")
         logger.info(f'Exiting with code 1')
         sys.exit(1)
+
+
+@main.command(short_help="Ingest test information from different tools")
+@click.argument(
+    "tool",
+    required=True,
+    type=click.Choice(["dbt"]),
+)
+@click.option(
+    "--dbt-manifest",
+    help="The path to the dbt manifest file",
+    default=None,
+    type=Path,
+)
+@click.option(
+    "--dbt-run-results",
+    help="The path to the dbt run results file",
+    default=None,
+    type=Path
+)
+def ingest(
+    tool: str,
+    dbt_manifest: Optional[Path],
+    dbt_run_results: Optional[Path],
+):
+    """
+    Ingest test information from different tools.
+
+    Arguments
+    ---------
+    tool : str
+        The tool name.
+    dbt_manifest : Optional[Path]
+        The path to the dbt manifest.
+    dbt_run_results : Optional[Path]
+        The path to the dbt run results.
+    """
+    logger.info(SODA_SQL_VERSION)
+
+    if tool == "dbt":
+        if dbt_manifest is None:
+            raise ValueError(f"Dbt manifest is required: {dbt_manifest}")
+        if dbt_run_results is None:
+            raise ValueError(f"Dbt run results ({dbt_run_results})")
