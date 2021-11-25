@@ -10,6 +10,7 @@
 #  limitations under the License.
 import logging
 import json
+import os
 import re
 import sys
 from datetime import datetime, timezone
@@ -509,7 +510,7 @@ def scan(scan_yml_file: str, warehouse_yml_file: str, variables: tuple, time: st
 @click.option(
     "--warehouse-yml-file",
     help="The warehouse yml file.",
-    default=None,
+    required=True,
 )
 @click.option(
     "--dbt-manifest",
@@ -525,7 +526,7 @@ def scan(scan_yml_file: str, warehouse_yml_file: str, variables: tuple, time: st
 )
 def ingest(
     tool: str,
-    warehouse_yml_file: Optional[str],
+    warehouse_yml_file: str,
     dbt_manifest: Optional[Path],
     dbt_run_results: Optional[Path],
 ):
@@ -536,7 +537,7 @@ def ingest(
     ---------
     tool : str
         The tool name.
-    warehouse_yml_file : Optional[str]
+    warehouse_yml_file : str
         The warehouse yml file.
     dbt_manifest : Optional[Path]
         The path to the dbt manifest.
@@ -558,10 +559,8 @@ def ingest(
         if dbt_run_results is None:
             raise ValueError(f"Dbt run results is required: {dbt_run_results}")
 
-        warehouse_yml = None
-        if warehouse_yml_file is not None:
-            warehouse_yml_parser = build_warehouse_yml_parser(warehouse_yml_file)
-            warehouse_yml = warehouse_yml_parser.warehouse_yml
+        warehouse_yml_parser = build_warehouse_yml_parser(warehouse_yml_file)
+        warehouse_yml = warehouse_yml_parser.warehouse_yml
 
         soda_server_client = create_soda_server_client(warehouse_yml)
         if not soda_server_client.api_key_id or not soda_server_client.api_key_secret:
@@ -616,8 +615,21 @@ def ingest(
             for (test_run_results, _), test in zip(tests_in_run_results, tests)
         ]
 
+        start_scan_response = soda_server_client.scan_start(
+            warehouse_yml.name,
+            warehouse_yml.dialect.type,
+            table_name="soda_test",
+            scan_yml_columns=None,
+            scan_time=datetime.now().isoformat(),
+            origin=os.environ.get("SODA_SCAN_ORIGIN", "external")
+        )
+
         test_result_jsons = [test_result.to_dict() for test_result in test_results]
-        soda_server_client.scan_test_results(scan_reference, test_result_jsons)
+        soda_server_client.scan_test_results(
+            start_scan_response["scanReference"], test_result_jsons
+        )
+
+        soda_server_client.scan_ended(start_scan_response["scanReference"])
 
 
 if __name__ == '__main__':
