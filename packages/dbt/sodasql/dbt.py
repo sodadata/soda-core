@@ -88,3 +88,39 @@ def parse_run_results(run_results: dict[str, Any]) -> list[RunResultOutput]:
         RunResultOutput(**result) for result in run_results["results"]
     ]
     return parsed_run_results
+
+
+def find_models_on_which_tests_depends(
+    model_nodes: dict[str, ParsedModelNode],
+    test_nodes: dict[str, CompiledSchemaTestNode],
+    run_results: list[RunResultOutput],
+) -> dict[str, set[ParsedModelNode]]:
+    """
+    Find the models on which the tests depends on.
+
+    Parameters
+    ----------
+    model_nodes : Dict[str: ParsedModelNode]
+        The parsed model nodes.
+    test_nodes : Dict[str: CompiledSchemaTestNode]
+        The compiled schema test nodes.
+    run_results : List[RunResultOutput]
+        The run results.
+
+    Returns
+    -------
+    out : Dict[str, set[ParseModelNode]]
+        The models that a test depends on.
+    """
+    test_unique_ids = [
+        run_result.unique_id
+        for run_result in run_results
+        if run_result.unique_id in test_nodes.keys()
+    ]
+
+    models_that_tests_depends_on = {
+        test_unique_id: set(test_nodes[test_unique_id].depends_on["nodes"])
+        for test_unique_id in test_unique_ids
+    }
+
+    return models_that_tests_depends_on

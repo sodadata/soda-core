@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import pytest
 
 from dbt.contracts.results import TestStatus
@@ -359,3 +361,35 @@ def test_parse_run_results_unique_id(result_index: int, unique_id: str) -> None:
     parsed_run_results = soda_dbt.parse_run_results(RUN_RESULTS)
 
     assert parsed_run_results[result_index].unique_id == unique_id
+
+
+@pytest.mark.parametrize(
+    "test_name, model_names",
+    [
+        (
+            "test.soda.accepted_values_stg_soda__scan__result__pass_fail.81f",
+            {"model.soda.stg_soda__scan"},
+        ),
+        (
+            "test.soda.accepted_values_stg_soda__scan__warehouse__spark__postgres.2e",
+            {"model.soda.stg_soda__scan"},
+        ),
+    ],
+)
+def test_find_models_that_tests_depends_on(
+    test_name: str,
+    model_names: set[str],
+):
+    """Check if the expected models are found."""
+
+    model_nodes, test_nodes = soda_dbt.parse_manifest(MANIFEST)
+    parsed_run_results = soda_dbt.parse_run_results(RUN_RESULTS)
+
+    models_that_tests_depends_on = soda_dbt.find_models_on_which_tests_depends(
+        model_nodes, test_nodes, parsed_run_results
+    )
+
+    assert all(
+        model_name in model_names
+        for model_name in models_that_tests_depends_on[test_name]
+    )
