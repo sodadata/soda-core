@@ -30,10 +30,11 @@ from sodasql.scan.warehouse_yml_parser import (WarehouseYmlParser,
                                                read_warehouse_yml_file)
 
 from sodasql.telemetry.soda_tracer import soda_trace, span_setup_function_args
-from sodasql.telemetry.soda_telemetry import soda_telemetry
+from sodasql.telemetry.soda_telemetry import SodaTelemetry
 
 LoggingHelper.configure_for_cli()
 logger = logging.getLogger(__name__)
+soda_telemetry = SodaTelemetry.get_instance()
 
 
 @click.group(help=f"Soda CLI version {SODA_SQL_VERSION}")
