@@ -571,7 +571,7 @@ def ingest(
         with dbt_run_results.open("r") as run_results:
             parsed_run_results = soda_dbt.parse_run_results(json.load(run_results))
 
-        models_that_tests_depends_on = soda_dbt.find_models_on_which_tests_depends(
+        models_with_tests = soda_dbt.create_models_to_tests_mapping(
             model_nodes, test_nodes, parsed_run_results
         )
 
@@ -606,30 +606,35 @@ def ingest(
             for index, (test_run_results, test_node) in enumerate(tests_in_run_results)
         ]
 
-        test_results = [
+        test_results = {
+            test_run_results.unique_id:
             TestResult(
                 test,
                 passed=test_run_results.status == TestStatus.Pass,
                 skipped=test_run_results.status == TestStatus.Skipped
             )
             for (test_run_results, _), test in zip(tests_in_run_results, tests)
-        ]
+        }
 
-        start_scan_response = soda_server_client.scan_start(
-            warehouse_yml.name,
-            warehouse_yml.dialect.type,
-            table_name="soda_test",
-            scan_yml_columns=None,
-            scan_time=datetime.now().isoformat(),
-            origin=os.environ.get("SODA_SCAN_ORIGIN", "external")
-        )
+        for model_unique_id, test_unique_ids in models_with_tests.items():
+            start_scan_response = soda_server_client.scan_start(
+                warehouse_yml.name,
+                warehouse_yml.dialect.type,
+                table_name=model_nodes[model_unique_id].alias,
+                scan_yml_columns=None,
+                scan_time=datetime.now().isoformat(),
+                origin=os.environ.get("SODA_SCAN_ORIGIN", "external")
+            )
 
-        test_result_jsons = [test_result.to_dict() for test_result in test_results]
-        soda_server_client.scan_test_results(
-            start_scan_response["scanReference"], test_result_jsons
-        )
+            test_result_jsons = [
+                test_results[test_unique_id].to_dict()
+                for test_unique_id in test_unique_ids
+            ]
+            soda_server_client.scan_test_results(
+                start_scan_response["scanReference"], test_result_jsons
+            )
 
-        soda_server_client.scan_ended(start_scan_response["scanReference"])
+            soda_server_client.scan_ended(start_scan_response["scanReference"])
 
 
 if __name__ == '__main__':
