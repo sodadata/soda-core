@@ -4,7 +4,10 @@ from __future__ import annotations
 
 from typing import Any
 
-from dbt.contracts.graph.compiled import ParsedModelNode, CompiledSchemaTestNode
+from dbt.contracts.graph.compiled import (
+    CompiledModelNode, CompiledSchemaTestNode
+)
+from dbt.contracts.graph.parsed import ParsedModelNode, ParsedSchemaTestNode
 from dbt.contracts.results import RunResultOutput
 from dbt.node_types import NodeType
 
@@ -24,7 +27,8 @@ def parse_manifest(
 
     Returns
     -------
-    out : tuple[dict[str, ParsedModelNode], dict[str, CompiledSchemaTestNode]]
+    out : tuple[dict[str, Union[ParsedModelNode, CompiledModelNode]],
+                dict[str, Unione[ParsedSchemaTestNode, CompiledSchemaTestNode]]]
         The parsed manifest.
 
     Raises
@@ -41,12 +45,12 @@ def parse_manifest(
         raise NotImplementedError("Dbt manifest parsing only supported for V3 schema.")
 
     model_nodes = {
-        node_name: ParsedModelNode(**node)
+        node_name: CompiledModelNode(**node) if "compiled" in node.keys() else ParsedModelNode(**node)
         for node_name, node in manifest["nodes"].items()
         if node["resource_type"] == NodeType.Model
     }
     test_nodes = {
-        node_name: CompiledSchemaTestNode(**node)
+        node_name: CompiledSchemaTestNode(**node) if "compiled" in node.keys() else ParsedSchemaTestNode(**node)
         for node_name, node in manifest["nodes"].items()
         if node["resource_type"] == NodeType.Test
     }
