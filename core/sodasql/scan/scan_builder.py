@@ -19,11 +19,48 @@ from sodasql.scan.parser import Parser
 from sodasql.scan.scan import Scan
 from sodasql.scan.scan_yml import ScanYml
 from sodasql.scan.warehouse_yml import WarehouseYml
-from sodasql.scan.warehouse_yml_parser import read_warehouse_yml_file
+from sodasql.scan.warehouse_yml_parser import WarehouseYmlParser, read_warehouse_yml_file
 from sodasql.soda_server_client.soda_server_client import SodaServerClient
 from sodasql.scan.failed_rows_processor import FailedRowsProcessor
 
+
 logger = logging.getLogger(__name__)
+
+
+def build_warehouse_yml_parser(
+    warehouse_yml_file: Optional[str] = None, warehouse_yml_dict: Optional[dict] = None
+) -> WarehouseYmlParser:
+    """
+    Build a warehouse yml parser.
+
+    Parameters
+    ----------
+    warehouse_yml_file : Optional[str], optional (default: None)
+        A warehouse yml file.
+    warehouse_yml_dict : Optional[dict], optional (default: None)
+        A warehouse yml dict.
+
+    Returns
+    -------
+    out : WarehouseYmlParser
+        The warehouse yml parser.
+    """
+    if not warehouse_yml_dict:
+        if isinstance(warehouse_yml_file, pathlib.PurePath):
+            warehouse_yml_file_str = str(warehouse_yml_file)
+        elif isinstance(warehouse_yml_file, str):
+            warehouse_yml_file_str = warehouse_yml_file
+        else:
+            logger.error(
+                "scan_builder.warehouse_yml_file must be an instance of Purepath or str, "
+                f"but was {type(warehouse_yml_file)}: {warehouse_yml_file}"
+            )
+
+        warehouse_yml_dict = read_warehouse_yml_file(warehouse_yml_file_str)
+
+    warehouse_yml_parser = WarehouseYmlParser(warehouse_yml_dict, warehouse_yml_file)
+
+    return warehouse_yml_parser
 
 
 def create_soda_server_client(
@@ -140,25 +177,13 @@ class ScanBuilder:
                     failed_rows_processor=self.failed_rows_processor)
 
     def _build_warehouse_yml(self):
-        warehouse_yml_file_str: Optional[str] = None
         if not self.warehouse_yml_file and not self.warehouse_yml_dict and not self.warehouse_yml:
-            logger.error(f'No warehouse specified')
-            return
-        elif self.warehouse_yml_file and not self.warehouse_yml_dict and not self.warehouse_yml:
-            if isinstance(self.warehouse_yml_file, pathlib.PurePath):
-                warehouse_yml_file_str = str(self.warehouse_yml_file)
-            elif isinstance(self.warehouse_yml_file, str):
-                warehouse_yml_file_str = self.warehouse_yml_file
-            else:
-                logger.error(
-                    f'scan_builder.warehouse_yml_file must be an instance of Purepath or str, '
-                    f'but was {type(self.warehouse_yml_file)}: {self.warehouse_yml_file}')
-
-            self.warehouse_yml_dict = read_warehouse_yml_file(warehouse_yml_file_str)
-
-        if self.warehouse_yml_dict and not self.warehouse_yml:
-            from sodasql.scan.warehouse_yml_parser import WarehouseYmlParser
-            self.parse_warehouse_yml(WarehouseYmlParser(self.warehouse_yml_dict, self.warehouse_yml_file))
+            logger.error("No warehouse specified")
+        elif not self.warehouse_yml:
+            warehouse_yml_parser = build_warehouse_yml_parser(
+                self.warehouse_yml_file, self.warehouse_yml_dict
+            )
+            self.parse_warehouse_yml(warehouse_yml_parser)
 
     def parse_warehouse_yml(self, warehouse_parser):
         warehouse_parser.log()
