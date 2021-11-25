@@ -16,6 +16,10 @@ from sodasql.cli.cli import main
 from sodasql.scan.file_system import FileSystem, FileSystemSingleton
 from sodasql.dialects.postgres_dialect import PostgresDialect
 from tests.common.sql_test_case import SqlTestCase
+from tests.common.telemetry_helper import telemetry_ensure_no_secrets
+
+from sodasql.telemetry.soda_telemetry import MemorySpanExporter
+telemetry_exporter = MemorySpanExporter.get_instance()
 
 
 class CliWithMockFileSystem(FileSystem):
@@ -82,6 +86,7 @@ class TestCli(SqlTestCase):
     def tearDownClass(cls) -> None:
         FileSystemSingleton.INSTANCE = cls.original_file_system
 
+    @telemetry_ensure_no_secrets()
     def test_cli_tutorial_scenario(self):
         if isinstance(self.warehouse.dialect, PostgresDialect):
             self.load_demo_data()

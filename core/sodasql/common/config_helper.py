@@ -34,7 +34,7 @@ class ConfigHelper:
     @staticmethod
     def get_instance(path: Optional[str] = None):
         if ConfigHelper.__instance is None:
-            ConfigHelper()
+            ConfigHelper(path)
         return ConfigHelper.__instance
 
     def __init__(self, path: Optional[str] = None):
