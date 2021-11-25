@@ -337,6 +337,7 @@ class Parser:
             self.error(f'Syntax error in test {test_title}:\n' +
                        ('\n'.join(stacktrace_lines[-3:])))
 
+    @classmethod
     def create_test_title(self,
                           test_expression,
                           test_name,
@@ -354,6 +355,7 @@ class Parser:
         parts.append((test_name if test_name else f'test') + f'({test_expression})')
         return ' '.join(parts)
 
+    @classmethod
     def create_test_id(self,
                        test_expression,
                        test_name,
