@@ -9,6 +9,7 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 import logging
+import json
 import re
 import sys
 from datetime import datetime, timezone
@@ -546,6 +547,7 @@ def ingest(
     if tool == "dbt":
         try:
             from dbt.contracts.results import TestStatus
+            from dbt.contracts.graph.compiled import CompiledSchemaTestNode
             from sodasql import dbt as soda_dbt
         except ImportError as e:
             raise RuntimeError(
@@ -565,15 +567,17 @@ def ingest(
         if not soda_server_client.api_key_id or not soda_server_client.api_key_secret:
             raise ValueError("Missing Soda cloud api key id and/or secret.")
 
-        model_nodes, test_nodes = soda_dbt.parse_manifest(dbt_manifest)
-        parsed_run_results = soda_dbt.parse_run_results(dbt_run_results)
+        with dbt_manifest.open("r") as manifest:
+            model_nodes, test_nodes = soda_dbt.parse_manifest(json.load(manifest))
+        with dbt_run_results.open("r") as run_results:
+            parsed_run_results = soda_dbt.parse_run_results(json.load(run_results))
 
         models_that_tests_depends_on = soda_dbt.find_models_on_which_tests_depends(
             model_nodes, test_nodes, parsed_run_results
         )
 
         tests_in_run_results = [
-            run_result
+            (run_result, test_nodes[run_result.unique_id])
             for run_result in parsed_run_results
             if run_result.unique_id in test_nodes.keys()
         ]
@@ -581,26 +585,26 @@ def ingest(
         tests = [
             Test(
                 id=Parser.create_test_id(
-                    test_expression=test_nodes[test_run_results.unique_id].compiled_sql,
+                    test_expression=test_node.compiled_sql if isinstance(test_node, CompiledSchemaTestNode) else None,
                     test_name=test_run_results.unique_id,
                     test_index=index,
-                    context_column_name=test_nodes[test_run_results.unique_id].column_name,
+                    context_column_name=test_node.column_name,
                     context_sql_metric_name=None,
                     context_sql_metric_index=None,
                 ),
                 title=Parser.create_test_title(
-                    test_expression=test_nodes[test_run_results.unique_id].compiled_sql,
+                    test_expression=test_node.compiled_sql if isinstance(test_node, CompiledSchemaTestNode) else None,
                     test_name=test_run_results.unique_id,
                     test_index=index,
-                    context_column_name=test_nodes[test_run_results.unique_id].column_name,
+                    context_column_name=test_node.column_name,
                     context_sql_metric_name=None,
                     context_sql_metric_index=None,
                 ),
-                expression=test_nodes[test_run_results.unique_id].compiled_sql,
+                expression=test_node.compiled_sql if isinstance(test_node, CompiledSchemaTestNode) else None,
                 metrics=None,
-                column=test_nodes[test_run_results.unique_id].column_name,
+                column=test_node.column_name,
             )
-            for index, test_run_results in enumerate(tests_in_run_results)
+            for index, (test_run_results, test_node) in enumerate(tests_in_run_results)
         ]
 
         test_results = [
@@ -609,8 +613,12 @@ def ingest(
                 passed=test_run_results.status == TestStatus.Pass,
                 skipped=test_run_results.status == TestStatus.Skipped
             )
-            for test_run_results, test in zip(tests_in_run_results, tests)
+            for (test_run_results, _), test in zip(tests_in_run_results, tests)
         ]
 
         test_result_jsons = [test_result.to_dict() for test_result in test_results]
         soda_server_client.scan_test_results(scan_reference, test_result_jsons)
+
+
+if __name__ == '__main__':
+    main()
