@@ -1,0 +1,49 @@
+{
+    "metadata": {
+        "dbt_schema_version": "https://schemas.getdbt.com/dbt/run-results/v3.json"
+    },
+    "results": [
+        {
+            "status": "pass",
+            "timing": [
+                {
+                    "name": "compile",
+                    "started_at": "2021-11-19T10:22:58.132733Z",
+                    "completed_at": "2021-11-19T10:22:58.141662Z"
+                },
+                {
+                    "name": "execute",
+                    "started_at": "2021-11-19T10:22:58.142108Z",
+                    "completed_at": "2021-11-19T10:23:02.286903Z"
+                }
+            ],
+            "thread_id": "Thread-1",
+            "execution_time": 4.257888078689575,
+            "adapter_response": {},
+            "message": null,
+            "failures": 0,
+            "unique_id": "test.soda.accepted_values_stg_soda__scan__result__pass_fail.81f"
+        },
+        {
+            "status": "fail",
+            "timing": [
+                {
+                    "name": "compile",
+                    "started_at": "2021-11-19T10:23:02.506897Z",
+                    "completed_at": "2021-11-19T10:23:02.514333Z"
+                },
+                {
+                    "name": "execute",
+                    "started_at": "2021-11-19T10:23:02.514773Z",
+                    "completed_at": "2021-11-19T10:23:15.568742Z"
+                }
+            ],
+            "thread_id": "Thread-1",
+            "execution_time": 13.31378722190857,
+            "adapter_response": {},
+            "message": null,
+            "failures": 3,
+            "unique_id": "test.soda.accepted_values_stg_soda__scan__warehouse__spark__postgres.2e"
+        }
+    ]
+}

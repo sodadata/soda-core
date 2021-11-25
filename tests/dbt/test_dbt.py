@@ -25,57 +25,20 @@ def manifest() -> dict:
     return manifest
 
 
-RUN_RESULTS = {
-    "metadata": {
-        "dbt_schema_version": "https://schemas.getdbt.com/dbt/run-results/v3.json"
-    },
-    "results": [
-        {
-            "status": "pass",
-            "timing": [
-                {
-                    "name": "compile",
-                    "started_at": "2021-11-19T10:22:58.132733Z",
-                    "completed_at": "2021-11-19T10:22:58.141662Z",
-                },
-                {
-                    "name": "execute",
-                    "started_at": "2021-11-19T10:22:58.142108Z",
-                    "completed_at": "2021-11-19T10:23:02.286903Z",
-                },
-            ],
-            "thread_id": "Thread-1",
-            "execution_time": 4.257888078689575,
-            "adapter_response": {},
-            "message": None,
-            "failures": 0,
-            "unique_id": "test.soda.accepted_values_stg_soda__scan__result__pass_fail.81f",
-        },
-        {
-            "status": "fail",
-            "timing": [
-                {
-                    "name": "compile",
-                    "started_at": "2021-11-19T10:23:02.506897Z",
-                    "completed_at": "2021-11-19T10:23:02.514333Z",
-                },
-                {
-                    "name": "execute",
-                    "started_at": "2021-11-19T10:23:02.514773Z",
-                    "completed_at": "2021-11-19T10:23:15.568742Z",
-                },
-            ],
-            "thread_id": "Thread-1",
-            "execution_time": 13.31378722190857,
-            "adapter_response": {},
-            "message": None,
-            "failures": 3,
-            "unique_id": (
-                "test.soda.accepted_values_stg_soda__scan__warehouse__spark__postgres.2e"
-            ),
-        },
-    ],
-}
+@pytest.fixture
+def run_results() -> dict:
+    """
+    Get the run_results.
+
+    Returns
+    -------
+    out : dict
+        The run_results
+    """
+    manifest_file = Path(__file__).parent / "data/run_results.json"
+    with manifest_file.open("r") as file:
+        manifest = json.load(file)
+    return manifest
 
 
 def test_parse_manifest_raises_not_implemented_error() -> None:
@@ -126,9 +89,10 @@ def test_parse_run_results_raises_not_implemented_error() -> None:
 def test_parse_run_results_status(
     result_index: int,
     status: TestStatus,
+    run_results: dict,
 ) -> None:
     """Validate the status of the nth result."""
-    parsed_run_results = soda_dbt.parse_run_results(RUN_RESULTS)
+    parsed_run_results = soda_dbt.parse_run_results(run_results)
 
     assert parsed_run_results[result_index].status == status
 
@@ -143,9 +107,10 @@ def test_parse_run_results_status(
 def test_parse_run_results_failures(
     result_index: int,
     failures: int,
+    run_results: dict,
 ) -> None:
     """Validate the failures of the nth result."""
-    parsed_run_results = soda_dbt.parse_run_results(RUN_RESULTS)
+    parsed_run_results = soda_dbt.parse_run_results(run_results)
 
     assert parsed_run_results[result_index].failures == failures
 
@@ -157,9 +122,11 @@ def test_parse_run_results_failures(
         (1, "test.soda.accepted_values_stg_soda__scan__warehouse__spark__postgres.2e"),
     ],
 )
-def test_parse_run_results_unique_id(result_index: int, unique_id: str) -> None:
+def test_parse_run_results_unique_id(
+    result_index: int, unique_id: str, run_results: dict
+) -> None:
     """Validate the unique_id of the nth result."""
-    parsed_run_results = soda_dbt.parse_run_results(RUN_RESULTS)
+    parsed_run_results = soda_dbt.parse_run_results(run_results)
 
     assert parsed_run_results[result_index].unique_id == unique_id
 
@@ -180,11 +147,12 @@ def test_create_models_to_test_mapping(
     model_name: str,
     test_names: set[str],
     manifest: dict,
+    run_results: dict,
 ):
     """Check if the expected models are found."""
 
     model_nodes, test_nodes = soda_dbt.parse_manifest(manifest)
-    parsed_run_results = soda_dbt.parse_run_results(RUN_RESULTS)
+    parsed_run_results = soda_dbt.parse_run_results(run_results)
 
     models_with_tests = soda_dbt.create_models_to_tests_mapping(
         model_nodes, test_nodes, parsed_run_results
