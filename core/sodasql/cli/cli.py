@@ -540,3 +540,10 @@ def ingest(
             raise ValueError(f"Dbt manifest is required: {dbt_manifest}")
         if dbt_run_results is None:
             raise ValueError(f"Dbt run results ({dbt_run_results})")
+
+        model_nodes, test_nodes = soda_dbt.parse_manifest(dbt_manifest)
+        parsed_run_results = soda_dbt.parse_run_results(dbt_run_results)
+
+        models_that_tests_depends_on = soda_dbt.find_models_on_which_tests_depends(
+            model_nodes, test_nodes, parsed_run_results
+        )
