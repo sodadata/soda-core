@@ -25,7 +25,11 @@ from sodasql.common.logging_helper import LoggingHelper
 from sodasql.dataset_analyzer import DatasetAnalyzer
 from sodasql.scan.file_system import FileSystemSingleton
 from sodasql.scan.metric import Metric
-from sodasql.scan.scan_builder import ScanBuilder
+from sodasql.scan.scan_builder import (
+    ScanBuilder,
+    build_warehouse_yml_parser,
+    create_soda_server_client,
+)
 from sodasql.scan.warehouse import Warehouse
 from sodasql.scan.warehouse_yml_parser import (WarehouseYmlParser,
                                                read_warehouse_yml_file)
@@ -499,6 +503,11 @@ def scan(scan_yml_file: str, warehouse_yml_file: str, variables: tuple, time: st
     type=click.Choice(["dbt"]),
 )
 @click.option(
+    "--warehouse-yml-file",
+    help="The warehouse yml file.",
+    default=None,
+)
+@click.option(
     "--dbt-manifest",
     help="The path to the dbt manifest file",
     default=None,
@@ -508,10 +517,11 @@ def scan(scan_yml_file: str, warehouse_yml_file: str, variables: tuple, time: st
     "--dbt-run-results",
     help="The path to the dbt run results file",
     default=None,
-    type=Path
+    type=Path,
 )
 def ingest(
     tool: str,
+    warehouse_yml_file: Optional[str],
     dbt_manifest: Optional[Path],
     dbt_run_results: Optional[Path],
 ):
@@ -522,13 +532,14 @@ def ingest(
     ---------
     tool : str
         The tool name.
+    warehouse_yml_file : Optional[str]
+        The warehouse yml file.
     dbt_manifest : Optional[Path]
         The path to the dbt manifest.
     dbt_run_results : Optional[Path]
         The path to the dbt run results.
     """
     logger.info(SODA_SQL_VERSION)
-
     if tool == "dbt":
         try:
             from sodasql import dbt as soda_dbt
@@ -541,9 +552,21 @@ def ingest(
         if dbt_run_results is None:
             raise ValueError(f"Dbt run results is required: {dbt_run_results}")
 
+        warehouse_yml = None
+        if warehouse_yml_file is not None:
+            warehouse_yml_parser = build_warehouse_yml_parser(warehouse_yml_file)
+            warehouse_yml = warehouse_yml_parser.warehouse_yml
+
+        soda_server_client = create_soda_server_client(warehouse_yml)
+        if not soda_server_client.api_key_id or not soda_server_client.api_key_secret:
+            raise ValueError("Missing Soda cloud api key id and/or secret.")
+
         model_nodes, test_nodes = soda_dbt.parse_manifest(dbt_manifest)
         parsed_run_results = soda_dbt.parse_run_results(dbt_run_results)
 
         models_that_tests_depends_on = soda_dbt.find_models_on_which_tests_depends(
             model_nodes, test_nodes, parsed_run_results
         )
+
+        test_result_jsons = [test_result.to_dict() for test_result in test_results]
+        soda_server_client.scan_test_results(scan_reference, test_result_jsons)
