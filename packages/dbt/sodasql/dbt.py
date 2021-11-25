@@ -130,15 +130,15 @@ def create_models_to_tests_mapping(
         for test_unique_id in test_unique_ids
     }
 
-    model_node_ids = reduce(
+    model_unique_ids = reduce(
         or_,
-        [model_node_ids for model_node_ids in models_that_tests_depends_on.values()]
+        [model_unique_ids for model_unique_ids in models_that_tests_depends_on.values()]
     )
 
     models_with_tests = defaultdict(set)
-    for model_node_id in model_node_ids:
-        for test_unique_id, model_node_ids_of_tests in models_that_tests_depends_on.items():
-            if model_node_id in model_node_ids_of_tests:
-                models_with_tests[model_node_id].add(test_unique_id)
+    for model_unique_id in model_unique_ids:
+        for test_unique_id, model_unique_ids_of_test in models_that_tests_depends_on.items():
+            if model_unique_id in model_unique_ids_of_test:
+                models_with_tests[model_unique_id].add(test_unique_id)
 
     return models_with_tests
