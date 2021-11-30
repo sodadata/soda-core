@@ -114,3 +114,10 @@ Thanks goes to these wonderful people! ([emoji key](https://allcontributors.org/
 <!-- ALL-CONTRIBUTORS-LIST:END -->
 
 This project follows the [all-contributors](https://github.com/all-contributors/all-contributors) specification. Contributions of any kind are welcome!
+
+## Open Telemetry Tracking
+
+Soda-sql collects statistical usage and performance information via the [Open Telemetry framework](https://opentelemetry.io) to help the Soda Core developers team proactively track performance issues and understand how users interact with the tool.
+The information is strictly limited to usage and performance and does not contain Personal Identifying Information. It will be used for internal purposes only. Soda will keep the data in its raw form for a maximum of 5 years. If some information needs to be kept for longer, it will be done in aggregated form only.
+
+Users can find more information about the tracked information, and opt-out of tracking by consulting the configuration settings [entry on docs.soda.io](https://docs.soda.io/soda-sql/global-configuration.html)
