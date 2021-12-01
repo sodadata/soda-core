@@ -33,6 +33,7 @@ from sodasql.scan.test import Test
 from sodasql.scan.test_result import TestResult
 from sodasql.scan.warehouse import Warehouse
 from sodasql.soda_server_client.soda_server_client import SodaServerClient
+from sodasql.scan.failed_rows_processor import FailedRowsProcessor
 
 logger = logging.getLogger(__name__)
 
@@ -45,13 +46,15 @@ class Scan:
                  soda_server_client: SodaServerClient = None,
                  variables: dict = None,
                  time: str = None,
-                 scan_results_file: str = None):
+                 scan_results_file: Optional[str] = None,
+                 failed_rows_processor: Optional[FailedRowsProcessor] = None):
         self.warehouse = warehouse
         self.scan_yml = scan_yml
         self.soda_server_client = soda_server_client
         self.variables = variables
         self.time = time
         self.scan_results_file = scan_results_file
+        self.failed_rows_processor = failed_rows_processor
 
         self.scan_result = ScanResult()
         self.dialect = warehouse.dialect
@@ -102,7 +105,7 @@ class Scan:
             self._run_table_tests()
             self._run_column_tests()
             if not self.disable_sample_collection:
-                self._take_samples()
+                self._process_samples()
 
             logger.debug(f'Executed {self.queries_executed} queries in {(datetime.now() - self.start_time)}')
 
@@ -826,20 +829,23 @@ class Scan:
                 test_results.append(test_result)
         return test_results
 
-    # noinspection PyTypeChecker
-    def _take_samples(self):
-        if self.soda_server_client:
-            try:
-                for measurement in self.scan_result.measurements:
-                    if (measurement.metric in [Metric.ROW_COUNT, Metric.MISSING_COUNT, Metric.INVALID_COUNT,
-                                               Metric.VALUES_COUNT, Metric.VALID_COUNT]
-                        and measurement.value > 0):
-                        samples_yml = self.scan_yml.get_sample_yml(measurement)
-                        if samples_yml:
-                            self.sampler.save_sample(samples_yml, measurement, self.scan_result.test_results)
-            except Exception as e:
-                logger.exception(f'Soda cloud error: Could not upload samples: {e}')
-                self.scan_result.add_error(SodaCloudScanError('Could not upload samples', e))
+    def _process_samples(self):
+        try:
+            for measurement in self.scan_result.measurements:
+                if (measurement.metric in [Metric.ROW_COUNT, Metric.MISSING_COUNT, Metric.INVALID_COUNT,
+                                           Metric.VALUES_COUNT, Metric.VALID_COUNT] and measurement.value > 0):
+                    samples_yml = self.scan_yml.get_sample_yml(measurement)
+                    if samples_yml:
+                        sample_details = self.sampler.get_samples(samples_yml, measurement,
+                                                                  self.scan_result.test_results)
+                        if self.failed_rows_processor:
+                            self.failed_rows_processor.process(sample_details)
+                        if self.soda_server_client:
+                            self.sampler.send_samples_to_soda_cloud(sample_details)
+
+        except Exception as e:
+            logger.exception(f'Could not process samples: {e}')
+            self.scan_result.add_error(SodaCloudScanError('Could not process samples', e))
 
     @classmethod
     def _log_and_append_query_measurement(cls, measurements: List[Measurement], measurement: Measurement):

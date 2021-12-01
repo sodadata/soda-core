@@ -7,14 +7,14 @@ if sys.version_info < (3, 7):
     print('Error: Please upgrade your Python version to 3.7 or later')
     sys.exit(1)
 
-package_name = "soda-sql-bigquery"
+package_name = "soda-sql-dbt"
 package_version = '2.1.0b22'
 # TODO Add proper description
-description = "Soda SQL BigQuery"
+description = "Soda SQL DBT"
 
 requires = [
     f'soda-sql-core=={package_version}',
-    'google-cloud-bigquery>=2.25.0, <3.0'
+    "dbt-core~=0.21.0",
 ]
 # TODO Fix the params
 # TODO Add a warning that installing core doesn't give any warehouse functionality

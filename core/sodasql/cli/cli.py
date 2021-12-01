@@ -90,10 +90,6 @@ def create(warehouse_type: str,
         logger.info(f"Soda CLI version {SODA_SQL_VERSION}")
         file_system = FileSystemSingleton.INSTANCE
 
-        # if not warehouse:
-        #     warehouse_dir_parent, warehouse_dir_name = file_system.split(warehouse_dir)
-        #     warehouse = warehouse_dir_name if warehouse_dir_name != '.' else warehouse_type
-
         from sodasql.scan.dialect import ALL_WAREHOUSE_TYPES, Dialect
         dialect = Dialect.create_for_warehouse_type(warehouse_type)
         if not dialect:
@@ -205,7 +201,7 @@ def matches_table_exclude(table_name: str, table_exclude_pattern):
 
 
 @main.command(short_help='Analyze tables and scaffold SCAN YAML')
-@click.argument('warehouse_file', required=False, default='warehouse.yml')
+@click.argument('warehouse_yml_file', required=False, default='warehouse.yml')
 @click.option('-i', '--include',
               required=False,
               help='Table name includes filter, case insensitive, comma separated list, use * as a wild card')
@@ -218,12 +214,12 @@ def matches_table_exclude(table_name: str, table_exclude_pattern):
               help='Limit the number of tables analyzed. This option is ignored for Hive and Spark dialects'
               )
 @soda_trace
-def analyze(warehouse_file: str, include: str, exclude: str, limit: int):
+def analyze(warehouse_yml_file: str, include: str, exclude: str, limit: int):
     """
     Analyzes tables in the warehouse and creates scan YAML files based on the data in the table. By default it creates
     files in a subdirectory called "tables" on the same level as the warehouse file.
 
-    WAREHOUSE_FILE contains the connection details to the warehouse. This file can be created using the `soda create` command.
+    WAREHOUSE_YML_FILE contains the connection details to the warehouse. This file can be created using the `soda create` command.
     The warehouse file argument is optional and defaults to 'warehouse.yml'.
     """
     logger.info(SODA_SQL_VERSION)
@@ -234,7 +230,7 @@ def analyze(warehouse_file: str, include: str, exclude: str, limit: int):
 
     span_setup_function_args(
         {
-            'command_argument': {'warehouse_file': warehouse_file},
+            'command_argument': {'warehouse_yml_file': warehouse_yml_file},
             'command_option':
                 {
                     'include': include,
@@ -245,14 +241,14 @@ def analyze(warehouse_file: str, include: str, exclude: str, limit: int):
     )
 
     try:
-        logger.info(f'Analyzing {warehouse_file} ...')
+        logger.info(f'Analyzing {warehouse_yml_file} ...')
 
-        warehouse_yml_dict = read_warehouse_yml_file(warehouse_file)
-        warehouse_yml_parser = WarehouseYmlParser(warehouse_yml_dict, warehouse_file)
+        warehouse_yml_dict = read_warehouse_yml_file(warehouse_yml_file)
+        warehouse_yml_parser = WarehouseYmlParser(warehouse_yml_dict, warehouse_yml_file)
         warehouse = Warehouse(warehouse_yml_parser.warehouse_yml)
 
         logger.info('Querying warehouse for tables')
-        warehouse_dir = file_system.dirname(warehouse_file)
+        warehouse_dir = file_system.dirname(warehouse_yml_file)
 
         file_system = FileSystemSingleton.INSTANCE
 
@@ -345,7 +341,7 @@ def analyze(warehouse_file: str, include: str, exclude: str, limit: int):
                 logger.info(f"Skipping table {table_name}")
 
         logger.info(
-            f"Next run 'soda scan {warehouse_file} {first_table_scan_yml_file}' to calculate measurements and run tests")
+            f"Next run 'soda scan {warehouse_yml_file} {first_table_scan_yml_file}' to calculate measurements and run tests")
 
     except Exception as e:
         logger.exception(f'Exception: {str(e)}')
@@ -386,9 +382,12 @@ def analyze(warehouse_file: str, include: str, exclude: str, limit: int):
               required=False,
               default=None,
               help='Specify the file path where the scan results as json will be stored')
+@click.option('-frd', '--failed-rows-dir',
+              required=False,
+              help='Specify the directory to store the failed rows')
 @soda_trace
 def scan(scan_yml_file: str, warehouse_yml_file: str, variables: tuple, time: str, offline: bool,
-         non_interactive: bool = False, scan_results_file: str = None):
+         non_interactive: bool = False, scan_results_file: Optional[str] = None, failed_rows_dir: Optional[str] = None):
     """
     Computes all measurements and runs all tests on one table.  Exit code 0 means all tests passed.
     Non zero exit code means tests have failed or an exception occurred.
@@ -441,6 +440,8 @@ def scan(scan_yml_file: str, warehouse_yml_file: str, variables: tuple, time: st
         scan_builder.time = time
         scan_builder.non_interactive = non_interactive
         scan_builder.scan_results_json_path = scan_results_file
+        # TODO Failed Rows Dir
+        scan_builder.failed_rows_dir = failed_rows_dir
 
         if non_interactive and not time == datetime.now(tz=timezone.utc).isoformat(timespec='seconds'):
             logging.warning(f'You are using the --time option with the following value: {time}, meaning that the '

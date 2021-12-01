@@ -23,7 +23,8 @@ class ConfigHelper:
     """Helper class for handling global Soda config.
     """
     DEFAULT_CONFIG = {
-        'send_anonymous_usage_stats': True,
+        # TODO set to True after we enable production collector
+        'send_anonymous_usage_stats': False,
         'user_cookie_id': str(uuid.uuid4())
     }
     LOAD_PATHS = ["~/.soda/config.yml", ".soda/config.yml"]
@@ -122,4 +123,5 @@ class ConfigHelper:
 
     @property
     def send_anonymous_usage_stats(self) -> bool:
-        return self.config.get("send_anonymous_usage_stats", True)
+        # TODO set to True after we enable production collector
+        return self.config.get("send_anonymous_usage_stats", False)

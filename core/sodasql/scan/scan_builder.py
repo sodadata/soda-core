@@ -10,7 +10,8 @@
 #  limitations under the License.
 import logging
 import os
-from typing import List, Optional
+import pathlib
+from typing import List, Optional, Union
 
 from sodasql.common.yaml_helper import YamlHelper
 from sodasql.scan.file_system import FileSystemSingleton
@@ -20,7 +21,7 @@ from sodasql.scan.scan_yml import ScanYml
 from sodasql.scan.warehouse_yml import WarehouseYml
 from sodasql.scan.warehouse_yml_parser import read_warehouse_yml_file
 from sodasql.soda_server_client.soda_server_client import SodaServerClient
-from sodasql.telemetry.soda_telemetry import SodaTelemetry
+from sodasql.scan.failed_rows_processor import FailedRowsProcessor
 
 logger = logging.getLogger(__name__)
 
@@ -59,7 +60,7 @@ class ScanBuilder:
 
     def __init__(self):
         self.file_system = FileSystemSingleton.INSTANCE
-        self.warehouse_yml_file: Optional[str] = None
+        self.warehouse_yml_file: Optional[Union[str, pathlib.PurePath]] = None
         self.warehouse_yml_dict: Optional[dict] = None
         self.warehouse_yml: Optional[WarehouseYml] = None
         self.scan_yml_file: Optional[str] = None
@@ -71,6 +72,8 @@ class ScanBuilder:
         self.assert_no_warnings_or_errors = True
         self.soda_server_client: Optional[SodaServerClient] = None
         self.scan_results_json_path: Optional[str] = None
+        self.failed_rows_dir_path: Optional[str] = None
+        self.failed_rows_processor: Optional[FailedRowsProcessor] = None
 
     def build(self, offline: bool = False):
         self._build_warehouse_yml()
@@ -92,19 +95,25 @@ class ScanBuilder:
                     variables=self.variables,
                     soda_server_client=self.soda_server_client,
                     time=self.time,
-                    scan_results_file=self.scan_results_json_path)
+                    scan_results_file=self.scan_results_json_path,
+                    failed_rows_processor=self.failed_rows_processor)
 
     def _build_warehouse_yml(self):
+        warehouse_yml_file_str: Optional[str] = None
         if not self.warehouse_yml_file and not self.warehouse_yml_dict and not self.warehouse_yml:
             logger.error(f'No warehouse specified')
             return
-
         elif self.warehouse_yml_file and not self.warehouse_yml_dict and not self.warehouse_yml:
-            if not isinstance(self.warehouse_yml_file, str):
-                logger.error(
-                    f'scan_builder.warehouse_yml_file must be str, but was {type(self.warehouse_yml_file)}: {self.warehouse_yml_file}')
+            if isinstance(self.warehouse_yml_file, pathlib.PurePath):
+                warehouse_yml_file_str = str(self.warehouse_yml_file)
+            elif isinstance(self.warehouse_yml_file, str):
+                warehouse_yml_file_str = self.warehouse_yml_file
             else:
-                self.warehouse_yml_dict = read_warehouse_yml_file(self.warehouse_yml_file)
+                logger.error(
+                    f'scan_builder.warehouse_yml_file must be an instance of Purepath or str, '
+                    f'but was {type(self.warehouse_yml_file)}: {self.warehouse_yml_file}')
+
+            self.warehouse_yml_dict = read_warehouse_yml_file(warehouse_yml_file_str)
 
         if self.warehouse_yml_dict and not self.warehouse_yml:
             from sodasql.scan.warehouse_yml_parser import WarehouseYmlParser
@@ -117,19 +126,25 @@ class ScanBuilder:
 
     def _build_scan_yml(self):
         if not self.scan_yml_file and not self.scan_yml_dict and not self.scan_yml:
-            logger.error(f'No scan specified')
+            logger.error(f'No scan file specified')
             return
-
         elif self.scan_yml_file and not self.scan_yml_dict and not self.scan_yml:
-            if not isinstance(self.scan_yml_file, str):
+            scan_yml_file_str: Optional[str] = None
+            if isinstance(self.scan_yml_file, pathlib.PurePath):
+                scan_yml_file_str = str(self.scan_yml_file)
+            elif isinstance(self.scan_yml_file, str):
+                scan_yml_file_str = self.scan_yml_file
+
+            if not isinstance(scan_yml_file_str, str):
                 logger.error(
-                    f'scan_builder.scan_yml_file must be str, but was {type(self.scan_yml_file)}: {self.scan_yml_file}')
-            elif self.file_system.is_readable_file(self.scan_yml_file):
-                scan_yml_str = self.file_system.file_read_as_str(self.scan_yml_file)
+                    f'scan_builder.scan_yml_file must be str, but was {type(scan_yml_file_str)}: {scan_yml_file_str}')
+            elif self.file_system.is_readable_file(scan_yml_file_str):
+                scan_yml_str = self.file_system.file_read_as_str(scan_yml_file_str)
+
                 if scan_yml_str:
-                    self.scan_yml_dict = YamlHelper.parse_yaml(scan_yml_str, self.scan_yml_file)
+                    self.scan_yml_dict = YamlHelper.parse_yaml(scan_yml_str, scan_yml_file_str)
                 else:
-                    logger.error(f'Failed to file scan yaml file: {self.scan_yml_file}')
+                    logger.error(f'Failed to parse scan yaml file: {scan_yml_file_str}')
 
         if self.scan_yml_dict and not self.scan_yml:
             from sodasql.scan.scan_yml_parser import ScanYmlParser
