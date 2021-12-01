@@ -2,7 +2,6 @@ import logging
 import platform
 from typing import Dict
 
-
 from opentelemetry import trace
 from opentelemetry.sdk.resources import Resource
 from opentelemetry.semconv.resource import ResourceAttributes
@@ -21,6 +20,7 @@ from sodasql.scan.dialect import Dialect
 logger = logging.getLogger(__name__)
 soda_config = ConfigHelper.get_instance()
 
+
 class SodaTelemetry:
     """Main entry point for Open Telemetry tracing.
 
@@ -38,11 +38,11 @@ class SodaTelemetry:
     `set_attribute` method usage to obtain the full list.
     """
 
-    ENDPOINT = 'https://collect.dev.sodadata.io/v1/traces'
+    ENDPOINT = 'https://collect.soda.io/v1/traces'
     __send = True
     soda_config = ConfigHelper.get_instance()
 
-    def __init__(self,  send_anonymous_usage_stats: bool = True):
+    def __init__(self, send_anonymous_usage_stats: bool = True):
         self.__send = send_anonymous_usage_stats
         if self.__send:
             logger.info("Sending usage telemetry.")
@@ -91,6 +91,7 @@ class SodaTelemetry:
     @property
     def user_cookie_id(self) -> str:
         return self.soda_config.get_value('user_cookie_id')
+
 
 # Global
 soda_telemetry = SodaTelemetry(soda_config.send_anonymous_usage_stats)
