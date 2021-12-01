@@ -201,7 +201,7 @@ def matches_table_exclude(table_name: str, table_exclude_pattern):
 
 
 @main.command(short_help='Analyze tables and scaffold SCAN YAML')
-@click.argument('warehouse_file', required=False, default='warehouse.yml')
+@click.argument('warehouse_yml_file', required=False, default='warehouse.yml')
 @click.option('-i', '--include',
               required=False,
               help='Table name includes filter, case insensitive, comma separated list, use * as a wild card')
@@ -214,12 +214,12 @@ def matches_table_exclude(table_name: str, table_exclude_pattern):
               help='Limit the number of tables analyzed. This option is ignored for Hive and Spark dialects'
               )
 @soda_trace
-def analyze(warehouse_file: str, include: str, exclude: str, limit: int):
+def analyze(warehouse_yml_file: str, include: str, exclude: str, limit: int):
     """
     Analyzes tables in the warehouse and creates scan YAML files based on the data in the table. By default it creates
     files in a subdirectory called "tables" on the same level as the warehouse file.
 
-    WAREHOUSE_FILE contains the connection details to the warehouse. This file can be created using the `soda create` command.
+    WAREHOUSE_YML_FILE contains the connection details to the warehouse. This file can be created using the `soda create` command.
     The warehouse file argument is optional and defaults to 'warehouse.yml'.
     """
     logger.info(SODA_SQL_VERSION)
@@ -230,7 +230,7 @@ def analyze(warehouse_file: str, include: str, exclude: str, limit: int):
 
     span_setup_function_args(
         {
-            'command_argument': {'warehouse_file': warehouse_file},
+            'command_argument': {'warehouse_yml_file': warehouse_yml_file},
             'command_option':
                 {
                     'include': include,
@@ -241,14 +241,14 @@ def analyze(warehouse_file: str, include: str, exclude: str, limit: int):
     )
 
     try:
-        logger.info(f'Analyzing {warehouse_file} ...')
+        logger.info(f'Analyzing {warehouse_yml_file} ...')
 
-        warehouse_yml_dict = read_warehouse_yml_file(warehouse_file)
-        warehouse_yml_parser = WarehouseYmlParser(warehouse_yml_dict, warehouse_file)
+        warehouse_yml_dict = read_warehouse_yml_file(warehouse_yml_file)
+        warehouse_yml_parser = WarehouseYmlParser(warehouse_yml_dict, warehouse_yml_file)
         warehouse = Warehouse(warehouse_yml_parser.warehouse_yml)
 
         logger.info('Querying warehouse for tables')
-        warehouse_dir = file_system.dirname(warehouse_file)
+        warehouse_dir = file_system.dirname(warehouse_yml_file)
 
         file_system = FileSystemSingleton.INSTANCE
 
@@ -341,7 +341,7 @@ def analyze(warehouse_file: str, include: str, exclude: str, limit: int):
                 logger.info(f"Skipping table {table_name}")
 
         logger.info(
-            f"Next run 'soda scan {warehouse_file} {first_table_scan_yml_file}' to calculate measurements and run tests")
+            f"Next run 'soda scan {warehouse_yml_file} {first_table_scan_yml_file}' to calculate measurements and run tests")
 
     except Exception as e:
         logger.exception(f'Exception: {str(e)}')
