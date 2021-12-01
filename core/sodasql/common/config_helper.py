@@ -19,12 +19,12 @@ from sodasql.scan.file_system import FileSystemSingleton
 
 logger = logging.getLogger(__name__)
 
+
 class ConfigHelper:
     """Helper class for handling global Soda config.
     """
     DEFAULT_CONFIG = {
-        # TODO set to True after we enable production collector
-        'send_anonymous_usage_stats': False,
+        'send_anonymous_usage_stats': True,
         'user_cookie_id': str(uuid.uuid4())
     }
     LOAD_PATHS = ["~/.soda/config.yml", ".soda/config.yml"]
@@ -79,7 +79,7 @@ class ConfigHelper:
 
         return config
 
-    def get_value(self, key: str, default_value = None):
+    def get_value(self, key: str, default_value=None):
         """Get value from loaded config."""
         return self.config.get(key, default_value)
 
@@ -123,5 +123,4 @@ class ConfigHelper:
 
     @property
     def send_anonymous_usage_stats(self) -> bool:
-        # TODO set to True after we enable production collector
-        return self.config.get("send_anonymous_usage_stats", False)
+        return self.config.get("send_anonymous_usage_stats", True)

@@ -1,5 +1,6 @@
 import logging
 import platform
+from typing import Optional
 
 from opentelemetry import trace
 from opentelemetry.sdk.resources import Resource
@@ -18,7 +19,7 @@ from sodasql.scan.dialect import Dialect
 from sodasql.telemetry.memory_span_exporter import MemorySpanExporter
 
 logger = logging.getLogger(__name__)
-soda_config = ConfigHelper.get_instance()
+
 
 class SodaTelemetry:
     """Main entry point for Open Telemetry tracing.
@@ -37,9 +38,8 @@ class SodaTelemetry:
     `set_attribute` method usage to obtain the full list.
     """
 
-    ENDPOINT = 'https://collect.dev.sodadata.io/v1/traces'
+    ENDPOINT = 'https://collect.soda.io/v1/traces'
     __instance = None
-    __send = True
     soda_config = ConfigHelper.get_instance()
 
     @staticmethod
@@ -48,7 +48,7 @@ class SodaTelemetry:
             SodaTelemetry.__instance = None
 
         if SodaTelemetry.__instance is None:
-            SodaTelemetry(test_mode)
+            SodaTelemetry(test_mode=test_mode)
         return SodaTelemetry.__instance
 
     def __init__(self, test_mode: bool):
@@ -57,7 +57,7 @@ class SodaTelemetry:
         else:
             SodaTelemetry.__instance = self
 
-        self.__send = soda_config.send_anonymous_usage_stats
+        self.__send = self.soda_config.send_anonymous_usage_stats or test_mode
 
         if self.__send:
             logger.info("Setting up usage telemetry.")
@@ -88,7 +88,6 @@ class SodaTelemetry:
     def __setup(self):
         """Set up Open Telemetry processors and exporters for normal use.
         """
-        logger.debug("Setting ")
         local_debug_mode = self.soda_config.get_value('tracing_local_debug_mode')
 
         if local_debug_mode or logger.getEffectiveLevel() == logging.DEBUG:
