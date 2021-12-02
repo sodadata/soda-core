@@ -69,10 +69,13 @@ class SodaServerClient:
                     }
                 soda_column_cfgs[column_name] = soda_column_cfg
 
+        database_and_schema = warehouse.dialect.get_warehouse_name_and_schema()
         return self.execute_command({
             'type': 'sodaSqlScanStart',
             'warehouseName': warehouse.name,
             'warehouseType': warehouse.dialect.type,
+            'warehouseDatabaseName': database_and_schema.get('database_name'),
+            'warehouseDatabaseSchema': database_and_schema.get('database_schema'),
             'tableName': scan_yml.table_name,
             'scanTime': scan_time,
             'columns': soda_column_cfgs,
@@ -172,7 +175,7 @@ class SodaServerClient:
             'monitorMeasurement': monitor_measurement_json
         })
 
-    def historic_metrics(self, warehouse, table_name,  metrics):
+    def historic_metrics(self, warehouse, table_name, metrics):
         return self.execute_query({
             'type': 'sodaSqlHistoricMeasurements',
             'warehouseName': warehouse.name,

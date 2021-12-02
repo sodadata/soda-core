@@ -41,6 +41,13 @@ class MySQLDialect(Dialect):
             'database': params.get('database', 'your_database')
         }
 
+    def get_warehouse_name_and_schema(self) -> dict:
+        # In MySQL schema is synonymous with database
+        return {
+            'database_name': self.database,
+            'database_schema': self.database
+        }
+
     def safe_connection_data(self):
         return [
             self.type,
