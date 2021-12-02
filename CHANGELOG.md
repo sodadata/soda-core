@@ -4,6 +4,9 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
+## [2.1.0] - 2021-12-02 *Faramir*
+- Core: Enable Open Telemetry
+
 ## [2.1.0b22] - 2021-11-23 *Éowyn*
 - dbt: Add dbt package to releases
 
