@@ -66,6 +66,12 @@ class SQLServerDialect(Dialect):
             'schema': 'public'
         }
 
+    def get_warehouse_name_and_schema(self) -> dict:
+        return {
+            'database_name': self.database,
+            'database_schema': self.schema
+        }
+
     def safe_connection_data(self):
         return [
             self.type,

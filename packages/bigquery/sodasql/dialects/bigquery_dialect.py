@@ -50,6 +50,12 @@ class BigQueryDialect(Dialect):
             'dataset': params.get('database', 'Eg your_bigquery_dataset')
         }
 
+    def get_warehouse_name_and_schema(self) -> dict:
+        return {
+            'database_name': self.account_info_dict['project_id'],
+            'database_schema': self.dataset_name
+        }
+
     def safe_connection_data(self):
         return [
             self.account_info_dict['project_id']
