@@ -7,6 +7,8 @@ on:
       - '**.md'
     branches:
       - main
+    tags:
+      - '*'
   workflow_dispatch:
 
 jobs:
