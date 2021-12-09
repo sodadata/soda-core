@@ -354,7 +354,6 @@ class Parser:
         parts.append((test_name if test_name else f'test') + f'({test_expression})')
         return ' '.join(parts)
 
-    @classmethod
     def create_test_id(self,
                        test_expression,
                        test_name,

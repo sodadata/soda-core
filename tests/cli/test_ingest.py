@@ -1,6 +1,5 @@
 """Test the ingest module."""
 
-import json
 from pathlib import Path
 from typing import Any
 
@@ -84,7 +83,7 @@ def test_dbt_flush_test_results_soda_server_scan_test_result(
     test_results = [
         test_result
         for test_result in test_results_command["testResults"]
-        if json.loads(test_result["id"])["test_name"] == id
+        if test_result["id"] == id
     ]
 
     assert len(test_results) == 1, f"expected one test result: {test_results}"

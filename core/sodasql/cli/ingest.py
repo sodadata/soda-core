@@ -13,7 +13,6 @@ from pathlib import Path
 from typing import Iterator
 
 from sodasql.__version__ import SODA_SQL_VERSION
-from sodasql.scan.parser import Parser
 from sodasql.scan.scan_builder import (
     build_warehouse_yml_parser,
     create_soda_server_client,
@@ -57,16 +56,7 @@ def create_dbt_run_result_to_test_result_mapping(
 
     dbt_tests_with_soda_test = {
         test_node.unique_id: Test(
-            id=Parser.create_test_id(
-                test_expression=test_node.compiled_sql
-                if isinstance(test_node, CompiledSchemaTestNode)
-                else None,
-                test_name=test_node.unique_id,
-                test_index=index,
-                context_column_name=test_node.column_name,
-                context_sql_metric_name=None,
-                context_sql_metric_index=None,
-            ),
+            id=test_node.unique_id,
             title=f"dbt test - number of failures for {test_node.unique_id}",
             expression=test_node.compiled_sql
             if isinstance(test_node, CompiledSchemaTestNode)
