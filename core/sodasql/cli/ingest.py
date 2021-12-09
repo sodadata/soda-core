@@ -33,7 +33,7 @@ class Table:
 def create_dbt_run_result_to_test_result_mapping(
     test_nodes: dict[str, "CompiledSchemaTestNode"],
     run_results: list["RunResultOutput"],
-):
+) -> dict[str, set["ParsedModelNode"]]:
     """
     Map run results to test results.
 
@@ -48,7 +48,7 @@ def create_dbt_run_result_to_test_result_mapping(
 
     Returns
     -------
-    out : Dict[str, set[ParseModelNode]]
+    out : dict[str, set[ParsedModelNode]]
         A mapping from run result to test result.
     """
     from dbt.contracts.results import TestStatus
