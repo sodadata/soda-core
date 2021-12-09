@@ -4,12 +4,13 @@ CLI commands to ingest test results from various sources into the Soda cloud.
 
 from __future__ import annotations
 
+import dataclasses
 import datetime as dt
 import json
 import logging
 import os
 from pathlib import Path
-from typing import Iterator, Optional
+from typing import Iterator
 
 from sodasql.__version__ import SODA_SQL_VERSION
 from sodasql.scan.parser import Parser
