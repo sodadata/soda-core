@@ -64,7 +64,7 @@ def create_dbt_run_result_to_test_result_mapping(
             metrics=None,
             column=test_node.column_name,
         )
-        for index, test_node in enumerate(test_nodes.values())
+        for test_node in test_nodes.values()
     }
 
     tests_with_test_result = {
