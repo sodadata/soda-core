@@ -14,9 +14,28 @@ soda_telemetry = SodaTelemetry.get_instance(test_mode=True)
 
 
 @pytest.fixture
-def dbt_manifest() -> dict:
+def dbt_manifest_file() -> Path:
     """
-    Get the manifest.
+    Get the path to the dbt manifest.
+
+    Returns
+    -------
+    out : Path
+        The dbt manifest file.
+    """
+    manifest_file = Path(__file__).parent / "dbt/data/manifest.json"
+    return manifest_file
+
+
+@pytest.fixture
+def dbt_manifest(dbt_manifest_file: Path) -> dict:
+    """
+    Get the dbt manifest.
+
+    Parameters
+    ----------
+    manifest_file : Path
+        The dbt manifest file.
 
     Returns
     -------
@@ -30,9 +49,28 @@ def dbt_manifest() -> dict:
 
 
 @pytest.fixture
-def dbt_run_results() -> dict:
+def dbt_run_results_file() -> Path:
     """
-    Get the run_results.
+    Get the path to the dbt run results.
+
+    Returns
+    -------
+    out : Path
+        The dbt run results file.
+    """
+    run_results_file = Path(__file__).parent / "dbt/data/run_results.json"
+    return run_results_file
+
+
+@pytest.fixture
+def dbt_run_results(dbt_run_results_file: Path) -> dict:
+    """
+    Get the dbt run results.
+
+    Parameters
+    ----------
+    dbt_run_results_file : Path
+        The dbt run results file.
 
     Returns
     -------
