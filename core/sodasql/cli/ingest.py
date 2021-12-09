@@ -27,7 +27,7 @@ def create_dbt_run_result_to_test_result_mapping(
     run_results: list[RunResultOutput],
 ):
     """
-    Create a mapping with which test result belong to which run result.
+    Map run results to test results.
 
     Parameters
     ----------

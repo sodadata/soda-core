@@ -103,7 +103,7 @@ def create_models_to_tests_mapping(
     run_results: list[RunResultOutput],
 ) -> dict[str, set[ParsedModelNode]]:
     """
-    Create a mapping with which tests belong to which model.
+    Map models to tests.
 
     Parameters
     ----------
