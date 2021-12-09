@@ -22,6 +22,14 @@ from sodasql.scan.test_result import TestResult
 from sodasql.soda_server_client.soda_server_client import SodaServerClient
 
 
+@dataclasses.dataclass(frozen=True)
+class Table:
+    """Represents a table."""
+    name: str
+    schema: str
+    database: str
+
+
 def create_dbt_run_result_to_test_result_mapping(
     test_nodes: dict[str, "CompiledSchemaTestNode"],
     run_results: list["RunResultOutput"],
@@ -82,7 +90,7 @@ def create_dbt_run_result_to_test_result_mapping(
 
 def create_dbt_test_results_iterator(
     manifest_file: Path, run_results_file: Path
-) -> Iterator[tuple[str, list[TestResult]]]:
+) -> Iterator[tuple[Table, list[TestResult]]]:
     """
     Create an iterator for the dbt test results.
 
@@ -95,8 +103,8 @@ def create_dbt_test_results_iterator(
 
     Returns
     -------
-    out : Iterator[tuple[str, list[TestResult]]]
-        The table name and its corresponding test results.
+    out : Iterator[tuple[Table, list[TestResult]]]
+        The table and its corresponding test results.
     """
     try:
         from sodasql import dbt as soda_dbt
@@ -120,16 +128,20 @@ def create_dbt_test_results_iterator(
     )
 
     for model_unique_id, test_unique_ids in models_with_tests.items():
-        table_name = model_nodes[model_unique_id].alias
+        table = Table(
+            model_nodes[model_unique_id].alias,
+            model_nodes[model_unique_id].database,
+            model_nodes[model_unique_id].schema,
+        )
         test_results = [
             tests_with_test_result[test_unique_id] for test_unique_id in test_unique_ids
         ]
 
-        yield table_name, test_results
+        yield table, test_results
 
 
 def flush_test_results(
-    test_results_iterator: Iterator[tuple[str, list[TestResult]]],
+    test_results_iterator: Iterator[tuple[Table, list[TestResult]]],
     soda_server_client: SodaServerClient,
     *,
     warehouse_name: str,
@@ -140,7 +152,7 @@ def flush_test_results(
 
     Parameters
     ----------
-    test_results_iterator : Iterator[tuple[str, list[TestResult]]]
+    test_results_iterator : Iterator[tuple[Table, list[TestResult]]]
         The test results.
     soda_server_client : SodaServerClient
         The soda server client.
@@ -149,14 +161,13 @@ def flush_test_results(
     warehouse_type : str
         The warehouse (and dialect) type.
     """
-    for table_name, test_results in test_results_iterator:
+    for table, test_results in test_results_iterator:
         start_scan_response = soda_server_client.scan_start(
             warehouse_name=warehouse_name,
             warehouse_type=warehouse_type,
-            # TODO: Get database and schema from dbt test results
-            warehouse_database_name=None,
-            warehouse_database_schema=None,
-            table_name=table_name,
+            warehouse_database_name=table.database,
+            warehouse_database_schema=table.schema,
+            table_name=table.name,
             scan_yml_columns=None,
             scan_time=dt.datetime.now().isoformat(),
             origin=os.environ.get("SODA_SCAN_ORIGIN", "external"),
