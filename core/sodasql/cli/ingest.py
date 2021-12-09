@@ -9,7 +9,7 @@ import json
 import logging
 import os
 from pathlib import Path
-from typing import Iterator
+from typing import Iterator, Optional
 
 from sodasql.__version__ import SODA_SQL_VERSION
 from sodasql.scan.parser import Parser
@@ -19,12 +19,12 @@ from sodasql.scan.scan_builder import (
 )
 from sodasql.scan.test import Test
 from sodasql.scan.test_result import TestResult
-
+from sodasql.soda_server_client.soda_server_client import SodaServerClient
 
 
 def create_dbt_run_result_to_test_result_mapping(
-    test_nodes: dict[str, CompiledSchemaTestNode],
-    run_results: list[RunResultOutput],
+    test_nodes: dict[str, "CompiledSchemaTestNode"],
+    run_results: list["RunResultOutput"],
 ):
     """
     Map run results to test results.
@@ -47,10 +47,11 @@ def create_dbt_run_result_to_test_result_mapping(
     from dbt.contracts.graph.compiled import CompiledSchemaTestNode
 
     dbt_tests_with_soda_test = {
-        test_node.unique_id:
-        Test(
+        test_node.unique_id: Test(
             id=Parser.create_test_id(
-                test_expression=test_node.compiled_sql if isinstance(test_node, CompiledSchemaTestNode) else None,
+                test_expression=test_node.compiled_sql
+                if isinstance(test_node, CompiledSchemaTestNode)
+                else None,
                 test_name=test_node.unique_id,
                 test_index=index,
                 context_column_name=test_node.column_name,
@@ -58,7 +59,9 @@ def create_dbt_run_result_to_test_result_mapping(
                 context_sql_metric_index=None,
             ),
             title=f"dbt test - number of failures for {test_node.unique_id}",
-            expression=test_node.compiled_sql if isinstance(test_node, CompiledSchemaTestNode) else None,
+            expression=test_node.compiled_sql
+            if isinstance(test_node, CompiledSchemaTestNode)
+            else None,
             metrics=None,
             column=test_node.column_name,
         )
@@ -66,8 +69,7 @@ def create_dbt_run_result_to_test_result_mapping(
     }
 
     tests_with_test_result = {
-        run_result.unique_id:
-        TestResult(
+        run_result.unique_id: TestResult(
             dbt_tests_with_soda_test[run_result.unique_id],
             passed=run_result.status == TestStatus.Pass,
             skipped=run_result.status == TestStatus.Skipped,
@@ -120,11 +122,52 @@ def create_dbt_test_results_iterator(
     for model_unique_id, test_unique_ids in models_with_tests.items():
         table_name = model_nodes[model_unique_id].alias
         test_results = [
-            tests_with_test_result[test_unique_id]
-            for test_unique_id in test_unique_ids
+            tests_with_test_result[test_unique_id] for test_unique_id in test_unique_ids
         ]
 
         yield table_name, test_results
+
+
+def flush_test_results(
+    test_results_iterator: Iterator[tuple[str, list[TestResult]]],
+    soda_server_client: SodaServerClient,
+    *,
+    warehouse_name: str,
+    warehouse_type: str,
+) -> None:
+    """
+    Flush the test results.
+
+    Parameters
+    ----------
+    test_results_iterator : Iterator[tuple[str, list[TestResult]]]
+        The test results.
+    soda_server_client : SodaServerClient
+        The soda server client.
+    warehouse_name : str
+        The warehouse name.
+    warehouse_type : str
+        The warehouse (and dialect) type.
+    """
+    for table_name, test_results in test_results_iterator:
+        start_scan_response = soda_server_client.scan_start(
+            warehouse_name=warehouse_name,
+            warehouse_type=warehouse_type,
+            # TODO: Get database and schema from dbt test results
+            warehouse_database_name=None,
+            warehouse_database_schema=None,
+            table_name=table_name,
+            scan_yml_columns=None,
+            scan_time=dt.datetime.now().isoformat(),
+            origin=os.environ.get("SODA_SCAN_ORIGIN", "external"),
+        )
+
+        test_results_jsons = [test_result.to_dict() for test_result in test_results]
+        soda_server_client.scan_test_results(
+            start_scan_response["scanReference"], test_results_jsons
+        )
+
+        soda_server_client.scan_ended(start_scan_response["scanReference"])
 
 
 def ingest(
@@ -167,23 +210,15 @@ def ingest(
             raise ValueError(f"Dbt manifest is required: {dbt_manifest}")
         if dbt_run_results is None:
             raise ValueError(f"Dbt run results is required: {dbt_run_results}")
-        test_results_iterator = create_dbt_test_results_iterator(dbt_manifest, dbt_run_results)
+        test_results_iterator = create_dbt_test_results_iterator(
+            dbt_manifest, dbt_run_results
+        )
     else:
         raise ValueError(f"Unknown tool: {tool}")
 
-    for table_name, test_results in test_results_iterator:
-        start_scan_response = soda_server_client.scan_start(
-            warehouse_yml.name,
-            warehouse_yml.dialect.type,
-            table_name=table_name,
-            scan_yml_columns=None,
-            scan_time=dt.datetime.now().isoformat(),
-            origin=os.environ.get("SODA_SCAN_ORIGIN", "external")
-        )
-
-        test_results_jsons = [test_result.to_dict() for test_result in test_results]
-        soda_server_client.scan_test_results(
-            start_scan_response["scanReference"], test_results_jsons
-        )
-
-        soda_server_client.scan_ended(start_scan_response["scanReference"])
+    flush_test_results(
+        test_results_iterator,
+        soda_server_client,
+        warehouse_name=warehouse_yml.name,
+        warehouse_type=warehouse_yml.dialect.type,
+    )
