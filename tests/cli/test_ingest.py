@@ -1,6 +1,8 @@
 """Test the ingest module."""
 
+import json
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -44,3 +46,46 @@ def test_dbt_flush_test_results_soda_server_has_command_types(
     assert any(
         command_type == command["type"] for command in mock_soda_server_client.commands
     )
+
+
+@pytest.mark.parametrize(
+    "column, value",
+    [
+        ("passed", True),
+        ("skipped", False),
+        ("values", {"failures": 0}),
+        ("columnName", "result"),
+    ],
+)
+def test_dbt_flush_test_results_soda_server_scan_test_result(
+    dbt_manifest_file: Path,
+    dbt_run_results_file: Path,
+    mock_soda_server_client: MockSodaServerClient,
+    column: str,
+    value: Any,
+) -> None:
+    """Validate if the first scan test result is as expected."""
+    id = "test.soda.accepted_values_stg_soda__scan__result__pass_fail.81f"
+
+    test_results_iterator = ingest.create_dbt_test_results_iterator(
+        dbt_manifest_file, dbt_run_results_file
+    )
+    ingest.flush_test_results(
+        test_results_iterator,
+        mock_soda_server_client,
+        warehouse_name="test",
+        warehouse_type="test",
+    )
+
+    # We expect three commands: scan start, test result, scan end
+    test_results_command = mock_soda_server_client.commands[1]
+    assert test_results_command["type"] == "sodaSqlScanTestResults"
+
+    test_results = [
+        test_result
+        for test_result in test_results_command["testResults"]
+        if json.loads(test_result["id"])["test_name"] == id
+    ]
+
+    assert len(test_results) == 1, f"expected one test result: {test_results}"
+    assert test_results[0][column] == value
