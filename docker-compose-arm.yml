@@ -1,0 +1,9 @@
+# docker-compose.yml
+version: "3.8"
+services:
+  soda:
+    build:
+      context: .
+    platform: "linux/amd64"
+    volumes:
+      - .:/app
