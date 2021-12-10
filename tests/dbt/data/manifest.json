@@ -292,6 +292,80 @@
             "extra_ctes": [],
             "relation_name": null,
             "column_name": "warehouse"
+        },
+        "test.soda.accepted_values_soda_warehouses__spark__postgres.c3li140e513": {
+            "raw_sql": '{{ test_accepted_values(**_dbt_schema_test_kwargs) }}{{ config(alias="accepted_values_accepted_values_soda_warehouses__spark__postgres_c3li140e513") }}',
+            "test_metadata": {
+                "name": "accepted_values",
+                "kwargs": {
+                    "values": ["postgres", "spark"],
+                    "column_name": "warehouse",
+                    "model": "{{ get_where_subquery(ref('soda_warehouses')) }}"
+                },
+                "namespace": null
+            },
+            "compiled": true,
+            "resource_type": "test",
+            "depends_on": {
+                "macros": [
+                    "macro.dbt.test_accepted_values",
+                    "macro.dbt.get_where_subquery",
+                    "macro.dbt.should_store_failures",
+                    "macro.dbt.statement"
+                ],
+                "nodes": ["seed.soda.soda_warehouses"]
+            },
+            "config": {
+                "enabled": true,
+                "alias": "accepted_values_accepted_values_soda_warehouses__spark__postgres_c3li140e513",
+                "schema": "dbt_test__audit",
+                "database": null,
+                "tags": [],
+                "meta": {},
+                "materialized": "test",
+                "severity": "ERROR",
+                "store_failures": null,
+                "where": null,
+                "limit": null,
+                "fail_calc": "count(*)",
+                "warn_if": "!= 0",
+                "error_if": "!= 0"
+            },
+            "database": null,
+            "schema": "soda_dbt_test__audit",
+            "fqn": [
+                "soda",
+                "schema_test",
+                "accepted_values_accepted_values_soda_warehouses__spark__postgres_c3li140e513",
+            ],
+            "unique_id": "test.soda.accepted_values_soda_warehouses__spark__postgres.c3li140e513",
+            "package_name": "soda",
+            "root_path": "/Users/cor/github/soda/dbt",
+            "path": "schema_test/accepted_values_accepted_values_soda_warehouses__spark__postgres_c3li140e513",
+            "original_file_path": "data/seeds.yml",
+            "name":   "accepted_values_accepted_values_soda_warehouses__spark__postgres_c3li140e513",
+            "alias":  "accepted_values_accepted_values_soda_warehouses__spark__postgres_c3li140e513",
+            "checksum": {"name": "none", "checksum": ""},
+            "tags": ["schema"],
+            "refs": [["soda_warehouses"]],
+            "sources": [],
+            "description": "",
+            "columns": {},
+            "meta": {},
+            "docs": {"show": true},
+            "patch_path": null,
+            "compiled_path": "target/compiled/soda/data/seeds.yml/schema_test/accepted_values_accepted_values_soda_warehouses__spark__postgres_c3li140e513",
+            "build_path": "target/run/soda/data/seeds.yml/schema_test/accepted_values_accepted_values_soda_warehouses__spark__postgres_c3li140e513",
+            "deferred": false,
+            "unrendered_config": {
+                "alias": "accepted_values_accepted_values_soda_warehouses__spark__postgres_c3li140e513"
+            },
+            "created_at": 1637317368
+            "compiled_sql": "\n    \n    \n\nwith all_values as (\n\n    select\n        warehouse as value_field,\n        count(*) as n_records\n\n    from soda_seed_data.soda_warehouses\n    group by warehouse\n\n)\n\nselect *\nfrom all_values\nwhere value_field not in (\n    'postgres','spark'\n)\n\n\n",
+            "extra_ctes_injected": true,
+            "extra_ctes": [],
+            "relation_name": null,
+            "column_name": "warehouse",
         }
     }
 }
