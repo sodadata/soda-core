@@ -32,7 +32,7 @@ def test_dbt_flush_test_results_soda_server_has_command_types(
     command_type: str,
 ) -> None:
     """Validate that the flush test results has the expected command types."""
-    test_results_iterator = ingest.create_dbt_test_results_iterator(
+    test_results_iterator = ingest.map_dbt_test_results_iterator(
         dbt_manifest_file, dbt_run_results_file
     )
     ingest.flush_test_results(
@@ -66,7 +66,7 @@ def test_dbt_flush_test_results_soda_server_scan_test_result(
     """Validate if the first scan test result is as expected."""
     id = "test.soda.accepted_values_stg_soda__scan__result__pass_fail.81f"
 
-    test_results_iterator = ingest.create_dbt_test_results_iterator(
+    test_results_iterator = ingest.map_dbt_test_results_iterator(
         dbt_manifest_file, dbt_run_results_file
     )
     ingest.flush_test_results(

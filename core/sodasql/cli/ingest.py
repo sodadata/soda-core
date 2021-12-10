@@ -30,7 +30,7 @@ class Table:
     database: str
 
 
-def create_dbt_run_result_to_test_result_mapping(
+def map_dbt_run_result_to_test_result(
     test_nodes: dict[str, "DbtTestNode"],
     run_results: list["RunResultOutput"],
 ) -> dict[str, set["DbtModelNode"]]:
@@ -75,7 +75,7 @@ def create_dbt_run_result_to_test_result_mapping(
     return tests_with_test_result
 
 
-def create_dbt_test_results_iterator(
+def map_dbt_test_results_iterator(
     manifest_file: Path, run_results_file: Path
 ) -> Iterator[tuple[Table, list[TestResult]]]:
     """
@@ -107,7 +107,7 @@ def create_dbt_test_results_iterator(
 
     model_nodes, seed_nodes, test_nodes = soda_dbt.parse_manifest(manifest)
     parsed_run_results = soda_dbt.parse_run_results(run_results)
-    tests_with_test_result = create_dbt_run_result_to_test_result_mapping(
+    tests_with_test_result = map_dbt_run_result_to_test_result(
         test_nodes, parsed_run_results
     )
     model_and_seed_nodes = {**model_nodes, **seed_nodes}
@@ -209,7 +209,7 @@ def ingest(
             raise ValueError(f"Dbt manifest is required: {dbt_manifest}")
         if dbt_run_results is None:
             raise ValueError(f"Dbt run results is required: {dbt_run_results}")
-        test_results_iterator = create_dbt_test_results_iterator(
+        test_results_iterator = map_dbt_test_results_iterator(
             dbt_manifest, dbt_run_results
         )
     else:
