@@ -161,7 +161,11 @@ def flush_test_results(
             origin=os.environ.get("SODA_SCAN_ORIGIN", "external"),
         )
 
-        test_results_jsons = [test_result.to_dict() for test_result in test_results]
+        test_results_jsons = [
+            test_result.to_dict()
+            for test_result in test_results
+            if not test_result.skipped
+        ]
         soda_server_client.scan_test_results(
             start_scan_response["scanReference"], test_results_jsons
         )

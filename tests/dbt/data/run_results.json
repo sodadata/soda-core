@@ -67,7 +67,7 @@
             "unique_id": "test.soda.accepted_values_stg_soda__scan__warehouse__spark__postgres.2e"
         },
         {
-            "status": "pass",
+            "status": "skipped",
             "timing": [
                 {
                     "name": "compile",

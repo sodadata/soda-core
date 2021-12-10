@@ -47,6 +47,31 @@ def test_dbt_flush_test_results_soda_server_has_command_types(
     )
 
 
+def test_dbt_flush_test_results_soda_server_scan_numbertest_result(
+    dbt_manifest_file: Path,
+    dbt_run_results_file: Path,
+    mock_soda_server_client: MockSodaServerClient,
+) -> None:
+    """Validate if we have the expected number of test results."""
+    test_results_iterator = ingest.map_dbt_test_results_iterator(
+        dbt_manifest_file, dbt_run_results_file
+    )
+    ingest.flush_test_results(
+        test_results_iterator,
+        mock_soda_server_client,
+        warehouse_name="test",
+        warehouse_type="test",
+    )
+
+    # We expect three commands: scan start, test result, scan end
+    test_results_commands = [
+        command
+        for command in mock_soda_server_client.commands
+        if command["type"] == "sodaSqlScanTestResults"
+    ]
+    assert sum(len(command["testResults"]) for command in test_results_commands) == 2
+
+
 @pytest.mark.parametrize(
     "column, value",
     [
@@ -63,7 +88,7 @@ def test_dbt_flush_test_results_soda_server_scan_test_result(
     column: str,
     value: Any,
 ) -> None:
-    """Validate if the first scan test result is as expected."""
+    """Validate if the a scan test result is as expected."""
     id = "test.soda.accepted_values_stg_soda__scan__result__pass_fail.81f"
 
     test_results_iterator = ingest.map_dbt_test_results_iterator(
