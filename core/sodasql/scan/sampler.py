@@ -114,27 +114,71 @@ class Sampler:
                               if sample_name == 'dataset' else f'{self.scan.scan_yml.table_name}.{column_name}.{sample_name}')
 
         logger.debug(f'Sending sample {sample_description}')
+
+        sample_columns, sample_rows, total_row_count = self._get_query_results_with_limit(sql, limit or 5)
+
+        return {'sample_name': sample_name,
+                'column_name': column_name,
+                'test_ids': test_ids,
+                'sample_columns': sample_columns,
+                'sample_rows': sample_rows,
+                'sample_description': sample_description,
+                'total_row_count': rows_total}
+
+    def send_samples_to_soda_cloud(self, samples_context):
+
+        sample_name = samples_context.get('sample_name')
+        column_name = samples_context.get('column_name')
+        test_ids = samples_context.get('test_ids')
+        sample_columns = samples_context.get('sample_columns')
+        sample_description = samples_context.get('sample_description')
+        total_row_count = samples_context.get('total_row_count')
+        sample_rows = samples_context.get('sample_rows')
+        stored_row_count = len(sample_rows)
+
+        scan_folder_name = (
+            f"{self._fileify(self.scan.warehouse.name)}"
+            + f"-{self._fileify(self.scan.scan_yml.table_name)}"
+            + (f"-{self._fileify(self.scan.time)}" if isinstance(self.scan.time, str) else "")
+            + (
+                f'-{self.scan.time.strftime("%Y%m%d%H%M%S")}'
+                if isinstance(self.scan.time, datetime)
+                else ""
+            )
+            + f'-{datetime.now().strftime("%Y%m%d%H%M%S")}'
+        )
+        file_path = (
+            f"{scan_folder_name}/"
+            + (f"{self._fileify(column_name)}_" if column_name else "")
+            + f"{sample_name}.jsonl"
+        )
+
         with tempfile.TemporaryFile() as temp_file:
-            rows_stored, sample_columns, _ = self.save_sample_to_local_file(sql, temp_file)
+            for row in sample_rows:
+                temp_file.write(bytearray(json.dumps(row), 'utf-8'))
+                temp_file.write(b'\n')
 
             temp_file_size_in_bytes = temp_file.tell()
             temp_file.seek(0)
 
-            file_id = self.scan.soda_server_client.scan_upload(self.scan_reference,
-                                                               file_path,
-                                                               temp_file,
-                                                               temp_file_size_in_bytes)
+            file_id = self.scan.soda_server_client.scan_upload(
+                self.scan_reference, file_path, temp_file, temp_file_size_in_bytes
+            )
 
             self.scan.soda_server_client.scan_file(
                 scan_reference=self.scan_reference,
-                sample_type=sample_name + 'Sample',
-                stored=int(rows_stored),
-                total=int(rows_total),
+                sample_type=sample_name + "Sample",
+                stored=stored_row_count,
+                total=total_row_count,
                 source_columns=sample_columns,
                 file_id=file_id,
                 column_name=column_name,
-                test_ids=test_ids)
-        logger.debug(f'Sent sample {sample_description} ({rows_stored}/{rows_total}) to Soda Cloud')
+                test_ids=test_ids,
+            )
+
+        logger.debug(
+            f"Sent sample {sample_description} ({stored_row_count}/{total_row_count}) to Soda Cloud"
+        )
 
     def create_file_path_failed_rows_sql_metric(self, column_name: str, metric_name: str):
         return (f'{self.scan_folder_name}/' +
