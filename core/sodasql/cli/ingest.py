@@ -52,15 +52,12 @@ def create_dbt_run_result_to_test_result_mapping(
         A mapping from run result to test result.
     """
     from dbt.contracts.results import TestStatus
-    from dbt.contracts.graph.compiled import CompiledSchemaTestNode
 
     dbt_tests_with_soda_test = {
         test_node.unique_id: Test(
             id=test_node.unique_id,
             title=f"dbt test - number of failures for {test_node.unique_id}",
-            expression=test_node.compiled_sql
-            if isinstance(test_node, CompiledSchemaTestNode)
-            else None,
+            expression=test_node.raw_sql,
             metrics=None,
             column=test_node.column_name,
         )
