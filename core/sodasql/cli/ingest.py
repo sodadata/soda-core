@@ -75,6 +75,7 @@ def create_dbt_run_result_to_test_result_mapping(
             values={"failures": run_result.failures},
         )
         for run_result in run_results
+        if run_result.unique_id in test_nodes.keys()
     }
     return tests_with_test_result
 
