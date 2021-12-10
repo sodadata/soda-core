@@ -83,9 +83,9 @@ def map_dbt_test_results_iterator(
 
     Parameters
     ----------
-    manifest : dict
+    manifest_file : Path
         The path to the manifest file.
-    run_results : Path
+    run_results_file : Path
         The path to the run results file.
 
     Returns
@@ -115,11 +115,11 @@ def map_dbt_test_results_iterator(
         model_and_seed_nodes, test_nodes, parsed_run_results
     )
 
-    for model_unique_id, test_unique_ids in models_with_tests.items():
+    for unique_id, test_unique_ids in models_with_tests.items():
         table = Table(
-            model_and_seed_nodes[model_unique_id].alias,
-            model_and_seed_nodes[model_unique_id].database,
-            model_and_seed_nodes[model_unique_id].schema,
+            model_and_seed_nodes[unique_id].alias,
+            model_and_seed_nodes[unique_id].database,
+            model_and_seed_nodes[unique_id].schema,
         )
         test_results = [
             tests_with_test_result[test_unique_id] for test_unique_id in test_unique_ids
