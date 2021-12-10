@@ -143,7 +143,7 @@ def test_create_models_to_test_mapping(
     model_nodes, _, test_nodes = soda_dbt.parse_manifest(dbt_manifest)
     parsed_run_results = soda_dbt.parse_run_results(dbt_run_results)
 
-    models_with_tests = soda_dbt.create_models_to_tests_mapping(
+    models_with_tests = soda_dbt.create_nodes_to_tests_mapping(
         model_nodes, test_nodes, parsed_run_results
     )
 

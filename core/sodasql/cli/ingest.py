@@ -115,7 +115,7 @@ def create_dbt_test_results_iterator(
     tests_with_test_result = create_dbt_run_result_to_test_result_mapping(
         test_nodes, parsed_run_results
     )
-    models_with_tests = soda_dbt.create_models_to_tests_mapping(
+    models_with_tests = soda_dbt.create_nodes_to_tests_mapping(
         model_nodes, test_nodes, parsed_run_results
     )
 

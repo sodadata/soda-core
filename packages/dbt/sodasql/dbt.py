@@ -121,7 +121,7 @@ def parse_run_results(run_results: dict[str, Any]) -> list[RunResultOutput]:
     return parsed_run_results
 
 
-def create_models_to_tests_mapping(
+def create_nodes_to_tests_mapping(
     model_nodes: dict[str, ParsedModelNode],
     test_nodes: dict[str, CompiledSchemaTestNode],
     run_results: list[RunResultOutput],
