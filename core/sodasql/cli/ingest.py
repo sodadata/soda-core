@@ -110,20 +110,21 @@ def create_dbt_test_results_iterator(
     with run_results_file.open("r") as file:
         run_results = json.load(file)
 
-    model_nodes, test_nodes = soda_dbt.parse_manifest(manifest)
+    model_nodes, seed_nodes, test_nodes = soda_dbt.parse_manifest(manifest)
     parsed_run_results = soda_dbt.parse_run_results(run_results)
     tests_with_test_result = create_dbt_run_result_to_test_result_mapping(
         test_nodes, parsed_run_results
     )
+    model_and_seed_nodes = {**model_nodes, **seed_nodes}
     models_with_tests = soda_dbt.create_nodes_to_tests_mapping(
-        model_nodes, test_nodes, parsed_run_results
+        model_and_seed_nodes, test_nodes, parsed_run_results
     )
 
     for model_unique_id, test_unique_ids in models_with_tests.items():
         table = Table(
-            model_nodes[model_unique_id].alias,
-            model_nodes[model_unique_id].database,
-            model_nodes[model_unique_id].schema,
+            model_and_seed_nodes[model_unique_id].alias,
+            model_and_seed_nodes[model_unique_id].database,
+            model_and_seed_nodes[model_unique_id].schema,
         )
         test_results = [
             tests_with_test_result[test_unique_id] for test_unique_id in test_unique_ids
