@@ -150,6 +150,14 @@ def flush_test_results(
         The warehouse (and dialect) type.
     """
     for table, test_results in test_results_iterator:
+        test_results_jsons = [
+            test_result.to_dict()
+            for test_result in test_results
+            if not test_result.skipped
+        ]
+        if len(test_results_jsons) == 0:
+            continue
+
         start_scan_response = soda_server_client.scan_start(
             warehouse_name=warehouse_name,
             warehouse_type=warehouse_type,
@@ -160,16 +168,9 @@ def flush_test_results(
             scan_time=dt.datetime.now().isoformat(),
             origin=os.environ.get("SODA_SCAN_ORIGIN", "external"),
         )
-
-        test_results_jsons = [
-            test_result.to_dict()
-            for test_result in test_results
-            if not test_result.skipped
-        ]
         soda_server_client.scan_test_results(
             start_scan_response["scanReference"], test_results_jsons
         )
-
         soda_server_client.scan_ended(start_scan_response["scanReference"])
 
 
