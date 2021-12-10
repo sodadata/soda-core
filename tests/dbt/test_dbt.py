@@ -15,7 +15,9 @@ def test_parse_manifest_raises_not_implemented_error() -> None:
 
 
 @pytest.mark.parametrize("unique_id", ["model.soda.stg_soda__scan"])
-def test_parse_manifest_contains_model_unique_ids(unique_id: str, dbt_manifest: dict) -> None:
+def test_parse_manifest_contains_model_unique_ids(
+    unique_id: str, dbt_manifest: dict
+) -> None:
     """Validate the model unique_id are present in the test_nodes."""
     model_nodes, _ = soda_dbt.parse_manifest(dbt_manifest)
 
@@ -29,7 +31,9 @@ def test_parse_manifest_contains_model_unique_ids(unique_id: str, dbt_manifest: 
         "test.soda.accepted_values_stg_soda__scan__warehouse__spark__postgres.2e",
     ],
 )
-def test_parse_manifest_contains_test_unique_ids(unique_id: str, dbt_manifest: dict) -> None:
+def test_parse_manifest_contains_test_unique_ids(
+    unique_id: str, dbt_manifest: dict
+) -> None:
     """Validate the test unique_id are present in the test_nodes."""
     _, test_nodes = soda_dbt.parse_manifest(dbt_manifest)
 
@@ -45,55 +49,65 @@ def test_parse_run_results_raises_not_implemented_error() -> None:
 
 
 @pytest.mark.parametrize(
-    "result_index, status",
+    "unique_id, status",
     [
-        (0, TestStatus.Pass),
-        (1, TestStatus.Fail),
+        (
+            "test.soda.accepted_values_stg_soda__scan__result__pass_fail.81f",
+            TestStatus.Pass,
+        ),
+        (
+            "test.soda.accepted_values_stg_soda__scan__warehouse__spark__postgres.2e",
+            TestStatus.Fail,
+        ),
     ],
 )
 def test_parse_run_results_status(
-    result_index: int,
+    unique_id: str,
     status: TestStatus,
     dbt_run_results: dict,
 ) -> None:
     """Validate the status of the nth result."""
     parsed_run_results = soda_dbt.parse_run_results(dbt_run_results)
 
-    assert parsed_run_results[result_index].status == status
+    run_result = [
+        run_result
+        for run_result in parsed_run_results
+        if run_result.unique_id == unique_id
+    ]
+
+    assert len(run_result) == 1, f"expecting one run result {run_result}"
+    assert run_result[0].status == status
 
 
 @pytest.mark.parametrize(
-    "result_index, failures",
+    "unique_id, failures",
     [
-        (0, 0),
-        (1, 3),
+        (
+            "test.soda.accepted_values_stg_soda__scan__result__pass_fail.81f",
+            0
+        ),
+        (
+            "test.soda.accepted_values_stg_soda__scan__warehouse__spark__postgres.2e",
+            3
+        ),
     ],
 )
 def test_parse_run_results_failures(
-    result_index: int,
+    unique_id: str,
     failures: int,
     dbt_run_results: dict,
 ) -> None:
     """Validate the failures of the nth result."""
     parsed_run_results = soda_dbt.parse_run_results(dbt_run_results)
 
-    assert parsed_run_results[result_index].failures == failures
+    run_result = [
+        run_result
+        for run_result in parsed_run_results
+        if run_result.unique_id == unique_id
+    ]
 
-
-@pytest.mark.parametrize(
-    "result_index, unique_id",
-    [
-        (0, "test.soda.accepted_values_stg_soda__scan__result__pass_fail.81f"),
-        (1, "test.soda.accepted_values_stg_soda__scan__warehouse__spark__postgres.2e"),
-    ],
-)
-def test_parse_run_results_unique_id(
-    result_index: int, unique_id: str, dbt_run_results: dict
-) -> None:
-    """Validate the unique_id of the nth result."""
-    parsed_run_results = soda_dbt.parse_run_results(dbt_run_results)
-
-    assert parsed_run_results[result_index].unique_id == unique_id
+    assert len(run_result) == 1, f"expecting one run result {run_result}"
+    assert run_result[0].failures == failures
 
 
 @pytest.mark.parametrize(
@@ -123,7 +137,4 @@ def test_create_models_to_test_mapping(
         model_nodes, test_nodes, parsed_run_results
     )
 
-    assert all(
-        test_name in test_names
-        for test_name in models_with_tests[model_name]
-    )
+    assert all(test_name in test_names for test_name in models_with_tests[model_name])
