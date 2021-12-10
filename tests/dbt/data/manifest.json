@@ -294,7 +294,7 @@
             "column_name": "warehouse"
         },
         "test.soda.accepted_values_soda_warehouses__spark__postgres.c3li140e513": {
-            "raw_sql": '{{ test_accepted_values(**_dbt_schema_test_kwargs) }}{{ config(alias="accepted_values_accepted_values_soda_warehouses__spark__postgres_c3li140e513") }}',
+            "raw_sql": "{{ test_accepted_values(**_dbt_schema_test_kwargs) }}{{ config(alias='accepted_values_accepted_values_soda_warehouses__spark__postgres_c3li140e513') }}",
             "test_metadata": {
                 "name": "accepted_values",
                 "kwargs": {
@@ -336,7 +336,7 @@
             "fqn": [
                 "soda",
                 "schema_test",
-                "accepted_values_accepted_values_soda_warehouses__spark__postgres_c3li140e513",
+                "accepted_values_accepted_values_soda_warehouses__spark__postgres_c3li140e513"
             ],
             "unique_id": "test.soda.accepted_values_soda_warehouses__spark__postgres.c3li140e513",
             "package_name": "soda",
@@ -360,12 +360,12 @@
             "unrendered_config": {
                 "alias": "accepted_values_accepted_values_soda_warehouses__spark__postgres_c3li140e513"
             },
-            "created_at": 1637317368
+            "created_at": 1637317368,
             "compiled_sql": "\n    \n    \n\nwith all_values as (\n\n    select\n        warehouse as value_field,\n        count(*) as n_records\n\n    from soda_seed_data.soda_warehouses\n    group by warehouse\n\n)\n\nselect *\nfrom all_values\nwhere value_field not in (\n    'postgres','spark'\n)\n\n\n",
             "extra_ctes_injected": true,
             "extra_ctes": [],
             "relation_name": null,
-            "column_name": "warehouse",
+            "column_name": "warehouse"
         }
     }
 }
