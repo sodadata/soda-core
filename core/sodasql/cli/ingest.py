@@ -56,7 +56,7 @@ def create_dbt_run_result_to_test_result_mapping(
     dbt_tests_with_soda_test = {
         test_node.unique_id: Test(
             id=test_node.unique_id,
-            title=f"dbt test - number of failures for {test_node.unique_id}",
+            title=f"Number of failures for {test_node.unique_id}",
             expression=test_node.raw_sql,
             metrics=None,
             column=test_node.column_name,
