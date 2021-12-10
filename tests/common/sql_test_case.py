@@ -133,7 +133,7 @@ class SqlTestCase(TestCase):
                 self.sql_update(f"INSERT INTO {table_name} VALUES {joined_rows}")
             else:
                 self.sql_update(f"INSERT INTO {self.warehouse.dialect.qualify_table_name(table_name)} VALUES {joined_rows}")
-        self.warehouse.connection.commit()
+        self.warehouse.commit()
 
     def sql_create_table(self, columns: List[str], table_name: str):
         return self.warehouse_fixture.sql_create_table(columns=columns, table_name=table_name)

@@ -98,7 +98,7 @@ class TestCli(SqlTestCase):
             for sql_statement in sql_statements_str.split(';'):
                 if sql_statement.strip():
                     self.sql_update(sql_statement)
-        self.warehouse.connection.commit()
+        self.warehouse.commit()
 
     def run_cli_create(self):
         runner = CliRunner()
