@@ -31,24 +31,22 @@ class Table:
 
 
 def create_dbt_run_result_to_test_result_mapping(
-    test_nodes: dict[str, "CompiledSchemaTestNode"],
+    test_nodes: dict[str, "DbtTestNode"],
     run_results: list["RunResultOutput"],
-) -> dict[str, set["ParsedModelNode"]]:
+) -> dict[str, set["DbtModelNode"]]:
     """
     Map run results to test results.
 
     Parameters
     ----------
-    model_nodes : Dict[str: ParsedModelNode]
-        The parsed model nodes.
-    test_nodes : Dict[str: CompiledSchemaTestNode]
-        The compiled schema test nodes.
+    test_nodes : Dict[str: DbtTestNode]
+        The schema test nodes.
     run_results : List[RunResultOutput]
         The run results.
 
     Returns
     -------
-    out : dict[str, set[ParsedModelNode]]
+    out : dict[str, set[DbtModelNode]]
         A mapping from run result to test result.
     """
     from dbt.contracts.results import TestStatus
