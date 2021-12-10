@@ -115,6 +115,16 @@ class Dialect(metaclass=abc.ABCMeta):
         # to be overridden by subclass
         pass
 
+    def get_warehouse_name_and_schema(self) -> dict:
+        """
+        This is a workaround to send the identifiers to soda cloud for integration with external
+        systems (e.g. metaphor), this will change in the future. The implementation should return a dict with
+        two keys 'database_name' and 'database_schema'
+
+        :return: dict
+        """
+        pass
+
     def safe_connection_data(self):
         """Return non-critically sensitive connection details.
 

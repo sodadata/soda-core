@@ -56,6 +56,12 @@ class AthenaDialect(Dialect):
             'catalog': 'AwsDataCatalog'
         }
 
+    def get_warehouse_name_and_schema(self) -> dict:
+        return {
+            'database_name': self.database,
+            'database_schema': self.catalog
+        }
+
     def safe_connection_data(self):
         return [
             self.type,

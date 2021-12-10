@@ -13,10 +13,11 @@ from opentelemetry.trace.status import Status, StatusCode
 from opentelemetry.trace.propagation.tracecontext import \
     TraceContextTextMapPropagator
 
-from sodasql.telemetry.soda_telemetry import soda_telemetry
+from sodasql.telemetry.soda_telemetry import SodaTelemetry
 trace_context_propagator = TraceContextTextMapPropagator()
 trace_context_carrier = {}
 
+soda_telemetry = SodaTelemetry.get_instance()
 tracer = trace.get_tracer_provider().get_tracer(__name__)
 
 
@@ -71,15 +72,11 @@ def soda_trace(fn: callable):
 
     @wraps(fn)
     def wrapper(*original_args, **original_kwargs):
-        current_span = trace.get_current_span()
-        if hasattr(current_span, 'context'):
-            print(current_span.context.span_id)
         ctx = trace_context_propagator.extract(carrier=trace_context_carrier)
         with tracer.start_as_current_span(f"{fn.__module__}.{fn.__name__}", context=ctx) as span:
             trace_context_propagator.inject(carrier=trace_context_carrier)
             result = None
             try:
-                # print(get_decorators(fn))
                 _before_exec(span, fn)
                 result = fn(*original_args, **original_kwargs)
                 span.set_status(Status(StatusCode.OK))

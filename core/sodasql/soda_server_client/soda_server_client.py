@@ -10,7 +10,7 @@
 #  limitations under the License.
 import json
 import logging
-from typing import Optional, List
+from typing import Dict, Optional, List
 
 import requests
 
@@ -42,38 +42,75 @@ class SodaServerClient:
         self.api_key_secret: Optional[str] = api_key_secret
         self.token: Optional[str] = token
 
-    def scan_start(self, warehouse, scan_yml: ScanYml, scan_time,
-                   origin: str = 'external'):
+    def scan_start(
+        self,
+        warehouse_name: str,
+        warehouse_type: str,
+        warehouse_database_name: Optional[str],
+        warehouse_database_schema: Optional[str],
+        table_name: str,
+        scan_yml_columns: Optional[Dict[str, ScanYmlColumn]],
+        scan_time: str,
+        origin: str = "external",
+    ):
+        """
+        Start the scan.
+
+        Parameters
+        ----------
+        warehouse_name : str
+            The warehouse name.
+        warehouse_type : str
+            The warehouse (and dialect) type.
+        warehouse_database_name : Optional[str]
+            The database name.
+        warehouse_database_schema : Optional[str]
+            The schema.
+        table_name : str
+            The name of the table being scanned.
+        scan_yml_columns : Optional[Dict[str, List[ScanYmlColumn]]]
+            The scan columns.
+        scan_time : str
+            The isoformated time taken at the start of a scan.
+        origin : str, optional (default: "external")
+            The origin.
+
+        Returns
+        -------
+        out : dict
+            The response.
+        """
+        scan_yml_columns = scan_yml_columns or dict()
         soda_column_cfgs = {}
-        if scan_yml.columns:
-            for column_name in scan_yml.columns:
-                scan_yml_column: ScanYmlColumn = scan_yml.columns[column_name]
-                soda_column_cfg = {}
-                if scan_yml_column.missing:
-                    if scan_yml_column.missing.values:
-                        soda_column_cfg['missingValues'] = scan_yml_column.missing.values
-                    if scan_yml_column.missing.values:
-                        soda_column_cfg['missingRegex'] = scan_yml_column.missing.regex
-                    if scan_yml_column.missing.values:
-                        soda_column_cfg['missingFormat'] = scan_yml_column.missing.format
-                validity = scan_yml_column.validity
-                if validity:
-                    soda_column_cfg['validity'] = {
-                        'namedFormat': validity.format,
-                        'regexFormat': validity.regex,
-                        'validValues': validity.values,
-                        'minLength': validity.min_length,
-                        'maxLength': validity.max_length,
-                        'minValue': validity.min,
-                        'maxValue': validity.max
-                    }
-                soda_column_cfgs[column_name] = soda_column_cfg
+        for column_name, scan_yml_column in scan_yml_columns.items():
+            soda_column_cfg = {}
+            if scan_yml_column.missing:
+                if scan_yml_column.missing.values:
+                    soda_column_cfg['missingValues'] = scan_yml_column.missing.values
+                if scan_yml_column.missing.values:
+                    soda_column_cfg['missingRegex'] = scan_yml_column.missing.regex
+                if scan_yml_column.missing.values:
+                    soda_column_cfg['missingFormat'] = scan_yml_column.missing.format
+            validity = scan_yml_column.validity
+            if validity:
+                soda_column_cfg['validity'] = {
+                    'namedFormat': validity.format,
+                    'regexFormat': validity.regex,
+                    'validValues': validity.values,
+                    'minLength': validity.min_length,
+                    'maxLength': validity.max_length,
+                    'minValue': validity.min,
+                    'maxValue': validity.max
+                }
+            soda_column_cfgs[column_name] = soda_column_cfg
 
         return self.execute_command({
             'type': 'sodaSqlScanStart',
-            'warehouseName': warehouse.name,
-            'warehouseType': warehouse.dialect.type,
-            'tableName': scan_yml.table_name,
+            'warehouseName': warehouse_name,
+            'warehouseType': warehouse_type,
+            'warehouseDatabaseName': warehouse_database_name,
+            'warehouseDatabaseSchema': warehouse_database_schema,
+            'tableName': table_name,
             'scanTime': scan_time,
             'columns': soda_column_cfgs,
             'origin': origin
@@ -172,7 +209,7 @@ class SodaServerClient:
             'monitorMeasurement': monitor_measurement_json
         })
 
-    def historic_metrics(self, warehouse, table_name,  metrics):
+    def historic_metrics(self, warehouse, table_name, metrics):
         return self.execute_query({
             'type': 'sodaSqlHistoricMeasurements',
             'warehouseName': warehouse.name,

@@ -13,6 +13,7 @@ import re
 import sys
 from datetime import datetime, timezone
 from math import ceil
+from pathlib import Path
 from typing import Optional
 
 import click
@@ -20,6 +21,7 @@ import yaml
 
 from sodasql.__version__ import SODA_SQL_VERSION
 from sodasql.cli.indenting_yaml_dumper import IndentingDumper
+from sodasql.cli.ingest import ingest as _ingest
 from sodasql.common.logging_helper import LoggingHelper
 from sodasql.dataset_analyzer import DatasetAnalyzer
 from sodasql.scan.file_system import FileSystemSingleton
@@ -30,10 +32,11 @@ from sodasql.scan.warehouse_yml_parser import (WarehouseYmlParser,
                                                read_warehouse_yml_file)
 
 from sodasql.telemetry.soda_tracer import soda_trace, span_setup_function_args
-from sodasql.telemetry.soda_telemetry import soda_telemetry
+from sodasql.telemetry.soda_telemetry import SodaTelemetry
 
 LoggingHelper.configure_for_cli()
 logger = logging.getLogger(__name__)
+soda_telemetry = SodaTelemetry.get_instance()
 
 
 @click.group(help=f"Soda CLI version {SODA_SQL_VERSION}")
@@ -488,3 +491,39 @@ def scan(scan_yml_file: str, warehouse_yml_file: str, variables: tuple, time: st
                     "https://github.com/sodadata/soda-sql/issues/new/choose")
         logger.info(f'Exiting with code 1')
         sys.exit(1)
+
+
+@main.command(short_help="Ingest test information from different tools")
+@click.argument(
+    "tool",
+    required=True,
+    type=click.Choice(["dbt"]),
+)
+@click.option(
+    "--warehouse-yml-file",
+    help="The warehouse yml file.",
+    required=True,
+)
+@click.option(
+    "--dbt-manifest",
+    help="The path to the dbt manifest file",
+    default=None,
+    type=Path,
+)
+@click.option(
+    "--dbt-run-results",
+    help="The path to the dbt run results file",
+    default=None,
+    type=Path,
+)
+def ingest(*args, **kwargs):
+    """
+    Ingest test information from different tools.
+
+    For more details see :func:sodasql.cli.ingest.ingest
+    """
+    _ingest(*args, **kwargs)
+
+
+if __name__ == '__main__':
+    main()
