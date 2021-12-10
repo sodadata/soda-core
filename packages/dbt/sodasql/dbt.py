@@ -57,7 +57,7 @@ def parse_manifest(
         for node_name, node in manifest["nodes"].items()
         if node["resource_type"] == NodeType.Test
     }
-    return model_nodes, test_nodes
+    return model_nodes, None, test_nodes
 
 
 def parse_run_results(run_results: dict[str, Any]) -> list[RunResultOutput]:

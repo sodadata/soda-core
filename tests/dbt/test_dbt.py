@@ -19,7 +19,7 @@ def test_parse_manifest_contains_model_unique_ids(
     unique_id: str, dbt_manifest: dict
 ) -> None:
     """Validate the model unique_id are present in the test_nodes."""
-    model_nodes, _ = soda_dbt.parse_manifest(dbt_manifest)
+    model_nodes, _, _ = soda_dbt.parse_manifest(dbt_manifest)
 
     assert unique_id in model_nodes.keys()
 
@@ -35,7 +35,7 @@ def test_parse_manifest_contains_test_unique_ids(
     unique_id: str, dbt_manifest: dict
 ) -> None:
     """Validate the test unique_id are present in the test_nodes."""
-    _, test_nodes = soda_dbt.parse_manifest(dbt_manifest)
+    _, _, test_nodes = soda_dbt.parse_manifest(dbt_manifest)
 
     assert unique_id in test_nodes.keys()
 
@@ -130,7 +130,7 @@ def test_create_models_to_test_mapping(
 ):
     """Check if the expected models are found."""
 
-    model_nodes, test_nodes = soda_dbt.parse_manifest(dbt_manifest)
+    model_nodes, _, test_nodes = soda_dbt.parse_manifest(dbt_manifest)
     parsed_run_results = soda_dbt.parse_run_results(dbt_run_results)
 
     models_with_tests = soda_dbt.create_models_to_tests_mapping(
