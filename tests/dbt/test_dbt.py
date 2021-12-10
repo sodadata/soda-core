@@ -18,10 +18,20 @@ def test_parse_manifest_raises_not_implemented_error() -> None:
 def test_parse_manifest_contains_model_unique_ids(
     unique_id: str, dbt_manifest: dict
 ) -> None:
-    """Validate the model unique_id are present in the test_nodes."""
+    """Validate the model unique_id are present in the model nodes."""
     model_nodes, _, _ = soda_dbt.parse_manifest(dbt_manifest)
 
     assert unique_id in model_nodes.keys()
+
+
+@pytest.mark.parametrize("unique_id", ["seed.soda.soda_warehouses"])
+def test_parse_manifest_contains_seed_unique_ids(
+    unique_id: str, dbt_manifest: dict
+) -> None:
+    """Validate the model unique_id are present in the seed nodes."""
+    _, seed_nodes, _ = soda_dbt.parse_manifest(dbt_manifest)
+
+    assert unique_id in seed_nodes.keys()
 
 
 @pytest.mark.parametrize(

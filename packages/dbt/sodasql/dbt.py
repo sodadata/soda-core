@@ -8,16 +8,26 @@ from operator import or_
 from typing import Any
 
 from dbt.contracts.graph.compiled import (
-    CompiledModelNode, CompiledSchemaTestNode
+    CompiledModelNode,
+    CompiledSchemaTestNode,
+    CompiledSeedNode,
 )
-from dbt.contracts.graph.parsed import ParsedModelNode, ParsedSchemaTestNode
+from dbt.contracts.graph.parsed import (
+    ParsedModelNode,
+    ParsedSchemaTestNode,
+    ParsedSeedNode,
+)
 from dbt.contracts.results import RunResultOutput
 from dbt.node_types import NodeType
 
 
 def parse_manifest(
     manifest: dict[str, Any]
-) -> tuple[dict[str, ParsedModelNode], dict[str, CompiledSchemaTestNode]]:
+) -> tuple[
+    dict[str, ParsedModelNode | CompileModelNode],
+    dict[str, ParsedSeedNode | CompiledSeedNode],
+    dict[str, ParsedSchemaTestNode | CompiledSchemaTestNode],
+]:
     """
     Parse the manifest.
 
@@ -30,8 +40,11 @@ def parse_manifest(
 
     Returns
     -------
-    out : tuple[dict[str, Union[ParsedModelNode, CompiledModelNode]],
-                dict[str, Unione[ParsedSchemaTestNode, CompiledSchemaTestNode]]]
+    out : tuple[
+            dict[str, ParsedModelNode | CompileModelNode],
+            dict[str, ParsedSeedNode | CompiledSeedNode],
+            dict[str, ParsedSchemaTestNode | CompiledSchemaTestNode],
+          ]
         The parsed manifest.
 
     Raises
@@ -48,16 +61,27 @@ def parse_manifest(
         raise NotImplementedError("Dbt manifest parsing only supported for V3 schema.")
 
     model_nodes = {
-        node_name: CompiledModelNode(**node) if "compiled" in node.keys() else ParsedModelNode(**node)
+        node_name: CompiledModelNode(**node)
+        if "compiled" in node.keys()
+        else ParsedModelNode(**node)
         for node_name, node in manifest["nodes"].items()
         if node["resource_type"] == NodeType.Model
     }
+    seed_nodes = {
+        node_name: CompiledSeedNode(**node)
+        if "compiled" in node.keys()
+        else ParsedSeedNode(**node)
+        for node_name, node in manifest["nodes"].items()
+        if node["resource_type"] == NodeType.Seed
+    }
     test_nodes = {
-        node_name: CompiledSchemaTestNode(**node) if "compiled" in node.keys() else ParsedSchemaTestNode(**node)
+        node_name: CompiledSchemaTestNode(**node)
+        if "compiled" in node.keys()
+        else ParsedSchemaTestNode(**node)
         for node_name, node in manifest["nodes"].items()
         if node["resource_type"] == NodeType.Test
     }
-    return model_nodes, None, test_nodes
+    return model_nodes, seed_nodes, test_nodes
 
 
 def parse_run_results(run_results: dict[str, Any]) -> list[RunResultOutput]:
@@ -132,12 +156,18 @@ def create_models_to_tests_mapping(
 
     model_unique_ids = reduce(
         or_,
-        [model_unique_ids for model_unique_ids in models_that_tests_depends_on.values()]
+        [
+            model_unique_ids
+            for model_unique_ids in models_that_tests_depends_on.values()
+        ],
     )
 
     models_with_tests = defaultdict(set)
     for model_unique_id in model_unique_ids:
-        for test_unique_id, model_unique_ids_of_test in models_that_tests_depends_on.items():
+        for (
+            test_unique_id,
+            model_unique_ids_of_test,
+        ) in models_that_tests_depends_on.items():
             if model_unique_id in model_unique_ids_of_test:
                 models_with_tests[model_unique_id].add(test_unique_id)
 
