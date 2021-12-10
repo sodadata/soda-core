@@ -221,7 +221,7 @@ class Dialect(metaclass=abc.ABCMeta):
     def sql_expr_count_all(self) -> str:
         return 'COUNT(*)'
 
-    def sql_expr_count_conditional(self, condition: str):
+    def sql_expr_count_conditional(self, condition: str, column: str):
         return f'COUNT(CASE WHEN {condition} THEN 1 END)'
 
     def sql_expr_conditional(self, condition: str, expr: str):
@@ -233,25 +233,25 @@ class Dialect(metaclass=abc.ABCMeta):
     def sql_expr_distinct(self, expr):
         return f'DISTINCT({expr})'
 
-    def sql_expr_min(self, expr):
+    def sql_expr_min(self, expr, column: str):
         return f'MIN({expr})'
 
-    def sql_expr_length(self, expr):
+    def sql_expr_length(self, expr, column: str):
         return f'LENGTH({expr})'
 
-    def sql_expr_max(self, expr: str):
+    def sql_expr_max(self, expr: str, column: str):
         return f'MAX({expr})'
 
-    def sql_expr_avg(self, expr: str):
+    def sql_expr_avg(self, expr: str, column: str):
         return f'AVG({expr})'
 
-    def sql_expr_sum(self, expr: str):
+    def sql_expr_sum(self, expr: str, column: str):
         return f'SUM({expr})'
 
-    def sql_expr_variance(self, expr: str):
+    def sql_expr_variance(self, expr: str, column: str):
         return f'VARIANCE({expr})'
 
-    def sql_expr_stddev(self, expr: str):
+    def sql_expr_stddev(self, expr: str, column: str):
         return f'STDDEV({expr})'
 
     def sql_expr_regexp_like(self, expr: str, pattern: str):
@@ -264,6 +264,7 @@ class Dialect(metaclass=abc.ABCMeta):
         return f'SELECT * FROM {table_name} LIMIT {count}'
 
     def sql_expr_list(self, column: ColumnMetadata, values: List[str]) -> str:
+
         if self.is_text(column.data_type):
             sql_values = [self.literal_string(value) for value in values]
         elif self.is_number(column.data_type):

@@ -49,7 +49,6 @@ class TestStatisticalMetrics(SqlTestCase):
             Metric.VARIANCE,
             Metric.STDDEV
         ])
-
     def test_no_minmax_for_non_numeric_strings(self):
         self.sql_recreate_table(
             [f"txt {self.dialect.data_type_varchar_255}"],
