@@ -3,6 +3,87 @@
         "dbt_schema_version": "https://schemas.getdbt.com/dbt/manifest/v3.json"
     },
     "nodes": {
+        "seed.soda.soda_warehouses": {
+            "raw_sql": "",
+            "resource_type": "seed",
+            "depends_on": {
+                "macros": [
+                    "macro.dbt.run_hooks",
+                    "macro.dbt.reset_csv_table",
+                    "macro.dbt.load_csv_rows",
+                    "macro.dbt.noop_statement",
+                    "macro.dbt.persist_docs"
+                ],
+                "nodes": []
+            },
+            "config": {
+                "enabled": true,
+                "alias": null,
+                "schema": "seed_data",
+                "database": null,
+                "tags": [],
+                "meta": {},
+                "materialized": "seed",
+                "persist_docs": {},
+                "quoting": {},
+                "column_types": {
+                    "ordinance_code": "integer",
+                    "format_code": "string",
+                    "format_number": "string",
+                    "style_name": "string",
+                    "document_type": "string",
+                    "disclosure_category": "string",
+                    "remarks": "string"
+                },
+                "full_refresh": null,
+                "on_schema_change": "ignore",
+                "quote_columns": null,
+                "post-hook": [],
+                "pre-hook": []
+            },
+            "database": null,
+            "schema": "soda_seed_data",
+            "fqn": ["soda", "stg_soda__scan"],
+            "unique_id": "seed.soda.soda_warehouses",
+            "package_name": "soda",
+            "root_path": "/users/soda/github/soda/dbt",
+            "path": "soda_warhouses.csv",
+            "original_file_path": "data/soda_warehouses.csv",
+            "name": "soda_warhouses",
+            "alias": "soda_warehouses",
+            "checksum": {
+                "name": "sha256",
+                "checksum": "fd5a5e7a1138f2ff1c938de6548ab91323667be434d1e1cb3c0106"
+            },
+            "tags": [],
+            "refs": [],
+            "sources": [],
+            "description": "The warehouses supported by Soda.",
+            "columns": {
+                "ordinance_code": {
+                    "name": "warehouse",
+                    "description": "The warehouse name.",
+                    "meta": {},
+                    "data_type": null,
+                    "quote": null,
+                    "tags": []
+                }
+            },
+            "meta": {},
+            "docs": {"show": true},
+            "patch_path": "soda://data/seeds.yml",
+            "compiled_path": null,
+            "build_path": "target/run/soda/data/soda_warehouses.csv",
+            "deferred": false,
+            "unrendered_config": {
+                "enabled": true,
+                "schema": "seed_data",
+                "column_types": {
+                    "warhouese": "string"
+                }
+            },
+            "created_at": 1637317368
+        },
         "model.soda.stg_soda__scan": {
             "raw_sql": "select result, warehouse from {{ source('soda', 'scan') }}",
             "resource_type": "model",
