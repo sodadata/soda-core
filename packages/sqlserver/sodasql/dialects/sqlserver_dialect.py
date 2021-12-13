@@ -8,13 +8,11 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-from datetime import date
 
 import pyodbc
 import logging
 from typing import Union, Optional
 
-from sodasql.exceptions.exceptions import WarehouseConnectionError
 from sodasql.scan.dialect import Dialect, SQLSERVER, KEY_WAREHOUSE_TYPE
 from sodasql.scan.parser import Parser
 
@@ -88,7 +86,7 @@ class SQLServerDialect(Dialect):
 
     def sql_tables_metadata_query(self, limit: Optional[int] = None, filter: str = None):
         sql = (f"SELECT TABLE_NAME \n"
-               f"FROM information_schema.tables \n"
+               f"FROM INFORMATION_SCHEMA.TABLES \n"
                f"WHERE lower(table_schema)='{self.schema.lower()}'")
         if limit is not None:
             sql += f"\n LIMIT {limit}"
@@ -124,8 +122,8 @@ class SQLServerDialect(Dialect):
 
     def sql_columns_metadata_query(self, table_name: str) -> str:
         sql = (f"SELECT column_name, data_type, is_nullable \n"
-               f"FROM information_schema.columns \n"
-               f"WHERE table_name = '{table_name}'")
+               f"FROM INFORMATION_SCHEMA.COLUMNS \n"
+               f"WHERE TABLE_NAME = '{table_name}'")
         return sql
 
     def is_text(self, column_type: str):
@@ -143,6 +141,9 @@ class SQLServerDialect(Dialect):
             return f'"{self.schema}"."{table_name}"'
         return f'"{table_name}"'
 
+    def qualify_column_name(self, column_name: str):
+        return f'[{column_name}]'
+
     def sql_expr_regexp_like(self, expr: str, pattern: str):
         return f"{expr} LIKE '{self.qualify_regex(pattern)}'"
 
@@ -150,7 +151,7 @@ class SQLServerDialect(Dialect):
         return f'OFFSET 0 ROWS FETCH NEXT {count} ROWS ONLY'
 
     def sql_select_with_limit(self, table_name, count):
-        return f' SELECT * FROM {table_name} OFFSET 0 ROWS FETCH NEXT {count} ROWS ONLY'
+        return f'SELECT TOP {count} * FROM {table_name}'
 
     def _statistics_clause(self, expr, column_name):
         if '^\-?[0-9]+$' in expr:

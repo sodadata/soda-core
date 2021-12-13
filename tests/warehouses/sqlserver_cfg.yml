@@ -1,5 +1,6 @@
 type: sqlserver
 host: localhost
-username: sodasql
-database: sodasql
+username: SA
+password: yourStrong@@Password
+database: master
 schema: dbo
