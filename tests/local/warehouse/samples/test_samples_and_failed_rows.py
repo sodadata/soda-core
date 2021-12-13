@@ -49,7 +49,6 @@ class TestSamplesAndFailedRows(SqlTestCase):
         # By default for sql metrics type failed rows, 5 rows are sampled
         failed_rows_file_contents = self.get_file_data(sample_type='failedRowsSample', sql_metric_name='X_TEST')
         self.assertEqual(len(failed_rows_file_contents.splitlines()), 5)
-
     def test_samples_and_failed_rows_limits(self):
         self.use_mock_soda_server_client()
 
