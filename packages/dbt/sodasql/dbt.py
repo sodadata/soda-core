@@ -9,12 +9,12 @@ from typing import Any
 
 from dbt.contracts.graph.compiled import (
     CompiledModelNode,
-    CompiledSchemaTestNode,
+    CompiledGenericTestNode,
     CompiledSeedNode,
 )
 from dbt.contracts.graph.parsed import (
     ParsedModelNode,
-    ParsedSchemaTestNode,
+    ParsedGenericTestNode,
     ParsedSeedNode,
 )
 from dbt.contracts.results import RunResultOutput
@@ -26,7 +26,7 @@ def parse_manifest(
 ) -> tuple[
     dict[str, ParsedModelNode | CompileModelNode],
     dict[str, ParsedSeedNode | CompiledSeedNode],
-    dict[str, ParsedSchemaTestNode | CompiledSchemaTestNode],
+    dict[str, ParsedGenericTestNode | CompiledGenericTestNode],
 ]:
     """
     Parse the manifest.
@@ -43,7 +43,7 @@ def parse_manifest(
     out : tuple[
             dict[str, ParsedModelNode | CompileModelNode],
             dict[str, ParsedSeedNode | CompiledSeedNode],
-            dict[str, ParsedSchemaTestNode | CompiledSchemaTestNode],
+            dict[str, ParsedGenericTestNode | CompiledGenericTestNode],
           ]
         The parsed manifest.
 
@@ -56,9 +56,9 @@ def parse_manifest(
     ------
     https://docs.getdbt.com/reference/artifacts/manifest-json
     """
-    dbt_v3_schema = "https://schemas.getdbt.com/dbt/manifest/v3.json"
-    if manifest["metadata"]["dbt_schema_version"] != dbt_v3_schema:
-        raise NotImplementedError("Dbt manifest parsing only supported for V3 schema.")
+    dbt_v4_schema = "https://schemas.getdbt.com/dbt/manifest/v4.json"
+    if manifest["metadata"]["dbt_schema_version"] != dbt_v4_schema:
+        raise NotImplementedError("Dbt manifest parsing only supported for V4 schema.")
 
     model_nodes = {
         node_name: CompiledModelNode(**node)
@@ -68,16 +68,14 @@ def parse_manifest(
         if node["resource_type"] == NodeType.Model
     }
     seed_nodes = {
-        node_name: CompiledSeedNode(**node)
-        if "compiled" in node.keys()
-        else ParsedSeedNode(**node)
+        node_name: CompiledSeedNode(**node) if "compiled" in node.keys() else ParsedSeedNode(**node)
         for node_name, node in manifest["nodes"].items()
         if node["resource_type"] == NodeType.Seed
     }
     test_nodes = {
-        node_name: CompiledSchemaTestNode(**node)
+        node_name: CompiledGenericTestNode(**node)
         if "compiled" in node.keys()
-        else ParsedSchemaTestNode(**node)
+        else ParsedGenericTestNode(**node)
         for node_name, node in manifest["nodes"].items()
         if node["resource_type"] == NodeType.Test
     }
@@ -109,21 +107,17 @@ def parse_run_results(run_results: dict[str, Any]) -> list[RunResultOutput]:
     ------
     https://docs.getdbt.com/reference/artifacts/run-results-json
     """
-    dbt_v3_schema = "https://schemas.getdbt.com/dbt/run-results/v3.json"
-    if run_results["metadata"]["dbt_schema_version"] != dbt_v3_schema:
-        raise NotImplementedError(
-            "Dbt run results parsing only supported for V3 schema."
-        )
+    dbt_v4_schema = "https://schemas.getdbt.com/dbt/run-results/v4.json"
+    if run_results["metadata"]["dbt_schema_version"] != dbt_v4_schema:
+        raise NotImplementedError("Dbt run results parsing only supported for v4 schema.")
 
-    parsed_run_results = [
-        RunResultOutput(**result) for result in run_results["results"]
-    ]
+    parsed_run_results = [RunResultOutput(**result) for result in run_results["results"]]
     return parsed_run_results
 
 
 def create_nodes_to_tests_mapping(
     model_nodes: dict[str, ParsedModelNode],
-    test_nodes: dict[str, CompiledSchemaTestNode],
+    test_nodes: dict[str, CompiledGenericTestNode],
     run_results: list[RunResultOutput],
 ) -> dict[str, set[ParsedModelNode]]:
     """
@@ -133,7 +127,7 @@ def create_nodes_to_tests_mapping(
     ----------
     model_nodes : Dict[str: ParsedModelNode]
         The parsed model nodes.
-    test_nodes : Dict[str: CompiledSchemaTestNode]
+    test_nodes : Dict[str: CompiledGenericTestNode]
         The compiled schema test nodes.
     run_results : List[RunResultOutput]
         The run results.
@@ -156,10 +150,7 @@ def create_nodes_to_tests_mapping(
 
     model_unique_ids = reduce(
         or_,
-        [
-            model_unique_ids
-            for model_unique_ids in models_that_tests_depends_on.values()
-        ],
+        [model_unique_ids for model_unique_ids in models_that_tests_depends_on.values()],
     )
 
     models_with_tests = defaultdict(set)

@@ -1,6 +1,6 @@
 {
     "metadata": {
-        "dbt_schema_version": "https://schemas.getdbt.com/dbt/manifest/v3.json"
+        "dbt_schema_version": "https://schemas.getdbt.com/dbt/manifest/v4.json"
     },
     "nodes": {
         "seed.soda.soda_warehouses": {

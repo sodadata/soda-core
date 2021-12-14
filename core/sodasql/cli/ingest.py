@@ -25,6 +25,7 @@ from sodasql.soda_server_client.soda_server_client import SodaServerClient
 @dataclasses.dataclass(frozen=True)
 class Table:
     """Represents a table."""
+
     name: str
     schema: str
     database: str
@@ -54,10 +55,11 @@ def map_dbt_run_result_to_test_result(
     dbt_tests_with_soda_test = {
         test_node.unique_id: Test(
             id=test_node.unique_id,
-            title=f"Number of failures for {test_node.unique_id}",
+            title=f"{test_node.name}",
             expression=test_node.raw_sql,
             metrics=None,
             column=test_node.column_name,
+            source="dbt",
         )
         for test_node in test_nodes.values()
     }
@@ -107,9 +109,7 @@ def map_dbt_test_results_iterator(
 
     model_nodes, seed_nodes, test_nodes = soda_dbt.parse_manifest(manifest)
     parsed_run_results = soda_dbt.parse_run_results(run_results)
-    tests_with_test_result = map_dbt_run_result_to_test_result(
-        test_nodes, parsed_run_results
-    )
+    tests_with_test_result = map_dbt_run_result_to_test_result(test_nodes, parsed_run_results)
     model_and_seed_nodes = {**model_nodes, **seed_nodes}
     models_with_tests = soda_dbt.create_nodes_to_tests_mapping(
         model_and_seed_nodes, test_nodes, parsed_run_results
@@ -151,9 +151,7 @@ def flush_test_results(
     """
     for table, test_results in test_results_iterator:
         test_results_jsons = [
-            test_result.to_dict()
-            for test_result in test_results
-            if not test_result.skipped
+            test_result.to_dict() for test_result in test_results if not test_result.skipped
         ]
         if len(test_results_jsons) == 0:
             continue
@@ -214,9 +212,7 @@ def ingest(
             raise ValueError(f"Dbt manifest is required: {dbt_manifest}")
         if dbt_run_results is None:
             raise ValueError(f"Dbt run results is required: {dbt_run_results}")
-        test_results_iterator = map_dbt_test_results_iterator(
-            dbt_manifest, dbt_run_results
-        )
+        test_results_iterator = map_dbt_test_results_iterator(dbt_manifest, dbt_run_results)
     else:
         raise ValueError(f"Unknown tool: {tool}")
 
