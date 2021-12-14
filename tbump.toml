@@ -56,3 +56,7 @@ search = "package_version = '{current_version}'"
 [[file]]
 src = "packages/dbt/setup.py"
 search = "package_version = '{current_version}'"
+
+[[file]]
+src = "packages/trino/setup.py"
+search = "package_version = '{current_version}'"
