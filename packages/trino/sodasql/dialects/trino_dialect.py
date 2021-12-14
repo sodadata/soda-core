@@ -11,10 +11,13 @@
 #  limitations under the License.
 
 import re
+import logging
 import trino
 
 from sodasql.scan.dialect import Dialect, TRINO, KEY_WAREHOUSE_TYPE
 from sodasql.scan.parser import Parser
+
+logger = logging.getLogger(__name__)
 
 
 class TrinoDialect(Dialect):
@@ -104,7 +107,7 @@ class TrinoDialect(Dialect):
         return f'{column_name}'
 
     def is_connection_error(self, exception):
-        print(exception)
+        logger.error(exception)
         if exception is None or exception.errno is None:
             return False
         return isinstance(exception, trino.exceptions.HttpError) or \
@@ -113,7 +116,7 @@ class TrinoDialect(Dialect):
                isinstance(exception, trino.exceptions.TimeoutError)
 
     def is_authentication_error(self, exception):
-        print(exception)
+        logger.error(exception)
         if exception is None or exception.errno is None:
             return False
-        return False
+        return True

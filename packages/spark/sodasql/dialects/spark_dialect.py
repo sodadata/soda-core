@@ -329,7 +329,7 @@ class SparkDialect(Dialect):
             qualified_table_name = f'{self.database}.{table_name}'
         return qualified_table_name
 
-    def qualify_column_name(self, column_name: str):
+    def qualify_column_name(self, column_name: str, source_type: str = None):
         return f"`{column_name}`"
 
     def qualify_writable_table_name(self, table_name: str) -> str:
