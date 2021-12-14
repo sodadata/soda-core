@@ -1,4 +1,4 @@
-pip-tools==5.5.0
+pip-tools==6.4.0
 pytest~=6.0.1
 python-dotenv~=0.13.0
 tox~=3.24.0
@@ -9,6 +9,7 @@ requests==2.26.0
 twine~=3.4.2
 Faker==8.1.2
 tbump==6.3.1
+click>=8.0,<9.0
 
 urllib3==1.26.5
 pygments==2.10.0

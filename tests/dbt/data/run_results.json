@@ -1,6 +1,6 @@
 {
     "metadata": {
-        "dbt_schema_version": "https://schemas.getdbt.com/dbt/run-results/v3.json"
+        "dbt_schema_version": "https://schemas.getdbt.com/dbt/run-results/v4.json"
     },
     "results": [
         {
