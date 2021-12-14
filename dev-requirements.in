@@ -1,4 +1,4 @@
-pip-tools==5.5.0
+pip-tools==6.4.0
 pytest~=6.0.1
 python-dotenv~=0.13.0
 tox~=3.24.0
