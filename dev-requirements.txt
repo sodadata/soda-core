@@ -18,8 +18,10 @@ charset-normalizer==2.0.4
     # via requests
 cli-ui==0.10.3
     # via tbump
-click==7.1.2
-    # via pip-tools
+click==8.0.3
+    # via
+    #   -r dev-requirements.in
+    #   pip-tools
 colorama==0.4.4
     # via
     #   cli-ui
