@@ -41,6 +41,7 @@ TARGET_SQLSERVER = 'sqlserver'
 TARGET_HIVE = 'hive'
 TARGET_MYSQL = 'mysql'
 TARGET_SPARK = 'spark'
+TARGET_TRINO = 'trino'
 
 
 def equals_ignore_case(left, right):

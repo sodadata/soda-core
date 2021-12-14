@@ -111,7 +111,7 @@ class MySQLDialect(Dialect):
     def qualify_table_name(self, table_name: str) -> str:
         return f'{table_name}'
 
-    def qualify_column_name(self, column_name: str):
+    def qualify_column_name(self, column_name: str, source_type: str = None):
         return f'{column_name}'
 
     def sql_expr_count_conditional(self, condition: str):

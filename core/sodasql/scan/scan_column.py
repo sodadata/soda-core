@@ -36,7 +36,7 @@ class ScanColumn:
             self.scan_yml.get_scan_yaml_column(self.column_name)
 
         dialect = self.scan.dialect
-        self.qualified_column_name = dialect.qualify_column_name(self.column_name)
+        self.qualified_column_name = dialect.qualify_column_name(self.column_name, column_metadata.data_type)
         self.is_text: bool = dialect.is_text(column_metadata.data_type)
         self.is_number: bool = dialect.is_number(column_metadata.data_type)
         self.is_time: bool = dialect.is_time(column_metadata.data_type)
@@ -124,7 +124,7 @@ class ScanColumn:
 
     @classmethod
     def __get_missing_condition(cls, column_metadata: ColumnMetadata, missing: Missing, dialect: Dialect):
-        qualified_column_name = dialect.qualify_column_name(column_metadata.name)
+        qualified_column_name = dialect.qualify_column_name(column_metadata.name, column_metadata.data_type)
         validity_clauses = [f'{qualified_column_name} IS NULL']
         if missing:
             if missing.values:
@@ -140,7 +140,7 @@ class ScanColumn:
         return " OR ".join(validity_clauses), len(validity_clauses) == 1
 
     def __get_valid_condition(self, column_metadata: ColumnMetadata, validity: Validity, dialect: Dialect):
-        qualified_column_name = dialect.qualify_column_name(column_metadata.name)
+        qualified_column_name = dialect.qualify_column_name(column_metadata.name, column_metadata.data_type)
         if validity is None:
             return '', True
         validity_clauses = []

@@ -37,6 +37,7 @@ REDSHIFT = 'redshift'
 SNOWFLAKE = 'snowflake'
 SQLSERVER = 'sqlserver'
 SPARK = 'spark'
+TRINO = 'trino'
 
 ALL_WAREHOUSE_TYPES = [ATHENA,
                        BIGQUERY,
@@ -46,7 +47,8 @@ ALL_WAREHOUSE_TYPES = [ATHENA,
                        REDSHIFT,
                        SNOWFLAKE,
                        SQLSERVER,
-                       SPARK]
+                       SPARK,
+                       TRINO]
 
 logger = logging.getLogger(__name__)
 
@@ -85,22 +87,24 @@ class Dialect(metaclass=abc.ABCMeta):
         else:
             if warehouse_type == ATHENA:
                 _warehouse_class = Dialect._import_class('sodasql.dialects.athena_dialect', 'AthenaDialect')
-            if warehouse_type == BIGQUERY:
+            elif warehouse_type == BIGQUERY:
                 _warehouse_class = Dialect._import_class('sodasql.dialects.bigquery_dialect', 'BigQueryDialect')
-            if warehouse_type == HIVE:
+            elif warehouse_type == HIVE:
                 _warehouse_class = Dialect._import_class('sodasql.dialects.hive_dialect', 'HiveDialect')
-            if warehouse_type == POSTGRES:
+            elif warehouse_type == POSTGRES:
                 _warehouse_class = Dialect._import_class('sodasql.dialects.postgres_dialect', 'PostgresDialect')
-            if warehouse_type == MYSQL:
+            elif warehouse_type == MYSQL:
                 _warehouse_class = Dialect._import_class('sodasql.dialects.mysql_dialect', 'MySQLDialect')
-            if warehouse_type == REDSHIFT:
+            elif warehouse_type == REDSHIFT:
                 _warehouse_class = Dialect._import_class('sodasql.dialects.redshift_dialect', 'RedshiftDialect')
-            if warehouse_type == SNOWFLAKE:
+            elif warehouse_type == SNOWFLAKE:
                 _warehouse_class = Dialect._import_class('sodasql.dialects.snowflake_dialect', 'SnowflakeDialect')
-            if warehouse_type == SQLSERVER:
+            elif warehouse_type == SQLSERVER:
                 _warehouse_class = Dialect._import_class('sodasql.dialects.sqlserver_dialect', 'SQLServerDialect')
-            if warehouse_type == SPARK:
+            elif warehouse_type == SPARK:
                 _warehouse_class = Dialect._import_class('sodasql.dialects.spark_dialect', 'SparkDialect')
+            elif warehouse_type == TRINO:
+                _warehouse_class = Dialect._import_class('sodasql.dialects.trino_dialect', 'TrinoDialect')
         return _warehouse_class(parser)
 
     @classmethod
@@ -315,7 +319,7 @@ class Dialect(metaclass=abc.ABCMeta):
     def qualify_table_name(self, table_name: str) -> str:
         return table_name
 
-    def qualify_column_name(self, column_name: str):
+    def qualify_column_name(self, column_name: str, source_type: str = None):
         return column_name
 
     def qualify_writable_table_name(self, table_name: str) -> str:
@@ -471,8 +475,7 @@ class Dialect(metaclass=abc.ABCMeta):
     def is_authentication_error(self, exception):
         return False
 
-    def try_to_raise_soda_sql_exception(
-        self, exception: Exception) -> Exception:
+    def try_to_raise_soda_sql_exception(self, exception: Exception) -> Exception:
         if self.is_connection_error(exception):
             raise WarehouseConnectionError(
                 warehouse_type=self.type,

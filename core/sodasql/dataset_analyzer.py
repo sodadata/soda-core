@@ -56,7 +56,7 @@ class DatasetAnalyzer:
                 column_name=column_name, source_type=source_type)
             analyze_results.append(column_analysis_result)
 
-            qualified_column_name = dialect.qualify_column_name(column_name)
+            qualified_column_name = dialect.qualify_column_name(column_name, source_type)
             select_with_limit_query = dialect.sql_select_with_limit(qualified_table_name, 1000)
 
             if dialect.is_text(source_type):

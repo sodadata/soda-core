@@ -131,7 +131,7 @@ class AthenaDialect(Dialect):
                 f"WHERE table_name = '{table_name.lower()}' \n"
                 f"  AND table_schema = '{self.database.lower()}';")
 
-    def qualify_column_name(self, column_name):
+    def qualify_column_name(self, column_name: str, source_type: str = None):
         return f'"{column_name}"'
 
     def qualify_table_name(self, table_name: str) -> str:
