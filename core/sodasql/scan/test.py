@@ -9,7 +9,7 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Optional, List
 from jinja2 import Template
 
@@ -24,7 +24,7 @@ class Test:
     metrics: List[str]
     column: Optional[str]
     expression_delimiters = ["<=", ">=", "<", ">", "=="]
-    source: str
+    source: str = field(default="")
 
     def evaluate(
         self,
