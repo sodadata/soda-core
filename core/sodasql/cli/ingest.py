@@ -171,28 +171,27 @@ def flush_test_results(
         )
         soda_server_client.scan_ended(start_scan_response["scanReference"])
 
+
 def resolve_artifacts_paths(
-    tool: str,
     dbt_artifacts: Optional[Path] = None,
     dbt_manifest: Optional[Path] = None,
     dbt_run_results: Optional[Path] = None
 ) -> Tuple[Path, Path]:
-    if tool == "dbt":
-        if dbt_artifacts:
-            dbt_manifest = Path(dbt_artifacts) / 'manifest.json'
-            dbt_run_results = Path(dbt_artifacts) / 'run_results.json'
-        elif dbt_manifest is None:
-            raise ValueError(
-                "--dbt-manifest or --dbt-artifacts are required. "
-                f"Currently, dbt_manifest={dbt_manifest} and dbt_artifacts={dbt_artifacts}"
-            )
-        elif dbt_run_results is None:
-            raise ValueError(
-                "--dbt-run-results or --dbt-artifacts are required. "
-                f"Currently, dbt_run_results={dbt_manifest} and dbt_artifacts={dbt_artifacts}"
-            )
-        return dbt_manifest, dbt_run_results
-    raise NotImplementedError(f"Ingestion for '{tool}' is currently not supported.")
+    if dbt_artifacts:
+        dbt_manifest = Path(dbt_artifacts) / 'manifest.json'
+        dbt_run_results = Path(dbt_artifacts) / 'run_results.json'
+    elif dbt_manifest is None:
+        raise ValueError(
+            "--dbt-manifest or --dbt-artifacts are required. "
+            f"Currently, dbt_manifest={dbt_manifest} and dbt_artifacts={dbt_artifacts}"
+        )
+    elif dbt_run_results is None:
+        raise ValueError(
+            "--dbt-run-results or --dbt-artifacts are required. "
+            f"Currently, dbt_run_results={dbt_manifest} and dbt_artifacts={dbt_artifacts}"
+        )
+    return dbt_manifest, dbt_run_results
+
 
 def ingest(
     tool: str,
@@ -235,7 +234,6 @@ def ingest(
 
     if tool == 'dbt':
         dbt_manifest, dbt_run_results = resolve_artifacts_paths(
-            tool=tool,
             dbt_artifacts=dbt_artifacts,
             dbt_manifest=dbt_manifest,
             dbt_run_results=dbt_run_results
