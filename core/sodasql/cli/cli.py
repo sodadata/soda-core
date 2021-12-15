@@ -505,6 +505,15 @@ def scan(scan_yml_file: str, warehouse_yml_file: str, variables: tuple, time: st
     required=True,
 )
 @click.option(
+    "--dbt-artifacts",
+    help=(
+        "The path that contains both the manifest and run_result JSONs from dbt. Typically `/dbt_project/target/` "
+        "When provided, --dbt-manifest and --dbt-run-results are not required and will be ignored"
+    ),
+    default=None,
+    type=Path,
+)
+@click.option(
     "--dbt-manifest",
     help="The path to the dbt manifest file",
     default=None,
