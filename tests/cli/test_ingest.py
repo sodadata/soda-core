@@ -79,6 +79,7 @@ def test_dbt_flush_test_results_soda_server_scan_numbertest_result(
         ("skipped", False),
         ("values", {"failures": 0}),
         ("columnName", "result"),
+        ('source', 'dbt'),
     ],
 )
 def test_dbt_flush_test_results_soda_server_scan_test_result(
