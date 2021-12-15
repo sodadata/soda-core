@@ -428,8 +428,13 @@ class ScanYmlParser(Parser):
         test_expression = f'{test_name} == 0'
         test_id = self.create_test_id(test_expression, test_name, sql_metric_index, column_name, sql_metric_name,
                                       sql_metric_index)
-        test_title = self.create_test_title(test_expression, test_name, sql_metric_index, column_name, sql_metric_name,
-                                            sql_metric_index)
+        test_title = self.get_str_optional(SQL_METRIC_KEY_TITLE)
+
+        test_title = test_title if test_title else \
+            self.create_test_title(test_expression, test_name, sql_metric_index,
+                                   column_name,
+                                   sql_metric_name,
+                                   sql_metric_index)
 
         test = Test(id=test_id,
                     title=test_title,
