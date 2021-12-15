@@ -112,7 +112,7 @@ class SQLServerDialect(Dialect):
     def query_table(self, table_name):
         query = f"""
         SELECT *
-        FROM {table_name}
+        FROM {self.qualify_table_name(table_name)}
         LIMIT 1
         """
         return query
@@ -138,10 +138,10 @@ class SQLServerDialect(Dialect):
 
     def qualify_table_name(self, table_name: str) -> str:
         if self.schema:
-            return f'"{self.schema}"."{table_name}"'
-        return f'"{table_name}"'
+            return f'[{self.schema}].[{table_name}]'
+        return f'[{table_name}]'
 
-    def qualify_column_name(self, column_name: str):
+    def qualify_column_name(self, column_name: str, source_type: str = None):
         return f'[{column_name}]'
 
     def sql_expr_regexp_like(self, expr: str, pattern: str):
