@@ -10,7 +10,7 @@ import json
 import logging
 import os
 from pathlib import Path
-from typing import Iterator
+from typing import Iterator, Optional, Tuple
 
 from sodasql.__version__ import SODA_SQL_VERSION
 from sodasql.scan.scan_builder import (
@@ -172,9 +172,31 @@ def flush_test_results(
         soda_server_client.scan_ended(start_scan_response["scanReference"])
 
 
+def resolve_artifacts_paths(
+    dbt_artifacts: Optional[Path] = None,
+    dbt_manifest: Optional[Path] = None,
+    dbt_run_results: Optional[Path] = None
+) -> Tuple[Path, Path]:
+    if dbt_artifacts:
+        dbt_manifest = Path(dbt_artifacts) / 'manifest.json'
+        dbt_run_results = Path(dbt_artifacts) / 'run_results.json'
+    elif dbt_manifest is None:
+        raise ValueError(
+            "--dbt-manifest or --dbt-artifacts are required. "
+            f"Currently, dbt_manifest={dbt_manifest} and dbt_artifacts={dbt_artifacts}"
+        )
+    elif dbt_run_results is None:
+        raise ValueError(
+            "--dbt-run-results or --dbt-artifacts are required. "
+            f"Currently, dbt_run_results={dbt_manifest} and dbt_artifacts={dbt_artifacts}"
+        )
+    return dbt_manifest, dbt_run_results
+
+
 def ingest(
     tool: str,
     warehouse_yml_file: str,
+    dbt_artifacts: Path | None = None,
     dbt_manifest: Path | None = None,
     dbt_run_results: Path | None = None,
 ) -> None:
@@ -187,6 +209,9 @@ def ingest(
         The tool name.
     warehouse_yml_file : str
         The warehouse yml file.
+    dbt_artifacts : Optional[Path]
+        The path to the folder conatining both the manifest and run_results.json.
+        When provided, dbt_manifest and dbt_run_results will be ignored.
     dbt_manifest : Optional[Path]
         The path to the dbt manifest.
     dbt_run_results : Optional[Path]
@@ -207,14 +232,15 @@ def ingest(
     if not soda_server_client.api_key_id or not soda_server_client.api_key_secret:
         raise ValueError("Missing Soda cloud api key id and/or secret.")
 
-    if tool == "dbt":
-        if dbt_manifest is None:
-            raise ValueError(f"Dbt manifest is required: {dbt_manifest}")
-        if dbt_run_results is None:
-            raise ValueError(f"Dbt run results is required: {dbt_run_results}")
+    if tool == 'dbt':
+        dbt_manifest, dbt_run_results = resolve_artifacts_paths(
+            dbt_artifacts=dbt_artifacts,
+            dbt_manifest=dbt_manifest,
+            dbt_run_results=dbt_run_results
+        )
         test_results_iterator = map_dbt_test_results_iterator(dbt_manifest, dbt_run_results)
     else:
-        raise ValueError(f"Unknown tool: {tool}")
+        raise NotImplementedError(f"Unknown tool: {tool}")
 
     flush_test_results(
         test_results_iterator,
