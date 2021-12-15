@@ -6,6 +6,7 @@ from typing import Any
 import pytest
 
 from sodasql.cli import ingest
+from sodasql.cli.ingest import resolve_artifacts_paths
 from tests.common.mock_soda_server_client import MockSodaServerClient
 
 
@@ -114,3 +115,76 @@ def test_dbt_flush_test_results_soda_server_scan_test_result(
 
     assert len(test_results) == 1, f"expected one test result: {test_results}"
     assert test_results[0][column] == value
+
+
+@pytest.mark.parametrize(
+    "tool, dbt_artifacts, dbt_manifest, dbt_run_results, expectation",
+    [
+        pytest.param(
+            'dbt',
+            Path('my_dbt_project/target/'),
+            "",
+            "",
+            [
+                Path('my_dbt_project/target/manifest.json'),
+                Path('my_dbt_project/target/run_results.json'),
+            ],
+            id="dbt_artifacts path provided, others null"
+        ),
+        pytest.param(
+            'dbt',
+            Path('my_dbt_project/target/'),
+            Path('my_dbt_project/path_to_ignore'),
+            Path('my_dbt_project/path_to_ignore'),
+            [
+                Path('my_dbt_project/target/manifest.json'),
+                Path('my_dbt_project/target/run_results.json'),
+            ],
+            id="dbt_artifacts path provided, others provided, but should be ignored"
+        ),
+    ]
+)
+def test_resolve_artifacts_paths(tool, dbt_artifacts, dbt_manifest, dbt_run_results, expectation):
+    dbt_manifest, dbt_run_results = resolve_artifacts_paths(tool, dbt_artifacts, dbt_manifest, dbt_run_results)
+    assert dbt_manifest == expectation[0]
+    assert dbt_run_results == expectation[1]
+
+
+@pytest.mark.parametrize(
+    "tool, dbt_artifacts, dbt_manifest, dbt_run_results",
+    [
+        pytest.param(
+            'unsupported_tool',
+            Path('my_dbt_project/target/'),
+            "",
+            "",
+            id="unsupported_tool",
+        ),
+    ]
+)
+def test_resolve_artifacts_paths_unsupported_tool(tool, dbt_artifacts, dbt_manifest, dbt_run_results):
+    with pytest.raises(NotImplementedError):
+        dbt_manifest, dbt_run_results = resolve_artifacts_paths(tool, dbt_artifacts, dbt_manifest, dbt_run_results)
+
+@pytest.mark.parametrize(
+    "tool, dbt_artifacts, dbt_manifest, dbt_run_results",
+    [
+        pytest.param(
+            'dbt',
+            "",
+            "",
+            Path('my_dbt_project/target/run_results.json'),
+            id="missing dbt_manifest and artifact",
+        ),
+        pytest.param(
+            'dbt',
+            "",
+            Path('my_dbt_project/target/run_results.json'),
+            "",
+            id="missing dbt_run_results and artifact",
+        ),
+    ]
+)
+def test_resolve_artifacts_paths_missing_paths(tool, dbt_artifacts, dbt_manifest, dbt_run_results):
+    with pytest.raises(ValueError):
+        dbt_manifest, dbt_run_results = resolve_artifacts_paths(tool, dbt_artifacts, dbt_manifest, dbt_run_results)
