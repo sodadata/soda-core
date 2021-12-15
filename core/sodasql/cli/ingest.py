@@ -242,7 +242,7 @@ def ingest(
         )
         test_results_iterator = map_dbt_test_results_iterator(dbt_manifest, dbt_run_results)
     else:
-        raise ValueError(f"Unknown tool: {tool}")
+        raise NotImplementedError(f"Unknown tool: {tool}")
 
     flush_test_results(
         test_results_iterator,
