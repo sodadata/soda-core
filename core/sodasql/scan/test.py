@@ -24,7 +24,7 @@ class Test:
     metrics: List[str]
     column: Optional[str]
     expression_delimiters = ["<=", ">=", "<", ">", "=="]
-    source: str = field(default="")
+    source: str = field(default="soda-sql")
 
     def evaluate(
         self,
