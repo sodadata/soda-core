@@ -270,8 +270,9 @@ class SparkDialect(Dialect):
             The column metadata.
         """
         qualified_table_name = self.qualify_table_name(table_name)
+        qualified_column_name = self.qualify_column_name(column_name)
         with self.create_connection().cursor() as cursor:
-            cursor.execute(f"DESCRIBE TABLE {qualified_table_name} {column_name}")
+            cursor.execute(f"DESCRIBE TABLE {qualified_table_name} {qualified_column_name}")
             data_type = cursor.fetchall()[1][1]
         return ColumnMetadata(column_name, data_type, is_nullable="YES")
 
