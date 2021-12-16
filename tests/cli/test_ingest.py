@@ -1,12 +1,15 @@
 """Test the ingest module."""
 
+from __future__ import annotations
+
+import requests
 from pathlib import Path
 from typing import Any
 
 import pytest
+from _pytest.monkeypatch import MonkeyPatch
 
 from sodasql.cli import ingest
-from sodasql.cli.ingest import resolve_artifacts_paths
 from tests.common.mock_soda_server_client import MockSodaServerClient
 
 
@@ -27,14 +30,14 @@ def mock_soda_server_client() -> MockSodaServerClient:
     "command_type", ["sodaSqlScanStart", "sodaSqlScanTestResults", "sodaSqlScanEnd"]
 )
 def test_dbt_flush_test_results_soda_server_has_command_types(
-    dbt_manifest_file: Path,
-    dbt_run_results_file: Path,
+    dbt_manifest: dict,
+    dbt_run_results: dict,
     mock_soda_server_client: MockSodaServerClient,
     command_type: str,
 ) -> None:
     """Validate that the flush test results has the expected command types."""
     test_results_iterator = ingest.map_dbt_test_results_iterator(
-        dbt_manifest_file, dbt_run_results_file
+        dbt_manifest, dbt_run_results
     )
     ingest.flush_test_results(
         test_results_iterator,
@@ -48,14 +51,14 @@ def test_dbt_flush_test_results_soda_server_has_command_types(
     )
 
 
-def test_dbt_flush_test_results_soda_server_scan_number_test_result(
-    dbt_manifest_file: Path,
-    dbt_run_results_file: Path,
+def test_dbt_flush_test_results_soda_server_scan_numbertest_result(
+    dbt_manifest: dict,
+    dbt_run_results: dict,
     mock_soda_server_client: MockSodaServerClient,
 ) -> None:
     """Validate if we have the expected number of test results."""
     test_results_iterator = ingest.map_dbt_test_results_iterator(
-        dbt_manifest_file, dbt_run_results_file
+        dbt_manifest, dbt_run_results
     )
     ingest.flush_test_results(
         test_results_iterator,
@@ -80,12 +83,12 @@ def test_dbt_flush_test_results_soda_server_scan_number_test_result(
         ("skipped", False),
         ("values", {"failures": 0}),
         ("columnName", "result"),
-        ('source', 'dbt'),
+        ("source", "dbt"),
     ],
 )
 def test_dbt_flush_test_results_soda_server_scan_test_result(
-    dbt_manifest_file: Path,
-    dbt_run_results_file: Path,
+    dbt_manifest: dict,
+    dbt_run_results: dict,
     mock_soda_server_client: MockSodaServerClient,
     column: str,
     value: Any,
@@ -94,7 +97,7 @@ def test_dbt_flush_test_results_soda_server_scan_test_result(
     id = "test.soda.accepted_values_stg_soda__scan__result__pass_fail.81f"
 
     test_results_iterator = ingest.map_dbt_test_results_iterator(
-        dbt_manifest_file, dbt_run_results_file
+        dbt_manifest, dbt_run_results
     )
     ingest.flush_test_results(
         test_results_iterator,
@@ -117,54 +120,67 @@ def test_dbt_flush_test_results_soda_server_scan_test_result(
     assert test_results[0][column] == value
 
 
-@pytest.mark.parametrize(
-    "dbt_artifacts, dbt_manifest, dbt_run_results, expectation",
-    [
-        pytest.param(
-            Path('my_dbt_project/target/'),
-            "",
-            "",
-            [
-                Path('my_dbt_project/target/manifest.json'),
-                Path('my_dbt_project/target/run_results.json'),
-            ],
-            id="dbt_artifacts path provided, others null"
-        ),
-        pytest.param(
-            Path('my_dbt_project/target/'),
-            Path('my_dbt_project/path_to_ignore'),
-            Path('my_dbt_project/path_to_ignore'),
-            [
-                Path('my_dbt_project/target/manifest.json'),
-                Path('my_dbt_project/target/run_results.json'),
-            ],
-            id="dbt_artifacts path provided, others provided, but should be ignored"
-        ),
-    ]
-)
-def test_resolve_artifacts_paths(dbt_artifacts, dbt_manifest, dbt_run_results, expectation):
-    dbt_manifest, dbt_run_results = resolve_artifacts_paths(dbt_artifacts, dbt_manifest, dbt_run_results)
-    assert dbt_manifest == expectation[0]
-    assert dbt_run_results == expectation[1]
+def test_load_dbt_artifacts_given_artifacts(
+    dbt_manifest_file: Path,
+    dbt_manifest: dict,
+    dbt_run_results_file: Path,
+    dbt_run_results: dict,
+) -> None:
+    """Test load dbt artifacts given an artifacts directory."""
+    manifest, run_results = ingest.load_dbt_artifacts(
+        dbt_manifest_file, dbt_run_results_file
+    )
+    assert dbt_manifest == manifest
+    assert dbt_run_results == run_results
 
 
-@pytest.mark.parametrize(
-    "dbt_artifacts, dbt_manifest, dbt_run_results",
-    [
-        pytest.param(
-            None,
-            None,
-            Path('my_dbt_project/target/run_results.json'),
-            id="missing dbt_manifest and artifact",
-        ),
-        pytest.param(
-            None,
-            Path('my_dbt_project/target/run_results.json'),
-            None,
-            id="missing dbt_run_results and artifact",
-        ),
-    ]
-)
-def test_resolve_artifacts_paths_missing_paths(dbt_artifacts, dbt_manifest, dbt_run_results):
-    with pytest.raises(ValueError):
-        dbt_manifest, dbt_run_results = resolve_artifacts_paths(dbt_artifacts, dbt_manifest, dbt_run_results)
+@pytest.fixture
+def mock_dbt_cloud_response(
+    monkeypatch: MonkeyPatch,
+    dbt_manifest_file: Path,
+    dbt_run_results_file: Path,
+) -> None:
+    """
+    Mock the dbt cloud response.
+
+    Parameters
+    ----------
+    monkeypatch : MonkeyPatch
+        The monkey patch fixture.
+    dbt_manifest_file : Path
+        The path to the manifest file.
+    dbt_run_results_file : Path
+        The path to the run results file.
+    """
+
+    def get(url: str, headers: dict | None = None):
+        """Mock the requests.get method."""
+        response = requests.Response()
+        if "manifest.json" in url:
+            file = dbt_manifest_file
+        elif "run_results.json" in url:
+            file = dbt_run_results_file
+        else:
+            raise ValueError(f"Unrecognized url: {url}")
+
+        with file.open("rb") as f:
+            response._content = f.read()
+
+        response.status_code = requests.codes.ok
+        return response
+
+    monkeypatch.setattr(requests, "get", get)
+
+
+def test_download_dbt_artifacts_from_cloud(
+    mock_dbt_cloud_response: None,
+    dbt_manifest: dict,
+    dbt_run_results: dict,
+):
+    """Test if the dbt manifest and run results are returned."""
+    manifest, run_results = ingest.download_dbt_artifacts_from_cloud(
+        "api_token", "account_id", "run_id"
+    )
+
+    assert dbt_manifest == manifest
+    assert dbt_run_results == run_results

@@ -1,4 +1,4 @@
-"""DBT integeration"""
+"""dbt integeration"""
 
 from __future__ import annotations
 
@@ -25,7 +25,7 @@ from dbt.node_types import NodeType
 def parse_manifest(
     manifest: dict[str, Any]
 ) -> tuple[
-    dict[str, ParsedModelNode | CompileModelNode],
+    dict[str, ParsedModelNode | CompiledModelNode],
     dict[str, ParsedSeedNode | CompiledSeedNode],
     dict[str, ParsedGenericTestNode | CompiledGenericTestNode],
     dict[str, ParsedSourceDefinition],
@@ -59,10 +59,6 @@ def parse_manifest(
     ------
     https://docs.getdbt.com/reference/artifacts/manifest-json
     """
-    dbt_v4_schema = "https://schemas.getdbt.com/dbt/manifest/v4.json"
-    if manifest["metadata"]["dbt_schema_version"] != dbt_v4_schema:
-        raise NotImplementedError("Dbt manifest parsing only supported for V4 schema.")
-
     model_nodes = {
         node_name: CompiledModelNode(**node)
         if "compiled" in node.keys()
@@ -115,10 +111,6 @@ def parse_run_results(run_results: dict[str, Any]) -> list[RunResultOutput]:
     ------
     https://docs.getdbt.com/reference/artifacts/run-results-json
     """
-    dbt_v4_schema = "https://schemas.getdbt.com/dbt/run-results/v4.json"
-    if run_results["metadata"]["dbt_schema_version"] != dbt_v4_schema:
-        raise NotImplementedError("Dbt run results parsing only supported for v4 schema.")
-
     parsed_run_results = [RunResultOutput(**result) for result in run_results["results"]]
     return parsed_run_results
 

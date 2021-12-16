@@ -525,6 +525,18 @@ def scan(scan_yml_file: str, warehouse_yml_file: str, variables: tuple, time: st
     default=None,
     type=Path,
 )
+@click.option(
+    "--dbt-cloud-account-id",
+    help="The id of your dbt cloud account",
+    default=None,
+    type=Path,
+)
+@click.option(
+    "--dbt-cloud-run-id",
+    help="The id of the dbt job run of which you would like to ingest the test results",
+    default=None,
+    type=Path,
+)
 def ingest(*args, **kwargs):
     """
     Ingest test information from different tools.
