@@ -152,15 +152,15 @@ def test_resolve_artifacts_paths(dbt_artifacts, dbt_manifest, dbt_run_results, e
     "dbt_artifacts, dbt_manifest, dbt_run_results",
     [
         pytest.param(
-            "",
-            "",
+            None,
+            None,
             Path('my_dbt_project/target/run_results.json'),
             id="missing dbt_manifest and artifact",
         ),
         pytest.param(
-            "",
+            None,
             Path('my_dbt_project/target/run_results.json'),
-            "",
+            None,
             id="missing dbt_run_results and artifact",
         ),
     ]
