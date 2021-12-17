@@ -21,7 +21,7 @@ import yaml
 
 from sodasql.__version__ import SODA_SQL_VERSION
 from sodasql.cli.indenting_yaml_dumper import IndentingDumper
-from sodasql.cli.ingest import ingest as _ingest
+from sodasql.cli.ingest import ingest_dbt
 from sodasql.common.logging_helper import LoggingHelper
 from sodasql.dataset_analyzer import DatasetAnalyzer
 from sodasql.scan.file_system import FileSystemSingleton
@@ -493,11 +493,14 @@ def scan(scan_yml_file: str, warehouse_yml_file: str, variables: tuple, time: st
         sys.exit(1)
 
 
-@main.command(short_help="Ingest test information from different tools")
-@click.argument(
-    "tool",
-    required=True,
-    type=click.Choice(["dbt"]),
+@click.group()
+def ingest():
+    """Commands for ingesting test information from other tools."""
+
+
+@ingest.command(
+    name="dbt",
+    short_help="Ingest test information from different tools"
 )
 @click.option(
     "--warehouse-yml-file",
@@ -505,7 +508,7 @@ def scan(scan_yml_file: str, warehouse_yml_file: str, variables: tuple, time: st
     required=True,
 )
 @click.option(
-    "--dbt-artifacts",
+    "--artifacts-directory",
     help=(
         "The path that contains both the manifest and run_result JSONs from dbt. Typically `/dbt_project/target/` "
         "When provided, --dbt-manifest and --dbt-run-results are not required and will be ignored"
@@ -514,25 +517,26 @@ def scan(scan_yml_file: str, warehouse_yml_file: str, variables: tuple, time: st
     type=Path,
 )
 @click.option(
-    "--dbt-manifest",
+    "--manifest-file",
     help="The path to the dbt manifest file",
     default=None,
     type=Path,
 )
 @click.option(
-    "--dbt-run-results",
+    "--run-results-file",
     help="The path to the dbt run results file",
     default=None,
     type=Path,
 )
-def ingest(*args, **kwargs):
+def ingest_dbt(*args, **kwargs):
     """
-    Ingest test information from different tools.
+    Ingest the dbt test information.
 
-    For more details see :func:sodasql.cli.ingest.ingest
+    For more details see :func:sodasql.cli.ingest.ingest_dbt
     """
-    _ingest(*args, **kwargs)
+    ingest_dbt(*args, **kwargs)
 
 
 if __name__ == '__main__':
+    main.add_command(ingest)
     main()
