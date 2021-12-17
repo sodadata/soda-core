@@ -494,6 +494,11 @@ def scan(scan_yml_file: str, warehouse_yml_file: str, variables: tuple, time: st
 
 
 @main.group()
+@click.option(
+    "--warehouse-yml-file",
+    help="The warehouse yml file.",
+    required=True,
+)
 def ingest():
     """Commands for ingesting test information from other tools."""
 
@@ -501,11 +506,6 @@ def ingest():
 @ingest.command(
     name="dbt",
     short_help="Ingest test information from different tools"
-)
-@click.option(
-    "--warehouse-yml-file",
-    help="The warehouse yml file.",
-    required=True,
 )
 @click.option(
     "--artifacts-directory",
