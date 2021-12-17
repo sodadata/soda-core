@@ -21,7 +21,7 @@ import yaml
 
 from sodasql.__version__ import SODA_SQL_VERSION
 from sodasql.cli.indenting_yaml_dumper import IndentingDumper
-from sodasql.cli.ingest import ingest_dbt
+from sodasql.cli import ingest as _ingest
 from sodasql.common.logging_helper import LoggingHelper
 from sodasql.dataset_analyzer import DatasetAnalyzer
 from sodasql.scan.file_system import FileSystemSingleton
@@ -534,7 +534,7 @@ def ingest_dbt(*args, **kwargs):
 
     For more details see :func:sodasql.cli.ingest.ingest_dbt
     """
-    ingest_dbt(*args, **kwargs)
+    _ingest.ingest_dbt(*args, **kwargs)
 
 
 if __name__ == '__main__':
