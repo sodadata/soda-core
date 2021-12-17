@@ -493,7 +493,7 @@ def scan(scan_yml_file: str, warehouse_yml_file: str, variables: tuple, time: st
         sys.exit(1)
 
 
-@click.group()
+@main.group()
 def ingest():
     """Commands for ingesting test information from other tools."""
 
@@ -538,5 +538,4 @@ def ingest_dbt(*args, **kwargs):
 
 
 if __name__ == '__main__':
-    main.add_command(ingest)
     main()
