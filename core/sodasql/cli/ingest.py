@@ -193,28 +193,25 @@ def resolve_artifacts_paths(
     return dbt_manifest, dbt_run_results
 
 
-def ingest(
-    tool: str,
-    warehouse_yml_file: str,
-    dbt_artifacts: Path | None = None,
-    dbt_manifest: Path | None = None,
-    dbt_run_results: Path | None = None,
+def ingest_dbt(
+    warehouse_yml_file: Path,
+    artifacts_directory: Path | None = None,
+    manifest_file: Path | None = None,
+    run_results_file: Path | None = None,
 ) -> None:
     """
-    Ingest test information from different tools.
+    Ingest DBT test information.
 
     Arguments
     ---------
-    tool : str {'dbt'}
-        The tool name.
-    warehouse_yml_file : str
+    warehouse_yml_file : Path
         The warehouse yml file.
-    dbt_artifacts : Optional[Path]
-        The path to the folder conatining both the manifest and run_results.json.
+    artifacts_directory : Optional[Path]
+        The path to the folder containing both the manifest and run_results.json.
         When provided, dbt_manifest and dbt_run_results will be ignored.
-    dbt_manifest : Optional[Path]
+    manifest_file : Optional[Path]
         The path to the dbt manifest.
-    dbt_run_results : Optional[Path]
+    run_results_file : Optional[Path]
         The path to the dbt run results.
 
     Raises
@@ -232,15 +229,12 @@ def ingest(
     if not soda_server_client.api_key_id or not soda_server_client.api_key_secret:
         raise ValueError("Missing Soda cloud api key id and/or secret.")
 
-    if tool == 'dbt':
-        dbt_manifest, dbt_run_results = resolve_artifacts_paths(
-            dbt_artifacts=dbt_artifacts,
-            dbt_manifest=dbt_manifest,
-            dbt_run_results=dbt_run_results
-        )
-        test_results_iterator = map_dbt_test_results_iterator(dbt_manifest, dbt_run_results)
-    else:
-        raise NotImplementedError(f"Unknown tool: {tool}")
+    dbt_manifest, dbt_run_results = resolve_artifacts_paths(
+        artifacts_directory,
+        manifest_file,
+        run_results_file
+    )
+    test_results_iterator = map_dbt_test_results_iterator(dbt_manifest, dbt_run_results)
 
     flush_test_results(
         test_results_iterator,
