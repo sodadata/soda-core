@@ -38,7 +38,7 @@ setup(
     long_description_content_type="text/markdown",
     packages=find_namespace_packages(include=["sodasql*"]),
     install_requires=requires,
-    entry_points={"console_scripts": ["soda=sodasql.cli.cli:main"]},
+    entry_points={"console_scripts": ["soda=sodasql.__main__:main"]},
     classifiers=[
         "Development Status :: 5 - Production/Stable",
         "License :: OSI Approved :: Apache Software License",
