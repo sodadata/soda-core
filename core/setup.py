@@ -40,7 +40,7 @@ setup(
     install_requires=requires,
     entry_points={"console_scripts": ["soda=sodasql.__main__:main"]},
     classifiers=[
-        "Development Status :: 4 - Beta",
+        "Development Status :: 5 - Production/Stable",
         "License :: OSI Approved :: Apache Software License",
         "Operating System :: Microsoft :: Windows",
         "Operating System :: MacOS :: MacOS X",

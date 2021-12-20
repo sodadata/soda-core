@@ -20,5 +20,15 @@ setup(
     name=package_name,
     version=package_version,
     install_requires=requires,
-    packages=find_namespace_packages(include=["sodasql*"])
+    packages=find_namespace_packages(include=["sodasql*"]),
+    classifiers=[
+        "Development Status :: 4 - Beta",
+        "License :: OSI Approved :: Apache Software License",
+        "Operating System :: Microsoft :: Windows",
+        "Operating System :: MacOS :: MacOS X",
+        "Operating System :: POSIX :: Linux",
+        "Programming Language :: Python :: 3.7",
+        "Programming Language :: Python :: 3.8",
+        "Programming Language :: Python :: 3.9",
+    ]
 )
