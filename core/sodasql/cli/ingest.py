@@ -107,19 +107,19 @@ def map_dbt_test_results_iterator(
     with run_results_file.open("r") as file:
         run_results = json.load(file)
 
-    model_nodes, seed_nodes, test_nodes = soda_dbt.parse_manifest(manifest)
+    model_nodes, seed_nodes, test_nodes, source_nodes = soda_dbt.parse_manifest(manifest)
     parsed_run_results = soda_dbt.parse_run_results(run_results)
     tests_with_test_result = map_dbt_run_result_to_test_result(test_nodes, parsed_run_results)
-    model_and_seed_nodes = {**model_nodes, **seed_nodes}
+    model_seed_and_source_nodes = {**model_nodes, **seed_nodes, **source_nodes}
     models_with_tests = soda_dbt.create_nodes_to_tests_mapping(
-        model_and_seed_nodes, test_nodes, parsed_run_results
+        model_seed_and_source_nodes, test_nodes, parsed_run_results
     )
 
     for unique_id, test_unique_ids in models_with_tests.items():
         table = Table(
-            model_and_seed_nodes[unique_id].alias,
-            model_and_seed_nodes[unique_id].database,
-            model_and_seed_nodes[unique_id].schema,
+            model_seed_and_source_nodes[unique_id].alias,
+            model_seed_and_source_nodes[unique_id].database,
+            model_seed_and_source_nodes[unique_id].schema,
         )
         test_results = [
             tests_with_test_result[test_unique_id] for test_unique_id in test_unique_ids
