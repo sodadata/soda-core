@@ -97,6 +97,7 @@ def map_dbt_test_results_iterator(
     """
     try:
         from sodasql import dbt as soda_dbt
+        from dbt.contracts.graph.parsed import ParsedSourceDefinition
     except ImportError as e:
         raise RuntimeError(
             "Soda SQL dbt extension is not installed: $ pip install soda-sql-dbt"
@@ -116,10 +117,11 @@ def map_dbt_test_results_iterator(
     )
 
     for unique_id, test_unique_ids in models_with_tests.items():
+        node = model_seed_and_source_nodes[unique_id]
         table = Table(
-            model_seed_and_source_nodes[unique_id].alias,
-            model_seed_and_source_nodes[unique_id].database,
-            model_seed_and_source_nodes[unique_id].schema,
+            node.name if isinstance(node, ParsedSourceDefinition) else node.alias,
+            node.database,
+            node.schema,
         )
         test_results = [
             tests_with_test_result[test_unique_id] for test_unique_id in test_unique_ids
