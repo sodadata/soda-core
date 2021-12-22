@@ -413,7 +413,7 @@
                 "example",
                 "source_unique_soda_non_existing_source_id"
             ],
-            "unique_id": "test.my_new_project.source_unique_soda_non_existing_source_id.5d2975bf3d",
+            "unique_id": "test.soda.source_unique_soda_non_existing_source_id.5d2975bf3d",
             "package_name": "my_new_project",
             "root_path": "/tmp/jobs/37718083/target",
             "path": "source_unique_soda_non_existing_source_id.sql",
