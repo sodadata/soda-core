@@ -28,6 +28,7 @@ def parse_manifest(
     dict[str, ParsedModelNode | CompileModelNode],
     dict[str, ParsedSeedNode | CompiledSeedNode],
     dict[str, ParsedGenericTestNode | CompiledGenericTestNode],
+    dict[str, ParsedSourceDefinition],
 ]:
     """
     Parse the manifest.
@@ -45,6 +46,7 @@ def parse_manifest(
             dict[str, ParsedModelNode | CompileModelNode],
             dict[str, ParsedSeedNode | CompiledSeedNode],
             dict[str, ParsedGenericTestNode | CompiledGenericTestNode],
+            dict[str, ParsedSourceDefinition],
           ]
         The parsed manifest.
 
