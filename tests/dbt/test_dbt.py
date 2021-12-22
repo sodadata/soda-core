@@ -19,7 +19,7 @@ def test_parse_manifest_contains_model_unique_ids(
     unique_id: str, dbt_manifest: dict
 ) -> None:
     """Validate the model unique_id are present in the model nodes."""
-    model_nodes, _, _ = soda_dbt.parse_manifest(dbt_manifest)
+    model_nodes, *_ = soda_dbt.parse_manifest(dbt_manifest)
 
     assert unique_id in model_nodes.keys()
 
@@ -29,7 +29,7 @@ def test_parse_manifest_contains_seed_unique_ids(
     unique_id: str, dbt_manifest: dict
 ) -> None:
     """Validate the model unique_id are present in the seed nodes."""
-    _, seed_nodes, _ = soda_dbt.parse_manifest(dbt_manifest)
+    _, seed_nodes, *_ = soda_dbt.parse_manifest(dbt_manifest)
 
     assert unique_id in seed_nodes.keys()
 
@@ -45,9 +45,19 @@ def test_parse_manifest_contains_test_unique_ids(
     unique_id: str, dbt_manifest: dict
 ) -> None:
     """Validate the test unique_id are present in the test_nodes."""
-    _, _, test_nodes = soda_dbt.parse_manifest(dbt_manifest)
+    _, _, test_nodes, _ = soda_dbt.parse_manifest(dbt_manifest)
 
     assert unique_id in test_nodes.keys()
+
+
+@pytest.mark.parametrize("unique_id", ["source.my_new_project.soda.non_existing_source"])
+def test_parse_manifest_contains_source_unique_ids(
+    unique_id: str, dbt_manifest: dict
+) -> None:
+    """Validate the model unique_id are present in the source nodes."""
+    _, _, _, source_nodes = soda_dbt.parse_manifest(dbt_manifest)
+
+    assert unique_id in source_nodes.keys()
 
 
 def test_parse_run_results_raises_not_implemented_error() -> None:
@@ -92,14 +102,8 @@ def test_parse_run_results_status(
 @pytest.mark.parametrize(
     "unique_id, failures",
     [
-        (
-            "test.soda.accepted_values_stg_soda__scan__result__pass_fail.81f",
-            0
-        ),
-        (
-            "test.soda.accepted_values_stg_soda__scan__warehouse__spark__postgres.2e",
-            3
-        ),
+        ("test.soda.accepted_values_stg_soda__scan__result__pass_fail.81f", 0),
+        ("test.soda.accepted_values_stg_soda__scan__warehouse__spark__postgres.2e", 3),
     ],
 )
 def test_parse_run_results_failures(
@@ -140,7 +144,7 @@ def test_create_models_to_test_mapping(
 ):
     """Check if the expected models are found."""
 
-    model_nodes, _, test_nodes = soda_dbt.parse_manifest(dbt_manifest)
+    model_nodes, _, test_nodes, _ = soda_dbt.parse_manifest(dbt_manifest)
     parsed_run_results = soda_dbt.parse_run_results(dbt_run_results)
 
     models_with_tests = soda_dbt.create_nodes_to_tests_mapping(
