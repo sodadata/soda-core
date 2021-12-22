@@ -200,7 +200,7 @@ def ingest_dbt(
     run_results_file: Path | None = None,
 ) -> None:
     """
-    Ingest DBT test information.
+    Ingest dbt test information.
 
     Arguments
     ---------
