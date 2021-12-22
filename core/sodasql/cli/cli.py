@@ -505,7 +505,7 @@ def ingest():
 
 @ingest.command(
     name="dbt",
-    short_help="Ingest test information from different tools"
+    short_help="Ingest test information from dbt"
 )
 @click.option(
     "--artifacts-directory",
