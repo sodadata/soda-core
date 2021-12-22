@@ -366,6 +366,154 @@
             "extra_ctes": [],
             "relation_name": null,
             "column_name": "warehouse"
+        },
+        "test.soda.source_unique_soda_non_existing_source_id.5d2975bf3d": {
+            "raw_sql": "{{ test_unique(**_dbt_generic_test_kwargs) }}",
+            "test_metadata": {
+                "name": "unique",
+                "kwargs": {
+                    "column_name": "id",
+                    "model": "{{ get_where_subquery(source('soda', 'non_existing_source')) }}"
+                },
+                "namespace": null
+            },
+            "compiled": true,
+            "resource_type": "test",
+            "depends_on": {
+                "macros": [
+                    "macro.dbt.test_unique",
+                    "macro.dbt.get_where_subquery",
+                    "macro.dbt.should_store_failures",
+                    "macro.dbt.statement"
+                ],
+                "nodes": [
+                    "source.my_new_project.soda.non_existing_source"
+                ]
+            },
+            "config": {
+                "enabled": true,
+                "alias": null,
+                "schema": "dbt_test__audit",
+                "database": null,
+                "tags": [],
+                "meta": {},
+                "materialized": "test",
+                "severity": "ERROR",
+                "store_failures": null,
+                "where": null,
+                "limit": null,
+                "fail_calc": "count(*)",
+                "warn_if": "!= 0",
+                "error_if": "!= 0"
+            },
+            "database": "dbt_cloud",
+            "schema": "dbt_cloud_test_project_dbt_test__audit",
+            "fqn": [
+                "my_new_project",
+                "example",
+                "source_unique_soda_non_existing_source_id"
+            ],
+            "unique_id": "test.my_new_project.source_unique_soda_non_existing_source_id.5d2975bf3d",
+            "package_name": "my_new_project",
+            "root_path": "/tmp/jobs/37718083/target",
+            "path": "source_unique_soda_non_existing_source_id.sql",
+            "original_file_path": "models/example/sources.yml",
+            "name": "source_unique_soda_non_existing_source_id",
+            "alias": "source_unique_soda_non_existing_source_id",
+            "checksum": {
+                "name": "none",
+                "checksum": ""
+            },
+            "tags": [],
+            "refs": [],
+            "sources": [
+                [
+                    "soda",
+                    "non_existing_source"
+                ]
+            ],
+            "description": "",
+            "columns": {},
+            "meta": {},
+            "docs": {
+                "show": true
+            },
+            "patch_path": null,
+            "compiled_path": "target/compiled/my_new_project/models/example/sources.yml/source_unique_soda_non_existing_source_id.sql",
+            "build_path": "target/run/my_new_project/models/example/sources.yml/source_unique_soda_non_existing_source_id.sql",
+            "deferred": false,
+            "unrendered_config": {},
+            "created_at": 1640174379.842133,
+            "compiled_sql": "\n    \n    \n\nselect\n    id as unique_field,\n    count(*) as n_records\n\nfrom dbt_cloud.soda.non_existing_source\nwhere id is not null\ngroup by id\nhaving count(*) > 1\n\n\n",
+            "extra_ctes_injected": true,
+            "extra_ctes": [],
+            "relation_name": null,
+            "column_name": "id",
+            "file_key_name": "sources.soda"
+        }
+    },
+    "sources": {
+        "source.my_new_project.soda.non_existing_source": {
+            "fqn": [
+                "my_new_project",
+                "example",
+                "soda",
+                "non_existing_source"
+            ],
+            "database": "dbt_cloud",
+            "schema": "soda",
+            "unique_id": "source.my_new_project.soda.non_existing_source",
+            "package_name": "my_new_project",
+            "root_path": "/tmp/jobs/37718083/target",
+            "path": "models/example/sources.yml",
+            "original_file_path": "models/example/sources.yml",
+            "name": "non_existing_source",
+            "source_name": "soda",
+            "source_description": "",
+            "loader": "",
+            "identifier": "non_existing_source",
+            "resource_type": "source",
+            "quoting": {
+                "database": null,
+                "schema": null,
+                "identifier": null,
+                "column": null
+            },
+            "loaded_at_field": null,
+            "freshness": {
+                "warn_after": {
+                    "count": null,
+                    "period": null
+                },
+                "error_after": {
+                    "count": null,
+                    "period": null
+                },
+                "filter": null
+            },
+            "external": null,
+            "description": "A starter dbt model",
+            "columns": {
+                "id": {
+                    "name": "id",
+                    "description": "",
+                    "meta": {},
+                    "data_type": null,
+                    "quote": null,
+                    "tags": [],
+                    "type": "integer"
+                }
+            },
+            "meta": {},
+            "source_meta": {},
+            "tags": [],
+            "config": {
+                "enabled": true
+            },
+            "patch_path": null,
+            "unrendered_config": {},
+            "relation_name": "dbt_cloud.soda.non_existing_source",
+            "created_at": 1640174379.844926
         }
     }
 }
