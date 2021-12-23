@@ -38,8 +38,8 @@ launch a correct PostgreSQL db with the right user and database.
 
 Make sure that you you install dev-requirements
 ```shell
-pip-compile dev-requiremnts.in
-pip install -r dev-requiremnts.txt
+pip-compile dev-requirements.in
+pip install -r dev-requirements.txt
 ```
 
 Pushing a release is fully automated and only requires to bump the version using `tbump`. For example to release 2.1.0b3, you can use the following command:
