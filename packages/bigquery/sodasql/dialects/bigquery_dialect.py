@@ -35,12 +35,19 @@ class BigQueryDialect(Dialect):
     def __init__(self, parser: Parser):
         super().__init__(BIGQUERY)
         if parser:
-            self.account_info_dict = self.__parse_json_credential('account_info_json', parser)
             self.dataset_name = parser.get_str_required('dataset')
             default_auth_scopes = ['https://www.googleapis.com/auth/bigquery',
                                    'https://www.googleapis.com/auth/cloud-platform',
                                    'https://www.googleapis.com/auth/drive']
             self.auth_scopes = parser.get_list_optional('auth_scopes', default_auth_scopes)
+            self.__context_auth = parser.get_str_optional('use_context_auth', None)
+            if self.__context_auth:
+                self.account_info_dict = None
+                self.project_id = parser.get_str_required('project_id')
+                logger.info("You are using context auth, json provided are ignore.")
+            else:
+                self.account_info_dict = self.__parse_json_credential('account_info_json', parser)
+                self.project_id = self.account_info_dict['project_id']
         self.client = None
 
     def default_connection_properties(self, params: dict):
@@ -52,13 +59,13 @@ class BigQueryDialect(Dialect):
 
     def get_warehouse_name_and_schema(self) -> dict:
         return {
-            'database_name': self.account_info_dict['project_id'],
+            'database_name': self.project_id,
             'database_schema': self.dataset_name
         }
 
     def safe_connection_data(self):
         return [
-            self.account_info_dict['project_id']
+            self.project_id
         ]
 
     def default_env_vars(self, params: dict):
@@ -68,14 +75,19 @@ class BigQueryDialect(Dialect):
 
     def create_connection(self):
         try:
-            if not self.account_info_dict or self.account_info_dict is None:
-                raise Exception("Account_info_json is not provided")
-            else:
+            if self.__context_auth:
+                credentials = None
+            elif self.account_info_dict:
                 credentials = Credentials.from_service_account_info(self.account_info_dict, scopes=self.auth_scopes)
-                project_id = self.account_info_dict['project_id']
-                self.client = bigquery.Client(project=project_id, credentials=credentials)
-                conn = dbapi.Connection(self.client)
-                return conn
+            else:
+                raise Exception("Account_info_json or account_info_json_path or use_context_auth are not provided")
+        except Exception as e:
+            self.try_to_raise_soda_sql_exception(e)
+
+        try:
+            self.client = bigquery.Client(project=self.project_id, credentials=credentials)
+            conn = dbapi.Connection(self.client)
+            return conn
         except Exception as e:
             self.try_to_raise_soda_sql_exception(e)
 
