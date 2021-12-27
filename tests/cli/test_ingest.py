@@ -48,7 +48,7 @@ def test_dbt_flush_test_results_soda_server_has_command_types(
     )
 
 
-def test_dbt_flush_test_results_soda_server_scan_numbertest_result(
+def test_dbt_flush_test_results_soda_server_scan_number_test_result(
     dbt_manifest_file: Path,
     dbt_run_results_file: Path,
     mock_soda_server_client: MockSodaServerClient,
@@ -70,7 +70,7 @@ def test_dbt_flush_test_results_soda_server_scan_numbertest_result(
         for command in mock_soda_server_client.commands
         if command["type"] == "sodaSqlScanTestResults"
     ]
-    assert sum(len(command["testResults"]) for command in test_results_commands) == 2
+    assert sum(len(command["testResults"]) for command in test_results_commands) == 3
 
 
 @pytest.mark.parametrize(
@@ -152,15 +152,15 @@ def test_resolve_artifacts_paths(dbt_artifacts, dbt_manifest, dbt_run_results, e
     "dbt_artifacts, dbt_manifest, dbt_run_results",
     [
         pytest.param(
-            "",
-            "",
+            None,
+            None,
             Path('my_dbt_project/target/run_results.json'),
             id="missing dbt_manifest and artifact",
         ),
         pytest.param(
-            "",
+            None,
             Path('my_dbt_project/target/run_results.json'),
-            "",
+            None,
             id="missing dbt_run_results and artifact",
         ),
     ]
