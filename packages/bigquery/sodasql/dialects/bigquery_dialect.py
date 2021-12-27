@@ -44,7 +44,7 @@ class BigQueryDialect(Dialect):
             if self.__context_auth:
                 self.account_info_dict = None
                 self.project_id = parser.get_str_required('project_id')
-                logger.info("You are using context auth, json provided are ignore.")
+                logger.info("Using context auth, account_info_json will be ignored.")
             else:
                 self.account_info_dict = self.__parse_json_credential('account_info_json', parser)
                 self.project_id = self.account_info_dict['project_id']
@@ -81,10 +81,7 @@ class BigQueryDialect(Dialect):
                 credentials = Credentials.from_service_account_info(self.account_info_dict, scopes=self.auth_scopes)
             else:
                 raise Exception("Account_info_json or account_info_json_path or use_context_auth are not provided")
-        except Exception as e:
-            self.try_to_raise_soda_sql_exception(e)
 
-        try:
             self.client = bigquery.Client(project=self.project_id, credentials=credentials)
             conn = dbapi.Connection(self.client)
             return conn
