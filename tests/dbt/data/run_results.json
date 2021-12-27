@@ -86,6 +86,27 @@
             "message": null,
             "failures": 0,
             "unique_id": "test.soda.accepted_values_soda_warehouses__spark__postgres.c3li140e513"
+        },
+        {
+            "status": "success",
+            "timing": [
+                {
+                    "name": "compile",
+                    "started_at": "2021-11-19T10:22:58.132733Z",
+                    "completed_at": "2021-11-19T10:22:58.141662Z"
+                },
+                {
+                    "name": "execute",
+                    "started_at": "2021-11-19T10:22:58.142108Z",
+                    "completed_at": "2021-11-19T10:23:02.286903Z"
+                }
+            ],
+            "thread_id": "Thread-1",
+            "execution_time": 3.923800230026245,
+            "adapter_response": {},
+            "message": "OK",
+            "failures": null,
+            "unique_id": "test.soda.source_unique_soda_non_existing_source_id.5d2975bf3d"
         }
     ]
 }

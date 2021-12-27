@@ -16,6 +16,7 @@ from dbt.contracts.graph.parsed import (
     ParsedModelNode,
     ParsedGenericTestNode,
     ParsedSeedNode,
+    ParsedSourceDefinition,
 )
 from dbt.contracts.results import RunResultOutput
 from dbt.node_types import NodeType
@@ -27,6 +28,7 @@ def parse_manifest(
     dict[str, ParsedModelNode | CompileModelNode],
     dict[str, ParsedSeedNode | CompiledSeedNode],
     dict[str, ParsedGenericTestNode | CompiledGenericTestNode],
+    dict[str, ParsedSourceDefinition],
 ]:
     """
     Parse the manifest.
@@ -44,6 +46,7 @@ def parse_manifest(
             dict[str, ParsedModelNode | CompileModelNode],
             dict[str, ParsedSeedNode | CompiledSeedNode],
             dict[str, ParsedGenericTestNode | CompiledGenericTestNode],
+            dict[str, ParsedSourceDefinition],
           ]
         The parsed manifest.
 
@@ -79,7 +82,12 @@ def parse_manifest(
         for node_name, node in manifest["nodes"].items()
         if node["resource_type"] == NodeType.Test
     }
-    return model_nodes, seed_nodes, test_nodes
+    source_nodes = {
+        source_name: ParsedSourceDefinition(**source)
+        for source_name, source in manifest["sources"].items()
+        if source["resource_type"] == NodeType.Source
+    }
+    return model_nodes, seed_nodes, test_nodes, source_nodes
 
 
 def parse_run_results(run_results: dict[str, Any]) -> list[RunResultOutput]:
