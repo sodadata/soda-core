@@ -1,6 +1,8 @@
 name: Build soda-sql
 
 on:
+  pull_request_target:
+    types: [labeled]
   pull_request:
   push:
     paths-ignore:
@@ -16,10 +18,11 @@ jobs:
     name: Run Tests
     timeout-minutes: 30
     runs-on: ubuntu-20.04
+    if: contains(github.event.pull_request.labels.*.name, 'run-tests')
     strategy:
       fail-fast: false
       matrix:
-        python-version: [ 3.7, 3.8, 3.9 ]
+        python-version: [ 3.7, 3.8, 3.9, 3.10 ]
         test-module: [ local, RedshiftSuite, SnowflakeSuite, AthenaSuite, BigQuerySuite, SparkSuite ]
     env:
       TEST_MODULE: ${{ matrix.test-module }}
