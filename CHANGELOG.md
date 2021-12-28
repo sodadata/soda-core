@@ -4,6 +4,16 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
+## [2.1.2] - 2021-12-28 *Samwise Gamgee*
+
+- core: add main module, so soda can be run using `python -m sodasql`
+- core: move cryptography dependency to snowflake
+- bigquery: introduce use_context_auth setting
+- cloud: Make sure that title is sent to Soda Cloud for sql metrics
+- dbt: add ingestion of source nodes
+- dbt: Ingest test artifacts from dbt Cloud
+- misc: Update classfiers on PyPi
+
 ## [2.1.1] - 2021-12-15 *Galadriel*
 
 - Core: Docker x86 workaround for running soda-sql on arm based machines (#590)
