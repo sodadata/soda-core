@@ -12,7 +12,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 - cloud: Make sure that title is sent to Soda Cloud for sql metrics
 - dbt: add ingestion of source nodes
 - dbt: Ingest test artifacts from dbt Cloud
-- misc: Update classfiers on PyPi
+- sqlserver: Fix column names quoting
+- misc: Update classifiers on PyPi
 
 ## [2.1.1] - 2021-12-15 *Galadriel*
 
