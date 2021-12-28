@@ -20,7 +20,6 @@ long_description = (pathlib.Path(__file__).parent / "README.md").read_text()
 requires = [
     "Jinja2>=2.11.3, <3.0",
     "click>=8.0, <9.0",
-    "cryptography==3.3.2",
     "pyyaml>=5.4.1, <6.0",
     "requests>=2.23.0, <3.0",
     "Deprecated>=1.2.13, <1.3",
