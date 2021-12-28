@@ -6,14 +6,6 @@ from dbt.contracts.results import TestStatus
 from sodasql import dbt as soda_dbt
 
 
-def test_parse_manifest_raises_not_implemented_error() -> None:
-    """
-    A NotImplementedError should be raised when manifest version is not v3.
-    """
-    with pytest.raises(NotImplementedError):
-        soda_dbt.parse_manifest({"metadata": {"dbt_schema_version": "not v3"}})
-
-
 @pytest.mark.parametrize("unique_id", ["model.soda.stg_soda__scan"])
 def test_parse_manifest_contains_model_unique_ids(
     unique_id: str, dbt_manifest: dict
@@ -48,24 +40,6 @@ def test_parse_manifest_contains_test_unique_ids(
     _, _, test_nodes, _ = soda_dbt.parse_manifest(dbt_manifest)
 
     assert unique_id in test_nodes.keys()
-
-
-@pytest.mark.parametrize("unique_id", ["source.my_new_project.soda.non_existing_source"])
-def test_parse_manifest_contains_source_unique_ids(
-    unique_id: str, dbt_manifest: dict
-) -> None:
-    """Validate the model unique_id are present in the source nodes."""
-    _, _, _, source_nodes = soda_dbt.parse_manifest(dbt_manifest)
-
-    assert unique_id in source_nodes.keys()
-
-
-def test_parse_run_results_raises_not_implemented_error() -> None:
-    """
-    A NotImplementedError should be raised when run results version is not v3.
-    """
-    with pytest.raises(NotImplementedError):
-        soda_dbt.parse_run_results({"metadata": {"dbt_schema_version": "not v3"}})
 
 
 @pytest.mark.parametrize(

@@ -20,6 +20,7 @@ from sodasql.scan.warehouse_yml import WarehouseYml
 KEY_NAME = 'name'
 KEY_CONNECTION = 'connection'
 KEY_SODA_ACCOUNT = 'soda_account'
+KEY_INGEST = 'ingest'
 
 SODA_KEY_HOST = 'host'
 SODA_KEY_PORT = 'port'
@@ -27,7 +28,9 @@ SODA_KEY_PROTOCOL = 'protocol'
 SODA_KEY_API_KEY_ID = 'api_key_id'
 SODA_KEY_API_KEY_SECRET = 'api_key_secret'
 
-VALID_WAREHOUSE_KEYS = [KEY_NAME, KEY_CONNECTION, KEY_SODA_ACCOUNT]
+DBT_CLOUD_KEY_API_TOKEN = "dbt_cloud_api_token"
+
+VALID_WAREHOUSE_KEYS = [KEY_NAME, KEY_CONNECTION, KEY_SODA_ACCOUNT, KEY_INGEST]
 
 logger = logging.getLogger(__name__)
 
@@ -76,6 +79,12 @@ class WarehouseYmlParser(Parser):
                 self.warehouse_yml.soda_protocol = self.get_str_optional(SODA_KEY_PROTOCOL, 'https')
                 self.warehouse_yml.soda_api_key_id = self.get_str_required_env(SODA_KEY_API_KEY_ID)
                 self.warehouse_yml.soda_api_key_secret = self.get_str_required_env(SODA_KEY_API_KEY_SECRET)
+                self._pop_context()
+
+            ingest_dict = self.get_dict_optional(KEY_INGEST)
+            if ingest_dict:
+                self._push_context(object=ingest_dict, name=KEY_INGEST)
+                self.warehouse_yml.dbt_cloud_api_token = self.get_str_optional(DBT_CLOUD_KEY_API_TOKEN)
                 self._pop_context()
 
             self.check_invalid_keys(VALID_WAREHOUSE_KEYS)
