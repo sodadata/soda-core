@@ -106,6 +106,7 @@ Thanks goes to these wonderful people! ([emoji key](https://allcontributors.org/
     <td align="center"><a href="https://www.elaidata.com"><img src="https://avatars.githubusercontent.com/u/1313689?v=4?s=100" width="100px;" alt=""/><br /><sub><b>Lieven Govaerts</b></sub></a><br /><a href="https://github.com/sodadata/soda-sql/commits?author=lgov" title="Code">💻</a></td>
     <td align="center"><a href="http://justsomegeek.com"><img src="https://avatars.githubusercontent.com/u/582933?v=4?s=100" width="100px;" alt=""/><br /><sub><b>Milan Lukac</b></sub></a><br /><a href="https://github.com/sodadata/soda-sql/commits?author=m1n0" title="Code">💻</a></td>
     <td align="center"><a href="https://github.com/sebastianvillarroel"><img src="https://avatars.githubusercontent.com/u/16538437?v=4?s=100" width="100px;" alt=""/><br /><sub><b>Sebastián Villarroel</b></sub></a><br /><a href="https://github.com/sodadata/soda-sql/commits?author=sebastianvillarroel" title="Code">💻</a></td>
+    <td align="center"><a href="https://github.com/IIBenII"><img src="https://avatars.githubusercontent.com/u/40873921?v=4?s=100" width="100px;" alt=""/><br /><sub><b>Benjamin Berriot</b></sub></a><br /><a href="https://github.com/sodadata/soda-sql/commits?author=IIBenII" title="Code">💻</a></td>
   </tr>
 </table>
 
