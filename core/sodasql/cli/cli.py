@@ -401,6 +401,7 @@ def scan(scan_yml_file: str, warehouse_yml_file: str, variables: tuple, time: st
     SCAN_YML_FILE is the scan YAML file that contains the metrics and tests for a table to run.
     """
     logger.info(SODA_SQL_VERSION)
+    exit_code = 0
 
     soda_telemetry.set_attribute('cli_command_name', 'analyze')
 
@@ -448,7 +449,7 @@ def scan(scan_yml_file: str, warehouse_yml_file: str, variables: tuple, time: st
 
         if non_interactive and not time == datetime.now(tz=timezone.utc).isoformat(timespec='seconds'):
             logging.warning(f'You are using the --time option with the following value: {time}, meaning that the '
-                            f'actual date of the scan is being altered manually.')
+                            'actual date of the scan is being altered manually.')
             answer = input("Are you sure you wish to continue with the --time option? Press 'y' to continue... ")
             if answer != 'y':
                 sys.exit(1)
@@ -458,13 +459,13 @@ def scan(scan_yml_file: str, warehouse_yml_file: str, variables: tuple, time: st
         scan_builder.variables = variables_dict
         scan = scan_builder.build(offline=offline)
         if not scan:
-            logger.error(f'Could not read scan configurations. Aborting before scan started.')
+            logger.error('Could not read scan configurations. Aborting before scan started.')
             sys.exit(1)
 
         from sodasql.scan.scan_result import ScanResult
         scan_result: ScanResult = scan.execute()
 
-        logger.info(f'Scan summary ------')
+        logger.info('Scan summary ------')
         logger.info(f'{len(scan_result.measurements)} measurements computed')
         logger.info(f'{len(scan_result.test_results)} tests executed')
 
@@ -475,22 +476,23 @@ def scan(scan_yml_file: str, warehouse_yml_file: str, variables: tuple, time: st
                     logger.info(f'  {test_result}')
 
         if scan_result.has_errors():
-            logger.info(f'Errors occurred!')
+            logger.info('Errors occurred!')
             for error in scan_result.get_errors():
                 logger.error(f'  {error}')
 
         if scan_result.is_passed():
-            logger.info(f'All is good. No tests failed.')
+            logger.info('All is good. No tests failed.')
         exit_code = 0 if scan_result.is_passed() else 1
-        logger.info(f'Exiting with code {exit_code}')
-        sys.exit(exit_code)
 
     except Exception as e:
+        exit_code = 1
         logger.exception(f'Scan failed: {str(e)}')
         logger.info("If you think this is a bug in Soda SQL, please open an issue at: "
                     "https://github.com/sodadata/soda-sql/issues/new/choose")
-        logger.info(f'Exiting with code 1')
-        sys.exit(1)
+
+    finally:
+        logger.info(f'Exiting with code {exit_code}')
+        sys.exit(exit_code)
 
 
 @main.command(short_help="Ingest test information from different tools")

@@ -14,6 +14,7 @@ from opentelemetry.trace.propagation.tracecontext import \
     TraceContextTextMapPropagator
 
 from sodasql.telemetry.soda_telemetry import SodaTelemetry
+
 trace_context_propagator = TraceContextTextMapPropagator()
 trace_context_carrier = {}
 
@@ -54,21 +55,18 @@ def get_decorators(function):
     return decorators
 
 
-
 def soda_trace(fn: callable):
     def _before_exec(span: Span, fn: callable):
         span.set_attribute("user_cookie_id", soda_telemetry.user_cookie_id)
 
     def _after_exec(span: Span, error: Optional[BaseException] = None):
         if str(error) == "0":
-            pass
             # This is an OK cli exit state
             span.set_status(Status(StatusCode.OK))
         else:
             span.set_status(Status(StatusCode.ERROR))
             # TODO: this will now produce an "error" attribute with value "1" for CLI as all Exceptions are caught and re-raised as system.exit(1). Revisit error handling in CLI for more useful info in traces.
             span.add_event("error", {"error": str(error)})
-
 
     @wraps(fn)
     def wrapper(*original_args, **original_kwargs):
@@ -81,11 +79,13 @@ def soda_trace(fn: callable):
                 result = fn(*original_args, **original_kwargs)
                 span.set_status(Status(StatusCode.OK))
                 _after_exec(span)
-            except BaseException as e:
-                # Catch base exception to deal with exit codes as well.
+            except Exception as e:
+                # Catch exception to deal with exit codes as well.
                 _after_exec(span, e)
         return result
+
     return wrapper
+
 
 def span_setup_function_args(args: Dict):
     for prefix, values in args.items():
