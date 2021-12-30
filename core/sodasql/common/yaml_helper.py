@@ -21,9 +21,9 @@ class YamlHelper:
     @staticmethod
     def parse_yaml(yaml_str: str, description: str = None):
         try:
-            return yaml.load(yaml_str, Loader=yaml.SafeLoader)
+            return yaml.load(yaml_str, Loader=UniqueKeyLoader)
         except Exception as e:
-            logger.error(f'Parsing YAML failed: {str(e)}: ({description if description else yaml_str})xWW4')
+            logger.error(f'Parsing YAML failed: {str(e)}: ({description if description else yaml_str})')
 
     @staticmethod
     def validate_numeric_value(column_name, key, value):
@@ -44,3 +44,13 @@ class YamlHelper:
             raise Exception(f'{column_name} could not be parsed: {key}-{value} is not of a list type.')
         else:
             return value
+
+# special loader with duplicate key checking
+class UniqueKeyLoader(yaml.SafeLoader):
+    def construct_mapping(self, node, deep=False):
+         mapping = []
+         for key_node, value_node in node.value:
+             key = self.construct_object(key_node, deep=deep)
+             assert key not in mapping, f"Duplicate key in Yaml File: {key}"
+             mapping.append(key)
+         return super().construct_mapping(node, deep)
