@@ -195,6 +195,15 @@
       "contributions": [
         "code"
       ]
+    },
+    {
+      "login": "sintezcs",
+      "name": "Alexey Minakov",
+      "avatar_url": "https://avatars.githubusercontent.com/u/2989480?v=4",
+      "profile": "https://dataart.com",
+      "contributions": [
+        "code"
+      ]
     }
   ],
   "contributorsPerLine": 7,
