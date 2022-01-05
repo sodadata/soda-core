@@ -5,10 +5,12 @@ from typing import Dict, List
 from sodasql.telemetry.soda_telemetry import SodaTelemetry
 from sodasql.telemetry.soda_tracer import soda_trace
 from sodasql.telemetry.memory_span_exporter import MemorySpanExporter
+from sodasql.telemetry.soda_exporter import get_soda_spans
+from tests.common.telemetry_helper import telemetry_ensure_no_secrets
 
 from sodasql.__version__ import SODA_SQL_VERSION
 
-from tests.common.telemetry_helper import telemetry_ensure_no_secrets
+from opentelemetry.sdk.trace import ReadableSpan
 
 soda_telemetry = SodaTelemetry.get_instance()
 telemetry_exporter = MemorySpanExporter.get_instance()
@@ -114,3 +116,14 @@ def test_fail_secret(key: str, value: str):
 
     assert "Forbidden telemetry" in error_msg
     assert key in error_msg or value in error_msg
+
+def test_non_soda_span_filtering():
+    spans_input = [
+        ReadableSpan(name="test_1"),
+        ReadableSpan(name="soda_test_span"),
+        ReadableSpan(name="test_2"),
+    ]
+
+    spans_output = get_soda_spans(spans_input)
+    assert len(spans_output) == 1
+    assert spans_output[0].name == "soda_test_span"
