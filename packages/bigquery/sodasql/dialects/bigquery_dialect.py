@@ -137,7 +137,7 @@ class BigQueryDialect(Dialect):
         return f"REGEXP_CONTAINS({expr}, r'{self.qualify_regex(pattern)}')"
 
     @staticmethod
-    def __parse_json_credential(credential_name, parser):
+    def __parse_json_credential(credential_name, parser: Parser):
         account_info_path = parser.get_str_optional('account_info_json_path')
         try:
             if account_info_path:
