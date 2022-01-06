@@ -1,12 +1,12 @@
 import logging
-from typing import Dict, List, Sequence
+from typing import Dict, Sequence, Optional
 
 from opentelemetry.sdk.trace.export import (
     ConsoleSpanExporter,
     SpanExportResult,
-    SpanExporter,
 )
 from opentelemetry.sdk.trace import ReadableSpan
+from opentelemetry.exporter.otlp.proto.http import Compression
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
 
 
@@ -36,8 +36,21 @@ class SodaOTLPSpanExporter(OTLPSpanExporter):
     """Soda version of OTLP exporter.
 
     Does not export any non-soda spans for security and privacy reasons."""
-    def __init__(*args, **kwargs):
-        super().__init__(*args, **kwargs)
+    def __init__(
+        self,
+        endpoint: Optional[str] = None,
+        certificate_file: Optional[str] = None,
+        headers: Optional[Dict[str, str]] = None,
+        timeout: Optional[int] = None,
+        compression: Optional[Compression] = None,
+    ):
+        super().__init__(
+            endpoint,
+            certificate_file,
+            headers,
+            timeout,
+            compression,
+        )
 
     def export(self, spans: Sequence[ReadableSpan]) -> SpanExportResult:
         return super().export(get_soda_spans(spans))
