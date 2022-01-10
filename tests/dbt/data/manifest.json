@@ -348,7 +348,6 @@
             "checksum": {"name": "none", "checksum": ""},
             "tags": ["schema"],
             "refs": [["soda_warehouses"]],
-            "sources": [],
             "description": "",
             "columns": {},
             "meta": {},
@@ -426,12 +425,6 @@
             },
             "tags": [],
             "refs": [],
-            "sources": [
-                [
-                    "soda",
-                    "non_existing_source"
-                ]
-            ],
             "description": "",
             "columns": {},
             "meta": {},

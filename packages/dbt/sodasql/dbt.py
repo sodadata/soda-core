@@ -54,7 +54,7 @@ def parse_manifest(
     ------
     https://docs.getdbt.com/reference/artifacts/manifest-json
     """
-    if manifest.get('nodes'):
+    if manifest.get('nodes') is not None:
         model_nodes = {
             node_name: CompiledModelNode(**node)
             if "compiled" in node.keys()
@@ -79,7 +79,7 @@ def parse_manifest(
         seed_nodes = None
         test_nodes = None
 
-    if manifest.get('sources'):
+    if manifest.get('sources') is not None:
         source_nodes: Optional[dict] = {
             source_name: ParsedSourceDefinition(**source)
             for source_name, source in manifest["sources"].items()
@@ -140,7 +140,7 @@ def create_nodes_to_tests_mapping(
     out : Dict[str, set[ParseModelNode]]
         A mapping from models to tests.
     """
-    assert test_nodes, "No test nodes found in manifest.json. This could be because no test was implemented in dbt yet"
+    assert test_nodes is not None, "No test nodes found in manifest.json. This could be because no test was implemented in dbt yet"
 
     test_unique_ids = [
         run_result.unique_id

@@ -60,7 +60,7 @@ def map_dbt_run_result_to_test_result(
         A mapping from run result to test result.
     """
     from dbt.contracts.results import TestStatus
-    assert test_nodes, "No test nodes were retrieved from the manifest.json. This could be because no tests have been implemented in dbt yet or you never ran `dbt test`."
+    assert test_nodes is not None, "No test nodes were retrieved from the manifest.json. This could be because no tests have been implemented in dbt yet or you never ran `dbt test`."
     dbt_tests_with_soda_test = {
         test_node.unique_id: Test(
             id=test_node.unique_id,
