@@ -226,10 +226,12 @@ def download_dbt_artifact_from_cloud(
     https://docs.getdbt.com/dbt-cloud/api-v2#operation/getArtifactsByRunId
     """
 
-    if run_id is None and job_id is not None:
+    if job_id is not None:
         logger.info(f"Retrieving latest run for job: {job_id}")
         run_id = get_latest_run(api_token, account_id, job_id)
         assert run_id, "soda ingest could not get a valid run_id for this job"
+    elif run_id is not None:
+        pass
     else:
         raise AttributeError(
             "Either a dbt run_id or a job_id must be provided. If a job_id is provided "
@@ -263,7 +265,7 @@ def get_latest_run(api_token: str, account_id: str, job_id: str) -> Optional[str
     if response.status_code != requests.codes.ok:
         response.raise_for_status()
     response_json = response.json()
-    run_id = response_json.get("id")
+    run_id = response_json.get("data")[0].get('id')
     return run_id
 
 
