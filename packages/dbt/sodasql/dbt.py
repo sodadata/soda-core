@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections import defaultdict
 from functools import reduce
 from operator import or_
-from typing import Any
+from typing import Any, Optional
 
 from dbt.contracts.graph.compiled import (
     CompiledModelNode,
@@ -25,15 +25,15 @@ from dbt.node_types import NodeType
 def parse_manifest(
     manifest: dict[str, Any]
 ) -> tuple[
-    dict[str, ParsedModelNode | CompiledModelNode],
-    dict[str, ParsedSeedNode | CompiledSeedNode],
-    dict[str, ParsedGenericTestNode | CompiledGenericTestNode],
-    dict[str, ParsedSourceDefinition],
+        Optional[dict[str, ParsedModelNode | CompiledModelNode]],
+        Optional[dict[str, ParsedSeedNode | CompiledSeedNode]],
+        Optional[dict[str, ParsedGenericTestNode | CompiledGenericTestNode]],
+        Optional[dict[str, ParsedSourceDefinition]]
 ]:
     """
     Parse the manifest.
 
-    Only V3 manifest is supported.
+    Only V4 manifest is supported.
 
     Parameters
     ----------
@@ -42,47 +42,51 @@ def parse_manifest(
 
     Returns
     -------
-    out : tuple[
-            dict[str, ParsedModelNode | CompileModelNode],
-            dict[str, ParsedSeedNode | CompiledSeedNode],
-            dict[str, ParsedGenericTestNode | CompiledGenericTestNode],
-            dict[str, ParsedSourceDefinition],
-          ]
-        The parsed manifest.
+    dbt manifest parsed into a tuple of dicts containing: models_nodes, seed_nodes, test_nodes and source_nodes.
+    Any of them may be `None` if they were not in the manifest.
 
     Raises
     ------
     NotImplementedError :
-        If the dbt schema is not equal to the V3 manifest
+        If the dbt schema is not equal to the V4 manifest
 
     Source
     ------
     https://docs.getdbt.com/reference/artifacts/manifest-json
     """
-    model_nodes = {
-        node_name: CompiledModelNode(**node)
-        if "compiled" in node.keys()
-        else ParsedModelNode(**node)
-        for node_name, node in manifest["nodes"].items()
-        if node["resource_type"] == NodeType.Model
-    }
-    seed_nodes = {
-        node_name: CompiledSeedNode(**node) if "compiled" in node.keys() else ParsedSeedNode(**node)
-        for node_name, node in manifest["nodes"].items()
-        if node["resource_type"] == NodeType.Seed
-    }
-    test_nodes = {
-        node_name: CompiledGenericTestNode(**node)
-        if "compiled" in node.keys()
-        else ParsedGenericTestNode(**node)
-        for node_name, node in manifest["nodes"].items()
-        if node["resource_type"] == NodeType.Test
-    }
-    source_nodes = {
-        source_name: ParsedSourceDefinition(**source)
-        for source_name, source in manifest["sources"].items()
-        if source["resource_type"] == NodeType.Source
-    }
+    if manifest.get('nodes'):
+        model_nodes = {
+            node_name: CompiledModelNode(**node)
+            if "compiled" in node.keys()
+            else ParsedModelNode(**node)
+            for node_name, node in manifest["nodes"].items()
+            if node["resource_type"] == NodeType.Model
+        }
+        seed_nodes = {
+            node_name: CompiledSeedNode(**node) if "compiled" in node.keys() else ParsedSeedNode(**node)
+            for node_name, node in manifest["nodes"].items()
+            if node["resource_type"] == NodeType.Seed
+        }
+        test_nodes = {
+            node_name: CompiledGenericTestNode(**node)
+            if "compiled" in node.keys()
+            else ParsedGenericTestNode(**node)
+            for node_name, node in manifest["nodes"].items()
+            if node["resource_type"] == NodeType.Test
+        }
+    else:
+        model_nodes = None
+        seed_nodes = None
+        test_nodes = None
+
+    if manifest.get('sources'):
+        source_nodes: Optional[dict] = {
+            source_name: ParsedSourceDefinition(**source)
+            for source_name, source in manifest["sources"].items()
+            if source['resource_type'] == NodeType.Source
+        }
+    else:
+        source_nodes = None
     return model_nodes, seed_nodes, test_nodes, source_nodes
 
 
@@ -90,7 +94,7 @@ def parse_run_results(run_results: dict[str, Any]) -> list[RunResultOutput]:
     """
     Parse the run results.
 
-    Only V3 run results is supported.
+    Only V4 run results is supported.
 
     Parameters
     ----------
@@ -105,7 +109,7 @@ def parse_run_results(run_results: dict[str, Any]) -> list[RunResultOutput]:
     Raises
     ------
     NotImplementedError :
-        If the dbt schema is not equal to the V3 run results.
+        If the dbt schema is not equal to the V4 run results.
 
     Source
     ------
@@ -114,10 +118,9 @@ def parse_run_results(run_results: dict[str, Any]) -> list[RunResultOutput]:
     parsed_run_results = [RunResultOutput(**result) for result in run_results["results"]]
     return parsed_run_results
 
-
 def create_nodes_to_tests_mapping(
     model_nodes: dict[str, ParsedModelNode],
-    test_nodes: dict[str, CompiledGenericTestNode],
+    test_nodes: Optional[dict[str, CompiledGenericTestNode | ParsedGenericTestNode]],
     run_results: list[RunResultOutput],
 ) -> dict[str, set[ParsedModelNode]]:
     """
@@ -137,6 +140,8 @@ def create_nodes_to_tests_mapping(
     out : Dict[str, set[ParseModelNode]]
         A mapping from models to tests.
     """
+    assert test_nodes, "No test nodes found in manifest.json. This could be because no test was implemented in dbt yet"
+
     test_unique_ids = [
         run_result.unique_id
         for run_result in run_results
