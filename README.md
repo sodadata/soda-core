@@ -108,6 +108,9 @@ Thanks goes to these wonderful people! ([emoji key](https://allcontributors.org/
     <td align="center"><a href="https://github.com/sebastianvillarroel"><img src="https://avatars.githubusercontent.com/u/16538437?v=4?s=100" width="100px;" alt=""/><br /><sub><b>Sebastián Villarroel</b></sub></a><br /><a href="https://github.com/sodadata/soda-sql/commits?author=sebastianvillarroel" title="Code">💻</a></td>
     <td align="center"><a href="https://github.com/IIBenII"><img src="https://avatars.githubusercontent.com/u/40873921?v=4?s=100" width="100px;" alt=""/><br /><sub><b>Benjamin Berriot</b></sub></a><br /><a href="https://github.com/sodadata/soda-sql/commits?author=IIBenII" title="Code">💻</a></td>
   </tr>
+  <tr>
+    <td align="center"><a href="https://dataart.com"><img src="https://avatars.githubusercontent.com/u/2989480?v=4?s=100" width="100px;" alt=""/><br /><sub><b>Alexey Minakov</b></sub></a><br /><a href="https://github.com/sodadata/soda-sql/commits?author=sintezcs" title="Code">💻</a></td>
+  </tr>
 </table>
 
 <!-- markdownlint-restore -->

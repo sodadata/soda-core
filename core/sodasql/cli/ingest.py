@@ -165,7 +165,7 @@ def flush_test_results(
             warehouse_database_schema=table.schema,
             table_name=table.name,
             scan_yml_columns=None,
-            scan_time=dt.datetime.now().isoformat(),
+            scan_time=dt.datetime.utcnow().isoformat(),
             origin=os.environ.get("SODA_SCAN_ORIGIN", "external"),
         )
         soda_server_client.scan_test_results(

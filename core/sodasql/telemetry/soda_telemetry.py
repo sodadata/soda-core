@@ -8,15 +8,14 @@ from opentelemetry.semconv.resource import ResourceAttributes
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import (
     BatchSpanProcessor,
-    ConsoleSpanExporter,
     SimpleSpanProcessor,
 )
-from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
 
 from sodasql.__version__ import SODA_SQL_VERSION
 from sodasql.common.config_helper import ConfigHelper
 from sodasql.scan.dialect import Dialect
 from sodasql.telemetry.memory_span_exporter import MemorySpanExporter
+from sodasql.telemetry.soda_exporter import SodaConsoleSpanExporter, SodaOTLPSpanExporter
 
 logger = logging.getLogger(__name__)
 
@@ -91,10 +90,10 @@ class SodaTelemetry:
         local_debug_mode = self.soda_config.get_value('tracing_local_debug_mode')
 
         if local_debug_mode or logger.getEffectiveLevel() == logging.DEBUG:
-            self.__provider.add_span_processor(BatchSpanProcessor(ConsoleSpanExporter()))
+            self.__provider.add_span_processor(BatchSpanProcessor(SodaConsoleSpanExporter()))
 
         if not local_debug_mode:
-            otlp_exporter = OTLPSpanExporter(endpoint=self.ENDPOINT)
+            otlp_exporter = SodaOTLPSpanExporter(endpoint=self.ENDPOINT)
             otlp_processor = BatchSpanProcessor(otlp_exporter)
             self.__provider.add_span_processor(otlp_processor)
 

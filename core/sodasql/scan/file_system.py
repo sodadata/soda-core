@@ -67,12 +67,9 @@ class FileSystem:
     def file_write_from_str(self, path: str, file_content_str):
         expanded_path = os.path.expanduser(path)
         path_path: Path = Path(expanded_path)
-        is_new = not path_path.exists()
         try:
             with open(path_path, 'w+', encoding='utf-8') as f:
                 f.write(file_content_str)
-            if is_new:
-                os.chmod(path, 0o666)
         except Exception as e:
             logger.debug(f"Couldn't write {str(path)}: {str(e)}")
 
