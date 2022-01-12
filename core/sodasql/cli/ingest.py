@@ -11,7 +11,7 @@ import logging
 import os
 import requests
 from pathlib import Path
-from typing import Iterator, Optional
+from typing import Iterator
 from requests.structures import CaseInsensitiveDict
 
 from sodasql.__version__ import SODA_SQL_VERSION
@@ -211,8 +211,9 @@ def download_dbt_artifact_from_cloud(
     artifact: str,
     api_token: str,
     account_id: str,
-    run_id: Optional[str],
-    job_id: Optional[str],
+    step_id: int,
+    run_id: str | None = None,
+    job_id: str | None = None,
 ) -> dict:
     """
     Download an artifact from the dbt cloud by run_id. If a job_id is provided instead of
@@ -247,8 +248,11 @@ def download_dbt_artifact_from_cloud(
     headers["Content-Type"] = "application/json"
 
     logger.info(f"Downloading artifact: {artifact}, from run: {run_id}")
-    response = requests.get(url, headers=headers)
-
+    # We are not using `params=` because the dbt Cloud API requires a trailing slash and the library
+    # cannot add it by default. Hopefully this gets fixed on their end soon.
+    response = requests.get(f"{url}?step={step_id}/", headers=headers)
+    logger.info('KDJFHKDJHFKDJFHDKFJHDKFJDHFKDHFKDJFHDKFHDKFJDFHDKFHDKFHDKFJDHFKDHJFKDHF')
+    logger.info(response.url)
     if response.status_code != requests.codes.ok:
         response.raise_for_status()
 
@@ -275,14 +279,25 @@ def get_latest_run(api_token: str, account_id: str, job_id: str) -> Optional[str
 def download_dbt_manifest_and_run_result(
     api_token: str,
     account_id: str,
-    run_id: Optional[str],
-    job_id: Optional[str],
+    step_id: int,
+    run_id: str | None = None,
+    job_id: str | None = None,
 ) -> tuple[dict, dict]:
     manifest = download_dbt_artifact_from_cloud(
-        "manifest.json", api_token, account_id, run_id, job_id
+        "manifest.json",
+        api_token,
+        account_id,
+        step_id,
+        run_id=run_id,
+        job_id=job_id
     )
     run_results = download_dbt_artifact_from_cloud(
-        "run_results.json", api_token, account_id, run_id, job_id
+        "run_results.json",
+        api_token,
+        account_id,
+        step_id,
+        run_id=run_id,
+        job_id=job_id
     )
     return manifest, run_results
 
@@ -297,6 +312,7 @@ def ingest(
     dbt_cloud_account_id: str | None = None,
     dbt_cloud_run_id: str | None = None,
     dbt_cloud_job_id: str | None = None,
+    dbt_cloud_run_step_id: int | None = None,
 ) -> None:
     """
     Ingest test information from different tools.
@@ -320,6 +336,8 @@ def ingest(
         The id of a job run in the dbt cloud.
     dbt_cloud_job_id: Optional[str]
         The id of a dbt Cloud job from which to fetch the last available job results.
+    dbt_cloud_run_step_id: The step id (i.e. position) (starting from 1) as configured in the
+        dbt job or run for which to ingest run results artifacts from.
 
     Raises
     ------
@@ -394,7 +412,7 @@ def ingest(
             if len(filtered_messages) > 0:
                 raise ValueError("\n".join(filtered_messages))
             manifest, run_results = download_dbt_manifest_and_run_result(
-                dbt_cloud_api_token, dbt_cloud_account_id, dbt_cloud_run_id, dbt_cloud_job_id
+                dbt_cloud_api_token, dbt_cloud_account_id, dbt_cloud_run_step_id, dbt_cloud_run_id, dbt_cloud_job_id
             )
             with open('manifest.json', 'w') as f:
                 json.dump(manifest, f)

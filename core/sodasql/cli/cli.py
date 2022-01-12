@@ -554,6 +554,15 @@ def scan(scan_yml_file: str, warehouse_yml_file: str, variables: tuple, time: st
     default=None,
     type=str,
 )
+@click.option(
+    "--dbt-cloud-run-step-id",
+    help=(
+        "A number (starting from 1) referring to the step as configured in the job/run. "
+    ),
+    default=None,
+    required=True,
+    type=int,
+)
 def ingest(*args, **kwargs):
     """
     Ingest test information from different tools.
