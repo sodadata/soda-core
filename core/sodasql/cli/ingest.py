@@ -11,10 +11,11 @@ import logging
 import os
 import requests
 from pathlib import Path
-from typing import Iterator
+from typing import Iterator, Optional
 from requests.structures import CaseInsensitiveDict
 
 from sodasql.__version__ import SODA_SQL_VERSION
+from sodasql.common.logging_helper import LoggingHelper
 from sodasql.scan.scan_builder import (
     build_warehouse_yml_parser,
     create_soda_server_client,
@@ -23,7 +24,12 @@ from sodasql.scan.test import Test
 from sodasql.scan.test_result import TestResult
 from sodasql.soda_server_client.soda_server_client import SodaServerClient
 
+LoggingHelper.configure_for_cli()
+logger = logging.getLogger(__name__)
+
 KEY_DBT_CLOUD_API_TOKEN = "dbt_cloud_api_token"
+DBT_ADMIN_API_BASE_URL = "https://cloud.getdbt.com/api/v2/accounts/"
+
 
 @dataclasses.dataclass(frozen=True)
 class Table:
@@ -151,9 +157,7 @@ def flush_test_results(
     """
     for table, test_results in test_results_iterator:
         test_results_jsons = [
-            test_result.to_dict()
-            for test_result in test_results
-            if not test_result.skipped
+            test_result.to_dict() for test_result in test_results if not test_result.skipped
         ]
         if len(test_results_jsons) == 0:
             continue
@@ -165,7 +169,7 @@ def flush_test_results(
             warehouse_database_schema=table.schema,
             table_name=table.name,
             scan_yml_columns=None,
-            scan_time=dt.datetime.now().isoformat(),
+            scan_time=dt.datetime.utcnow().isoformat(),
             origin=os.environ.get("SODA_SCAN_ORIGIN", "external"),
         )
         soda_server_client.scan_test_results(
@@ -204,21 +208,13 @@ def download_dbt_artifact_from_cloud(
     artifact: str,
     api_token: str,
     account_id: str,
-    run_id: str,
+    run_id: Optional[str],
+    job_id: Optional[str],
 ) -> dict:
     """
-    Download an artifact from the dbt cloud.
-
-    Parameters
-    ----------
-    artifact : str
-        The artifact name.
-    api_token : str
-        The dbt cloud API token.
-    account_id: str :
-        The account id.
-    run_id :  str
-        The run id.
+    Download an artifact from the dbt cloud by run_id. If a job_id is provided instead of
+    a run_id the latest run_id available for that job will first be fetched and used to download
+    the artifact.
 
     Returns
     -------
@@ -229,12 +225,25 @@ def download_dbt_artifact_from_cloud(
     -------
     https://docs.getdbt.com/dbt-cloud/api-v2#operation/getArtifactsByRunId
     """
-    url = f"https://cloud.getdbt.com/api/v2/accounts/{account_id}/runs/{run_id}/artifacts/{artifact}"
+
+    if job_id is not None:
+        logger.info(f"Retrieving latest run for job: {job_id}")
+        run_id = get_latest_run(api_token, account_id, job_id)
+        assert run_id, "soda ingest could not get a valid run_id for this job"
+    elif run_id is not None:
+        pass
+    else:
+        raise AttributeError(
+            "Either a dbt run_id or a job_id must be provided. If a job_id is provided "
+            "soda ingest will fetch the latest available run artifacts from dbt Cloud for that job_id."
+        )
+    url = f"{DBT_ADMIN_API_BASE_URL}{account_id}/runs/{run_id}/artifacts/{artifact}"
 
     headers = CaseInsensitiveDict()
     headers["Authorization"] = f"Token {api_token}"
     headers["Content-Type"] = "application/json"
 
+    logger.info(f"Downloading artifact: {artifact}, from run: {run_id}")
     response = requests.get(url, headers=headers)
 
     if response.status_code != requests.codes.ok:
@@ -243,33 +252,34 @@ def download_dbt_artifact_from_cloud(
     return response.json()
 
 
-def download_dbt_artifacts_from_cloud(
+def get_latest_run(api_token: str, account_id: str, job_id: str) -> Optional[str]:
+    url = f"{DBT_ADMIN_API_BASE_URL}{account_id}/runs"
+
+    headers = CaseInsensitiveDict()
+    headers["Authorization"] = f"Token {api_token}"
+    headers["Content-Type"] = "application/json"
+
+    query_params = {"job_definition_id": job_id, "order_by": "-finished_at"}
+    response = requests.get(url, headers=headers, params=query_params)
+
+    if response.status_code != requests.codes.ok:
+        response.raise_for_status()
+    response_json = response.json()
+    run_id = response_json.get("data")[0].get('id')
+    return run_id
+
+
+def download_dbt_manifest_and_run_result(
     api_token: str,
     account_id: str,
-    run_id: str,
+    run_id: Optional[str],
+    job_id: Optional[str],
 ) -> tuple[dict, dict]:
-    """
-    Download the dbt artifacts from the cloud.
-
-    Parameters
-    ----------
-    api_token : str
-        The dbt cloud API token.
-    account_id : str
-        The account id.
-    run_id :  str
-        The run id.
-
-    Returns
-    -------
-    out : tuple[dict, dict]
-        The loaded artifacts.
-    """
     manifest = download_dbt_artifact_from_cloud(
-        "manifest.json", api_token, account_id, run_id
+        "manifest.json", api_token, account_id, run_id, job_id
     )
     run_results = download_dbt_artifact_from_cloud(
-        "run_results.json", api_token, account_id, run_id
+        "run_results.json", api_token, account_id, run_id, job_id
     )
     return manifest, run_results
 
@@ -282,6 +292,7 @@ def ingest(
     dbt_run_results: Path | None = None,
     dbt_cloud_account_id: str | None = None,
     dbt_cloud_run_id: str | None = None,
+    dbt_cloud_job_id: str | None = None,
 ) -> None:
     """
     Ingest test information from different tools.
@@ -301,8 +312,10 @@ def ingest(
         The path to the dbt run results.
     dbt_cloud_account_id: str :
         The id of a dbt cloud account.
-    dbt_cloud_run_id :  str
+    dbt_cloud_run_id :  Optional[str]
         The id of a job run in the dbt cloud.
+    dbt_cloud_job_id: Optional[str]
+        The id of a dbt Cloud job from which to fetch the last available job results.
 
     Raises
     ------
@@ -321,11 +334,7 @@ def ingest(
         raise ValueError("Missing Soda cloud api key id and/or secret.")
 
     if tool == "dbt":
-        if (
-            dbt_artifacts is not None
-            or dbt_manifest is not None
-            or dbt_run_results is not None
-        ):
+        if dbt_artifacts is not None or dbt_manifest is not None or dbt_run_results is not None:
             if dbt_artifacts is not None:
                 dbt_manifest = dbt_artifacts / "manifest.json"
                 dbt_run_results = dbt_artifacts / "run_results.json"
@@ -346,21 +355,22 @@ def ingest(
                 dbt_run_results,
             )
         else:
-            error_values = [dbt_cloud_api_token, dbt_cloud_account_id, dbt_cloud_run_id]
+            error_values = [dbt_cloud_api_token, dbt_cloud_account_id]
             error_messages = [
                 f"Expecting a dbt cloud api token: {dbt_cloud_api_token}",
                 f"Expecting a dbt cloud account id: {dbt_cloud_account_id}",
-                f"Expecting a dbt cloud job run id: {dbt_cloud_run_id}",
             ]
             filtered_messages = [
-                message
-                for value, message in zip(error_values, error_messages)
-                if value is None
+                message for value, message in zip(error_values, error_messages) if value is None
             ]
+            if dbt_cloud_run_id is None and dbt_cloud_job_id is None:
+                filtered_messages.append(
+                    "Expecting either a dbt cloud job id, or run id. None are provided."
+                )
             if len(filtered_messages) > 0:
                 raise ValueError("\n".join(filtered_messages))
-            manifest, run_results = download_dbt_artifacts_from_cloud(
-                dbt_cloud_api_token, dbt_cloud_account_id, dbt_cloud_run_id
+            manifest, run_results = download_dbt_manifest_and_run_result(
+                dbt_cloud_api_token, dbt_cloud_account_id, dbt_cloud_run_id, dbt_cloud_job_id
             )
 
         test_results_iterator = map_dbt_test_results_iterator(manifest, run_results)
