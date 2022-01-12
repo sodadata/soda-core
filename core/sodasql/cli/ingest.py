@@ -41,7 +41,7 @@ class Table:
 
 
 def map_dbt_run_result_to_test_result(
-    test_nodes: Optional[dict[str, "DbtTestNode"]],
+    test_nodes: dict[str, "DbtTestNode"] | None,
     run_results: list["RunResultOutput"],
 ) -> dict[str, set["DbtModelNode"]]:
     """

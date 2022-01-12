@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections import defaultdict
 from functools import reduce
 from operator import or_
-from typing import Any, Optional
+from typing import Any
 
 from dbt.contracts.graph.compiled import (
     CompiledModelNode,
@@ -25,10 +25,10 @@ from dbt.node_types import NodeType
 def parse_manifest(
     manifest: dict[str, Any]
 ) -> tuple[
-        Optional[dict[str, ParsedModelNode | CompiledModelNode]],
-        Optional[dict[str, ParsedSeedNode | CompiledSeedNode]],
-        Optional[dict[str, ParsedGenericTestNode | CompiledGenericTestNode]],
-        Optional[dict[str, ParsedSourceDefinition]]
+        dict[str, ParsedModelNode | CompiledModelNode] | None,
+        dict[str, ParsedSeedNode | CompiledSeedNode] | None,
+        dict[str, ParsedGenericTestNode | CompiledGenericTestNode] | None,
+        dict[str, ParsedSourceDefinition] | None,
 ]:
     """
     Parse the manifest.
@@ -120,7 +120,7 @@ def parse_run_results(run_results: dict[str, Any]) -> list[RunResultOutput]:
 
 def create_nodes_to_tests_mapping(
     model_nodes: dict[str, ParsedModelNode],
-    test_nodes: Optional[dict[str, CompiledGenericTestNode | ParsedGenericTestNode]],
+    test_nodes: dict[str, CompiledGenericTestNode | ParsedGenericTestNode] | None,
     run_results: list[RunResultOutput],
 ) -> dict[str, set[ParsedModelNode]]:
     """
