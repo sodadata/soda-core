@@ -1,11 +1,11 @@
 """dbt integeration"""
-
 from __future__ import annotations
 
+import logging
 from collections import defaultdict
 from functools import reduce
 from operator import or_
-from typing import Any, Iterator
+from typing import Any
 
 from dbt.contracts.graph.compiled import (
     CompiledModelNode,
@@ -21,7 +21,10 @@ from dbt.contracts.graph.parsed import (
 from dbt.contracts.results import RunResultOutput
 from dbt.node_types import NodeType
 
-from sodasql.scan.test_result import TestResult
+from sodasql.common.logging_helper import LoggingHelper
+
+LoggingHelper.configure_for_cli()
+logger = logging.getLogger(__name__)
 
 def parse_manifest(
     manifest: dict[str, Any]
@@ -174,13 +177,15 @@ def all_test_failures_are_not_none(
         if run_result.failures is None:
             results_with_null_failures.append(run_result)
 
-    if len(results_with_null_failures) == run_results:
+    if len(results_with_null_failures) == len(run_results):
         raise ValueError(
             "Could not find a valid test result in the run results. "
             "This is often the case when ingesting from dbt Cloud where the last step in the "
             "job was neither a `dbt build` or `dbt test`. For example, your run may have terminated with "
             "`dbt docs generate` \n"
             "We are currently investigating this with the dbt Cloud team. \n"
+            "In the meantime, if your jobs do not end on the above mentioned commands, you could make sure to add at least a `dbt test` "
+            "step as your last step and make sure that 'generate documentation' is not turned on in your job definition."
         )
     else:
         return True

@@ -372,7 +372,10 @@ def ingest(
             manifest, run_results = download_dbt_manifest_and_run_result(
                 dbt_cloud_api_token, dbt_cloud_account_id, dbt_cloud_run_id, dbt_cloud_job_id
             )
-
+            with open('manifest.json', 'w') as f:
+                json.dump(manifest, f)
+            with open('run_results.json', 'w') as f:
+                json.dump(run_results, f)
         test_results_iterator = map_dbt_test_results_iterator(manifest, run_results)
     else:
         raise NotImplementedError(f"Unknown tool: {tool}")
