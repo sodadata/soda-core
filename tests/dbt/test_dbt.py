@@ -98,6 +98,10 @@ def test_parse_run_results_failures(
     assert run_result[0].failures == failures
 
 
+def test_parse_run_results_all_null_failures(dbt_run_results_null_failures):
+    with pytest.raises(ValueError):
+        _ = soda_dbt.parse_run_results(dbt_run_results_null_failures)
+
 @pytest.mark.parametrize(
     "model_name, test_names",
     [

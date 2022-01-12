@@ -105,3 +105,17 @@ def dbt_run_results(dbt_run_results_file: Path) -> dict:
     with manifest_file.open("r") as file:
         manifest = json.load(file)
     return manifest
+
+
+@pytest.fixture
+def dbt_run_results_null_failures_file(dbt_artifacts_directory: Path) -> Path:
+    run_results_file = dbt_artifacts_directory / "dbt_run_results_null_failures_file.json"
+    return run_results_file
+
+
+@pytest.fixture
+def dbt_run_results_null_failures(dbt_run_results_null_failures_file: Path) -> dict:
+    run_results = Path(__file__).parent / "dbt/data/run_results_null_failures.json"
+    with run_results.open("r") as file:
+        run_results = json.load(file)
+    return run_results

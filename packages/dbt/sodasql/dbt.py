@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections import defaultdict
 from functools import reduce
 from operator import or_
-from typing import Any
+from typing import Any, Iterator
 
 from dbt.contracts.graph.compiled import (
     CompiledModelNode,
@@ -21,6 +21,7 @@ from dbt.contracts.graph.parsed import (
 from dbt.contracts.results import RunResultOutput
 from dbt.node_types import NodeType
 
+from sodasql.scan.test_result import TestResult
 
 def parse_manifest(
     manifest: dict[str, Any]
@@ -112,6 +113,7 @@ def parse_run_results(run_results: dict[str, Any]) -> list[RunResultOutput]:
     https://docs.getdbt.com/reference/artifacts/run-results-json
     """
     parsed_run_results = [RunResultOutput(**result) for result in run_results["results"]]
+    is_valid_test_result = all_test_failures_are_not_none(parsed_run_results)
     return parsed_run_results
 
 
@@ -163,3 +165,22 @@ def create_nodes_to_tests_mapping(
                 models_with_tests[model_unique_id].add(test_unique_id)
 
     return models_with_tests
+
+def all_test_failures_are_not_none(
+    run_results: list[RunResultOutput]
+) -> bool:
+    results_with_null_failures = []
+    for run_result in run_results:
+        if run_result.failures is None:
+            results_with_null_failures.append(run_result)
+
+    if len(results_with_null_failures) == run_results:
+        raise ValueError(
+            "Could not find a valid test result in the run results. "
+            "This is often the case when ingesting from dbt Cloud where the last step in the "
+            "job was neither a `dbt build` or `dbt test`. For example, your run may have terminated with "
+            "`dbt docs generate` \n"
+            "We are currently investigating this with the dbt Cloud team. \n"
+        )
+    else:
+        return True
