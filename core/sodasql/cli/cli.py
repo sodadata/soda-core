@@ -537,7 +537,22 @@ def scan(scan_yml_file: str, warehouse_yml_file: str, variables: tuple, time: st
     "--dbt-cloud-run-id",
     help="The id of the dbt job run of which you would like to ingest the test results",
     default=None,
-    type=Path,
+    type=str,
+)
+@click.option(
+    "--dbt-cloud-run-id",
+    help=(
+        "The id of the dbt job run of which you would like to ingest the test results. "
+        "Use when you want to target a specific run otherwise consider using `--dbt-cloud-job-id`."
+    ),
+    default=None,
+    type=str,
+)
+@click.option(
+    "--dbt-cloud-job-id",
+    help="The job id from which you want to ingest the latest run results.",
+    default=None,
+    type=str,
 )
 def ingest(*args, **kwargs):
     """
