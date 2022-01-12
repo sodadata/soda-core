@@ -41,6 +41,23 @@ def test_parse_manifest_contains_test_unique_ids(
 
     assert unique_id in test_nodes.keys()
 
+def test_map_dbt_test_results_iterator_no_test_parsed(dbt_manifest, dbt_run_results):
+    import copy
+    from sodasql.cli.ingest import map_dbt_test_results_iterator
+    manifest_without_source = copy.deepcopy(dbt_manifest)
+    manifest_without_source.pop('nodes')
+    with pytest.raises(AttributeError):
+        test_results_iterator = map_dbt_test_results_iterator(manifest_without_source, dbt_run_results)
+
+def test_map_dbt_test_results_iterator_no_sources(dbt_manifest, dbt_run_results):
+    import copy
+    from sodasql.cli.ingest import map_dbt_test_results_iterator
+    manifest_without_source = copy.deepcopy(dbt_manifest)
+    manifest_without_source.pop('sources')
+    test_results_iterator = map_dbt_test_results_iterator(manifest_without_source, dbt_run_results)
+
+
+
 
 @pytest.mark.parametrize(
     "unique_id, status",
