@@ -23,9 +23,12 @@ from sodasql.scan.scan_builder import (
 from sodasql.scan.test import Test
 from sodasql.scan.test_result import TestResult
 from sodasql.soda_server_client.soda_server_client import SodaServerClient
+from sodasql.telemetry.soda_telemetry import SodaTelemetry
+from sodasql.telemetry.soda_tracer import soda_trace, span_setup_function_args
 
 LoggingHelper.configure_for_cli()
 logger = logging.getLogger(__name__)
+soda_telemetry = SodaTelemetry.get_instance()
 
 KEY_DBT_CLOUD_API_TOKEN = "dbt_cloud_api_token"
 DBT_ADMIN_API_BASE_URL = "https://cloud.getdbt.com/api/v2/accounts/"
@@ -284,6 +287,7 @@ def download_dbt_manifest_and_run_result(
     return manifest, run_results
 
 
+@soda_trace
 def ingest(
     tool: str,
     warehouse_yml_file: str,
@@ -322,6 +326,11 @@ def ingest(
     ValueError :
        If the tool is unrecognized.
     """
+
+    soda_telemetry.set_attribute('cli_command_name', 'ingest')
+    soda_telemetry.set_attribute('tool', tool)
+
+
     logger = logging.getLogger(__name__)
     logger.info(SODA_SQL_VERSION)
 
@@ -330,8 +339,23 @@ def ingest(
     warehouse_yml = warehouse_yml_parser.warehouse_yml
 
     soda_server_client = create_soda_server_client(warehouse_yml)
+
     if not soda_server_client.api_key_id or not soda_server_client.api_key_secret:
         raise ValueError("Missing Soda cloud api key id and/or secret.")
+
+    soda_telemetry.set_attribute('soda_cloud_api_key_id', soda_server_client.api_key_id)
+    span_setup_function_args(
+        {
+            'command_option':
+                {
+                    'using_dbt_artifacts': bool(dbt_artifacts),
+                    'using_dbt_manifest': bool(dbt_manifest),
+                    'using_dbt_run_results': bool(dbt_run_results),
+                    'using_dbt_cloud_run_id': bool(dbt_cloud_account_id),
+                    'using_dbt_cloud_job_id': bool(dbt_cloud_job_id)
+                },
+        },
+    )
 
     if tool == "dbt":
         if dbt_artifacts is not None or dbt_manifest is not None or dbt_run_results is not None:
