@@ -33,6 +33,9 @@ class ParseLog:
     def __str__(self):
         return f'[{self.level}] ({self.field}) {self.message}'
 
+    def is_error(self):
+        return self.level == ERROR
+
     def is_error_or_warning(self):
         return self.level == ERROR or self.level == WARNING
 
@@ -107,6 +110,12 @@ class Parser:
         for invalid_key in [configured_key for configured_key in context_iterable if configured_key not in valid_keys]:
             self.warning(f'Invalid key in {self._get_context_description()} : {invalid_key}', invalid_key)
 
+    def has_errors(self):
+        for log in self.logs:
+            if log.is_error():
+                return True
+        return False
+
     def has_warnings_or_errors(self):
         for log in self.logs:
             if log.is_error_or_warning():
@@ -114,7 +123,7 @@ class Parser:
         return False
 
     def assert_no_warnings_or_errors(self):
-        if self.has_warnings_or_errors():
+        if self.has_errors():
             raise AssertionError(f'{self.description} configuration errors: \n  '
                                  + ('\n  '.join([str(log) for log in self.logs])))
 
