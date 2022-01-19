@@ -211,7 +211,7 @@ def download_dbt_artifact_from_cloud(
     artifact: str,
     api_token: str,
     account_id: str,
-    step_id: int,
+    step_id: int | None = None,
     run_id: str | None = None,
     job_id: str | None = None,
 ) -> dict:
@@ -248,11 +248,17 @@ def download_dbt_artifact_from_cloud(
     headers["Content-Type"] = "application/json"
 
     logger.info(f"Downloading artifact: {artifact}, from run: {run_id}")
-    # We are not using `params=` because the dbt Cloud API requires a trailing slash and the library
-    # cannot add it by default. Hopefully this gets fixed on their end soon.
-    response = requests.get(f"{url}?step={step_id}/", headers=headers)
-    logger.info('KDJFHKDJHFKDJFHDKFJHDKFJDHFKDHFKDJFHDKFHDKFJDFHDKFHDKFHDKFJDHFKDHJFKDHF')
-    logger.info(response.url)
+    if step_id and artifact == 'run_results.json':
+        params = {'step': step_id}
+    else:
+        params = {}
+    response = requests.get(f"{url}", headers=headers, params=params)
+    if response.status_code == 404 and params is not None:
+        logger.error(
+            f"[ERROR] Ingest could not get the {artifact} from dbt Cloud due to a 404 error. "
+            f"This is most likely due to the fact that the step you requested: {params} "
+            f"does not produce a {artifact} or you are referring to a step that does not exist."
+        )
     if response.status_code != requests.codes.ok:
         response.raise_for_status()
 
@@ -279,7 +285,7 @@ def get_latest_run(api_token: str, account_id: str, job_id: str) -> Optional[str
 def download_dbt_manifest_and_run_result(
     api_token: str,
     account_id: str,
-    step_id: int,
+    step_id: int | None = None,
     run_id: str | None = None,
     job_id: str | None = None,
 ) -> tuple[dict, dict]:
@@ -413,11 +419,8 @@ def ingest(
                 raise ValueError("\n".join(filtered_messages))
             manifest, run_results = download_dbt_manifest_and_run_result(
                 dbt_cloud_api_token, dbt_cloud_account_id, dbt_cloud_run_step_id, dbt_cloud_run_id, dbt_cloud_job_id
+
             )
-            with open('manifest.json', 'w') as f:
-                json.dump(manifest, f)
-            with open('run_results.json', 'w') as f:
-                json.dump(run_results, f)
         test_results_iterator = map_dbt_test_results_iterator(manifest, run_results)
     else:
         raise NotImplementedError(f"Unknown tool: {tool}")
@@ -428,3 +431,4 @@ def ingest(
         warehouse_name=warehouse_yml.name,
         warehouse_type=warehouse_yml.dialect.type,
     )
+
