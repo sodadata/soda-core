@@ -31,11 +31,16 @@ class HiveDialect(Dialect):
         if parser:
             self.host = parser.get_str_required('host')
             self.port = parser.get_int_optional('port', '10000')
+            self.scheme = parser.get_str_optional('scheme', None)
             self.username = parser.get_str_required_env('username')
-            self.password = parser.get_str_optional_env('password')
-            self.auth_method = parser.get_str_optional('authentication', None)
             self.database = parser.get_str_optional('database', 'default')
-            self.configuration = parser.get_dict_optional('configuration')
+            self.auth_method = parser.get_str_optional('authentication', None)
+            self.configuration = parser.get_dict_optional('configuration', {})
+            self.kerberos_service_name = parser.get_str_optional('kerberos_service_name', None)
+            self.password = parser.get_str_optional_env('password')
+            self.check_hostname = parser.get_bool_optional('check_hostname', None)
+            self.ssl_cert = parser.get_str_optional('ssl_cert', None)
+            self.thrift_transport = parser.get_str_optional('thrift_transport', None)
 
     def default_connection_properties(self, params: dict):
         return {
@@ -77,15 +82,21 @@ class HiveDialect(Dialect):
         self.configuration['hive.ddl.output.format'] = 'json'
         try:
             conn = hive.connect(
-                username=self.username,
-                password=self.password,
                 host=self.host,
                 port=self.port,
+                scheme=self.scheme,
+                username=self.username,
                 database=self.database,
+                auth=self.auth_method,
                 # https://github.com/jaegertracing/jaeger-client-python/issues/151
-                configuration={key: str(value)
+                configuration={key: value
                                for key, value in self.configuration.items()},
-                auth=self.auth_method)
+                kerberos_service_name=self.kerberos_service_name,
+                password=self.password,
+                check_hostname=self.check_hostname,
+                ssl_cert=self.ssl_cert,
+                thrift_transport=self.thrift_transport,
+            )
             return conn
         except Exception as e:
             self.try_to_raise_soda_sql_exception(e)
