@@ -169,6 +169,9 @@ class SnowflakeDialect(Dialect):
     def qualify_regex(self, regex) -> str:
         return self.escape_metacharacters(regex)
 
+    def sql_expr_regexp_like(self, expr: str, pattern: str):
+        return f"REGEXP_LIKE(COLLATE({expr}, ''), '{self.qualify_regex(pattern)}')"
+
     def qualify_column_name(self, column_name: str, source_type: str = None):
         return f'{column_name}'
 
