@@ -18,6 +18,8 @@ description = "Soda SQL Core"
 long_description = (pathlib.Path(__file__).parent / "README.md").read_text()
 
 requires = [
+
+    "markupsafe==2.0.1",
     "Jinja2>=2.11.3, <3.0",
     "click>=8.0, <9.0",
     "pyyaml>=5.4.1, <6.0",
