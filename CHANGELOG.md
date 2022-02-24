@@ -4,7 +4,14 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
-## [2.1.3] - 2021-01-14 *Gamling*
+## [2.1.4] - 2022-02-24 *Gandalf*
+
+- core: Update the telemetry attribute (#672)
+- core: Pin markupsafe (#677)
+- snowflake: Collation removal for REGEX functions (#673)
+- hive: update connection parameters (#662)
+- 
+## [2.1.3] - 2022-01-14 *Gamling*
 
 - core: Change invalid keys message to a warning instead of error (#656)
 - core: submit a utc timestamp when creating scan (#651)
