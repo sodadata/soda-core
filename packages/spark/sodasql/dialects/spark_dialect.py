@@ -8,6 +8,7 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
+import itertools
 
 import pyodbc
 from collections import namedtuple
@@ -18,7 +19,6 @@ from thrift.transport.TTransport import TTransportException
 import logging
 from typing import Any, Dict, List, Optional
 
-from sodasql.exceptions.exceptions import WarehouseConnectionError
 from sodasql.__version__ import SODA_SQL_VERSION
 from sodasql.scan.dialect import Dialect, SPARK, KEY_WAREHOUSE_TYPE
 from sodasql.scan.parser import Parser
@@ -232,49 +232,6 @@ class SparkDialect(Dialect):
     def sql_test_connection(self) -> bool:
         return True
 
-    def show_columns(self, table_name: str) -> List[str]:
-        """
-        Show columns in table.
-
-        Parameters
-        ----------
-        table_name : str
-            The table to show columns in.
-
-        Returns
-        -------
-        out : List[str]
-            The column names.
-        """
-        qualified_table_name = self.qualify_table_name(table_name)
-        with self.create_connection().cursor() as cursor:
-            cursor.execute(f"SHOW COLUMNS IN {qualified_table_name}")
-            columns = cursor.fetchall()
-        return [column[0] for column in columns]
-
-    def describe_column(
-        self, table_name: str, column_name: str) -> ColumnMetadata:
-        """
-        Describe a column.
-
-        Parameters
-        ----------
-        table_name: str
-            The table name.
-        column_name: str
-            The column name.
-
-        Returns
-        -------
-        out : ColumnMetadata
-            The column metadata.
-        """
-        qualified_table_name = self.qualify_table_name(table_name)
-        qualified_column_name = self.qualify_column_name(column_name)
-        with self.create_connection().cursor() as cursor:
-            cursor.execute(f"DESCRIBE TABLE {qualified_table_name} {qualified_column_name}")
-            data_type = cursor.fetchall()[1][1]
-        return ColumnMetadata(column_name, data_type, is_nullable="YES")
 
     def sql_columns_metadata(self, table_name: str) -> List[ColumnMetadata]:
         """
@@ -290,12 +247,12 @@ class SparkDialect(Dialect):
         out : List[ColumnMetada]
             The metadata about each column.
         """
-        columns = self.show_columns(table_name)
-        columns_metadata = [
-            self.describe_column(table_name, column)
-            for column in columns
-        ]
-        return columns_metadata
+        with self.create_connection().cursor() as cursor:
+            qualified_table_name = self.qualify_table_name(table_name)
+            cursor.execute(f"DESCRIBE TABLE {qualified_table_name}")
+            rows = cursor.fetchall()
+            column_details = itertools.takewhile(lambda row: not row[0].startswith('# Partition Information'), rows)
+            return [ColumnMetadata(cd[0], cd[1], "YES") for cd in column_details]
 
     def sql_columns_metadata_query(self, table_name: str) -> str:
         # hive_version < 3.x does not support information_schema.columns
