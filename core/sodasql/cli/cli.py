@@ -403,7 +403,7 @@ def scan(scan_yml_file: str, warehouse_yml_file: str, variables: tuple, time: st
     logger.info(SODA_SQL_VERSION)
     exit_code = 0
 
-    soda_telemetry.set_attribute('cli_command_name', 'analyze')
+    soda_telemetry.set_attribute('cli_command_name', 'scan')
 
     span_setup_function_args(
         {
