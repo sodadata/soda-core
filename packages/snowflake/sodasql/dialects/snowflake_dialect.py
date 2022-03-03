@@ -173,7 +173,7 @@ class SnowflakeDialect(Dialect):
         return f"REGEXP_LIKE(COLLATE({expr}, ''), '{self.qualify_regex(pattern)}')"
 
     def qualify_column_name(self, column_name: str, source_type: str = None):
-        return f'{column_name}'
+        return f'"{column_name}"'
 
     def qualify_table_name(self, table_name: str) -> str:
         return f'{table_name}'
