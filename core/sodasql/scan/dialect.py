@@ -59,6 +59,7 @@ class Dialect(metaclass=abc.ABCMeta):
     data_type_bigint = "BIGINT"
     data_type_decimal = "REAL"
     data_type_date = "DATE"
+    reserved_keywords = []
 
     def __init__(self, type: str):
         self.type = type
@@ -320,6 +321,8 @@ class Dialect(metaclass=abc.ABCMeta):
         return table_name
 
     def qualify_column_name(self, column_name: str, source_type: str = None):
+        if column_name in self.reserved_keywords:
+            return f'"{column_name}"'
         return column_name
 
     def qualify_writable_table_name(self, table_name: str) -> str:
