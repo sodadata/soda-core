@@ -265,9 +265,6 @@ class SnowflakeDialect(Dialect):
     def sql_expr_regexp_like(self, expr: str, pattern: str):
         return f"REGEXP_LIKE(COLLATE({expr}, ''), '{self.qualify_regex(pattern)}')"
 
-    def qualify_table_name(self, table_name: str) -> str:
-        return f'{table_name}'
-
     def is_connection_error(self, exception):
         if exception is None or exception.errno is None:
             return False

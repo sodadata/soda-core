@@ -861,7 +861,9 @@ class MySQLDialect(Dialect):
         ]
 
     def qualify_table_name(self, table_name: str) -> str:
-        return f'{table_name}'
+        if table_name in self.reserved_keywords:
+            return f'`{table_name}`'
+        return table_name
 
     def qualify_column_name(self, column_name: str, source_type: str = None):
         if column_name in self.reserved_keywords:

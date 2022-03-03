@@ -136,6 +136,7 @@ class AthenaDialect(Dialect):
         return f'"{column_name}"'
 
     def qualify_table_name(self, table_name: str) -> str:
+        # TODO: athena requires specific quoting for reserved keywords. backtick in CREATE statements and double quotes in SELECT queries.
         return f'"{self.database}"."{table_name}"'
 
     def qualify_writable_table_name(self, table_name: str) -> str:

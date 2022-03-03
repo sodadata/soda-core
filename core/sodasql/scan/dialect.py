@@ -318,6 +318,8 @@ class Dialect(metaclass=abc.ABCMeta):
             f'Cannot convert type {type(o)} to a SQL literal: {o}')
 
     def qualify_table_name(self, table_name: str) -> str:
+        if table_name in self.reserved_keywords:
+            return f'"{table_name}"'
         return table_name
 
     def qualify_column_name(self, column_name: str, source_type: str = None):
