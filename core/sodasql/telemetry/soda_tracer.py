@@ -65,8 +65,6 @@ def soda_trace(fn: callable):
             span.set_status(Status(StatusCode.OK))
         else:
             span.set_status(Status(StatusCode.ERROR))
-            # TODO: this will now produce an "error" attribute with value "1" for CLI as all Exceptions are caught and re-raised as system.exit(1). Revisit error handling in CLI for more useful info in traces.
-            span.add_event("error", {"error": str(error)})
 
     @wraps(fn)
     def wrapper(*original_args, **original_kwargs):
@@ -79,9 +77,11 @@ def soda_trace(fn: callable):
                 result = fn(*original_args, **original_kwargs)
                 span.set_status(Status(StatusCode.OK))
                 _after_exec(span)
-            except Exception as e:
-                # Catch exception to deal with exit codes as well.
+            except BaseException as e:
+                # Catch base exception to deal with system exit codes as well.
                 _after_exec(span, e)
+                # A bit of a workaround - re-raise the error so that stacktrace is intact. Open telemetry takes care of setting the error code.
+                raise e
         return result
 
     return wrapper
