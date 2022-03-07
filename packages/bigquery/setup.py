@@ -8,7 +8,7 @@ if sys.version_info < (3, 7):
     sys.exit(1)
 
 package_name = "soda-sql-bigquery"
-package_version = '2.1.5'
+package_version = '2.1.6'
 # TODO Add proper description
 description = "Soda SQL BigQuery"
 
