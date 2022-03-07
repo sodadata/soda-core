@@ -330,8 +330,6 @@ def ingest(
     soda_telemetry.set_attribute('cli_command_name', 'ingest')
     soda_telemetry.set_attribute('tool', tool)
 
-
-    logger = logging.getLogger(__name__)
     logger.info(SODA_SQL_VERSION)
 
     warehouse_yml_parser = build_warehouse_yml_parser(warehouse_yml_file)

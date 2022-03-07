@@ -21,6 +21,83 @@ logger = logging.getLogger(__name__)
 
 
 class TrinoDialect(Dialect):
+    reserved_keywords = [
+        "ALTER",
+        "AND",
+        "AS",
+        "BETWEEN",
+        "BY",
+        "CASE",
+        "CAST",
+        "CONSTRAINT",
+        "CREATE",
+        "CROSS",
+        "CUBE",
+        "CURRENT_CATALOG",
+        "CURRENT_DATE",
+        "CURRENT_PATH",
+        "CURRENT_ROLE",
+        "CURRENT_SCHEMA",
+        "CURRENT_TIME",
+        "CURRENT_TIMESTAMP",
+        "CURRENT_USER",
+        "DEALLOCATE",
+        "DELETE",
+        "DESCRIBE",
+        "DISTINCT",
+        "DROP",
+        "ELSE",
+        "END",
+        "ESCAPE",
+        "EXCEPT",
+        "EXECUTE",
+        "EXISTS",
+        "EXTRACT",
+        "FALSE",
+        "FOR",
+        "FROM",
+        "FULL",
+        "GROUP",
+        "GROUPING",
+        "HAVING",
+        "IN",
+        "INNER",
+        "INSERT",
+        "INTERSECT",
+        "INTO",
+        "IS",
+        "JOIN",
+        "LEFT",
+        "LIKE",
+        "LISTAGG",
+        "LOCALTIME",
+        "LOCALTIMESTAMP",
+        "NATURAL",
+        "NORMALIZE",
+        "NOT",
+        "NULL",
+        "ON",
+        "OR",
+        "ORDER",
+        "OUTER",
+        "PREPARE",
+        "RECURSIVE",
+        "RIGHT",
+        "ROLLUP",
+        "SELECT",
+        "SKIP",
+        "TABLE",
+        "THEN",
+        "TRUE",
+        "UESCAPE",
+        "UNION",
+        "UNNEST",
+        "USING",
+        "VALUES",
+        "WHEN",
+        "WHERE",
+        "WITH",
+    ]
 
     def __init__(self, parser: Parser):
         super().__init__(TRINO)
@@ -104,7 +181,9 @@ class TrinoDialect(Dialect):
     def qualify_column_name(self, column_name: str, source_type: str = None):
         if source_type is not None and re.match(r'^CHAR\([0-9]+\)$', source_type.upper()):
             return f'CAST({column_name} AS VARCHAR)'
-        return f'{column_name}'
+        elif column_name in self.reserved_keywords:
+            return f'"{column_name}"'
+        return column_name
 
     def is_connection_error(self, exception):
         logger.error(exception)

@@ -531,7 +531,7 @@ def scan(scan_yml_file: str, warehouse_yml_file: str, variables: tuple, time: st
     "--dbt-cloud-account-id",
     help="The id of your dbt cloud account",
     default=None,
-    type=Path,
+    type=str,
 )
 @click.option(
     "--dbt-cloud-run-id",

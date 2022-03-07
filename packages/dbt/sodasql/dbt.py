@@ -5,7 +5,7 @@ import logging
 from collections import defaultdict
 from functools import reduce
 from operator import or_
-from typing import Any
+from typing import Any, Optional
 
 from dbt.contracts.graph.compiled import (
     CompiledModelNode,
@@ -26,13 +26,14 @@ from sodasql.common.logging_helper import LoggingHelper
 LoggingHelper.configure_for_cli()
 logger = logging.getLogger(__name__)
 
+
 def parse_manifest(
     manifest: dict[str, Any]
 ) -> tuple[
-        dict[str, ParsedModelNode | CompiledModelNode] | None,
-        dict[str, ParsedSeedNode | CompiledSeedNode] | None,
-        dict[str, ParsedGenericTestNode | CompiledGenericTestNode] | None,
-        dict[str, ParsedSourceDefinition] | None,
+    dict[str, ParsedModelNode | CompiledModelNode] | None,
+    dict[str, ParsedSeedNode | CompiledSeedNode] | None,
+    dict[str, ParsedGenericTestNode | CompiledGenericTestNode] | None,
+    dict[str, ParsedSourceDefinition] | None,
 ]:
     """
     Parse the manifest.
@@ -71,13 +72,19 @@ def parse_manifest(
             for node_name, node in manifest["nodes"].items()
             if node["resource_type"] == NodeType.Seed
         }
-        test_nodes = {
-            node_name: CompiledGenericTestNode(**node)
-            if "compiled" in node.keys()
-            else ParsedGenericTestNode(**node)
-            for node_name, node in manifest["nodes"].items()
-            if node["resource_type"] == NodeType.Test
-        }
+
+        test_nodes = {}
+        for node_name, node in manifest["nodes"].items():
+            if node["resource_type"] == NodeType.Test:
+                if "test_metadata" in node.keys():
+                    if "compiled" in node.keys():
+                        node = CompiledGenericTestNode(**node)
+                    else:
+                        node = ParsedGenericTestNode(**node)
+                    test_nodes[node_name] = node
+                else:
+                    logger.info(f"Ignoring unsupported {node_name}")
+
     else:
         model_nodes = None
         seed_nodes = None
@@ -122,6 +129,7 @@ def parse_run_results(run_results: dict[str, Any]) -> list[RunResultOutput]:
     parsed_run_results = [RunResultOutput(**result) for result in run_results["results"]]
     is_valid_test_result = all_test_failures_are_not_none(parsed_run_results)
     return parsed_run_results
+
 
 def create_nodes_to_tests_mapping(
     model_nodes: dict[str, ParsedModelNode],
@@ -173,6 +181,7 @@ def create_nodes_to_tests_mapping(
                 models_with_tests[model_unique_id].add(test_unique_id)
 
     return models_with_tests
+
 
 def all_test_failures_are_not_none(
     run_results: list[RunResultOutput]
