@@ -8,7 +8,7 @@ if sys.version_info < (3, 7):
     sys.exit(1)
 
 package_name = "soda-sql-trino"
-package_version = '2.1.5'
+package_version = '2.1.6'
 description = "Soda SQL Trino"
 
 requires = [

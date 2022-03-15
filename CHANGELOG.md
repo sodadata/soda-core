@@ -4,6 +4,16 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
+## [2.1.6] - 2022-03-07 *Gimli*
+
+- core: Fix exception handling in telemetry and cli (#685)
+- dbt: Add logging for ignored dbt tests (#682)
+- dbt: Cleanup json dump debug statements 
+- snowflake: quote columns in queries, fixes #679. (#680)
+
+## [2.1.5] - 2022-03-01 *Ghân-buri-Ghân*
+- spark: try using describe table instead of iterating over columns (#678)
+
 ## [2.1.4] - 2022-02-24 *Gandalf*
 
 - core: Update the telemetry attribute (#672)
