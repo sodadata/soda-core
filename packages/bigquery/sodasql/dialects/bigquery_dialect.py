@@ -47,7 +47,8 @@ class BigQueryDialect(Dialect):
                 logger.info("Using context auth, account_info_json will be ignored.")
             else:
                 self.account_info_dict = self.__parse_json_credential('account_info_json', parser)
-                self.project_id = self.account_info_dict['project_id']
+                if self.account_info_dict:
+                    self.project_id = self.account_info_dict.get('project_id')
         self.client = None
 
     def default_connection_properties(self, params: dict):
@@ -137,7 +138,7 @@ class BigQueryDialect(Dialect):
         return f"REGEXP_CONTAINS({expr}, r'{self.qualify_regex(pattern)}')"
 
     @staticmethod
-    def __parse_json_credential(credential_name, parser):
+    def __parse_json_credential(credential_name, parser: Parser):
         account_info_path = parser.get_str_optional('account_info_json_path')
         try:
             if account_info_path:

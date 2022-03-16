@@ -4,6 +4,38 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
+## [2.1.6] - 2022-03-07 *Gimli*
+
+- core: Fix exception handling in telemetry and cli (#685)
+- dbt: Add logging for ignored dbt tests (#682)
+- dbt: Cleanup json dump debug statements 
+- snowflake: quote columns in queries, fixes #679. (#680)
+
+## [2.1.5] - 2022-03-01 *Ghân-buri-Ghân*
+- spark: try using describe table instead of iterating over columns (#678)
+
+## [2.1.4] - 2022-02-24 *Gandalf*
+
+- core: Update the telemetry attribute (#672)
+- core: Pin markupsafe (#677)
+- snowflake: Collation removal for REGEX functions (#673)
+- hive: update connection parameters (#662)
+- 
+## [2.1.3] - 2022-01-14 *Gamling*
+
+- core: Change invalid keys message to a warning instead of error (#656)
+- core: submit a utc timestamp when creating scan (#651)
+- core: Remove explicit permission setting on yml files created (#642)
+- core: Fix SodaOTLPExporter constructor. Fixes #627 (#639)
+- core: Do not export non-soda spans in console and OTLP exporters. Fixes #627 (#632)
+- core: Fix exit code when running scans (#623)
+- dbt: add telemetry for ingest command (#655)
+- dbt: raise error if parsed results contain only null failures (#654)
+- dbt: resolve key access error when sources are not present in manifest (#646)
+- dbt: get artifacts from dbt Cloud via job_id (#647)
+- bigquery: fix the create command (#653)
+- sqlserver: Add encrypt, and trust_server_certificate options (#643)
+
 ## [2.1.2] - 2021-12-28 *Samwise Gamgee*
 
 - core: add main module, so soda can be run using `python -m sodasql`
