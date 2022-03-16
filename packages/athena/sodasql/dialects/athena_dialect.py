@@ -43,6 +43,7 @@ class AthenaDialect(Dialect):
             self.athena_staging_dir = parser.get_str_required_env('staging_dir')
             self.database = parser.get_str_required_env('database')
             self.catalog = parser.get_str_optional_env('catalog')
+            self.work_group = parser.get_str_optional_env('work_group')
 
     def default_connection_properties(self, params: dict):
         return {
@@ -86,7 +87,8 @@ class AthenaDialect(Dialect):
             s3_staging_dir=self.athena_staging_dir,
             region_name=self.aws_credentials.region_name if self.aws_credentials else None,
             role_arn=self.aws_credentials.role_arn if self.aws_credentials else None,
-            catalog_name=self.catalog)
+            catalog_name=self.catalog,
+            work_group=self.work_group)
         return conn
 
     def sql_test_connection(self) -> Union[Exception, bool]:
