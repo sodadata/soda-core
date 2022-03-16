@@ -142,7 +142,8 @@ class ScanYmlParser(Parser):
         if filter:
             try:
                 self.scan_yml.filter = filter
-                self.scan_yml.filter_template = Template(filter)
+                if self.is_dynamic_filter(filter):
+                    self.scan_yml.filter_template = Template(filter)
             except Exception as e:
                 self.error(f"Couldn't parse filter '{filter}': {str(e)}", KEY_FILTER)
 
@@ -469,3 +470,8 @@ class ScanYmlParser(Parser):
             finally:
                 self._pop_context()
         pass
+    
+    def is_dynamic_filter(self, filter: str) -> bool:
+        if re.search(r"\{{.*?\}}", filter):
+            return True
+        return False

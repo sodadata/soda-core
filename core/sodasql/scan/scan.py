@@ -76,7 +76,7 @@ class Scan:
                 if scan_yml.sample_percentage \
                 else ''
 
-        self.filter_sql = None
+        self.filter_sql = scan_yml.filter
         if scan_yml.filter_template:
             if not variables:
                 raise RuntimeError(f'No variables provided while filter "{str(scan_yml.filter)}" specified')
