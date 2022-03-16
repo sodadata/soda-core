@@ -27,7 +27,8 @@ class ConfigHelper:
         'send_anonymous_usage_stats': True,
         'user_cookie_id': str(uuid.uuid4())
     }
-    LOAD_PATHS = ["~/.soda/config.yml", ".soda/config.yml"]
+    # The possible load paths for the config file - /tmp in the worst case.
+    LOAD_PATHS = ["~/.soda/config.yml", ".soda/config.yml" "/tmp/.soda/config.yml"]
     __instance = None
     __config: Dict = {}
     file_system = FileSystemSingleton.INSTANCE
@@ -48,7 +49,7 @@ class ConfigHelper:
             self.LOAD_PATHS.insert(0, path)
 
         self.__config = self.config
-
+        self._config_path = self.LOAD_PATHS[0]
         if not self.__config:
             self.init_config_file()
 
@@ -56,7 +57,11 @@ class ConfigHelper:
 
     @property
     def config_path(self) -> str:
-        return self.LOAD_PATHS[0]
+        return self._config_path
+
+    @config_path.setter
+    def config_path(self, value):
+        self._config_path = value
 
     @property
     def config(self) -> Dict:
@@ -85,14 +90,19 @@ class ConfigHelper:
 
     def init_config_file(self) -> None:
         """Init default config file if not present."""
-        destination = self.config_path
 
-        if self.file_system.file_exists(destination):
-            logger.debug(f"Config file {destination} already exists")
+        if self.file_system.file_exists(self.config_path):
+            logger.debug(f"Config file {self.config_path} already exists")
         else:
-            logger.info(f"Creating config YAML file {destination} ...")
-            self.file_system.mkdirs(self.file_system.dirname(destination))
-            self.upsert_config_file(self.DEFAULT_CONFIG)
+            for destination in self.LOAD_PATHS:
+                try:
+                    logger.info(f"Trying to create config YAML file {destination} ...")
+                    self.file_system.mkdirs(self.file_system.dirname(destination))
+                    self.upsert_config_file(self.DEFAULT_CONFIG)
+                    self.config_path = destination
+                    return
+                except IOError:
+                    logger.warning(f"Unable to create config path in {destination}")
 
     def upsert_value(self, key: str, value: str):
         """Update or insert a value in the config file and refresh loaded state."""
