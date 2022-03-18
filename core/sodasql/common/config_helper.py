@@ -28,7 +28,7 @@ class ConfigHelper:
         'user_cookie_id': str(uuid.uuid4())
     }
     # The possible load paths for the config file - /tmp in the worst case.
-    LOAD_PATHS = ["~/.soda/config.yml", ".soda/config.yml" "/tmp/.soda/config.yml"]
+    LOAD_PATHS = ["~/.soda/config.yml", ".soda/config.yml", "/tmp/.soda/config.yml"]
     __instance = None
     __config: Dict = {}
     file_system = FileSystemSingleton.INSTANCE
