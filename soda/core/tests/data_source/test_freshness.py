@@ -1,0 +1,152 @@
+from tests.helpers.common_test_tables import customers_test_table
+from tests.helpers.scanner import Scanner
+
+
+def test_freshness_without_table_filter(scanner: Scanner):
+    table_name = scanner.ensure_test_table(customers_test_table)
+
+    scan = scanner.create_test_scan()
+    scan.add_variables({"NOW": "2020-06-24 01:00:00"})
+    scan.add_sodacl_yaml_str(
+        f"""
+      checks for {table_name}:
+        - freshness using ts < 1d
+    """
+    )
+    scan.execute()
+
+    scan.assert_all_checks_pass()
+
+
+def test_freshness_timezones_input_no_tz(scanner: Scanner):
+    table_name = scanner.ensure_test_table(customers_test_table)
+
+    scan = scanner.create_test_scan()
+    scan.add_variables({"NOW": "2020-06-25 00:00:00"})
+    scan.add_sodacl_yaml_str(
+        f"""
+      checks for {table_name}:
+        - freshness using ts < 1d
+        - freshness using ts_with_tz < 1d
+    """
+    )
+    scan.execute()
+
+    scan.assert_all_checks_pass()
+
+
+def test_freshness_timezones_input_with_tz(scanner: Scanner):
+    table_name = scanner.ensure_test_table(customers_test_table)
+
+    scan = scanner.create_test_scan()
+    scan.add_variables({"NOW": "2020-06-25 01:00:00+01:00"})
+    scan.add_sodacl_yaml_str(
+        f"""
+      checks for {table_name}:
+        - freshness using ts < 1d
+        - freshness using ts_with_tz < 1d
+    """
+    )
+    scan.execute()
+
+    scan.assert_all_checks_pass()
+
+
+def test_freshness_timezones_no_input(scanner: Scanner):
+    table_name = scanner.ensure_test_table(customers_test_table)
+
+    scan = scanner.create_test_scan()
+    # Using silly values for the checks as runtime of running the test will be used for comparison.
+    scan.add_sodacl_yaml_str(
+        f"""
+      checks for {table_name}:
+        - freshness using ts < 10000d
+        - freshness using ts_with_tz < 10000d
+    """
+    )
+    scan.execute()
+
+    scan.assert_all_checks_pass()
+
+
+def test_fail_freshness_timezones_input_user_var(scanner: Scanner):
+    table_name = scanner.ensure_test_table(customers_test_table)
+
+    scan = scanner.create_test_scan()
+    scan.add_variables({"CUSTOM_USER_VAR": "2020-06-25 02:00:00+01:00"})
+    scan.add_sodacl_yaml_str(
+        f"""
+      checks for {table_name}:
+        - freshness using ts with CUSTOM_USER_VAR < 1d
+        - freshness using ts_with_tz with CUSTOM_USER_VAR < 1d
+    """
+    )
+    scan.execute()
+
+    scan.assert_all_checks_fail()
+
+
+def test_freshness_warning(scanner: Scanner):
+    table_name = scanner.ensure_test_table(customers_test_table)
+
+    scan = scanner.create_test_scan()
+    scan.add_variables({"NOW": "2020-06-25 00:00:00"})
+    scan.add_sodacl_yaml_str(
+        f"""
+      checks for {table_name}:
+        - freshness using ts:
+            warn: when > 6h
+            fail: when > 24h
+    """
+    )
+    scan.execute()
+
+    scan.assert_check_warn()
+
+
+def test_freshness_with_table_filter(scanner: Scanner):
+    table_name = scanner.ensure_test_table(customers_test_table)
+
+    scan = scanner.create_test_scan()
+    scan.add_variables(
+        {
+            "START_TIME": "2020-06-23 00:00:00",
+            "END_TIME": "2020-06-24 00:00:00",
+        }
+    )
+    scan.add_sodacl_yaml_str(
+        f"""
+          filter {table_name} [daily]:
+            where: TIMESTAMP '${{START_TIME}}' <= ts AND ts < TIMESTAMP '${{END_TIME}}'
+
+          checks for {table_name} [daily]:
+            - freshness using ts with END_TIME < 24h
+        """
+    )
+    scan.execute()
+
+    scan.assert_all_checks_pass()
+
+
+def test_freshness_no_rows(scanner: Scanner):
+    table_name = scanner.ensure_test_table(customers_test_table)
+
+    scan = scanner.create_test_scan()
+    scan.add_variables(
+        {
+            "START_TIME": "2020-06-23 00:00:00",
+            "END_TIME": "2020-06-24 00:00:00",
+        }
+    )
+    scan.add_sodacl_yaml_str(
+        f"""
+          filter {table_name} [empty]:
+            where: 'FALSE'
+
+          checks for {table_name} [empty]:
+            - freshness using ts with END_TIME < 24h
+        """
+    )
+    scan.execute()
+
+    scan.assert_all_checks_fail()

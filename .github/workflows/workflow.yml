@@ -1,0 +1,181 @@
+name: CI pipeline
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+    tags:
+      - "*"
+  workflow_dispatch:
+
+env:
+  telemetry_local_debug_mode: true
+
+jobs:
+  pre-commit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Set up Python 3.10
+        uses: actions/setup-python@v2
+        with:
+          python-version: "3.10"
+
+      - name: Install pre-commit
+        shell: bash
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install pre-commit
+
+      - name: Run pre-commit hooks
+        shell: bash
+        run: pre-commit run --all-files
+
+  run-tests:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version:
+          - "3.7"
+          - "3.8"
+          - "3.9"
+          - "3.10"
+        data-source:
+          - "postgres"
+          - "snowflake"
+          - "bigquery"
+          - "redshift"
+    env:
+      DATA_SOURCE: ${{ matrix.data-source }}
+      PYTHON_VERSION: ${{ matrix.python-version }}
+      SNOWFLAKE_HOST: ${{ secrets.SNOWFLAKE_HOST }}
+      SNOWFLAKE_ACCOUNT: ${{ secrets.SNOWFLAKE_ACCOUNT }}
+      SNOWFLAKE_USERNAME: ${{ secrets.SNOWFLAKE_USERNAME }}
+      SNOWFLAKE_PASSWORD: ${{ secrets.SNOWFLAKE_PASSWORD }}
+      SNOWFLAKE_DATABASE: ${{ secrets.SNOWFLAKE_DATABASE }}
+      SNOWFLAKE_SCHEMA: "public"
+      BIGQUERY_ACCOUNT_INFO_JSON: ${{ secrets.BIGQUERY_ACCOUNT_INFO_JSON }}
+      BIGQUERY_DATASET: "test"
+      REDSHIFT_HOST: ${{ secrets.REDSHIFT_HOST }}
+      REDSHIFT_USERNAME: ${{ secrets.REDSHIFT_USERNAME }}
+      REDSHIFT_PASSWORD: ${{ secrets.REDSHIFT_PASSWORD }}
+      REDSHIFT_DATABASE: "soda_test"
+      REDSHIFT_PORT: "5439"
+
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v2
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          cat dev-requirements.in | grep tox | xargs pip install
+
+      - name: Test with tox
+        run: |
+          tox -- soda -k soda/core
+          tox -- soda -k soda/${{ matrix.data-source }}
+        env:
+          test_data_source: ${{ matrix.data-source }}
+
+  test-cloud-integration:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version:
+          - "3.7"
+          - "3.8"
+          - "3.9"
+          - "3.10"
+    env:
+      PYTHON_VERSION: ${{ matrix.python-version }}
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v2
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          cat dev-requirements.in | grep tox | xargs pip install
+
+      - name: Test with tox
+        run: |
+          tox -- soda -k soda/core
+          tox -- soda -k soda/${{ matrix.data-source }}
+        env:
+          test_data_source: postgres
+          WESTMALLE: BETTER_THAN_LA_TRAPPE
+
+  test-scientific:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version:
+          - "3.7"
+          - "3.8"
+          - "3.9"
+          - "3.10"
+    env:
+      PYTHON_VERSION: ${{ matrix.python-version }}
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v2
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          cat dev-requirements.in | grep tox | xargs pip install
+
+      - name: Test with tox
+        run: |
+          tox -- soda -k soda/scientific
+  publish-pypi:
+    name: Build & Publish Package
+    if: contains(github.ref, 'refs/tags/')
+    timeout-minutes: 10
+    runs-on: ubuntu-20.04
+    needs: [ run-tests ]
+    env:
+      REPORTS_URL: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+      TWINE_USERNAME: __token__
+      TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
+    steps:
+      - uses: actions/checkout@v2
+      - name: Setup Python 3.8
+        uses: actions/setup-python@v2
+        with:
+          python-version: 3.8
+      - name: Setup dependencies
+        run: pip install --upgrade setuptools wheel twine
+      - name: Get version
+        id: get_version
+        run: echo ::set-output name=VERSION::${GITHUB_REF/refs\/tags\//}
+      - name: Build and publish packages
+        # Hacky version for now :)
+        run: |
+          cd soda
+          for pack in *
+          do
+            pushd .
+            cd $pack
+            python3 setup.py sdist bdist_wheel
+            twine upload --repository testpypi dist/*
+            popd
+          done

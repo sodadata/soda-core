@@ -1,0 +1,88 @@
+variables:
+  today: ${date(now)}
+  yesterday: ${today.minus_days(1)}
+
+filters:
+  daily: DATE '${yesterday}' = day
+
+checks for CUSTOMERS:
+# - {metric} {threshold}
+  - row_count > 0
+  # equivalend to
+  - must have rows
+  # numeric names
+  - row_count() > 10M
+
+  - missing_count(colname) between 0 and 10
+  - invalid_percent(colname) < 1 %
+
+  - duplicate_count(col1) = 0
+  # equivalent:
+  - duplicate_count(col1) not allowed
+  - duplicate_count(col1, col2) not allowed
+
+  # Any column aggregate numeric or boolean SQL expression
+  - max(size) < 13
+
+  - values(column) must exist in OTHER_TABLE(othercolumn)
+  - values(col1, col2) must exist in OTHER_TABLE(othercol1, othercol2)
+  # Idea for later also:
+  - values(col) must cover all values in OTHER_TABLE(othercolumn)
+
+  - change_over_time_percent(avg,7) of row_count() < 10 %
+  - row_count() no anomalies
+
+  - No invalid values for id:
+      with v as:
+        template: invalid_count(id)
+        missing values: ['a', 'b']
+        valid format: uuid
+
+  - metric check: No invalid values for id
+    with row_count as: COUNT(*)
+    with valid_count_id as: COUNT(CASE WHEN NOT (id IS NULL) AND NOT (id IN ('ID1','ID2','ID3')) THEN 1 END)
+    with derived invalid_id_count as: row_count - valid_id_count
+    with derived invalid_id_pct as: valid_id_count * 100 / row_count
+    with template invalid_count(id):
+      missing values: ['a', 'b']
+      valid format: uuid
+    fail if not: invalid_id_pct < 3 %
+    fail: invalid_id_pct > 10 %
+    warn: invalid_id_pct > 3 %
+
+  - No invalid values for id:
+      with row_count as: COUNT(*)
+      as valid_count_id: COUNT(CASE WHEN NOT (id IS NULL) AND NOT (id IN ('ID1','ID2','ID3')) THEN 1 END)
+      derive invalid_id_count: row_count - valid_id_count
+      derive invalid_id_pct: valid_id_count * 100 / row_count
+      fail if not: invalid_id_pct < 3 %
+      fail: invalid_id_pct > 10 %
+      warn: invalid_id_pct > 3 %
+
+checks for ORDERS with filter daily:
+  - row_count() > 0
+
+checks for SUPPLIERS:
+  - row_count() > 0
+
+checks:
+  - failed rows:
+      name: customer contacts must have a valid email
+      fail query: |
+        SELECT *
+        FROM customers as customer
+             JOIN contact as contact on contact.customer_id = customer.id
+        WHERE contact.type = 'invalid'
+
+for each table "having customer ids":
+  tables: ['%']
+  checks:
+    - checks
+
+automated monitoring:
+  tables: ['%.%']
+  columns: ['%.%.%']
+
+profiling:
+  columns: ['%']
+  type: full | meta data only
