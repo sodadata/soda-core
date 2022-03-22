@@ -1,0 +1,3 @@
+table: ex_table
+column: size
+method: categorical
