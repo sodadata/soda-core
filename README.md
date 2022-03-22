@@ -21,5 +21,5 @@ e.g. `pip install soda-core-postgres`
 
 ## Docs
 
-* [SodaCL checks language](docs/sodacl/README.md)
-* [Soda Core docs](docs/soda-core/README.md)
+* [SodaCL checks language](https://docs.soda.io/soda-cl/soda-cl-overview.html)
+* [Soda Core docs](https://docs.soda.io/soda-core/overview.html)
