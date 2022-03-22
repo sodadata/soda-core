@@ -5,6 +5,7 @@ from typing import Dict, List, Optional
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import serialization
 from snowflake import connector
+from snowflake.connector.network import DEFAULT_SOCKET_CONNECT_TIMEOUT
 from soda.common.exceptions import DataSourceConnectionError
 from soda.execution.data_source import DataSource
 from soda.execution.data_type import DataType
@@ -51,14 +52,11 @@ class DataSourceImpl(DataSource):
                 data_source=connection_properties.get("data_source"),
                 database=connection_properties.get("database"),
                 schema=connection_properties.get("schema"),
-                # login_timeout=connection_properties.get("connection_timeout"),
-                # role=connection_properties.get("role"),
-                # passcode_in_password=connection_properties.get("passcode_in_password"),
-                # private_key=self.__get_private_key(),
-                # client_prefetch_threads=connection_properties.get("client_prefetch_threads"),
-                # client_session_keep_alive=connection_properties.get("client_session_keep_alive"),
-                # authenticator=connection_properties.get("authenticator"),
-                # session_parameters = connection_properties.get("session_params"),
+                warehouse=connection_properties.get("warehouse"),
+                login_timeout=connection_properties.get("connection_timeout", DEFAULT_SOCKET_CONNECT_TIMEOUT),
+                role=connection_properties.get("role"),
+                client_session_keep_alive=connection_properties.get("client_session_keep_alive"),
+                session_parameters=connection_properties.get("session_params"),
             )
             return self.connection
 
