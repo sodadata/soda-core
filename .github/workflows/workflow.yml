@@ -176,6 +176,6 @@ jobs:
             pushd .
             cd $pack
             python3 setup.py sdist bdist_wheel
-            twine upload --repository testpypi dist/*
+            twine upload dist/*
             popd
           done
