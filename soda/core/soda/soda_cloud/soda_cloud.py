@@ -21,7 +21,7 @@ class SodaCloud:
 
     def get_historic_data(self, historic_descriptors: Set["HistoricDescriptor"]) -> Dict[HistoricDescriptor, object]:
         # TODO fix for both schema and change over time
-        return {h: '0' for h in historic_descriptors}
+        return {h: "0" for h in historic_descriptors}
 
     def send_scan_results(self, scan: "Scan"):
         scan_results = self.build_scan_results(scan)
