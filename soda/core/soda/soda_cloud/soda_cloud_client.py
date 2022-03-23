@@ -28,11 +28,9 @@ class SodaCloudClient:
         return self._execute_command(scan_results)
 
     def _execute_command(self, command: dict):
-        logger.debug(f"executing {command}")
         return self._execute_request("command", command, False)
 
     def _execute_request(self, request_type: str, request_body: dict, is_retry: bool):
-        logger.debug(f"> /api/{request_type} {json.dumps(request_body, indent=2)}")
         request_body["token"] = self._get_token()
         response = requests.post(f"{self.api_url}/{request_type}", json=request_body)
         response_json = response.json()
@@ -41,9 +39,10 @@ class SodaCloudClient:
             self.token = None
             response_json = self._execute_request(request_type, request_body, True)
         else:
-            assert (
-                response.status_code == 200
-            ), f"Request failed with status {response.status_code}: {json.dumps(response_json, indent=2)}"
+            pass
+            # assert (
+            #     response.status_code == 200
+            # ), f"Request failed with status {response.status_code}: {json.dumps(response_json, indent=2)}"
         return response_json
 
     def _get_token(self):
