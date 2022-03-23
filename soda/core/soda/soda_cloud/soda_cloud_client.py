@@ -38,10 +38,7 @@ class SodaCloudClient:
             self.token = None
             response_json = self._execute_request(request_type, request_body, True)
         else:
-            pass
-            # assert (
-            #     response.status_code == 200
-            # ), f"Request failed with status {response.status_code}: {json.dumps(response_json, indent=2)}"
+            logger.debug("Soda Cloud: Unsupported feature!")
         return response_json
 
     def _get_token(self):
