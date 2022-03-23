@@ -130,10 +130,11 @@ class MetricCheck(Check):
     def get_cloud_diagnostics_dict(self) -> dict:
         metric_check_cfg: MetricCheckCfg = self.check_cfg
         cloud_diagnostics = {"value": self.check_value}
-        if self.formula_values:
-            cloud_diagnostics["formula_values"] = self.formula_values
-        if self.failed_rows_storage_ref:
-            cloud_diagnostics["failed_rows_storage_ref"] = self.failed_rows_storage_ref.get_cloud_diagnostics_dict()
+        # TODO Disabled these until cloud can ingest them properly
+        # if self.formula_values:
+        #     cloud_diagnostics["formula_values"] = self.formula_values
+        # if self.failed_rows_storage_ref:
+        #     cloud_diagnostics["failed_rows_storage_ref"] = self.failed_rows_storage_ref.get_cloud_diagnostics_dict()
         if metric_check_cfg.fail_threshold_cfg is not None:
             cloud_diagnostics["fail"] = metric_check_cfg.fail_threshold_cfg.to_soda_cloud_diagnostics_json()
         if metric_check_cfg.warn_threshold_cfg is not None:
