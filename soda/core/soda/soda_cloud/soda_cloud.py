@@ -20,11 +20,8 @@ class SodaCloud:
         pass
 
     def get_historic_data(self, historic_descriptors: Set["HistoricDescriptor"]) -> Dict[HistoricDescriptor, object]:
-        for h in historic_descriptors:
-            print(h.to_jsonnable())
-        return {h: '0' for h in historic_descriptors}
-
-
+        # TODO fix for both schema and change over time
+        return {h: "0" for h in historic_descriptors}
 
     def send_scan_results(self, scan: "Scan"):
         scan_results = self.build_scan_results(scan)
@@ -35,7 +32,6 @@ class SodaCloud:
         return JsonHelper.to_jsonnable(
             {
                 "definitionName": scan._scan_definition_name,
-                # TODO Data timestamp should be coming from commandline params?
                 "dataTimestamp": scan._data_timestamp,
                 "scanStartTimestamp": scan._scan_start_timestamp,
                 "scanEndTimestamp": scan._scan_end_timestamp,
@@ -48,4 +44,3 @@ class SodaCloud:
                 # "queries": [query.get_cloud_dict() for query in scan._queries],
             }
         )
-
