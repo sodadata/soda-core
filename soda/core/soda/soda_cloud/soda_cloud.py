@@ -20,8 +20,11 @@ class SodaCloud:
         pass
 
     def get_historic_data(self, historic_descriptors: Set["HistoricDescriptor"]) -> Dict[HistoricDescriptor, object]:
-        # TODO Need to check filtering issue for the data query
-        pass
+        for h in historic_descriptors:
+            print(h.to_jsonnable())
+        return {h: '0' for h in historic_descriptors}
+
+
 
     def send_scan_results(self, scan: "Scan"):
         scan_results = self.build_scan_results(scan)
@@ -46,15 +49,3 @@ class SodaCloud:
             }
         )
 
-    # TODO consider adding memory usage to SodaCloud as a goodie
-    @staticmethod
-    def memory_usage_psutil():
-        """
-        returns the memory usage in MB
-        """
-        # http://fa.bianp.net/blog/2013/different-ways-to-get-memory-consumption-or-lessons-learned-from-memory_profiler/
-        import psutil
-
-        process = psutil.Process(os.getpid())
-        mem = process.get_memory_info()[0] / float(2**20)
-        return mem

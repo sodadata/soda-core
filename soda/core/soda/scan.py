@@ -252,7 +252,6 @@ class Scan:
             from soda.execution.column_metrics import ColumnMetrics
             from soda.execution.partition import Partition
             from soda.execution.table import Table
-            from soda.soda_cloud.historic_descriptor import HistoricDescriptor
 
             # If there is a sampler
             if self._configuration.sampler:
