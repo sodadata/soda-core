@@ -1,6 +1,6 @@
 import logging
 from typing import Optional
-
+from soda.__version__ import SODA_VERSION
 import requests
 
 logger = logging.getLogger(__name__)
@@ -21,6 +21,7 @@ class SodaCloudClient:
         self.api_key_id = api_key_id
         self.api_key_secret = api_key_secret
         self.token: Optional[str] = token
+        self.headers = {"User-Agent": f"SodaCore/{SODA_CORE_VERSION}"}
 
     def insert_scan_results(self, scan_results):
         scan_results["type"] = "sodaCoreInsertScanResults"
@@ -31,7 +32,7 @@ class SodaCloudClient:
 
     def _execute_request(self, request_type: str, request_body: dict, is_retry: bool):
         request_body["token"] = self._get_token()
-        response = requests.post(f"{self.api_url}/{request_type}", json=request_body)
+        response = requests.post(f"{self.api_url}/{request_type}", json=request_body, headers=self.headers)
         response_json = response.json()
         if response.status_code == 401 and not is_retry:
             logger.debug(f"Authentication failed. Probably token expired. Re-authenticating...")
@@ -51,7 +52,7 @@ class SodaCloudClient:
             else:
                 raise RuntimeError("No API KEY and/or SECRET provided ")
 
-            login_response = requests.post(f"{self.api_url}/command", json=login_command)
+            login_response = requests.post(f"{self.api_url}/command", json=login_command, headers=self.headers)
 
             if login_response.status_code != 200:
                 raise AssertionError(f"< {login_response.status_code} Login failed: {login_response.content}")
