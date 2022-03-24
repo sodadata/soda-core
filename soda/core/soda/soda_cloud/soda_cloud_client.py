@@ -37,8 +37,8 @@ class SodaCloudClient:
             logger.debug(f"Authentication failed. Probably token expired. Re-authenticating...")
             self.token = None
             response_json = self._execute_request(request_type, request_body, True)
-        else:
-            logger.debug("Soda Cloud: Unsupported feature!")
+        elif response.status_code != 200:
+            logger.debug("Unsupported feature")
         return response_json
 
     def _get_token(self):
