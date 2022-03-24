@@ -158,7 +158,7 @@ class Check(ABC):
             return self.check_cfg.source_line
 
     def get_cloud_diagnostics_dict(self) -> dict:
-        return None
+        return {}
 
     def evaluate(self, metrics: Dict[str, Metric], historic_values: Dict[str, object]):
         raise NotImplementedError("Implement this abstract method")
