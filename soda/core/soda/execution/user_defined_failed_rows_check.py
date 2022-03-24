@@ -37,6 +37,7 @@ class UserDefinedFailedRowsCheck(Check):
         )
 
         check_cfg: UserDefinedFailedRowsCheckCfg = self.check_cfg
+        self.check_value = None
 
         metric = UserDefinedFailedRowsMetric(
             data_source_scan=self.data_source_scan,
@@ -50,9 +51,18 @@ class UserDefinedFailedRowsCheck(Check):
     def evaluate(self, metrics: Dict[str, Metric], historic_values: Dict[str, object]):
         metric = metrics.get(KEY_FAILED_ROWS_COUNT)
         failed_row_count: int = metric.value
+        self.check_value: int = metrics.get(KEY_FAILED_ROWS_COUNT).value
 
         self.outcome = CheckOutcome.PASS
         if failed_row_count > 0:
             self.outcome = CheckOutcome.FAIL
 
         self.failed_rows_storage_ref = metric.failed_rows_storage_ref
+
+    def get_cloud_diagnostics_dict(self) -> dict:
+        cloud_diagnostics = {
+            "value": self.check_value,
+        }
+        if self.failed_rows_storage_ref:
+            cloud_diagnostics["failed_rows_storage_ref"] = self.failed_rows_storage_ref.get_cloud_diagnostics_dict()
+        return cloud_diagnostics
