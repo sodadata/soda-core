@@ -1,7 +1,8 @@
 import logging
 from typing import Optional
-from soda.__version__ import SODA_VERSION
+
 import requests
+from soda.__version__ import SODA_CORE_VERSION
 
 logger = logging.getLogger(__name__)
 
