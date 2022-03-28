@@ -154,8 +154,17 @@ class Check(ABC):
     def generate_soda_cloud_check_name(self) -> str:
         if self.check_cfg.name:
             return self.check_cfg.name
-        else:
-            return self.check_cfg.source_line
+
+        name = self.check_cfg.source_line
+
+        source_cfg = dict(self.check_cfg.source_configurations)
+        if self.check_cfg.warn_threshold_cfg:
+            name += f" warn {source_cfg['warn']}"
+
+        if self.check_cfg.fail_threshold_cfg:
+            name += f" fail {source_cfg['fail']}"
+
+        return name
 
     def get_cloud_diagnostics_dict(self) -> dict:
         return {}
