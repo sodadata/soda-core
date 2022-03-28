@@ -101,7 +101,7 @@ class DataSourceImpl(DataSource):
                 cred = self.connection_properties.get("account_info_json")
                 # Prevent json load when the Dialect is init from create command
                 if cred is not None:
-                    return json.loads(json.dumps(cred))
+                    return json.loads(cred)
                 else:
                     logger.warning("Dialect initiated from the create command, cred is None.")
             except JSONDecodeError as e:
