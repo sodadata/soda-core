@@ -157,12 +157,13 @@ class Check(ABC):
 
         name = self.check_cfg.source_line
 
-        source_cfg = dict(self.check_cfg.source_configurations)
-        if self.check_cfg.warn_threshold_cfg:
-            name += f" warn {source_cfg['warn']}"
+        if self.check_cfg.source_configurations:
+            source_cfg = dict(self.check_cfg.source_configurations)
+            if self.check_cfg.warn_threshold_cfg:
+                name += f" warn {source_cfg['warn']}"
 
-        if self.check_cfg.fail_threshold_cfg:
-            name += f" fail {source_cfg['fail']}"
+            if self.check_cfg.fail_threshold_cfg:
+                name += f" fail {source_cfg['fail']}"
 
         return name
 
