@@ -31,5 +31,5 @@ Soda Core currently supports PosgreSQL, Amazon Redshift, GCP BigQuery, and Snowf
 ## Documentation
 
 * [Soda Core](https://docs.soda.io/soda-core/overview.html)
-* [Soda Checks Langauge (SodaCL)](https://docs.soda.io/soda-cl/soda-cl-overview.html)
+* [Soda Checks Language (SodaCL)](https://docs.soda.io/soda-cl/soda-cl-overview.html)
 
