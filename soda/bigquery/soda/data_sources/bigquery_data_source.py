@@ -8,6 +8,7 @@ from google.cloud import bigquery
 from google.cloud.bigquery import dbapi
 from google.oauth2.service_account import Credentials
 from soda.common.exceptions import DataSourceConnectionError
+from soda.common.file_system import file_system
 from soda.execution.data_source import DataSource
 from soda.execution.data_type import DataType
 
@@ -91,11 +92,15 @@ class DataSourceImpl(DataSource):
         account_info_path = self.connection_properties.get("account_info_json_path")
         if account_info_path:
             try:
-                account_info = self._read_file_as_string(account_info_path)
-                if account_info is not None:
+                account_info = file_system().file_read_as_str(account_info_path, absolute=True)
+                if account_info is None:
+                    logger.error(f"No credentials found in provided file {account_info_path}.")
+                else:
                     return json.loads(account_info)
             except JSONDecodeError as e:
                 logger.error(f"Error parsing credentials from {account_info_path}: {e}")
+            except Exception as e:
+                logger.error(f"Could not read file {account_info_path}: {str(e)}")
         else:
             try:
                 cred = self.connection_properties.get("account_info_json")
@@ -106,14 +111,6 @@ class DataSourceImpl(DataSource):
                     logger.warning("Dialect initiated from the create command, cred is None.")
             except JSONDecodeError as e:
                 logger.error(f"Error parsing credential 'account_info_json': {e}")
-
-    @staticmethod
-    def _read_file_as_string(file_path: str):
-        try:
-            with open(file_path, encoding="utf-8") as f:
-                return f.read()
-        except Exception as e:
-            logger.error(f"Could not read file {file_path}: {str(e)}")
 
     def sql_to_get_column_metadata_for_table(self, table_name: str):
         return (
