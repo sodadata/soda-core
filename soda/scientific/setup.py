@@ -18,6 +18,7 @@ requires = [
     "scipy>=1.7.3, <2.0.0",
     "pydantic>=1.9.0, <2.0.0",
     "pyyaml >=5.4.1, <6.0.0",
+    "u8darts==0.7.0",
 ]
 
 # TODO Fix the params
