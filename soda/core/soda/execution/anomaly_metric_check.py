@@ -1,9 +1,11 @@
 from __future__ import annotations
+from typing import Dict, Optional, List
 
 from soda.execution.metric import Metric
 from soda.execution.metric_check import MetricCheck
 from soda.soda_cloud.historic_descriptor import HistoricDescriptor
 from soda.sodacl.metric_check_cfg import MetricCheckCfg
+from soda.scientific.anomaly_detection.anomaly_detector import AnomalyDetector
 
 KEY_HISTORIC_ANOMALY_VALUES = "historic_anomaly_values"
 
@@ -11,10 +13,10 @@ KEY_HISTORIC_ANOMALY_VALUES = "historic_anomaly_values"
 class AnomalyMetricCheck(MetricCheck):
     def __init__(
         self,
-        check_cfg: MetricCheckCfg,
-        data_source_scan: DataSourceScan,
-        partition: Partition | None = None,
-        column: Column | None = None,
+        check_cfg: "MetricCheckCfg",
+        data_source_scan: "DataSourceScan",
+        partition: Optional["Partition"] = None,
+        column: Optional["Column"] = None,
     ):
         super().__init__(
             check_cfg=check_cfg,
@@ -32,21 +34,24 @@ class AnomalyMetricCheck(MetricCheck):
             anomaly_values=90,
         )
 
-    def evaluate(self, metrics: dict[str, Metric], historic_values: dict[str, object]):
-        metric_value = self.get_metric_value()
+    def evaluate(self, metrics: Dict[str, Metric], historic_values: Dict[str, object]):
+        # metric_value = self.get_metric_value()
         historic_anomaly_values = historic_values.get(KEY_HISTORIC_ANOMALY_VALUES)
 
         if historic_anomaly_values:
-            self.check_value = self.compute_anomaly_score(historic_anomaly_values, metric_value)
+            self.check_value = self.compute_anomaly_score(historic_anomaly_values, metrics)
             self.set_outcome_based_on_check_value()
 
             # put all diagnostics into a member field like this:
             self.anomaly_values = {}
 
         else:
-            self.logs.info("Skipping metric check eval because there is not enough historic data yet")
+            self.logs.warning(
+                "Skipping metric check eval because there is not enough historic data yet"
+            )
 
-    def compute_anomaly_score(self, historic_anomaly_values: list[dict], metric_value: int | float) -> float:
+    def compute_anomaly_score(self, historic_anomaly_values: List[dict], metrics):
+        level, diagnostics = AnomalyDetector(historic_anomaly_values, metrics).evaluate()
         data_timestamp = self.data_source_scan.scan._data_timestamp
 
         # TODO invoke the anomaly detection algorithm dynamically as it is in an extension module
