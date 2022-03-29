@@ -19,6 +19,7 @@ requires = [
     "httpx>=0.18.1,<2.0.0",
     "PyYAML>=5.4.1,<6.0.0",
     "numpy>=1.19.5,<2.0.0",
+    "fbprophet==0.6",
 ]
 
 # TODO Fix the params
