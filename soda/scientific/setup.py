@@ -14,11 +14,11 @@ description = "Soda Core Scientific Package"
 
 requires = [
     f"soda-core=={package_version}",
-    "pandas>=1.3.5, <2.0.0",
-    "scipy>=1.7.3, <2.0.0",
-    "pydantic>=1.9.0, <2.0.0",
-    "pyyaml >=5.4.1, <6.0.0",
     "u8darts==0.7.0",
+    "pydantic>=1.8.1,<2.0.0" "inflection==0.5.1",
+    "httpx>=0.18.1,<2.0.0",
+    "PyYAML>=5.4.1,<6.0.0",
+    "numpy>=1.19.5,<2.0.0",
 ]
 
 # TODO Fix the params
