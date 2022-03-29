@@ -12,3 +12,4 @@ black==22.1.0
 urllib3
 pygments
 readme-renderer
+tqdm==4.60.0
