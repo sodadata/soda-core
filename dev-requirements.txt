@@ -23,9 +23,7 @@ click==8.0.4
     #   black
     #   pip-tools
 colorama==0.4.4
-    # via
-    #   cli-ui
-    #   twine
+    # via cli-ui
 contextlib2==21.6.0
     # via schema
 coverage[toml]==6.3.2
@@ -46,14 +44,8 @@ filelock==3.6.0
     #   virtualenv
 idna==3.3
     # via requests
-importlib-metadata==4.11.2
-    # via
-    #   keyring
-    #   twine
 iniconfig==1.1.1
     # via pytest
-keyring==23.5.0
-    # via twine
 mypy-extensions==0.4.3
     # via black
 packaging==21.3
@@ -67,8 +59,6 @@ pep517==0.12.0
     # via pip-tools
 pip-tools==6.5.1
     # via -r dev-requirements.in
-pkginfo==1.8.2
-    # via twine
 platformdirs==2.5.1
     # via
     #   black
@@ -104,18 +94,9 @@ python-dateutil==2.8.2
 python-dotenv==0.19.2
     # via -r dev-requirements.in
 readme-renderer==32.0
-    # via
-    #   -r dev-requirements.in
-    #   twine
+    # via -r dev-requirements.in
 requests==2.27.1
-    # via
-    #   docker
-    #   requests-toolbelt
-    #   twine
-requests-toolbelt==0.9.1
-    # via twine
-rfc3986==2.0.0
-    # via twine
+    # via docker
 schema==0.7.5
     # via tbump
 six==1.16.0
@@ -144,12 +125,6 @@ tox==3.24.5
     #   tox-docker
 tox-docker==3.1.0
     # via -r dev-requirements.in
-tqdm==4.60.0
-    # via
-    #   -r dev-requirements.in
-    #   twine
-twine==3.8.0
-    # via -r dev-requirements.in
 typing-extensions==4.1.1
     # via black
 unidecode==1.3.3
@@ -158,7 +133,6 @@ urllib3==1.26.8
     # via
     #   -r dev-requirements.in
     #   requests
-    #   twine
 virtualenv==20.13.2
     # via tox
 webencodings==0.5.1
@@ -167,8 +141,6 @@ websocket-client==1.3.1
     # via docker
 wheel==0.37.1
     # via pip-tools
-zipp==3.7.0
-    # via importlib-metadata
 
 # The following packages are considered to be unsafe in a requirements file:
 # pip
