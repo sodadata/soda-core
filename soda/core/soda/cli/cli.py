@@ -81,8 +81,8 @@ def scan(
 
     option -d --data-source is the name of the data source in the configuration.  It's required.
 
-    option -c --configuration is the configuration file containing the data source definitions.  The default
-    is ~/.soda/configuration.yml is used.
+    option -c --configuration is the configuration file containing the data source definitions.
+    If not provided, the default ~/.soda/configuration.yml is used.
 
     option -v --variable pass a variable to the scan.  Variables are optional and multiple variables
     can be specified : -var "today=2020-04-12" -var "yesterday=2020-04-11"
