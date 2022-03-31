@@ -92,7 +92,7 @@ class DataSourceImpl(DataSource):
         account_info_path = self.connection_properties.get("account_info_json_path")
         if account_info_path:
             try:
-                account_info = file_system().file_read_as_str(account_info_path, absolute=True)
+                account_info = file_system().file_read_as_str(account_info_path)
                 if account_info is None:
                     logger.error(f"No credentials found in provided file {account_info_path}.")
                 else:

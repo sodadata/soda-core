@@ -62,8 +62,8 @@ class ConfigHelper:
         for path in self.LOAD_PATHS:
             logger.debug(f"Trying to load Soda Config file {path}.")
 
-            if self.file_system.exists(path, absolute=True):
-                config = yaml.load(self.file_system.file_read_as_str(path, absolute=True))
+            if self.file_system.exists(path):
+                config = yaml.load(self.file_system.file_read_as_str(path))
                 break
 
         return config
@@ -81,7 +81,7 @@ class ConfigHelper:
             for destination in self.LOAD_PATHS:
                 try:
                     logger.info(f"Trying to create config YAML file {destination} ...")
-                    self.file_system.mkdirs(self.file_system.dirname(destination), absolute=True)
+                    self.file_system.mkdirs(self.file_system.dirname(destination))
                     self.upsert_config_file(self.DEFAULT_CONFIG)
                     self.config_path = destination
                     return
