@@ -22,25 +22,23 @@ class FileSystem:
     def expand_user(self, path: str):
         return os.path.expanduser(path)
 
-    def exists(self, path: str, absolute: bool = False):
-        if absolute:
-            path = os.path.expanduser(path)
-        return Path(path).exists()
+    def exists(self, path: str):
+        return Path(self.expand_user(path)).exists()
 
     def is_dir(self, path: str):
-        return Path(path).is_dir()
+        return Path(self.expand_user(path)).is_dir()
 
     def is_file(self, path: str):
-        return Path(path).is_file()
+        return Path(self.expand_user(path)).is_file()
 
-    def file_read_as_str(self, path: str, absolute: bool = False) -> str:
-        if absolute:
-            path = os.path.expanduser(path)
-        with open(path, encoding="utf-8") as f:
+    def file_read_as_str(self, path: str) -> str:
+        with open(self.expand_user(path), encoding="utf-8") as f:
             return f.read()
 
     def file_write_from_str(self, path: str, file_content_str):
+        path = self.expand_user(path)
         path_path: Path = Path(path)
+
         is_new = not path_path.exists()
         with open(path_path, "w+", encoding="utf-8") as f:
             f.write(file_content_str)
@@ -48,16 +46,13 @@ class FileSystem:
             os.chmod(path, 0o666)
 
     def scan_dir(self, dir_path: str):
-        return os.scandir(dir_path)
+        return os.scandir(self.expand_user(dir_path))
 
     def dirname(self, path: str):
-        return os.path.dirname(path)
+        return os.path.dirname(self.expand_user(path))
 
     def mkdirs(self, path: str, absolute: bool = False):
-        if absolute:
-            path = os.path.expanduser(path)
-
-        Path(path).mkdir(parents=True, exist_ok=True)
+        Path(self.expand_user(path)).mkdir(parents=True, exist_ok=True)
 
     def file_write_from_str(self, path: str, file_content_str):
         expanded_path = os.path.expanduser(path)
