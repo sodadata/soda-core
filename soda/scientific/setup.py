@@ -15,11 +15,12 @@ description = "Soda Core Scientific Package"
 requires = [
     f"soda-core=={package_version}",
     "u8darts>=0.7.0,<1.0.0",
-    "pydantic>=1.8.1,<2.0.0" "inflection==0.5.1",
+    "pydantic>=1.8.1,<2.0.0",
+    "inflection==0.5.1",
     "httpx>=0.18.1,<2.0.0",
     "PyYAML>=5.4.1,<6.0.0",
     "numpy>=1.19.5,<2.0.0",
-    "fbprophet==0.6",
+    "fbprophet<1.0.0",
     "pystan==2.19.1.1",
 ]
 
