@@ -78,7 +78,7 @@ class AnomalyHistoricalMeasurement(BaseModel):
     identity: str
     id: str
     value: float
-    data_time: datetime.datetime
+    dataTime: datetime.datetime
 
 
 class AnomalyHistoricalMeasurements(BaseModel):
@@ -114,7 +114,7 @@ class AnomalyDetector:
     @staticmethod
     def _get_historical_measurements(measurements: List[Dict[str, Any]]) -> pd.DataFrame:
         if measurements:
-            parsed_measurements = AnomalyHistoricalMeasurements.parse_obj({"results": measurements})
+            parsed_measurements = AnomalyHistoricalMeasurements.parse_obj(measurements)
             _df_measurements = pd.DataFrame.from_dict(parsed_measurements.dict()["results"])
             return _df_measurements
         else:
@@ -179,7 +179,7 @@ class AnomalyDetector:
             this_dir = Path(__file__).parent.resolve()
 
             # Read detector configuration
-            with open(this_dir.joinpath("detector_config.yml")) as stream:
+            with open(this_dir.joinpath("detector_config.yaml")) as stream:
                 loaded_config = yaml.safe_load(stream)
 
             # Manipulate configuration

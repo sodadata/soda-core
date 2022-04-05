@@ -317,7 +317,7 @@ class ProphetDetector(BaseDetector):
     def setup_fit_predict(self):
         """Sets up Prophet model and fits it on the self.time_series_data."""
         if isinstance(self.time_series, TimeSeries):
-            self.time_series = self.time_series._df.reset_index()
+            self.time_series = self.time_series.pd_dataframe().reset_index()
 
         logging.debug(
             f"Fitting prophet model with the following parameters:\n{self._detector_params}"
