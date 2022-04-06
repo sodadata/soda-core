@@ -1,6 +1,7 @@
 """Prophet predictor model class."""
 import logging
 import multiprocessing
+import os
 import sys
 from dataclasses import dataclass
 from typing import Any, Dict, Optional
@@ -9,12 +10,12 @@ import numpy as np
 import pandas as pd
 from darts import TimeSeries
 from darts.utils.missing_values import fill_missing_values
-from fbprophet import Prophet
+from prophet import Prophet
+
 from soda.scientific.anomaly_detection.models.base import BaseDetector
-import os
 
 
-class SuppressStdoutStderr(object):
+class SuppressStdoutStderr:
     """
     Contex manager to do deep log suppression.
 
@@ -135,9 +136,7 @@ class ProphetDetector(BaseDetector):
         Returns:
             None
         """
-        super().__init__(
-            params, time_series_data
-        )  # runs the measurement elimination that is contained in the base
+        super().__init__(params, time_series_data)  # runs the measurement elimination that is contained in the base
 
         if "pytest" not in sys.argv[0]:
             multiprocessing.set_start_method("fork")
@@ -153,9 +152,7 @@ class ProphetDetector(BaseDetector):
         self._suppress_stan = self._prophet_detector_params["suppress_stan"]
         self._is_trained: bool = False
         self._has_exogenous_regressor = has_exegonenous_regressor
-        self.time_series_data = (
-            time_series_data  # this gets potentially rewritten when runnin skip measurements
-        )
+        self.time_series_data = time_series_data  # this gets potentially rewritten when runnin skip measurements
 
         # public attrs
         self.model: Prophet
@@ -269,11 +266,7 @@ class ProphetDetector(BaseDetector):
         try:
             self.freq_detection_result = self.detect_frequency_better()
             if self.freq_detection_result.error_severity == "error":
-                logging.warning(
-                    DETECTOR_MESSAGES[
-                        self.freq_detection_result.freq_detection_strategy
-                    ].log_message
-                )
+                logging.warning(DETECTOR_MESSAGES[self.freq_detection_result.freq_detection_strategy].log_message)
                 return
 
         except Exception as e:
@@ -319,14 +312,10 @@ class ProphetDetector(BaseDetector):
         if isinstance(self.time_series, TimeSeries):
             self.time_series = self.time_series.pd_dataframe().reset_index()
 
-        logging.debug(
-            f"Fitting prophet model with the following parameters:\n{self._detector_params}"
-        )
+        logging.debug(f"Fitting prophet model with the following parameters:\n{self._detector_params}")
         if "external_regressor" in self.time_series:
             logging.info("Found a custom external_regressor and adding it to Prophet model")
-            self.model = Prophet(**self._detector_params).add_regressor(
-                "external_regressor", mode="multiplicative"
-            )
+            self.model = Prophet(**self._detector_params).add_regressor("external_regressor", mode="multiplicative")
         else:
             logging.info("No external_regressor found")
             self.model = Prophet(**self._detector_params)
@@ -354,11 +343,8 @@ class ProphetDetector(BaseDetector):
         for _, params in anomaly_directions.items():
             # TODO: We might want to revisit the maths here. Might make sense to sigmoidize around
             # a dynamic acceptance threshold.
-            predictions.loc[
-                predictions[anomaly_flag_col] == params[anomaly_flag_col], "anomaly_probability"
-            ] = abs(
-                (predictions[real_data_colname] - predictions[params["confidence_col_name"]])
-                / interval_range
+            predictions.loc[predictions[anomaly_flag_col] == params[anomaly_flag_col], "anomaly_probability"] = abs(
+                (predictions[real_data_colname] - predictions[params["confidence_col_name"]]) / interval_range
             )
         # TODO: Add a failsafe for a case where we might still have an inf value
         # this means we'll check if any rows has inf and then if so, we replave to prob 0
@@ -380,23 +366,15 @@ class ProphetDetector(BaseDetector):
 
         # flag data points that fall out of confidence bounds
         self.predictions["is_anomaly"] = 0
-        self.predictions.loc[
-            self.predictions["real_data"] > self.predictions["yhat_upper"], "is_anomaly"
-        ] = 1
-        self.predictions.loc[
-            self.predictions["real_data"] < self.predictions["yhat_lower"], "is_anomaly"
-        ] = -1
+        self.predictions.loc[self.predictions["real_data"] > self.predictions["yhat_upper"], "is_anomaly"] = 1
+        self.predictions.loc[self.predictions["real_data"] < self.predictions["yhat_lower"], "is_anomaly"] = -1
 
         # derive anomaly probability (by normalising delta between real and predicted)
-        self._derive_anomaly_probability(
-            self.predictions, anomaly_flag_col="is_anomaly", real_data_colname="real_data"
-        )
+        self._derive_anomaly_probability(self.predictions, anomaly_flag_col="is_anomaly", real_data_colname="real_data")
 
         # business logic to prevent inf at all cost becaue floats are shit
         self.predictions.loc[np.isinf(self.predictions["anomaly_probability"]), "is_anomaly"] = 0
-        self.predictions.loc[
-            np.isinf(self.predictions["anomaly_probability"]), "anomaly_probability"
-        ] = 0.0
+        self.predictions.loc[np.isinf(self.predictions["anomaly_probability"]), "anomaly_probability"] = 0.0
 
         # pick out n-last points to return to backend
         if self._n_points:
@@ -437,9 +415,7 @@ class ProphetDetector(BaseDetector):
         elif directionality == "lower":
             adder_arg = row["yhat_lower"]
         else:
-            raise NotImplementedError(
-                f"directionality can only be 'upper' or 'lower' not {directionality}."
-            )
+            raise NotImplementedError(f"directionality can only be 'upper' or 'lower' not {directionality}.")
         confidence_spread = row["yhat_upper"] - (row["yhat_lower"])
         adder = confidence_spread * threshold
         if directionality == "upper":

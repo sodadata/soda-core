@@ -54,9 +54,6 @@ class MockSodaCloud(SodaCloud):
         """
         self.historic_metric_values.extend(historic_metric_values)
 
-    def get(self, historic_query):
-        pass
-
     def get_historic_data(self, historic_descriptors: Set["HistoricDescriptor"]):
         historic_data = {}
 

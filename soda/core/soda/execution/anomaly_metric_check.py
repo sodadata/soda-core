@@ -1,22 +1,24 @@
 from __future__ import annotations
-from typing import Dict, Optional, List
 
 from soda.execution.metric import Metric
 from soda.execution.metric_check import MetricCheck
-from soda.soda_cloud.historic_descriptor import HistoricDescriptor
+from soda.soda_cloud.historic_descriptor import (
+    HistoricCheckResultsDescriptor,
+    HistoricMeasurementsDescriptor,
+)
 from soda.sodacl.metric_check_cfg import MetricCheckCfg
-from soda.scientific.anomaly_detection.anomaly_detector import AnomalyDetector
 
-KEY_HISTORIC_ANOMALY_VALUES = "historic_anomaly_values"
+KEY_HISTORIC_MEASUREMENTS = "historic_measurements"
+KEY_HISTORIC_CHECK_RESULTS = "historic_check_results"
 
 
 class AnomalyMetricCheck(MetricCheck):
     def __init__(
         self,
-        check_cfg: "MetricCheckCfg",
-        data_source_scan: "DataSourceScan",
-        partition: Optional["Partition"] = None,
-        column: Optional["Column"] = None,
+        check_cfg: MetricCheckCfg,
+        data_source_scan: DataSourceScan,
+        partition: Partition | None = None,
+        column: Column | None = None,
     ):
         super().__init__(
             check_cfg=check_cfg,
@@ -29,50 +31,36 @@ class AnomalyMetricCheck(MetricCheck):
         metric_name = metric_check_cfg.metric_name
         metric = self.metrics[metric_name]
 
-        self.historic_descriptors[KEY_HISTORIC_ANOMALY_VALUES] = HistoricDescriptor(
-            metric=metric,
-            anomaly_values=90,
+        self.historic_descriptors[KEY_HISTORIC_MEASUREMENTS] = HistoricMeasurementsDescriptor(
+            metric_identity=metric.identity,
+            limit=3,
+        )
+        self.historic_descriptors[KEY_HISTORIC_CHECK_RESULTS] = HistoricCheckResultsDescriptor(
+            check_identity=self.identity, limit=3
         )
 
-    def evaluate(self, metrics: Dict[str, Metric], historic_values: Dict[str, object]):
-        # metric_value = self.get_metric_value()
-        historic_anomaly_values = historic_values.get(KEY_HISTORIC_ANOMALY_VALUES)
+    def evaluate(self, metrics: dict[str, Metric], historic_values: dict[str, object]):
+        # TODO Review the data structure and see if we still need the KEY_HISTORIC_*
+        historic_measurements = historic_values.get(KEY_HISTORIC_MEASUREMENTS).get("measurements")
+        historic_check_results = historic_values.get(KEY_HISTORIC_CHECK_RESULTS).get("check_results")
 
-        if historic_anomaly_values:
-            self.check_value = self.compute_anomaly_score(historic_anomaly_values, metrics)
+        if historic_measurements:
+            self.check_value = self.compute_anomaly_score(historic_measurements, historic_check_results)
             self.set_outcome_based_on_check_value()
 
             # put all diagnostics into a member field like this:
             self.anomaly_values = {}
 
         else:
-            self.logs.warning(
-                "Skipping metric check eval because there is not enough historic data yet"
-            )
+            self.logs.warning("Skipping metric check eval because there is not enough historic data yet")
 
-    def compute_anomaly_score(self, historic_anomaly_values: List[dict], metrics):
-        level, diagnostics = AnomalyDetector(historic_anomaly_values, metrics).evaluate()
-        data_timestamp = self.data_source_scan.scan._data_timestamp
+    def compute_anomaly_score(self, measurements, check_results):
+        # TODO test for module installation and set check status to skipped if the module is not installed
+        from soda.scientific.anomaly_detection.anomaly_detector import AnomalyDetector
 
-        # TODO invoke the anomaly detection algorithm dynamically as it is in an extension module
-        # ensure appropriate error log if the extension module is not installed
-        # The historic_anomaly_values look like this:
-        # [
-        #     {
-        #         'identity': 'metric-test_change_over_time.py::test_anomaly_detection-postgres-SODATEST_Customers_b7580920-row_count',
-        #         'data_time': datetime.datetime(2022, 3, 8, 19, 40, 5, 880298),
-        #         'value': 10
-        #     },
-        #     {
-        #         'identity': 'metric-test_change_over_time.py::test_anomaly_detection-postgres-SODATEST_Customers_b7580920-row_count',
-        #         'data_time': datetime.datetime(2022, 3, 7, 19, 40, 5, 880298),
-        #         'value': 10
-        #     }, ...
-        # ]
+        level, diagnostics = AnomalyDetector(measurements, check_results).evaluate()
 
-        anomaly_score = 0.8
-
-        return anomaly_score
+        return 3
 
     def get_cloud_diagnostics_dict(self) -> dict:
         cloud_diagnostics = super().get_cloud_diagnostics_dict()
