@@ -7,6 +7,7 @@
 import logging
 from datetime import date
 from typing import Any, Dict
+
 import pandas as pd
 
 FEEDBACK_REASONS = {
@@ -84,28 +85,21 @@ class FeedbackProcessor:
             else:
                 self.df_feedback_processed["isCorrectlyClassified"] = True
 
-            self.df_feedback_processed["is_misclassification"] = ~self.df_feedback_processed[
-                "isCorrectlyClassified"
-            ]
+            self.df_feedback_processed["is_misclassification"] = ~self.df_feedback_processed["isCorrectlyClassified"]
 
             # Replace NAN in "reason" with some string that won't match later so that we dump it
             # and it does not upset the rest of the flow
             if "reason" in df_feedback_processed_cols:
-                self.df_feedback_processed["reason"] = self.df_feedback_processed["reason"].fillna(
-                    "Invalid reason"
-                )
+                self.df_feedback_processed["reason"] = self.df_feedback_processed["reason"].fillna("Invalid reason")
             else:
                 self.df_feedback_processed["reason"] = "Invalid reason"
 
     def derive_exogenous_regressor(self):
         if self.has_feedback:
-            feedback_ref_mapping = pd.DataFrame.from_dict(
-                FEEDBACK_REASONS, orient="index"
-            ).reset_index()
+            feedback_ref_mapping = pd.DataFrame.from_dict(FEEDBACK_REASONS, orient="index").reset_index()
 
             self.df_feedback_processed["predicted_to_real_delta"] = (
-                self.df_feedback_processed["y"]
-                - self.df_feedback_processed["anomaly_predicted_value"]
+                self.df_feedback_processed["y"] - self.df_feedback_processed["anomaly_predicted_value"]
             )
             df_regressor_ref = self.df_feedback_processed.loc[
                 self.df_feedback_processed["is_misclassification"] == True  # noqa: E712
@@ -135,22 +129,16 @@ class FeedbackProcessor:
                     _offsets["delta"] = misclassification["predicted_to_real_delta"]
                     _offsets["misclassification_start"] = misclassification["ds"]
                     _offsets["chosen_reason"] = misclassification["reason"]
-                    _offsets["normalised_date"] = pd.to_datetime(
-                        misclassification["ds"]
-                    ).normalize()
+                    _offsets["normalised_date"] = pd.to_datetime(misclassification["ds"]).normalize()
 
                     # concat and join to main table.
                     offsets = offsets.append(_offsets)
                 self.offsets = offsets
                 # Consider only weekly feedback # TODO: enable the other ones later.
-                self.offsets = self.offsets.loc[
-                    self.offsets["chosen_reason"] == "expectedWeeklySeasonality"
-                ]
+                self.offsets = self.offsets.loc[self.offsets["chosen_reason"] == "expectedWeeklySeasonality"]
 
                 # join the offsets to the main table on offset date
-                self.df_feedback_processed["normalised_date_left"] = self.df_feedback_processed[
-                    "ds"
-                ].dt.normalize()
+                self.df_feedback_processed["normalised_date_left"] = self.df_feedback_processed["ds"].dt.normalize()
                 self.df_feedback_processed = self.df_feedback_processed.merge(
                     self.offsets,
                     how="left",
@@ -159,20 +147,14 @@ class FeedbackProcessor:
                 )
 
                 # drop columns we do not want anymore
-                feedback_processor_params = self._params["feedback_processor_params"][
-                    "output_columns"
-                ]
+                feedback_processor_params = self._params["feedback_processor_params"]["output_columns"]
                 self.df_feedback_processed = self.df_feedback_processed[
                     self.df_feedback_processed.columns[
-                        self.df_feedback_processed.columns.isin(
-                            list(feedback_processor_params.keys())
-                        )
+                        self.df_feedback_processed.columns.isin(list(feedback_processor_params.keys()))
                     ]
                 ]
                 # rename columns
-                self.df_feedback_processed = self.df_feedback_processed.rename(
-                    columns=feedback_processor_params
-                )
+                self.df_feedback_processed = self.df_feedback_processed.rename(columns=feedback_processor_params)
                 self.has_exegonenous_regressor = True
 
                 # fill nas with 0s? # TODO: We might want to revisit this if 0s mess the non

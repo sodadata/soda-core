@@ -1,15 +1,16 @@
 import datetime
-from typing import Any, Dict, List, Mapping, Optional, Union
-import pandas as pd
-from pathlib import Path
 import logging
-from pydantic import BaseModel, validator
+from pathlib import Path
+from typing import Any, Dict, List, Mapping, Optional, Union
+
+import pandas as pd
 import yaml
+from pydantic import BaseModel, validator
 
 from soda.scientific.anomaly_detection.feedback_processor import FeedbackProcessor
 from soda.scientific.anomaly_detection.models.prophet_model import (
-    ProphetDetector,
     FreqDetectionResult,
+    ProphetDetector,
 )
 
 
@@ -25,9 +26,7 @@ class UserFeedback(BaseModel):
     @validator("skipMeasurements")
     def check_accepted_values_skip_measurements(cls, v):
         accepted_values = ["this", "previous", "previousAndThis", None]
-        assert (
-            v in accepted_values
-        ), f"skip_measurements must be one of {accepted_values}, but '{v}' was provided."
+        assert v in accepted_values, f"skip_measurements must be one of {accepted_values}, but '{v}' was provided."
         return v
 
 
@@ -75,8 +74,8 @@ class AnomalyHistoricalCheckResults(BaseModel):
 
 
 class AnomalyHistoricalMeasurement(BaseModel):
-    identity: str
     id: str
+    identity: str
     value: float
     dataTime: datetime.datetime
 
@@ -112,7 +111,7 @@ class AnomalyDetector:
         self.params = self._parse_params()
 
     @staticmethod
-    def _get_historical_measurements(measurements: List[Dict[str, Any]]) -> pd.DataFrame:
+    def _get_historical_measurements(measurements: Dict[str, List[Dict[str, Any]]]) -> pd.DataFrame:
         if measurements:
             parsed_measurements = AnomalyHistoricalMeasurements.parse_obj(measurements)
             _df_measurements = pd.DataFrame.from_dict(parsed_measurements.dict()["results"])
@@ -121,9 +120,7 @@ class AnomalyDetector:
             return None
 
     @staticmethod
-    def _get_historical_check_results(
-        check_results: Dict[str, List[Dict[str, Any]]]
-    ) -> pd.DataFrame:
+    def _get_historical_check_results(check_results: Dict[str, List[Dict[str, Any]]]) -> pd.DataFrame:
         if check_results:
             parsed_check_results = AnomalyHistoricalCheckResults.parse_obj(check_results)
             _df_check_results = pd.DataFrame.from_dict(parsed_check_results.dict()["results"])
@@ -148,9 +145,7 @@ class AnomalyDetector:
         df_flattened = self.flatten_df(df.copy(), "diagnostics")
 
         column_maps = self.params["request_params"]["columns_mapping"]
-        df_flattened = df_flattened[
-            df_flattened.columns[df_flattened.columns.isin(list(column_maps.keys()))]
-        ]
+        df_flattened = df_flattened[df_flattened.columns[df_flattened.columns.isin(list(column_maps.keys()))]]
         df_flattened = df_flattened.rename(columns=column_maps)  # type: ignore
         df_flattened["ds"] = pd.to_datetime(df_flattened["ds"])  # type: ignore
         df_flattened["ds"] = df_flattened["ds"].dt.tz_localize(None)
@@ -186,9 +181,7 @@ class AnomalyDetector:
             loaded_config["response_params"]["output_columns"] = self._replace_none_values_by_key(
                 loaded_config["response_params"]["output_columns"]
             )
-            loaded_config["feedback_processor_params"][
-                "output_columns"
-            ] = self._replace_none_values_by_key(
+            loaded_config["feedback_processor_params"]["output_columns"] = self._replace_none_values_by_key(
                 loaded_config["feedback_processor_params"]["output_columns"]
             )
             logging.info(f"Config parsed {loaded_config}")
@@ -456,7 +449,5 @@ if __name__ == "__main__":
         ]
     }
 
-    detector = AnomalyDetector(
-        measurements=historical_measurement_mock, check_results=historical_result_mock
-    )
+    detector = AnomalyDetector(measurements=historical_measurement_mock, check_results=historical_result_mock)
     outcome, diagnostics = detector.evaluate()
