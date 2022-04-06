@@ -1,7 +1,7 @@
 import datetime
 import logging
 from pathlib import Path
-from typing import Any, Dict, List, Mapping, Optional, Union
+from typing import Any, Dict, List, Mapping, Optional, Tuple
 
 import pandas as pd
 import yaml
@@ -17,11 +17,11 @@ from soda.scientific.anomaly_detection.models.prophet_model import (
 class UserFeedback(BaseModel):
     """Validation model for user feedback data dict in payload."""
 
-    isCorrectlyClassified: Optional[bool]
-    isAnomaly: Optional[bool]
-    reason: Optional[str]
-    freeTextReason: Optional[str]
-    skipMeasurements: Optional[str]
+    isCorrectlyClassified: Optional[bool] = None
+    isAnomaly: Optional[bool] = None
+    reason: Optional[str] = None
+    freeTextReason: Optional[str] = None
+    skipMeasurements: Optional[str] = None
 
     @validator("skipMeasurements")
     def check_accepted_values_skip_measurements(cls, v):
@@ -33,40 +33,41 @@ class UserFeedback(BaseModel):
 class SeverityLevelAreas(BaseModel):
     """Validates severity levels dicts."""
 
-    greaterThanOrEqual: Optional[float]
-    lessThanOrEqual: Optional[float]
+    greaterThanOrEqual: Optional[float] = None
+    lessThanOrEqual: Optional[float] = None
 
 
 class AnomalyDiagnostics(BaseModel):
-    value: float
-    fail: Optional[SeverityLevelAreas]
-    warn: Optional[SeverityLevelAreas]
-    anomalyProbability: Optional[float]
-    anomalyPredictedValue: Optional[float]
+    value: Optional[float] = None
+    fail: Optional[SeverityLevelAreas] = None
+    warn: Optional[SeverityLevelAreas] = None
+    anomalyProbability: Optional[float] = None
+    anomalyPredictedValue: Optional[float] = None
     anomalyErrorSeverity: str = "pass"
     anomalyErrorCode: str = ""
+    feedback: Optional[UserFeedback] = UserFeedback()
 
 
 class LocationModel(BaseModel):
-    filePath: str
-    line: int
-    col: int
+    filePath: Optional[str] = None
+    line: Optional[int] = None
+    col: Optional[int] = None
 
 
 # some of those fields might end up being ignored down the line by ADS
 class AnomalyResult(BaseModel):
-    identity: str
-    measurementId: str
-    type: str
-    definition: str
-    location: LocationModel
-    metrics: List[str]
-    dataSource: str
-    table: str
-    partition: str
-    column: str
-    outcome: str
-    diagnostics: AnomalyDiagnostics
+    identity: Optional[str] = None
+    measurementId: Optional[str] = None
+    type: Optional[str] = None
+    definition: Optional[str] = None
+    location: LocationModel = LocationModel()
+    metrics: Optional[List[str]] = None
+    dataSource: Optional[str] = None
+    table: Optional[str] = None
+    partition: Optional[str] = None
+    column: Optional[str] = None
+    outcome: Optional[str] = None
+    diagnostics: AnomalyDiagnostics = AnomalyDiagnostics()
 
 
 class AnomalyHistoricalCheckResults(BaseModel):
@@ -106,27 +107,33 @@ MOCK_ANOMALY_DIAGNOSTICS = [
 
 class AnomalyDetector:
     def __init__(self, measurements, check_results):
-        self.df_measurements = self._get_historical_measurements(measurements)
-        self.df_check_results = self._get_historical_check_results(check_results)
+        self.df_measurements = self._parse_historical_measurements(measurements)
+        self.df_check_results = self._parse_historical_check_results(check_results)
         self.params = self._parse_params()
 
     @staticmethod
-    def _get_historical_measurements(measurements: Dict[str, List[Dict[str, Any]]]) -> pd.DataFrame:
+    def _parse_historical_measurements(measurements: Dict[str, List[Dict[str, Any]]]) -> pd.DataFrame:
         if measurements:
             parsed_measurements = AnomalyHistoricalMeasurements.parse_obj(measurements)
             _df_measurements = pd.DataFrame.from_dict(parsed_measurements.dict()["results"])
             return _df_measurements
         else:
-            return None
+            raise ValueError("No historical measurements found.")
 
     @staticmethod
-    def _get_historical_check_results(check_results: Dict[str, List[Dict[str, Any]]]) -> pd.DataFrame:
-        if check_results:
+    def _parse_historical_check_results(check_results: Dict[str, List[Dict[str, Any]]]) -> pd.DataFrame:
+        if check_results.get("results"):
             parsed_check_results = AnomalyHistoricalCheckResults.parse_obj(check_results)
             _df_check_results = pd.DataFrame.from_dict(parsed_check_results.dict()["results"])
             return _df_check_results
         else:
-            return None
+            logging.info(
+                "No past check results found. This could be because there are no past runs of "
+                "Anomaly Detection for this check yet."
+            )
+            parsed_check_results = AnomalyHistoricalCheckResults(results=[AnomalyResult()])
+            _df_measurements = pd.DataFrame.from_dict(parsed_check_results.dict()["results"])
+            return _df_measurements
 
     def _convert_to_well_shaped_df(self) -> pd.DataFrame:
         if not self.df_check_results.empty:
@@ -142,7 +149,8 @@ class AnomalyDetector:
             df = self.df_measurements.copy()
 
         # Flatten diagnostics dictionary
-        df_flattened = self.flatten_df(df.copy(), "diagnostics")
+        if "diagnostics" in df.columns:
+            df_flattened = self.flatten_df(df.copy(), "diagnostics")
 
         column_maps = self.params["request_params"]["columns_mapping"]
         df_flattened = df_flattened[df_flattened.columns[df_flattened.columns.isin(list(column_maps.keys()))]]
@@ -204,7 +212,7 @@ class AnomalyDetector:
     @staticmethod
     def _parse_output(
         df_anomalies: pd.DataFrame, freq_detection_result: FreqDetectionResult
-    ) -> Union[str, Dict[str, Any]]:
+    ) -> Tuple[str, Dict[str, Any]]:
         if not df_anomalies.empty:
             results_dict = df_anomalies.to_dict(orient="records")[0]
             level = results_dict["level"]
@@ -233,10 +241,10 @@ class AnomalyDetector:
                 "anomalyPredictedValue": None,
             }
 
-        diagnostics = AnomalyDiagnostics.parse_obj(diagnostics).dict()
-        return level, diagnostics
+        diagnostics_dict: Dict[str, Any] = AnomalyDiagnostics.parse_obj(diagnostics).dict()
+        return level, diagnostics_dict
 
-    def evaluate(self):
+    def evaluate(self) -> Tuple[str, Dict[str, Any]]:
         df_historic = self._convert_to_well_shaped_df()
 
         feedback = FeedbackProcessor(params=self.params, df_historic=df_historic)

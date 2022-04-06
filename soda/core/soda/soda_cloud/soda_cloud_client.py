@@ -48,7 +48,6 @@ class SodaCloudClient:
         return {"measurements": measurements, "check_results": check_results}
 
     def _get_historic_measurements(self, hd: HistoricMeasurementsDescriptor):
-
         return self._execute_query(
             {
                 "type": "sodaCoreHistoricMeasurements",
