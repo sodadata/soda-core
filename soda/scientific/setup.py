@@ -25,6 +25,7 @@ requires = [
     # The best course of action is acceptance, despite the horrors you see in setup.py files
     # such as this. And that my dear reader of the code is the real 'Zen of Python`.
     "prophet @ git+https://github.com/facebook/prophet.git#egg=prophet&subdirectory=python",
+    # "prophet",
     "pystan==2.19.1.1",
 ]
 
