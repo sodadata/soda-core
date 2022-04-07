@@ -5,6 +5,7 @@ import logging
 import os
 import textwrap
 from datetime import datetime
+from typing import List
 
 from soda.__version__ import SODA_CORE_VERSION
 from soda.common.log import Log, LogLevel
@@ -15,6 +16,7 @@ from soda.execution.check_outcome import CheckOutcome
 from soda.execution.data_source_scan import DataSourceScan
 from soda.execution.derived_metric import DerivedMetric
 from soda.execution.metric import Metric
+from soda.execution.profile_columns_result_table import ProfileColumnsResultTable
 from soda.soda_cloud.historic_descriptor import HistoricDescriptor
 from soda.sodacl.location import Location
 from soda.sodacl.sodacl_cfg import SodaCLCfg
@@ -47,6 +49,7 @@ class Scan:
         self._metrics: set[Metric] = set()
         self._checks: list[Check] = []
         self._queries: list[Query] = []
+        self._profile_columns_result_tables: List[ProfileColumnsResultTable] = []
         self._logs.info(f"Soda Core {SODA_CORE_VERSION}")
 
     def set_data_source_name(self, data_source_name: str):
@@ -428,7 +431,8 @@ class Scan:
                 data_source_scan = self._get_or_create_data_source_scan(data_source_name)
                 if data_source_scan:
                     profile_columns_run = data_source_scan.create_profile_columns_run(profile_columns_cfg, self)
-                    profile_columns_run.run()
+                    profile_columns_result = profile_columns_run.run()
+                    self._profile_columns_result_tables.extend(profile_columns_result.tables)
                 else:
                     data_source_names = ", ".join(self._data_source_manager.data_source_properties_by_name.keys())
                     self._logs.error(
