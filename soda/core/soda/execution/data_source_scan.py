@@ -2,6 +2,7 @@ from typing import Dict, List
 
 from soda.execution.data_source import DataSource
 from soda.execution.metric import Metric
+from soda.execution.profile_columns_run import ProfileColumnsRun
 from soda.execution.query import Query
 from soda.execution.table import Table
 from soda.sodacl.data_source_scan_cfg import DataSourceScanCfg
@@ -64,3 +65,6 @@ class DataSourceScan:
         from soda.execution.automated_monitoring_run import AutomatedMonitoringRun
 
         return AutomatedMonitoringRun(self, automated_monitoring_cfg)
+
+    def create_profile_columns_run(self, profile_columns_cfg, scan):
+        return ProfileColumnsRun(self, profile_columns_cfg)

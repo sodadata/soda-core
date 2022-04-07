@@ -345,19 +345,11 @@ class Scan:
                         f"Metrics {missing_metrics_str} were not computed for check {check.check_cfg.source_line}"
                     )
 
-            for data_source_scan in self._data_source_scans:
-                for monitoring_cfg in data_source_scan.data_source_scan_cfg.monitoring_cfgs:
-                    data_source_name = data_source_scan.data_source_scan_cfg.data_source_name
-                    data_source_scan = self._get_or_create_data_source_scan(data_source_name)
-                    if data_source_scan:
-                        monitor_runner = data_source_scan.create_automated_monitor_run(monitoring_cfg, self)
-                        monitor_runner.run()
-                    else:
-                        data_source_names = ", ".join(self._data_source_manager.data_source_properties_by_name.keys())
-                        self._logs.error(
-                            f"Could not run monitors on data_source {data_source_name} because It is not "
-                            f"configured: {data_source_names}"
-                        )
+            # TODO Show the results on the console: check results, metric values and queries
+            # TODO Send the results to Soda Cloud
+
+            self.run_automated_monitoring()
+            self.run_profile_columns()
 
             self._logs.info("Scan summary:")
             self.__log_queries(having_exception=False)
@@ -412,6 +404,38 @@ class Scan:
             self._logs.error(f"Error occurred while executing scan.", exception=e)
         finally:
             self._close()
+
+    def run_automated_monitoring(self):
+        for data_source_scan in self._data_source_scans:
+            for monitoring_cfg in data_source_scan.data_source_scan_cfg.monitoring_cfgs:
+                data_source_name = data_source_scan.data_source_scan_cfg.data_source_name
+                data_source_scan = self._get_or_create_data_source_scan(data_source_name)
+                if data_source_scan:
+                    automated_monitor_run = data_source_scan.create_automated_monitor_run(monitoring_cfg, self)
+                    automated_monitor_run.run()
+                else:
+                    data_source_names = ", ".join(self._data_source_manager.data_source_properties_by_name.keys())
+                    self._logs.error(
+                        f"Could not run monitors on data_source {data_source_name} because it is not "
+                        f"configured: {data_source_names}",
+                        location=monitoring_cfg.location,
+                    )
+
+    def run_profile_columns(self):
+        for data_source_scan in self._data_source_scans:
+            for profile_columns_cfg in data_source_scan.data_source_scan_cfg.profile_columns_cfgs:
+                data_source_name = data_source_scan.data_source_scan_cfg.data_source_name
+                data_source_scan = self._get_or_create_data_source_scan(data_source_name)
+                if data_source_scan:
+                    profile_columns_run = data_source_scan.create_profile_columns_run(profile_columns_cfg, self)
+                    profile_columns_run.run()
+                else:
+                    data_source_names = ", ".join(self._data_source_manager.data_source_properties_by_name.keys())
+                    self._logs.error(
+                        f"Could not profile columns on data_source {data_source_name} because it is not "
+                        f"configured: {data_source_names}",
+                        location=profile_columns_cfg.location,
+                    )
 
     def __checks_to_text(self, checks: list[Check]):
         return "/n".join([str(check) for check in checks])
