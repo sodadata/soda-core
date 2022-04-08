@@ -11,6 +11,7 @@ from numbers import Number
 from soda.common.logs import Logs
 from soda.execution.data_type import DataType
 from soda.execution.partition_queries import PartitionQueries
+from soda.execution.query import Query
 from soda.telemetry.soda_telemetry import SodaTelemetry
 
 soda_telemetry = SodaTelemetry.get_instance()
@@ -97,6 +98,7 @@ class DataSource:
         self.table_prefix = data_source_properties.get("table_prefix")
 
         soda_telemetry.set_attribute("datasource_type", self.type)
+        # TODO get hash after init so that children can implement init
         soda_telemetry.set_attribute("datasource_id", soda_telemetry.obtain_datasource_hash(self))
 
     def validate_configuration(self, connection_properties: dict, logs: Logs) -> None:
@@ -142,6 +144,10 @@ class DataSource:
 
         return expected_type == actual_type
 
+    ######################
+    # SQL Queries
+    ######################
+
     def sql_to_get_column_metadata_for_table(self, table_name: str) -> str:
         sql = (
             f"SELECT column_name, data_type, is_nullable \n"
@@ -177,50 +183,103 @@ class DataSource:
             f"{where_clause}"
         )
 
+    def sql_get_table_count(self, table_name: str) -> str:
+        return f"SELECT count(*) from {table_name}"
+
     def sql_table_filter_based_on_includes_excludes(
         self,
         table_column_name: str,
-        schema_column_name: str,
-        include_tables: list[str] | None = None,
-        exclude_tables: list[str] | None = None,
-    ) -> str:
+        schema_column_name: str | None = None,
+        include_tables: list[str] = [],
+        exclude_tables: list[str] = [],
+    ) -> str | None:
         tablename_filter_clauses = []
         if include_tables:
             sql_include_clauses = " OR ".join(
                 [f"lower({table_column_name}) like '{include_table.lower()}'" for include_table in include_tables]
             )
             tablename_filter_clauses.append(f"({sql_include_clauses})")
+
         if exclude_tables:
             tablename_filter_clauses.extend(
                 [f"lower({table_column_name}) not like '{exclude_table.lower()}'" for exclude_table in exclude_tables]
             )
-        if self.schema:
+
+        if hasattr(self, "schema") and self.schema and schema_column_name:
             tablename_filter_clauses.append(f"lower({schema_column_name}) = '{self.schema.lower()}'")
         return "\n      AND ".join(tablename_filter_clauses) if tablename_filter_clauses else None
 
-    def sql_find_table_names_includes_excludes(
-        self, include_tables: list[str] | None = None, exclude_tables: list[str] | None = None
+    def sql_find_table_names(
+        self,
+        filter: str | None = None,
+        include_tables: list[str] = [],
+        exclude_tables: list[str] = [],
+        table_column_name: str = "table_name",
+        schema_column_name: str = "table_schema",
     ) -> str:
-        table_filter_expression = self.sql_table_filter_based_on_includes_excludes(
-            "table_name", "table_schema", include_tables, exclude_tables
-        )
-        where_clause = f"\nWHERE {table_filter_expression} \n" if table_filter_expression else ""
-        return f"SELECT table_name \n" f"FROM {self.sql_information_schema_identifier()}" f"{where_clause}"
-
-    def sql_find_table_names(self, filter: str | None = None) -> str:
         sql = f"SELECT table_name \n" f"FROM {self.sql_information_schema_identifier()}"
         where_clauses = []
-        if self.schema:
-            where_clauses.append(f"lower(table_schema) = '{self.schema.lower()}'")
+
         if filter:
-            where_clauses.append(f"lower(table_name) like '{filter.lower()}'")
+            where_clauses.append(f"lower({table_column_name}) like '{filter.lower()}'")
+
+        includes_excludes_filter = self.sql_table_filter_based_on_includes_excludes(
+            table_column_name, schema_column_name, include_tables, exclude_tables
+        )
+        if includes_excludes_filter:
+            where_clauses.append(includes_excludes_filter)
+
         if where_clauses:
             where_clauses_sql = "\n  AND ".join(where_clauses)
             sql += f"\nWHERE {where_clauses_sql}"
+
         return sql
 
     def sql_information_schema_identifier(self) -> str:
         return "information_schema.tables"
+
+    ######################
+    # Query Execution
+    ######################
+
+    def get_row_counts_all_tables(
+        self, include_tables: list[str] | None, exclude_tables: list[str] | None, query_name: str | None
+    ) -> dict[str, int]:
+        """
+        Returns a dict that maps table names to row counts.
+        """
+        sql = self.sql_get_table_names_with_count(include_tables=include_tables, exclude_tables=exclude_tables)
+        if sql:
+            query = Query(
+                data_source_scan=self,
+                unqualified_query_name=query_name or "get_row_counts_all_tables",
+                sql=sql,
+            )
+            query.execute()
+            return {row[0]: row[1] for row in query.rows}
+
+        # Single query to get the metadata not available, get the counts one by one.
+        all_tables = self.find_table_names()
+        result = {}
+
+        for table in all_tables:
+            query = Query(
+                data_source_scan=self,
+                unqualified_query_name=f"get_row_count_{table}",
+                sql=self.sql_get_table_count(table),
+            )
+            query.execute()
+            if query.rows:
+                result[query.rows[0][0]] = query.rows[0][1]
+
+        return result
+
+    def get_table_names(self, query_name: str | None = None, filter: str | None = None) -> list[str]:
+        sql = self.sql_find_table_names(filter=filter)
+        query = Query(data_source_scan=self, unqualified_query_name=query_name, sql=sql)
+        query.execute()
+        table_names = [row[0] for row in query.rows]
+        return table_names
 
     def quote_table_declaration(self, table_name) -> str:
         return self.quote_table(table_name=table_name)
@@ -361,6 +420,7 @@ class DataSource:
         raise NotImplementedError(f"TODO: Implement {type(self)}.connect()")
 
     def fetchall(self, sql: str):
+        # TODO: Deprecated - not used, use Query object instead.
         try:
             cursor = self.connection.cursor()
             try:

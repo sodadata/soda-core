@@ -24,7 +24,7 @@ class AutomatedMonitoringRun:
 
         if self.automated_monitoring_cfg.row_count:
             # row_counts is a dict that maps table names to row counts.
-            row_counts_by_table_name: Dict[str, int] = self.get_row_counts_for_all_tables()
+            row_counts_by_table_name: Dict[str, int] = self.get_row_counts_all_tables()
             for measured_table_name in row_counts_by_table_name:
                 measured_row_count = row_counts_by_table_name[measured_table_name]
                 anomaly_input: AnomalyInput = self.get_historic_row_count_anomaly_input_from_soda_cloud(
@@ -64,7 +64,7 @@ class AutomatedMonitoringRun:
 
         return automated_monitoring_result
 
-    def get_row_counts_for_all_tables(self) -> Dict[str, int]:
+    def get_row_counts_all_tables(self) -> Dict[str, int]:
         """
         Returns a dict that maps table names to row counts.
         Later this could be implemented with different queries depending on the data source type.

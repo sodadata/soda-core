@@ -450,8 +450,9 @@ class Scan:
             data_source_scan = self._get_or_create_data_source_scan(data_source_name)
             if data_source_scan:
                 query_name = f"for_each_table_{for_each_table_cfg.table_alias_name}[{index}]"
-                sql = data_source_scan.data_source.sql_find_table_names_includes_excludes(
-                    include_tables, exclude_tables
+                # TODO: use get of data source instead of executing it here (once its available)
+                sql = data_source_scan.data_source.sql_find_table_names(
+                    include_tables=include_tables, exclude_tables=exclude_tables
                 )
                 query = Query(data_source_scan=data_source_scan, unqualified_query_name=query_name, sql=sql)
                 query.execute()
