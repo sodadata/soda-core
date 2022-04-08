@@ -243,7 +243,7 @@ class DataSource:
     ######################
 
     def get_row_counts_all_tables(
-        self, include_tables: list[str] | None, exclude_tables: list[str] | None, query_name: str | None
+        self, include_tables: list[str] | None, exclude_tables: list[str] | None, query_name: str | None = None
     ) -> dict[str, int]:
         """
         Returns a dict that maps table names to row counts.
@@ -265,7 +265,7 @@ class DataSource:
         for table in all_tables:
             query = Query(
                 data_source_scan=self,
-                unqualified_query_name=f"get_row_count_{table}",
+                unqualified_query_name=f"{query_name}_{table}" or f"get_row_count_{table}",
                 sql=self.sql_get_table_count(table),
             )
             query.execute()
