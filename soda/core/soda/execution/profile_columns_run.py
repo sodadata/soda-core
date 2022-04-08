@@ -1,34 +1,33 @@
 from textwrap import dedent
-from typing import Dict, List
+from typing import TYPE_CHECKING, Dict, List
 
-from soda.anomaly_detection.anomaly_detector import AnomalyInput, AnomalyOutput
 from soda.execution.profile_columns_result import ProfileColumnsResult
 from soda.execution.query import Query
 from soda.sodacl.profile_columns_cfg import ProfileColumnsCfg
 
+if TYPE_CHECKING:
+    from soda.execution.data_source_scan import DataSourceScan
+
 
 class ProfileColumnsRun:
+    def __init__(self, data_source_scan: DataSourceScan, profile_columns_cfg: ProfileColumnsCfg):
 
-    def __init__(self, data_source_scan: "DataSourceScan", profile_columns_cfg: ProfileColumnsCfg):
-        from soda.execution.data_source_scan import DataSourceScan
-        self.data_source_scan: DataSourceScan = data_source_scan
+        self.data_source_scan = data_source_scan
         self.soda_cloud = data_source_scan.scan._configuration.soda_cloud
         self.data_source = data_source_scan.data_source
         self.profile_columns_cfg: ProfileColumnsCfg = profile_columns_cfg
         self.logs = self.data_source_scan.scan._logs
 
     def run(self) -> ProfileColumnsResult:
-        profile_columns_result: ProfileColumnsResult = ProfileColumnsResult(
-            self.profile_columns_cfg
-        )
+        profile_columns_result: ProfileColumnsResult = ProfileColumnsResult(self.profile_columns_cfg)
 
         # row_counts is a dict that maps table names to row counts.
-        row_counts_by_table_name: Dict[str, int] = self.get_row_counts_for_all_tables()
+        row_counts_by_table_name: Dict[str, int] = self.data_source.get_row_counts_for_all_tables()
         for table_name in row_counts_by_table_name:
             measured_row_count = row_counts_by_table_name[table_name]
             profile_columns_result_table = profile_columns_result.create_table(table_name, measured_row_count)
 
-            column_types_by_name = {'distance': 'float'}
+            column_types_by_name = {"distance": "float"}
 
             for column_name, column_type in column_types_by_name.items():
                 if self._is_column_included_for_profiling(column_name):
@@ -92,7 +91,7 @@ class ProfileColumnsRun:
 
     def sql_mins(self):
         return dedent(
-            f"""
+            """
                  SELECT value, frequency, 'mins'
                  FROM values
                  ORDER BY value ASC
@@ -112,13 +111,11 @@ class ProfileColumnsRun:
         include_tables = []
 
         if len(self.profile_columns_cfg.include_columns) == 0:
-            include_tables.append('%')
+            include_tables.append("%")
         else:
             include_tables.extend(self._get_table_expression(self.profile_columns_cfg.include_columns))
         include_tables.extend(self._get_table_expression(self.profile_columns_cfg.exclude_columns))
-        sql = self.data_source.sql_get_table_names_with_count(
-            include_tables=include_tables
-        )
+        sql = self.data_source.sql_get_table_names_with_count(include_tables=include_tables)
         query = Query(
             data_source_scan=self.data_source_scan,
             unqualified_query_name="get_counts_by_tables_for_profile_columns",
@@ -130,9 +127,12 @@ class ProfileColumnsRun:
     def _get_table_expression(self, include_columns: List[str]) -> List[str]:
         table_expressions = []
         for include_column_expression in include_columns:
-            parts = include_column_expression.split('.')
+            parts = include_column_expression.split(".")
             if len(parts) != 2:
-                self.logs.error(f'Invalid include column expression "{include_column_expression}"', location=self.profile_columns_cfg.location)
+                self.logs.error(
+                    f'Invalid include column expression "{include_column_expression}"',
+                    location=self.profile_columns_cfg.location,
+                )
             else:
                 table_expression = parts[0]
                 table_expressions.append(table_expression)
