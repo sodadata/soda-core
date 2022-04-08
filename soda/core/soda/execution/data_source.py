@@ -274,9 +274,9 @@ class DataSource:
 
         return result
 
-    def get_table_names(self, query_name: str | None = None, filter: str | None = None) -> list[str]:
+    def get_table_names(self, filter: str | None = None, query_name: str | None = None) -> list[str]:
         sql = self.sql_find_table_names(filter=filter)
-        query = Query(data_source_scan=self, unqualified_query_name=query_name, sql=sql)
+        query = Query(data_source_scan=self, unqualified_query_name=query_name or "get_table_names", sql=sql)
         query.execute()
         table_names = [row[0] for row in query.rows]
         return table_names
