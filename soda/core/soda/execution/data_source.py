@@ -251,7 +251,7 @@ class DataSource:
         sql = self.sql_get_table_names_with_count(include_tables=include_tables, exclude_tables=exclude_tables)
         if sql:
             query = Query(
-                data_source_scan=self,
+                data_source_scan=self.data_source_scan,
                 unqualified_query_name=query_name or "get_row_counts_all_tables",
                 sql=sql,
             )
@@ -259,12 +259,12 @@ class DataSource:
             return {row[0]: row[1] for row in query.rows}
 
         # Single query to get the metadata not available, get the counts one by one.
-        all_tables = self.find_table_names()
+        all_tables = self.get_table_names()
         result = {}
 
         for table in all_tables:
             query = Query(
-                data_source_scan=self,
+                data_source_scan=self.data_source_scan,
                 unqualified_query_name=f"{query_name}_{table}" or f"get_row_count_{table}",
                 sql=self.sql_get_table_count(table),
             )
@@ -276,7 +276,9 @@ class DataSource:
 
     def get_table_names(self, filter: str | None = None, query_name: str | None = None) -> list[str]:
         sql = self.sql_find_table_names(filter=filter)
-        query = Query(data_source_scan=self, unqualified_query_name=query_name or "get_table_names", sql=sql)
+        query = Query(
+            data_source_scan=self.data_source_scan, unqualified_query_name=query_name or "get_table_names", sql=sql
+        )
         query.execute()
         table_names = [row[0] for row in query.rows]
         return table_names
@@ -454,7 +456,10 @@ class DataSource:
     def create_data_source_scan(self, scan: Scan, data_source_scan_cfg: DataSourceScanCfg):
         from soda.execution.data_source_scan import DataSourceScan
 
-        return DataSourceScan(scan, data_source_scan_cfg, self)
+        data_source_scan = DataSourceScan(scan, data_source_scan_cfg, self)
+        self.data_source_scan = data_source_scan
+
+        return self.data_source_scan
 
     @staticmethod
     def format_column_default(identifier: str) -> str:
