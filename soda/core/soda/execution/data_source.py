@@ -242,7 +242,7 @@ class DataSource:
     # Query Execution
     ######################
 
-    def get_row_counts_for_all_tables(
+    def get_row_counts_all_tables(
         self, include_tables: list[str] | None, exclude_tables: list[str] | None, query_name: str | None
     ) -> dict[str, int]:
         """
@@ -252,7 +252,7 @@ class DataSource:
         if sql:
             query = Query(
                 data_source_scan=self,
-                unqualified_query_name=query_name or "get_row_counts_for_all)tables",
+                unqualified_query_name=query_name or "get_row_counts_all_tables",
                 sql=sql,
             )
             query.execute()
@@ -265,7 +265,7 @@ class DataSource:
         for table in all_tables:
             query = Query(
                 data_source_scan=self,
-                unqualified_query_name=f"get_counts_by_tables_for_row_count_anomalies_{table}",
+                unqualified_query_name=f"get_row_count_{table}",
                 sql=self.sql_get_table_count(table),
             )
             query.execute()
