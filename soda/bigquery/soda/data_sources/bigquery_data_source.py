@@ -64,8 +64,17 @@ class DataSourceImpl(DataSource):
             #     logger.info("Using context auth, account_info_json will be ignored.")
             # else:
             self.account_info_dict = self.__parse_json_credential()
-            if self.account_info_dict:
+
+            # Use explicitly set project id if available, or the one from SA account.
+            self.project_id = None
+            if connection_properties.get("project_id"):
+                self.project_id = connection_properties.get("project_id")
+            elif self.account_info_dict:
                 self.project_id = self.account_info_dict.get("project_id")
+
+            if not self.project_id:
+                self.logs.error("Unable to detect project_id.")
+
             # self.client = None
 
             # if self.__context_auth:
