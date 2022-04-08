@@ -132,18 +132,6 @@ class DataSourceImpl(DataSource):
             f"{where_clause}"
         )
 
-    def sql_find_table_names(self, filter: Optional[str] = None) -> str:
-        sql = f"SELECT table_name \n" f"FROM `{self.dataset_name}.INFORMATION_SCHEMA.COLUMNS`"
-        where_clauses = []
-        # if self.schema:
-        # where_clauses.append(f"lower(table_schema) = '{self.schema.lower()}'")
-        if filter:
-            where_clauses.append(f"lower(table_name) like '{filter.lower()}'")
-        if where_clauses:
-            where_clauses_sql = "\n  AND ".join(where_clauses)
-            sql += f"\nWHERE {where_clauses_sql}"
-        return sql
-
     def sql_get_table_names_with_count(
         self, include_tables: Optional[List[str]] = None, exclude_tables: Optional[List[str]] = None
     ) -> str:
