@@ -1,4 +1,4 @@
-from typing import Dict, List, Optional
+from typing import Dict, List
 
 from soda.execution.data_source import DataSource
 from soda.execution.metric import Metric
@@ -59,13 +59,6 @@ class DataSourceScan:
 
         for query in all_data_source_queries:
             query.execute()
-
-    def find_table_names(self, query_name: Optional[str] = None, filter: Optional[str] = None) -> List[str]:
-        sql = self.data_source.sql_find_table_names(filter=filter)
-        query = Query(data_source_scan=self, unqualified_query_name=query_name, sql=sql)
-        query.execute()
-        table_names = [row[0] for row in query.rows]
-        return table_names
 
     def create_automated_monitor_run(self, automated_monitoring_cfg, scan):
         from soda.execution.automated_monitoring_run import AutomatedMonitoringRun
