@@ -17,7 +17,7 @@ description = "Soda Core"
 
 requires = [
     "markupsafe==2.0.1",  # Pinned until Jinja is pinned <3
-    "Jinja2",
+    "Jinja2>=3.0.0",
     "click",
     "ruamel.yaml",
     "requests",
