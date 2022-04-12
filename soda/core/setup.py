@@ -16,7 +16,7 @@ description = "Soda Core"
 # long_description = (pathlib.Path(__file__).parent.parent / "README.md").read_text()
 
 requires = [
-    "markupsafe==2.0.1",  # Pinned until Jinja is pinned <3
+    "markupsafe",
     "Jinja2>=3.0.0",
     "click",
     "ruamel.yaml",
