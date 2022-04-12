@@ -4,8 +4,6 @@
 #
 #    pip-compile dev-requirements.in
 #
-antlr4-python3-runtime==4.9.2
-    # via -r dev-requirements.in
 attrs==21.4.0
     # via pytest
 black==22.1.0
