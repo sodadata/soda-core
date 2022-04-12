@@ -2,7 +2,7 @@ import os
 from typing import Optional
 
 from jinja2 import Environment
-from jinja2.runtime import Context, resolve_or_missing
+from jinja2.runtime import Context
 
 
 class OsContext(Context):
@@ -14,7 +14,7 @@ class OsContext(Context):
             return self.vars[key]
         elif key == "env_var":
             return Jinja.env_var
-        return resolve_or_missing(self, key)
+        return Context.resolve_or_missing(self, key)
 
 
 def create_os_environment():

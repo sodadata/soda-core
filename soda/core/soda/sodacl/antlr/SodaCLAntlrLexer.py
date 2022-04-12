@@ -1,4 +1,4 @@
-# Generated from /Users/tom/Code/soda-sql-v3/soda/core/soda/sodacl/antlr/SodaCLAntlr.g4 by ANTLR 4.9.3
+# Generated from /Users/tom/Code/soda-core/soda/core/soda/sodacl/antlr/SodaCLAntlr.g4 by ANTLR 4.9.3
 from antlr4 import *
 from io import StringIO
 import sys
