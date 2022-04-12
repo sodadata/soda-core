@@ -9,7 +9,7 @@ if sys.version_info < (3, 7):
     sys.exit(1)
 
 package_name = "soda-core-postgres"
-package_version = "3.0.0b6"
+package_version = "3.0.0b7"
 # TODO Add proper description
 description = "Soda Core Postgres Package"
 
