@@ -243,7 +243,10 @@ class DataSource:
     ######################
 
     def get_row_counts_all_tables(
-        self, include_tables: list[str] | None, exclude_tables: list[str] | None, query_name: str | None = None
+        self,
+        include_tables: list[str] | None = None,
+        exclude_tables: list[str] | None = None,
+        query_name: str | None = None,
     ) -> dict[str, int]:
         """
         Returns a dict that maps table names to row counts.
@@ -259,23 +262,29 @@ class DataSource:
             return {row[0]: row[1] for row in query.rows}
 
         # Single query to get the metadata not available, get the counts one by one.
-        all_tables = self.get_table_names()
+        all_tables = self.get_table_names(include_tables=include_tables, exclude_tables=exclude_tables)
         result = {}
 
         for table in all_tables:
             query = Query(
                 data_source_scan=self.data_source_scan,
                 unqualified_query_name=f"{query_name}_{table}" or f"get_row_count_{table}",
-                sql=self.sql_get_table_count(table),
+                sql=self.sql_get_table_count(self.quote_table(table)),
             )
             query.execute()
             if query.rows:
-                result[query.rows[0][0]] = query.rows[0][1]
+                result[table] = query.rows[0][0]
 
         return result
 
-    def get_table_names(self, filter: str | None = None, query_name: str | None = None) -> list[str]:
-        sql = self.sql_find_table_names(filter=filter)
+    def get_table_names(
+        self,
+        filter: str | None = None,
+        include_tables: list[str] = [],
+        exclude_tables: list[str] = [],
+        query_name: str | None = None,
+    ) -> list[str]:
+        sql = self.sql_find_table_names(filter, include_tables, exclude_tables)
         query = Query(
             data_source_scan=self.data_source_scan, unqualified_query_name=query_name or "get_table_names", sql=sql
         )

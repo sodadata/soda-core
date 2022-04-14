@@ -27,6 +27,7 @@ def data_source(data_source_config_str: str) -> DataSource:
     if not data_source:
         raise Exception(f"Unable to find and/or set up specified '{data_source_name}' test data_source config.")
     connection = data_source_connection_manager.connect(data_source)
+    scan._get_or_create_data_source_scan(test_data_source)
 
     yield data_source
 
