@@ -166,14 +166,14 @@ class DataSource:
     def sql_get_table_names_with_count(
         self, include_tables: list[str] | None = None, exclude_tables: list[str] | None = None
     ) -> str:
-        table_filter_expression = self.sql_table_filter_based_on_includes_excludes(
+        table_filter_expression = self.sql_table_include_exclude_filter(
             "relname", "schemaname", include_tables, exclude_tables
         )
         where_clause = f"\nWHERE {table_filter_expression} \n" if table_filter_expression else ""
         return f"SELECT relname, n_live_tup \n" f"FROM pg_stat_user_tables" f"{where_clause}"
 
     def sql_get_column(self, include_tables: list[str] | None = None, exclude_tables: list[str] | None = None) -> str:
-        table_filter_expression = self.sql_table_filter_based_on_includes_excludes(
+        table_filter_expression = self.sql_table_include_exclude_filter(
             "table_name", "table_schema", include_tables, exclude_tables
         )
         where_clause = f"\nWHERE {table_filter_expression} \n" if table_filter_expression else ""
@@ -186,7 +186,7 @@ class DataSource:
     def sql_get_table_count(self, table_name: str) -> str:
         return f"SELECT count(*) from {table_name}"
 
-    def sql_table_filter_based_on_includes_excludes(
+    def sql_table_include_exclude_filter(
         self,
         table_column_name: str,
         schema_column_name: str | None = None,
@@ -223,7 +223,7 @@ class DataSource:
         if filter:
             where_clauses.append(f"lower({table_column_name}) like '{filter.lower()}'")
 
-        includes_excludes_filter = self.sql_table_filter_based_on_includes_excludes(
+        includes_excludes_filter = self.sql_table_include_exclude_filter(
             table_column_name, schema_column_name, include_tables, exclude_tables
         )
         if includes_excludes_filter:
@@ -237,6 +237,9 @@ class DataSource:
 
     def sql_information_schema_identifier(self) -> str:
         return "information_schema.tables"
+
+    def sql_analyze_table(self, table: str) -> str | None:
+        return None
 
     ######################
     # Query Execution
@@ -291,6 +294,14 @@ class DataSource:
         query.execute()
         table_names = [row[0] for row in query.rows]
         return table_names
+
+    def analyze_table(self, table: str):
+        if self.sql_analyze_table(table):
+            Query(
+                data_source_scan=self.data_source_scan,
+                unqualified_query_name=f"analyze_{table}",
+                sql=self.sql_analyze_table(table),
+            ).execute()
 
     def quote_table_declaration(self, table_name) -> str:
         return self.quote_table(table_name=table_name)

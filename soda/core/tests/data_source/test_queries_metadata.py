@@ -8,7 +8,7 @@ from tests.helpers.scanner import Scanner
 
 
 @pytest.mark.parametrize(
-    "include, exclude, expected_count",
+    "include_tables, exclude_tables, expected_count",
     [
         ### Fuzzy matching the expected counts so that test does not come brittle with changing how
         ### many tables are used across the test suite and based on order of test case execution.
@@ -21,13 +21,13 @@ from tests.helpers.scanner import Scanner
         ),  # Does not test much, just makes sure when both are included it does return something.
     ],
 )
-def test_get_row_counts_all_tables(scanner: Scanner, include, exclude, expected_count):
+def test_get_row_counts_all_tables(scanner: Scanner, include_tables, exclude_tables, expected_count):
     scanner.ensure_test_table(customers_test_table)
     scanner.ensure_test_table(raw_customers_test_table)
     scan = scanner.create_test_scan()
     data_source = scan._data_source_manager.get_data_source(test_data_source)
 
-    result = data_source.get_row_counts_all_tables(include_tables=include, exclude_tables=exclude)
+    result = data_source.get_row_counts_all_tables(include_tables=include_tables, exclude_tables=exclude_tables)
     if expected_count is not None:
         assert len(result) == expected_count
     else:

@@ -32,3 +32,7 @@ def data_source(data_source_config_str: str) -> DataSource:
     yield data_source
 
     connection.close()
+
+
+def format_query_one_line(query: str) -> str:
+    return query
