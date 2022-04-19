@@ -10,7 +10,7 @@ import numpy as np
 import pandas as pd
 from darts import TimeSeries
 from darts.utils.missing_values import fill_missing_values
-from fbprophet import Prophet
+from prophet import Prophet
 
 from soda.scientific.anomaly_detection.models.base import BaseDetector
 
