@@ -10,7 +10,7 @@ if TYPE_CHECKING:
 
 
 class ProfileColumnsRun:
-    def __init__(self, data_source_scan: DataSourceScan, profile_columns_cfg: ProfileColumnsCfg):
+    def __init__(self, data_source_scan: "DataSourceScan", profile_columns_cfg: ProfileColumnsCfg):
 
         self.data_source_scan = data_source_scan
         self.soda_cloud = data_source_scan.scan._configuration.soda_cloud
@@ -22,7 +22,11 @@ class ProfileColumnsRun:
         profile_columns_result: ProfileColumnsResult = ProfileColumnsResult(self.profile_columns_cfg)
 
         # row_counts is a dict that maps table names to row counts.
-        row_counts_by_table_name: Dict[str, int] = self.data_source.get_row_counts_for_all_tables()
+        row_counts_by_table_name: Dict[str, int] = self.data_source.get_row_counts_all_tables(
+            include_tables=self._get_table_expression(self.profile_columns_cfg.include_columns),
+            exclude_tables=self._get_table_expression(self.profile_columns_cfg.exclude_columns),
+            query_name="profile columns: get tables and row counts",
+        )
         for table_name in row_counts_by_table_name:
             measured_row_count = row_counts_by_table_name[table_name]
             profile_columns_result_table = profile_columns_result.create_table(table_name, measured_row_count)
@@ -124,13 +128,13 @@ class ProfileColumnsRun:
         query.execute()
         return {row[0]: row[1] for row in query.rows}
 
-    def _get_table_expression(self, include_columns: List[str]) -> List[str]:
+    def _get_table_expression(self, columns_expression: List[str]) -> List[str]:
         table_expressions = []
-        for include_column_expression in include_columns:
-            parts = include_column_expression.split(".")
+        for column_expression in columns_expression:
+            parts = column_expression.split(".")
             if len(parts) != 2:
                 self.logs.error(
-                    f'Invalid include column expression "{include_column_expression}"',
+                    f'Invalid include column expression "{column_expression}"',
                     location=self.profile_columns_cfg.location,
                 )
             else:
