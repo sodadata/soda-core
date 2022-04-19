@@ -114,4 +114,7 @@ cutting feature while executing the full test suite.
 
 ## Testing with Tox
 
-TODO : For the full test matrix of test suite executions, we ll be using [Tox](https://tox.wiki/en/latest/)
+- We use [Tox](https://tox.wiki/en/latest/) to run tests and `.env` file to set up a data source to run them with.
+- Create a `.env` file and fill it with relevant data source information (see `.env.example` for inspiration).
+- Run `tox`.
+
