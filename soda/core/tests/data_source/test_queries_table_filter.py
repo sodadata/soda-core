@@ -1,7 +1,6 @@
-from tests.helpers.scanner import Scanner
-from tests.data_source.conftest import test_data_source, format_query_one_line
-
 import pytest
+from tests.data_source.conftest import format_query_one_line, test_data_source
+from tests.helpers.scanner import Scanner
 
 
 @pytest.mark.parametrize(
