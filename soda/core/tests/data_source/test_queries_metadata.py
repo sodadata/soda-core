@@ -21,6 +21,7 @@ from tests.helpers.scanner import Scanner
         ),  # Does not test much, just makes sure when both are included it does return something.
     ],
 )
+@pytest.mark.skip
 def test_get_row_counts_all_tables(scanner: Scanner, include_tables, exclude_tables, expected_count):
     scanner.ensure_test_table(customers_test_table)
     scanner.ensure_test_table(raw_customers_test_table)

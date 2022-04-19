@@ -28,6 +28,7 @@ import pytest
         ),
     ],
 )
+@pytest.mark.skip
 def test_sql_table_include_exclude_filter(scanner: Scanner, include_tables, exclude_tables, expected_sql):
     scan = scanner.create_test_scan()
     data_source = scan._data_source_manager.get_data_source(test_data_source)
