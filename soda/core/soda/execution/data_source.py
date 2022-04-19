@@ -269,9 +269,12 @@ class DataSource:
         result = {}
 
         for table in all_tables:
+            query_name_str = f"get_row_count_{table}"
+            if query_name:
+                query_name_str = f"{query_name}_{table}"
             query = Query(
                 data_source_scan=self.data_source_scan,
-                unqualified_query_name=f"{query_name}_{table}" or f"get_row_count_{table}",
+                unqualified_query_name=query_name_str,
                 sql=self.sql_get_table_count(self.quote_table(table)),
             )
             query.execute()
