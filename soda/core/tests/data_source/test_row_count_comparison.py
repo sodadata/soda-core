@@ -43,6 +43,7 @@ def test_row_count_comparison_cross_data_source(scanner: Scanner, data_source_co
     other_connection = other_data_source_connection_manager.connect(other_data_source)
 
     other_scanner = Scanner(other_data_source)
+    other_scan._get_or_create_data_source_scan(other_data_source_name)
     rawcustomers_table_name = other_scanner.ensure_test_table(raw_customers_test_table)
 
     scan.add_sodacl_yaml_str(
