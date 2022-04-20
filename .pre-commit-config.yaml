@@ -4,7 +4,7 @@ files: ^soda/
 exclude: antlr/
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v4.1.0
+    rev: v4.2.0
     hooks:
       - id: trailing-whitespace
       - id: check-added-large-files
@@ -19,16 +19,16 @@ repos:
       - id: detect-private-key
       - id: end-of-file-fixer
   - repo: https://github.com/humitos/mirrors-autoflake.git
-    rev: v1.3
+    rev: v1.1
     hooks:
       - id: autoflake
         args: ["--in-place", "--remove-all-unused-imports"]
   - repo: https://github.com/asottile/pyupgrade
-    rev: v2.31.0
+    rev: v2.32.0
     hooks:
       - id: pyupgrade
         args: [--py37-plus]
-  - repo: https://github.com/timothycrosley/isort
+  - repo: https://github.com/PyCQA/isort
     rev: 5.10.1
     hooks:
       - id: isort
