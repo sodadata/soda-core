@@ -67,3 +67,6 @@ class DataSourceImpl(DataSource):
             self.connection_properties.get("port"),
             self.connection_properties.get("database"),
         ]
+
+    def sql_analyze_table(self, table: str) -> str:
+        return f"ANALYZE {table}"

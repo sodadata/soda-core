@@ -166,14 +166,14 @@ class DataSource:
     def sql_get_table_names_with_count(
         self, include_tables: list[str] | None = None, exclude_tables: list[str] | None = None
     ) -> str:
-        table_filter_expression = self.sql_table_filter_based_on_includes_excludes(
+        table_filter_expression = self.sql_table_include_exclude_filter(
             "relname", "schemaname", include_tables, exclude_tables
         )
         where_clause = f"\nWHERE {table_filter_expression} \n" if table_filter_expression else ""
         return f"SELECT relname, n_live_tup \n" f"FROM pg_stat_user_tables" f"{where_clause}"
 
     def sql_get_column(self, include_tables: list[str] | None = None, exclude_tables: list[str] | None = None) -> str:
-        table_filter_expression = self.sql_table_filter_based_on_includes_excludes(
+        table_filter_expression = self.sql_table_include_exclude_filter(
             "table_name", "table_schema", include_tables, exclude_tables
         )
         where_clause = f"\nWHERE {table_filter_expression} \n" if table_filter_expression else ""
@@ -186,7 +186,7 @@ class DataSource:
     def sql_get_table_count(self, table_name: str) -> str:
         return f"SELECT count(*) from {table_name}"
 
-    def sql_table_filter_based_on_includes_excludes(
+    def sql_table_include_exclude_filter(
         self,
         table_column_name: str,
         schema_column_name: str | None = None,
@@ -223,7 +223,7 @@ class DataSource:
         if filter:
             where_clauses.append(f"lower({table_column_name}) like '{filter.lower()}'")
 
-        includes_excludes_filter = self.sql_table_filter_based_on_includes_excludes(
+        includes_excludes_filter = self.sql_table_include_exclude_filter(
             table_column_name, schema_column_name, include_tables, exclude_tables
         )
         if includes_excludes_filter:
@@ -238,12 +238,18 @@ class DataSource:
     def sql_information_schema_identifier(self) -> str:
         return "information_schema.tables"
 
+    def sql_analyze_table(self, table: str) -> str | None:
+        return None
+
     ######################
     # Query Execution
     ######################
 
     def get_row_counts_all_tables(
-        self, include_tables: list[str] | None, exclude_tables: list[str] | None, query_name: str | None
+        self,
+        include_tables: list[str] | None = None,
+        exclude_tables: list[str] | None = None,
+        query_name: str | None = None,
     ) -> dict[str, int]:
         """
         Returns a dict that maps table names to row counts.
@@ -251,7 +257,7 @@ class DataSource:
         sql = self.sql_get_table_names_with_count(include_tables=include_tables, exclude_tables=exclude_tables)
         if sql:
             query = Query(
-                data_source_scan=self,
+                data_source_scan=self.data_source_scan,
                 unqualified_query_name=query_name or "get_row_counts_all_tables",
                 sql=sql,
             )
@@ -259,27 +265,46 @@ class DataSource:
             return {row[0]: row[1] for row in query.rows}
 
         # Single query to get the metadata not available, get the counts one by one.
-        all_tables = self.find_table_names()
+        all_tables = self.get_table_names(include_tables=include_tables, exclude_tables=exclude_tables)
         result = {}
 
         for table in all_tables:
+            query_name_str = f"get_row_count_{table}"
+            if query_name:
+                query_name_str = f"{query_name}_{table}"
             query = Query(
-                data_source_scan=self,
-                unqualified_query_name=f"get_row_count_{table}",
-                sql=self.sql_get_table_count(table),
+                data_source_scan=self.data_source_scan,
+                unqualified_query_name=query_name_str,
+                sql=self.sql_get_table_count(self.quote_table(table)),
             )
             query.execute()
             if query.rows:
-                result[query.rows[0][0]] = query.rows[0][1]
+                result[table] = query.rows[0][0]
 
         return result
 
-    def get_table_names(self, query_name: str | None = None, filter: str | None = None) -> list[str]:
-        sql = self.sql_find_table_names(filter=filter)
-        query = Query(data_source_scan=self, unqualified_query_name=query_name, sql=sql)
+    def get_table_names(
+        self,
+        filter: str | None = None,
+        include_tables: list[str] = [],
+        exclude_tables: list[str] = [],
+        query_name: str | None = None,
+    ) -> list[str]:
+        sql = self.sql_find_table_names(filter, include_tables, exclude_tables)
+        query = Query(
+            data_source_scan=self.data_source_scan, unqualified_query_name=query_name or "get_table_names", sql=sql
+        )
         query.execute()
         table_names = [row[0] for row in query.rows]
         return table_names
+
+    def analyze_table(self, table: str):
+        if self.sql_analyze_table(table):
+            Query(
+                data_source_scan=self.data_source_scan,
+                unqualified_query_name=f"analyze_{table}",
+                sql=self.sql_analyze_table(table),
+            ).execute()
 
     def quote_table_declaration(self, table_name) -> str:
         return self.quote_table(table_name=table_name)
@@ -454,7 +479,10 @@ class DataSource:
     def create_data_source_scan(self, scan: Scan, data_source_scan_cfg: DataSourceScanCfg):
         from soda.execution.data_source_scan import DataSourceScan
 
-        return DataSourceScan(scan, data_source_scan_cfg, self)
+        data_source_scan = DataSourceScan(scan, data_source_scan_cfg, self)
+        self.data_source_scan = data_source_scan
+
+        return self.data_source_scan
 
     @staticmethod
     def format_column_default(identifier: str) -> str:

@@ -73,7 +73,7 @@ class DataSourceImpl(DataSource):
     def sql_get_table_names_with_count(
         self, include_tables: Optional[List[str]] = None, exclude_tables: Optional[List[str]] = None
     ) -> str:
-        table_filter_expression = self.sql_table_filter_based_on_includes_excludes(
+        table_filter_expression = self.sql_table_include_exclude_filter(
             '"table"', "tbl_rows", include_tables, exclude_tables
         )
         where_clause = f"\nWHERE {table_filter_expression} \n" if table_filter_expression else ""

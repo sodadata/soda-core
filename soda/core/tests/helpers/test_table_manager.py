@@ -35,6 +35,9 @@ class TestTableManager:
                     self._drop_test_table(obsolete_table_name)
             self._create_and_insert_test_table(test_table)
             self.data_source.commit()
+
+            # Run analyze table so that metadata works if applicable.
+            self.data_source.analyze_table(test_table.unique_table_name)
         return test_table.unique_table_name
 
     def _get_existing_test_table_names(self):
