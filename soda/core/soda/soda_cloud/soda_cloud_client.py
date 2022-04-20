@@ -99,8 +99,6 @@ class SodaCloudClient:
             response_json = self._execute_request(request_type, request_body, True)
         elif response.status_code != 200:
             logger.debug(f"Error while executing Soda cloud request {response_json}")
-        # else:
-        #     logger.debug(response_json)
         return response_json
 
     def _get_token(self):

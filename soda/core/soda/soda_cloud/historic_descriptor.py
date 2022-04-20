@@ -17,13 +17,3 @@ class HistoricMeasurementsDescriptor(HistoricDescriptor):
 class HistoricCheckResultsDescriptor(HistoricDescriptor):
     check_identity: Optional[str]
     limit: Optional[int] = 100
-
-
-# class HistoricDescriptor:
-#     def __init__(
-#         self,
-#         change_over_time_cfg: "ChangeOverTimeCfg" = None,
-#     ):
-#         from soda.sodacl.change_over_time_cfg import ChangeOverTimeCfg
-#
-#         self.change_over_time_cfg: ChangeOverTimeCfg = change_over_time_cfg
