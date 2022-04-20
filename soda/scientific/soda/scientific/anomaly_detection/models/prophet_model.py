@@ -1,5 +1,7 @@
 """Prophet predictor model class."""
 import logging
+
+logging.getLogger("matplotlib").setLevel(logging.WARNING)
 import multiprocessing
 import os
 import sys

@@ -61,7 +61,7 @@ class AnomalyMetricCheck(MetricCheck):
                 diagnostics["anomalyProbability"], float
             ), f"Anomaly probability must be a float but it is {type(diagnostics['anomalyProbability'])}"
 
-            self.check_value = diagnostics["anomalyProbability"]
+            self.check_value = diagnostics["value"]
             self.outcome = CheckOutcome(level)
             self.diagnostics = diagnostics
 
@@ -70,8 +70,7 @@ class AnomalyMetricCheck(MetricCheck):
 
     def get_cloud_diagnostics_dict(self) -> dict:
         cloud_diagnostics = super().get_cloud_diagnostics_dict()
-        cloud_diagnostics["diagnostics"] = self.diagnostics
-        return cloud_diagnostics
+        return {**cloud_diagnostics, **self.diagnostics}
 
     def get_log_diagnostic_dict(self) -> dict:
         log_diagnostics = super().get_log_diagnostic_dict()

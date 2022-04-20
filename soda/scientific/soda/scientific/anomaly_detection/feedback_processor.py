@@ -67,7 +67,7 @@ class FeedbackProcessor:
         df = df_historic.copy()
         if self.has_feedback:
             df["feedback"] = df["feedback"].fillna(pd.NA)
-            df = df.applymap(lambda x: {} if pd.isnull(x) else x)
+            df["feedback"] = df["feedback"].apply(lambda x: {} if pd.isnull(x) else x)
             feedback_array = df["feedback"].values
             df_flattened = pd.json_normalize(feedback_array)  # type: ignore
             df_joined = pd.merge(df, df_flattened, left_index=True, right_index=True)
