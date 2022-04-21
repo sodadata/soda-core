@@ -137,7 +137,7 @@ class AnomalyDetector:
 
     def _convert_to_well_shaped_df(self) -> pd.DataFrame:
         if not self.df_check_results.empty:
-            logging.info("Got test results from data request. Merging it with the measurements")
+            logging.debug("Got test results from data request. Merging it with the measurements")
             df = self.df_measurements.merge(
                 self.df_check_results,
                 how="left",
@@ -192,7 +192,7 @@ class AnomalyDetector:
             loaded_config["feedback_processor_params"]["output_columns"] = self._replace_none_values_by_key(
                 loaded_config["feedback_processor_params"]["output_columns"]
             )
-            logging.info(f"Config parsed {loaded_config}")
+            logging.debug(f"Config parsed {loaded_config}")
 
             return loaded_config
 

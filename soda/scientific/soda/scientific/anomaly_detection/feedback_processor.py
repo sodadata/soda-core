@@ -104,7 +104,7 @@ class FeedbackProcessor:
             df_regressor_ref = self.df_feedback_processed.loc[
                 self.df_feedback_processed["is_misclassification"] == True  # noqa: E712
             ]
-            logging.info(f"Processing {len(df_regressor_ref)} user feedbacks")
+            logging.debug(f"Processing {len(df_regressor_ref)} user feedbacks")
             df_regressor_ref = df_regressor_ref.merge(
                 feedback_ref_mapping, how="left", left_on="reason", right_on="index"
             )

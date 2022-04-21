@@ -211,7 +211,7 @@ class ProphetDetector(BaseDetector):
         _df["ds"] = _df["ds"].dt.normalize()
         has_dupe_dates = _df.duplicated(subset=["ds"]).any()
         if not has_dupe_dates:
-            logging.info("Converted into daily dataset with no data dropping")
+            logging.warning("Anomaly Detection Frequency Warning: Converted into daily dataset with no data dropping")
             return FreqDetectionResult(
                 inferred_frequency="D",
                 df=_df,
@@ -227,7 +227,9 @@ class ProphetDetector(BaseDetector):
         if self._preprocess_params.get("assume_daily", False):
             _df = _df.drop_duplicates("ds", keep="last")
             if isinstance(_df, pd.DataFrame):
-                logging.info("Coerced into daily dataset with last daily time point kept")
+                logging.warning(
+                    "Anomaly Detection Frequency Warning: Coerced into daily dataset with last daily time point kept"
+                )
                 if len(_df) >= 4:
                     return FreqDetectionResult(
                         inferred_frequency="D",
@@ -245,7 +247,9 @@ class ProphetDetector(BaseDetector):
         inferred_frequency = pd.infer_freq(_df[-4:])
         _df = _df.reset_index()
         if inferred_frequency and isinstance(_df, pd.DataFrame):
-            logging.warning("Using inferred frequency from the last 4 data points.")
+            logging.warning(
+                "Anomaly Detection Frequency Warning: Using inferred frequency from the last 4 data points."
+            )
             return FreqDetectionResult(
                 inferred_frequency=inferred_frequency,
                 df=_df,
@@ -314,12 +318,16 @@ class ProphetDetector(BaseDetector):
         if isinstance(self.time_series, TimeSeries):
             self.time_series = self.time_series.pd_dataframe().reset_index()
 
-        logging.debug(f"Fitting prophet model with the following parameters:\n{self._detector_params}")
+        logging.debug(
+            f"Anomaly Detection: Fitting prophet model with the following parameters:\n{self._detector_params}"
+        )
         if "external_regressor" in self.time_series:
-            logging.info("Found a custom external_regressor and adding it to Prophet model")
+            logging.info(
+                "Anomaly Detection: Found a custom external_regressor derived from user feedback and adding it to Prophet model"
+            )
             self.model = Prophet(**self._detector_params).add_regressor("external_regressor", mode="multiplicative")
         else:
-            logging.info("No external_regressor found")
+            logging.debug("Anomaly Detection: No external_regressor/user feedback found")
             self.model = Prophet(**self._detector_params)
         if self._suppress_stan:
             with SuppressStdoutStderr():
@@ -359,7 +367,7 @@ class ProphetDetector(BaseDetector):
         ), "ProphetDetector has not been trained yet. Make sure you run `setup_and_train_ts_model` first"
         self.predictions["real_data"] = self.time_series["y"].reset_index(drop=True)
 
-        logging.debug(f"detecting anomalies for the last {self._n_points} points.")
+        logging.debug(f"Anomaly Detection: detecting anomalies for the last {self._n_points} points.")
 
         # round/trucate because floats are shit and cause precision errors
         self.predictions["real_data"] = self.predictions["real_data"].round(10)
@@ -435,26 +443,26 @@ class ProphetDetector(BaseDetector):
             & self.anomalies["is_anomaly"]
             != 0,
             "level",
-        ] = "warning"
+        ] = "warn"
         self.anomalies.loc[
             (self.anomalies["real_data"] >= self.anomalies["warning_greater_than_or_equal"])
             & (self.anomalies["real_data"] < self.anomalies["critical_greater_than_or_equal"])
             & self.anomalies["is_anomaly"]
             != 0,
             "level",
-        ] = "warning"
+        ] = "warn"
         self.anomalies.loc[
             (self.anomalies["real_data"] >= self.anomalies["critical_greater_than_or_equal"])
             & self.anomalies["is_anomaly"]
             != 0,
             "level",
-        ] = "critical"
+        ] = "fail"
         self.anomalies.loc[
             (self.anomalies["real_data"] <= self.anomalies["critical_lower_than_or_equal"])
             & self.anomalies["is_anomaly"]
             != 0,
             "level",
-        ] = "critical"
+        ] = "fail"
 
     def run(self) -> pd.DataFrame:
         """Convenience orchestrator that outputs last anomalies as a pd.DataFrame."""

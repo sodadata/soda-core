@@ -61,7 +61,7 @@ class AnomalyMetricCheck(MetricCheck):
                 diagnostics["anomalyProbability"], float
             ), f"Anomaly probability must be a float but it is {type(diagnostics['anomalyProbability'])}"
 
-            self.check_value = diagnostics["value"]
+            self.check_value = diagnostics["anomalyProbability"]
             self.outcome = CheckOutcome(level)
             self.diagnostics = diagnostics
 
