@@ -29,6 +29,9 @@ class AnomalyMetricCheck(MetricCheck):
         )
 
         metric_check_cfg: MetricCheckCfg = self.check_cfg
+        assert (
+            metric_check_cfg.fail_threshold_cfg or metric_check_cfg.warn_threshold_cfg
+        ), "Anomaly detection was not given a threshold. See parser error above."
         metric_name = metric_check_cfg.metric_name
         metric = self.metrics[metric_name]
 
