@@ -551,7 +551,6 @@ class SodaCLParser(Parser):
                     "Make sure that your check definition adheres to the following syntax: 'anomaly score for {metric} < default'.",
                     location=self.location,
                 )
-                # FIXME: I have a feeling there is a better return to make it clear to the scan that this check is not evaluated.
                 return metric_check_cfg_class(
                     source_header=header_str,
                     source_line=check_str,
@@ -572,6 +571,8 @@ class SodaCLParser(Parser):
             if antlr_metric_check.default_anomaly_threshold():
                 warn_threshold_cfg = ThresholdCfg(gt=0.9)
 
+            # NOTE: Right now we are not using this parsing as we require '< default' syntax but when that changes
+            # this section will come in handy to parse user-provided thresholds for anomaly detection.
             elif antlr_threshold:
                 warn_threshold_cfg = fail_threshold_cfg
                 fail_threshold_cfg = None

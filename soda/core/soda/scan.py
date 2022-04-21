@@ -41,7 +41,7 @@ class Scan:
         self._data_timestamp: datetime = now
         self._scan_start_timestamp: datetime = now
         # FIXME: this attribute cannot be None if typed as `datetime`
-        self._scan_end_timestamp: datetime = None
+        self._scan_end_timestamp: datetime | None = None
         self._data_source_manager = DataSourceManager(self._logs, self._configuration)
         self._data_source_scans: list[DataSourceScan] = []
         self._metrics: set[Metric] = set()
