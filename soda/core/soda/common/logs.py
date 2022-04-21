@@ -15,6 +15,7 @@ def configure_logging():
     logging.getLogger("pyathena").setLevel(logging.WARNING)
     logging.getLogger("faker").setLevel(logging.ERROR)
     logging.getLogger("snowflake").setLevel(logging.WARNING)
+    logging.getLogger("matplotlib").setLevel(logging.WARNING)
     logging.basicConfig(
         level=logging.DEBUG,
         force=True,  # Override any previously set handlers.

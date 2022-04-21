@@ -4,11 +4,11 @@
 #   # captures the delta between the predicted and actual value,
 #   # reproduces is forward at captured regularity with some smoothing/decay around the point
 
-import logging
 from datetime import date
 from typing import Any, Dict
 
 import pandas as pd
+from soda.common.logs import Logs
 
 FEEDBACK_REASONS = {
     "expectedDailySeasonality": {
@@ -48,8 +48,9 @@ WEEK_ANCHORED_OFFSETS = {
 class FeedbackProcessor:
     """Processes user feedback."""
 
-    def __init__(self, params: Dict[str, Any], df_historic: pd.DataFrame):
+    def __init__(self, params: Dict[str, Any], df_historic: pd.DataFrame, logs: Logs):
         """Constructor for FeedbackProcessor."""
+        self._logs = logs
         self._params = params
         self.has_feedback = self.check_feedback(df_historic)
         self.df_feedback_processed: pd.DataFrame = self.process_feedback(df_historic)
@@ -104,7 +105,7 @@ class FeedbackProcessor:
             df_regressor_ref = self.df_feedback_processed.loc[
                 self.df_feedback_processed["is_misclassification"] == True  # noqa: E712
             ]
-            logging.debug(f"Processing {len(df_regressor_ref)} user feedbacks")
+            self._logs.debug(f"Processing {len(df_regressor_ref)} user feedbacks")
             df_regressor_ref = df_regressor_ref.merge(
                 feedback_ref_mapping, how="left", left_on="reason", right_on="index"
             )

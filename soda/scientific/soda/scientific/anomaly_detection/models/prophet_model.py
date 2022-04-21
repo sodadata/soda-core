@@ -1,7 +1,5 @@
 """Prophet predictor model class."""
-import logging
 
-logging.getLogger("matplotlib").setLevel(logging.WARNING)
 import multiprocessing
 import os
 import sys
@@ -13,6 +11,7 @@ import pandas as pd
 from darts import TimeSeries
 from darts.utils.missing_values import fill_missing_values
 from prophet import Prophet
+from soda.common.logs import Logs
 
 from soda.scientific.anomaly_detection.models.base import BaseDetector
 
@@ -125,6 +124,7 @@ class ProphetDetector(BaseDetector):
 
     def __init__(
         self,
+        logs: Logs,
         params: Dict[str, Any],
         time_series_data: pd.DataFrame,
         has_exegonenous_regressor: bool = False,
@@ -143,6 +143,7 @@ class ProphetDetector(BaseDetector):
         if "pytest" not in sys.argv[0]:
             multiprocessing.set_start_method("fork")
 
+        self._logs = logs
         self._params = params
         self._prophet_detector_params = self._params["prophet_detector"]
         self._preprocess_params = self._prophet_detector_params["preprocess_params"]
@@ -190,7 +191,7 @@ class ProphetDetector(BaseDetector):
         _df = _df.sort_index()
         inferred_frequency = pd.infer_freq(_df.index)
         if inferred_frequency and isinstance(_df, pd.DataFrame):
-            logging.info(DETECTOR_MESSAGES["native_freq"].log_message)
+            self._logs.info(DETECTOR_MESSAGES["native_freq"].log_message)
             return FreqDetectionResult(
                 inferred_frequency,
                 _df.tz_localize(None).reset_index(),
@@ -211,7 +212,9 @@ class ProphetDetector(BaseDetector):
         _df["ds"] = _df["ds"].dt.normalize()
         has_dupe_dates = _df.duplicated(subset=["ds"]).any()
         if not has_dupe_dates:
-            logging.warning("Anomaly Detection Frequency Warning: Converted into daily dataset with no data dropping")
+            self._logs.warning(
+                "Anomaly Detection Frequency Warning: Converted into daily dataset with no data dropping"
+            )
             return FreqDetectionResult(
                 inferred_frequency="D",
                 df=_df,
@@ -227,7 +230,7 @@ class ProphetDetector(BaseDetector):
         if self._preprocess_params.get("assume_daily", False):
             _df = _df.drop_duplicates("ds", keep="last")
             if isinstance(_df, pd.DataFrame):
-                logging.warning(
+                self._logs.warning(
                     "Anomaly Detection Frequency Warning: Coerced into daily dataset with last daily time point kept"
                 )
                 if len(_df) >= 4:
@@ -247,7 +250,7 @@ class ProphetDetector(BaseDetector):
         inferred_frequency = pd.infer_freq(_df[-4:])
         _df = _df.reset_index()
         if inferred_frequency and isinstance(_df, pd.DataFrame):
-            logging.warning(
+            self._logs.warning(
                 "Anomaly Detection Frequency Warning: Using inferred frequency from the last 4 data points."
             )
             return FreqDetectionResult(
@@ -267,12 +270,12 @@ class ProphetDetector(BaseDetector):
     def preprocess(self):
         missing_values = self.time_series_data.isnull().sum().sum()
         if self._preprocess_params["warn_if_missing_values"] and missing_values:
-            logging.debug(f"dataframe has {missing_values} missing values.")
+            self._logs.debug(f"dataframe has {missing_values} missing values.")
 
         try:
             self.freq_detection_result = self.detect_frequency_better()
             if self.freq_detection_result.error_severity == "error":
-                logging.warning(DETECTOR_MESSAGES[self.freq_detection_result.freq_detection_strategy].log_message)
+                self._logs.warning(DETECTOR_MESSAGES[self.freq_detection_result.freq_detection_strategy].log_message)
                 return
 
         except Exception as e:
@@ -285,7 +288,7 @@ class ProphetDetector(BaseDetector):
                     error_code=DETECTOR_MESSAGES["bailing_out"].error_code_str,
                     error_severity=DETECTOR_MESSAGES["bailing_out"].severity,
                 )
-            logging.error(e)
+            self._logs.error(e)
             return
 
         if isinstance(self.time_series_data, pd.DataFrame):
@@ -318,16 +321,16 @@ class ProphetDetector(BaseDetector):
         if isinstance(self.time_series, TimeSeries):
             self.time_series = self.time_series.pd_dataframe().reset_index()
 
-        logging.debug(
+        self._logs.debug(
             f"Anomaly Detection: Fitting prophet model with the following parameters:\n{self._detector_params}"
         )
         if "external_regressor" in self.time_series:
-            logging.info(
+            self._logs.info(
                 "Anomaly Detection: Found a custom external_regressor derived from user feedback and adding it to Prophet model"
             )
             self.model = Prophet(**self._detector_params).add_regressor("external_regressor", mode="multiplicative")
         else:
-            logging.debug("Anomaly Detection: No external_regressor/user feedback found")
+            self._logs.debug("Anomaly Detection: No external_regressor/user feedback found")
             self.model = Prophet(**self._detector_params)
         if self._suppress_stan:
             with SuppressStdoutStderr():
@@ -367,7 +370,7 @@ class ProphetDetector(BaseDetector):
         ), "ProphetDetector has not been trained yet. Make sure you run `setup_and_train_ts_model` first"
         self.predictions["real_data"] = self.time_series["y"].reset_index(drop=True)
 
-        logging.debug(f"Anomaly Detection: detecting anomalies for the last {self._n_points} points.")
+        self._logs.debug(f"Anomaly Detection: detecting anomalies for the last {self._n_points} points.")
 
         # round/trucate because floats are shit and cause precision errors
         self.predictions["real_data"] = self.predictions["real_data"].round(10)
@@ -481,5 +484,5 @@ class ProphetDetector(BaseDetector):
                 self.anomalies = pd.DataFrame()
                 return self.anomalies
         except Exception as e:
-            logging.error(e, exc_info=True)
+            self._logs.error(e, exc_info=True)
             raise e

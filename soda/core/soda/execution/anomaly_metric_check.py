@@ -56,7 +56,8 @@ class AnomalyMetricCheck(MetricCheck):
                 AnomalyDetector,
             )
 
-            level, diagnostics = AnomalyDetector(historic_measurements, historic_check_results).evaluate()
+            anomaly_detector = AnomalyDetector(historic_measurements, historic_check_results, self.logs)
+            level, diagnostics = anomaly_detector.evaluate()
             assert isinstance(
                 diagnostics, dict
             ), f"Anomaly diagnostics should be a dict. Got a {type(diagnostics)} instead"

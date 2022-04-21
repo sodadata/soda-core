@@ -1,11 +1,11 @@
 import datetime
-import logging
 from pathlib import Path
 from typing import Any, Dict, List, Mapping, Optional, Tuple
 
 import pandas as pd
 import yaml
 from pydantic import BaseModel, validator
+from soda.common.logs import Logs
 
 from soda.scientific.anomaly_detection.feedback_processor import FeedbackProcessor
 from soda.scientific.anomaly_detection.models.prophet_model import (
@@ -106,7 +106,8 @@ MOCK_ANOMALY_DIAGNOSTICS = [
 
 
 class AnomalyDetector:
-    def __init__(self, measurements, check_results):
+    def __init__(self, measurements, check_results, logs: Logs):
+        self._logs = logs
         self.df_measurements = self._parse_historical_measurements(measurements)
         self.df_check_results = self._parse_historical_check_results(check_results)
         self.params = self._parse_params()
@@ -120,14 +121,13 @@ class AnomalyDetector:
         else:
             raise ValueError("No historical measurements found.")
 
-    @staticmethod
-    def _parse_historical_check_results(check_results: Dict[str, List[Dict[str, Any]]]) -> pd.DataFrame:
+    def _parse_historical_check_results(self, check_results: Dict[str, List[Dict[str, Any]]]) -> pd.DataFrame:
         if check_results.get("results"):
             parsed_check_results = AnomalyHistoricalCheckResults.parse_obj(check_results)
             _df_check_results = pd.DataFrame.from_dict(parsed_check_results.dict()["results"])
             return _df_check_results
         else:
-            logging.info(
+            self._logs.info(
                 "No past check results found. This could be because there are no past runs of "
                 "Anomaly Detection for this check yet."
             )
@@ -137,7 +137,7 @@ class AnomalyDetector:
 
     def _convert_to_well_shaped_df(self) -> pd.DataFrame:
         if not self.df_check_results.empty:
-            logging.debug("Got test results from data request. Merging it with the measurements")
+            self._logs.debug("Got test results from data request. Merging it with the measurements")
             df = self.df_measurements.merge(
                 self.df_check_results,
                 how="left",
@@ -192,12 +192,12 @@ class AnomalyDetector:
             loaded_config["feedback_processor_params"]["output_columns"] = self._replace_none_values_by_key(
                 loaded_config["feedback_processor_params"]["output_columns"]
             )
-            logging.debug(f"Config parsed {loaded_config}")
+            self._logs.debug(f"Config parsed {loaded_config}")
 
             return loaded_config
 
         except Exception as e:
-            logging.error(e)
+            self._logs.error(e)
             raise e
 
     @staticmethod
@@ -247,10 +247,11 @@ class AnomalyDetector:
     def evaluate(self) -> Tuple[str, Dict[str, Any]]:
         df_historic = self._convert_to_well_shaped_df()
 
-        feedback = FeedbackProcessor(params=self.params, df_historic=df_historic)
+        feedback = FeedbackProcessor(params=self.params, df_historic=df_historic, logs=self._logs)
         feedback.run()
 
         detector = ProphetDetector(
+            logs=self._logs,
             params=self.params,
             time_series_data=feedback.df_feedback_processed,
             has_exegonenous_regressor=feedback.has_exegonenous_regressor,
