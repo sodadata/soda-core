@@ -63,10 +63,13 @@ class Log:
             exception_str = indent(text=exception_str, prefix="  | ")
             logger.log(python_log_level, exception_str)
             # Logging the stack trace
-            stacktrace = get_exception_stacktrace(self.exception)
-            indented_stacktrace = indent(text=stacktrace, prefix="  | ")
-            logger.log(python_log_level, f"  | Stacktrace:")
-            logger.log(python_log_level, indented_stacktrace)
+            from soda.scan import verbose
+
+            if verbose:
+                stacktrace = get_exception_stacktrace(self.exception)
+                indented_stacktrace = indent(text=stacktrace, prefix="  | ")
+                logger.log(python_log_level, f"  | Stacktrace:")
+                logger.log(python_log_level, indented_stacktrace)
         if self.level in [LogLevel.WARNING, LogLevel.ERROR] and self.location is not None:
             logger.log(python_log_level, f"  +-> {self.location}")
         if isinstance(self.doc, str):
