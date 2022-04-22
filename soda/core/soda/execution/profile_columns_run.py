@@ -2,6 +2,7 @@ from textwrap import dedent
 from typing import TYPE_CHECKING, Dict, List
 
 from soda.execution.profile_columns_result import ProfileColumnsResult
+from soda.execution.profile_columns_result_column import ProfileColumnsResultColumn
 from soda.execution.query import Query
 from soda.sodacl.profile_columns_cfg import ProfileColumnsCfg
 
@@ -45,60 +46,64 @@ class ProfileColumnsRun:
             # Ideally, I don't want to implement a mapping between db types from all dialects if we have this logic somewhere else in the
             # code
 
-            column_types_by_name = {"distance": "float"}
+            # perform numerical metrics collection
+            numerical_columns = {
+                col_name: data_type
+                for col_name, data_type in columns_metadata_result.items()
+                if data_type in ["integer", "double precision"]
+            }
 
-            for column_name, column_type in column_types_by_name.items():
+            for column_name, column_type in numerical_columns.items():
                 if self._is_column_included_for_profiling(column_name):
-                    profile_columns_result_column = profile_columns_result_table.create_column(column_name, column_type)
-                    sql = self.sql_values_frequencies_query(table_name, column_name)
+                    profile_columns_result_column: ProfileColumnsResultColumn = (
+                        profile_columns_result_table.create_column(column_name, column_type)
+                    )
+                    value_frequencies_sql = self.sql_values_frequencies_query(table_name, column_name)
 
-                    query = Query(
+                    value_frequencies_query = Query(
                         data_source_scan=self.data_source_scan,
                         unqualified_query_name="get_profile_columns_metrics",
-                        sql=sql,
+                        sql=value_frequencies_sql,
                     )
-                    query.execute()
-                    profile_columns_result_column.mins = [row[0] for row in query.rows]
+                    value_frequencies_query.execute()
+                    if value_frequencies_query.rows is not None:
+                        profile_columns_result_column.mins = [row[0] for row in value_frequencies_query.rows]
+                        profile_columns_result_column.maxes = [row[1] for row in value_frequencies_query.rows]
+                        profile_columns_result_column.min = profile_columns_result_column.mins[0]
+                        profile_columns_result_column.max = profile_columns_result_column.maxes[0]
+                        profile_columns_result_column.frequent_values = [row[2] for row in value_frequencies_query.rows]
+                        profile_columns_result_column.frequency = [row[3] for row in value_frequencies_query.rows]
+
+                    # pure aggregates
+                    aggregates_sql = self.sql_aggregates(table_name, column_name)
+                    aggregates_query = Query(
+                        data_source_scan=self.data_source_scan,
+                        unqualified_query_name="get_pure_profiling_aggregates",
+                        sql=aggregates_sql,
+                    )
+                    aggregates_query.execute()
+
+                    if aggregates_query.rows is not None:
+                        # the float() method isn't super good. We will want to find a way to safely get a float from a
+                        # potentially dynamic result of the like Decimal(), which I don't yet if there is much of a way.
+                        profile_columns_result_column.average = float(aggregates_query.rows[0][0])
+                        profile_columns_result_column.sum = aggregates_query.rows[0][1]
+                        profile_columns_result_column.variance = float(aggregates_query.rows[0][2])
+                        profile_columns_result_column.standard_deviation = float(aggregates_query.rows[0][3])
 
         return profile_columns_result
 
     def sql_values_frequencies_query(self, table_name: str, column_name: str) -> str:
-        # with values as (
-        #   select {colname} as value, count(*) as frequency
-        #   from table [TABLESAMPLE ...]
-        #   group by {colname}
-        #   [where filter]
-        # )
-        # select 'mins', value, frequency
-        # from values
-        # order by value ASC
-        # limit 10
-        # UNION ALL
-        # select 'maxs', value, frequency
-        # from values
-        # order by value DESC
-        # limit 10
-        # UNION ALL
-        # select 'frequent values', value, frequency
-        # from values
-        # order by frequency DESC
-        # limit 10
-        # UNION ALL
-        # select 'duplicates', value, frequency
-        # from values
-        # where frequency > 1
-        # order by frequency DESC
-        # limit 10
         return dedent(
             f"""
                 WITH values AS (
                   {self.sql_cte_value_frequencies(table_name, column_name)}
                 )
-                {self.sql_mins()}
+                {self.sql_value_frequencies_select()}
             """
         )
 
-    def sql_cte_value_frequencies(self, table_name, column_name):
+    def sql_cte_value_frequencies(self, table_name: str, column_name: str) -> str:
         return dedent(
             f"""
                 SELECT {column_name} as value, count(*) as frequency
@@ -107,13 +112,57 @@ class ProfileColumnsRun:
             """
         )
 
-    def sql_mins(self):
+    def sql_value_frequencies_select(self) -> str:
         return dedent(
             """
-                 SELECT value, frequency, 'mins'
-                 FROM values
-                 ORDER BY value ASC
-                 LIMIT 10
+            , mins as (
+            select value, row_number() over(order by value asc) as idx, frequency, 'mins'::text as metric_name
+            from values
+            where values is not null
+            order by value asc
+            limit 10
+        )
+        , maxes as (
+            select value, row_number() over(order by value desc) as idx, frequency, 'maxes'::text as metric_name
+            from values
+            where values is not null
+            order by value desc
+            limit 10
+        )
+        , frequent_values as (
+            select
+                frequency
+                , row_number() over (order by frequency desc) as idx
+                , value
+            from values
+            order by frequency desc
+            limit 10
+        )
+        , final as (
+            select
+                mins.value as mins
+                , maxes.value as maxes
+                , frequent_values.value as frequent_values
+                , frequent_values.frequency as frequency
+            from mins
+            join maxes
+                 on mins.idx = maxes.idx
+            join frequent_values
+                on mins.idx = frequent_values.idx
+        )
+        select * from final
+            """
+        )
+
+    def sql_aggregates(self, table_name: str, column_name: str) -> str:
+        return dedent(
+            f"""
+            select
+                avg({column_name}) as average
+                , sum({column_name}) as sum
+                , variance({column_name}) as variance
+                , stddev({column_name}) as standard_deviation
+            from {table_name}
             """
         )
 
