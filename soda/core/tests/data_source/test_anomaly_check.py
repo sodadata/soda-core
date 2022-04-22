@@ -1,3 +1,4 @@
+import pytest
 from tests.helpers.common_test_tables import customers_test_table
 from tests.helpers.scanner import Scanner
 
@@ -24,6 +25,7 @@ def test_anomaly_detection_default(scanner: Scanner):
     scan.assert_all_checks_pass()
 
 
+@pytest.mark.skip("custom threshold is not supported")
 def test_anomaly_detection_custom_threshold(scanner: Scanner):
     table_name = scanner.ensure_test_table(customers_test_table)
 
@@ -46,7 +48,8 @@ def test_anomaly_detection_custom_threshold(scanner: Scanner):
     scan.assert_all_checks_warn()
 
 
-def test_anomaly_detection_fail(scanner: Scanner):
+@pytest.mark.skip("custom threshold is not supported")
+def test_anomaly_detection_fail_with_custom_threshold(scanner: Scanner):
     table_name = scanner.ensure_test_table(customers_test_table)
 
     scan = scanner.create_test_scan()

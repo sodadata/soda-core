@@ -1,8 +1,13 @@
 import logging
 from datetime import datetime, timedelta
-from typing import Dict, List, Set
+from typing import Dict, List
 
 from soda.scan import Scan
+from soda.soda_cloud.historic_descriptor import (
+    HistoricChangeOverTimeDescriptor,
+    HistoricDescriptor,
+    HistoricMeasurementsDescriptor,
+)
 from soda.soda_cloud.soda_cloud import SodaCloud
 
 logger = logging.getLogger(__name__)
@@ -40,7 +45,8 @@ class MockSodaCloud(SodaCloud):
         To learn the metric_identity: fill in any string, check the error log and capture the metric_identity from there
         """
         historic_metric_values = [
-            {"identity": metric_identity, "value": v, "data_time": time_generator.next()} for v in metric_values
+            {"identity": metric_identity, "id": i, "value": v, "dataTime": time_generator.next()}
+            for i, v in enumerate(metric_values)
         ]
         self.add_historic_metric_values(historic_metric_values)
 
@@ -54,19 +60,16 @@ class MockSodaCloud(SodaCloud):
         """
         self.historic_metric_values.extend(historic_metric_values)
 
-    def get(self, historic_query):
-        pass
-
-    def get_historic_data(self, historic_descriptors: Set["HistoricDescriptor"]):
+    def get_historic_data(self, historic_descriptor: HistoricDescriptor):
         historic_data = {}
 
-        for historic_descriptor in historic_descriptors:
-            historic_data[historic_descriptor] = self.__get_historic_data(historic_descriptor)
-
-        return historic_data
+        return self.__get_historic_data(historic_descriptor)
 
     def __get_historic_data(self, historic_descriptor):
-        if historic_descriptor.change_over_time_cfg:
+        measurements = {}
+        check_results = {}
+
+        if type(historic_descriptor) == HistoricChangeOverTimeDescriptor and historic_descriptor.change_over_time_cfg:
             change_over_time_aggregation = historic_descriptor.change_over_time_cfg.last_aggregation
             if change_over_time_aggregation in ["avg", "min", "max"]:
                 historic_metric_values = self.__get_historic_metric_values(historic_descriptor.metric)
@@ -93,23 +96,25 @@ class MockSodaCloud(SodaCloud):
                     previous_metric_value = historic_metric_values[0]
                     return previous_metric_value
 
-        elif isinstance(historic_descriptor.anomaly_values, int):
-            return self.__get_historic_metric_values(historic_descriptor.metric)
+        elif type(historic_descriptor) == HistoricMeasurementsDescriptor:
+            measurements = self.__get_historic_metric_values(historic_descriptor.metric_identity)
 
-    def __get_historic_metric_values(self, metric):
+        return {"measurements": measurements, "check_results": check_results}
+
+    def __get_historic_metric_values(self, metric_identity):
         historic_metric_values = [
             historic_metric_value
             for historic_metric_value in self.historic_metric_values
-            if historic_metric_value["identity"] == metric.identity
+            if historic_metric_value["identity"] == metric_identity
         ]
 
         if not historic_metric_values:
-            raise AssertionError(f"No historic measurements for metric {metric.identity}")
+            raise AssertionError(f"No historic measurements for metric {metric_identity}")
 
         if len(historic_metric_values) > 0:
-            historic_metric_values.sort(key=lambda m: m["data_time"], reverse=True)
+            historic_metric_values.sort(key=lambda m: m["dataTime"], reverse=True)
 
-        return historic_metric_values
+        return {"results": historic_metric_values}
 
 
 MOCK_SODA_CLOUD_INSTANCE = MockSodaCloud()

@@ -1,5 +1,5 @@
 import logging
-from typing import Dict, Set
+from typing import Dict
 
 from soda.common.json_helper import JsonHelper
 from soda.soda_cloud.historic_descriptor import HistoricDescriptor
@@ -15,13 +15,8 @@ class SodaCloud:
         self.api_key_secret = api_key_secret
         self.cloud_client = SodaCloudClient(api_key_id, api_key_secret, host)
 
-    def get(self, historic_query):
-        # TODO unify this with get_historic_data
-        pass
-
-    def get_historic_data(self, historic_descriptors: Set["HistoricDescriptor"]) -> Dict[HistoricDescriptor, object]:
-        # TODO fix for both schema and change over time
-        return {h: "0" for h in historic_descriptors}
+    def get_historic_data(self, historic_descriptor: HistoricDescriptor) -> Dict[str, object]:
+        return self.cloud_client.get_historic_data(historic_descriptor)
 
     def send_scan_results(self, scan: "Scan"):
         scan_results = self.build_scan_results(scan)

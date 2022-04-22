@@ -6,7 +6,7 @@ from soda.execution.check_outcome import CheckOutcome
 from soda.execution.metric import Metric
 from soda.execution.partition import Partition
 from soda.execution.schema_comparator import SchemaComparator
-from soda.soda_cloud.historic_descriptor import HistoricDescriptor
+from soda.soda_cloud.historic_descriptor import HistoricChangeOverTimeDescriptor
 from soda.sodacl.change_over_time_cfg import ChangeOverTimeCfg
 from soda.sodacl.schema_check_cfg import SchemaCheckCfg, SchemaValidations
 
@@ -51,7 +51,9 @@ class SchemaCheck(Check):
 
         schema_check_cfg: SchemaCheckCfg = self.check_cfg
         if schema_check_cfg.has_change_validations():
-            historic_descriptor = HistoricDescriptor(metric=schema_metric, change_over_time_cfg=ChangeOverTimeCfg())
+            historic_descriptor = HistoricChangeOverTimeDescriptor(
+                metric=schema_metric, change_over_time_cfg=ChangeOverTimeCfg()
+            )
             self.historic_descriptors[KEY_SCHEMA_PREVIOUS] = historic_descriptor
 
     def evaluate(self, metrics: Dict[str, Metric], historic_values: Dict[str, object]):

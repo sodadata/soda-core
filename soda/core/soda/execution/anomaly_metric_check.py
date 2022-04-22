@@ -1,11 +1,16 @@
 from __future__ import annotations
 
+from soda.execution.check_outcome import CheckOutcome
 from soda.execution.metric import Metric
 from soda.execution.metric_check import MetricCheck
-from soda.soda_cloud.historic_descriptor import HistoricDescriptor
+from soda.soda_cloud.historic_descriptor import (
+    HistoricCheckResultsDescriptor,
+    HistoricMeasurementsDescriptor,
+)
 from soda.sodacl.metric_check_cfg import MetricCheckCfg
 
-KEY_HISTORIC_ANOMALY_VALUES = "historic_anomaly_values"
+KEY_HISTORIC_MEASUREMENTS = "historic_measurements"
+KEY_HISTORIC_CHECK_RESULTS = "historic_check_results"
 
 
 class AnomalyMetricCheck(MetricCheck):
@@ -23,59 +28,62 @@ class AnomalyMetricCheck(MetricCheck):
             column=column,
         )
 
+        self.skip_anomaly_check = False
         metric_check_cfg: MetricCheckCfg = self.check_cfg
+        if not metric_check_cfg.fail_threshold_cfg and not metric_check_cfg.warn_threshold_cfg:
+            self.skip_anomaly_check = True
         metric_name = metric_check_cfg.metric_name
         metric = self.metrics[metric_name]
 
-        self.historic_descriptors[KEY_HISTORIC_ANOMALY_VALUES] = HistoricDescriptor(
-            metric=metric,
-            anomaly_values=90,
+        self.historic_descriptors[KEY_HISTORIC_MEASUREMENTS] = HistoricMeasurementsDescriptor(
+            metric_identity=metric.identity,
+            limit=1000,
         )
+        self.historic_descriptors[KEY_HISTORIC_CHECK_RESULTS] = HistoricCheckResultsDescriptor(
+            check_identity=self.identity, limit=3
+        )
+        self.diagnostics = {}
+        self.cloud_check_type = "anomalyDetection"
 
     def evaluate(self, metrics: dict[str, Metric], historic_values: dict[str, object]):
-        metric_value = self.get_metric_value()
-        historic_anomaly_values = historic_values.get(KEY_HISTORIC_ANOMALY_VALUES)
-
-        if historic_anomaly_values:
-            self.check_value = self.compute_anomaly_score(historic_anomaly_values, metric_value)
-            self.set_outcome_based_on_check_value()
-
-            # put all diagnostics into a member field like this:
-            self.anomaly_values = {}
-
+        if self.skip_anomaly_check:
+            self.logs.error(
+                "Anomaly detection was not given a threshold. You might want to check if the parser returned errors"
+            )
+            self.outcome = None
         else:
-            self.logs.info("Skipping metric check eval because there is not enough historic data yet")
+            # TODO Review the data structure and see if we still need the KEY_HISTORIC_*
+            historic_measurements = historic_values.get(KEY_HISTORIC_MEASUREMENTS).get("measurements")
+            historic_check_results = historic_values.get(KEY_HISTORIC_CHECK_RESULTS).get("check_results")
 
-    def compute_anomaly_score(self, historic_anomaly_values: list[dict], metric_value: int | float) -> float:
-        data_timestamp = self.data_source_scan.scan._data_timestamp
+            if historic_measurements:
+                # TODO test for module installation and set check status to skipped if the module is not installed
+                from soda.scientific.anomaly_detection.anomaly_detector import (
+                    AnomalyDetector,
+                )
 
-        # TODO invoke the anomaly detection algorithm dynamically as it is in an extension module
-        # ensure appropriate error log if the extension module is not installed
-        # The historic_anomaly_values look like this:
-        # [
-        #     {
-        #         'identity': 'metric-test_change_over_time.py::test_anomaly_detection-postgres-SODATEST_Customers_b7580920-row_count',
-        #         'data_time': datetime.datetime(2022, 3, 8, 19, 40, 5, 880298),
-        #         'value': 10
-        #     },
-        #     {
-        #         'identity': 'metric-test_change_over_time.py::test_anomaly_detection-postgres-SODATEST_Customers_b7580920-row_count',
-        #         'data_time': datetime.datetime(2022, 3, 7, 19, 40, 5, 880298),
-        #         'value': 10
-        #     }, ...
-        # ]
+                anomaly_detector = AnomalyDetector(historic_measurements, historic_check_results, self.logs)
+                level, diagnostics = anomaly_detector.evaluate()
+                assert isinstance(
+                    diagnostics, dict
+                ), f"Anomaly diagnostics should be a dict. Got a {type(diagnostics)} instead"
+                assert isinstance(
+                    diagnostics["anomalyProbability"], float
+                ), f"Anomaly probability must be a float but it is {type(diagnostics['anomalyProbability'])}"
 
-        anomaly_score = 0.8
+                self.check_value = diagnostics["anomalyProbability"]
+                self.outcome = CheckOutcome(level)
+                self.diagnostics = diagnostics
 
-        return anomaly_score
+            else:
+                self.logs.warning("Skipping metric check eval because there is not enough historic data yet")
 
     def get_cloud_diagnostics_dict(self) -> dict:
         cloud_diagnostics = super().get_cloud_diagnostics_dict()
-        if self.historic_diff_values:
-            cloud_diagnostics["anomaly_values"] = self.anomaly_values
+        return {**cloud_diagnostics, **self.diagnostics}
 
     def get_log_diagnostic_dict(self) -> dict:
         log_diagnostics = super().get_log_diagnostic_dict()
         if self.historic_diff_values:
-            log_diagnostics.update(self.anomaly_values)
+            log_diagnostics.update(self.diagnostics)
         return log_diagnostics
