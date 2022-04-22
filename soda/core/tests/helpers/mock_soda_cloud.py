@@ -1,8 +1,9 @@
 import logging
 from datetime import datetime, timedelta
-from typing import Dict, List, Set
+from typing import Dict, List
 
 from soda.scan import Scan
+from soda.soda_cloud.historic_descriptor import HistoricDescriptor
 from soda.soda_cloud.soda_cloud import SodaCloud
 
 logger = logging.getLogger(__name__)
@@ -54,13 +55,10 @@ class MockSodaCloud(SodaCloud):
         """
         self.historic_metric_values.extend(historic_metric_values)
 
-    def get_historic_data(self, historic_descriptors: Set["HistoricDescriptor"]):
+    def get_historic_data(self, historic_descriptor: HistoricDescriptor):
         historic_data = {}
 
-        for historic_descriptor in historic_descriptors:
-            historic_data[historic_descriptor] = self.__get_historic_data(historic_descriptor)
-
-        return historic_data
+        return self.__get_historic_data(historic_descriptor)
 
     def __get_historic_data(self, historic_descriptor):
         if historic_descriptor.change_over_time_cfg:
