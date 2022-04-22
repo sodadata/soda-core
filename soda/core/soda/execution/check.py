@@ -136,20 +136,21 @@ class Check(ABC):
         from soda.execution.column import Column
         from soda.execution.partition import Partition
 
-        return {
-            "identity": self.identity,
-            "name": self.generate_soda_cloud_check_name(),
-            "type": self.cloud_check_type,
-            "definition": self.create_definition(),
-            "location": self.check_cfg.location.to_soda_cloud_json(),
-            "dataSource": self.data_source_scan.data_source.data_source_name,
-            "table": Partition.get_table_name(self.partition),
-            # "filter": Partition.get_partition_name(self.partition), TODO: re-enable once backend supports the property.
-            "column": Column.get_partition_name(self.column),
-            "metrics": [metric.identity for metric in self.metrics.values()],
-            "outcome": self.outcome.value,
-            "diagnostics": self.get_cloud_diagnostics_dict(),
-        }
+        if self.outcome is not None:
+            return {
+                "identity": self.identity,
+                "name": self.generate_soda_cloud_check_name(),
+                "type": self.cloud_check_type,
+                "definition": self.create_definition(),
+                "location": self.check_cfg.location.to_soda_cloud_json(),
+                "dataSource": self.data_source_scan.data_source.data_source_name,
+                "table": Partition.get_table_name(self.partition),
+                # "filter": Partition.get_partition_name(self.partition), TODO: re-enable once backend supports the property.
+                "column": Column.get_partition_name(self.column),
+                "metrics": [metric.identity for metric in self.metrics.values()],
+                "outcome": self.outcome.value,
+                "diagnostics": self.get_cloud_diagnostics_dict(),
+            }
 
     def generate_soda_cloud_check_name(self) -> str:
         if self.check_cfg.name:

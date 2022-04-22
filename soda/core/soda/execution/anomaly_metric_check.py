@@ -28,10 +28,10 @@ class AnomalyMetricCheck(MetricCheck):
             column=column,
         )
 
+        self.skip_anomaly_check = False
         metric_check_cfg: MetricCheckCfg = self.check_cfg
-        assert (
-            metric_check_cfg.fail_threshold_cfg or metric_check_cfg.warn_threshold_cfg
-        ), "Anomaly detection was not given a threshold. See parser error above."
+        if not metric_check_cfg.fail_threshold_cfg or not metric_check_cfg.warn_threshold_cfg:
+            self.skip_anomaly_check = True
         metric_name = metric_check_cfg.metric_name
         metric = self.metrics[metric_name]
 
@@ -46,31 +46,37 @@ class AnomalyMetricCheck(MetricCheck):
         self.cloud_check_type = "anomalyDetection"
 
     def evaluate(self, metrics: dict[str, Metric], historic_values: dict[str, object]):
-        # TODO Review the data structure and see if we still need the KEY_HISTORIC_*
-        historic_measurements = historic_values.get(KEY_HISTORIC_MEASUREMENTS).get("measurements")
-        historic_check_results = historic_values.get(KEY_HISTORIC_CHECK_RESULTS).get("check_results")
-
-        if historic_measurements:
-            # TODO test for module installation and set check status to skipped if the module is not installed
-            from soda.scientific.anomaly_detection.anomaly_detector import (
-                AnomalyDetector,
+        if self.skip_anomaly_check:
+            self.logs.error(
+                "Anomaly detection was not given a threshold. You might want to check if the parser returned errors"
             )
-
-            anomaly_detector = AnomalyDetector(historic_measurements, historic_check_results, self.logs)
-            level, diagnostics = anomaly_detector.evaluate()
-            assert isinstance(
-                diagnostics, dict
-            ), f"Anomaly diagnostics should be a dict. Got a {type(diagnostics)} instead"
-            assert isinstance(
-                diagnostics["anomalyProbability"], float
-            ), f"Anomaly probability must be a float but it is {type(diagnostics['anomalyProbability'])}"
-
-            self.check_value = diagnostics["anomalyProbability"]
-            self.outcome = CheckOutcome(level)
-            self.diagnostics = diagnostics
-
+            self.outcome = None
         else:
-            self.logs.warning("Skipping metric check eval because there is not enough historic data yet")
+            # TODO Review the data structure and see if we still need the KEY_HISTORIC_*
+            historic_measurements = historic_values.get(KEY_HISTORIC_MEASUREMENTS).get("measurements")
+            historic_check_results = historic_values.get(KEY_HISTORIC_CHECK_RESULTS).get("check_results")
+
+            if historic_measurements:
+                # TODO test for module installation and set check status to skipped if the module is not installed
+                from soda.scientific.anomaly_detection.anomaly_detector import (
+                    AnomalyDetector,
+                )
+
+                anomaly_detector = AnomalyDetector(historic_measurements, historic_check_results, self.logs)
+                level, diagnostics = anomaly_detector.evaluate()
+                assert isinstance(
+                    diagnostics, dict
+                ), f"Anomaly diagnostics should be a dict. Got a {type(diagnostics)} instead"
+                assert isinstance(
+                    diagnostics["anomalyProbability"], float
+                ), f"Anomaly probability must be a float but it is {type(diagnostics['anomalyProbability'])}"
+
+                self.check_value = diagnostics["anomalyProbability"]
+                self.outcome = CheckOutcome(level)
+                self.diagnostics = diagnostics
+
+            else:
+                self.logs.warning("Skipping metric check eval because there is not enough historic data yet")
 
     def get_cloud_diagnostics_dict(self) -> dict:
         cloud_diagnostics = super().get_cloud_diagnostics_dict()
