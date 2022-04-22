@@ -40,7 +40,8 @@ class Scan:
         self._file_paths: set[str] = set()
         self._data_timestamp: datetime = now
         self._scan_start_timestamp: datetime = now
-        self._scan_end_timestamp: datetime = None
+        # FIXME: this attribute cannot be None if typed as `datetime`
+        self._scan_end_timestamp: datetime | None = None
         self._data_source_manager = DataSourceManager(self._logs, self._configuration)
         self._data_source_scans: list[DataSourceScan] = []
         self._metrics: set[Metric] = set()
@@ -312,14 +313,6 @@ class Scan:
                 if isinstance(metric, DerivedMetric):
                     metric.compute_derived_metric_values()
 
-            # Collect the metric store requests from the checks and fetch them from Soda Cloud
-            historic_descriptors: set[HistoricDescriptor] = set()
-            for check in self._checks:
-                if check.historic_descriptors:
-                    historic_descriptors.update(check.historic_descriptors.values())
-            if historic_descriptors:
-                historic_data = self.__get_historic_data_from_soda_cloud_metric_store(historic_descriptors)
-
             # Evaluates the checks based on all the metric values
             for check in self._checks:
                 # First get the metric values for this check
@@ -331,19 +324,15 @@ class Scan:
                     else:
                         missing_value_metrics.append(metric)
 
-                # Get historic data for this check
-                check_historic_values = {}
+                check_historic_data = {}
+                # For each check get the historic data
                 if check.historic_descriptors:
-                    for (
-                        historic_name,
-                        historic_descriptor,
-                    ) in check.historic_descriptors.items():
-                        historic_value = historic_data.get(historic_descriptor)
-                        check_historic_values[historic_name] = historic_value
+                    for hd_key, hd in check.historic_descriptors.items():
+                        check_historic_data[hd_key] = self.__get_historic_data_from_soda_cloud_metric_store(hd)
 
                 if not missing_value_metrics:
                     try:
-                        check.evaluate(check_metrics, check_historic_values)
+                        check.evaluate(check_metrics, check_historic_data)
                     except BaseException as e:
                         self._logs.error(
                             f"Evaluation of check {check.check_cfg.source_line} failed: {e}",
@@ -355,9 +344,6 @@ class Scan:
                     self._logs.error(
                         f"Metrics {missing_metrics_str} were not computed for check {check.check_cfg.source_line}"
                     )
-
-            # TODO Show the results on the console: check results, metric values and queries
-            # TODO Send the results to Soda Cloud
 
             for data_source_scan in self._data_source_scans:
                 for monitoring_cfg in data_source_scan.data_source_scan_cfg.monitoring_cfgs:
@@ -526,10 +512,10 @@ class Scan:
             return definition
 
     def __get_historic_data_from_soda_cloud_metric_store(
-        self, historic_descriptors: set[HistoricDescriptor]
-    ) -> dict[HistoricDescriptor, object]:
+        self, historic_descriptor: HistoricDescriptor
+    ) -> dict[str, object]:
         if self._configuration.soda_cloud:
-            return self._configuration.soda_cloud.get_historic_data(historic_descriptors)
+            return self._configuration.soda_cloud.get_historic_data(historic_descriptor)
         else:
             self._logs.error("Soda Core must be configured to connect to Soda Cloud to use change-over-time checks.")
         return {}

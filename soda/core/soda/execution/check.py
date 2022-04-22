@@ -136,6 +136,8 @@ class Check(ABC):
         from soda.execution.column import Column
         from soda.execution.partition import Partition
 
+        if self.outcome is None:
+            self.outcome.value = None
         return {
             "identity": self.identity,
             "name": self.generate_soda_cloud_check_name(),
