@@ -1,7 +1,9 @@
+import pytest
 from tests.helpers.common_test_tables import customers_test_table
 from tests.helpers.scanner import Scanner
 
 
+@pytest.mark.skip
 def test_change_over_time(scanner: Scanner):
     table_name = scanner.ensure_test_table(customers_test_table)
 

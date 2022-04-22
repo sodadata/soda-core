@@ -30,7 +30,7 @@ class AnomalyMetricCheck(MetricCheck):
 
         self.skip_anomaly_check = False
         metric_check_cfg: MetricCheckCfg = self.check_cfg
-        if not metric_check_cfg.fail_threshold_cfg or not metric_check_cfg.warn_threshold_cfg:
+        if not metric_check_cfg.fail_threshold_cfg and not metric_check_cfg.warn_threshold_cfg:
             self.skip_anomaly_check = True
         metric_name = metric_check_cfg.metric_name
         metric = self.metrics[metric_name]
