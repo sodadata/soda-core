@@ -37,5 +37,5 @@ setup(
     packages=find_namespace_packages(include=["soda*"]),
     package_data={
         "": ["detector_config.yaml"],
-    }
+    },
 )
