@@ -8,6 +8,7 @@ import re
 from datetime import date, datetime
 from numbers import Number
 
+from soda.common.exceptions import DataSourceError
 from soda.common.logs import Logs
 from soda.execution.data_type import DataType
 from soda.execution.partition_queries import PartitionQueries
@@ -78,8 +79,8 @@ class DataSource:
             if connection_type == "postgresql":
                 logs.error(f'Data source type "{connection_type}" not found. Did you mean postgres?')
             else:
-                logs.error(
-                    f'Data source type "{connection_type}" not found. Did you spell {connection_type} correct?  Did you install module soda-core-{connection_type}?'
+                raise DataSourceError(
+                    f'Data source type "{connection_type}" not found. Did you spell {connection_type} correct? Did you install module soda-core-{connection_type}?'
                 )
             return None
 

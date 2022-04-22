@@ -633,7 +633,12 @@ class Scan:
             raise AssertionError(self.get_logs_text())
 
     def assert_has_error(self, expected_error_message: str):
-        if all([expected_error_message not in log.message for log in self.get_error_logs()]):
+        if all(
+            [
+                expected_error_message not in log.message and expected_error_message not in str(log.exception)
+                for log in self.get_error_logs()
+            ]
+        ):
             raise AssertionError(
                 f'Expected error message "{expected_error_message}" did not occur in the error logs:\n{self.get_logs_text()}'
             )
