@@ -3,8 +3,11 @@ from datetime import datetime, timedelta
 from typing import Dict, List
 
 from soda.scan import Scan
-from soda.soda_cloud.historic_descriptor import HistoricDescriptor, HistoricChangeOverTimeDescriptor, \
-    HistoricMeasurementsDescriptor
+from soda.soda_cloud.historic_descriptor import (
+    HistoricChangeOverTimeDescriptor,
+    HistoricDescriptor,
+    HistoricMeasurementsDescriptor,
+)
 from soda.soda_cloud.soda_cloud import SodaCloud
 
 logger = logging.getLogger(__name__)
@@ -42,8 +45,8 @@ class MockSodaCloud(SodaCloud):
         To learn the metric_identity: fill in any string, check the error log and capture the metric_identity from there
         """
         historic_metric_values = [
-            {"identity": metric_identity, "id": i, "value": v, "dataTime": time_generator.next()} for i, v in
-            enumerate(metric_values)
+            {"identity": metric_identity, "id": i, "value": v, "dataTime": time_generator.next()}
+            for i, v in enumerate(metric_values)
         ]
         self.add_historic_metric_values(historic_metric_values)
 

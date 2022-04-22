@@ -1,9 +1,9 @@
+import pytest
 from soda.execution.check_outcome import CheckOutcome
 from soda.execution.data_source import DataSource
 from soda.execution.data_type import DataType
 from tests.helpers.common_test_tables import customers_test_table
 from tests.helpers.scanner import Scanner
-import pytest
 
 
 @pytest.mark.skip
@@ -33,6 +33,7 @@ def test_schema_changes_pass(scanner: Scanner):
     scan.execute()
 
     scan.assert_all_checks_pass()
+
 
 @pytest.mark.skip
 def test_schema_changes_column_addition(scanner: Scanner):
@@ -109,6 +110,7 @@ def test_schema_changes_column_addition(scanner: Scanner):
     assert scan._checks[7].outcome == CheckOutcome.PASS
     assert scan._checks[8].outcome == CheckOutcome.WARN
     assert scan._checks[9].outcome == CheckOutcome.WARN
+
 
 @pytest.mark.skip
 def test_schema_changes_column_deletion(scanner: Scanner):
@@ -190,6 +192,7 @@ def test_schema_changes_column_deletion(scanner: Scanner):
     assert scan._checks[7].outcome == CheckOutcome.PASS
     assert scan._checks[8].outcome == CheckOutcome.WARN
     assert scan._checks[9].outcome == CheckOutcome.WARN
+
 
 @pytest.mark.skip
 def test_schema_changes_warn_and_fail(scanner: Scanner):
