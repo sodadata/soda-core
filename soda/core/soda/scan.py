@@ -20,6 +20,7 @@ from soda.sodacl.location import Location
 from soda.sodacl.sodacl_cfg import SodaCLCfg
 
 logger = logging.getLogger(__name__)
+verbose = False
 
 
 class Scan:
@@ -59,8 +60,10 @@ class Scan:
         """
         self._scan_definition_name = scan_definition_name
 
-    def set_verbose(self, verbose: bool = True):
-        self._logs.verbose = verbose
+    def set_verbose(self, verbose_var: bool = True):
+        self._logs.verbose = verbose_var
+        global verbose
+        verbose = verbose_var
 
     def add_configuration_yaml_file(self, file_path: str):
         """
@@ -417,7 +420,7 @@ class Scan:
                 self._configuration.soda_cloud.send_scan_results(self)
 
         except Exception as e:
-            self._logs.error(f"Unknown error while executing scan.", exception=e)
+            self._logs.error(f"Error occurred while executing scan.", exception=e)
         finally:
             self._close()
 
