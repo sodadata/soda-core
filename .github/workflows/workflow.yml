@@ -42,7 +42,10 @@ jobs:
           - "3.7"
           - "3.8"
           - "3.9"
-          - "3.10"
+          # Disabled 3.10 because pystan (from soda-scientific will fail)
+          # See https://github.com/facebook/prophet/issues/2041
+          # - "3.10"
+
         data-source:
           - "postgres"
           - "snowflake"
