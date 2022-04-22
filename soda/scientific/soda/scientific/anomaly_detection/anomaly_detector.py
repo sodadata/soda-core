@@ -85,32 +85,30 @@ class AnomalyHistoricalMeasurements(BaseModel):
     results: List[AnomalyHistoricalMeasurement]
 
 
-MOCK_ANOMALY_DIAGNOSTICS = [
-    {
-        "value": 12.2,
-        "fail": {
-            "lessThanOrEqual": 12,
-            "greaterThanOrEqual": 12,
-        },
-        "warn": {
-            "lessThanOrEqual": 12,
-            "greaterThanOrEqual": 12,
-        },
-        "anomalyProbability": 0.1,
-        "anomalyPredictedValue": 13,
-        "anomalyErrorSeverity": "warn",
-        "anomalyErrorCode": "inferred_daily_frequency",
-        "feedback": {},
-    }
-]
-
-
 class AnomalyDetector:
     def __init__(self, measurements, check_results, logs: Logs):
         self._logs = logs
         self.df_measurements = self._parse_historical_measurements(measurements)
         self.df_check_results = self._parse_historical_check_results(check_results)
         self.params = self._parse_params()
+
+    def evaluate(self) -> Tuple[str, Dict[str, Any]]:
+        df_historic = self._convert_to_well_shaped_df()
+
+        feedback = FeedbackProcessor(params=self.params, df_historic=df_historic, logs=self._logs)
+        feedback.run()
+
+        detector = ProphetDetector(
+            logs=self._logs,
+            params=self.params,
+            time_series_data=feedback.df_feedback_processed,
+            has_exegonenous_regressor=feedback.has_exegonenous_regressor,
+        )
+        df_anomalies = detector.run()
+
+        level, diagnostics = self._parse_output(df_anomalies, detector.freq_detection_result)
+
+        return level, diagnostics
 
     @staticmethod
     def _parse_historical_measurements(measurements: Dict[str, List[Dict[str, Any]]]) -> pd.DataFrame:
@@ -180,9 +178,9 @@ class AnomalyDetector:
     def _parse_params(self) -> Dict[str, Any]:
         try:
             this_dir = Path(__file__).parent.resolve()
-
+            config_file = this_dir.joinpath("detector_config.yaml")
             # Read detector configuration
-            with open(this_dir.joinpath("detector_config.yaml")) as stream:
+            with open(config_file) as stream:
                 loaded_config = yaml.safe_load(stream)
 
             # Manipulate configuration
@@ -243,21 +241,3 @@ class AnomalyDetector:
 
         diagnostics_dict: Dict[str, Any] = AnomalyDiagnostics.parse_obj(diagnostics).dict()
         return level, diagnostics_dict
-
-    def evaluate(self) -> Tuple[str, Dict[str, Any]]:
-        df_historic = self._convert_to_well_shaped_df()
-
-        feedback = FeedbackProcessor(params=self.params, df_historic=df_historic, logs=self._logs)
-        feedback.run()
-
-        detector = ProphetDetector(
-            logs=self._logs,
-            params=self.params,
-            time_series_data=feedback.df_feedback_processed,
-            has_exegonenous_regressor=feedback.has_exegonenous_regressor,
-        )
-        df_anomalies = detector.run()
-
-        level, diagnostics = self._parse_output(df_anomalies, detector.freq_detection_result)
-
-        return level, diagnostics

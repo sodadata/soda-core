@@ -57,6 +57,10 @@ class FeedbackProcessor:
         self._has_misclassification = False
         self.has_exegonenous_regressor = False
 
+    def run(self):
+        self.flag_misclassification()
+        self.derive_exogenous_regressor()
+
     @staticmethod
     def check_feedback(df_historic: pd.DataFrame) -> bool:
         df = df_historic.copy()
@@ -163,7 +167,3 @@ class FeedbackProcessor:
                 self.df_feedback_processed.loc[
                     self.df_feedback_processed["external_regressor"].isnull(), "external_regressor"
                 ] = 0
-
-    def run(self):
-        self.flag_misclassification()
-        self.derive_exogenous_regressor()
