@@ -1,4 +1,9 @@
+import logging
+
 import pytest
+from soda.common.logs import Logs
+
+LOGS = Logs(logging.getLogger(__name__))
 
 
 @pytest.mark.parametrize(
@@ -122,7 +127,7 @@ import pytest
 def test_anomaly_detector_evaluate(historical_measurements, historical_check_results, expectation):
     from soda.scientific.anomaly_detection.anomaly_detector import AnomalyDetector
 
-    detector = AnomalyDetector(historical_measurements, historical_check_results)
+    detector = AnomalyDetector(historical_measurements, historical_check_results, logs=LOGS)
     _, diagnostic = detector.evaluate()
     assert diagnostic["value"] == expectation["value"]
     assert diagnostic["anomalyProbability"] == pytest.approx(expectation["anomalyProbability"])
