@@ -31,6 +31,20 @@ class ProfileColumnsRun:
             measured_row_count = row_counts_by_table_name[table_name]
             profile_columns_result_table = profile_columns_result.create_table(table_name, measured_row_count)
 
+            # get columns & metadata for current table
+            columns_metadata_sql = self.data_source.sql_to_get_column_metadata_for_table(table_name)
+            columns_metadata_query = Query(
+                data_source_scan=self.data_source_scan,
+                unqualified_query_name=f"get col metadata for table: {table_name}",
+                sql=columns_metadata_sql,
+            )
+            columns_metadata_query.execute()
+            columns_metadata_result = {column[0]: column[1] for column in columns_metadata_query.rows}
+            # TODO: I'd like to be able to filter columns that roll up to a numeric, text, datetime-like archetype here
+            # in order to properly apply the set of profiling metrics that are compatible.
+            # Ideally, I don't want to implement a mapping between db types from all dialects if we have this logic somewhere else in the
+            # code
+
             column_types_by_name = {"distance": "float"}
 
             for column_name, column_type in column_types_by_name.items():
