@@ -9,6 +9,12 @@ class SodaSqlError(Exception):
         self.original_exception = original_exception
 
 
+class DataSourceError(Exception):
+    def __init__(self, msg):
+        super().__init__(msg)
+        self.error_code = ERROR_CODE_CONNECTION_FAILED
+
+
 class DataSourceConnectionError(SodaSqlError):
     def __init__(self, data_source_type, original_exception):
         super().__init__(
