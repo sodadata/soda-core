@@ -35,4 +35,7 @@ setup(
     version=package_version,
     install_requires=requires,
     packages=find_namespace_packages(include=["soda*"]),
+    package_data={
+        "": ["detector_config.yaml"],
+    }
 )
