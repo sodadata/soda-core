@@ -1,5 +1,6 @@
 from typing import Dict, List
 
+from soda.common.exceptions import DataSourceConnectionError
 from soda.execution.data_source import DataSource
 
 
@@ -52,8 +53,8 @@ class DataSourceManager:
                                     data_source = None
                         else:
                             self.logs.error(f'Data source "{data_source_name}" does not have a type')
-                    else:
-                        self.logs.error(f'Data source "{data_source_name}" not in the configuration')
+            else:
+                raise DataSourceConnectionError(f"Data source '{data_source_name}' not present in the configuration.")
 
         return data_source
 
