@@ -1,8 +1,6 @@
 from __future__ import annotations
 
-from abc import abstractmethod
 from copy import deepcopy
-import re
 
 from soda.sodacl.location import Location
 
@@ -27,6 +25,6 @@ class CheckCfg:
 
     def instantiate_for_each_table(self, table_alias: str, table_name: str, partition_name: str) -> CheckCfg:
         instantiated_check = deepcopy(self)
-        partition_replace = f' [{partition_name}]' if partition_name else ''
-        instantiated_check.source_header = f'checks for T being {table_name}{partition_replace}'
+        partition_replace = f" [{partition_name}]" if partition_name else ""
+        instantiated_check.source_header = f"checks for T being {table_name}{partition_replace}"
         return instantiated_check

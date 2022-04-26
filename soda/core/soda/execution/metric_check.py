@@ -24,11 +24,7 @@ class MetricCheck(Check):
         metric_name = metric_check_cfg.metric_name
 
         super().__init__(
-            check_cfg=check_cfg,
-            data_source_scan=data_source_scan,
-            partition=partition,
-            column=column,
-            name=metric_name
+            check_cfg=check_cfg, data_source_scan=data_source_scan, partition=partition, column=column, name=metric_name
         )
 
         self.historic_descriptor = None

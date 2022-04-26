@@ -1,6 +1,5 @@
 from typing import Optional
 
-from soda.execution.identity import Identity
 from soda.sodacl.check_cfg import CheckCfg
 from soda.sodacl.location import Location
 

@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from soda.execution.identity import Identity
 from soda.sodacl.check_cfg import CheckCfg
 from soda.sodacl.location import Location
 from soda.sodacl.threshold_cfg import ThresholdCfg

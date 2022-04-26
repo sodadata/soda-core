@@ -1,6 +1,3 @@
-from soda.execution.identity import Identity
-
-
 class ChangeOverTimeCfg:
     def __init__(self):
         self.last_measurements: Optional[int] = None

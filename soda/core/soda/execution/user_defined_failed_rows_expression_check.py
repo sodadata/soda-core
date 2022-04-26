@@ -24,7 +24,7 @@ class UserDefinedFailedRowsExpressionCheck(Check):
             data_source_scan=data_source_scan,
             partition=partition,
             column=None,
-            name="user-defined-failed-rows-expression"
+            name="user-defined-failed-rows-expression",
         )
         self.check_value = None
         self.failed_rows_storage_ref = None

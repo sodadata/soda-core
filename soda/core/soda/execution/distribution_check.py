@@ -26,7 +26,7 @@ class DistributionCheck(Check):
             data_source_scan=data_source_scan,
             partition=partition,
             column=column,
-            name="distribution_difference"
+            name="distribution_difference",
         )
 
     def evaluate(self, metrics: Dict[str, Metric], historic_values: Dict[str, object]):

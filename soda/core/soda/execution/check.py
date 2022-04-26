@@ -3,7 +3,7 @@ from typing import Dict, List, Optional
 
 from soda.execution.check_outcome import CheckOutcome
 from soda.execution.column import Column
-from soda.execution.identity import Identity, ConsistentHashBuilder
+from soda.execution.identity import ConsistentHashBuilder
 from soda.execution.metric import Metric
 from soda.soda_cloud.historic_descriptor import HistoricDescriptor
 from soda.sodacl.check_cfg import CheckCfg
@@ -97,7 +97,7 @@ class Check(ABC):
         data_source_scan: "DataSourceScan",
         partition: Optional["Partition"],
         column: Optional["Column"],
-        name: Optional[str]
+        name: Optional[str],
     ):
         from soda.execution.partition import Partition
 

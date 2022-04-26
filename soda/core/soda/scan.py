@@ -455,7 +455,7 @@ class Scan:
                         check_cfg = check_cfg_template.instantiate_for_each_table(
                             table_alias=for_each_table_cfg.table_alias_name,
                             table_name=table_name,
-                            partition_name=partition_cfg.partition_name
+                            partition_name=partition_cfg.partition_name,
                         )
                         column_name = check_cfg.get_column_name()
                         if column_name:
