@@ -27,11 +27,3 @@ class FreshnessCheckCfg(CheckCfg):
 
     def get_column_name(self) -> Optional[str]:
         return self.column_name
-
-    def get_identity_parts(self) -> list:
-        return [
-            self.location,
-            self.variable_name,
-            Identity.property("fail_staleness_threshold", self.fail_staleness_threshold),
-            Identity.property("warn_staleness_threshold", self.warn_staleness_threshold),
-        ]

@@ -28,8 +28,7 @@ class MetricCheck(Check):
             data_source_scan=data_source_scan,
             partition=partition,
             column=column,
-            name=metric_name,
-            identity_parts=check_cfg.get_identity_parts(),
+            name=metric_name
         )
 
         self.historic_descriptor = None

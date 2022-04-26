@@ -23,7 +23,6 @@ class FreshnessCheck(Check):
             partition=partition,
             column=column,
             name="Freshness",
-            identity_parts=check_cfg.get_identity_parts(),
         )
         self.freshness_values: Optional[dict] = None
         self.metrics[MAX_COLUMN_TIMESTAMP] = data_source_scan.resolve_metric(

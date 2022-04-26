@@ -3,7 +3,7 @@ from typing import Dict, List, Optional
 
 from soda.execution.check_outcome import CheckOutcome
 from soda.execution.column import Column
-from soda.execution.identity import Identity
+from soda.execution.identity import Identity, ConsistentHashBuilder
 from soda.execution.metric import Metric
 from soda.soda_cloud.historic_descriptor import HistoricDescriptor
 from soda.sodacl.check_cfg import CheckCfg
@@ -97,22 +97,15 @@ class Check(ABC):
         data_source_scan: "DataSourceScan",
         partition: Optional["Partition"],
         column: Optional["Column"],
-        name: Optional[str],
-        identity_parts: list,
+        name: Optional[str]
     ):
         from soda.execution.partition import Partition
 
         self.name: str = name
-        self.identity: str = Identity.create_identity(
-            identity_type="check",
-            data_source_scan=data_source_scan,
-            partition=partition,
-            column=column,
-            name=name,
-            identity_parts=identity_parts,
-        )
-        self.logs = data_source_scan.scan._logs
         self.check_cfg: CheckCfg = check_cfg
+        self.definition = self.create_definition()
+        self.identity: str = Check.create_check_identity(self.definition)
+        self.logs = data_source_scan.scan._logs
         self.data_source_scan = data_source_scan
         self.partition: Partition = partition
         self.column: Column = column
@@ -132,6 +125,12 @@ class Check(ABC):
         else:
             return f"{check_cfg.source_header}:\n  {check_cfg.source_line}"
 
+    @staticmethod
+    def create_check_identity(definition: str) -> str:
+        hash_builder = ConsistentHashBuilder()
+        hash_builder.add(definition)
+        return hash_builder.get_hash()
+
     def get_cloud_dict(self):
         from soda.execution.column import Column
         from soda.execution.partition import Partition
@@ -142,7 +141,7 @@ class Check(ABC):
             "identity": self.identity,
             "name": self.generate_soda_cloud_check_name(),
             "type": self.cloud_check_type,
-            "definition": self.create_definition(),
+            "definition": self.definition,
             "location": self.check_cfg.location.to_soda_cloud_json(),
             "dataSource": self.data_source_scan.data_source.data_source_name,
             "table": Partition.get_table_name(self.partition),

@@ -8,14 +8,6 @@ class ChangeOverTimeCfg:
         self.same_day_last_week: bool = False
         self.same_day_last_month: bool = False
 
-    def get_identity_parts(self) -> list:
-        return [
-            self.last_measurements,
-            self.last_aggregation,
-            Identity.property("same_day_last_week", self.same_day_last_week),
-            Identity.property("same_day_last_month", self.same_day_last_month),
-        ]
-
     def to_jsonnable(self):
         jsonnable = {}
         if self.last_measurements:

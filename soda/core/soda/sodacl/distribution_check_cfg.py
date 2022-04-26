@@ -35,13 +35,5 @@ class DistributionCheckCfg(CheckCfg):
         self.fail_threshold_cfg = fail_threshold_cfg
         self.warn_threshold_cfg = warn_threshold_cfg
 
-    def get_identity_parts(self) -> list:
-        return [
-            self.location,
-            Identity.property("check_type", "DistributionCheckCfg"),
-            Identity.property("column_name", self.column_name),
-            Identity.property("distribution_name", self.distribution_name),
-        ]
-
     def get_column_name(self) -> str | None:
         return self.column_name
