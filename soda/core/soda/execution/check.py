@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import collections
 from abc import ABC
-from typing import Dict, List, Optional
+from typing import Optional
 
 from soda.execution.check_outcome import CheckOutcome
 from soda.execution.column import Column
@@ -17,9 +17,9 @@ class Check(ABC):
     @staticmethod
     def create(
         check_cfg: CheckCfg,
-        partition: Optional[Partition] = None,
-        column: Optional[Column] = None,
-        data_source_scan: Optional[DataSourceScan] = None,
+        partition: Partition | None = None,
+        column: Column | None = None,
+        data_source_scan: DataSourceScan | None = None,
     ) -> Check:
         from soda.sodacl.anomaly_metric_check_cfg import AnomalyMetricCheckCfg
         from soda.sodacl.change_over_time_metric_check_cfg import (
@@ -98,8 +98,8 @@ class Check(ABC):
         self,
         check_cfg: CheckCfg,
         data_source_scan: DataSourceScan,
-        partition: Optional[Partition],
-        column: Optional[Column],
+        partition: Partition | None,
+        column: Column | None,
         name: str | None,
     ):
         from soda.execution.partition import Partition
