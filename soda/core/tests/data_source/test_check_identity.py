@@ -36,27 +36,101 @@ def get_cloud_checks_by_identity(scan_result) -> Dict[str, List[dict]]:
     return cloud_checks_by_identity
 
 
-def test_check_identity_row_count(scanner: Scanner):
-    table_name = scanner.ensure_test_table(customers_test_table)
-
+def execute_scan_and_get_scan_result(scanner: Scanner, sodacl_yaml_str: str) -> dict:
     scan = scanner.create_test_scan()
     mock_soda_cloud = scan.enable_mock_soda_cloud()
-    scan.add_sodacl_yaml_str(
+    scan.add_sodacl_yaml_str(sodacl_yaml_str)
+    scan.execute()
+    return mock_soda_cloud.scan_result
+
+
+def test_check_identity_ignore_name(scanner: Scanner):
+    table_name = scanner.ensure_test_table(customers_test_table)
+
+    scan_result = execute_scan_and_get_scan_result(scanner,
         f"""
           checks for {table_name}:
             - row_count > 0
-            - row_count > 1
-            - row_count > 1:
-                name: row count must be greater than one
         """
     )
-    scan.execute()
 
-    scan_result = mock_soda_cloud.scan_results[0]
-    cloud_checks_by_identity = get_cloud_checks_by_identity(scan_result)
+    row_count_identity = '4bb40424'
 
-    first_check_identity = scan._checks[0].create_identity()
-    assert len(cloud_checks_by_identity[first_check_identity]) == 1
+    assert scan_result['checks'][0]['identity'] == row_count_identity
 
-    second_check_identity = scan._checks[1].create_identity()
-    assert len(cloud_checks_by_identity[second_check_identity]) == 2
+    scan_result = execute_scan_and_get_scan_result(scanner,
+        f"""
+          checks for {table_name}:
+            - row_count > 0:
+                name: Naming this check should not change the identity!
+        """
+    )
+
+    # check that the identity remains the same
+    assert scan_result['checks'][0]['identity'] == row_count_identity
+
+
+def test_check_identity_line_number_change(scanner: Scanner):
+    table_name = scanner.ensure_test_table(customers_test_table)
+
+    scan_result = execute_scan_and_get_scan_result(scanner,
+        f"""
+          checks for {table_name}:
+            - missing_count(id) < 10
+        """
+    )
+
+    missing_identity = 'bb6ad736'
+
+    assert scan_result['checks'][0]['identity'] == missing_identity
+
+    scan_result = execute_scan_and_get_scan_result(scanner,
+        f"""
+          checks for {table_name}:
+            - row_count > 0
+            - missing_count(id) < 10
+        """
+    )
+
+    assert scan_result['checks'][1]['identity'] == missing_identity
+
+
+def test_explicitely_specified_check_identity(scanner: Scanner):
+    # 1. First a Soda Cloud user creates a new check
+    # 2. Then the soda cloud user asks the Soda Cloud editor to fill in the identity in the check source so that...
+    # 3. The Soda Cloud user can update the check keeping the same identity and hence without loosing the history
+
+    table_name = scanner.ensure_test_table(customers_test_table)
+
+    scan_result = execute_scan_and_get_scan_result(scanner,
+        f"""
+          checks for {table_name}:
+            - row_count > 0
+        """
+    )
+
+    row_count_identity = '4bb40424'
+
+    assert scan_result['checks'][0]['identity'] == row_count_identity
+
+    scan_result = execute_scan_and_get_scan_result(scanner,
+        f"""
+          checks for {table_name}:
+            - row_count > 0:
+                identity: {row_count_identity}
+        """
+    )
+
+    # check that the identity remains the same
+    assert scan_result['checks'][0]['identity'] == row_count_identity
+
+    scan_result = execute_scan_and_get_scan_result(scanner,
+        f"""
+          checks for {table_name}:
+            - row_count > 1:
+                identity: {row_count_identity}
+        """
+    )
+
+    # check that the identity remains the same after changing the check (threshold in this case)
+    assert scan_result['checks'][0]['identity'] == row_count_identity

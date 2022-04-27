@@ -130,16 +130,21 @@ class Check(ABC):
         check_cfg: CheckCfg = self.check_cfg
         from soda.common.yaml_helper import to_yaml_str
 
+        if isinstance(check_cfg.source_configurations, dict):
+            identity = check_cfg.source_configurations.get("identity")
+            if isinstance(identity, str):
+                return identity
+
         hash_builder = ConsistentHashBuilder()
         # Note: In case of for each table, the check_cfg.source_header will contain the actual table name as well
         hash_builder.add(check_cfg.source_header)
         hash_builder.add(check_cfg.source_line)
         if isinstance(check_cfg.source_configurations, dict):
+
             identity_source_configurations = dict(check_cfg.source_configurations)
             # The next lines ensures that configuration properties 'name' and 'identity' are ignored
             # for computing the check identity
             identity_source_configurations.pop("name", None)
-            identity_source_configurations.pop("identity", None)
             if len(identity_source_configurations) > 0:
                 # The next line ensures that ordering of the check configurations don't matter for identity
                 identity_source_configurations = collections.OrderedDict(sorted(identity_source_configurations.items()))

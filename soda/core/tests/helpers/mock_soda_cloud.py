@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import logging
 from datetime import datetime, timedelta
 from typing import Dict, List
@@ -31,13 +33,15 @@ class MockSodaCloud(SodaCloud):
     def __init__(self):
         super().__init__(host="test_host", api_key_id="test_api_key", api_key_secret="test_api_key_secret")
         self.historic_metric_values: list = []
-        self.scan_results: List[dict] = []
+        self.scan_result: dict | None = None
 
     def create_soda_cloud(self):
         return self
 
     def send_scan_results(self, scan: Scan):
-        self.scan_results.append(self.build_scan_results(scan))
+        if self.scan_result is not None:
+            raise AssertionError("It is expected that send_scan_results is only called once is a single scan")
+        self.scan_result = self.build_scan_results(scan)
 
     def mock_historic_values(self, metric_identity: str, metric_values: list, time_generator=TimeGenerator()):
         """
