@@ -370,14 +370,15 @@ class Scan:
             fail_text = "failure" if checks_warn_count == 1 else "failures"
             error_count = len(self.get_error_logs())
             error_text = "error" if error_count == 1 else "errors"
-            self.__log_checks(None)
             checks_not_evaluated = len(self._checks) - checks_pass_count - checks_warn_count - checks_fail_count
 
+            if len(self._checks) == 0:
+                self._logs.warning("No checks found, 0 checks evaluated.")
             if checks_not_evaluated:
                 self._logs.info(f"{checks_not_evaluated} checks not evaluated.")
             if error_count > 0:
                 self._logs.info(f"{error_count} errors.")
-            if checks_warn_count + checks_fail_count + error_count == 0:
+            if checks_warn_count + checks_fail_count + error_count == 0 and len(self._checks) > 0:
                 if checks_not_evaluated:
                     self._logs.info(
                         f"Apart from the checks that have not been evaluated, no failures, no warnings and no errors."
