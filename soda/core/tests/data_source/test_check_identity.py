@@ -47,52 +47,56 @@ def execute_scan_and_get_scan_result(scanner: Scanner, sodacl_yaml_str: str) -> 
 def test_check_identity_ignore_name(scanner: Scanner):
     table_name = scanner.ensure_test_table(customers_test_table)
 
-    scan_result = execute_scan_and_get_scan_result(scanner,
+    scan_result = execute_scan_and_get_scan_result(
+        scanner,
         f"""
           checks for {table_name}:
             - row_count > 0
-        """
+        """,
     )
 
-    row_count_identity = '4bb40424'
+    row_count_identity = "4bb40424"
 
-    assert scan_result['checks'][0]['identity'] == row_count_identity
+    assert scan_result["checks"][0]["identity"] == row_count_identity
 
-    scan_result = execute_scan_and_get_scan_result(scanner,
+    scan_result = execute_scan_and_get_scan_result(
+        scanner,
         f"""
           checks for {table_name}:
             - row_count > 0:
                 name: Naming this check should not change the identity!
-        """
+        """,
     )
 
     # check that the identity remains the same
-    assert scan_result['checks'][0]['identity'] == row_count_identity
+    assert scan_result["checks"][0]["identity"] == row_count_identity
 
 
 def test_check_identity_line_number_change(scanner: Scanner):
     table_name = scanner.ensure_test_table(customers_test_table)
 
-    scan_result = execute_scan_and_get_scan_result(scanner,
+    scan_result = execute_scan_and_get_scan_result(
+        scanner,
         f"""
           checks for {table_name}:
             - missing_count(id) < 10
-        """
+        """,
     )
 
-    missing_identity = 'bb6ad736'
+    missing_identity = "bb6ad736"
 
-    assert scan_result['checks'][0]['identity'] == missing_identity
+    assert scan_result["checks"][0]["identity"] == missing_identity
 
-    scan_result = execute_scan_and_get_scan_result(scanner,
+    scan_result = execute_scan_and_get_scan_result(
+        scanner,
         f"""
           checks for {table_name}:
             - row_count > 0
             - missing_count(id) < 10
-        """
+        """,
     )
 
-    assert scan_result['checks'][1]['identity'] == missing_identity
+    assert scan_result["checks"][1]["identity"] == missing_identity
 
 
 def test_explicitely_specified_check_identity(scanner: Scanner):
@@ -102,35 +106,38 @@ def test_explicitely_specified_check_identity(scanner: Scanner):
 
     table_name = scanner.ensure_test_table(customers_test_table)
 
-    scan_result = execute_scan_and_get_scan_result(scanner,
+    scan_result = execute_scan_and_get_scan_result(
+        scanner,
         f"""
           checks for {table_name}:
             - row_count > 0
-        """
+        """,
     )
 
-    row_count_identity = '4bb40424'
+    row_count_identity = "4bb40424"
 
-    assert scan_result['checks'][0]['identity'] == row_count_identity
+    assert scan_result["checks"][0]["identity"] == row_count_identity
 
-    scan_result = execute_scan_and_get_scan_result(scanner,
+    scan_result = execute_scan_and_get_scan_result(
+        scanner,
         f"""
           checks for {table_name}:
             - row_count > 0:
                 identity: {row_count_identity}
-        """
+        """,
     )
 
     # check that the identity remains the same
-    assert scan_result['checks'][0]['identity'] == row_count_identity
+    assert scan_result["checks"][0]["identity"] == row_count_identity
 
-    scan_result = execute_scan_and_get_scan_result(scanner,
+    scan_result = execute_scan_and_get_scan_result(
+        scanner,
         f"""
           checks for {table_name}:
             - row_count > 1:
                 identity: {row_count_identity}
-        """
+        """,
     )
 
     # check that the identity remains the same after changing the check (threshold in this case)
-    assert scan_result['checks'][0]['identity'] == row_count_identity
+    assert scan_result["checks"][0]["identity"] == row_count_identity

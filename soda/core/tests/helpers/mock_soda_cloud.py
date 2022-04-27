@@ -53,7 +53,7 @@ class MockSodaCloud(SodaCloud):
         ]
         self.add_historic_metric_values(historic_metric_values)
 
-    def add_historic_metric_values(self, historic_metric_values: List[Dict[str, object]]):
+    def add_historic_metric_values(self, historic_metric_values: list[dict[str, object]]):
         """
         Each historic metric value is a dict like this:
             {'data_time': time_generator.next(),

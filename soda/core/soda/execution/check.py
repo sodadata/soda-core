@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import collections
 from abc import ABC
-from typing import Optional
 
 from soda.execution.check_outcome import CheckOutcome
 from soda.execution.column import Column
