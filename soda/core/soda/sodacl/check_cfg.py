@@ -24,7 +24,8 @@ class CheckCfg:
         pass
 
     def instantiate_for_each_table(self, table_alias: str, table_name: str, partition_name: str) -> CheckCfg:
-        instantiated_check = deepcopy(self)
+        instantiated_check_cfg = deepcopy(self)
         partition_replace = f" [{partition_name}]" if partition_name else ""
-        instantiated_check.source_header = f"checks for T being {table_name}{partition_replace}"
-        return instantiated_check
+        instantiated_check_cfg.source_header = f"checks for {table_alias} being {table_name}{partition_replace}"
+        instantiated_check_cfg.table_alias = table_alias
+        return instantiated_check_cfg
