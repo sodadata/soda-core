@@ -8,16 +8,32 @@ class ProfileColumnsResultColumn:
         self.maxes: list[float | int] | None = None
         self.min: float | int | None = None
         self.max: float | int | None = None
-        self.frequent_values: list[float | int | str] | None = None
-        self.frequency: list[int] | None = None
+        self.frequent_values: list[dict] | None = None
         self.average: float | None = None
         self.sum: float | int | None = None
         self.standard_deviation: float | None = None
         self.variance: float | None = None
+        self.distinct_values: int | None = None
+        self.missing_values: int | None = None
 
     def create_column(self, column_name):
         pass
 
     def get_cloud_dict(self) -> dict:
-        cloud_dict = {"columnName": self.column_name, "profile": {"mins": self.mins}}
+        cloud_dict = {
+            "columnName": self.column_name,
+            "profile": {
+                "mins": self.mins,
+                "maxs": self.maxes,
+                "min": self.min,
+                "max": self.max,
+                "frequent_values": self.frequent_values,
+                "avg": self.average,
+                "sum": self.sum,
+                "stddev": self.standard_deviation,
+                "variance": self.variance,
+                "distinct": self.distinct_values,
+                "missing_count": self.missing_values,
+            },
+        }
         return cloud_dict

@@ -71,8 +71,10 @@ class ProfileColumnsRun:
                         profile_columns_result_column.maxes = [row[1] for row in value_frequencies_query.rows]
                         profile_columns_result_column.min = profile_columns_result_column.mins[0]
                         profile_columns_result_column.max = profile_columns_result_column.maxes[0]
-                        profile_columns_result_column.frequent_values = [row[2] for row in value_frequencies_query.rows]
-                        profile_columns_result_column.frequency = [row[3] for row in value_frequencies_query.rows]
+                        profile_columns_result_column.frequent_values = self.build_frequent_values_dict(
+                            values=[row[2] for row in value_frequencies_query.rows],
+                            frequencies=[row[3] for row in value_frequencies_query.rows],
+                        )
 
                     # pure aggregates
                     aggregates_sql = self.sql_aggregates(table_name, column_name)
@@ -90,8 +92,17 @@ class ProfileColumnsRun:
                         profile_columns_result_column.sum = aggregates_query.rows[0][1]
                         profile_columns_result_column.variance = float(aggregates_query.rows[0][2])
                         profile_columns_result_column.standard_deviation = float(aggregates_query.rows[0][3])
+                        profile_columns_result_column.distinct_values = int(aggregates_query.rows[0][4])
+                        profile_columns_result_column.missing_values = int(aggregates_query.rows[0][5])
 
         return profile_columns_result
+
+    @staticmethod
+    def build_frequent_values_dict(values, frequencies):
+        frequent_values = []
+        for i, value in enumerate(values):
+            frequent_values.append({"value": str(value), "frequency": frequencies[i]})
+        return frequent_values
 
     def sql_values_frequencies_query(self, table_name: str, column_name: str) -> str:
         return dedent(
@@ -120,14 +131,14 @@ class ProfileColumnsRun:
             from values
             where values is not null
             order by value asc
-            limit 10
+            limit 5
         )
         , maxes as (
             select value, row_number() over(order by value desc) as idx, frequency, 'maxes'::text as metric_name
             from values
             where values is not null
             order by value desc
-            limit 10
+            limit 5
         )
         , frequent_values as (
             select
@@ -136,7 +147,7 @@ class ProfileColumnsRun:
                 , value
             from values
             order by frequency desc
-            limit 10
+            limit 5
         )
         , final as (
             select
@@ -162,6 +173,8 @@ class ProfileColumnsRun:
                 , sum({column_name}) as sum
                 , variance({column_name}) as variance
                 , stddev({column_name}) as standard_deviation
+                , count(distinct({column_name})) as distinct_values
+                , sum(case when {column_name} is null then 1 else 0 end) as missing_values
             from {table_name}
             """
         )
