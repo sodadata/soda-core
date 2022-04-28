@@ -400,7 +400,7 @@ class Scan:
             if error_count > 0:
                 Log.log_errors(self.get_error_logs())
 
-            self._scan_end_timestamp = datetime.now()
+            self._scan_end_timestamp = datetime.utcnow()
             if self._configuration.soda_cloud:
                 self._logs.info("Sending results to Soda Cloud")
                 self._configuration.soda_cloud.send_scan_results(self)
