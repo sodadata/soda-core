@@ -1,6 +1,7 @@
+from __future__ import annotations
+
 import logging
 from datetime import datetime, timedelta
-from typing import Dict, List
 
 from soda.scan import Scan
 from soda.soda_cloud.historic_descriptor import (
@@ -31,14 +32,15 @@ class MockSodaCloud(SodaCloud):
     def __init__(self):
         super().__init__(host="test_host", api_key_id="test_api_key", api_key_secret="test_api_key_secret")
         self.historic_metric_values: list = []
+        self.scan_result: dict | None = None
 
     def create_soda_cloud(self):
         return self
 
     def send_scan_results(self, scan: Scan):
-        pass
-        # scan_results = self.build_scan_results(scan)
-        # logger.debug(f"  # Sending to Soda Cloud:\n\n{to_yaml_str(scan_results)}")
+        if self.scan_result is not None:
+            raise AssertionError("It is expected that send_scan_results is only called once is a single scan")
+        self.scan_result = self.build_scan_results(scan)
 
     def mock_historic_values(self, metric_identity: str, metric_values: list, time_generator=TimeGenerator()):
         """
@@ -50,7 +52,7 @@ class MockSodaCloud(SodaCloud):
         ]
         self.add_historic_metric_values(historic_metric_values)
 
-    def add_historic_metric_values(self, historic_metric_values: List[Dict[str, object]]):
+    def add_historic_metric_values(self, historic_metric_values: list[dict[str, object]]):
         """
         Each historic metric value is a dict like this:
             {'data_time': time_generator.next(),

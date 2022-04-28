@@ -1,9 +1,11 @@
+from __future__ import annotations
+
+import collections
 from abc import ABC
-from typing import Dict, List, Optional
 
 from soda.execution.check_outcome import CheckOutcome
 from soda.execution.column import Column
-from soda.execution.identity import Identity
+from soda.execution.identity import ConsistentHashBuilder
 from soda.execution.metric import Metric
 from soda.soda_cloud.historic_descriptor import HistoricDescriptor
 from soda.sodacl.check_cfg import CheckCfg
@@ -13,11 +15,11 @@ from soda.sodacl.distribution_check_cfg import DistributionCheckCfg
 class Check(ABC):
     @staticmethod
     def create(
-        check_cfg: "CheckCfg",
-        partition: Optional["Partition"] = None,
-        column: Optional["Column"] = None,
-        data_source_scan: Optional["DataSourceScan"] = None,
-    ) -> "Check":
+        check_cfg: CheckCfg,
+        partition: Partition | None = None,
+        column: Column | None = None,
+        data_source_scan: DataSourceScan | None = None,
+    ) -> Check:
         from soda.sodacl.anomaly_metric_check_cfg import AnomalyMetricCheckCfg
         from soda.sodacl.change_over_time_metric_check_cfg import (
             ChangeOverTimeMetricCheckCfg,
@@ -93,44 +95,69 @@ class Check(ABC):
 
     def __init__(
         self,
-        check_cfg: "CheckCfg",
-        data_source_scan: "DataSourceScan",
-        partition: Optional["Partition"],
-        column: Optional["Column"],
-        name: Optional[str],
-        identity_parts: list,
+        check_cfg: CheckCfg,
+        data_source_scan: DataSourceScan,
+        partition: Partition | None,
+        column: Column | None,
+        name: str | None,
     ):
         from soda.execution.partition import Partition
 
         self.name: str = name
-        self.identity: str = Identity.create_identity(
-            identity_type="check",
-            data_source_scan=data_source_scan,
-            partition=partition,
-            column=column,
-            name=name,
-            identity_parts=identity_parts,
-        )
-        self.logs = data_source_scan.scan._logs
         self.check_cfg: CheckCfg = check_cfg
+        self.logs = data_source_scan.scan._logs
         self.data_source_scan = data_source_scan
         self.partition: Partition = partition
         self.column: Column = column
-        self.metrics: Dict[str, Metric] = {}
-        self.historic_descriptors: Dict[str, HistoricDescriptor] = {}
+        self.metrics: dict[str, Metric] = {}
+        self.historic_descriptors: dict[str, HistoricDescriptor] = {}
         self.cloud_check_type = "metricThreshold"
 
         # Check evaluation outcome
         self.outcome: CheckOutcome = None
 
-    def create_definition(self):
+    def create_definition(self) -> str:
+        check_cfg: CheckCfg = self.check_cfg
         from soda.common.yaml_helper import to_yaml_str
 
-        check_cfg = self.check_cfg
         if isinstance(check_cfg.source_configurations, dict):
             return to_yaml_str({check_cfg.source_header: [{check_cfg.source_line: check_cfg.source_configurations}]})
         else:
             return f"{check_cfg.source_header}:\n  {check_cfg.source_line}"
+
+    def create_identity(self) -> str:
+        check_cfg: CheckCfg = self.check_cfg
+        from soda.common.yaml_helper import to_yaml_str
+
+        if isinstance(check_cfg.source_configurations, dict):
+            identity = check_cfg.source_configurations.get("identity")
+            if isinstance(identity, str):
+                return identity
+
+        hash_builder = ConsistentHashBuilder()
+        # Note: In case of for each table, the check_cfg.source_header will contain the actual table name as well
+        hash_builder.add(check_cfg.source_header)
+        hash_builder.add(check_cfg.source_line)
+        if isinstance(check_cfg.source_configurations, dict):
+
+            identity_source_configurations = dict(check_cfg.source_configurations)
+            # The next lines ensures that configuration properties 'name' and 'identity' are ignored
+            # for computing the check identity
+            identity_source_configurations.pop("name", None)
+            if len(identity_source_configurations) > 0:
+                # The next line ensures that ordering of the check configurations don't matter for identity
+                identity_source_configurations = collections.OrderedDict(sorted(identity_source_configurations.items()))
+                identity_source_configurations_yaml = to_yaml_str(identity_source_configurations)
+                hash_builder.add(identity_source_configurations_yaml)
+        return hash_builder.get_hash()
+
+    @staticmethod
+    def __check_source_to_yaml(source_header: str, source_line: str, source_configurations: dict | None) -> str:
+        from soda.common.yaml_helper import to_yaml_str
+
+        if not isinstance(source_configurations, dict):
+            return f"{source_header}:\n  {source_line}"
+        return to_yaml_str({source_header: [{source_line: source_configurations}]})
 
     def get_cloud_dict(self):
         from soda.execution.column import Column
@@ -139,7 +166,7 @@ class Check(ABC):
         if self.outcome is None:
             self.outcome.value = None
         return {
-            "identity": self.identity,
+            "identity": self.create_identity(),
             "name": self.generate_soda_cloud_check_name(),
             "type": self.cloud_check_type,
             "definition": self.create_definition(),
@@ -173,10 +200,10 @@ class Check(ABC):
     def get_cloud_diagnostics_dict(self) -> dict:
         return {}
 
-    def evaluate(self, metrics: Dict[str, Metric], historic_values: Dict[str, object]):
+    def evaluate(self, metrics: dict[str, Metric], historic_values: dict[str, object]):
         raise NotImplementedError("Implement this abstract method")
 
-    def get_log_diagnostic_lines(self) -> List[str]:
+    def get_log_diagnostic_lines(self) -> list[str]:
         log_diagnostic_lines = []
 
         log_diagnostic_dict = self.get_log_diagnostic_dict()

@@ -25,7 +25,7 @@ def pytest_runtest_logstart(nodeid: str, location: tuple[str, int | None, str]) 
     """
     Prints the test function name and the location in a format that PyCharm recognizes and turns into a link in the console
     """
-    logging.debug(f'  # "soda/core/tests/{location[0]}:{(location[1]+1)}" {location[2]}')
+    logging.debug(f'### "soda/core/tests/{location[0]}:{(location[1]+1)}" {location[2]}')
 
 
 @pytest.fixture(scope="session")

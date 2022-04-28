@@ -22,7 +22,6 @@ class ReferenceCheck(Check):
             partition=partition,
             column=single_source_column,
             name="reference",
-            identity_parts=check_cfg.get_identity_parts(),
         )
         metric = ReferenceMetric(
             data_source_scan=self.data_source_scan,

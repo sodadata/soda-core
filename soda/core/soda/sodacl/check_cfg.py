@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from abc import abstractmethod
+from copy import deepcopy
 
 from soda.sodacl.location import Location
 
@@ -23,6 +23,8 @@ class CheckCfg:
     def get_column_name(self) -> str | None:
         pass
 
-    @abstractmethod
-    def get_identity_parts(self) -> list:
-        pass
+    def instantiate_for_each_table(self, table_alias: str, table_name: str, partition_name: str) -> CheckCfg:
+        instantiated_check_cfg = deepcopy(self)
+        partition_replace = f" [{partition_name}]" if partition_name else ""
+        instantiated_check_cfg.source_header = f"checks for {table_alias} being {table_name}{partition_replace}"
+        return instantiated_check_cfg

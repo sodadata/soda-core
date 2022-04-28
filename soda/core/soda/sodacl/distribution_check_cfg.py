@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from soda.execution.identity import Identity
 from soda.sodacl.check_cfg import CheckCfg
 from soda.sodacl.location import Location
 from soda.sodacl.threshold_cfg import ThresholdCfg
@@ -34,14 +33,6 @@ class DistributionCheckCfg(CheckCfg):
         self.reference_file_path = reference_file_path
         self.fail_threshold_cfg = fail_threshold_cfg
         self.warn_threshold_cfg = warn_threshold_cfg
-
-    def get_identity_parts(self) -> list:
-        return [
-            self.location,
-            Identity.property("check_type", "DistributionCheckCfg"),
-            Identity.property("column_name", self.column_name),
-            Identity.property("distribution_name", self.distribution_name),
-        ]
 
     def get_column_name(self) -> str | None:
         return self.column_name

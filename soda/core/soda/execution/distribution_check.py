@@ -27,7 +27,6 @@ class DistributionCheck(Check):
             partition=partition,
             column=column,
             name="distribution_difference",
-            identity_parts=check_cfg.get_identity_parts(),
         )
 
     def evaluate(self, metrics: Dict[str, Metric], historic_values: Dict[str, object]):

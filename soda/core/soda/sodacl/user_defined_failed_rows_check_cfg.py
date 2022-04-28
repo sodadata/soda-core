@@ -16,6 +16,3 @@ class UserDefinedFailedRowsCheckCfg(CheckCfg):
     ):
         super().__init__(source_header, source_line, source_configurations, location, name)
         self.query: Optional[str] = query
-
-    def get_identity_parts(self) -> list:
-        return [self.location, self.query]

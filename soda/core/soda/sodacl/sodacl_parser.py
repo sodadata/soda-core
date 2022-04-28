@@ -37,6 +37,7 @@ logger = logging.getLogger(__name__)
 WARN = "warn"
 FAIL = "fail"
 NAME = "name"
+IDENTITY = "identity"
 FAIL_CONDITION = "fail condition"
 FAIL_QUERY = "fail query"
 WHEN_REQUIRED_COLUMN_MISSING = "when required column missing"
@@ -499,7 +500,7 @@ class SodaCLParser(Parser):
                         configuration_value,
                         missing_and_valid_cfg,
                     )
-                elif configuration_key not in [NAME, WARN, FAIL]:
+                elif configuration_key not in [NAME, IDENTITY, WARN, FAIL]:
                     if metric_name != "distribution_difference":
                         self.logs.error(
                             f"Skipping unsupported check configuration: {configuration_key}",
