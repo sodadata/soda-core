@@ -57,7 +57,7 @@ def test_profile_columns(scanner: Scanner, table_name, soda_cl_str, distance_col
     table_name = scanner.ensure_test_table(table_name)
 
     scan = scanner.create_test_scan()
-    # mock_soda_cloud = scan.activate_mock_soda_cloud()
+    mock_soda_cloud = scan.activate_mock_soda_cloud()
     scan.add_sodacl_yaml_str(
         f"""
           profile columns:
@@ -70,7 +70,7 @@ def test_profile_columns(scanner: Scanner, table_name, soda_cl_str, distance_col
     assert scan._profile_columns_result_tables[0].result_columns[1].__dict__ == distance_column_exp
     assert scan._profile_columns_result_tables[0].result_columns[0].__dict__ == size_column_exp
 
-    # profiling_result = mock_soda_cloud.scan_result_dicts[0]["profiling"]
+    profiling_result = mock_soda_cloud.scan_result_dicts
     # customer_column_profiles = profiling_result[0]["columnProfiles"]
     # distance_profile = customer_column_profiles[1]
 

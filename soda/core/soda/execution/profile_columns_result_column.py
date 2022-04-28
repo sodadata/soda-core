@@ -15,6 +15,7 @@ class ProfileColumnsResultColumn:
         self.variance: float | None = None
         self.distinct_values: int | None = None
         self.missing_values: int | None = None
+        self.histogram: dict[str, list[str | int | float]] | None = None
 
     def create_column(self, column_name):
         pass
@@ -34,6 +35,7 @@ class ProfileColumnsResultColumn:
                 "variance": self.variance,
                 "distinct": self.distinct_values,
                 "missing_count": self.missing_values,
+                "histogram": self.histogram,
             },
         }
         return cloud_dict
