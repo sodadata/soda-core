@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime, timedelta
-from typing import Dict, List
 
 from soda.scan import Scan
 from soda.soda_cloud.historic_descriptor import (
