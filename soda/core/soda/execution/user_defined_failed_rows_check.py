@@ -29,7 +29,6 @@ class UserDefinedFailedRowsCheck(Check):
             partition=partition,
             column=None,
             name="user-defined-failed-rows",
-            identity_parts=check_cfg.get_identity_parts(),
         )
 
         from soda.sodacl.user_defined_failed_rows_check_cfg import (

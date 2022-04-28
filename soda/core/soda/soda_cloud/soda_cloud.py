@@ -23,7 +23,7 @@ class SodaCloud:
         self.cloud_client.insert_scan_results(scan_results)
 
     @staticmethod
-    def build_scan_results(scan):
+    def build_scan_results(scan) -> dict:
         return JsonHelper.to_jsonnable(
             {
                 "definitionName": scan._scan_definition_name,

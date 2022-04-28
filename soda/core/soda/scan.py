@@ -452,7 +452,12 @@ class Scan:
                     data_source_scan_cfg = self._sodacl_cfg._get_or_create_data_source_scan_cfgs(data_source_name)
                     table_cfg = data_source_scan_cfg.get_or_create_table_cfg(table_name)
                     partition_cfg = table_cfg.find_partition(None, None)
-                    for check_cfg in for_each_table_cfg.check_cfgs:
+                    for check_cfg_template in for_each_table_cfg.check_cfgs:
+                        check_cfg = check_cfg_template.instantiate_for_each_table(
+                            table_alias=for_each_table_cfg.table_alias_name,
+                            table_name=table_name,
+                            partition_name=partition_cfg.partition_name,
+                        )
                         column_name = check_cfg.get_column_name()
                         if column_name:
                             column_checks_cfg = partition_cfg.get_or_create_column_checks(column_name)

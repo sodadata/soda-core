@@ -40,7 +40,7 @@ class AnomalyMetricCheck(MetricCheck):
             limit=1000,
         )
         self.historic_descriptors[KEY_HISTORIC_CHECK_RESULTS] = HistoricCheckResultsDescriptor(
-            check_identity=self.identity, limit=3
+            check_identity=self.create_identity(), limit=3
         )
         self.diagnostics = {}
         self.cloud_check_type = "anomalyDetection"

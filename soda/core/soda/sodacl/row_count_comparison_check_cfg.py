@@ -1,6 +1,5 @@
 from typing import Optional
 
-from soda.execution.identity import Identity
 from soda.sodacl.check_cfg import CheckCfg
 from soda.sodacl.location import Location
 
@@ -21,11 +20,3 @@ class RowCountComparisonCheckCfg(CheckCfg):
         self.other_table_name: str = other_table_name
         self.other_partition_name: Optional[str] = other_partition_name
         self.other_data_source_name: Optional[str] = other_data_source_name
-
-    def get_identity_parts(self) -> list:
-        return [
-            self.location,
-            self.other_table_name,
-            Identity.property("other_partition_name", self.other_partition_name),
-            Identity.property("other_data_source_name", self.other_data_source_name),
-        ]
