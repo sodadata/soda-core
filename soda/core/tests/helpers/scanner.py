@@ -69,9 +69,11 @@ class TestScan(Scan):
 
         self._configuration.soda_cloud.mock_historic_values(metric_identity, metric_values, time_generator)
 
-    def execute(self):
+    def execute(self, allow_error_warning: bool = False):
         super().execute()
-        self.assert_no_error_nor_warning_logs()
+
+        if not allow_error_warning:
+            self.assert_no_error_nor_warning_logs()
 
     def execute_unchecked(self):
         super().execute()
