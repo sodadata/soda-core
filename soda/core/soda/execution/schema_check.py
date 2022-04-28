@@ -27,7 +27,6 @@ class SchemaCheck(Check):
             partition=partition if partition.partition_name is None else partition.table.partitions[None],
             column=None,
             name="schema",
-            identity_parts=check_cfg.get_identity_parts(),
         )
 
         self.cloud_check_type = "schema"
