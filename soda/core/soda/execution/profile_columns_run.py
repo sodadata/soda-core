@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from math import ceil, floor
-from textwrap import dedent
 from typing import TYPE_CHECKING
 
 from soda.execution.profile_columns_result import ProfileColumnsResult
@@ -45,6 +43,7 @@ class ProfileColumnsRun:
                 sql=columns_metadata_sql,
             )
             columns_metadata_query.execute()
+            assert columns_metadata_query.rows, f"No metadata was captured for table: {table_name}"
             columns_metadata_result = {column[0]: column[1] for column in columns_metadata_query.rows}
             # TODO: I'd like to be able to filter columns that roll up to a numeric, text, datetime-like archetype here
             # in order to properly apply the set of profiling metrics that are compatible.
@@ -63,7 +62,9 @@ class ProfileColumnsRun:
                     profile_columns_result_column: ProfileColumnsResultColumn = (
                         profile_columns_result_table.create_column(column_name, column_type)
                     )
-                    value_frequencies_sql = self.sql_values_frequencies_query(table_name, column_name)
+                    value_frequencies_sql = self.data_source.profiling_sql_values_frequencies_query(
+                        table_name, column_name
+                    )
 
                     value_frequencies_query = Query(
                         data_source_scan=self.data_source_scan,
@@ -82,7 +83,7 @@ class ProfileColumnsRun:
                         )
 
                     # pure aggregates
-                    aggregates_sql = self.sql_aggregates(table_name, column_name)
+                    aggregates_sql = self.data_source.profiling_sql_aggregates(table_name, column_name)
                     aggregates_query = Query(
                         data_source_scan=self.data_source_scan,
                         unqualified_query_name=f"profiling: {table_name}, {column_name}: get_pure_profiling_aggregates",
@@ -107,7 +108,7 @@ class ProfileColumnsRun:
                     assert (
                         profile_columns_result_column.max is not None
                     ), "Max cannot be None, make sure the min metric is derived before histograms"
-                    histogram_sql, bins_list = self.histogram_sql_and_boundaries(
+                    histogram_sql, bins_list = self.data_source.histogram_sql_and_boundaries(
                         table_name, column_name, profile_columns_result_column.min, profile_columns_result_column.max
                     )
                     histogram_query = Query(
@@ -119,7 +120,9 @@ class ProfileColumnsRun:
                     histogram = {}
                     if histogram_query.rows is not None:
                         histogram["boundaries"] = bins_list
-                        histogram["frequencies"] = [int(freq) for freq in histogram_query.rows[0]]
+                        histogram["frequencies"] = [
+                            int(freq) if freq is not None else 0 for freq in histogram_query.rows[0]
+                        ]
                         profile_columns_result_column.histogram = histogram
 
         return profile_columns_result
@@ -131,140 +134,30 @@ class ProfileColumnsRun:
             frequent_values.append({"value": str(value), "frequency": frequencies[i]})
         return frequent_values
 
-    def sql_values_frequencies_query(self, table_name: str, column_name: str) -> str:
-        return dedent(
-            f"""
-                WITH values AS (
-                  {self.sql_cte_value_frequencies(table_name, column_name)}
-                )
-                {self.sql_value_frequencies_select()}
-            """
-        )
-
-    def sql_cte_value_frequencies(self, table_name: str, column_name: str) -> str:
-        return dedent(
-            f"""
-                SELECT {column_name} as value, count(*) as frequency
-                FROM {table_name}
-                GROUP BY value
-            """
-        )
-
-    def sql_value_frequencies_select(self) -> str:
-        return dedent(
-            """
-            , mins as (
-            select value, row_number() over(order by value asc) as idx, frequency, 'mins'::text as metric_name
-            from values
-            where values is not null
-            order by value asc
-            limit 5
-        )
-        , maxes as (
-            select value, row_number() over(order by value desc) as idx, frequency, 'maxes'::text as metric_name
-            from values
-            where values is not null
-            order by value desc
-            limit 5
-        )
-        , frequent_values as (
-            select
-                frequency
-                , row_number() over (order by frequency desc) as idx
-                , value
-            from values
-            order by frequency desc
-            limit 5
-        )
-        , final as (
-            select
-                mins.value as mins
-                , maxes.value as maxes
-                , frequent_values.value as frequent_values
-                , frequent_values.frequency as frequency
-            from mins
-            join maxes
-                 on mins.idx = maxes.idx
-            join frequent_values
-                on mins.idx = frequent_values.idx
-        )
-        select * from final
-            """
-        )
-
-    def sql_aggregates(self, table_name: str, column_name: str) -> str:
-        return dedent(
-            f"""
-            select
-                avg({column_name}) as average
-                , sum({column_name}) as sum
-                , variance({column_name}) as variance
-                , stddev({column_name}) as standard_deviation
-                , count(distinct({column_name})) as distinct_values
-                , sum(case when {column_name} is null then 1 else 0 end) as missing_values
-            from {table_name}
-            """
-        )
-
-    def histogram_sql_and_boundaries(
-        self, table_name: str, column_name: str, min: int | float, max: int | float
-    ) -> tuple[str, list[int | float]]:
-        # TODO: make configurable or derive dynamically based on data quantiles etc.
-        number_of_bins: int = 20
-
-        assert (
-            min < max
-        ), f"Min of {column_name} on table: {table_name} must be smaller than max value. Min is {min}, and max is {max}"
-
-        min_value = floor(min * 1000) / 1000
-        max_value = ceil(max * 1000) / 1000
-        bin_width = (max_value - min_value) / number_of_bins
-
-        boundary_start = min_value
-        bins_list = [min_value]
-        for _ in range(0, number_of_bins):
-            boundary_start += bin_width
-            bins_list.append(round(boundary_start, 3))
-
-        field_clauses = []
-        for i in range(0, number_of_bins):
-            lower_bound = "" if i == 0 else f"{bins_list[i]} <= value"
-            upper_bound = "" if i == number_of_bins - 1 else f"value < {bins_list[i+1]}"
-            optional_and = "" if lower_bound == "" or upper_bound == "" else " and "
-            field_clauses.append(f"sum(case when {lower_bound}{optional_and}{upper_bound} then frequency end)")
-
-        fields = ",\n ".join(field_clauses)
-
-        sql = (
-            f"with values as ({self.sql_cte_value_frequencies(table_name, column_name)})\n"
-            f"select {fields} from values"
-        )
-        return sql, bins_list
-
     def _is_column_included_for_profiling(self, column_name):
         # TODO use string.split() to separate table expr (with wildcard) from column expr (with wildcard) using  self.profile_columns_cfg
         return True
 
-    def get_row_counts_for_all_tables(self) -> dict[str, int]:
-        """
-        Returns a dict that maps table names to row counts.
-        Later this could be implemented with different queries depending on the data source type.
-        """
-        include_tables = []
+    # def get_row_counts_for_all_tables(self) -> dict[str, int]:
+    # """
+    # Returns a dict that maps table names to row counts.
+    # Later this could be implemented with different queries depending on the data source type.
+    # """
+    # include_tables = []
 
-        if len(self.profile_columns_cfg.include_columns) == 0:
-            include_tables.append("%")
-        else:
-            include_tables.extend(self._get_table_expression(self.profile_columns_cfg.include_columns))
-        include_tables.extend(self._get_table_expression(self.profile_columns_cfg.exclude_columns))
-        sql = self.data_source.sql_get_table_names_with_count(include_tables=include_tables)
-        query = Query(
-            data_source_scan=self.data_source_scan,
-            unqualified_query_name="get_counts_by_tables_for_profile_columns",
-            sql=sql,
-        )
-        query.execute()
-        return {row[0]: row[1] for row in query.rows}
+    # if len(self.profile_columns_cfg.include_columns) == 0:
+    # include_tables.append("%")
+    # else:
+    # include_tables.extend(self._get_table_expression(self.profile_columns_cfg.include_columns))
+    # include_tables.extend(self._get_table_expression(self.profile_columns_cfg.exclude_columns))
+    # sql = self.data_source.sql_get_table_names_with_count(include_tables=include_tables)
+    # query = Query(
+    # data_source_scan=self.data_source_scan,
+    # unqualified_query_name="get_counts_by_tables_for_profile_columns",
+    # sql=sql,
+    # )
+    # query.execute()
+    # return {row[0]: row[1] for row in query.rows}
 
     def _get_table_expression(self, columns_expression: list[str]) -> list[str]:
         table_expressions = []

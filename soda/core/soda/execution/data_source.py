@@ -6,7 +6,9 @@ import importlib
 import json
 import re
 from datetime import date, datetime
+from math import ceil, floor
 from numbers import Number
+from textwrap import dedent
 
 from soda.common.exceptions import DataSourceError
 from soda.common.logs import Logs
@@ -241,6 +243,116 @@ class DataSource:
 
     def sql_analyze_table(self, table: str) -> str | None:
         return None
+
+    def profiling_sql_values_frequencies_query(self, table_name: str, column_name: str) -> str:
+        return dedent(
+            f"""
+                with values AS (
+                  {self.profiling_sql_cte_value_frequencies(table_name, column_name)}
+                )
+                {self.profiling_sql_value_frequencies_select()}
+            """
+        )
+
+    def profiling_sql_cte_value_frequencies(self, table_name: str, column_name: str) -> str:
+        return dedent(
+            f"""
+                select {column_name} as value, count(*) as frequency
+                from {table_name}
+                group by value
+            """
+        )
+
+    def profiling_sql_value_frequencies_select(self) -> str:
+        return dedent(
+            """
+            , mins as (
+            select value, row_number() over(order by value asc) as idx, frequency, 'mins'::text as metric_name
+            from values
+            where values is not null
+            order by value asc
+            limit 5
+        )
+        , maxes as (
+            select value, row_number() over(order by value desc) as idx, frequency, 'maxes'::text as metric_name
+            from values
+            where values is not null
+            order by value desc
+            limit 5
+        )
+        , frequent_values as (
+            select
+                frequency
+                , row_number() over (order by frequency desc) as idx
+                , value
+            from values
+            order by frequency desc
+            limit 5
+        )
+        , final as (
+            select
+                mins.value as mins
+                , maxes.value as maxes
+                , frequent_values.value as frequent_values
+                , frequent_values.frequency as frequency
+            from mins
+            join maxes
+                 on mins.idx = maxes.idx
+            join frequent_values
+                on mins.idx = frequent_values.idx
+        )
+        select * from final
+            """
+        )
+
+    def profiling_sql_aggregates(self, table_name: str, column_name: str) -> str:
+        return dedent(
+            f"""
+            select
+                avg({column_name}) as average
+                , sum({column_name}) as sum
+                , variance({column_name}) as variance
+                , stddev({column_name}) as standard_deviation
+                , count(distinct({column_name})) as distinct_values
+                , sum(case when {column_name} is null then 1 else 0 end) as missing_values
+            from {table_name}
+            """
+        )
+
+    def histogram_sql_and_boundaries(
+        self, table_name: str, column_name: str, min: int | float, max: int | float
+    ) -> tuple[str, list[int | float]]:
+        # TODO: make configurable or derive dynamically based on data quantiles etc.
+        number_of_bins: int = 20
+
+        assert (
+            min < max
+        ), f"Min of {column_name} on table: {table_name} must be smaller than max value. Min is {min}, and max is {max}"
+
+        min_value = floor(min * 1000) / 1000
+        max_value = ceil(max * 1000) / 1000
+        bin_width = (max_value - min_value) / number_of_bins
+
+        boundary_start = min_value
+        bins_list = [min_value]
+        for _ in range(0, number_of_bins):
+            boundary_start += bin_width
+            bins_list.append(round(boundary_start, 3))
+
+        field_clauses = []
+        for i in range(0, number_of_bins):
+            lower_bound = "" if i == 0 else f"{bins_list[i]} <= value"
+            upper_bound = "" if i == number_of_bins - 1 else f"value < {bins_list[i+1]}"
+            optional_and = "" if lower_bound == "" or upper_bound == "" else " and "
+            field_clauses.append(f"sum(case when {lower_bound}{optional_and}{upper_bound} then frequency end)")
+
+        fields = ",\n ".join(field_clauses)
+
+        sql = (
+            f"with values as ({self.profiling_sql_cte_value_frequencies(table_name, column_name)})\n"
+            f"select {fields} from values"
+        )
+        return sql, bins_list
 
     ######################
     # Query Execution
