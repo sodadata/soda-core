@@ -141,3 +141,7 @@ def test_profile_columns(scanner: Scanner, table_name, soda_cl_str, cloud_dict_e
         profiling_result["profiling"][0]["columnProfiles"][0]["profile"]["frequent_values"]
         == cloud_dict_expectation[0]["profiling"][0]["columnProfiles"][0]["profile"]["frequent_values"]
     )
+    assert (
+        profiling_result["profiling"][0]["columnProfiles"][0]["profile"]["histogram"]
+        == cloud_dict_expectation[0]["profiling"][0]["columnProfiles"][0]["profile"]["histogram"]
+    )
