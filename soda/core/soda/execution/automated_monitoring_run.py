@@ -14,7 +14,6 @@ class AutomatedMonitoringRun:
         self.soda_cloud = data_source_scan.scan._configuration.soda_cloud
         self.data_source = data_source_scan.data_source
         self.automated_monitoring_cfg: AutomatedMonitoringCfg = automated_monitoring_cfg
-        # field_tablename is probably obsolete
         self.field_tablename = '"tablename"'
         self.logs = self.data_source_scan.scan._logs
 

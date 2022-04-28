@@ -134,8 +134,7 @@ def test_profile_columns(scanner: Scanner, table_name, soda_cl_str, cloud_dict_e
         """
     )
     scan.execute()
+    profiling_result = mock_soda_cloud.scan_result
 
-    profiling_result = mock_soda_cloud.scan_result_dicts
-
-    assert profiling_result[0]["definitionName"] == cloud_dict_expectation[0]["definitionName"]
-    assert profiling_result[0]["profiling"] == cloud_dict_expectation[0]["profiling"]
+    assert profiling_result["definitionName"] == cloud_dict_expectation[0]["definitionName"]
+    assert profiling_result["profiling"] == cloud_dict_expectation[0]["profiling"]
