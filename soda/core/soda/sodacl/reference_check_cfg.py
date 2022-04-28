@@ -20,6 +20,3 @@ class ReferenceCheckCfg(CheckCfg):
         self.source_column_names: List[str] = source_column_names
         self.target_table_name: str = target_table_name
         self.target_column_names: List[str] = target_column_names
-
-    def get_identity_parts(self) -> list:
-        return [self.location, self.source_column_names, self.target_table_name, self.target_column_names]

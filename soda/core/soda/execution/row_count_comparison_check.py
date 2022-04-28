@@ -20,7 +20,6 @@ class RowCountComparisonCheck(Check):
             partition=partition,
             column=None,
             name="row-count-comparison",
-            identity_parts=check_cfg.get_identity_parts(),
         )
         from soda.execution.table import Table
         from soda.sodacl.row_count_comparison_check_cfg import (

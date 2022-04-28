@@ -1,7 +1,6 @@
 from datetime import timedelta
 from typing import Optional
 
-from soda.execution.identity import Identity
 from soda.sodacl.check_cfg import CheckCfg
 from soda.sodacl.location import Location
 
@@ -27,11 +26,3 @@ class FreshnessCheckCfg(CheckCfg):
 
     def get_column_name(self) -> Optional[str]:
         return self.column_name
-
-    def get_identity_parts(self) -> list:
-        return [
-            self.location,
-            self.variable_name,
-            Identity.property("fail_staleness_threshold", self.fail_staleness_threshold),
-            Identity.property("warn_staleness_threshold", self.warn_staleness_threshold),
-        ]

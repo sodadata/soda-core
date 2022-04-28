@@ -11,7 +11,7 @@ from soda.execution.check_outcome import CheckOutcome
 from soda.execution.data_source import DataSource
 from soda.sampler.log_sampler import LogSampler
 from soda.scan import Scan
-from tests.helpers.mock_soda_cloud import TimeGenerator
+from tests.helpers.mock_soda_cloud import MockSodaCloud, TimeGenerator
 from tests.helpers.test_table import TestTable
 from tests.helpers.test_table_manager import TestTableManager
 
@@ -62,12 +62,14 @@ class TestScan(Scan):
         """
         To learn the metric_identity: fill in any string, check the error log and capture the metric_identity from there
         """
-        from tests.helpers.mock_soda_cloud import MockSodaCloud
-
-        if not isinstance(self._configuration.soda_cloud, MockSodaCloud):
-            self._configuration.soda_cloud = MockSodaCloud()
+        self.enable_mock_soda_cloud()
 
         self._configuration.soda_cloud.mock_historic_values(metric_identity, metric_values, time_generator)
+
+    def enable_mock_soda_cloud(self) -> MockSodaCloud:
+        if not isinstance(self._configuration.soda_cloud, MockSodaCloud):
+            self._configuration.soda_cloud = MockSodaCloud()
+        return self._configuration.soda_cloud
 
     def execute(self):
         super().execute()
