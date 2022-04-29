@@ -325,7 +325,7 @@ class DataSource:
             """
         )
 
-    def profiling_sql_aggregates(self, table_name: str, column_name: str) -> str:
+    def profiling_sql_numeric_aggregates(self, table_name: str, column_name: str) -> str:
         return dedent(
             f"""
             select
@@ -334,6 +334,16 @@ class DataSource:
                 , variance({column_name}) as variance
                 , stddev({column_name}) as standard_deviation
                 , count(distinct({column_name})) as distinct_values
+                , sum(case when {column_name} is null then 1 else 0 end) as missing_values
+            from {table_name}
+            """
+        )
+
+    def profiling_sql_text_aggregates(self, table_name: str, column_name: str) -> str:
+        return dedent(
+            f"""
+            select
+                count(distinct({column_name})) as distinct_values
                 , sum(case when {column_name} is null then 1 else 0 end) as missing_values
             from {table_name}
             """

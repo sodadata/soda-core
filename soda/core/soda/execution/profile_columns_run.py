@@ -90,7 +90,7 @@ class ProfileColumnsRun:
                         )
 
                     # pure aggregates
-                    aggregates_sql = self.data_source.profiling_sql_aggregates(table_name, column_name)
+                    aggregates_sql = self.data_source.profiling_sql_numeric_aggregates(table_name, column_name)
                     aggregates_query = Query(
                         data_source_scan=self.data_source_scan,
                         unqualified_query_name=f"profiling: {table_name}, {column_name}: get_pure_profiling_aggregates",
@@ -165,6 +165,17 @@ class ProfileColumnsRun:
                         self.logs.error(
                             f"Most frequent values could not be derived for {table_name}, column: {column_name}"
                         )
+                    # pure text aggregates
+                    text_aggregates_sql = self.data_source.profiling_sql_text_aggregates(table_name, column_name)
+                    text_aggregates_query = Query(
+                        data_source_scan=self.data_source_scan,
+                        unqualified_query_name=f"profiling: {table_name}, {column_name}: get textual aggregates",
+                        sql=text_aggregates_sql,
+                    )
+                    text_aggregates_query.execute()
+                    if text_aggregates_query.rows:
+                        profile_columns_result_column.distinct_values = int(text_aggregates_query.rows[0][0])
+                        profile_columns_result_column.missing_values = int(text_aggregates_query.rows[0][1])
 
         return profile_columns_result
 

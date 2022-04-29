@@ -188,8 +188,8 @@ def test_profile_columns_numeric(scanner: Scanner, table_name, soda_cl_str, clou
                                     "sum": None,
                                     "stddev": None,
                                     "variance": None,
-                                    "distinct": None,
-                                    "missing_count": None,
+                                    "distinct": 2,
+                                    "missing_count": 0,
                                     "histogram": None,
                                 },
                             }
