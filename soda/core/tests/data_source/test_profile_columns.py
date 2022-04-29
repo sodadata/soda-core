@@ -1,32 +1,6 @@
-from collections.abc import Mapping
-
 import pytest
-from _pytest.python_api import ApproxMapping
 from tests.helpers.common_test_tables import customers_profiling
 from tests.helpers.scanner import Scanner
-
-
-def my_approx(expected, rel=None, abs=None, nan_ok=False):
-    if isinstance(expected, Mapping):
-        return ApproxNestedMapping(expected, rel, abs, nan_ok)
-    return pytest.approx(expected, rel, abs, nan_ok)
-
-
-class ApproxNestedMapping(ApproxMapping):
-    def _yield_comparisons(self, actual):
-        for k in self.expected.keys():
-            if isinstance(actual[k], type(self.expected)):
-                gen = ApproxNestedMapping(
-                    self.expected[k], rel=self.rel, abs=self.abs, nan_ok=self.nan_ok
-                )._yield_comparisons(actual[k])
-                yield from gen
-            else:
-                yield actual[k], self.expected[k]
-
-    def _check_type(self):
-        for key, value in self.expected.items():
-            if not isinstance(value, type(self.expected)):
-                super()._check_type()
 
 
 @pytest.mark.parametrize(
@@ -164,13 +138,12 @@ def test_profile_columns(scanner: Scanner, table_name, soda_cl_str, cloud_dict_e
     )
     scan.execute()
     profiling_result = mock_soda_cloud.scan_result
-    assert profiling_result["profiling"] == my_approx(cloud_dict_expectation["profiling"])
-    # assert profiling_result["profiling"][0]["columnProfiles"][0]["columnName"] == "size"
-    # assert (
-    # profiling_result["profiling"][0]["columnProfiles"][0]["profile"]["frequent_values"]
-    # == cloud_dict_expectation["profiling"][0]["columnProfiles"][0]["profile"]["frequent_values"]
-    # )
-    # assert (
-    # profiling_result["profiling"][0]["columnProfiles"][0]["profile"]["histogram"]
-    # == cloud_dict_expectation["profiling"][0]["columnProfiles"][0]["profile"]["histogram"]
-    # )
+    assert profiling_result["profiling"][0]["columnProfiles"][0]["columnName"] == "size"
+    assert (
+        profiling_result["profiling"][0]["columnProfiles"][0]["profile"]["frequent_values"]
+        == cloud_dict_expectation["profiling"][0]["columnProfiles"][0]["profile"]["frequent_values"]
+    )
+    assert (
+        profiling_result["profiling"][0]["columnProfiles"][0]["profile"]["histogram"]
+        == cloud_dict_expectation["profiling"][0]["columnProfiles"][0]["profile"]["histogram"]
+    )
