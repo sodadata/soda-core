@@ -137,8 +137,8 @@ customers_profiling = TestTable(
         ('ID6',  6,    "6",     999,  "18,32%",    None,     'BE', '2365', None,                      date(2020, 6, 23), datetime(2020, 6, 23, 0, 5, 10), datetime(2020, 6, 23, 0, 5, 10, tzinfo=utc)),
         ('ID7',  6,    "6",     999,  "error",     None,     'NL', '2360', None,                      date(2020, 6, 24), datetime(2020, 6, 24, 0, 1, 10), datetime(2020, 6, 24, 0, 1, 10, tzinfo=utc)),
         ('ID8',  None, None,    999,  "No value",  None,     'NL', '2361', None,                      date(2020, 6, 24), datetime(2020, 6, 24, 0, 2, 10), datetime(2020, 6, 24, 0, 2, 10, tzinfo=utc)),
-        ('ID9',  None, None,    999,  "N/A",       None,     'NL', '2362', None,                      date(2020, 6, 24), datetime(2020, 6, 24, 0, 3, 10), datetime(2020, 6, 24, 0, 3, 10, tzinfo=utc)),
-        ('ID10', None, None,    999,  "N/A",       None,     'NL', '2362', None,                      date(2020, 6, 24), datetime(2020, 6, 24, 0, 3, 10), datetime(2020, 6, 24, 0, 3, 10, tzinfo=utc)),
+        ('ID9',  None, None,    10,  "N/A",       None,     'NL', '2362', None,                      date(2020, 6, 24), datetime(2020, 6, 24, 0, 3, 10), datetime(2020, 6, 24, 0, 3, 10, tzinfo=utc)),
+        ('ID10', None, None,    None,  "N/A",       None,     'NL', '2362', None,                      date(2020, 6, 24), datetime(2020, 6, 24, 0, 3, 10), datetime(2020, 6, 24, 0, 3, 10, tzinfo=utc)),
         (None,   None, None,    None, None,        "HIGH",   'NL', '2363', None,                      date(2020, 6, 24), datetime(2020, 6, 24, 0, 4, 10), datetime(2020, 6, 24, 0, 4, 10, tzinfo=utc)),
     ]
     # fmt: on

@@ -13,7 +13,7 @@ from tests.helpers.scanner import Scanner
                 "definitionName": "test_profile_columns.py::test_profile_columns[customer table all numric columns]",
                 "profiling": [
                     {
-                        "table": "sodatest_customers_profiling_a912073b",
+                        "table": "sodatest_customers_profiling_579b10e8",
                         "dataSource": "postgres",
                         "columnProfiles": [
                             {
@@ -71,17 +71,17 @@ from tests.helpers.scanner import Scanner
                                     "min": -999,
                                     "max": 999,
                                     "frequent_values": [
-                                        {"value": "999", "frequency": 6},
-                                        {"value": "10", "frequency": 2},
-                                        {"value": "None", "frequency": 1},
+                                        {"value": "999", "frequency": 4},
+                                        {"value": "10", "frequency": 3},
+                                        {"value": "None", "frequency": 2},
                                         {"value": "-999", "frequency": 1},
                                     ],
-                                    "avg": 501.6,
-                                    "sum": 5016,
-                                    "stddev": 704.760195622123,
-                                    "variance": 496686.93333333335,
+                                    "avg": 336.44444444444446,
+                                    "sum": 3028,
+                                    "stddev": 704.587842485078,
+                                    "variance": 496444.02777777775,
                                     "distinct": 4,
-                                    "missing_count": 1,
+                                    "missing_count": 2,
                                     "histogram": {
                                         "boundaries": [
                                             -999.0,
@@ -106,7 +106,7 @@ from tests.helpers.scanner import Scanner
                                             899.1,
                                             999.0,
                                         ],
-                                        "frequencies": [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 0, 0, 0, 0, 0, 0, 0, 0, 6],
+                                        "frequencies": [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 0, 0, 0, 0, 0, 0, 0, 0, 4],
                                     },
                                 },
                             },
@@ -132,7 +132,7 @@ def test_profile_columns(scanner: Scanner, table_name, soda_cl_str, cloud_dict_e
     scan.execute()
     profiling_result = mock_soda_cloud.scan_result
 
-    assert profiling_result["profiling"] == pytest.approx(cloud_dict_expectation["profiling"])
+    assert profiling_result["profiling"] == cloud_dict_expectation["profiling"]
     # assert profiling_result["profiling"][0]["columnProfiles"][0]["columnName"] == "size"
     # assert (
     # profiling_result["profiling"][0]["columnProfiles"][0]["profile"]["frequent_values"]
