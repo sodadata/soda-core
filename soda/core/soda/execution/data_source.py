@@ -254,6 +254,16 @@ class DataSource:
             """
         )
 
+    def profiling_sql_top_values(self, table_name: str, column_name: str) -> str:
+        return dedent(
+            f"""
+                with values AS (
+                  {self.profiling_sql_cte_value_frequencies(table_name, column_name)}
+                )
+                {self.profiling_sql_frequent_values_cte('values', 'frequent_values', is_final=True)}
+            """
+        )
+
     def profiling_sql_cte_value_frequencies(self, table_name: str, column_name: str) -> str:
         return dedent(
             f"""
@@ -263,9 +273,27 @@ class DataSource:
             """
         )
 
+    def profiling_sql_frequent_values_cte(self, source_table_name: str, cte_name: str, is_final: bool = False) -> str:
+        sql = dedent(
+            f"""
+            , {cte_name} as (
+                select
+                    frequency
+                    , row_number() over (order by frequency desc) as idx
+                    , value
+                from {source_table_name}
+                order by frequency desc
+                limit 5
+            )
+            """
+        )
+        if is_final:
+            sql += f"\n select * from {cte_name}"
+        return sql
+
     def profiling_sql_value_frequencies_select(self) -> str:
         return dedent(
-            """
+            f"""
             , mins as (
             select value, row_number() over(order by value asc) as idx, frequency, 'mins'::text as metric_name
             from values
@@ -280,15 +308,7 @@ class DataSource:
             order by value desc
             limit 5
         )
-        , frequent_values as (
-            select
-                frequency
-                , row_number() over (order by frequency desc) as idx
-                , value
-            from values
-            order by frequency desc
-            limit 5
-        )
+        {self.profiling_sql_frequent_values_cte(source_table_name='values', cte_name='frequent_values', is_final=False)}
         , final as (
             select
                 mins.value as mins

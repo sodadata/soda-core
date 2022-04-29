@@ -4,6 +4,7 @@ from typing import TYPE_CHECKING
 
 from soda.execution.profile_columns_result import ProfileColumnsResult
 from soda.execution.profile_columns_result_column import ProfileColumnsResultColumn
+from soda.execution.profile_columns_result_table import ProfileColumnsResultTable
 from soda.execution.query import Query
 from soda.sodacl.profile_columns_cfg import ProfileColumnsCfg
 
@@ -29,6 +30,7 @@ class ProfileColumnsRun:
             exclude_tables=self._get_table_expression(self.profile_columns_cfg.exclude_columns),
             query_name="profile columns: get tables and row counts",
         )
+        parsed_tables_and_columns = self._build_column_inclusion(self.profile_columns_cfg.include_columns)
         for table_name in row_counts_by_table_name:
             measured_row_count = row_counts_by_table_name[table_name]
             profile_columns_result_table = profile_columns_result.create_table(
@@ -58,10 +60,15 @@ class ProfileColumnsRun:
             }
 
             for column_name, column_type in numerical_columns.items():
-                if self._is_column_included_for_profiling(column_name):
-                    profile_columns_result_column: ProfileColumnsResultColumn = (
-                        profile_columns_result_table.create_column(column_name, column_type)
-                    )
+                profile_columns_result_column = self.build_profiling_column(
+                    column_name,
+                    column_type,
+                    table_name,
+                    list(columns_metadata_result.keys()),
+                    parsed_tables_and_columns,
+                    profile_columns_result_table,
+                )
+                if profile_columns_result_column:
                     value_frequencies_sql = self.data_source.profiling_sql_values_frequencies_query(
                         table_name, column_name
                     )
@@ -125,7 +132,57 @@ class ProfileColumnsRun:
                         ]
                         profile_columns_result_column.histogram = histogram
 
+            # text columns
+            text_columns = {
+                col_name: data_type
+                for col_name, data_type in columns_metadata_result.items()
+                if data_type in ["character varying"]
+            }
+            for column_name, column_type in text_columns.items():
+                profile_columns_result_column = self.build_profiling_column(
+                    column_name,
+                    column_type,
+                    table_name,
+                    list(columns_metadata_result.keys()),
+                    parsed_tables_and_columns,
+                    profile_columns_result_table,
+                )
+                if profile_columns_result_column:
+                    # frequent values for text column
+                    frequent_values_sql = self.data_source.profiling_sql_top_values(table_name, column_name)
+                    frequent_values_query = Query(
+                        data_source_scan=self.data_source_scan,
+                        unqualified_query_name=f"profiling: {table_name}, {column_name}: get frequent values text cols",
+                        sql=frequent_values_sql,
+                    )
+                    frequent_values_query.execute()
+                    if frequent_values_query.rows:
+                        profile_columns_result_column.frequent_values = self.build_frequent_values_dict(
+                            values=[row[2] for row in frequent_values_query.rows],
+                            frequencies=[row[0] for row in frequent_values_query.rows],
+                        )
+                    else:
+                        self.logs.error(
+                            f"Most frequent values could not be derived for {table_name}, column: {column_name}"
+                        )
+
         return profile_columns_result
+
+    def build_profiling_column(
+        self,
+        column_name: str,
+        column_type: str,
+        table_name: str,
+        table_columns: list[str],
+        parsed_tables_and_columns: dict[str, list[str]],
+        table_result: ProfileColumnsResultTable,
+    ) -> ProfileColumnsResultColumn | None:
+        if self._is_column_included_for_profiling(column_name, table_name, table_columns, parsed_tables_and_columns):
+            profile_columns_result_column: ProfileColumnsResultColumn = table_result.create_column(
+                column_name, column_type
+            )
+            return profile_columns_result_column
+        return None
 
     @staticmethod
     def build_frequent_values_dict(values: list[str | int | float], frequencies: list[int]) -> list[dict[str, int]]:
@@ -134,9 +191,24 @@ class ProfileColumnsRun:
             frequent_values.append({"value": str(value), "frequency": frequencies[i]})
         return frequent_values
 
-    def _is_column_included_for_profiling(self, column_name):
+    def _is_column_included_for_profiling(
+        self,
+        candidate_column_name: str,
+        table_name: str,
+        table_columns: list[str],
+        parsed_tables_and_columns: dict[str, list[str]],
+    ):
         # TODO use string.split() to separate table expr (with wildcard) from column expr (with wildcard) using  self.profile_columns_cfg
-        return True
+        cols_for_all_tables = parsed_tables_and_columns.get("%", [])
+        if (
+            candidate_column_name in parsed_tables_and_columns.get(table_name, [])
+            or candidate_column_name in cols_for_all_tables
+            or parsed_tables_and_columns.get(table_name, []) == ["%"]
+        ):
+            if candidate_column_name in table_columns:
+                return True
+        else:
+            return False
 
     # def get_row_counts_for_all_tables(self) -> dict[str, int]:
     # """
@@ -159,6 +231,20 @@ class ProfileColumnsRun:
     # query.execute()
     # return {row[0]: row[1] for row in query.rows}
 
+    def _build_column_inclusion(self, columns_expression: list[str]):
+        final = {}
+        for col_expression in columns_expression:
+            table, column = col_expression.split(".")
+            table = table.lower()
+            if table in final.keys():
+                if final[table] is None:
+                    final[table] = [column]
+                else:
+                    final[table].append(column)
+            else:
+                final.update({table: [column]})
+        return final
+
     def _get_table_expression(self, columns_expression: list[str]) -> list[str]:
         table_expressions = []
         for column_expression in columns_expression:
@@ -172,3 +258,17 @@ class ProfileColumnsRun:
                 table_expression = parts[0]
                 table_expressions.append(table_expression)
         return table_expressions
+
+    def _get_colums(self, columns_expression: list[str]) -> list[str]:
+        column_expressions = []
+        for column_expression in columns_expression:
+            parts = column_expression.split(".")
+            if len(parts) != 2:
+                self.logs.error(
+                    f"Invalid include columns expression '{column_expression}'",
+                    location=self.profile_columns_cfg.location,
+                )
+            else:
+                column_expression = parts[1]
+                column_expressions.append(column_expression)
+        return column_expressions

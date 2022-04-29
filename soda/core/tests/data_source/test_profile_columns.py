@@ -8,7 +8,7 @@ from tests.helpers.scanner import Scanner
     [
         pytest.param(
             customers_profiling,
-            "%.%",
+            ".%",
             {
                 "definitionName": "test_profile_columns.py::test_profile_columns[customer table all numric columns]",
                 "dataTimestamp": "2022-04-29T08:41:19.772904",
@@ -125,7 +125,7 @@ from tests.helpers.scanner import Scanner
         )
     ],
 )
-def test_profile_columns(scanner: Scanner, table_name, soda_cl_str, cloud_dict_expectation):
+def test_profile_columns_numeric(scanner: Scanner, table_name, soda_cl_str, cloud_dict_expectation):
     table_name = scanner.ensure_test_table(table_name)
 
     scan = scanner.create_test_scan()
@@ -150,3 +150,68 @@ def test_profile_columns(scanner: Scanner, table_name, soda_cl_str, cloud_dict_e
         profiling_result["profiling"][0]["columnProfiles"][0]["profile"]["histogram"]
         == cloud_dict_expectation["profiling"][0]["columnProfiles"][0]["profile"]["histogram"]
     )
+
+
+@pytest.mark.parametrize(
+    "table_name, soda_cl_str, cloud_dict_expectation",
+    [
+        pytest.param(
+            customers_profiling,
+            ".country",
+            {
+                "definitionName": "test_profile_columns.py::test_profile_columns_text[table_name0-.country-cloud_dict_expectation0]",
+                "dataTimestamp": "2022-04-29T14:32:57.111198",
+                "scanStartTimestamp": "2022-04-29T14:32:57.111198",
+                "scanEndTimestamp": "2022-04-29T14:32:57.197097",
+                "hasErrors": False,
+                "hasWarnings": False,
+                "hasFailures": False,
+                "metrics": [],
+                "checks": [],
+                "profiling": [
+                    {
+                        "table": "sodatest_customers_profiling_31fec4d4",
+                        "dataSource": "postgres",
+                        "columnProfiles": [
+                            {
+                                "columnName": "country",
+                                "profile": {
+                                    "mins": None,
+                                    "maxs": None,
+                                    "min": None,
+                                    "max": None,
+                                    "frequent_values": [
+                                        {"value": "BE", "frequency": 6},
+                                        {"value": "NL", "frequency": 4},
+                                    ],
+                                    "avg": None,
+                                    "sum": None,
+                                    "stddev": None,
+                                    "variance": None,
+                                    "distinct": None,
+                                    "missing_count": None,
+                                    "histogram": None,
+                                },
+                            }
+                        ],
+                    }
+                ],
+            },
+            id="customer.country (text only)",
+        )
+    ],
+)
+def test_profile_columns_text(scanner: Scanner, table_name, soda_cl_str, cloud_dict_expectation):
+    table_name = scanner.ensure_test_table(table_name)
+
+    scan = scanner.create_test_scan()
+    mock_soda_cloud = scan.activate_mock_soda_cloud()
+    scan.add_sodacl_yaml_str(
+        f"""
+          profile columns:
+            columns: [{table_name}{soda_cl_str}]
+        """
+    )
+    scan.execute()
+    profiling_result = mock_soda_cloud.scan_result
+    assert profiling_result["profiling"] == cloud_dict_expectation["profiling"]
