@@ -83,7 +83,7 @@ class SodaCLParser(Parser):
             try:
                 if "automated monitoring" == header_str:
                     self.__parse_automated_monitoring_section(header_str, header_content)
-                elif header_str.startswith('profile columns'):
+                elif header_str.startswith("profile columns"):
                     self.__parse_profile_columns_section(header_str, header_content)
                 elif "checks" == header_str:
                     self.__parse_data_source_checks_section(header_str, header_content)
@@ -1228,22 +1228,18 @@ class SodaCLParser(Parser):
             if isinstance(columns, list):
                 for column_expression in columns:
                     if column_expression.startswith("exclude "):
-                        exclude_column_expression = column_expression[len("exclude "):]
+                        exclude_column_expression = column_expression[len("exclude ") :]
                         profile_columns_cfg.exclude_columns.append(exclude_column_expression)
                     else:
                         if column_expression.startswith("include "):
-                            include_column_expression = column_expression[len("include "):]
+                            include_column_expression = column_expression[len("include ") :]
                         else:
                             include_column_expression = column_expression
                         profile_columns_cfg.include_columns.append(include_column_expression)
             elif columns is None:
-                self.logs.error(
-                    'Configuration key "columns" is required in profile columns', location=self.location
-                )
+                self.logs.error('Configuration key "columns" is required in profile columns', location=self.location)
             else:
-                self.logs.error(
-                    'Content of "columns" must be a list of column expressions', location=self.location
-                )
+                self.logs.error('Content of "columns" must be a list of column expressions', location=self.location)
         else:
             self.logs.error(
                 f'Skipping section "{header_str}" because content is not an object/dict',

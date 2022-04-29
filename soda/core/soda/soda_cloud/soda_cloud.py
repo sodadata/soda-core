@@ -37,6 +37,9 @@ class SodaCloud:
                 "checks": [check.get_cloud_dict() for check in scan._checks],
                 # TODO Queries are not supported by Soda Cloud yet.
                 # "queries": [query.get_cloud_dict() for query in scan._queries],
-                "profiling": [profile_columns_result_table.get_cloud_dict() for profile_columns_result_table in scan._profile_columns_result_tables],
+                "profiling": [
+                    profile_columns_result_table.get_cloud_dict()
+                    for profile_columns_result_table in scan._profile_columns_result_tables
+                ],
             }
         )

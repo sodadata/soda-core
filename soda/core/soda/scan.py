@@ -49,7 +49,7 @@ class Scan:
         self._metrics: set[Metric] = set()
         self._checks: list[Check] = []
         self._queries: list[Query] = []
-        self._profile_columns_result_tables: List[ProfileColumnsResultTable] = []
+        self._profile_columns_result_tables: list[ProfileColumnsResultTable] = []
         self._logs.info(f"Soda Core {SODA_CORE_VERSION}")
 
     def set_data_source_name(self, data_source_name: str):

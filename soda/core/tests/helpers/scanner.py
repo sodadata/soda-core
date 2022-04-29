@@ -44,7 +44,7 @@ class TestScan(Scan):
         if os.environ.get("WESTMALLE"):
             self.activate_mock_soda_cloud()
 
-    def activate_mock_soda_cloud(self) -> "MockSodaCloud":
+    def activate_mock_soda_cloud(self) -> MockSodaCloud:
         from tests.helpers.mock_soda_cloud import MockSodaCloud
 
         mock_soda_cloud = MockSodaCloud()
