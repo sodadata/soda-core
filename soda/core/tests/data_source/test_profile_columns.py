@@ -132,7 +132,7 @@ def test_profile_columns(scanner: Scanner, table_name, soda_cl_str, cloud_dict_e
     scan.execute()
     profiling_result = mock_soda_cloud.scan_result
 
-    assert profiling_result["profiling"] == cloud_dict_expectation["profiling"]
+    assert profiling_result["profiling"] == pytest.approx(cloud_dict_expectation["profiling"])
     # assert profiling_result["profiling"][0]["columnProfiles"][0]["columnName"] == "size"
     # assert (
     # profiling_result["profiling"][0]["columnProfiles"][0]["profile"]["frequent_values"]
