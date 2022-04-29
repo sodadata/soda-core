@@ -140,6 +140,7 @@ def test_profile_columns(scanner: Scanner, table_name, soda_cl_str, cloud_dict_e
     profiling_result = mock_soda_cloud.scan_result
     assert profiling_result
     assert len(profiling_result["profiling"]) > 0
+    assert len(profiling_result["profiling"][0]["columnProfiles"]) > 0
     assert profiling_result["profiling"][0]["columnProfiles"][0]["columnName"] == "size"
     assert (
         profiling_result["profiling"][0]["columnProfiles"][0]["profile"]["frequent_values"]
