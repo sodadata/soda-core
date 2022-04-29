@@ -16,6 +16,9 @@ class ProfileColumnsResultColumn:
         self.distinct_values: int | None = None
         self.missing_values: int | None = None
         self.histogram: dict[str, list[str | int | float]] | None = None
+        self.average_length: float | None = None
+        self.min_length: float | None = None
+        self.max_length: float | None = None
 
     def create_column(self, column_name):
         pass
@@ -36,6 +39,9 @@ class ProfileColumnsResultColumn:
                 "distinct": self.distinct_values,
                 "missing_count": self.missing_values,
                 "histogram": self.histogram,
+                "avg_length": self.average_length,
+                "min_length": self.min_length,
+                "max_length": self.max_length,
             },
         }
         return cloud_dict

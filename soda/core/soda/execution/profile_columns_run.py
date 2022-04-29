@@ -176,6 +176,9 @@ class ProfileColumnsRun:
                     if text_aggregates_query.rows:
                         profile_columns_result_column.distinct_values = int(text_aggregates_query.rows[0][0])
                         profile_columns_result_column.missing_values = int(text_aggregates_query.rows[0][1])
+                        profile_columns_result_column.average_length = int(text_aggregates_query.rows[0][2])
+                        profile_columns_result_column.min_length = int(text_aggregates_query.rows[0][3])
+                        profile_columns_result_column.max_length = int(text_aggregates_query.rows[0][4])
 
         return profile_columns_result
 

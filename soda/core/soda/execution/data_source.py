@@ -345,6 +345,9 @@ class DataSource:
             select
                 count(distinct({column_name})) as distinct_values
                 , sum(case when {column_name} is null then 1 else 0 end) as missing_values
+                , avg(length({column_name})) as avg_length
+                , min(length({column_name})) as min_length
+                , max(length({column_name})) as max_length
             from {table_name}
             """
         )
