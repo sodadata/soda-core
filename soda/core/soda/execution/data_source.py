@@ -267,9 +267,9 @@ class DataSource:
     def profiling_sql_cte_value_frequencies(self, table_name: str, column_name: str) -> str:
         return dedent(
             f"""
-                select {column_name} as value, count(*) as frequency
+                select {column_name} as value_name, count(*) as frequency
                 from {table_name}
-                group by value
+                group by value_name
             """
         )
 
@@ -280,7 +280,7 @@ class DataSource:
                 select
                     frequency
                     , row_number() over (order by frequency desc) as idx
-                    , value
+                    , value_name
                 from {source_table_name}
                 order by frequency desc
                 limit 5
@@ -295,25 +295,25 @@ class DataSource:
         return dedent(
             f"""
             , mins as (
-            select value, row_number() over(order by value asc) as idx, frequency, 'mins'::text as metric_name
+            select value_name, row_number() over(order by value_name asc) as idx, frequency, 'mins'::text as metric_name
             from values
             where values is not null
-            order by value asc
+            order by value_name asc
             limit 5
         )
         , maxes as (
-            select value, row_number() over(order by value desc) as idx, frequency, 'maxes'::text as metric_name
+            select value_name, row_number() over(order by value_name desc) as idx, frequency, 'maxes'::text as metric_name
             from values
             where values is not null
-            order by value desc
+            order by value_name desc
             limit 5
         )
         {self.profiling_sql_frequent_values_cte(source_table_name='values', cte_name='frequent_values', is_final=False)}
         , final as (
             select
-                mins.value as mins
-                , maxes.value as maxes
-                , frequent_values.value as frequent_values
+                mins.value_name as mins
+                , maxes.value_name as maxes
+                , frequent_values.value_name as frequent_values
                 , frequent_values.frequency as frequency
             from mins
             join maxes
@@ -374,8 +374,8 @@ class DataSource:
 
         field_clauses = []
         for i in range(0, number_of_bins):
-            lower_bound = "" if i == 0 else f"{bins_list[i]} <= value"
-            upper_bound = "" if i == number_of_bins - 1 else f"value < {bins_list[i+1]}"
+            lower_bound = "" if i == 0 else f"{bins_list[i]} <= value_name"
+            upper_bound = "" if i == number_of_bins - 1 else f"value_name < {bins_list[i+1]}"
             optional_and = "" if lower_bound == "" or upper_bound == "" else " and "
             field_clauses.append(f"sum(case when {lower_bound}{optional_and}{upper_bound} then frequency end)")
 
