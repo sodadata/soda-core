@@ -265,6 +265,7 @@ class DataSource:
         )
 
     def profiling_sql_cte_value_frequencies(self, table_name: str, column_name: str) -> str:
+        column_name = self.quote_column(column_name)
         return dedent(
             f"""
                 select {column_name} as value_name, count(*) as frequency
@@ -297,14 +298,14 @@ class DataSource:
             , mins as (
             select value_name, row_number() over(order by value_name asc) as idx, frequency, 'mins'::text as metric_name
             from values
-            where values is not null
+            where value_name is not null
             order by value_name asc
             limit 5
         )
         , maxes as (
             select value_name, row_number() over(order by value_name desc) as idx, frequency, 'maxes'::text as metric_name
             from values
-            where values is not null
+            where value_name is not null
             order by value_name desc
             limit 5
         )
@@ -320,12 +321,14 @@ class DataSource:
                  on mins.idx = maxes.idx
             join frequent_values
                 on mins.idx = frequent_values.idx
+            order by frequency desc
         )
         select * from final
             """
         )
 
     def profiling_sql_numeric_aggregates(self, table_name: str, column_name: str) -> str:
+        column_name = self.quote_column(column_name)
         return dedent(
             f"""
             select
@@ -340,6 +343,7 @@ class DataSource:
         )
 
     def profiling_sql_text_aggregates(self, table_name: str, column_name: str) -> str:
+        column_name = self.quote_column(column_name)
         return dedent(
             f"""
             select

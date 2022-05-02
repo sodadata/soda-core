@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import pytest
 from tests.helpers.common_test_tables import customers_profiling
 from tests.helpers.scanner import Scanner
@@ -21,8 +23,6 @@ from tests.helpers.scanner import Scanner
                 "checks": [],
                 "profiling": [
                     {
-                        "table": "sodatest_customers_profiling_f15d5223",
-                        "dataSource": "postgres",
                         "columnProfiles": [
                             {
                                 "columnName": "size",
@@ -137,8 +137,10 @@ def test_profile_columns_numeric(scanner: Scanner, table_name, soda_cl_str, clou
         """
     )
     scan.execute()
+    # remove the data source name because it's a pain to test
     profiling_result = mock_soda_cloud.scan_result
     assert profiling_result
+    profiling_result = remove_datasource_and_table_name(profiling_result)
     assert len(profiling_result["profiling"]) > 0
     assert len(profiling_result["profiling"][0]["columnProfiles"]) > 0
     assert profiling_result["profiling"][0]["columnProfiles"][0]["columnName"] == "size"
@@ -170,8 +172,6 @@ def test_profile_columns_numeric(scanner: Scanner, table_name, soda_cl_str, clou
                 "checks": [],
                 "profiling": [
                     {
-                        "table": "sodatest_customers_profiling_31fec4d4",
-                        "dataSource": "postgres",
                         "columnProfiles": [
                             {
                                 "columnName": "country",
@@ -217,4 +217,14 @@ def test_profile_columns_text(scanner: Scanner, table_name, soda_cl_str, cloud_d
     )
     scan.execute()
     profiling_result = mock_soda_cloud.scan_result
+    # remove the data source name because it's a pain to test
+    profiling_result = remove_datasource_and_table_name(profiling_result)
+
     assert profiling_result["profiling"] == cloud_dict_expectation["profiling"]
+
+
+def remove_datasource_and_table_name(results_dict: dict) -> dict:
+    for i, _ in enumerate(results_dict["profiling"]):
+        del results_dict["profiling"][i]["dataSource"]
+        del results_dict["profiling"][i]["table"]
+    return results_dict

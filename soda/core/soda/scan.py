@@ -5,7 +5,6 @@ import logging
 import os
 import textwrap
 from datetime import datetime
-from typing import List
 
 from soda.__version__ import SODA_CORE_VERSION
 from soda.common.log import Log, LogLevel
@@ -347,9 +346,6 @@ class Scan:
                     self._logs.error(
                         f"Metrics {missing_metrics_str} were not computed for check {check.check_cfg.source_line}"
                     )
-
-            # TODO Show the results on the console: check results, metric values and queries
-            # TODO Send the results to Soda Cloud
 
             self.run_automated_monitoring()
             self.run_profile_columns()

@@ -20,9 +20,6 @@ class ProfileColumnsResultColumn:
         self.min_length: float | None = None
         self.max_length: float | None = None
 
-    def create_column(self, column_name):
-        pass
-
     def get_cloud_dict(self) -> dict:
         cloud_dict = {
             "columnName": self.column_name,

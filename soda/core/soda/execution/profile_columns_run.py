@@ -47,10 +47,6 @@ class ProfileColumnsRun:
             columns_metadata_query.execute()
             assert columns_metadata_query.rows, f"No metadata was captured for table: {table_name}"
             columns_metadata_result = {column[0]: column[1] for column in columns_metadata_query.rows}
-            # TODO: I'd like to be able to filter columns that roll up to a numeric, text, datetime-like archetype here
-            # in order to properly apply the set of profiling metrics that are compatible.
-            # Ideally, I don't want to implement a mapping between db types from all dialects if we have this logic somewhere else in the
-            # code
 
             # perform numerical metrics collection
             numerical_columns = {
@@ -99,8 +95,6 @@ class ProfileColumnsRun:
                     aggregates_query.execute()
 
                     if aggregates_query.rows is not None:
-                        # the float() method isn't super good. We will want to find a way to safely get a float from a
-                        # potentially dynamic result of the like Decimal(), which I don't yet if there is much of a way.
                         profile_columns_result_column.average = float(aggregates_query.rows[0][0])
                         profile_columns_result_column.sum = aggregates_query.rows[0][1]
                         profile_columns_result_column.variance = float(aggregates_query.rows[0][2])
@@ -212,7 +206,6 @@ class ProfileColumnsRun:
         table_columns: list[str],
         parsed_tables_and_columns: dict[str, list[str]],
     ):
-        # TODO use string.split() to separate table expr (with wildcard) from column expr (with wildcard) using  self.profile_columns_cfg
         cols_for_all_tables = parsed_tables_and_columns.get("%", [])
         if (
             candidate_column_name in parsed_tables_and_columns.get(table_name, [])
@@ -224,40 +217,20 @@ class ProfileColumnsRun:
         else:
             return False
 
-    # def get_row_counts_for_all_tables(self) -> dict[str, int]:
-    # """
-    # Returns a dict that maps table names to row counts.
-    # Later this could be implemented with different queries depending on the data source type.
-    # """
-    # include_tables = []
-
-    # if len(self.profile_columns_cfg.include_columns) == 0:
-    # include_tables.append("%")
-    # else:
-    # include_tables.extend(self._get_table_expression(self.profile_columns_cfg.include_columns))
-    # include_tables.extend(self._get_table_expression(self.profile_columns_cfg.exclude_columns))
-    # sql = self.data_source.sql_get_table_names_with_count(include_tables=include_tables)
-    # query = Query(
-    # data_source_scan=self.data_source_scan,
-    # unqualified_query_name="get_counts_by_tables_for_profile_columns",
-    # sql=sql,
-    # )
-    # query.execute()
-    # return {row[0]: row[1] for row in query.rows}
-
+    # TODO: Deal with exclude set as well
     def _build_column_inclusion(self, columns_expression: list[str]):
-        final = {}
+        included_columns = {}
         for col_expression in columns_expression:
             table, column = col_expression.split(".")
             table = table.lower()
-            if table in final.keys():
-                if final[table] is None:
-                    final[table] = [column]
+            if table in included_columns.keys():
+                if included_columns[table] is None:
+                    included_columns[table] = [column]
                 else:
-                    final[table].append(column)
+                    included_columns[table].append(column)
             else:
-                final.update({table: [column]})
-        return final
+                included_columns.update({table: [column]})
+        return included_columns
 
     def _get_table_expression(self, columns_expression: list[str]) -> list[str]:
         table_expressions = []
