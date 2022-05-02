@@ -22,7 +22,7 @@ def test_freshness_timezones_input_no_tz(scanner: Scanner):
     table_name = scanner.ensure_test_table(customers_test_table)
 
     scan = scanner.create_test_scan()
-    scan.add_variables({"NOW": "2020-06-25 00:00:00"})
+    scan.add_variables({"NOW": "2020-06-25 00:00:00"})  # NOW overrides default "now" variable in scan.
     scan.add_sodacl_yaml_str(
         f"""
       checks for {table_name}:
@@ -39,7 +39,7 @@ def test_freshness_timezones_input_with_tz(scanner: Scanner):
     table_name = scanner.ensure_test_table(customers_test_table)
 
     scan = scanner.create_test_scan()
-    scan.add_variables({"NOW": "2020-06-25 01:00:00+01:00"})
+    scan.add_variables({"NOW": "2020-06-25 01:00:00+01:00"})  # NOW overrides default "now" variable in scan.
     scan.add_sodacl_yaml_str(
         f"""
       checks for {table_name}:
@@ -90,7 +90,7 @@ def test_freshness_warning(scanner: Scanner):
     table_name = scanner.ensure_test_table(customers_test_table)
 
     scan = scanner.create_test_scan()
-    scan.add_variables({"NOW": "2020-06-25 00:00:00"})
+    scan.add_variables({"NOW": "2020-06-25 00:00:00"})  # NOW overrides default "now" variable in scan.
     scan.add_sodacl_yaml_str(
         f"""
       checks for {table_name}:
@@ -150,3 +150,19 @@ def test_freshness_no_rows(scanner: Scanner):
     scan.execute()
 
     scan.assert_all_checks_fail()
+
+
+def test_fail_freshness_var_missing(scanner: Scanner):
+    table_name = scanner.ensure_test_table(customers_test_table)
+
+    scan = scanner.create_test_scan()
+    scan.add_sodacl_yaml_str(
+        f"""
+      checks for {table_name}:
+        - freshness using ts with CUSTOM_USER_VAR < 1d
+    """
+    )
+    scan.execute(allow_error_warning=True)
+
+    scan.assert_all_checks_fail()
+    scan.assert_log_error("variable not found")

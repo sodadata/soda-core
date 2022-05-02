@@ -71,9 +71,11 @@ class TestScan(Scan):
             self._configuration.soda_cloud = MockSodaCloud()
         return self._configuration.soda_cloud
 
-    def execute(self):
+    def execute(self, allow_error_warning: bool = False):
         super().execute()
-        self.assert_no_error_nor_warning_logs()
+
+        if not allow_error_warning:
+            self.assert_no_error_nor_warning_logs()
 
     def execute_unchecked(self):
         super().execute()
