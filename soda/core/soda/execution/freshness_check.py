@@ -46,6 +46,14 @@ class FreshnessCheck(Check):
         check_cfg: FreshnessCheckCfg = self.check_cfg
 
         now_variable_name = check_cfg.variable_name
+        now_variable_timestamp_text = self.data_source_scan.scan.get_variable(now_variable_name)
+        if not now_variable_timestamp_text:
+            self.outcome = CheckOutcome.FAIL
+            self.logs.error(
+                f"Could not parse variable {now_variable_name} as a timestamp: variable not found",
+            )
+            return
+
         max_column_timestamp: Optional[datetime] = metrics.get(MAX_COLUMN_TIMESTAMP).value
         now_variable_timestamp: Optional[datetime] = None
 
@@ -57,19 +65,13 @@ class FreshnessCheck(Check):
                 location=self.check_cfg.location,
             )
 
-        now_variable_timestamp_text = self.data_source_scan.scan.get_variable(now_variable_name)
-        if now_variable_timestamp_text is not None:
-            try:
-                now_variable_timestamp = datetime.fromisoformat(now_variable_timestamp_text)
-            except:
-                self.logs.error(
-                    f"Could not parse variable {now_variable_name} as a timestamp: {now_variable_timestamp_text}",
-                    location=check_cfg.location,
-                )
-        else:
-            now_variable_timestamp = self.data_source_scan.scan._data_timestamp
-            now_variable_name = "scan._scan_time"
-            now_variable_timestamp_text = str(now_variable_timestamp)
+        try:
+            now_variable_timestamp = datetime.fromisoformat(now_variable_timestamp_text)
+        except:
+            self.logs.error(
+                f"Could not parse variable {now_variable_name} as a timestamp: {now_variable_timestamp_text}",
+                location=check_cfg.location,
+            )
 
         is_now_variable_timestamp_valid = isinstance(now_variable_timestamp, datetime)
 
