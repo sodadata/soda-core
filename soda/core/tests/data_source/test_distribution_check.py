@@ -2,7 +2,6 @@ import os
 from textwrap import dedent
 
 import pytest
-
 from tests.helpers.common_test_tables import customers_dist_check_test_table
 from tests.helpers.mock_file_system import MockFileSystem
 from tests.helpers.scanner import Scanner
