@@ -71,7 +71,7 @@ class ProfileColumnsRun:
 
                     value_frequencies_query = Query(
                         data_source_scan=self.data_source_scan,
-                        unqualified_query_name=f"profiling: {table_name}, {column_name}: get_profile_columns_metrics",
+                        unqualified_query_name=f"profiling: {table_name}, {column_name}: mins, maxes and values frequencies",
                         sql=value_frequencies_sql,
                     )
                     value_frequencies_query.execute()
@@ -83,6 +83,10 @@ class ProfileColumnsRun:
                         profile_columns_result_column.frequent_values = self.build_frequent_values_dict(
                             values=[row[2] for row in value_frequencies_query.rows],
                             frequencies=[row[3] for row in value_frequencies_query.rows],
+                        )
+                    else:
+                        self.logs.error(
+                            f"Database returned no results for minumum values, maximum values and frequent values in table: {table_name}, columns: {column_name}"
                         )
 
                     # pure aggregates
@@ -101,6 +105,10 @@ class ProfileColumnsRun:
                         profile_columns_result_column.standard_deviation = float(aggregates_query.rows[0][3])
                         profile_columns_result_column.distinct_values = int(aggregates_query.rows[0][4])
                         profile_columns_result_column.missing_values = int(aggregates_query.rows[0][5])
+                    else:
+                        self.logs.error(
+                            f"Database returned no results for aggregates in table: {table_name}, columns: {column_name}"
+                        )
 
                     # histogram
                     assert (
@@ -125,6 +133,10 @@ class ProfileColumnsRun:
                             int(freq) if freq is not None else 0 for freq in histogram_query.rows[0]
                         ]
                         profile_columns_result_column.histogram = histogram
+                    else:
+                        self.logs.error(
+                            f"Database returned no results for histograms in table: {table_name}, columns: {column_name}"
+                        )
                 else:
                     self.logs.info(f"No profiling information derived for column {column_name} in {table_name}")
 
@@ -159,7 +171,7 @@ class ProfileColumnsRun:
                         )
                     else:
                         self.logs.error(
-                            f"Most frequent values could not be derived for {table_name}, column: {column_name}"
+                            f"Database returned no results for textual frequent values in {table_name}, column: {column_name}"
                         )
                     # pure text aggregates
                     text_aggregates_sql = self.data_source.profiling_sql_text_aggregates(table_name, column_name)
@@ -175,6 +187,10 @@ class ProfileColumnsRun:
                         profile_columns_result_column.average_length = int(text_aggregates_query.rows[0][2])
                         profile_columns_result_column.min_length = int(text_aggregates_query.rows[0][3])
                         profile_columns_result_column.max_length = int(text_aggregates_query.rows[0][4])
+                    else:
+                        self.logs.error(
+                            f"Database returned no results for textual aggregates in table: {table_name}, columns: {column_name}"
+                        )
                 else:
                     self.logs.info(f"No profiling information derived for column {column_name} in {table_name}")
 

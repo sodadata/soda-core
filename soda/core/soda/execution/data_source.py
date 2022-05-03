@@ -296,14 +296,14 @@ class DataSource:
         return dedent(
             f"""
             , mins as (
-            select value_name, row_number() over(order by value_name asc) as idx, frequency, 'mins'::text as metric_name
+            select value_name, row_number() over(order by value_name asc) as idx, frequency, 'mins' as metric_name
             from values
             where value_name is not null
             order by value_name asc
             limit 5
         )
         , maxes as (
-            select value_name, row_number() over(order by value_name desc) as idx, frequency, 'maxes'::text as metric_name
+            select value_name, row_number() over(order by value_name desc) as idx, frequency, 'maxes' as metric_name
             from values
             where value_name is not null
             order by value_name desc
