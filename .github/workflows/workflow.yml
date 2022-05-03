@@ -151,6 +151,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           cat dev-requirements.in | grep tox | xargs pip install
+          pip install soda/scientific
 
       - name: Test with tox
         run: |
