@@ -3,7 +3,6 @@ from tests.helpers.common_test_tables import customers_test_table
 from tests.helpers.scanner import Scanner
 
 
-@pytest.mark.skip
 def test_automated_monitoring(scanner: Scanner):
     scanner.ensure_test_table(customers_test_table)
 
@@ -17,9 +16,8 @@ def test_automated_monitoring(scanner: Scanner):
               tables:
                 - include SODATEST_%
                 - exclude PROD%
-              find anomalies:
-                row count: true
-                schema: true
         """
     )
+    scan._is_experimental_auto_monitoring = False
+    scan._is_automated_monitoring_run = True
     scan.execute()
