@@ -164,11 +164,10 @@ def test_for_each_identity(scanner: Scanner):
             - row_count > 0
         """,
     )
-    assert scan_result["checks"][0]["identity"] == "4bb40424"
+    assert scan_result["checks"][0]["identity"] != scan_result["checks"][1]["identity"]
+    assert scan_result["checks"][0]["identity"] != scan_result["checks"][2]["identity"]
+    assert scan_result["checks"][1]["identity"] != scan_result["checks"][2]["identity"]
+
     assert f"checks for {customers_table_name}" in scan_result["checks"][0]["definition"]
-
-    assert scan_result["checks"][1]["identity"] == "e8dd2881"
     assert f"checks for T being {customers_table_name.lower()}" in scan_result["checks"][1]["definition"]
-
-    assert scan_result["checks"][2]["identity"] == "1e6f0b83"
     assert f"checks for T being {customers_dist_table_name.lower()}" in scan_result["checks"][2]["definition"]
