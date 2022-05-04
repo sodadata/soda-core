@@ -52,7 +52,7 @@ class ProfileColumnsRun:
             numerical_columns = {
                 col_name: data_type
                 for col_name, data_type in columns_metadata_result.items()
-                if data_type in self.data_source.NUMERIC_FOR_PROFILING
+                if data_type in self.data_source.NUMERIC_TYPES_FOR_PROFILING
             }
 
             for column_name, column_type in numerical_columns.items():
@@ -149,7 +149,7 @@ class ProfileColumnsRun:
             text_columns = {
                 col_name: data_type
                 for col_name, data_type in columns_metadata_result.items()
-                if data_type in ["character varying"]
+                if data_type in self.data_source.TEXT_TYPES_FOR_PROFILING
             }
             for column_name, column_type in text_columns.items():
                 profile_columns_result_column = self.build_profiling_column(

@@ -59,7 +59,8 @@ class DataSource:
         DataType.BOOLEAN: "boolean",
     }
 
-    NUMERIC_FOR_PROFILING = ["integer", "double precision"]
+    NUMERIC_TYPES_FOR_PROFILING = ["integer", "double precision"]
+    TEXT_TYPES_FOR_PROFILING = ["character varying"]
 
     @staticmethod
     def create(
