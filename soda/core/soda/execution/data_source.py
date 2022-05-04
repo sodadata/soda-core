@@ -416,7 +416,6 @@ class DataSource:
             )
             query.execute()
             return {row[0]: row[1] for row in query.rows}
-
         # Single query to get the metadata not available, get the counts one by one.
         all_tables = self.get_table_names(include_tables=include_tables, exclude_tables=exclude_tables)
         result = {}
