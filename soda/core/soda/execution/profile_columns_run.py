@@ -126,7 +126,7 @@ class ProfileColumnsRun:
                         ]
                         profile_columns_result_column.histogram = histogram
                 else:
-                    self.logs.warning(f"No profiling information derived for column {column_name} in {table_name}")
+                    self.logs.info(f"No profiling information derived for column {column_name} in {table_name}")
 
             # text columns
             text_columns = {
@@ -176,7 +176,7 @@ class ProfileColumnsRun:
                         profile_columns_result_column.min_length = int(text_aggregates_query.rows[0][3])
                         profile_columns_result_column.max_length = int(text_aggregates_query.rows[0][4])
                 else:
-                    self.logs.warning(f"No profiling information derived for column {column_name} in {table_name}")
+                    self.logs.info(f"No profiling information derived for column {column_name} in {table_name}")
 
         if not profile_columns_result.tables:
             self.logs.error(f"Profiling for data source: {self.data_source.data_source_name} failed")
