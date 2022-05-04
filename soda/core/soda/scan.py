@@ -422,7 +422,6 @@ class Scan:
                     )
 
     def run_profile_columns(self):
-        self._is_profiling_run = True
         for data_source_scan in self._data_source_scans:
             for profile_columns_cfg in data_source_scan.data_source_scan_cfg.profile_columns_cfgs:
                 data_source_name = data_source_scan.data_source_scan_cfg.data_source_name
@@ -430,6 +429,7 @@ class Scan:
                 if data_source_scan:
                     profile_columns_run = data_source_scan.create_profile_columns_run(profile_columns_cfg, self)
                     profile_columns_result = profile_columns_run.run()
+                    self._is_profiling_run = True
                     self._profile_columns_result_tables.extend(profile_columns_result.tables)
                 else:
                     data_source_names = ", ".join(self._data_source_manager.data_source_properties_by_name.keys())
