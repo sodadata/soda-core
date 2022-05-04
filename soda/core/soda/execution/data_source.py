@@ -59,6 +59,8 @@ class DataSource:
         DataType.BOOLEAN: "boolean",
     }
 
+    NUMERIC_FOR_PROFILING = ["integer", "double precision"]
+
     @staticmethod
     def create(
         logs: Logs,

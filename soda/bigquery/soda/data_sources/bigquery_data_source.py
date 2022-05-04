@@ -44,6 +44,8 @@ class DataSourceImpl(DataSource):
         DataType.BOOLEAN: "BOOL",
     }
 
+    NUMERIC_FOR_PROFILING = ["NUMERIC", "INT64"]
+
     def connect(self, connection_properties):
         self.connection_properties = connection_properties
 

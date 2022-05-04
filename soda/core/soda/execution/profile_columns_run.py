@@ -52,7 +52,7 @@ class ProfileColumnsRun:
             numerical_columns = {
                 col_name: data_type
                 for col_name, data_type in columns_metadata_result.items()
-                if data_type in ["integer", "double precision"]
+                if data_type in self.data_source.NUMERIC_FOR_PROFILING
             }
 
             for column_name, column_type in numerical_columns.items():
@@ -76,8 +76,14 @@ class ProfileColumnsRun:
                     )
                     value_frequencies_query.execute()
                     if value_frequencies_query.rows is not None:
-                        profile_columns_result_column.mins = [row[0] for row in value_frequencies_query.rows]
-                        profile_columns_result_column.maxes = [row[1] for row in value_frequencies_query.rows]
+                        profile_columns_result_column.mins = [
+                            float(row[0]) if not isinstance(row[0], int) else row[0]
+                            for row in value_frequencies_query.rows
+                        ]
+                        profile_columns_result_column.maxes = [
+                            float(row[1]) if not isinstance(row[1], int) else row[1]
+                            for row in value_frequencies_query.rows
+                        ]
                         profile_columns_result_column.min = profile_columns_result_column.mins[0]
                         profile_columns_result_column.max = profile_columns_result_column.maxes[0]
                         profile_columns_result_column.frequent_values = self.build_frequent_values_dict(
@@ -97,10 +103,9 @@ class ProfileColumnsRun:
                         sql=aggregates_sql,
                     )
                     aggregates_query.execute()
-
                     if aggregates_query.rows is not None:
                         profile_columns_result_column.average = float(aggregates_query.rows[0][0])
-                        profile_columns_result_column.sum = aggregates_query.rows[0][1]
+                        profile_columns_result_column.sum = float(aggregates_query.rows[0][1])
                         profile_columns_result_column.variance = float(aggregates_query.rows[0][2])
                         profile_columns_result_column.standard_deviation = float(aggregates_query.rows[0][3])
                         profile_columns_result_column.distinct_values = int(aggregates_query.rows[0][4])
@@ -228,6 +233,7 @@ class ProfileColumnsRun:
         table_columns: list[str],
         parsed_tables_and_columns: dict[str, list[str]],
     ):
+        table_name = table_name.lower()
         cols_for_all_tables = parsed_tables_and_columns.get("%", [])
         if (
             candidate_column_name in parsed_tables_and_columns.get(table_name, [])
