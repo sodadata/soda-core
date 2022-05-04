@@ -250,7 +250,7 @@ class DataSource:
     def profiling_sql_values_frequencies_query(self, table_name: str, column_name: str) -> str:
         return dedent(
             f"""
-                with values AS (
+                with freq_values AS (
                   {self.profiling_sql_cte_value_frequencies(table_name, column_name)}
                 )
                 {self.profiling_sql_value_frequencies_select()}
@@ -260,10 +260,10 @@ class DataSource:
     def profiling_sql_top_values(self, table_name: str, column_name: str) -> str:
         return dedent(
             f"""
-                with values AS (
+                with freq_values AS (
                   {self.profiling_sql_cte_value_frequencies(table_name, column_name)}
                 )
-                {self.profiling_sql_frequent_values_cte('values', 'frequent_values', is_final=True)}
+                {self.profiling_sql_frequent_values_cte('freq_values', 'frequent_values', is_final=True)}
             """
         )
 
@@ -300,19 +300,19 @@ class DataSource:
             f"""
             , mins as (
             select value_name, row_number() over(order by value_name asc) as idx, frequency, 'mins' as metric_name
-            from values
+            from freq_values
             where value_name is not null
             order by value_name asc
             limit 5
         )
         , maxes as (
             select value_name, row_number() over(order by value_name desc) as idx, frequency, 'maxes' as metric_name
-            from values
+            from freq_values
             where value_name is not null
             order by value_name desc
             limit 5
         )
-        {self.profiling_sql_frequent_values_cte(source_table_name='values', cte_name='frequent_values', is_final=False)}
+        {self.profiling_sql_frequent_values_cte(source_table_name='freq_values', cte_name='frequent_values', is_final=False)}
         , final as (
             select
                 mins.value_name as mins
@@ -389,8 +389,8 @@ class DataSource:
         fields = ",\n ".join(field_clauses)
 
         sql = (
-            f"with values as ({self.profiling_sql_cte_value_frequencies(table_name, column_name)})\n"
-            f"select {fields} from values"
+            f"with freq_values as ({self.profiling_sql_cte_value_frequencies(table_name, column_name)})\n"
+            f"select {fields} from freq_values"
         )
         return sql, bins_list
 
