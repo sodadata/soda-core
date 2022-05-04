@@ -167,7 +167,3 @@ def test_for_each_identity(scanner: Scanner):
     assert scan_result["checks"][0]["identity"] != scan_result["checks"][1]["identity"]
     assert scan_result["checks"][0]["identity"] != scan_result["checks"][2]["identity"]
     assert scan_result["checks"][1]["identity"] != scan_result["checks"][2]["identity"]
-
-    assert f"checks for {customers_table_name}" in scan_result["checks"][0]["definition"]
-    assert f"checks for T being {customers_table_name.lower()}" in scan_result["checks"][1]["definition"]
-    assert f"checks for T being {customers_dist_table_name.lower()}" in scan_result["checks"][2]["definition"]
