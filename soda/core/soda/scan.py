@@ -50,6 +50,7 @@ class Scan:
         self._queries: list[Query] = []
         self._profile_columns_result_tables: list[ProfileColumnsResultTable] = []
         self._logs.info(f"Soda Core {SODA_CORE_VERSION}")
+        self._is_profiling_run = False
 
     def set_data_source_name(self, data_source_name: str):
         """
@@ -364,7 +365,7 @@ class Scan:
             self.__log_checks(None)
             checks_not_evaluated = len(self._checks) - checks_pass_count - checks_warn_count - checks_fail_count
 
-            if len(self._checks) == 0:
+            if len(self._checks) == 0 and not self._is_profiling_run:
                 self._logs.warning("No checks found, 0 checks evaluated.")
             else:
                 if checks_not_evaluated:
@@ -421,6 +422,7 @@ class Scan:
                     )
 
     def run_profile_columns(self):
+        self._is_profiling_run = True
         for data_source_scan in self._data_source_scans:
             for profile_columns_cfg in data_source_scan.data_source_scan_cfg.profile_columns_cfgs:
                 data_source_name = data_source_scan.data_source_scan_cfg.data_source_name

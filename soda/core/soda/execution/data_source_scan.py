@@ -1,4 +1,4 @@
-from typing import Dict, List
+from typing import TYPE_CHECKING, Dict, List
 
 from soda.execution.data_source import DataSource
 from soda.execution.metric import Metric
@@ -6,6 +6,9 @@ from soda.execution.profile_columns_run import ProfileColumnsRun
 from soda.execution.query import Query
 from soda.execution.table import Table
 from soda.sodacl.data_source_scan_cfg import DataSourceScanCfg
+
+if TYPE_CHECKING:
+    from soda.scan import Scan
 
 
 class DataSourceScan:
@@ -17,7 +20,6 @@ class DataSourceScan:
     ):
         from soda.execution.metric import Metric
         from soda.execution.table import Table
-        from soda.scan import Scan
 
         self.scan: Scan = scan
         self.data_source_scan_cfg: DataSourceScanCfg = data_source_scan_cfg
