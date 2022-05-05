@@ -24,6 +24,7 @@ class ProfileColumnsRun:
     def run(self) -> ProfileColumnsResult:
         profile_columns_result: ProfileColumnsResult = ProfileColumnsResult(self.profile_columns_cfg)
 
+        self.logs.info(f"Running column profiling for data source: {self.data_source.data_source_name}")
         # row_counts is a dict that maps table names to row counts.
         row_counts_by_table_name: dict[str, int] = self.data_source.get_row_counts_all_tables(
             include_tables=self._get_table_expression(self.profile_columns_cfg.include_columns),
@@ -32,6 +33,7 @@ class ProfileColumnsRun:
         )
         parsed_tables_and_columns = self._build_column_inclusion(self.profile_columns_cfg.include_columns)
         for table_name in row_counts_by_table_name:
+            self.logs.debug(f"Profiling columns for {table_name}")
             measured_row_count = row_counts_by_table_name[table_name]
             profile_columns_result_table = profile_columns_result.create_table(
                 table_name, self.data_source.data_source_name, measured_row_count
@@ -56,7 +58,8 @@ class ProfileColumnsRun:
             }
 
             for column_name, column_type in numerical_columns.items():
-                profile_columns_result_column = self.build_profiling_column(
+                self.logs.debug(f"Profiling column {column_name} of {table_name}")
+                profile_columns_result_column, is_included_column = self.build_profiling_column(
                     column_name,
                     column_type,
                     table_name,
@@ -64,7 +67,7 @@ class ProfileColumnsRun:
                     parsed_tables_and_columns,
                     profile_columns_result_table,
                 )
-                if profile_columns_result_column:
+                if profile_columns_result_column and is_included_column:
                     value_frequencies_sql = self.data_source.profiling_sql_values_frequencies_query(
                         table_name, column_name
                     )
@@ -152,7 +155,7 @@ class ProfileColumnsRun:
                 if data_type in self.data_source.TEXT_TYPES_FOR_PROFILING
             }
             for column_name, column_type in text_columns.items():
-                profile_columns_result_column = self.build_profiling_column(
+                profile_columns_result_column, is_included_column = self.build_profiling_column(
                     column_name,
                     column_type,
                     table_name,
@@ -160,7 +163,7 @@ class ProfileColumnsRun:
                     parsed_tables_and_columns,
                     profile_columns_result_table,
                 )
-                if profile_columns_result_column:
+                if profile_columns_result_column and is_included_column:
                     # frequent values for text column
                     frequent_values_sql = self.data_source.profiling_sql_top_values(table_name, column_name)
                     frequent_values_query = Query(
@@ -211,13 +214,13 @@ class ProfileColumnsRun:
         table_columns: list[str],
         parsed_tables_and_columns: dict[str, list[str]],
         table_result: ProfileColumnsResultTable,
-    ) -> ProfileColumnsResultColumn | None:
+    ) -> tuple[ProfileColumnsResultColumn | None, bool]:
         if self._is_column_included_for_profiling(column_name, table_name, table_columns, parsed_tables_and_columns):
             profile_columns_result_column: ProfileColumnsResultColumn = table_result.create_column(
                 column_name, column_type
             )
-            return profile_columns_result_column
-        return None
+            return profile_columns_result_column, True
+        return None, False
 
     @staticmethod
     def build_frequent_values_dict(values: list[str | int | float], frequencies: list[int]) -> list[dict[str, int]]:
