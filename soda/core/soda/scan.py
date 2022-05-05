@@ -409,20 +409,20 @@ class Scan:
 
     def run_automated_monitoring(self):
         if self._is_experimental_auto_monitoring:
-        for data_source_scan in self._data_source_scans:
-            for monitoring_cfg in data_source_scan.data_source_scan_cfg.monitoring_cfgs:
-                data_source_name = data_source_scan.data_source_scan_cfg.data_source_name
-                data_source_scan = self._get_or_create_data_source_scan(data_source_name)
-                if data_source_scan:
-                    automated_monitor_run = data_source_scan.create_automated_monitor_run(monitoring_cfg, self)
-                    automated_monitor_run.run()
-                else:
-                    data_source_names = ", ".join(self._data_source_manager.data_source_properties_by_name.keys())
-                    self._logs.error(
-                        f"Could not run monitors on data_source {data_source_name} because it is not "
-                        f"configured: {data_source_names}",
-                        location=monitoring_cfg.location,
-                    )
+            for data_source_scan in self._data_source_scans:
+                for monitoring_cfg in data_source_scan.data_source_scan_cfg.monitoring_cfgs:
+                    data_source_name = data_source_scan.data_source_scan_cfg.data_source_name
+                    data_source_scan = self._get_or_create_data_source_scan(data_source_name)
+                    if data_source_scan:
+                        automated_monitor_run = data_source_scan.create_automated_monitor_run(monitoring_cfg, self)
+                        automated_monitor_run.run()
+                    else:
+                        data_source_names = ", ".join(self._data_source_manager.data_source_properties_by_name.keys())
+                        self._logs.error(
+                            f"Could not run monitors on data_source {data_source_name} because it is not "
+                            f"configured: {data_source_names}",
+                            location=monitoring_cfg.location,
+                        )
         else:
             self._logs.info("Automated monitoring feature is not implemented yet. Stay tuned!")
 
