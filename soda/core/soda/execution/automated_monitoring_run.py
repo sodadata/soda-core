@@ -1,12 +1,13 @@
 from typing import Dict, List
-from soda.execution.check import Check
+
 from soda.execution.anomaly_metric_check import AnomalyMetricCheck
-from soda.sodacl.anomaly_metric_check_cfg import AnomalyMetricCheckCfg
 from soda.execution.automated_monitoring_result import AutomatedMonitoringResult
+from soda.execution.check import Check
 from soda.execution.data_source_scan import DataSourceScan
-from soda.execution.query import Query
 from soda.execution.partition import Partition
+from soda.execution.query import Query
 from soda.execution.schema_comparator import SchemaComparator
+from soda.sodacl.anomaly_metric_check_cfg import AnomalyMetricCheckCfg
 from soda.sodacl.automated_monitoring_cfg import AutomatedMonitoringCfg
 from soda.sodacl.threshold_cfg import ThresholdCfg
 
@@ -21,9 +22,7 @@ class AutomatedMonitoringRun:
         self.logs = self.data_source_scan.scan._logs
 
     def run(self) -> List[Check]:
-        self.automated_monitoring_result = AutomatedMonitoringResult(
-            self.automated_monitoring_cfg
-        )
+        self.automated_monitoring_result = AutomatedMonitoringResult(self.automated_monitoring_cfg)
         annomaly_detection_checks: List[AnomalyMetricCheck] = self.create_annomaly_detection_checks()
 
         if not self.automated_monitoring_cfg.schema:
@@ -75,13 +74,15 @@ class AutomatedMonitoringRun:
                 metric_query=None,
                 change_over_time_cfg=None,
                 fail_threshold_cfg=None,
-                warn_threshold_cfg=ThresholdCfg(gt=0.9)
+                warn_threshold_cfg=ThresholdCfg(gt=0.9),
             )
 
             # Mock partition
             table = self.data_source_scan.get_or_create_table(measured_table_name)
             partition: Partition = table.get_or_create_partition(None)
-            anomaly_metric_check = AnomalyMetricCheck(anomaly_metric_check_cfg, self.data_source_scan, partition=partition)
+            anomaly_metric_check = AnomalyMetricCheck(
+                anomaly_metric_check_cfg, self.data_source_scan, partition=partition
+            )
             annomaly_detection_checks.append(anomaly_metric_check)
 
             # Execute query to change the value of metric class to get the historical results
@@ -138,7 +139,7 @@ class AutomatedMonitoringRun:
         }
         soda_cloud_response = self.soda_cloud.get(historic_query)
         timed_values = []  # Extract timed values from soda_cloud_response (or multiple responses if needed)
-        return {}#AnomalyInput(timed_values=timed_values)
+        return {}  # AnomalyInput(timed_values=timed_values)
 
     def get_historic_schema_by_table_from_soda_cloud(self) -> Dict[str, List[List[object]]]:
         data_source_name = self.data_source_scan.data_source.data_source_name
@@ -158,4 +159,4 @@ class AutomatedMonitoringRun:
 
     def evaluate_anomaly(self, anomaly_input) -> dict:
         # TODO delegate to AnomalyDetector
-        return {}#AnomalyOutput(is_anomaly=False, anomaly_score=0.45)
+        return {}  # AnomalyOutput(is_anomaly=False, anomaly_score=0.45)

@@ -1,4 +1,5 @@
 from typing import List
+
 from soda.execution.schema_comparator import SchemaComparator
 from soda.sodacl.automated_monitoring_cfg import AutomatedMonitoringCfg
 
@@ -13,7 +14,7 @@ class AutomatedMonitoringResult:
     def get_log_diagnostic_dict(self) -> dict:
         return {}
 
-    #TODO: fix anomaly_output
+    # TODO: fix anomaly_output
     def append_row_count_anomaly_evaluation_result(self, table_name: str, anomaly_output):
         pass
 

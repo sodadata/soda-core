@@ -324,7 +324,7 @@ class Scan:
                         data_source_scan = self._get_or_create_data_source_scan(data_source_name)
                         if data_source_scan:
                             monitor_runner = data_source_scan.create_automated_monitor_run(monitoring_cfg, self)
-                            automated_monitoring_checks: List[Check] = monitor_runner.run()
+                            automated_monitoring_checks: list[Check] = monitor_runner.run()
                             if automated_monitoring_checks:
                                 self._checks += automated_monitoring_checks
                             self._is_automated_monitoring_run = True
