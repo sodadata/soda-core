@@ -6,7 +6,9 @@ import importlib
 import json
 import re
 from datetime import date, datetime
+from math import ceil, floor
 from numbers import Number
+from textwrap import dedent
 
 from soda.common.exceptions import DataSourceError
 from soda.common.logs import Logs
@@ -241,6 +243,153 @@ class DataSource:
 
     def sql_analyze_table(self, table: str) -> str | None:
         return None
+
+    def profiling_sql_values_frequencies_query(self, table_name: str, column_name: str) -> str:
+        return dedent(
+            f"""
+                with values AS (
+                  {self.profiling_sql_cte_value_frequencies(table_name, column_name)}
+                )
+                {self.profiling_sql_value_frequencies_select()}
+            """
+        )
+
+    def profiling_sql_top_values(self, table_name: str, column_name: str) -> str:
+        return dedent(
+            f"""
+                with values AS (
+                  {self.profiling_sql_cte_value_frequencies(table_name, column_name)}
+                )
+                {self.profiling_sql_frequent_values_cte('values', 'frequent_values', is_final=True)}
+            """
+        )
+
+    def profiling_sql_cte_value_frequencies(self, table_name: str, column_name: str) -> str:
+        column_name = self.quote_column(column_name)
+        return dedent(
+            f"""
+                select {column_name} as value_name, count(*) as frequency
+                from {table_name}
+                group by value_name
+            """
+        )
+
+    def profiling_sql_frequent_values_cte(self, source_table_name: str, cte_name: str, is_final: bool = False) -> str:
+        sql = dedent(
+            f"""
+            , {cte_name} as (
+                select
+                    frequency
+                    , row_number() over (order by frequency desc) as idx
+                    , value_name
+                from {source_table_name}
+                order by frequency desc
+                limit 5
+            )
+            """
+        )
+        if is_final:
+            sql += f"\n select * from {cte_name}"
+        return sql
+
+    def profiling_sql_value_frequencies_select(self) -> str:
+        return dedent(
+            f"""
+            , mins as (
+            select value_name, row_number() over(order by value_name asc) as idx, frequency, 'mins'::text as metric_name
+            from values
+            where value_name is not null
+            order by value_name asc
+            limit 5
+        )
+        , maxes as (
+            select value_name, row_number() over(order by value_name desc) as idx, frequency, 'maxes'::text as metric_name
+            from values
+            where value_name is not null
+            order by value_name desc
+            limit 5
+        )
+        {self.profiling_sql_frequent_values_cte(source_table_name='values', cte_name='frequent_values', is_final=False)}
+        , final as (
+            select
+                mins.value_name as mins
+                , maxes.value_name as maxes
+                , frequent_values.value_name as frequent_values
+                , frequent_values.frequency as frequency
+            from mins
+            join maxes
+                 on mins.idx = maxes.idx
+            join frequent_values
+                on mins.idx = frequent_values.idx
+            order by frequency desc
+        )
+        select * from final
+            """
+        )
+
+    def profiling_sql_numeric_aggregates(self, table_name: str, column_name: str) -> str:
+        column_name = self.quote_column(column_name)
+        return dedent(
+            f"""
+            select
+                avg({column_name}) as average
+                , sum({column_name}) as sum
+                , variance({column_name}) as variance
+                , stddev({column_name}) as standard_deviation
+                , count(distinct({column_name})) as distinct_values
+                , sum(case when {column_name} is null then 1 else 0 end) as missing_values
+            from {table_name}
+            """
+        )
+
+    def profiling_sql_text_aggregates(self, table_name: str, column_name: str) -> str:
+        column_name = self.quote_column(column_name)
+        return dedent(
+            f"""
+            select
+                count(distinct({column_name})) as distinct_values
+                , sum(case when {column_name} is null then 1 else 0 end) as missing_values
+                , avg(length({column_name})) as avg_length
+                , min(length({column_name})) as min_length
+                , max(length({column_name})) as max_length
+            from {table_name}
+            """
+        )
+
+    def histogram_sql_and_boundaries(
+        self, table_name: str, column_name: str, min: int | float, max: int | float
+    ) -> tuple[str, list[int | float]]:
+        # TODO: make configurable or derive dynamically based on data quantiles etc.
+        number_of_bins: int = 20
+
+        assert (
+            min < max
+        ), f"Min of {column_name} on table: {table_name} must be smaller than max value. Min is {min}, and max is {max}"
+
+        min_value = floor(min * 1000) / 1000
+        max_value = ceil(max * 1000) / 1000
+        bin_width = (max_value - min_value) / number_of_bins
+
+        boundary_start = min_value
+        bins_list = [min_value]
+        for _ in range(0, number_of_bins):
+            boundary_start += bin_width
+            bins_list.append(round(boundary_start, 3))
+
+        field_clauses = []
+        for i in range(0, number_of_bins):
+            lower_bound = "" if i == 0 else f"{bins_list[i]} <= value_name"
+            upper_bound = "" if i == number_of_bins - 1 else f"value_name < {bins_list[i+1]}"
+            optional_and = "" if lower_bound == "" or upper_bound == "" else " and "
+            field_clauses.append(f"sum(case when {lower_bound}{optional_and}{upper_bound} then frequency end)")
+
+        fields = ",\n ".join(field_clauses)
+
+        sql = (
+            f"with values as ({self.profiling_sql_cte_value_frequencies(table_name, column_name)})\n"
+            f"select {fields} from values"
+        )
+        return sql, bins_list
 
     ######################
     # Query Execution

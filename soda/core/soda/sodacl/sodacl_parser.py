@@ -24,6 +24,7 @@ from soda.sodacl.for_each_table_cfg import ForEachTableCfg
 from soda.sodacl.freshness_check_cfg import FreshnessCheckCfg
 from soda.sodacl.missing_and_valid_cfg import CFG_MISSING_VALID_ALL, MissingAndValidCfg
 from soda.sodacl.name_filter import NameFilter
+from soda.sodacl.profile_columns_cfg import ProfileColumnsCfg
 from soda.sodacl.reference_check_cfg import ReferenceCheckCfg
 from soda.sodacl.row_count_comparison_check_cfg import RowCountComparisonCheckCfg
 from soda.sodacl.schema_check_cfg import SchemaCheckCfg, SchemaValidations
@@ -69,9 +70,9 @@ class SodaCLParser(Parser):
         self.data_source_name = data_source_name
 
     def parse_sodacl_yaml_str(self, sodacl_yaml_str: str):
-        environment_dict = self._parse_yaml_str(sodacl_yaml_str)
-        if environment_dict is not None:
-            self.__parse_headers(environment_dict)
+        sodacl_dict = self._parse_yaml_str(sodacl_yaml_str)
+        if sodacl_dict is not None:
+            self.__parse_headers(sodacl_dict)
 
     def __parse_headers(self, headers_dict: dict) -> None:
         if not headers_dict:
@@ -80,9 +81,10 @@ class SodaCLParser(Parser):
         for header_str, header_content in headers_dict.items():
             self._push_path_element(header_str, header_content)
             try:
-
                 if "automated monitoring" == header_str:
                     self.__parse_automated_monitoring_section(header_str, header_content)
+                elif header_str.startswith("profile columns"):
+                    self.__parse_profile_columns_section(header_str, header_content)
                 elif "checks" == header_str:
                     self.__parse_data_source_checks_section(header_str, header_content)
                 elif "variables" == header_str:
@@ -1199,7 +1201,7 @@ class SodaCLParser(Parser):
                         automated_monitoring_cfg.include_tables.append(include_table_expression)
             else:
                 self.logs.error(
-                    'Content of "table" must be a list of include and/or exclude expressions', location=self.location
+                    'Content of "tables" must be a list of include and/or exclude expressions', location=self.location
                 )
 
             find_anomalies = header_content.get("find anomalies")
@@ -1210,6 +1212,34 @@ class SodaCLParser(Parser):
                 schema = find_anomalies.get("schema")
                 if isinstance(schema, bool) and schema == False:
                     automated_monitoring_cfg.schema = False
+        else:
+            self.logs.error(
+                f'Skipping section "{header_str}" because content is not an object/dict',
+                location=self.location,
+            )
+
+    def __parse_profile_columns_section(self, header_str, header_content):
+        if isinstance(header_content, dict):
+            profile_columns_cfg = ProfileColumnsCfg(self.data_source_name, self.location)
+            data_source_scan_cfg = self.sodacl_cfg._get_or_create_data_source_scan_cfgs(self.data_source_name)
+            data_source_scan_cfg.add_profile_columns_cfg(profile_columns_cfg)
+
+            columns = header_content.get("columns")
+            if isinstance(columns, list):
+                for column_expression in columns:
+                    if column_expression.startswith("exclude "):
+                        exclude_column_expression = column_expression[len("exclude ") :]
+                        profile_columns_cfg.exclude_columns.append(exclude_column_expression)
+                    else:
+                        if column_expression.startswith("include "):
+                            include_column_expression = column_expression[len("include ") :]
+                        else:
+                            include_column_expression = column_expression
+                        profile_columns_cfg.include_columns.append(include_column_expression)
+            elif columns is None:
+                self.logs.error('Configuration key "columns" is required in profile columns', location=self.location)
+            else:
+                self.logs.error('Content of "columns" must be a list of column expressions', location=self.location)
         else:
             self.logs.error(
                 f'Skipping section "{header_str}" because content is not an object/dict',
