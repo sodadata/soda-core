@@ -67,6 +67,7 @@ class ProfileColumnsRun:
                     profile_columns_result_table,
                 )
 
+
             # text columns
             text_columns = {
                 col_name: data_type
@@ -267,6 +268,7 @@ class ProfileColumnsRun:
         table_columns: list[str],
         parsed_tables_and_columns: dict[str, list[str]],
     ):
+
         table_name = table_name.lower()
         candidate_column_name = candidate_column_name.lower()
         cols_for_all_tables = parsed_tables_and_columns.get("%", [])
