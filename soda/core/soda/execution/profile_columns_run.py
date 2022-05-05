@@ -237,6 +237,7 @@ class ProfileColumnsRun:
         parsed_tables_and_columns: dict[str, list[str]],
     ):
         table_name = table_name.lower()
+        candidate_column_name = candidate_column_name.lower()
         cols_for_all_tables = parsed_tables_and_columns.get("%", [])
         if (
             candidate_column_name in parsed_tables_and_columns.get(table_name, [])
