@@ -239,6 +239,7 @@ class ProfileColumnsRun:
         table_name = table_name.lower()
         candidate_column_name = candidate_column_name.lower()
         cols_for_all_tables = parsed_tables_and_columns.get("%", [])
+        table_columns = [col_name.lower() for col_name in table_columns]
         if (
             candidate_column_name in parsed_tables_and_columns.get(table_name, [])
             or candidate_column_name in cols_for_all_tables
