@@ -67,7 +67,6 @@ class ProfileColumnsRun:
                     profile_columns_result_table,
                 )
 
-
             # text columns
             text_columns = {
                 col_name: data_type
