@@ -42,9 +42,14 @@ class TestScan(Scan):
             self._data_source_manager.data_source_properties_by_name[data_source.data_source_name] = {}
 
         if os.environ.get("WESTMALLE"):
-            from tests.helpers.mock_soda_cloud import MockSodaCloud
+            self.activate_mock_soda_cloud()
 
-            self._configuration.soda_cloud = MockSodaCloud()
+    def activate_mock_soda_cloud(self) -> MockSodaCloud:
+        from tests.helpers.mock_soda_cloud import MockSodaCloud
+
+        mock_soda_cloud = MockSodaCloud()
+        self._configuration.soda_cloud = mock_soda_cloud
+        return mock_soda_cloud
 
     def _parse_sodacl_yaml_str(self, sodacl_yaml_str: str, file_path: str = None):
         dedented_sodacl_yaml_str = dedent(sodacl_yaml_str).strip()
