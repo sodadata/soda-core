@@ -71,7 +71,6 @@ class ProfileColumnsRun:
 
                     value_frequencies_query = Query(
                         data_source_scan=self.data_source_scan,
-
                         unqualified_query_name=f"profiling: {table_name}, {column_name}: mins, maxes and values frequencies",
                         sql=value_frequencies_sql,
                     )
@@ -155,7 +154,6 @@ class ProfileColumnsRun:
             text_columns = {
                 col_name: data_type
                 for col_name, data_type in columns_metadata_result.items()
-
                 if data_type in self.data_source.TEXT_TYPES_FOR_PROFILING
             }
             for column_name, column_type in text_columns.items():
@@ -183,7 +181,6 @@ class ProfileColumnsRun:
                         )
                     else:
                         self.logs.error(
-
                             f"Database returned no results for textual frequent values in {table_name}, column: {column_name}"
                         )
                     # pure text aggregates
