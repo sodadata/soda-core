@@ -48,7 +48,7 @@ class ProfileColumnsRun:
             )
             columns_metadata_query.execute()
             assert columns_metadata_query.rows, f"No metadata was captured for table: {table_name}"
-            columns_metadata_result = {column[0]: column[1] for column in columns_metadata_query.rows}
+            columns_metadata_result = {column[0].lower(): column[1] for column in columns_metadata_query.rows}
 
             # perform numerical metrics collection
             numerical_columns = {
@@ -155,56 +155,74 @@ class ProfileColumnsRun:
                 if data_type in self.data_source.TEXT_TYPES_FOR_PROFILING
             }
             for column_name, column_type in text_columns.items():
-                profile_columns_result_column, is_included_column = self.build_profiling_column(
+                self.profile_text_column(
                     column_name,
                     column_type,
                     table_name,
-                    list(columns_metadata_result.keys()),
+                    columns_metadata_result,
                     parsed_tables_and_columns,
                     profile_columns_result_table,
                 )
-                if profile_columns_result_column and is_included_column:
-                    # frequent values for text column
-                    frequent_values_sql = self.data_source.profiling_sql_top_values(table_name, column_name)
-                    frequent_values_query = Query(
-                        data_source_scan=self.data_source_scan,
-                        unqualified_query_name=f"profiling: {table_name}, {column_name}: get frequent values text cols",
-                        sql=frequent_values_sql,
-                    )
-                    frequent_values_query.execute()
-                    if frequent_values_query.rows:
-                        profile_columns_result_column.frequent_values = self.build_frequent_values_dict(
-                            values=[row[2] for row in frequent_values_query.rows],
-                            frequencies=[row[0] for row in frequent_values_query.rows],
-                        )
-                    else:
-                        self.logs.error(
-                            f"Database returned no results for textual frequent values in {table_name}, column: {column_name}"
-                        )
-                    # pure text aggregates
-                    text_aggregates_sql = self.data_source.profiling_sql_text_aggregates(table_name, column_name)
-                    text_aggregates_query = Query(
-                        data_source_scan=self.data_source_scan,
-                        unqualified_query_name=f"profiling: {table_name}, {column_name}: get textual aggregates",
-                        sql=text_aggregates_sql,
-                    )
-                    text_aggregates_query.execute()
-                    if text_aggregates_query.rows:
-                        profile_columns_result_column.distinct_values = int(text_aggregates_query.rows[0][0])
-                        profile_columns_result_column.missing_values = int(text_aggregates_query.rows[0][1])
-                        profile_columns_result_column.average_length = int(text_aggregates_query.rows[0][2])
-                        profile_columns_result_column.min_length = int(text_aggregates_query.rows[0][3])
-                        profile_columns_result_column.max_length = int(text_aggregates_query.rows[0][4])
-                    else:
-                        self.logs.error(
-                            f"Database returned no results for textual aggregates in table: {table_name}, columns: {column_name}"
-                        )
-                else:
-                    self.logs.info(f"No profiling information derived for column {column_name} in {table_name}")
 
         if not profile_columns_result.tables:
             self.logs.error(f"Profiling for data source: {self.data_source.data_source_name} failed")
         return profile_columns_result
+
+    def profile_text_column(
+        self,
+        column_name: str,
+        column_type: str,
+        table_name: str,
+        columns_metadata_result: dict,
+        parsed_tables_and_columns: dict[str, list[str]],
+        profile_columns_result_table: ProfileColumnsResultTable,
+    ):
+        profile_columns_result_column, is_included_column = self.build_profiling_column(
+            column_name,
+            column_type,
+            table_name,
+            list(columns_metadata_result.keys()),
+            parsed_tables_and_columns,
+            profile_columns_result_table,
+        )
+        if profile_columns_result_column and is_included_column:
+            # frequent values for text column
+            frequent_values_sql = self.data_source.profiling_sql_top_values(table_name, column_name)
+            frequent_values_query = Query(
+                data_source_scan=self.data_source_scan,
+                unqualified_query_name=f"profiling: {table_name}, {column_name}: get frequent values text cols",
+                sql=frequent_values_sql,
+            )
+            frequent_values_query.execute()
+            if frequent_values_query.rows:
+                profile_columns_result_column.frequent_values = self.build_frequent_values_dict(
+                    values=[row[2] for row in frequent_values_query.rows],
+                    frequencies=[row[0] for row in frequent_values_query.rows],
+                )
+            else:
+                self.logs.error(
+                    f"Database returned no results for textual frequent values in {table_name}, column: {column_name}"
+                )
+            # pure text aggregates
+            text_aggregates_sql = self.data_source.profiling_sql_text_aggregates(table_name, column_name)
+            text_aggregates_query = Query(
+                data_source_scan=self.data_source_scan,
+                unqualified_query_name=f"profiling: {table_name}, {column_name}: get textual aggregates",
+                sql=text_aggregates_sql,
+            )
+            text_aggregates_query.execute()
+            if text_aggregates_query.rows:
+                profile_columns_result_column.distinct_values = int(text_aggregates_query.rows[0][0])
+                profile_columns_result_column.missing_values = int(text_aggregates_query.rows[0][1])
+                profile_columns_result_column.average_length = int(text_aggregates_query.rows[0][2])
+                profile_columns_result_column.min_length = int(text_aggregates_query.rows[0][3])
+                profile_columns_result_column.max_length = int(text_aggregates_query.rows[0][4])
+            else:
+                self.logs.error(
+                    f"Database returned no results for textual aggregates in table: {table_name}, columns: {column_name}"
+                )
+        else:
+            self.logs.info(f"No profiling information derived for column {column_name} in {table_name}")
 
     def build_profiling_column(
         self,
@@ -251,7 +269,7 @@ class ProfileColumnsRun:
             return False
 
     # TODO: Deal with exclude set as well
-    def _build_column_inclusion(self, columns_expression: list[str]):
+    def _build_column_inclusion(self, columns_expression: list[str]) -> dict[str, list[str]]:
         included_columns = {}
         for col_expression in columns_expression:
             table, column = col_expression.split(".")
