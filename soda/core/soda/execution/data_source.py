@@ -306,6 +306,7 @@ class DataSource:
             limit 5
         )
         , maxes as (
+
             select value_name, row_number() over(order by value_name desc) as idx, frequency, 'maxes' as metric_name
             from values
             where value_name is not null
