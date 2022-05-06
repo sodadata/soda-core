@@ -15,7 +15,7 @@ def test_automated_monitoring(scanner: Scanner):
         f"""
             automated monitoring:
               tables:
-                - include SODATEST_%
+                - include {table_name}
                 - exclude PROD%
         """
     )

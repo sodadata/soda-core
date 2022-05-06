@@ -47,9 +47,10 @@ class Scan:
         self._data_source_scans: list[DataSourceScan] = []
         self._metrics: set[Metric] = set()
         self._checks: list[Check] = []
+        self._automated_checks: list[Check] = []
         self._queries: list[Query] = []
         self._logs.info(f"Soda Core {SODA_CORE_VERSION}")
-        self._is_experimental_auto_monitoring: bool = False
+        self._is_experimental_auto_monitoring: bool = True
         self._is_automated_monitoring_run: bool = False
 
     def set_data_source_name(self, data_source_name: str):
@@ -326,7 +327,7 @@ class Scan:
                             monitor_runner = data_source_scan.create_automated_monitor_run(monitoring_cfg, self)
                             automated_monitoring_checks: List[Check] = monitor_runner.run()
                             if automated_monitoring_checks:
-                                self._checks += automated_monitoring_checks
+                                self._automated_checks += automated_monitoring_checks
                             self._is_automated_monitoring_run = True
                         else:
                             data_source_names = ", ".join(
@@ -340,7 +341,7 @@ class Scan:
                 self._logs.info("Automated monitoring feature is not implemented yet. Stay tuned!")
 
             # Evaluates the checks based on all the metric values
-            for check in self._checks:
+            for check in self._checks + self._automated_checks:
                 # First get the metric values for this check
                 check_metrics = {}
                 missing_value_metrics = []

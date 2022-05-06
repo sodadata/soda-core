@@ -44,7 +44,7 @@ class AnomalyMetricCheck(MetricCheck):
         )
         self.diagnostics = {}
         self.cloud_check_type = "anomalyDetection"
-
+    
     def evaluate(self, metrics: dict[str, Metric], historic_values: dict[str, object]):
         if self.skip_anomaly_check:
             self.logs.error(
