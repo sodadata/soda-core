@@ -7,8 +7,8 @@ def test_automated_monitoring(scanner: Scanner):
 
     scan = scanner.create_test_scan()
     scan.mock_historic_values(
-      metric_identity=f"metric-{scan._scan_definition_name}-{scan._data_source_name}-{table_name.lower()}-row_count",
-      metric_values=[10, 10, 10, 9, 8, 8, 8, 0, 0, 0]
+        metric_identity=f"metric-{scan._scan_definition_name}-{scan._data_source_name}-{table_name.lower()}-row_count",
+        metric_values=[10, 10, 10, 9, 8, 8, 8, 0, 0, 0],
     )
 
     scan.add_sodacl_yaml_str(

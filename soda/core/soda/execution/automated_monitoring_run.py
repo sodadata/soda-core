@@ -1,12 +1,14 @@
 from typing import Dict, List
-from soda.execution.check import Check
+
 from soda.execution.anomaly_metric_check import AnomalyMetricCheck
+from soda.execution.check import Check
 from soda.sodacl.anomaly_metric_check_cfg import AnomalyMetricCheckCfg
 
 from soda.execution.data_source_scan import DataSourceScan
-from soda.execution.query import Query
 from soda.execution.partition import Partition
+from soda.execution.query import Query
 from soda.execution.schema_comparator import SchemaComparator
+from soda.sodacl.anomaly_metric_check_cfg import AnomalyMetricCheckCfg
 from soda.sodacl.automated_monitoring_cfg import AutomatedMonitoringCfg
 from soda.sodacl.threshold_cfg import ThresholdCfg
 
@@ -72,7 +74,7 @@ class AutomatedMonitoringRun:
                 metric_query=None,
                 change_over_time_cfg=None,
                 fail_threshold_cfg=None,
-                warn_threshold_cfg=ThresholdCfg(gt=0.9)
+                warn_threshold_cfg=ThresholdCfg(gt=0.9),
             )
 
             # Mock partition
