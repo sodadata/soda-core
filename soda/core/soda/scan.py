@@ -359,14 +359,11 @@ class Scan:
                         else:
                             self._logs.info("Automated monitoring feature is not implemented yet. Stay tuned!")
                     else:
-                        data_source_names = ", ".join(
-                            self._data_source_manager.data_source_properties_by_name.keys()
-                        )
+                        data_source_names = ", ".join(self._data_source_manager.data_source_properties_by_name.keys())
                         self._logs.error(
                             f"Could not run monitors on data_source {data_source_name} because It is not "
                             f"configured: {data_source_names}"
                         )
-
 
             self._logs.info("Scan summary:")
             self.__log_queries(having_exception=False)
