@@ -2,8 +2,6 @@ from typing import Dict, List
 
 from soda.execution.anomaly_metric_check import AnomalyMetricCheck
 from soda.execution.check import Check
-from soda.sodacl.anomaly_metric_check_cfg import AnomalyMetricCheckCfg
-
 from soda.execution.data_source_scan import DataSourceScan
 from soda.execution.partition import Partition
 from soda.execution.query import Query
@@ -80,9 +78,11 @@ class AutomatedMonitoringRun:
             # Mock partition
             table = self.data_source_scan.get_or_create_table(measured_table_name)
             partition: Partition = table.get_or_create_partition(None)
-            anomaly_metric_check = AnomalyMetricCheck(anomaly_metric_check_cfg, self.data_source_scan, partition=partition)
+            anomaly_metric_check = AnomalyMetricCheck(
+                anomaly_metric_check_cfg, self.data_source_scan, partition=partition
+            )
             anomaly_metric_check.archetype = "volumeConsistency"
-            
+
             # Execute query to change the value of metric class to get the historical results
             self.data_source_scan.execute_queries()
 

@@ -112,8 +112,8 @@ class Check(ABC):
         self.metrics: dict[str, Metric] = {}
         self.historic_descriptors: dict[str, HistoricDescriptor] = {}
         self.cloud_check_type = "metricThreshold"
-        
-        #Attribute for automated monitoring
+
+        # Attribute for automated monitoring
         self.archetype = None
 
         # Check evaluation outcome
@@ -168,7 +168,7 @@ class Check(ABC):
 
         if self.outcome is None:
             self.outcome.value = None
-        
+
         cloud_dict = {
             "identity": self.create_identity(),
             "name": self.generate_soda_cloud_check_name(),
@@ -187,7 +187,7 @@ class Check(ABC):
         # Update dict if automated monitoring is running
         if self.archetype is not None:
             cloud_dict.update({"archetype": self.archetype})
-            
+
         return cloud_dict
 
     def generate_soda_cloud_check_name(self) -> str:

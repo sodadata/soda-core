@@ -5,7 +5,6 @@ import logging
 import os
 import textwrap
 from datetime import datetime
-from typing import List
 
 from soda.__version__ import SODA_CORE_VERSION
 from soda.common.log import Log, LogLevel
