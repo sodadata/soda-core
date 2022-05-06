@@ -364,8 +364,8 @@ class Scan:
                                 f"Could not run monitors on data_source {data_source_name} because It is not "
                                 f"configured: {data_source_names}"
                             )
-#             else:
-#                 self._logs.info("Automated monitoring feature is not implemented yet. Stay tuned!")
+            #             else:
+            #                 self._logs.info("Automated monitoring feature is not implemented yet. Stay tuned!")
 
             self._logs.info("Scan summary:")
             self.__log_queries(having_exception=False)
