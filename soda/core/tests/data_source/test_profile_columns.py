@@ -217,7 +217,6 @@ def test_profile_columns_text(scanner: Scanner, table_name, soda_cl_str, cloud_d
     )
     scan.execute()
     profiling_result = mock_soda_cloud.scan_result
-    scan._logs.error(str(profiling_result))
     # remove the data source name because it's a pain to test
     profiling_result = remove_datasource_and_table_name(profiling_result)
 

@@ -23,8 +23,8 @@ class ProfileColumnsRun:
 
     def run(self) -> ProfileColumnsResult:
         profile_columns_result: ProfileColumnsResult = ProfileColumnsResult(self.profile_columns_cfg)
-
         self.logs.info(f"Running column profiling for data source: {self.data_source.data_source_name}")
+
         # row_counts is a dict that maps table names to row counts.
         row_counts_by_table_name: dict[str, int] = self.data_source.get_row_counts_all_tables(
             include_tables=self._get_table_expression(self.profile_columns_cfg.include_columns),
@@ -86,6 +86,7 @@ class ProfileColumnsRun:
         if not profile_columns_result.tables:
             self.logs.error(f"Profiling for data source: {self.data_source.data_source_name} failed")
         return profile_columns_result
+
 
     def profile_numeric_column(
         self,
