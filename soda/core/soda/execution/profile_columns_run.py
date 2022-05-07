@@ -87,7 +87,6 @@ class ProfileColumnsRun:
             self.logs.error(f"Profiling for data source: {self.data_source.data_source_name} failed")
         return profile_columns_result
 
-
     def profile_numeric_column(
         self,
         column_name: str,
