@@ -143,7 +143,7 @@ def test_profile_columns_numeric(scanner: Scanner, table_name, soda_cl_str, clou
     profiling_result = remove_datasource_and_table_name(profiling_result)
     assert len(profiling_result["profiling"]) > 0
     assert len(profiling_result["profiling"][0]["columnProfiles"]) > 0
-    assert profiling_result["profiling"][0]["columnProfiles"][0]["columnName"] == "size"
+    assert profiling_result["profiling"][0]["columnProfiles"][0]["columnName"].lower() == "size"
     assert (
         profiling_result["profiling"][0]["columnProfiles"][0]["profile"]["frequent_values"]
         == cloud_dict_expectation["profiling"][0]["columnProfiles"][0]["profile"]["frequent_values"]

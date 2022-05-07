@@ -1,11 +1,14 @@
 import logging
-from typing import Dict
+from typing import TYPE_CHECKING, Dict
 
 from soda.common.json_helper import JsonHelper
 from soda.soda_cloud.historic_descriptor import HistoricDescriptor
 from soda.soda_cloud.soda_cloud_client import SodaCloudClient
 
 logger = logging.getLogger(__name__)
+
+if TYPE_CHECKING:
+    from soda.scan import Scan
 
 
 class SodaCloud:
@@ -24,7 +27,7 @@ class SodaCloud:
 
     @staticmethod
     def build_scan_results(scan) -> dict:
-        return JsonHelper.to_jsonnable(
+        return JsonHelper.to_jsonnable(  # type: ignore
             {
                 "definitionName": scan._scan_definition_name,
                 "dataTimestamp": scan._data_timestamp,
