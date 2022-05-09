@@ -6,7 +6,6 @@ from tests.helpers.common_test_tables import customers_test_table
 from tests.helpers.scanner import Scanner
 
 
-@pytest.mark.skip
 def test_schema_changes_pass(scanner: Scanner):
     table_name = scanner.ensure_test_table(customers_test_table)
     data_source = scanner.data_source
@@ -18,10 +17,11 @@ def test_schema_changes_pass(scanner: Scanner):
     scan = scanner.create_test_scan()
 
     scan.mock_historic_values(
-        metric_identity=f"metric-{scan._scan_definition_name}-{scanner.data_source.data_source_name}-{table_name}-schema",
+        metric_identity=f"metric-{scan._scan_definition_name}-{scan._data_source_name}-{table_name}-schema",
         metric_values=[schema_metric_value_derived_from_test_table],
     )
 
+    "metric-test_schema_changes.py::test_schema_changes_pass-postgres-SODATEST_Customers_b7580920-schema"
     scan.add_sodacl_yaml_str(
         f"""
       checks for {table_name}:
@@ -35,7 +35,6 @@ def test_schema_changes_pass(scanner: Scanner):
     scan.assert_all_checks_pass()
 
 
-@pytest.mark.skip
 def test_schema_changes_column_addition(scanner: Scanner):
     table_name = scanner.ensure_test_table(customers_test_table)
     data_source = scanner.data_source
@@ -112,7 +111,6 @@ def test_schema_changes_column_addition(scanner: Scanner):
     assert scan._checks[9].outcome == CheckOutcome.WARN
 
 
-@pytest.mark.skip
 def test_schema_changes_column_deletion(scanner: Scanner):
     table_name = scanner.ensure_test_table(customers_test_table)
     data_source = scanner.data_source
@@ -194,7 +192,6 @@ def test_schema_changes_column_deletion(scanner: Scanner):
     assert scan._checks[9].outcome == CheckOutcome.WARN
 
 
-@pytest.mark.skip
 def test_schema_changes_warn_and_fail(scanner: Scanner):
     table_name = scanner.ensure_test_table(customers_test_table)
     data_source = scanner.data_source
