@@ -1,10 +1,9 @@
 import pytest
 from soda.execution.check_outcome import CheckOutcome
-from soda.execution.data_source import DataSource
 from soda.execution.data_type import DataType
 from tests.helpers.common_test_tables import customers_test_table
 from tests.helpers.scanner import Scanner
-
+from tests.helpers.utils import derive_schema_metric_value_from_test_table
 
 def test_schema_changes_pass(scanner: Scanner):
     table_name = scanner.ensure_test_table(customers_test_table)
@@ -228,13 +227,3 @@ def test_schema_changes_warn_and_fail(scanner: Scanner):
     scan.execute()
 
     assert scan._checks[0].outcome == CheckOutcome.FAIL
-
-
-def derive_schema_metric_value_from_test_table(test_table, data_source: DataSource):
-    return [
-        {
-            "name": data_source.format_column_default(column[0]),
-            "type": data_source.get_sql_type_for_schema_check(column[1]),
-        }
-        for column in test_table.columns
-    ]

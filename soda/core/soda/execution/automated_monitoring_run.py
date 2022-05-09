@@ -1,13 +1,14 @@
 from typing import Dict, List
 
 from soda.execution.anomaly_metric_check import AnomalyMetricCheck
+from soda.execution.schema_check import SchemaCheck
 from soda.execution.check import Check
 from soda.execution.data_source_scan import DataSourceScan
 from soda.execution.partition import Partition
 from soda.execution.query import Query
-from soda.execution.schema_comparator import SchemaComparator
 from soda.sodacl.anomaly_metric_check_cfg import AnomalyMetricCheckCfg
 from soda.sodacl.automated_monitoring_cfg import AutomatedMonitoringCfg
+from soda.sodacl.schema_check_cfg import SchemaCheckCfg, SchemaValidations
 from soda.sodacl.threshold_cfg import ThresholdCfg
 
 
@@ -18,45 +19,21 @@ class AutomatedMonitoringRun:
         self.data_source = data_source_scan.data_source
         self.automated_monitoring_cfg: AutomatedMonitoringCfg = automated_monitoring_cfg
         self.logs = self.data_source_scan.scan._logs
+        self.table_names = self._get_table_names()
 
     def run(self) -> List[Check]:
-        annomaly_detection_checks: List[AnomalyMetricCheck] = self.create_annomaly_detection_checks()
+        checks: List[Check] = []
+        annomaly_detection_checks: List[AnomalyMetricCheck] = self.create_anomaly_detection_checks()
+        schema_checks: List[SchemaCheck] = self.create_schema_checks()
+        
+        checks.extend(annomaly_detection_checks)
+        checks.extend(schema_checks)
+        return checks
 
-        if not self.automated_monitoring_cfg.schema:
-            # {table_name -> {column_name -> column_type}}
-            measured_columns_by_table_name: Dict[str, Dict[str, str]] = self.get_columns_for_all_tables()
-            historic_schema_by_table_name = self.get_historic_schema_by_table_from_soda_cloud()
-
-            tables_added = set()
-            tables_removed = {historic_table_name for historic_table_name in historic_schema_by_table_name.keys()}
-
-            for measured_table_name in measured_columns_by_table_name:
-                tables_removed.discard(measured_table_name)
-                if measured_table_name not in historic_schema_by_table_name:
-                    tables_added.add(measured_table_name)
-
-                measured_table_schema = measured_columns_by_table_name[measured_table_name]
-                historic_table_schema = historic_schema_by_table_name.get(measured_table_name)
-
-                if historic_table_schema is not None:
-                    schema_comparator = SchemaComparator(
-                        historic_schema=historic_table_schema, measured_schema=measured_table_schema
-                    )
-
-                    automated_monitoring_result.append_table_schema_changes(schema_comparator)
-                else:
-                    self.logs.debug("No schema auto monitoring because there is not previous schema info")
-
-            automated_monitoring_result.append_table_changes(list(tables_added), list(tables_removed))
-
-        return annomaly_detection_checks
-
-    def create_annomaly_detection_checks(self) -> List[AnomalyMetricCheck]:
-        # row_counts is a dict that maps table names to row counts.
-        row_counts_by_table_name: Dict[str, int] = self.get_row_counts_all_tables()
+    def create_anomaly_detection_checks(self) -> List[AnomalyMetricCheck]:
         annomaly_detection_checks = []
 
-        for measured_table_name in row_counts_by_table_name:
+        for measured_table_name in self.table_names:
             anomaly_metric_check_cfg = AnomalyMetricCheckCfg(
                 source_header=f"checks for {measured_table_name}",
                 source_line="anomaly score for row_count < default",
@@ -90,42 +67,61 @@ class AutomatedMonitoringRun:
 
         return annomaly_detection_checks
 
-    def get_row_counts_all_tables(self) -> Dict[str, int]:
-        """
-        Returns a dict that maps table names to row counts.
-        Later this could be implemented with different queries depending on the data source type.
-        """
-        include_tables = self.automated_monitoring_cfg.include_tables
-        exclude_tables = self.automated_monitoring_cfg.exclude_tables
-        sql = self.data_source.sql_get_table_names_with_count(
-            include_tables=include_tables, exclude_tables=exclude_tables
-        )
-        query = Query(
-            data_source_scan=self.data_source_scan,
-            unqualified_query_name="get_counts_by_tables_for_row_count_anomalies",
-            sql=sql,
-        )
-        query.execute()
-        return {row[0]: row[1] for row in query.rows}
+    def create_schema_checks(self) -> List[SchemaCheck]:
+        schema_checks = []
 
-    def get_columns_for_all_tables(self) -> Dict[str, Dict[str, str]]:
+        fail_validations = SchemaValidations(
+            required_column_names=None,
+            required_column_types=None,
+            required_column_indexes=None,
+            forbidden_column_names=None,
+            is_column_addition_forbidden=False,
+            is_column_deletion_forbidden=True,
+            is_column_type_change_forbidden=True,
+            is_column_index_change_forbidden=True,
+        )
+
+        warn_validations = SchemaValidations(
+            required_column_names=None,
+            required_column_types=None,
+            required_column_indexes=None,
+            forbidden_column_names=None,
+            is_column_addition_forbidden=True,
+            is_column_deletion_forbidden=False,
+            is_column_type_change_forbidden=False,
+            is_column_index_change_forbidden=False,
+        )
+
+        for measured_table_name in self.table_names:
+            schema_check_cfg = SchemaCheckCfg(
+                source_header=f"checks for {measured_table_name}",
+                source_line="schema",
+                source_configurations=None,
+                location=self.automated_monitoring_cfg.location,
+                name=None,
+                warn_validations=warn_validations,
+                fail_validations=fail_validations,
+            )
+
+            # Mock partition
+            table = self.data_source_scan.get_or_create_table(measured_table_name)
+            partition: Partition = table.get_or_create_partition(None)
+            schema_check = SchemaCheck(
+                schema_check_cfg, self.data_source_scan, partition=partition
+            )
+            schema_check.archetype = "schemaConsistency"
+
+            # Execute query to change the value of metric class to get the historical results
+            self.data_source_scan.execute_queries()
+            schema_checks.append(schema_check)
+        return schema_checks
+
+    def _get_table_names(self) -> Dict[str, Dict[str, str]]:
         """
         Returns a dict that maps table names to a dict that maps column names to column types.
         {table_name -> {column_name -> column_type}}
         """
         include_tables = self.automated_monitoring_cfg.include_tables
         exclude_tables = self.automated_monitoring_cfg.exclude_tables
-        sql = self.data_source.sql_get_column(include_tables=include_tables, exclude_tables=exclude_tables)
-        query = Query(
-            data_source_scan=self.data_source_scan,
-            unqualified_query_name="get_counts_by_tables_for_row_count_anomalies",
-            sql=sql,
-        )
-        query.execute()
-
-        columns_by_table_name: Dict[str, Dict[str, str]] = {}
-
-        for row in query.rows:
-            columns_by_table_name.setdefault(row[0], {})[row[1]] = row[2]
-
-        return columns_by_table_name
+        table_names = self.data_source.get_table_names(include_tables=include_tables, exclude_tables=exclude_tables)
+        return table_names

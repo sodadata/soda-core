@@ -339,8 +339,11 @@ class Scan:
             else:
                 self._logs.info("Automated monitoring feature is not implemented yet. Stay tuned!")
 
+            # Extend automated checks into checks
+            self._checks.extend(self._automated_checks)
+            
             # Evaluates the checks based on all the metric values
-            for check in self._checks + self._automated_checks:
+            for check in self._checks:
                 # First get the metric values for this check
                 check_metrics = {}
                 missing_value_metrics = []

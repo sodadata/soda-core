@@ -140,9 +140,12 @@ class ProphetDetector(BaseDetector):
         """
         super().__init__(params, time_series_data)  # runs the measurement elimination that is contained in the base
 
-        if "pytest" not in sys.argv[0]:
-            multiprocessing.set_start_method("fork")
-
+        try:
+            if "pytest" not in sys.argv[0]:
+                multiprocessing.set_start_method("fork")
+        except:
+            pass
+        
         self._logs = logs
         self._params = params
         self._prophet_detector_params = self._params["prophet_detector"]
