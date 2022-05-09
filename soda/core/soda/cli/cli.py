@@ -57,15 +57,17 @@ if __name__ == "__main__":
 )
 @click.option("-V", "--verbose", is_flag=True)
 @click.argument("sodacl_paths", nargs=-1, type=click.STRING)
+@click.pass_context
 @soda_trace
 def scan(
+    ctx: click.Context,
     sodacl_paths: List[str],
     data_source: str,
     scan_definition: Optional[str],
     configuration: List[str],
     variable: List[str],
     verbose: Optional[bool],
-):
+) -> int:
     """
     soda scan will
 
@@ -156,7 +158,7 @@ def scan(
         variables_dict = dict([tuple(v.split("=")) for v in variable])
         scan.add_variables(variables_dict)
 
-    scan.execute()
+    return ctx.exit(scan.execute())
 
 
 @main.command(
