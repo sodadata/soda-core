@@ -17,6 +17,7 @@ def format_checks(checks: list, prefix: str = "", indent: int = 0, data_source: 
 
     return checks_str
 
+
 def derive_schema_metric_value_from_test_table(test_table, data_source: DataSource):
     return [
         {

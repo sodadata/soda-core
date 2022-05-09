@@ -145,7 +145,7 @@ class ProphetDetector(BaseDetector):
                 multiprocessing.set_start_method("fork")
         except:
             pass
-        
+
         self._logs = logs
         self._params = params
         self._prophet_detector_params = self._params["prophet_detector"]

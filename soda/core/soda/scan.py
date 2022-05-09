@@ -341,7 +341,7 @@ class Scan:
 
             # Extend automated checks into checks
             self._checks.extend(self._automated_checks)
-            
+
             # Evaluates the checks based on all the metric values
             for check in self._checks:
                 # First get the metric values for this check

@@ -1,11 +1,10 @@
 from typing import Dict, List
 
 from soda.execution.anomaly_metric_check import AnomalyMetricCheck
-from soda.execution.schema_check import SchemaCheck
 from soda.execution.check import Check
 from soda.execution.data_source_scan import DataSourceScan
 from soda.execution.partition import Partition
-from soda.execution.query import Query
+from soda.execution.schema_check import SchemaCheck
 from soda.sodacl.anomaly_metric_check_cfg import AnomalyMetricCheckCfg
 from soda.sodacl.automated_monitoring_cfg import AutomatedMonitoringCfg
 from soda.sodacl.schema_check_cfg import SchemaCheckCfg, SchemaValidations
@@ -25,7 +24,7 @@ class AutomatedMonitoringRun:
         checks: List[Check] = []
         annomaly_detection_checks: List[AnomalyMetricCheck] = self.create_anomaly_detection_checks()
         schema_checks: List[SchemaCheck] = self.create_schema_checks()
-        
+
         checks.extend(annomaly_detection_checks)
         checks.extend(schema_checks)
         return checks
@@ -106,9 +105,7 @@ class AutomatedMonitoringRun:
             # Mock partition
             table = self.data_source_scan.get_or_create_table(measured_table_name)
             partition: Partition = table.get_or_create_partition(None)
-            schema_check = SchemaCheck(
-                schema_check_cfg, self.data_source_scan, partition=partition
-            )
+            schema_check = SchemaCheck(schema_check_cfg, self.data_source_scan, partition=partition)
             schema_check.archetype = "schemaConsistency"
 
             # Execute query to change the value of metric class to get the historical results
