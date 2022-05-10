@@ -1,14 +1,15 @@
 from __future__ import annotations
+
 import logging
 import os
 from typing import Any
-from dotenv import load_dotenv
-from soda.scan import Scan
+
 import pytest
+from dotenv import load_dotenv
 from soda.common.file_system import FileSystemSingleton
 from soda.common.logs import configure_logging
-from soda.configuration.configuration_parser import ConfigurationParser
 from soda.execution.data_source import DataSource
+from soda.scan import Scan
 from soda.telemetry.soda_telemetry import SodaTelemetry
 
 # Initialize telemetry in test mode. This is done before importing Scanner which initializes telemetry in standard mode so that we avoid unnecessary setup and re-setup which causes errors.
