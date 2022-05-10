@@ -5,12 +5,10 @@ import os
 import pytest
 from dotenv import load_dotenv
 from soda.execution.data_source import DataSource
+from tests.conftest import test_data_source
 
 # Load local env file so that test data sources can be set up.
 load_dotenv(".env", override=True)
-
-# In global scope because it is used in pytest annotations, it would not work as a fixture.
-test_data_source = os.getenv("test_data_source", "postgres")
 
 
 @pytest.fixture(scope="session")
