@@ -12,13 +12,13 @@ class StorageRef:
         total_row_count: int,
         stored_row_count: int,
         type: str,
-        reference: str
+        reference: str,
     ):
         self.provider: str = provider
         self.column_count = column_count
         self.total_row_count: int = total_row_count
         self.stored_row_count: int = stored_row_count
-        self.soda_cloud_file_id: Optional[str] = soda_cloud_file_id
+        self.soda_cloud_file_id: str | None = soda_cloud_file_id
         self.reference: str = reference
 
     def __str__(self) -> str:

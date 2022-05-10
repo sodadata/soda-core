@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from soda.common.file_system import file_system
 from soda.execution.telemetry import Telemetry
-from soda.sampler.log_sampler import LogSampler
 from soda.sampler.sampler import Sampler
 from soda.scan import Scan
 from soda.soda_cloud.soda_cloud import SodaCloud
@@ -10,7 +9,6 @@ from soda.sodacl.format_cfg import FormatCfg
 
 
 class Configuration:
-
     def __init__(self, scan: Scan):
         self.scan = scan
         self.connection_properties_by_name: dict[str, dict] = {}

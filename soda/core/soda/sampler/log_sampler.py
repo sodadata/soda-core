@@ -2,7 +2,6 @@ import logging
 from typing import Optional, Tuple
 
 from soda.common.logs import Logs
-from soda.execution.query import Query
 from soda.sampler.sampler import Sampler
 from soda.sampler.storage_ref import StorageRef
 
@@ -10,7 +9,6 @@ logger = logging.getLogger(__name__)
 
 
 class LogSampler(Sampler):
-
     def store_sample(self, cursor, sample_name: str, query: str, logs: Logs) -> Optional[StorageRef]:
         table_text, column_count, row_count = self.pretty_print(cursor, logs)
         logs.info(f"Sample {sample_name}:\n{table_text}")
