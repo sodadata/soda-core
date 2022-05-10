@@ -1,10 +1,10 @@
 from textwrap import dedent
 
 from tests.cli.run_cli import run_cli
+from tests.conftest import test_data_source
 from tests.helpers.common_test_tables import customers_test_table
 from tests.helpers.mock_file_system import MockFileSystem
 from tests.helpers.scanner import Scanner
-from tests.conftest import test_data_source, data_source_config_str
 
 
 def test_non_existing_files(scanner: Scanner):

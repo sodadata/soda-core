@@ -1,6 +1,6 @@
 import pytest
-from tests.data_source.conftest import format_query_one_line
 from tests.conftest import test_data_source
+from tests.data_source.conftest import format_query_one_line
 from tests.helpers.scanner import Scanner
 
 
