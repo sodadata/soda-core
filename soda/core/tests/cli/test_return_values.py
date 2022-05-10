@@ -24,7 +24,7 @@ def get_ds_definition():
 
 @pytest.mark.skipif(
     test_data_source != "postgres",
-    reason="Run for postgres only as nothing data source specific is tested..",
+    reason="Run for postgres only as nothing data source specific is tested.",
 )
 def test_non_existing_files(scanner: Scanner):
     table_name = scanner.ensure_test_table(customers_test_table)
@@ -44,7 +44,7 @@ def test_non_existing_files(scanner: Scanner):
 
 @pytest.mark.skipif(
     test_data_source != "postgres",
-    reason="Run for postgres only as nothing data source specific is tested..",
+    reason="Run for postgres only as nothing data source specific is tested.",
 )
 def test_ok_with_variable(scanner: Scanner, mock_file_system: MockFileSystem):
     table_name = scanner.ensure_test_table(customers_test_table)
@@ -78,7 +78,7 @@ def test_ok_with_variable(scanner: Scanner, mock_file_system: MockFileSystem):
 
 @pytest.mark.skipif(
     test_data_source != "postgres",
-    reason="Run for postgres only as nothing data source specific is tested..",
+    reason="Run for postgres only as nothing data source specific is tested.",
 )
 def test_fail(scanner: Scanner, mock_file_system: MockFileSystem):
     table_name = scanner.ensure_test_table(customers_test_table)
@@ -110,7 +110,7 @@ def test_fail(scanner: Scanner, mock_file_system: MockFileSystem):
 
 @pytest.mark.skipif(
     test_data_source != "postgres",
-    reason="Run for postgres only as nothing data source specific is tested..",
+    reason="Run for postgres only as nothing data source specific is tested.",
 )
 def test_warn(scanner: Scanner, mock_file_system: MockFileSystem):
     table_name = scanner.ensure_test_table(customers_test_table)
