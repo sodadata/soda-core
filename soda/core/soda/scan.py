@@ -423,7 +423,8 @@ class Scan:
             self._logs.error(f"Error occurred while executing scan.", exception=e)
         finally:
             self._close()
-            return exit_value
+
+        return exit_value
 
     def __checks_to_text(self, checks: list[Check]):
         return "/n".join([str(check) for check in checks])
