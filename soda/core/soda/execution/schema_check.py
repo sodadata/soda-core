@@ -60,7 +60,7 @@ class SchemaCheck(Check):
 
         self.measured_schema: List[Dict[str, str]] = metrics.get(KEY_SCHEMA_MEASURED).value
         schema_previous_measurement = historic_values.get(KEY_SCHEMA_PREVIOUS)
-        schema_previous = schema_previous_measurement["value"] if schema_previous_measurement else None
+        schema_previous = schema_previous_measurement.get("value")
 
         self.schema_missing_column_names = []
         self.schema_present_column_names = []
@@ -71,7 +71,9 @@ class SchemaCheck(Check):
             self.schema_comparator = SchemaComparator(schema_previous, self.measured_schema)
         else:
             if schema_check_cfg.has_change_validations():
-                self.logs.debug("Could not evaluate schema check because no previous measurements are available")
+                # TODO: TBD for outcome whether it will be pass or not
+                self.outcome = CheckOutcome.PASS
+                self.logs.info("Could not evaluate schema check because no previous measurements are available")
                 return
 
         if self.has_schema_violations(schema_check_cfg.fail_validations):
