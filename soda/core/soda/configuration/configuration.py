@@ -10,6 +10,7 @@ from soda.sodacl.format_cfg import FormatCfg
 
 
 class Configuration:
+
     def __init__(self, scan: Scan):
         self.scan = scan
         self.connection_properties_by_name: dict[str, dict] = {}
@@ -18,7 +19,7 @@ class Configuration:
         self.telemetry: Telemetry | None = Telemetry()
         self.soda_cloud: SodaCloud | None = None
         self.file_system = file_system()
-        self.sampler: Sampler | None = LogSampler()
+        self.sampler: Sampler | None = None
 
     def add_spark_session(self, data_source_name: str, spark_session):
         self.connection_properties_by_name["provided_spark"] = {

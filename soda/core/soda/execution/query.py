@@ -139,7 +139,19 @@ class Query:
                     self.logs.debug(f"Query {self.query_name}:\n{self.sql}")
                     cursor.execute(self.sql)
                     self.description = cursor.description
-                    self.storage_ref = sampler.store_sample(cursor, self)
+
+                    parts = [
+                        query.data_source_scan.scan._scan_definition_name,
+                        str(query.data_source_scan.scan._data_timestamp),
+                        query.data_source_scan.data_source.data_source_name,
+                        query.table.table_name if query.table else None,
+                        query.partition.partition_name if query.partition else None,
+                        query.query_name,
+                    ]
+                    parts = [part for part in parts if part is not None]
+                    sample_name = "/".join(parts)
+
+                    self.storage_ref = sampler.store_sample(cursor, sample_name, self.sql, self.logs)
                 finally:
                     cursor.close()
             except BaseException as e:

@@ -257,11 +257,6 @@ class Scan:
             from soda.execution.partition import Partition
             from soda.execution.table import Table
 
-            # If there is a sampler
-            if self._configuration.sampler:
-                # ensure the sampler is configured with the scan logs
-                self._configuration.sampler.logs = self._logs
-
             # Resolve the for each table checks and add them to the scan_cfg data structures
             self.__resolve_for_each_table_checks()
             # Resolve the for each column checks and add them to the scan_cfg data structures

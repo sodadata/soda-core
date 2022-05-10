@@ -5,6 +5,7 @@ import os
 import textwrap
 from textwrap import dedent
 
+from helpers.mock_sampler import MockSampler
 from soda.common.log import LogLevel
 from soda.execution.check import Check
 from soda.execution.check_outcome import CheckOutcome
@@ -70,6 +71,11 @@ class TestScan(Scan):
         if not isinstance(self._configuration.soda_cloud, MockSodaCloud):
             self._configuration.soda_cloud = MockSodaCloud()
         return self._configuration.soda_cloud
+
+    def enable_mock_sampler(self) -> MockSampler:
+        if not isinstance(self._configuration.sampler, MockSampler):
+            self._configuration.sampler = MockSampler()
+        return self._configuration.sampler
 
     def execute(self, allow_error_warning: bool = False):
         super().execute()
