@@ -1,13 +1,14 @@
 from __future__ import annotations
-import json
-
 import logging
 import os
 from typing import Any
-
+from dotenv import load_dotenv
+from soda.scan import Scan
 import pytest
 from soda.common.file_system import FileSystemSingleton
 from soda.common.logs import configure_logging
+from soda.configuration.configuration_parser import ConfigurationParser
+from soda.execution.data_source import DataSource
 from soda.telemetry.soda_telemetry import SodaTelemetry
 
 # Initialize telemetry in test mode. This is done before importing Scanner which initializes telemetry in standard mode so that we avoid unnecessary setup and re-setup which causes errors.
@@ -17,6 +18,9 @@ from tests.helpers.mock_file_system import MockFileSystem
 from tests.helpers.scanner import Scanner
 
 logger = logging.getLogger(__name__)
+
+# Load local env file so that test data sources can be set up.
+load_dotenv(".env", override=True)
 
 # In global scope because it is used in pytest annotations, it would not work as a fixture.
 test_data_source = os.getenv("test_data_source", "postgres")
@@ -42,9 +46,30 @@ def data_source_config_str() -> str:
 
 
 @pytest.fixture(scope="session")
-def data_source_config_dict(data_source_config_str) -> dict:
-    """Whole test data source config as string."""
-    return json.loads(data_source_config_str)
+def scan(data_source_config_str: str) -> Scan:
+    data_source_name = test_data_source
+
+    scan = Scan()
+    scan.set_data_source_name(data_source_name)
+    scan.add_configuration_yaml_str(data_source_config_str)
+
+    return scan
+
+
+@pytest.fixture(scope="session")
+def data_source(scan: Scan) -> DataSource:
+    data_source_name = test_data_source
+
+    data_source_connection_manager = scan._data_source_manager
+    data_source = data_source_connection_manager.get_data_source(data_source_name)
+    if not data_source:
+        raise Exception(f"Unable to find and/or set up specified '{data_source_name}' test data_source config.")
+    connection = data_source_connection_manager.connect(data_source)
+    scan._get_or_create_data_source_scan(test_data_source)
+
+    yield data_source
+
+    connection.close()
 
 
 @pytest.fixture(scope="session")
@@ -71,3 +96,8 @@ def mock_file_system():
     FileSystemSingleton.INSTANCE = MockFileSystem()
     yield FileSystemSingleton.INSTANCE
     FileSystemSingleton.INSTANCE = original_file_system
+
+
+def format_query_one_line(query: str) -> str:
+    """@TODO: implement"""
+    return query
