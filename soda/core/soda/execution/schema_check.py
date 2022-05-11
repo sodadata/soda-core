@@ -68,7 +68,7 @@ class SchemaCheck(Check):
 
         schema_previous_measurement = (
             historic_values.get(KEY_SCHEMA_PREVIOUS).get("measurements").get("results")[0].get("value")
-            if historic_values.get(KEY_SCHEMA_PREVIOUS).get("measurements").get("results")
+            if historic_values and historic_values.get(KEY_SCHEMA_PREVIOUS).get("measurements").get("results")
             else None
         )
         schema_previous = (
