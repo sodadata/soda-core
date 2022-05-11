@@ -1,4 +1,3 @@
-import logging
 import re
 from typing import Dict, List, Optional
 
@@ -61,11 +60,12 @@ class SchemaCheck(Check):
 
         self.measured_schema: List[Dict[str, str]] = metrics.get(KEY_SCHEMA_MEASURED).value
 
-        if KEY_SCHEMA_PREVIOUS in historic_values and historic_values.get(KEY_SCHEMA_PREVIOUS).get("measurements").get(
+        if KEY_SCHEMA_PREVIOUS in historic_values and not historic_values.get(KEY_SCHEMA_PREVIOUS).get("measurements").get(
             "results"
         ):
-            logging.info("No previous schema checks available, skipping schema check")
+            self.logs.info("No previous schema checks available, skipping schema check")
             self.skipped = True
+            return
 
         schema_previous_measurement = (
             historic_values.get(KEY_SCHEMA_PREVIOUS).get("measurements").get("results")[0].get("value")
@@ -83,14 +83,7 @@ class SchemaCheck(Check):
         self.schema_column_type_mismatches = {}
         self.schema_column_index_mismatches = {}
 
-        if schema_previous:
-            self.schema_comparator = SchemaComparator(schema_previous, self.measured_schema)
-        else:
-            if schema_check_cfg.has_change_validations():
-                # TODO: TBD for outcome whether it will be pass or not
-                self.outcome = CheckOutcome.PASS
-                self.logs.info("Could not evaluate schema check because no previous measurements are available")
-                return
+        self.schema_comparator = SchemaComparator(schema_previous, self.measured_schema)
 
         if self.has_schema_violations(schema_check_cfg.fail_validations):
             self.outcome = CheckOutcome.FAIL

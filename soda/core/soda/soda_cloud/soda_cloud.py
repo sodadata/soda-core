@@ -40,6 +40,6 @@ class SodaCloud:
                 ],
                 # TODO Queries are not supported by Soda Cloud yet.
                 # "queries": [query.get_cloud_dict() for query in scan._queries],
-                "automatedMonitoringChecks": [check.get_cloud_dict() for check in scan._automated_checks],
+                "automatedMonitoringChecks": [check.get_cloud_dict() for check in scan._automated_checks if not check.skipped],
             }
         )
