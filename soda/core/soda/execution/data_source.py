@@ -456,7 +456,7 @@ class DataSource:
             finally:
                 cursor.close()
         except BaseException as e:
-            self.logs.error(f"Query error: {e}\n{sql}", e)
+            self.logs.error(f"Query error: {e}\n{sql}", exception=e)
             self.query_failed(e)
 
     def is_connected(self):

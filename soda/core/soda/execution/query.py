@@ -3,15 +3,17 @@ from __future__ import annotations
 from datetime import datetime, timedelta
 
 from soda.common.exception_helper import get_exception_stacktrace
+from soda.sampler.db_sample import DbSample
+from soda.sampler.sample_context import SampleContext
 
 
 class Query:
     def __init__(
         self,
-        data_source_scan: DataSourceScan,
-        table: Table = None,
-        partition: Partition = None,
-        column: Column = None,
+        data_source_scan: 'DataSourceScan',
+        table: 'Table' = None,
+        partition: 'Partition' = None,
+        column: 'Column' = None,
         unqualified_query_name: str = None,
         sql: str | None = None,
     ):
@@ -20,9 +22,9 @@ class Query:
         self.query_name: str = Query.build_query_name(
             data_source_scan, table, partition, column, unqualified_query_name
         )
-        self.table: Table | None = table
-        self.partition: Partition | None = partition
-        self.column: Column | None = column
+        self.table: 'Table' | None = table
+        self.partition: 'Partition' | None = partition
+        self.column: 'Column' | None = column
 
         # The SQL query that is used _fetchone or _fetchall or _store
         # This field can also be initialized in the execute method before any of _fetchone,
@@ -33,7 +35,7 @@ class Query:
         self.description: tuple | None = None
         self.row: tuple | None = None
         self.rows: list[tuple] | None = None
-        self.storage_ref: StorageRef | None = None
+        self.sample_ref: 'SampleRef' | None = None
         self.exception: BaseException | None = None
         self.duration: timedelta = None
 
@@ -118,7 +120,7 @@ class Query:
                 cursor.close()
         except BaseException as e:
             self.exception = e
-            self.logs.error(f"Query error: {self.query_name}: {e}\n{self.sql}", e)
+            self.logs.error(f"Query error: {self.query_name}: {e}\n{self.sql}", exception=e)
             data_source.query_failed(e)
         finally:
             self.duration = datetime.now() - start
@@ -141,22 +143,25 @@ class Query:
                     self.description = cursor.description
 
                     parts = [
-                        query.data_source_scan.scan._scan_definition_name,
-                        str(query.data_source_scan.scan._data_timestamp),
-                        query.data_source_scan.data_source.data_source_name,
-                        query.table.table_name if query.table else None,
-                        query.partition.partition_name if query.partition else None,
-                        query.query_name,
+                        self.data_source_scan.scan._scan_definition_name,
+                        str(self.data_source_scan.scan._data_timestamp),
+                        self.data_source_scan.data_source.data_source_name,
+                        self.table.table_name if self.table else None,
+                        self.partition.partition_name if self.partition else None,
+                        self.query_name,
                     ]
                     parts = [part for part in parts if part is not None]
                     sample_name = "/".join(parts)
 
-                    self.storage_ref = sampler.store_sample(cursor, sample_name, self.sql, self.logs)
+                    sample = DbSample(cursor, self.data_source_scan.data_source)
+                    soda_cloud = self.data_source_scan.scan._configuration.soda_cloud
+                    sample_context = SampleContext(sample, sample_name, self.sql, self.logs, soda_cloud)
+                    self.sample_ref = sampler.store_sample()
                 finally:
                     cursor.close()
             except BaseException as e:
                 self.exception = e
-                self.logs.error(f"Query error: {self.query_name}: {e}\n{self.sql}", e)
+                self.logs.error(f"Query error: {self.query_name}: {e}\n{self.sql}", exception=e)
                 data_source.query_failed(e)
             finally:
                 self.duration = datetime.now() - start

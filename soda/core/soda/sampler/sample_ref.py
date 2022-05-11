@@ -1,9 +1,7 @@
 from __future__ import annotations
 
-from typing import Optional
 
-
-class StorageRef:
+class SampleRef:
     def __init__(
         self,
         # Sample display name for UIs
@@ -12,17 +10,22 @@ class StorageRef:
         total_row_count: int,
         stored_row_count: int,
         type: str,
-        reference: str,
+        soda_cloud_file_id: str | None = None,
+        message: str | None = None,
+        link: str | None = None
     ):
-        self.provider: str = provider
+        self.name: str = name
         self.column_count = column_count
         self.total_row_count: int = total_row_count
         self.stored_row_count: int = stored_row_count
+        self.type: str = type
         self.soda_cloud_file_id: str | None = soda_cloud_file_id
-        self.reference: str = reference
+        self.message: str | None = message
+        self.link: str | None = link
 
     def __str__(self) -> str:
-        return f"{self.reference} {self.column_count}x({self.stored_row_count}/{self.total_row_count})"
+        sample_dimension = f"{self.column_count}x({self.stored_row_count}/{self.total_row_count})"
+        return ' '.join([e for e in [self.type, self.soda_cloud_file_id, self.message, self.link, sample_dimension] if e is not None])
 
     def get_cloud_diagnostics_dict(self):
         """
@@ -55,14 +58,14 @@ class StorageRef:
           }
         """
 
-        storage_ref_dict = {
+        sample_ref_dict = {
             "provider": self.provider,
             "column_count": self.column_count,
             "total_row_count": self.total_row_count,
             "stored_row_count": self.stored_row_count,
         }
         if self.soda_cloud_file_id:
-            storage_ref_dict["soda_cloud_file_id"] = self.soda_cloud_file_id
+            sample_ref_dict["soda_cloud_file_id"] = self.soda_cloud_file_id
         if self.reference:
-            storage_ref_dict["reference"] = self.reference
-        return storage_ref_dict
+            sample_ref_dict["reference"] = self.reference
+        return sample_ref_dict

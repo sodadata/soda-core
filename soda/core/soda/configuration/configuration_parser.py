@@ -82,4 +82,7 @@ class ConfigurationParser(Parser):
         host = None
         if "host" in soda_cloud_dict:
             host = soda_cloud_dict.get("host")
-        return SodaCloud(api_key_id=api_key, api_key_secret=api_secret, host=host)
+        port = None
+        if "port" in soda_cloud_dict:
+            port = soda_cloud_dict.get("port")
+        return SodaCloud(api_key_id=api_key, api_key_secret=api_secret, host=host, port=port)

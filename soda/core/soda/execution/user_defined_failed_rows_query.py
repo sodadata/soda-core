@@ -16,6 +16,6 @@ class UserDefinedFailedRowsQuery(Query):
 
     def execute(self):
         self.store()
-        if self.storage_ref:
-            self.metric.value = self.storage_ref.total_row_count
-            self.metric.failed_rows_storage_ref = self.storage_ref
+        if self.sample_ref:
+            self.metric.value = self.sample_ref.total_row_count
+            self.metric.failed_rows_sample_ref = self.sample_ref

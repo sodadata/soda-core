@@ -5,13 +5,13 @@ import os
 import textwrap
 from textwrap import dedent
 
-from helpers.mock_sampler import MockSampler
 from soda.common.log import LogLevel
 from soda.execution.check import Check
 from soda.execution.check_outcome import CheckOutcome
 from soda.execution.data_source import DataSource
 from soda.sampler.log_sampler import LogSampler
 from soda.scan import Scan
+from tests.helpers.mock_sampler import MockSampler
 from tests.helpers.mock_soda_cloud import MockSodaCloud, TimeGenerator
 from tests.helpers.test_table import TestTable
 from tests.helpers.test_table_manager import TestTableManager
@@ -101,7 +101,7 @@ class TestScan(Scan):
                 try:
                     connection.close()
                 except BaseException as e:
-                    self._logs.error(f"Could not close connection {connection_name}: {e}", e)
+                    self._logs.error(f"Could not close connection {connection_name}: {e}", exception=e)
 
     def assert_log_warning(self, message):
         self.assert_log(message, LogLevel.WARNING)
