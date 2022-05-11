@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from datetime import timezone
+
 from soda.execution.check_outcome import CheckOutcome
 from soda.execution.metric import Metric
 from soda.execution.metric_check import MetricCheck
@@ -8,7 +10,6 @@ from soda.soda_cloud.historic_descriptor import (
     HistoricMeasurementsDescriptor,
 )
 from soda.sodacl.metric_check_cfg import MetricCheckCfg
-from datetime import timezone
 
 KEY_HISTORIC_MEASUREMENTS = "historic_measurements"
 KEY_HISTORIC_CHECK_RESULTS = "historic_check_results"
@@ -64,13 +65,10 @@ class AnomalyMetricCheck(MetricCheck):
                     "identity": metrics[self.name].identity,
                     "value": self.get_metric_value(),
                     "dataTime": (
-                        self
-                        .data_source_scan
-                        .scan
-                        ._data_timestamp
-                        .replace(tzinfo=timezone.utc)
-                        .strftime("%Y-%m-%dT%H:%M:%SZ")
-                    )
+                        self.data_source_scan.scan._data_timestamp.replace(tzinfo=timezone.utc).strftime(
+                            "%Y-%m-%dT%H:%M:%SZ"
+                        )
+                    ),
                 }
             )
 
@@ -85,10 +83,10 @@ class AnomalyMetricCheck(MetricCheck):
                 assert isinstance(
                     diagnostics, dict
                 ), f"Anomaly diagnostics should be a dict. Got a {type(diagnostics)} instead"
-                
+
                 if diagnostics["anomalyErrorCode"] == "not_enough_measurements":
-                   self.logs.warning("Skipping metric check eval because there is not enough historic data yet")
-                
+                    self.logs.warning("Skipping metric check eval because there is not enough historic data yet")
+
                 # assert isinstance(
                 #     diagnostics["anomalyProbability"], float
                 # ), f"Anomaly probability must be a float but it is {type(diagnostics['anomalyProbability'])}"
