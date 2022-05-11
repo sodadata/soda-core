@@ -251,13 +251,15 @@ class Scan:
         """
         self._configuration.telemetry = None
 
-    def execute(self):
+    def execute(self) -> int:
         self._logs.debug("Scan execution starts")
         try:
             from soda.execution.column import Column
             from soda.execution.column_metrics import ColumnMetrics
             from soda.execution.partition import Partition
             from soda.execution.table import Table
+
+            exit_value = 0
 
             # If there is a sampler
             if self._configuration.sampler:
@@ -383,33 +385,35 @@ class Scan:
 
             if len(self._checks) == 0 and not self._is_automated_monitoring_run:
                 self._logs.warning("No checks found, 0 checks evaluated.")
-            else:
+            if checks_not_evaluated:
+                self._logs.info(f"{checks_not_evaluated} checks not evaluated.")
+            if error_count > 0:
+                self._logs.info(f"{error_count} errors.")
+            if checks_warn_count + checks_fail_count + error_count == 0 and len(self._checks) > 0:
                 if checks_not_evaluated:
-                    self._logs.info(f"{checks_not_evaluated} checks not evaluated.")
-                if error_count > 0:
-                    self._logs.info(f"{error_count} errors.")
-                if checks_warn_count + checks_fail_count + error_count == 0 and len(self._checks) > 0:
-                    if checks_not_evaluated:
-                        self._logs.info(
-                            f"Apart from the checks that have not been evaluated, no failures, no warnings and no errors."
-                        )
-                    else:
-                        self._logs.info(f"All is good. No failures. No warnings. No errors.")
-                elif checks_fail_count > 0:
                     self._logs.info(
-                        f"Oops! {checks_fail_count} {fail_text}. {checks_warn_count} {warn_text}. {error_count} {error_text}. {checks_pass_count} pass."
+                        f"Apart from the checks that have not been evaluated, no failures, no warnings and no errors."
                     )
-                elif checks_warn_count > 0:
-                    self._logs.info(
-                        f"Only {checks_warn_count} {warn_text}. {checks_fail_count} {fail_text}. {error_count} {error_text}. {checks_pass_count} pass."
-                    )
-                elif error_count > 0:
-                    self._logs.info(
-                        f"Oops! {error_count} {error_text}. {checks_fail_count} {fail_text}. {checks_warn_count} {warn_text}. {checks_pass_count} pass."
-                    )
+                else:
+                    self._logs.info(f"All is good. No failures. No warnings. No errors.")
+            elif error_count > 0:
+                exit_value = 3
+                self._logs.info(
+                    f"Oops! {error_count} {error_text}. {checks_fail_count} {fail_text}. {checks_warn_count} {warn_text}. {checks_pass_count} pass."
+                )
+            elif checks_fail_count > 0:
+                exit_value = 2
+                self._logs.info(
+                    f"Oops! {checks_fail_count} {fail_text}. {checks_warn_count} {warn_text}. {error_count} {error_text}. {checks_pass_count} pass."
+                )
+            elif checks_warn_count > 0:
+                exit_value = 1
+                self._logs.info(
+                    f"Only {checks_warn_count} {warn_text}. {checks_fail_count} {fail_text}. {error_count} {error_text}. {checks_pass_count} pass."
+                )
 
-                if error_count > 0:
-                    Log.log_errors(self.get_error_logs())
+            if error_count > 0:
+                Log.log_errors(self.get_error_logs())
 
             self._scan_end_timestamp = datetime.utcnow()
             if self._configuration.soda_cloud:
@@ -417,9 +421,12 @@ class Scan:
                 self._configuration.soda_cloud.send_scan_results(self)
 
         except Exception as e:
+            exit_value = 3
             self._logs.error(f"Error occurred while executing scan.", exception=e)
         finally:
             self._close()
+
+        return exit_value
 
     def __checks_to_text(self, checks: list[Check]):
         return "/n".join([str(check) for check in checks])

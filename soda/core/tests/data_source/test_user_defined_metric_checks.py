@@ -1,6 +1,6 @@
 import pytest
 from soda.execution.check_outcome import CheckOutcome
-from tests.data_source.conftest import test_data_source
+from tests.conftest import test_data_source
 from tests.helpers.common_test_tables import customers_test_table
 from tests.helpers.scanner import Scanner
 

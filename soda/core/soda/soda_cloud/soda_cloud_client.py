@@ -4,6 +4,7 @@ from typing import Optional
 import requests
 from soda.__version__ import SODA_CORE_VERSION
 from soda.soda_cloud.historic_descriptor import (
+    HistoricChangeOverTimeDescriptor,
     HistoricCheckResultsDescriptor,
     HistoricDescriptor,
     HistoricMeasurementsDescriptor,
@@ -42,10 +43,29 @@ class SodaCloudClient:
 
         elif type(historic_descriptor) == HistoricCheckResultsDescriptor:
             check_results = self._get_hisotric_check_results(historic_descriptor)
+        elif type(historic_descriptor) == HistoricChangeOverTimeDescriptor:
+            measurements = self._get_hisoric_changes_over_time(historic_descriptor)
         else:
             logger.error(f"Invalid Historic Descriptor provided {historic_descriptor}")
 
         return {"measurements": measurements, "check_results": check_results}
+
+    def _get_hisoric_changes_over_time(self, hd: HistoricChangeOverTimeDescriptor):
+        return self._execute_query(
+            {
+                "type": "sodaCoreHistoricMeasurements",
+                "filter": {
+                    "type": "and",
+                    "andExpressions": [
+                        {
+                            "type": "equals",
+                            "left": {"type": "columnValue", "columnName": "metric.identity"},
+                            "right": {"type": "string", "value": hd.metric_identity},
+                        }
+                    ],
+                },
+            }
+        )
 
     def _get_historic_measurements(self, hd: HistoricMeasurementsDescriptor):
         return self._execute_query(
