@@ -1,3 +1,4 @@
+import logging
 import re
 from typing import Dict, List, Optional
 
@@ -59,8 +60,16 @@ class SchemaCheck(Check):
         schema_check_cfg: SchemaCheckCfg = self.check_cfg
 
         self.measured_schema: List[Dict[str, str]] = metrics.get(KEY_SCHEMA_MEASURED).value
+
+        if not historic_values.get(KEY_SCHEMA_PREVIOUS).get("measurements").get("results"):
+            logging.info("No previous schema checks available, skipping schema check")
+            self.skipped = True
+            return
+
         schema_previous_measurement = (
             historic_values.get(KEY_SCHEMA_PREVIOUS).get("measurements").get("results")[0].get("value")
+            if historic_values.get(KEY_SCHEMA_PREVIOUS).get("measurements").get("results")
+            else None
         )
         schema_previous = (
             [{"name": sp.get("columnName"), "type": sp.get("sourceDataType")} for sp in schema_previous_measurement]
