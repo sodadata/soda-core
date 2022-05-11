@@ -64,7 +64,6 @@ class SchemaCheck(Check):
         if not historic_values.get(KEY_SCHEMA_PREVIOUS).get("measurements").get("results"):
             logging.info("No previous schema checks available, skipping schema check")
             self.skipped = True
-            return
 
         schema_previous_measurement = (
             historic_values.get(KEY_SCHEMA_PREVIOUS).get("measurements").get("results")[0].get("value")
