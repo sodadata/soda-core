@@ -37,6 +37,8 @@ def run_cli(args):
         print(run_result.output)
     print(f"\n{os.path.basename(__file__)} exit code: {run_result.exit_code}")
 
+    return run_result
+
 
 if __name__ == "__main__":
     run_cli(
