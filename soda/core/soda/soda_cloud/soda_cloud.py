@@ -34,7 +34,7 @@ class SodaCloud:
                 "hasWarnings": scan.has_check_warns(),
                 "hasFailures": scan.has_check_fails(),
                 "metrics": [metric.get_cloud_dict() for metric in scan._metrics],
-                "checks": [check.get_cloud_dict() for check in scan._checks],
+                "checks": [check.get_cloud_dict() for check in scan._checks if not check.skipped],
                 # TODO Queries are not supported by Soda Cloud yet.
                 # "queries": [query.get_cloud_dict() for query in scan._queries],
             }
