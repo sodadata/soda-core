@@ -5,10 +5,9 @@ from opentelemetry.sdk.trace import ReadableSpan
 from soda.__version__ import SODA_CORE_VERSION
 from soda.telemetry.memory_span_exporter import MemorySpanExporter
 from soda.telemetry.soda_exporter import get_soda_spans
-from soda.telemetry.soda_telemetry import SodaTelemetry
 from soda.telemetry.soda_tracer import soda_trace
-from tests.helpers.telemetry_helper import telemetry_ensure_no_secrets
 from tests.conftest import soda_telemetry
+from tests.helpers.telemetry_helper import telemetry_ensure_no_secrets
 
 telemetry_exporter = MemorySpanExporter.get_instance()
 
