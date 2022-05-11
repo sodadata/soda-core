@@ -8,7 +8,6 @@ from soda.telemetry.soda_exporter import get_soda_spans
 from soda.telemetry.soda_tracer import soda_trace
 from tests.conftest import soda_telemetry
 from tests.helpers.telemetry_helper import telemetry_ensure_no_secrets
-from tests.conftest import soda_telemetry
 
 telemetry_exporter = MemorySpanExporter.get_instance()
 
