@@ -61,7 +61,9 @@ class SchemaCheck(Check):
 
         self.measured_schema: List[Dict[str, str]] = metrics.get(KEY_SCHEMA_MEASURED).value
 
-        if not historic_values.get(KEY_SCHEMA_PREVIOUS).get("measurements").get("results"):
+        if KEY_SCHEMA_PREVIOUS in historic_values and historic_values.get(KEY_SCHEMA_PREVIOUS).get("measurements").get(
+            "results"
+        ):
             logging.info("No previous schema checks available, skipping schema check")
             self.skipped = True
 
