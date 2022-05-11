@@ -61,7 +61,7 @@ class AnomalyMetricCheck(MetricCheck):
             # Append current results
             historic_measurements.get("results").append(
                 {
-                    "id": 61, # Placeholder number that will be overwritten
+                    "id": 61,  # Placeholder number that will be overwritten
                     "identity": metrics[self.name].identity,
                     "value": self.get_metric_value(),
                     "dataTime": (
@@ -87,7 +87,7 @@ class AnomalyMetricCheck(MetricCheck):
                 self.logs.warning("Skipping metric check eval because there is not enough historic data yet")
                 self.skipped = True
                 return
-            
+
             assert isinstance(
                 diagnostics["anomalyProbability"], float
             ), f"Anomaly probability must be a float but it is {type(diagnostics['anomalyProbability'])}"
