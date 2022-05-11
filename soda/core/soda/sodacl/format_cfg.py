@@ -60,8 +60,8 @@ class FormatHelper:
             "money": f"^{s}{sign_any_opt}{s}{decimal_point_comma}{s}{currency}{s}$",
             "money point": f"^{s}{sign_any_opt}{s}{money_point}{s}{currency}{s}$",
             "money comma": f"^{s}{sign_any_opt}{s}{money_comma}{s}{currency}{s}$",
-            "date eu": rf"^{s}{month}[-\./]{day}[-\./]{year}{s}$",
-            "date us": rf"^{s}{day}[-\./]{month}[-\./]{year}{s}$",
+            "date us": rf"^{s}{month}[-\./]{day}[-\./]{year}{s}$",
+            "date eu": rf"^{s}{day}[-\./]{month}[-\./]{year}{s}$",
             "date inverse": rf"^{s}{year}[-\./]{month}[-\./]{day}{s}$",
             "date iso 8601": f"^{s}"
             rf"{year4}-?({month2}-?{day2}|W[0-5]\d(-?[1-7])?|[0-3]\d\d)"
