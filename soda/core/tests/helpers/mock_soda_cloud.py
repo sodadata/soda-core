@@ -29,7 +29,6 @@ class TimeGenerator:
 
 
 class MockSodaCloud(SodaCloud):
-
     def __init__(self):
         super().__init__(host="test_host", api_key_id="test_api_key", api_key_secret="test_api_key_secret")
         self.historic_metric_values: list = []

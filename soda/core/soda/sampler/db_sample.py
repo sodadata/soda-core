@@ -5,7 +5,6 @@ from soda.sampler.sample_schema import SampleSchema
 
 
 class DbSample(Sample):
-
     def __init__(self, cursor, data_source):
         self.cursor = cursor
         self.data_source = data_source

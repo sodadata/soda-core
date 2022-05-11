@@ -1,10 +1,9 @@
 from dataclasses import dataclass
-from typing import Tuple, Optional
+from typing import Optional, Tuple
 
 from soda.common.logs import Logs
-from soda.sampler.sampler import Sampler
 from soda.sampler.sample_ref import SampleRef
-from soda.soda_cloud.soda_cloud import SodaCloud
+from soda.sampler.sampler import Sampler
 
 
 @dataclass
@@ -15,7 +14,6 @@ class Sample:
 
 
 class MockSampler(Sampler):
-
     def __init__(self):
         self.samples = []
 
@@ -30,7 +28,7 @@ class MockSampler(Sampler):
             total_row_count=row_count,
             stored_row_count=row_count,
             type="mock",
-            soda_cloud_file_id=soda_cloud_file_id
+            soda_cloud_file_id=soda_cloud_file_id,
         )
         self.samples.append(Sample(rows=rows, sample_ref=sample_ref, query=query))
         return sample_ref

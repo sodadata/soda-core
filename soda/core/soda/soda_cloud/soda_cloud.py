@@ -4,23 +4,21 @@ import logging
 from typing import Dict
 
 import requests
-
 from soda.__version__ import SODA_CORE_VERSION
 from soda.common.json_helper import JsonHelper
-from soda.soda_cloud.historic_descriptor import HistoricDescriptor, HistoricMeasurementsDescriptor, \
-    HistoricCheckResultsDescriptor
+from soda.soda_cloud.historic_descriptor import (
+    HistoricCheckResultsDescriptor,
+    HistoricDescriptor,
+    HistoricMeasurementsDescriptor,
+)
 
 logger = logging.getLogger(__name__)
 
 
 class SodaCloud:
-
-    def __init__(self,
-                 host: str,
-                 api_key_id: str,
-                 api_key_secret: str,
-                 token: str | None = None,
-                 port: str | None = None):
+    def __init__(
+        self, host: str, api_key_id: str, api_key_secret: str, token: str | None = None, port: str | None = None
+    ):
         self.host = host
         self.port = f":{port}" if port else ""
         self.api_url = f"https://{self.host}{self.port}/api"
@@ -47,10 +45,10 @@ class SodaCloud:
             }
         )
 
-    def get_historic_data(self, historic_descriptor: HistoricDescriptor) -> Dict[str, object]:
+    def get_historic_data(self, historic_descriptor: HistoricDescriptor) -> dict[str, object]:
         return self.cloud_client.get_historic_data(historic_descriptor)
 
-    def send_scan_results(self, scan: "Scan"):
+    def send_scan_results(self, scan: Scan):
         scan_results = self.build_scan_results(scan)
         self.cloud_client.insert_scan_results(scan_results)
 
@@ -74,10 +72,10 @@ class SodaCloud:
 
     def scan_upload(self, scan_reference: str, file_path, temp_file, file_size_in_bytes: int):
         headers = {
-            'Authorization': self._get_token(),
-            'Content-Type': 'application/octet-stream',
-            'Scan-Reference': scan_reference,
-            'File-Path': file_path
+            "Authorization": self._get_token(),
+            "Content-Type": "application/octet-stream",
+            "Scan-Reference": scan_reference,
+            "File-Path": file_path,
         }
 
         if file_size_in_bytes == 0:
@@ -85,19 +83,16 @@ class SodaCloud:
             # when the size is 0 since requests blocks then on I/O indefinitely
             logger.warning("Empty file upload detected, not sending Content-Length header")
         else:
-            headers['Content-Length'] = str(file_size_in_bytes)
+            headers["Content-Length"] = str(file_size_in_bytes)
 
         upload_response_json = self._upload_file(headers, temp_file)
 
-        if 'fileId' not in upload_response_json:
+        if "fileId" not in upload_response_json:
             logger.error(f"No fileId received in response: {upload_response_json}")
-        return upload_response_json['fileId']
+        return upload_response_json["fileId"]
 
     def _upload_file(self, headers, temp_file):
-        upload_response = requests.post(
-            f'{self.api_url}/scan/upload',
-            headers=headers,
-            data=temp_file)
+        upload_response = requests.post(f"{self.api_url}/scan/upload", headers=headers, data=temp_file)
         return upload_response.json()
 
     def _get_historic_measurements(self, hd: HistoricMeasurementsDescriptor):

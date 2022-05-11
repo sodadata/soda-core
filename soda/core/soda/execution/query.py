@@ -10,10 +10,10 @@ from soda.sampler.sample_context import SampleContext
 class Query:
     def __init__(
         self,
-        data_source_scan: 'DataSourceScan',
-        table: 'Table' = None,
-        partition: 'Partition' = None,
-        column: 'Column' = None,
+        data_source_scan: DataSourceScan,
+        table: Table = None,
+        partition: Partition = None,
+        column: Column = None,
         unqualified_query_name: str = None,
         sql: str | None = None,
     ):
@@ -22,9 +22,9 @@ class Query:
         self.query_name: str = Query.build_query_name(
             data_source_scan, table, partition, column, unqualified_query_name
         )
-        self.table: 'Table' | None = table
-        self.partition: 'Partition' | None = partition
-        self.column: 'Column' | None = column
+        self.table: Table | None = table
+        self.partition: Partition | None = partition
+        self.column: Column | None = column
 
         # The SQL query that is used _fetchone or _fetchall or _store
         # This field can also be initialized in the execute method before any of _fetchone,
@@ -35,7 +35,7 @@ class Query:
         self.description: tuple | None = None
         self.row: tuple | None = None
         self.rows: list[tuple] | None = None
-        self.sample_ref: 'SampleRef' | None = None
+        self.sample_ref: SampleRef | None = None
         self.exception: BaseException | None = None
         self.duration: timedelta = None
 

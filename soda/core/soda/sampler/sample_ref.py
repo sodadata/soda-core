@@ -12,7 +12,7 @@ class SampleRef:
         type: str,
         soda_cloud_file_id: str | None = None,
         message: str | None = None,
-        link: str | None = None
+        link: str | None = None,
     ):
         self.name: str = name
         self.column_count = column_count
@@ -25,7 +25,13 @@ class SampleRef:
 
     def __str__(self) -> str:
         sample_dimension = f"{self.column_count}x({self.stored_row_count}/{self.total_row_count})"
-        return ' '.join([e for e in [self.type, self.soda_cloud_file_id, self.message, self.link, sample_dimension] if e is not None])
+        return " ".join(
+            [
+                e
+                for e in [self.type, self.soda_cloud_file_id, self.message, self.link, sample_dimension]
+                if e is not None
+            ]
+        )
 
     def get_cloud_diagnostics_dict(self):
         """

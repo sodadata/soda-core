@@ -9,7 +9,6 @@ logger = logging.getLogger(__name__)
 
 
 class LogSampler(Sampler):
-
     def store_sample(self, sample_context: SampleContext) -> SampleRef:
         table_text, column_count, row_count = self.pretty_print(sample_context)
         sample_name = sample_context.sample_name
