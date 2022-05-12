@@ -1,5 +1,5 @@
 import pytest
-from tests.data_source.conftest import format_query_one_line, test_data_source
+from tests.conftest import format_query_one_line, test_data_source
 from tests.helpers.scanner import Scanner
 
 
@@ -27,7 +27,7 @@ from tests.helpers.scanner import Scanner
         ),
     ],
 )
-@pytest.mark.skip
+@pytest.mark.skip("Skipped until expected vs actual output can be reliably compared.")
 def test_sql_table_include_exclude_filter(scanner: Scanner, include_tables, exclude_tables, expected_sql):
     scan = scanner.create_test_scan()
     data_source = scan._data_source_manager.get_data_source(test_data_source)

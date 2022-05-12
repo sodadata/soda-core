@@ -63,7 +63,9 @@ class ConfigHelper:
             logger.debug(f"Trying to load Soda Config file {path}.")
 
             if self.file_system.exists(path):
-                config = yaml.load(self.file_system.file_read_as_str(path))
+                content = yaml.load(self.file_system.file_read_as_str(path))
+                if content:
+                    config = content
                 break
 
         return config
