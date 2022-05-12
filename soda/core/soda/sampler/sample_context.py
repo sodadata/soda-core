@@ -4,7 +4,6 @@ from typing import Optional
 
 from soda.common.logs import Logs
 from soda.sampler.sample import Sample
-from soda.soda_cloud.soda_cloud import SodaCloud
 
 
 @dataclass
@@ -13,17 +12,17 @@ class SampleContext:
     sample: Sample
     sample_name: str
     query: str
-    data_source: 'DataSource'
-    partition: Optional['Partition']
-    column: Optional['Column']
-    scan: 'Scan'
-    logs: 'Logs'
+    data_source: "DataSource"
+    partition: Optional["Partition"]
+    column: Optional["Column"]
+    scan: "Scan"
+    logs: "Logs"
 
     def get_scan_folder_name(self):
         parts = [
             self.scan._scan_definition_name,
             self.scan._data_timestamp.strftime("%Y%m%d%H%M%S"),
-            datetime.now().strftime("%Y%m%d%H%M%S")
+            datetime.now().strftime("%Y%m%d%H%M%S"),
         ]
         return "_".join([part for part in parts if part])
 

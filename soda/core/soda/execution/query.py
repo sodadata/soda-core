@@ -17,7 +17,7 @@ class Query:
         column: Column = None,
         unqualified_query_name: str = None,
         sql: str | None = None,
-        sample_name: str = 'failed_rows'
+        sample_name: str = "failed_rows",
     ):
         self.logs = data_source_scan.scan._logs
         self.data_source_scan = data_source_scan
@@ -155,7 +155,7 @@ class Query:
                         partition=self.partition,
                         column=self.column,
                         scan=self.data_source_scan.scan,
-                        logs=self.data_source_scan.scan._logs
+                        logs=self.data_source_scan.scan._logs,
                     )
 
                     self.sample_ref = sampler.store_sample(sample_context)

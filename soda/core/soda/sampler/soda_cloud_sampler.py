@@ -4,7 +4,6 @@ from soda.sampler.sampler import Sampler
 
 
 class SodaCloudSampler(Sampler):
-
     def store_sample(self, sample_context: SampleContext) -> SampleRef:
         sample_rows = sample_context.sample.get_rows()
         row_count = len(sample_rows)
@@ -14,9 +13,7 @@ class SodaCloudSampler(Sampler):
         soda_cloud = scan._configuration.soda_cloud
 
         soda_cloud_file_id = soda_cloud.upload_sample(
-            scan=scan,
-            sample_rows=sample_rows,
-            sample_file_name=sample_context.get_sample_file_name()
+            scan=scan, sample_rows=sample_rows, sample_file_name=sample_context.get_sample_file_name()
         )
 
         return SampleRef(

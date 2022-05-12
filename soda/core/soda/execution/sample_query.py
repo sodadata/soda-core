@@ -2,13 +2,7 @@ from soda.execution.query import Query
 
 
 class SampleQuery(Query):
-    def __init__(
-        self,
-        data_source_scan: "DataSourceScan",
-        metric: "Metric",
-        sample_type: str,
-        sql: str
-    ):
+    def __init__(self, data_source_scan: "DataSourceScan", metric: "Metric", sample_type: str, sql: str):
         """
         :param sample_type: Eg 'failed_rows'
         """
@@ -17,7 +11,7 @@ class SampleQuery(Query):
             partition=metric.partition,
             column=metric.column,
             unqualified_query_name=f"{sample_type}[{metric.name}]",
-            sql=sql
+            sql=sql,
         )
         self.metric = metric
 

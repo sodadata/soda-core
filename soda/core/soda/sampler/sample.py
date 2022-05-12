@@ -5,7 +5,6 @@ from soda.sampler.sample_schema import SampleSchema
 
 
 class Sample(ABC):
-
     @abstractmethod
     def get_rows(self) -> Tuple[Tuple]:
         pass

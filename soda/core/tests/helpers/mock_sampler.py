@@ -1,10 +1,8 @@
 from dataclasses import dataclass
-from typing import Optional, Tuple
+from typing import Tuple
 
-from soda.common.logs import Logs
 from soda.sampler.sample_context import SampleContext
 from soda.sampler.sample_ref import SampleRef
-from soda.sampler.sampler import Sampler
 from soda.sampler.soda_cloud_sampler import SodaCloudSampler
 
 

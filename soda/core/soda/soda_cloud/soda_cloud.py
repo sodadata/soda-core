@@ -9,7 +9,6 @@ from typing import Tuple
 
 import requests
 from requests import Response
-
 from soda.__version__ import SODA_CORE_VERSION
 from soda.common.json_helper import JsonHelper
 from soda.common.logs import Logs
@@ -48,25 +47,17 @@ class SodaCloud:
                 "hasWarnings": scan.has_check_warns(),
                 "hasFailures": scan.has_check_fails(),
                 "metrics": [metric.get_cloud_dict() for metric in scan._metrics],
-                "checks": [check.get_cloud_dict() for check in scan._checks if not check.skipped]
-
+                "checks": [check.get_cloud_dict() for check in scan._checks if not check.skipped],
             }
         )
 
     @staticmethod
     def _serialize_file_upload_value(value):
-        if (value is None
-            or isinstance(value, str)
-            or isinstance(value, int)
-            or isinstance(value, float)
-        ):
+        if value is None or isinstance(value, str) or isinstance(value, int) or isinstance(value, float):
             return value
         return str(value)
 
-    def upload_sample(self,
-                      scan: 'Scan',
-                      sample_rows: Tuple[Tuple],
-                      sample_file_name: str) -> str:
+    def upload_sample(self, scan: Scan, sample_rows: tuple[tuple], sample_file_name: str) -> str:
         """
         :param sample_file_name: file name without extension
         :return: Soda Cloud file_id
@@ -75,34 +66,32 @@ class SodaCloud:
         try:
             scan_definition_name = scan._scan_definition_name
             scan_data_timestamp = scan._data_timestamp
-            scan_folder_name = (f'{self._fileify(scan_definition_name)}'
-                                f'_{scan_data_timestamp.strftime("%Y%m%d%H%M%S")}'
-                                f'_{datetime.now().strftime("%Y%m%d%H%M%S")}')
+            scan_folder_name = (
+                f"{self._fileify(scan_definition_name)}"
+                f'_{scan_data_timestamp.strftime("%Y%m%d%H%M%S")}'
+                f'_{datetime.now().strftime("%Y%m%d%H%M%S")}'
+            )
 
             with tempfile.TemporaryFile() as temp_file:
                 for row in sample_rows:
                     row = [self._serialize_file_upload_value(v) for v in row]
-                    temp_file.write(bytearray(json.dumps(row), 'utf-8'))
-                    temp_file.write(b'\n')
+                    temp_file.write(bytearray(json.dumps(row), "utf-8"))
+                    temp_file.write(b"\n")
 
                 temp_file_size_in_bytes = temp_file.tell()
                 temp_file.seek(0)
 
-                file_path = (f'{scan_folder_name}/' +
-                             f'{sample_file_name}.jsonl')
+                file_path = f"{scan_folder_name}/" + f"{sample_file_name}.jsonl"
 
-                file_id = self._upload_sample_http(scan_definition_name,
-                                                   file_path,
-                                                   temp_file,
-                                                   temp_file_size_in_bytes)
+                file_id = self._upload_sample_http(scan_definition_name, file_path, temp_file, temp_file_size_in_bytes)
 
                 return file_id
 
         except Exception as e:
-            self.logs.error(f'Soda cloud error: Could not upload sample {sample_file_name}', exception=e)
+            self.logs.error(f"Soda cloud error: Could not upload sample {sample_file_name}", exception=e)
 
     def _fileify(self, name: str):
-        return re.sub(r'[^A-Za-z0-9_]+', '_', name).lower()
+        return re.sub(r"[^A-Za-z0-9_]+", "_", name).lower()
 
     def _upload_sample_http(self, scan_definition_name: str, file_path, temp_file, file_size_in_bytes: int):
         headers = {
@@ -214,7 +203,9 @@ class SodaCloud:
                 self.token = None
                 response_json = self._execute_request(request_type, request_body, True)
             elif response.status_code != 200:
-                self.logs.error(f"Error while executing Soda Cloud {request_type} response code: {response.status_code}")
+                self.logs.error(
+                    f"Error while executing Soda Cloud {request_type} response code: {response.status_code}"
+                )
             return response_json
         except Exception as e:
             self.logs.error(f"Error while executing Soda Cloud {request_type}", exception=e)
@@ -232,7 +223,8 @@ class SodaCloud:
             login_response = self._http_post(url=f"{self.api_url}/command", headers=self.headers, json=login_command)
             if login_response.status_code != 200:
                 raise AssertionError(
-                    f"< {login_response.status_code} login failed. Server response code:{login_response.content}")
+                    f"< {login_response.status_code} login failed. Server response code:{login_response.content}"
+                )
             login_response_json = login_response.json()
 
             self.token = login_response_json.get("token")
