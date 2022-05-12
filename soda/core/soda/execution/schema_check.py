@@ -64,7 +64,7 @@ class SchemaCheck(Check):
             "measurements"
         ).get("results"):
             self.logs.info("No previous schema checks available, skipping schema check")
-            self.skipped = True
+            self.is_skipped = True
             return
 
         schema_previous_measurement = (

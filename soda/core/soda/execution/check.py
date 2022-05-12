@@ -100,7 +100,7 @@ class Check(ABC):
         partition: Partition | None,
         column: Column | None,
         name: str | None,
-        skipped: bool = False,
+        is_skipped: bool = False,
     ):
         from soda.execution.partition import Partition
 
@@ -113,7 +113,7 @@ class Check(ABC):
         self.metrics: dict[str, Metric] = {}
         self.historic_descriptors: dict[str, HistoricDescriptor] = {}
         self.cloud_check_type = "metricThreshold"
-        self.skipped = skipped
+        self.is_skipped = is_skipped
 
         # Attribute for automated monitoring
         self.archetype = None

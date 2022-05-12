@@ -93,10 +93,9 @@ class MockSodaCloud(SodaCloud):
                 return value
 
             elif change_over_time_aggregation is None:
-                historic_metric_values = self.__get_historic_metric_values(historic_descriptor.metric)
+                historic_metric_values = self.__get_historic_metric_values(historic_descriptor.metric_identity)
                 if len(historic_metric_values) > 0:
-                    previous_metric_value = historic_metric_values["results"][0]
-                    return previous_metric_value
+                    return {"measurements": historic_metric_values}
 
         elif type(historic_descriptor) == HistoricMeasurementsDescriptor:
             measurements = self.__get_historic_metric_values(historic_descriptor.metric_identity)

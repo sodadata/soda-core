@@ -20,7 +20,6 @@ def test_schema_changes_pass(scanner: Scanner):
         metric_values=[schema_metric_value_derived_from_test_table],
     )
 
-    "metric-test_schema_changes.py::test_schema_changes_pass-postgres-SODATEST_Customers_b7580920-schema"
     scan.add_sodacl_yaml_str(
         f"""
       checks for {table_name}:
@@ -122,8 +121,8 @@ def test_schema_changes_column_deletion(scanner: Scanner):
     schema_metric_value_derived_from_test_table.insert(
         3,
         {
-            "name": "extra",
-            "type": data_source.get_sql_type_for_schema_check(DataType.TEXT),
+            "columnName": "extra",
+            "sourceDataType": data_source.get_sql_type_for_schema_check(DataType.TEXT),
         },
     )
 

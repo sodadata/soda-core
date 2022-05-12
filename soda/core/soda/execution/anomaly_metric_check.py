@@ -72,7 +72,7 @@ class AnomalyMetricCheck(MetricCheck):
                 }
             )
 
-            # TODO test for module installation and set check status to skipped if the module is not installed
+            # TODO test for module installation and set check status to is_skipped if the module is not installed
             from soda.scientific.anomaly_detection.anomaly_detector import (
                 AnomalyDetector,
             )
@@ -85,7 +85,7 @@ class AnomalyMetricCheck(MetricCheck):
 
             if diagnostics["anomalyErrorCode"] == "not_enough_measurements":
                 self.logs.warning("Skipping metric check eval because there is not enough historic data yet")
-                self.skipped = True
+                self.is_skipped = True
                 return
 
             assert isinstance(

@@ -21,13 +21,13 @@ class AutomatedMonitoringRun:
         self.table_names = self._get_table_names()
 
     def run(self) -> List[Check]:
-        checks: List[Check] = []
+        automated_checks: List[Check] = []
         annomaly_detection_checks: List[AnomalyMetricCheck] = self.create_anomaly_detection_checks()
         schema_checks: List[SchemaCheck] = self.create_schema_checks()
 
-        checks.extend(annomaly_detection_checks)
-        checks.extend(schema_checks)
-        return checks
+        automated_checks.extend(annomaly_detection_checks)
+        automated_checks.extend(schema_checks)
+        return automated_checks
 
     def create_anomaly_detection_checks(self) -> List[AnomalyMetricCheck]:
         annomaly_detection_checks = []
