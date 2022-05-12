@@ -9,6 +9,7 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 import logging
+import sys
 from typing import List, Optional, Tuple
 
 import click
@@ -156,7 +157,7 @@ def scan(
         variables_dict = dict([tuple(v.split("=")) for v in variable])
         scan.add_variables(variables_dict)
 
-    scan.execute()
+    sys.exit(scan.execute())
 
 
 @main.command(

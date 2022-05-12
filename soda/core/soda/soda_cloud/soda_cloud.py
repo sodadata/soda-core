@@ -1,12 +1,13 @@
 from __future__ import annotations
 
 import logging
-from typing import Dict
 
 import requests
+
 from soda.__version__ import SODA_CORE_VERSION
 from soda.common.json_helper import JsonHelper
 from soda.soda_cloud.historic_descriptor import (
+    HistoricChangeOverTimeDescriptor,
     HistoricCheckResultsDescriptor,
     HistoricDescriptor,
     HistoricMeasurementsDescriptor,
@@ -39,36 +40,11 @@ class SodaCloud:
                 "hasWarnings": scan.has_check_warns(),
                 "hasFailures": scan.has_check_fails(),
                 "metrics": [metric.get_cloud_dict() for metric in scan._metrics],
-                "checks": [check.get_cloud_dict() for check in scan._checks],
+                "checks": [check.get_cloud_dict() for check in scan._checks if not check.skipped],
                 # TODO Queries are not supported by Soda Cloud yet.
                 # "queries": [query.get_cloud_dict() for query in scan._queries],
             }
         )
-
-    def get_historic_data(self, historic_descriptor: HistoricDescriptor) -> dict[str, object]:
-        return self.cloud_client.get_historic_data(historic_descriptor)
-
-    def send_scan_results(self, scan: Scan):
-        scan_results = self.build_scan_results(scan)
-        self.cloud_client.insert_scan_results(scan_results)
-
-    def insert_scan_results(self, scan_results):
-        scan_results["type"] = "sodaCoreInsertScanResults"
-        return self._execute_command(scan_results)
-
-    def get_historic_data(self, historic_descriptor: HistoricDescriptor):
-        measurements = {}
-        check_results = {}
-
-        if type(historic_descriptor) == HistoricMeasurementsDescriptor:
-            measurements = self._get_historic_measurements(historic_descriptor)
-
-        elif type(historic_descriptor) == HistoricCheckResultsDescriptor:
-            check_results = self._get_hisotric_check_results(historic_descriptor)
-        else:
-            logger.error(f"Invalid Historic Descriptor provided {historic_descriptor}")
-
-        return {"measurements": measurements, "check_results": check_results}
 
     def scan_upload(self, scan_reference: str, file_path, temp_file, file_size_in_bytes: int):
         headers = {
@@ -94,6 +70,43 @@ class SodaCloud:
     def _upload_file(self, headers, temp_file):
         upload_response = requests.post(f"{self.api_url}/scan/upload", headers=headers, data=temp_file)
         return upload_response.json()
+
+    def insert_scan_results(self, scan_results):
+        scan_results["type"] = "sodaCoreInsertScanResults"
+        return self._execute_command(scan_results)
+
+    def get_historic_data(self, historic_descriptor: HistoricDescriptor):
+        measurements = {}
+        check_results = {}
+
+        if type(historic_descriptor) == HistoricMeasurementsDescriptor:
+            measurements = self._get_historic_measurements(historic_descriptor)
+
+        elif type(historic_descriptor) == HistoricCheckResultsDescriptor:
+            check_results = self._get_hisotric_check_results(historic_descriptor)
+        elif type(historic_descriptor) == HistoricChangeOverTimeDescriptor:
+            measurements = self._get_hisoric_changes_over_time(historic_descriptor)
+        else:
+            logger.error(f"Invalid Historic Descriptor provided {historic_descriptor}")
+
+        return {"measurements": measurements, "check_results": check_results}
+
+    def _get_hisoric_changes_over_time(self, hd: HistoricChangeOverTimeDescriptor):
+        return self._execute_query(
+            {
+                "type": "sodaCoreHistoricMeasurements",
+                "filter": {
+                    "type": "and",
+                    "andExpressions": [
+                        {
+                            "type": "equals",
+                            "left": {"type": "columnValue", "columnName": "metric.identity"},
+                            "right": {"type": "string", "value": hd.metric_identity},
+                        }
+                    ],
+                },
+            }
+        )
 
     def _get_historic_measurements(self, hd: HistoricMeasurementsDescriptor):
         return self._execute_query(
