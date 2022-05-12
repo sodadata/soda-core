@@ -65,7 +65,7 @@ class SampleRef:
         """
 
         sample_ref_dict = {
-            "provider": self.provider,
+            "type": self.type,
             "column_count": self.column_count,
             "total_row_count": self.total_row_count,
             "stored_row_count": self.stored_row_count,

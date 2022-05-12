@@ -1,5 +1,5 @@
 import logging
-from abc import ABC
+from abc import ABC, abstractmethod
 from typing import Optional
 
 from soda.execution.metric import Metric
@@ -25,3 +25,6 @@ class QueryMetric(Metric, ABC):
             check=check,
             identity_parts=identity_parts,
         )
+
+    def create_failed_rows_sample_query(self):
+        return None

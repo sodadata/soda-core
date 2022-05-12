@@ -46,7 +46,7 @@ def test_non_existing_files(scanner: Scanner):
     test_data_source != "postgres",
     reason="Run for postgres only as nothing data source specific is tested.",
 )
-def test_ok_with_variable(scanner: Scanner, mock_file_system: MockFileSystem):
+def  test_ok_with_variable(scanner: Scanner, mock_file_system: MockFileSystem):
     table_name = scanner.ensure_test_table(customers_test_table)
 
     user_home_dir = mock_file_system.user_home_dir()

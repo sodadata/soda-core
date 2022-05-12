@@ -5,6 +5,7 @@ from soda.execution.check import Check
 from soda.execution.check_outcome import CheckOutcome
 from soda.execution.derived_metric import DERIVED_METRIC_NAMES
 from soda.execution.metric import Metric
+from soda.execution.sample_query import SampleQuery
 from soda.execution.user_defined_numeric_metric import UserDefinedNumericMetric
 from soda.sampler.sample_ref import SampleRef
 from soda.sodacl.metric_check_cfg import MetricCheckCfg

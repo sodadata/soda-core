@@ -5,6 +5,7 @@ from datetime import datetime, timedelta
 from soda.common.exception_helper import get_exception_stacktrace
 from soda.sampler.db_sample import DbSample
 from soda.sampler.sample_context import SampleContext
+from soda.sampler.sampler import Sampler
 
 
 class Query:
@@ -16,12 +17,14 @@ class Query:
         column: Column = None,
         unqualified_query_name: str = None,
         sql: str | None = None,
+        sample_name: str = 'failed_rows'
     ):
         self.logs = data_source_scan.scan._logs
         self.data_source_scan = data_source_scan
         self.query_name: str = Query.build_query_name(
             data_source_scan, table, partition, column, unqualified_query_name
         )
+        self.sample_name = sample_name
         self.table: Table | None = table
         self.partition: Partition | None = partition
         self.column: Column | None = column
@@ -37,7 +40,7 @@ class Query:
         self.rows: list[tuple] | None = None
         self.sample_ref: SampleRef | None = None
         self.exception: BaseException | None = None
-        self.duration: timedelta = None
+        self.duration: timedelta | None = None
 
     def get_cloud_dict(self):
         from soda.execution.column import Column
@@ -131,7 +134,7 @@ class Query:
         self.exception being populated.
         """
         self.__append_to_scan()
-        sampler = self.data_source_scan.scan._configuration.sampler
+        sampler: Sampler = self.data_source_scan.scan._configuration.sampler
         if sampler:
             start = datetime.now()
             data_source = self.data_source_scan.data_source
@@ -142,21 +145,20 @@ class Query:
                     cursor.execute(self.sql)
                     self.description = cursor.description
 
-                    parts = [
-                        self.data_source_scan.scan._scan_definition_name,
-                        str(self.data_source_scan.scan._data_timestamp),
-                        self.data_source_scan.data_source.data_source_name,
-                        self.table.table_name if self.table else None,
-                        self.partition.partition_name if self.partition else None,
-                        self.query_name,
-                    ]
-                    parts = [part for part in parts if part is not None]
-                    sample_name = "/".join(parts)
+                    db_sample = DbSample(cursor, self.data_source_scan.data_source)
 
-                    sample = DbSample(cursor, self.data_source_scan.data_source)
-                    soda_cloud = self.data_source_scan.scan._configuration.soda_cloud
-                    sample_context = SampleContext(sample, sample_name, self.sql, self.logs, soda_cloud)
-                    self.sample_ref = sampler.store_sample()
+                    sample_context = SampleContext(
+                        sample=db_sample,
+                        sample_name=self.sample_name,
+                        query=self.sql,
+                        data_source=self.data_source_scan.data_source,
+                        partition=self.partition,
+                        column=self.column,
+                        scan=self.data_source_scan.scan,
+                        logs=self.data_source_scan.scan._logs
+                    )
+
+                    self.sample_ref = sampler.store_sample(sample_context)
                 finally:
                     cursor.close()
             except BaseException as e:

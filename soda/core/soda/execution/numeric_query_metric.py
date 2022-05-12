@@ -2,6 +2,7 @@ from decimal import Decimal
 from typing import List, Optional
 
 from soda.execution.query_metric import QueryMetric
+from soda.execution.sample_query import SampleQuery
 from soda.sodacl.format_cfg import FormatHelper
 
 
@@ -238,3 +239,31 @@ class NumericQueryMetric(QueryMetric):
 
     def is_missing_or_validity_configured(self) -> bool:
         return self.missing_and_valid_cfg is not None
+
+    def create_failed_rows_sample_query(self) -> SampleQuery:
+
+        if self.value > 0 and self.name in [
+            'missing_count',
+            'invalid_count'
+        ]:
+            where_clauses = []
+            partition_filter = self.partition.sql_partition_filter
+            if partition_filter:
+                resolved_filter = self.data_source_scan.scan._jinja_resolve(definition=partition_filter)
+                where_clauses.append(resolved_filter)
+
+            if self.name == 'missing_count':
+                where_clauses.append(self.build_missing_condition())
+            elif self.name == 'invalid_count':
+                where_clauses.append(f'NOT {self.build_missing_condition()}')
+                where_clauses.append(f'NOT {self.build_valid_condition()}')
+
+            where_sql = ' AND '.join(where_clauses)
+
+            sql = (
+                f"SELECT * \n"
+                f"FROM {self.partition.table.prefixed_table_name} \n"
+                f"WHERE {where_sql}"
+            )
+
+            return SampleQuery(self.data_source_scan, self, 'failed_rows', sql)

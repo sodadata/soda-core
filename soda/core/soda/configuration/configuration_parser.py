@@ -6,6 +6,7 @@ import re
 from soda.common.logs import Logs
 from soda.common.parser import Parser
 from soda.configuration.configuration import Configuration
+from soda.sampler.soda_cloud_sampler import SodaCloudSampler
 from soda.soda_cloud.soda_cloud import SodaCloud
 
 logger = logging.getLogger(__name__)
@@ -67,6 +68,8 @@ class ConfigurationParser(Parser):
             elif environment_header == "soda_cloud":
                 self._push_path_element("soda_cloud", header_value)
                 self.configuration.soda_cloud = self.parse_soda_cloud_cfg(header_value)
+                if self.configuration.soda_cloud and not header_value.get("disable_samples"):
+                    self.configuration.sampler = SodaCloudSampler()
                 self._pop_path_element()
 
             else:
@@ -85,4 +88,4 @@ class ConfigurationParser(Parser):
         port = None
         if "port" in soda_cloud_dict:
             port = soda_cloud_dict.get("port")
-        return SodaCloud(api_key_id=api_key, api_key_secret=api_secret, host=host, port=port)
+        return SodaCloud(api_key_id=api_key, api_key_secret=api_secret, host=host, port=port, logs=self.logs)

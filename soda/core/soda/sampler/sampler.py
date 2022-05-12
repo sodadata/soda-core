@@ -5,6 +5,7 @@ from soda.sampler.sample_ref import SampleRef
 
 
 class Sampler(ABC):
+
     @abstractmethod
     def store_sample(self, sample_context: SampleContext) -> SampleRef:
         pass

@@ -45,7 +45,7 @@ class TestScan(Scan):
         if os.environ.get("WESTMALLE"):
             from tests.helpers.mock_soda_cloud import MockSodaCloud
 
-            self._configuration.soda_cloud = MockSodaCloud()
+            self._configuration.soda_cloud = MockSodaCloud(self)
 
     def _parse_sodacl_yaml_str(self, sodacl_yaml_str: str, file_path: str = None):
         dedented_sodacl_yaml_str = dedent(sodacl_yaml_str).strip()
@@ -69,7 +69,7 @@ class TestScan(Scan):
 
     def enable_mock_soda_cloud(self) -> MockSodaCloud:
         if not isinstance(self._configuration.soda_cloud, MockSodaCloud):
-            self._configuration.soda_cloud = MockSodaCloud()
+            self._configuration.soda_cloud = MockSodaCloud(self)
         return self._configuration.soda_cloud
 
     def enable_mock_sampler(self) -> MockSampler:
