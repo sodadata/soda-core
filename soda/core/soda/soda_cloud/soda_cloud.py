@@ -3,7 +3,6 @@ from __future__ import annotations
 import logging
 
 import requests
-
 from soda.__version__ import SODA_CORE_VERSION
 from soda.common.json_helper import JsonHelper
 from soda.soda_cloud.historic_descriptor import (
