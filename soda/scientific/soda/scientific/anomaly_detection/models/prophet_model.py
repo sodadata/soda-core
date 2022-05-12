@@ -215,9 +215,7 @@ class ProphetDetector(BaseDetector):
         _df["ds"] = _df["ds"].dt.normalize()
         has_dupe_dates = _df.duplicated(subset=["ds"]).any()
         if not has_dupe_dates:
-            self._logs.info(
-                "Anomaly Detection Frequency Warning: Converted into daily dataset with no data dropping"
-            )
+            self._logs.info("Anomaly Detection Frequency Warning: Converted into daily dataset with no data dropping")
             return FreqDetectionResult(
                 inferred_frequency="D",
                 df=_df,
