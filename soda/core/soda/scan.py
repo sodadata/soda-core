@@ -49,7 +49,6 @@ class Scan:
         self._automated_checks: list[Check] = []
         self._queries: list[Query] = []
         self._logs.info(f"Soda Core {SODA_CORE_VERSION}")
-        self._is_automated_monitoring_run: bool = False
 
     def set_data_source_name(self, data_source_name: str):
         """
@@ -326,7 +325,6 @@ class Scan:
                         automated_monitoring_checks: list[Check] = monitor_runner.run()
                         if automated_monitoring_checks:
                             self._automated_checks += automated_monitoring_checks
-                        self._is_automated_monitoring_run = True
                     else:
                         data_source_names = ", ".join(self._data_source_manager.data_source_properties_by_name.keys())
                         self._logs.error(
@@ -383,7 +381,7 @@ class Scan:
             self.__log_checks(None)
             checks_not_evaluated = len(self._checks) - checks_pass_count - checks_warn_count - checks_fail_count
 
-            if len(self._checks) == 0 and not self._is_automated_monitoring_run:
+            if len(self._checks) == 0:
                 self._logs.warning("No checks found, 0 checks evaluated.")
             if checks_not_evaluated:
                 self._logs.info(f"{checks_not_evaluated} checks not evaluated.")

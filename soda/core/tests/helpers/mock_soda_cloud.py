@@ -25,7 +25,7 @@ class TimeGenerator:
 
     def next(self):
         self.timestamp += self.timedelta
-        return self.timestamp
+        return self.timestamp.strftime('%Y-%m-%dT%H:%M:%SZ')
 
 
 class MockSodaCloud(SodaCloud):

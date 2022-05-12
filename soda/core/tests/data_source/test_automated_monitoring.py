@@ -29,5 +29,4 @@ def test_automated_monitoring(scanner: Scanner):
                 - exclude PROD%
         """
     )
-    scan._is_automated_monitoring_run = True
     scan.execute()
