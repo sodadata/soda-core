@@ -37,7 +37,7 @@ class DuplicatesQuery(Query):
 
     def execute(self):
         self.store()
-        if self.storage_ref:
-            values_having_duplicates = self.storage_ref.total_row_count
+        if self.sample_ref:
+            values_having_duplicates = self.sample_ref.total_row_count
             self.metric.set_value(values_having_duplicates)
-            self.metric.duplicate_frequencies_storage_ref = self.storage_ref
+            self.metric.duplicate_frequencies_sample_ref = self.sample_ref

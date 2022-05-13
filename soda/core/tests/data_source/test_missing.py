@@ -8,9 +8,9 @@ def test_default_missing(scanner: Scanner):
     scan = scanner.create_test_scan()
     scan.add_sodacl_yaml_str(
         f"""
-      checks for {table_name}:
-        - missing_count(id) = 1
-    """
+          checks for {table_name}:
+            - missing_count(id) = 1
+        """
     )
     scan.execute()
 
