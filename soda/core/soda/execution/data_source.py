@@ -250,7 +250,7 @@ class DataSource:
     def profiling_sql_values_frequencies_query(self, table_name: str, column_name: str) -> str:
         return dedent(
             f"""
-                with freq_values AS (
+                WITH freq_values AS (
                   {self.profiling_sql_cte_value_frequencies(table_name, column_name)}
                 )
                 {self.profiling_sql_value_frequencies_select()}
@@ -260,7 +260,7 @@ class DataSource:
     def profiling_sql_top_values(self, table_name: str, column_name: str) -> str:
         return dedent(
             f"""
-                with freq_values AS (
+                WITH freq_values AS (
                   {self.profiling_sql_cte_value_frequencies(table_name, column_name)}
                 )
                 {self.profiling_sql_frequent_values_cte('freq_values', 'frequent_values', is_final=True)}
@@ -271,9 +271,9 @@ class DataSource:
         column_name = self.quote_column(column_name)
         return dedent(
             f"""
-                select {column_name} as value_name, count(*) as frequency
-                from {table_name}
-                group by value_name
+                SELECT {column_name} as value_name, count(*) as frequency
+                FROM {table_name}
+                GROUP BY value_name
             """
         )
 
@@ -281,53 +281,53 @@ class DataSource:
         sql = dedent(
             f"""
             , {cte_name} as (
-                select
+                SELECT
                     frequency
                     , row_number() over (order by frequency desc) as idx
                     , value_name
-                from {source_table_name}
-                order by frequency desc
-                limit 5
+                FROM {source_table_name}
+                ORDER BY frequency desc
+                LIMIT 5
             )
             """
         )
         if is_final:
-            sql += f"\n select * from {cte_name}"
+            sql += f"\n SELECT * FROM {cte_name}"
         return sql
 
     def profiling_sql_value_frequencies_select(self) -> str:
         return dedent(
             f"""
             , mins as (
-            select value_name, row_number() over(order by value_name asc) as idx, frequency, 'mins' as metric_name
-            from freq_values
-            where value_name is not null
-            order by value_name asc
-            limit 5
+            SELECT value_name, ROW_NUMBER() OVER(order by value_name asc) as idx, frequency, 'mins' as metric_name
+            FROM freq_values
+            WHERE value_name is not null
+            ORDER BY value_name asc
+            LIMIT 5
         )
         , maxes as (
 
-            select value_name, row_number() over(order by value_name desc) as idx, frequency, 'maxes' as metric_name
-            from freq_values
-            where value_name is not null
-            order by value_name desc
-            limit 5
+            SELECT value_name, ROW_NUMBER() OVER(order by value_name desc) as idx, frequency, 'maxes' as metric_name
+            FROM freq_values
+            WHERE value_name is not null
+            ORDER BY value_name desc
+            LIMIT 5
         )
         {self.profiling_sql_frequent_values_cte(source_table_name='freq_values', cte_name='frequent_values', is_final=False)}
         , final as (
-            select
+            SELECT
                 mins.value_name as mins
                 , maxes.value_name as maxes
                 , frequent_values.value_name as frequent_values
                 , frequent_values.frequency as frequency
-            from mins
-            join maxes
+            FROM mins
+            JOIN maxes
                  on mins.idx = maxes.idx
-            join frequent_values
+            JOIN frequent_values
                 on mins.idx = frequent_values.idx
-            order by frequency desc
+            ORDER BY frequency desc
         )
-        select * from final
+        SELECT * FROM final
             """
         )
 
@@ -335,14 +335,14 @@ class DataSource:
         column_name = self.quote_column(column_name)
         return dedent(
             f"""
-            select
+            SELECT
                 avg({column_name}) as average
                 , sum({column_name}) as sum
                 , variance({column_name}) as variance
                 , stddev({column_name}) as standard_deviation
                 , count(distinct({column_name})) as distinct_values
                 , sum(case when {column_name} is null then 1 else 0 end) as missing_values
-            from {table_name}
+            FROM {table_name}
             """
         )
 
@@ -350,13 +350,13 @@ class DataSource:
         column_name = self.quote_column(column_name)
         return dedent(
             f"""
-            select
+            SELECT
                 count(distinct({column_name})) as distinct_values
                 , sum(case when {column_name} is null then 1 else 0 end) as missing_values
                 , avg(length({column_name})) as avg_length
                 , min(length({column_name})) as min_length
                 , max(length({column_name})) as max_length
-            from {table_name}
+            FROM {table_name}
             """
         )
 
@@ -385,13 +385,13 @@ class DataSource:
             lower_bound = "" if i == 0 else f"{bins_list[i]} <= value_name"
             upper_bound = "" if i == number_of_bins - 1 else f"value_name < {bins_list[i+1]}"
             optional_and = "" if lower_bound == "" or upper_bound == "" else " and "
-            field_clauses.append(f"sum(case when {lower_bound}{optional_and}{upper_bound} then frequency end)")
+            field_clauses.append(f"SUM(CASE WHEN {lower_bound}{optional_and}{upper_bound} then frequency END)")
 
         fields = ",\n ".join(field_clauses)
 
         sql = (
-            f"with freq_values as ({self.profiling_sql_cte_value_frequencies(table_name, column_name)})\n"
-            f"select {fields} from freq_values"
+            f"WITH freq_values as ({self.profiling_sql_cte_value_frequencies(table_name, column_name)})\n"
+            f"SELECT {fields} From freq_values"
         )
         return sql, bins_list
 
