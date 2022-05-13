@@ -241,30 +241,24 @@ class NumericQueryMetric(QueryMetric):
     def is_missing_or_validity_configured(self) -> bool:
         return self.missing_and_valid_cfg is not None
 
-    metric_names_with_failed_rows = ['missing_count', 'invalid_count']
+    metric_names_with_failed_rows = ["missing_count", "invalid_count"]
 
     def create_failed_rows_sample_query(self) -> SampleQuery:
-        if (self.name in self.metric_names_with_failed_rows
-                and isinstance(self.value, Number)
-                and self.value > 0):
+        if self.name in self.metric_names_with_failed_rows and isinstance(self.value, Number) and self.value > 0:
             where_clauses = []
             partition_filter = self.partition.sql_partition_filter
             if partition_filter:
                 resolved_filter = self.data_source_scan.scan._jinja_resolve(definition=partition_filter)
                 where_clauses.append(resolved_filter)
 
-            if self.name == 'missing_count':
+            if self.name == "missing_count":
                 where_clauses.append(self.build_missing_condition())
-            elif self.name == 'invalid_count':
-                where_clauses.append(f'NOT {self.build_missing_condition()}')
-                where_clauses.append(f'NOT {self.build_valid_condition()}')
+            elif self.name == "invalid_count":
+                where_clauses.append(f"NOT {self.build_missing_condition()}")
+                where_clauses.append(f"NOT {self.build_valid_condition()}")
 
-            where_sql = ' AND '.join(where_clauses)
+            where_sql = " AND ".join(where_clauses)
 
-            sql = (
-                f"SELECT * \n"
-                f"FROM {self.partition.table.prefixed_table_name} \n"
-                f"WHERE {where_sql}"
-            )
+            sql = f"SELECT * \n" f"FROM {self.partition.table.prefixed_table_name} \n" f"WHERE {where_sql}"
 
-            return SampleQuery(self.data_source_scan, self, 'failed_rows', sql)
+            return SampleQuery(self.data_source_scan, self, "failed_rows", sql)

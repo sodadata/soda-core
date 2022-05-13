@@ -5,7 +5,6 @@ import logging
 import re
 import tempfile
 from datetime import datetime
-from typing import Tuple
 
 import requests
 from requests import Response
@@ -115,7 +114,7 @@ class SodaCloud:
             logger.error(f"No fileId received in response: {upload_response_json}")
         return upload_response_json["fileId"]
 
-    def send_scan_results(self, scan: 'Scan'):
+    def send_scan_results(self, scan: Scan):
         scan_results = self.build_scan_results(scan)
         scan_results["type"] = "sodaCoreInsertScanResults"
         return self._execute_command(scan_results)
