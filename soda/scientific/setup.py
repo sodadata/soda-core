@@ -18,7 +18,7 @@ requires = [
     "inflection==0.5.1",
     "httpx>=0.18.1,<2.0.0",
     "PyYAML>=5.4.1,<6.0.0",
-    "prophet",
+    "prophet>=1.0.0",
     "pystan==2.19.1.1",
 ]
 
