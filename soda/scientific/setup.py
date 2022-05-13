@@ -18,14 +18,7 @@ requires = [
     "inflection==0.5.1",
     "httpx>=0.18.1,<2.0.0",
     "PyYAML>=5.4.1,<6.0.0",
-    # The following incantation and Python 3.8 is neded to make stuff work.
-    # Sometimes in life, universe (by that I mean python) throws sh*t at you
-    # and you think you can reason with Python and PiP and try to solve a "problem"
-    # ... but you would be wrong.
-    # The best course of action is acceptance, despite the horrors you see in setup.py files
-    # such as this. And that my dear reader of the code is the real 'Zen of Python`.
-    "prophet @ git+https://github.com/facebook/prophet.git#egg=prophet&subdirectory=python",
-    # "prophet",
+    "prophet>=1.0.0",
     "pystan==2.19.1.1",
 ]
 
