@@ -2,11 +2,10 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import TYPE_CHECKING, Dict
 import re
 import tempfile
 from datetime import datetime
-
+from typing import TYPE_CHECKING
 
 import requests
 from requests import Response
