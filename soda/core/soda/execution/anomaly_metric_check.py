@@ -29,7 +29,6 @@ class AnomalyMetricCheck(MetricCheck):
             partition=partition,
             column=column,
         )
-
         self.skip_anomaly_check = False
         metric_check_cfg: MetricCheckCfg = self.check_cfg
         if not metric_check_cfg.fail_threshold_cfg and not metric_check_cfg.warn_threshold_cfg:

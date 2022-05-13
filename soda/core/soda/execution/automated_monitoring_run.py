@@ -49,6 +49,7 @@ class AutomatedMonitoringRun:
                 change_over_time_cfg=None,
                 fail_threshold_cfg=None,
                 warn_threshold_cfg=ThresholdCfg(gt=0.9),
+                is_automated_monitoring=True,
             )
 
             # Mock partition
@@ -100,6 +101,7 @@ class AutomatedMonitoringRun:
                 name=None,
                 warn_validations=warn_validations,
                 fail_validations=fail_validations,
+                is_automated_monitoring=True,
             )
 
             # Mock partition
