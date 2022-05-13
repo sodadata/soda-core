@@ -36,7 +36,6 @@ class SchemaCheck(Check):
         self.schema_column_type_mismatches: Optional[Dict[str, str]] = None
         self.schema_column_index_mismatches: Optional[Dict[str, str]] = None
         self.schema_comparator = None
-
         from soda.execution.schema_metric import SchemaMetric
 
         schema_metric = data_source_scan.resolve_metric(
@@ -60,13 +59,6 @@ class SchemaCheck(Check):
 
         self.measured_schema: List[Dict[str, str]] = metrics.get(KEY_SCHEMA_MEASURED).value
 
-        if KEY_SCHEMA_PREVIOUS in historic_values and not historic_values.get(KEY_SCHEMA_PREVIOUS).get(
-            "measurements"
-        ).get("results"):
-            self.logs.info("No previous schema checks available, skipping schema check")
-            self.is_skipped = True
-            return
-
         schema_previous_measurement = (
             historic_values.get(KEY_SCHEMA_PREVIOUS).get("measurements").get("results")[0].get("value")
             if historic_values and historic_values.get(KEY_SCHEMA_PREVIOUS).get("measurements").get("results")
@@ -83,7 +75,11 @@ class SchemaCheck(Check):
         self.schema_column_type_mismatches = {}
         self.schema_column_index_mismatches = {}
 
-        self.schema_comparator = SchemaComparator(schema_previous, self.measured_schema)
+        if schema_previous:
+            self.schema_comparator = SchemaComparator(schema_previous, self.measured_schema)
+        else:
+            if schema_check_cfg.has_change_validations():
+                self.is_skipped = True
 
         if self.has_schema_violations(schema_check_cfg.fail_validations):
             self.outcome = CheckOutcome.FAIL
