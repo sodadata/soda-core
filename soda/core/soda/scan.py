@@ -435,7 +435,7 @@ class Scan:
                         f"configured: {data_source_names}"
                     )
         return _automated_checks
-        
+
     def run_profile_columns(self):
         for data_source_scan in self._data_source_scans:
             for profile_columns_cfg in data_source_scan.data_source_scan_cfg.profile_columns_cfgs:
