@@ -1,6 +1,6 @@
 from typing import List
 
-from soda.execution.profile_columns_result_column import ProfileColumnsResultColumn
+from soda.profiling.profile_columns_result_column import ProfileColumnsResultColumn
 
 
 class ProfileColumnsResultTable:

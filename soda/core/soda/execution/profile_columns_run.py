@@ -2,10 +2,10 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from soda.execution.profile_columns_result import ProfileColumnsResult
-from soda.execution.profile_columns_result_column import ProfileColumnsResultColumn
-from soda.execution.profile_columns_result_table import ProfileColumnsResultTable
 from soda.execution.query import Query
+from soda.profiling.profile_columns_result import ProfileColumnsResult
+from soda.profiling.profile_columns_result_column import ProfileColumnsResultColumn
+from soda.profiling.profile_columns_result_table import ProfileColumnsResultTable
 from soda.sodacl.profile_columns_cfg import ProfileColumnsCfg
 
 if TYPE_CHECKING:

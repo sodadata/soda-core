@@ -15,7 +15,7 @@ from soda.execution.check_outcome import CheckOutcome
 from soda.execution.data_source_scan import DataSourceScan
 from soda.execution.derived_metric import DerivedMetric
 from soda.execution.metric import Metric
-from soda.execution.profile_columns_result_table import ProfileColumnsResultTable
+from soda.profiling.profile_columns_result_table import ProfileColumnsResultTable
 from soda.soda_cloud.historic_descriptor import HistoricDescriptor
 from soda.sodacl.location import Location
 from soda.sodacl.sodacl_cfg import SodaCLCfg
