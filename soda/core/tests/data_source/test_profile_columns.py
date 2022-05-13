@@ -129,7 +129,7 @@ def test_profile_columns_numeric(scanner: Scanner, table_name, soda_cl_str, clou
     table_name = scanner.ensure_test_table(table_name)
 
     scan = scanner.create_test_scan()
-    mock_soda_cloud = scan.activate_mock_soda_cloud()
+    mock_soda_cloud = scan.enable_mock_soda_cloud()
     scan.add_sodacl_yaml_str(
         f"""
           profile columns:
@@ -208,7 +208,7 @@ def test_profile_columns_text(scanner: Scanner, table_name, soda_cl_str, cloud_d
     table_name = scanner.ensure_test_table(table_name)
 
     scan = scanner.create_test_scan()
-    mock_soda_cloud = scan.activate_mock_soda_cloud()
+    mock_soda_cloud = scan.enable_mock_soda_cloud()
     scan.add_sodacl_yaml_str(
         f"""
           profile columns:

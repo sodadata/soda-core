@@ -47,13 +47,6 @@ class TestScan(Scan):
 
             self._configuration.soda_cloud = MockSodaCloud(self)
 
-    def activate_mock_soda_cloud(self) -> MockSodaCloud:
-        from tests.helpers.mock_soda_cloud import MockSodaCloud
-
-        mock_soda_cloud = MockSodaCloud(self)
-        self._configuration.soda_cloud = mock_soda_cloud
-        return mock_soda_cloud
-
     def _parse_sodacl_yaml_str(self, sodacl_yaml_str: str, file_path: str = None):
         dedented_sodacl_yaml_str = dedent(sodacl_yaml_str).strip()
         checks_yaml_log_str = dedented_sodacl_yaml_str
