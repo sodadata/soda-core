@@ -15,6 +15,7 @@ from soda.execution.check_outcome import CheckOutcome
 from soda.execution.data_source_scan import DataSourceScan
 from soda.execution.derived_metric import DerivedMetric
 from soda.execution.metric import Metric
+from soda.profiling.profile_columns_result_table import ProfileColumnsResultTable
 from soda.soda_cloud.historic_descriptor import HistoricDescriptor
 from soda.sodacl.location import Location
 from soda.sodacl.sodacl_cfg import SodaCLCfg
@@ -47,9 +48,11 @@ class Scan:
         self._metrics: set[Metric] = set()
         self._checks: list[Check] = []
         self._queries: list[Query] = []
+        self._profile_columns_result_tables: list[ProfileColumnsResultTable] = []
         self._logs.info(f"Soda Core {SODA_CORE_VERSION}")
         self._is_experimental_auto_monitoring: bool = False
         self._is_automated_monitoring_run: bool = False
+        self._is_profiling_run = False
 
     def set_data_source_name(self, data_source_name: str):
         """
@@ -348,24 +351,9 @@ class Scan:
                     self._logs.error(
                         f"Metrics {missing_metrics_str} were not computed for check {check.check_cfg.source_line}"
                     )
-            # this is where automated monitoring is called
-            for data_source_scan in self._data_source_scans:
-                for monitoring_cfg in data_source_scan.data_source_scan_cfg.monitoring_cfgs:
-                    data_source_name = data_source_scan.data_source_scan_cfg.data_source_name
-                    data_source_scan = self._get_or_create_data_source_scan(data_source_name)
-                    if data_source_scan:
-                        if self._is_experimental_auto_monitoring:
-                            monitor_runner = data_source_scan.create_automated_monitor_run(monitoring_cfg, self)
-                            monitor_runner.run()
-                            self._is_automated_monitoring_run = True
-                        else:
-                            self._logs.info("Automated monitoring feature is not implemented yet. Stay tuned!")
-                    else:
-                        data_source_names = ", ".join(self._data_source_manager.data_source_properties_by_name.keys())
-                        self._logs.error(
-                            f"Could not run monitors on data_source {data_source_name} because It is not "
-                            f"configured: {data_source_names}"
-                        )
+
+            self.run_automated_monitoring()
+            self.run_profile_columns()
 
             self._logs.info("Scan summary:")
             self.__log_queries(having_exception=False)
@@ -381,7 +369,7 @@ class Scan:
             self.__log_checks(None)
             checks_not_evaluated = len(self._checks) - checks_pass_count - checks_warn_count - checks_fail_count
 
-            if len(self._checks) == 0 and not self._is_automated_monitoring_run:
+            if len(self._checks) == 0 and not self._is_automated_monitoring_run and not self._is_profiling_run:
                 self._logs.warning("No checks found, 0 checks evaluated.")
             if checks_not_evaluated:
                 self._logs.info(f"{checks_not_evaluated} checks not evaluated.")
@@ -423,8 +411,45 @@ class Scan:
             self._logs.error(f"Error occurred while executing scan.", exception=e)
         finally:
             self._close()
-
         return exit_value
+
+    def run_automated_monitoring(self):
+        # this is where automated monitoring is called
+        for data_source_scan in self._data_source_scans:
+            for monitoring_cfg in data_source_scan.data_source_scan_cfg.monitoring_cfgs:
+                data_source_name = data_source_scan.data_source_scan_cfg.data_source_name
+                data_source_scan = self._get_or_create_data_source_scan(data_source_name)
+                if data_source_scan:
+                    if self._is_experimental_auto_monitoring:
+                        monitor_runner = data_source_scan.create_automated_monitor_run(monitoring_cfg, self)
+                        monitor_runner.run()
+                        self._is_automated_monitoring_run = True
+                    else:
+                        self._logs.info("Automated monitoring feature is not implemented yet. Stay tuned!")
+                else:
+                    data_source_names = ", ".join(self._data_source_manager.data_source_properties_by_name.keys())
+                    self._logs.error(
+                        f"Could not run monitors on data_source {data_source_name} because It is not "
+                        f"configured: {data_source_names}"
+                    )
+
+    def run_profile_columns(self):
+        for data_source_scan in self._data_source_scans:
+            for profile_columns_cfg in data_source_scan.data_source_scan_cfg.profile_columns_cfgs:
+                data_source_name = data_source_scan.data_source_scan_cfg.data_source_name
+                data_source_scan = self._get_or_create_data_source_scan(data_source_name)
+                if data_source_scan:
+                    profile_columns_run = data_source_scan.create_profile_columns_run(profile_columns_cfg, self)
+                    profile_columns_result = profile_columns_run.run()
+                    self._is_profiling_run = True
+                    self._profile_columns_result_tables.extend(profile_columns_result.tables)
+                else:
+                    data_source_names = ", ".join(self._data_source_manager.data_source_properties_by_name.keys())
+                    self._logs.error(
+                        f"Could not profile columns on data_source {data_source_name} because it is not "
+                        f"configured: {data_source_names}",
+                        location=profile_columns_cfg.location,
+                    )
 
     def __checks_to_text(self, checks: list[Check]):
         return "/n".join([str(check) for check in checks])

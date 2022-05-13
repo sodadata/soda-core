@@ -5,6 +5,7 @@ import logging
 import re
 import tempfile
 from datetime import datetime
+from typing import TYPE_CHECKING
 
 import requests
 from requests import Response
@@ -19,6 +20,9 @@ from soda.soda_cloud.historic_descriptor import (
 )
 
 logger = logging.getLogger(__name__)
+
+if TYPE_CHECKING:
+    from soda.scan import Scan
 
 
 class SodaCloud:
@@ -36,7 +40,7 @@ class SodaCloud:
 
     @staticmethod
     def build_scan_results(scan) -> dict:
-        return JsonHelper.to_jsonnable(
+        return JsonHelper.to_jsonnable(  # type: ignore
             {
                 "definitionName": scan._scan_definition_name,
                 "dataTimestamp": scan._data_timestamp,
@@ -47,6 +51,12 @@ class SodaCloud:
                 "hasFailures": scan.has_check_fails(),
                 "metrics": [metric.get_cloud_dict() for metric in scan._metrics],
                 "checks": [check.get_cloud_dict() for check in scan._checks if not check.skipped],
+                # TODO Queries are not supported by Soda Cloud yet.
+                # "queries": [query.get_cloud_dict() for query in scan._queries],
+                "profiling": [
+                    profile_columns_result_table.get_cloud_dict()
+                    for profile_columns_result_table in scan._profile_columns_result_tables
+                ],
             }
         )
 

@@ -108,3 +108,36 @@ raw_customers_test_table = TestTable(
     columns=customers_test_table.columns,
     values=customers_test_table.values,
 )
+
+customers_profiling = TestTable(
+    name="Customers_Profiling",
+    columns=[
+        ("id", DataType.TEXT),
+        ("size", DataType.DECIMAL),
+        ("sizeTxt", DataType.TEXT),
+        ("distance", DataType.INTEGER),
+        ("pct", DataType.TEXT),
+        ("cat", DataType.TEXT),
+        ("country", DataType.TEXT),
+        ("zip", DataType.TEXT),
+        ("email", DataType.TEXT),
+        ("date", DataType.DATE),
+        ("ts", DataType.TIMESTAMP),
+        ("ts_with_tz", DataType.TIMESTAMP_TZ),
+    ],
+    # fmt: off
+    values=[
+        ('ID1',  1,    "1",     1,    "- 28,42 %", "HIGH",   'BE', '2360', 'john.doe@example.com',    date(2020, 6, 23), datetime(2020, 6, 23, 0, 0, 10), datetime(2020, 6, 23, 0, 0, 10, tzinfo=utc)),
+        ('ID2',  .5,   ".5",    -999, "+22,75 %",  "HIGH",   'BE', '2361', 'JOE.SMOE@EXAMPLE.COM',    date(2020, 6, 23), datetime(2020, 6, 23, 0, 1, 10), datetime(2020, 6, 23, 0, 1, 10, tzinfo=utc)),
+        ('ID3',  .5,   ".5",    10,    ".92 %",     "MEDIUM", 'BE', '2362', 'milan.lukáč@example.com', date(2020, 6, 23), datetime(2020, 6, 23, 0, 2, 10), datetime(2020, 6, 23, 0, 2, 10, tzinfo=utc)),
+        ('ID4',  .5,   ".5",    10,   "0.26 %",    "LOW",    'BE', '2363', 'john.doe@ĚxamplÉ.com',    date(2020, 6, 23), datetime(2020, 6, 23, 0, 3, 10), datetime(2020, 6, 23, 0, 3, 10, tzinfo=utc)),
+
+        ('ID6',  6.1,    "6",     999,  "18,32%",    None,     'BE', '2365', None,                      date(2020, 6, 23), datetime(2020, 6, 23, 0, 5, 10), datetime(2020, 6, 23, 0, 5, 10, tzinfo=utc)),
+        ('ID7',  6.1,    "6",     999,  "error",     None,     'NL', '2360', None,                      date(2020, 6, 24), datetime(2020, 6, 24, 0, 1, 10), datetime(2020, 6, 24, 0, 1, 10, tzinfo=utc)),
+        ('ID8',  None, None,    999,  "No value",  None,     'NL', '2361', None,                      date(2020, 6, 24), datetime(2020, 6, 24, 0, 2, 10), datetime(2020, 6, 24, 0, 2, 10, tzinfo=utc)),
+        ('ID9',  None, None,    10,  "N/A",       None,     'NL', '2362', None,                      date(2020, 6, 24), datetime(2020, 6, 24, 0, 3, 10), datetime(2020, 6, 24, 0, 3, 10, tzinfo=utc)),
+        ('ID10', None, None,    None,  "N/A",       None,     'NL', '2362', None,                      date(2020, 6, 24), datetime(2020, 6, 24, 0, 3, 10), datetime(2020, 6, 24, 0, 3, 10, tzinfo=utc)),
+        (None,   None, None,    None, None,        "HIGH",   'BE', '2363', None,                      date(2020, 6, 24), datetime(2020, 6, 24, 0, 4, 10), datetime(2020, 6, 24, 0, 4, 10, tzinfo=utc)),
+    ]
+    # fmt: on
+)
