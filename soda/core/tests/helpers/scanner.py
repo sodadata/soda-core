@@ -11,6 +11,7 @@ from soda.execution.check_outcome import CheckOutcome
 from soda.execution.data_source import DataSource
 from soda.sampler.log_sampler import LogSampler
 from soda.scan import Scan
+from tests.helpers.mock_sampler import MockSampler
 from tests.helpers.mock_soda_cloud import MockSodaCloud, TimeGenerator
 from tests.helpers.test_table import TestTable
 from tests.helpers.test_table_manager import TestTableManager
@@ -44,7 +45,7 @@ class TestScan(Scan):
         if os.environ.get("WESTMALLE"):
             from tests.helpers.mock_soda_cloud import MockSodaCloud
 
-            self._configuration.soda_cloud = MockSodaCloud()
+            self._configuration.soda_cloud = MockSodaCloud(self)
 
     def _parse_sodacl_yaml_str(self, sodacl_yaml_str: str, file_path: str = None):
         dedented_sodacl_yaml_str = dedent(sodacl_yaml_str).strip()
@@ -68,8 +69,13 @@ class TestScan(Scan):
 
     def enable_mock_soda_cloud(self) -> MockSodaCloud:
         if not isinstance(self._configuration.soda_cloud, MockSodaCloud):
-            self._configuration.soda_cloud = MockSodaCloud()
+            self._configuration.soda_cloud = MockSodaCloud(self)
         return self._configuration.soda_cloud
+
+    def enable_mock_sampler(self) -> MockSampler:
+        if not isinstance(self._configuration.sampler, MockSampler):
+            self._configuration.sampler = MockSampler()
+        return self._configuration.sampler
 
     def execute(self, allow_error_warning: bool = False):
         super().execute()
@@ -95,7 +101,7 @@ class TestScan(Scan):
                 try:
                     connection.close()
                 except BaseException as e:
-                    self._logs.error(f"Could not close connection {connection_name}: {e}", e)
+                    self._logs.error(f"Could not close connection {connection_name}: {e}", exception=e)
 
     def assert_log_warning(self, message):
         self.assert_log(message, LogLevel.WARNING)

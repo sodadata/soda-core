@@ -6,7 +6,7 @@ from soda.execution.check_outcome import CheckOutcome
 from soda.execution.derived_metric import DERIVED_METRIC_NAMES
 from soda.execution.metric import Metric
 from soda.execution.user_defined_numeric_metric import UserDefinedNumericMetric
-from soda.sampler.storage_ref import StorageRef
+from soda.sampler.sample_ref import SampleRef
 from soda.sodacl.metric_check_cfg import MetricCheckCfg
 
 KEY_CHECK_VALUE = "check_value"
@@ -33,7 +33,7 @@ class MetricCheck(Check):
         self.check_value: Optional[float] = None
         self.formula_values: Optional[dict] = None
         self.historic_diff_values: Optional[dict] = None
-        self.failed_rows_storage_ref: Optional[StorageRef] = None
+        self.failed_rows_sample_ref: Optional[SampleRef] = None
 
         from soda.execution.derived_metric import DerivedMetric
         from soda.execution.numeric_query_metric import NumericQueryMetric
@@ -128,8 +128,8 @@ class MetricCheck(Check):
         # TODO Disabled these until cloud can ingest them properly
         # if self.formula_values:
         #     cloud_diagnostics["formula_values"] = self.formula_values
-        # if self.failed_rows_storage_ref:
-        #     cloud_diagnostics["failed_rows_storage_ref"] = self.failed_rows_storage_ref.get_cloud_diagnostics_dict()
+        # if self.failed_rows_sample_ref:
+        #     cloud_diagnostics["failed_rows_sample_ref"] = self.failed_rows_sample_ref.get_cloud_diagnostics_dict()
         if metric_check_cfg.fail_threshold_cfg is not None:
             cloud_diagnostics["fail"] = metric_check_cfg.fail_threshold_cfg.to_soda_cloud_diagnostics_json()
         if metric_check_cfg.warn_threshold_cfg is not None:
@@ -140,6 +140,6 @@ class MetricCheck(Check):
         log_diagnostics = {"check_value": self.check_value}
         if self.formula_values:
             log_diagnostics.update(self.formula_values)
-        if self.failed_rows_storage_ref:
-            log_diagnostics["failed_rows_storage_ref"] = str(self.failed_rows_storage_ref)
+        if self.failed_rows_sample_ref:
+            log_diagnostics["failed_rows_sample_ref"] = str(self.failed_rows_sample_ref)
         return log_diagnostics
