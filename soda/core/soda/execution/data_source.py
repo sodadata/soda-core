@@ -369,9 +369,11 @@ class DataSource:
         # TODO: make configurable or derive dynamically based on data quantiles etc.
         number_of_bins: int = 20
 
-        assert (
-            min < max
-        ), f"Min of {column_name} on table: {table_name} must be smaller than max value. Min is {min}, and max is {max}"
+        if not min < max:
+            self.logs.error(
+                f"Min of {column_name} on table: {table_name} must be smaller than max value. Min is {min}, and max is {max}"
+            )
+            return "", []
 
         min_value = floor(min * 1000) / 1000
         max_value = ceil(max * 1000) / 1000
