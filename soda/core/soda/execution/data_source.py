@@ -108,6 +108,9 @@ class DataSource:
         """
         raise NotImplementedError(f"TODO: Implement {type(self)}.validate_configuration(...)")
 
+    def get_type_name(self, type_code):
+        return str(type_code)
+
     def create_partition_queries(self, partition):
         return PartitionQueries(partition)
 
@@ -456,7 +459,7 @@ class DataSource:
             finally:
                 cursor.close()
         except BaseException as e:
-            self.logs.error(f"Query error: {e}\n{sql}", e)
+            self.logs.error(f"Query error: {e}\n{sql}", exception=e)
             self.query_failed(e)
 
     def is_connected(self):

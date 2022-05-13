@@ -27,7 +27,7 @@ class UserDefinedFailedRowsExpressionCheck(Check):
             name="user-defined-failed-rows-expression",
         )
         self.check_value = None
-        self.failed_rows_storage_ref = None
+        self.failed_rows_sample_ref = None
         self.metrics[KEY_FAILED_ROWS_COUNT] = self.data_source_scan.resolve_metric(
             NumericQueryMetric(
                 data_source_scan=self.data_source_scan,
@@ -56,7 +56,7 @@ class UserDefinedFailedRowsExpressionCheck(Check):
                 sql=failed_rows_sql,
             )
             failed_rows_query.execute()
-            self.failed_rows_storage_ref = failed_rows_query.storage_ref
+            self.failed_rows_sample_ref = failed_rows_query.sample_ref
 
     def get_failed_rows_sql(self) -> str:
         sql = (
@@ -75,12 +75,12 @@ class UserDefinedFailedRowsExpressionCheck(Check):
         cloud_diagnostics = {
             "value": self.check_value,
         }
-        if self.failed_rows_storage_ref:
-            cloud_diagnostics["failed_rows_storage_ref"] = self.failed_rows_storage_ref.get_cloud_diagnostics_dict()
+        if self.failed_rows_sample_ref:
+            cloud_diagnostics["failed_rows_sample_ref"] = self.failed_rows_sample_ref.get_cloud_diagnostics_dict()
         return cloud_diagnostics
 
     def get_log_diagnostic_dict(self) -> dict:
         log_diagnostics = {"check_value": self.check_value}
-        if self.failed_rows_storage_ref:
-            log_diagnostics["failed_rows_storage_ref"] = str(self.failed_rows_storage_ref)
+        if self.failed_rows_sample_ref:
+            log_diagnostics["failed_rows_sample_ref"] = str(self.failed_rows_sample_ref)
         return log_diagnostics

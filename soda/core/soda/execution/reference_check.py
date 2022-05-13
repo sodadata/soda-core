@@ -31,7 +31,7 @@ class ReferenceCheck(Check):
         )
         metric = self.data_source_scan.resolve_metric(metric)
         self.metrics[KEY_INVALID_REFERENCE_COUNT] = metric
-        self.failed_rows_storage_ref = None
+        self.failed_rows_sample_ref = None
 
     def get_cloud_diagnostics_dict(self) -> dict:
         return {
@@ -47,4 +47,4 @@ class ReferenceCheck(Check):
         if invalid_reference_count > 0:
             self.outcome = CheckOutcome.FAIL
 
-        self.failed_rows_storage_ref = metric.failed_rows_storage_ref
+        self.failed_rows_sample_ref = metric.failed_rows_sample_ref

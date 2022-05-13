@@ -1,14 +1,10 @@
-from abc import ABC
-from typing import Optional
+from abc import ABC, abstractmethod
 
-from soda.execution.query import Query
-from soda.sampler.storage_ref import StorageRef
+from soda.sampler.sample_context import SampleContext
+from soda.sampler.sample_ref import SampleRef
 
 
 class Sampler(ABC):
-    def __init__(self):
-        # Initialized in the scan.execute
-        self.logs = None
-
-    def store_sample(self, cursor, query: Optional[Query]) -> Optional[StorageRef]:
+    @abstractmethod
+    def store_sample(self, sample_context: SampleContext) -> SampleRef:
         pass

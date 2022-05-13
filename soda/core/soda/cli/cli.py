@@ -265,4 +265,4 @@ def __execute_query(connection, sql: str) -> List[Tuple]:
         finally:
             cursor.close()
     except BaseException as e:
-        logging.error(f"Query error: {e}\n{sql}", e)
+        logging.error(f"Query error: {e}\n{sql}", exception=e)
