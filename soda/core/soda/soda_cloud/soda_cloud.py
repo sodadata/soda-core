@@ -115,7 +115,8 @@ class SodaCloud:
             logger.error(f"No fileId received in response: {upload_response_json}")
         return upload_response_json["fileId"]
 
-    def insert_scan_results(self, scan_results):
+    def send_scan_results(self, scan: 'Scan'):
+        scan_results = self.build_scan_results(scan)
         scan_results["type"] = "sodaCoreInsertScanResults"
         return self._execute_command(scan_results)
 

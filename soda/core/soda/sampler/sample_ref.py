@@ -34,36 +34,6 @@ class SampleRef:
         )
 
     def get_cloud_diagnostics_dict(self):
-        """
-        Storage ref example for soda cloud sample:
-          { "name": "Failed rows",
-            "columnCount": 12,
-            "totalRowCount": 123877987,
-            "storedRowCount": 100,
-            "type": "sodaCloudFile",
-            "sodaCloudFileId": "s098df0s9d8f09s8df09s"
-          }
-
-        Storage ref example for text reference:
-          { "name": "Failed rows",
-            "columnCount": 12,
-            "totalRowCount": 123877987,
-            "storedRowCount": 100,
-            "type": "textReference",
-            "message": "Copy this link in your browser",
-            "actionLink": "https://customer.server.local/dbconsole?query=SELECT...."
-          }
-
-        Storage ref example for S3 reference:
-          { "name": "Failed rows",
-            "columnCount": 12,
-            "totalRowCount": 123877987,
-            "storedRowCount": 100,
-            "type": "S3",
-            "path": "s3://this/is/an/s3line"
-          }
-        """
-
         sample_ref_dict = {
             "type": self.type,
             "column_count": self.column_count,
@@ -72,6 +42,8 @@ class SampleRef:
         }
         if self.soda_cloud_file_id:
             sample_ref_dict["soda_cloud_file_id"] = self.soda_cloud_file_id
-        if self.reference:
-            sample_ref_dict["reference"] = self.reference
+        if self.message:
+            sample_ref_dict["message"] = self.message
+        if self.link:
+            sample_ref_dict["link"] = self.link
         return sample_ref_dict
