@@ -42,6 +42,9 @@ class DataSourceImpl(DataSource):
         DataType.BOOLEAN: "BOOLEAN",
     }
 
+    NUMERIC_TYPES_FOR_PROFILING = ["FLOAT", "NUMBER", "INT"]
+    TEXT_TYPES_FOR_PROFILING = ["TEXT"]
+
     def connect(self, connection_properties):
         self.connection_properties = connection_properties
         try:
