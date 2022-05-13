@@ -249,4 +249,4 @@ class SodaCloud:
         return self.token
 
     def _http_post(self, **kwargs) -> Response:
-        return requests.post(kwargs)
+        return requests.post(**kwargs)

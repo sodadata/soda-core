@@ -56,6 +56,10 @@ class AnomalyMetricCheck(MetricCheck):
             # TODO Review the data structure and see if we still need the KEY_HISTORIC_*
             historic_measurements = historic_values.get(KEY_HISTORIC_MEASUREMENTS).get("measurements")
             historic_check_results = historic_values.get(KEY_HISTORIC_CHECK_RESULTS).get("check_results")
+            if historic_measurements is None:
+                self.logs.warning("Skipping anomaly metric check eval because there is not enough historic data yet")
+                self.is_skipped = True
+                return
 
             # Append current results
             historic_measurements.get("results").append(
@@ -83,7 +87,7 @@ class AnomalyMetricCheck(MetricCheck):
             ), f"Anomaly diagnostics should be a dict. Got a {type(diagnostics)} instead"
 
             if diagnostics["anomalyErrorCode"] == "not_enough_measurements":
-                self.logs.warning("Skipping metric check eval because there is not enough historic data yet")
+                self.logs.warning("Skipping anomaly metric check eval because there is not enough historic data yet")
                 self.is_skipped = True
                 return
 
