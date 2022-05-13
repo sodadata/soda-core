@@ -93,11 +93,15 @@ class MetricCheck(Check):
         self.set_outcome_based_on_check_value()
 
     def get_metric_value(self) -> object:
+        metric = self.get_metric()
+        self.formula_values = metric.formula_values
+        return metric.value
+
+    def get_metric(self):
         metric_check_cfg: MetricCheckCfg = self.check_cfg
         metric_name = metric_check_cfg.metric_name
         metric = self.metrics.get(metric_name)
-        self.formula_values = metric.formula_values
-        return metric.value
+        return metric
 
     def set_outcome_based_on_check_value(self):
         metric_check_cfg: MetricCheckCfg = self.check_cfg
@@ -134,6 +138,10 @@ class MetricCheck(Check):
             cloud_diagnostics["fail"] = metric_check_cfg.fail_threshold_cfg.to_soda_cloud_diagnostics_json()
         if metric_check_cfg.warn_threshold_cfg is not None:
             cloud_diagnostics["warn"] = metric_check_cfg.warn_threshold_cfg.to_soda_cloud_diagnostics_json()
+
+        metric = self.get_metric()
+        if metric and metric.failed_rows_sample_ref:
+            cloud_diagnostics["failedRowsFile"] = metric.failed_rows_sample_ref.get_cloud_diagnostics_dict()
         return cloud_diagnostics
 
     def get_log_diagnostic_dict(self) -> dict:

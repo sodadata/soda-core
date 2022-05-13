@@ -1,12 +1,16 @@
 from __future__ import annotations
 
+from typing import List
+
+from soda.sampler.sample_schema import SampleSchema
+
 
 class SampleRef:
     def __init__(
         self,
         # Sample display name for UIs
         name: str,
-        column_count: int,
+        schema: SampleSchema,
         total_row_count: int,
         stored_row_count: int,
         type: str,
@@ -15,7 +19,7 @@ class SampleRef:
         link: str | None = None,
     ):
         self.name: str = name
-        self.column_count = column_count
+        self.schema = schema
         self.total_row_count: int = total_row_count
         self.stored_row_count: int = stored_row_count
         self.type: str = type
@@ -24,7 +28,7 @@ class SampleRef:
         self.link: str | None = link
 
     def __str__(self) -> str:
-        sample_dimension = f"{self.column_count}x({self.stored_row_count}/{self.total_row_count})"
+        sample_dimension = f"{len(self.schema.columns)}x({self.stored_row_count}/{self.total_row_count})"
         return " ".join(
             [
                 e
@@ -34,16 +38,22 @@ class SampleRef:
         )
 
     def get_cloud_diagnostics_dict(self):
+        column_dicts = [column.get_cloud_dict() for column in self.schema.columns]
         sample_ref_dict = {
-            "type": self.type,
-            "column_count": self.column_count,
-            "total_row_count": self.total_row_count,
-            "stored_row_count": self.stored_row_count,
+            "columns": column_dicts,
+            "totalRowCount": self.total_row_count,
+            "storedRowCount": self.stored_row_count,
         }
         if self.soda_cloud_file_id:
-            sample_ref_dict["soda_cloud_file_id"] = self.soda_cloud_file_id
+            sample_ref_dict["reference"] = {
+                'type': 'sodaCloudStorage',
+                'fileId': self.soda_cloud_file_id
+            }
+
         if self.message:
-            sample_ref_dict["message"] = self.message
-        if self.link:
-            sample_ref_dict["link"] = self.link
+            sample_ref_dict["reference"] = {
+                'type': 'externalStorage',
+                'message': self.message,
+                'link': self.link
+            }
         return sample_ref_dict

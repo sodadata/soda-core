@@ -76,7 +76,7 @@ class UserDefinedFailedRowsExpressionCheck(Check):
             "value": self.check_value,
         }
         if self.failed_rows_sample_ref:
-            cloud_diagnostics["failed_rows_sample_ref"] = self.failed_rows_sample_ref.get_cloud_diagnostics_dict()
+            cloud_diagnostics["failed_rows_sample_ref"] = self.failed_rows_sample_ref.get_cloud_dict()
         return cloud_diagnostics
 
     def get_log_diagnostic_dict(self) -> dict:

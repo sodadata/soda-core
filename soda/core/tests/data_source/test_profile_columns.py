@@ -138,7 +138,7 @@ def test_profile_columns_numeric(scanner: Scanner, table_name, soda_cl_str, clou
     )
     scan.execute()
     # remove the data source name because it's a pain to test
-    profiling_result = mock_soda_cloud.scan_result
+    profiling_result = mock_soda_cloud.pop_scan_result()
     assert profiling_result
     profiling_result = remove_datasource_and_table_name(profiling_result)
     assert len(profiling_result["profiling"]) > 0
@@ -216,7 +216,7 @@ def test_profile_columns_text(scanner: Scanner, table_name, soda_cl_str, cloud_d
         """
     )
     scan.execute()
-    profiling_result = mock_soda_cloud.scan_result
+    profiling_result = mock_soda_cloud.pop_scan_result()
     # remove the data source name because it's a pain to test
     profiling_result = remove_datasource_and_table_name(profiling_result)
 

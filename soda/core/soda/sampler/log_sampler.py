@@ -15,7 +15,7 @@ class LogSampler(Sampler):
         sample_context.logs.info(f"Sample {sample_name}:\n{table_text}")
         return SampleRef(
             name=sample_name,
-            column_count=column_count,
+            schema=sample_context.sample.get_schema(),
             total_row_count=row_count,
             stored_row_count=row_count,
             type="log",
