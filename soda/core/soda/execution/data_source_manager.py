@@ -69,7 +69,7 @@ class DataSourceManager:
             try:
                 connection.close()
             except BaseException as e:
-                self.logs.error(f"Could not close connection {connection_name}: {e}", e)
+                self.logs.error(f"Could not close connection {connection_name}: {e}", exception=e)
 
     def _get_connection(self, connection_name: str, data_source: DataSource) -> object:
         """

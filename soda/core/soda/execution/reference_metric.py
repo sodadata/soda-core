@@ -1,7 +1,7 @@
 from typing import Optional
 
 from soda.execution.query_metric import QueryMetric
-from soda.sampler.storage_ref import StorageRef
+from soda.sampler.sample_ref import SampleRef
 
 
 class ReferenceMetric(QueryMetric):
@@ -25,7 +25,7 @@ class ReferenceMetric(QueryMetric):
             ],
         )
         self.check = check
-        self.invalid_references_storage_ref: Optional[StorageRef] = None
+        self.invalid_references_sample_ref: Optional[SampleRef] = None
 
     def __str__(self):
         return f'"{self.name}"'

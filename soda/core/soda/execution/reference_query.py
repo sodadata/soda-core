@@ -53,6 +53,6 @@ class ReferenceQuery(Query):
 
     def execute(self):
         self.store()
-        if self.storage_ref:
-            self.metric.value = self.storage_ref.total_row_count
-            self.metric.invalid_references_storage_ref = self.storage_ref
+        if self.sample_ref:
+            self.metric.value = self.sample_ref.total_row_count
+            self.metric.invalid_references_sample_ref = self.sample_ref
