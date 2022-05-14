@@ -53,7 +53,7 @@ class MockSodaCloud(SodaCloud):
             logs=scan._logs,
         )
         self.historic_metric_values: list = []
-        self.files = []
+        self.files = {}
         self.scan_results: List[dict] = []
 
     def create_soda_cloud(self):
@@ -136,6 +136,16 @@ class MockSodaCloud(SodaCloud):
 
         return {"results": historic_metric_values}
 
+    def find_file_content_by_file_id(self, file_id: str) -> str:
+        file_dict: dict = self.files.get(file_id)
+        if file_dict:
+            return file_dict.get('content')
+
+    def find_check_result(self, index: int):
+        scan_result = self.scan_results[0]
+        checks = scan_result['checks']
+        return checks[index]
+
     def _http_post(self, **kwargs) -> Response:
         url = kwargs.get("url")
         if url.endswith("api/command"):
@@ -169,7 +179,9 @@ class MockSodaCloud(SodaCloud):
 
     def _mock_server_upload(self, url, headers, data):
         file_id = f"file-{len(self.files)}"
-        self.files.append(
-            {"file_id": file_id, "file_path": headers.get("File-Path"), "content": data.read().decode("utf-8")}
-        )
+        self.files[file_id] = {
+            "file_id": file_id,
+            "file_path": headers.get("File-Path"),
+            "content": data.read().decode("utf-8")
+        }
         return MockResponse(status_code=200, _json={"fileId": file_id})

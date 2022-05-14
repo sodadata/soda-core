@@ -142,6 +142,9 @@ class MetricCheck(Check):
         metric = self.get_metric()
         if metric and metric.failed_rows_sample_ref:
             cloud_diagnostics["failedRowsFile"] = metric.failed_rows_sample_ref.get_cloud_diagnostics_dict()
+        elif metric and metric.duplicate_frequencies_sample_ref:
+            # For now, duplicate frequencies are also just mapped to failed rows.
+            cloud_diagnostics["failedRowsFile"] = metric.duplicate_frequencies_sample_ref.get_cloud_diagnostics_dict()
         return cloud_diagnostics
 
     def get_log_diagnostic_dict(self) -> dict:

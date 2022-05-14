@@ -116,7 +116,7 @@ class Check(ABC):
         self.skipped = skipped
 
         # Check evaluation outcome
-        self.outcome: CheckOutcome = None
+        self.outcome: CheckOutcome | None = None
 
     def create_definition(self) -> str:
         check_cfg: CheckCfg = self.check_cfg
@@ -165,8 +165,6 @@ class Check(ABC):
         from soda.execution.column import Column
         from soda.execution.partition import Partition
 
-        if self.outcome is None:
-            self.outcome.value = None
         return {
             "identity": self.create_identity(),
             "name": self.generate_soda_cloud_check_name(),
@@ -178,7 +176,7 @@ class Check(ABC):
             # "filter": Partition.get_partition_name(self.partition), TODO: re-enable once backend supports the property.
             "column": Column.get_partition_name(self.column),
             "metrics": [metric.identity for metric in self.metrics.values()],
-            "outcome": self.outcome.value,
+            "outcome": self.outcome.value if self.outcome else None,
             "diagnostics": self.get_cloud_diagnostics_dict(),
         }
 
