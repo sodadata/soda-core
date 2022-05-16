@@ -237,6 +237,8 @@ class AnomalyDetector:
                 "fail": None,
                 "anomalyProbability": None,
                 "anomalyPredictedValue": None,
+                "anomalyErrorSeverity": freq_detection_result.error_severity,
+                "anomalyErrorCode": freq_detection_result.error_code,
             }
 
         diagnostics_dict: Dict[str, Any] = AnomalyDiagnostics.parse_obj(diagnostics).dict()

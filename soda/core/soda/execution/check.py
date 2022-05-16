@@ -100,7 +100,7 @@ class Check(ABC):
         partition: Partition | None,
         column: Column | None,
         name: str | None,
-        skipped: bool = False,
+        is_skipped: bool = False,
     ):
         from soda.execution.partition import Partition
 
@@ -113,7 +113,10 @@ class Check(ABC):
         self.metrics: dict[str, Metric] = {}
         self.historic_descriptors: dict[str, HistoricDescriptor] = {}
         self.cloud_check_type = "metricThreshold"
-        self.skipped = skipped
+        self.is_skipped = is_skipped
+
+        # Attribute for automated monitoring
+        self.archetype = None
 
         # Check evaluation outcome
         self.outcome: CheckOutcome = None
@@ -167,7 +170,8 @@ class Check(ABC):
 
         if self.outcome is None:
             self.outcome.value = None
-        return {
+
+        cloud_dict = {
             "identity": self.create_identity(),
             "name": self.generate_soda_cloud_check_name(),
             "type": self.cloud_check_type,
@@ -181,6 +185,12 @@ class Check(ABC):
             "outcome": self.outcome.value,
             "diagnostics": self.get_cloud_diagnostics_dict(),
         }
+
+        # Update dict if automated monitoring is running
+        if self.archetype is not None:
+            cloud_dict.update({"archetype": self.archetype})
+
+        return cloud_dict
 
     def generate_soda_cloud_check_name(self) -> str:
         if self.check_cfg.name:

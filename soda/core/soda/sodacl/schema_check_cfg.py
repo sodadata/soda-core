@@ -35,10 +35,12 @@ class SchemaCheckCfg(CheckCfg):
         name: Optional[str],
         warn_validations: SchemaValidations,
         fail_validations: SchemaValidations,
+        is_automated_monitoring: bool = False,
     ):
         super().__init__(source_header, source_line, source_configurations, location, name)
         self.warn_validations: SchemaValidations = warn_validations
         self.fail_validations: SchemaValidations = fail_validations
+        self.is_automated_monitoring = is_automated_monitoring
 
     def has_change_validations(self) -> bool:
         return (self.warn_validations and self.warn_validations.has_change_validations()) or (
