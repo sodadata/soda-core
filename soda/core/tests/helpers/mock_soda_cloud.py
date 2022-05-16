@@ -141,7 +141,7 @@ class MockSodaCloud(SodaCloud):
         reference = failed_rows_file["reference"]
         self.assert_key("fileId", reference)
         file_id = reference["fileId"]
-        assert "fileId" != None
+        assert file_id is not None
         return self.find_file_content_by_file_id(file_id)
 
     def find_failed_rows_line_count(self, check_index: int) -> int:
