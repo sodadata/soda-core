@@ -140,8 +140,11 @@ class ProphetDetector(BaseDetector):
         """
         super().__init__(params, time_series_data)  # runs the measurement elimination that is contained in the base
 
-        if "pytest" not in sys.argv[0]:
-            multiprocessing.set_start_method("fork")
+        try:
+            if "pytest" not in sys.argv[0]:
+                multiprocessing.set_start_method("fork")
+        except:
+            pass
 
         self._logs = logs
         self._params = params
@@ -212,9 +215,7 @@ class ProphetDetector(BaseDetector):
         _df["ds"] = _df["ds"].dt.normalize()
         has_dupe_dates = _df.duplicated(subset=["ds"]).any()
         if not has_dupe_dates:
-            self._logs.warning(
-                "Anomaly Detection Frequency Warning: Converted into daily dataset with no data dropping"
-            )
+            self._logs.info("Anomaly Detection Frequency Warning: Converted into daily dataset with no data dropping")
             return FreqDetectionResult(
                 inferred_frequency="D",
                 df=_df,
