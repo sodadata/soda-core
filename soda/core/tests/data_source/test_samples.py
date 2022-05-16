@@ -42,8 +42,8 @@ def assert_missing_sample(mock_soda_cloud, check_index):
     diagnostics = mock_soda_cloud.find_check_diagnostics(check_index)
     failed_rows_file = diagnostics["failedRowsFile"]
     columns = failed_rows_file["columns"]
-    assert columns[0]["name"] == "id"
-    assert columns[1]["name"] == "size"
+    assert columns[0]["name"].lower() == "id"
+    assert columns[1]["name"].lower() == "size"
     assert failed_rows_file["totalRowCount"] == 1
     assert failed_rows_file["storedRowCount"] == 1
     reference = failed_rows_file["reference"]
