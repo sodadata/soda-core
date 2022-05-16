@@ -1,12 +1,13 @@
 from __future__ import annotations
 
 import collections
-from abc import ABC
+from abc import ABC, abstractmethod
 
 from soda.execution.check_outcome import CheckOutcome
 from soda.execution.column import Column
 from soda.execution.identity import ConsistentHashBuilder
 from soda.execution.metric import Metric
+from soda.sampler.sample_ref import SampleRef
 from soda.soda_cloud.historic_descriptor import HistoricDescriptor
 from soda.sodacl.check_cfg import CheckCfg
 from soda.sodacl.distribution_check_cfg import DistributionCheckCfg
@@ -113,13 +114,15 @@ class Check(ABC):
         self.metrics: dict[str, Metric] = {}
         self.historic_descriptors: dict[str, HistoricDescriptor] = {}
         self.cloud_check_type = "metricThreshold"
-        self.is_skipped = is_skipped
+        # in the evaluate method, checks can optionally extract a failed rows sample ref from the metric
+        self.failed_rows_sample_ref: SampleRef | None = None
 
+        self.skipped = is_skipped
         # Attribute for automated monitoring
         self.archetype = None
 
         # Check evaluation outcome
-        self.outcome: CheckOutcome = None
+        self.outcome: CheckOutcome | None = None
 
     def create_definition(self) -> str:
         check_cfg: CheckCfg = self.check_cfg
@@ -173,10 +176,7 @@ class Check(ABC):
         from soda.execution.column import Column
         from soda.execution.partition import Partition
 
-        if self.outcome is None:
-            self.outcome.value = None
-
-        cloud_dict = {
+        return {
             "identity": self.create_identity(),
             "name": self.generate_soda_cloud_check_name(),
             "type": self.cloud_check_type,
@@ -187,15 +187,9 @@ class Check(ABC):
             # "filter": Partition.get_partition_name(self.partition), TODO: re-enable once backend supports the property.
             "column": Column.get_partition_name(self.column),
             "metrics": [metric.identity for metric in self.metrics.values()],
-            "outcome": self.outcome.value,
+            "outcome": self.outcome.value if self.outcome else None,
             "diagnostics": self.get_cloud_diagnostics_dict(),
         }
-
-        # Update dict if automated monitoring is running
-        if self.archetype is not None:
-            cloud_dict.update({"archetype": self.archetype})
-
-        return cloud_dict
 
     def generate_soda_cloud_check_name(self) -> str:
         if self.check_cfg.name:
@@ -214,8 +208,9 @@ class Check(ABC):
 
         return name
 
+    @abstractmethod
     def get_cloud_diagnostics_dict(self) -> dict:
-        return {}
+        pass
 
     def evaluate(self, metrics: dict[str, Metric], historic_values: dict[str, object]):
         raise NotImplementedError("Implement this abstract method")

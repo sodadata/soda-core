@@ -63,5 +63,5 @@ class UserDefinedFailedRowsCheck(Check):
             "value": self.check_value,
         }
         if self.failed_rows_sample_ref:
-            cloud_diagnostics["failed_rows_sample_ref"] = self.failed_rows_sample_ref.get_cloud_diagnostics_dict()
+            cloud_diagnostics["failedRowsFile"] = self.failed_rows_sample_ref.get_cloud_diagnostics_dict()
         return cloud_diagnostics

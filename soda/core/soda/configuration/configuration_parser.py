@@ -80,8 +80,8 @@ class ConfigurationParser(Parser):
                 )
 
     def parse_soda_cloud_cfg(self, soda_cloud_dict: dict):
-        api_key = soda_cloud_dict.get("api_key")
-        api_secret = soda_cloud_dict.get("api_secret")
+        api_key = soda_cloud_dict.get("api_key_id")
+        api_secret = soda_cloud_dict.get("api_key_secret")
         host = None
         if "host" in soda_cloud_dict:
             host = soda_cloud_dict.get("host")

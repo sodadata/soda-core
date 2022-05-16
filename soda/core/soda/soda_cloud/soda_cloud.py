@@ -51,9 +51,7 @@ class SodaCloud:
                 "hasFailures": scan.has_check_fails(),
                 "metrics": [metric.get_cloud_dict() for metric in scan._metrics],
                 # If archetype is not None, it means that check is automated monitoring
-                "checks": [
-                    check.get_cloud_dict() for check in scan._checks if not check.is_skipped and check.archetype is None
-                ],
+                "checks": [check.get_cloud_dict() for check in scan._checks if check.outcome is not None],
                 # TODO Queries are not supported by Soda Cloud yet.
                 # "queries": [query.get_cloud_dict() for query in scan._queries],
                 "automatedMonitoringChecks": [
@@ -94,7 +92,9 @@ class SodaCloud:
             with tempfile.TemporaryFile() as temp_file:
                 for row in sample_rows:
                     row = [self._serialize_file_upload_value(v) for v in row]
-                    temp_file.write(bytearray(json.dumps(row), "utf-8"))
+                    rows_json_str = json.dumps(row)
+                    rows_json_bytes = bytearray(rows_json_str, "utf-8")
+                    temp_file.write(rows_json_bytes)
                     temp_file.write(b"\n")
 
                 temp_file_size_in_bytes = temp_file.tell()

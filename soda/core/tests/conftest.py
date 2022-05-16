@@ -21,7 +21,8 @@ from tests.helpers.scanner import Scanner
 logger = logging.getLogger(__name__)
 
 # Load local env file so that test data sources can be set up.
-load_dotenv(".env", override=True)
+project_root_dir = __file__[: -len("soda/core/tests/conftest.py")]
+load_dotenv(f"{project_root_dir}/.env", override=True)
 
 # In global scope because it is used in pytest annotations, it would not work as a fixture.
 test_data_source = os.getenv("test_data_source", "postgres")
@@ -41,7 +42,6 @@ def pytest_runtest_logstart(nodeid: str, location: tuple[str, int | None, str]) 
 @pytest.fixture(scope="session")
 def data_source_config_str() -> str:
     """Whole test data source config as string."""
-    project_root_dir = __file__[: -len("soda/core/tests/conftest.py")]
     with open(f"{project_root_dir}soda/core/tests/data_sources.yml") as f:
         return f.read()
 

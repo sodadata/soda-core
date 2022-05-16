@@ -6,7 +6,6 @@ from datetime import datetime, timedelta
 
 from requests import Response
 from soda.common.json_helper import JsonHelper
-from soda.scan import Scan
 from soda.soda_cloud.historic_descriptor import (
     HistoricChangeOverTimeDescriptor,
     HistoricDescriptor,
@@ -52,16 +51,11 @@ class MockSodaCloud(SodaCloud):
             logs=scan._logs,
         )
         self.historic_metric_values: list = []
-        self.scan_result: dict | None = None
-        self.files = []
+        self.files = {}
+        self.scan_results: list[dict] = []
 
     def create_soda_cloud(self):
         return self
-
-    def send_scan_results(self, scan: Scan):
-        if self.scan_result is not None:
-            raise AssertionError("It is expected that send_scan_results is only called once is a single scan")
-        self.scan_result = self.build_scan_results(scan)
 
     def mock_historic_values(self, metric_identity: str, metric_values: list, time_generator=TimeGenerator()):
         """
@@ -84,8 +78,6 @@ class MockSodaCloud(SodaCloud):
         self.historic_metric_values.extend(historic_metric_values)
 
     def get_historic_data(self, historic_descriptor: HistoricDescriptor):
-        historic_data = {}
-
         return self.__get_historic_data(historic_descriptor)
 
     def __get_historic_data(self, historic_descriptor):
@@ -123,6 +115,46 @@ class MockSodaCloud(SodaCloud):
 
         return {"measurements": measurements, "check_results": check_results}
 
+    def pop_scan_result(self) -> dict:
+        return self.scan_results.pop()
+
+    def find_check(self, check_index: int) -> dict | None:
+        assert len(self.scan_results) > 0
+        scan_result = self.scan_results[0]
+        # logging.debug(to_yaml_str(scan_result))
+        self.assert_key("checks", scan_result)
+        checks = scan_result["checks"]
+        assert len(checks) > check_index
+        return checks[check_index]
+
+    def find_check_diagnostics(self, check_index: int) -> dict | None:
+        check = self.find_check(check_index)
+        assert check is not None
+        self.assert_key("diagnostics", check)
+        return check["diagnostics"]
+
+    def find_failed_rows_content(self, check_index: int) -> str:
+        diagnostics = self.find_check_diagnostics(check_index)
+        self.assert_key("failedRowsFile", diagnostics)
+        failed_rows_file = diagnostics["failedRowsFile"]
+        self.assert_key("reference", failed_rows_file)
+        reference = failed_rows_file["reference"]
+        self.assert_key("fileId", reference)
+        file_id = reference["fileId"]
+        assert file_id is not None
+        return self.find_file_content_by_file_id(file_id)
+
+    def find_failed_rows_line_count(self, check_index: int) -> int:
+        file_contents = self.find_failed_rows_content(check_index)
+        return file_contents.count("\n")
+
+    @staticmethod
+    def assert_key(key: str, d: dict):
+        if not isinstance(d, dict):
+            raise AssertionError(f"d is not a dict: {type(d)}")
+        if key not in d:
+            raise AssertionError(f"{key} not in dict:\n{JsonHelper.to_json_pretty(d)}")
+
     def __get_historic_metric_values(self, metric_identity):
         if isinstance(metric_identity, str):
             historic_metric_values = [
@@ -145,6 +177,16 @@ class MockSodaCloud(SodaCloud):
 
         return {"results": historic_metric_values}
 
+    def find_file_content_by_file_id(self, file_id: str) -> str:
+        file_dict: dict = self.files.get(file_id)
+        if file_dict:
+            return file_dict.get("content")
+
+    def find_check_result(self, index: int):
+        scan_result = self.scan_results[0]
+        checks = scan_result["checks"]
+        return checks[index]
+
     def _http_post(self, **kwargs) -> Response:
         url = kwargs.get("url")
         if url.endswith("api/command"):
@@ -161,18 +203,26 @@ class MockSodaCloud(SodaCloud):
     def _mock_server_command(self, url, headers, json):
         command_type = json.get("type")
         if command_type == "login":
-            return self._mock_server_login(url, json, headers)
+            return self._mock_server_command_login(url, headers, json)
+        elif command_type == "sodaCoreInsertScanResults":
+            return self._mock_server_command_sodaCoreInsertScanResults(url, headers, json)
         raise AssertionError(f"Unsupported command type {command_type}")
 
-    def _mock_server_upload(self, url, headers, data):
-        file_id = f"file-{len(self.files)}"
-        self.files.append(
-            {"file_id": file_id, "file_path": headers.get("File-Path"), "content": data.read().decode("utf-8")}
-        )
-        return MockResponse(status_code=200, _json={"fileId": file_id})
+    def _mock_server_command_login(self, url, headers, json):
+        return MockResponse(status_code=200, _json={"token": "***"})
+
+    def _mock_server_command_sodaCoreInsertScanResults(self, url, headers, json):
+        self.scan_results.append(json)
+        return MockResponse(status_code=200)
 
     def _mock_server_query(self, url, headers, json):
         raise AssertionError("TODO")
 
-    def _mock_server_login(self, url, json, headers):
-        return MockResponse(status_code=200, _json={"token": "***"})
+    def _mock_server_upload(self, url, headers, data):
+        file_id = f"file-{len(self.files)}"
+        self.files[file_id] = {
+            "file_id": file_id,
+            "file_path": headers.get("File-Path"),
+            "content": data.read().decode("utf-8"),
+        }
+        return MockResponse(status_code=200, _json={"fileId": file_id})

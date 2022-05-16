@@ -46,7 +46,6 @@ class Metric(ABC):
         self.queries: list[Query] = []
         self.formula_values: dict[str, object] = None
         self.failed_rows_sample_ref: SampleRef | None = None
-        self.duplicate_frequencies_sample_ref: SampleRef | None = None
 
     def __eq__(self, other: Metric) -> bool:
         if self is other:

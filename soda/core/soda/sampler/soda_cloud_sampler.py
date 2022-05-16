@@ -18,7 +18,7 @@ class SodaCloudSampler(Sampler):
 
         return SampleRef(
             name=sample_context.sample_name,
-            column_count=column_count,
+            schema=sample_context.sample.get_schema(),
             total_row_count=row_count,
             stored_row_count=row_count,
             type="soda_cloud",

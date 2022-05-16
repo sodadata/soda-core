@@ -44,7 +44,7 @@ def execute_scan_and_get_scan_result(scanner: Scanner, sodacl_yaml_str: str) -> 
     mock_soda_cloud = scan.enable_mock_soda_cloud()
     scan.add_sodacl_yaml_str(sodacl_yaml_str)
     scan.execute()
-    return mock_soda_cloud.scan_result
+    return mock_soda_cloud.pop_scan_result()
 
 
 def test_check_identity_ignore_name(scanner: Scanner):

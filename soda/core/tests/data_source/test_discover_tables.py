@@ -122,7 +122,7 @@ def test_discover_tables(scanner: Scanner, table_name, cloud_dict_expectation):
     )
     scan.execute()
     # remove the data source name because it's a pain to test
-    discover_tables_result = mock_soda_cloud.scan_result
+    discover_tables_result = mock_soda_cloud.pop_scan_result()
     assert discover_tables_result is not None
     assert (
         discover_tables_result["metadata"][0]["schema"]
@@ -161,6 +161,6 @@ discover tables:
         """
     )
     scan.execute()
-    discover_tables_result = mock_soda_cloud.scan_result
+    discover_tables_result = mock_soda_cloud.pop_scan_result()
     assert discover_tables_result is not None
     assert len(discover_tables_result["metadata"]) == expectation
