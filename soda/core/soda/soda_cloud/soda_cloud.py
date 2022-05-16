@@ -218,6 +218,10 @@ class SodaCloud:
                 self.logs.error(
                     f"Error while executing Soda Cloud {request_type} response code: {response.status_code}"
                 )
+                from soda.scan import verbose
+
+                if verbose:
+                    self.logs.debug(response.text)
             return response_json
         except Exception as e:
             self.logs.error(f"Error while executing Soda Cloud {request_type}", exception=e)

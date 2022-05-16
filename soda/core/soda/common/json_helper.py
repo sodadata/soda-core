@@ -56,7 +56,7 @@ class JsonHelper:
         if isinstance(o, Decimal):
             return float(o)
         if isinstance(o, datetime.datetime):
-            return o.isoformat()
+            return o.isoformat(timespec="seconds")
         if isinstance(o, datetime.date):
             return o.strftime("%Y-%m-%d")
         if isinstance(o, datetime.time):
