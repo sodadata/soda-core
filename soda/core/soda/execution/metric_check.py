@@ -6,7 +6,6 @@ from soda.execution.check_outcome import CheckOutcome
 from soda.execution.derived_metric import DERIVED_METRIC_NAMES
 from soda.execution.metric import Metric
 from soda.execution.user_defined_numeric_metric import UserDefinedNumericMetric
-from soda.sampler.sample_ref import SampleRef
 from soda.sodacl.metric_check_cfg import MetricCheckCfg
 
 KEY_CHECK_VALUE = "check_value"
@@ -33,7 +32,6 @@ class MetricCheck(Check):
         self.check_value: Optional[float] = None
         self.formula_values: Optional[dict] = None
         self.historic_diff_values: Optional[dict] = None
-        self.failed_rows_sample_ref: Optional[SampleRef] = None
 
         from soda.execution.derived_metric import DerivedMetric
         from soda.execution.numeric_query_metric import NumericQueryMetric
@@ -95,6 +93,7 @@ class MetricCheck(Check):
     def get_metric_value(self) -> object:
         metric = self.get_metric()
         self.formula_values = metric.formula_values
+        self.failed_rows_sample_ref = metric.failed_rows_sample_ref
         return metric.value
 
     def get_metric(self):
@@ -138,13 +137,8 @@ class MetricCheck(Check):
             cloud_diagnostics["fail"] = metric_check_cfg.fail_threshold_cfg.to_soda_cloud_diagnostics_json()
         if metric_check_cfg.warn_threshold_cfg is not None:
             cloud_diagnostics["warn"] = metric_check_cfg.warn_threshold_cfg.to_soda_cloud_diagnostics_json()
-
-        metric = self.get_metric()
-        if metric and metric.failed_rows_sample_ref:
-            cloud_diagnostics["failedRowsFile"] = metric.failed_rows_sample_ref.get_cloud_diagnostics_dict()
-        elif metric and metric.duplicate_frequencies_sample_ref:
-            # For now, duplicate frequencies are also just mapped to failed rows.
-            cloud_diagnostics["failedRowsFile"] = metric.duplicate_frequencies_sample_ref.get_cloud_diagnostics_dict()
+        if self.failed_rows_sample_ref:
+            cloud_diagnostics["failedRowsFile"] = self.failed_rows_sample_ref.get_cloud_diagnostics_dict()
         return cloud_diagnostics
 
     def get_log_diagnostic_dict(self) -> dict:

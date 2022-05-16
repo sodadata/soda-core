@@ -8,8 +8,9 @@ class DerivedFormula:
 
     def collect_failed_rows_sample_refs(self):
         if isinstance(self.metric_dependencies, dict):
-            return [metric.failed_rows_sample_ref
-                 for metric in self.metric_dependencies.values()
-                 if metric.failed_rows_sample_ref is not None
-             ]
+            return [
+                metric.failed_rows_sample_ref
+                for metric in self.metric_dependencies.values()
+                if metric.failed_rows_sample_ref is not None
+            ]
         return []

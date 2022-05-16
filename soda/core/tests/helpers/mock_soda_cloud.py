@@ -3,10 +3,8 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass
 from datetime import datetime, timedelta
-from typing import List
 
 from requests import Response
-
 from soda.common.json_helper import JsonHelper
 from soda.soda_cloud.historic_descriptor import (
     HistoricChangeOverTimeDescriptor,
@@ -54,7 +52,7 @@ class MockSodaCloud(SodaCloud):
         )
         self.historic_metric_values: list = []
         self.files = {}
-        self.scan_results: List[dict] = []
+        self.scan_results: list[dict] = []
 
     def create_soda_cloud(self):
         return self
@@ -121,6 +119,43 @@ class MockSodaCloud(SodaCloud):
     def pop_scan_result(self) -> dict:
         return self.scan_results.pop()
 
+    def find_check(self, check_index: int) -> dict | None:
+        assert len(self.scan_results) > 0
+        scan_result = self.scan_results[0]
+        # logging.debug(to_yaml_str(scan_result))
+        self.assert_key("checks", scan_result)
+        checks = scan_result["checks"]
+        assert len(checks) > check_index
+        return checks[check_index]
+
+    def find_check_diagnostics(self, check_index: int) -> dict | None:
+        check = self.find_check(check_index)
+        assert check is not None
+        self.assert_key("diagnostics", check)
+        return check["diagnostics"]
+
+    def find_failed_rows_content(self, check_index: int) -> str:
+        diagnostics = self.find_check_diagnostics(check_index)
+        self.assert_key("failedRowsFile", diagnostics)
+        failed_rows_file = diagnostics["failedRowsFile"]
+        self.assert_key("reference", failed_rows_file)
+        reference = failed_rows_file["reference"]
+        self.assert_key("fileId", reference)
+        file_id = reference["fileId"]
+        assert "fileId" != None
+        return self.find_file_content_by_file_id(file_id)
+
+    def find_failed_rows_line_count(self, check_index: int) -> int:
+        file_contents = self.find_failed_rows_content(check_index)
+        return file_contents.count("\n")
+
+    @staticmethod
+    def assert_key(key: str, d: dict):
+        if not isinstance(d, dict):
+            raise AssertionError(f"d is not a dict: {type(d)}")
+        if key not in d:
+            raise AssertionError(f"{key} not in dict:\n{JsonHelper.to_json_pretty(d)}")
+
     def __get_historic_metric_values(self, metric_identity):
         historic_metric_values = [
             historic_metric_value
@@ -139,11 +174,11 @@ class MockSodaCloud(SodaCloud):
     def find_file_content_by_file_id(self, file_id: str) -> str:
         file_dict: dict = self.files.get(file_id)
         if file_dict:
-            return file_dict.get('content')
+            return file_dict.get("content")
 
     def find_check_result(self, index: int):
         scan_result = self.scan_results[0]
-        checks = scan_result['checks']
+        checks = scan_result["checks"]
         return checks[index]
 
     def _http_post(self, **kwargs) -> Response:
@@ -182,6 +217,6 @@ class MockSodaCloud(SodaCloud):
         self.files[file_id] = {
             "file_id": file_id,
             "file_path": headers.get("File-Path"),
-            "content": data.read().decode("utf-8")
+            "content": data.read().decode("utf-8"),
         }
         return MockResponse(status_code=200, _json={"fileId": file_id})

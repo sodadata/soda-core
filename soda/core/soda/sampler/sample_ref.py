@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from typing import List
-
 from soda.sampler.sample_schema import SampleSchema
 
 
@@ -45,15 +43,8 @@ class SampleRef:
             "storedRowCount": self.stored_row_count,
         }
         if self.soda_cloud_file_id:
-            sample_ref_dict["reference"] = {
-                'type': 'sodaCloudStorage',
-                'fileId': self.soda_cloud_file_id
-            }
+            sample_ref_dict["reference"] = {"type": "sodaCloudStorage", "fileId": self.soda_cloud_file_id}
 
         if self.message:
-            sample_ref_dict["reference"] = {
-                'type': 'externalStorage',
-                'message': self.message,
-                'link': self.link
-            }
+            sample_ref_dict["reference"] = {"type": "externalStorage", "message": self.message, "link": self.link}
         return sample_ref_dict

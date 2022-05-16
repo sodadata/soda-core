@@ -1,12 +1,13 @@
 from __future__ import annotations
 
 import collections
-from abc import ABC
+from abc import ABC, abstractmethod
 
 from soda.execution.check_outcome import CheckOutcome
 from soda.execution.column import Column
 from soda.execution.identity import ConsistentHashBuilder
 from soda.execution.metric import Metric
+from soda.sampler.sample_ref import SampleRef
 from soda.soda_cloud.historic_descriptor import HistoricDescriptor
 from soda.sodacl.check_cfg import CheckCfg
 from soda.sodacl.distribution_check_cfg import DistributionCheckCfg
@@ -113,6 +114,8 @@ class Check(ABC):
         self.metrics: dict[str, Metric] = {}
         self.historic_descriptors: dict[str, HistoricDescriptor] = {}
         self.cloud_check_type = "metricThreshold"
+        # in the evaluate method, checks can optionally extract a failed rows sample ref from the metric
+        self.failed_rows_sample_ref: SampleRef | None = None
         self.skipped = skipped
 
         # Check evaluation outcome
@@ -197,8 +200,9 @@ class Check(ABC):
 
         return name
 
+    @abstractmethod
     def get_cloud_diagnostics_dict(self) -> dict:
-        return {}
+        pass
 
     def evaluate(self, metrics: dict[str, Metric], historic_values: dict[str, object]):
         raise NotImplementedError("Implement this abstract method")
