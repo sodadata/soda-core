@@ -1,9 +1,5 @@
 import pytest
 
-<<<<<<< HEAD
-=======
-
->>>>>>> 1db303a (Fixing automated monitoring things)
 from tests.helpers.common_test_tables import customers_test_table
 from tests.helpers.scanner import Scanner
 from tests.helpers.utils import derive_schema_metric_value_from_test_table
