@@ -1236,9 +1236,10 @@ class SodaCLParser(Parser):
                     else:
                         if table.startswith("include "):
                             include_table_expression = table[len("include ") :]
+                            discover_tables_cfg.include_tables.append(include_table_expression)
                         else:
                             include_table_expression = table
-                        discover_tables_cfg.include_tables.append(include_table_expression)
+                            discover_tables_cfg.include_tables.append(include_table_expression)
             else:
                 self.logs.error(
                     "Content of 'tables' must be a list of include and/or exclude expressions", location=self.location

@@ -15,6 +15,7 @@ from soda.execution.check_outcome import CheckOutcome
 from soda.execution.data_source_scan import DataSourceScan
 from soda.execution.derived_metric import DerivedMetric
 from soda.execution.metric import Metric
+from soda.profiling.discover_table_result_table import DiscoverTablesResultTable
 from soda.profiling.profile_columns_result_table import ProfileColumnsResultTable
 from soda.soda_cloud.historic_descriptor import HistoricDescriptor
 from soda.sodacl.location import Location
@@ -49,6 +50,7 @@ class Scan:
         self._checks: list[Check] = []
         self._queries: list[Query] = []
         self._profile_columns_result_tables: list[ProfileColumnsResultTable] = []
+        self._discover_tables_result_tables: list[DiscoverTablesResultTable] = []
         self._logs.info(f"Soda Core {SODA_CORE_VERSION}")
         self._is_experimental_auto_monitoring: bool = False
         self._is_automated_monitoring_run: bool = False
@@ -353,6 +355,7 @@ class Scan:
                     )
 
             self.run_automated_monitoring()
+            self.run_discover_tables()
             self.run_profile_columns()
 
             self._logs.info("Scan summary:")
@@ -449,6 +452,23 @@ class Scan:
                         f"Could not profile columns on data_source {data_source_name} because it is not "
                         f"configured: {data_source_names}",
                         location=profile_columns_cfg.location,
+                    )
+
+    def run_discover_tables(self):
+        for data_source_scan in self._data_source_scans:
+            for discover_columns_cfg in data_source_scan.data_source_scan_cfg.discover_tables_cfgs:
+                data_source_name = data_source_scan.data_source_scan_cfg.data_source_name
+                data_source_scan = self._get_or_create_data_source_scan(data_source_name)
+                if data_source_scan:
+                    discover_tables_run = data_source_scan.create_discover_tables_run(discover_columns_cfg, self)
+                    discover_tables_result = discover_tables_run.run()
+                    self._is_profiling_run = True
+                    self._discover_tables_result_tables.extend(discover_tables_result.tables)
+                else:
+                    data_source_names = ", ".join(self._data_source_manager.data_source_properties_by_name.keys())
+                    self._logs.error(
+                        f"Could not discover tables on data_source {data_source_name} because it is not configured: {data_source_names}",
+                        location=discover_columns_cfg.location,
                     )
 
     def __checks_to_text(self, checks: list[Check]):

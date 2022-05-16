@@ -57,6 +57,10 @@ class SodaCloud:
                     profile_columns_result_table.get_cloud_dict()
                     for profile_columns_result_table in scan._profile_columns_result_tables
                 ],
+                "metadata": [
+                    discover_tables_result.get_cloud_dict()
+                    for discover_tables_result in scan._discover_tables_result_tables
+                ],
             }
         )
 
