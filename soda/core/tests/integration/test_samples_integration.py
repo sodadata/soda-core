@@ -1,3 +1,4 @@
+import logging
 import os
 from textwrap import dedent
 
@@ -23,11 +24,11 @@ def test_scan(scanner: Scanner, data_source_config_str: str):
     scan.add_configuration_yaml_str(
         dedent(
             f"""
-          soda_cloud:
-            api_key_id: ${{DEV_SODADATA_IO_API_KEY_ID}}
-            api_key_secret: ${{DEV_SODADATA_IO_API_KEY_SECRET}}
-            host: dev.sodadata.io
-        """
+              soda_cloud:
+                api_key_id: ${{DEV_SODADATA_IO_API_KEY_ID}}
+                api_key_secret: ${{DEV_SODADATA_IO_API_KEY_SECRET}}
+                host: dev.sodadata.io
+            """
         )
     )
 
