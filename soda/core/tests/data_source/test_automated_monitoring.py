@@ -9,7 +9,11 @@ def test_automated_monitoring(scanner: Scanner):
     schema_metric_value_derived_from_test_table = derive_schema_metric_value_from_test_table(
         customers_test_table, scanner.data_source
     )
-
+    if scanner.data_source.data_source_name in ["postgres", "redshift"]:
+        table_name = table_name.lower()
+    elif scanner.data_source.data_source_name == "snowflake":
+        table_name = table_name.upper()
+        
     scan = scanner.create_test_scan()
     scan.mock_historic_values(
         metric_identity=f"metric-{scan._scan_definition_name}-{scan._data_source_name}-{table_name}-row_count-automated_monitoring",
