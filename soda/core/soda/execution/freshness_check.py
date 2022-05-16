@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Dict, Optional
 
 from soda.execution.check import Check
@@ -110,16 +110,22 @@ class FreshnessCheck(Check):
         }
 
     def get_cloud_diagnostics_dict(self):
-        freshness = self.freshness_values["freshness"] if self.freshness_values["freshness"] else 0
-        return {
-            "value": freshness,  # millisecond difference
+        freshness_dict = {}
+
+        freshness = 0
+        if self.freshness_values["freshness"] and isinstance(self.freshness_values["freshness"], timedelta):
+            freshness = self.freshness_values["freshness"].microseconds
+        freshness_dict = {
+            "value": freshness,  # microseconds difference
             "maxColumnTimestamp": self.freshness_values["max_column_timestamp"],
             "maxColumnTimestampUtc": self.freshness_values["max_column_timestamp_utc"],
             "nowVariableName": self.freshness_values["now_variable_name"],
             "nowTimestamp": self.freshness_values["now_timestamp"],
             "nowTimestampUtc": self.freshness_values["now_timestamp_utc"],
-            "freshness": self.freshness_values["freshness"],
+            "freshness": "asd",
         }
+
+        return freshness_dict
 
     def get_log_diagnostic_dict(self) -> dict:
         return self.freshness_values
