@@ -17,6 +17,7 @@ class Identity:
         partition: "Partition",
         column: "Column",
         name: Optional[str],
+        is_automated_monitoring: bool,
         identity_parts: list,
     ):
         parts = [identity_type]
@@ -33,7 +34,8 @@ class Identity:
             parts.append(column.column_name)
         if name:
             parts.append(name)
-
+        if is_automated_monitoring:
+            parts.append("automated_monitoring")
         if identity_parts:
             hash_builder = ConsistentHashBuilder()
             for identity_hash_part in identity_parts:

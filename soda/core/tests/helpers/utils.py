@@ -16,3 +16,13 @@ def format_checks(checks: list, prefix: str = "", indent: int = 0, data_source: 
             checks_str += f"{indent_str}{prefix} {identifier}\n"
 
     return checks_str
+
+
+def derive_schema_metric_value_from_test_table(test_table, data_source: DataSource):
+    return [
+        {
+            "columnName": data_source.format_column_default(column[0]),
+            "sourceDataType": data_source.get_sql_type_for_schema_check(column[1]),
+        }
+        for column in test_table.columns
+    ]
