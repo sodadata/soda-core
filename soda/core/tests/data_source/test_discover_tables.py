@@ -38,7 +38,7 @@ from tests.helpers.scanner import Scanner
                     "metadata": [
                         {
                             "table": "sodatest_customers_profiling_bbf94d22",
-                            "dataSource": "postgres",
+                            "dataSource": "redshift",
                             "rowCount": 10,
                             "schema": [
                                 {"columnName": "id", "sourceDataType": "character varying"},
@@ -61,21 +61,21 @@ from tests.helpers.scanner import Scanner
                     "metadata": [
                         {
                             "table": "sodatest_customers_profiling_bbf94d22",
-                            "dataSource": "postgres",
+                            "dataSource": "bigquery",
                             "rowCount": 10,
                             "schema": [
-                                {"columnName": "id", "sourceDataType": "character varying"},
-                                {"columnName": "size", "sourceDataType": "double precision"},
-                                {"columnName": "sizetxt", "sourceDataType": "character varying"},
-                                {"columnName": "distance", "sourceDataType": "integer"},
-                                {"columnName": "pct", "sourceDataType": "character varying"},
-                                {"columnName": "cat", "sourceDataType": "character varying"},
-                                {"columnName": "country", "sourceDataType": "character varying"},
-                                {"columnName": "zip", "sourceDataType": "character varying"},
-                                {"columnName": "email", "sourceDataType": "character varying"},
-                                {"columnName": "date", "sourceDataType": "date"},
-                                {"columnName": "ts", "sourceDataType": "timestamp without time zone"},
-                                {"columnName": "ts_with_tz", "sourceDataType": "timestamp with time zone"},
+                                {"columnName": "id", "sourceDataType": "STRING"},
+                                {"columnName": "size", "sourceDataType": "NUMERIC"},
+                                {"columnName": "sizeTxt", "sourceDataType": "STRING"},
+                                {"columnName": "distance", "sourceDataType": "INT64"},
+                                {"columnName": "pct", "sourceDataType": "STRING"},
+                                {"columnName": "cat", "sourceDataType": "STRING"},
+                                {"columnName": "country", "sourceDataType": "STRING"},
+                                {"columnName": "zip", "sourceDataType": "STRING"},
+                                {"columnName": "email", "sourceDataType": "STRING"},
+                                {"columnName": "date", "sourceDataType": "DATE"},
+                                {"columnName": "ts", "sourceDataType": "TIMESTAMP"},
+                                {"columnName": "ts_with_tz", "sourceDataType": "TIMESTAMP"},
                             ],
                         }
                     ]
