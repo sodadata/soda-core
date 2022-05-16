@@ -146,7 +146,7 @@ class Check(ABC):
 
         # If the check is automated monitoring append "automated_monitoring" tag
         if hasattr(check_cfg, "is_automated_monitoring") and check_cfg.is_automated_monitoring:
-                hash_builder.add("automated_monitoring")
+            hash_builder.add("automated_monitoring")
 
         if isinstance(check_cfg.source_configurations, dict):
 
