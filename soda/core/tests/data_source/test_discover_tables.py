@@ -130,15 +130,34 @@ def test_discover_tables(scanner: Scanner, table_name, cloud_dict_expectation):
     )
 
 
-@pytest.mark.parametrize("soda_cl_str, expectation", [pytest.param("sodatest_customers_%", 3)])
+@pytest.mark.parametrize(
+    "soda_cl_str, expectation",
+    [
+        pytest.param(
+            """
+                - include sodatest_customers_%
+            """,
+            3,
+            id="include all soda test customer tables",
+        ),
+        pytest.param(
+            """
+               - include sodatest_cust%
+               - exclude sodatest_customersdist_%
+            """,
+            2,
+            id="exclude customers dist",
+        ),
+    ],
+)
 def test_discover_tables_customer_wildcard(scanner: Scanner, soda_cl_str, expectation):
     scan = scanner.create_test_scan()
     mock_soda_cloud = scan.enable_mock_soda_cloud()
     scan.add_sodacl_yaml_str(
         f"""
-            discover tables:
-              tables:
-                - include {soda_cl_str}
+discover tables:
+  tables:
+    {soda_cl_str}
         """
     )
     scan.execute()
