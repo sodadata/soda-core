@@ -40,4 +40,4 @@ class DuplicatesQuery(Query):
         if self.sample_ref:
             values_having_duplicates = self.sample_ref.total_row_count
             self.metric.set_value(values_having_duplicates)
-            self.metric.duplicate_frequencies_sample_ref = self.sample_ref
+            self.metric.failed_rows_sample_ref = self.sample_ref
