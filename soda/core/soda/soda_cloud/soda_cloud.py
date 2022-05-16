@@ -50,9 +50,7 @@ class SodaCloud:
                 "hasWarnings": scan.has_check_warns(),
                 "hasFailures": scan.has_check_fails(),
                 "metrics": [metric.get_cloud_dict() for metric in scan._metrics],
-                # If archetype is not None, it means that check is automated monitoring
                 "checks": [check.get_cloud_dict() for check in scan._checks if check.outcome is not None],
-                # TODO Queries are not supported by Soda Cloud yet.
                 # "queries": [query.get_cloud_dict() for query in scan._queries],
                 "automatedMonitoringChecks": [
                     check.get_cloud_dict() for check in scan._automated_checks if not check.is_skipped
