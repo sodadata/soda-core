@@ -143,6 +143,11 @@ class Check(ABC):
         # Note: In case of for each table, the check_cfg.source_header will contain the actual table name as well
         hash_builder.add(check_cfg.source_header)
         hash_builder.add(check_cfg.source_line)
+
+        # Append if automated monitoring is running
+        if hasattr(check_cfg, "is_automated_monitoring") and check_cfg.is_automated_monitoring:
+            hash_builder.add(check_cfg.is_automated_monitoring)
+
         if isinstance(check_cfg.source_configurations, dict):
 
             identity_source_configurations = dict(check_cfg.source_configurations)
