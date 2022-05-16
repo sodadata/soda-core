@@ -4,7 +4,7 @@ from tests.helpers.utils import derive_schema_metric_value_from_test_table
 
 
 def test_automated_monitoring(scanner: Scanner):
-    table_name = scanner.ensure_test_table(customers_test_table).upper()
+    table_name = scanner.ensure_test_table(customers_test_table)
 
     schema_metric_value_derived_from_test_table = derive_schema_metric_value_from_test_table(
         customers_test_table, scanner.data_source
