@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone, timedelta
 from typing import Dict, Optional
 
 from soda.execution.check import Check
@@ -122,7 +122,7 @@ class FreshnessCheck(Check):
             "nowVariableName": self.freshness_values["now_variable_name"],
             "nowTimestamp": self.freshness_values["now_timestamp"],
             "nowTimestampUtc": self.freshness_values["now_timestamp_utc"],
-            "freshness": "asd",
+            "freshness": self.freshness_values["freshness"],
         }
 
         return freshness_dict
