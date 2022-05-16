@@ -116,7 +116,7 @@ class Check(ABC):
         self.cloud_check_type = "metricThreshold"
         # in the evaluate method, checks can optionally extract a failed rows sample ref from the metric
         self.failed_rows_sample_ref: SampleRef | None = None
-        self.skipped = skipped
+        self.skipped = is_skipped
         # Attribute for automated monitoring
         self.archetype = None
 
