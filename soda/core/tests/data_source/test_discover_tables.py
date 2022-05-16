@@ -104,7 +104,7 @@ from tests.helpers.scanner import Scanner
                     ]
                 },
             },
-            id="customer table all numric columns",
+            id="customer table only",
         )
     ],
 )
@@ -128,3 +128,20 @@ def test_discover_tables(scanner: Scanner, table_name, cloud_dict_expectation):
         discover_tables_result["metadata"][0]["schema"]
         == cloud_dict_expectation[scan._data_source_name]["metadata"][0]["schema"]
     )
+
+
+@pytest.mark.parametrize("soda_cl_str, expectation", [pytest.param("sodatest_customers_%", 3)])
+def test_discover_tables_customer_wildcard(scanner: Scanner, soda_cl_str, expectation):
+    scan = scanner.create_test_scan()
+    mock_soda_cloud = scan.enable_mock_soda_cloud()
+    scan.add_sodacl_yaml_str(
+        f"""
+            discover tables:
+              tables:
+                - include {soda_cl_str}
+        """
+    )
+    scan.execute()
+    discover_tables_result = mock_soda_cloud.scan_result
+    assert discover_tables_result is not None
+    assert len(discover_tables_result["metadata"]) == expectation
