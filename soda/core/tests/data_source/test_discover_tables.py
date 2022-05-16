@@ -34,6 +34,29 @@ from tests.helpers.scanner import Scanner
                         }
                     ]
                 },
+                "redshift": {
+                    "metadata": [
+                        {
+                            "table": "sodatest_customers_profiling_bbf94d22",
+                            "dataSource": "postgres",
+                            "rowCount": 10,
+                            "schema": [
+                                {"columnName": "id", "sourceDataType": "character varying"},
+                                {"columnName": "size", "sourceDataType": "double precision"},
+                                {"columnName": "sizetxt", "sourceDataType": "character varying"},
+                                {"columnName": "distance", "sourceDataType": "integer"},
+                                {"columnName": "pct", "sourceDataType": "character varying"},
+                                {"columnName": "cat", "sourceDataType": "character varying"},
+                                {"columnName": "country", "sourceDataType": "character varying"},
+                                {"columnName": "zip", "sourceDataType": "character varying"},
+                                {"columnName": "email", "sourceDataType": "character varying"},
+                                {"columnName": "date", "sourceDataType": "date"},
+                                {"columnName": "ts", "sourceDataType": "timestamp without time zone"},
+                                {"columnName": "ts_with_tz", "sourceDataType": "timestamp with time zone"},
+                            ],
+                        }
+                    ]
+                },
                 "snowflake": {
                     "metadata": [
                         {
