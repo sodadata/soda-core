@@ -27,7 +27,7 @@ class TimeGenerator:
 
     def next(self):
         self.timestamp += self.timedelta
-        return self.timestamp
+        return self.timestamp.strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
 @dataclass
@@ -106,10 +106,9 @@ class MockSodaCloud(SodaCloud):
                 return value
 
             elif change_over_time_aggregation is None:
-                historic_metric_values = self.__get_historic_metric_values(historic_descriptor.metric)
+                historic_metric_values = self.__get_historic_metric_values(historic_descriptor.metric_identity)
                 if len(historic_metric_values) > 0:
-                    previous_metric_value = historic_metric_values[0]
-                    return previous_metric_value
+                    return {"measurements": historic_metric_values}
 
         elif type(historic_descriptor) == HistoricMeasurementsDescriptor:
             measurements = self.__get_historic_metric_values(historic_descriptor.metric_identity)
@@ -157,11 +156,18 @@ class MockSodaCloud(SodaCloud):
             raise AssertionError(f"{key} not in dict:\n{JsonHelper.to_json_pretty(d)}")
 
     def __get_historic_metric_values(self, metric_identity):
-        historic_metric_values = [
-            historic_metric_value
-            for historic_metric_value in self.historic_metric_values
-            if historic_metric_value["identity"] == metric_identity
-        ]
+        if isinstance(metric_identity, str):
+            historic_metric_values = [
+                historic_metric_value
+                for historic_metric_value in self.historic_metric_values
+                if historic_metric_value["identity"] == metric_identity
+            ]
+        else:
+            historic_metric_values = [
+                historic_metric_value
+                for historic_metric_value in self.historic_metric_values
+                if historic_metric_value["identity"] == metric_identity.identity
+            ]
 
         if not historic_metric_values:
             raise AssertionError(f"No historic measurements for metric {metric_identity}")

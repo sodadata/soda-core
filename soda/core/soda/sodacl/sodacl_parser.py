@@ -18,6 +18,7 @@ from soda.sodacl.antlr.SodaCLAntlrParser import SodaCLAntlrParser
 from soda.sodacl.automated_monitoring_cfg import AutomatedMonitoringCfg
 from soda.sodacl.change_over_time_cfg import ChangeOverTimeCfg
 from soda.sodacl.check_cfg import CheckCfg
+from soda.sodacl.discover_tables_cfg import DiscoverTablesCfg
 from soda.sodacl.distribution_check_cfg import DistributionCheckCfg
 from soda.sodacl.for_each_column_cfg import ForEachColumnCfg
 from soda.sodacl.for_each_table_cfg import ForEachTableCfg
@@ -85,6 +86,8 @@ class SodaCLParser(Parser):
                     self.__parse_automated_monitoring_section(header_str, header_content)
                 elif header_str.startswith("profile columns"):
                     self.__parse_profile_columns_section(header_str, header_content)
+                elif header_str.startswith("discover tables"):
+                    self.__parse_discover_tables_section(header_str, header_content)
                 elif "checks" == header_str:
                     self.__parse_data_source_checks_section(header_str, header_content)
                 elif "variables" == header_str:
@@ -1212,6 +1215,35 @@ class SodaCLParser(Parser):
                 schema = find_anomalies.get("schema")
                 if isinstance(schema, bool) and schema == False:
                     automated_monitoring_cfg.schema = False
+        else:
+            self.logs.error(
+                f'Skipping section "{header_str}" because content is not an object/dict',
+                location=self.location,
+            )
+
+    def __parse_discover_tables_section(self, header_str, header_content):
+        if isinstance(header_content, dict):
+            discover_tables_cfg = DiscoverTablesCfg(self.data_source_name, self.location)
+            data_source_scan_cfg = self.sodacl_cfg._get_or_create_data_source_scan_cfgs(self.data_source_name)
+            data_source_scan_cfg.add_discover_tables_cfg(discover_tables_cfg)
+            discover_tables_cfg.data_source_name = header_content.get("data_source")
+            tables = header_content.get("tables")
+            if isinstance(tables, list):
+                for table in tables:
+                    if table.startswith("exclude "):
+                        exclude_table_expression = table[len("exclude ") :]
+                        discover_tables_cfg.exclude_tables.append(exclude_table_expression)
+                    else:
+                        if table.startswith("include "):
+                            include_table_expression = table[len("include ") :]
+                            discover_tables_cfg.include_tables.append(include_table_expression)
+                        else:
+                            include_table_expression = table
+                            discover_tables_cfg.include_tables.append(include_table_expression)
+            else:
+                self.logs.error(
+                    "Content of 'tables' must be a list of include and/or exclude expressions", location=self.location
+                )
         else:
             self.logs.error(
                 f'Skipping section "{header_str}" because content is not an object/dict',

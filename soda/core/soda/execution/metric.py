@@ -29,8 +29,12 @@ class Metric(ABC):
         self.name: str = name
         # identity will be used to resolve the same metric and bind it to different checks.
         # Unique within an organisation, but cannot be used as global id in Soda Cloud.
+        if hasattr(check.check_cfg, "is_automated_monitoring"):
+            is_automated_monitoring = check.check_cfg.is_automated_monitoring
+        else:
+            is_automated_monitoring = False
         self.identity: str = Identity.create_identity(
-            "metric", data_source_scan, partition, column, name, identity_parts
+            "metric", data_source_scan, partition, column, name, is_automated_monitoring, identity_parts
         )
         self.data_source_scan = data_source_scan
         self.partition: Partition = partition

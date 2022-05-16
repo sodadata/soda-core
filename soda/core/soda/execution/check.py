@@ -101,7 +101,7 @@ class Check(ABC):
         partition: Partition | None,
         column: Column | None,
         name: str | None,
-        skipped: bool = False,
+        is_skipped: bool = False,
     ):
         from soda.execution.partition import Partition
 
@@ -117,6 +117,8 @@ class Check(ABC):
         # in the evaluate method, checks can optionally extract a failed rows sample ref from the metric
         self.failed_rows_sample_ref: SampleRef | None = None
         self.skipped = skipped
+        # Attribute for automated monitoring
+        self.archetype = None
 
         # Check evaluation outcome
         self.outcome: CheckOutcome | None = None
@@ -168,7 +170,7 @@ class Check(ABC):
         from soda.execution.column import Column
         from soda.execution.partition import Partition
 
-        return {
+        cloud_dict = {
             "identity": self.create_identity(),
             "name": self.generate_soda_cloud_check_name(),
             "type": self.cloud_check_type,
@@ -182,6 +184,12 @@ class Check(ABC):
             "outcome": self.outcome.value if self.outcome else None,
             "diagnostics": self.get_cloud_diagnostics_dict(),
         }
+
+        # Update dict if automated monitoring is running
+        if self.archetype is not None:
+            cloud_dict.update({"archetype": self.archetype})
+
+        return cloud_dict
 
     def generate_soda_cloud_check_name(self) -> str:
         if self.check_cfg.name:
