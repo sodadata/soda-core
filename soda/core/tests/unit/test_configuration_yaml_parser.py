@@ -22,7 +22,7 @@ def test_parse_environment_yaml(monkeypatch):
           schema: public
 
         soda_cloud:
-          api_key: s09d8fs09d8f09sd
+          api_key_id: s09d8fs09d8f09sd
     """
         )
     )
@@ -63,8 +63,8 @@ def test_parse_configuration_yaml_env_var_resolving(monkeypatch):
           schema: ${ env_var('E') }
 
         soda_cloud:
-          api_key: ${ env_var('E') }
-          api_secret: ${ env_var('E') }
+          api_key_id: ${ env_var('E') }
+          api_key_secret: ${ env_var('E') }
     """
         )
     )

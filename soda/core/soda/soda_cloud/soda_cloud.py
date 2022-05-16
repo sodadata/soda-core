@@ -84,7 +84,9 @@ class SodaCloud:
             with tempfile.TemporaryFile() as temp_file:
                 for row in sample_rows:
                     row = [self._serialize_file_upload_value(v) for v in row]
-                    temp_file.write(bytearray(json.dumps(row), "utf-8"))
+                    rows_json_str = json.dumps(row)
+                    rows_json_bytes = bytearray(rows_json_str, "utf-8")
+                    temp_file.write(rows_json_bytes)
                     temp_file.write(b"\n")
 
                 temp_file_size_in_bytes = temp_file.tell()
@@ -243,4 +245,4 @@ class SodaCloud:
         return self.token
 
     def _http_post(self, **kwargs) -> Response:
-        return requests.post(kwargs)
+        return requests.post(**kwargs)
