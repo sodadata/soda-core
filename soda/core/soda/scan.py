@@ -369,7 +369,6 @@ class Scan:
                         f"Metrics {missing_metrics_str} were not computed for check {check.check_cfg.source_line}"
                     )
 
-            self.run_automated_monitoring()
             self.run_discover_tables()
             self.run_profile_columns()
 
