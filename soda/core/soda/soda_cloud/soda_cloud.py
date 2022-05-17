@@ -155,14 +155,10 @@ class SodaCloud:
         return {"measurements": measurements, "check_results": check_results}
 
     def is_samples_disabled(self) -> bool:
-        response_json_dict = self._execute_query(
-            {
-                "type": "sodaCoreCloudConfiguration"
-            }
+        response_json_dict = self._execute_query({"type": "sodaCoreCloudConfiguration"})
+        is_disabled_bool = (
+            response_json_dict.get("disableCollectingWarehouseData") if isinstance(response_json_dict, dict) else None
         )
-        is_disabled_bool = response_json_dict.get('disableCollectingWarehouseData') \
-            if isinstance(response_json_dict, dict) \
-            else None
         return is_disabled_bool if isinstance(is_disabled_bool, bool) else True
 
     def _get_hisoric_changes_over_time(self, hd: HistoricChangeOverTimeDescriptor):
@@ -256,9 +252,7 @@ class SodaCloud:
 
             login_response = self._http_post(url=f"{self.api_url}/command", headers=self.headers, json=login_command)
             if login_response.status_code != 200:
-                raise AssertionError(
-                    f"Soda Cloud login failed {login_response.status_code}. Check credentials."
-                )
+                raise AssertionError(f"Soda Cloud login failed {login_response.status_code}. Check credentials.")
             login_response_json = login_response.json()
 
             self.token = login_response_json.get("token")

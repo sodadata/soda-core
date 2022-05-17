@@ -233,8 +233,5 @@ class MockSodaCloud(SodaCloud):
 
     def _mock_server_query_core_cfg(self, url, headers, json):
         return MockResponse(
-            status_code=200,
-            _json={
-                "disableCollectingWarehouseData": self.disable_collecting_warehouse_data
-                }
-            )
+            status_code=200, _json={"disableCollectingWarehouseData": self.disable_collecting_warehouse_data}
+        )

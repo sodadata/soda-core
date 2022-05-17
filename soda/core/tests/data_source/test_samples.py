@@ -39,7 +39,7 @@ def test_missing_count_sample_disabled(scanner: Scanner):
     diagnostics = mock_soda_cloud.find_check_diagnostics(0)
     assert diagnostics["value"] == 1
     assert len(mock_soda_cloud.files) == 0
-    assert 'failedRowsFile' not in mock_soda_cloud.find_check_diagnostics(0)
+    assert "failedRowsFile" not in mock_soda_cloud.find_check_diagnostics(0)
 
 
 def test_missing_percent_sample(scanner: Scanner):
