@@ -279,7 +279,9 @@ class Scan:
                         if self._configuration.soda_cloud.is_samples_disabled():
                             self._configuration.sampler = None
                     except Exception as e:
-                        self._logs.error("Connecting to Soda Cloud failed.  Disabling Soda Cloud connection.", exception=e)
+                        self._logs.error(
+                            "Connecting to Soda Cloud failed.  Disabling Soda Cloud connection.", exception=e
+                        )
                         self._configuration.soda_cloud = None
 
             exit_value = 0
