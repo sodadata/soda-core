@@ -4,7 +4,6 @@ from tests.helpers.scanner import Scanner
 from tests.helpers.utils import derive_schema_metric_value_from_test_table
 
 
-@pytest.mark.skip
 def test_automated_monitoring(scanner: Scanner):
     table_name = scanner.ensure_test_table(customers_test_table)
 
