@@ -154,6 +154,13 @@ class SodaCloud:
 
         return {"measurements": measurements, "check_results": check_results}
 
+    def is_samples_disabled(self) -> bool:
+        response_json_dict = self._execute_query({"type": "sodaCoreCloudConfiguration"})
+        is_disabled_bool = (
+            response_json_dict.get("disableCollectingWarehouseData") if isinstance(response_json_dict, dict) else None
+        )
+        return is_disabled_bool if isinstance(is_disabled_bool, bool) else True
+
     def _get_hisoric_changes_over_time(self, hd: HistoricChangeOverTimeDescriptor):
         return self._execute_query(
             {
@@ -238,7 +245,6 @@ class SodaCloud:
         if not self.token:
             login_command = {"type": "login"}
             if self.api_key_id and self.api_key_secret:
-                logger.debug("> /api/command (login with API key credentials)")
                 login_command["apiKeyId"] = self.api_key_id
                 login_command["apiKeySecret"] = self.api_key_secret
             else:
@@ -246,14 +252,11 @@ class SodaCloud:
 
             login_response = self._http_post(url=f"{self.api_url}/command", headers=self.headers, json=login_command)
             if login_response.status_code != 200:
-                raise AssertionError(
-                    f"< {login_response.status_code} login failed. Server response code:{login_response.content}"
-                )
+                raise AssertionError(f"Soda Cloud login failed {login_response.status_code}. Check credentials.")
             login_response_json = login_response.json()
 
             self.token = login_response_json.get("token")
             assert self.token, "No token in login response?!"
-            logger.debug("< 200 (login ok, token received)")
         return self.token
 
     def _http_post(self, **kwargs) -> Response:
