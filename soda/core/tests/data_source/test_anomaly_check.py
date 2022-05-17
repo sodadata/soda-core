@@ -71,6 +71,7 @@ def test_anomaly_detection_fail_with_custom_threshold(scanner: Scanner):
     scan.execute()
     scan.assert_all_checks_fail()
 
+
 @pytest.mark.parametrize(
     "numeric_metric, column",
     [
@@ -83,6 +84,7 @@ def test_anomaly_detection_fail_with_custom_threshold(scanner: Scanner):
 )
 def test_anomaly_detection_pass_numeric_metrics(numeric_metric, column, scanner):
     import numpy as np
+
     np.random.seed(61)
     table_name = scanner.ensure_test_table(customers_test_table)
 
