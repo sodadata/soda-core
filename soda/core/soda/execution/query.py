@@ -168,7 +168,7 @@ class Query:
             finally:
                 self.duration = datetime.now() - start
         else:
-            self.logs.warning(f"Not executing query {self.query_name} because no sampler is configured.")
+            self.logs.debug(f"Not executing query {self.query_name} because no sampler is configured.")
 
     def __append_to_scan(self):
         scan = self.data_source_scan.scan
