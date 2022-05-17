@@ -53,6 +53,7 @@ class MockSodaCloud(SodaCloud):
         self.historic_metric_values: list = []
         self.files = {}
         self.scan_results: list[dict] = []
+        self.disable_collecting_warehouse_data = False
 
     def create_soda_cloud(self):
         return self
@@ -208,15 +209,18 @@ class MockSodaCloud(SodaCloud):
             return self._mock_server_command_sodaCoreInsertScanResults(url, headers, json)
         raise AssertionError(f"Unsupported command type {command_type}")
 
+    def _mock_server_query(self, url, headers, json):
+        query_type = json.get("type")
+        if query_type == "sodaCoreCloudConfiguration":
+            return self._mock_server_query_core_cfg(url, headers, json)
+        raise AssertionError(f"Unsupported query type {query_type}")
+
     def _mock_server_command_login(self, url, headers, json):
         return MockResponse(status_code=200, _json={"token": "***"})
 
     def _mock_server_command_sodaCoreInsertScanResults(self, url, headers, json):
         self.scan_results.append(json)
         return MockResponse(status_code=200)
-
-    def _mock_server_query(self, url, headers, json):
-        raise AssertionError("TODO")
 
     def _mock_server_upload(self, url, headers, data):
         file_id = f"file-{len(self.files)}"
@@ -226,3 +230,11 @@ class MockSodaCloud(SodaCloud):
             "content": data.read().decode("utf-8"),
         }
         return MockResponse(status_code=200, _json={"fileId": file_id})
+
+    def _mock_server_query_core_cfg(self, url, headers, json):
+        return MockResponse(
+            status_code=200,
+            _json={
+                "disableCollectingWarehouseData": self.disable_collecting_warehouse_data
+                }
+            )

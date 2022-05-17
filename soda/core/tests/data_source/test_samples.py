@@ -21,6 +21,27 @@ def test_missing_count_sample(scanner: Scanner):
     assert_missing_sample(mock_soda_cloud, 0)
 
 
+def test_missing_count_sample_disabled(scanner: Scanner):
+    table_name = scanner.ensure_test_table(customers_test_table)
+
+    scan = scanner.create_test_scan()
+    mock_soda_cloud = scan.enable_mock_soda_cloud()
+    mock_soda_cloud.disable_collecting_warehouse_data = True
+    scan.enable_mock_sampler()
+    scan.add_sodacl_yaml_str(
+        f"""
+          checks for {table_name}:
+            - missing_count(id) = 1
+        """
+    )
+    scan.execute()
+
+    diagnostics = mock_soda_cloud.find_check_diagnostics(0)
+    assert diagnostics["value"] == 1
+    assert len(mock_soda_cloud.files) == 0
+    assert 'failedRowsFile' not in mock_soda_cloud.find_check_diagnostics(0)
+
+
 def test_missing_percent_sample(scanner: Scanner):
     table_name = scanner.ensure_test_table(customers_test_table)
 

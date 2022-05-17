@@ -264,14 +264,17 @@ class Scan:
             from soda.execution.table import Table
 
             # Disable Soda Cloud if it is not properly configured
-            if self._configuration.soda_cloud and not isinstance(self._scan_definition_name, str):
-                self._logs.error(
-                    "scan.set_scan_definition_name(...) is not set and it is required to make the Soda Cloud integration work.  For this scan, Soda Cloud will be disabled."
-                )
-                self._configuration.soda_cloud = None
-                from soda.sampler.soda_cloud_sampler import SodaCloudSampler
+            if self._configuration.soda_cloud:
+                if not isinstance(self._scan_definition_name, str):
+                    self._logs.error(
+                        "scan.set_scan_definition_name(...) is not set and it is required to make the Soda Cloud integration work.  For this scan, Soda Cloud will be disabled."
+                    )
+                    self._configuration.soda_cloud = None
+                    from soda.sampler.soda_cloud_sampler import SodaCloudSampler
 
-                if isinstance(self._configuration.sampler, SodaCloudSampler):
+                    if isinstance(self._configuration.sampler, SodaCloudSampler):
+                        self._configuration.sampler = None
+                elif self._configuration.soda_cloud.is_samples_disabled():
                     self._configuration.sampler = None
 
             exit_value = 0
