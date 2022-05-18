@@ -130,6 +130,7 @@ def test_anomaly_detection_missing_values(scanner):
     scan.execute()
     scan.assert_all_checks_pass()
 
+
 def test_anomaly_detection_invalid_values(scanner):
     import numpy as np
 
