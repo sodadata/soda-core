@@ -6,7 +6,7 @@ from soda.common.file_system import FileSystem, FileSystemSingleton
 class MockFileSystem(FileSystem):
 
     current_dir = "/Users/johndoe"
-    dirs = set('/')
+    dirs = set("/")
     files = {}
 
     def __init__(self):

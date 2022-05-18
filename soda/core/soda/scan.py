@@ -88,12 +88,7 @@ class Scan:
                 exception=e,
             )
 
-    def add_configuration_yaml_files(
-        self,
-        path: str,
-        recursive: bool | None = True,
-        suffix: str | None = ".yml"
-    ):
+    def add_configuration_yaml_files(self, path: str, recursive: bool | None = True, suffix: str | None = ".yml"):
         try:
             configuration_yaml_file_paths = self._collect_file_paths(path=path, recursive=recursive, suffix=suffix)
             for configuration_yaml_file_path in configuration_yaml_file_paths:
@@ -164,9 +159,9 @@ class Scan:
         path: str,
         recursive: bool | None = True,
         suffix: str | None = ".yml",
-    ) -> List[str]:
+    ) -> list[str]:
         if isinstance(path, str):
-            if path.endswith('/'):
+            if path.endswith("/"):
                 path = path[:-1]
             file_system = self._configuration.file_system
             path = file_system.expand_user(path)
