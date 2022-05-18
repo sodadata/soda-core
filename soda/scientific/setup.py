@@ -20,6 +20,8 @@ requires = [
     "PyYAML>=5.4.1,<6.0.0",
     "prophet>=1.0.0",
     "pystan==2.19.1.1",
+    # Uncomment & recreate .venv to make scientific tests work
+    # "prophet @ git+https://github.com/facebook/prophet.git#egg=prophet&subdirectory=python",
 ]
 
 # TODO Fix the params
