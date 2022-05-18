@@ -58,7 +58,6 @@ class AnomalyMetricCheck(MetricCheck):
             historic_check_results = historic_values.get(KEY_HISTORIC_CHECK_RESULTS).get("check_results")
             if historic_measurements is None:
                 self.logs.warning("Skipping anomaly metric check eval because there is not enough historic data yet")
-                self.is_skipped = True
                 return
 
             # Append current results
@@ -88,7 +87,6 @@ class AnomalyMetricCheck(MetricCheck):
 
             if diagnostics["anomalyErrorCode"] == "not_enough_measurements":
                 self.logs.warning("Skipping anomaly metric check eval because there is not enough historic data yet")
-                self.is_skipped = True
                 return
 
             assert isinstance(

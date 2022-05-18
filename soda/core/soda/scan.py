@@ -48,7 +48,6 @@ class Scan:
         self._data_source_scans: list[DataSourceScan] = []
         self._metrics: set[Metric] = set()
         self._checks: list[Check] = []
-        self._automated_checks: list[Check] = []
         self._queries: list[Query] = []
         self._profile_columns_result_tables: list[ProfileColumnsResultTable] = []
         self._discover_tables_result_tables: list[DiscoverTablesResultTable] = []
@@ -342,10 +341,9 @@ class Scan:
                 if isinstance(metric, DerivedMetric):
                     metric.compute_derived_metric_values()
 
-            self._automated_checks = self.run_automated_monitoring()
-
             # Extend automated checks into checks
-            self._checks.extend(self._automated_checks)
+            automated_monitoring_checks = self.run_automated_monitoring()
+            self._checks.extend(automated_monitoring_checks)
 
             # Evaluates the checks based on all the metric values
             for check in self._checks:
