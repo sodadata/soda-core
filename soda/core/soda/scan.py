@@ -278,7 +278,9 @@ class Scan:
                         if self._configuration.soda_cloud.is_samples_disabled():
                             self._configuration.sampler = None
                     except Exception as e:
-                        self._logs.error("Connecting to Soda Cloud failed.  Disabling Soda Cloud connection.", exception=e)
+                        self._logs.error(
+                            "Connecting to Soda Cloud failed.  Disabling Soda Cloud connection.", exception=e
+                        )
                         self._configuration.soda_cloud = None
 
             exit_value = 0
@@ -375,7 +377,6 @@ class Scan:
                         f"Metrics {missing_metrics_str} were not computed for check {check.check_cfg.source_line}"
                     )
 
-            self.run_automated_monitoring()
             self.run_discover_tables()
             self.run_profile_columns()
 
