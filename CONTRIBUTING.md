@@ -2,25 +2,11 @@
 
 This is a guide providing pointers to all tasks related to the development of Soda Checks.
 
-## Proposed project folder structure
-
-soda-core : default name of the root project folder as the git repo will be named soda-core.  But contributors must be able to use a different top level folder name
- + `soda-core` : root src folder for the soda-core package
- + `soda-core-tests` : tests of the soda-core package
- + `packages`
-   + `soda-core-postgres`
-     + `soda-core-postgres` : root src folder for the soda-core-postgres package
-     + `tests` : tests of the soda-core-postgres package
-   + all other warehouses similar to postgres
-   + `soda-core-ml`
-     + `soda-core-ml` : root src folder for the soda-core-ml package
-     + `tests` : tests of the soda-core-ml package
-
 ## Cloning the repo
 
 ```
-> git clone git@github.com:sodadata/soda-sql-v3.git
-Cloning into 'soda-sql-v3'...
+> git clone git@github.com:sodadata/soda-core.git
+Cloning into 'soda-core'...
 remote: Enumerating objects: 5319, done.
 remote: Counting objects: 100% (5319/5319), done.
 remote: Compressing objects: 100% (2841/2841), done.
@@ -28,6 +14,26 @@ remote: Total 5319 (delta 3358), reused 4187 (delta 2253), pack-reused 0
 Receiving objects: 100% (5319/5319), 1.44 MiB | 3.69 MiB/s, done.
 Resolving deltas: 100% (3358/3358), done.
 >
+```
+
+## Folder structure
+
+```
+soda-core project root folder
+├── soda                  # Root for all Python packages
+│   ├── core              # Root for the soda-core package
+│   │   ├── soda          # Python source code for the soda-core package 
+│   │   └── tests         # Test suite code and artefacts for soda-core package
+│   ├── scientific        # Root for the scientific package 
+│   ├── postgres          # Root for the soda-core-postgres package 
+│   ├── snowflake         # Root for the soda-core-snowflake package
+│   └── ...               # Root for the other data source packages
+├── scripts               # Scripts for developer workflows
+├── dev-requirements.in   # Test suite dependencies
+├── dev-requirements.txt  # Generated test suite dependencies
+├── requirements.txt      # Generated test suite dependencies
+├── LICENSE               # Apache 2.0 license
+└── README.md             # Pointer to the online docs for end users and github home page
 ```
 
 ## Requirements
@@ -72,35 +78,26 @@ as inspiration if you want to manage the virtual environment yourself.
 (.venv) >
 ```
 
-## Running the test suite
+## Running tests
+
+### Postgres test database as a docker container
 
 Running the test suite requires a Postgres DB running on localhost having a user `sodasql`
 without a password, database `sodasql` with a `public` schema.  Simplest way to get one
-up and running is `scripts/start_postgres_container.sh` which launches the container
-`packages/postgres/docker-compose.yml`.
+up and running is
+```shell
+> scripts/start_postgres_container.sh
+```
+The above command will launch a postgres needed for running the test suite as a docker container.
 
-Before pushing commits or asking to review a pull request, we ask that you verify successful execution of
+### Running the basic test suite
+Then run the test suite using
+```shell
+> scripts/run_tests.sh
+```
+
 Before pushing commits or asking to review a pull request, we ask that you verify successful execution of
 the following test suite on your machine.
-
-```
-> python -m pytest
-=================================================================================================================== test session starts ====================================================================================================================
-platform darwin -- Python 3.8.12, pytest-6.0.2, py-1.10.0, pluggy-0.13.1 -- /Users/tom/Downloads/soda-sql-v3/.venv/bin/python
-cachedir: .pytest_cache
-metadata: {'Python': '3.8.12', 'Platform': 'macOS-11.6-x86_64-i386-64bit', 'Packages': {'pytest': '6.0.2', 'py': '1.10.0', 'pluggy': '0.13.1'}, 'Plugins': {'Faker': '8.1.2', 'html': '3.1.1', 'metadata': '1.11.0', 'cov': '2.10.1'}}
-rootdir: /Users/tom/Downloads/soda-sql-v3/core, configfile: tox.ini
-plugins: Faker-8.1.2, html-3.1.1, metadata-1.11.0, cov-2.10.1
-collected 60 items
-
-core/tests/unit/test_checks_yaml_parser.py::test_checks_parsing | "/Users/tom/Code/soda-sql-v3/core/tests/unit/test_checks_yaml_parser.py:9" test_checks_parsing
-PASSED                                                                                                                                                                               [  1%]
-
-...loads of output...
-
-============================================================================================================= 60 passed, 142 warnings in 2.70s =============================================================================================================
-(.venv) >
-```
 
 ### Testing cross cutting concerns
 
@@ -117,4 +114,3 @@ cutting feature while executing the full test suite.
 - We use [Tox](https://tox.wiki/en/latest/) to run tests and `.env` file to set up a data source to run them with.
 - Create a `.env` file and fill it with relevant data source information (see `.env.example` for inspiration).
 - Run `tox`.
-
