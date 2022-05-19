@@ -1,4 +1,4 @@
-FROM python:3.10-slim
+FROM python:3.8-bullseye
 
 # Remove after direct git reference to Prophet is removed.
 RUN apt-get update && apt-get -y install git
