@@ -38,9 +38,9 @@ class ConfigurationParser(Parser):
                 data_source_name = environment_header[len(f"{DATA_SOURCE} ") :].strip()
                 if not re.compile(r"^[a-z_][a-z_0-9]+$").match(data_source_name):
                     self.logs.error(
-                        "Invalid data_source name. DataSource names must start with a lower case char or "
-                        "an underscore [a-z_], followed by any number of lower case chars, digits or "
-                        "underscore [a-z0-9_]"
+                        f"Invalid data source name '{data_source_name}'. Data source names must "
+                        f"start with a lower case char or an underscore [a-z_], followed by any "
+                        f"number of lower case chars, digits or underscore [a-z0-9_]"
                     )
                 self.configuration.data_source_properties_by_name[data_source_name] = header_value
 
