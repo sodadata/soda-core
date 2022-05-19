@@ -11,33 +11,33 @@ def collect_paths(path: str, recursive: bool | None = True, suffix: str | None =
     return scan._collect_file_paths(path=path, recursive=recursive, suffix=suffix)
 
 
-def assert_paths(actual_paths, expected_file_paths):
+def assert_paths(actual_paths: iter, expected_file_paths: set):
     prefix_length = len(basedir)
-    relative_actual_paths = [path[prefix_length:] for path in actual_paths]
+    relative_actual_paths = {path[prefix_length:] for path in actual_paths}
     assert relative_actual_paths == expected_file_paths
 
 
 def test_collect_files():
     assert_paths(
         collect_paths(f"{basedir}/cfgs"),
-        [
+        {
+            "/cfgs/root_configuration.yml",
             "/cfgs/nested/nested/nested_configuration.yml",
             "/cfgs/nested/nested/nested_configuration2.yml",
-            "/cfgs/root_configuration.yml",
-        ],
+        },
     )
 
 
 def test_collect_files_slash():
     assert_paths(
         collect_paths(f"{basedir}/sodacls/"),
-        [
+        {
+            "/sodacls/root_checks2.yml",
             "/sodacls/nested/nested_checks.yml",
             "/sodacls/root_checks.yml",
-            "/sodacls/root_checks2.yml",
-        ],
+        },
     )
 
 
 def test_collect_files_empty():
-    assert_paths(collect_paths(f"{basedir}/empty"), [])
+    assert_paths(collect_paths(f"{basedir}/empty"), set())
