@@ -52,6 +52,7 @@ class SodaCloud:
         return JsonHelper.to_jsonnable(  # type: ignore
             {
                 "definitionName": scan._scan_definition_name,
+                "defaultDataSource": scan._data_source_name,
                 "dataTimestamp": scan._data_timestamp,
                 "scanStartTimestamp": scan._scan_start_timestamp,
                 "scanEndTimestamp": scan._scan_end_timestamp,
