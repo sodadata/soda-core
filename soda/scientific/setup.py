@@ -13,13 +13,15 @@ package_version = "3.0.0b13"
 description = "Soda Core Scientific Package"
 requires = [
     f"soda-core=={package_version}",
+    "wheel",
     "u8darts>=0.7.0,<1.0.0",
     "pydantic>=1.8.1,<2.0.0",
     "inflection==0.5.1",
     "httpx>=0.18.1,<2.0.0",
     "PyYAML>=5.4.1,<6.0.0",
-    "prophet>=1.0.0",
+    "cython>=0.22",
     "pystan==2.19.1.1",
+    "prophet>=1.0.0"
     # Uncomment & recreate .venv to make scientific tests work
     # "prophet @ git+https://github.com/facebook/prophet.git#egg=prophet&subdirectory=python",
 ]
