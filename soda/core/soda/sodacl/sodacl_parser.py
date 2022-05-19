@@ -88,6 +88,8 @@ class SodaCLParser(Parser):
                     self.__parse_profile_columns_section(header_str, header_content)
                 elif header_str.startswith("discover tables"):
                     self.__parse_discover_tables_section(header_str, header_content)
+                elif header_str.startswith("sample datasets"):
+                    self.__parse_sample_datasets_section(header_str, header_content)
                 elif "checks" == header_str:
                     self.__parse_data_source_checks_section(header_str, header_content)
                 elif "variables" == header_str:
@@ -1184,37 +1186,45 @@ class SodaCLParser(Parser):
                 location=self.location,
             )
 
+    def __parse_tables(self, header_content, cfg):
+        cfg.data_source_name = header_content.get("data_source")
+        tables = header_content.get("tables")
+        if isinstance(tables, list):
+            for table in tables:
+                if table.startswith("exclude "):
+                    exclude_table_expression = table[len("exclude ") :]
+                    cfg.exclude_tables.append(exclude_table_expression)
+                else:
+                    if table.startswith("include "):
+                        include_table_expression = table[len("include ") :]
+                    else:
+                        include_table_expression = table
+                    cfg.include_tables.append(include_table_expression)
+        else:
+            self.logs.error(
+                'Content of "tables" must be a list of include and/or exclude expressions', location=self.location
+            )
+
     def __parse_automated_monitoring_section(self, header_str, header_content):
         if isinstance(header_content, dict):
             automated_monitoring_cfg = AutomatedMonitoringCfg(self.data_source_name, self.location)
-            data_source_scan_cfg = self.sodacl_cfg._get_or_create_data_source_scan_cfgs(self.data_source_name)
-            data_source_scan_cfg.add_monitoring_cfg(automated_monitoring_cfg)
-            automated_monitoring_cfg.data_source_name = header_content.get("data_source")
-            tables = header_content.get("tables")
-            if isinstance(tables, list):
-                for table in tables:
-                    if table.startswith("exclude "):
-                        exclude_table_expression = table[len("exclude ") :]
-                        automated_monitoring_cfg.exclude_tables.append(exclude_table_expression)
-                    else:
-                        if table.startswith("include "):
-                            include_table_expression = table[len("include ") :]
-                        else:
-                            include_table_expression = table
-                        automated_monitoring_cfg.include_tables.append(include_table_expression)
-            else:
-                self.logs.error(
-                    'Content of "tables" must be a list of include and/or exclude expressions', location=self.location
-                )
+            self.__parse_tables(header_content, automated_monitoring_cfg)
+            self.sodacl_cfg._get_or_create_data_source_scan_cfgs(self.data_source_name).add_monitoring_cfg(
+                automated_monitoring_cfg
+            )
+        else:
+            self.logs.error(
+                f'Skipping section "{header_str}" because content is not an object/dict',
+                location=self.location,
+            )
 
-            find_anomalies = header_content.get("find anomalies")
-            if find_anomalies:
-                row_count = find_anomalies.get("row count")
-                if isinstance(row_count, bool) and row_count == False:
-                    automated_monitoring_cfg.row_count = False
-                schema = find_anomalies.get("schema")
-                if isinstance(schema, bool) and schema == False:
-                    automated_monitoring_cfg.schema = False
+    def __parse_sample_datasets_section(self, header_str, header_content):
+        if isinstance(header_content, dict):
+            sample_datasets_cfg = SampleDatasetsCfg(self.data_source_name, self.location)
+            self.__parse_tables(header_content, sample_datasets_cfg)
+            self.sodacl_cfg._get_or_create_data_source_scan_cfgs(self.data_source_name).add_sample_dataset_cfg(
+                sample_datasets_cfg
+            )
         else:
             self.logs.error(
                 f'Skipping section "{header_str}" because content is not an object/dict',
@@ -1224,26 +1234,10 @@ class SodaCLParser(Parser):
     def __parse_discover_tables_section(self, header_str, header_content):
         if isinstance(header_content, dict):
             discover_tables_cfg = DiscoverTablesCfg(self.data_source_name, self.location)
-            data_source_scan_cfg = self.sodacl_cfg._get_or_create_data_source_scan_cfgs(self.data_source_name)
-            data_source_scan_cfg.add_discover_tables_cfg(discover_tables_cfg)
-            discover_tables_cfg.data_source_name = header_content.get("data_source")
-            tables = header_content.get("tables")
-            if isinstance(tables, list):
-                for table in tables:
-                    if table.startswith("exclude "):
-                        exclude_table_expression = table[len("exclude ") :]
-                        discover_tables_cfg.exclude_tables.append(exclude_table_expression)
-                    else:
-                        if table.startswith("include "):
-                            include_table_expression = table[len("include ") :]
-                            discover_tables_cfg.include_tables.append(include_table_expression)
-                        else:
-                            include_table_expression = table
-                            discover_tables_cfg.include_tables.append(include_table_expression)
-            else:
-                self.logs.error(
-                    "Content of 'tables' must be a list of include and/or exclude expressions", location=self.location
-                )
+            self.__parse_tables(header_content, discover_tables_cfg)
+            self.sodacl_cfg._get_or_create_data_source_scan_cfgs(self.data_source_name).add_discover_tables_cfg(
+                discover_tables_cfg
+            )
         else:
             self.logs.error(
                 f'Skipping section "{header_str}" because content is not an object/dict',
