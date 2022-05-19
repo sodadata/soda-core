@@ -83,9 +83,17 @@ class Scan:
             )
         except Exception as e:
             self._logs.error(
-                f"Could not add environment configurations from file path {file_path}",
+                f"Could not add configuration from file path {file_path}",
                 exception=e,
             )
+
+    def add_configuration_yaml_files(self, path: str, recursive: bool | None = True, suffix: str | None = ".yml"):
+        try:
+            configuration_yaml_file_paths = self._collect_file_paths(path=path, recursive=recursive, suffix=suffix)
+            for configuration_yaml_file_path in configuration_yaml_file_paths:
+                self.add_configuration_yaml_file(file_path=configuration_yaml_file_path)
+        except Exception as e:
+            self._logs.error(f"Could not add configuration files from dir {dir}", exception=e)
 
     def add_configuration_yaml_str(self, environment_yaml_str: str, file_path: str = "yaml string"):
         """
@@ -139,31 +147,42 @@ class Scan:
         Parameter 'suffix' can be used to only load files having a given extension or suffix like eg suffix='.sodacl.yml'
         """
         try:
-            if isinstance(path, str):
-                file_system = self._configuration.file_system
-                path = file_system.expand_user(path)
-                if file_system.exists(path):
-                    if file_system.is_dir(path):
-                        self._logs.info(f"Adding SodaCL dir {path}")
-                        for dir_entry in file_system.scan_dir(path):
-                            if dir_entry.is_file() and (suffix is None or dir_entry.name.endswith(suffix)):
-                                self.add_sodacl_yaml_file(file_path=dir_entry.path)
-                            elif recursive and dir_entry.is_dir():
-                                self.add_sodacl_yaml_files(
-                                    path=dir_entry.path,
-                                    recursive=True,
-                                    suffix=suffix,
-                                )
-                    elif file_system.is_file(path):
-                        self.add_sodacl_yaml_file(file_path=path)
-                    else:
-                        self._logs.error(f'path "{path}" exists, but is not a file nor directory ?!')
-                else:
-                    self._logs.error(f'path "{path}" does not exist')
-            else:
-                self._logs.error(f"path is not a string: {type(path).__name__}")
+            sodacl_yaml_file_paths = self._collect_file_paths(path=path, recursive=recursive, suffix=suffix)
+            for sodacl_yaml_file_path in sodacl_yaml_file_paths:
+                self.add_sodacl_yaml_file(file_path=sodacl_yaml_file_path)
         except Exception as e:
             self._logs.error(f"Could not add SodaCL files from dir {dir}", exception=e)
+
+    def _collect_file_paths(
+        self,
+        path: str,
+        recursive: bool | None = True,
+        suffix: str | None = ".yml",
+    ) -> list[str]:
+        if isinstance(path, str):
+            if path.endswith("/"):
+                path = path[:-1]
+            file_system = self._configuration.file_system
+            path = file_system.expand_user(path)
+            paths_to_scan = [path]
+            file_paths = []
+            recursing = True
+            while len(paths_to_scan) > 0:
+                path = paths_to_scan.pop()
+                if file_system.exists(path):
+                    if file_system.is_file(path) and (suffix is None or path.endswith(suffix)):
+                        file_paths.append(path)
+                    elif file_system.is_dir(path) and recursing:
+                        for dir_entry in file_system.scan_dir(path):
+                            paths_to_scan.append(f"{path}/{dir_entry.name}")
+                        if not recursive:
+                            recursing = False
+                else:
+                    self._logs.error(f'Path "{path}" does not exist')
+            return file_paths
+        else:
+            self._logs.error(f"Path is not a string: {type(path).__name__}")
+        return []
 
     def add_sodacl_yaml_file(self, file_path: str):
         """
