@@ -57,20 +57,6 @@ ALL_SCHEMA_VALIDATIONS = [
 ]
 
 
-def assert_header_content_is_dict(func):
-    @functools.wraps(func)
-    def handler(self, header_str, header_content):
-        if isinstance(header_content, dict):
-            return func(self, header_str, header_content)
-        else:
-            self.logs.error(
-                f'Skipping section "{header_str}" because content is not an object/dict',
-                location=self.location,
-            )
-
-    return handler
-
-
 class SodaCLParser(Parser):
     def __init__(
         self,
@@ -85,6 +71,18 @@ class SodaCLParser(Parser):
         self.sodacl_cfg: SodaCLCfg = sodacl_cfg
         self.data_source_name = data_source_name
 
+    def assert_header_content_is_dict(func):
+        @functools.wraps(func)
+        def handler(self, header_str, header_content):
+            if isinstance(header_content, dict):
+                return func(self, header_str, header_content)
+            else:
+                self.logs.error(
+                    f'Skipping section "{header_str}" because content is not an object/dict',
+                    location=self.location,
+                )
+        return handler
+        
     def parse_sodacl_yaml_str(self, sodacl_yaml_str: str):
         sodacl_dict = self._parse_yaml_str(sodacl_yaml_str)
         if sodacl_dict is not None:
