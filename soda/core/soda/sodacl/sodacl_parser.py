@@ -1218,19 +1218,19 @@ class SodaCLParser(Parser):
                 'Content of "tables" must be a list of include and/or exclude expressions', location=self.location
             )
 
-    @handle_header_content_is_not_an_object_error
+    @assert_header_content_is_dict
     def __parse_automated_monitoring_section(self, header_str, header_content):
         automated_monitoring_cfg = AutomatedMonitoringCfg(self.data_source_name, self.location)
         self.__parse_tables(header_content, automated_monitoring_cfg)
         self.get_data_source_scan_cfgs().add_monitoring_cfg(automated_monitoring_cfg)
 
-    @handle_header_content_is_not_an_object_error
+    @assert_header_content_is_dict
     def __parse_discover_tables_section(self, header_str, header_content):
         discover_tables_cfg = DiscoverTablesCfg(self.data_source_name, self.location)
         self.__parse_tables(header_content, discover_tables_cfg)
         self.get_data_source_scan_cfgs().add_discover_tables_cfg(discover_tables_cfg)
 
-    @handle_header_content_is_not_an_object_error
+    @assert_header_content_is_dict
     def __parse_profile_columns_section(self, header_str, header_content):
         profile_columns_cfg = ProfileColumnsCfg(self.data_source_name, self.location)
         data_source_scan_cfg = self.get_data_source_scan_cfgs()
