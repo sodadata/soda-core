@@ -550,7 +550,7 @@ class Scan:
                 table_names = [row[0] for row in query.rows]
 
                 for table_name in table_names:
-                    data_source_scan_cfg = self._sodacl_cfg._get_or_create_data_source_scan_cfgs(data_source_name)
+                    data_source_scan_cfg = self._sodacl_cfg.get_or_create_data_source_scan_cfgs(data_source_name)
                     table_cfg = data_source_scan_cfg.get_or_create_table_cfg(table_name)
                     partition_cfg = table_cfg.find_partition(None, None)
                     for check_cfg_template in for_each_table_cfg.check_cfgs:
