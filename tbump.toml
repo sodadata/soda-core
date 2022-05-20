@@ -34,5 +34,9 @@ src = "soda/snowflake/setup.py"
 search = 'package_version = "{current_version}"'
 
 [[file]]
+src = "soda/spark/setup.py"
+search = 'package_version = "{current_version}"'
+
+[[file]]
 src = "soda/scientific/setup.py"
 search = 'package_version = "{current_version}"'

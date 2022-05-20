@@ -43,10 +43,7 @@ class TestTableManager:
     def _get_existing_test_table_names(self):
         if not self.__existing_table_names.is_set():
             # the filter is applied case insensitive by converting to lower case
-            # TODO: use get of data source instead of executing it here (once its available)
-            sql = self.data_source.sql_find_table_names(filter="sodatest_%")
-            rows = self.fetch_all(sql)
-            self.__existing_table_names.set([row[0] for row in rows])
+            self.__existing_table_names.set(self.data_source.get_table_names(filter="sodatest_%"))
         return self.__existing_table_names.get()
 
     def _drop_test_table(self, obsolete_table_name):

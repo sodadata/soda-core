@@ -30,3 +30,11 @@ data_source redshift:
     password: ${ env_var('REDSHIFT_PASSWORD') }
     database: ${ env_var('REDSHIFT_DATABASE', 'sodasql') }
     schema: ${ env_var('REDSHIFT_SCHEMA', 'public') }
+data_source spark:
+  type: spark
+  connection:
+    host: ${ env_var('SPARK_HOST', 'localhost') }
+    port: ${ env_var('SPARK_PORT', '10000') }
+    username: ${ env_var('SPARK_USERNAME', 'soda') }
+    password: ${ env_var('SPARK_PASSWORD') }
+    database: ${ env_var('SPARK_DATABASE', 'default') }

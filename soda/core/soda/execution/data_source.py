@@ -14,6 +14,7 @@ from soda.execution.data_type import DataType
 from soda.execution.partition_queries import PartitionQueries
 from soda.execution.query import Query
 from soda.telemetry.soda_telemetry import SodaTelemetry
+from tomlkit import table
 
 soda_telemetry = SodaTelemetry.get_instance()
 
@@ -98,10 +99,6 @@ class DataSource:
         self.schema: str | None = data_source_properties.get("schema")
         self.table_prefix = data_source_properties.get("table_prefix")
 
-        soda_telemetry.set_attribute("datasource_type", self.type)
-        # TODO get hash after init so that children can implement init
-        soda_telemetry.set_attribute("datasource_id", soda_telemetry.obtain_datasource_hash(self))
-
     def validate_configuration(self, connection_properties: dict, logs: Logs) -> None:
         """
         validates connection_properties and self.data_source_properties
@@ -145,6 +142,9 @@ class DataSource:
 
         return expected_type == actual_type
 
+    def qualify_table_name(self, table_name: str) -> str:
+        return table_name
+
     ######################
     # SQL Queries
     ######################
@@ -185,7 +185,7 @@ class DataSource:
         )
 
     def sql_get_table_count(self, table_name: str) -> str:
-        return f"SELECT count(*) from {table_name}"
+        return f"SELECT {self.expr_count_all()} from {self.qualify_table_name(table_name)}"
 
     def sql_table_include_exclude_filter(
         self,
