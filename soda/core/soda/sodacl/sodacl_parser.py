@@ -1425,7 +1425,7 @@ class SodaCLParser(Parser):
         return AntlrParser(text, lambda p: p.threshold())
 
     def get_data_source_scan_cfgs(self):
-        return self.sodacl_cfg._get_or_create_data_source_scan_cfgs(self.data_source_name)
+        return self.sodacl_cfg.get_or_create_data_source_scan_cfgs(self.data_source_name)
 
 
 class AntlrParser(ErrorListener):
