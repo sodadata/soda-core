@@ -5,6 +5,7 @@ import logging
 import os
 import textwrap
 from datetime import datetime
+from typing import List
 
 from soda.__version__ import SODA_CORE_VERSION
 from soda.common.log import Log, LogLevel
@@ -73,7 +74,9 @@ class Scan:
 
     def add_configuration_yaml_file(self, file_path: str):
         """
-        Configure environment configurations from a YAML file
+        Adds configurations from a YAML file on the given path.
+        :param str file_path: is a string file_path pointing to a configuration file.
+                              ~ will be expanded to the user home dir.
         """
         try:
             configuration_yaml_str = self._read_file("configuration", file_path)
@@ -87,9 +90,17 @@ class Scan:
                 exception=e,
             )
 
-    def add_configuration_yaml_files(self, path: str, recursive: bool | None = True, suffix: str | None = ".yml"):
+    def add_configuration_yaml_files(self, path: str, recursive: bool | None = True, suffixes: str | None = None):
+        """
+        Adds all configurations all YAML files matching the given file path or scanning the given path as a directory.
+        :param str path: is a string that typically is the path to a directory, but it can also be a configuration file.
+                         ~ will be expanded to the user home dir the directory in which to search for configuration files.
+        :param bool recursive: controls if nested directories also will be scanned.  Default recursive=True.
+        :param List[str] suffixes: is optional and is used when recursive scanning directories to only load files
+                                   having a given extension or suffix. Default suffixes=[".yml", ".yaml"]
+        """
         try:
-            configuration_yaml_file_paths = self._collect_file_paths(path=path, recursive=recursive, suffix=suffix)
+            configuration_yaml_file_paths = self._collect_file_paths(path=path, recursive=recursive, suffixes=suffixes)
             for configuration_yaml_file_path in configuration_yaml_file_paths:
                 self.add_configuration_yaml_file(file_path=configuration_yaml_file_path)
         except Exception as e:
@@ -97,7 +108,7 @@ class Scan:
 
     def add_configuration_yaml_str(self, environment_yaml_str: str, file_path: str = "yaml string"):
         """
-        Configure environment configurations from the given string.
+        Adds configurations from a YAML formatted string.
         Parameter file_path is optional and can be used to get the location of the log/error in the logs.
         """
         try:
@@ -137,17 +148,18 @@ class Scan:
         self,
         path: str,
         recursive: bool | None = True,
-        suffix: str | None = ".yml",
+        suffixes: List[str] | None = None,
     ):
         """
         Adds all the files in the given directory to the scan as SodaCL files.
-        Parameter 'path' is a string that typically represents a directory, but it can also be a SodaCL file.
+        :param str path: is a string that typically represents a directory, but it can also be a SodaCL file.
                          ~ will be expanded to the user home dir the directory in which to search for SodaCL files.
-        Parameter 'recursive' controls if nested directories also will be scanned.  Default recursive=True.
-        Parameter 'suffix' can be used to only load files having a given extension or suffix like eg suffix='.sodacl.yml'
+        :param bool recursive: controls if nested directories also will be scanned.  Default recursive=True.
+        :param List[str] suffixes: is optional and is used when recursive scanning directories to only load files
+                                   having a given extension or suffix. Default suffixes=[".yml", ".yaml"]
         """
         try:
-            sodacl_yaml_file_paths = self._collect_file_paths(path=path, recursive=recursive, suffix=suffix)
+            sodacl_yaml_file_paths = self._collect_file_paths(path=path, recursive=recursive, suffixes=suffixes)
             for sodacl_yaml_file_path in sodacl_yaml_file_paths:
                 self.add_sodacl_yaml_file(file_path=sodacl_yaml_file_path)
         except Exception as e:
@@ -156,8 +168,8 @@ class Scan:
     def _collect_file_paths(
         self,
         path: str,
-        recursive: bool | None = True,
-        suffix: str | None = ".yml",
+        recursive: bool | None,
+        suffixes: List[str] | None,
     ) -> list[str]:
         if isinstance(path, str):
             if path.endswith("/"):
@@ -166,17 +178,19 @@ class Scan:
             path = file_system.expand_user(path)
             paths_to_scan = [path]
             file_paths = []
-            recursing = True
+            is_root = True
             while len(paths_to_scan) > 0:
                 path = paths_to_scan.pop()
                 if file_system.exists(path):
-                    if file_system.is_file(path) and (suffix is None or path.endswith(suffix)):
+                    if (file_system.is_file(path)
+                            and (suffixes is None or any(suffix is None or path.endswith(suffix) for suffix in suffixes))):
                         file_paths.append(path)
-                    elif file_system.is_dir(path) and recursing:
+                    elif file_system.is_dir(path) and (is_root or recursive):
+                        is_root = False
+                        if suffixes is None:
+                            suffixes = ['.yml', '.yaml']
                         for dir_entry in file_system.scan_dir(path):
                             paths_to_scan.append(f"{path}/{dir_entry.name}")
-                        if not recursive:
-                            recursing = False
                 else:
                     self._logs.error(f'Path "{path}" does not exist')
             return file_paths
@@ -186,7 +200,7 @@ class Scan:
 
     def add_sodacl_yaml_file(self, file_path: str):
         """
-        Add a SodaCL file to the scan.
+        Add a SodaCL YAML file to the scan on the given file_path.
         """
         try:
             sodacl_yaml_str = self._read_file("SodaCL", file_path)
@@ -200,7 +214,7 @@ class Scan:
 
     def add_sodacl_yaml_str(self, sodacl_yaml_str: str):
         """
-        Add a SodaCL string to the scan.
+        Add a SodaCL YAML string to the scan.
         """
         try:
             unique_name = "sodacl_string"
