@@ -148,7 +148,7 @@ class Scan:
         self,
         path: str,
         recursive: bool | None = True,
-        suffixes: List[str] | None = None,
+        suffixes: list[str] | None = None,
     ):
         """
         Adds all the files in the given directory to the scan as SodaCL files.
@@ -169,7 +169,7 @@ class Scan:
         self,
         path: str,
         recursive: bool | None,
-        suffixes: List[str] | None,
+        suffixes: list[str] | None,
     ) -> list[str]:
         if isinstance(path, str):
             if path.endswith("/"):
@@ -182,13 +182,14 @@ class Scan:
             while len(paths_to_scan) > 0:
                 path = paths_to_scan.pop()
                 if file_system.exists(path):
-                    if (file_system.is_file(path)
-                            and (suffixes is None or any(suffix is None or path.endswith(suffix) for suffix in suffixes))):
+                    if file_system.is_file(path) and (
+                        suffixes is None or any(suffix is None or path.endswith(suffix) for suffix in suffixes)
+                    ):
                         file_paths.append(path)
                     elif file_system.is_dir(path) and (is_root or recursive):
                         is_root = False
                         if suffixes is None:
-                            suffixes = ['.yml', '.yaml']
+                            suffixes = [".yml", ".yaml"]
                         for dir_entry in file_system.scan_dir(path):
                             paths_to_scan.append(f"{path}/{dir_entry.name}")
                 else:

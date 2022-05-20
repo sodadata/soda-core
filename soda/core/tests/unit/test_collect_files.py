@@ -8,7 +8,7 @@ from tests.conftest import project_root_dir
 basedir = f"{project_root_dir}soda/core/tests/unit/test_collect_files_dir"
 
 
-def collect_paths(path: str, recursive: bool | None = True, suffixes: List[str] | None = None) -> list[str]:
+def collect_paths(path: str, recursive: bool | None = True, suffixes: list[str] | None = None) -> list[str]:
     scan = Scan()
     return scan._collect_file_paths(path=path, recursive=recursive, suffixes=suffixes)
 
