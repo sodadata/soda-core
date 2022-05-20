@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 import os
 import re
+import functools
 from builtins import isinstance
 from datetime import timedelta
 from numbers import Number
@@ -55,7 +56,8 @@ ALL_SCHEMA_VALIDATIONS = [
     WHEN_SCHEMA_CHANGES,
 ]
 
-def handle_header_content_is_not_an_object_error(func):
+def assert_header_content_is_dict(func):
+    @functools.wraps(func)
     def handler(self, header_str, header_content):
         if isinstance(header_content, dict):
             return func(self, header_str, header_content)
