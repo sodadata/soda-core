@@ -28,7 +28,7 @@ class ChangeOverTimeMetricCheck(MetricCheck):
         metric = self.metrics[metric_name]
 
         self.historic_descriptors[KEY_HISTORIC_METRIC_AGGREGATE] = HistoricChangeOverTimeDescriptor(
-            metric=metric,
+            metric_identity=metric.identity,
             change_over_time_cfg=metric_check_cfg.change_over_time_cfg,
         )
 
