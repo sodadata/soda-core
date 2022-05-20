@@ -8,8 +8,6 @@ from typing import Any, Dict, Optional
 
 import numpy as np
 import pandas as pd
-from darts import TimeSeries
-from darts.utils.missing_values import fill_missing_values
 from prophet import Prophet
 from soda.common.logs import Logs
 
@@ -164,14 +162,15 @@ class ProphetDetector(BaseDetector):
         self.model: Prophet
         self.predictions: pd.DataFrame
         self.anomalies: pd.DataFrame
-        self.time_series: TimeSeries
+        self.time_series: pd.DataFrame
 
     @property
     def time_series_df(self):
         assert (
             self.time_series
         ), "ProphetDetector does not have a time_series attribute. Make sure you run preprocess first"
-        return self.time_series.pd_dataframe()
+        return self.time_series_dd
+        # return self.time_series.pd_dataframe()
 
     def detect_frequency_better(self) -> FreqDetectionResult:
         # check if pandas detected a frequency by itself.
@@ -294,33 +293,20 @@ class ProphetDetector(BaseDetector):
 
         if isinstance(self.time_series_data, pd.DataFrame):
             if self._has_exogenous_regressor:
-                self.time_series = TimeSeries.from_dataframe(
-                    self.freq_detection_result.df,
-                    time_col="ds",
-                    value_cols=["y", "external_regressor"],
-                    freq=self.freq_detection_result.inferred_frequency,
-                )
+                self.time_series = self.time_series_data[["ds", "y", "external_regressor"]]
             else:
-                self.time_series = TimeSeries.from_dataframe(
-                    self.freq_detection_result.df,
-                    time_col="ds",
-                    value_cols=["y"],
-                    freq=self.freq_detection_result.inferred_frequency,
-                )
+                self.time_series = self.time_series_data[["ds", "y"]]
 
         if not self._preprocess_params.get("interpolation_kwargs").get("method"):
             self._preprocess_params["interpolation_kwargs"]["method"] = "linear"
 
-        self.time_series = fill_missing_values(
-            series=self.time_series,
-            fill="auto",
-            **self._preprocess_params["interpolation_kwargs"],
-        )
+        self.time_series = self.time_series.set_index("ds")
+        self.time_series = self.time_series.resample(self.freq_detection_result.inferred_frequency).mean()
+        self.time_series = self.time_series.reset_index()
+        self.time_series["y"] = self.time_series["y"].interpolate(**self._preprocess_params["interpolation_kwargs"])
 
     def setup_fit_predict(self):
         """Sets up Prophet model and fits it on the self.time_series_data."""
-        if isinstance(self.time_series, TimeSeries):
-            self.time_series = self.time_series.pd_dataframe().reset_index()
 
         self._logs.debug(
             f"Anomaly Detection: Fitting prophet model with the following parameters:\n{self._detector_params}"
