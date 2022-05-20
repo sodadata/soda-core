@@ -12,7 +12,7 @@ class SodaCLCfg:
         self.for_each_table_cfgs: List[ForEachTableCfg] = []
         self.for_each_column_cfgs: List[ForEachColumnCfg] = []
 
-    def _get_or_create_data_source_scan_cfgs(self, data_source_name):
+    def get_or_create_data_source_scan_cfgs(self, data_source_name):
         data_source_scan_cfgs = self.data_source_scan_cfgs.get(data_source_name)
         if not data_source_scan_cfgs:
             data_source_scan_cfgs = DataSourceScanCfg(data_source_name)
