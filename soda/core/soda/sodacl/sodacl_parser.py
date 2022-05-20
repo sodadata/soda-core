@@ -1,9 +1,9 @@
 from __future__ import annotations
 
+import functools
 import logging
 import os
 import re
-import functools
 from builtins import isinstance
 from datetime import timedelta
 from numbers import Number
@@ -56,6 +56,7 @@ ALL_SCHEMA_VALIDATIONS = [
     WHEN_SCHEMA_CHANGES,
 ]
 
+
 def assert_header_content_is_dict(func):
     @functools.wraps(func)
     def handler(self, header_str, header_content):
@@ -66,6 +67,7 @@ def assert_header_content_is_dict(func):
                 f'Skipping section "{header_str}" because content is not an object/dict',
                 location=self.location,
             )
+
     return handler
 
 
