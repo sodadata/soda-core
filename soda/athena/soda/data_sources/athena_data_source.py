@@ -1,14 +1,13 @@
 from __future__ import annotations
 
-import logging
 import datetime
+import logging
 
+import pyathena
+from soda.cloud.aws.credentials import AwsCredentials
 from soda.common.exceptions import DataSourceConnectionError
 from soda.execution.data_source import DataSource
 from soda.execution.data_type import DataType
-from soda.cloud.aws.credentials import AwsCredentials
-
-import pyathena
 
 logger = logging.getLogger(__name__)
 
