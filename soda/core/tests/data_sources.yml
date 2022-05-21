@@ -30,3 +30,12 @@ data_source redshift:
     password: ${ env_var('REDSHIFT_PASSWORD') }
     database: ${ env_var('REDSHIFT_DATABASE', 'sodasql') }
     schema: ${ env_var('REDSHIFT_SCHEMA', 'public') }
+data_source athena:
+  type: athena
+  connection:
+    access_key_id: ${ env_var('ATHENA_ACCESS_KEY_ID') }
+    secret_access_key: ${ env_var('ATHENA_SECRET_ACCESS_KEY') }
+    region_name: ${ env_var('ATHENA_REGION_NAME', 'eu-west-1') }
+    staging_dir: ${ env_var('ATHENA_STAGING_DIR') }
+    database: ${ env_var('ATHENA_DATABASE') }
+    schema: ${ env_var('ATHENA_SCHEMA', 'public') }

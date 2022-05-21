@@ -42,11 +42,7 @@ class TestTableManager:
 
     def _get_existing_test_table_names(self):
         if not self.__existing_table_names.is_set():
-            # the filter is applied case insensitive by converting to lower case
-            # TODO: use get of data source instead of executing it here (once its available)
-            sql = self.data_source.sql_find_table_names(filter="sodatest_%")
-            rows = self.fetch_all(sql)
-            self.__existing_table_names.set([row[0] for row in rows])
+            self.__existing_table_names.set(self.data_source.get_table_names(filter="sodatest_%"))
         return self.__existing_table_names.get()
 
     def _drop_test_table(self, obsolete_table_name):
@@ -72,7 +68,7 @@ class TestTableManager:
             if test_table.quote_names
             else test_table.unique_table_name
         )
-        fully_qualified_table_name = self.data_source.prefix_table(quoted_table_name)
+        prefixed_table_name = self.data_source.prefix_table(quoted_table_name)
         columns = test_table.columns
         if test_table.quote_names:
             columns = [
@@ -85,7 +81,16 @@ class TestTableManager:
         columns_sql = ",\n".join(
             [f"  {column[0]} {self.data_source.get_sql_type_for_create_table(column[1])}" for column in columns]
         )
-        return f"CREATE TABLE {fully_qualified_table_name} ( \n" f"{columns_sql}\n" f");"
+
+        sql = f"CREATE TABLE {prefixed_table_name} ( \n{columns_sql} \n)"
+
+        # TODO: a bit of a hack, but there is no need to build anything around data source for inserting for now.
+        from tests.conftest import test_data_source
+
+        if test_data_source == "athena":
+            sql += f"LOCATION '{self.data_source.athena_staging_dir}/data/{prefixed_table_name}/' "
+
+        return sql
 
     def _insert_test_table_sql(self, test_table: TestTable) -> str:
         if test_table.values:
@@ -94,7 +99,7 @@ class TestTableManager:
                 if test_table.quote_names
                 else test_table.unique_table_name
             )
-            fully_qualified_table_name = self.data_source.prefix_table(quoted_table_name)
+            fully_qualified_table_name = self.data_source.fully_qualified_table_name(quoted_table_name)
 
             def sql_test_table_row(row):
                 return ",".join(self.data_source.literal(value) for value in row)

@@ -1,8 +1,14 @@
+import pytest
 from soda.execution.data_type import DataType
+from tests.conftest import test_data_source
 from tests.helpers.scanner import Scanner
 from tests.helpers.test_table import TestTable
 
 
+@pytest.mark.skipif(
+    test_data_source in ["athena"],
+    reason="Case sensitive identifiers not supported in testes data source.",
+)
 def test_row_count_thresholds_passing(scanner: Scanner):
     """
     Tests all passing thresholds on a simple row count
