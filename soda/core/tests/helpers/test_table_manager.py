@@ -84,7 +84,10 @@ class TestTableManager:
                 for test_column in test_columns
             ]
         columns_sql = ",\n".join(
-            [f"  {test_column.name} {self.data_source.get_sql_type_for_create_table(test_column.data_type)}" for test_column in test_columns]
+            [
+                f"  {test_column.name} {self.data_source.get_sql_type_for_create_table(test_column.data_type)}"
+                for test_column in test_columns
+            ]
         )
 
         sql = f"CREATE TABLE {prefixed_table_name} ( \n{columns_sql} \n)"

@@ -2,7 +2,6 @@ from soda.execution.data_type import DataType
 
 
 class TestColumn:
-
     def __init__(self, name: str, data_type: DataType):
         self.name: str = name
         self.data_type: DataType = data_type

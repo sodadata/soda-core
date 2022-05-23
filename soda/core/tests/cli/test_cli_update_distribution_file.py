@@ -1,6 +1,5 @@
 from textwrap import dedent
 
-import pytest
 from tests.cli.run_cli import run_cli
 from tests.helpers.common_test_tables import customers_test_table
 from tests.helpers.mock_file_system import MockFileSystem

@@ -37,9 +37,9 @@ class TestTable:
 
         self.name: str = name
         if len(columns) == 0 or isinstance(columns[0], TestColumn):
-            self.test_columns: List[TestColumn] = columns
+            self.test_columns: list[TestColumn] = columns
         else:
-            self.test_columns: List[TestColumn] = [TestColumn(column[0], column[1]) for column in columns]
+            self.test_columns: list[TestColumn] = [TestColumn(column[0], column[1]) for column in columns]
 
         self.values: list[tuple] = values
         self.quote_names: bool = quote_names
