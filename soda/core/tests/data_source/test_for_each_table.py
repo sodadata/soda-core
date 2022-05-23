@@ -1,3 +1,6 @@
+import pytest
+
+from tests.conftest import test_data_source
 from tests.helpers.common_test_tables import (
     customers_test_table,
     raw_customers_test_table,
@@ -27,3 +30,29 @@ def test_for_each_table(scanner: Scanner):
 
     scan.assert_all_checks_pass()
     assert len(scan._checks) == 4
+
+
+@pytest.mark.skipif(
+    test_data_source != "postgres",
+    reason="Run for postgres only as nothing data source specific is tested.",
+)
+def test_for_each_table_schema(scanner: Scanner):
+    customers_table_name = scanner.ensure_test_table(customers_test_table)
+    format_column_default = scanner.data_source.format_column_default
+
+    scan = scanner.create_test_scan()
+    scan.add_sodacl_yaml_str(
+        f"""
+          for each table T:
+            tables:
+              - {customers_table_name}
+            checks:
+              - schema:
+                  fail:
+                    when required column missing: [{format_column_default('id')}, {format_column_default('size')}]
+
+        """
+    )
+    scan.execute()
+
+    scan.assert_all_checks_pass()
