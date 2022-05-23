@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 import pytest
-from tests.helpers.scanner import Scanner
 from tests.helpers.common_test_tables import orders_test_table
+from tests.helpers.scanner import Scanner
 
 
 @pytest.mark.parametrize(

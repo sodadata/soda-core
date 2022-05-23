@@ -27,7 +27,7 @@ class SampleTablesRun:
         sample_tables_result: SampleTablesResult = SampleTablesResult(self.discover_tables_cfg)
         self.logs.info(f"Running discover tables for data source: {self.data_source_name}")
 
-        table_names: List[str] = self.data_source.get_table_names(
+        table_names: list[str] = self.data_source.get_table_names(
             include_tables=self.discover_tables_cfg.include_tables,
             exclude_tables=self.discover_tables_cfg.exclude_tables,
             query_name=f"{QUERY_PREFIX} get tables",
@@ -42,17 +42,15 @@ class SampleTablesRun:
                 data_source_scan=self.data_source_scan,
                 unqualified_query_name=f"{QUERY_PREFIX} get samples from table: {table_name}",
                 sql=sample_table_sql,
-                sample_name="table_sample"
+                sample_name="table_sample",
             )
             sample_table_query.store()
             sample_ref = sample_table_query.sample_ref
 
-            _ = sample_tables_result.create_table(
-                table_name, self.data_source_name, sample_ref
-            )
+            _ = sample_tables_result.create_table(table_name, self.data_source_name, sample_ref)
             self.logs.info(f"Successfully collected samples for table: {table_name}!")
 
         if not sample_tables_result.tables:
             self.logs.error(f"Sample tables for data source: {self.data_source_name} failed")
-            
+
         return sample_tables_result

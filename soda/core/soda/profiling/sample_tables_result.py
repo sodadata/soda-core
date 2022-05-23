@@ -1,6 +1,8 @@
 from typing import List
-from soda.sodacl.sample_tables_cfg import SampleTablesCfg
+
 from soda.sampler.sample_ref import SampleRef
+from soda.sodacl.sample_tables_cfg import SampleTablesCfg
+
 
 class SampleTablesResultTable:
     def __init__(self, table_name: str, data_source: str, sample_ref: SampleRef):
@@ -8,13 +10,14 @@ class SampleTablesResultTable:
         self.data_source: str = data_source
         self.sample_ref: sample_ref = sample_ref
 
-    def get_cloud_dict(self) -> dict: 
+    def get_cloud_dict(self) -> dict:
         cloud_dict = {
             "table": self.table_name,
             "dataSource": self.data_source,
-            "sampleFile": self.sample_ref.get_cloud_diagnostics_dict()
+            "sampleFile": self.sample_ref.get_cloud_diagnostics_dict(),
         }
         return cloud_dict
+
 
 class SampleTablesResult:
     def __init__(self, sample_tables_cfg: SampleTablesCfg):
