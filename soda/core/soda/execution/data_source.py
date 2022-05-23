@@ -157,6 +157,12 @@ class DataSource:
     # SQL Queries
     ######################
 
+    def sql_get_table(self, table_name: str, limit: int = None) -> str:
+        sql = f"SELECT * \n" f"FROM {table_name.lower()}"
+        if limit is not None:
+            sql += f" \n LIMIT {limit}"
+        return sql
+
     def sql_to_get_column_metadata_for_table(self, table_name: str) -> str:
         sql = (
             f"SELECT column_name, data_type, is_nullable \n"

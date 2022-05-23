@@ -5,6 +5,7 @@ from soda.execution.discover_tables_run import DiscoverTablesRun
 from soda.execution.metric import Metric
 from soda.execution.profile_columns_run import ProfileColumnsRun
 from soda.execution.query import Query
+from soda.execution.sample_tables_run import SampleTablesRun
 from soda.execution.table import Table
 from soda.sodacl.data_source_scan_cfg import DataSourceScanCfg
 
@@ -74,3 +75,6 @@ class DataSourceScan:
 
     def create_discover_tables_run(self, discover_tables_cfg, scan):
         return DiscoverTablesRun(self, discover_tables_cfg)
+
+    def create_sample_tables_run(self, discover_tables_cfg):
+        return SampleTablesRun(self, discover_tables_cfg)

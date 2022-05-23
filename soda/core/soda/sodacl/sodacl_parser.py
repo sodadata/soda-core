@@ -29,6 +29,7 @@ from soda.sodacl.name_filter import NameFilter
 from soda.sodacl.profile_columns_cfg import ProfileColumnsCfg
 from soda.sodacl.reference_check_cfg import ReferenceCheckCfg
 from soda.sodacl.row_count_comparison_check_cfg import RowCountComparisonCheckCfg
+from soda.sodacl.sample_tables_cfg import SampleTablesCfg
 from soda.sodacl.schema_check_cfg import SchemaCheckCfg, SchemaValidations
 from soda.sodacl.sodacl_cfg import SodaCLCfg
 from soda.sodacl.table_cfg import TableCfg
@@ -1253,6 +1254,12 @@ class SodaCLParser(Parser):
             self.logs.error('Configuration key "columns" is required in profile columns', location=self.location)
         else:
             self.logs.error('Content of "columns" must be a list of column expressions', location=self.location)
+
+    @assert_header_content_is_dict
+    def __parse_sample_datasets_section(self, header_str, header_content):
+        sample_tables_cfg = SampleTablesCfg(self.data_source_name, self.location)
+        self.__parse_tables(header_content, sample_tables_cfg)
+        self.get_data_source_scan_cfgs().add_sample_tables_cfg(sample_tables_cfg)
 
     def __parse_nameset_list(self, header_content, for_each_cfg):
         for name_filter_index, name_filter_str in enumerate(header_content):
