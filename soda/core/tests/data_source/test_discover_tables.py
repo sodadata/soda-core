@@ -103,6 +103,29 @@ from tests.helpers.scanner import Scanner
                         }
                     ]
                 },
+                "athena": {
+                    "metadata": [
+                        {
+                            "table": "sodatest_customers_profiling_bbf94d22",
+                            "dataSource": "postgres",
+                            "rowCount": 10,
+                            "schema": [
+                                {"columnName": "id", "sourceDataType": "varchar"},
+                                {"columnName": "size", "sourceDataType": "double"},
+                                {"columnName": "sizetxt", "sourceDataType": "varchar"},
+                                {"columnName": "distance", "sourceDataType": "integer"},
+                                {"columnName": "pct", "sourceDataType": "varchar"},
+                                {"columnName": "cat", "sourceDataType": "varchar"},
+                                {"columnName": "country", "sourceDataType": "varchar"},
+                                {"columnName": "zip", "sourceDataType": "varchar"},
+                                {"columnName": "email", "sourceDataType": "varchar"},
+                                {"columnName": "date", "sourceDataType": "date"},
+                                {"columnName": "ts", "sourceDataType": "timestamp"},
+                                {"columnName": "ts_with_tz", "sourceDataType": "timestamp"},
+                            ],
+                        }
+                    ]
+                },
             },
             id="customer table only",
         )

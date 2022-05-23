@@ -50,6 +50,7 @@ jobs:
           - "snowflake"
           - "bigquery"
           - "redshift"
+          - "athena"
     env:
       DATA_SOURCE: ${{ matrix.data-source }}
       PYTHON_VERSION: ${{ matrix.python-version }}
@@ -66,6 +67,10 @@ jobs:
       REDSHIFT_PASSWORD: ${{ secrets.REDSHIFT_PASSWORD }}
       REDSHIFT_DATABASE: "soda_test"
       REDSHIFT_PORT: "5439"
+      ATHENA_ACCESS_KEY_ID: ${{ secrets.ATHENA_ACCESS_KEY_ID }}
+      ATHENA_SECRET_ACCESS_KEY: ${{ secrets.ATHENA_SECRET_ACCESS_KEY }}
+      ATHENA_STAGING_DIR: ${{ secrets.ATHENA_STAGING_DIR }}
+      ATHENA_DATABASE: ${{ secrets.ATHENA_DATABASE }}
 
     steps:
       - uses: actions/checkout@v2
