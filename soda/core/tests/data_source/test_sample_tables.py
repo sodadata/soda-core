@@ -10,8 +10,7 @@ from tests.helpers.scanner import Scanner
     [
         pytest.param(
             {
-                "postgres":
-                    {
+                "postgres": {
                     "table": "sodatest_orders_f7532be6",
                     "dataSource": "postgres",
                     "sampleFile": {
@@ -26,10 +25,9 @@ from tests.helpers.scanner import Scanner
                         "totalRowCount": 7,
                         "storedRowCount": 7,
                         "reference": {"type": "sodaCloudStorage", "fileId": "file-0"},
-                        },
                     },
-                "athena":
-                    {
+                },
+                "athena": {
                     "table": "sodatest_orders_f7532be6",
                     "dataSource": "athena",
                     "sampleFile": {
@@ -44,10 +42,9 @@ from tests.helpers.scanner import Scanner
                         "totalRowCount": 7,
                         "storedRowCount": 7,
                         "reference": {"type": "sodaCloudStorage", "fileId": "file-0"},
-                        },
                     },
-                "snowflake":
-                    {
+                },
+                "snowflake": {
                     "table": "SODATEST_ORDERS_F7532BE6",
                     "dataSource": "snowflake",
                     "sampleFile": {
@@ -62,9 +59,43 @@ from tests.helpers.scanner import Scanner
                         "totalRowCount": 7,
                         "storedRowCount": 7,
                         "reference": {"type": "sodaCloudStorage", "fileId": "file-0"},
-                        },
                     },
-        },
+                },
+                "redshift": {
+                    "table": "SODATEST_ORDERS_F7532BE6",
+                    "dataSource": "redshift",
+                    "sampleFile": {
+                        "columns": [
+                            {"name": "ID", "type": "2"},
+                            {"name": "CUSTOMER_ID_NOK", "type": "2"},
+                            {"name": "CUSTOMER_ID_OK", "type": "2"},
+                            {"name": "CUSTOMER_COUNTRY", "type": "2"},
+                            {"name": "CUSTOMER_ZIP", "type": "2"},
+                            {"name": "TEXT", "type": "2"},
+                        ],
+                        "totalRowCount": 7,
+                        "storedRowCount": 7,
+                        "reference": {"type": "sodaCloudStorage", "fileId": "file-0"},
+                    },
+                },
+                "bigquery": {
+                    "table": "SODATEST_ORDERS_F7532BE6",
+                    "dataSource": "bigquery",
+                    "sampleFile": {
+                        "columns": [
+                            {"name": "ID", "type": "2"},
+                            {"name": "CUSTOMER_ID_NOK", "type": "2"},
+                            {"name": "CUSTOMER_ID_OK", "type": "2"},
+                            {"name": "CUSTOMER_COUNTRY", "type": "2"},
+                            {"name": "CUSTOMER_ZIP", "type": "2"},
+                            {"name": "TEXT", "type": "2"},
+                        ],
+                        "totalRowCount": 7,
+                        "storedRowCount": 7,
+                        "reference": {"type": "sodaCloudStorage", "fileId": "file-0"},
+                    },
+                },
+            },
             id="orders table only",
         )
     ],
