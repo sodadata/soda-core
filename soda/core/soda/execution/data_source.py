@@ -153,18 +153,26 @@ class DataSource:
 
         return expected_type == actual_type
 
+    @staticmethod
+    def column_metadata_columns() -> list:
+        return ["column_name", "data_type", "is_nullable"]
+
+    @staticmethod
+    def column_metadata_catalog_column() -> str:
+        return "table_catalog"
+
     ######################
     # SQL Queries
     ######################
 
     def sql_to_get_column_metadata_for_table(self, table_name: str) -> str:
         sql = (
-            f"SELECT column_name, data_type, is_nullable \n"
+            f"SELECT {', '.join(self.column_metadata_columns())} \n"
             f"FROM information_schema.columns \n"
             f"WHERE lower(table_name) = '{table_name.lower()}'"
         )
         if self.database:
-            sql += f" \n  AND lower(table_catalog) = '{self.database.lower()}'"
+            sql += f" \n  AND lower({self.column_metadata_catalog_column()}) = '{self.database.lower()}'"
         if self.schema:
             sql += f" \n  AND lower(table_schema) = '{self.schema.lower()}'"
 
@@ -463,6 +471,9 @@ class DataSource:
                 unqualified_query_name=f"analyze_{table}",
                 sql=self.sql_analyze_table(table),
             ).execute()
+
+    def fully_qualified_table_name(self, table_name) -> str:
+        return self.prefix_table(table_name)
 
     def quote_table_declaration(self, table_name) -> str:
         return self.quote_table(table_name=table_name)
