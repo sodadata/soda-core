@@ -185,10 +185,6 @@ class DataSourceImpl(DataSource):
         return f"{self.project_id}.{self.dataset_name}.INFORMATION_SCHEMA.TABLES"
 
     @staticmethod
-    def format_column_default(identifier: str) -> str:
-        return identifier
-
-    @staticmethod
     def format_type_default(identifier: str) -> str:
         return identifier.upper()
 
