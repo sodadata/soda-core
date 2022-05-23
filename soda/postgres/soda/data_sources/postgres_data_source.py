@@ -53,11 +53,11 @@ class DataSourceImpl(DataSource):
         return super().get_metric_sql_aggregation_expression(metric_name, metric_args, expr)
 
     @staticmethod
-    def format_column_default(identifier: str) -> str:
+    def actual_column_name(identifier: str) -> str:
         return identifier.lower()
 
     @staticmethod
-    def format_type_default(identifier: str) -> str:
+    def actual_type_name(identifier: str) -> str:
         return identifier.lower()
 
     def safe_connection_data(self):

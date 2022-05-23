@@ -123,11 +123,11 @@ class DataSourceImpl(DataSource):
         return f"SELECT table_name, row_count \n" f"FROM information_schema.tables" f"{where_clause}"
 
     @staticmethod
-    def format_column_default(identifier: str) -> str:
+    def actual_column_name(identifier: str) -> str:
         return identifier.upper()
 
     @staticmethod
-    def format_type_default(identifier: str) -> str:
+    def actual_type_name(identifier: str) -> str:
         return identifier.upper()
 
     def safe_connection_data(self):

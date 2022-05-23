@@ -36,14 +36,12 @@ def test_columns_types_fail(scanner: Scanner):
         indent=15,
         data_source=scanner.data_source,
     )
-    table_name = scanner.ensure_test_table(customers_test_table)
-    format_column_default = scanner.data_source.format_column_default
-    format_type_default = scanner.data_source.format_type_default
+    actual_table_name = scanner.ensure_test_table(customers_test_table)
 
     scan = scanner.create_test_scan()
     scan.add_sodacl_yaml_str(
         f"""
-      checks for {table_name}:
+      checks for {actual_table_name}:
         - schema:
             fail:
               when wrong column type:
@@ -55,10 +53,10 @@ def test_columns_types_fail(scanner: Scanner):
     check = scan._checks[0]
 
     assert check.outcome == CheckOutcome.FAIL
-    assert check.schema_missing_column_names == [format_column_default("does_not_exist")]
+    assert check.schema_missing_column_names == [scanner.actual_column_name("does_not_exist")]
     assert check.schema_column_type_mismatches == {
-        format_column_default("id"): {
-            "expected_type": format_type_default("integer"),
+        scanner.actual_column_name("id"): {
+            "expected_type": scanner.actual_type_name("integer"),
             "actual_type": scanner.data_source.get_sql_type_for_schema_check(DataType.TEXT),
         }
     }
@@ -70,14 +68,12 @@ def test_columns_types_warn(scanner: Scanner):
         indent=15,
         data_source=scanner.data_source,
     )
-    format_column_default = scanner.data_source.format_column_default
-    format_type_default = scanner.data_source.format_type_default
-    table_name = scanner.ensure_test_table(customers_test_table)
+    actual_table_name = scanner.ensure_test_table(customers_test_table)
 
     scan = scanner.create_test_scan()
     scan.add_sodacl_yaml_str(
         f"""
-      checks for {table_name}:
+      checks for {actual_table_name}:
         - schema:
             warn:
               when wrong column type:
@@ -89,10 +85,10 @@ def test_columns_types_warn(scanner: Scanner):
     check = scan._checks[0]
 
     assert check.outcome == CheckOutcome.WARN
-    assert check.schema_missing_column_names == [format_column_default("does_not_exist")]
+    assert check.schema_missing_column_names == [scanner.actual_column_name("does_not_exist")]
     assert check.schema_column_type_mismatches == {
-        format_column_default("id"): {
-            "expected_type": format_type_default("integer"),
+        scanner.actual_column_name("id"): {
+            "expected_type": scanner.actual_type_name("integer"),
             "actual_type": scanner.data_source.get_sql_type_for_schema_check(DataType.TEXT),
         }
     }

@@ -8,11 +8,11 @@ def format_checks(checks: list, prefix: str = "", indent: int = 0, data_source: 
     checks_str = ""
     for check in checks:
         if isinstance(check, tuple):
-            identifier = data_source.format_column_default(check[0]) if data_source else check[0]
-            type = data_source.format_type_default(check[1]) if data_source else check[1]
+            identifier = data_source.actual_column_name(check[0]) if data_source else check[0]
+            type = data_source.actual_type_name(check[1]) if data_source else check[1]
             checks_str += f"{indent_str}{prefix} {identifier}: {type}\n"
         elif isinstance(check, str):
-            identifier = data_source.format_column_default(check) if data_source else check
+            identifier = data_source.actual_column_name(check) if data_source else check
             checks_str += f"{indent_str}{prefix} {identifier}\n"
 
     return checks_str
@@ -21,8 +21,8 @@ def format_checks(checks: list, prefix: str = "", indent: int = 0, data_source: 
 def derive_schema_metric_value_from_test_table(test_table, data_source: DataSource):
     return [
         {
-            "columnName": data_source.format_column_default(column[0]),
-            "sourceDataType": data_source.get_sql_type_for_schema_check(column[1]),
+            "columnName": data_source.actual_column_name(test_column.name),
+            "sourceDataType": data_source.get_sql_type_for_schema_check(test_column.data_type),
         }
-        for column in test_table.columns
+        for test_column in test_table.test_columns
     ]

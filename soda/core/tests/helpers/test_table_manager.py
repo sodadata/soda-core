@@ -38,6 +38,11 @@ class TestTableManager:
 
             # Run analyze table so that metadata works if applicable.
             self.data_source.analyze_table(test_table.unique_table_name)
+
+        # initializing the actual namees
+        test_table.actual_name = self.data_source.actual_table_name(test_table.unique_table_name)
+        for test_column in test_table.test_columns:
+            test_column.actual_name = self.data_source.actual_column_name(test_column.name)
         return test_table.unique_table_name
 
     def _get_existing_test_table_names(self):
@@ -69,17 +74,17 @@ class TestTableManager:
             else test_table.unique_table_name
         )
         prefixed_table_name = self.data_source.prefix_table(quoted_table_name)
-        columns = test_table.columns
+        test_columns = test_table.test_columns
         if test_table.quote_names:
-            columns = [
+            test_columns = [
                 (
-                    self.data_source.quote_column_declaration(column[0]),
-                    column[1],
+                    self.data_source.quote_column_declaration(test_column.name),
+                    test_column.data_type,
                 )
-                for column in columns
+                for test_column in test_columns
             ]
         columns_sql = ",\n".join(
-            [f"  {column[0]} {self.data_source.get_sql_type_for_create_table(column[1])}" for column in columns]
+            [f"  {test_column.name} {self.data_source.get_sql_type_for_create_table(test_column.data_type)}" for test_column in test_columns]
         )
 
         sql = f"CREATE TABLE {prefixed_table_name} ( \n{columns_sql} \n)"

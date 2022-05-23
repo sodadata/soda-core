@@ -8,7 +8,7 @@ from tests.helpers.scanner import Scanner
 
 
 # TODO: add some tests that can assert the generated query
-@pytest.mark.skip("test takes too long")
+# @pytest.mark.skip("test takes too long")
 def test_cli_update_distribution_file(scanner: Scanner, mock_file_system: MockFileSystem, data_source_config_str: str):
     table_name = scanner.ensure_test_table(customers_test_table)
 
