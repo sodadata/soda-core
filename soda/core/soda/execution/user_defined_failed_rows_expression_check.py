@@ -60,7 +60,7 @@ class UserDefinedFailedRowsExpressionCheck(Check):
     def get_failed_rows_sql(self) -> str:
         sql = (
             f"SELECT * \n"
-            f"FROM {self.partition.table.prefixed_table_name} \n"
+            f"FROM {self.partition.table.fully_qualified_table_name} \n"
             f"WHERE ({self.check_cfg.fail_condition_sql_expr})"
         )
         partition_filter = self.partition.sql_partition_filter

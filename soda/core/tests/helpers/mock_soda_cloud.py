@@ -88,7 +88,9 @@ class MockSodaCloud(SodaCloud):
         if type(historic_descriptor) == HistoricChangeOverTimeDescriptor and historic_descriptor.change_over_time_cfg:
             change_over_time_aggregation = historic_descriptor.change_over_time_cfg.last_aggregation
             if change_over_time_aggregation in ["avg", "min", "max"]:
-                historic_metric_values = self.__get_historic_metric_values(historic_descriptor.metric)
+                historic_metric_values = self.__get_historic_metric_values(historic_descriptor.metric_identity)[
+                    "results"
+                ]
 
                 max_historic_values = historic_descriptor.change_over_time_cfg.last_measurements
 

@@ -8,11 +8,14 @@ if sys.version_info < (3, 8):
     print("Error: Please upgrade your Python version to 3.8 or later")
     sys.exit(1)
 
-package_name = "soda-core-redshift"
+package_name = "soda-core-athena"
 package_version = "3.0.0b15"
-description = "Soda Core Redshift Package"
+description = "Soda Core Athena Package"
 
-requires = [f"soda-core=={package_version}", "boto3"]
+requires = [
+    f"soda-core=={package_version}",
+    "PyAthena>=2.2.0, <3.0",
+]
 # TODO Fix the params
 setup(
     name=package_name,
