@@ -55,7 +55,7 @@ class DataSourceImpl(DataSource):
     }
     SQL_TYPE_FOR_CREATE_TABLE_MAP: dict = {
         DataType.TEXT: "string",
-        DataType.INTEGER: "integer",
+        DataType.INTEGER: "int",
         DataType.DECIMAL: "double",
         DataType.DATE: "date",
         DataType.TIME: "date",

@@ -85,9 +85,7 @@ class TestTableManager:
         sql = f"CREATE TABLE {prefixed_table_name} ( \n{columns_sql} \n)"
 
         # TODO: a bit of a hack, but there is no need to build anything around data source for inserting for now.
-        from tests.conftest import test_data_source
-
-        if test_data_source == "athena":
+        if self.data_source.type == "athena":
             sql += f"LOCATION '{self.data_source.athena_staging_dir}/data/{prefixed_table_name}/' "
 
         return sql
