@@ -10,22 +10,61 @@ from tests.helpers.scanner import Scanner
     [
         pytest.param(
             {
-                "table": "sodatest_orders_f7532be6",
-                "dataSource": "postgres",
-                "sampleFile": {
-                    "columns": [
-                        {"name": "id", "type": "varchar"},
-                        {"name": "customer_id_nok", "type": "varchar"},
-                        {"name": "customer_id_ok", "type": "varchar"},
-                        {"name": "customer_country", "type": "varchar"},
-                        {"name": "customer_zip", "type": "varchar"},
-                        {"name": "text", "type": "varchar"},
-                    ],
-                    "totalRowCount": 7,
-                    "storedRowCount": 7,
-                    "reference": {"type": "sodaCloudStorage", "fileId": "file-0"},
-                },
-            },
+                "postgres":
+                    {
+                    "table": "sodatest_orders_f7532be6",
+                    "dataSource": "postgres",
+                    "sampleFile": {
+                        "columns": [
+                            {"name": "id", "type": "varchar"},
+                            {"name": "customer_id_nok", "type": "varchar"},
+                            {"name": "customer_id_ok", "type": "varchar"},
+                            {"name": "customer_country", "type": "varchar"},
+                            {"name": "customer_zip", "type": "varchar"},
+                            {"name": "text", "type": "varchar"},
+                        ],
+                        "totalRowCount": 7,
+                        "storedRowCount": 7,
+                        "reference": {"type": "sodaCloudStorage", "fileId": "file-0"},
+                        },
+                    },
+                "athena":
+                    {
+                    "table": "sodatest_orders_f7532be6",
+                    "dataSource": "athena",
+                    "sampleFile": {
+                        "columns": [
+                            {"name": "id", "type": "varchar"},
+                            {"name": "customer_id_nok", "type": "varchar"},
+                            {"name": "customer_id_ok", "type": "varchar"},
+                            {"name": "customer_country", "type": "varchar"},
+                            {"name": "customer_zip", "type": "varchar"},
+                            {"name": "text", "type": "varchar"},
+                        ],
+                        "totalRowCount": 7,
+                        "storedRowCount": 7,
+                        "reference": {"type": "sodaCloudStorage", "fileId": "file-0"},
+                        },
+                    },
+                "snowflake":
+                    {
+                    "table": "SODATEST_ORDERS_F7532BE6",
+                    "dataSource": "snowflake",
+                    "sampleFile": {
+                        "columns": [
+                            {"name": "ID", "type": "2"},
+                            {"name": "CUSTOMER_ID_NOK", "type": "2"},
+                            {"name": "CUSTOMER_ID_OK", "type": "2"},
+                            {"name": "CUSTOMER_COUNTRY", "type": "2"},
+                            {"name": "CUSTOMER_ZIP", "type": "2"},
+                            {"name": "TEXT", "type": "2"},
+                        ],
+                        "totalRowCount": 7,
+                        "storedRowCount": 7,
+                        "reference": {"type": "sodaCloudStorage", "fileId": "file-0"},
+                        },
+                    },
+        },
             id="orders table only",
         )
     ],
@@ -46,9 +85,9 @@ def test_sample_tables(cloud_dict_expectation: dict, scanner: Scanner):
     scan.execute()
     # remove the data source name because it's a pain to test
     discover_tables_result = mock_soda_cloud.pop_scan_result()
-    cloud_dict_expectation["dataSource"] = scan._data_source_name
+
     assert discover_tables_result is not None
-    assert discover_tables_result["profiling"][0] == cloud_dict_expectation
+    assert discover_tables_result["profiling"][0] == cloud_dict_expectation[scan._data_source_name]
 
 
 @pytest.mark.parametrize(

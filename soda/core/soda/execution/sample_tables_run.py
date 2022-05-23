@@ -25,7 +25,7 @@ class SampleTablesRun:
 
     def run(self) -> SampleTablesResult:
         sample_tables_result: SampleTablesResult = SampleTablesResult(self.discover_tables_cfg)
-        self.logs.info(f"Running discover tables for data source: {self.data_source_name}")
+        self.logs.info(f"Running sample tables for data source: {self.data_source_name}")
 
         table_names: list[str] = self.data_source.get_table_names(
             include_tables=self.discover_tables_cfg.include_tables,
