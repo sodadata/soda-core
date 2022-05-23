@@ -3,4 +3,5 @@
 ./soda/bigquery
 ./soda/snowflake
 ./soda/redshift
+./soda/athena
 ./soda/scientific
