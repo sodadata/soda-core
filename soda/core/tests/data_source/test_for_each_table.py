@@ -47,9 +47,12 @@ def test_for_each_table_schema(scanner: Scanner):
               - {customers_table_name}
             checks:
               - schema:
+                  warn:
+                    when required column missing: [{format_column_default('id')}]
                   fail:
-                    when required column missing: [{format_column_default('id')}, {format_column_default('size')}]
-
+                    when forbidden column present:
+                      - ssn
+                      - credit_card%
         """
     )
     scan.execute()
