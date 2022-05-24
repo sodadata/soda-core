@@ -205,9 +205,9 @@ class ProfileColumnsRun:
                 f"Column: {column_name} in table: {table_name} is skipped from profiling."
             )
         else:
-            self.logs.info(
-                f"No profiling information derived for column {column_name} in {table_name}, "
-                f"because its data type: {column_type} is not supported as part of numeric profiling."
+            self.logs.error(
+                f"No profiling information derived for column {column_name} in {table_name} and type: {column_type}. "
+                "Soda Core could not create a column result."
             )
 
     def profile_text_column(
@@ -284,9 +284,9 @@ class ProfileColumnsRun:
                 f"Column: {column_name} in table: {table_name} is skipped from profiling."
             )
         else:
-            self.logs.info(
-                f"No profiling information derived for column {column_name} in {table_name}, "
-                f"because its data type: {column_type} is not supported as part of text profiling."
+            self.logs.error(
+                f"No profiling information derived for column {column_name} in {table_name} and type: {column_type}. "
+                "Soda Core could not create a column result."
             )
 
     def build_profiling_column(
