@@ -5,13 +5,10 @@ import logging
 from textwrap import dedent
 
 import pyathena
-from textwrap import dedent
-
 from soda.cloud.aws.credentials import AwsCredentials
 from soda.common.exceptions import DataSourceConnectionError
 from soda.execution.data_source import DataSource
 from soda.execution.data_type import DataType
-
 
 logger = logging.getLogger(__name__)
 
