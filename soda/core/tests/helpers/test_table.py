@@ -3,7 +3,7 @@ from __future__ import annotations
 import hashlib
 
 from soda.common.json_helper import JsonHelper
-from soda.execution.data_type import DataType
+from tests.helpers.test_column import TestColumn
 
 
 class TestTable:
@@ -19,7 +19,7 @@ class TestTable:
     def __init__(
         self,
         name: str,
-        columns: list[tuple[str, DataType]],
+        columns: list[tuple[str, str]] | list[TestColumn],
         values: list[tuple] = None,
         quote_names: bool = False,
     ):
@@ -34,7 +34,11 @@ class TestTable:
         TestTable.__names.append(name)
 
         self.name: str = name
-        self.columns: list[tuple[str, DataType]] = columns
+        if len(columns) == 0 or isinstance(columns[0], TestColumn):
+            self.test_columns: list[TestColumn] = columns
+        else:
+            self.test_columns: list[TestColumn] = [TestColumn(column[0], column[1]) for column in columns]
+
         self.values: list[tuple] = values
         self.quote_names: bool = quote_names
         self.unique_table_name = f"SODATEST_{name}_{self.__test_table_hash()}"
@@ -43,7 +47,7 @@ class TestTable:
         json_text = JsonHelper.to_json(
             [
                 self.name,
-                list(self.columns),
+                [test_column.to_hashable_json() for test_column in self.test_columns],
                 list(self.values) if self.values else None,
             ]
         )
