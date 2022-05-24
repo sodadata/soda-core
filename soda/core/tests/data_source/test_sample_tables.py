@@ -79,16 +79,16 @@ from tests.helpers.scanner import Scanner
                     },
                 },
                 "bigquery": {
-                    "table": "sodatest_orders_f7532be6",
+                    "table": "SODATEST_Orders_f7532be6",
                     "dataSource": "bigquery",
                     "sampleFile": {
                         "columns": [
-                            {"name": "id", "type": "1043"},
-                            {"name": "customer_id_nok", "type": "1043"},
-                            {"name": "customer_id_ok", "type": "1043"},
-                            {"name": "customer_country", "type": "1043"},
-                            {"name": "customer_zip", "type": "1043"},
-                            {"name": "text", "type": "1043"},
+                            {"name": "id", "type": "STRING"},
+                            {"name": "customer_id_nok", "type": "STRING"},
+                            {"name": "customer_id_ok", "type": "STRING"},
+                            {"name": "customer_country", "type": "STRING"},
+                            {"name": "customer_zip", "type": "STRING"},
+                            {"name": "text", "type": "STRING"},
                         ],
                         "totalRowCount": 7,
                         "storedRowCount": 7,
