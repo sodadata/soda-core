@@ -7,14 +7,14 @@ from tests.helpers.utils import format_checks
 def test_required_columns_pass(scanner: Scanner):
     table_name = scanner.ensure_test_table(customers_test_table)
 
-    actual_column_name = scanner.data_source.actual_column_name
+    default_casify_column_name = scanner.data_source.default_casify_column_name
     scan = scanner.create_test_scan()
     scan.add_sodacl_yaml_str(
         f"""
       checks for {table_name}:
         - schema:
             fail:
-              when required column missing: [{actual_column_name('id')}, {actual_column_name('sizeTxt')}, {actual_column_name('distance')}]
+              when required column missing: [{default_casify_column_name('id')}, {default_casify_column_name('sizeTxt')}, {default_casify_column_name('distance')}]
     """
     )
     scan.execute()
@@ -24,7 +24,7 @@ def test_required_columns_pass(scanner: Scanner):
 
 def test_required_columns_fail(scanner: Scanner):
     table_name = scanner.ensure_test_table(customers_test_table)
-    actual_column_name = scanner.data_source.actual_column_name
+    default_casify_column_name = scanner.data_source.default_casify_column_name
 
     scan = scanner.create_test_scan()
     checks_str = format_checks(
@@ -47,13 +47,13 @@ def test_required_columns_fail(scanner: Scanner):
     scan.assert_all_checks_fail()
     check: SchemaCheck = scan._checks[0]
     assert sorted(check.schema_missing_column_names) == sorted(
-        [actual_column_name("non_existing_column"), actual_column_name("name")]
+        [default_casify_column_name("non_existing_column"), default_casify_column_name("name")]
     )
 
 
 def test_required_columns_warn(scanner: Scanner):
     table_name = scanner.ensure_test_table(customers_test_table)
-    actual_column_name = scanner.data_source.actual_column_name
+    default_casify_column_name = scanner.data_source.default_casify_column_name
 
     scan = scanner.create_test_scan()
     checks_str = format_checks(
@@ -76,5 +76,5 @@ def test_required_columns_warn(scanner: Scanner):
     scan.assert_all_checks_warn()
     check: SchemaCheck = scan._checks[0]
     assert sorted(check.schema_missing_column_names) == sorted(
-        [actual_column_name("non_existing_column"), actual_column_name("name")]
+        [default_casify_column_name("non_existing_column"), default_casify_column_name("name")]
     )

@@ -36,12 +36,12 @@ def test_columns_types_fail(scanner: Scanner):
         indent=15,
         data_source=scanner.data_source,
     )
-    actual_table_name = scanner.ensure_test_table(customers_test_table)
+    table_name = scanner.ensure_test_table(customers_test_table)
 
     scan = scanner.create_test_scan()
     scan.add_sodacl_yaml_str(
         f"""
-      checks for {actual_table_name}:
+      checks for {table_name}:
         - schema:
             fail:
               when wrong column type:
@@ -53,11 +53,15 @@ def test_columns_types_fail(scanner: Scanner):
     check = scan._checks[0]
 
     assert check.outcome == CheckOutcome.FAIL
-    assert check.schema_missing_column_names == [scanner.actual_column_name("does_not_exist")]
+
+    data_source = scanner.data_source
+    default_casify_column_name = data_source.default_casify_column_name
+
+    assert check.schema_missing_column_names == [default_casify_column_name("does_not_exist")]
     assert check.schema_column_type_mismatches == {
-        scanner.actual_column_name("id"): {
-            "expected_type": scanner.actual_type_name("integer"),
-            "actual_type": scanner.data_source.get_sql_type_for_schema_check(DataType.TEXT),
+        default_casify_column_name("id"): {
+            "expected_type": data_source.default_casify_type_name("integer"),
+            "actual_type": data_source.get_sql_type_for_schema_check(DataType.TEXT)
         }
     }
 
@@ -68,12 +72,12 @@ def test_columns_types_warn(scanner: Scanner):
         indent=15,
         data_source=scanner.data_source,
     )
-    actual_table_name = scanner.ensure_test_table(customers_test_table)
+    table_name = scanner.ensure_test_table(customers_test_table)
 
     scan = scanner.create_test_scan()
     scan.add_sodacl_yaml_str(
         f"""
-      checks for {actual_table_name}:
+      checks for {table_name}:
         - schema:
             warn:
               when wrong column type:
@@ -85,10 +89,14 @@ def test_columns_types_warn(scanner: Scanner):
     check = scan._checks[0]
 
     assert check.outcome == CheckOutcome.WARN
-    assert check.schema_missing_column_names == [scanner.actual_column_name("does_not_exist")]
+
+    data_source = scanner.data_source
+    default_casify_column_name = data_source.default_casify_column_name
+
+    assert check.schema_missing_column_names == [default_casify_column_name("does_not_exist")]
     assert check.schema_column_type_mismatches == {
-        scanner.actual_column_name("id"): {
-            "expected_type": scanner.actual_type_name("integer"),
-            "actual_type": scanner.data_source.get_sql_type_for_schema_check(DataType.TEXT),
+        default_casify_column_name("id"): {
+            "expected_type": data_source.default_casify_type_name("integer"),
+            "actual_type": data_source.get_sql_type_for_schema_check(DataType.TEXT)
         }
     }

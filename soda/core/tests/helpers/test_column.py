@@ -2,11 +2,10 @@ from __future__ import annotations
 
 
 class TestColumn:
+
     def __init__(self, name: str, data_type: str):
         self.name: str = name
         self.data_type: str = data_type
-        # self.actual_name is the actual name in the data source and it is initialized in the TestTableManager.ensure_test_table
-        self.actual_name: str | None = None
 
     def __hash__(self):
         return

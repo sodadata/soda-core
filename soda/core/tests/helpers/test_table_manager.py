@@ -40,11 +40,12 @@ class TestTableManager:
             # Run analyze table so that metadata works if applicable.
             self.data_source.analyze_table(test_table.unique_table_name)
 
-        # initializing the actual namees
-        test_table.actual_name = self.data_source.actual_table_name(test_table.unique_table_name)
-        for test_column in test_table.test_columns:
-            test_column.actual_name = self.data_source.actual_column_name(test_column.name)
-        return test_table.unique_table_name
+        return (
+            # If quoting is used, the actual test table is exactly as specified in the test table
+            self.data_source.default_casify_table_name(test_table.unique_table_name) if test_table.quote_names
+            # if quoting is not used, the actual test table names depends on the default behavior of the data source
+            else test_table.unique_table_name
+        )
 
     def _get_existing_test_table_names(self):
         if not self.__existing_table_names.is_set():

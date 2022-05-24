@@ -42,8 +42,6 @@ class TestTable:
         self.values: list[tuple] = values
         self.quote_names: bool = quote_names
         self.unique_table_name = f"SODATEST_{name}_{self.__test_table_hash()}"
-        # self.actual_name is the actual name in the data source and it is initialized in the TestTableManager.ensure_test_table
-        self.actual_name = None
 
     def __test_table_hash(self):
         json_text = JsonHelper.to_json(
