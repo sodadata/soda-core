@@ -132,14 +132,3 @@ class DataSourceImpl(DataSource):
         self, include_tables: list[str] | None = None, exclude_tables: list[str] | None = None
     ) -> str:
         return ""
-
-    def profiling_sql_cte_value_frequencies(self, table_name: str, column_name: str) -> str:
-        """Same as the inherited method, only difference is that Athena wants original column name in the GROUP BY clause instead of the alias name."""
-        column_name = self.quote_column(column_name)
-        return dedent(
-            f"""
-                SELECT {column_name} as value_name, count(*) as frequency
-                FROM {table_name}
-                GROUP BY {column_name}
-            """
-        )
