@@ -3,6 +3,7 @@ import textwrap
 from typing import List
 
 from soda.common.lazy import Lazy
+from tests.helpers.test_column import TestColumn
 from tests.helpers.test_table import TestTable
 
 logger = logging.getLogger(__name__)
@@ -77,9 +78,9 @@ class TestTableManager:
         test_columns = test_table.test_columns
         if test_table.quote_names:
             test_columns = [
-                (
-                    self.data_source.quote_column_declaration(test_column.name),
-                    test_column.data_type,
+                TestColumn(
+                    name=self.data_source.quote_column_declaration(test_column.name),
+                    data_type=test_column.data_type
                 )
                 for test_column in test_columns
             ]

@@ -1,10 +1,8 @@
 from __future__ import annotations
 
 import hashlib
-from typing import List
 
 from soda.common.json_helper import JsonHelper
-from soda.execution.data_type import DataType
 from tests.helpers.test_column import TestColumn
 
 
@@ -21,7 +19,7 @@ class TestTable:
     def __init__(
         self,
         name: str,
-        columns: list[tuple[str, DataType]] | list[TestColumn],
+        columns: list[tuple[str, str]] | list[TestColumn],
         values: list[tuple] = None,
         quote_names: bool = False,
     ):
