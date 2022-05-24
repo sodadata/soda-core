@@ -1,5 +1,3 @@
-import pytest
-from tests.conftest import test_data_source
 from tests.helpers.common_test_tables import customers_test_table
 from tests.helpers.scanner import Scanner
 from tests.helpers.utils import derive_schema_metric_value_from_test_table
