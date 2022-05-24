@@ -106,11 +106,11 @@ class DataSourceImpl(DataSource):
         return "table_schema"
 
     @staticmethod
-    def format_table_default(identifier: str) -> str:
+    def default_casify_table_name(identifier: str) -> str:
         return identifier.lower()
 
     @staticmethod
-    def format_column_default(identifier: str) -> str:
+    def default_casify_column_name(identifier: str) -> str:
         return identifier.lower()
 
     def get_metric_sql_aggregation_expression(self, metric_name: str, metric_args: list[object] | None, expr: str):

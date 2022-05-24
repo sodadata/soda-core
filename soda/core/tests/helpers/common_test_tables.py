@@ -105,7 +105,7 @@ orders_test_table = TestTable(
 
 raw_customers_test_table = TestTable(
     name="RAWCUSTOMERS",
-    columns=customers_test_table.columns,
+    columns=customers_test_table.test_columns,
     values=customers_test_table.values,
 )
 
