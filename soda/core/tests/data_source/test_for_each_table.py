@@ -37,7 +37,7 @@ def test_for_each_table(scanner: Scanner):
 )
 def test_for_each_table_schema(scanner: Scanner):
     customers_table_name = scanner.ensure_test_table(customers_test_table)
-    format_column_default = scanner.data_source.format_column_default
+    actual_column_name = scanner.data_source.actual_column_name()
 
     scan = scanner.create_test_scan()
     scan.add_sodacl_yaml_str(
@@ -48,7 +48,7 @@ def test_for_each_table_schema(scanner: Scanner):
             checks:
               - schema:
                   warn:
-                    when required column missing: [{format_column_default('id')}]
+                    when required column missing: [{actual_column_name('id')}]
                   fail:
                     when forbidden column present:
                       - ssn
