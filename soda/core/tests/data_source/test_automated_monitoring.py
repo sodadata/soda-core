@@ -5,20 +5,13 @@ from tests.helpers.scanner import Scanner
 from tests.helpers.utils import derive_schema_metric_value_from_test_table
 
 
-@pytest.mark.skipif(
-    test_data_source == "athena",
-    reason="TODO: fix for athena.",
-)
 def test_automated_monitoring(scanner: Scanner):
     table_name = scanner.ensure_test_table(customers_test_table)
+    table_name = scanner.data_source.format_table_default(table_name)
 
     schema_metric_value_derived_from_test_table = derive_schema_metric_value_from_test_table(
         customers_test_table, scanner.data_source
     )
-    if scanner.data_source.data_source_name in ["postgres", "redshift"]:
-        table_name = table_name.lower()
-    elif scanner.data_source.data_source_name == "snowflake":
-        table_name = table_name.upper()
 
     scan = scanner.create_test_scan()
     scan.mock_historic_values(
