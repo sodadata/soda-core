@@ -654,12 +654,17 @@ class DataSource:
         return self.data_source_scan
 
     @staticmethod
-    def format_column_default(identifier: str) -> str:
+    def default_casify_table_name(identifier: str) -> str:
+        """Formats table identifier to e.g. a default case for a given data source."""
+        return identifier
+
+    @staticmethod
+    def default_casify_column_name(identifier: str) -> str:
         """Formats column identifier to e.g. a default case for a given data source."""
         return identifier
 
     @staticmethod
-    def format_type_default(identifier: str) -> str:
+    def default_casify_type_name(identifier: str) -> str:
         """Formats type identifier to e.g. a default case for a given data source."""
         return identifier
 
