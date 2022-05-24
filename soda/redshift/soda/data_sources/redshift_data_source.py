@@ -106,6 +106,10 @@ class DataSourceImpl(DataSource):
         return ""
 
     @staticmethod
+    def format_table_default(identifier: str) -> str:
+        return identifier.lower()
+
+    @staticmethod
     def format_column_default(identifier: str) -> str:
         return identifier.lower()
 
