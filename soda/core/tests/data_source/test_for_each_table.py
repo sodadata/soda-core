@@ -37,7 +37,7 @@ def test_for_each_table(scanner: Scanner):
 )
 def test_for_each_table_schema(scanner: Scanner):
     customers_table_name = scanner.ensure_test_table(customers_test_table)
-    actual_column_name = scanner.data_source.actual_column_name()
+    actual_column_name = scanner.data_source.actual_column_name
 
     scan = scanner.create_test_scan()
     scan.add_sodacl_yaml_str(
