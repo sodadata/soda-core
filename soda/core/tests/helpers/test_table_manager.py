@@ -42,7 +42,8 @@ class TestTableManager:
 
         return (
             # If quoting is used, the actual test table is exactly as specified in the test table
-            self.data_source.default_casify_table_name(test_table.unique_table_name) if test_table.quote_names
+            self.data_source.default_casify_table_name(test_table.unique_table_name)
+            if test_table.quote_names
             # if quoting is not used, the actual test table names depends on the default behavior of the data source
             else test_table.unique_table_name
         )

@@ -63,10 +63,7 @@ def test_forbidden_columns_fail_matching_wildcard(scanner: Scanner):
     scan.assert_all_checks_fail()
     check: SchemaCheck = scan._checks[0]
     assert sorted(check.schema_present_column_names) == sorted(
-        [
-            default_casify_column_name("size"),
-            default_casify_column_name("sizeTxt")
-        ]
+        [default_casify_column_name("size"), default_casify_column_name("sizeTxt")]
     )
 
 

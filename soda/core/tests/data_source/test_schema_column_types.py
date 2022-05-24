@@ -61,7 +61,7 @@ def test_columns_types_fail(scanner: Scanner):
     assert check.schema_column_type_mismatches == {
         default_casify_column_name("id"): {
             "expected_type": data_source.default_casify_type_name("integer"),
-            "actual_type": data_source.get_sql_type_for_schema_check(DataType.TEXT)
+            "actual_type": data_source.get_sql_type_for_schema_check(DataType.TEXT),
         }
     }
 
@@ -97,6 +97,6 @@ def test_columns_types_warn(scanner: Scanner):
     assert check.schema_column_type_mismatches == {
         default_casify_column_name("id"): {
             "expected_type": data_source.default_casify_type_name("integer"),
-            "actual_type": data_source.get_sql_type_for_schema_check(DataType.TEXT)
+            "actual_type": data_source.get_sql_type_for_schema_check(DataType.TEXT),
         }
     }
