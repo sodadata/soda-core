@@ -79,8 +79,7 @@ class TestTableManager:
         if test_table.quote_names:
             test_columns = [
                 TestColumn(
-                    name=self.data_source.quote_column_declaration(test_column.name),
-                    data_type=test_column.data_type
+                    name=self.data_source.quote_column_declaration(test_column.name), data_type=test_column.data_type
                 )
                 for test_column in test_columns
             ]
