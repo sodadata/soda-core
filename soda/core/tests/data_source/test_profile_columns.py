@@ -1,10 +1,16 @@
 from __future__ import annotations
 
 import pytest
+
+from tests.conftest import test_data_source
 from tests.helpers.common_test_tables import customers_profiling
 from tests.helpers.scanner import Scanner
 
 
+@pytest.mark.skipif(
+    test_data_source == "athena",
+    reason="TODO: fix for athena.",
+)
 @pytest.mark.parametrize(
     "table_name, soda_cl_str, cloud_dict_expectation",
     [
@@ -154,6 +160,10 @@ def test_profile_columns_numeric(scanner: Scanner, table_name, soda_cl_str, clou
     )
 
 
+@pytest.mark.skipif(
+    test_data_source == "athena",
+    reason="TODO: fix for athena.",
+)
 @pytest.mark.parametrize(
     "table_name, soda_cl_str, cloud_dict_expectation",
     [
