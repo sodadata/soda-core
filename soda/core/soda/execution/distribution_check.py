@@ -84,14 +84,21 @@ class DistributionCheck(Check):
         #     log_diagnostics.update(self.historic_diff_values)
         return log_diagnostics
 
-    def sql_column_values_query(self, distribution_check_cfg):
+    def sql_column_values_query(self, distribution_check_cfg, limit = 1000000):
+        
         column_name = distribution_check_cfg.column_name
-        sql = f"SELECT \n" f"  {column_name} \n" f"FROM {self.partition.table.fully_qualified_table_name}"
 
         partition_filter = self.partition.sql_partition_filter
+        partition_str = ''
         if partition_filter:
             scan = self.data_source_scan.scan
             resolved_filter = scan._jinja_resolve(definition=partition_filter)
-            sql += f"\nWHERE {resolved_filter}"
+            partition_str = f"\nWHERE {resolved_filter}"
+        
+        limit_str = ""
+        if limit:
+            limit_str = f"\n LIMIT {limit}"
 
+        sql = f"SELECT \n" f"  {column_name} \n" f"FROM {self.partition.table.fully_qualified_table_name}{partition_str}{limit_str}"
         return sql
+
