@@ -3,6 +3,7 @@ import textwrap
 from typing import List
 
 from soda.common.lazy import Lazy
+from tests.helpers.test_column import TestColumn
 from tests.helpers.test_table import TestTable
 
 logger = logging.getLogger(__name__)
@@ -38,7 +39,14 @@ class TestTableManager:
 
             # Run analyze table so that metadata works if applicable.
             self.data_source.analyze_table(test_table.unique_table_name)
-        return test_table.unique_table_name
+
+        return (
+            # If quoting is used, the actual test table is exactly as specified in the test table
+            self.data_source.default_casify_table_name(test_table.unique_table_name)
+            if test_table.quote_names
+            # if quoting is not used, the actual test table names depends on the default behavior of the data source
+            else test_table.unique_table_name
+        )
 
     def _get_existing_test_table_names(self):
         if not self.__existing_table_names.is_set():
@@ -69,17 +77,19 @@ class TestTableManager:
             else test_table.unique_table_name
         )
         prefixed_table_name = self.data_source.prefix_table(quoted_table_name)
-        columns = test_table.columns
+        test_columns = test_table.test_columns
         if test_table.quote_names:
-            columns = [
-                (
-                    self.data_source.quote_column_declaration(column[0]),
-                    column[1],
+            test_columns = [
+                TestColumn(
+                    name=self.data_source.quote_column_declaration(test_column.name), data_type=test_column.data_type
                 )
-                for column in columns
+                for test_column in test_columns
             ]
         columns_sql = ",\n".join(
-            [f"  {column[0]} {self.data_source.get_sql_type_for_create_table(column[1])}" for column in columns]
+            [
+                f"  {test_column.name} {self.data_source.get_sql_type_for_create_table(test_column.data_type)}"
+                for test_column in test_columns
+            ]
         )
 
         sql = f"CREATE TABLE {prefixed_table_name} ( \n{columns_sql} \n)"

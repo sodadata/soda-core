@@ -192,7 +192,7 @@ class DataSourceImpl(DataSource):
         return f"{self.project_id}.{self.dataset_name}.INFORMATION_SCHEMA.TABLES"
 
     @staticmethod
-    def format_type_default(identifier: str) -> str:
+    def default_casify_type_name(identifier: str) -> str:
         return identifier.upper()
 
     def safe_connection_data(self):

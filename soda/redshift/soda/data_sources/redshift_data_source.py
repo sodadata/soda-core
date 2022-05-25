@@ -106,11 +106,11 @@ class DataSourceImpl(DataSource):
         return ""
 
     @staticmethod
-    def format_column_default(identifier: str) -> str:
+    def default_casify_column_name(identifier: str) -> str:
         return identifier.lower()
 
     @staticmethod
-    def format_type_default(identifier: str) -> str:
+    def default_casify_type_name(identifier: str) -> str:
         return identifier.lower()
 
     def safe_connection_data(self):
