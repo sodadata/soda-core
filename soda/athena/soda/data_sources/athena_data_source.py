@@ -128,3 +128,6 @@ class DataSourceImpl(DataSource):
         self, include_tables: list[str] | None = None, exclude_tables: list[str] | None = None
     ) -> str:
         return ""
+
+    def rollback(self):
+        pass

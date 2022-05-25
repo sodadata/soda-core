@@ -21,4 +21,4 @@ class SchemaQuery(Query):
             measured_schema: List[Dict[str, str]] = []
             for row in self.rows:
                 measured_schema.append({"name": row[0], "type": row[1]})
-            self.metric.value = measured_schema
+            self.metric.set_value(measured_schema)
