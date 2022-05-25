@@ -19,7 +19,7 @@ from soda.sodacl.antlr.SodaCLAntlrParser import SodaCLAntlrParser
 from soda.sodacl.automated_monitoring_cfg import AutomatedMonitoringCfg
 from soda.sodacl.change_over_time_cfg import ChangeOverTimeCfg
 from soda.sodacl.check_cfg import CheckCfg
-from soda.sodacl.tables_cfg import TablesCfg
+from soda.sodacl.tables_cfg import DatasourceTablesCfg
 from soda.sodacl.distribution_check_cfg import DistributionCheckCfg
 from soda.sodacl.for_each_column_cfg import ForEachColumnCfg
 from soda.sodacl.for_each_table_cfg import ForEachTableCfg
@@ -1227,7 +1227,7 @@ class SodaCLParser(Parser):
 
     @assert_header_content_is_dict
     def __parse_discover_tables_section(self, header_str, header_content):
-        tables_cfg = TablesCfg(self.data_source_name, self.location)
+        tables_cfg = DatasourceTablesCfg(self.data_source_name, self.location)
         self.__parse_tables(header_content, tables_cfg)
         self.get_data_source_scan_cfgs().add_discover_tables_cfg(tables_cfg)
 
@@ -1256,7 +1256,7 @@ class SodaCLParser(Parser):
 
     @assert_header_content_is_dict
     def __parse_sample_datasets_section(self, header_str, header_content):
-        tables_cfg = TablesCfg(self.data_source_name, self.location)
+        tables_cfg = DatasourceTablesCfg(self.data_source_name, self.location)
         self.__parse_tables(header_content, tables_cfg)
         self.get_data_source_scan_cfgs().add_sample_tables_cfg(tables_cfg)
 

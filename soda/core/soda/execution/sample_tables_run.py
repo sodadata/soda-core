@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING
 
 from soda.execution.query import Query
 from soda.profiling.sample_tables_result import SampleTablesResult
-from soda.sodacl.tables_cfg import TablesCfg
+from soda.sodacl.tables_cfg import DatasourceTablesCfg
 
 if TYPE_CHECKING:
     from soda.execution.data_source_scan import DataSourceScan
@@ -14,13 +14,13 @@ QUERY_PREFIX = "sample_tables: "
 
 
 class SampleTablesRun:
-    def __init__(self, data_source_scan: DataSourceScan, tables_cfg: TablesCfg):
+    def __init__(self, data_source_scan: DataSourceScan, tables_cfg: DatasourceTablesCfg):
 
         self.data_source_scan = data_source_scan
         self.soda_cloud = data_source_scan.scan._configuration.soda_cloud
         self.data_source = data_source_scan.data_source
         self.data_source_name = self.data_source.data_source_name
-        self.tables_cfg: TablesCfg = tables_cfg
+        self.tables_cfg: DatasourceTablesCfg = tables_cfg
         self.logs = self.data_source_scan.scan._logs
 
     def run(self) -> SampleTablesResult:

@@ -157,7 +157,7 @@ class DataSourceImpl(DataSource):
         limit_sql = ""
         if limit is not None:
             limit_sql = f" \n LIMIT {limit}"
-        sql = f"SELECT * FROM {table_name} {limit_sql}"
+        sql = f"SELECT * FROM {table_name}{limit_sql}"
         return sql
 
     def quote_table(self, table_name) -> str:
