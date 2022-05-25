@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING
 
 from soda.execution.query import Query
 from soda.profiling.discover_tables_result import DiscoverTablesResult
-from soda.sodacl.discover_tables_cfg import DiscoverTablesCfg
+from soda.sodacl.tables_cfg import TablesCfg
 
 if TYPE_CHECKING:
     from soda.execution.data_source_scan import DataSourceScan
@@ -14,22 +14,22 @@ QUERY_PREFIX = "discover_tables: "
 
 
 class DiscoverTablesRun:
-    def __init__(self, data_source_scan: DataSourceScan, discover_tables_cfg: DiscoverTablesCfg):
+    def __init__(self, data_source_scan: DataSourceScan, tables_cfg: TablesCfg):
 
         self.data_source_scan = data_source_scan
         self.soda_cloud = data_source_scan.scan._configuration.soda_cloud
         self.data_source = data_source_scan.data_source
-        self.discover_tables_cfg: DiscoverTablesCfg = discover_tables_cfg
+        self.tables_cfg: TablesCfg = tables_cfg
         self.logs = self.data_source_scan.scan._logs
 
     def run(self) -> DiscoverTablesResult:
-        discover_tables_result: DiscoverTablesResult = DiscoverTablesResult(self.discover_tables_cfg)
+        discover_tables_result: DiscoverTablesResult = DiscoverTablesResult(self.tables_cfg)
         self.logs.info(f"Running discover tables for data source: {self.data_source.data_source_name}")
 
         # row_counts is a dict that maps table names to row counts.
         row_counts_by_table_name: dict[str, int] = self.data_source.get_row_counts_all_tables(
-            include_tables=self.discover_tables_cfg.include_tables,
-            exclude_tables=self.discover_tables_cfg.exclude_tables,
+            include_tables=self.tables_cfg.include_tables,
+            exclude_tables=self.tables_cfg.exclude_tables,
             query_name=f"{QUERY_PREFIX} get tables and row counts",
         )
         for table_name in row_counts_by_table_name:

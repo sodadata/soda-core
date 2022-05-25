@@ -1,7 +1,7 @@
 from typing import List
 
 from soda.sampler.sample_ref import SampleRef
-from soda.sodacl.sample_tables_cfg import SampleTablesCfg
+from soda.sodacl.tables_cfg import TablesCfg
 
 
 class SampleTablesResultTable:
@@ -20,11 +20,10 @@ class SampleTablesResultTable:
 
 
 class SampleTablesResult:
-    def __init__(self, sample_tables_cfg: SampleTablesCfg):
-        self.sample_tables_cfg: SampleTablesCfg = sample_tables_cfg
+    def __init__(self, tables_cfg: TablesCfg):
+        self.tables_cfg: TablesCfg = tables_cfg
         self.tables: List[SampleTablesResultTable] = []
 
-    def create_table(self, table_name: str, data_source_name: str, sample_ref: SampleRef) -> SampleTablesResultTable:
+    def append_table(self, table_name: str, data_source_name: str, sample_ref: SampleRef) -> SampleTablesResultTable:
         table = SampleTablesResultTable(table_name, data_source_name, sample_ref)
         self.tables.append(table)
-        return table

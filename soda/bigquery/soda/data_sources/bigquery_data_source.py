@@ -153,10 +153,11 @@ class DataSourceImpl(DataSource):
         where_clause = f"\nWHERE {table_filter_expression} \n" if table_filter_expression else ""
         return f"SELECT table_id, row_count \n" f"FROM {self.dataset_name}.__TABLES__" f"{where_clause}"
 
-    def sql_get_table(self, table_name: str, limit: int = None) -> str:
-        sql = f"SELECT * \n" f"FROM {table_name}"
+    def sql_select_star_with_limit(self, table_name: str, limit: int = None) -> str:
+        limit_sql = ""
         if limit is not None:
-            sql += f" \n LIMIT {limit}"
+            limit_sql = f" \n LIMIT {limit}"
+        sql = f"SELECT * FROM {table_name} {limit_sql}"
         return sql
 
     def quote_table(self, table_name) -> str:
