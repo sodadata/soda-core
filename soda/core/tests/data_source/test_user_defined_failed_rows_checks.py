@@ -69,6 +69,7 @@ def test_failed_rows_table_query(scanner: Scanner):
 
 def test_bad_failed_rows_query(scanner: Scanner):
     scan = scanner.create_test_scan()
+    mock_soda_cloud = scan.enable_mock_soda_cloud()
     scan.add_sodacl_yaml_str(
         f"""
           checks:
@@ -83,3 +84,8 @@ def test_bad_failed_rows_query(scanner: Scanner):
     assert len(scan.get_error_logs()) > 0
     assert len(scan._queries) == 1
     assert scan._queries[0].exception is not None
+
+    scan_result = mock_soda_cloud.pop_scan_result()
+    logs = scan_result.get("logs")
+    first_error_log = next(log for log in logs if log["level"] == "error")
+    assert "location" in first_error_log
