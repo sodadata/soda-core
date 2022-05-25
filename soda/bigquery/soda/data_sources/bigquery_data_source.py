@@ -193,3 +193,6 @@ class DataSourceImpl(DataSource):
             self.type,
             self.connection_properties.get("project_id"),
         ]
+
+    def rollback(self):
+        pass

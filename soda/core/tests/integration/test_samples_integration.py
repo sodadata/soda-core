@@ -34,7 +34,7 @@ def test_scan(scanner: Scanner, data_source_config_str: str):
     scan.add_sodacl_yaml_str(
         f"""
           checks for {table_name}:
-            - duplicate_count(id) = 0
+            - missing_count(cat) > 0
         """
     )
     scan.execute()
