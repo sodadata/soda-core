@@ -18,7 +18,7 @@ class Query:
         unqualified_query_name: str = None,
         sql: str | None = None,
         sample_name: str = "failed_rows",
-        location: "Location" | None = None
+        location: Location | None = None,
     ):
         self.logs = data_source_scan.scan._logs
         self.data_source_scan = data_source_scan

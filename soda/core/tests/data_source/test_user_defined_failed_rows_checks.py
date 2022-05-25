@@ -87,5 +87,5 @@ def test_bad_failed_rows_query(scanner: Scanner):
 
     scan_result = mock_soda_cloud.pop_scan_result()
     logs = scan_result.get("logs")
-    first_error_log = next(log for log in logs if log['level'] == 'error')
-    assert 'location' in first_error_log
+    first_error_log = next(log for log in logs if log["level"] == "error")
+    assert "location" in first_error_log

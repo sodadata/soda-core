@@ -40,16 +40,16 @@ class Log:
         self,
         level: LogLevel,
         message: str,
-        location: Optional[Location],
-        doc: Optional[str],
-        exception: Optional[BaseException],
-        timestamp: datetime | None = None
+        location: Location | None,
+        doc: str | None,
+        exception: BaseException | None,
+        timestamp: datetime | None = None,
     ):
         self.level: LogLevel = level
         self.message: str = message
-        self.location: Optional[Location] = location
-        self.doc: Optional[str] = doc
-        self.exception: Optional[BaseException] = exception
+        self.location: Location | None = location
+        self.doc: str | None = doc
+        self.exception: BaseException | None = exception
         self.timestamp: datetime = timestamp if isinstance(timestamp, datetime) else datetime.now()
         self.index = self.get_next_index()
 
@@ -71,7 +71,7 @@ class Log:
             "level": self.__soda_cloud_level_mappings[self.level],
             "message": self.message,
             "timestamp": self.timestamp,
-            "index": self.index
+            "index": self.index,
         }
         if self.location:
             location_cloud_dict = self.location.to_soda_cloud_json()

@@ -77,11 +77,11 @@ def test_check_identity_ignore_name(scanner: Scanner):
     logs = scan_result["logs"]
     assert len(logs) > 0
     first_log = logs[0]
-    assert first_log.get('level') == 'info'
-    assert first_log.get('message').startswith('Soda Core 3.')
-    first_log_index = first_log.get('index')
+    assert first_log.get("level") == "info"
+    assert first_log.get("message").startswith("Soda Core 3.")
+    first_log_index = first_log.get("index")
     assert isinstance(first_log_index, int) and first_log_index >= 0
-    first_log_timestamp = first_log.get('timestamp')
+    first_log_timestamp = first_log.get("timestamp")
     assert isinstance(first_log_timestamp, str) and len(first_log_timestamp) > 0
 
 
