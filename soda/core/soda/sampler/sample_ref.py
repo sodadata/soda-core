@@ -26,7 +26,7 @@ class SampleRef:
         self.link: str | None = link
 
     def __str__(self) -> str:
-        column_count = f"{len(self.schema.columns)}x" if self.schema else ''
+        column_count = f"{len(self.schema.columns)}x" if self.schema else ""
         sample_dimension = f"{column_count}({self.stored_row_count}/{self.total_row_count})"
         return " ".join(
             [
@@ -37,11 +37,7 @@ class SampleRef:
         )
 
     def get_cloud_diagnostics_dict(self):
-        column_dicts = (
-            [column.get_cloud_dict() for column in self.schema.columns]
-            if self.schema
-            else None
-        )
+        column_dicts = [column.get_cloud_dict() for column in self.schema.columns] if self.schema else None
         sample_ref_dict = {
             "columns": column_dicts,
             "totalRowCount": self.total_row_count,
