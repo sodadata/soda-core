@@ -5,7 +5,6 @@ from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
 from textwrap import indent
-from typing import Optional
 
 from soda.common.exception_helper import get_exception_stacktrace
 from soda.sodacl.location import Location
