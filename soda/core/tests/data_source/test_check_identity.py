@@ -74,6 +74,16 @@ def test_check_identity_ignore_name(scanner: Scanner):
     # check that the identity remains the same
     assert scan_result["checks"][0]["identity"] == row_count_identity
 
+    logs = scan_result["logs"]
+    assert len(logs) > 0
+    first_log = logs[0]
+    assert first_log.get("level") == "info"
+    assert first_log.get("message").startswith("Soda Core 3.")
+    first_log_index = first_log.get("index")
+    assert isinstance(first_log_index, int) and first_log_index >= 0
+    first_log_timestamp = first_log.get("timestamp")
+    assert isinstance(first_log_timestamp, str) and len(first_log_timestamp) > 0
+
 
 def test_check_identity_line_number_change(scanner: Scanner):
     table_name = scanner.ensure_test_table(customers_test_table)

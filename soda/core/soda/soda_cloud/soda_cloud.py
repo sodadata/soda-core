@@ -73,6 +73,7 @@ class SodaCloud:
                     discover_tables_result.get_cloud_dict()
                     for discover_tables_result in scan._discover_tables_result_tables
                 ],
+                "logs": [log.get_cloud_dict() for log in scan._logs.logs],
             }
         )
 
@@ -231,6 +232,7 @@ class SodaCloud:
     def _execute_request(self, request_type: str, request_body: dict, is_retry: bool):
         try:
             request_body["token"] = self._get_token()
+            # logger.debug(f"Sending to Soda Cloud {JsonHelper.to_json_pretty(request_body)}")
             response = self._http_post(url=f"{self.api_url}/{request_type}", headers=self.headers, json=request_body)
             response_json = response.json()
             if response.status_code == 401 and not is_retry:
