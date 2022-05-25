@@ -41,3 +41,5 @@ class DuplicatesQuery(Query):
             values_having_duplicates = self.sample_ref.total_row_count
             self.metric.set_value(values_having_duplicates)
             self.metric.failed_rows_sample_ref = self.sample_ref
+        else:
+            self.metric.set_value(0)
