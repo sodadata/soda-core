@@ -71,7 +71,28 @@ from tests.helpers.scanner import Scanner
                                             5.82,
                                             6.1,
                                         ],
-                                        "frequencies": [3, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2],
+                                        "frequencies": [
+                                            3,
+                                            1,
+                                            0,
+                                            0,
+                                            0,
+                                            0,
+                                            0,
+                                            0,
+                                            0,
+                                            0,
+                                            0,
+                                            0,
+                                            0,
+                                            0,
+                                            0,
+                                            0,
+                                            0,
+                                            0,
+                                            0,
+                                            2,
+                                        ],
                                     },
                                 },
                             },
@@ -118,7 +139,28 @@ from tests.helpers.scanner import Scanner
                                             899.1,
                                             999.0,
                                         ],
-                                        "frequencies": [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 0, 0, 0, 0, 0, 0, 0, 0, 3],
+                                        "frequencies": [
+                                            1,
+                                            0,
+                                            0,
+                                            0,
+                                            0,
+                                            0,
+                                            0,
+                                            0,
+                                            0,
+                                            0,
+                                            4,
+                                            0,
+                                            0,
+                                            0,
+                                            0,
+                                            0,
+                                            0,
+                                            0,
+                                            0,
+                                            3,
+                                        ],
                                     },
                                 },
                             },
@@ -141,7 +183,7 @@ def test_profile_columns_numeric(scanner: Scanner, table_name, soda_cl_str, clou
             columns: [{table_name}{soda_cl_str}]
         """
     )
-    scan.execute()
+    scan.execute(allow_warnings_only=True)
     # remove the data source name because it's a pain to test
     profiling_result = mock_soda_cloud.pop_scan_result()
     assert profiling_result
@@ -224,12 +266,27 @@ def test_profile_columns_text(scanner: Scanner, table_name, soda_cl_str, cloud_d
             columns: [{table_name}{soda_cl_str}]
         """
     )
-    scan.execute()
+    scan.execute(allow_warnings_only=True)
     profiling_result = mock_soda_cloud.pop_scan_result()
     # remove the data source name because it's a pain to test
     profiling_result = remove_datasource_and_table_name(profiling_result)
 
     assert profiling_result["profiling"] == cloud_dict_expectation["profiling"]
+
+
+def test_profile_columns_all_tables_all_columns(scanner: Scanner):
+    _ = scanner.ensure_test_table(customers_profiling)
+    scan = scanner.create_test_scan()
+    mock_soda_cloud = scan.enable_mock_soda_cloud()
+    scan.add_sodacl_yaml_str(
+        """
+            profile columns:
+                columns: ["%.%"]
+        """
+    )
+    scan.execute(allow_warnings_only=True)
+    profiling_result = mock_soda_cloud.pop_scan_result()
+    assert len(profiling_result["profiling"]) >= 5
 
 
 def remove_datasource_and_table_name(results_dict: dict) -> dict:

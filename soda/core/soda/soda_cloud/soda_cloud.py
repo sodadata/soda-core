@@ -27,7 +27,13 @@ if TYPE_CHECKING:
 
 class SodaCloud:
     def __init__(
-        self, host: str, api_key_id: str, api_key_secret: str, token: str | None, port: str | None, logs: Logs
+        self,
+        host: str,
+        api_key_id: str,
+        api_key_secret: str,
+        token: str | None,
+        port: str | None,
+        logs: Logs,
     ):
         self.host = host
         self.port = f":{port}" if port else ""
