@@ -16,6 +16,8 @@ def configure_logging():
     logging.getLogger("faker").setLevel(logging.ERROR)
     logging.getLogger("snowflake").setLevel(logging.WARNING)
     logging.getLogger("matplotlib").setLevel(logging.WARNING)
+    logging.getLogger("opentelemetry").setLevel(logging.ERROR)
+
     logging.basicConfig(
         level=logging.DEBUG,
         force=True,  # Override any previously set handlers.
