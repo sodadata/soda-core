@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import datetime
 import logging
-from textwrap import dedent
 
 import pyathena
 from soda.cloud.aws.credentials import AwsCredentials
