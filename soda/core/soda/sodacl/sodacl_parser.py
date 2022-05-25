@@ -19,7 +19,6 @@ from soda.sodacl.antlr.SodaCLAntlrParser import SodaCLAntlrParser
 from soda.sodacl.automated_monitoring_cfg import AutomatedMonitoringCfg
 from soda.sodacl.change_over_time_cfg import ChangeOverTimeCfg
 from soda.sodacl.check_cfg import CheckCfg
-from soda.sodacl.tables_cfg import TablesCfg
 from soda.sodacl.distribution_check_cfg import DistributionCheckCfg
 from soda.sodacl.for_each_column_cfg import ForEachColumnCfg
 from soda.sodacl.for_each_table_cfg import ForEachTableCfg
@@ -32,6 +31,7 @@ from soda.sodacl.row_count_comparison_check_cfg import RowCountComparisonCheckCf
 from soda.sodacl.schema_check_cfg import SchemaCheckCfg, SchemaValidations
 from soda.sodacl.sodacl_cfg import SodaCLCfg
 from soda.sodacl.table_cfg import TableCfg
+from soda.sodacl.tables_cfg import TablesCfg
 from soda.sodacl.threshold_cfg import ThresholdCfg
 
 logger = logging.getLogger(__name__)
