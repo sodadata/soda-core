@@ -2,9 +2,8 @@ from typing import Dict, List
 
 from soda.sodacl.automated_monitoring_cfg import AutomatedMonitoringCfg
 from soda.sodacl.check_cfg import CheckCfg
-from soda.sodacl.tables_cfg import DatasourceTablesCfg
+from soda.sodacl.data_source_tables_cfg import DatasourceTablesCfg
 from soda.sodacl.profile_columns_cfg import ProfileColumnsCfg
-from soda.sodacl.tables_cfg import DatasourceTablesCfg
 from soda.sodacl.table_cfg import TableCfg
 
 
@@ -31,11 +30,11 @@ class DataSourceScanCfg:
     def add_profile_columns_cfg(self, profile_columns_cfg: ProfileColumnsCfg):
         self.profile_columns_cfgs.append(profile_columns_cfg)
 
-    def add_discover_tables_cfg(self, tables_cfg: DatasourceTablesCfg):
-        self.discover_tables_cfgs.append(tables_cfg)
+    def add_discover_tables_cfg(self, data_source_tables_cfg: DatasourceTablesCfg):
+        self.discover_tables_cfgs.append(data_source_tables_cfg)
 
-    def add_sample_tables_cfg(self, tables_cfg: DatasourceTablesCfg):
-        self.sample_tables_cfgs.append(tables_cfg)
+    def add_sample_tables_cfg(self, data_source_tables_cfg: DatasourceTablesCfg):
+        self.sample_tables_cfgs.append(data_source_tables_cfg)
 
     def add_check_cfg(self, check_cfg: CheckCfg):
         self.check_cfgs.append(check_cfg)

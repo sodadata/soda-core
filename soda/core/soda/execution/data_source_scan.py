@@ -73,8 +73,8 @@ class DataSourceScan:
     def create_profile_columns_run(self, profile_columns_cfg, scan):
         return ProfileColumnsRun(self, profile_columns_cfg)
 
-    def create_discover_tables_run(self, tables_cfg, scan):
-        return DiscoverTablesRun(self, tables_cfg)
+    def create_discover_tables_run(self, data_source_tables_cfg, scan):
+        return DiscoverTablesRun(self, data_source_tables_cfg)
 
-    def create_sample_tables_run(self, tables_cfg):
-        return SampleTablesRun(self, tables_cfg)
+    def create_sample_tables_run(self, data_source_tables_cfg):
+        return SampleTablesRun(self, data_source_tables_cfg)
