@@ -160,7 +160,10 @@ class ProfileColumnsRun:
                 profile_columns_result_column.max is not None
             ), "Max cannot be None, make sure the min metric is derived before histograms"
             histogram_sql, bins_list = self.data_source.histogram_sql_and_boundaries(
-                table_name, column_name, profile_columns_result_column.min, profile_columns_result_column.max
+                table_name,
+                column_name,
+                profile_columns_result_column.min,
+                profile_columns_result_column.max,
             )
             histogram_query = Query(
                 data_source_scan=self.data_source_scan,
@@ -177,8 +180,13 @@ class ProfileColumnsRun:
                 self.logs.error(
                     f"Database returned no results for histograms in table: {table_name}, columns: {column_name}"
                 )
+        elif not is_included_column:
+            self.logs.debug(f"Column: {column_name} in table: {table_name} is skipped from profiling by the user.")
         else:
-            self.logs.info(f"No profiling information derived for column {column_name} in {table_name}")
+            self.logs.error(
+                f"No profiling information derived for column {column_name} in {table_name} and type: {column_type}. "
+                "Soda Core could not create a column result."
+            )
 
     def profile_text_column(
         self,
@@ -239,8 +247,13 @@ class ProfileColumnsRun:
                 self.logs.error(
                     f"Database returned no results for textual aggregates in table: {table_name}, columns: {column_name}"
                 )
+        elif not is_included_column:
+            self.logs.debug(f"Column: {column_name} in table: {table_name} is skipped from profiling by the user.")
         else:
-            self.logs.info(f"No profiling information derived for column {column_name} in {table_name}")
+            self.logs.error(
+                f"No profiling information derived for column {column_name} in {table_name} and type: {column_type}. "
+                "Soda Core could not create a column result."
+            )
 
     def build_profiling_column(
         self,
