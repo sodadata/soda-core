@@ -54,7 +54,7 @@ class SodaCloud:
             profile_table.get_cloud_dict()
             for profile_table in scan._profile_columns_result_tables + scan._sample_tables_result_tables
         ]
-        
+
         return JsonHelper.to_jsonnable(  # type: ignore
             {
                 "definitionName": scan._scan_definition_name,

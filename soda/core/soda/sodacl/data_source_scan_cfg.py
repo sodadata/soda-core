@@ -2,10 +2,9 @@ from typing import Dict, List
 
 from soda.sodacl.automated_monitoring_cfg import AutomatedMonitoringCfg
 from soda.sodacl.check_cfg import CheckCfg
-from soda.sodacl.tables_cfg import DatasourceTablesCfg
 from soda.sodacl.profile_columns_cfg import ProfileColumnsCfg
-from soda.sodacl.tables_cfg import DatasourceTablesCfg
 from soda.sodacl.table_cfg import TableCfg
+from soda.sodacl.tables_cfg import DatasourceTablesCfg
 
 
 class DataSourceScanCfg:
