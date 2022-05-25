@@ -18,6 +18,7 @@ class Query:
         unqualified_query_name: str = None,
         sql: str | None = None,
         sample_name: str = "failed_rows",
+        location: "Location" | None = None
     ):
         self.logs = data_source_scan.scan._logs
         self.data_source_scan = data_source_scan
@@ -28,6 +29,7 @@ class Query:
         self.table: Table | None = table
         self.partition: Partition | None = partition
         self.column: Column | None = column
+        self.location: Location | None = location
 
         # The SQL query that is used _fetchone or _fetchall or _store
         # This field can also be initialized in the execute method before any of _fetchone,
@@ -97,8 +99,9 @@ class Query:
         except BaseException as e:
             self.exception = e
             self.logs.error(
-                f"Query execution error in {self.query_name}: {e}\n{self.sql}",
-                e,
+                message=f"Query execution error in {self.query_name}: {e}\n{self.sql}",
+                exception=e,
+                location=self.location,
             )
             data_source.query_failed(e)
         finally:
@@ -123,7 +126,7 @@ class Query:
                 cursor.close()
         except BaseException as e:
             self.exception = e
-            self.logs.error(f"Query error: {self.query_name}: {e}\n{self.sql}", exception=e)
+            self.logs.error(f"Query error: {self.query_name}: {e}\n{self.sql}", exception=e, location=self.location)
             data_source.query_failed(e)
         finally:
             self.duration = datetime.now() - start
@@ -163,7 +166,7 @@ class Query:
                     cursor.close()
             except BaseException as e:
                 self.exception = e
-                self.logs.error(f"Query error: {self.query_name}: {e}\n{self.sql}", exception=e)
+                self.logs.error(f"Query error: {self.query_name}: {e}\n{self.sql}", exception=e, location=self.location)
                 data_source.query_failed(e)
             finally:
                 self.duration = datetime.now() - start

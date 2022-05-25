@@ -1,3 +1,4 @@
+from __future__ import annotations
 from soda.execution.query import Query
 
 
@@ -6,10 +7,12 @@ class UserDefinedFailedRowsQuery(Query):
         self,
         data_source_scan: "DataSourceScan",
         metric: "FailedRowsQueryMetric",
+        location: "Location" | None = None
     ):
         super().__init__(
             data_source_scan=data_source_scan,
             unqualified_query_name=f"failed_rows[{metric.name}]",
+            location=location
         )
         self.sql = metric.query
         self.metric = metric
