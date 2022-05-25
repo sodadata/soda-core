@@ -33,11 +33,8 @@ def test_scan(scanner: Scanner, data_source_config_str: str):
 
     scan.add_sodacl_yaml_str(
         f"""
-          checks:
-            - failed rows:
-                name: Bad query
-                fail query: |
-                  SELECT MAKE THIS BREAK !
+          checks for {table_name}:
+            - missing_count(cat) > 0
         """
     )
     scan.execute()
