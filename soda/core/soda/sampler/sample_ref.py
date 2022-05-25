@@ -43,11 +43,9 @@ class SampleRef:
             "totalRowCount": self.total_row_count,
             "storedRowCount": self.stored_row_count,
         }
-        if self.soda_cloud_file_id is None:
-            sample_ref_dict["reference"] = {"type": "noFile"}
-        else:
+        if self.soda_cloud_file_id:
             sample_ref_dict["reference"] = {"type": "sodaCloudStorage", "fileId": self.soda_cloud_file_id}
-
-        if self.message:
+        elif self.message:
             sample_ref_dict["reference"] = {"type": "externalStorage", "message": self.message, "link": self.link}
+
         return sample_ref_dict
