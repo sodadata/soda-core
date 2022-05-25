@@ -49,7 +49,7 @@ class SodaCloud:
             if check.outcome is not None and check.archetype is not None
         ]
 
-        # TODO: separate profile columns and sample tables by aligning with the backend team
+        # TODO: [SODA-608] separate profile columns and sample tables by aligning with the backend team
         profiling = [
             profile_table.get_cloud_dict()
             for profile_table in scan._profile_columns_result_tables + scan._sample_tables_result_tables
