@@ -33,15 +33,15 @@ class DistributionCheck(Check):
         distribution_check_cfg: DistributionCheckCfg = self.check_cfg
 
         sql = self.sql_column_values_query(distribution_check_cfg)
-
-        query = Query(
+        
+        self.query = Query(
             data_source_scan=self.data_source_scan,
             unqualified_query_name="get_values_for_distro_check",
             sql=sql,
         )
-        query.execute()
-        if query.exception is None and query.rows is not None:
-            test_data = [row[0] for row in query.rows]
+        self.query.execute()
+        if self.query.exception is None and self.query.rows is not None:
+            test_data = [row[0] for row in self.query.rows]
 
             _, p_value = DistributionChecker(distribution_check_cfg, test_data).run()
             self.check_value = p_value
