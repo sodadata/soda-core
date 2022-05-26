@@ -46,3 +46,8 @@ data_source spark:
     username: ${ env_var('SPARK_USERNAME', 'soda') }
     password: ${ env_var('SPARK_PASSWORD') }
     database: ${ env_var('SPARK_DATABASE', 'default') }
+# TODO: add appropriate vars
+data_source spark-df:
+  type: spark-df
+  connection:
+    host: ${ env_var('SPARK_DF_HOST', 'localhost') }
