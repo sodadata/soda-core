@@ -1,23 +1,16 @@
 import logging
-from typing import List, Optional
-from soda.common.exceptions import DataSourceConnectionError
-
-from soda.execution.data_source import DataSource
-
-import itertools
-
-import pyodbc
 from collections import namedtuple
 from enum import Enum
-from pyhive import hive
-from pyhive.exc import Error
-from soda.execution.query import Query
-from thrift.transport.TTransport import TTransportException
-import logging
 from typing import Any, Dict, List, Optional
-from soda.common.logs import Logs
+
+import pyodbc
+from pyhive import hive
 from soda.__version__ import SODA_CORE_VERSION
+from soda.common.exceptions import DataSourceConnectionError
+from soda.common.logs import Logs
+from soda.execution.data_source import DataSource
 from soda.execution.data_type import DataType
+from soda.execution.query import Query
 
 logger = logging.getLogger(__name__)
 ColumnMetadata = namedtuple("ColumnMetadata", ["name", "data_type", "is_nullable"])
