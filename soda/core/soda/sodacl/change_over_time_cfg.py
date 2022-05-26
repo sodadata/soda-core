@@ -1,20 +1,9 @@
-from soda.execution.identity import Identity
-
-
 class ChangeOverTimeCfg:
     def __init__(self):
         self.last_measurements: Optional[int] = None
         self.last_aggregation: Optional[str] = None
         self.same_day_last_week: bool = False
         self.same_day_last_month: bool = False
-
-    def get_identity_parts(self) -> list:
-        return [
-            self.last_measurements,
-            self.last_aggregation,
-            Identity.property("same_day_last_week", self.same_day_last_week),
-            Identity.property("same_day_last_month", self.same_day_last_month),
-        ]
 
     def to_jsonnable(self):
         jsonnable = {}

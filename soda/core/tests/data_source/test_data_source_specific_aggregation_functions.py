@@ -1,4 +1,4 @@
-from tests.data_source.conftest import test_data_source
+from tests.conftest import test_data_source
 from tests.helpers.common_test_tables import customers_test_table
 from tests.helpers.scanner import Scanner
 
@@ -18,7 +18,7 @@ def test_data_source_specific_statistics_aggregation_metrics(scanner: Scanner):
 
     supported_checks = all_checks
 
-    if test_data_source in ["bigquery", "redshift"]:
+    if test_data_source in ["bigquery", "redshift", "athena"]:
         supported_checks.pop("percentile(distance, 0.7)")
 
     checks_str = ""

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from datetime import timezone
+
 from soda.execution.check_outcome import CheckOutcome
 from soda.execution.metric import Metric
 from soda.execution.metric_check import MetricCheck
@@ -27,7 +29,6 @@ class AnomalyMetricCheck(MetricCheck):
             partition=partition,
             column=column,
         )
-
         self.skip_anomaly_check = False
         metric_check_cfg: MetricCheckCfg = self.check_cfg
         if not metric_check_cfg.fail_threshold_cfg and not metric_check_cfg.warn_threshold_cfg:
@@ -40,7 +41,7 @@ class AnomalyMetricCheck(MetricCheck):
             limit=1000,
         )
         self.historic_descriptors[KEY_HISTORIC_CHECK_RESULTS] = HistoricCheckResultsDescriptor(
-            check_identity=self.identity, limit=3
+            check_identity=self.create_identity(), limit=3
         )
         self.diagnostics = {}
         self.cloud_check_type = "anomalyDetection"
@@ -55,28 +56,45 @@ class AnomalyMetricCheck(MetricCheck):
             # TODO Review the data structure and see if we still need the KEY_HISTORIC_*
             historic_measurements = historic_values.get(KEY_HISTORIC_MEASUREMENTS).get("measurements")
             historic_check_results = historic_values.get(KEY_HISTORIC_CHECK_RESULTS).get("check_results")
+            if historic_measurements is None:
+                self.logs.warning("Skipping anomaly metric check eval because there is not enough historic data yet")
+                return
 
-            if historic_measurements:
-                # TODO test for module installation and set check status to skipped if the module is not installed
-                from soda.scientific.anomaly_detection.anomaly_detector import (
-                    AnomalyDetector,
-                )
+            # Append current results
+            historic_measurements.get("results").append(
+                {
+                    "id": 61,  # Placeholder number that will be overwritten
+                    "identity": metrics[self.name].identity,
+                    "value": self.get_metric_value(),
+                    "dataTime": (
+                        self.data_source_scan.scan._data_timestamp.replace(tzinfo=timezone.utc).strftime(
+                            "%Y-%m-%dT%H:%M:%SZ"
+                        )
+                    ),
+                }
+            )
 
-                anomaly_detector = AnomalyDetector(historic_measurements, historic_check_results, self.logs)
-                level, diagnostics = anomaly_detector.evaluate()
-                assert isinstance(
-                    diagnostics, dict
-                ), f"Anomaly diagnostics should be a dict. Got a {type(diagnostics)} instead"
-                assert isinstance(
-                    diagnostics["anomalyProbability"], float
-                ), f"Anomaly probability must be a float but it is {type(diagnostics['anomalyProbability'])}"
+            # TODO test for module installation and set check status to is_skipped if the module is not installed
+            from soda.scientific.anomaly_detection.anomaly_detector import (
+                AnomalyDetector,
+            )
 
-                self.check_value = diagnostics["anomalyProbability"]
-                self.outcome = CheckOutcome(level)
-                self.diagnostics = diagnostics
+            anomaly_detector = AnomalyDetector(historic_measurements, historic_check_results, self.logs)
+            level, diagnostics = anomaly_detector.evaluate()
+            assert isinstance(
+                diagnostics, dict
+            ), f"Anomaly diagnostics should be a dict. Got a {type(diagnostics)} instead"
 
-            else:
-                self.logs.warning("Skipping metric check eval because there is not enough historic data yet")
+            if diagnostics["anomalyErrorCode"] == "not_enough_measurements":
+                self.logs.warning("Skipping anomaly metric check eval because there is not enough historic data yet")
+                return
+
+            assert isinstance(
+                diagnostics["anomalyProbability"], float
+            ), f"Anomaly probability must be a float but it is {type(diagnostics['anomalyProbability'])}"
+            self.check_value = diagnostics["anomalyProbability"]
+            self.outcome = CheckOutcome(level)
+            self.diagnostics = diagnostics
 
     def get_cloud_diagnostics_dict(self) -> dict:
         cloud_diagnostics = super().get_cloud_diagnostics_dict()

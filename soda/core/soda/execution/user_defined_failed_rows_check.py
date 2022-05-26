@@ -29,7 +29,6 @@ class UserDefinedFailedRowsCheck(Check):
             partition=partition,
             column=None,
             name="user-defined-failed-rows",
-            identity_parts=check_cfg.get_identity_parts(),
         )
 
         from soda.sodacl.user_defined_failed_rows_check_cfg import (
@@ -57,12 +56,12 @@ class UserDefinedFailedRowsCheck(Check):
         if failed_row_count > 0:
             self.outcome = CheckOutcome.FAIL
 
-        self.failed_rows_storage_ref = metric.failed_rows_storage_ref
+        self.failed_rows_sample_ref = metric.failed_rows_sample_ref
 
     def get_cloud_diagnostics_dict(self) -> dict:
         cloud_diagnostics = {
             "value": self.check_value,
         }
-        if self.failed_rows_storage_ref:
-            cloud_diagnostics["failed_rows_storage_ref"] = self.failed_rows_storage_ref.get_cloud_diagnostics_dict()
+        if self.failed_rows_sample_ref:
+            cloud_diagnostics["failedRowsFile"] = self.failed_rows_sample_ref.get_cloud_diagnostics_dict()
         return cloud_diagnostics

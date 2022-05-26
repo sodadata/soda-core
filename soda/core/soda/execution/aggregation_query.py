@@ -21,12 +21,14 @@ class AggregationQuery(Query):
         self.metrics.append(metric)
 
     def execute(self):
+        scan = self.data_source_scan.scan
         select_expression_sql = f",\n  ".join(self.select_expressions)
-        self.sql = f"SELECT \n" f"  {select_expression_sql} \n" f"FROM {self.partition.table.prefixed_table_name}"
+        self.sql = (
+            f"SELECT \n" f"  {select_expression_sql} \n" f"FROM {self.partition.table.fully_qualified_table_name}"
+        )
 
         partition_filter = self.partition.sql_partition_filter
         if partition_filter:
-            scan = self.data_source_scan.scan
             resolved_filter = scan._jinja_resolve(definition=partition_filter)
             self.sql += f"\nWHERE {resolved_filter}"
 
@@ -36,3 +38,7 @@ class AggregationQuery(Query):
                 metric = self.metrics[i]
                 fetched_value = self.row[i]
                 metric.set_value(fetched_value)
+
+                sample_query = metric.create_failed_rows_sample_query()
+                if sample_query:
+                    sample_query.execute()

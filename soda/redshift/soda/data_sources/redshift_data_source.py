@@ -4,8 +4,8 @@ from typing import Dict, List, Optional
 
 import boto3
 import psycopg2
+from soda.cloud.aws.credentials import AwsCredentials
 from soda.common.exceptions import DataSourceConnectionError
-from soda.data_sources.aws_credentials import AwsCredentials
 from soda.execution.data_source import DataSource
 
 logger = logging.getLogger(__name__)
@@ -106,11 +106,11 @@ class DataSourceImpl(DataSource):
         return ""
 
     @staticmethod
-    def format_column_default(identifier: str) -> str:
+    def default_casify_column_name(identifier: str) -> str:
         return identifier.lower()
 
     @staticmethod
-    def format_type_default(identifier: str) -> str:
+    def default_casify_type_name(identifier: str) -> str:
         return identifier.lower()
 
     def safe_connection_data(self):

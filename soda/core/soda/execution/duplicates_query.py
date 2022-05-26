@@ -27,7 +27,7 @@ class DuplicatesQuery(Query):
         self.sql = (
             f"WITH frequencies AS (\n"
             f"  SELECT {column_names}, COUNT(*) AS frequency \n"
-            f"  FROM {self.partition.table.prefixed_table_name} \n"
+            f"  FROM {self.partition.table.fully_qualified_table_name} \n"
             f"  WHERE {values_filter} \n"
             f"  GROUP BY {column_names}) \n"
             f"SELECT * \n"
@@ -37,7 +37,9 @@ class DuplicatesQuery(Query):
 
     def execute(self):
         self.store()
-        if self.storage_ref:
-            values_having_duplicates = self.storage_ref.total_row_count
+        if self.sample_ref:
+            values_having_duplicates = self.sample_ref.total_row_count
             self.metric.set_value(values_having_duplicates)
-            self.metric.duplicate_frequencies_storage_ref = self.storage_ref
+            self.metric.failed_rows_sample_ref = self.sample_ref
+        else:
+            self.metric.set_value(0)

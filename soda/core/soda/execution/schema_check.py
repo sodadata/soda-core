@@ -27,7 +27,6 @@ class SchemaCheck(Check):
             partition=partition if partition.partition_name is None else partition.table.partitions[None],
             column=None,
             name="schema",
-            identity_parts=check_cfg.get_identity_parts(),
         )
 
         self.cloud_check_type = "schema"
@@ -37,7 +36,6 @@ class SchemaCheck(Check):
         self.schema_column_type_mismatches: Optional[Dict[str, str]] = None
         self.schema_column_index_mismatches: Optional[Dict[str, str]] = None
         self.schema_comparator = None
-
         from soda.execution.schema_metric import SchemaMetric
 
         schema_metric = data_source_scan.resolve_metric(
@@ -52,7 +50,7 @@ class SchemaCheck(Check):
         schema_check_cfg: SchemaCheckCfg = self.check_cfg
         if schema_check_cfg.has_change_validations():
             historic_descriptor = HistoricChangeOverTimeDescriptor(
-                metric=schema_metric, change_over_time_cfg=ChangeOverTimeCfg()
+                metric_identity=schema_metric.identity, change_over_time_cfg=ChangeOverTimeCfg()
             )
             self.historic_descriptors[KEY_SCHEMA_PREVIOUS] = historic_descriptor
 
@@ -60,8 +58,18 @@ class SchemaCheck(Check):
         schema_check_cfg: SchemaCheckCfg = self.check_cfg
 
         self.measured_schema: List[Dict[str, str]] = metrics.get(KEY_SCHEMA_MEASURED).value
-        schema_previous_measurement = historic_values.get(KEY_SCHEMA_PREVIOUS)
-        schema_previous = schema_previous_measurement["value"] if schema_previous_measurement else None
+
+        schema_previous_measurement = (
+            historic_values.get(KEY_SCHEMA_PREVIOUS).get("measurements").get("results")[0].get("value")
+            if historic_values
+            and historic_values.get(KEY_SCHEMA_PREVIOUS, {}).get("measurements", {}).get("results", {})
+            else None
+        )
+        schema_previous = (
+            [{"name": sp.get("columnName"), "type": sp.get("sourceDataType")} for sp in schema_previous_measurement]
+            if schema_previous_measurement
+            else None
+        )
 
         self.schema_missing_column_names = []
         self.schema_present_column_names = []
@@ -72,7 +80,7 @@ class SchemaCheck(Check):
             self.schema_comparator = SchemaComparator(schema_previous, self.measured_schema)
         else:
             if schema_check_cfg.has_change_validations():
-                self.logs.debug("Could not evaluate schema check because no previous measurements are available")
+                self.logs.warning("Skipping schema checks since there is no historic schema metrics!")
                 return
 
         if self.has_schema_violations(schema_check_cfg.fail_validations):

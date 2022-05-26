@@ -25,10 +25,8 @@ class UserDefinedFailedRowsExpressionCheck(Check):
             partition=partition,
             column=None,
             name="user-defined-failed-rows-expression",
-            identity_parts=check_cfg.get_identity_parts(),
         )
         self.check_value = None
-        self.failed_rows_storage_ref = None
         self.metrics[KEY_FAILED_ROWS_COUNT] = self.data_source_scan.resolve_metric(
             NumericQueryMetric(
                 data_source_scan=self.data_source_scan,
@@ -57,12 +55,12 @@ class UserDefinedFailedRowsExpressionCheck(Check):
                 sql=failed_rows_sql,
             )
             failed_rows_query.execute()
-            self.failed_rows_storage_ref = failed_rows_query.storage_ref
+            self.failed_rows_sample_ref = failed_rows_query.sample_ref
 
     def get_failed_rows_sql(self) -> str:
         sql = (
             f"SELECT * \n"
-            f"FROM {self.partition.table.prefixed_table_name} \n"
+            f"FROM {self.partition.table.fully_qualified_table_name} \n"
             f"WHERE ({self.check_cfg.fail_condition_sql_expr})"
         )
         partition_filter = self.partition.sql_partition_filter
@@ -76,12 +74,12 @@ class UserDefinedFailedRowsExpressionCheck(Check):
         cloud_diagnostics = {
             "value": self.check_value,
         }
-        if self.failed_rows_storage_ref:
-            cloud_diagnostics["failed_rows_storage_ref"] = self.failed_rows_storage_ref.get_cloud_diagnostics_dict()
+        if self.failed_rows_sample_ref:
+            cloud_diagnostics["failedRowsFile"] = self.failed_rows_sample_ref.get_cloud_diagnostics_dict()
         return cloud_diagnostics
 
     def get_log_diagnostic_dict(self) -> dict:
         log_diagnostics = {"check_value": self.check_value}
-        if self.failed_rows_storage_ref:
-            log_diagnostics["failed_rows_storage_ref"] = str(self.failed_rows_storage_ref)
+        if self.failed_rows_sample_ref:
+            log_diagnostics["failed_rows_sample_ref"] = str(self.failed_rows_sample_ref)
         return log_diagnostics

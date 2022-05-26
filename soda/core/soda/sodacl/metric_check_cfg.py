@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from soda.execution.identity import Identity
 from soda.sodacl.change_over_time_cfg import ChangeOverTimeCfg
 from soda.sodacl.check_cfg import CheckCfg
 from soda.sodacl.location import Location
@@ -44,23 +43,6 @@ class MetricCheckCfg(CheckCfg):
             return self.metric_args[0] if self.metric_args and len(self.metric_args) == 1 else None
         else:
             return self.metric_args[0] if self.metric_args else None
-
-    def get_identity_parts(self) -> list:
-        other_metric_args = (
-            self.metric_args[1:] if isinstance(self.metric_args, list) and len(self.metric_args) > 1 else None
-        )
-        return [
-            self.location,
-            Identity.property("other_metric_args", other_metric_args),
-            Identity.property("filter", self.filter),
-            Identity.property("condition", self.condition),
-            Identity.property("metric_expression", self.metric_expression),
-            Identity.property("metric_query", self.metric_query),
-            Identity.property("missing_and_valid_cfg", self.missing_and_valid_cfg),
-            Identity.property("change_over_time_cfg", self.change_over_time_cfg),
-            Identity.property("fail_threshold_cfg", self.fail_threshold_cfg),
-            Identity.property("warn_threshold_cfg", self.warn_threshold_cfg),
-        ]
 
     def has_threshold(self):
         return self.fail_threshold_cfg or self.warn_threshold_cfg

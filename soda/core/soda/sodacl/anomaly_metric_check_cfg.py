@@ -24,6 +24,7 @@ class AnomalyMetricCheckCfg(MetricCheckCfg):
         change_over_time_cfg: Optional["ChangeOverTimeCfg"],
         fail_threshold_cfg: Optional[ThresholdCfg],
         warn_threshold_cfg: Optional[ThresholdCfg],
+        is_automated_monitoring: bool = False,
     ):
         super().__init__(
             source_header,
@@ -42,3 +43,4 @@ class AnomalyMetricCheckCfg(MetricCheckCfg):
             fail_threshold_cfg,
             warn_threshold_cfg,
         )
+        self.is_automated_monitoring = is_automated_monitoring

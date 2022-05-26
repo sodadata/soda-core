@@ -42,6 +42,9 @@ class DataSourceImpl(DataSource):
         DataType.BOOLEAN: "BOOLEAN",
     }
 
+    NUMERIC_TYPES_FOR_PROFILING = ["FLOAT", "NUMBER", "INT"]
+    TEXT_TYPES_FOR_PROFILING = ["TEXT"]
+
     def connect(self, connection_properties):
         self.connection_properties = connection_properties
         try:
@@ -120,11 +123,11 @@ class DataSourceImpl(DataSource):
         return f"SELECT table_name, row_count \n" f"FROM information_schema.tables" f"{where_clause}"
 
     @staticmethod
-    def format_column_default(identifier: str) -> str:
+    def default_casify_column_name(identifier: str) -> str:
         return identifier.upper()
 
     @staticmethod
-    def format_type_default(identifier: str) -> str:
+    def default_casify_type_name(identifier: str) -> str:
         return identifier.upper()
 
     def safe_connection_data(self):

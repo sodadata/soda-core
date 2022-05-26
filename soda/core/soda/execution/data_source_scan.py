@@ -1,10 +1,15 @@
-from typing import Dict, List
+from typing import TYPE_CHECKING, Dict, List
 
 from soda.execution.data_source import DataSource
+from soda.execution.discover_tables_run import DiscoverTablesRun
 from soda.execution.metric import Metric
+from soda.execution.profile_columns_run import ProfileColumnsRun
 from soda.execution.query import Query
 from soda.execution.table import Table
 from soda.sodacl.data_source_scan_cfg import DataSourceScanCfg
+
+if TYPE_CHECKING:
+    from soda.scan import Scan
 
 
 class DataSourceScan:
@@ -16,7 +21,6 @@ class DataSourceScan:
     ):
         from soda.execution.metric import Metric
         from soda.execution.table import Table
-        from soda.scan import Scan
 
         self.scan: Scan = scan
         self.data_source_scan_cfg: DataSourceScanCfg = data_source_scan_cfg
@@ -64,3 +68,9 @@ class DataSourceScan:
         from soda.execution.automated_monitoring_run import AutomatedMonitoringRun
 
         return AutomatedMonitoringRun(self, automated_monitoring_cfg)
+
+    def create_profile_columns_run(self, profile_columns_cfg, scan):
+        return ProfileColumnsRun(self, profile_columns_cfg)
+
+    def create_discover_tables_run(self, discover_tables_cfg, scan):
+        return DiscoverTablesRun(self, discover_tables_cfg)

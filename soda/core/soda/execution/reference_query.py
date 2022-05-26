@@ -17,12 +17,15 @@ class ReferenceQuery(Query):
             unqualified_query_name=f"reference[{ReferenceQuery.build_source_column_list(metric)}]",
         )
 
+        from soda.execution.data_source import DataSource
         from soda.sodacl.reference_check_cfg import ReferenceCheckCfg
 
+        data_source: DataSource = data_source_scan.data_source
+
         check_cfg: ReferenceCheckCfg = metric.check.check_cfg
-        source_table_name = metric.partition.table.table_name
+        source_table_name = data_source.fully_qualified_table_name(metric.partition.table.table_name)
         source_column_names = check_cfg.source_column_names
-        target_table_name = check_cfg.target_table_name
+        target_table_name = data_source.fully_qualified_table_name(check_cfg.target_table_name)
         target_column_names = check_cfg.target_column_names
 
         source_diagnostic_column_fields = "SOURCE.*"
@@ -53,6 +56,8 @@ class ReferenceQuery(Query):
 
     def execute(self):
         self.store()
-        if self.storage_ref:
-            self.metric.value = self.storage_ref.total_row_count
-            self.metric.invalid_references_storage_ref = self.storage_ref
+        if self.sample_ref:
+            self.metric.set_value(self.sample_ref.total_row_count)
+            self.metric.invalid_references_sample_ref = self.sample_ref
+        else:
+            self.metric.set_value(0)

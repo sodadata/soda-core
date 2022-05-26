@@ -6,7 +6,6 @@ from soda.execution.check_outcome import CheckOutcome
 from soda.execution.derived_metric import DERIVED_METRIC_NAMES
 from soda.execution.metric import Metric
 from soda.execution.user_defined_numeric_metric import UserDefinedNumericMetric
-from soda.sampler.storage_ref import StorageRef
 from soda.sodacl.metric_check_cfg import MetricCheckCfg
 
 KEY_CHECK_VALUE = "check_value"
@@ -24,12 +23,7 @@ class MetricCheck(Check):
         metric_name = metric_check_cfg.metric_name
 
         super().__init__(
-            check_cfg=check_cfg,
-            data_source_scan=data_source_scan,
-            partition=partition,
-            column=column,
-            name=metric_name,
-            identity_parts=check_cfg.get_identity_parts(),
+            check_cfg=check_cfg, data_source_scan=data_source_scan, partition=partition, column=column, name=metric_name
         )
 
         self.historic_descriptor = None
@@ -38,7 +32,6 @@ class MetricCheck(Check):
         self.check_value: Optional[float] = None
         self.formula_values: Optional[dict] = None
         self.historic_diff_values: Optional[dict] = None
-        self.failed_rows_storage_ref: Optional[StorageRef] = None
 
         from soda.execution.derived_metric import DerivedMetric
         from soda.execution.numeric_query_metric import NumericQueryMetric
@@ -98,11 +91,16 @@ class MetricCheck(Check):
         self.set_outcome_based_on_check_value()
 
     def get_metric_value(self) -> object:
+        metric = self.get_metric()
+        self.formula_values = metric.formula_values
+        self.failed_rows_sample_ref = metric.failed_rows_sample_ref
+        return metric.value
+
+    def get_metric(self):
         metric_check_cfg: MetricCheckCfg = self.check_cfg
         metric_name = metric_check_cfg.metric_name
         metric = self.metrics.get(metric_name)
-        self.formula_values = metric.formula_values
-        return metric.value
+        return metric
 
     def set_outcome_based_on_check_value(self):
         metric_check_cfg: MetricCheckCfg = self.check_cfg
@@ -133,18 +131,20 @@ class MetricCheck(Check):
         # TODO Disabled these until cloud can ingest them properly
         # if self.formula_values:
         #     cloud_diagnostics["formula_values"] = self.formula_values
-        # if self.failed_rows_storage_ref:
-        #     cloud_diagnostics["failed_rows_storage_ref"] = self.failed_rows_storage_ref.get_cloud_diagnostics_dict()
+        # if self.failed_rows_sample_ref:
+        #     cloud_diagnostics["failed_rows_sample_ref"] = self.failed_rows_sample_ref.get_cloud_diagnostics_dict()
         if metric_check_cfg.fail_threshold_cfg is not None:
             cloud_diagnostics["fail"] = metric_check_cfg.fail_threshold_cfg.to_soda_cloud_diagnostics_json()
         if metric_check_cfg.warn_threshold_cfg is not None:
             cloud_diagnostics["warn"] = metric_check_cfg.warn_threshold_cfg.to_soda_cloud_diagnostics_json()
+        if self.failed_rows_sample_ref:
+            cloud_diagnostics["failedRowsFile"] = self.failed_rows_sample_ref.get_cloud_diagnostics_dict()
         return cloud_diagnostics
 
     def get_log_diagnostic_dict(self) -> dict:
         log_diagnostics = {"check_value": self.check_value}
         if self.formula_values:
             log_diagnostics.update(self.formula_values)
-        if self.failed_rows_storage_ref:
-            log_diagnostics["failed_rows_storage_ref"] = str(self.failed_rows_storage_ref)
+        if self.failed_rows_sample_ref:
+            log_diagnostics["failed_rows_sample_ref"] = str(self.failed_rows_sample_ref)
         return log_diagnostics

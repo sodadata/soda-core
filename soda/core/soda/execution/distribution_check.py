@@ -27,7 +27,6 @@ class DistributionCheck(Check):
             partition=partition,
             column=column,
             name="distribution_difference",
-            identity_parts=check_cfg.get_identity_parts(),
         )
 
     def evaluate(self, metrics: Dict[str, Metric], historic_values: Dict[str, object]):
@@ -87,7 +86,7 @@ class DistributionCheck(Check):
 
     def sql_column_values_query(self, distribution_check_cfg):
         column_name = distribution_check_cfg.column_name
-        sql = f"SELECT \n" f"  {column_name} \n" f"FROM {self.partition.table.prefixed_table_name}"
+        sql = f"SELECT \n" f"  {column_name} \n" f"FROM {self.partition.table.fully_qualified_table_name}"
 
         partition_filter = self.partition.sql_partition_filter
         if partition_filter:

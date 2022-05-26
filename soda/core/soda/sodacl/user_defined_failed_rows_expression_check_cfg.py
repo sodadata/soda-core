@@ -16,6 +16,3 @@ class UserDefinedFailedRowsExpressionCheckCfg(CheckCfg):
     ):
         super().__init__(source_header, source_line, source_configurations, location, name)
         self.fail_condition_sql_expr: Optional[str] = fail_condition_sql_expr
-
-    def get_identity_parts(self) -> list:
-        return [self.location, self.fail_condition_sql_expr]

@@ -2,7 +2,6 @@ from abc import ABC
 from dataclasses import dataclass
 from typing import Optional
 
-from soda.execution.metric import Metric
 from soda.sodacl.change_over_time_cfg import ChangeOverTimeCfg
 
 
@@ -24,5 +23,5 @@ class HistoricCheckResultsDescriptor(HistoricDescriptor):
 
 @dataclass(frozen=True)
 class HistoricChangeOverTimeDescriptor(HistoricDescriptor):
-    metric: Metric
+    metric_identity: Optional[str]
     change_over_time_cfg: ChangeOverTimeCfg()

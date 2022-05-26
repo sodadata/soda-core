@@ -15,6 +15,8 @@ from soda.execution.check_outcome import CheckOutcome
 from soda.execution.data_source_scan import DataSourceScan
 from soda.execution.derived_metric import DerivedMetric
 from soda.execution.metric import Metric
+from soda.profiling.discover_table_result_table import DiscoverTablesResultTable
+from soda.profiling.profile_columns_result_table import ProfileColumnsResultTable
 from soda.soda_cloud.historic_descriptor import HistoricDescriptor
 from soda.sodacl.location import Location
 from soda.sodacl.sodacl_cfg import SodaCLCfg
@@ -47,7 +49,10 @@ class Scan:
         self._metrics: set[Metric] = set()
         self._checks: list[Check] = []
         self._queries: list[Query] = []
+        self._profile_columns_result_tables: list[ProfileColumnsResultTable] = []
+        self._discover_tables_result_tables: list[DiscoverTablesResultTable] = []
         self._logs.info(f"Soda Core {SODA_CORE_VERSION}")
+        self._is_profiling_run = False
 
     def set_data_source_name(self, data_source_name: str):
         """
@@ -68,7 +73,9 @@ class Scan:
 
     def add_configuration_yaml_file(self, file_path: str):
         """
-        Configure environment configurations from a YAML file
+        Adds configurations from a YAML file on the given path.
+        :param str file_path: is a string file_path pointing to a configuration file.
+                              ~ will be expanded to the user home dir.
         """
         try:
             configuration_yaml_str = self._read_file("configuration", file_path)
@@ -78,13 +85,29 @@ class Scan:
             )
         except Exception as e:
             self._logs.error(
-                f"Could not add environment configurations from file path {file_path}",
+                f"Could not add configuration from file path {file_path}",
                 exception=e,
             )
 
+    def add_configuration_yaml_files(self, path: str, recursive: bool | None = True, suffixes: str | None = None):
+        """
+        Adds all configurations all YAML files matching the given file path or scanning the given path as a directory.
+        :param str path: is a string that typically is the path to a directory, but it can also be a configuration file.
+                         ~ will be expanded to the user home dir the directory in which to search for configuration files.
+        :param bool recursive: controls if nested directories also will be scanned.  Default recursive=True.
+        :param List[str] suffixes: is optional and is used when recursive scanning directories to only load files
+                                   having a given extension or suffix. Default suffixes=[".yml", ".yaml"]
+        """
+        try:
+            configuration_yaml_file_paths = self._collect_file_paths(path=path, recursive=recursive, suffixes=suffixes)
+            for configuration_yaml_file_path in configuration_yaml_file_paths:
+                self.add_configuration_yaml_file(file_path=configuration_yaml_file_path)
+        except Exception as e:
+            self._logs.error(f"Could not add configuration files from dir {dir}", exception=e)
+
     def add_configuration_yaml_str(self, environment_yaml_str: str, file_path: str = "yaml string"):
         """
-        Configure environment configurations from the given string.
+        Adds configurations from a YAML formatted string.
         Parameter file_path is optional and can be used to get the location of the log/error in the logs.
         """
         try:
@@ -124,45 +147,60 @@ class Scan:
         self,
         path: str,
         recursive: bool | None = True,
-        suffix: str | None = ".yml",
+        suffixes: list[str] | None = None,
     ):
         """
         Adds all the files in the given directory to the scan as SodaCL files.
-        Parameter 'path' is a string that typically represents a directory, but it can also be a SodaCL file.
+        :param str path: is a string that typically represents a directory, but it can also be a SodaCL file.
                          ~ will be expanded to the user home dir the directory in which to search for SodaCL files.
-        Parameter 'recursive' controls if nested directories also will be scanned.  Default recursive=True.
-        Parameter 'suffix' can be used to only load files having a given extension or suffix like eg suffix='.sodacl.yml'
+        :param bool recursive: controls if nested directories also will be scanned.  Default recursive=True.
+        :param List[str] suffixes: is optional and is used when recursive scanning directories to only load files
+                                   having a given extension or suffix. Default suffixes=[".yml", ".yaml"]
         """
         try:
-            if isinstance(path, str):
-                file_system = self._configuration.file_system
-                path = file_system.expand_user(path)
-                if file_system.exists(path):
-                    if file_system.is_dir(path):
-                        self._logs.info(f"Adding SodaCL dir {path}")
-                        for dir_entry in file_system.scan_dir(path):
-                            if dir_entry.is_file() and (suffix is None or dir_entry.name.endswith(suffix)):
-                                self.add_sodacl_yaml_file(file_path=dir_entry.path)
-                            elif recursive and dir_entry.is_dir():
-                                self.add_sodacl_yaml_files(
-                                    path=dir_entry.path,
-                                    recursive=True,
-                                    suffix=suffix,
-                                )
-                    elif file_system.is_file(path):
-                        self.add_sodacl_yaml_file(file_path=path)
-                    else:
-                        self._logs.error(f'path "{path}" exists, but is not a file nor directory ?!')
-                else:
-                    self._logs.error(f'path "{path}" does not exist')
-            else:
-                self._logs.error(f"path is not a string: {type(path).__name__}")
+            sodacl_yaml_file_paths = self._collect_file_paths(path=path, recursive=recursive, suffixes=suffixes)
+            for sodacl_yaml_file_path in sodacl_yaml_file_paths:
+                self.add_sodacl_yaml_file(file_path=sodacl_yaml_file_path)
         except Exception as e:
             self._logs.error(f"Could not add SodaCL files from dir {dir}", exception=e)
 
+    def _collect_file_paths(
+        self,
+        path: str,
+        recursive: bool | None,
+        suffixes: list[str] | None,
+    ) -> list[str]:
+        if isinstance(path, str):
+            if path.endswith("/"):
+                path = path[:-1]
+            file_system = self._configuration.file_system
+            path = file_system.expand_user(path)
+            paths_to_scan = [path]
+            file_paths = []
+            is_root = True
+            while len(paths_to_scan) > 0:
+                path = paths_to_scan.pop()
+                if file_system.exists(path):
+                    if file_system.is_file(path) and (
+                        suffixes is None or any(suffix is None or path.endswith(suffix) for suffix in suffixes)
+                    ):
+                        file_paths.append(path)
+                    elif file_system.is_dir(path) and (is_root or recursive):
+                        is_root = False
+                        if suffixes is None:
+                            suffixes = [".yml", ".yaml"]
+                        for dir_entry in file_system.scan_dir(path):
+                            paths_to_scan.append(f"{path}/{dir_entry.name}")
+                else:
+                    self._logs.error(f'Path "{path}" does not exist')
+            return file_paths
+        else:
+            self._logs.error(f"Path is not a string: {type(path).__name__}")
+        return []
+
     def add_sodacl_yaml_file(self, file_path: str):
         """
-        Add a SodaCL file to the scan.
+        Add a SodaCL YAML file to the scan on the given file_path.
         """
         try:
             sodacl_yaml_str = self._read_file("SodaCL", file_path)
@@ -176,7 +214,7 @@ class Scan:
 
     def add_sodacl_yaml_str(self, sodacl_yaml_str: str):
         """
-        Add a SodaCL string to the scan.
+        Add a SodaCL YAML string to the scan.
         """
         try:
             unique_name = "sodacl_string"
@@ -249,13 +287,36 @@ class Scan:
         """
         self._configuration.telemetry = None
 
-    def execute(self):
+    def execute(self) -> int:
         self._logs.debug("Scan execution starts")
         try:
             from soda.execution.column import Column
             from soda.execution.column_metrics import ColumnMetrics
             from soda.execution.partition import Partition
             from soda.execution.table import Table
+
+            # Disable Soda Cloud if it is not properly configured
+            if self._configuration.soda_cloud:
+                if not isinstance(self._scan_definition_name, str):
+                    self._logs.error(
+                        "scan.set_scan_definition_name(...) is not set and it is required to make the Soda Cloud integration work.  For this scan, Soda Cloud will be disabled."
+                    )
+                    self._configuration.soda_cloud = None
+                    from soda.sampler.soda_cloud_sampler import SodaCloudSampler
+
+                    if isinstance(self._configuration.sampler, SodaCloudSampler):
+                        self._configuration.sampler = None
+                else:
+                    try:
+                        if self._configuration.soda_cloud.is_samples_disabled():
+                            self._configuration.sampler = None
+                    except Exception as e:
+                        self._logs.error(
+                            "Connecting to Soda Cloud failed.  Disabling Soda Cloud connection.", exception=e
+                        )
+                        self._configuration.soda_cloud = None
+
+            exit_value = 0
 
             # If there is a sampler
             if self._configuration.sampler:
@@ -313,6 +374,10 @@ class Scan:
                 if isinstance(metric, DerivedMetric):
                     metric.compute_derived_metric_values()
 
+            # Extend automated checks into checks
+            automated_monitoring_checks = self.run_automated_monitoring()
+            self._checks.extend(automated_monitoring_checks)
+
             # Evaluates the checks based on all the metric values
             for check in self._checks:
                 # First get the metric values for this check
@@ -345,19 +410,8 @@ class Scan:
                         f"Metrics {missing_metrics_str} were not computed for check {check.check_cfg.source_line}"
                     )
 
-            for data_source_scan in self._data_source_scans:
-                for monitoring_cfg in data_source_scan.data_source_scan_cfg.monitoring_cfgs:
-                    data_source_name = data_source_scan.data_source_scan_cfg.data_source_name
-                    data_source_scan = self._get_or_create_data_source_scan(data_source_name)
-                    if data_source_scan:
-                        monitor_runner = data_source_scan.create_automated_monitor_run(monitoring_cfg, self)
-                        monitor_runner.run()
-                    else:
-                        data_source_names = ", ".join(self._data_source_manager.data_source_properties_by_name.keys())
-                        self._logs.error(
-                            f"Could not run monitors on data_source {data_source_name} because It is not "
-                            f"configured: {data_source_names}"
-                        )
+            self.run_discover_tables()
+            self.run_profile_columns()
 
             self._logs.info("Scan summary:")
             self.__log_queries(having_exception=False)
@@ -373,42 +427,104 @@ class Scan:
             self.__log_checks(None)
             checks_not_evaluated = len(self._checks) - checks_pass_count - checks_warn_count - checks_fail_count
 
+            if len(self._checks) == 0 and not self._is_profiling_run:
+                self._logs.warning("No checks found, 0 checks evaluated.")
             if checks_not_evaluated:
                 self._logs.info(f"{checks_not_evaluated} checks not evaluated.")
             if error_count > 0:
                 self._logs.info(f"{error_count} errors.")
-            if checks_warn_count + checks_fail_count + error_count == 0:
+            if checks_warn_count + checks_fail_count + error_count == 0 and len(self._checks) > 0:
                 if checks_not_evaluated:
                     self._logs.info(
                         f"Apart from the checks that have not been evaluated, no failures, no warnings and no errors."
                     )
                 else:
                     self._logs.info(f"All is good. No failures. No warnings. No errors.")
+            elif error_count > 0:
+                exit_value = 3
+                self._logs.info(
+                    f"Oops! {error_count} {error_text}. {checks_fail_count} {fail_text}. {checks_warn_count} {warn_text}. {checks_pass_count} pass."
+                )
             elif checks_fail_count > 0:
+                exit_value = 2
                 self._logs.info(
                     f"Oops! {checks_fail_count} {fail_text}. {checks_warn_count} {warn_text}. {error_count} {error_text}. {checks_pass_count} pass."
                 )
             elif checks_warn_count > 0:
+                exit_value = 1
                 self._logs.info(
                     f"Only {checks_warn_count} {warn_text}. {checks_fail_count} {fail_text}. {error_count} {error_text}. {checks_pass_count} pass."
-                )
-            elif error_count > 0:
-                self._logs.info(
-                    f"Oops! {error_count} {error_text}. {checks_fail_count} {fail_text}. {checks_warn_count} {warn_text}. {checks_pass_count} pass."
                 )
 
             if error_count > 0:
                 Log.log_errors(self.get_error_logs())
 
-            self._scan_end_timestamp = datetime.now()
+            self._scan_end_timestamp = datetime.utcnow()
             if self._configuration.soda_cloud:
                 self._logs.info("Sending results to Soda Cloud")
                 self._configuration.soda_cloud.send_scan_results(self)
 
         except Exception as e:
+            exit_value = 3
             self._logs.error(f"Error occurred while executing scan.", exception=e)
         finally:
             self._close()
+        return exit_value
+
+    def run_automated_monitoring(self):
+        # this is where automated monitoring is called
+        _automated_checks = []
+        for data_source_scan in self._data_source_scans:
+            for monitoring_cfg in data_source_scan.data_source_scan_cfg.monitoring_cfgs:
+                data_source_name = data_source_scan.data_source_scan_cfg.data_source_name
+                data_source_scan = self._get_or_create_data_source_scan(data_source_name)
+                if data_source_scan:
+                    monitor_runner = data_source_scan.create_automated_monitor_run(monitoring_cfg, self)
+                    automated_monitoring_checks: list[Check] = monitor_runner.run()
+                    if automated_monitoring_checks:
+                        _automated_checks += automated_monitoring_checks
+                else:
+                    data_source_names = ", ".join(self._data_source_manager.data_source_properties_by_name.keys())
+                    self._logs.error(
+                        f"Could not run monitors on data_source {data_source_name} because It is not "
+                        f"configured: {data_source_names}"
+                    )
+        return _automated_checks
+
+    def run_profile_columns(self):
+        for data_source_scan in self._data_source_scans:
+            for profile_columns_cfg in data_source_scan.data_source_scan_cfg.profile_columns_cfgs:
+                data_source_name = data_source_scan.data_source_scan_cfg.data_source_name
+                data_source_scan = self._get_or_create_data_source_scan(data_source_name)
+                if data_source_scan:
+                    profile_columns_run = data_source_scan.create_profile_columns_run(profile_columns_cfg, self)
+                    profile_columns_result = profile_columns_run.run()
+                    self._is_profiling_run = True
+                    self._profile_columns_result_tables.extend(profile_columns_result.tables)
+                else:
+                    data_source_names = ", ".join(self._data_source_manager.data_source_properties_by_name.keys())
+                    self._logs.error(
+                        f"Could not profile columns on data_source {data_source_name} because it is not "
+                        f"configured: {data_source_names}",
+                        location=profile_columns_cfg.location,
+                    )
+
+    def run_discover_tables(self):
+        for data_source_scan in self._data_source_scans:
+            for discover_columns_cfg in data_source_scan.data_source_scan_cfg.discover_tables_cfgs:
+                data_source_name = data_source_scan.data_source_scan_cfg.data_source_name
+                data_source_scan = self._get_or_create_data_source_scan(data_source_name)
+                if data_source_scan:
+                    discover_tables_run = data_source_scan.create_discover_tables_run(discover_columns_cfg, self)
+                    discover_tables_result = discover_tables_run.run()
+                    self._is_profiling_run = True
+                    self._discover_tables_result_tables.extend(discover_tables_result.tables)
+                else:
+                    data_source_names = ", ".join(self._data_source_manager.data_source_properties_by_name.keys())
+                    self._logs.error(
+                        f"Could not discover tables on data_source {data_source_name} because it is not configured: {data_source_names}",
+                        location=discover_columns_cfg.location,
+                    )
 
     def __checks_to_text(self, checks: list[Check]):
         return "/n".join([str(check) for check in checks])
@@ -448,10 +564,15 @@ class Scan:
                 table_names = [row[0] for row in query.rows]
 
                 for table_name in table_names:
-                    data_source_scan_cfg = self._sodacl_cfg._get_or_create_data_source_scan_cfgs(data_source_name)
+                    data_source_scan_cfg = self._sodacl_cfg.get_or_create_data_source_scan_cfgs(data_source_name)
                     table_cfg = data_source_scan_cfg.get_or_create_table_cfg(table_name)
                     partition_cfg = table_cfg.find_partition(None, None)
-                    for check_cfg in for_each_table_cfg.check_cfgs:
+                    for check_cfg_template in for_each_table_cfg.check_cfgs:
+                        check_cfg = check_cfg_template.instantiate_for_each_table(
+                            table_alias=for_each_table_cfg.table_alias_name,
+                            table_name=table_name,
+                            partition_name=partition_cfg.partition_name,
+                        )
                         column_name = check_cfg.get_column_name()
                         if column_name:
                             column_checks_cfg = partition_cfg.get_or_create_column_checks(column_name)

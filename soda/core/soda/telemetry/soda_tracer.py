@@ -55,10 +55,9 @@ def soda_trace(fn: callable):
         span.set_attribute("user_cookie_id", soda_telemetry.user_cookie_id)
 
     def _after_exec(span: Span, error: Optional[BaseException] = None):
-        if str(error) == "0":
-            # This is an OK cli exit state
-            span.set_status(Status(StatusCode.OK))
-        else:
+        span.set_status(Status(StatusCode.OK))
+        if str(error) == "3":
+            # Only error code 3 means actual execution error, 1 and 2 are reserved for other use.
             span.set_status(Status(StatusCode.ERROR))
 
     @wraps(fn)

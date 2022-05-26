@@ -44,6 +44,9 @@ class DataSourceImpl(DataSource):
         DataType.BOOLEAN: "BOOL",
     }
 
+    NUMERIC_TYPES_FOR_PROFILING = ["NUMERIC", "INT64"]
+    TEXT_TYPES_FOR_PROFILING = ["STRING"]
+
     def connect(self, connection_properties):
         self.connection_properties = connection_properties
 
@@ -182,11 +185,7 @@ class DataSourceImpl(DataSource):
         return f"{self.project_id}.{self.dataset_name}.INFORMATION_SCHEMA.TABLES"
 
     @staticmethod
-    def format_column_default(identifier: str) -> str:
-        return identifier
-
-    @staticmethod
-    def format_type_default(identifier: str) -> str:
+    def default_casify_type_name(identifier: str) -> str:
         return identifier.upper()
 
     def safe_connection_data(self):
@@ -194,3 +193,6 @@ class DataSourceImpl(DataSource):
             self.type,
             self.connection_properties.get("project_id"),
         ]
+
+    def rollback(self):
+        pass

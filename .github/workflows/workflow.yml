@@ -39,7 +39,6 @@ jobs:
       fail-fast: false
       matrix:
         python-version:
-          - "3.7"
           - "3.8"
           - "3.9"
           # Disabled 3.10 because pystan (from soda-scientific will fail)
@@ -51,6 +50,7 @@ jobs:
           - "snowflake"
           - "bigquery"
           - "redshift"
+          - "athena"
     env:
       DATA_SOURCE: ${{ matrix.data-source }}
       PYTHON_VERSION: ${{ matrix.python-version }}
@@ -67,6 +67,10 @@ jobs:
       REDSHIFT_PASSWORD: ${{ secrets.REDSHIFT_PASSWORD }}
       REDSHIFT_DATABASE: "soda_test"
       REDSHIFT_PORT: "5439"
+      ATHENA_ACCESS_KEY_ID: ${{ secrets.ATHENA_ACCESS_KEY_ID }}
+      ATHENA_SECRET_ACCESS_KEY: ${{ secrets.ATHENA_SECRET_ACCESS_KEY }}
+      ATHENA_STAGING_DIR: ${{ secrets.ATHENA_STAGING_DIR }}
+      ATHENA_DATABASE: ${{ secrets.ATHENA_DATABASE }}
 
     steps:
       - uses: actions/checkout@v2
@@ -94,7 +98,6 @@ jobs:
       fail-fast: false
       matrix:
         python-version:
-          - "3.7"
           - "3.8"
           - "3.9"
           # Disabled 3.10 because pystan (from soda-scientific will fail)
@@ -130,7 +133,6 @@ jobs:
       fail-fast: false
       matrix:
         python-version:
-          - "3.7"
           - "3.8"
           - "3.9"
           # Disabled 3.10 because pystan (from soda-scientific will fail)
@@ -160,7 +162,7 @@ jobs:
     if: contains(github.ref, 'refs/tags/')
     timeout-minutes: 10
     runs-on: ubuntu-20.04
-    needs: [ run-tests ]
+    needs: [run-tests]
     env:
       REPORTS_URL: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
       TWINE_USERNAME: __token__
@@ -179,12 +181,28 @@ jobs:
       - name: Build and publish packages
         # Hacky version for now :)
         run: |
+          FAILED=false
           cd soda
           for pack in *
           do
             pushd .
             cd $pack
+
+            echo "| Building $pack"
             python3 setup.py sdist bdist_wheel
-            twine upload dist/*
+
+            echo "| Uploading $pack to pypi"
+            UPLOAD_FAILED=false
+            twine upload dist/* || UPLOAD_FAILED=true
+            if [ $UPLOAD_FAILED = true ]; then
+              FAILED=true
+              echo "Failed to upload $pack"
+            fi
+
             popd
           done
+
+          if [ $FAILED = true ]; then
+            echo "There was an error, check the logs please."
+            exit 1
+          fi

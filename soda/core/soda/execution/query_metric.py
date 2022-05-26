@@ -25,3 +25,6 @@ class QueryMetric(Metric, ABC):
             check=check,
             identity_parts=identity_parts,
         )
+
+    def create_failed_rows_sample_query(self):
+        return None

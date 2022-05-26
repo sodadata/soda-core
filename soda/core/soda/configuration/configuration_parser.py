@@ -6,6 +6,7 @@ import re
 from soda.common.logs import Logs
 from soda.common.parser import Parser
 from soda.configuration.configuration import Configuration
+from soda.sampler.soda_cloud_sampler import SodaCloudSampler
 from soda.soda_cloud.soda_cloud import SodaCloud
 
 logger = logging.getLogger(__name__)
@@ -37,9 +38,9 @@ class ConfigurationParser(Parser):
                 data_source_name = environment_header[len(f"{DATA_SOURCE} ") :].strip()
                 if not re.compile(r"^[a-z_][a-z_0-9]+$").match(data_source_name):
                     self.logs.error(
-                        "Invalid data_source name. DataSource names must start with a lower case char or "
-                        "an underscore [a-z_], followed by any number of lower case chars, digits or "
-                        "underscore [a-z0-9_]"
+                        f"Invalid data source name '{data_source_name}'. Data source names must "
+                        f"start with a lower case char or an underscore [a-z_], followed by any "
+                        f"number of lower case chars, digits or underscore [a-z0-9_]"
                     )
                 self.configuration.data_source_properties_by_name[data_source_name] = header_value
 
@@ -67,6 +68,8 @@ class ConfigurationParser(Parser):
             elif environment_header == "soda_cloud":
                 self._push_path_element("soda_cloud", header_value)
                 self.configuration.soda_cloud = self.parse_soda_cloud_cfg(header_value)
+                if self.configuration.soda_cloud and not header_value.get("disable_samples"):
+                    self.configuration.sampler = SodaCloudSampler()
                 self._pop_path_element()
 
             else:
@@ -77,9 +80,14 @@ class ConfigurationParser(Parser):
                 )
 
     def parse_soda_cloud_cfg(self, soda_cloud_dict: dict):
-        api_key = soda_cloud_dict.get("api_key")
-        api_secret = soda_cloud_dict.get("api_secret")
+        api_key = soda_cloud_dict.get("api_key_id")
+        api_secret = soda_cloud_dict.get("api_key_secret")
         host = None
         if "host" in soda_cloud_dict:
             host = soda_cloud_dict.get("host")
-        return SodaCloud(api_key_id=api_key, api_key_secret=api_secret, host=host)
+        port = None
+        if "port" in soda_cloud_dict:
+            port = soda_cloud_dict.get("port")
+        return SodaCloud(
+            api_key_id=api_key, api_key_secret=api_secret, host=host, token=None, port=port, logs=self.logs
+        )

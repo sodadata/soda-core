@@ -14,6 +14,8 @@ import json
 from decimal import Decimal
 from enum import Enum
 
+from soda.common.undefined_instance import Undefined
+
 
 class JsonHelper:
     @staticmethod
@@ -54,7 +56,7 @@ class JsonHelper:
         if isinstance(o, Decimal):
             return float(o)
         if isinstance(o, datetime.datetime):
-            return o.isoformat()
+            return o.isoformat(timespec="seconds")
         if isinstance(o, datetime.date):
             return o.strftime("%Y-%m-%d")
         if isinstance(o, datetime.time):
@@ -63,6 +65,8 @@ class JsonHelper:
             return str(o)
         if isinstance(o, Enum):
             return o.value
+        if isinstance(o, Undefined):
+            return None
         raise RuntimeError(f"Do not know how to jsonize {o} ({type(o)})")
 
     @classmethod

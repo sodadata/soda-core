@@ -122,3 +122,6 @@ class DerivedMetric(Metric):
 
         self.value = self.derived_formula.function(formula_values)
         self.formula_values = formula_values
+        failed_rows_sample_refs = self.derived_formula.collect_failed_rows_sample_refs()
+        if len(failed_rows_sample_refs) == 1:
+            self.failed_rows_sample_ref = failed_rows_sample_refs[0]

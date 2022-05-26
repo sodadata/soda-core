@@ -1,15 +1,8 @@
-import pytest
 from soda.execution.check_outcome import CheckOutcome
-from tests.data_source.conftest import test_data_source
 from tests.helpers.common_test_tables import customers_test_table
 from tests.helpers.scanner import Scanner
 
 
-# TODO: split into a wh specific test, CHAR_LENGTH is not present in all data_sources, e.g. snowflake has LENGTH / LEN
-@pytest.mark.skipif(
-    test_data_source in ["snowflake"],
-    reason="Using data source specific function.",
-)
 def test_user_defined_table_expression_metric_check(scanner: Scanner):
     table_name = scanner.ensure_test_table(customers_test_table)
 
@@ -21,7 +14,7 @@ def test_user_defined_table_expression_metric_check(scanner: Scanner):
             avg_surface expression: AVG(size * distance)
         - ones(sizeTxt):
             name: There must be 3 occurences of 1 in sizeText
-            ones expression: SUM(LENGTH(sizeTxt) - CHAR_LENGTH(REPLACE(sizeTxt, '1', '')))
+            ones expression: SUM(LENGTH(sizeTxt) - LENGTH(REPLACE(sizeTxt, '1', '')))
             warn: when < 3
             fail: when < 2
     """
@@ -47,12 +40,12 @@ def test_user_defined_data_source_query_metric_check(scanner: Scanner):
     scan = scanner.create_test_scan()
     scan.add_sodacl_yaml_str(
         f"""
-      checks:
-        - avg_surface between 1068 and 1069:
-            avg_surface query: |
-              SELECT AVG(size * distance) as avg_surface
-              FROM {table_name}
-    """
+          checks:
+            - avg_surface between 1068 and 1069:
+                avg_surface query: |
+                  SELECT AVG(size * distance) as avg_surface
+                  FROM {table_name}
+        """
     )
     scan.execute()
 

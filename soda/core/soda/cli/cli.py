@@ -9,6 +9,7 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 import logging
+import sys
 from typing import List, Optional, Tuple
 
 import click
@@ -138,7 +139,7 @@ def scan(
             if not fs.exists(configuration_path):
                 scan._logs.error(f"Configuration path '{configuration_path}' does not exist")
             else:
-                scan.add_configuration_yaml_file(configuration_path)
+                scan.add_configuration_yaml_files(configuration_path)
     else:
         default_configuration_file_path = "~/.soda/configuration.yml"
         if fs.is_file(default_configuration_file_path):
@@ -156,7 +157,7 @@ def scan(
         variables_dict = dict([tuple(v.split("=")) for v in variable])
         scan.add_variables(variables_dict)
 
-    scan.execute()
+    sys.exit(scan.execute())
 
 
 @main.command(
@@ -237,7 +238,7 @@ def update(
         logging.info(f"Querying column values to build distribution reference:\n{query}")
 
         scan = Scan()
-        scan.add_configuration_yaml_file(configuration)
+        scan.add_configuration_yaml_files(configuration)
         data_source_scan = scan._get_or_create_data_source_scan(data_source_name=data_source)
         rows = __execute_query(data_source_scan.data_source.connection, query)
 
@@ -264,4 +265,4 @@ def __execute_query(connection, sql: str) -> List[Tuple]:
         finally:
             cursor.close()
     except BaseException as e:
-        logging.error(f"Query error: {e}\n{sql}", e)
+        logging.error(f"Query error: {e}\n{sql}", exception=e)

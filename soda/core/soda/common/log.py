@@ -1,8 +1,10 @@
+from __future__ import annotations
+
 import logging
 from dataclasses import dataclass
+from datetime import datetime
 from enum import Enum
 from textwrap import indent
-from typing import Optional
 
 from soda.common.exception_helper import get_exception_stacktrace
 from soda.sodacl.location import Location
@@ -26,12 +28,36 @@ class Log:
         LogLevel.INFO: logging.INFO,
         LogLevel.DEBUG: logging.DEBUG,
     }
+    __soda_cloud_level_mappings = {
+        LogLevel.ERROR: "error",
+        LogLevel.WARNING: "warning",
+        LogLevel.INFO: "info",
+        LogLevel.DEBUG: "debug",
+    }
 
-    level: LogLevel
-    message: str
-    location: Optional[Location]
-    doc: Optional[str]
-    exception: Optional[BaseException]
+    def __init__(
+        self,
+        level: LogLevel,
+        message: str,
+        location: Location | None,
+        doc: str | None,
+        exception: BaseException | None,
+        timestamp: datetime | None = None,
+    ):
+        self.level: LogLevel = level
+        self.message: str = message
+        self.location: Location | None = location
+        self.doc: str | None = doc
+        self.exception: BaseException | None = exception
+        self.timestamp: datetime = timestamp if isinstance(timestamp, datetime) else datetime.now()
+        self.index = self.get_next_index()
+
+    __index = 0
+
+    @classmethod
+    def get_next_index(cls):
+        cls.__index += 1
+        return cls.__index
 
     def __str__(self):
         location_str = f" | {self.location}" if self.location else ""
@@ -40,13 +66,18 @@ class Log:
         return f"{self.level.value.ljust(7)}| {self.message}{location_str}{doc_str}{exception_str}"
 
     def get_cloud_dict(self) -> dict:
-        log_cloud_dict = {"level": self.level.value, "message": self.message}
+        log_cloud_dict = {
+            "level": self.__soda_cloud_level_mappings[self.level],
+            "message": self.message,
+            "timestamp": self.timestamp,
+            "index": self.index,
+        }
         if self.location:
-            log_cloud_dict["location"] = self.location.to_soda_cloud_json()
+            location_cloud_dict = self.location.to_soda_cloud_json()
+            log_cloud_dict["errorLocation"] = location_cloud_dict
+            log_cloud_dict["location"] = location_cloud_dict
         if self.doc:
             log_cloud_dict["doc"] = self.doc
-        if self.exception:
-            log_cloud_dict["exception"] = get_exception_stacktrace(self.exception)
         return log_cloud_dict
 
     @staticmethod

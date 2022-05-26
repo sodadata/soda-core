@@ -5,7 +5,7 @@ from abc import ABC
 from soda.common.undefined_instance import undefined
 from soda.execution.identity import Identity
 from soda.execution.query import Query
-from soda.sampler.storage_ref import StorageRef
+from soda.sampler.sample_ref import SampleRef
 
 
 class Metric(ABC):
@@ -29,8 +29,12 @@ class Metric(ABC):
         self.name: str = name
         # identity will be used to resolve the same metric and bind it to different checks.
         # Unique within an organisation, but cannot be used as global id in Soda Cloud.
+        if hasattr(check.check_cfg, "is_automated_monitoring"):
+            is_automated_monitoring = check.check_cfg.is_automated_monitoring
+        else:
+            is_automated_monitoring = False
         self.identity: str = Identity.create_identity(
-            "metric", data_source_scan, partition, column, name, identity_parts
+            "metric", data_source_scan, partition, column, name, is_automated_monitoring, identity_parts
         )
         self.data_source_scan = data_source_scan
         self.partition: Partition = partition
@@ -41,8 +45,7 @@ class Metric(ABC):
         self.value: object = undefined
         self.queries: list[Query] = []
         self.formula_values: dict[str, object] = None
-        self.failed_rows_storage_ref: StorageRef | None = None
-        self.duplicate_frequencies_storage_ref: StorageRef | None = None
+        self.failed_rows_sample_ref: SampleRef | None = None
 
     def __eq__(self, other: Metric) -> bool:
         if self is other:
