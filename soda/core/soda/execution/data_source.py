@@ -16,7 +16,6 @@ from soda.execution.data_type import DataType
 from soda.execution.partition_queries import PartitionQueries
 from soda.execution.query import Query
 from soda.telemetry.soda_telemetry import SodaTelemetry
-from tomlkit import table
 
 soda_telemetry = SodaTelemetry.get_instance()
 
