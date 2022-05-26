@@ -16,13 +16,14 @@ description = "Soda Core"
 # long_description = (pathlib.Path(__file__).parent.parent / "README.md").read_text()
 
 requires = [
-    "markupsafe",
+    "markupsafe~=2.1",
     "Jinja2~=3.0",
-    "click",
-    "ruamel.yaml",
-    "requests",
+    "click~=8.0",
+    "ruamel.yaml~=0.17.21",
+    "requests~=2.27.1",
     "antlr4-python3-runtime~=4.9.3",
-    "opentelemetry-exporter-otlp-proto-http",
+    "opentelemetry-exporter-otlp-proto-http~=1.11.0",
+    "protobuf~=3.19.0",
 ]
 
 setup(
