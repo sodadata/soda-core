@@ -23,7 +23,7 @@ requires = [
     "requests~=2.27.1",
     "antlr4-python3-runtime~=4.9.3",
     "opentelemetry-exporter-otlp-proto-http~=1.11.0",
-    "protobuf~=3.19.0"
+    "protobuf~=3.19.0",
 ]
 
 setup(
