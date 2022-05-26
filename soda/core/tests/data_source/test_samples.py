@@ -129,3 +129,20 @@ def test_duplicate_samples(scanner: Scanner):
 
     assert mock_soda_cloud.find_failed_rows_line_count(0) == 1
     assert mock_soda_cloud.find_failed_rows_line_count(1) == 1
+
+
+def test_duplicate_without_rows_samples(scanner: Scanner):
+    table_name = scanner.ensure_test_table(customers_test_table)
+
+    scan = scanner.create_test_scan()
+    mock_soda_cloud = scan.enable_mock_soda_cloud()
+    scan.enable_mock_sampler()
+    scan.add_sodacl_yaml_str(
+        f"""
+          checks for {table_name}:
+            - duplicate_count(id) = 0
+        """
+    )
+    scan.execute_unchecked()
+
+    assert len(mock_soda_cloud.files) == 0
