@@ -106,6 +106,10 @@ class DataSourceImpl(DataSource):
         return ""
 
     @staticmethod
+    def default_casify_table_name(identifier: str) -> str:
+        return identifier.lower()
+
+    @staticmethod
     def default_casify_column_name(identifier: str) -> str:
         return identifier.lower()
 

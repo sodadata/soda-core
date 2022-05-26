@@ -85,8 +85,14 @@ class DataSourceImpl(DataSource):
     def quote_table_declaration(self, table_name) -> str:
         return f"{self.quote_table(self.database)}.{self.quote_table(table_name)}"
 
-    def quote_column(self, column_name: str) -> str:
+    def quote_column_declaration(self, column_name: str) -> str:
+        return self.quote_column_for_create(column_name)
+
+    def quote_column_for_create(self, column_name: str) -> str:
         return f"`{column_name}`"
+
+    def quote_column(self, column_name: str) -> str:
+        return f'"{column_name}"'
 
     def regex_replace_flags(self) -> str:
         return ""
@@ -97,6 +103,10 @@ class DataSourceImpl(DataSource):
     @staticmethod
     def column_metadata_catalog_column() -> str:
         return "table_schema"
+
+    @staticmethod
+    def default_casify_table_name(identifier: str) -> str:
+        return identifier.lower()
 
     @staticmethod
     def default_casify_column_name(identifier: str) -> str:
