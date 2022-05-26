@@ -51,6 +51,7 @@ jobs:
           - "bigquery"
           - "redshift"
           - "athena"
+          - "spark"
     env:
       DATA_SOURCE: ${{ matrix.data-source }}
       PYTHON_VERSION: ${{ matrix.python-version }}
@@ -71,6 +72,10 @@ jobs:
       ATHENA_SECRET_ACCESS_KEY: ${{ secrets.ATHENA_SECRET_ACCESS_KEY }}
       ATHENA_STAGING_DIR: ${{ secrets.ATHENA_STAGING_DIR }}
       ATHENA_DATABASE: ${{ secrets.ATHENA_DATABASE }}
+      SPARK_HOST: ${{ secrets.SPARK_HOST }}
+      SPARK_USERNAME: ${{ secrets.SPARK_USERNAME }}
+      SPARK_PASSWORD: ${{ secrets.SPARK_PASSWORD }}
+      SPARK_DATABASE: ${{ secrets.SPARK_DATABASE }}
 
     steps:
       - uses: actions/checkout@v2
