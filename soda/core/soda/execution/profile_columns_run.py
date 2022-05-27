@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, overload
 
 from soda.execution.query import Query
 from soda.profiling.profile_columns_result import ProfileColumnsResult
@@ -10,6 +10,28 @@ from soda.sodacl.profile_columns_cfg import ProfileColumnsCfg
 
 if TYPE_CHECKING:
     from soda.execution.data_source_scan import DataSourceScan
+
+
+@overload
+def cast_dtype_handle_none(value: int | float | None, target_dtype: str = "float") -> float:
+    ...
+
+
+@overload
+def cast_dtype_handle_none(value: int | float | None, target_dtype: str = "int") -> int:
+    ...
+
+
+def cast_dtype_handle_none(value: int | float | None, target_dtype: str | None = None) -> int | float | None:
+    dtypes_map = {"int": int, "float": float}
+    assert target_dtype is not None, "Target dtype cannot be None"
+    assert (
+        target_dtype in dtypes_map.keys()
+    ), f"Unsupported target dtype: {target_dtype}. Can only be: {list(dtypes_map.keys())}"
+    if value is not None:
+        cast_function = dtypes_map[target_dtype]
+        cast_value = cast_function(value)
+        return cast_value
 
 
 class ProfileColumnsRun:
@@ -144,23 +166,17 @@ class ProfileColumnsRun:
             )
             aggregates_query.execute()
             if aggregates_query.rows is not None:
-                profile_columns_result_column.average = (
-                    float(aggregates_query.rows[0][0]) if aggregates_query.rows[0][0] is not None else None
+                profile_columns_result_column.average = cast_dtype_handle_none(aggregates_query.rows[0][0], "float")
+                profile_columns_result_column.sum = cast_dtype_handle_none(aggregates_query.rows[0][1], "float")
+                profile_columns_result_column.variance = cast_dtype_handle_none(aggregates_query.rows[0][2], "float")
+                profile_columns_result_column.standard_deviation = cast_dtype_handle_none(
+                    aggregates_query.rows[0][3], "float"
                 )
-                profile_columns_result_column.sum = (
-                    float(aggregates_query.rows[0][1]) if aggregates_query.rows[0][1] is not None else None
+                profile_columns_result_column.distinct_values = cast_dtype_handle_none(
+                    aggregates_query.rows[0][4], "int"
                 )
-                profile_columns_result_column.variance = (
-                    float(aggregates_query.rows[0][2]) if aggregates_query.rows[0][2] is not None else None
-                )
-                profile_columns_result_column.standard_deviation = (
-                    float(aggregates_query.rows[0][3]) if aggregates_query.rows[0][3] is not None else None
-                )
-                profile_columns_result_column.distinct_values = (
-                    int(aggregates_query.rows[0][4]) if aggregates_query.rows[0][4] is not None else None
-                )
-                profile_columns_result_column.missing_values = (
-                    int(aggregates_query.rows[0][5]) if aggregates_query.rows[0][5] is not None else None
+                profile_columns_result_column.missing_values = cast_dtype_handle_none(
+                    aggregates_query.rows[0][5], "int"
                 )
             else:
                 self.logs.error(
@@ -254,20 +270,20 @@ class ProfileColumnsRun:
             )
             text_aggregates_query.execute()
             if text_aggregates_query.rows:
-                profile_columns_result_column.distinct_values = (
-                    int(text_aggregates_query.rows[0][0]) if text_aggregates_query.rows[0][0] is not None else None
+                profile_columns_result_column.distinct_values = cast_dtype_handle_none(
+                    text_aggregates_query.rows[0][0], "int"
                 )
-                profile_columns_result_column.missing_values = (
-                    int(text_aggregates_query.rows[0][1]) if text_aggregates_query.rows[0][1] is not None else None
+                profile_columns_result_column.missing_values = cast_dtype_handle_none(
+                    text_aggregates_query.rows[0][1], "int"
                 )
-                profile_columns_result_column.average_length = (
-                    int(text_aggregates_query.rows[0][2]) if text_aggregates_query.rows[0][2] is not None else None
+                profile_columns_result_column.average_length = cast_dtype_handle_none(
+                    text_aggregates_query.rows[0][2], "int"
                 )
-                profile_columns_result_column.min_length = (
-                    int(text_aggregates_query.rows[0][3]) if text_aggregates_query.rows[0][3] is not None else None
+                profile_columns_result_column.min_length = cast_dtype_handle_none(
+                    text_aggregates_query.rows[0][3], "int"
                 )
-                profile_columns_result_column.max_length = (
-                    int(text_aggregates_query.rows[0][4]) if text_aggregates_query.rows[0][4] is not None else None
+                profile_columns_result_column.max_length = cast_dtype_handle_none(
+                    text_aggregates_query.rows[0][4], "int"
                 )
             else:
                 self.logs.error(
