@@ -46,6 +46,7 @@ def test_distribution_check(scanner: Scanner):
     scan.execute()
     os.remove(ref_file)
 
+
 @pytest.mark.parametrize(
     "table, expectation",
     [
