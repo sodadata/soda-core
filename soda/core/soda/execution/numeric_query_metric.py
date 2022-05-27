@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from decimal import Decimal
 from numbers import Number
-from typing import List, Optional
 
 from soda.execution.query_metric import QueryMetric
 from soda.execution.sample_query import SampleQuery
@@ -13,8 +12,8 @@ class NumericQueryMetric(QueryMetric):
     def __init__(
         self,
         data_source_scan: DataSourceScan,
-        partition: Optional[Partition],
-        column: Optional[Column],
+        partition: Partition | None,
+        column: Column | None,
         metric_name: str,
         metric_args: list[object] | None,
         filter: str | None,
