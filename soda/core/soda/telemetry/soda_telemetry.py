@@ -110,6 +110,12 @@ class SodaTelemetry:
             current_span = trace.get_current_span()
             current_span.set_attribute(key, value)
 
+    def set_attributes(self, values: dict[str, str]) -> None:
+        """Set attributes the current span."""
+        if self.__send:
+            current_span = trace.get_current_span()
+            current_span.set_attributes(values)
+
     @staticmethod
     def obtain_datasource_hash(data_source: "DataSource"):
         return data_source.generate_hash_safe()
