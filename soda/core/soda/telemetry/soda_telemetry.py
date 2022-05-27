@@ -2,6 +2,7 @@ import logging
 import os
 import platform
 from distutils.util import strtobool
+from typing import Dict
 
 from opentelemetry import trace
 from opentelemetry.sdk.resources import Resource
@@ -109,6 +110,12 @@ class SodaTelemetry:
         if self.__send:
             current_span = trace.get_current_span()
             current_span.set_attribute(key, value)
+
+    def set_attributes(self, values: Dict[str, str]) -> None:
+        """Set attributes the current span."""
+        if self.__send:
+            current_span = trace.get_current_span()
+            current_span.set_attributes(values)
 
     @staticmethod
     def obtain_datasource_hash(data_source: "DataSource"):
