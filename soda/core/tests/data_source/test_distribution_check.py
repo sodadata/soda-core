@@ -46,6 +46,11 @@ def test_distribution_check(scanner: Scanner):
     scan.execute()
     os.remove(ref_file)
 
+<<<<<<< HEAD
+=======
+
+@pytest.mark.skip("find out if this new unit test is breaking other things in current PR")
+>>>>>>> 6093a37d927a587e4510dfd43416b28ff16488ff
 @pytest.mark.parametrize(
     "table, expectation", 
     [
