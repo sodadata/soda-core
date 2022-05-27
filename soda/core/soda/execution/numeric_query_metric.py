@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from decimal import Decimal
 from numbers import Number
 from typing import List, Optional
@@ -243,8 +245,12 @@ class NumericQueryMetric(QueryMetric):
 
     metric_names_with_failed_rows = ["missing_count", "invalid_count"]
 
-    def create_failed_rows_sample_query(self) -> SampleQuery:
-        if self.name in self.metric_names_with_failed_rows and isinstance(self.value, Number) and self.value > 0:
+    def create_failed_rows_sample_query(self) -> SampleQuery | None:
+        sampler = self.data_source_scan.scan._configuration.sampler
+        if (sampler
+                and self.name in self.metric_names_with_failed_rows
+                and isinstance(self.value, Number)
+                and self.value > 0):
             where_clauses = []
             partition_filter = self.partition.sql_partition_filter
             if partition_filter:
