@@ -47,7 +47,7 @@ def test_distribution_check(scanner: Scanner):
     os.remove(ref_file)
 
 @pytest.mark.parametrize(
-    "table, expectation", 
+    "table, expectation",
     [
         pytest.param(customers_dist_check_test_table, "SELECT \n  size \nFROM {table_name}\n LIMIT 1000000"),
     ],
@@ -91,4 +91,3 @@ def test_distribution_sql(scanner: Scanner, table, expectation):
 
     os.remove(ref_file)
     assert scan._checks[0].query.sql == expectation.format(table_name=table_name)
-    
