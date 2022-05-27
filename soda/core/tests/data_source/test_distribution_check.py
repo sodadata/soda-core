@@ -7,14 +7,9 @@ from tests.helpers.mock_file_system import MockFileSystem
 from tests.helpers.scanner import Scanner
 
 
-# @pytest.mark.skip("Unskip after scientific package is re-enabled and/or move to someplace else.")
-def test_distribution_check(scanner: Scanner):
+def test_distribution_check(scanner: Scanner, mock_file_system):
     table_name = scanner.ensure_test_table(customers_dist_check_test_table)
 
-    # The following files are made available on the mocked file system:
-    mock_file_system = MockFileSystem()
-
-    # user_home_dir = mock_file_system.user_home_dir()
     user_home_dir = os.path.expanduser("~")
 
     mock_file_system.files = {
@@ -53,13 +48,9 @@ def test_distribution_check(scanner: Scanner):
         pytest.param(customers_dist_check_test_table, "SELECT \n  size \nFROM {table_name}\n LIMIT 1000000"),
     ],
 )
-def test_distribution_sql(scanner: Scanner, table, expectation):
+def test_distribution_sql(scanner: Scanner, mock_file_system, table, expectation):
     table_name = scanner.ensure_test_table(table)
 
-    # The following files are made available on the mocked file system:
-    mock_file_system = MockFileSystem()
-
-    # user_home_dir = mock_file_system.user_home_dir()
     user_home_dir = os.path.expanduser("~")
 
     mock_file_system.files = {
@@ -71,7 +62,6 @@ def test_distribution_sql(scanner: Scanner, table, expectation):
             """
         ).strip(),
     }
-
     # TODO: do this logic at mock file system
     ref_file = f"{user_home_dir}/customers_size_distribution_reference.yml"
     with open(ref_file, "w") as f:
