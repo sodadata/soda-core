@@ -7,7 +7,7 @@ from tests.helpers.mock_file_system import MockFileSystem
 from tests.helpers.scanner import Scanner
 
 
-@pytest.mark.skip("Unskip after scientific package is re-enabled and/or move to someplace else.")
+# @pytest.mark.skip("Unskip after scientific package is re-enabled and/or move to someplace else.")
 def test_distribution_check(scanner: Scanner):
     table_name = scanner.ensure_test_table(customers_dist_check_test_table)
 
@@ -46,9 +46,8 @@ def test_distribution_check(scanner: Scanner):
     scan.execute()
     os.remove(ref_file)
 
-@pytest.mark.skip("find out if this new unit test is breaking other things in current PR")
 @pytest.mark.parametrize(
-    "table, expectation",
+    "table, expectation", 
     [
         pytest.param(customers_dist_check_test_table, "SELECT \n  size \nFROM {table_name}\n LIMIT 1000000"),
     ],
@@ -90,5 +89,6 @@ def test_distribution_sql(scanner: Scanner, table, expectation):
     scan.add_sodacl_yaml_file(f"{user_home_dir}/the_distribution_check_file.yml")
     scan.execute()
 
-    assert scan._checks[0].query.sql == expectation.format(table_name=table_name)
     os.remove(ref_file)
+    assert scan._checks[0].query.sql == expectation.format(table_name=table_name)
+    
