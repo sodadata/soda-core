@@ -21,9 +21,12 @@ from soda.profiling.sample_tables_result import SampleTablesResultTable
 from soda.soda_cloud.historic_descriptor import HistoricDescriptor
 from soda.sodacl.location import Location
 from soda.sodacl.sodacl_cfg import SodaCLCfg
+from soda.telemetry.soda_telemetry import SodaTelemetry
 
 logger = logging.getLogger(__name__)
 verbose = False
+
+soda_telemetry = SodaTelemetry.get_instance()
 
 
 class Scan:
@@ -291,6 +294,7 @@ class Scan:
 
     def execute(self) -> int:
         self._logs.debug("Scan execution starts")
+        exit_value = 0
         try:
             from soda.execution.column import Column
             from soda.execution.column_metrics import ColumnMetrics
@@ -317,8 +321,6 @@ class Scan:
                             "Connecting to Soda Cloud failed.  Disabling Soda Cloud connection.", exception=e
                         )
                         self._configuration.soda_cloud = None
-
-            exit_value = 0
 
             # If there is a sampler
             if self._configuration.sampler:
@@ -467,10 +469,24 @@ class Scan:
                 self._logs.info("Sending results to Soda Cloud")
                 self._configuration.soda_cloud.send_scan_results(self)
 
+            # Telemetry data
+            soda_telemetry.set_attributes(
+                {
+                    "scan_exit_code": exit_value,
+                    "checks_count": len(self._checks),
+                    "queries_count": len(self._queries),
+                    "metrics_count": len(self._metrics),
+                    "pass_count": checks_pass_count,
+                    "error_count": error_count,
+                    "failures_count": checks_fail_count,
+                }
+            )
+
         except Exception as e:
             exit_value = 3
             self._logs.error(f"Error occurred while executing scan.", exception=e)
         finally:
+
             self._close()
         return exit_value
 

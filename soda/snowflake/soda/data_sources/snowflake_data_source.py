@@ -123,6 +123,10 @@ class DataSourceImpl(DataSource):
         return f"SELECT table_name, row_count \n" f"FROM information_schema.tables" f"{where_clause}"
 
     @staticmethod
+    def default_casify_table_name(identifier: str) -> str:
+        return identifier.upper()
+
+    @staticmethod
     def default_casify_column_name(identifier: str) -> str:
         return identifier.upper()
 

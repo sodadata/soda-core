@@ -31,6 +31,8 @@ class UserDefinedFailedRowsMetric(QueryMetric):
             self.value = int(value)
 
     def ensure_query(self):
+        check = next(iter(self.checks), None)
+        location = check.check_cfg.location if check else None
         self.data_source_scan.queries.append(
-            UserDefinedFailedRowsQuery(data_source_scan=self.data_source_scan, metric=self)
+            UserDefinedFailedRowsQuery(data_source_scan=self.data_source_scan, metric=self, location=location)
         )

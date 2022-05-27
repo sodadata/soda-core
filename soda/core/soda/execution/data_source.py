@@ -291,7 +291,7 @@ class DataSource:
             f"""
                 SELECT {column_name} as value_name, count(*) as frequency
                 FROM {table_name}
-                GROUP BY value_name
+                GROUP BY 1
             """
         )
 
