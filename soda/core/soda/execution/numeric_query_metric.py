@@ -12,16 +12,16 @@ from soda.sodacl.format_cfg import FormatHelper
 class NumericQueryMetric(QueryMetric):
     def __init__(
         self,
-        data_source_scan: "DataSourceScan",
-        partition: Optional["Partition"],
-        column: Optional["Column"],
+        data_source_scan: DataSourceScan,
+        partition: Optional[Partition],
+        column: Optional[Column],
         metric_name: str,
-        metric_args: Optional[List[object]],
-        filter: Optional[str],
-        aggregation: Optional[str],
-        check_missing_and_valid_cfg: "MissingAndValidCfg",
-        column_configurations_cfg: "ColumnConfigurationsCfg",
-        check: "Check",
+        metric_args: list[object] | None,
+        filter: str | None,
+        aggregation: str | None,
+        check_missing_and_valid_cfg: MissingAndValidCfg,
+        column_configurations_cfg: ColumnConfigurationsCfg,
+        check: Check,
     ):
         from soda.sodacl.missing_and_valid_cfg import MissingAndValidCfg
 
@@ -40,16 +40,16 @@ class NumericQueryMetric(QueryMetric):
             ],
         )
 
-        self.metric_args: Optional[List[object]] = metric_args
-        self.filter: Optional[str] = filter
-        self.aggregation: Optional[str] = aggregation
+        self.metric_args: list[object] | None = metric_args
+        self.filter: str | None = filter
+        self.aggregation: str | None = aggregation
         self.missing_and_valid_cfg: MissingAndValidCfg = merged_missing_and_valid_cfg
 
         # Implementation and other non-identity fields
         self.logs = data_source_scan.scan._logs
         self.column_name = column.column_name if column else None
 
-    def get_sql_aggregation_expression(self) -> Optional[str]:
+    def get_sql_aggregation_expression(self) -> str | None:
         data_source = self.data_source_scan.data_source
 
         """
@@ -164,7 +164,7 @@ class NumericQueryMetric(QueryMetric):
 
         return " OR ".join(validity_clauses)
 
-    def build_valid_condition(self) -> Optional[str]:
+    def build_valid_condition(self) -> str | None:
         column_name = self.column_name
         data_source = self.data_source_scan.data_source
 
@@ -235,7 +235,7 @@ class NumericQueryMetric(QueryMetric):
         else:
             return f"NOT ({missing_condition})"
 
-    def get_numeric_format(self) -> Optional[str]:
+    def get_numeric_format(self) -> str | None:
         if self.missing_and_valid_cfg and FormatHelper.is_numeric(self.missing_and_valid_cfg.valid_format):
             return self.missing_and_valid_cfg.valid_format
         return None
@@ -247,10 +247,12 @@ class NumericQueryMetric(QueryMetric):
 
     def create_failed_rows_sample_query(self) -> SampleQuery | None:
         sampler = self.data_source_scan.scan._configuration.sampler
-        if (sampler
-                and self.name in self.metric_names_with_failed_rows
-                and isinstance(self.value, Number)
-                and self.value > 0):
+        if (
+            sampler
+            and self.name in self.metric_names_with_failed_rows
+            and isinstance(self.value, Number)
+            and self.value > 0
+        ):
             where_clauses = []
             partition_filter = self.partition.sql_partition_filter
             if partition_filter:

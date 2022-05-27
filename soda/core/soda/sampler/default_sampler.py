@@ -21,5 +21,5 @@ class DefaultSampler(Sampler):
             schema=sample_schema,
             total_row_count=row_count,
             stored_row_count=row_count,
-            type=SampleRef.TYPE_NOT_PERSISTED
+            type=SampleRef.TYPE_NOT_PERSISTED,
         )

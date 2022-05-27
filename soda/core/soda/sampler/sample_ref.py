@@ -5,7 +5,7 @@ from soda.sampler.sample_schema import SampleSchema
 
 class SampleRef:
 
-    TYPE_NOT_PERSISTED = 'not-persisted'
+    TYPE_NOT_PERSISTED = "not-persisted"
 
     def __init__(
         self,
