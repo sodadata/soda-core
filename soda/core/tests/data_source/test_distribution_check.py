@@ -52,7 +52,7 @@ def test_distribution_check(scanner: Scanner):
 @pytest.mark.skip("find out if this new unit test is breaking other things in current PR")
 >>>>>>> 6093a37d927a587e4510dfd43416b28ff16488ff
 @pytest.mark.parametrize(
-    "table, expectation", 
+    "table, expectation",
     [
         pytest.param(customers_dist_check_test_table, "SELECT \n  size \nFROM {table_name}\n LIMIT 1000000"),
     ],
@@ -96,4 +96,3 @@ def test_distribution_sql(scanner: Scanner, table, expectation):
 
     os.remove(ref_file)
     assert scan._checks[0].query.sql == expectation.format(table_name=table_name)
-    
