@@ -2,7 +2,11 @@ import re
 from typing import Dict, List, Optional
 
 from soda.execution.check import Check
-from soda.execution.check_outcome import CheckOutcome, CheckOutcomeReasons, NotEnoughHistory
+from soda.execution.check_outcome import (
+    CheckOutcome,
+    CheckOutcomeReasons,
+    NotEnoughHistory,
+)
 from soda.execution.metric import Metric
 from soda.execution.partition import Partition
 from soda.execution.schema_comparator import SchemaComparator

@@ -45,6 +45,7 @@ def test_anomaly_detection_not_have_enough_data(scanner: Scanner):
     scan.execute()
     scan.assert_all_checks_warn()
 
+
 def test_anomaly_detection_have_no_data(scanner: Scanner):
     table_name = scanner.ensure_test_table(customers_test_table)
 
@@ -59,7 +60,8 @@ def test_anomaly_detection_have_no_data(scanner: Scanner):
 
     scan.execute()
     scan.assert_all_checks_warn()
-    
+
+
 @pytest.mark.skip("custom threshold is not supported")
 def test_anomaly_detection_custom_threshold(scanner: Scanner):
     table_name = scanner.ensure_test_table(customers_test_table)
