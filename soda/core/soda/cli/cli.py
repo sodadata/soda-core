@@ -116,6 +116,7 @@ def scan(
             "command_option": {
                 "sodacl_paths": len(sodacl_paths),
                 "variables": len(variable),
+                "configuration_paths": len(configuration),
                 "offline": False,  # TODO: change after offline mode is supported.
                 "non_interactive": False,  # TODO: change after non interactive mode is supported.
                 "verbose": verbose,
