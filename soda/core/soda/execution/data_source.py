@@ -85,7 +85,7 @@ class DataSource:
                 logs.error(f'Data source type "{connection_type}" not found. Did you mean postgres?')
             else:
                 raise DataSourceError(
-                    f'Data source type "{connection_type}" not found. Did you spell {connection_type} correct? Did you install module soda-core-{connection_type}?'
+                    f'Data source type "{connection_type}" not found. Did you spell {connection_type} correctly? Did you install module soda-core-{connection_type}?'
                 )
             return None
 
