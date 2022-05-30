@@ -7,7 +7,12 @@ from soda.execution.profile_columns_run import ProfileColumnsRun
 from soda.execution.query import Query
 from soda.execution.sample_tables_run import SampleTablesRun
 from soda.execution.table import Table
-from soda.sodacl.data_source_check_cfg import AutomatedMonitoringCfg, DiscoverTablesCfg, ProfileColumnsCfg, SampleTablesCfg
+from soda.sodacl.data_source_check_cfg import (
+    AutomatedMonitoringCfg,
+    DiscoverTablesCfg,
+    ProfileColumnsCfg,
+    SampleTablesCfg,
+)
 from soda.sodacl.data_source_scan_cfg import DataSourceScanCfg
 
 if TYPE_CHECKING:
@@ -38,7 +43,7 @@ class DataSourceScan:
             self.tables[table_name] = table
         return table
 
-    def resolve_metric(self, metric: "Metric") -> Metric:
+    def resolve_metric(self, metric: Metric) -> Metric:
         """
         If the metric is not added before, this method will:
          - Add the metric to scan.metrics
@@ -66,14 +71,24 @@ class DataSourceScan:
         for query in all_data_source_queries:
             query.execute()
 
-    def run(self, data_source_check_cfg):
+    def run(self, data_source_check_cfg: DataSourceScanCfg, scan: "Scan"):
         if isinstance(data_source_check_cfg, AutomatedMonitoringCfg):
             from soda.execution.automated_monitoring_run import AutomatedMonitoringRun
-            return AutomatedMonitoringRun(self, data_source_check_cfg)
+
+            automated_monitoring_run = AutomatedMonitoringRun(self, data_source_check_cfg).run()
+            scan._checks.extend(automated_monitoring_run)
+
         if isinstance(data_source_check_cfg, ProfileColumnsCfg):
-            return ProfileColumnsRun(self, data_source_check_cfg)
+            profile_columns_run = ProfileColumnsRun(self, data_source_check_cfg).run()
+            scan._profile_columns_result_tables.extend(profile_columns_run.tables)
+            scan._is_profiling_run = True # TODO: delete this line
+
         if isinstance(data_source_check_cfg, DiscoverTablesCfg):
-            return DiscoverTablesRun(self, data_source_check_cfg)
+            discover_tables_run = DiscoverTablesRun(self, data_source_check_cfg).run()
+            scan._discover_tables_result_tables.extend(discover_tables_run.tables)
+            scan._is_profiling_run = True # TODO: delete this line
+
         if isinstance(data_source_check_cfg, SampleTablesCfg):
-            return SampleTablesRun(self, data_source_check_cfg)
-        return None
+            sample_tables_run = SampleTablesRun(self, data_source_check_cfg).run()
+            scan._sample_tables_result_tables.extend(sample_tables_run.tables)
+            scan._is_profiling_run = True # TODO: delete this line

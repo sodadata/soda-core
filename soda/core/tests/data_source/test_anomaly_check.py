@@ -3,8 +3,10 @@ from tests.helpers.common_test_tables import customers_test_table
 from tests.helpers.scanner import Scanner
 
 
-@pytest.mark.skip("test fails on tom's machine")
 def test_anomaly_detection_default(scanner: Scanner):
+    import numpy as np
+
+    np.random.seed(61)
     table_name = scanner.ensure_test_table(customers_test_table)
 
     scan = scanner.create_test_scan()
@@ -18,7 +20,7 @@ def test_anomaly_detection_default(scanner: Scanner):
 
     scan.mock_historic_values(
         metric_identity=f"metric-{scan._scan_definition_name}-{scan._data_source_name}-{table_name}-row_count",
-        metric_values=[10, 10, 10, 9, 8, 8, 8, 0, 0, 0],
+        metric_values=[10, 10, 10, 9, 8, 8, 8, 10, 10, 10],
     )
 
     scan.execute()

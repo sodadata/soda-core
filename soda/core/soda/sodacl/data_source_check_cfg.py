@@ -10,6 +10,7 @@ class DataSourceCheckCfg:
         self.include_tables: Optional[List[str]] = []
         self.exclude_tables: Optional[List[str]] = []
 
+
 class AutomatedMonitoringCfg(DataSourceCheckCfg):
     def __init__(self, data_source_name: str, location: Location):
         super().__init__(data_source_name, location)
@@ -18,11 +19,14 @@ class AutomatedMonitoringCfg(DataSourceCheckCfg):
 class ProfileColumnsCfg(DataSourceCheckCfg):
     def __init__(self, data_source_name: str, location: Location):
         super().__init__(data_source_name, location)
+        self.include_columns: List[str] = []
+        self.exclude_columns: List[str] = []
 
 
 class DiscoverTablesCfg(DataSourceCheckCfg):
     def __init__(self, data_source_name: str, location: Location):
         super().__init__(data_source_name, location)
+
 
 class SampleTablesCfg(DataSourceCheckCfg):
     def __init__(self, data_source_name: str, location: Location):
