@@ -37,7 +37,7 @@ class AutomatedMonitoringRun:
                 source_header=f"checks for {measured_table_name}",
                 source_line="anomaly score for row_count < default",
                 source_configurations=None,
-                location=self.automated_monitoring_cfg.location,
+                location=self.data_source_check_cfg.location,
                 name=None,
                 metric_name="row_count",
                 metric_args=None,
@@ -97,7 +97,7 @@ class AutomatedMonitoringRun:
                 source_header=f"checks for {measured_table_name}",
                 source_line="schema",
                 source_configurations=None,
-                location=self.automated_monitoring_cfg.location,
+                location=self.data_source_check_cfg.location,
                 name=None,
                 warn_validations=warn_validations,
                 fail_validations=fail_validations,
@@ -120,7 +120,7 @@ class AutomatedMonitoringRun:
         Returns a dict that maps table names to a dict that maps column names to column types.
         {table_name -> {column_name -> column_type}}
         """
-        include_tables = self.automated_monitoring_cfg.include_tables
-        exclude_tables = self.automated_monitoring_cfg.exclude_tables
+        include_tables = self.data_source_check_cfg.include_tables
+        exclude_tables = self.data_source_check_cfg.exclude_tables
         table_names = self.data_source.get_table_names(include_tables=include_tables, exclude_tables=exclude_tables)
         return table_names
