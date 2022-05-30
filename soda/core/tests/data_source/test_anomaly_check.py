@@ -1,5 +1,4 @@
 import pytest
-from tests.conftest import test_data_source
 from tests.helpers.common_test_tables import customers_test_table
 from tests.helpers.scanner import Scanner
 
@@ -73,10 +72,6 @@ def test_anomaly_detection_fail_with_custom_threshold(scanner: Scanner):
     scan.assert_all_checks_fail()
 
 
-@pytest.mark.skipif(
-    test_data_source == "athena",
-    reason="TODO: fix for athena.",
-)
 @pytest.mark.parametrize(
     "numeric_metric, column",
     [
@@ -111,10 +106,6 @@ def test_anomaly_detection_pass_numeric_metrics(numeric_metric, column, scanner)
     scan.assert_all_checks_pass()
 
 
-@pytest.mark.skipif(
-    test_data_source == "athena",
-    reason="TODO: fix for athena.",
-)
 def test_anomaly_detection_missing_values(scanner):
     import numpy as np
 
@@ -140,10 +131,6 @@ def test_anomaly_detection_missing_values(scanner):
     scan.assert_all_checks_pass()
 
 
-@pytest.mark.skipif(
-    test_data_source == "athena",
-    reason="TODO: fix for athena.",
-)
 def test_anomaly_detection_invalid_values(scanner):
     import numpy as np
 

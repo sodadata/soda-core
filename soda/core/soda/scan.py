@@ -17,12 +17,16 @@ from soda.execution.derived_metric import DerivedMetric
 from soda.execution.metric import Metric
 from soda.profiling.discover_table_result_table import DiscoverTablesResultTable
 from soda.profiling.profile_columns_result_table import ProfileColumnsResultTable
+from soda.profiling.sample_tables_result import SampleTablesResultTable
 from soda.soda_cloud.historic_descriptor import HistoricDescriptor
 from soda.sodacl.location import Location
 from soda.sodacl.sodacl_cfg import SodaCLCfg
+from soda.telemetry.soda_telemetry import SodaTelemetry
 
 logger = logging.getLogger(__name__)
 verbose = False
+
+soda_telemetry = SodaTelemetry.get_instance()
 
 
 class Scan:
@@ -51,6 +55,7 @@ class Scan:
         self._queries: list[Query] = []
         self._profile_columns_result_tables: list[ProfileColumnsResultTable] = []
         self._discover_tables_result_tables: list[DiscoverTablesResultTable] = []
+        self._sample_tables_result_tables: list[SampleTablesResultTable] = []
         self._logs.info(f"Soda Core {SODA_CORE_VERSION}")
         self._is_profiling_run = False
 
@@ -289,6 +294,7 @@ class Scan:
 
     def execute(self) -> int:
         self._logs.debug("Scan execution starts")
+        exit_value = 0
         try:
             from soda.execution.column import Column
             from soda.execution.column_metrics import ColumnMetrics
@@ -315,8 +321,6 @@ class Scan:
                             "Connecting to Soda Cloud failed.  Disabling Soda Cloud connection.", exception=e
                         )
                         self._configuration.soda_cloud = None
-
-            exit_value = 0
 
             # If there is a sampler
             if self._configuration.sampler:
@@ -412,6 +416,7 @@ class Scan:
 
             self.run_discover_tables()
             self.run_profile_columns()
+            self.run_sample_tables()
 
             self._logs.info("Scan summary:")
             self.__log_queries(having_exception=False)
@@ -464,10 +469,24 @@ class Scan:
                 self._logs.info("Sending results to Soda Cloud")
                 self._configuration.soda_cloud.send_scan_results(self)
 
+            # Telemetry data
+            soda_telemetry.set_attributes(
+                {
+                    "scan_exit_code": exit_value,
+                    "checks_count": len(self._checks),
+                    "queries_count": len(self._queries),
+                    "metrics_count": len(self._metrics),
+                    "pass_count": checks_pass_count,
+                    "error_count": error_count,
+                    "failures_count": checks_fail_count,
+                }
+            )
+
         except Exception as e:
             exit_value = 3
             self._logs.error(f"Error occurred while executing scan.", exception=e)
         finally:
+
             self._close()
         return exit_value
 
@@ -524,6 +543,23 @@ class Scan:
                     self._logs.error(
                         f"Could not discover tables on data_source {data_source_name} because it is not configured: {data_source_names}",
                         location=discover_columns_cfg.location,
+                    )
+
+    def run_sample_tables(self):
+        for data_source_scan in self._data_source_scans:
+            for sample_tables_cfg in data_source_scan.data_source_scan_cfg.sample_tables_cfgs:
+                data_source_name = data_source_scan.data_source_scan_cfg.data_source_name
+                data_source_scan = self._get_or_create_data_source_scan(data_source_name)
+                if data_source_scan:
+                    sample_tables_run = data_source_scan.create_sample_tables_run(sample_tables_cfg)
+                    sample_tables_result = sample_tables_run.run()
+                    self._is_profiling_run = True
+                    self._sample_tables_result_tables.extend(sample_tables_result.tables)
+                else:
+                    data_source_names = ", ".join(self._data_source_manager.data_source_properties_by_name.keys())
+                    self._logs.error(
+                        f"Could not discover tables on data_source {data_source_name} because it is not configured: {data_source_names}",
+                        location=sample_tables_cfg.location,
                     )
 
     def __checks_to_text(self, checks: list[Check]):
