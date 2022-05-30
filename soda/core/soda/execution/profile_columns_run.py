@@ -6,7 +6,7 @@ from soda.execution.query import Query
 from soda.profiling.profile_columns_result import ProfileColumnsResult
 from soda.profiling.profile_columns_result_column import ProfileColumnsResultColumn
 from soda.profiling.profile_columns_result_table import ProfileColumnsResultTable
-from soda.sodacl.profile_columns_cfg import ProfileColumnsCfg
+from soda.sodacl.data_source_check_cfg import ProfileColumnsCfg
 
 if TYPE_CHECKING:
     from soda.execution.data_source_scan import DataSourceScan

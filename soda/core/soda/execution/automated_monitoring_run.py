@@ -6,17 +6,17 @@ from soda.execution.data_source_scan import DataSourceScan
 from soda.execution.partition import Partition
 from soda.execution.schema_check import SchemaCheck
 from soda.sodacl.anomaly_metric_check_cfg import AnomalyMetricCheckCfg
-from soda.sodacl.automated_monitoring_cfg import AutomatedMonitoringCfg
+from soda.sodacl.data_source_check_cfg import DataSourceCheckCfg
 from soda.sodacl.schema_check_cfg import SchemaCheckCfg, SchemaValidations
 from soda.sodacl.threshold_cfg import ThresholdCfg
 
 
 class AutomatedMonitoringRun:
-    def __init__(self, data_source_scan: DataSourceScan, automated_monitoring_cfg: AutomatedMonitoringCfg):
+    def __init__(self, data_source_scan: DataSourceScan, data_source_check_cfg: DataSourceCheckCfg):
         self.data_source_scan: DataSourceScan = data_source_scan
         self.soda_cloud = data_source_scan.scan._configuration.soda_cloud
         self.data_source = data_source_scan.data_source
-        self.automated_monitoring_cfg: AutomatedMonitoringCfg = automated_monitoring_cfg
+        self.data_source_check_cfg: DataSourceCheckCfg = data_source_check_cfg
         self.logs = self.data_source_scan.scan._logs
         self.table_names = self._get_table_names()
 
