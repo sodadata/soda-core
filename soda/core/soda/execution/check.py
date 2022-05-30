@@ -2,8 +2,9 @@ from __future__ import annotations
 
 import collections
 from abc import ABC, abstractmethod
+from dataclasses import asdict
 
-from soda.execution.check_outcome import CheckOutcome
+from soda.execution.check_outcome import CheckOutcome, CheckOutcomeReasons
 from soda.execution.column import Column
 from soda.execution.identity import ConsistentHashBuilder
 from soda.execution.metric import Metric
@@ -122,6 +123,9 @@ class Check(ABC):
         # Check evaluation outcome
         self.outcome: CheckOutcome | None = None
 
+        # Check outcome reasons in case of fail or pass
+        self.outcome_reasons: CheckOutcomeReasons | None = None
+
     def create_definition(self) -> str:
         check_cfg: CheckCfg = self.check_cfg
         from soda.common.yaml_helper import to_yaml_str
@@ -192,6 +196,9 @@ class Check(ABC):
         if self.archetype is not None:
             cloud_dict.update({"archetype": self.archetype})
 
+        # Update dict if check is skipped and we want to push reason to cloud
+        if self.outcome_reasons is not None:
+            cloud_dict.update({"outcomeReasons": asdict(self.outcome_reasons)})
         return cloud_dict
 
     def generate_soda_cloud_check_name(self) -> str:
