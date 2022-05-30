@@ -2,7 +2,7 @@ import re
 from typing import Dict, List, Optional
 
 from soda.execution.check import Check
-from soda.execution.check_outcome import CheckOutcome
+from soda.execution.check_outcome import CheckOutcome, CheckOutcomeReasons, NotEnoughHistory
 from soda.execution.metric import Metric
 from soda.execution.partition import Partition
 from soda.execution.schema_comparator import SchemaComparator
@@ -80,7 +80,12 @@ class SchemaCheck(Check):
             self.schema_comparator = SchemaComparator(schema_previous, self.measured_schema)
         else:
             if schema_check_cfg.has_change_validations():
-                self.logs.warning("Skipping schema checks since there is no historic schema metrics!")
+                warning_message = "Skipping schema checks since there is no historic schema metrics!"
+                self.logs.warning(warning_message)
+                self.outcome = None
+                self.outcome_reasons = CheckOutcomeReasons(
+                    notEnoughHistory=NotEnoughHistory(message=warning_message, severity="warn")
+                )
                 return
 
         if self.has_schema_violations(schema_check_cfg.fail_validations):

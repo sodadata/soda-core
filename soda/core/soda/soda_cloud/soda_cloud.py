@@ -47,12 +47,16 @@ class SodaCloud:
     @staticmethod
     def build_scan_results(scan) -> dict:
         checks = [
-            check.get_cloud_dict() for check in scan._checks if check.outcome is not None and check.archetype is None
+            check.get_cloud_dict()
+            for check in scan._checks
+            if (check.outcome is not None or (check.outcome is None and check.outcome_reasons is not None))
+            and check.archetype is None
         ]
         autoamted_monitoring_checks = [
             check.get_cloud_dict()
             for check in scan._checks
-            if check.outcome is not None and check.archetype is not None
+            if (check.outcome is not None or (check.outcome is None and check.outcome_reasons is not None))
+            and check.archetype is not None
         ]
 
         # TODO: [SODA-608] separate profile columns and sample tables by aligning with the backend team
