@@ -19,6 +19,7 @@ from soda.profiling.discover_table_result_table import DiscoverTablesResultTable
 from soda.profiling.profile_columns_result_table import ProfileColumnsResultTable
 from soda.profiling.sample_tables_result import SampleTablesResultTable
 from soda.soda_cloud.historic_descriptor import HistoricDescriptor
+from soda.sodacl.data_source_check_cfg import AutomatedMonitoringCfg, DiscoverTablesCfg, ProfileColumnsCfg, SampleTablesCfg
 from soda.sodacl.location import Location
 from soda.sodacl.sodacl_cfg import SodaCLCfg
 from soda.telemetry.soda_telemetry import SodaTelemetry
@@ -492,23 +493,27 @@ class Scan:
 
     def run_automated_monitoring(self):
         # this is where automated monitoring is called
-        _automated_checks = []
         for data_source_scan in self._data_source_scans:
-            for monitoring_cfg in data_source_scan.data_source_scan_cfg.monitoring_cfgs:
+            for data_source_cfg in data_source_scan.data_source_scan_cfg.data_source_cfgs:
                 data_source_name = data_source_scan.data_source_scan_cfg.data_source_name
                 data_source_scan = self._get_or_create_data_source_scan(data_source_name)
                 if data_source_scan:
-                    monitor_runner = data_source_scan.create_automated_monitor_run(monitoring_cfg, self)
-                    automated_monitoring_checks: list[Check] = monitor_runner.run()
-                    if automated_monitoring_checks:
-                        _automated_checks += automated_monitoring_checks
+                    data_source_scan_run = data_source_scan.run(data_source_cfg)
+                    data_source_scan_run_result = data_source_scan_run.run()
+                    if isinstance(data_source_cfg, AutomatedMonitoringCfg):
+                        self._checks.extend(data_source_scan_run_result)
+                    if isinstance(data_source_cfg, ProfileColumnsCfg):
+                        self._profile_columns_result_tables.extend(data_source_scan_run_result)
+                    if isinstance(data_source_cfg, DiscoverTablesCfg):
+                        self._discover_tables_result_tables(data_source_scan_run_result)
+                    if isinstance(data_source_cfg, SampleTablesCfg):
+                        self._sample_tables_result_tables(data_source_scan_run_result)
                 else:
                     data_source_names = ", ".join(self._data_source_manager.data_source_properties_by_name.keys())
                     self._logs.error(
                         f"Could not run monitors on data_source {data_source_name} because It is not "
                         f"configured: {data_source_names}"
                     )
-        return _automated_checks
 
     def run_profile_columns(self):
         for data_source_scan in self._data_source_scans:
@@ -516,7 +521,7 @@ class Scan:
                 data_source_name = data_source_scan.data_source_scan_cfg.data_source_name
                 data_source_scan = self._get_or_create_data_source_scan(data_source_name)
                 if data_source_scan:
-                    profile_columns_run = data_source_scan.create_profile_columns_run(profile_columns_cfg, self)
+                    profile_columns_run = data_source_scan.create_profile_columns_run(profile_columns_cfg)
                     profile_columns_result = profile_columns_run.run()
                     self._is_profiling_run = True
                     self._profile_columns_result_tables.extend(profile_columns_result.tables)
@@ -534,7 +539,7 @@ class Scan:
                 data_source_name = data_source_scan.data_source_scan_cfg.data_source_name
                 data_source_scan = self._get_or_create_data_source_scan(data_source_name)
                 if data_source_scan:
-                    discover_tables_run = data_source_scan.create_discover_tables_run(discover_columns_cfg, self)
+                    discover_tables_run = data_source_scan.create_discover_tables_run(discover_columns_cfg)
                     discover_tables_result = discover_tables_run.run()
                     self._is_profiling_run = True
                     self._discover_tables_result_tables.extend(discover_tables_result.tables)
@@ -553,7 +558,6 @@ class Scan:
                 if data_source_scan:
                     sample_tables_run = data_source_scan.create_sample_tables_run(sample_tables_cfg)
                     sample_tables_result = sample_tables_run.run()
-                    self._is_profiling_run = True
                     self._sample_tables_result_tables.extend(sample_tables_result.tables)
                 else:
                     data_source_names = ", ".join(self._data_source_manager.data_source_properties_by_name.keys())

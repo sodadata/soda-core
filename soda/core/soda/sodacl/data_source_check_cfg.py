@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Optional
 
 from soda.sodacl.location import Location
 
@@ -7,5 +7,23 @@ class DataSourceCheckCfg:
     def __init__(self, data_source_name: str, location: Location):
         self.data_source_name: str = data_source_name
         self.location: Location = location
-        self.include_tables: List[str] = []
-        self.exclude_tables: List[str] = []
+        self.include_tables: Optional[List[str]] = []
+        self.exclude_tables: Optional[List[str]] = []
+
+class AutomatedMonitoringCfg(DataSourceCheckCfg):
+    def __init__(self, data_source_name: str, location: Location):
+        super().__init__(data_source_name, location)
+
+
+class ProfileColumnsCfg(DataSourceCheckCfg):
+    def __init__(self, data_source_name: str, location: Location):
+        super().__init__(data_source_name, location)
+
+
+class DiscoverTablesCfg(DataSourceCheckCfg):
+    def __init__(self, data_source_name: str, location: Location):
+        super().__init__(data_source_name, location)
+
+class SampleTablesCfg(DataSourceCheckCfg):
+    def __init__(self, data_source_name: str, location: Location):
+        super().__init__(data_source_name, location)

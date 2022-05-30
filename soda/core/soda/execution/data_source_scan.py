@@ -7,6 +7,7 @@ from soda.execution.profile_columns_run import ProfileColumnsRun
 from soda.execution.query import Query
 from soda.execution.sample_tables_run import SampleTablesRun
 from soda.execution.table import Table
+from soda.sodacl.data_source_check_cfg import AutomatedMonitoringCfg, DiscoverTablesCfg, ProfileColumnsCfg, SampleTablesCfg
 from soda.sodacl.data_source_scan_cfg import DataSourceScanCfg
 
 if TYPE_CHECKING:
@@ -65,16 +66,14 @@ class DataSourceScan:
         for query in all_data_source_queries:
             query.execute()
 
-    def create_automated_monitor_run(self, automated_monitoring_cfg, scan):
-        from soda.execution.automated_monitoring_run import AutomatedMonitoringRun
-
-        return AutomatedMonitoringRun(self, automated_monitoring_cfg)
-
-    def create_profile_columns_run(self, profile_columns_cfg, scan):
-        return ProfileColumnsRun(self, profile_columns_cfg)
-
-    def create_discover_tables_run(self, data_source_check_cfg, scan):
-        return DiscoverTablesRun(self, data_source_check_cfg)
-
-    def create_sample_tables_run(self, data_source_check_cfg):
-        return SampleTablesRun(self, data_source_check_cfg)
+    def run(self, data_source_check_cfg):
+        if isinstance(data_source_check_cfg, AutomatedMonitoringCfg):
+            from soda.execution.automated_monitoring_run import AutomatedMonitoringRun
+            return AutomatedMonitoringRun(self, data_source_check_cfg)
+        if isinstance(data_source_check_cfg, ProfileColumnsCfg):
+            return ProfileColumnsRun(self, data_source_check_cfg)
+        if isinstance(data_source_check_cfg, DiscoverTablesCfg):
+            return DiscoverTablesRun(self, data_source_check_cfg)
+        if isinstance(data_source_check_cfg, SampleTablesCfg):
+            return SampleTablesRun(self, data_source_check_cfg)
+        return None
