@@ -165,6 +165,13 @@ class DataSource:
     # SQL Queries
     ######################
 
+    def sql_select_star_with_limit(self, table_name: str, limit: int | None = None) -> str:
+        limit_sql = ""
+        if limit is not None:
+            limit_sql = f" \n LIMIT {limit}"
+        sql = f"SELECT * FROM {table_name.lower()}{limit_sql}"
+        return sql
+
     def sql_to_get_column_metadata_for_table(self, table_name: str) -> str:
         sql = (
             f"SELECT {', '.join(self.column_metadata_columns())} \n"
