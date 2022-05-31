@@ -4,6 +4,9 @@ from soda.sampler.sample_schema import SampleSchema
 
 
 class SampleRef:
+
+    TYPE_NOT_PERSISTED = "not-persisted"
+
     def __init__(
         self,
         # Sample display name for UIs
@@ -35,6 +38,9 @@ class SampleRef:
                 if e is not None
             ]
         )
+
+    def is_persisted(self) -> bool:
+        return self.type != self.TYPE_NOT_PERSISTED
 
     def get_cloud_diagnostics_dict(self):
         column_dicts = [column.get_cloud_dict() for column in self.schema.columns] if self.schema else None
