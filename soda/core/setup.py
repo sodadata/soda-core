@@ -16,7 +16,7 @@ description = "Soda Core"
 # long_description = (pathlib.Path(__file__).parent.parent / "README.md").read_text()
 
 requires = [
-    "markupsafe~=2.1",
+    "markupsafe~=2.0",
     "Jinja2~=3.0",
     "click~=8.0",
     "ruamel.yaml~=0.17.21",
