@@ -623,7 +623,8 @@ class SodaCLParser(Parser):
             )
         elif metric_name == "distribution_difference":
             column_name: str = metric_args[0]
-            distribution_name: str = metric_args[1]
+            # TODO: To be reenbabled when DRO can be refered to by name: https://sodadata.atlassian.net/browse/SODA-199
+            distribution_name: str = "default"
             reference_file_path: str = os.path.join(
                 os.path.dirname(self.location.file_path), check_configurations.get("distribution reference file")
             )
