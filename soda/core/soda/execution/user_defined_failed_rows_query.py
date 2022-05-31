@@ -17,6 +17,5 @@ class UserDefinedFailedRowsQuery(Query):
         self.store()
         if self.sample_ref:
             self.metric.set_value(self.sample_ref.total_row_count)
-            self.metric.failed_rows_sample_ref = self.sample_ref
-        else:
-            self.metric.set_value(0)
+            if self.sample_ref.is_persisted():
+                self.metric.failed_rows_sample_ref = self.sample_ref
