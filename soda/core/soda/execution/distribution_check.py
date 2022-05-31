@@ -26,13 +26,13 @@ class DistributionCheck(Check):
             data_source_scan=data_source_scan,
             partition=partition,
             column=column,
-            name="distribution_difference",
+            name="distribution_comparison",
         )
+        self.distribution_check_cfg: DistributionCheckCfg = self.check_cfg
 
     def evaluate(self, metrics: Dict[str, Metric], historic_values: Dict[str, object]):
-        distribution_check_cfg: DistributionCheckCfg = self.check_cfg
 
-        sql = self.sql_column_values_query(distribution_check_cfg)
+        sql = self.sql_column_values_query(self.distribution_check_cfg)
 
         query = Query(
             data_source_scan=self.data_source_scan,
@@ -43,25 +43,25 @@ class DistributionCheck(Check):
         if query.exception is None and query.rows is not None:
             test_data = [row[0] for row in query.rows]
 
-            _, p_value = DistributionChecker(distribution_check_cfg, test_data).run()
+            _, p_value = DistributionChecker(self.distribution_check_cfg, test_data).run()
             self.check_value = p_value
 
             self.set_outcome_based_on_check_value()
 
     def set_outcome_based_on_check_value(self):
-        from soda.sodacl.distribution_check_cfg import DistributionCheckCfg
 
-        distribution_check_cfg: DistributionCheckCfg = self.check_cfg
         if self.check_value is not None and (
-            distribution_check_cfg.warn_threshold_cfg or distribution_check_cfg.fail_threshold_cfg
+            self.distribution_check_cfg.warn_threshold_cfg or self.distribution_check_cfg.fail_threshold_cfg
         ):
             if isinstance(self.check_value, Number):
-                if distribution_check_cfg.fail_threshold_cfg and distribution_check_cfg.fail_threshold_cfg.is_bad(
-                    self.check_value
+                if (
+                    self.distribution_check_cfg.fail_threshold_cfg
+                    and self.distribution_check_cfg.fail_threshold_cfg.is_bad(self.check_value)
                 ):
                     self.outcome = CheckOutcome.FAIL
-                elif distribution_check_cfg.warn_threshold_cfg and distribution_check_cfg.warn_threshold_cfg.is_bad(
-                    self.check_value
+                elif (
+                    self.distribution_check_cfg.warn_threshold_cfg
+                    and self.distribution_check_cfg.warn_threshold_cfg.is_bad(self.check_value)
                 ):
                     self.outcome = CheckOutcome.WARN
                 else:
@@ -73,9 +73,18 @@ class DistributionCheck(Check):
                 )
 
     def get_cloud_diagnostics_dict(self) -> dict:
-        cloud_diagnostics = super().get_cloud_diagnostics_dict()
-        # if self.historic_diff_values:
-        #     cloud_diagnostics["historic_diff_values"] = self.historic_diff_values
+        cloud_diagnostics = {}
+        cloud_diagnostics["value"] = self.check_value
+        cloud_diagnostics["fail"] = {
+            "greaterThanOrEqual": self.distribution_check_cfg.fail_threshold_cfg.lte
+            if self.distribution_check_cfg.fail_threshold_cfg is not None
+            else None
+        }
+        cloud_diagnostics["warning"] = {
+            "greaterThanOrEqual": self.distribution_check_cfg.warn_threshold_cfg
+            if self.distribution_check_cfg.warn_threshold_cfg is not None
+            else None
+        }
         return cloud_diagnostics
 
     def get_log_diagnostic_dict(self) -> dict:
