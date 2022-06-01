@@ -6,7 +6,7 @@ from soda.execution.check_outcome import (
     CheckOutcome,
     CheckOutcomeReasons,
     NotEnoughHistory,
-    QueryFailed,
+    ParserFailed,
 )
 from soda.execution.column import Column
 from soda.execution.data_source_scan import DataSourceScan
@@ -61,7 +61,8 @@ class AnomalyMetricCheck(MetricCheck):
             )
             self.logs.error(error_message)
             self.outcome = None
-            self.outcome_reasons = CheckOutcomeReasons(queryFailed=QueryFailed(message=error_message, severity="error"))
+            self.force_send_results_to_cloud = True
+            self.outcome_reasons = CheckOutcomeReasons(queryFailed=ParserFailed(message=error_message, severity="error"))
             return
 
         # TODO Review the data structure and see if we still need the KEY_HISTORIC_*
@@ -72,6 +73,7 @@ class AnomalyMetricCheck(MetricCheck):
             warning_message = "Skipping anomaly metric check eval because there is no historic data yet!"
             self.logs.warning(warning_message)
             self.outcome = None
+            self.force_send_results_to_cloud = True
             self.outcome_reasons = CheckOutcomeReasons(
                 notEnoughHistory=NotEnoughHistory(message=warning_message, severity="warn")
             )
@@ -102,6 +104,7 @@ class AnomalyMetricCheck(MetricCheck):
             warning_message = "Skipping anomaly metric check eval because there is not enough historic data yet"
             self.logs.warning(warning_message)
             self.outcome = None
+            self.force_send_results_to_cloud = True
             self.outcome_reasons = CheckOutcomeReasons(
                 notEnoughHistory=NotEnoughHistory(message=warning_message, severity="warn")
             )

@@ -49,13 +49,13 @@ class SodaCloud:
         checks = [
             check.get_cloud_dict()
             for check in scan._checks
-            if (check.outcome is not None or (check.outcome is None and check.outcome_reasons is not None))
+            if (check.outcome is not None or check.force_send_results_to_cloud == True)
             and check.archetype is None
         ]
-        autoamted_monitoring_checks = [
+        automated_monitoring_checks = [
             check.get_cloud_dict()
             for check in scan._checks
-            if (check.outcome is not None or (check.outcome is None and check.outcome_reasons is not None))
+            if (check.outcome is not None or check.force_send_results_to_cloud == True)
             and check.archetype is not None
         ]
 
@@ -80,7 +80,7 @@ class SodaCloud:
                 "checks": checks,
                 # TODO Queries are not supported by Soda Cloud yet.
                 # "queries": [query.get_cloud_dict() for query in scan._queries],
-                "automatedMonitoringChecks": autoamted_monitoring_checks,
+                "automatedMonitoringChecks": automated_monitoring_checks,
                 "profiling": profiling,
                 "metadata": [
                     discover_tables_result.get_cloud_dict()
