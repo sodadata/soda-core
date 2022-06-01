@@ -87,6 +87,7 @@ class SchemaCheck(Check):
                 warning_message = "Skipping schema checks since there is no historic schema metrics!"
                 self.logs.warning(warning_message)
                 self.outcome = None
+                self.force_send_results_to_cloud = True
                 self.outcome_reasons = CheckOutcomeReasons(
                     notEnoughHistory=NotEnoughHistory(message=warning_message, severity="warn")
                 )

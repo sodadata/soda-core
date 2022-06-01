@@ -42,8 +42,7 @@ def test_anomaly_detection_not_have_enough_data(scanner: Scanner):
         metric_values=[10],
     )
 
-    scan.execute()
-    scan.assert_all_checks_warn()
+    scan.execute(allow_warnings_only = True)
 
 def test_anomaly_detection_have_no_data(scanner: Scanner):
     table_name = scanner.ensure_test_table(customers_test_table)
@@ -56,9 +55,8 @@ def test_anomaly_detection_have_no_data(scanner: Scanner):
             - anomaly score for row_count < default
         """
     )
-
-    scan.execute()
-    scan.assert_all_checks_warn()
+    scan.enable_mock_soda_cloud()
+    scan.execute(allow_error_warning = True)
 
 
 @pytest.mark.skip("custom threshold is not supported")

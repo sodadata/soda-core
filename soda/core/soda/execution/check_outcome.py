@@ -14,18 +14,24 @@ class CheckOutcome(Enum):
 
 
 @dataclass
-class QueryFailed:
+class ReasonCodes:
     message: str
     severity: str
-
 
 @dataclass
-class NotEnoughHistory:
-    message: str
-    severity: str
+class QueryFailed(ReasonCodes):
+    ...
 
+@dataclass
+class NotEnoughHistory(ReasonCodes):
+    ...
+
+@dataclass
+class ParserFailed(ReasonCodes):
+    ...
 
 @dataclass
 class CheckOutcomeReasons:
+    parserFailed: Union[ParserFailed, None] = None
     queryFailed: Union[QueryFailed, None] = None
     notEnoughHistory: Union[NotEnoughHistory, None] = None

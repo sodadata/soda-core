@@ -125,6 +125,7 @@ class Check(ABC):
 
         # Check outcome reasons in case of fail or pass
         self.outcome_reasons: CheckOutcomeReasons | None = None
+        self.force_send_results_to_cloud = False
 
     def create_definition(self) -> str:
         check_cfg: CheckCfg = self.check_cfg
