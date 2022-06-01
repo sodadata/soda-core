@@ -8,7 +8,6 @@ from typing import Any, Dict, Optional
 
 import numpy as np
 import pandas as pd
-from prophet import Prophet
 from soda.common.logs import Logs
 
 from soda.scientific.anomaly_detection.models.base import BaseDetector
@@ -44,6 +43,10 @@ class SuppressStdoutStderr:
         # Close the null files
         for fd in self.null_fds + self.save_fds:
             os.close(fd)
+
+
+with SuppressStdoutStderr():
+    from prophet import Prophet
 
 
 @dataclass
