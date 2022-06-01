@@ -55,7 +55,8 @@ class UserDefinedFailedRowsExpressionCheck(Check):
                 sql=failed_rows_sql,
             )
             failed_rows_query.execute()
-            self.failed_rows_sample_ref = failed_rows_query.sample_ref
+            if failed_rows_query.sample_ref and failed_rows_query.sample_ref.is_persisted():
+                self.failed_rows_sample_ref = failed_rows_query.sample_ref
 
     def get_failed_rows_sql(self) -> str:
         sql = (
