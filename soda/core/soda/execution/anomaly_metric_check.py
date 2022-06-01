@@ -62,7 +62,9 @@ class AnomalyMetricCheck(MetricCheck):
             self.logs.error(error_message)
             self.outcome = None
             self.force_send_results_to_cloud = True
-            self.outcome_reasons = CheckOutcomeReasons(queryFailed=ParserFailed(message=error_message, severity="error"))
+            self.outcome_reasons = CheckOutcomeReasons(
+                queryFailed=ParserFailed(message=error_message, severity="error")
+            )
             return
 
         # TODO Review the data structure and see if we still need the KEY_HISTORIC_*

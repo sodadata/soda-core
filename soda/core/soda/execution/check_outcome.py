@@ -18,17 +18,21 @@ class ReasonCodes:
     message: str
     severity: str
 
+
 @dataclass
 class QueryFailed(ReasonCodes):
     ...
+
 
 @dataclass
 class NotEnoughHistory(ReasonCodes):
     ...
 
+
 @dataclass
 class ParserFailed(ReasonCodes):
     ...
+
 
 @dataclass
 class CheckOutcomeReasons:
