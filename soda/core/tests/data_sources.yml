@@ -49,5 +49,3 @@ data_source spark:
 # TODO: add appropriate vars
 data_source spark-df:
   type: spark-df
-  connection:
-    host: ${ env_var('SPARK_DF_HOST', 'localhost') }
