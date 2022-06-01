@@ -8,6 +8,14 @@ class SparkDfConnection:
     def __init__(self, spark_session: SparkSession):
         self.spark_session = spark_session
 
-    def sql(self, sql: str) -> SparkDfCursor:
-        df = self.spark_session.sql(sqlQuery=sql)
-        return SparkDfCursor(df)
+    def cursor(self) -> SparkDfCursor:
+        return SparkDfCursor(self.spark_session)
+
+    def close(self):
+        pass
+
+    def commit(self):
+        pass
+
+    def rollback(self):
+        pass

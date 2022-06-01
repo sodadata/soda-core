@@ -5,7 +5,6 @@ from collections import namedtuple
 from enum import Enum
 from typing import Any, Dict, List, Optional
 
-import pyodbc
 from pyhive import hive
 from soda.__version__ import SODA_CORE_VERSION
 from soda.common.exceptions import DataSourceConnectionError
@@ -224,7 +223,8 @@ class DataSourceImpl(DataSource):
         table_column_name: str = "table_name",
         schema_column_name: str = "table_schema",
     ) -> str:
-        return f"SHOW TABLES FROM {self.database}"
+        from_clause = f" FROM {self.database}" if self.database else ''
+        return f"SHOW TABLES{from_clause}"
 
     def sql_get_table_names_with_count(
         self, include_tables: Optional[List[str]] = None, exclude_tables: Optional[List[str]] = None
