@@ -44,6 +44,7 @@ def test_anomaly_detection_not_have_enough_data(scanner: Scanner):
 
     scan.execute(allow_warnings_only = True)
 
+
 def test_anomaly_detection_have_no_data(scanner: Scanner):
     table_name = scanner.ensure_test_table(customers_test_table)
 
