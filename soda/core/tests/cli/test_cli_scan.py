@@ -64,6 +64,10 @@ def test_imports(scanner: Scanner, mock_file_system: MockFileSystem):
     )
 
 
+@pytest.mark.skipif(
+    test_data_source != "postgres",
+    reason="Run for postgres only as nothing data source specific is tested.",
+)
 def test_non_existing_configuration_file(scanner: Scanner, mock_file_system: MockFileSystem):
     table_name = scanner.ensure_test_table(customers_test_table)
 

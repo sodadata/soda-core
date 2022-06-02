@@ -44,18 +44,21 @@ class SparkDfTestTableManager(TestTableManager):
             spark_columns.append(spark_column)
 
         spark_rows = []
-        for test_row in test_table.values:
-            spark_row = {}
-            for i in range(0, len(spark_columns)):
-                spark_column = spark_columns[i]
-                test_value = test_row[i]
-                spark_value = self.convert_test_value_to_spark_value(test_value, spark_column.dataType)
-                spark_row[spark_column.name] = spark_value
-            spark_rows.append(spark_row)
+        if test_table.values:
+            for test_row in test_table.values:
+                spark_row = {}
+                for i in range(0, len(spark_columns)):
+                    spark_column = spark_columns[i]
+                    test_value = test_row[i]
+                    spark_value = self.convert_test_value_to_spark_value(test_value, spark_column.dataType)
+                    spark_row[spark_column.name] = spark_value
+                spark_rows.append(spark_row)
 
         spark_schema = types.StructType(spark_columns)
         spark_session = self.data_source.connection.spark_session
         df = spark_session.createDataFrame(data=spark_rows, schema=spark_schema)
+        logging.debug(f"Created table {test_table.unique_table_name}:")
+        df.show()
         df.createOrReplaceTempView(test_table.unique_table_name)
 
     @staticmethod
