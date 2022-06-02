@@ -21,12 +21,12 @@ class DistributionCheck(Check):
         partition: Optional[Partition] = None,
         column: Optional[Column] = None,
     ):
+
         super().__init__(
             check_cfg=check_cfg,
             data_source_scan=data_source_scan,
             partition=partition,
             column=column,
-            name="distribution_comparison",
         )
         self.distribution_check_cfg: DistributionCheckCfg = self.check_cfg
 
@@ -75,16 +75,22 @@ class DistributionCheck(Check):
     def get_cloud_diagnostics_dict(self) -> dict:
         cloud_diagnostics = {}
         cloud_diagnostics["value"] = self.check_value
-        cloud_diagnostics["fail"] = {
-            "greaterThanOrEqual": self.distribution_check_cfg.fail_threshold_cfg.lte
-            if self.distribution_check_cfg.fail_threshold_cfg is not None
-            else None
-        }
-        cloud_diagnostics["warning"] = {
-            "greaterThanOrEqual": self.distribution_check_cfg.warn_threshold_cfg
-            if self.distribution_check_cfg.warn_threshold_cfg is not None
-            else None
-        }
+        if self.distribution_check_cfg.fail_threshold_cfg:
+            cloud_diagnostics["fail"] = {
+                "lessThan": self.distribution_check_cfg.fail_threshold_cfg.lt,
+                "lessThanOrEqual": self.distribution_check_cfg.fail_threshold_cfg.lte ,
+                "greaterThan": self.distribution_check_cfg.fail_threshold_cfg.gt ,
+                "greaterThanOrEqual": self.distribution_check_cfg.fail_threshold_cfg.gte  
+            }
+
+        if self.distribution_check_cfg.warn_threshold_cfg:
+            cloud_diagnostics["warn"] = {
+                "lessThan": self.distribution_check_cfg.fail_threshold_cfg.lt,
+                "lessThanOrEqual": self.distribution_check_cfg.fail_threshold_cfg.lte ,
+                "greaterThan": self.distribution_check_cfg.fail_threshold_cfg.gt ,
+                "greaterThanOrEqual": self.distribution_check_cfg.fail_threshold_cfg.gte  
+            }
+
         return cloud_diagnostics
 
     def get_log_diagnostic_dict(self) -> dict:
