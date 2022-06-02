@@ -55,9 +55,7 @@ class AnomalyMetricCheck(MetricCheck):
                 "Anomaly detection was not given a threshold. You might want to check if the parser returned errors"
             )
             self.logs.error(error_message)
-            self.add_outcome_reason(
-                outcome_type="parserFailed", message=error_message, severity="warn"
-            )
+            self.add_outcome_reason(outcome_type="parserFailed", message=error_message, severity="warn")
             return
 
         # TODO Review the data structure and see if we still need the KEY_HISTORIC_*
@@ -67,9 +65,7 @@ class AnomalyMetricCheck(MetricCheck):
         if not historic_measurements:
             warning_message = "Skipping anomaly metric check eval because there is no historic data yet!"
             self.logs.warning(warning_message)
-            self.add_outcome_reason(
-                outcome_type="notEnoughHistory", message=warning_message, severity="warn"
-            )
+            self.add_outcome_reason(outcome_type="notEnoughHistory", message=warning_message, severity="warn")
             return
 
         # Append current results
@@ -96,9 +92,7 @@ class AnomalyMetricCheck(MetricCheck):
         if diagnostics["anomalyErrorCode"] == "not_enough_measurements":
             warning_message = "Skipping anomaly metric check eval because there is not enough historic data yet"
             self.logs.warning(warning_message)
-            self.add_outcome_reason(
-                outcome_type="notEnoughHistory", message=warning_message, severity="warn"
-            )
+            self.add_outcome_reason(outcome_type="notEnoughHistory", message=warning_message, severity="warn")
             return
 
         assert isinstance(

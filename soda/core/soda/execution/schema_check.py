@@ -82,9 +82,7 @@ class SchemaCheck(Check):
             if schema_check_cfg.has_change_validations():
                 warning_message = "Skipping schema checks since there is no historic schema metrics!"
                 self.logs.warning(warning_message)
-                self.add_outcome_reason(
-                    outcome_type="notEnoughHistory", message=warning_message, severity="warn"
-                )
+                self.add_outcome_reason(outcome_type="notEnoughHistory", message=warning_message, severity="warn")
                 return
 
         if self.has_schema_violations(schema_check_cfg.fail_validations):

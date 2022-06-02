@@ -168,11 +168,8 @@ class Check(ABC):
 
     def add_outcome_reason(self, outcome_type: str, message: str, severity: str) -> dict:
         self.force_send_results_to_cloud = True
-        self.outcome_reasons[outcome_type] = {
-            "message": message,
-            "severity": severity #error/warn/info"
-        }
-        
+        self.outcome_reasons[outcome_type] = {"message": message, "severity": severity}  # error/warn/info"
+
     @staticmethod
     def __check_source_to_yaml(source_header: str, source_line: str, source_configurations: dict | None) -> str:
         from soda.common.yaml_helper import to_yaml_str
