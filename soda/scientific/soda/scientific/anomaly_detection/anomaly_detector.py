@@ -125,7 +125,7 @@ class AnomalyDetector:
             _df_check_results = pd.DataFrame.from_dict(parsed_check_results.dict()["results"])
             return _df_check_results
         else:
-            self._logs.info(
+            self._logs.debug(
                 "No past check results found. This could be because there are no past runs of "
                 "Anomaly Detection for this check yet."
             )
