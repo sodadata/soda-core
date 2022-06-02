@@ -63,6 +63,7 @@ def data_source(scan: Scan) -> DataSource:
 
     if data_source_name == "spark_df":
         from tests.spark_df_data_source_test_helper import SparkDfDataSourceTestHelper
+
         SparkDfDataSourceTestHelper.initialize_local_spark_session(scan)
 
     data_source_connection_manager = scan._data_source_manager

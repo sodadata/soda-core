@@ -1,5 +1,4 @@
 from soda.execution.query_metric import QueryMetric
-from soda.execution.schema_query import SchemaQuery
 
 
 class SchemaMetric(QueryMetric):

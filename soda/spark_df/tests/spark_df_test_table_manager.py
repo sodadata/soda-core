@@ -1,10 +1,7 @@
 import decimal
 import logging
-import numbers
-from datetime import time, datetime, date
 
 from pyspark.sql import types
-
 from soda.data_sources.spark_df_data_source import DataSourceImpl
 from soda.execution.data_type import DataType
 from tests.helpers.test_table import TestTable
@@ -12,7 +9,6 @@ from tests.helpers.test_table_manager import TestTableManager
 
 
 class SparkDfTestTableManager(TestTableManager):
-
     def __init__(self, spark_df_data_source: DataSourceImpl):
         super().__init__(data_source=spark_df_data_source)
 
@@ -30,7 +26,9 @@ class SparkDfTestTableManager(TestTableManager):
             elif test_column.data_type == DataType.DATE:
                 spark_type = types.DateType()
             elif test_column.data_type == DataType.TIME:
-                raise NotImplementedError("Don't know how to convert time values to timestamp as Spark doesn't support times")
+                raise NotImplementedError(
+                    "Don't know how to convert time values to timestamp as Spark doesn't support times"
+                )
             elif test_column.data_type == DataType.TIMESTAMP:
                 spark_type = types.TimestampType()
             elif test_column.data_type == DataType.TIMESTAMP_TZ:
@@ -38,7 +36,9 @@ class SparkDfTestTableManager(TestTableManager):
             elif test_column.data_type == DataType.BOOLEAN:
                 spark_type = types.BooleanType()
             else:
-                raise NotImplementedError(f"Test column type {test_column.data_type} not supported in spark dataframe testing")
+                raise NotImplementedError(
+                    f"Test column type {test_column.data_type} not supported in spark dataframe testing"
+                )
 
             spark_column = types.StructField(column_name, spark_type)
             spark_columns.append(spark_column)

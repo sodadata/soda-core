@@ -68,7 +68,7 @@ def odbc_connection_function(
     token: str,
     organization: str,
     cluster: str,
-    server_side_parameters: Dict[str, str],
+    server_side_parameters: dict[str, str],
     **kwargs,
 ) -> pyodbc.Connection:
     """
@@ -125,11 +125,11 @@ class SparkConnectionMethod(str, Enum):
 
 class SparkSQLBase(DataSource):
 
-    SCHEMA_CHECK_TYPES_MAPPING: Dict = {
+    SCHEMA_CHECK_TYPES_MAPPING: dict = {
         "string": ["character varying", "varchar"],
         "integer": ["integer", "int"],
     }
-    SQL_TYPE_FOR_CREATE_TABLE_MAP: Dict = {
+    SQL_TYPE_FOR_CREATE_TABLE_MAP: dict = {
         DataType.TEXT: "string",
         DataType.INTEGER: "integer",
         DataType.DECIMAL: "decimal",
@@ -161,9 +161,7 @@ class SparkSQLBase(DataSource):
             f"WHERE table_name = '{table_name}';"
         )
 
-    def sql_get_column(
-        self, include_tables: Optional[List[str]] = None, exclude_tables: Optional[List[str]] = None
-    ) -> str:
+    def sql_get_column(self, include_tables: list[str] | None = None, exclude_tables: list[str] | None = None) -> str:
         table_filter_expression = self.sql_table_include_exclude_filter(
             "table_name", "table_schema", include_tables, exclude_tables
         )
@@ -186,7 +184,7 @@ class SparkSQLBase(DataSource):
         return f"SHOW TABLES{from_clause}"
 
     def sql_get_table_names_with_count(
-        self, include_tables: Optional[List[str]] = None, exclude_tables: Optional[List[str]] = None
+        self, include_tables: list[str] | None = None, exclude_tables: list[str] | None = None
     ) -> str:
         return ""
 
@@ -208,22 +206,27 @@ class SparkSQLBase(DataSource):
 
     @staticmethod
     def _filter_include_exclude(
-        table_names: list[str],
-        include_tables: list[str],
-        exclude_tables: list[str]
+        table_names: list[str], include_tables: list[str], exclude_tables: list[str]
     ) -> list[str]:
         if include_tables or exclude_tables:
+
             def matches(table_name, table_pattern: str) -> bool:
-                table_pattern_regex = table_pattern.replace('%', '.*')
+                table_pattern_regex = table_pattern.replace("%", ".*")
                 is_match = re.match(table_pattern_regex, table_name)
                 return bool(is_match)
 
             if include_tables:
-                table_names = [table_name for table_name in table_names if
-                               any(matches(table_name, include_table) for include_table in include_tables)]
+                table_names = [
+                    table_name
+                    for table_name in table_names
+                    if any(matches(table_name, include_table) for include_table in include_tables)
+                ]
             if exclude_tables:
-                table_names = [table_name for table_name in table_names if
-                               all(not matches(table_name, exclude_table) for exclude_table in exclude_tables)]
+                table_names = [
+                    table_name
+                    for table_name in table_names
+                    if all(not matches(table_name, exclude_table) for exclude_table in exclude_tables)
+                ]
         return table_names
 
     def qualify_table_name(self, table_name: str) -> str:

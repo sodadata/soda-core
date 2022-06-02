@@ -27,5 +27,5 @@ class Configuration:
         }
         self.data_source_properties_by_name[data_source_name] = {
             "type": "spark_df",
-            "connection": "spark_df_data_source"
+            "connection": "spark_df_data_source",
         }
