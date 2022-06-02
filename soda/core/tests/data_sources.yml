@@ -46,3 +46,8 @@ data_source spark:
     username: ${ env_var('SPARK_USERNAME', 'soda') }
     password: ${ env_var('SPARK_PASSWORD') }
     database: ${ env_var('SPARK_DATABASE', 'default') }
+# TODO: add appropriate vars
+data_source spark_df:
+  type: spark_df
+  connection:
+    just: a connection property to prevent a parsing error

@@ -5,4 +5,4 @@
 ./soda/redshift
 ./soda/athena
 ./soda/spark
-./soda/scientific
+./soda/spark_df

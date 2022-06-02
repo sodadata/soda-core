@@ -1,10 +1,12 @@
+from __future__ import annotations
+
 import logging
+import re
 from collections import namedtuple
 from datetime import date, datetime
 from enum import Enum
 from typing import Any, Dict, List, Optional
 
-import pyodbc
 from pyhive import hive
 from soda.__version__ import SODA_CORE_VERSION
 from soda.common.exceptions import DataSourceConnectionError
@@ -121,7 +123,37 @@ class SparkConnectionMethod(str, Enum):
     ODBC = "odbc"
 
 
-class SparkSQLBase:
+class SparkSQLBase(DataSource):
+
+    SCHEMA_CHECK_TYPES_MAPPING: Dict = {
+        "string": ["character varying", "varchar"],
+        "integer": ["integer", "int"],
+    }
+    SQL_TYPE_FOR_CREATE_TABLE_MAP: Dict = {
+        DataType.TEXT: "string",
+        DataType.INTEGER: "integer",
+        DataType.DECIMAL: "decimal",
+        DataType.DATE: "date",
+        DataType.TIME: "timestamp",
+        DataType.TIMESTAMP: "timestamp",
+        DataType.TIMESTAMP_TZ: "timestamp",  # No timezone support in Spark
+        DataType.BOOLEAN: "boolean",
+    }
+
+    SQL_TYPE_FOR_SCHEMA_CHECK_MAP = {
+        DataType.TEXT: "string",
+        DataType.INTEGER: "integer",
+        DataType.DECIMAL: "decimal",
+        DataType.DATE: "date",
+        DataType.TIME: "timestamp",
+        DataType.TIMESTAMP: "timestamp",
+        DataType.TIMESTAMP_TZ: "timestamp",  # No timezone support in Spark
+        DataType.BOOLEAN: "boolean",
+    }
+
+    def __init__(self, logs: Logs, data_source_name: str, data_source_properties: dict, connection_properties: dict):
+        super().__init__(logs, data_source_name, data_source_properties, connection_properties)
+
     def sql_to_get_column_metadata_for_table(self, table_name: str):
         return (
             f"SELECT column_name, data_type, is_nullable "
@@ -150,7 +182,8 @@ class SparkSQLBase:
         table_column_name: str = "table_name",
         schema_column_name: str = "table_schema",
     ) -> str:
-        return f"SHOW TABLES FROM {self.database}"
+        from_clause = f" FROM {self.database}" if self.database else ""
+        return f"SHOW TABLES{from_clause}"
 
     def sql_get_table_names_with_count(
         self, include_tables: Optional[List[str]] = None, exclude_tables: Optional[List[str]] = None
@@ -170,7 +203,27 @@ class SparkSQLBase:
         )
         query.execute()
         table_names = [row[1] for row in query.rows]
+        table_names = self._filter_include_exclude(table_names, include_tables, exclude_tables)
+        return table_names
 
+    @staticmethod
+    def _filter_include_exclude(
+        table_names: list[str],
+        include_tables: list[str],
+        exclude_tables: list[str]
+    ) -> list[str]:
+        if include_tables or exclude_tables:
+            def matches(table_name, table_pattern: str) -> bool:
+                table_pattern_regex = table_pattern.replace('%', '.*')
+                is_match = re.match(table_pattern_regex, table_name)
+                return bool(is_match)
+
+            if include_tables:
+                table_names = [table_name for table_name in table_names if
+                               any(matches(table_name, include_table) for include_table in include_tables)]
+            if exclude_tables:
+                table_names = [table_name for table_name in table_names if
+                               all(not matches(table_name, exclude_table) for exclude_table in exclude_tables)]
         return table_names
 
     def qualify_table_name(self, table_name: str) -> str:
@@ -212,34 +265,8 @@ class SparkSQLBase:
     #     ]
 
 
-class DataSourceImpl(SparkSQLBase, DataSource):
+class DataSourceImpl(SparkSQLBase):
     TYPE = "spark"
-
-    SCHEMA_CHECK_TYPES_MAPPING: Dict = {
-        "string": ["character varying", "varchar"],
-        "integer": ["integer", "int"],
-    }
-    SQL_TYPE_FOR_CREATE_TABLE_MAP: Dict = {
-        DataType.TEXT: "string",
-        DataType.INTEGER: "integer",
-        DataType.DECIMAL: "decimal",
-        DataType.DATE: "date",
-        DataType.TIME: "timestamp",
-        DataType.TIMESTAMP: "timestamp",
-        DataType.TIMESTAMP_TZ: "timestamp",  # No timezone support in Spark
-        DataType.BOOLEAN: "boolean",
-    }
-
-    SQL_TYPE_FOR_SCHEMA_CHECK_MAP = {
-        DataType.TEXT: "string",
-        DataType.INTEGER: "integer",
-        DataType.DECIMAL: "decimal",
-        DataType.DATE: "date",
-        DataType.TIME: "timestamp",
-        DataType.TIMESTAMP: "timestamp",
-        DataType.TIMESTAMP_TZ: "timestamp",  # No timezone support in Spark
-        DataType.BOOLEAN: "boolean",
-    }
 
     def __init__(self, logs: Logs, data_source_name: str, data_source_properties: dict, connection_properties: dict):
         super().__init__(logs, data_source_name, data_source_properties, connection_properties)

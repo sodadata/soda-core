@@ -15,6 +15,7 @@ from soda.common.logs import Logs
 from soda.execution.data_type import DataType
 from soda.execution.partition_queries import PartitionQueries
 from soda.execution.query import Query
+from soda.execution.schema_query import SchemaQuery
 from soda.telemetry.soda_telemetry import SodaTelemetry
 
 soda_telemetry = SodaTelemetry.get_instance()
@@ -514,6 +515,9 @@ class DataSource:
             return self.SQL_TYPE_FOR_CREATE_TABLE_MAP.get(data_type)
         else:
             return data_type
+
+    def create_schema_query(self, partition: 'Partition', schema_metric: 'SchemaMetric') -> SchemaQuery:
+        return SchemaQuery(partition, schema_metric)
 
     def get_sql_type_for_schema_check(self, data_type: str) -> str:
         data_source_type = self.SQL_TYPE_FOR_SCHEMA_CHECK_MAP.get(data_type)

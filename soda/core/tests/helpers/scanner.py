@@ -181,7 +181,11 @@ class TestScan(Scan):
 class Scanner:
     def __init__(self, data_source: DataSource):
         self.data_source = data_source
-        self.test_table_manager = TestTableManager(data_source)
+        if 'spark_df' == data_source.data_source_name:
+            from tests.spark_df_test_table_manager import SparkDfTestTableManager
+            self.test_table_manager = SparkDfTestTableManager(data_source)
+        else:
+            self.test_table_manager = TestTableManager(data_source)
 
     def ensure_test_table(self, test_table: TestTable) -> str:
         return self.test_table_manager.ensure_test_table(test_table)

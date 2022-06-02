@@ -60,9 +60,9 @@ class TestTableManager:
         create_table_sql = self._create_test_table_sql(test_table)
         self.update(create_table_sql)
         self._get_existing_test_table_names().append(test_table.unique_table_name)
-        create_table_sql = self._insert_test_table_sql(test_table)
-        if create_table_sql:
-            self.update(create_table_sql)
+        insert_table_sql = self._insert_test_table_sql(test_table)
+        if insert_table_sql:
+            self.update(insert_table_sql)
 
     def _create_test_table_sql(self, test_table: TestTable) -> str:
         quoted_table_name = (

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import pytest
-from tests.conftest import test_data_source
+from tests.helpers.fixtures import test_data_source
 from tests.helpers.common_test_tables import customers_profiling
 from tests.helpers.scanner import Scanner
 

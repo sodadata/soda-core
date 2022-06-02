@@ -52,6 +52,7 @@ jobs:
           - "redshift"
           - "athena"
           - "spark"
+          - "spark-df"
     env:
       DATA_SOURCE: ${{ matrix.data-source }}
       PYTHON_VERSION: ${{ matrix.python-version }}
@@ -76,6 +77,8 @@ jobs:
       SPARK_USERNAME: ${{ secrets.SPARK_USERNAME }}
       SPARK_PASSWORD: ${{ secrets.SPARK_PASSWORD }}
       SPARK_DATABASE: ${{ secrets.SPARK_DATABASE }}
+      # TODO: add appropriate vars
+      SPARK_DF_HOST: ${{ secrets.SPARK_DF_HOST }}
 
     steps:
       - uses: actions/checkout@v2

@@ -1,6 +1,6 @@
 import pytest
 from soda.execution.data_type import DataType
-from tests.conftest import test_data_source
+from tests.helpers.fixtures import test_data_source
 from tests.helpers.scanner import Scanner
 from tests.helpers.test_table import TestTable
 

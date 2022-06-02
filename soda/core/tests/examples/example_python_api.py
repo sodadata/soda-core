@@ -65,7 +65,7 @@ def example_python_api():
     # users can link the dataframes manually to the name referenced in the SodaCL files
     df1.createOrReplaceTempView("df1")
     df2.createOrReplaceTempView("df2")
-    scan.add_configuration_spark_session(spark_session=spark_session, data_source_name="the_spark_data_source")
+    scan.add_spark_session(spark_session=spark_session, data_source_name="the_spark_data_source")
 
     # Variables
     ###########
