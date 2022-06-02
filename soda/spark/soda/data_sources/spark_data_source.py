@@ -12,6 +12,8 @@ from soda.execution.data_source import DataSource
 from soda.execution.data_type import DataType
 from soda.execution.query import Query
 
+from datetime import date, datetime
+
 logger = logging.getLogger(__name__)
 ColumnMetadata = namedtuple("ColumnMetadata", ["name", "data_type", "is_nullable"])
 
@@ -186,6 +188,14 @@ class SparkSQLBase:
     def sql_use_database(self) -> str:
         return f"Use {self.database}"
 
+    def literal_date(self, date: date):
+        date_string = date.strftime("%Y-%m-%d")
+        return f"date'{date_string}'"
+
+    def literal_datetime(self, datetime: datetime):
+        formatted = datetime.strftime("%Y-%m-%d %H:%M:%S")
+        return f"timestamp'{formatted}'"
+
     # @staticmethod
     # def format_column_default(identifier: str) -> str:
     #     return identifier.lower()
@@ -203,7 +213,7 @@ class SparkSQLBase:
     #     ]
 
 
-class DataSourceImpl(DataSource, SparkSQLBase):
+class DataSourceImpl(SparkSQLBase, DataSource):
     TYPE = "spark"
 
     SCHEMA_CHECK_TYPES_MAPPING: Dict = {
@@ -273,6 +283,36 @@ class DataSourceImpl(DataSource, SparkSQLBase):
                 cluster=self.cluster,
                 server_side_parameters=self.server_side_parameters,
             )
+
+            # try:
+            #     cursor = connection.cursor()
+            #     try:
+            #         # sql = self.sql_use_database()
+            #         # sql = "select * from sodatest_customers_b7580920"
+            #         # sql = "insert into sodatest_customers_b7580920 values ('ID1',  1, '1', 0, '- 28,42 %', 'HIGH', 'BE', '2360', 'john.doe@example.com', date'2020-06-23', timestamp'2020-06-23 00:00:10', timestamp'2020-06-23 00:00:10')"
+            #         sql = "drop table sodatest_customers_b7580920;"
+            #         # sql = "show tables"
+            #         self.logs.debug(f"Query:\n{sql}")
+            #         cursor.execute(sql)
+            #         res = cursor.fetchall()
+            #         print("---vvvvv--- DEBUG ---vvvvv---")
+            #         from pprint import pprint
+
+            #         pprint(res)
+            #         print("---^^^^^--- debug ---^^^^^---")
+            #     finally:
+            #         cursor.close()
+            # except BaseException as e:
+            #     self.exception = e
+            #     self.logs.error(f"Query error: {e}\n{sql}", e)
+            # raise Exception("asdasd")
+            # query = Query(
+            #     data_source_scan=self.data_source_scan,
+            #     unqualified_query_name="Set database",
+            #     sql=self.sql_use_database(),
+            # )
+            # query.execute()
+
             return connection
         except Exception as e:
             raise DataSourceConnectionError(self.type, e)
