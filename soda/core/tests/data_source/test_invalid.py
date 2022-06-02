@@ -133,7 +133,7 @@ def test_check_and_column_configured_invalid_values(scanner: Scanner):
     """
     table_name = scanner.ensure_test_table(customers_test_table)
 
-    digit_regex = scanner.data_source.escape_regex(r"\d")
+    digit_regex = scanner.data_source.escape_regex(r"ID\d")
 
     scan = scanner.create_test_scan()
     scan.add_sodacl_yaml_str(
@@ -150,7 +150,7 @@ def test_check_and_column_configured_invalid_values(scanner: Scanner):
                  - ID1
                  - ID2
           configurations for {table_name}:
-            valid regex for id: ID{digit_regex}
+            valid regex for id: {digit_regex}
         """
     )
     scan.execute()
