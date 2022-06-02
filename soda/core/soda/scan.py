@@ -136,7 +136,7 @@ class Scan:
         )
         environment_parse.parse_environment_yaml_str(configuration_yaml_str)
 
-    def add_configuration_spark_session(self, data_source_name: str, spark_session):
+    def add_spark_session(self, spark_session, data_source_name: str = 'spark_df'):
         """
         Pass a spark_session to the scan.  Only required in case of PySpark scans.
         """
