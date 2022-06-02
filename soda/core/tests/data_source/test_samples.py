@@ -1,3 +1,5 @@
+from soda.sampler.default_sampler import DefaultSampler
+
 from tests.helpers.common_test_tables import customers_test_table
 from tests.helpers.scanner import Scanner
 
@@ -39,7 +41,7 @@ def test_missing_count_sample_disabled(scanner: Scanner):
     diagnostics = mock_soda_cloud.find_check_diagnostics(0)
     assert diagnostics["value"] == 1
     assert len(mock_soda_cloud.files) == 0
-    assert "failedRowsFile" not in mock_soda_cloud.find_check_diagnostics(0)
+    assert isinstance(scan._configuration.sampler, DefaultSampler)
 
 
 def test_missing_percent_sample(scanner: Scanner):
