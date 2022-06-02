@@ -138,40 +138,37 @@ class Query:
         """
         self.__append_to_scan()
         sampler: Sampler = self.data_source_scan.scan._configuration.sampler
-        if sampler:
-            start = datetime.now()
-            data_source = self.data_source_scan.data_source
+        start = datetime.now()
+        data_source = self.data_source_scan.data_source
+        try:
+            cursor = data_source.connection.cursor()
             try:
-                cursor = data_source.connection.cursor()
-                try:
-                    self.logs.debug(f"Query {self.query_name}:\n{self.sql}")
-                    cursor.execute(self.sql)
-                    self.description = cursor.description
+                self.logs.debug(f"Query {self.query_name}:\n{self.sql}")
+                cursor.execute(self.sql)
+                self.description = cursor.description
 
-                    db_sample = DbSample(cursor, self.data_source_scan.data_source)
+                db_sample = DbSample(cursor, self.data_source_scan.data_source)
 
-                    sample_context = SampleContext(
-                        sample=db_sample,
-                        sample_name=self.sample_name,
-                        query=self.sql,
-                        data_source=self.data_source_scan.data_source,
-                        partition=self.partition,
-                        column=self.column,
-                        scan=self.data_source_scan.scan,
-                        logs=self.data_source_scan.scan._logs,
-                    )
+                sample_context = SampleContext(
+                    sample=db_sample,
+                    sample_name=self.sample_name,
+                    query=self.sql,
+                    data_source=self.data_source_scan.data_source,
+                    partition=self.partition,
+                    column=self.column,
+                    scan=self.data_source_scan.scan,
+                    logs=self.data_source_scan.scan._logs,
+                )
 
-                    self.sample_ref = sampler.store_sample(sample_context)
-                finally:
-                    cursor.close()
-            except BaseException as e:
-                self.exception = e
-                self.logs.error(f"Query error: {self.query_name}: {e}\n{self.sql}", exception=e, location=self.location)
-                data_source.query_failed(e)
+                self.sample_ref = sampler.store_sample(sample_context)
             finally:
-                self.duration = datetime.now() - start
-        else:
-            self.logs.debug(f"Not executing query {self.query_name} because no sampler is configured.")
+                cursor.close()
+        except BaseException as e:
+            self.exception = e
+            self.logs.error(f"Query error: {self.query_name}: {e}\n{self.sql}", exception=e, location=self.location)
+            data_source.query_failed(e)
+        finally:
+            self.duration = datetime.now() - start
 
     def __append_to_scan(self):
         scan = self.data_source_scan.scan

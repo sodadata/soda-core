@@ -1,12 +1,12 @@
 from typing import List
 
 from soda.profiling.discover_table_result_table import DiscoverTablesResultTable
-from soda.sodacl.discover_tables_cfg import DiscoverTablesCfg
+from soda.sodacl.data_source_check_cfg import DataSourceCheckCfg
 
 
 class DiscoverTablesResult:
-    def __init__(self, discover_tables_cfg: DiscoverTablesCfg):
-        self.discover_tables_cfg: DiscoverTablesCfg = discover_tables_cfg
+    def __init__(self, data_source_check_cfg: DataSourceCheckCfg):
+        self.data_source_check_cfg: DataSourceCheckCfg = data_source_check_cfg
         self.tables: List[DiscoverTablesResultTable] = []
 
     def create_table(self, table_name: str, data_source_name: str, row_count: int) -> DiscoverTablesResultTable:

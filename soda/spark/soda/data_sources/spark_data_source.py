@@ -120,80 +120,7 @@ class SparkConnectionMethod(str, Enum):
     ODBC = "odbc"
 
 
-class DataSourceImpl(DataSource):
-    TYPE = "spark"
-
-    SCHEMA_CHECK_TYPES_MAPPING: Dict = {
-        "string": ["character varying", "varchar"],
-        "integer": ["integer", "int"],
-    }
-    SQL_TYPE_FOR_CREATE_TABLE_MAP: Dict = {
-        DataType.TEXT: "string",
-        DataType.INTEGER: "integer",
-        DataType.DECIMAL: "decimal",
-        DataType.DATE: "date",
-        DataType.TIME: "timestamp",
-        DataType.TIMESTAMP: "timestamp",
-        DataType.TIMESTAMP_TZ: "timestamp",  # No timezone support in Spark
-        DataType.BOOLEAN: "boolean",
-    }
-
-    SQL_TYPE_FOR_SCHEMA_CHECK_MAP = {
-        DataType.TEXT: "string",
-        DataType.INTEGER: "integer",
-        DataType.DECIMAL: "decimal",
-        DataType.DATE: "date",
-        DataType.TIME: "timestamp",
-        DataType.TIMESTAMP: "timestamp",
-        DataType.TIMESTAMP_TZ: "timestamp",  # No timezone support in Spark
-        DataType.BOOLEAN: "boolean",
-    }
-
-    def __init__(self, logs: Logs, data_source_name: str, data_source_properties: dict, connection_properties: dict):
-        super().__init__(logs, data_source_name, data_source_properties, connection_properties)
-
-        self.method = connection_properties.get("method", "hive")
-        self.host = connection_properties.get("host", "localhost")
-        self.port = connection_properties.get("port", "10000")
-        self.username = connection_properties.get("username")
-        self.password = connection_properties.get("password")
-        self.database = connection_properties.get("database", "default")
-        self.auth_method = connection_properties.get("authentication", None)
-        self.configuration = connection_properties.get("configuration", {})
-        self.driver = connection_properties.get("driver", None)
-        self.token = connection_properties.get("token")
-        self.organization = connection_properties.get("organization", None)
-        self.cluster = connection_properties.get("cluster", None)
-        self.server_side_parameters = {
-            f"SSP_{k}": f"{{{v}}}" for k, v in connection_properties.get("server_side_parameters", {})
-        }
-
-    def connect(self, connection_properties):
-        if self.method == SparkConnectionMethod.HIVE:
-            connection_function = hive_connection_function
-        elif self.method == SparkConnectionMethod.ODBC:
-            connection_function = odbc_connection_function
-        else:
-            raise NotImplementedError(f"Unknown Spark connection method {self.method}")
-
-        try:
-            connection = connection_function(
-                username=self.username,
-                password=self.password,
-                host=self.host,
-                port=self.port,
-                database=self.database,
-                auth_method=self.auth_method,
-                driver=self.driver,
-                token=self.token,
-                organization=self.organization,
-                cluster=self.cluster,
-                server_side_parameters=self.server_side_parameters,
-            )
-            return connection
-        except Exception as e:
-            raise DataSourceConnectionError(self.type, e)
-
+class SparkSQLBase:
     def sql_to_get_column_metadata_for_table(self, table_name: str):
         return (
             f"SELECT column_name, data_type, is_nullable "
@@ -274,3 +201,78 @@ class DataSourceImpl(DataSource):
     #         self.port,
     #         self.database,
     #     ]
+
+
+class DataSourceImpl(DataSource, SparkSQLBase):
+    TYPE = "spark"
+
+    SCHEMA_CHECK_TYPES_MAPPING: Dict = {
+        "string": ["character varying", "varchar"],
+        "integer": ["integer", "int"],
+    }
+    SQL_TYPE_FOR_CREATE_TABLE_MAP: Dict = {
+        DataType.TEXT: "string",
+        DataType.INTEGER: "integer",
+        DataType.DECIMAL: "decimal",
+        DataType.DATE: "date",
+        DataType.TIME: "timestamp",
+        DataType.TIMESTAMP: "timestamp",
+        DataType.TIMESTAMP_TZ: "timestamp",  # No timezone support in Spark
+        DataType.BOOLEAN: "boolean",
+    }
+
+    SQL_TYPE_FOR_SCHEMA_CHECK_MAP = {
+        DataType.TEXT: "string",
+        DataType.INTEGER: "integer",
+        DataType.DECIMAL: "decimal",
+        DataType.DATE: "date",
+        DataType.TIME: "timestamp",
+        DataType.TIMESTAMP: "timestamp",
+        DataType.TIMESTAMP_TZ: "timestamp",  # No timezone support in Spark
+        DataType.BOOLEAN: "boolean",
+    }
+
+    def __init__(self, logs: Logs, data_source_name: str, data_source_properties: dict, connection_properties: dict):
+        super().__init__(logs, data_source_name, data_source_properties, connection_properties)
+
+        self.method = connection_properties.get("method", "hive")
+        self.host = connection_properties.get("host", "localhost")
+        self.port = connection_properties.get("port", "10000")
+        self.username = connection_properties.get("username")
+        self.password = connection_properties.get("password")
+        self.database = connection_properties.get("database", "default")
+        self.auth_method = connection_properties.get("authentication", None)
+        self.configuration = connection_properties.get("configuration", {})
+        self.driver = connection_properties.get("driver", None)
+        self.token = connection_properties.get("token")
+        self.organization = connection_properties.get("organization", None)
+        self.cluster = connection_properties.get("cluster", None)
+        self.server_side_parameters = {
+            f"SSP_{k}": f"{{{v}}}" for k, v in connection_properties.get("server_side_parameters", {})
+        }
+
+    def connect(self, connection_properties):
+        if self.method == SparkConnectionMethod.HIVE:
+            connection_function = hive_connection_function
+        elif self.method == SparkConnectionMethod.ODBC:
+            connection_function = odbc_connection_function
+        else:
+            raise NotImplementedError(f"Unknown Spark connection method {self.method}")
+
+        try:
+            connection = connection_function(
+                username=self.username,
+                password=self.password,
+                host=self.host,
+                port=self.port,
+                database=self.database,
+                auth_method=self.auth_method,
+                driver=self.driver,
+                token=self.token,
+                organization=self.organization,
+                cluster=self.cluster,
+                server_side_parameters=self.server_side_parameters,
+            )
+            return connection
+        except Exception as e:
+            raise DataSourceConnectionError(self.type, e)
