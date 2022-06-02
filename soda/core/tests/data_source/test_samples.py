@@ -1,5 +1,4 @@
 from soda.sampler.default_sampler import DefaultSampler
-
 from tests.helpers.common_test_tables import customers_test_table
 from tests.helpers.scanner import Scanner
 
