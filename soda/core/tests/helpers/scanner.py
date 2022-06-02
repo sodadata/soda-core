@@ -77,11 +77,16 @@ class TestScan(Scan):
             self._configuration.sampler = MockSampler()
         return self._configuration.sampler
 
-    def execute(self, allow_error_warning: bool = False):
+    def execute(self, allow_error_warning: bool = False, allow_warnings_only: bool = False):
         super().execute()
 
         if not allow_error_warning:
-            self.assert_no_error_nor_warning_logs()
+            if not allow_warnings_only:
+                self.assert_no_error_nor_warning_logs()
+            else:
+                self.assert_no_error_logs()
+        if allow_warnings_only:
+            self.assert_no_error_logs()
 
     def execute_unchecked(self):
         super().execute()

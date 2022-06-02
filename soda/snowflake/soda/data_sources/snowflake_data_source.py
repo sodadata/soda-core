@@ -119,8 +119,14 @@ class DataSourceImpl(DataSource):
         table_filter_expression = self.sql_table_include_exclude_filter(
             "table_name", "row_count", include_tables, exclude_tables
         )
-        where_clause = f"\nWHERE {table_filter_expression} \n" if table_filter_expression else ""
-        return f"SELECT table_name, row_count \n" f"FROM information_schema.tables" f"{where_clause}"
+        where_clause = f"AND {table_filter_expression}" if table_filter_expression else ""
+        sql = f"""
+            SELECT table_name, row_count
+            FROM information_schema.tables
+            WHERE table_schema != 'INFORMATION_SCHEMA'
+            {where_clause}
+            """
+        return sql
 
     @staticmethod
     def default_casify_table_name(identifier: str) -> str:

@@ -89,7 +89,13 @@ class DataSource:
                 )
             return None
 
-    def __init__(self, logs: Logs, data_source_name: str, data_source_properties: dict, connection_properties: dict):
+    def __init__(
+        self,
+        logs: Logs,
+        data_source_name: str,
+        data_source_properties: dict,
+        connection_properties: dict,
+    ):
         self.logs = logs
         self.data_source_name = data_source_name
         self.data_source_properties: dict = data_source_properties
@@ -286,6 +292,7 @@ class DataSource:
 
     def profiling_sql_cte_value_frequencies(self, table_name: str, column_name: str) -> str:
         column_name = self.quote_column(column_name)
+        table_name = self.quote_table(table_name)
         return dedent(
             f"""
                 SELECT {column_name} as value_name, count(*) as frequency
@@ -350,6 +357,7 @@ class DataSource:
 
     def profiling_sql_numeric_aggregates(self, table_name: str, column_name: str) -> str:
         column_name = self.quote_column(column_name)
+        table_name = self.quote_table(table_name)
         return dedent(
             f"""
             SELECT
@@ -365,6 +373,7 @@ class DataSource:
 
     def profiling_sql_text_aggregates(self, table_name: str, column_name: str) -> str:
         column_name = self.quote_column(column_name)
+        table_name = self.quote_table(table_name)
         return dedent(
             f"""
             SELECT
@@ -379,15 +388,15 @@ class DataSource:
 
     def histogram_sql_and_boundaries(
         self, table_name: str, column_name: str, min: int | float, max: int | float
-    ) -> tuple[str, list[int | float]]:
+    ) -> tuple[str | None, list[int | float]]:
         # TODO: make configurable or derive dynamically based on data quantiles etc.
         number_of_bins: int = 20
 
         if not min < max:
-            self.logs.error(
+            self.logs.warning(
                 f"Min of {column_name} on table: {table_name} must be smaller than max value. Min is {min}, and max is {max}"
             )
-            return "", []
+            return None, []
 
         min_value = floor(min * 1000) / 1000
         max_value = ceil(max * 1000) / 1000
@@ -464,7 +473,9 @@ class DataSource:
     ) -> list[str]:
         sql = self.sql_find_table_names(filter, include_tables, exclude_tables)
         query = Query(
-            data_source_scan=self.data_source_scan, unqualified_query_name=query_name or "get_table_names", sql=sql
+            data_source_scan=self.data_source_scan,
+            unqualified_query_name=query_name or "get_table_names",
+            sql=sql,
         )
         query.execute()
         table_names = [row[0] for row in query.rows]
