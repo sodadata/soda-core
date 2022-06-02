@@ -168,6 +168,12 @@ class DataSourceImpl(DataSource):
 
     def escape_regex(self, value: str):
         return re.sub(r"(\\.)", r"\\\1", value)
+        if value.startswith("r'") or value.startswith('r"'):
+            return value
+        if value.startswith("'") or value.startswith('"'):
+            return f"r{value}"
+
+        return f"r'{value}'"
 
     def expr_regexp_like(self, expr: str, regex_pattern: str):
         return f"REGEXP_CONTAINS({expr}, '{regex_pattern}')"
