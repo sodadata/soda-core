@@ -150,7 +150,7 @@ class SparkSQLBase:
         table_column_name: str = "table_name",
         schema_column_name: str = "table_schema",
     ) -> str:
-        from_clause = f" FROM {self.database}" if self.database else ''
+        from_clause = f" FROM {self.database}" if self.database else ""
         return f"SHOW TABLES{from_clause}"
 
     def sql_get_table_names_with_count(
@@ -205,7 +205,7 @@ class SparkSQLBase:
     #     ]
 
 
-class DataSourceImpl(DataSource, SparkSQLBase):
+class DataSourceImpl(SparkSQLBase, DataSource):
     TYPE = "spark"
 
     SCHEMA_CHECK_TYPES_MAPPING: Dict = {
