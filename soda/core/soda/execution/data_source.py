@@ -516,7 +516,7 @@ class DataSource:
         else:
             return data_type
 
-    def create_schema_query(self, partition: 'Partition', schema_metric: 'SchemaMetric') -> SchemaQuery:
+    def create_schema_query(self, partition: "Partition", schema_metric: "SchemaMetric") -> SchemaQuery:
         return SchemaQuery(partition, schema_metric)
 
     def get_sql_type_for_schema_check(self, data_type: str) -> str:
@@ -606,6 +606,12 @@ class DataSource:
         return f"{left} IN {right}"
 
     def cast_text_to_number(self, column_name, validity_format: str):
+        """Cast string to number
+
+        - first regex replace removes extra chars, keeps: "digits + - . ,"
+        - second regex changes "," to "."
+        - Nullif makes sure that if regexes return empty string then Null is returned instead
+        """
         regex = self.escape_regex(r"'[^-0-9\.\,]'")
         return f"CAST(NULLIF(REGEXP_REPLACE(REGEXP_REPLACE({column_name}, {regex}, ''{self.regex_replace_flags()}), ',', '.'{self.regex_replace_flags()}), '') AS {self.SQL_TYPE_FOR_CREATE_TABLE_MAP[DataType.DECIMAL]})"
 

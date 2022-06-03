@@ -132,7 +132,7 @@ class SparkSQLBase(DataSource):
     SQL_TYPE_FOR_CREATE_TABLE_MAP: Dict = {
         DataType.TEXT: "string",
         DataType.INTEGER: "integer",
-        DataType.DECIMAL: "decimal",
+        DataType.DECIMAL: "double",
         DataType.DATE: "date",
         DataType.TIME: "timestamp",
         DataType.TIMESTAMP: "timestamp",
@@ -143,7 +143,7 @@ class SparkSQLBase(DataSource):
     SQL_TYPE_FOR_SCHEMA_CHECK_MAP = {
         DataType.TEXT: "string",
         DataType.INTEGER: "integer",
-        DataType.DECIMAL: "decimal",
+        DataType.DECIMAL: "double",
         DataType.DATE: "date",
         DataType.TIME: "timestamp",
         DataType.TIMESTAMP: "timestamp",
@@ -208,22 +208,27 @@ class SparkSQLBase(DataSource):
 
     @staticmethod
     def _filter_include_exclude(
-        table_names: list[str],
-        include_tables: list[str],
-        exclude_tables: list[str]
+        table_names: list[str], include_tables: list[str], exclude_tables: list[str]
     ) -> list[str]:
         if include_tables or exclude_tables:
+
             def matches(table_name, table_pattern: str) -> bool:
-                table_pattern_regex = table_pattern.replace('%', '.*')
+                table_pattern_regex = table_pattern.replace("%", ".*")
                 is_match = re.match(table_pattern_regex, table_name)
                 return bool(is_match)
 
             if include_tables:
-                table_names = [table_name for table_name in table_names if
-                               any(matches(table_name, include_table) for include_table in include_tables)]
+                table_names = [
+                    table_name
+                    for table_name in table_names
+                    if any(matches(table_name, include_table) for include_table in include_tables)
+                ]
             if exclude_tables:
-                table_names = [table_name for table_name in table_names if
-                               all(not matches(table_name, exclude_table) for exclude_table in exclude_tables)]
+                table_names = [
+                    table_name
+                    for table_name in table_names
+                    if all(not matches(table_name, exclude_table) for exclude_table in exclude_tables)
+                ]
         return table_names
 
     def qualify_table_name(self, table_name: str) -> str:
@@ -247,6 +252,18 @@ class SparkSQLBase(DataSource):
     def literal_datetime(self, datetime: datetime):
         formatted = datetime.strftime("%Y-%m-%d %H:%M:%S")
         return f"timestamp'{formatted}'"
+
+    def expr_regexp_like(self, expr: str, regex_pattern: str):
+        return f"{expr} rlike('{regex_pattern}')"
+
+    def escape_regex(self, value: str):
+        return re.sub(r"(\\.)", r"\\\1", value)
+
+    def quote_table(self, table_name) -> str:
+        return f"`{table_name}`"
+
+    def regex_replace_flags(self) -> str:
+        return ""
 
     # @staticmethod
     # def format_column_default(identifier: str) -> str:
@@ -309,35 +326,6 @@ class DataSourceImpl(SparkSQLBase):
                 cluster=self.cluster,
                 server_side_parameters=self.server_side_parameters,
             )
-
-            # try:
-            #     cursor = connection.cursor()
-            #     try:
-            #         # sql = self.sql_use_database()
-            #         # sql = "select * from sodatest_customers_b7580920"
-            #         # sql = "insert into sodatest_customers_b7580920 values ('ID1',  1, '1', 0, '- 28,42 %', 'HIGH', 'BE', '2360', 'john.doe@example.com', date'2020-06-23', timestamp'2020-06-23 00:00:10', timestamp'2020-06-23 00:00:10')"
-            #         sql = "drop table sodatest_customers_b7580920;"
-            #         # sql = "show tables"
-            #         self.logs.debug(f"Query:\n{sql}")
-            #         cursor.execute(sql)
-            #         res = cursor.fetchall()
-            #         print("---vvvvv--- DEBUG ---vvvvv---")
-            #         from pprint import pprint
-
-            #         pprint(res)
-            #         print("---^^^^^--- debug ---^^^^^---")
-            #     finally:
-            #         cursor.close()
-            # except BaseException as e:
-            #     self.exception = e
-            #     self.logs.error(f"Query error: {e}\n{sql}", e)
-            # raise Exception("asdasd")
-            # query = Query(
-            #     data_source_scan=self.data_source_scan,
-            #     unqualified_query_name="Set database",
-            #     sql=self.sql_use_database(),
-            # )
-            # query.execute()
 
             return connection
         except Exception as e:
