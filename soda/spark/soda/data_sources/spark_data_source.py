@@ -5,7 +5,7 @@ import re
 from collections import namedtuple
 from datetime import date, datetime
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from pyhive import hive
 from soda.__version__ import SODA_CORE_VERSION
