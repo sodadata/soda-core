@@ -9,13 +9,15 @@ from datetime import date, datetime
 from math import ceil, floor
 from numbers import Number
 from textwrap import dedent
+from typing import List, Dict, Tuple
 
 from soda.common.exceptions import DataSourceError
 from soda.common.logs import Logs
 from soda.execution.data_type import DataType
 from soda.execution.partition_queries import PartitionQueries
 from soda.execution.query import Query
-from soda.execution.schema_query import SchemaQuery
+from soda.execution.schema_query import TableColumnsQuery
+from soda.sampler.sample_ref import SampleRef
 from soda.telemetry.soda_telemetry import SodaTelemetry
 
 soda_telemetry = SodaTelemetry.get_instance()
@@ -109,6 +111,16 @@ class DataSource:
         self.database: str = data_source_properties.get("database")
         self.schema: str | None = data_source_properties.get("schema")
         self.table_prefix = data_source_properties.get("table_prefix")
+        # self.data_source_scan is initialized in create_data_source_scan(...) below
+        self.data_source_scan: 'DataSourceScan' | None = None
+
+    def create_data_source_scan(self, scan: Scan, data_source_scan_cfg: DataSourceScanCfg):
+        from soda.execution.data_source_scan import DataSourceScan
+
+        data_source_scan = DataSourceScan(scan, data_source_scan_cfg, self)
+        self.data_source_scan = data_source_scan
+
+        return self.data_source_scan
 
     def validate_configuration(self, connection_properties: dict, logs: Logs) -> None:
         """
@@ -168,17 +180,48 @@ class DataSource:
         return "table_catalog"
 
     ######################
-    # SQL Queries
+    # Store Table Sample
     ######################
 
-    def sql_select_star_with_limit(self, table_name: str, limit: int | None = None) -> str:
+    def store_table_sample(self, table_name: str, limit: int | None = None) -> SampleRef:
+        sql = self.sql_store_table_sample(table_name=table_name, limit=limit)
+        query = Query(
+            data_source_scan=self.data_source_scan,
+            unqualified_query_name=f"store-sample-for-{table_name}",
+            sql=sql,
+            sample_name="table_sample",
+        )
+        query.store()
+        return query.sample_ref
+
+    def sql_store_table_sample(self, table_name: str, limit: int | None = None) -> str:
         limit_sql = ""
         if limit is not None:
             limit_sql = f" \n LIMIT {limit}"
         sql = f"SELECT * FROM {table_name.lower()}{limit_sql}"
         return sql
 
-    def sql_to_get_column_metadata_for_table(self, table_name: str) -> str:
+    ############################################
+    # For a table, get the columns metadata
+    ############################################
+
+    def get_table_columns(self, table_name: str, query_name: str) -> Dict[str, str]:
+        """
+        :return: A dict mapping column names to data source data types.  Like eg
+        {"id": "varchar", "size": "int8", ...}
+        """
+        query = Query(
+            data_source_scan=self.data_source_scan,
+            unqualified_query_name=query_name,
+            sql=self.sql_get_table_columns(table_name),
+        )
+        query.execute()
+        return {row[0]: row[1] for row in query.rows}
+
+    def create_table_columns_query(self, partition: Partition, schema_metric: SchemaMetric) -> TableColumnsQuery:
+        return TableColumnsQuery(partition, schema_metric)
+
+    def sql_get_table_columns(self, table_name: str) -> str:
         sql = (
             f"SELECT {', '.join(self.column_metadata_columns())} \n"
             f"FROM information_schema.columns \n"
@@ -188,10 +231,12 @@ class DataSource:
             sql += f" \n  AND lower({self.column_metadata_catalog_column()}) = '{self.database.lower()}'"
         if self.schema:
             sql += f" \n  AND lower(table_schema) = '{self.schema.lower()}'"
-
         sql += f"\nORDER BY ORDINAL_POSITION"
-
         return sql
+
+    ############################################
+    # Get table names with count in one go
+    ############################################
 
     def sql_get_table_names_with_count(
         self, include_tables: list[str] | None = None, exclude_tables: list[str] | None = None
@@ -516,9 +561,6 @@ class DataSource:
         else:
             return data_type
 
-    def create_schema_query(self, partition: Partition, schema_metric: SchemaMetric) -> SchemaQuery:
-        return SchemaQuery(partition, schema_metric)
-
     def get_sql_type_for_schema_check(self, data_type: str) -> str:
         data_source_type = self.SQL_TYPE_FOR_SCHEMA_CHECK_MAP.get(data_type)
         if data_source_type is None:
@@ -671,14 +713,6 @@ class DataSource:
 
     def rollback(self):
         self.connection.rollback()
-
-    def create_data_source_scan(self, scan: Scan, data_source_scan_cfg: DataSourceScanCfg):
-        from soda.execution.data_source_scan import DataSourceScan
-
-        data_source_scan = DataSourceScan(scan, data_source_scan_cfg, self)
-        self.data_source_scan = data_source_scan
-
-        return self.data_source_scan
 
     @staticmethod
     def default_casify_table_name(identifier: str) -> str:

@@ -18,7 +18,7 @@ class SchemaMetric(QueryMetric):
         )
 
     def ensure_query(self):
-        self.schema_query = self.data_source_scan.data_source.create_schema_query(self.partition, self)
+        self.schema_query = self.data_source_scan.data_source.create_table_columns_query(self.partition, self)
         self.queries.append(self.schema_query)
         self.data_source_scan.queries.append(self.schema_query)
 

@@ -1,5 +1,6 @@
 import decimal
 import logging
+from datetime import datetime
 
 from pyspark.sql import types
 from soda.data_sources.spark_df_data_source import DataSourceImpl
@@ -49,8 +50,9 @@ class SparkDfTestTableManager(TestTableManager):
                 spark_row = {}
                 for i in range(0, len(spark_columns)):
                     spark_column = spark_columns[i]
+                    test_column = test_table.test_columns[i]
                     test_value = test_row[i]
-                    spark_value = self.convert_test_value_to_spark_value(test_value, spark_column.dataType)
+                    spark_value = self.convert_test_value_to_spark_value(test_value, test_column, spark_column.dataType)
                     spark_row[spark_column.name] = spark_value
                 spark_rows.append(spark_row)
 
@@ -62,12 +64,14 @@ class SparkDfTestTableManager(TestTableManager):
         df.createOrReplaceTempView(test_table.unique_table_name)
 
     @staticmethod
-    def convert_test_value_to_spark_value(test_value, dataType):
+    def convert_test_value_to_spark_value(test_value, test_column, sparkDataType):
         # see _acceptable_types in .venv/lib/python3.8/site-packages/pyspark/sql/types.py
         if test_value is None:
             return None
-        if type(dataType) in [types.FloatType, types.DoubleType]:
+        if type(sparkDataType) in [types.FloatType, types.DoubleType]:
             return float(test_value)
-        if isinstance(dataType, types.DecimalType):
+        if isinstance(sparkDataType, types.DecimalType):
             return decimal.Decimal(test_value)
+        if test_column.data_type == DataType.TIMESTAMP_TZ:
+            return datetime.utcfromtimestamp(test_value.timestamp())
         return test_value

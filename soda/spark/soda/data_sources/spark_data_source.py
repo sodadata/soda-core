@@ -154,7 +154,7 @@ class SparkSQLBase(DataSource):
     def __init__(self, logs: Logs, data_source_name: str, data_source_properties: dict, connection_properties: dict):
         super().__init__(logs, data_source_name, data_source_properties, connection_properties)
 
-    def sql_to_get_column_metadata_for_table(self, table_name: str):
+    def sql_get_table_columns(self, table_name: str):
         return (
             f"SELECT column_name, data_type, is_nullable "
             f"FROM `{self.dataset_name}.INFORMATION_SCHEMA.COLUMNS` "
@@ -211,8 +211,8 @@ class SparkSQLBase(DataSource):
         if include_tables or exclude_tables:
 
             def matches(table_name, table_pattern: str) -> bool:
-                table_pattern_regex = table_pattern.replace("%", ".*")
-                is_match = re.match(table_pattern_regex, table_name)
+                table_pattern_regex = table_pattern.replace("%", ".*").lower()
+                is_match = re.match(table_pattern_regex, table_name.lower())
                 return bool(is_match)
 
             if include_tables:

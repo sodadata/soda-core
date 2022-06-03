@@ -51,7 +51,7 @@ class ProfileColumnsRun:
         row_counts_by_table_name: dict[str, int] = self.data_source.get_row_counts_all_tables(
             include_tables=self._get_table_expression(self.profile_columns_cfg.include_columns),
             exclude_tables=self._get_table_expression(self.profile_columns_cfg.exclude_columns),
-            query_name="profile columns: get tables and row counts",
+            query_name="profile-columns-get-tables-and-row-counts",
         )
         parsed_tables_and_columns = self._build_column_inclusion(self.profile_columns_cfg.include_columns)
         for table_name in row_counts_by_table_name:
@@ -62,15 +62,10 @@ class ProfileColumnsRun:
             )
 
             # get columns & metadata for current table
-            columns_metadata_sql = self.data_source.sql_to_get_column_metadata_for_table(table_name)
-            columns_metadata_query = Query(
-                data_source_scan=self.data_source_scan,
-                unqualified_query_name=f"get col metadata for table: {table_name}",
-                sql=columns_metadata_sql,
+            columns_metadata_result = self.data_source.get_table_columns(
+                table_name=table_name,
+                query_name=f"profile-columns-get-column-metadata-for-{table_name}"
             )
-            columns_metadata_query.execute()
-            assert columns_metadata_query.rows, f"No metadata was captured for table: {table_name}"
-            columns_metadata_result = {column[0]: column[1] for column in columns_metadata_query.rows}
             # perform numerical metrics collection
             numerical_columns = {
                 col_name: data_type

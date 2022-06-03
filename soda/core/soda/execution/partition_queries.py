@@ -5,7 +5,7 @@ from soda.execution.duplicates_query import DuplicatesQuery
 from soda.execution.numeric_query_metric import NumericQueryMetric
 from soda.execution.partition import Partition
 from soda.execution.query import Query
-from soda.execution.schema_query import SchemaQuery
+from soda.execution.schema_query import TableColumnsQuery
 
 
 class PartitionQueries:
@@ -15,7 +15,7 @@ class PartitionQueries:
         self.logs = partition.data_source_scan.scan._logs
         self.partition: Partition = partition
         self.data_source_scan: DataSourceScan = partition.data_source_scan
-        self.schema_query: Optional[SchemaQuery] = None
+        self.schema_query: Optional[TableColumnsQuery] = None
         self.aggregation_queries: List[AggregationQuery] = []
         self.duplicate_queries: List[DuplicatesQuery] = []
 
