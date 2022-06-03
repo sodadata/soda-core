@@ -5,7 +5,6 @@ from soda.execution.duplicates_query import DuplicatesQuery
 from soda.execution.numeric_query_metric import NumericQueryMetric
 from soda.execution.partition import Partition
 from soda.execution.query import Query
-from soda.execution.schema_metric import SchemaMetric
 from soda.execution.schema_query import SchemaQuery
 
 

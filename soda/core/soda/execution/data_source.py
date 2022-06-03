@@ -516,7 +516,7 @@ class DataSource:
         else:
             return data_type
 
-    def create_schema_query(self, partition: "Partition", schema_metric: "SchemaMetric") -> SchemaQuery:
+    def create_schema_query(self, partition: Partition, schema_metric: SchemaMetric) -> SchemaQuery:
         return SchemaQuery(partition, schema_metric)
 
     def get_sql_type_for_schema_check(self, data_type: str) -> str:

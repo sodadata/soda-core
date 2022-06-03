@@ -1,10 +1,8 @@
 from pyspark.sql import SparkSession
-
 from soda.execution.schema_query import SchemaQuery
 
 
 class SparkDfSchemaQuery(SchemaQuery):
-
     def __init__(self, partition: "Partition", schema_metric: "SchemaMetric"):
         super().__init__(partition, schema_metric)
 

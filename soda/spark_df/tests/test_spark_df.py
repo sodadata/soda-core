@@ -1,8 +1,7 @@
 import logging
 
 from pyspark.sql import SparkSession
-from pyspark.sql.types import StructType, StructField, StringType, IntegerType
-
+from pyspark.sql.types import IntegerType, StringType, StructField, StructType
 from tests.helpers.common_test_tables import customers_test_table
 from tests.helpers.scanner import Scanner
 
@@ -24,32 +23,21 @@ def test_spark_df(scanner: Scanner):
 
 def test_spark_df_basics():
     id = "a76824f0-50c0-11eb-8be8-88e9fe6293fd"
-    data = [
-        {
-            "id": id,
-            "name": "Paula Landry",
-            "size": 3006
-        },
-        {
-            "id": id,
-            "name": "Kevin Crawford",
-            "size": 7243
-        }
-    ]
+    data = [{"id": id, "name": "Paula Landry", "size": 3006}, {"id": id, "name": "Kevin Crawford", "size": 7243}]
 
     schema = StructType(
         [
             StructField("id", StringType(), True),
             StructField("name", StringType(), True),
-            StructField("size", IntegerType(), True)
+            StructField("size", IntegerType(), True),
         ]
     )
 
     spark_session = SparkSession.builder.master("local").appName("test").getOrCreate()
     df = spark_session.createDataFrame(data=data, schema=schema)
-    df.createOrReplaceTempView('MYTABLE')
+    df.createOrReplaceTempView("MYTABLE")
 
-    spark_session.sql(sqlQuery='SELECT id, name as NME FROM MYTABLE').createOrReplaceTempView('OTHERTABLE')
+    spark_session.sql(sqlQuery="SELECT id, name as NME FROM MYTABLE").createOrReplaceTempView("OTHERTABLE")
 
     show_tables_df = spark_session.sql("SHOW TABLES FROM ''")
     show_tables_df.printSchema()

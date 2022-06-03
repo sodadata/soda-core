@@ -137,7 +137,7 @@ class Scan:
         )
         environment_parse.parse_environment_yaml_str(configuration_yaml_str)
 
-    def add_spark_session(self, spark_session, data_source_name: str = 'spark_df'):
+    def add_spark_session(self, spark_session, data_source_name: str = "spark_df"):
         """
         Pass a spark_session to the scan.  Only required in case of PySpark scans.
         """
@@ -575,7 +575,7 @@ class Scan:
         self._checks.append(check)
 
     def __resolve_for_each_table_checks(self):
-        from soda.execution.query import Query
+        pass
 
         data_source_name = self._data_source_name
 
@@ -587,9 +587,7 @@ class Scan:
             if data_source_scan:
                 query_name = f"for_each_table_{for_each_table_cfg.table_alias_name}[{index}]"
                 table_names = data_source_scan.data_source.get_table_names(
-                    include_tables=include_tables,
-                    exclude_tables=exclude_tables,
-                    query_name=query_name
+                    include_tables=include_tables, exclude_tables=exclude_tables, query_name=query_name
                 )
 
                 logger.info(f"Instantiating for each for {table_names}")
