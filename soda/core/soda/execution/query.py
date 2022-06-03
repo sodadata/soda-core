@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta
-from typing import List, Tuple
+from typing import List
 
 from soda.common.exception_helper import get_exception_stacktrace
 from soda.sampler.db_sample import DbSample
@@ -40,7 +40,7 @@ class Query:
         # Following fields are initialized in execute method
         self.description: tuple | None = None
         self.row: tuple | None = None
-        self.rows: List[tuple] | None = None
+        self.rows: list[tuple] | None = None
         self.sample_ref: SampleRef | None = None
         self.exception: BaseException | None = None
         self.duration: timedelta | None = None

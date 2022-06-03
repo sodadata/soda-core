@@ -9,7 +9,7 @@ from datetime import date, datetime
 from math import ceil, floor
 from numbers import Number
 from textwrap import dedent
-from typing import List, Dict, Tuple
+from typing import Dict
 
 from soda.common.exceptions import DataSourceError
 from soda.common.logs import Logs
@@ -112,7 +112,7 @@ class DataSource:
         self.schema: str | None = data_source_properties.get("schema")
         self.table_prefix = data_source_properties.get("table_prefix")
         # self.data_source_scan is initialized in create_data_source_scan(...) below
-        self.data_source_scan: 'DataSourceScan' | None = None
+        self.data_source_scan: DataSourceScan | None = None
 
     def create_data_source_scan(self, scan: Scan, data_source_scan_cfg: DataSourceScanCfg):
         from soda.execution.data_source_scan import DataSourceScan
@@ -205,7 +205,7 @@ class DataSource:
     # For a table, get the columns metadata
     ############################################
 
-    def get_table_columns(self, table_name: str, query_name: str) -> Dict[str, str]:
+    def get_table_columns(self, table_name: str, query_name: str) -> dict[str, str]:
         """
         :return: A dict mapping column names to data source data types.  Like eg
         {"id": "varchar", "size": "int8", ...}

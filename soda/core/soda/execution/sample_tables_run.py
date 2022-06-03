@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from soda.execution.query import Query
 from soda.profiling.sample_tables_result import SampleTablesResult
 from soda.sodacl.data_source_check_cfg import DataSourceCheckCfg
 

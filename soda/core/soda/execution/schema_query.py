@@ -1,5 +1,3 @@
-from typing import Dict, List
-
 from soda.execution.query import Query
 
 

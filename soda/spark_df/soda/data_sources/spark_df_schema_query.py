@@ -1,4 +1,3 @@
-from pyspark.sql import SparkSession
 from soda.execution.schema_query import TableColumnsQuery
 
 

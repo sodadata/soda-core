@@ -63,8 +63,7 @@ class ProfileColumnsRun:
 
             # get columns & metadata for current table
             columns_metadata_result = self.data_source.get_table_columns(
-                table_name=table_name,
-                query_name=f"profile-columns-get-column-metadata-for-{table_name}"
+                table_name=table_name, query_name=f"profile-columns-get-column-metadata-for-{table_name}"
             )
             # perform numerical metrics collection
             numerical_columns = {

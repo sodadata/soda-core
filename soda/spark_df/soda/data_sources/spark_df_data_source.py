@@ -1,9 +1,8 @@
 from __future__ import annotations
 
-from typing import List, Tuple, Dict
+from typing import Dict, List, Tuple
 
 from pyspark.sql import SparkSession
-
 from soda.common.logs import Logs
 from soda.data_sources.spark_data_source import SparkSQLBase
 from soda.data_sources.spark_df_connection import SparkDfConnection
@@ -45,12 +44,12 @@ class DataSourceImpl(SparkSQLBase):
         # This should not be called. Scan implementation should call other methods in this class
         raise NotImplementedError("Bug. Please report error code 88737")
 
-    def get_table_columns(self, table_name: str, query_name: str) -> Dict[str, str]:
+    def get_table_columns(self, table_name: str, query_name: str) -> dict[str, str]:
         rows = self.get_table_column_rows(table_name)
         table_columns = {row[0]: row[1] for row in rows}
         return table_columns
 
-    def get_table_column_rows(self, table_name: str) -> List[Tuple]:
+    def get_table_column_rows(self, table_name: str) -> list[tuple]:
         """
         :return: List[Tuple] with each tuple (column_name: str, data_type: str) or None if the table does not exist
         """

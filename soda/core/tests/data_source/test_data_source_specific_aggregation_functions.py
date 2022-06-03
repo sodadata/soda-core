@@ -1,5 +1,4 @@
 import pytest
-
 from tests.helpers.common_test_tables import customers_test_table
 from tests.helpers.fixtures import test_data_source
 from tests.helpers.scanner import Scanner

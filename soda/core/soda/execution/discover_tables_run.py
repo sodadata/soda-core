@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from soda.execution.query import Query
 from soda.profiling.discover_tables_result import DiscoverTablesResult
 from soda.sodacl.data_source_check_cfg import DataSourceCheckCfg
 
@@ -37,8 +36,7 @@ class DiscoverTablesRun:
             )
             # get columns & metadata for current table
             columns_metadata_result = self.data_source.get_table_columns(
-                table_name=table_name,
-                query_name=f"discover-tables-column-metadata-for-{table_name}"
+                table_name=table_name, query_name=f"discover-tables-column-metadata-for-{table_name}"
             )
 
             for column_name, column_type in columns_metadata_result.items():
