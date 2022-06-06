@@ -37,8 +37,9 @@ class TestTableManager:
             self._create_and_insert_test_table(test_table)
             self.data_source.commit()
 
+            # It seems to work fine without analyze table and I don't think that postgres needs it.
             # Run analyze table so that metadata works if applicable.
-            self.data_source.analyze_table(test_table.unique_table_name)
+            # self.data_source.analyze_table(test_table.unique_table_name)
 
         return test_table.unique_table_name
 

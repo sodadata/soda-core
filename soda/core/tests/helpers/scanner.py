@@ -204,12 +204,3 @@ class Scanner:
             return cursor.fetchone()
         finally:
             cursor.close()
-
-    def actual_table_name(self, identifier: str) -> str:
-        return self.data_source.default_casify_table_name(identifier)
-
-    def actual_column_name(self, identifier: str) -> str:
-        return self.data_source.default_casify_column_name(identifier)
-
-    def actual_type_name(self, identifier: str) -> str:
-        return self.data_source.default_casify_type_name(identifier)

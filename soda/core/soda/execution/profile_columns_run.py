@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from numbers import Number
 from typing import TYPE_CHECKING, overload
 
 from soda.execution.query import Query
@@ -73,14 +74,17 @@ class ProfileColumnsRun:
             }
 
             for column_name, column_type in numerical_columns.items():
-                self.profile_numeric_column(
-                    column_name,
-                    column_type,
-                    table_name,
-                    columns_metadata_result,
-                    parsed_tables_and_columns,
-                    profile_columns_result_table,
-                )
+                try:
+                    self.profile_numeric_column(
+                        column_name,
+                        column_type,
+                        table_name,
+                        columns_metadata_result,
+                        parsed_tables_and_columns,
+                        profile_columns_result_table,
+                    )
+                except Exception as e:
+                    self.logs.error(f"Problem profiling numeric column {table_name}.{column_name}: {e}", exception=e)
 
             # text columns
             text_columns = {
@@ -89,14 +93,17 @@ class ProfileColumnsRun:
                 if data_type in self.data_source.TEXT_TYPES_FOR_PROFILING
             }
             for column_name, column_type in text_columns.items():
-                self.profile_text_column(
-                    column_name,
-                    column_type,
-                    table_name,
-                    columns_metadata_result,
-                    parsed_tables_and_columns,
-                    profile_columns_result_table,
-                )
+                try:
+                    self.profile_text_column(
+                        column_name,
+                        column_type,
+                        table_name,
+                        columns_metadata_result,
+                        parsed_tables_and_columns,
+                        profile_columns_result_table,
+                    )
+                except Exception as e:
+                    self.logs.error(f"Problem profiling text column {table_name}.{column_name}: {e}", exception=e)
 
         if not profile_columns_result.tables:
             self.logs.error(f"Profiling for data source: {self.data_source.data_source_name} failed")
@@ -131,16 +138,16 @@ class ProfileColumnsRun:
             value_frequencies_query.execute()
             if value_frequencies_query.rows is not None:
                 profile_columns_result_column.mins = [
-                    float(row[0]) if not isinstance(row[0], int) else row[0] for row in value_frequencies_query.rows
+                    float(row[0]) if isinstance(row[0], Number) else row[0] for row in value_frequencies_query.rows
                 ]
-                profile_columns_result_column.maxes = [
-                    float(row[1]) if not isinstance(row[1], int) else row[1] for row in value_frequencies_query.rows
+                profile_columns_result_column.maxs = [
+                    float(row[1]) if isinstance(row[1], Number) else row[1] for row in value_frequencies_query.rows
                 ]
                 profile_columns_result_column.min = (
                     profile_columns_result_column.mins[0] if len(profile_columns_result_column.mins) >= 1 else None
                 )
                 profile_columns_result_column.max = (
-                    profile_columns_result_column.maxes[0] if len(profile_columns_result_column.maxes) >= 1 else None
+                    profile_columns_result_column.maxs[0] if len(profile_columns_result_column.maxs) >= 1 else None
                 )
                 profile_columns_result_column.frequent_values = self.build_frequent_values_dict(
                     values=[row[2] for row in value_frequencies_query.rows],

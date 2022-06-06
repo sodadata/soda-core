@@ -151,15 +151,14 @@ class SparkSQLBase(DataSource):
         DataType.BOOLEAN: "boolean",
     }
 
+    NUMERIC_TYPES_FOR_PROFILING = ["integer", "int", "double", "float"]
+    TEXT_TYPES_FOR_PROFILING = ["string"]
+
     def __init__(self, logs: Logs, data_source_name: str, data_source_properties: dict, connection_properties: dict):
         super().__init__(logs, data_source_name, data_source_properties, connection_properties)
 
     def sql_get_table_columns(self, table_name: str):
-        return (
-            f"SELECT column_name, data_type, is_nullable "
-            f"FROM `{self.dataset_name}.INFORMATION_SCHEMA.COLUMNS` "
-            f"WHERE table_name = '{table_name}';"
-        )
+        return f"DESCRIBE TABLE {table_name}"
 
     def sql_get_column(self, include_tables: list[str] | None = None, exclude_tables: list[str] | None = None) -> str:
         table_filter_expression = self.sql_table_include_exclude_filter(
@@ -208,6 +207,7 @@ class SparkSQLBase(DataSource):
     def _filter_include_exclude(
         table_names: list[str], include_tables: list[str], exclude_tables: list[str]
     ) -> list[str]:
+        filtered_table_names = table_names
         if include_tables or exclude_tables:
 
             def matches(table_name, table_pattern: str) -> bool:
@@ -216,18 +216,18 @@ class SparkSQLBase(DataSource):
                 return bool(is_match)
 
             if include_tables:
-                table_names = [
+                filtered_table_names = [
                     table_name
-                    for table_name in table_names
+                    for table_name in filtered_table_names
                     if any(matches(table_name, include_table) for include_table in include_tables)
                 ]
             if exclude_tables:
-                table_names = [
+                filtered_table_names = [
                     table_name
-                    for table_name in table_names
+                    for table_name in filtered_table_names
                     if all(not matches(table_name, exclude_table) for exclude_table in exclude_tables)
                 ]
-        return table_names
+        return filtered_table_names
 
     def qualify_table_name(self, table_name: str) -> str:
         if self.database is None:
@@ -235,6 +235,10 @@ class SparkSQLBase(DataSource):
         else:
             qualified_table_name = f"{self.database}.{table_name}"
         return qualified_table_name
+
+    @staticmethod
+    def default_casify_table_name(identifier: str) -> str:
+        return identifier.lower()
 
     def rollback(self):
         # Spark does not have transactions so do nothing here.

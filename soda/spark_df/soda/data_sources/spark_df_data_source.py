@@ -1,18 +1,13 @@
 from __future__ import annotations
 
-from typing import Dict, List, Tuple
-
-from pyspark.sql import SparkSession
 from soda.common.logs import Logs
-from soda.data_sources.spark_data_source import SparkSQLBase
+from soda.data_sources.spark_data_source import SparkSQLBase, logger
 from soda.data_sources.spark_df_connection import SparkDfConnection
-from soda.data_sources.spark_df_schema_query import SparkDfTableColumnsQuery
 from soda.execution.data_type import DataType
-from soda.execution.schema_query import TableColumnsQuery
 
 
 class DataSourceImpl(SparkSQLBase):
-    TYPE = "spark-df"
+    TYPE = "spark_df"
 
     SCHEMA_CHECK_TYPES_MAPPING: dict = {
         "string": ["character varying", "varchar"],
@@ -40,34 +35,13 @@ class DataSourceImpl(SparkSQLBase):
     def quote_table(self, table_name) -> str:
         return f"{table_name}"
 
-    def sql_get_table_columns(self, table_name: str):
-        # This should not be called. Scan implementation should call other methods in this class
-        raise NotImplementedError("Bug. Please report error code 88737")
-
-    def get_table_columns(self, table_name: str, query_name: str) -> dict[str, str]:
-        rows = self.get_table_column_rows(table_name)
-        table_columns = {row[0]: row[1] for row in rows}
-        return table_columns
-
-    def get_table_column_rows(self, table_name: str) -> list[tuple]:
-        """
-        :return: List[Tuple] with each tuple (column_name: str, data_type: str) or None if the table does not exist
-        """
-        rows = None
-        spark_session: SparkSession = self.connection.spark_session
-        spark_table = spark_session.table(table_name)
-        if spark_table:
-            rows = []
-            spark_table_schema = spark_table.schema
-            for field in spark_table_schema.fields:
-                column_row = [field.name, field.dataType.simpleString()]
-                rows.append(column_row)
-        return rows
-
-    def create_table_columns_query(self, partition: Partition, schema_metric: SchemaMetric) -> TableColumnsQuery:
-        return SparkDfTableColumnsQuery(partition, schema_metric)
-
     def sql_get_table_names_with_count(
         self, include_tables: list[str] | None = None, exclude_tables: list[str] | None = None
     ) -> str:
         return None
+
+    def execute(self, sql: str):
+        cursor = self.connection.cursor()
+        cursor.execute(sql)
+        rows = cursor.fetchall()
+        logger.print(len(rows))

@@ -60,6 +60,7 @@ class SparkDfTestTableManager(TestTableManager):
         spark_session = self.data_source.connection.spark_session
         df = spark_session.createDataFrame(data=spark_rows, schema=spark_schema)
         logging.debug(f"Created table {test_table.unique_table_name}:")
+        df.printSchema()
         df.show()
         df.createOrReplaceTempView(test_table.unique_table_name)
 
