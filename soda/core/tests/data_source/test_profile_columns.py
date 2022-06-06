@@ -4,7 +4,6 @@ import logging
 from numbers import Number
 
 import pytest
-
 from soda.common.yaml_helper import to_yaml_str
 from tests.helpers.common_test_tables import customers_profiling
 from tests.helpers.fixtures import test_data_source
@@ -35,10 +34,9 @@ def test_profile_columns_numeric(scanner: Scanner):
     first_profiling = profiling[0]
     column_profiles = first_profiling["columnProfiles"]
     column_profiles_by_name = {
-        column_profile["columnName"].lower(): column_profile
-        for column_profile in column_profiles
+        column_profile["columnName"].lower(): column_profile for column_profile in column_profiles
     }
-    size_column = column_profiles_by_name['size']
+    size_column = column_profiles_by_name["size"]
     size_profile = size_column["profile"]
 
     logging.debug(f"Size profile cloud dict: \n{to_yaml_str(size_profile)}")
@@ -51,7 +49,9 @@ def test_profile_columns_numeric(scanner: Scanner):
         assert "frequency" in frequent_value
     for numeric_stat in ["avg", "min", "max", "sum", "stddev", "variance", "distinct", "missing_count"]:
         v = size_profile[numeric_stat]
-        assert isinstance(v, Number), f"{numeric_stat} in profile of column 'size' is not a number: {v} ({type(v).__name__})"
+        assert isinstance(
+            v, Number
+        ), f"{numeric_stat} in profile of column 'size' is not a number: {v} ({type(v).__name__})"
     assert isinstance(size_profile["histogram"], dict)
 
 

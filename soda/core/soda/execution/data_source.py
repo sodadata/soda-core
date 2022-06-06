@@ -9,7 +9,6 @@ from datetime import date, datetime
 from math import ceil, floor
 from numbers import Number
 from textwrap import dedent
-from typing import Dict
 
 from soda.common.exceptions import DataSourceError
 from soda.common.logs import Logs

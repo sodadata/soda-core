@@ -1,10 +1,12 @@
 from __future__ import annotations
 
-import pytest
-
 from soda.execution.data_type import DataType
-from tests.helpers.common_test_tables import customers_profiling, customers_dist_check_test_table, customers_test_table, \
-    orders_test_table
+from tests.helpers.common_test_tables import (
+    customers_dist_check_test_table,
+    customers_profiling,
+    customers_test_table,
+    orders_test_table,
+)
 from tests.helpers.scanner import Scanner
 
 

@@ -16,5 +16,5 @@ def test_table_name_filtering():
         table_names=table_names, include_tables=["a%", "b", "%x%"], exclude_tables=["%b%", "c", "%x%"]
     )
     assert ["aa", "Ab", "abc"] == SparkSQLBase._filter_include_exclude(
-        table_names=table_names, include_tables=['a%'], exclude_tables=["non-existing"]
+        table_names=table_names, include_tables=["a%"], exclude_tables=["non-existing"]
     )

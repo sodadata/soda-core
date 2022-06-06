@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta
-from typing import List
 
 from soda.common.exception_helper import get_exception_stacktrace
 from soda.sampler.db_sample import DbSample
