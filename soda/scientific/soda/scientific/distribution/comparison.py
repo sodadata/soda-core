@@ -1,6 +1,6 @@
 import abc
 import logging
-from typing import Any, List, Union
+from typing import Any, List, Union, Dict
 
 import numpy as np
 import pandas as pd
@@ -53,7 +53,7 @@ class DistributionChecker:
         algo_mapping = {"chi_square": ChiSqAlgorithm, "ks": KSAlgorithm, "swd": SWDAlgorithm, "semd": SWDAlgorithm, "psi": PSIAlgorithm}
         self.choosen_algo = algo_mapping.get(self.method)
 
-    def run(self) -> dict[float, Union[float, None]]:
+    def run(self) -> dict:
         test_data = pd.Series(self.test_data)
 
         bootstrap_size = 10
