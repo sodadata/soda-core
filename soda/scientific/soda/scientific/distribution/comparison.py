@@ -50,7 +50,13 @@ class DistributionChecker:
         self.method = distribution_check_cfg.method
         self.ref_cfg = self._parse_reference_cfg(cfg.reference_file_path)
 
-        algo_mapping = {"chi_square": ChiSqAlgorithm, "ks": KSAlgorithm, "swd": SWDAlgorithm, "semd": SWDAlgorithm, "psi": PSIAlgorithm}
+        algo_mapping = {
+            "chi_square": ChiSqAlgorithm,
+            "ks": KSAlgorithm,
+            "swd": SWDAlgorithm,
+            "semd": SWDAlgorithm,
+            "psi": PSIAlgorithm,
+        }
         self.choosen_algo = algo_mapping.get(self.method)
 
     def run(self) -> dict[float, Union[float, None]]:
@@ -74,7 +80,7 @@ class DistributionChecker:
         if stat_values:
             stat_value = np.median(stat_values)
 
-        return dict(check_value=check_value, stat_value = stat_value)
+        return dict(check_value=check_value, stat_value=stat_value)
 
     def _parse_reference_cfg(self, ref_file_path: FilePath) -> RefDataCfg:
         with open(str(ref_file_path)) as stream:
@@ -88,7 +94,9 @@ class DistributionChecker:
                 }
 
                 if "datatype" not in parsed_file:
-                    raise DistributionRefKeyException(f"Your {ref_file_path} reference yaml file must have `datatype` key")
+                    raise DistributionRefKeyException(
+                        f"Your {ref_file_path} reference yaml file must have `datatype` key"
+                    )
                 elif self.method in correct_configs[parsed_file["datatype"]]:
                     ref_data_cfg["datatype"] = parsed_file["datatype"]
                     if not self.method:
@@ -105,7 +113,9 @@ class DistributionChecker:
                     ref_data_cfg["weights"] = parsed_file["distribution reference"]["weights"]
 
                 else:
-                    dro = DROGenerator(cfg=RefDataCfg(datatype=ref_data_cfg["datatype"]), data=self.test_data).generate()
+                    dro = DROGenerator(
+                        cfg=RefDataCfg(datatype=ref_data_cfg["datatype"]), data=self.test_data
+                    ).generate()
                     ref_data_cfg["bins"] = dro.bins
                     ref_data_cfg["weights"] = dro.weights
 
