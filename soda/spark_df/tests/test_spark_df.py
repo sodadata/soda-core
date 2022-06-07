@@ -24,8 +24,9 @@ def test_spark_df(scanner: Scanner):
 
 def test_profiling_queries(scanner: Scanner):
     table_name = scanner.ensure_test_table(customers_test_table)
-    scanner.data_source.test(dedent(
-        f"""
+    scanner.data_source.test(
+        dedent(
+            f"""
             WITH
                 value_frequencies AS (
                     SELECT cat as value_name, count(*) as frequency
@@ -64,7 +65,8 @@ def test_profiling_queries(scanner: Scanner):
                 FROM result
                 ORDER BY metric asc, idx asc
         """
-    ))
+        )
+    )
 
 
 def test_spark_df_basics():

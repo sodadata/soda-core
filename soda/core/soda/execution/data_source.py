@@ -325,7 +325,7 @@ class DataSource:
         table_name: str,
         column_name: str,
         limit_mins_maxs: int,
-        limit_frequent_values: int
+        limit_frequent_values: int,
     ) -> str:
         cast_to_text = self.cast_to_text
 
@@ -338,7 +338,7 @@ class DataSource:
                             LIMIT {limit_frequent_values}
                         )"""
 
-        if data_type_category == 'text':
+        if data_type_category == "text":
             return dedent(
                 f"""
                     WITH
@@ -350,7 +350,7 @@ class DataSource:
                 """
             )
 
-        elif data_type_category == 'numeric':
+        elif data_type_category == "numeric":
 
             mins_cte = f"""mins AS (
                             SELECT {cast_to_text("'mins'")} AS metric_, ROW_NUMBER() OVER(ORDER BY value_ ASC) AS index_, value_, frequency_
@@ -464,7 +464,8 @@ class DataSource:
 
         value_frequencies_cte = self.profiling_sql_value_frequencies_cte(table_name, column_name)
 
-        sql = dedent(f"""
+        sql = dedent(
+            f"""
             WITH
                 {value_frequencies_cte}
             SELECT {fields}
@@ -754,10 +755,12 @@ class DataSource:
         return hashlib.sha256(encoded).hexdigest()
 
     def test(self, sql):
-        import textwrap
         import logging
-        from soda.sampler.sample_schema import SampleColumn
+        import textwrap
+
         from soda.sampler.log_sampler import LogSampler
+        from soda.sampler.sample_schema import SampleColumn
+
         cursor = self.connection.cursor()
         try:
             indented_sql = textwrap.indent(text=sql, prefix="  #   ")

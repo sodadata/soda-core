@@ -13,7 +13,7 @@ class SampleColumn:
         return {"name": self.name, "type": self.type}
 
     @staticmethod
-    def create_sample_columns(dbapi_description, data_source) -> List[SampleColumn]:
+    def create_sample_columns(dbapi_description, data_source) -> list[SampleColumn]:
         return [
             SampleColumn._convert_python_db_column_to_sample_column(dbapi_column, data_source)
             for dbapi_column in dbapi_description
@@ -28,4 +28,4 @@ class SampleColumn:
 
 @dataclass
 class SampleSchema:
-    columns: List[SampleColumn]
+    columns: list[SampleColumn]

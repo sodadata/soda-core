@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 
 from soda.common.logs import Logs
-from soda.data_sources.spark_data_source import SparkSQLBase, logger
+from soda.data_sources.spark_data_source import SparkSQLBase
 from soda.data_sources.spark_df_connection import SparkDfConnection
 from soda.execution.data_type import DataType
 

@@ -59,11 +59,11 @@ def test_profile_columns_numeric(scanner: Scanner):
             v, Number
         ), f"{numeric_stat} in profile of column 'size' is not a number: {v} ({type(v).__name__})"
     histogram = size_profile["histogram"]
-    boundaries = histogram['boundaries']
+    boundaries = histogram["boundaries"]
     assert len(boundaries) > 0
     for b in boundaries:
         assert isinstance(b, float)
-    frequencies = histogram['frequencies']
+    frequencies = histogram["frequencies"]
     assert len(frequencies) > 0
     for f in frequencies:
         assert isinstance(f, int)

@@ -1,9 +1,9 @@
 import logging
-from typing import Tuple, List
+from typing import List, Tuple
 
 from soda.sampler.sample_context import SampleContext
 from soda.sampler.sample_ref import SampleRef
-from soda.sampler.sample_schema import SampleSchema, SampleColumn
+from soda.sampler.sample_schema import SampleColumn
 from soda.sampler.sampler import Sampler
 
 logger = logging.getLogger(__name__)
@@ -27,8 +27,9 @@ class LogSampler(Sampler):
         )
 
     @staticmethod
-    def pretty_print(rows: Tuple[Tuple], columns: List[SampleColumn], max_column_length: int = 25) -> Tuple[str, int, int]:
-
+    def pretty_print(
+        rows: Tuple[Tuple], columns: List[SampleColumn], max_column_length: int = 25
+    ) -> Tuple[str, int, int]:
         def stringify(value, quote_strings):
             if isinstance(value, str):
                 return f"'{value}'" if quote_strings else value

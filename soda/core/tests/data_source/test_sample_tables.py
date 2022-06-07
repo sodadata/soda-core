@@ -1,8 +1,11 @@
 from __future__ import annotations
 
-import pytest
-from tests.helpers.common_test_tables import orders_test_table, customers_test_table, customers_profiling, \
-    customers_dist_check_test_table
+from tests.helpers.common_test_tables import (
+    customers_dist_check_test_table,
+    customers_profiling,
+    customers_test_table,
+    orders_test_table,
+)
 from tests.helpers.scanner import Scanner
 
 
@@ -26,15 +29,15 @@ def test_sample_tables(scanner: Scanner):
     assert discover_tables_result is not None
     profilings = discover_tables_result["profiling"]
     profiling = profilings[0]
-    sample_file = profiling['sampleFile']
-    columns = sample_file['columns']
+    sample_file = profiling["sampleFile"]
+    columns = sample_file["columns"]
     assert [c["name"] for c in columns] == [
         "id",
         "customer_id_nok",
         "customer_id_ok",
         "customer_country",
         "customer_zip",
-        "text"
+        "text",
     ]
     for c in columns:
         type = c["type"]

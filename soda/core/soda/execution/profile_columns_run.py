@@ -129,11 +129,11 @@ class ProfileColumnsRun:
         )
         if profile_columns_result_column and is_included_column:
             value_frequencies_sql = self.data_source.profiling_sql_values_frequencies_query(
-                'numeric',
+                "numeric",
                 table_name,
                 column_name,
                 self.profile_columns_cfg.limit_mins_maxs,
-                self.profile_columns_cfg.limit_frequent_values
+                self.profile_columns_cfg.limit_frequent_values,
             )
 
             value_frequencies_query = Query(
@@ -142,18 +142,16 @@ class ProfileColumnsRun:
                 sql=value_frequencies_sql,
             )
             value_frequencies_query.execute()
+
             def unify_type(v):
                 return float(v) if isinstance(v, Number) else v
+
             if value_frequencies_query.rows is not None:
                 profile_columns_result_column.mins = [
-                    unify_type(row[2])
-                    for row in value_frequencies_query.rows
-                    if row[0] == 'mins'
+                    unify_type(row[2]) for row in value_frequencies_query.rows if row[0] == "mins"
                 ]
                 profile_columns_result_column.maxs = [
-                    unify_type(row[2])
-                    for row in value_frequencies_query.rows
-                    if row[0] == 'maxs'
+                    unify_type(row[2]) for row in value_frequencies_query.rows if row[0] == "maxs"
                 ]
                 profile_columns_result_column.min = (
                     profile_columns_result_column.mins[0] if len(profile_columns_result_column.mins) >= 1 else None
@@ -164,7 +162,7 @@ class ProfileColumnsRun:
                 profile_columns_result_column.frequent_values = [
                     {"value": str(row[2]), "frequency": int(row[3])}
                     for row in value_frequencies_query.rows
-                    if row[0] == 'frequent_values'
+                    if row[0] == "frequent_values"
                 ]
             else:
                 self.logs.error(
@@ -260,11 +258,11 @@ class ProfileColumnsRun:
         if profile_columns_result_column and is_included_column:
             # frequent values for text column
             value_frequencies_sql = self.data_source.profiling_sql_values_frequencies_query(
-                'text',
+                "text",
                 table_name,
                 column_name,
                 self.profile_columns_cfg.limit_mins_maxs,
-                self.profile_columns_cfg.limit_frequent_values
+                self.profile_columns_cfg.limit_frequent_values,
             )
             value_frequencies_query = Query(
                 data_source_scan=self.data_source_scan,
@@ -276,7 +274,7 @@ class ProfileColumnsRun:
                 profile_columns_result_column.frequent_values = [
                     {"value": str(row[2]), "frequency": int(row[3])}
                     for row in value_frequencies_query.rows
-                    if row[0] == 'frequent_values'
+                    if row[0] == "frequent_values"
                 ]
             else:
                 self.logs.warning(
