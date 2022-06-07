@@ -84,7 +84,7 @@ class DistributionCheck(Check):
         #     log_diagnostics.update(self.historic_diff_values)
         return log_diagnostics
 
-    def sql_column_values_query(self, distribution_check_cfg, limit=1000000):
+    def sql_column_values_query(self, distribution_check_cfg, limit=1000000) -> str:
 
         column_name = distribution_check_cfg.column_name
 

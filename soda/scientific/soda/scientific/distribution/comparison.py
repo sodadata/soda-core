@@ -1,6 +1,6 @@
 import abc
 import logging
-from typing import Any, List, Tuple
+from typing import Any, List, Union
 
 import numpy as np
 import pandas as pd
@@ -37,7 +37,7 @@ class MissingCategories(Exception):
 
 
 class DistributionRefIncompatibleException(Exception):
-    """Thrown when the DRO dtype is incompatible with the test that is used."""
+    """Thrown when the DRO datatype is incompatible with the test that is used."""
 
 
 class DistributionChecker:
@@ -50,10 +50,10 @@ class DistributionChecker:
         self.method = distribution_check_cfg.method
         self.ref_cfg = self._parse_reference_cfg(cfg.reference_file_path)
 
-        algo_mapping = {"chi_square": ChiSqAlgorithm, "ks": KSAlgorithm, "swd": SWDAlgorithm, "psi": PSIAlgorithm}
+        algo_mapping = {"chi_square": ChiSqAlgorithm, "ks": KSAlgorithm, "swd": SWDAlgorithm, "semd": SWDAlgorithm, "psi": PSIAlgorithm}
         self.choosen_algo = algo_mapping.get(self.method)
 
-    def run(self) -> Tuple[float, float]:
+    def run(self) -> dict[float, Union[float, None]]:
         test_data = pd.Series(self.test_data)
 
         bootstrap_size = 10
@@ -74,7 +74,7 @@ class DistributionChecker:
         if stat_values:
             stat_value = np.median(stat_values)
 
-        return dict(stat_value=stat_value, check_value=check_value)
+        return dict(check_value=check_value, stat_value = stat_value)
 
     def _parse_reference_cfg(self, ref_file_path: FilePath) -> RefDataCfg:
         with open(str(ref_file_path)) as stream:
@@ -83,20 +83,20 @@ class DistributionChecker:
                 ref_data_cfg = {}
 
                 correct_configs = {
-                    "continuous": ["ks", "psi", "swd", None],
-                    "categorical": ["chi_square", "psi", "swd", None],
+                    "continuous": ["ks", "psi", "swd", "semd", None],
+                    "categorical": ["chi_square", "psi", "swd", "semd", None],
                 }
 
-                if "dtype" not in parsed_file:
-                    raise DistributionRefKeyException(f"Your {ref_file_path} reference yaml file must have `dtype` key")
-                elif self.method in correct_configs[parsed_file["dtype"]]:
-                    ref_data_cfg["dtype"] = parsed_file["dtype"]
+                if "datatype" not in parsed_file:
+                    raise DistributionRefKeyException(f"Your {ref_file_path} reference yaml file must have `datatype` key")
+                elif self.method in correct_configs[parsed_file["datatype"]]:
+                    ref_data_cfg["datatype"] = parsed_file["datatype"]
                     if not self.method:
                         default_configs = {"continuous": "ks", "categorical": "chi_square"}
-                        self.method = default_configs[ref_data_cfg["dtype"]]
+                        self.method = default_configs[ref_data_cfg["datatype"]]
                 else:
                     raise DistributionRefIncompatibleException(
-                        f"Your DRO dtype '{parsed_file['dtype']}' is incompatible with the method '{self.method}'"
+                        f"Your DRO datatype '{parsed_file['datatype']}' is incompatible with the method '{self.method}'. "
                     )
 
                 if "distribution reference" in parsed_file:
@@ -105,7 +105,7 @@ class DistributionChecker:
                     ref_data_cfg["weights"] = parsed_file["distribution reference"]["weights"]
 
                 else:
-                    dro = DROGenerator(cfg=RefDataCfg(dtype=ref_data_cfg["dtype"]), data=self.test_data).generate()
+                    dro = DROGenerator(cfg=RefDataCfg(datatype=ref_data_cfg["datatype"]), data=self.test_data).generate()
                     ref_data_cfg["bins"] = dro.bins
                     ref_data_cfg["weights"] = dro.weights
 
@@ -128,7 +128,7 @@ class DistributionAlgorithm(abc.ABC):
 
 
 class ChiSqAlgorithm(DistributionAlgorithm):
-    def evaluate(self) -> dict:
+    def evaluate(self) -> dict[float, float]:
         # TODO: make sure we can assert we're really dealing with categories
         # TODO: make sure that we also can guarantee the order of the categorical labels
         # since we're comparing on indeces in the chisquare function
@@ -178,8 +178,8 @@ class ChiSqAlgorithm(DistributionAlgorithm):
 
 
 class KSAlgorithm(DistributionAlgorithm):
-    def evaluate(self) -> dict:
-        # TODO: set up some assertion testing that the dtypes are continuous
+    def evaluate(self) -> dict[float, float]:
+        # TODO: set up some assertion testing that the datatype are continuous
         # TODO: consider whether we may want to warn users if any or both of their series are nulls
         # although ks_2samp() behaves correctly in either cases
         stat_value, p_value = ks_2samp(self.ref_data, self.test_data)
@@ -187,14 +187,14 @@ class KSAlgorithm(DistributionAlgorithm):
 
 
 class SWDAlgorithm(DistributionAlgorithm):
-    def evaluate(self) -> dict:
+    def evaluate(self) -> dict[float]:
         wd = wasserstein_distance(self.ref_data, self.test_data)
         swd = wd / np.std(np.concatenate([self.ref_data, self.test_data]))
         return dict(check_value=swd)
 
 
 class PSIAlgorithm(DistributionAlgorithm):
-    def evaluate(self) -> dict:
+    def evaluate(self) -> dict[float]:
         max_val = max(np.max(self.test_data), np.max(self.ref_data))
         min_val = min(np.min(self.test_data), np.min(self.ref_data))
         bins = np.linspace(min_val, max_val, 11)
