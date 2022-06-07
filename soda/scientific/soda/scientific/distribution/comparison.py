@@ -53,7 +53,7 @@ class DistributionChecker:
         algo_mapping = {"chi_square": ChiSqAlgorithm, "ks": KSAlgorithm, "swd": SWDAlgorithm, "semd": SWDAlgorithm, "psi": PSIAlgorithm}
         self.choosen_algo = algo_mapping.get(self.method)
 
-    def run(self) -> dict:
+    def run(self) -> Dict[str, float]:
         test_data = pd.Series(self.test_data)
 
         bootstrap_size = 10
@@ -123,12 +123,12 @@ class DistributionAlgorithm(abc.ABC):
         self.ref_data = generate_ref_data(cfg, len(test_data), np.random.default_rng(seed))
 
     @abc.abstractmethod
-    def evaluate(self) -> dict:
+    def evaluate(self) -> Dict[str, float]:
         ...
 
 
 class ChiSqAlgorithm(DistributionAlgorithm):
-    def evaluate(self) -> dict[float, float]:
+    def evaluate(self) -> Dict[str, float]:
         # TODO: make sure we can assert we're really dealing with categories
         # TODO: make sure that we also can guarantee the order of the categorical labels
         # since we're comparing on indeces in the chisquare function
@@ -178,7 +178,7 @@ class ChiSqAlgorithm(DistributionAlgorithm):
 
 
 class KSAlgorithm(DistributionAlgorithm):
-    def evaluate(self) -> dict[float, float]:
+    def evaluate(self) -> Dict[str, float]:
         # TODO: set up some assertion testing that the datatype are continuous
         # TODO: consider whether we may want to warn users if any or both of their series are nulls
         # although ks_2samp() behaves correctly in either cases
@@ -187,14 +187,14 @@ class KSAlgorithm(DistributionAlgorithm):
 
 
 class SWDAlgorithm(DistributionAlgorithm):
-    def evaluate(self) -> dict[float]:
+    def evaluate(self) -> Dict[str, float]:
         wd = wasserstein_distance(self.ref_data, self.test_data)
         swd = wd / np.std(np.concatenate([self.ref_data, self.test_data]))
         return dict(check_value=swd)
 
 
 class PSIAlgorithm(DistributionAlgorithm):
-    def evaluate(self) -> dict[float]:
+    def evaluate(self) -> Dict[str, float]:
         max_val = max(np.max(self.test_data), np.max(self.ref_data))
         min_val = min(np.min(self.test_data), np.min(self.ref_data))
         bins = np.linspace(min_val, max_val, 11)
