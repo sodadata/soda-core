@@ -127,7 +127,7 @@ class SparkSQLBase(DataSource):
 
     SCHEMA_CHECK_TYPES_MAPPING: dict = {
         "string": ["character varying", "varchar"],
-        "integer": ["integer", "int"],
+        "int": ["integer", "int"],
     }
     SQL_TYPE_FOR_CREATE_TABLE_MAP: dict = {
         DataType.TEXT: "string",
@@ -142,7 +142,7 @@ class SparkSQLBase(DataSource):
 
     SQL_TYPE_FOR_SCHEMA_CHECK_MAP = {
         DataType.TEXT: "string",
-        DataType.INTEGER: "integer",
+        DataType.INTEGER: "int",
         DataType.DECIMAL: "double",
         DataType.DATE: "date",
         DataType.TIME: "timestamp",
