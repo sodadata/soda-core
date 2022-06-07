@@ -46,17 +46,16 @@ class DistributionChecker:
         )
         self.test_data = data
 
+        self.method = distribution_check_cfg.method
+        self.ref_cfg = self._parse_reference_cfg(cfg.reference_file_path)
+
         algo_mapping = {
             "chi_square": ChiSqAlgorithm,
             "ks": KSAlgorithm,
             "swd": SWDAlgorithm,
             "psi": PSIAlgorithm
         }
-        self.method = distribution_check_cfg.method
-        self.choosen_algo = algo_mapping[self.method]
-
-        self.ref_cfg = self._parse_reference_cfg(cfg.reference_file_path)
-        
+        self.choosen_algo = algo_mapping.get(self.method)
 
     def run(self) -> Tuple[float, float]:
         test_data = pd.Series(self.test_data)
@@ -87,13 +86,17 @@ class DistributionChecker:
                 parsed_file: dict = yaml.safe_load(stream)
                 ref_data_cfg = {}
 
-                correct_configs = {"continuous": ["ks", "psi", "swd"], "categorical": ["chi_square", "psi", "swd"]}
+                correct_configs = {"continuous": ["ks", "psi", "swd", None], "categorical": ["chi_square", "psi", "swd", None]}
+
                 if "dtype" not in parsed_file:
                     raise DistributionRefKeyException(
                         f"Your {ref_file_path} reference yaml file must have `dtype` key"
                     )
                 elif self.method in correct_configs[parsed_file["dtype"]]:
                     ref_data_cfg["dtype"] = parsed_file["dtype"]
+                    if not self.method:
+                        default_configs = {"continuous": "ks", "categorical": "chi_square"}
+                        self.method = default_configs[ref_data_cfg["dtype"]]
                 else:
                     raise DistributionRefIncompatibleException(
                         f"Your DRO dtype '{parsed_file['dtype']}' is incompatible with the method '{self.method}'"
@@ -127,10 +130,6 @@ class DistributionAlgorithm(abc.ABC):
         ...
 
 class ChiSqAlgorithm(DistributionAlgorithm):
-    def __init__(self, cfg: RefDataCfg, test_data: pd.Series, seed: int = 61) -> None:
-        cfg.dtype = "categorical"
-        super().__init__(cfg, test_data, seed)
-
     def evaluate(self) -> dict:
         # TODO: make sure we can assert we're really dealing with categories
         # TODO: make sure that we also can guarantee the order of the categorical labels
@@ -181,10 +180,6 @@ class ChiSqAlgorithm(DistributionAlgorithm):
 
 
 class KSAlgorithm(DistributionAlgorithm):
-    def __init__(self, cfg: RefDataCfg, test_data: pd.Series, seed: int = 61) -> None:
-        cfg.dtype = "continuous"
-        super().__init__(cfg, test_data, seed)
-
     def evaluate(self) -> dict:
         # TODO: set up some assertion testing that the dtypes are continuous
         # TODO: consider whether we may want to warn users if any or both of their series are nulls
