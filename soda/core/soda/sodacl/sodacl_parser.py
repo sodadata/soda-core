@@ -640,7 +640,7 @@ class SodaCLParser(Parser):
                 column_name=column_name,
                 distribution_name=distribution_name,
                 filter=None,
-                method = method,
+                method=method,
                 reference_file_path=reference_file_path,
                 fail_threshold_cfg=fail_threshold_cfg,
                 warn_threshold_cfg=warn_threshold_cfg,

@@ -19,7 +19,7 @@ class DistributionCheckCfg(CheckCfg):
         reference_file_path: str,
         fail_threshold_cfg: ThresholdCfg | None,
         warn_threshold_cfg: ThresholdCfg | None,
-        method: str
+        method: str,
     ):
         super().__init__(
             source_header=source_header,

@@ -44,7 +44,7 @@ class DistributionCheck(Check):
             test_data = [row[0] for row in self.query.rows]
 
             distr_check_results = DistributionChecker(distribution_check_cfg, test_data).run()
-            self.check_value = distr_check_results['check_value'] 
+            self.check_value = distr_check_results["check_value"]
 
             self.set_outcome_based_on_check_value()
 

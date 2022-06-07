@@ -71,6 +71,7 @@ def distribution_is_all_null(distribution: pd.Series) -> bool:
     else:
         return False
 
+
 def generate_ref_data(cfg: RefDataCfg, sample_size: int, rng: np.random.Generator) -> pd.Series:
     if cfg.dtype == "continuous":
         sample_data = rng.random((1, sample_size))[0]
@@ -78,6 +79,5 @@ def generate_ref_data(cfg: RefDataCfg, sample_size: int, rng: np.random.Generato
         yp = cfg.bins
         ref_data = np.interp(sample_data, xp, yp)
         return ref_data
-    else: 
+    else:
         return pd.Series(rng.choice(cfg.bins, p=cfg.weights, size=sample_size))
-

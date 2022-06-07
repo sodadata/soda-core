@@ -1,6 +1,5 @@
 import abc
 import logging
-
 from typing import Any, List, Tuple
 
 import numpy as np
@@ -17,7 +16,7 @@ from soda.scientific.distribution.utils import (
     assert_bidirectional_categorial_values,
     assert_categorical_min_sample_size,
     distribution_is_all_null,
-    generate_ref_data
+    generate_ref_data,
 )
 
 
@@ -36,8 +35,10 @@ class DistributionRefParsingException(Exception):
 class MissingCategories(Exception):
     """Thrown when a category in the test data is missing from the ref data."""
 
+
 class DistributionRefIncompatibleException(Exception):
     """Thrown when the DRO dtype is incompatible with the test that is used."""
+
 
 class DistributionChecker:
     def __init__(self, distribution_check_cfg: DistributionCheckCfg, data: List[Any]):
@@ -49,12 +50,7 @@ class DistributionChecker:
         self.method = distribution_check_cfg.method
         self.ref_cfg = self._parse_reference_cfg(cfg.reference_file_path)
 
-        algo_mapping = {
-            "chi_square": ChiSqAlgorithm,
-            "ks": KSAlgorithm,
-            "swd": SWDAlgorithm,
-            "psi": PSIAlgorithm
-        }
+        algo_mapping = {"chi_square": ChiSqAlgorithm, "ks": KSAlgorithm, "swd": SWDAlgorithm, "psi": PSIAlgorithm}
         self.choosen_algo = algo_mapping.get(self.method)
 
     def run(self) -> Tuple[float, float]:
@@ -66,11 +62,11 @@ class DistributionChecker:
 
         for i in range(bootstrap_size):
             check_results = self.choosen_algo(self.ref_cfg, test_data, seed=i).evaluate()
-            
-            check_value = check_results.get('check_value')
+
+            check_value = check_results.get("check_value")
             check_values.append(check_value)
 
-            stat_value = check_results.get('stat_value')
+            stat_value = check_results.get("stat_value")
             if stat_value:
                 stat_values.append(stat_value)
 
@@ -78,7 +74,7 @@ class DistributionChecker:
         if stat_values:
             stat_value = np.median(stat_values)
 
-        return dict(stat_value = stat_value, check_value = check_value)
+        return dict(stat_value=stat_value, check_value=check_value)
 
     def _parse_reference_cfg(self, ref_file_path: FilePath) -> RefDataCfg:
         with open(str(ref_file_path)) as stream:
@@ -86,12 +82,13 @@ class DistributionChecker:
                 parsed_file: dict = yaml.safe_load(stream)
                 ref_data_cfg = {}
 
-                correct_configs = {"continuous": ["ks", "psi", "swd", None], "categorical": ["chi_square", "psi", "swd", None]}
+                correct_configs = {
+                    "continuous": ["ks", "psi", "swd", None],
+                    "categorical": ["chi_square", "psi", "swd", None],
+                }
 
                 if "dtype" not in parsed_file:
-                    raise DistributionRefKeyException(
-                        f"Your {ref_file_path} reference yaml file must have `dtype` key"
-                    )
+                    raise DistributionRefKeyException(f"Your {ref_file_path} reference yaml file must have `dtype` key")
                 elif self.method in correct_configs[parsed_file["dtype"]]:
                     ref_data_cfg["dtype"] = parsed_file["dtype"]
                     if not self.method:
@@ -128,6 +125,7 @@ class DistributionAlgorithm(abc.ABC):
     @abc.abstractmethod
     def evaluate(self) -> dict:
         ...
+
 
 class ChiSqAlgorithm(DistributionAlgorithm):
     def evaluate(self) -> dict:
@@ -176,7 +174,7 @@ class ChiSqAlgorithm(DistributionAlgorithm):
             test_data_frequencies,
             ref_data_frequencies * np.mean(test_data_frequencies) / np.mean(ref_data_frequencies),
         )
-        return dict(stat_value = stat_value, check_value = p_value)
+        return dict(stat_value=stat_value, check_value=p_value)
 
 
 class KSAlgorithm(DistributionAlgorithm):
@@ -185,17 +183,18 @@ class KSAlgorithm(DistributionAlgorithm):
         # TODO: consider whether we may want to warn users if any or both of their series are nulls
         # although ks_2samp() behaves correctly in either cases
         stat_value, p_value = ks_2samp(self.ref_data, self.test_data)
-        return dict(stat_value = stat_value, check_value = p_value)
+        return dict(stat_value=stat_value, check_value=p_value)
 
 
 class SWDAlgorithm(DistributionAlgorithm):
     def evaluate(self) -> dict:
         wd = wasserstein_distance(self.ref_data, self.test_data)
         swd = wd / np.std(np.concatenate([self.ref_data, self.test_data]))
-        return dict(check_value = swd)
+        return dict(check_value=swd)
+
 
 class PSIAlgorithm(DistributionAlgorithm):
-    def evaluate(self) -> dict: 
+    def evaluate(self) -> dict:
         max_val = max(np.max(self.test_data), np.max(self.ref_data))
         min_val = min(np.min(self.test_data), np.min(self.ref_data))
         bins = np.linspace(min_val, max_val, 11)
@@ -203,12 +202,12 @@ class PSIAlgorithm(DistributionAlgorithm):
         hist_a = self.construct_hist(self.test_data, bins)
         hist_b = self.construct_hist(self.ref_data, bins)
 
-        psi = np.sum((hist_a - hist_b) * np.log((hist_a) / (hist_b)))    
-        return dict(check_value = psi)
+        psi = np.sum((hist_a - hist_b) * np.log((hist_a) / (hist_b)))
+        return dict(check_value=psi)
 
     @staticmethod
     def construct_hist(a: pd.Series, bins: np.ndarray) -> np.ndarray:
-        hist_a, _ = np.histogram(a, bins = bins)
+        hist_a, _ = np.histogram(a, bins=bins)
         hist_a = hist_a / len(a)
         small_num = 10**-5
         hist_a += np.where(hist_a == 0, small_num, 0)

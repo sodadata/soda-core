@@ -249,7 +249,7 @@ def update(
         from soda.scientific.distribution.comparison import RefDataCfg
         from soda.scientific.distribution.generate_dro import DROGenerator
 
-        dro = DROGenerator(RefDataCfg(dtype = dtype), column_values).generate()
+        dro = DROGenerator(RefDataCfg(dtype=dtype), column_values).generate()
         distribution_dict["distribution reference"] = dro.dict()
 
         new_file_content = to_yaml_str(distribution_dict)

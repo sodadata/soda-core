@@ -1,4 +1,3 @@
-from cmath import nan
 import numpy as np
 import pandas as pd
 import pytest
@@ -28,6 +27,7 @@ def test_config_dtype(dtype):
         RefDataCfg(bins=bins, weights=weights, labels=None, dtype=dtype)
     except ValidationError:
         pass
+
 
 @pytest.mark.parametrize(
     "weights",
@@ -116,8 +116,8 @@ def test_distribution_checker(method, reference_file_path, test_data, expected_s
     DistCfg.method = method
     check = DistributionChecker(test_dist_cfg, test_data)
     check_results = check.run()
-    assert check_results['stat_value'] == pytest.approx(expected_stat, abs=1e-3)
-    assert check_results['check_value'] == pytest.approx(expected_p, abs=1e-3)
+    assert check_results["stat_value"] == pytest.approx(expected_stat, abs=1e-3)
+    assert check_results["check_value"] == pytest.approx(expected_p, abs=1e-3)
 
 
 @pytest.mark.parametrize(
@@ -163,8 +163,8 @@ def test_with_no_bins_and_weights(method, reference_file_path, expected_stat, ex
     DistCfg.method = method
     test_data = list(default_rng(61).normal(loc=1.0, scale=1.0, size=1000))
     check_results = DistributionChecker(test_dist_cfg, test_data).run()
-    assert check_results['stat_value'] == pytest.approx(expected_stat, abs=1e-3)
-    assert check_results['check_value'] == pytest.approx(expected_p, abs=1e-3)
+    assert check_results["stat_value"] == pytest.approx(expected_stat, abs=1e-3)
+    assert check_results["check_value"] == pytest.approx(expected_p, abs=1e-3)
 
 
 # The following bins and weights are generated based on
@@ -244,7 +244,7 @@ TEST_CONFIG_CONT_1 = RefDataCfg(
     ],
     labels=None,
     method="ks",
-    dtype="continuous"
+    dtype="continuous",
 )
 
 
@@ -287,13 +287,13 @@ def test_ks_comparison(test_data, expected_stat_val, expected_p_val):
     from soda.scientific.distribution.comparison import KSAlgorithm
 
     check_results = KSAlgorithm(TEST_CONFIG_CONT_1, test_data).evaluate()
-    assert expected_stat_val == pytest.approx(check_results['stat_value'], abs=1e-3)
-    assert expected_p_val == pytest.approx(check_results['check_value'], abs=1e-3)
+    assert expected_stat_val == pytest.approx(check_results["stat_value"], abs=1e-3)
+    assert expected_p_val == pytest.approx(check_results["check_value"], abs=1e-3)
 
 
 # The following bins and weights are generated based on
 # default_rng().normal(loc=1.0, scale=1.0, size=1000)
-TEST_CONFIG_CATEGORIC_1 = RefDataCfg(bins=[0, 1, 2], weights=[0.1, 0.4, 0.5], labels=None, dtype = "categorical")
+TEST_CONFIG_CATEGORIC_1 = RefDataCfg(bins=[0, 1, 2], weights=[0.1, 0.4, 0.5], labels=None, dtype="categorical")
 
 
 @pytest.mark.parametrize(
@@ -337,8 +337,8 @@ def test_chi_square_comparison(test_data, expected_stat_val, expected_p_val, err
 
     try:
         check_results = ChiSqAlgorithm(TEST_CONFIG_CATEGORIC_1, test_data).evaluate()
-        assert expected_stat_val == pytest.approx(check_results['stat_value'], abs=1e-3)
-        assert expected_p_val == pytest.approx(check_results['check_value'], abs=1e-3)
+        assert expected_stat_val == pytest.approx(check_results["stat_value"], abs=1e-3)
+        assert expected_p_val == pytest.approx(check_results["check_value"], abs=1e-3)
         assert not error_expected
     except NotEnoughSamplesException:
         assert error_expected
@@ -385,7 +385,7 @@ def test_chi_sq_2_samples_comparison_missing_cat(test_data, config):
         ),
         pytest.param(
             pd.Series(default_rng(61).choice([0, 1], p=[0.1, 0.9], size=1000)),
-            RefDataCfg(bins=[None], weights=[1], labels=None, dtype = "categorical"),
+            RefDataCfg(bins=[None], weights=[1], labels=None, dtype="categorical"),
             id="ref data is all none",
         ),
         pytest.param(
@@ -453,7 +453,8 @@ def test_swd_continuous(test_data, expected_swd):
     from soda.scientific.distribution.comparison import SWDAlgorithm
 
     check_results = SWDAlgorithm(TEST_CONFIG_CONT_1, test_data).evaluate()
-    assert check_results['check_value'] == expected_swd
+    assert check_results["check_value"] == expected_swd
+
 
 @pytest.mark.parametrize(
     "test_data, expected_swd",
@@ -467,16 +468,14 @@ def test_swd_continuous(test_data, expected_swd):
             pd.Series(default_rng(61).choice([0, 1, 2], p=[0.2, 0.3, 0.5], size=1000)),
             0.130034992111961,
             id="distributions are different",
-        )
+        ),
     ],
 )
 def test_swd_categorical(test_data, expected_swd):
-    from soda.scientific.distribution.comparison import (
-        SWDAlgorithm
-    )
-    
+    from soda.scientific.distribution.comparison import SWDAlgorithm
+
     check_results = SWDAlgorithm(TEST_CONFIG_CATEGORIC_1, test_data).evaluate()
-    assert check_results['check_value'] == expected_swd
+    assert check_results["check_value"] == expected_swd
 
 
 @pytest.mark.parametrize("test_data", [pd.Series(100 * [np.nan])])
@@ -484,7 +483,7 @@ def test_swd_comparison_null(test_data):
     from soda.scientific.distribution.comparison import SWDAlgorithm
 
     check_results = SWDAlgorithm(TEST_CONFIG_CONT_1, test_data).evaluate()
-    assert np.isnan(check_results['check_value'])
+    assert np.isnan(check_results["check_value"])
 
 
 @pytest.mark.parametrize(
@@ -516,8 +515,7 @@ def test_psi_continuous(test_data, expected_psi):
     from soda.scientific.distribution.comparison import PSIAlgorithm
 
     check_results = PSIAlgorithm(TEST_CONFIG_CONT_1, test_data).evaluate()
-    assert check_results['check_value'] == expected_psi
-
+    assert check_results["check_value"] == expected_psi
 
 
 @pytest.mark.parametrize(
@@ -532,16 +530,14 @@ def test_psi_continuous(test_data, expected_psi):
             pd.Series(default_rng(61).choice([0, 1, 2], p=[0.2, 0.3, 0.5], size=1000)),
             0.09000613400978587,
             id="distributions are different",
-        )
+        ),
     ],
 )
 def test_psi_categorical(test_data, expected_psi):
-    from soda.scientific.distribution.comparison import (
-        PSIAlgorithm
-    )
-    
+    from soda.scientific.distribution.comparison import PSIAlgorithm
+
     check_results = PSIAlgorithm(TEST_CONFIG_CATEGORIC_1, test_data).evaluate()
-    assert check_results['check_value'] == expected_psi
+    assert check_results["check_value"] == expected_psi
 
 
 @pytest.mark.parametrize("test_data, expected_psi", [(pd.Series(100 * [np.nan]), 11.51281033571558)])
@@ -549,29 +545,32 @@ def test_psi_comparison_null(test_data, expected_psi):
     from soda.scientific.distribution.comparison import PSIAlgorithm
 
     check_results = PSIAlgorithm(TEST_CONFIG_CONT_1, test_data).evaluate()
-    assert check_results['check_value'] == expected_psi
+    assert check_results["check_value"] == expected_psi
 
-@pytest.mark.parametrize("test_data, reference_file_path, method",
+
+@pytest.mark.parametrize(
+    "test_data, reference_file_path, method",
     [
         pytest.param(
             pd.Series(default_rng(61).choice([0, 1, 2], p=[0.1, 0.4, 0.5], size=1000)),
             "soda/scientific/tests/assets/dist_ref_categorical.yml",
             "ks",
-            id = "ks method with dtype categorical"
+            id="ks method with dtype categorical",
         ),
         pytest.param(
             pd.Series(default_rng(61).choice([0, 1, 2], p=[0.1, 0.4, 0.5], size=1000)),
             "soda/scientific/tests/assets/dist_ref_continuous.yml",
             "chi_square",
-            id = "chi_square method with dtype continuous"
-        )
-    ]
+            id="chi_square method with dtype continuous",
+        ),
+    ],
 )
 def test_ref_config_incompatible(test_data, reference_file_path, method):
     from soda.scientific.distribution.comparison import (
         DistributionChecker,
         DistributionRefIncompatibleException,
     )
+
     test_dist_cfg = DistCfg(reference_file_path=reference_file_path)
     DistCfg.method = method
     with pytest.raises(DistributionRefIncompatibleException):
