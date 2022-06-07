@@ -10,13 +10,13 @@ if sys.version_info < (3, 8):
 
 package_name = "soda-core"
 # Managed by tbump - do not change manually
-package_version = "3.0.0b17"
+package_version = "3.0.0b19"
 description = "Soda Core"
 
 # long_description = (pathlib.Path(__file__).parent.parent / "README.md").read_text()
 
 requires = [
-    "markupsafe~=2.1",
+    "markupsafe~=2.0",
     "Jinja2~=3.0",
     "click~=8.0",
     "ruamel.yaml~=0.17.21",

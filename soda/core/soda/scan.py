@@ -18,6 +18,7 @@ from soda.execution.metric import Metric
 from soda.profiling.discover_table_result_table import DiscoverTablesResultTable
 from soda.profiling.profile_columns_result_table import ProfileColumnsResultTable
 from soda.profiling.sample_tables_result import SampleTablesResultTable
+from soda.sampler.default_sampler import DefaultSampler
 from soda.soda_cloud.historic_descriptor import HistoricDescriptor
 from soda.sodacl.location import Location
 from soda.sodacl.sodacl_cfg import SodaCLCfg
@@ -311,16 +312,10 @@ class Scan:
                     from soda.sampler.soda_cloud_sampler import SodaCloudSampler
 
                     if isinstance(self._configuration.sampler, SodaCloudSampler):
-                        self._configuration.sampler = None
+                        self._configuration.sampler = DefaultSampler()
                 else:
-                    try:
-                        if self._configuration.soda_cloud.is_samples_disabled():
-                            self._configuration.sampler = None
-                    except Exception as e:
-                        self._logs.error(
-                            "Connecting to Soda Cloud failed.  Disabling Soda Cloud connection.", exception=e
-                        )
-                        self._configuration.soda_cloud = None
+                    if self._configuration.soda_cloud.is_samples_disabled():
+                        self._configuration.sampler = DefaultSampler()
 
             # If there is a sampler
             if self._configuration.sampler:

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, overload
 
 from soda.execution.query import Query
 from soda.profiling.profile_columns_result import ProfileColumnsResult
@@ -10,6 +10,28 @@ from soda.sodacl.profile_columns_cfg import ProfileColumnsCfg
 
 if TYPE_CHECKING:
     from soda.execution.data_source_scan import DataSourceScan
+
+
+@overload
+def cast_dtype_handle_none(value: int | float | None, target_dtype: str = "float") -> float:
+    ...
+
+
+@overload
+def cast_dtype_handle_none(value: int | float | None, target_dtype: str = "int") -> int:
+    ...
+
+
+def cast_dtype_handle_none(value: int | float | None, target_dtype: str | None = None) -> int | float | None:
+    dtypes_map = {"int": int, "float": float}
+    assert target_dtype is not None, "Target dtype cannot be None"
+    assert (
+        target_dtype in dtypes_map.keys()
+    ), f"Unsupported target dtype: {target_dtype}. Can only be: {list(dtypes_map.keys())}"
+    if value is not None:
+        cast_function = dtypes_map[target_dtype]
+        cast_value = cast_function(value)
+        return cast_value
 
 
 class ProfileColumnsRun:
@@ -49,7 +71,6 @@ class ProfileColumnsRun:
             columns_metadata_query.execute()
             assert columns_metadata_query.rows, f"No metadata was captured for table: {table_name}"
             columns_metadata_result = {column[0]: column[1] for column in columns_metadata_query.rows}
-
             # perform numerical metrics collection
             numerical_columns = {
                 col_name: data_type
@@ -121,8 +142,12 @@ class ProfileColumnsRun:
                 profile_columns_result_column.maxes = [
                     float(row[1]) if not isinstance(row[1], int) else row[1] for row in value_frequencies_query.rows
                 ]
-                profile_columns_result_column.min = profile_columns_result_column.mins[0]
-                profile_columns_result_column.max = profile_columns_result_column.maxes[0]
+                profile_columns_result_column.min = (
+                    profile_columns_result_column.mins[0] if len(profile_columns_result_column.mins) >= 1 else None
+                )
+                profile_columns_result_column.max = (
+                    profile_columns_result_column.maxes[0] if len(profile_columns_result_column.maxes) >= 1 else None
+                )
                 profile_columns_result_column.frequent_values = self.build_frequent_values_dict(
                     values=[row[2] for row in value_frequencies_query.rows],
                     frequencies=[row[3] for row in value_frequencies_query.rows],
@@ -141,44 +166,57 @@ class ProfileColumnsRun:
             )
             aggregates_query.execute()
             if aggregates_query.rows is not None:
-                profile_columns_result_column.average = float(aggregates_query.rows[0][0])
-                profile_columns_result_column.sum = float(aggregates_query.rows[0][1])
-                profile_columns_result_column.variance = float(aggregates_query.rows[0][2])
-                profile_columns_result_column.standard_deviation = float(aggregates_query.rows[0][3])
-                profile_columns_result_column.distinct_values = int(aggregates_query.rows[0][4])
-                profile_columns_result_column.missing_values = int(aggregates_query.rows[0][5])
+                profile_columns_result_column.average = cast_dtype_handle_none(aggregates_query.rows[0][0], "float")
+                profile_columns_result_column.sum = cast_dtype_handle_none(aggregates_query.rows[0][1], "float")
+                profile_columns_result_column.variance = cast_dtype_handle_none(aggregates_query.rows[0][2], "float")
+                profile_columns_result_column.standard_deviation = cast_dtype_handle_none(
+                    aggregates_query.rows[0][3], "float"
+                )
+                profile_columns_result_column.distinct_values = cast_dtype_handle_none(
+                    aggregates_query.rows[0][4], "int"
+                )
+                profile_columns_result_column.missing_values = cast_dtype_handle_none(
+                    aggregates_query.rows[0][5], "int"
+                )
             else:
                 self.logs.error(
                     f"Database returned no results for aggregates in table: {table_name}, columns: {column_name}"
                 )
 
             # histogram
-            assert (
-                profile_columns_result_column.min is not None
-            ), "Min cannot be None, make sure the min metric is derived before histograms"
-            assert (
-                profile_columns_result_column.max is not None
-            ), "Max cannot be None, make sure the min metric is derived before histograms"
-            histogram_sql, bins_list = self.data_source.histogram_sql_and_boundaries(
-                table_name,
-                column_name,
-                profile_columns_result_column.min,
-                profile_columns_result_column.max,
-            )
-            histogram_query = Query(
-                data_source_scan=self.data_source_scan,
-                unqualified_query_name=f"profiling: {table_name}, {column_name}: get histogram",
-                sql=histogram_sql,
-            )
-            histogram_query.execute()
-            histogram = {}
-            if histogram_query.rows is not None:
-                histogram["boundaries"] = bins_list
-                histogram["frequencies"] = [int(freq) if freq is not None else 0 for freq in histogram_query.rows[0]]
-                profile_columns_result_column.histogram = histogram
+            if profile_columns_result_column.min is None:
+                self.logs.warning("Min cannot be None, make sure the min metric is derived before histograms")
+            if profile_columns_result_column.max is None:
+                self.logs.warning("Max cannot be None, make sure the min metric is derived before histograms")
+
+            if profile_columns_result_column.min is not None and profile_columns_result_column.max is not None:
+                histogram_sql, bins_list = self.data_source.histogram_sql_and_boundaries(
+                    table_name,
+                    column_name,
+                    profile_columns_result_column.min,
+                    profile_columns_result_column.max,
+                )
+                if histogram_sql is not None:
+                    histogram_query = Query(
+                        data_source_scan=self.data_source_scan,
+                        unqualified_query_name=f"profiling: {table_name}, {column_name}: get histogram",
+                        sql=histogram_sql,
+                    )
+                    histogram_query.execute()
+                    histogram = {}
+                    if histogram_query.rows is not None:
+                        histogram["boundaries"] = bins_list
+                        histogram["frequencies"] = [
+                            int(freq) if freq is not None else 0 for freq in histogram_query.rows[0]
+                        ]
+                        profile_columns_result_column.histogram = histogram
+                    else:
+                        self.logs.error(
+                            f"Database returned no results for histograms in table: {table_name}, columns: {column_name}"
+                        )
             else:
-                self.logs.error(
-                    f"Database returned no results for histograms in table: {table_name}, columns: {column_name}"
+                self.logs.warning(
+                    f"Histogram query for {table_name}, column {column_name} skipped. See earlier warnings."
                 )
         elif not is_included_column:
             self.logs.debug(f"Column: {column_name} in table: {table_name} is skipped from profiling by the user.")
@@ -220,7 +258,7 @@ class ProfileColumnsRun:
                     frequencies=[row[0] for row in frequent_values_query.rows],
                 )
             else:
-                self.logs.error(
+                self.logs.warning(
                     f"Database returned no results for textual frequent values in {table_name}, column: {column_name}"
                 )
             # pure text aggregates
@@ -232,16 +270,20 @@ class ProfileColumnsRun:
             )
             text_aggregates_query.execute()
             if text_aggregates_query.rows:
-                profile_columns_result_column.distinct_values = int(text_aggregates_query.rows[0][0])
-                profile_columns_result_column.missing_values = int(text_aggregates_query.rows[0][1])
-                profile_columns_result_column.average_length = (
-                    int(text_aggregates_query.rows[0][2]) if text_aggregates_query.rows[0][2] is not None else None
+                profile_columns_result_column.distinct_values = cast_dtype_handle_none(
+                    text_aggregates_query.rows[0][0], "int"
                 )
-                profile_columns_result_column.min_length = (
-                    int(text_aggregates_query.rows[0][3]) if text_aggregates_query.rows[0][3] is not None else None
+                profile_columns_result_column.missing_values = cast_dtype_handle_none(
+                    text_aggregates_query.rows[0][1], "int"
                 )
-                profile_columns_result_column.max_length = (
-                    int(text_aggregates_query.rows[0][4]) if text_aggregates_query.rows[0][4] is not None else None
+                profile_columns_result_column.average_length = cast_dtype_handle_none(
+                    text_aggregates_query.rows[0][2], "int"
+                )
+                profile_columns_result_column.min_length = cast_dtype_handle_none(
+                    text_aggregates_query.rows[0][3], "int"
+                )
+                profile_columns_result_column.max_length = cast_dtype_handle_none(
+                    text_aggregates_query.rows[0][4], "int"
                 )
             else:
                 self.logs.error(
@@ -295,6 +337,7 @@ class ProfileColumnsRun:
             candidate_column_name in parsed_tables_and_columns.get(table_name, [])
             or candidate_column_name in cols_for_all_tables
             or parsed_tables_and_columns.get(table_name, []) == ["%"]
+            or "%" in cols_for_all_tables
         ):
             if candidate_column_name in table_columns:
                 return True
