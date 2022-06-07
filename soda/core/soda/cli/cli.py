@@ -225,16 +225,16 @@ def update(
     if not column_name:
         logging.error(f"Missing key 'column' in distribution reference file {distribution_reference_file}")
 
-    dtype = distribution_dict.get("dtype")
-    if not dtype:
-        logging.error(f"Missing key 'dtype' in distribution reference file {distribution_reference_file}")
+    datatype = distribution_dict.get("datatype")
+    if not datatype:
+        logging.error(f"Missing key 'datatype' in distribution reference file {distribution_reference_file}")
 
     filter = distribution_dict.get("filter")
     filter_clause = ""
     if filter is not None:
         filter_clause = f"WHERE {filter}"
 
-    if table_name and column_name and dtype:
+    if table_name and column_name and datatype:
         query = f"SELECT {column_name} FROM {table_name} {filter_clause}"
         logging.info(f"Querying column values to build distribution reference:\n{query}")
 
@@ -249,7 +249,7 @@ def update(
         from soda.scientific.distribution.comparison import RefDataCfg
         from soda.scientific.distribution.generate_dro import DROGenerator
 
-        dro = DROGenerator(RefDataCfg(dtype=dtype), column_values).generate()
+        dro = DROGenerator(RefDataCfg(datatype=datatype), column_values).generate()
         distribution_dict["distribution reference"] = dro.dict()
 
         new_file_content = to_yaml_str(distribution_dict)

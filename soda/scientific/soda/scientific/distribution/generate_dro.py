@@ -22,7 +22,7 @@ def normalize(data: np.ndarray):
 
 class DROGenerator:
     def __init__(self, cfg: RefDataCfg, data: list) -> None:
-        self.dtype = cfg.dtype
+        self.datatype = cfg.datatype
         self.data = data
 
     def generate_continuous_dro(self) -> DRO:
@@ -54,7 +54,7 @@ class DROGenerator:
         return DRO(weights=weights.tolist(), bins=labels.tolist())
 
     def generate(self) -> DRO:
-        if self.dtype == "continuous":
+        if self.datatype == "continuous":
             return self.generate_continuous_dro()
         else:
             return self.generate_categorical_dro()

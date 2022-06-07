@@ -33,7 +33,7 @@ def test_distribution_check(scanner: Scanner, mock_file_system):
         reference_table = f"""
             table: {table_name}
             column: size
-            dtype: continuous
+            datatype: continuous
             distribution reference:
                 bins: [1, 2, 3]
                 weights: [0.5, 0.2, 0.3]
@@ -78,7 +78,7 @@ def test_distribution_sql(scanner: Scanner, mock_file_system, table, expectation
         reference_table = f"""
             table: {table_name}
             column: size
-            dtype: continuous
+            datatype: continuous
             distribution reference:
                 bins: [1, 2, 3]
                 weights: [0.5, 0.2, 0.3]
@@ -119,7 +119,7 @@ def test_continuous_no_method(scanner: Scanner, mock_file_system):
         reference_table = f"""
             table: {table_name}
             column: size
-            dtype: continuous
+            datatype: continuous
             distribution reference:
                 bins: [1, 2, 3]
                 weights: [0.5, 0.2, 0.3]

@@ -17,7 +17,7 @@ class RefDataCfg(BaseModel):
     bins: Optional[List]
     weights: Optional[List[float]]
     labels: Optional[List]
-    dtype: str
+    datatype: str
 
     @validator("weights")
     def check_weights_sum(cls, v):
@@ -27,8 +27,8 @@ class RefDataCfg(BaseModel):
         )
         return v
 
-    @validator("dtype")
-    def check_accepted_values_dtype(cls, v):
+    @validator("datatype")
+    def check_accepted_values_datatype(cls, v):
         valid_distribution_methods = ["categorical", "continuous"]
         assert (
             v in valid_distribution_methods
@@ -73,7 +73,7 @@ def distribution_is_all_null(distribution: pd.Series) -> bool:
 
 
 def generate_ref_data(cfg: RefDataCfg, sample_size: int, rng: np.random.Generator) -> pd.Series:
-    if cfg.dtype == "continuous":
+    if cfg.datatype == "continuous":
         sample_data = rng.random((1, sample_size))[0]
         xp = np.cumsum(cfg.weights)
         yp = cfg.bins

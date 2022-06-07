@@ -12,19 +12,19 @@ from soda.scientific.distribution.utils import DistCfg, RefDataCfg
 
 
 @pytest.mark.parametrize(
-    "dtype",
+    "datatype",
     [
-        pytest.param("continuous", id="valid dtype continuous"),
-        pytest.param("categorical", id="valid dtype categorical"),
+        pytest.param("continuous", id="valid datatype continuous"),
+        pytest.param("categorical", id="valid datatype categorical"),
     ],
 )
-def test_config_dtype(dtype):
+def test_config_datatype(datatype):
     from pydantic.error_wrappers import ValidationError
 
     try:
         bins = [1, 2, 3]
         weights = [0.1, 0.8, 0.1]
-        RefDataCfg(bins=bins, weights=weights, labels=None, dtype=dtype)
+        RefDataCfg(bins=bins, weights=weights, labels=None, datatype=datatype)
     except ValidationError:
         pass
 
@@ -244,7 +244,7 @@ TEST_CONFIG_CONT_1 = RefDataCfg(
     ],
     labels=None,
     method="ks",
-    dtype="continuous",
+    datatype="continuous",
 )
 
 
@@ -293,7 +293,7 @@ def test_ks_comparison(test_data, expected_stat_val, expected_p_val):
 
 # The following bins and weights are generated based on
 # default_rng().normal(loc=1.0, scale=1.0, size=1000)
-TEST_CONFIG_CATEGORIC_1 = RefDataCfg(bins=[0, 1, 2], weights=[0.1, 0.4, 0.5], labels=None, dtype="categorical")
+TEST_CONFIG_CATEGORIC_1 = RefDataCfg(bins=[0, 1, 2], weights=[0.1, 0.4, 0.5], labels=None, datatype="categorical")
 
 
 @pytest.mark.parametrize(
@@ -349,17 +349,17 @@ def test_chi_square_comparison(test_data, expected_stat_val, expected_p_val, err
     [
         pytest.param(
             pd.Series(default_rng(61).choice([0, 1, 2], p=[0.1, 0.4, 0.5], size=1000)),
-            RefDataCfg(bins=[0, 1], weights=[0.1, 0.9], labels=None, dtype="categorical"),
+            RefDataCfg(bins=[0, 1], weights=[0.1, 0.9], labels=None, datatype="categorical"),
             id="category missing in reference data",
         ),
         pytest.param(
             pd.Series(default_rng(61).choice([0, 1], p=[0.1, 0.9], size=1000)),
-            RefDataCfg(bins=[0, 1, 2], weights=[0.1, 0.4, 0.5], labels=None, dtype="categorical"),
+            RefDataCfg(bins=[0, 1, 2], weights=[0.1, 0.4, 0.5], labels=None, datatype="categorical"),
             id="category missing in test data",
         ),
         pytest.param(
             pd.Series(default_rng(61).choice([None, None, 1], p=[0.2, 0.3, 0.5], size=1000)),
-            RefDataCfg(bins=[0, 1, 2], weights=[0.1, 0.4, 0.5], labels=None, dtype="categorical"),
+            RefDataCfg(bins=[0, 1, 2], weights=[0.1, 0.4, 0.5], labels=None, datatype="categorical"),
             id="one of the distributions is fully none",
         ),
     ],
@@ -380,17 +380,17 @@ def test_chi_sq_2_samples_comparison_missing_cat(test_data, config):
     [
         pytest.param(
             pd.Series([None, None] * 10),
-            RefDataCfg(bins=[0, 1], weights=[0.1, 0.9], labels=None, dtype="categorical"),
+            RefDataCfg(bins=[0, 1], weights=[0.1, 0.9], labels=None, datatype="categorical"),
             id="test data is all none",
         ),
         pytest.param(
             pd.Series(default_rng(61).choice([0, 1], p=[0.1, 0.9], size=1000)),
-            RefDataCfg(bins=[None], weights=[1], labels=None, dtype="categorical"),
+            RefDataCfg(bins=[None], weights=[1], labels=None, datatype="categorical"),
             id="ref data is all none",
         ),
         pytest.param(
             pd.Series([None, None] * 10),
-            RefDataCfg(bins=[None], weights=[1], labels=None, dtype="categorical"),
+            RefDataCfg(bins=[None], weights=[1], labels=None, datatype="categorical"),
             id="both distributions are null",
         ),
     ],
@@ -408,7 +408,7 @@ def test_chi_sq_2_samples_comparison_one_or_more_null_distros(test_data, config)
     [
         pytest.param(
             pd.Series(default_rng(61).choice([1, 2], p=[0.5, 0.5], size=2)),
-            RefDataCfg(bins=[1, 2], weights=[0.5, 0.5], labels=None, dtype="categorical"),
+            RefDataCfg(bins=[1, 2], weights=[0.5, 0.5], labels=None, datatype="categorical"),
             id="not enough samples",
         ),
     ],
@@ -555,13 +555,13 @@ def test_psi_comparison_null(test_data, expected_psi):
             pd.Series(default_rng(61).choice([0, 1, 2], p=[0.1, 0.4, 0.5], size=1000)),
             "soda/scientific/tests/assets/dist_ref_categorical.yml",
             "ks",
-            id="ks method with dtype categorical",
+            id="ks method with datatype categorical",
         ),
         pytest.param(
             pd.Series(default_rng(61).choice([0, 1, 2], p=[0.1, 0.4, 0.5], size=1000)),
             "soda/scientific/tests/assets/dist_ref_continuous.yml",
             "chi_square",
-            id="chi_square method with dtype continuous",
+            id="chi_square method with datatype continuous",
         ),
     ],
 )
