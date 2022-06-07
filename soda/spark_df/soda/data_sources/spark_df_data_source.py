@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import logging
+
 from soda.common.logs import Logs
 from soda.data_sources.spark_data_source import SparkSQLBase, logger
 from soda.data_sources.spark_df_connection import SparkDfConnection
@@ -40,8 +42,11 @@ class DataSourceImpl(SparkSQLBase):
     ) -> str:
         return None
 
-    def execute(self, sql: str):
-        cursor = self.connection.cursor()
-        cursor.execute(sql)
-        rows = cursor.fetchall()
-        logger.print(len(rows))
+    def cast_to_text(self, expr: str) -> str:
+        return f"CAST({expr} AS string)"
+
+    def test(self, sql: str):
+        logging.debug(f"Running SQL query:\n{sql}")
+        df = self.connection.spark_session.sql(sqlQuery=sql)
+        df.printSchema()
+        df.show()

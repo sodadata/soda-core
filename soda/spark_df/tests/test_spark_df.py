@@ -1,4 +1,5 @@
 import logging
+from textwrap import dedent
 
 from pyspark.sql import SparkSession
 from pyspark.sql.types import IntegerType, StringType, StructField, StructType
@@ -19,6 +20,51 @@ def test_spark_df(scanner: Scanner):
     scan.execute()
 
     scan.assert_all_checks_pass()
+
+
+def test_profiling_queries(scanner: Scanner):
+    table_name = scanner.ensure_test_table(customers_test_table)
+    scanner.data_source.test(dedent(
+        f"""
+            WITH
+                value_frequencies AS (
+                    SELECT cat as value_name, count(*) as frequency
+                    FROM {table_name}
+                    GROUP BY cat
+                ),
+                mins as (
+                    SELECT cast('mins' as string) as metric, row_number() over(ORDER BY value_name asc) as idx, value_name, frequency
+                    FROM value_frequencies
+                    WHERE value_name is not null
+                    ORDER BY value_name asc
+                    LIMIT 5
+                ),
+                maxs as (
+                    SELECT cast('maxs' as string) as metric, row_number() over(ORDER BY value_name desc) as idx, value_name, frequency
+                    FROM value_frequencies
+                    WHERE value_name is not null
+                    ORDER BY value_name desc
+                    LIMIT 5
+                ),
+                frequent_values as (
+                    SELECT cast('frequent_values' as string) as metric, row_number() over(ORDER BY frequency desc) as idx, value_name, frequency
+                    FROM value_frequencies
+                    WHERE value_name is not null
+                    ORDER BY frequency desc
+                    LIMIT 5
+                ),
+                result as (
+                    SELECT * FROM mins
+                    UNION
+                    SELECT * FROM maxs
+                    UNION
+                    SELECT * FROM frequent_values
+                )
+                SELECT *
+                FROM result
+                ORDER BY metric asc, idx asc
+        """
+    ))
 
 
 def test_spark_df_basics():

@@ -194,10 +194,11 @@ class DataSource:
         return query.sample_ref
 
     def sql_store_table_sample(self, table_name: str, limit: int | None = None) -> str:
+        quoted_table_name = self.quote_table(table_name)
         limit_sql = ""
         if limit is not None:
             limit_sql = f" \n LIMIT {limit}"
-        sql = f"SELECT * FROM {table_name.lower()}{limit_sql}"
+        sql = f"SELECT * FROM {quoted_table_name}{limit_sql}"
         return sql
 
     ############################################
@@ -315,92 +316,91 @@ class DataSource:
     def sql_analyze_table(self, table: str) -> str | None:
         return None
 
-    def profiling_sql_values_frequencies_query(self, table_name: str, column_name: str) -> str:
-        return dedent(
-            f"""
-                WITH freq_values AS (
-                  {self.profiling_sql_cte_value_frequencies(table_name, column_name)}
-                )
-                {self.profiling_sql_value_frequencies_select()}
-            """
-        )
+    def cast_to_text(self, expr: str) -> str:
+        return f"CAST({expr} AS VARCHAR)"
 
-    def profiling_sql_top_values(self, table_name: str, column_name: str) -> str:
-        return dedent(
-            f"""
-                WITH freq_values AS (
-                  {self.profiling_sql_cte_value_frequencies(table_name, column_name)}
-                )
-                {self.profiling_sql_frequent_values_cte('freq_values', 'frequent_values', is_final=True)}
-            """
-        )
+    def profiling_sql_values_frequencies_query(
+        self,
+        data_type_category: str,
+        table_name: str,
+        column_name: str,
+        limit_mins_maxs: int,
+        limit_frequent_values: int
+    ) -> str:
+        cast_to_text = self.cast_to_text
 
-    def profiling_sql_cte_value_frequencies(self, table_name: str, column_name: str) -> str:
-        column_name = self.quote_column(column_name)
-        table_name = self.quote_table(table_name)
-        return dedent(
-            f"""
-                SELECT {column_name} as value_name, count(*) as frequency
-                FROM {table_name}
-                GROUP BY 1
-            """
-        )
+        value_frequencies_cte = self.profiling_sql_value_frequencies_cte(table_name, column_name)
 
-    def profiling_sql_frequent_values_cte(self, source_table_name: str, cte_name: str, is_final: bool = False) -> str:
-        sql = dedent(
-            f"""
-            , {cte_name} as (
-                SELECT
-                    frequency
-                    , row_number() over (order by frequency desc) as idx
-                    , value_name
-                FROM {source_table_name}
-                ORDER BY frequency desc
-                LIMIT 5
+        frequent_values_cte = f"""frequent_values AS (
+                            SELECT {cast_to_text("'frequent_values'")} AS metric_, ROW_NUMBER() OVER(ORDER BY frequency_ DESC) AS index_, value_, frequency_
+                            FROM value_frequencies
+                            ORDER BY frequency_ desc
+                            LIMIT {limit_frequent_values}
+                        )"""
+
+        if data_type_category == 'text':
+            return dedent(
+                f"""
+                    WITH
+                        {value_frequencies_cte},
+                        {frequent_values_cte}
+                    SELECT *
+                    FROM frequent_values
+                    ORDER BY metric_ ASC, index_ ASC
+                """
             )
-            """
-        )
-        if is_final:
-            sql += f"\n SELECT * FROM {cte_name}"
-        return sql
 
-    def profiling_sql_value_frequencies_select(self) -> str:
-        return dedent(
-            f"""
-            , mins as (
-            SELECT value_name, ROW_NUMBER() OVER(order by value_name asc) as idx, frequency, 'mins' as metric_name
-            FROM freq_values
-            WHERE value_name is not null
-            ORDER BY value_name asc
-            LIMIT 5
-        )
-        , maxes as (
+        elif data_type_category == 'numeric':
 
-            SELECT value_name, ROW_NUMBER() OVER(order by value_name desc) as idx, frequency, 'maxes' as metric_name
-            FROM freq_values
-            WHERE value_name is not null
-            ORDER BY value_name desc
-            LIMIT 5
-        )
-        {self.profiling_sql_frequent_values_cte(source_table_name='freq_values', cte_name='frequent_values', is_final=False)}
-        , final as (
-            SELECT
-                mins.value_name as mins
-                , maxes.value_name as maxes
-                , frequent_values.value_name as frequent_values
-                , frequent_values.frequency as frequency
-            FROM mins
-            JOIN maxes
-                 on mins.idx = maxes.idx
-            JOIN frequent_values
-                on mins.idx = frequent_values.idx
-            ORDER BY frequency desc
-        )
-        SELECT * FROM final
-            """
-        )
+            mins_cte = f"""mins AS (
+                            SELECT {cast_to_text("'mins'")} AS metric_, ROW_NUMBER() OVER(ORDER BY value_ ASC) AS index_, value_, frequency_
+                            FROM value_frequencies
+                            WHERE value_ IS NOT NULL
+                            ORDER BY value_ ASC
+                            LIMIT {limit_mins_maxs}
+                        )"""
 
-    def profiling_sql_numeric_aggregates(self, table_name: str, column_name: str) -> str:
+            maxs_cte = f"""maxs AS (
+                            SELECT {cast_to_text("'maxs'")} AS metric_, ROW_NUMBER() OVER(ORDER BY value_ DESC) AS index_, value_, frequency_
+                            FROM value_frequencies
+                            WHERE value_ IS NOT NULL
+                            ORDER BY value_ DESC
+                            LIMIT {limit_mins_maxs}
+                        )"""
+
+            return dedent(
+                f"""
+                    WITH
+                        {value_frequencies_cte},
+                        {mins_cte},
+                        {maxs_cte},
+                        {frequent_values_cte},
+                        result AS (
+                            SELECT * FROM mins
+                            UNION
+                            SELECT * FROM maxs
+                            UNION
+                            SELECT * FROM frequent_values
+                        )
+                    SELECT *
+                    FROM result
+                    ORDER BY metric_ ASC, index_ ASC
+                """
+            )
+
+        raise AssertionError("data_type_category must be either 'numeric' or 'text'")
+
+    def profiling_sql_value_frequencies_cte(self, table_name: str, column_name: str) -> str:
+        quoted_column_name = self.quote_column(column_name)
+        quoted_table_name = self.quote_table(table_name)
+        return f"""value_frequencies AS (
+                            SELECT {quoted_column_name} AS value_, count(*) AS frequency_
+                            FROM {quoted_table_name}
+                            WHERE {quoted_column_name} IS NOT NULL
+                            GROUP BY {quoted_column_name}
+                        )"""
+
+    def profiling_sql_aggregates_numeric(self, table_name: str, column_name: str) -> str:
         column_name = self.quote_column(column_name)
         table_name = self.quote_table(table_name)
         return dedent(
@@ -416,7 +416,7 @@ class DataSource:
             """
         )
 
-    def profiling_sql_text_aggregates(self, table_name: str, column_name: str) -> str:
+    def profiling_sql_aggregates_text(self, table_name: str, column_name: str) -> str:
         column_name = self.quote_column(column_name)
         table_name = self.quote_table(table_name)
         return dedent(
@@ -455,16 +455,20 @@ class DataSource:
 
         field_clauses = []
         for i in range(0, number_of_bins):
-            lower_bound = "" if i == 0 else f"{bins_list[i]} <= value_name"
-            upper_bound = "" if i == number_of_bins - 1 else f"value_name < {bins_list[i+1]}"
-            optional_and = "" if lower_bound == "" or upper_bound == "" else " and "
-            field_clauses.append(f"SUM(CASE WHEN {lower_bound}{optional_and}{upper_bound} then frequency END)")
+            lower_bound = "" if i == 0 else f"{bins_list[i]} <= value_"
+            upper_bound = "" if i == number_of_bins - 1 else f"value_ < {bins_list[i+1]}"
+            optional_and = "" if lower_bound == "" or upper_bound == "" else " AND "
+            field_clauses.append(f"SUM(CASE WHEN {lower_bound}{optional_and}{upper_bound} THEN frequency_ END)")
 
         fields = ",\n ".join(field_clauses)
 
-        sql = (
-            f"WITH freq_values as ({self.profiling_sql_cte_value_frequencies(table_name, column_name)})\n"
-            f"SELECT {fields} From freq_values"
+        value_frequencies_cte = self.profiling_sql_value_frequencies_cte(table_name, column_name)
+
+        sql = dedent(f"""
+            WITH
+                {value_frequencies_cte}
+            SELECT {fields}
+            FROM value_frequencies"""
         )
         return sql, bins_list
 
@@ -748,3 +752,25 @@ class DataSource:
         """Hash provided data using a non-reversible hashing algorithm."""
         encoded = json.dumps(data, sort_keys=True).encode()
         return hashlib.sha256(encoded).hexdigest()
+
+    def test(self, sql):
+        import textwrap
+        import logging
+        from soda.sampler.sample_schema import SampleColumn
+        from soda.sampler.log_sampler import LogSampler
+        cursor = self.connection.cursor()
+        try:
+            indented_sql = textwrap.indent(text=sql, prefix="  #   ")
+            logging.debug(f"  # Query: \n{indented_sql}")
+            cursor.execute(sql)
+            rows = cursor.fetchall()
+
+            columns = SampleColumn.create_sample_columns(cursor.description, self)
+            table, row_count, col_count = LogSampler.pretty_print(rows, columns)
+            logging.debug(f"  # Query result: \n{table}")
+
+        except Exception as e:
+            logging.error(f"Error: {e}", e)
+
+        finally:
+            cursor.close()

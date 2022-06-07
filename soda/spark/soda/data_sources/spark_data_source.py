@@ -264,6 +264,9 @@ class SparkSQLBase(DataSource):
     def quote_table(self, table_name) -> str:
         return f"`{table_name}`"
 
+    def quote_column(self, column_name: str) -> str:
+        return f"`{column_name}`"
+
     def regex_replace_flags(self) -> str:
         return ""
 

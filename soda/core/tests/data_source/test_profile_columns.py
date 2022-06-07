@@ -22,7 +22,7 @@ def test_profile_columns_numeric(scanner: Scanner):
     scan.add_sodacl_yaml_str(
         f"""
           profile columns:
-            columns: [{table_name}.%]
+            columns: [{table_name}.size]
         """
     )
     scan.execute(allow_warnings_only=True)
@@ -41,9 +41,15 @@ def test_profile_columns_numeric(scanner: Scanner):
 
     logging.debug(f"Size profile cloud dict: \n{to_yaml_str(size_profile)}")
 
-    assert isinstance(size_profile["mins"], list)
-    assert isinstance(size_profile["maxs"], list)
-    for frequent_value in size_profile["frequent_values"]:
+    mins = size_profile["mins"]
+    assert isinstance(mins, list)
+    assert mins[0] == 0.5
+    maxs = size_profile["maxs"]
+    assert isinstance(maxs, list)
+    assert maxs[0] == 6.1
+    frequent_values = size_profile["frequent_values"]
+    assert isinstance(frequent_values, list)
+    for frequent_value in frequent_values:
         assert isinstance(frequent_value, dict)
         assert "value" in frequent_value
         assert "frequency" in frequent_value
@@ -52,136 +58,85 @@ def test_profile_columns_numeric(scanner: Scanner):
         assert isinstance(
             v, Number
         ), f"{numeric_stat} in profile of column 'size' is not a number: {v} ({type(v).__name__})"
-    assert isinstance(size_profile["histogram"], dict)
+    histogram = size_profile["histogram"]
+    boundaries = histogram['boundaries']
+    assert len(boundaries) > 0
+    for b in boundaries:
+        assert isinstance(b, float)
+    frequencies = histogram['frequencies']
+    assert len(frequencies) > 0
+    for f in frequencies:
+        assert isinstance(f, int)
 
 
 @pytest.mark.skipif(
     test_data_source == "athena",
     reason="TODO: fix for athena.",
 )
-def test_profile_columns_numeric2(scanner: Scanner, table_name, soda_cl_str, cloud_dict_expectation):
-    table_name = scanner.ensure_test_table(table_name)
+def test_profile_columns_text(scanner: Scanner):
+    table_name = scanner.ensure_test_table(customers_profiling)
 
     scan = scanner.create_test_scan()
     mock_soda_cloud = scan.enable_mock_soda_cloud()
     scan.add_sodacl_yaml_str(
         f"""
           profile columns:
-            columns: [{table_name}{soda_cl_str}]
+            columns: [{table_name}.country]
         """
     )
     scan.execute(allow_warnings_only=True)
+    scan_results = mock_soda_cloud.pop_scan_result()
+
+    profilings = scan_results["profiling"]
+    profiling = profilings[0]
+
     # remove the data source name because it's a pain to test
-    profiling_result = mock_soda_cloud.pop_scan_result()
-    assert profiling_result
-    profiling_result = remove_datasource_and_table_name(profiling_result)
-    assert len(profiling_result["profiling"]) > 0
-    assert len(profiling_result["profiling"][0]["columnProfiles"]) > 0
-    assert profiling_result["profiling"][0]["columnProfiles"][0]["columnName"].lower() == "size"
-    assert (
-        profiling_result["profiling"][0]["columnProfiles"][0]["profile"]["frequent_values"]
-        == cloud_dict_expectation["profiling"][0]["columnProfiles"][0]["profile"]["frequent_values"]
-    )
-    assert (
-        profiling_result["profiling"][0]["columnProfiles"][0]["profile"]["histogram"]
-        == cloud_dict_expectation["profiling"][0]["columnProfiles"][0]["profile"]["histogram"]
-    )
+    profiling.pop("dataSource")
+    profiling.pop("table")
 
-
-@pytest.mark.skipif(
-    test_data_source == "athena",
-    reason="TODO: fix for athena.",
-)
-@pytest.mark.parametrize(
-    "table_name, soda_cl_str, cloud_dict_expectation",
-    [
-        pytest.param(
-            customers_profiling,
-            ".country",
+    assert profiling == {
+        "columnProfiles": [
             {
-                "definitionName": "test_profile_columns.py::test_profile_columns_text[table_name0-.country-cloud_dict_expectation0]",
-                "dataTimestamp": "2022-04-29T14:32:57.111198",
-                "scanStartTimestamp": "2022-04-29T14:32:57.111198",
-                "scanEndTimestamp": "2022-04-29T14:32:57.197097",
-                "hasErrors": False,
-                "hasWarnings": False,
-                "hasFailures": False,
-                "metrics": [],
-                "checks": [],
-                "profiling": [
-                    {
-                        "columnProfiles": [
-                            {
-                                "columnName": "country",
-                                "profile": {
-                                    "mins": None,
-                                    "maxs": None,
-                                    "min": None,
-                                    "min_length": 2,
-                                    "max": None,
-                                    "max_length": 2,
-                                    "frequent_values": [
-                                        {"value": "BE", "frequency": 6},
-                                        {"value": "NL", "frequency": 4},
-                                    ],
-                                    "avg": None,
-                                    "avg_length": 2,
-                                    "sum": None,
-                                    "stddev": None,
-                                    "variance": None,
-                                    "distinct": 2,
-                                    "missing_count": 0,
-                                    "histogram": None,
-                                },
-                            }
-                        ],
-                    }
-                ],
-            },
-            id="customer.country (text only)",
-        )
-    ],
-)
-def test_profile_columns_text(scanner: Scanner, table_name, soda_cl_str, cloud_dict_expectation):
-    table_name = scanner.ensure_test_table(table_name)
-
-    scan = scanner.create_test_scan()
-    mock_soda_cloud = scan.enable_mock_soda_cloud()
-    scan.add_sodacl_yaml_str(
-        f"""
-          profile columns:
-            columns: [{table_name}{soda_cl_str}]
-        """
-    )
-    scan.execute(allow_warnings_only=True)
-    profiling_result = mock_soda_cloud.pop_scan_result()
-    # remove the data source name because it's a pain to test
-    profiling_result = remove_datasource_and_table_name(profiling_result)
-
-    assert profiling_result["profiling"] == cloud_dict_expectation["profiling"]
+                "columnName": "country",
+                "profile": {
+                    "mins": None,
+                    "maxs": None,
+                    "min": None,
+                    "min_length": 2,
+                    "max": None,
+                    "max_length": 2,
+                    "frequent_values": [
+                        {"value": "BE", "frequency": 6},
+                        {"value": "NL", "frequency": 4},
+                    ],
+                    "avg": None,
+                    "avg_length": 2,
+                    "sum": None,
+                    "stddev": None,
+                    "variance": None,
+                    "distinct": 2,
+                    "missing_count": 0,
+                    "histogram": None,
+                },
+            }
+        ],
+    }
 
 
-@pytest.mark.skipif(
-    test_data_source == "athena",
-    reason="TODO: fix for athena.",
-)
-def test_profile_columns_all_tables_all_columns(scanner: Scanner):
-    _ = scanner.ensure_test_table(customers_profiling)
-    scan = scanner.create_test_scan()
-    mock_soda_cloud = scan.enable_mock_soda_cloud()
-    scan.add_sodacl_yaml_str(
-        """
-            profile columns:
-                columns: ["%.%"]
-        """
-    )
-    scan.execute(allow_warnings_only=True)
-    profiling_result = mock_soda_cloud.pop_scan_result()
-    assert len(profiling_result["profiling"]) >= 5
-
-
-def remove_datasource_and_table_name(results_dict: dict) -> dict:
-    for i, _ in enumerate(results_dict["profiling"]):
-        del results_dict["profiling"][i]["dataSource"]
-        del results_dict["profiling"][i]["table"]
-    return results_dict
+# @pytest.mark.skipif(
+#     test_data_source == "athena",
+#     reason="TODO: fix for athena.",
+# )
+# def test_profile_columns_all_tables_all_columns(scanner: Scanner):
+#     _ = scanner.ensure_test_table(customers_profiling)
+#     scan = scanner.create_test_scan()
+#     mock_soda_cloud = scan.enable_mock_soda_cloud()
+#     scan.add_sodacl_yaml_str(
+#         """
+#             profile columns:
+#                 columns: ["%.%"]
+#         """
+#     )
+#     scan.execute(allow_warnings_only=True)
+#     profiling_result = mock_soda_cloud.pop_scan_result()
+#     assert len(profiling_result["profiling"]) >= 5

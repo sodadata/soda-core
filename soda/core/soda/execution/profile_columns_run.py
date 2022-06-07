@@ -128,20 +128,32 @@ class ProfileColumnsRun:
             profile_columns_result_table,
         )
         if profile_columns_result_column and is_included_column:
-            value_frequencies_sql = self.data_source.profiling_sql_values_frequencies_query(table_name, column_name)
+            value_frequencies_sql = self.data_source.profiling_sql_values_frequencies_query(
+                'numeric',
+                table_name,
+                column_name,
+                self.profile_columns_cfg.limit_mins_maxs,
+                self.profile_columns_cfg.limit_frequent_values
+            )
 
             value_frequencies_query = Query(
                 data_source_scan=self.data_source_scan,
-                unqualified_query_name=f"profiling: {table_name}, {column_name}: mins, maxes and values frequencies",
+                unqualified_query_name=f"profiling-{table_name}-{column_name}-value-frequencies-numeric",
                 sql=value_frequencies_sql,
             )
             value_frequencies_query.execute()
+            def unify_type(v):
+                return float(v) if isinstance(v, Number) else v
             if value_frequencies_query.rows is not None:
                 profile_columns_result_column.mins = [
-                    float(row[0]) if isinstance(row[0], Number) else row[0] for row in value_frequencies_query.rows
+                    unify_type(row[2])
+                    for row in value_frequencies_query.rows
+                    if row[0] == 'mins'
                 ]
                 profile_columns_result_column.maxs = [
-                    float(row[1]) if isinstance(row[1], Number) else row[1] for row in value_frequencies_query.rows
+                    unify_type(row[2])
+                    for row in value_frequencies_query.rows
+                    if row[0] == 'maxs'
                 ]
                 profile_columns_result_column.min = (
                     profile_columns_result_column.mins[0] if len(profile_columns_result_column.mins) >= 1 else None
@@ -149,20 +161,21 @@ class ProfileColumnsRun:
                 profile_columns_result_column.max = (
                     profile_columns_result_column.maxs[0] if len(profile_columns_result_column.maxs) >= 1 else None
                 )
-                profile_columns_result_column.frequent_values = self.build_frequent_values_dict(
-                    values=[row[2] for row in value_frequencies_query.rows],
-                    frequencies=[row[3] for row in value_frequencies_query.rows],
-                )
+                profile_columns_result_column.frequent_values = [
+                    {"value": str(row[2]), "frequency": int(row[3])}
+                    for row in value_frequencies_query.rows
+                    if row[0] == 'frequent_values'
+                ]
             else:
                 self.logs.error(
                     f"Database returned no results for minumum values, maximum values and frequent values in table: {table_name}, columns: {column_name}"
                 )
 
             # pure aggregates
-            aggregates_sql = self.data_source.profiling_sql_numeric_aggregates(table_name, column_name)
+            aggregates_sql = self.data_source.profiling_sql_aggregates_numeric(table_name, column_name)
             aggregates_query = Query(
                 data_source_scan=self.data_source_scan,
-                unqualified_query_name=f"profiling: {table_name}, {column_name}: get_pure_profiling_aggregates",
+                unqualified_query_name=f"profiling-{table_name}-{column_name}-profiling-aggregates",
                 sql=aggregates_sql,
             )
             aggregates_query.execute()
@@ -200,7 +213,7 @@ class ProfileColumnsRun:
                 if histogram_sql is not None:
                     histogram_query = Query(
                         data_source_scan=self.data_source_scan,
-                        unqualified_query_name=f"profiling: {table_name}, {column_name}: get histogram",
+                        unqualified_query_name=f"profiling-{table_name}-{column_name}-histogram",
                         sql=histogram_sql,
                     )
                     histogram_query.execute()
@@ -246,24 +259,31 @@ class ProfileColumnsRun:
         )
         if profile_columns_result_column and is_included_column:
             # frequent values for text column
-            frequent_values_sql = self.data_source.profiling_sql_top_values(table_name, column_name)
-            frequent_values_query = Query(
-                data_source_scan=self.data_source_scan,
-                unqualified_query_name=f"profiling: {table_name}, {column_name}: get frequent values text cols",
-                sql=frequent_values_sql,
+            value_frequencies_sql = self.data_source.profiling_sql_values_frequencies_query(
+                'text',
+                table_name,
+                column_name,
+                self.profile_columns_cfg.limit_mins_maxs,
+                self.profile_columns_cfg.limit_frequent_values
             )
-            frequent_values_query.execute()
-            if frequent_values_query.rows:
-                profile_columns_result_column.frequent_values = self.build_frequent_values_dict(
-                    values=[row[2] for row in frequent_values_query.rows],
-                    frequencies=[row[0] for row in frequent_values_query.rows],
-                )
+            value_frequencies_query = Query(
+                data_source_scan=self.data_source_scan,
+                unqualified_query_name=f"profiling-{table_name}-{column_name}-value-frequencies-text",
+                sql=value_frequencies_sql,
+            )
+            value_frequencies_query.execute()
+            if value_frequencies_query.rows:
+                profile_columns_result_column.frequent_values = [
+                    {"value": str(row[2]), "frequency": int(row[3])}
+                    for row in value_frequencies_query.rows
+                    if row[0] == 'frequent_values'
+                ]
             else:
                 self.logs.warning(
                     f"Database returned no results for textual frequent values in {table_name}, column: {column_name}"
                 )
             # pure text aggregates
-            text_aggregates_sql = self.data_source.profiling_sql_text_aggregates(table_name, column_name)
+            text_aggregates_sql = self.data_source.profiling_sql_aggregates_text(table_name, column_name)
             text_aggregates_query = Query(
                 data_source_scan=self.data_source_scan,
                 unqualified_query_name=f"profiling: {table_name}, {column_name}: get textual aggregates",
@@ -314,13 +334,6 @@ class ProfileColumnsRun:
             )
             return profile_columns_result_column, True
         return None, False
-
-    @staticmethod
-    def build_frequent_values_dict(values: list[str | int | float], frequencies: list[int]) -> list[dict[str, int]]:
-        frequent_values = []
-        for i, value in enumerate(values):
-            frequent_values.append({"value": str(value), "frequency": frequencies[i]})
-        return frequent_values
 
     def _is_column_included_for_profiling(
         self,
