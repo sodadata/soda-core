@@ -90,6 +90,7 @@ jobs:
 
       - name: Install dependencies
         run: |
+          sudo apt-get install -y libsasl2-dev
           python -m pip install --upgrade pip
           cat dev-requirements.in | grep tox | xargs pip install
 
