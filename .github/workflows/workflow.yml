@@ -52,7 +52,7 @@ jobs:
           - "redshift"
           - "athena"
           # - "spark"
-          - "spark-df"
+          - "spark_df"
     env:
       DATA_SOURCE: ${{ matrix.data-source }}
       PYTHON_VERSION: ${{ matrix.python-version }}
