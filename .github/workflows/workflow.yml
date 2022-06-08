@@ -51,7 +51,7 @@ jobs:
           - "bigquery"
           - "redshift"
           - "athena"
-          - "spark"
+          # - "spark"
           - "spark-df"
     env:
       DATA_SOURCE: ${{ matrix.data-source }}
