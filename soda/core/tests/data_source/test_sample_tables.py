@@ -31,13 +31,17 @@ def test_sample_tables(scanner: Scanner):
     profiling = profilings[0]
     sample_file = profiling["sampleFile"]
     columns = sample_file["columns"]
+    casify = scanner.data_source.default_casify_column_name
     assert [c["name"] for c in columns] == [
-        "id",
-        "customer_id_nok",
-        "customer_id_ok",
-        "customer_country",
-        "customer_zip",
-        "text",
+        casify(c)
+        for c in [
+            "id",
+            "customer_id_nok",
+            "customer_id_ok",
+            "customer_country",
+            "customer_zip",
+            "text",
+        ]
     ]
     for c in columns:
         type = c["type"]
