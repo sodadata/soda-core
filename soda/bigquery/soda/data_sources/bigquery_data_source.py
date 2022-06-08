@@ -210,3 +210,6 @@ class DataSourceImpl(DataSource):
 
     def cast_to_text(self, expr: str) -> str:
         return f"CAST({expr} AS STRING)"
+
+    def sql_union(self):
+        return "UNION ALL"

@@ -331,6 +331,8 @@ class DataSource:
 
         value_frequencies_cte = self.profiling_sql_value_frequencies_cte(table_name, column_name)
 
+        union = self.sql_union()
+
         frequent_values_cte = f"""frequent_values AS (
                             SELECT {cast_to_text("'frequent_values'")} AS metric_, ROW_NUMBER() OVER(ORDER BY frequency_ DESC) AS index_, value_, frequency_
                             FROM value_frequencies
@@ -377,9 +379,9 @@ class DataSource:
                         {frequent_values_cte},
                         result AS (
                             SELECT * FROM mins
-                            UNION
+                            {union}
                             SELECT * FROM maxs
-                            UNION
+                            {union}
                             SELECT * FROM frequent_values
                         )
                     SELECT *
@@ -389,6 +391,9 @@ class DataSource:
             )
 
         raise AssertionError("data_type_category must be either 'numeric' or 'text'")
+
+    def sql_union(self):
+        return "UNION"
 
     def profiling_sql_value_frequencies_cte(self, table_name: str, column_name: str) -> str:
         quoted_column_name = self.quote_column(column_name)
