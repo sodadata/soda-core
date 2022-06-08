@@ -96,7 +96,7 @@ jobs:
 
       - name: Test with tox
         run: |
-          export PYTHONPATH=./soda/core
+          export PYTHONPATH=./soda/core:./soda/athena:./soda/bigquery:./soda/postgres:./soda/redshift:./soda/scientific:./soda/snowflake:./soda/spark:./soda/spark_df
           tox -- soda -k soda/core
           tox -- soda -k soda/${{ matrix.data-source }}
         env:
