@@ -293,7 +293,9 @@ def test_ks_comparison(test_data, expected_stat_val, expected_p_val):
 
 # The following bins and weights are generated based on
 # default_rng().normal(loc=1.0, scale=1.0, size=1000)
-TEST_CONFIG_CATEGORIC_1 = RefDataCfg(bins=[0, 1, 2], weights=[0.1, 0.4, 0.5], labels=None, distribution_type="categorical")
+TEST_CONFIG_CATEGORIC_1 = RefDataCfg(
+    bins=[0, 1, 2], weights=[0.1, 0.4, 0.5], labels=None, distribution_type="categorical"
+)
 
 
 @pytest.mark.parametrize(

@@ -1,6 +1,6 @@
 import abc
 import logging
-from typing import Any, List, Union, Dict
+from typing import Any, Dict, List
 
 import numpy as np
 import pandas as pd
@@ -50,7 +50,13 @@ class DistributionChecker:
         self.method = distribution_check_cfg.method
         self.ref_cfg = self._parse_reference_cfg(cfg.reference_file_path)
 
-        algo_mapping = {"chi_square": ChiSqAlgorithm, "ks": KSAlgorithm, "swd": SWDAlgorithm, "semd": SWDAlgorithm, "psi": PSIAlgorithm}
+        algo_mapping = {
+            "chi_square": ChiSqAlgorithm,
+            "ks": KSAlgorithm,
+            "swd": SWDAlgorithm,
+            "semd": SWDAlgorithm,
+            "psi": PSIAlgorithm,
+        }
         self.choosen_algo = algo_mapping.get(self.method)
 
     def run(self) -> Dict[str, float]:
@@ -74,7 +80,7 @@ class DistributionChecker:
         if stat_values:
             stat_value = np.median(stat_values)
 
-        return dict(check_value=check_value, stat_value = stat_value)
+        return dict(check_value=check_value, stat_value=stat_value)
 
     def _parse_reference_cfg(self, ref_file_path: FilePath) -> RefDataCfg:
         with open(str(ref_file_path)) as stream:
@@ -89,11 +95,11 @@ class DistributionChecker:
                         f"Your {ref_file_path} reference yaml file must have `distribution_type` key. The `distribution_type` is used to create a sample from your DRO."
                         f" For more information visit the docs: https://docs.soda.io/soda-cl/distribution.html#generate-a-distribution-reference-object-dro"
                     )
-                
+
                 if not self.method:
                     default_configs = {"continuous": "ks", "categorical": "chi_square"}
                     self.method = default_configs[ref_data_cfg["distribution_type"]]
-                
+
                 correct_configs = {
                     "continuous": ["ks", "psi", "swd", "semd"],
                     "categorical": ["chi_square", "psi", "swd", "semd"],
@@ -101,8 +107,8 @@ class DistributionChecker:
 
                 if self.method not in correct_configs[ref_data_cfg["distribution_type"]]:
                     raise DistributionRefIncompatibleException(
-                        f'''Your DRO distribution_type '{parsed_file['distribution_type']}' is incompatible with the method '{self.method}'. Your DRO distribution_type allows you to use one of the following methods:''' 
-                        f''' {", ".join([f"'{method}'" for method in correct_configs[parsed_file["distribution_type"]]])}. For more information visit the docs: https://docs.soda.io/soda-cl/distribution.html#about-distribution-checks '''
+                        f"""Your DRO distribution_type '{parsed_file['distribution_type']}' is incompatible with the method '{self.method}'. Your DRO distribution_type allows you to use one of the following methods:"""
+                        f""" {", ".join([f"'{method}'" for method in correct_configs[parsed_file["distribution_type"]]])}. For more information visit the docs: https://docs.soda.io/soda-cl/distribution.html#about-distribution-checks """
                     )
 
                 if "distribution reference" in parsed_file:
@@ -111,7 +117,9 @@ class DistributionChecker:
                     ref_data_cfg["weights"] = parsed_file["distribution reference"]["weights"]
 
                 else:
-                    dro = DROGenerator(cfg=RefDataCfg(distribution_type=ref_data_cfg["distribution_type"]), data=self.test_data).generate()
+                    dro = DROGenerator(
+                        cfg=RefDataCfg(distribution_type=ref_data_cfg["distribution_type"]), data=self.test_data
+                    ).generate()
                     ref_data_cfg["bins"] = dro.bins
                     ref_data_cfg["weights"] = dro.weights
 
