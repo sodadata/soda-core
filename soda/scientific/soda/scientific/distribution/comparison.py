@@ -37,7 +37,7 @@ class MissingCategories(Exception):
 
 
 class DistributionRefIncompatibleException(Exception):
-    """Thrown when the DRO datatype is incompatible with the test that is used."""
+    """Thrown when the DRO distribution_type is incompatible with the test that is used."""
 
 
 class DistributionChecker:
@@ -82,21 +82,27 @@ class DistributionChecker:
                 parsed_file: dict = yaml.safe_load(stream)
                 ref_data_cfg = {}
 
+                if "distribution_type" in parsed_file:
+                    ref_data_cfg["distribution_type"] = parsed_file["distribution_type"]
+                else:
+                    raise DistributionRefKeyException(
+                        f"Your {ref_file_path} reference yaml file must have `distribution_type` key. The `distribution_type` is used to create a sample from your DRO."
+                        f" For more information visit the docs: https://docs.soda.io/soda-cl/distribution.html#generate-a-distribution-reference-object-dro"
+                    )
+                
+                if not self.method:
+                    default_configs = {"continuous": "ks", "categorical": "chi_square"}
+                    self.method = default_configs[ref_data_cfg["distribution_type"]]
+                
                 correct_configs = {
-                    "continuous": ["ks", "psi", "swd", "semd", None],
-                    "categorical": ["chi_square", "psi", "swd", "semd", None],
+                    "continuous": ["ks", "psi", "swd", "semd"],
+                    "categorical": ["chi_square", "psi", "swd", "semd"],
                 }
 
-                if "datatype" not in parsed_file:
-                    raise DistributionRefKeyException(f"Your {ref_file_path} reference yaml file must have `datatype` key")
-                elif self.method in correct_configs[parsed_file["datatype"]]:
-                    ref_data_cfg["datatype"] = parsed_file["datatype"]
-                    if not self.method:
-                        default_configs = {"continuous": "ks", "categorical": "chi_square"}
-                        self.method = default_configs[ref_data_cfg["datatype"]]
-                else:
+                if self.method not in correct_configs[ref_data_cfg["distribution_type"]]:
                     raise DistributionRefIncompatibleException(
-                        f"Your DRO datatype '{parsed_file['datatype']}' is incompatible with the method '{self.method}'. "
+                        f'''Your DRO distribution_type '{parsed_file['distribution_type']}' is incompatible with the method '{self.method}'. Your DRO distribution_type allows you to use one of the following methods:''' 
+                        f''' {", ".join([f"'{method}'" for method in correct_configs[parsed_file["distribution_type"]]])}. For more information visit the docs: https://docs.soda.io/soda-cl/distribution.html#about-distribution-checks '''
                     )
 
                 if "distribution reference" in parsed_file:
@@ -105,7 +111,7 @@ class DistributionChecker:
                     ref_data_cfg["weights"] = parsed_file["distribution reference"]["weights"]
 
                 else:
-                    dro = DROGenerator(cfg=RefDataCfg(datatype=ref_data_cfg["datatype"]), data=self.test_data).generate()
+                    dro = DROGenerator(cfg=RefDataCfg(distribution_type=ref_data_cfg["distribution_type"]), data=self.test_data).generate()
                     ref_data_cfg["bins"] = dro.bins
                     ref_data_cfg["weights"] = dro.weights
 
@@ -179,7 +185,7 @@ class ChiSqAlgorithm(DistributionAlgorithm):
 
 class KSAlgorithm(DistributionAlgorithm):
     def evaluate(self) -> Dict[str, float]:
-        # TODO: set up some assertion testing that the datatype are continuous
+        # TODO: set up some assertion testing that the distribution_type are continuous
         # TODO: consider whether we may want to warn users if any or both of their series are nulls
         # although ks_2samp() behaves correctly in either cases
         stat_value, p_value = ks_2samp(self.ref_data, self.test_data)
