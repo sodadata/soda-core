@@ -40,7 +40,7 @@ class SampleTablesRun:
             sample_tables_result.append_table(table_name, self.data_source_name, sample_ref)
             self.logs.info(f"Successfully collected samples for table: {table_name}!")
 
-        if not sample_tables_result.tables:
+        if not isinstance(sample_tables_result.tables, list):
             self.logs.error(f"Sample tables for data source: {self.data_source_name} failed")
 
         return sample_tables_result

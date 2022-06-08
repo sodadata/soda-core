@@ -93,7 +93,7 @@ def test_discover_tables_customer_wildcard_incl_excl(scanner: Scanner):
           tables:
             - include %sodatest_%
             - exclude %orders%
-            - exclude %customers%
+            - exclude %profiling%
         """
     )
     scan.execute()
@@ -102,4 +102,4 @@ def test_discover_tables_customer_wildcard_incl_excl(scanner: Scanner):
     dataset_names = [profiling["table"] for profiling in profilings]
     for dataset_name in dataset_names:
         assert "order" not in dataset_name.lower()
-        assert "customer" not in dataset_name.lower()
+        assert "profiling" not in dataset_name.lower()
