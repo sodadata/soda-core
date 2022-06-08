@@ -96,6 +96,7 @@ jobs:
 
       - name: Test with tox
         run: |
+          export PYTHONPATH=./soda/core
           tox -- soda -k soda/core
           tox -- soda -k soda/${{ matrix.data-source }}
         env:
