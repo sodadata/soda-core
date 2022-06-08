@@ -183,7 +183,7 @@ class DataSource:
     ######################
 
     def store_table_sample(self, table_name: str, limit: int | None = None) -> SampleRef:
-        sql = self.sql_store_table_sample(table_name=table_name, limit=limit)
+        sql = self.sql_select_all(table_name=table_name, limit=limit)
         query = Query(
             data_source_scan=self.data_source_scan,
             unqualified_query_name=f"store-sample-for-{table_name}",
@@ -193,7 +193,7 @@ class DataSource:
         query.store()
         return query.sample_ref
 
-    def sql_store_table_sample(self, table_name: str, limit: int | None = None) -> str:
+    def sql_select_all(self, table_name: str, limit: int | None = None) -> str:
         quoted_table_name = self.quote_table(table_name)
         limit_sql = ""
         if limit is not None:

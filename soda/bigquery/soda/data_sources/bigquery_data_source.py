@@ -152,7 +152,7 @@ class DataSourceImpl(DataSource):
         where_clause = f"\nWHERE {table_filter_expression} \n" if table_filter_expression else ""
         return f"SELECT table_id, row_count \n" f"FROM {self.dataset_name}.__TABLES__" f"{where_clause}"
 
-    def sql_store_table_sample(self, table_name: str, limit: int = None) -> str:
+    def sql_select_all(self, table_name: str, limit: int = None) -> str:
         limit_sql = ""
         if limit is not None:
             limit_sql = f" \n LIMIT {limit}"

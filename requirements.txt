@@ -6,3 +6,4 @@
 ./soda/athena
 ./soda/spark
 ./soda/spark_df
+./soda/scientific

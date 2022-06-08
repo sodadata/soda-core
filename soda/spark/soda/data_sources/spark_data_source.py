@@ -270,21 +270,9 @@ class SparkSQLBase(DataSource):
     def regex_replace_flags(self) -> str:
         return ""
 
-    # @staticmethod
-    # def format_column_default(identifier: str) -> str:
-    #     return identifier.lower()
-
-    # @staticmethod
-    # def format_type_default(identifier: str) -> str:
-    #     return identifier.lower()
-
-    # def safe_connection_data(self):
-    #     return [
-    #         self.type,
-    #         self.host,
-    #         self.port,
-    #         self.database,
-    #     ]
+    def safe_connection_data(self):
+        """TODO: implement for spark."""
+        pass
 
 
 class DataSourceImpl(SparkSQLBase):
