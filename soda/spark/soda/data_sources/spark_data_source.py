@@ -272,7 +272,6 @@ class SparkSQLBase(DataSource):
 
     def safe_connection_data(self):
         """TODO: implement for spark."""
-        pass
 
 
 class DataSourceImpl(SparkSQLBase):
