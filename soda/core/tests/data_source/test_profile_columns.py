@@ -14,6 +14,10 @@ from tests.helpers.scanner import Scanner
     test_data_source == "athena",
     reason="TODO: fix for athena.",
 )
+@pytest.mark.skipif(
+    test_data_source == "spark_df",
+    reason="TODO: fix for spark_df.",
+)
 def test_profile_columns_numeric(scanner: Scanner):
     table_name = scanner.ensure_test_table(customers_profiling)
 
@@ -73,6 +77,10 @@ def test_profile_columns_numeric(scanner: Scanner):
     test_data_source == "athena",
     reason="TODO: fix for athena.",
 )
+@pytest.mark.skipif(
+    test_data_source == "spark_df",
+    reason="TODO: fix for spark_df.",
+)
 def test_profile_columns_text(scanner: Scanner):
     table_name = scanner.ensure_test_table(customers_profiling)
 
@@ -127,6 +135,10 @@ def test_profile_columns_text(scanner: Scanner):
     test_data_source == "athena",
     reason="TODO: fix for athena.",
 )
+@pytest.mark.skipif(
+    test_data_source == "spark_df",
+    reason="TODO: fix for spark_df.",
+)
 def test_profile_columns_all_tables_all_columns(scanner: Scanner):
     _ = scanner.ensure_test_table(customers_profiling)
     scan = scanner.create_test_scan()
@@ -145,6 +157,10 @@ def test_profile_columns_all_tables_all_columns(scanner: Scanner):
 @pytest.mark.skipif(
     test_data_source == "athena",
     reason="TODO: fix for athena.",
+)
+@pytest.mark.skipif(
+    test_data_source == "spark_df",
+    reason="TODO: fix for spark_df.",
 )
 @pytest.mark.parametrize(
     "table_name, soda_cl_str, expectation",
