@@ -107,5 +107,9 @@ class DistributionCheck(Check):
         return sql
 
     def get_summary(self) -> str:
-        error_summary = ' NO THRESHOLD PROVIDED ->' if not self.check_cfg.fail_threshold_cfg and not self.check_cfg.warn_threshold_cfg else ''
+        error_summary = (
+            " NO THRESHOLD PROVIDED ->"
+            if not self.check_cfg.fail_threshold_cfg and not self.check_cfg.warn_threshold_cfg
+            else ""
+        )
         return super().get_summary() + error_summary
