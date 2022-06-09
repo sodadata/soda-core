@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from datetime import timedelta
-from typing import Optional
 
 from soda.sodacl.check_cfg import CheckCfg
 from soda.sodacl.location import Location
