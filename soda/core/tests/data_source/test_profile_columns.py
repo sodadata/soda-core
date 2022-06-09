@@ -219,9 +219,11 @@ def test_profile_columns_inclusions_exclusions(scanner: Scanner, table_name, sod
     scan = scanner.create_test_scan()
     mock_soda_cloud = scan.enable_mock_soda_cloud()
     scan.add_sodacl_yaml_str(soda_cl_str.format(table_name=_table_name))
+    # TODO: we should only allow warnings here, we'll have to look at what the errors were
+    # it is most likely will be related to https://sodadata.atlassian.net/browse/CLOUD-155
     scan.execute(allow_error_warning=True)
     profiling_result = mock_soda_cloud.pop_scan_result()
-    if scan._data_source_name == "spark":
+    if scan._data_source_name == "spark_df":
         # we deliberately have to not test this for spark as column inclusion and exclusion is unsupported
         pass
     else:
