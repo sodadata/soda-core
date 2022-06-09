@@ -15,7 +15,7 @@ def test_for_each_dataset(scanner: Scanner):
     scan.add_sodacl_yaml_str(
         f"""
           for each dataset D:
-            tables:
+            datasets:
               - {customers_table_name}
               - include {rawcustomers_table_name}%
               - include {scanner.data_source.data_source_name}.{rawcustomers_table_name}%
@@ -43,7 +43,7 @@ def test_for_each_dataset_schema(scanner: Scanner):
     scan.add_sodacl_yaml_str(
         f"""
           for each dataset D:
-            tables:
+            datasets:
               - {customers_table_name}
             checks:
               - schema:

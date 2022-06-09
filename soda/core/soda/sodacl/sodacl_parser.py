@@ -94,15 +94,21 @@ class SodaCLParser(Parser):
             return
 
         for header_str, header_content in headers_dict.items():
+
+            # Backwards compatibility warning
+            if "table" in header_str:
+                s = 's' if "tables" in header_str else ''
+                self.logs.warning(f"Please update table{s} to dataset{s} in: {header_str}", location=self.location)
+
             self._push_path_element(header_str, header_content)
             try:
                 if "automated monitoring" == header_str:
                     self.__parse_automated_monitoring_section(header_str, header_content)
                 elif header_str.startswith("profile columns"):
                     self.__parse_profile_columns_section(header_str, header_content)
-                elif header_str.startswith("discover tables"):
+                elif header_str.startswith("discover datasets") or header_str.startswith("discover tables"):
                     self.__parse_discover_tables_section(header_str, header_content)
-                elif header_str.startswith("sample datasets"):
+                elif header_str.startswith("sample datasets") or header_str.startswith("sample tables"):
                     self.__parse_sample_datasets_section(header_str, header_content)
                 elif "checks" == header_str:
                     self.__parse_data_source_checks_section(header_str, header_content)
@@ -1203,9 +1209,11 @@ class SodaCLParser(Parser):
 
     def __parse_tables(self, header_content, data_source_check_cfg):
         data_source_check_cfg.data_source_name = header_content.get("data_source")
-        tables = header_content.get("tables")
-        if isinstance(tables, list):
-            for table in tables:
+        datasets = header_content.get("datasets")
+        if datasets is None:
+            datasets = header_content.get("tables")
+        if isinstance(datasets, list):
+            for table in datasets:
                 if table.startswith("exclude "):
                     exclude_table_expression = table[len("exclude ") :]
                     data_source_check_cfg.exclude_tables.append(exclude_table_expression)
@@ -1217,7 +1225,7 @@ class SodaCLParser(Parser):
                     data_source_check_cfg.include_tables.append(include_table_expression)
         else:
             self.logs.error(
-                'Content of "tables" must be a list of include and/or exclude expressions', location=self.location
+                'Content of "datasets" must be a list of include and/or exclude expressions', location=self.location
             )
 
     @assert_header_content_is_dict
@@ -1361,10 +1369,12 @@ class SodaCLParser(Parser):
         for_each_dataset_cfg.table_alias_name = self.__antlr_parse_identifier_name_from_header(
             antlr_checks_for_each_dataset_header
         )
-        tables = self._get_required("tables", list)
-        if tables:
-            self._push_path_element("tables", tables)
-            self.__parse_nameset_list(tables, for_each_dataset_cfg)
+        datasets = self._get_optional("datasets", list)
+        if datasets is None:
+            datasets = self._get_optional("tables", list)
+        if datasets:
+            self._push_path_element("datasets", datasets)
+            self.__parse_nameset_list(datasets, for_each_dataset_cfg)
             self._pop_path_element()
         check_cfgs = self._get_required("checks", list)
         if check_cfgs:

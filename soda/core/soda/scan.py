@@ -536,7 +536,7 @@ class Scan:
                 else:
                     data_source_names = ", ".join(self._data_source_manager.data_source_properties_by_name.keys())
                     self._logs.error(
-                        f"Could not discover tables on data_source {data_source_name} because it is not configured: {data_source_names}",
+                        f"Could not discover datasets on data_source {data_source_name} because it is not configured: {data_source_names}",
                         location=discover_columns_cfg.location,
                     )
 
@@ -553,7 +553,7 @@ class Scan:
                 else:
                     data_source_names = ", ".join(self._data_source_manager.data_source_properties_by_name.keys())
                     self._logs.error(
-                        f"Could not discover tables on data_source {data_source_name} because it is not configured: {data_source_names}",
+                        f"Could not discover datasets on data_source {data_source_name} because it is not configured: {data_source_names}",
                         location=sample_tables_cfg.location,
                     )
 

@@ -165,7 +165,7 @@ def test_for_each_identity(scanner: Scanner):
         scanner,
         f"""
           for each dataset D:
-            tables:
+            datasets:
                 - {customers_table_name}
                 - {customers_dist_table_name}
             checks:
