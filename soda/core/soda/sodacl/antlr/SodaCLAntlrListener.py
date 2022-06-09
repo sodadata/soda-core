@@ -35,48 +35,12 @@ class SodaCLAntlrListener(ParseTreeListener):
         pass
 
 
-    # Enter a parse tree produced by SodaCLAntlrParser#staleness_threshold.
-    def enterStaleness_threshold(self, ctx:SodaCLAntlrParser.Staleness_thresholdContext):
-        pass
-
-    # Exit a parse tree produced by SodaCLAntlrParser#staleness_threshold.
-    def exitStaleness_threshold(self, ctx:SodaCLAntlrParser.Staleness_thresholdContext):
-        pass
-
-
     # Enter a parse tree produced by SodaCLAntlrParser#warn_qualifier.
     def enterWarn_qualifier(self, ctx:SodaCLAntlrParser.Warn_qualifierContext):
         pass
 
     # Exit a parse tree produced by SodaCLAntlrParser#warn_qualifier.
     def exitWarn_qualifier(self, ctx:SodaCLAntlrParser.Warn_qualifierContext):
-        pass
-
-
-    # Enter a parse tree produced by SodaCLAntlrParser#time_period_day.
-    def enterTime_period_day(self, ctx:SodaCLAntlrParser.Time_period_dayContext):
-        pass
-
-    # Exit a parse tree produced by SodaCLAntlrParser#time_period_day.
-    def exitTime_period_day(self, ctx:SodaCLAntlrParser.Time_period_dayContext):
-        pass
-
-
-    # Enter a parse tree produced by SodaCLAntlrParser#time_period_hour.
-    def enterTime_period_hour(self, ctx:SodaCLAntlrParser.Time_period_hourContext):
-        pass
-
-    # Exit a parse tree produced by SodaCLAntlrParser#time_period_hour.
-    def exitTime_period_hour(self, ctx:SodaCLAntlrParser.Time_period_hourContext):
-        pass
-
-
-    # Enter a parse tree produced by SodaCLAntlrParser#time_period_minute.
-    def enterTime_period_minute(self, ctx:SodaCLAntlrParser.Time_period_minuteContext):
-        pass
-
-    # Exit a parse tree produced by SodaCLAntlrParser#time_period_minute.
-    def exitTime_period_minute(self, ctx:SodaCLAntlrParser.Time_period_minuteContext):
         pass
 
 
@@ -257,6 +221,15 @@ class SodaCLAntlrListener(ParseTreeListener):
 
     # Exit a parse tree produced by SodaCLAntlrParser#threshold_value.
     def exitThreshold_value(self, ctx:SodaCLAntlrParser.Threshold_valueContext):
+        pass
+
+
+    # Enter a parse tree produced by SodaCLAntlrParser#freshness_threshold_value.
+    def enterFreshness_threshold_value(self, ctx:SodaCLAntlrParser.Freshness_threshold_valueContext):
+        pass
+
+    # Exit a parse tree produced by SodaCLAntlrParser#freshness_threshold_value.
+    def exitFreshness_threshold_value(self, ctx:SodaCLAntlrParser.Freshness_threshold_valueContext):
         pass
 
 
