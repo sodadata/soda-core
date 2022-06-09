@@ -10,7 +10,7 @@ if sys.version_info < (3, 8):
 
 package_name = "soda-core"
 # Managed by tbump - do not change manually
-package_version = "3.0.0b19"
+package_version = "3.0.0rc1"
 description = "Soda Core"
 
 # long_description = (pathlib.Path(__file__).parent.parent / "README.md").read_text()

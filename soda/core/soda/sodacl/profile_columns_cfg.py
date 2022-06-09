@@ -9,3 +9,7 @@ class ProfileColumnsCfg:
         self.location: Location = location
         self.include_columns: List[str] = []
         self.exclude_columns: List[str] = []
+        # TODO add parsing for this configuration
+        self.limit_mins_maxs: int = 5
+        # TODO add parsing for this configuration
+        self.limit_frequent_values: int = 10

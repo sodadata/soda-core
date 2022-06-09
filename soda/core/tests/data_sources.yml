@@ -38,3 +38,16 @@ data_source athena:
     region_name: ${ env_var('ATHENA_REGION_NAME', 'eu-west-1') }
     staging_dir: ${ env_var('ATHENA_STAGING_DIR') }
     database: ${ env_var('ATHENA_DATABASE') }
+data_source spark:
+  type: spark
+  connection:
+    host: ${ env_var('SPARK_HOST', 'localhost') }
+    port: ${ env_var('SPARK_PORT', '10000') }
+    username: ${ env_var('SPARK_USERNAME', 'soda') }
+    password: ${ env_var('SPARK_PASSWORD') }
+    database: ${ env_var('SPARK_DATABASE', 'default') }
+# TODO: add appropriate vars
+data_source spark_df:
+  type: spark_df
+  connection:
+    just: a connection property to prevent a parsing error
