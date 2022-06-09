@@ -221,14 +221,18 @@ def test_profile_columns_inclusions_exclusions(scanner: Scanner, table_name, sod
     scan.add_sodacl_yaml_str(soda_cl_str.format(table_name=_table_name))
     scan.execute(allow_error_warning=True)
     profiling_result = mock_soda_cloud.pop_scan_result()
-    for table_result in profiling_result["profiling"]:
-        if table_result["table"].lower().startswith("sodatest_customer"):
-            column_names = [col_profile["columnName"] for col_profile in table_result["columnProfiles"]]
-            if expectation == "all but id":
-                assert "id" not in column_names
-            elif expectation == "all but nothing":
-                assert len(column_names) == 0
-            else:
-                assert "id" not in column_names
-                assert "size" in column_names
-                assert "country" not in column_names
+    if scan._data_source_name == "spark":
+        # we deliberately have to not test this for spark as column inclusion and exclusion is unsupported
+        pass
+    else:
+        for table_result in profiling_result["profiling"]:
+            if table_result["table"].lower().startswith("sodatest_customer"):
+                column_names = [col_profile["columnName"] for col_profile in table_result["columnProfiles"]]
+                if expectation == "all but id":
+                    assert "id" not in column_names
+                elif expectation == "all but nothing":
+                    assert len(column_names) == 0
+                else:
+                    assert "id" not in column_names
+                    assert "size" in column_names
+                    assert "country" not in column_names
