@@ -8,7 +8,7 @@ ENV LANG=C.UTF-8
 # install dependencies
 RUN apt-get update && \
     apt-get upgrade -y && \
-    apt-get remove -y python3 && \
+    apt-get remove -y python3.10 && \
     apt-get install -y --no-install-recommends software-properties-common gnupg2 && \
     add-apt-repository -y ppa:deadsnakes/ppa && \
     apt-get update && \
