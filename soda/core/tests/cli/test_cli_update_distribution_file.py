@@ -1,13 +1,17 @@
 from textwrap import dedent
 
+import pytest
 from tests.cli.run_cli import run_cli
 from tests.helpers.common_test_tables import customers_test_table
+from tests.helpers.fixtures import test_data_source
 from tests.helpers.mock_file_system import MockFileSystem
 from tests.helpers.scanner import Scanner
 
 
-# TODO: add some tests that can assert the generated query
-# @pytest.mark.skip("test takes too long")
+@pytest.mark.skipif(
+    test_data_source != "postgres",
+    reason="Run for postgres only as nothing data source specific is tested.",
+)
 def test_cli_update_distribution_file(scanner: Scanner, mock_file_system: MockFileSystem, data_source_config_str: str):
     table_name = scanner.ensure_test_table(customers_test_table)
 

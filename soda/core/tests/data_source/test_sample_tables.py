@@ -1,106 +1,15 @@
 from __future__ import annotations
 
-import pytest
-from tests.helpers.common_test_tables import orders_test_table
+from tests.helpers.common_test_tables import (
+    customers_dist_check_test_table,
+    customers_profiling,
+    customers_test_table,
+    orders_test_table,
+)
 from tests.helpers.scanner import Scanner
 
 
-@pytest.mark.parametrize(
-    "cloud_dict_expectation",
-    [
-        pytest.param(
-            {
-                "postgres": {
-                    "table": "sodatest_orders_f7532be6",
-                    "dataSource": "postgres",
-                    "sampleFile": {
-                        "columns": [
-                            {"name": "id", "type": "varchar"},
-                            {"name": "customer_id_nok", "type": "varchar"},
-                            {"name": "customer_id_ok", "type": "varchar"},
-                            {"name": "customer_country", "type": "varchar"},
-                            {"name": "customer_zip", "type": "varchar"},
-                            {"name": "text", "type": "varchar"},
-                        ],
-                        "totalRowCount": 7,
-                        "storedRowCount": 7,
-                        "reference": {"type": "sodaCloudStorage", "fileId": "file-0"},
-                    },
-                },
-                "athena": {
-                    "table": "sodatest_orders_f7532be6",
-                    "dataSource": "athena",
-                    "sampleFile": {
-                        "columns": [
-                            {"name": "id", "type": "varchar"},
-                            {"name": "customer_id_nok", "type": "varchar"},
-                            {"name": "customer_id_ok", "type": "varchar"},
-                            {"name": "customer_country", "type": "varchar"},
-                            {"name": "customer_zip", "type": "varchar"},
-                            {"name": "text", "type": "varchar"},
-                        ],
-                        "totalRowCount": 7,
-                        "storedRowCount": 7,
-                        "reference": {"type": "sodaCloudStorage", "fileId": "file-0"},
-                    },
-                },
-                "snowflake": {
-                    "table": "SODATEST_ORDERS_F7532BE6",
-                    "dataSource": "snowflake",
-                    "sampleFile": {
-                        "columns": [
-                            {"name": "ID", "type": "2"},
-                            {"name": "CUSTOMER_ID_NOK", "type": "2"},
-                            {"name": "CUSTOMER_ID_OK", "type": "2"},
-                            {"name": "CUSTOMER_COUNTRY", "type": "2"},
-                            {"name": "CUSTOMER_ZIP", "type": "2"},
-                            {"name": "TEXT", "type": "2"},
-                        ],
-                        "totalRowCount": 7,
-                        "storedRowCount": 7,
-                        "reference": {"type": "sodaCloudStorage", "fileId": "file-0"},
-                    },
-                },
-                "redshift": {
-                    "table": "sodatest_orders_f7532be6",
-                    "dataSource": "redshift",
-                    "sampleFile": {
-                        "columns": [
-                            {"name": "id", "type": "1043"},
-                            {"name": "customer_id_nok", "type": "1043"},
-                            {"name": "customer_id_ok", "type": "1043"},
-                            {"name": "customer_country", "type": "1043"},
-                            {"name": "customer_zip", "type": "1043"},
-                            {"name": "text", "type": "1043"},
-                        ],
-                        "totalRowCount": 7,
-                        "storedRowCount": 7,
-                        "reference": {"type": "sodaCloudStorage", "fileId": "file-0"},
-                    },
-                },
-                "bigquery": {
-                    "table": "SODATEST_Orders_f7532be6",
-                    "dataSource": "bigquery",
-                    "sampleFile": {
-                        "columns": [
-                            {"name": "id", "type": "STRING"},
-                            {"name": "customer_id_nok", "type": "STRING"},
-                            {"name": "customer_id_ok", "type": "STRING"},
-                            {"name": "customer_country", "type": "STRING"},
-                            {"name": "customer_zip", "type": "STRING"},
-                            {"name": "text", "type": "STRING"},
-                        ],
-                        "totalRowCount": 7,
-                        "storedRowCount": 7,
-                        "reference": {"type": "sodaCloudStorage", "fileId": "file-0"},
-                    },
-                },
-            },
-            id="orders table only",
-        )
-    ],
-)
-def test_sample_tables(cloud_dict_expectation: dict, scanner: Scanner):
+def test_sample_tables(scanner: Scanner):
     table_name = scanner.ensure_test_table(orders_test_table)
 
     scan = scanner.create_test_scan()
@@ -110,7 +19,7 @@ def test_sample_tables(cloud_dict_expectation: dict, scanner: Scanner):
         f"""
           sample datasets:
             tables:
-                - include {table_name}
+              - include {table_name}
         """
     )
     scan.execute()
@@ -118,41 +27,79 @@ def test_sample_tables(cloud_dict_expectation: dict, scanner: Scanner):
     discover_tables_result = mock_soda_cloud.pop_scan_result()
 
     assert discover_tables_result is not None
-    assert discover_tables_result["profiling"][0] == cloud_dict_expectation[scan._data_source_name]
+    profilings = discover_tables_result["profiling"]
+    profiling = profilings[0]
+    sample_file = profiling["sampleFile"]
+    columns = sample_file["columns"]
+    casify = scanner.data_source.default_casify_column_name
+    assert [c["name"] for c in columns] == [
+        casify(c)
+        for c in [
+            "id",
+            "customer_id_nok",
+            "customer_id_ok",
+            "customer_country",
+            "customer_zip",
+            "text",
+        ]
+    ]
+    for c in columns:
+        type = c["type"]
+        assert isinstance(type, str)
+        assert len(type) > 0
+    assert sample_file["totalRowCount"] == 7
+    assert sample_file["storedRowCount"] == 7
+
+    reference = sample_file["reference"]
+    type = reference["type"]
+    assert type == "sodaCloudStorage"
+    file_id = reference["fileId"]
+    assert isinstance(file_id, str)
+    assert len(file_id) > 0
 
 
-@pytest.mark.parametrize(
-    "soda_cl_str, expectation",
-    [
-        pytest.param(
-            """
-                - include sodatest_customers_%
-            """,
-            3,
-            id="include all soda test customer tables",
-        ),
-        pytest.param(
-            """
-               - include sodatest_cust%
-               - exclude sodatest_customersdist_%
-            """,
-            2,
-            id="exclude customers dist",
-        ),
-    ],
-)
-def test_discover_tables_customer_wildcard(scanner: Scanner, soda_cl_str, expectation):
+def test_discover_tables_customer_wildcard_incl_only(scanner: Scanner):
+    scanner.ensure_test_table(customers_test_table)
+    orders_test_table_name = scanner.ensure_test_table(orders_test_table)
+
     scan = scanner.create_test_scan()
     mock_soda_cloud = scan.enable_mock_soda_cloud()
     scan.enable_mock_sampler()
     scan.add_sodacl_yaml_str(
         f"""
-          sample datasets:
-            tables:
-                {soda_cl_str}
+        sample datasets:
+          tables:
+            - include %{orders_test_table_name[:-2]}%
         """
     )
     scan.execute()
     discover_tables_result = mock_soda_cloud.pop_scan_result()
     assert discover_tables_result is not None
-    assert len(discover_tables_result["profiling"]) == expectation
+    profilings = discover_tables_result["profiling"]
+    dataset_names = [profiling["table"].lower() for profiling in profilings]
+    assert dataset_names == [orders_test_table_name.lower()]
+
+
+def test_discover_tables_customer_wildcard_incl_excl(scanner: Scanner):
+    scanner.ensure_test_table(customers_test_table)
+    scanner.ensure_test_table(orders_test_table)
+
+    scan = scanner.create_test_scan()
+    mock_soda_cloud = scan.enable_mock_soda_cloud()
+    scan.enable_mock_sampler()
+    scan.add_sodacl_yaml_str(
+        f"""
+        sample datasets:
+          tables:
+            - include %sodatest_%
+            - exclude %orders%
+            - exclude %profiling%
+        """
+    )
+    scan.execute()
+    discover_tables_result = mock_soda_cloud.pop_scan_result()
+    profilings = discover_tables_result["profiling"]
+    dataset_names = [profiling["table"] for profiling in profilings]
+    for dataset_name in dataset_names:
+        assert "order" not in dataset_name.lower()
+        assert "profiling" not in dataset_name.lower()

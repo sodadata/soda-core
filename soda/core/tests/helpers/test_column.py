@@ -2,6 +2,8 @@ from __future__ import annotations
 
 
 class TestColumn:
+    __test__ = False
+
     def __init__(self, name: str, data_type: str):
         self.name: str = name
         self.data_type: str = data_type
