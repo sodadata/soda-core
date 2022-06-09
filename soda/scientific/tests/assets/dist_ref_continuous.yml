@@ -1,6 +1,6 @@
 table: ex_table
 column: size
-method: continuous
+distribution_type: continuous
 distribution reference:
     bins: [
         -3.34034354,

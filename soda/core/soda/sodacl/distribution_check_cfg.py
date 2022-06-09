@@ -19,6 +19,7 @@ class DistributionCheckCfg(CheckCfg):
         reference_file_path: str,
         fail_threshold_cfg: ThresholdCfg | None,
         warn_threshold_cfg: ThresholdCfg | None,
+        method: str,
     ):
         super().__init__(
             source_header=source_header,
@@ -33,6 +34,7 @@ class DistributionCheckCfg(CheckCfg):
         self.reference_file_path = reference_file_path
         self.fail_threshold_cfg = fail_threshold_cfg
         self.warn_threshold_cfg = warn_threshold_cfg
+        self.method = method
 
     def get_column_name(self) -> str | None:
         return self.column_name
