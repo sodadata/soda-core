@@ -1,7 +1,8 @@
+from __future__ import annotations
+
 import json
 import logging
 from json.decoder import JSONDecodeError
-from typing import Dict, List, Optional
 
 from google.cloud import bigquery
 from google.cloud.bigquery import dbapi
@@ -17,11 +18,11 @@ logger = logging.getLogger(__name__)
 class DataSourceImpl(DataSource):
     TYPE = "bigquery"
 
-    SCHEMA_CHECK_TYPES_MAPPING: Dict = {
+    SCHEMA_CHECK_TYPES_MAPPING: dict = {
         "STRING": ["character varying", "varchar"],
         "INT64": ["integer", "int"],
     }
-    SQL_TYPE_FOR_CREATE_TABLE_MAP: Dict = {
+    SQL_TYPE_FOR_CREATE_TABLE_MAP: dict = {
         DataType.TEXT: "STRING",
         DataType.INTEGER: "INT64",
         DataType.DECIMAL: "NUMERIC",
@@ -146,9 +147,7 @@ class DataSourceImpl(DataSource):
         )
         return sql
 
-    def sql_get_column(
-        self, include_tables: Optional[List[str]] = None, exclude_tables: Optional[List[str]] = None
-    ) -> str:
+    def sql_get_column(self, include_tables: list[str] | None = None, exclude_tables: list[str] | None = None) -> str:
         table_filter_expression = self.sql_table_include_exclude_filter(
             "table_name", "table_schema", include_tables, exclude_tables
         )
@@ -160,7 +159,7 @@ class DataSourceImpl(DataSource):
         )
 
     def sql_get_table_names_with_count(
-        self, include_tables: Optional[List[str]] = None, exclude_tables: Optional[List[str]] = None
+        self, include_tables: list[str] | None = None, exclude_tables: list[str] | None = None
     ) -> str:
         table_filter_expression = self.sql_table_include_exclude_filter(
             "table_id", "dataset_id", include_tables, exclude_tables
@@ -195,7 +194,7 @@ class DataSourceImpl(DataSource):
     def regex_replace_flags(self) -> str:
         return ""
 
-    def get_metric_sql_aggregation_expression(self, metric_name: str, metric_args: Optional[List[object]], expr: str):
+    def get_metric_sql_aggregation_expression(self, metric_name: str, metric_args: list[object] | None, expr: str):
         # TODO add all of these bigquery specific statistical aggregate functions: https://cloud.google.com/bigquery/docs/reference/standard-sql/aggregate_analytic_functions
         if metric_name in [
             "stddev",
