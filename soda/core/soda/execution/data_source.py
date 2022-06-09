@@ -236,7 +236,7 @@ class DataSource:
     ) -> str:
         # build optional filter clauses
         if self.database:
-            database_filer += f" \n  AND lower({self.column_metadata_catalog_column()}) = '{self.database.lower()}'"
+            database_filter += f" \n  AND lower({self.column_metadata_catalog_column()}) = '{self.database.lower()}'"
         else:
             database_filter = ""
 
