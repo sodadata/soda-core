@@ -18,7 +18,7 @@ RUN apt-get update && \
     libpq-dev \
     libsasl2-dev \
     libssl-dev libffi-dev \
-    python3.9 python3.9-dev libpython3.9-dev libpython3.9 \
+    python3.9 python3.9-dev python3.9-venv libpython3.9-dev libpython3.9 \
     python3.9-distutils \
     unixodbc-dev git && \
     apt-get clean -qq -y && \
