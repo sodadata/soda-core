@@ -1,7 +1,38 @@
-FROM python:3.9-bullseye
+FROM ubuntu:22.04
 
-# Remove after direct git reference to Prophet is removed.
-RUN apt-get update && apt-get -y install git
+ENV DEBIAN_FRONTEND=noninteractive
+ENV TZ=Etc/UTC
+ENV LC_ALL=C.UTF-8
+ENV LANG=C.UTF-8
+
+# install dependencies
+RUN apt-get update && \
+    apt-get upgrade -y && \
+    apt-get remove -y python3 && \
+    apt-get install -y --no-install-recommends software-properties-common gnupg2 && \
+    add-apt-repository -y ppa:deadsnakes/ppa && \
+    apt-get update && \
+    apt-get upgrade -y && \
+    apt-get install -y --no-install-recommends \
+    build-essential curl \
+    libpq-dev \
+    libsasl2-dev \
+    libssl-dev libffi-dev \
+    python3.9 python3.9-dev libpython3.9-dev libpython3.9 \
+    python3.9-distutils \
+    unixodbc-dev git && \
+    apt-get clean -qq -y && \
+    apt-get autoclean -qq -y && \
+    apt-get autoremove -qq -y && \
+    rm -rf /var/lib/apt/lists/*
+RUN ln -s /usr/bin/python3.9 /usr/bin/python && \
+    curl https://bootstrap.pypa.io/get-pip.py -o get-pip.py && \
+    python3.9 get-pip.py
+
+# extra dependencies for soda-scientific
+RUN pip --no-cache-dir install "numpy>=1.15.4" \
+                               "Cython>=0.22"
+RUN pip --no-cache-dir install -r "https://raw.githubusercontent.com/facebook/prophet/v1.0/python/requirements.txt"
 
 RUN mkdir /app
 
@@ -14,7 +45,20 @@ COPY . .
 RUN pip install "$(cat dev-requirements.in | grep pip-tools)" && \
     pip install -r dev-requirements.txt
 
-RUN cat requirements.txt | while read requirement || [[ -n $requirement ]]; do pip install -e $requirement; done
+# skipping spark for now
+#RUN cat requirements.txt | while read requirement || [[ -n $requirement ]]; do pip install -e $requirement; done
+RUN pip install -e ./soda/core && \
+    pip install -e ./soda/postgres && \
+    pip install -e ./soda/bigquery && \
+    pip install -e ./soda/snowflake && \
+    pip install -e ./soda/redshift && \
+    pip install -e ./soda/athena && \
+    pip install -e ./soda/scientific
+
+RUN apt-get purge -y build-essential git curl && \
+    apt-get clean -qq -y && \
+    apt-get autoclean -qq -y && \
+    apt-get autoremove -qq -y
 
 ENTRYPOINT [ "soda" ]
 CMD [ "scan" ]
