@@ -476,6 +476,7 @@ class SodaCLParser(Parser):
         # Parse the nested check configuration details
         name = None
         filter = None
+        method = None
         missing_and_valid_cfg = None
         condition = None
         metric_expression = None
@@ -491,6 +492,8 @@ class SodaCLParser(Parser):
                     filter = configuration_value.strip()
                 elif "condition" == configuration_key:
                     condition = configuration_value.strip()
+                elif "method" == configuration_key:
+                    method = configuration_value.strip()
                 elif configuration_key.endswith("expression"):
                     metric_expression = configuration_value.strip()
                     configuration_metric_name = (
@@ -637,6 +640,7 @@ class SodaCLParser(Parser):
                 column_name=column_name,
                 distribution_name=distribution_name,
                 filter=None,
+                method=method,
                 reference_file_path=reference_file_path,
                 fail_threshold_cfg=fail_threshold_cfg,
                 warn_threshold_cfg=warn_threshold_cfg,
