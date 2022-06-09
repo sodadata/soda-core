@@ -634,7 +634,7 @@ class SodaCLParser(Parser):
             
             if not fail_threshold_cfg and not warn_threshold_cfg:
                 self.logs.error(
-                    f'''Make sure that your distribution check definition adheres to the following syntax: \n''' 
+                    f'''You did not define a threshold for your distribution check. Please use the following syntax\n'''
                     f'''- distribution_difference(column_name, reference_distribution) > threshold: \n'''
                     f'''    distribution reference file: distribution_reference.yml''',
                     location=self.location,
