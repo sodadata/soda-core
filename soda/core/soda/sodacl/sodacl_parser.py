@@ -538,7 +538,7 @@ class SodaCLParser(Parser):
                 location=self.location,
             )
 
-        if metric_name == 'freshness':
+        if metric_name == "freshness":
             if metric_args:
                 column_name = metric_args[0]
                 variable_name = metric_args[1] if len(metric_args) > 1 else None
@@ -558,7 +558,7 @@ class SodaCLParser(Parser):
                     warn_freshness_threshold=warn_freshness_threshold,
                 )
             else:
-                self.logs.error('Metric freshness must have at least 1 arg', location=self.location)
+                self.logs.error("Metric freshness must have at least 1 arg", location=self.location)
                 return None
 
         metric_check_cfg_class = MetricCheckCfg
@@ -998,7 +998,9 @@ class SodaCLParser(Parser):
         check_str: str,
         check_configurations: dict | None,
     ) -> CheckCfg:
-        self.logs.warning("Syntax of freshness check has changed and is deprecated.  Use freshness(column_name) < 24h30m  See docs")
+        self.logs.warning(
+            "Syntax of freshness check has changed and is deprecated.  Use freshness(column_name) < 24h30m  See docs"
+        )
 
         antlr_freshness_check: SodaCLAntlrParser.Freshness_checkContext = antlr_freshness_check
 
@@ -1043,7 +1045,7 @@ class SodaCLParser(Parser):
     def parse_staleness_threshold_text(self, staleness_threshold_text):
         if isinstance(staleness_threshold_text, str):
             if staleness_threshold_text.startswith("when > "):
-                return self.parse_freshness_threshold(staleness_threshold_text[len("when > "):])
+                return self.parse_freshness_threshold(staleness_threshold_text[len("when > ") :])
             else:
                 self.logs.error(
                     f'Invalid staleness threshold "{staleness_threshold_text}"',
@@ -1057,7 +1059,7 @@ class SodaCLParser(Parser):
             minutes = 0
             seconds = 0
             previous_unit = None
-            match = re.match(r'(\d+[dhms])+(\d+)?', freshness_threshold_text)
+            match = re.match(r"(\d+[dhms])+(\d+)?", freshness_threshold_text)
             for group in match.groups():
                 if isinstance(group, str):
                     if group.isdigit():
@@ -1066,13 +1068,13 @@ class SodaCLParser(Parser):
                         unit = group[-1:]
 
                     value = int(group[:-1])
-                    if unit == 'd':
+                    if unit == "d":
                         days += value
-                    elif unit == 'h':
+                    elif unit == "h":
                         hours += value
-                    elif unit == 'm':
+                    elif unit == "m":
                         minutes += value
-                    elif unit == 's':
+                    elif unit == "s":
                         seconds += value
 
                     previous_unit = unit
@@ -1080,9 +1082,7 @@ class SodaCLParser(Parser):
                 return timedelta(days=days, hours=hours, minutes=minutes, seconds=seconds)
         except Exception as e:
             self.logs.error(
-                f'Problem parsing freshness threshold "{freshness_threshold_text}"',
-                location=self.location,
-                exception=e
+                f'Problem parsing freshness threshold "{freshness_threshold_text}"', location=self.location, exception=e
             )
 
     def __antlr_parse_threshold_condition(self, antlr_threshold) -> ThresholdCfg:
