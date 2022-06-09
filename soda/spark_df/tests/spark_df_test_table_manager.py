@@ -17,30 +17,7 @@ class SparkDfTestTableManager(TestTableManager):
         spark_columns = []
         for test_column in test_table.test_columns:
             column_name = test_column.name
-
-            if test_column.data_type == DataType.TEXT:
-                spark_type = types.StringType()
-            elif test_column.data_type == DataType.INTEGER:
-                spark_type = types.IntegerType()
-            elif test_column.data_type == DataType.DECIMAL:
-                spark_type = types.DoubleType()
-            elif test_column.data_type == DataType.DATE:
-                spark_type = types.DateType()
-            elif test_column.data_type == DataType.TIME:
-                raise NotImplementedError(
-                    "Don't know how to convert time values to timestamp as Spark doesn't support times"
-                )
-            elif test_column.data_type == DataType.TIMESTAMP:
-                spark_type = types.TimestampType()
-            elif test_column.data_type == DataType.TIMESTAMP_TZ:
-                spark_type = types.TimestampType()
-            elif test_column.data_type == DataType.BOOLEAN:
-                spark_type = types.BooleanType()
-            else:
-                raise NotImplementedError(
-                    f"Test column type {test_column.data_type} not supported in spark dataframe testing"
-                )
-
+            spark_type = self.build_spark_type(test_column.data_type)
             spark_column = types.StructField(column_name, spark_type)
             spark_columns.append(spark_column)
 
@@ -63,6 +40,47 @@ class SparkDfTestTableManager(TestTableManager):
         df.printSchema()
         df.show()
         df.createOrReplaceTempView(test_table.unique_table_name)
+
+    @staticmethod
+    def build_spark_type(data_type: str) -> types.DataType:
+        if data_type.startswith("array[") and data_type.endswith("]"):
+            element_data_type = data_type[6:-1].strip()
+            element_spark_type = SparkDfTestTableManager.build_spark_type(element_data_type)
+            return types.ArrayType(element_spark_type)
+
+        if data_type.startswith("struct[") and data_type.endswith("]"):
+            spark_field_types = []
+            field_types = data_type[7:-1].strip().split(",")
+            for field_type in field_types:
+                field_type_parts = field_type.split(":", 1)
+                field_name = field_type_parts[0]
+                field_data_type = field_type_parts[1]
+                field_spark_type = SparkDfTestTableManager.build_spark_type(field_data_type)
+                spark_field_types.append(types.StructField(field_name, field_spark_type))
+            return types.StructType(spark_field_types)
+
+        if data_type == DataType.TEXT:
+            return types.StringType()
+        if data_type == DataType.INTEGER:
+            return types.IntegerType()
+        if data_type == DataType.DECIMAL:
+            return types.DoubleType()
+        if data_type == DataType.DATE:
+            return types.DateType()
+        if data_type == DataType.TIMESTAMP:
+            return types.TimestampType()
+        if data_type == DataType.TIMESTAMP_TZ:
+            return types.TimestampType()
+        if data_type == DataType.BOOLEAN:
+            return types.BooleanType()
+
+        if data_type == DataType.TIME:
+            raise NotImplementedError(
+                "Don't know how to convert time values to timestamp as Spark doesn't support times"
+            )
+        raise NotImplementedError(
+            f"Test column type {data_type} not supported in spark dataframe testing"
+        )
 
     @staticmethod
     def convert_test_value_to_spark_value(test_value, test_column, sparkDataType):
