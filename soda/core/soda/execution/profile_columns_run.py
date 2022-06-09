@@ -90,9 +90,6 @@ class ProfileColumnsRun:
                             column_name,
                             column_type,
                             table_name,
-                            columns_metadata_result,
-                            included_columns,
-                            excluded_columns,
                             profile_columns_result_table,
                         )
                     except Exception as e:
@@ -112,9 +109,6 @@ class ProfileColumnsRun:
                             column_name,
                             column_type,
                             table_name,
-                            columns_metadata_result,
-                            included_columns,
-                            excluded_columns,
                             profile_columns_result_table,
                         )
                     except Exception as e:
@@ -129,9 +123,6 @@ class ProfileColumnsRun:
         column_name: str,
         column_type: str,
         table_name: str,
-        columns_metadata_result: dict,
-        included_columns: list[str],
-        excluded_columns: list[str],
         profile_columns_result_table: ProfileColumnsResultTable,
     ):
         self.logs.debug(f"Profiling column {column_name} of {table_name}")
@@ -256,9 +247,6 @@ class ProfileColumnsRun:
         column_name: str,
         column_type: str,
         table_name: str,
-        columns_metadata_result: dict,
-        included_columns: list[str],
-        excluded_columns: list[str],
         profile_columns_result_table: ProfileColumnsResultTable,
     ):
         profile_columns_result_column, is_included_column = self.build_profiling_column(
