@@ -105,3 +105,7 @@ class DistributionCheck(Check):
             f"FROM {self.partition.table.fully_qualified_table_name}{partition_str}{limit_str}"
         )
         return sql
+
+    def get_summary(self) -> str:
+        error_summary = ' NO THRESHOLD PROVIDED ->' if not self.check_cfg.fail_threshold_cfg and not self.check_cfg.warn_threshold_cfg else ''
+        return super().get_summary() + error_summary
