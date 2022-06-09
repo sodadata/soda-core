@@ -78,9 +78,7 @@ class SparkDfTestTableManager(TestTableManager):
             raise NotImplementedError(
                 "Don't know how to convert time values to timestamp as Spark doesn't support times"
             )
-        raise NotImplementedError(
-            f"Test column type {data_type} not supported in spark dataframe testing"
-        )
+        raise NotImplementedError(f"Test column type {data_type} not supported in spark dataframe testing")
 
     @staticmethod
     def convert_test_value_to_spark_value(test_value, test_column, sparkDataType):

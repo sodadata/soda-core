@@ -4,8 +4,9 @@ from tests.helpers.test_table import TestTable
 
 
 def test_spark_df_complex_data_types(scanner: Scanner):
-    table_name = scanner.ensure_test_table(TestTable(
-        # fmt: off
+    table_name = scanner.ensure_test_table(
+        TestTable(
+            # fmt: off
         name="SparkDfDataComplexTypes",
         columns=[
             ("a", DataType.array(DataType.TEXT)),
@@ -21,8 +22,9 @@ def test_spark_df_complex_data_types(scanner: Scanner):
             (["a", "b"], {"nested1": "b"}),
             (None, None),
         ]
-        # fmt: on
-    ))
+            # fmt: on
+        )
+    )
 
     scan = scanner.create_test_scan()
     scan.add_sodacl_yaml_str(
