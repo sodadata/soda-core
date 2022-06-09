@@ -192,7 +192,7 @@ class SodaCLAntlrParser ( Parser ):
                      "'h'", "'m'", "'row_count same as'", "'default'", "'same day last week'", 
                      "'same day last month'", "'anomaly score for '", "'values in'", 
                      "'must exist in'", "'checks for'", "'filter'", "'configurations for'", 
-                     "'for each table'", "'for each column'", "'.'", "'for'", 
+                     "'for each dataset'", "'for each column'", "'.'", "'for'", 
                      "'and'", "'between'", "'not'", "'in'", "'warn'", "'fail'", 
                      "'pass'", "'change'", "'last'", "'avg'", "'min'", "'max'", 
                      "'['", "']'", "'{'", "'}'", "'('", "')'", "','", "'%'", 
@@ -249,7 +249,7 @@ class SodaCLAntlrParser ( Parser ):
     RULE_partition_name = 33
     RULE_table_filter_header = 34
     RULE_column_configurations_header = 35
-    RULE_checks_for_each_table_header = 36
+    RULE_checks_for_each_dataset_header = 36
     RULE_checks_for_each_column_header = 37
     RULE_signed_number = 38
     RULE_number = 39
@@ -267,7 +267,7 @@ class SodaCLAntlrParser ( Parser ):
                    "threshold_value", "reference_check", "source_column_name", 
                    "target_column_name", "section_header", "table_checks_header", 
                    "partition_name", "table_filter_header", "column_configurations_header", 
-                   "checks_for_each_table_header", "checks_for_each_column_header", 
+                   "checks_for_each_dataset_header", "checks_for_each_column_header", 
                    "signed_number", "number", "integer", "identifier" ]
 
     EOF = Token.EOF
@@ -2621,8 +2621,8 @@ class SodaCLAntlrParser ( Parser ):
             return self.getTypedRuleContext(SodaCLAntlrParser.Table_filter_headerContext,0)
 
 
-        def checks_for_each_table_header(self):
-            return self.getTypedRuleContext(SodaCLAntlrParser.Checks_for_each_table_headerContext,0)
+        def checks_for_each_dataset_header(self):
+            return self.getTypedRuleContext(SodaCLAntlrParser.Checks_for_each_dataset_headerContext,0)
 
 
         def checks_for_each_column_header(self):
@@ -2675,7 +2675,7 @@ class SodaCLAntlrParser ( Parser ):
             elif token in [SodaCLAntlrParser.T__15]:
                 self.enterOuterAlt(localctx, 4)
                 self.state = 315
-                self.checks_for_each_table_header()
+                self.checks_for_each_dataset_header()
                 pass
             elif token in [SodaCLAntlrParser.T__16]:
                 self.enterOuterAlt(localctx, 5)
@@ -2961,7 +2961,7 @@ class SodaCLAntlrParser ( Parser ):
         return localctx
 
 
-    class Checks_for_each_table_headerContext(ParserRuleContext):
+    class Checks_for_each_dataset_headerContext(ParserRuleContext):
         __slots__ = 'parser'
 
         def __init__(self, parser, parent:ParserRuleContext=None, invokingState:int=-1):
@@ -2979,29 +2979,29 @@ class SodaCLAntlrParser ( Parser ):
             return self.getToken(SodaCLAntlrParser.EOF, 0)
 
         def getRuleIndex(self):
-            return SodaCLAntlrParser.RULE_checks_for_each_table_header
+            return SodaCLAntlrParser.RULE_checks_for_each_dataset_header
 
         def enterRule(self, listener:ParseTreeListener):
-            if hasattr( listener, "enterChecks_for_each_table_header" ):
-                listener.enterChecks_for_each_table_header(self)
+            if hasattr( listener, "enterChecks_for_each_dataset_header" ):
+                listener.enterChecks_for_each_dataset_header(self)
 
         def exitRule(self, listener:ParseTreeListener):
-            if hasattr( listener, "exitChecks_for_each_table_header" ):
-                listener.exitChecks_for_each_table_header(self)
+            if hasattr( listener, "exitChecks_for_each_dataset_header" ):
+                listener.exitChecks_for_each_dataset_header(self)
 
         def accept(self, visitor:ParseTreeVisitor):
-            if hasattr( visitor, "visitChecks_for_each_table_header" ):
-                return visitor.visitChecks_for_each_table_header(self)
+            if hasattr( visitor, "visitChecks_for_each_dataset_header" ):
+                return visitor.visitChecks_for_each_dataset_header(self)
             else:
                 return visitor.visitChildren(self)
 
 
 
 
-    def checks_for_each_table_header(self):
+    def checks_for_each_dataset_header(self):
 
-        localctx = SodaCLAntlrParser.Checks_for_each_table_headerContext(self, self._ctx, self.state)
-        self.enterRule(localctx, 72, self.RULE_checks_for_each_table_header)
+        localctx = SodaCLAntlrParser.Checks_for_each_dataset_headerContext(self, self._ctx, self.state)
+        self.enterRule(localctx, 72, self.RULE_checks_for_each_dataset_header)
         try:
             self.enterOuterAlt(localctx, 1)
             self.state = 344

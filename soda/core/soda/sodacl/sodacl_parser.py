@@ -22,7 +22,7 @@ from soda.sodacl.check_cfg import CheckCfg
 from soda.sodacl.data_source_check_cfg import DataSourceCheckCfg
 from soda.sodacl.distribution_check_cfg import DistributionCheckCfg
 from soda.sodacl.for_each_column_cfg import ForEachColumnCfg
-from soda.sodacl.for_each_table_cfg import ForEachTableCfg
+from soda.sodacl.for_each_dataset_cfg import ForEachDatasetCfg
 from soda.sodacl.freshness_check_cfg import FreshnessCheckCfg
 from soda.sodacl.missing_and_valid_cfg import CFG_MISSING_VALID_ALL, MissingAndValidCfg
 from soda.sodacl.name_filter import NameFilter
@@ -129,9 +129,9 @@ class SodaCLParser(Parser):
                             self.__parse_table_filter_section(
                                 antlr_section_header.table_filter_header(), header_str, header_content
                             )
-                        elif antlr_section_header.checks_for_each_table_header():
-                            self.__parse_antlr_checks_for_each_table_section(
-                                antlr_section_header.checks_for_each_table_header(),
+                        elif antlr_section_header.checks_for_each_dataset_header():
+                            self.__parse_antlr_checks_for_each_dataset_section(
+                                antlr_section_header.checks_for_each_dataset_header(),
                                 header_str,
                                 header_content,
                             )
@@ -1277,7 +1277,7 @@ class SodaCLParser(Parser):
                 column_name_filter = None
 
                 filter_pieces_list = re.split(r"\.", name_filter_pieces_str)
-                if isinstance(for_each_cfg, ForEachTableCfg):
+                if isinstance(for_each_cfg, ForEachDatasetCfg):
                     if len(filter_pieces_list) == 1:
                         data_source_name_filter = self.data_source_name
                         table_name_filter = filter_pieces_list[0]
@@ -1354,25 +1354,25 @@ class SodaCLParser(Parser):
         # TODO consider resolving escape chars from a quoted strings:
         # identifier = re.sub(r'\\(.)', '\g<1>', unquoted_identifier)
 
-    def __parse_antlr_checks_for_each_table_section(
-        self, antlr_checks_for_each_table_header, header_str, header_content
+    def __parse_antlr_checks_for_each_dataset_section(
+        self, antlr_checks_for_each_dataset_header, header_str, header_content
     ):
-        for_each_table_cfg = ForEachTableCfg()
-        for_each_table_cfg.table_alias_name = self.__antlr_parse_identifier_name_from_header(
-            antlr_checks_for_each_table_header
+        for_each_dataset_cfg = ForEachDatasetCfg()
+        for_each_dataset_cfg.table_alias_name = self.__antlr_parse_identifier_name_from_header(
+            antlr_checks_for_each_dataset_header
         )
         tables = self._get_required("tables", list)
         if tables:
             self._push_path_element("tables", tables)
-            self.__parse_nameset_list(tables, for_each_table_cfg)
+            self.__parse_nameset_list(tables, for_each_dataset_cfg)
             self._pop_path_element()
         check_cfgs = self._get_required("checks", list)
         if check_cfgs:
             self._push_path_element("checks", check_cfgs)
-            for_each_table_cfg.check_cfgs = self.__parse_checks_in_for_each_section(header_str, check_cfgs)
+            for_each_dataset_cfg.check_cfgs = self.__parse_checks_in_for_each_section(header_str, check_cfgs)
             self._pop_path_element()
-        for_each_table_cfg.location = self.location
-        self.sodacl_cfg.for_each_table_cfgs.append(for_each_table_cfg)
+        for_each_dataset_cfg.location = self.location
+        self.sodacl_cfg.for_each_dataset_cfgs.append(for_each_dataset_cfg)
 
     def __parse_antlr_checks_for_each_column_section(
         self, antlr_checks_for_each_column_header, header_str, header_content

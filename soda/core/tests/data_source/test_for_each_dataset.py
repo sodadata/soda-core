@@ -7,14 +7,14 @@ from tests.helpers.fixtures import test_data_source
 from tests.helpers.scanner import Scanner
 
 
-def test_for_each_table(scanner: Scanner):
+def test_for_each_dataset(scanner: Scanner):
     customers_table_name = scanner.ensure_test_table(customers_test_table)
     rawcustomers_table_name = scanner.ensure_test_table(raw_customers_test_table)
 
     scan = scanner.create_test_scan()
     scan.add_sodacl_yaml_str(
         f"""
-          for each table T:
+          for each dataset D:
             tables:
               - {customers_table_name}
               - include {rawcustomers_table_name}%
@@ -35,14 +35,14 @@ def test_for_each_table(scanner: Scanner):
     test_data_source != "postgres",
     reason="Run for postgres only as nothing data source specific is tested.",
 )
-def test_for_each_table_schema(scanner: Scanner):
+def test_for_each_dataset_schema(scanner: Scanner):
     customers_table_name = scanner.ensure_test_table(customers_test_table)
     casify = scanner.data_source.default_casify_column_name
 
     scan = scanner.create_test_scan()
     scan.add_sodacl_yaml_str(
         f"""
-          for each table T:
+          for each dataset D:
             tables:
               - {customers_table_name}
             checks:

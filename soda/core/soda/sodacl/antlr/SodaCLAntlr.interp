@@ -15,7 +15,7 @@ null
 'checks for'
 'filter'
 'configurations for'
-'for each table'
+'for each dataset'
 'for each column'
 '.'
 'for'
@@ -147,7 +147,7 @@ table_checks_header
 partition_name
 table_filter_header
 column_configurations_header
-checks_for_each_table_header
+checks_for_each_dataset_header
 checks_for_each_column_header
 signed_number
 number

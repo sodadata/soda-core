@@ -139,7 +139,7 @@ section_header
  : table_checks_header
  | column_configurations_header
  | table_filter_header
- | checks_for_each_table_header
+ | checks_for_each_dataset_header
  | checks_for_each_column_header
  ;
 
@@ -159,8 +159,8 @@ column_configurations_header
  : 'configurations for' S identifier EOF
  ;
 
-checks_for_each_table_header
- : 'for each table' S identifier EOF
+checks_for_each_dataset_header
+ : 'for each dataset' S identifier EOF
  ;
 
 checks_for_each_column_header
