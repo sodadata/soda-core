@@ -205,7 +205,13 @@ class DataSource:
     # For a table, get the columns metadata
     ############################################
 
-    def get_table_columns(self, table_name: str, query_name: str) -> dict[str, str]:
+    def get_table_columns(
+        self,
+        table_name: str,
+        query_name: str,
+        included_columns: list[str] | None = None,
+        excluded_columns: list[str] | None = None,
+    ) -> dict[str, str] | None:
         """
         :return: A dict mapping column names to data source data types.  Like eg
         {"id": "varchar", "size": "int8", ...}
@@ -213,25 +219,59 @@ class DataSource:
         query = Query(
             data_source_scan=self.data_source_scan,
             unqualified_query_name=query_name,
-            sql=self.sql_get_table_columns(table_name),
+            sql=self.sql_get_table_columns(
+                table_name, included_columns=included_columns, excluded_columns=excluded_columns
+            ),
         )
         query.execute()
-        return {row[0]: row[1] for row in query.rows}
+        if len(query.rows) > 0:
+            return {row[0]: row[1] for row in query.rows}
+        return None
 
     def create_table_columns_query(self, partition: Partition, schema_metric: SchemaMetric) -> TableColumnsQuery:
         return TableColumnsQuery(partition, schema_metric)
 
-    def sql_get_table_columns(self, table_name: str) -> str:
+    def sql_get_table_columns(
+        self, table_name: str, included_columns: list[str] | None = None, excluded_columns: list[str] | None = None
+    ) -> str:
+        # build optional filter clauses
+        if self.database:
+            database_filer += f" \n  AND lower({self.column_metadata_catalog_column()}) = '{self.database.lower()}'"
+        else:
+            database_filter = ""
+
+        if self.schema:
+            schema_filter = f" \n  AND lower(table_schema) = '{self.schema.lower()}'"
+        else:
+            schema_filter = ""
+
+        order_clause = f"\nORDER BY ORDINAL_POSITION"
+
+        if included_columns:
+            included_columns_filter = ""
+            for col in included_columns:
+                included_columns_filter += f"\n AND lower(column_name) LIKE '{col}'"
+        else:
+            included_columns_filter = ""
+
+        if excluded_columns:
+            excluded_columns_filter = ""
+            for col in excluded_columns:
+                excluded_columns_filter += f"\n AND lower(column_name) NOT LIKE '{col}'"
+        else:
+            excluded_columns_filter = ""
+
+        # compose query template
         sql = (
             f"SELECT {', '.join(self.column_metadata_columns())} \n"
             f"FROM information_schema.columns \n"
             f"WHERE lower(table_name) = '{table_name.lower()}'"
+            f"{database_filter}"
+            f"{schema_filter}"
+            f"{included_columns_filter}"
+            f"{excluded_columns_filter}"
+            f"{order_clause}"
         )
-        if self.database:
-            sql += f" \n  AND lower({self.column_metadata_catalog_column()}) = '{self.database.lower()}'"
-        if self.schema:
-            sql += f" \n  AND lower(table_schema) = '{self.schema.lower()}'"
-        sql += f"\nORDER BY ORDINAL_POSITION"
         return sql
 
     ############################################

@@ -123,12 +123,26 @@ class DataSourceImpl(DataSource):
             except JSONDecodeError as e:
                 logger.error(f"Error parsing credential 'account_info_json': {e}")
 
-    def sql_get_table_columns(self, table_name: str):
-        return (
+    def sql_get_table_columns(self, table_name: str, included_columns: str, excluded_columns: str):
+        included_columns_filter = ""
+        excluded_columns_filter = ""
+        if included_columns:
+            for col in included_columns:
+                included_columns_filter += f"\n AND lower(column_name) LIKE '{col}'"
+
+        if excluded_columns:
+            for col in excluded_columns:
+                excluded_columns_filter += f"\n AND lower(column_name) NOT LIKE '{col}'"
+
+        sql = (
             f"SELECT column_name, data_type, is_nullable "
             f"FROM `{self.dataset_name}.INFORMATION_SCHEMA.COLUMNS` "
-            f"WHERE table_name = '{table_name}';"
+            f"WHERE table_name = '{table_name}'"
+            f"{included_columns_filter}"
+            f"{excluded_columns_filter}"
+            ";"
         )
+        return sql
 
     def sql_get_column(
         self, include_tables: Optional[List[str]] = None, exclude_tables: Optional[List[str]] = None

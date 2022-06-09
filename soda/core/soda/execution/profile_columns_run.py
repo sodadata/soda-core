@@ -51,59 +51,74 @@ class ProfileColumnsRun:
         # row_counts is a dict that maps table names to row counts.
         row_counts_by_table_name: dict[str, int] = self.data_source.get_row_counts_all_tables(
             include_tables=self._get_table_expression(self.profile_columns_cfg.include_columns),
-            exclude_tables=self._get_table_expression(self.profile_columns_cfg.exclude_columns),
+            exclude_tables=self._get_table_expression(self.profile_columns_cfg.exclude_columns, is_for_exclusion=True),
             query_name="profile-columns-get-tables-and-row-counts",
         )
-        parsed_tables_and_columns = self._build_column_inclusion(self.profile_columns_cfg.include_columns)
+        parsed_included_tables_and_columns = self._build_column_expression_list(
+            self.profile_columns_cfg.include_columns
+        )
+        parsed_excluded_tables_and_columns = self._build_column_expression_list(
+            self.profile_columns_cfg.exclude_columns
+        )
         for table_name in row_counts_by_table_name:
             self.logs.debug(f"Profiling columns for {table_name}")
             measured_row_count = row_counts_by_table_name[table_name]
             profile_columns_result_table = profile_columns_result.create_table(
                 table_name, self.data_source.data_source_name, measured_row_count
             )
-
+            included_columns, excluded_columns = self.build_column_inclusion_exclusion_lists(
+                table_name, parsed_included_tables_and_columns, parsed_excluded_tables_and_columns
+            )
             # get columns & metadata for current table
             columns_metadata_result = self.data_source.get_table_columns(
-                table_name=table_name, query_name=f"profile-columns-get-column-metadata-for-{table_name}"
+                table_name=table_name,
+                query_name=f"profile-columns-get-column-metadata-for-{table_name}",
+                included_columns=included_columns,
+                excluded_columns=excluded_columns,
             )
-            # perform numerical metrics collection
-            numerical_columns = {
-                col_name: data_type
-                for col_name, data_type in columns_metadata_result.items()
-                if data_type in self.data_source.NUMERIC_TYPES_FOR_PROFILING
-            }
+            if columns_metadata_result is not None:
+                # perform numerical metrics collection
+                numerical_columns = {
+                    col_name: data_type
+                    for col_name, data_type in columns_metadata_result.items()
+                    if data_type in self.data_source.NUMERIC_TYPES_FOR_PROFILING
+                }
 
-            for column_name, column_type in numerical_columns.items():
-                try:
-                    self.profile_numeric_column(
-                        column_name,
-                        column_type,
-                        table_name,
-                        columns_metadata_result,
-                        parsed_tables_and_columns,
-                        profile_columns_result_table,
-                    )
-                except Exception as e:
-                    self.logs.error(f"Problem profiling numeric column {table_name}.{column_name}: {e}", exception=e)
+                for column_name, column_type in numerical_columns.items():
+                    try:
+                        self.profile_numeric_column(
+                            column_name,
+                            column_type,
+                            table_name,
+                            columns_metadata_result,
+                            included_columns,
+                            excluded_columns,
+                            profile_columns_result_table,
+                        )
+                    except Exception as e:
+                        self.logs.error(
+                            f"Problem profiling numeric column {table_name}.{column_name}: {e}", exception=e
+                        )
 
-            # text columns
-            text_columns = {
-                col_name: data_type
-                for col_name, data_type in columns_metadata_result.items()
-                if data_type in self.data_source.TEXT_TYPES_FOR_PROFILING
-            }
-            for column_name, column_type in text_columns.items():
-                try:
-                    self.profile_text_column(
-                        column_name,
-                        column_type,
-                        table_name,
-                        columns_metadata_result,
-                        parsed_tables_and_columns,
-                        profile_columns_result_table,
-                    )
-                except Exception as e:
-                    self.logs.error(f"Problem profiling text column {table_name}.{column_name}: {e}", exception=e)
+                # text columns
+                text_columns = {
+                    col_name: data_type
+                    for col_name, data_type in columns_metadata_result.items()
+                    if data_type in self.data_source.TEXT_TYPES_FOR_PROFILING
+                }
+                for column_name, column_type in text_columns.items():
+                    try:
+                        self.profile_text_column(
+                            column_name,
+                            column_type,
+                            table_name,
+                            columns_metadata_result,
+                            included_columns,
+                            excluded_columns,
+                            profile_columns_result_table,
+                        )
+                    except Exception as e:
+                        self.logs.error(f"Problem profiling text column {table_name}.{column_name}: {e}", exception=e)
 
         if not profile_columns_result.tables:
             self.logs.error(f"Profiling for data source: {self.data_source.data_source_name} failed")
@@ -115,7 +130,8 @@ class ProfileColumnsRun:
         column_type: str,
         table_name: str,
         columns_metadata_result: dict,
-        parsed_tables_and_columns: dict[str, list[str]],
+        included_columns: list[str],
+        excluded_columns: list[str],
         profile_columns_result_table: ProfileColumnsResultTable,
     ):
         self.logs.debug(f"Profiling column {column_name} of {table_name}")
@@ -124,7 +140,8 @@ class ProfileColumnsRun:
             column_type,
             table_name,
             list(columns_metadata_result.keys()),
-            parsed_tables_and_columns,
+            included_columns,
+            excluded_columns,
             profile_columns_result_table,
         )
         if profile_columns_result_column and is_included_column:
@@ -244,7 +261,8 @@ class ProfileColumnsRun:
         column_type: str,
         table_name: str,
         columns_metadata_result: dict,
-        parsed_tables_and_columns: dict[str, list[str]],
+        included_columns: list[str],
+        excluded_columns: list[str],
         profile_columns_result_table: ProfileColumnsResultTable,
     ):
         profile_columns_result_column, is_included_column = self.build_profiling_column(
@@ -252,7 +270,8 @@ class ProfileColumnsRun:
             column_type,
             table_name,
             list(columns_metadata_result.keys()),
-            parsed_tables_and_columns,
+            included_columns,
+            excluded_columns,
             profile_columns_result_table,
         )
         if profile_columns_result_column and is_included_column:
@@ -322,16 +341,16 @@ class ProfileColumnsRun:
         column_type: str,
         table_name: str,
         table_columns: list[str],
-        parsed_tables_and_columns: dict[str, list[str]],
+        included_columns: list[str],
+        excluded_columns: list[str],
         table_result: ProfileColumnsResultTable,
     ) -> tuple[ProfileColumnsResultColumn | None, bool]:
         column_name = column_name.lower()
-        if self._is_column_included_for_profiling(column_name, table_name, table_columns, parsed_tables_and_columns):
-            profile_columns_result_column: ProfileColumnsResultColumn = table_result.create_column(
-                column_name, column_type
-            )
-            return profile_columns_result_column, True
-        return None, False
+        # column_will_be_profiled = self._column_should_be_profiled(column_name, included_columns, excluded_columns)
+        # if column_will_be_profiled:
+        profile_columns_result_column: ProfileColumnsResultColumn = table_result.create_column(column_name, column_type)
+        # return profile_columns_result_column, True
+        return profile_columns_result_column, True
 
     def _is_column_included_for_profiling(
         self,
@@ -356,20 +375,40 @@ class ProfileColumnsRun:
         else:
             return False
 
-    # TODO: Deal with exclude set as well
-    def _build_column_inclusion(self, columns_expression: list[str]) -> dict[str, list[str]]:
-        included_columns = {}
+    def build_column_inclusion_exclusion_lists(
+        self,
+        table_name: str,
+        included_columns: dict[str, list[str]],
+        excluded_columns: dict[str, list[str]],
+    ) -> tuple[list[str], list[str]]:
+        _included_columns = included_columns.copy()
+        _excluded_columns = excluded_columns.copy()
+        included_all_tables = _included_columns.pop("%", [])
+        excluded_all_tables = _excluded_columns.pop("%", [])
+        table_name = table_name.lower()
+        # get the table entry that matches the current table name (also think about potential regex matching)
+        qualified_included_table_columns = _included_columns.get(table_name, [])
+        # get the list of columns for that fully qualified entry out
+        qualified_included_table_columns.extend(included_all_tables)
+        # do the same for excludes
+        qualified_excluded_table_columns = _excluded_columns.get(table_name, [])
+        qualified_excluded_table_columns.extend(excluded_all_tables)
+
+        return set(qualified_included_table_columns), set(qualified_excluded_table_columns)
+
+    def _build_column_expression_list(self, columns_expression: list[str]) -> dict[str, list[str]]:
+        selected_columns = {}
         for col_expression in columns_expression:
             table, column = col_expression.split(".")
             table = table.lower()
-            if table in included_columns.keys():
-                if included_columns[table] is None:
-                    included_columns[table] = [column]
+            if table in selected_columns.keys():
+                if selected_columns[table] is None:
+                    selected_columns[table] = [column]
                 else:
-                    included_columns[table].append(column)
+                    selected_columns[table].append(column)
             else:
-                included_columns.update({table: [column]})
-        return included_columns
+                selected_columns.update({table: [column]})
+        return selected_columns
 
     def _get_table_expression(self, columns_expression: list[str]) -> list[str]:
         table_expressions = []
@@ -383,6 +422,24 @@ class ProfileColumnsRun:
             else:
                 table_expression = parts[0]
                 table_expressions.append(table_expression)
+        return table_expressions
+
+    def _get_table_expression(self, columns_expression: list[str], is_for_exclusion: bool = False) -> list[str]:
+        table_expressions = []
+        for column_expression in columns_expression:
+            parts = column_expression.split(".")
+            if len(parts) != 2:
+                self.logs.error(
+                    f'Invalid include column expression "{column_expression}"',
+                    location=self.profile_columns_cfg.location,
+                )
+            else:
+                if is_for_exclusion:
+                    table_expression = parts[0] if parts[1] == "%" else None
+                else:
+                    table_expression = parts[0]
+                if table_expression is not None:
+                    table_expressions.append(table_expression)
         return table_expressions
 
     def _get_colums(self, columns_expression: list[str]) -> list[str]:
