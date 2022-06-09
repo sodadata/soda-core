@@ -157,7 +157,30 @@ class SparkSQLBase(DataSource):
     def __init__(self, logs: Logs, data_source_name: str, data_source_properties: dict, connection_properties: dict):
         super().__init__(logs, data_source_name, data_source_properties, connection_properties)
 
-    def sql_get_table_columns(self, table_name: str):
+    def sql_get_table_columns(
+        self, table_name: str, included_columns: list[str] | None = None, excluded_columns: list[str] | None = None
+    ):
+        if included_columns and excluded_columns:
+            included_columns_filter = ""
+            excluded_columns_filter = ""
+            if included_columns:
+                for col in included_columns:
+                    included_columns_filter += f"\n AND lower(column_name) LIKE '{col}'"
+
+            if excluded_columns:
+                for col in excluded_columns:
+                    excluded_columns_filter += f"\n AND lower(column_name) NOT LIKE '{col}'"
+
+            sql = (
+                f"SELECT column_name, data_type, is_nullable "
+                f"FROM {self.dataset_name}.INFORMATION_SCHEMA.COLUMNS "
+                f"WHERE lower(table_name) = '{table_name.lower()}'"
+                f"{included_columns_filter}"
+                f"{excluded_columns_filter}"
+                ";"
+            )
+            return sql
+
         return f"DESCRIBE TABLE {table_name}"
 
     def sql_get_column(self, include_tables: list[str] | None = None, exclude_tables: list[str] | None = None) -> str:

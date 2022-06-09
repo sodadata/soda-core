@@ -158,10 +158,10 @@ def test_profile_columns_all_tables_all_columns(scanner: Scanner):
     test_data_source == "athena",
     reason="TODO: fix for athena.",
 )
-@pytest.mark.skipif(
-    test_data_source == "spark_df",
-    reason="TODO: fix for spark_df.",
-)
+# @pytest.mark.skipif(
+#     test_data_source == "spark_df",
+#     reason="TODO: fix for spark_df.",
+# )
 @pytest.mark.parametrize(
     "table_name, soda_cl_str, expectation",
     [
