@@ -628,6 +628,15 @@ class SodaCLParser(Parser):
             reference_file_path: str = os.path.join(
                 os.path.dirname(self.location.file_path), check_configurations.get("distribution reference file")
             )
+            
+            if not fail_threshold_cfg and not warn_threshold_cfg:
+                self.logs.error(
+                    f'''Make sure that your distribution check definition adheres to the following syntax: \n''' 
+                    f'''- distribution_difference(column_name, reference_distribution) > threshold: \n'''
+                    f'''    distribution reference file: distribution_reference.yml''',
+                    location=self.location,
+                ) 
+
             return DistributionCheckCfg(
                 source_header=header_str,
                 source_line=check_str,
