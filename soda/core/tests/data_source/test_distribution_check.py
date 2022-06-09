@@ -4,8 +4,12 @@ from textwrap import dedent
 import pytest
 from tests.helpers.common_test_tables import customers_dist_check_test_table
 from tests.helpers.scanner import Scanner
+from tests.helpers.fixtures import test_data_source
 
-
+@pytest.mark.skipif(
+    test_data_source == "athena",
+    reason="TODO: fix for athena.",
+)
 def test_distribution_check(scanner: Scanner, mock_file_system):
     table_name = scanner.ensure_test_table(customers_dist_check_test_table)
 
@@ -47,6 +51,10 @@ def test_distribution_check(scanner: Scanner, mock_file_system):
     [
         pytest.param(customers_dist_check_test_table, "SELECT \n  size \nFROM {table_name}\n LIMIT 1000000"),
     ],
+)
+@pytest.mark.skipif(
+    test_data_source == "athena",
+    reason="TODO: fix for athena.",
 )
 def test_distribution_sql(scanner: Scanner, mock_file_system, table, expectation):
     table_name = scanner.ensure_test_table(table)
