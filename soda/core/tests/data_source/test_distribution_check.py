@@ -3,8 +3,9 @@ from textwrap import dedent
 
 import pytest
 from tests.helpers.common_test_tables import customers_dist_check_test_table
-from tests.helpers.scanner import Scanner
 from tests.helpers.fixtures import test_data_source
+from tests.helpers.scanner import Scanner
+
 
 @pytest.mark.skipif(
     test_data_source == "athena",
