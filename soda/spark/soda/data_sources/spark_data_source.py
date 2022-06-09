@@ -160,26 +160,10 @@ class SparkSQLBase(DataSource):
     def sql_get_table_columns(
         self, table_name: str, included_columns: list[str] | None = None, excluded_columns: list[str] | None = None
     ):
-        if included_columns and excluded_columns:
-            included_columns_filter = ""
-            excluded_columns_filter = ""
-            if included_columns:
-                for col in included_columns:
-                    included_columns_filter += f"\n AND lower(column_name) LIKE '{col}'"
-
-            if excluded_columns:
-                for col in excluded_columns:
-                    excluded_columns_filter += f"\n AND lower(column_name) NOT LIKE '{col}'"
-
-            sql = (
-                f"SELECT column_name, data_type, is_nullable "
-                f"FROM {self.dataset_name}.INFORMATION_SCHEMA.COLUMNS "
-                f"WHERE lower(table_name) = '{table_name.lower()}'"
-                f"{included_columns_filter}"
-                f"{excluded_columns_filter}"
-                ";"
+        if included_columns or excluded_columns:
+            self.logs.warning(
+                f"Column selection (inclusion and exclusion) is currently not supported in Spark. The entire table will therefore be profiled."
             )
-            return sql
 
         return f"DESCRIBE TABLE {table_name}"
 
