@@ -123,7 +123,7 @@ class DataSourceImpl(DataSource):
             except JSONDecodeError as e:
                 logger.error(f"Error parsing credential 'account_info_json': {e}")
 
-    def sql_to_get_column_metadata_for_table(self, table_name: str):
+    def sql_get_table_columns(self, table_name: str):
         return (
             f"SELECT column_name, data_type, is_nullable "
             f"FROM `{self.dataset_name}.INFORMATION_SCHEMA.COLUMNS` "
@@ -152,7 +152,7 @@ class DataSourceImpl(DataSource):
         where_clause = f"\nWHERE {table_filter_expression} \n" if table_filter_expression else ""
         return f"SELECT table_id, row_count \n" f"FROM {self.dataset_name}.__TABLES__" f"{where_clause}"
 
-    def sql_select_star_with_limit(self, table_name: str, limit: int = None) -> str:
+    def sql_select_all(self, table_name: str, limit: int = None) -> str:
         limit_sql = ""
         if limit is not None:
             limit_sql = f" \n LIMIT {limit}"
@@ -207,3 +207,9 @@ class DataSourceImpl(DataSource):
 
     def rollback(self):
         pass
+
+    def cast_to_text(self, expr: str) -> str:
+        return f"CAST({expr} AS STRING)"
+
+    def sql_union(self):
+        return "UNION ALL"

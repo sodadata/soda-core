@@ -1,5 +1,4 @@
 from soda.execution.query_metric import QueryMetric
-from soda.execution.schema_query import SchemaQuery
 
 
 class SchemaMetric(QueryMetric):
@@ -19,7 +18,7 @@ class SchemaMetric(QueryMetric):
         )
 
     def ensure_query(self):
-        self.schema_query = SchemaQuery(self.partition, self)
+        self.schema_query = self.data_source_scan.data_source.create_table_columns_query(self.partition, self)
         self.queries.append(self.schema_query)
         self.data_source_scan.queries.append(self.schema_query)
 

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from soda.scan import Scan
-from tests.conftest import project_root_dir
+from tests.helpers.fixtures import project_root_dir
 
 basedir = f"{project_root_dir}soda/core/tests/unit/test_collect_files_dir"
 
