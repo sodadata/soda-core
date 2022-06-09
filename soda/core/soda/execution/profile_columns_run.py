@@ -138,10 +138,6 @@ class ProfileColumnsRun:
         profile_columns_result_column, is_included_column = self.build_profiling_column(
             column_name,
             column_type,
-            table_name,
-            list(columns_metadata_result.keys()),
-            included_columns,
-            excluded_columns,
             profile_columns_result_table,
         )
         if profile_columns_result_column and is_included_column:
@@ -268,10 +264,6 @@ class ProfileColumnsRun:
         profile_columns_result_column, is_included_column = self.build_profiling_column(
             column_name,
             column_type,
-            table_name,
-            list(columns_metadata_result.keys()),
-            included_columns,
-            excluded_columns,
             profile_columns_result_table,
         )
         if profile_columns_result_column and is_included_column:
@@ -339,17 +331,10 @@ class ProfileColumnsRun:
         self,
         column_name: str,
         column_type: str,
-        table_name: str,
-        table_columns: list[str],
-        included_columns: list[str],
-        excluded_columns: list[str],
         table_result: ProfileColumnsResultTable,
     ) -> tuple[ProfileColumnsResultColumn | None, bool]:
         column_name = column_name.lower()
-        # column_will_be_profiled = self._column_should_be_profiled(column_name, included_columns, excluded_columns)
-        # if column_will_be_profiled:
         profile_columns_result_column: ProfileColumnsResultColumn = table_result.create_column(column_name, column_type)
-        # return profile_columns_result_column, True
         return profile_columns_result_column, True
 
     def _is_column_included_for_profiling(
