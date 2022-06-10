@@ -130,6 +130,8 @@ class Scan:
     def _parse_configuration_yaml_str(self, configuration_yaml_str: str, file_path: str = "yaml string"):
         from soda.configuration.configuration_parser import ConfigurationParser
 
+        assert "table" not in configuration_yaml_str
+
         environment_parse = ConfigurationParser(
             configuration=self._configuration,
             logs=self._logs,

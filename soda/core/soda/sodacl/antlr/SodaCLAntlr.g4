@@ -148,6 +148,7 @@ column_configurations_header
 
 checks_for_each_dataset_header
  : 'for each dataset' S identifier EOF
+ | 'for each table' S identifier EOF
  ;
 
 checks_for_each_column_header

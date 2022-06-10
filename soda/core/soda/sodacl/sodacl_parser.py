@@ -96,9 +96,8 @@ class SodaCLParser(Parser):
         for header_str, header_content in headers_dict.items():
 
             # Backwards compatibility warning
-            if "table" in header_str:
-                s = 's' if "tables" in header_str else ''
-                self.logs.warning(f"Please update table{s} to dataset{s} in: {header_str}", location=self.location)
+            if "for each table" in header_str:
+                self.logs.warning(f"Please update 'for each table ...' to 'for each dataset ...'.", location=self.location)
 
             self._push_path_element(header_str, header_content)
             try:
@@ -1415,8 +1414,12 @@ class SodaCLParser(Parser):
         datasets = self._get_optional("datasets", list)
         if datasets is None:
             datasets = self._get_optional("tables", list)
-        if datasets:
+            self._push_path_element("tables", datasets)
+        else:
             self._push_path_element("datasets", datasets)
+        if datasets:
+            # moved couple of lines above for backwards compatibility with tables
+            # self._push_path_element("datasets", datasets)
             self.__parse_nameset_list(datasets, for_each_dataset_cfg)
             self._pop_path_element()
         check_cfgs = self._get_required("checks", list)

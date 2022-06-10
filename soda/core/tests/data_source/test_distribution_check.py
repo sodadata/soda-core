@@ -25,16 +25,25 @@ def test_distribution_check(scanner: Scanner, mock_file_system):
                       method: ks
             """
         ).strip(),
+        f"{user_home_dir}/customers_size_distribution_reference.yml": dedent(
+            f"""
+            dataset: {table_name}
+            column: size
+            distribution_type: continuous
+            distribution_reference:
+                bins: [1, 2, 3]
+                weights: [0.5, 0.2, 0.3]
+        """).strip(),
     }
 
-    # TODO: do this logic at mock file system
+    # TODO: do this logic at mock file system (its already added above to the mock file system)
     ref_file = f"{user_home_dir}/customers_size_distribution_reference.yml"
     with open(ref_file, "w") as f:
         reference_table = f"""
-            table: {table_name}
+            dataset: {table_name}
             column: size
             distribution_type: continuous
-            distribution reference:
+            distribution_reference:
                 bins: [1, 2, 3]
                 weights: [0.5, 0.2, 0.3]
         """
@@ -44,6 +53,8 @@ def test_distribution_check(scanner: Scanner, mock_file_system):
     scan._configuration.file_system = mock_file_system
     scan.add_sodacl_yaml_file(f"{user_home_dir}/the_distribution_check_file.yml")
     scan.execute()
+
+    # TODO: also remove this when removing the direct file system usage
     os.remove(ref_file)
 
 
