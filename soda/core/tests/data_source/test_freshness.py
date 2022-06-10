@@ -10,7 +10,7 @@ def test_freshness_without_table_filter(scanner: Scanner):
     scan.add_sodacl_yaml_str(
         f"""
       checks for {table_name}:
-        - freshness using ts < 1d
+        - freshness(ts) < 1d
     """
     )
     scan.execute()
@@ -26,8 +26,8 @@ def test_freshness_timezones_input_no_tz(scanner: Scanner):
     scan.add_sodacl_yaml_str(
         f"""
       checks for {table_name}:
-        - freshness using ts < 1d
-        - freshness using ts_with_tz < 1d
+        - freshness(ts) < 1d
+        - freshness(ts_with_tz) < 1d
     """
     )
     scan.execute()
@@ -42,10 +42,10 @@ def test_freshness_timezones_input_with_tz(scanner: Scanner):
     scan.add_variables({"NOW": "2020-06-25 01:00:00+01:00"})  # NOW overrides default "now" variable in scan.
     scan.add_sodacl_yaml_str(
         f"""
-      checks for {table_name}:
-        - freshness using ts < 1d
-        - freshness using ts_with_tz < 1d
-    """
+          checks for {table_name}:
+            - freshness(ts) < 1d
+            - freshness(ts_with_tz) < 1d
+        """
     )
     scan.execute()
 
@@ -59,10 +59,10 @@ def test_freshness_timezones_no_input(scanner: Scanner):
     # Using silly values for the checks as runtime of running the test will be used for comparison.
     scan.add_sodacl_yaml_str(
         f"""
-      checks for {table_name}:
-        - freshness using ts < 10000d
-        - freshness using ts_with_tz < 10000d
-    """
+          checks for {table_name}:
+            - freshness(ts) < 10000d
+            - freshness(ts_with_tz) < 10000d
+        """
     )
     scan.execute()
 
@@ -76,10 +76,10 @@ def test_fail_freshness_timezones_input_user_var(scanner: Scanner):
     scan.add_variables({"CUSTOM_USER_VAR": "2020-06-25 02:00:00+01:00"})
     scan.add_sodacl_yaml_str(
         f"""
-      checks for {table_name}:
-        - freshness using ts with CUSTOM_USER_VAR < 1d
-        - freshness using ts_with_tz with CUSTOM_USER_VAR < 1d
-    """
+          checks for {table_name}:
+            - freshness(ts, CUSTOM_USER_VAR) < 1d
+            - freshness(ts_with_tz, CUSTOM_USER_VAR) < 1d
+        """
     )
     scan.execute()
 
@@ -94,7 +94,7 @@ def test_freshness_warning(scanner: Scanner):
     scan.add_sodacl_yaml_str(
         f"""
       checks for {table_name}:
-        - freshness using ts:
+        - freshness(ts):
             warn: when > 6h
             fail: when > 24h
     """
@@ -120,7 +120,7 @@ def test_freshness_with_table_filter(scanner: Scanner):
             where: TIMESTAMP '${{START_TIME}}' <= ts AND ts < TIMESTAMP '${{END_TIME}}'
 
           checks for {table_name} [daily]:
-            - freshness using ts with END_TIME < 24h
+            - freshness(ts, END_TIME) < 24h
         """
     )
     scan.execute()
@@ -144,7 +144,7 @@ def test_freshness_no_rows(scanner: Scanner):
             where: 'FALSE'
 
           checks for {table_name} [empty]:
-            - freshness using ts with END_TIME < 24h
+            - freshness(ts, END_TIME) < 24h
         """
     )
     scan.execute()
@@ -159,7 +159,7 @@ def test_fail_freshness_var_missing(scanner: Scanner):
     scan.add_sodacl_yaml_str(
         f"""
       checks for {table_name}:
-        - freshness using ts with CUSTOM_USER_VAR < 1d
+        - freshness(ts, CUSTOM_USER_VAR) < 1d
     """
     )
     scan.execute(allow_error_warning=True)
