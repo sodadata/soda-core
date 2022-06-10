@@ -22,6 +22,7 @@ def test_distribution_check(scanner: Scanner, mock_file_system):
                 checks for {table_name}:
                   - distribution_difference(size, my_happy_ml_model_distribution) >= 0.05:
                       distribution reference file: ./customers_size_distribution_reference.yml
+                      method: ks
             """
         ).strip(),
     }
@@ -32,7 +33,7 @@ def test_distribution_check(scanner: Scanner, mock_file_system):
         reference_table = f"""
             table: {table_name}
             column: size
-            method: continuous
+            distribution_type: continuous
             distribution reference:
                 bins: [1, 2, 3]
                 weights: [0.5, 0.2, 0.3]
@@ -67,6 +68,7 @@ def test_distribution_sql(scanner: Scanner, mock_file_system, table, expectation
                 checks for {table_name}:
                   - distribution_difference(size, my_happy_ml_model_distribution) >= 0.05:
                       distribution reference file: ./customers_size_distribution_reference.yml
+                      method: ks
             """
         ).strip(),
     }
@@ -76,7 +78,7 @@ def test_distribution_sql(scanner: Scanner, mock_file_system, table, expectation
         reference_table = f"""
             table: {table_name}
             column: size
-            method: continuous
+            distribution_type: continuous
             distribution reference:
                 bins: [1, 2, 3]
                 weights: [0.5, 0.2, 0.3]

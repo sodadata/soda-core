@@ -12,7 +12,7 @@ rng = default_rng(1234)
     "cfg, data, expected_weights, expected_bins",
     [
         pytest.param(
-            RefDataCfg(method="continuous"),
+            RefDataCfg(distribution_type="continuous"),
             list(rng.normal(loc=2, scale=1.0, size=1000)),
             np.array(
                 [0, 2, 4, 12, 15, 40, 49, 57, 58, 87, 112, 112, 98, 88, 74, 67, 40, 29, 27, 13, 6, 1, 7, 0, 0, 1, 1]
@@ -66,7 +66,7 @@ def test_generate_dro_continuous(cfg, data, expected_bins, expected_weights):
     "cfg, data, expected_weights, expected_bins",
     [
         pytest.param(
-            RefDataCfg(method="categorical"),
+            RefDataCfg(distribution_type="categorical"),
             list(rng.choice(["hello", "world", "foo"], p=[0.1, 0.4, 0.5], size=1000)),  # type: ignore
             np.array([0.525, 0.392, 0.083]),
             np.array(["foo", "world", "hello"]),

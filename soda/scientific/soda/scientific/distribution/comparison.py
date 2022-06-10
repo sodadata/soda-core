@@ -1,12 +1,12 @@
 import abc
 import logging
-from typing import Any, List, Tuple
+from typing import Any, Dict, List
 
 import numpy as np
 import pandas as pd
 import yaml
 from pydantic import FilePath
-from scipy.stats import chisquare, ks_2samp
+from scipy.stats import chisquare, ks_2samp, wasserstein_distance
 from soda.sodacl.distribution_check_cfg import DistributionCheckCfg
 
 from soda.scientific.distribution.generate_dro import DROGenerator
@@ -16,6 +16,7 @@ from soda.scientific.distribution.utils import (
     assert_bidirectional_categorial_values,
     assert_categorical_min_sample_size,
     distribution_is_all_null,
+    generate_ref_data,
 )
 
 
@@ -35,6 +36,10 @@ class MissingCategories(Exception):
     """Thrown when a category in the test data is missing from the ref data."""
 
 
+class DistributionRefIncompatibleException(Exception):
+    """Thrown when the DRO distribution_type is incompatible with the test that is used."""
+
+
 class DistributionChecker:
     def __init__(self, distribution_check_cfg: DistributionCheckCfg, data: List[Any]):
         cfg = DistCfg(
@@ -42,43 +47,68 @@ class DistributionChecker:
         )
         self.test_data = data
 
+        self.method = distribution_check_cfg.method
         self.ref_cfg = self._parse_reference_cfg(cfg.reference_file_path)
 
         algo_mapping = {
-            "categorical": ChiSqAlgorithm,
-            "continuous": KSAlgorithm,
             "chi_square": ChiSqAlgorithm,
             "ks": KSAlgorithm,
+            "swd": SWDAlgorithm,
+            "semd": SWDAlgorithm,
+            "psi": PSIAlgorithm,
         }
-        self.choosen_algo = algo_mapping[self.ref_cfg.method]
+        self.choosen_algo = algo_mapping.get(self.method)
 
-    def run(self) -> Tuple[float, float]:
+    def run(self) -> Dict[str, float]:
         test_data = pd.Series(self.test_data)
 
         bootstrap_size = 10
+        check_values = []
         stat_values = []
-        p_values = []
 
         for i in range(bootstrap_size):
-            stat_value, p_value = self.choosen_algo(self.ref_cfg, test_data, seed=i).evaluate()
-            stat_values.append(stat_value)
-            p_values.append(p_value)
+            check_results = self.choosen_algo(self.ref_cfg, test_data, seed=i).evaluate()
 
-        stat_value = np.median(stat_values)
-        p_value = np.median(p_values)
+            check_value = check_results.get("check_value")
+            check_values.append(check_value)
 
-        return stat_value, p_value
+            stat_value = check_results.get("stat_value")
+            if stat_value:
+                stat_values.append(stat_value)
+
+        check_value = np.median(check_values)
+        if stat_values:
+            stat_value = np.median(stat_values)
+
+        return dict(check_value=check_value, stat_value=stat_value)
 
     def _parse_reference_cfg(self, ref_file_path: FilePath) -> RefDataCfg:
         with open(str(ref_file_path)) as stream:
             try:
                 parsed_file: dict = yaml.safe_load(stream)
                 ref_data_cfg = {}
-                if "method" in parsed_file:
-                    ref_data_cfg["method"] = parsed_file["method"]
+
+                if "distribution_type" in parsed_file:
+                    ref_data_cfg["distribution_type"] = parsed_file["distribution_type"]
                 else:
                     raise DistributionRefKeyException(
-                        f"Your {ref_file_path} reference yaml file must have `method` key"
+                        f"Your {ref_file_path} reference yaml file must have `distribution_type` key. The `distribution_type` is used to create a sample from your DRO."
+                        f" For more information visit the docs: https://docs.soda.io/soda-cl/distribution.html#generate-a-distribution-reference-object-dro"
+                    )
+
+                if not self.method:
+                    default_configs = {"continuous": "ks", "categorical": "chi_square"}
+                    self.method = default_configs[ref_data_cfg["distribution_type"]]
+
+                correct_configs = {
+                    "continuous": ["ks", "psi", "swd", "semd"],
+                    "categorical": ["chi_square", "psi", "swd", "semd"],
+                }
+
+                if self.method not in correct_configs[ref_data_cfg["distribution_type"]]:
+                    raise DistributionRefIncompatibleException(
+                        f"""Your DRO distribution_type '{parsed_file['distribution_type']}' is incompatible with the method '{self.method}'. Your DRO distribution_type allows you to use one of the following methods:"""
+                        f""" {", ".join([f"'{method}'" for method in correct_configs[parsed_file["distribution_type"]]])}. For more information visit the docs: https://docs.soda.io/soda-cl/distribution.html#about-distribution-checks """
                     )
 
                 if "distribution reference" in parsed_file:
@@ -87,7 +117,9 @@ class DistributionChecker:
                     ref_data_cfg["weights"] = parsed_file["distribution reference"]["weights"]
 
                 else:
-                    dro = DROGenerator(cfg=RefDataCfg(method=ref_data_cfg["method"]), data=self.test_data).generate()
+                    dro = DROGenerator(
+                        cfg=RefDataCfg(distribution_type=ref_data_cfg["distribution_type"]), data=self.test_data
+                    ).generate()
                     ref_data_cfg["bins"] = dro.bins
                     ref_data_cfg["weights"] = dro.weights
 
@@ -99,27 +131,18 @@ class DistributionChecker:
         return RefDataCfg.parse_obj(ref_data_cfg)
 
 
-class DistributionAlgorihm:
+class DistributionAlgorithm(abc.ABC):
     def __init__(self, cfg: RefDataCfg, test_data: pd.Series, seed: int = 61) -> None:
-        self.cfg = cfg
         self.test_data = test_data
-        self.rng = np.random.default_rng(seed)
-        self.ref_data = self.generate_ref_data()
+        self.ref_data = generate_ref_data(cfg, len(test_data), np.random.default_rng(seed))
 
     @abc.abstractmethod
-    def evaluate(self, test_data: pd.Series) -> Tuple[float, float]:
-        ...
-
-    @abc.abstractmethod
-    def generate_ref_data(self) -> pd.Series:
+    def evaluate(self) -> Dict[str, float]:
         ...
 
 
-class ChiSqAlgorithm(DistributionAlgorihm):
-    def __init__(self, cfg: RefDataCfg, test_data: pd.Series, seed: int = 61) -> None:
-        super().__init__(cfg, test_data, seed)
-
-    def evaluate(self) -> Tuple[float, float]:
+class ChiSqAlgorithm(DistributionAlgorithm):
+    def evaluate(self) -> Dict[str, float]:
         # TODO: make sure we can assert we're really dealing with categories
         # TODO: make sure that we also can guarantee the order of the categorical labels
         # since we're comparing on indeces in the chisquare function
@@ -165,28 +188,41 @@ class ChiSqAlgorithm(DistributionAlgorihm):
             test_data_frequencies,
             ref_data_frequencies * np.mean(test_data_frequencies) / np.mean(ref_data_frequencies),
         )
-        return stat_value, p_value
-
-    def generate_ref_data(self) -> pd.Series:
-        sample_size = len(self.test_data)
-        return pd.Series(self.rng.choice(self.cfg.bins, p=self.cfg.weights, size=sample_size))
+        return dict(stat_value=stat_value, check_value=p_value)
 
 
-class KSAlgorithm(DistributionAlgorihm):
-    def __init__(self, cfg: RefDataCfg, test_data: pd.Series, seed: int = 61) -> None:
-        super().__init__(cfg, test_data, seed)
-
-    def evaluate(self) -> Tuple[float, float]:
-        # TODO: set up some assertion testing that the dtypes are continuous
+class KSAlgorithm(DistributionAlgorithm):
+    def evaluate(self) -> Dict[str, float]:
+        # TODO: set up some assertion testing that the distribution_type are continuous
         # TODO: consider whether we may want to warn users if any or both of their series are nulls
         # although ks_2samp() behaves correctly in either cases
         stat_value, p_value = ks_2samp(self.ref_data, self.test_data)
-        return stat_value, p_value
+        return dict(stat_value=stat_value, check_value=p_value)
 
-    def generate_ref_data(self) -> pd.Series:
-        sample_size = len(self.test_data)
-        sample_data = self.rng.random((1, sample_size))[0]
-        xp = np.cumsum(self.cfg.weights)
-        yp = self.cfg.bins
-        ref_data = np.interp(sample_data, xp, yp)
-        return ref_data
+
+class SWDAlgorithm(DistributionAlgorithm):
+    def evaluate(self) -> Dict[str, float]:
+        wd = wasserstein_distance(self.ref_data, self.test_data)
+        swd = wd / np.std(np.concatenate([self.ref_data, self.test_data]))
+        return dict(check_value=swd)
+
+
+class PSIAlgorithm(DistributionAlgorithm):
+    def evaluate(self) -> Dict[str, float]:
+        max_val = max(np.max(self.test_data), np.max(self.ref_data))
+        min_val = min(np.min(self.test_data), np.min(self.ref_data))
+        bins = np.linspace(min_val, max_val, 11)
+
+        hist_a = self.construct_hist(self.test_data, bins)
+        hist_b = self.construct_hist(self.ref_data, bins)
+
+        psi = np.sum((hist_a - hist_b) * np.log((hist_a) / (hist_b)))
+        return dict(check_value=psi)
+
+    @staticmethod
+    def construct_hist(a: pd.Series, bins: np.ndarray) -> np.ndarray:
+        hist_a, _ = np.histogram(a, bins=bins)
+        hist_a = hist_a / len(a)
+        small_num = 10**-5
+        hist_a += np.where(hist_a == 0, small_num, 0)
+        return hist_a
