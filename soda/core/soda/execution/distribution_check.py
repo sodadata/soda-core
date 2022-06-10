@@ -112,4 +112,5 @@ class DistributionCheck(Check):
             if not self.check_cfg.fail_threshold_cfg and not self.check_cfg.warn_threshold_cfg
             else ""
         )
-        return super().get_summary() + error_summary
+        summary_message = f"{super().get_summary()}{error_summary}"
+        return summary_message
