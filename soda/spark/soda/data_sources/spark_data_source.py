@@ -157,7 +157,14 @@ class SparkSQLBase(DataSource):
     def __init__(self, logs: Logs, data_source_name: str, data_source_properties: dict, connection_properties: dict):
         super().__init__(logs, data_source_name, data_source_properties, connection_properties)
 
-    def sql_get_table_columns(self, table_name: str):
+    def sql_get_table_columns(
+        self, table_name: str, included_columns: list[str] | None = None, excluded_columns: list[str] | None = None
+    ):
+        if included_columns or excluded_columns:
+            self.logs.warning(
+                f"Column selection (inclusion and exclusion) is currently not supported in Spark. The entire table will therefore be profiled."
+            )
+
         return f"DESCRIBE TABLE {table_name}"
 
     def sql_get_column(self, include_tables: list[str] | None = None, exclude_tables: list[str] | None = None) -> str:
