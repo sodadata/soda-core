@@ -123,7 +123,7 @@ class Check(ABC):
         self.outcome: CheckOutcome | None = None
 
         # Check outcome reasons in case of fail or pass
-        self.outcome_reasons: dict = {}
+        self.outcome_reasons: list[dict] = []
         self.force_send_results_to_cloud = False
 
     def create_definition(self) -> str:
@@ -166,9 +166,9 @@ class Check(ABC):
                 hash_builder.add(identity_source_configurations_yaml)
         return hash_builder.get_hash()
 
-    def add_outcome_reason(self, outcome_type: str, message: str, severity: str) -> dict:
+    def add_outcome_reason(self, outcome_type: str, message: str, severity: str):
         self.force_send_results_to_cloud = True
-        self.outcome_reasons[outcome_type] = {"message": message, "severity": severity}  # error/warn/info"
+        self.outcome_reasons.append({"code": outcome_type, "message": message, "severity": severity})  # error/warn/info
 
     @staticmethod
     def __check_source_to_yaml(source_header: str, source_line: str, source_configurations: dict | None) -> str:

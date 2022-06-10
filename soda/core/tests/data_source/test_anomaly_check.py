@@ -25,11 +25,12 @@ def test_anomaly_detection_default(scanner: Scanner):
     scan.assert_all_checks_pass()
 
 
-def test_anomaly_detection_not_have_enough_data(scanner: Scanner):
+def test_anomaly_detection_not_enough_data(scanner: Scanner):
     table_name = scanner.ensure_test_table(customers_test_table)
 
     scan = scanner.create_test_scan()
 
+    mock_soda_cloud = scan.enable_mock_soda_cloud()
     scan.add_sodacl_yaml_str(
         f"""
           checks for {table_name}:
@@ -43,20 +44,29 @@ def test_anomaly_detection_not_have_enough_data(scanner: Scanner):
     )
 
     scan.execute(allow_warnings_only=True)
+    scan_cloud_result = mock_soda_cloud.pop_scan_result()
+    assert scan_cloud_result["checks"][0]["outcomeReasons"] == [
+        {
+            "code": "notEnoughHistory",
+            "message": "Skipping anomaly metric check eval because there is not enough historic data yet",
+            "severity": "warn",
+        }
+    ]
 
 
+# TODO: Ask Baturay why we test this?
 def test_anomaly_detection_have_no_data(scanner: Scanner):
     table_name = scanner.ensure_test_table(customers_test_table)
 
     scan = scanner.create_test_scan()
 
+    mock_soda_cloud = scan.enable_mock_soda_cloud()
     scan.add_sodacl_yaml_str(
         f"""
           checks for {table_name}:
             - anomaly score for row_count < default
         """
     )
-    scan.enable_mock_soda_cloud()
     scan.execute(allow_error_warning=True)
 
 
