@@ -91,9 +91,9 @@ class FreshnessCheck(Check):
 
         if is_max_column_timestamp_valid and is_now_variable_timestamp_valid:
             freshness = now_timestamp_utc - max_column_timestamp_utc
-            if check_cfg.fail_staleness_threshold is not None and freshness > check_cfg.fail_staleness_threshold:
+            if check_cfg.fail_freshness_threshold is not None and freshness > check_cfg.fail_freshness_threshold:
                 self.outcome = CheckOutcome.FAIL
-            elif check_cfg.warn_staleness_threshold is not None and freshness > check_cfg.warn_staleness_threshold:
+            elif check_cfg.warn_freshness_threshold is not None and freshness > check_cfg.warn_freshness_threshold:
                 self.outcome = CheckOutcome.WARN
             else:
                 self.outcome = CheckOutcome.PASS
