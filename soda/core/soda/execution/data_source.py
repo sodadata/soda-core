@@ -250,14 +250,14 @@ class DataSource:
         if included_columns:
             included_columns_filter = ""
             for col in included_columns:
-                included_columns_filter += f"\n AND lower(column_name) LIKE '{col}'"
+                included_columns_filter += f"\n AND lower(column_name) LIKE lower('{col}')"
         else:
             included_columns_filter = ""
 
         if excluded_columns:
             excluded_columns_filter = ""
             for col in excluded_columns:
-                excluded_columns_filter += f"\n AND lower(column_name) NOT LIKE '{col}'"
+                excluded_columns_filter += f"\n AND lower(column_name) NOT LIKE lower('{col}')"
         else:
             excluded_columns_filter = ""
 

@@ -131,11 +131,11 @@ class DataSourceImpl(DataSource):
         excluded_columns_filter = ""
         if included_columns:
             for col in included_columns:
-                included_columns_filter += f"\n AND lower(column_name) LIKE '{col}'"
+                included_columns_filter += f"\n AND lower(column_name) LIKE lower('{col}')"
 
         if excluded_columns:
             for col in excluded_columns:
-                excluded_columns_filter += f"\n AND lower(column_name) NOT LIKE '{col}'"
+                excluded_columns_filter += f"\n AND lower(column_name) NOT LIKE lower('{col}')"
 
         sql = (
             f"SELECT column_name, data_type, is_nullable "
