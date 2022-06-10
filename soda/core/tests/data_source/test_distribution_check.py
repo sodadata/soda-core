@@ -33,7 +33,8 @@ def test_distribution_check(scanner: Scanner, mock_file_system):
             distribution_reference:
                 bins: [1, 2, 3]
                 weights: [0.5, 0.2, 0.3]
-        """).strip(),
+        """
+        ).strip(),
     }
 
     # TODO: do this logic at mock file system (its already added above to the mock file system)

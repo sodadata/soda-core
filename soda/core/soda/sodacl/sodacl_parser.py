@@ -97,7 +97,9 @@ class SodaCLParser(Parser):
 
             # Backwards compatibility warning
             if "for each table" in header_str:
-                self.logs.warning(f"Please update 'for each table ...' to 'for each dataset ...'.", location=self.location)
+                self.logs.warning(
+                    f"Please update 'for each table ...' to 'for each dataset ...'.", location=self.location
+                )
 
             self._push_path_element(header_str, header_content)
             try:
