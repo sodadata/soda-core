@@ -43,8 +43,8 @@ class DistributionCheck(Check):
         if self.query.exception is None and self.query.rows is not None:
             test_data = [row[0] for row in self.query.rows]
 
-            _, p_value = DistributionChecker(self.distribution_check_cfg, test_data).run()
-            self.check_value = p_value
+            check_result_dict = DistributionChecker(self.distribution_check_cfg, test_data).run()
+            self.check_value = check_result_dict["check_value"]
 
             self.set_outcome_based_on_check_value()
 
@@ -99,7 +99,7 @@ class DistributionCheck(Check):
         #     log_diagnostics.update(self.historic_diff_values)
         return log_diagnostics
 
-    def sql_column_values_query(self, distribution_check_cfg, limit=1000000):
+    def sql_column_values_query(self, distribution_check_cfg, limit=1000000) -> str:
 
         column_name = distribution_check_cfg.column_name
 
