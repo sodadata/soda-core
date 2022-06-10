@@ -9,7 +9,6 @@ from soda.execution.metric import Metric
 from soda.execution.partition import Partition
 from soda.execution.query import Query
 from soda.sodacl.distribution_check_cfg import DistributionCheckCfg
-
 from soda.scientific.distribution.comparison import DistributionChecker
 
 
@@ -27,6 +26,7 @@ class DistributionCheck(Check):
             data_source_scan=data_source_scan,
             partition=partition,
             column=column,
+            name="distribution_difference"
         )
         self.distribution_check_cfg: DistributionCheckCfg = self.check_cfg
 
@@ -73,24 +73,12 @@ class DistributionCheck(Check):
                 )
 
     def get_cloud_diagnostics_dict(self) -> dict:
-        cloud_diagnostics = {}
-        cloud_diagnostics["value"] = self.check_value
-        if self.distribution_check_cfg.fail_threshold_cfg:
-            cloud_diagnostics["fail"] = {
-                "lessThan": self.distribution_check_cfg.fail_threshold_cfg.lt,
-                "lessThanOrEqual": self.distribution_check_cfg.fail_threshold_cfg.lte ,
-                "greaterThan": self.distribution_check_cfg.fail_threshold_cfg.gt ,
-                "greaterThanOrEqual": self.distribution_check_cfg.fail_threshold_cfg.gte  
-            }
-
-        if self.distribution_check_cfg.warn_threshold_cfg:
-            cloud_diagnostics["warn"] = {
-                "lessThan": self.distribution_check_cfg.fail_threshold_cfg.lt,
-                "lessThanOrEqual": self.distribution_check_cfg.fail_threshold_cfg.lte ,
-                "greaterThan": self.distribution_check_cfg.fail_threshold_cfg.gt ,
-                "greaterThanOrEqual": self.distribution_check_cfg.fail_threshold_cfg.gte  
-            }
-
+        distribution_check_cfg: DistributionCheckCfg = self.check_cfg
+        cloud_diagnostics = {"value": self.check_value}
+        if distribution_check_cfg.fail_threshold_cfg is not None:
+            cloud_diagnostics['fail'] = distribution_check_cfg.fail_threshold_cfg.to_soda_cloud_diagnostics_json()
+        if distribution_check_cfg.warn_threshold_cfg is not None:
+            cloud_diagnostics['warn'] = distribution_check_cfg.warn_threshold_cfg.to_soda_cloud_diagnostics_json()
         return cloud_diagnostics
 
     def get_log_diagnostic_dict(self) -> dict:
