@@ -51,6 +51,8 @@ jobs:
           - "bigquery"
           - "redshift"
           - "athena"
+          # - "spark"
+          - "spark_df"
     env:
       DATA_SOURCE: ${{ matrix.data-source }}
       PYTHON_VERSION: ${{ matrix.python-version }}
@@ -71,6 +73,12 @@ jobs:
       ATHENA_SECRET_ACCESS_KEY: ${{ secrets.ATHENA_SECRET_ACCESS_KEY }}
       ATHENA_STAGING_DIR: ${{ secrets.ATHENA_STAGING_DIR }}
       ATHENA_DATABASE: ${{ secrets.ATHENA_DATABASE }}
+      SPARK_HOST: ${{ secrets.SPARK_HOST }}
+      SPARK_USERNAME: ${{ secrets.SPARK_USERNAME }}
+      SPARK_PASSWORD: ${{ secrets.SPARK_PASSWORD }}
+      SPARK_DATABASE: ${{ secrets.SPARK_DATABASE }}
+      # TODO: add appropriate vars
+      SPARK_DF_HOST: ${{ secrets.SPARK_DF_HOST }}
 
     steps:
       - uses: actions/checkout@v2
@@ -82,11 +90,13 @@ jobs:
 
       - name: Install dependencies
         run: |
+          sudo apt-get install -y libsasl2-dev
           python -m pip install --upgrade pip
           cat dev-requirements.in | grep tox | xargs pip install
 
       - name: Test with tox
         run: |
+          export PYTHONPATH=./soda/core:./soda/athena:./soda/bigquery:./soda/postgres:./soda/redshift:./soda/scientific:./soda/snowflake:./soda/spark:./soda/spark_df
           tox -- soda -k soda/core
           tox -- soda -k soda/${{ matrix.data-source }}
         env:
@@ -116,13 +126,14 @@ jobs:
 
       - name: Install dependencies
         run: |
+          sudo apt-get install -y libsasl2-dev
           python -m pip install --upgrade pip
           cat dev-requirements.in | grep tox | xargs pip install
 
       - name: Test with tox
         run: |
+          export PYTHONPATH=./soda/core:./soda/athena:./soda/bigquery:./soda/postgres:./soda/redshift:./soda/scientific:./soda/snowflake:./soda/spark:./soda/spark_df
           tox -- soda -k soda/core
-          tox -- soda -k soda/${{ matrix.data-source }}
         env:
           test_data_source: postgres
           WESTMALLE: BETTER_THAN_LA_TRAPPE
@@ -151,11 +162,13 @@ jobs:
 
       - name: Install dependencies
         run: |
+          sudo apt-get install -y libsasl2-dev
           python -m pip install --upgrade pip
           cat dev-requirements.in | grep tox | xargs pip install
 
       - name: Test with tox
         run: |
+          export PYTHONPATH=./soda/core:./soda/athena:./soda/bigquery:./soda/postgres:./soda/redshift:./soda/scientific:./soda/snowflake:./soda/spark:./soda/spark_df
           tox -- soda -k soda/scientific
   publish-pypi:
     name: Build & Publish Package

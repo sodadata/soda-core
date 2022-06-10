@@ -15,6 +15,8 @@ from soda.common.logs import Logs
 from soda.execution.data_type import DataType
 from soda.execution.partition_queries import PartitionQueries
 from soda.execution.query import Query
+from soda.execution.schema_query import TableColumnsQuery
+from soda.sampler.sample_ref import SampleRef
 from soda.telemetry.soda_telemetry import SodaTelemetry
 
 soda_telemetry = SodaTelemetry.get_instance()
@@ -108,10 +110,16 @@ class DataSource:
         self.database: str = data_source_properties.get("database")
         self.schema: str | None = data_source_properties.get("schema")
         self.table_prefix = data_source_properties.get("table_prefix")
+        # self.data_source_scan is initialized in create_data_source_scan(...) below
+        self.data_source_scan: DataSourceScan | None = None
 
-        soda_telemetry.set_attribute("datasource_type", self.type)
-        # TODO get hash after init so that children can implement init
-        soda_telemetry.set_attribute("datasource_id", soda_telemetry.obtain_datasource_hash(self))
+    def create_data_source_scan(self, scan: Scan, data_source_scan_cfg: DataSourceScanCfg):
+        from soda.execution.data_source_scan import DataSourceScan
+
+        data_source_scan = DataSourceScan(scan, data_source_scan_cfg, self)
+        self.data_source_scan = data_source_scan
+
+        return self.data_source_scan
 
     def validate_configuration(self, connection_properties: dict, logs: Logs) -> None:
         """
@@ -159,6 +167,9 @@ class DataSource:
 
         return expected_type == actual_type
 
+    def qualify_table_name(self, table_name: str) -> str:
+        return table_name
+
     @staticmethod
     def column_metadata_columns() -> list:
         return ["column_name", "data_type", "is_nullable"]
@@ -168,30 +179,102 @@ class DataSource:
         return "table_catalog"
 
     ######################
-    # SQL Queries
+    # Store Table Sample
     ######################
 
-    def sql_select_star_with_limit(self, table_name: str, limit: int | None = None) -> str:
+    def store_table_sample(self, table_name: str, limit: int | None = None) -> SampleRef:
+        sql = self.sql_select_all(table_name=table_name, limit=limit)
+        query = Query(
+            data_source_scan=self.data_source_scan,
+            unqualified_query_name=f"store-sample-for-{table_name}",
+            sql=sql,
+            sample_name="table_sample",
+        )
+        query.store()
+        return query.sample_ref
+
+    def sql_select_all(self, table_name: str, limit: int | None = None) -> str:
+        quoted_table_name = self.quote_table(table_name)
         limit_sql = ""
         if limit is not None:
             limit_sql = f" \n LIMIT {limit}"
-        sql = f"SELECT * FROM {table_name.lower()}{limit_sql}"
+        sql = f"SELECT * FROM {quoted_table_name}{limit_sql}"
         return sql
 
-    def sql_to_get_column_metadata_for_table(self, table_name: str) -> str:
+    ############################################
+    # For a table, get the columns metadata
+    ############################################
+
+    def get_table_columns(
+        self,
+        table_name: str,
+        query_name: str,
+        included_columns: list[str] | None = None,
+        excluded_columns: list[str] | None = None,
+    ) -> dict[str, str] | None:
+        """
+        :return: A dict mapping column names to data source data types.  Like eg
+        {"id": "varchar", "size": "int8", ...}
+        """
+        query = Query(
+            data_source_scan=self.data_source_scan,
+            unqualified_query_name=query_name,
+            sql=self.sql_get_table_columns(
+                table_name, included_columns=included_columns, excluded_columns=excluded_columns
+            ),
+        )
+        query.execute()
+        if len(query.rows) > 0:
+            return {row[0]: row[1] for row in query.rows}
+        return None
+
+    def create_table_columns_query(self, partition: Partition, schema_metric: SchemaMetric) -> TableColumnsQuery:
+        return TableColumnsQuery(partition, schema_metric)
+
+    def sql_get_table_columns(
+        self, table_name: str, included_columns: list[str] | None = None, excluded_columns: list[str] | None = None
+    ) -> str:
+        # build optional filter clauses
+        if self.database:
+            database_filter = f" \n  AND lower({self.column_metadata_catalog_column()}) = '{self.database.lower()}'"
+        else:
+            database_filter = ""
+
+        if self.schema:
+            schema_filter = f" \n  AND lower(table_schema) = '{self.schema.lower()}'"
+        else:
+            schema_filter = ""
+
+        if included_columns:
+            included_columns_filter = ""
+            for col in included_columns:
+                included_columns_filter += f"\n AND lower(column_name) LIKE lower('{col}')"
+        else:
+            included_columns_filter = ""
+
+        if excluded_columns:
+            excluded_columns_filter = ""
+            for col in excluded_columns:
+                excluded_columns_filter += f"\n AND lower(column_name) NOT LIKE lower('{col}')"
+        else:
+            excluded_columns_filter = ""
+
+        # compose query template
         sql = (
             f"SELECT {', '.join(self.column_metadata_columns())} \n"
             f"FROM information_schema.columns \n"
             f"WHERE lower(table_name) = '{table_name.lower()}'"
+            f"{database_filter}"
+            f"{schema_filter}"
+            f"{included_columns_filter}"
+            f"{excluded_columns_filter}"
+            "\nORDER BY ORDINAL_POSITION"
         )
-        if self.database:
-            sql += f" \n  AND lower({self.column_metadata_catalog_column()}) = '{self.database.lower()}'"
-        if self.schema:
-            sql += f" \n  AND lower(table_schema) = '{self.schema.lower()}'"
-
-        sql += f"\nORDER BY ORDINAL_POSITION"
-
         return sql
+
+    ############################################
+    # Get table names with count in one go
+    ############################################
 
     def sql_get_table_names_with_count(
         self, include_tables: list[str] | None = None, exclude_tables: list[str] | None = None
@@ -214,7 +297,7 @@ class DataSource:
         )
 
     def sql_get_table_count(self, table_name: str) -> str:
-        return f"SELECT count(*) from {table_name}"
+        return f"SELECT {self.expr_count_all()} from {self.qualify_table_name(table_name)}"
 
     def sql_table_include_exclude_filter(
         self,
@@ -271,92 +354,96 @@ class DataSource:
     def sql_analyze_table(self, table: str) -> str | None:
         return None
 
-    def profiling_sql_values_frequencies_query(self, table_name: str, column_name: str) -> str:
-        return dedent(
-            f"""
-                WITH freq_values AS (
-                  {self.profiling_sql_cte_value_frequencies(table_name, column_name)}
-                )
-                {self.profiling_sql_value_frequencies_select()}
-            """
-        )
+    def cast_to_text(self, expr: str) -> str:
+        return f"CAST({expr} AS VARCHAR)"
 
-    def profiling_sql_top_values(self, table_name: str, column_name: str) -> str:
-        return dedent(
-            f"""
-                WITH freq_values AS (
-                  {self.profiling_sql_cte_value_frequencies(table_name, column_name)}
-                )
-                {self.profiling_sql_frequent_values_cte('freq_values', 'frequent_values', is_final=True)}
-            """
-        )
+    def profiling_sql_values_frequencies_query(
+        self,
+        data_type_category: str,
+        table_name: str,
+        column_name: str,
+        limit_mins_maxs: int,
+        limit_frequent_values: int,
+    ) -> str:
+        cast_to_text = self.cast_to_text
 
-    def profiling_sql_cte_value_frequencies(self, table_name: str, column_name: str) -> str:
-        column_name = self.quote_column(column_name)
-        table_name = self.quote_table(table_name)
-        return dedent(
-            f"""
-                SELECT {column_name} as value_name, count(*) as frequency
-                FROM {table_name}
-                GROUP BY 1
-            """
-        )
+        value_frequencies_cte = self.profiling_sql_value_frequencies_cte(table_name, column_name)
 
-    def profiling_sql_frequent_values_cte(self, source_table_name: str, cte_name: str, is_final: bool = False) -> str:
-        sql = dedent(
-            f"""
-            , {cte_name} as (
-                SELECT
-                    frequency
-                    , row_number() over (order by frequency desc) as idx
-                    , value_name
-                FROM {source_table_name}
-                ORDER BY frequency desc
-                LIMIT 5
+        union = self.sql_union()
+
+        frequent_values_cte = f"""frequent_values AS (
+                            SELECT {cast_to_text("'frequent_values'")} AS metric_, ROW_NUMBER() OVER(ORDER BY frequency_ DESC) AS index_, value_, frequency_
+                            FROM value_frequencies
+                            ORDER BY frequency_ desc
+                            LIMIT {limit_frequent_values}
+                        )"""
+
+        if data_type_category == "text":
+            return dedent(
+                f"""
+                    WITH
+                        {value_frequencies_cte},
+                        {frequent_values_cte}
+                    SELECT *
+                    FROM frequent_values
+                    ORDER BY metric_ ASC, index_ ASC
+                """
             )
-            """
-        )
-        if is_final:
-            sql += f"\n SELECT * FROM {cte_name}"
-        return sql
 
-    def profiling_sql_value_frequencies_select(self) -> str:
-        return dedent(
-            f"""
-            , mins as (
-            SELECT value_name, ROW_NUMBER() OVER(order by value_name asc) as idx, frequency, 'mins' as metric_name
-            FROM freq_values
-            WHERE value_name is not null
-            ORDER BY value_name asc
-            LIMIT 5
-        )
-        , maxes as (
+        elif data_type_category == "numeric":
 
-            SELECT value_name, ROW_NUMBER() OVER(order by value_name desc) as idx, frequency, 'maxes' as metric_name
-            FROM freq_values
-            WHERE value_name is not null
-            ORDER BY value_name desc
-            LIMIT 5
-        )
-        {self.profiling_sql_frequent_values_cte(source_table_name='freq_values', cte_name='frequent_values', is_final=False)}
-        , final as (
-            SELECT
-                mins.value_name as mins
-                , maxes.value_name as maxes
-                , frequent_values.value_name as frequent_values
-                , frequent_values.frequency as frequency
-            FROM mins
-            JOIN maxes
-                 on mins.idx = maxes.idx
-            JOIN frequent_values
-                on mins.idx = frequent_values.idx
-            ORDER BY frequency desc
-        )
-        SELECT * FROM final
-            """
-        )
+            mins_cte = f"""mins AS (
+                            SELECT {cast_to_text("'mins'")} AS metric_, ROW_NUMBER() OVER(ORDER BY value_ ASC) AS index_, value_, frequency_
+                            FROM value_frequencies
+                            WHERE value_ IS NOT NULL
+                            ORDER BY value_ ASC
+                            LIMIT {limit_mins_maxs}
+                        )"""
 
-    def profiling_sql_numeric_aggregates(self, table_name: str, column_name: str) -> str:
+            maxs_cte = f"""maxs AS (
+                            SELECT {cast_to_text("'maxs'")} AS metric_, ROW_NUMBER() OVER(ORDER BY value_ DESC) AS index_, value_, frequency_
+                            FROM value_frequencies
+                            WHERE value_ IS NOT NULL
+                            ORDER BY value_ DESC
+                            LIMIT {limit_mins_maxs}
+                        )"""
+
+            return dedent(
+                f"""
+                    WITH
+                        {value_frequencies_cte},
+                        {mins_cte},
+                        {maxs_cte},
+                        {frequent_values_cte},
+                        result AS (
+                            SELECT * FROM mins
+                            {union}
+                            SELECT * FROM maxs
+                            {union}
+                            SELECT * FROM frequent_values
+                        )
+                    SELECT *
+                    FROM result
+                    ORDER BY metric_ ASC, index_ ASC
+                """
+            )
+
+        raise AssertionError("data_type_category must be either 'numeric' or 'text'")
+
+    def sql_union(self):
+        return "UNION"
+
+    def profiling_sql_value_frequencies_cte(self, table_name: str, column_name: str) -> str:
+        quoted_column_name = self.quote_column(column_name)
+        quoted_table_name = self.quote_table(table_name)
+        return f"""value_frequencies AS (
+                            SELECT {quoted_column_name} AS value_, count(*) AS frequency_
+                            FROM {quoted_table_name}
+                            WHERE {quoted_column_name} IS NOT NULL
+                            GROUP BY {quoted_column_name}
+                        )"""
+
+    def profiling_sql_aggregates_numeric(self, table_name: str, column_name: str) -> str:
         column_name = self.quote_column(column_name)
         table_name = self.quote_table(table_name)
         return dedent(
@@ -372,7 +459,7 @@ class DataSource:
             """
         )
 
-    def profiling_sql_text_aggregates(self, table_name: str, column_name: str) -> str:
+    def profiling_sql_aggregates_text(self, table_name: str, column_name: str) -> str:
         column_name = self.quote_column(column_name)
         table_name = self.quote_table(table_name)
         return dedent(
@@ -411,16 +498,21 @@ class DataSource:
 
         field_clauses = []
         for i in range(0, number_of_bins):
-            lower_bound = "" if i == 0 else f"{bins_list[i]} <= value_name"
-            upper_bound = "" if i == number_of_bins - 1 else f"value_name < {bins_list[i+1]}"
-            optional_and = "" if lower_bound == "" or upper_bound == "" else " and "
-            field_clauses.append(f"SUM(CASE WHEN {lower_bound}{optional_and}{upper_bound} then frequency END)")
+            lower_bound = "" if i == 0 else f"{bins_list[i]} <= value_"
+            upper_bound = "" if i == number_of_bins - 1 else f"value_ < {bins_list[i+1]}"
+            optional_and = "" if lower_bound == "" or upper_bound == "" else " AND "
+            field_clauses.append(f"SUM(CASE WHEN {lower_bound}{optional_and}{upper_bound} THEN frequency_ END)")
 
         fields = ",\n ".join(field_clauses)
 
-        sql = (
-            f"WITH freq_values as ({self.profiling_sql_cte_value_frequencies(table_name, column_name)})\n"
-            f"SELECT {fields} From freq_values"
+        value_frequencies_cte = self.profiling_sql_value_frequencies_cte(table_name, column_name)
+
+        sql = dedent(
+            f"""
+            WITH
+                {value_frequencies_cte}
+            SELECT {fields}
+            FROM value_frequencies"""
         )
         return sql, bins_list
 
@@ -603,6 +695,12 @@ class DataSource:
         return f"{left} IN {right}"
 
     def cast_text_to_number(self, column_name, validity_format: str):
+        """Cast string to number
+
+        - first regex replace removes extra chars, keeps: "digits + - . ,"
+        - second regex changes "," to "."
+        - Nullif makes sure that if regexes return empty string then Null is returned instead
+        """
         regex = self.escape_regex(r"'[^-0-9\.\,]'")
         return f"CAST(NULLIF(REGEXP_REPLACE(REGEXP_REPLACE({column_name}, {regex}, ''{self.regex_replace_flags()}), ',', '.'{self.regex_replace_flags()}), '') AS {self.SQL_TYPE_FOR_CREATE_TABLE_MAP[DataType.DECIMAL]})"
 
@@ -663,14 +761,6 @@ class DataSource:
     def rollback(self):
         self.connection.rollback()
 
-    def create_data_source_scan(self, scan: Scan, data_source_scan_cfg: DataSourceScanCfg):
-        from soda.execution.data_source_scan import DataSourceScan
-
-        data_source_scan = DataSourceScan(scan, data_source_scan_cfg, self)
-        self.data_source_scan = data_source_scan
-
-        return self.data_source_scan
-
     @staticmethod
     def default_casify_table_name(identifier: str) -> str:
         """Formats table identifier to e.g. a default case for a given data source."""
@@ -706,3 +796,27 @@ class DataSource:
         """Hash provided data using a non-reversible hashing algorithm."""
         encoded = json.dumps(data, sort_keys=True).encode()
         return hashlib.sha256(encoded).hexdigest()
+
+    def test(self, sql):
+        import logging
+        import textwrap
+
+        from soda.sampler.log_sampler import LogSampler
+        from soda.sampler.sample_schema import SampleColumn
+
+        cursor = self.connection.cursor()
+        try:
+            indented_sql = textwrap.indent(text=sql, prefix="  #   ")
+            logging.debug(f"  # Query: \n{indented_sql}")
+            cursor.execute(sql)
+            rows = cursor.fetchall()
+
+            columns = SampleColumn.create_sample_columns(cursor.description, self)
+            table, row_count, col_count = LogSampler.pretty_print(rows, columns)
+            logging.debug(f"  # Query result: \n{table}")
+
+        except Exception as e:
+            logging.error(f"Error: {e}", e)
+
+        finally:
+            cursor.close()
