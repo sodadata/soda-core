@@ -11,33 +11,15 @@ check
  ;
 
 freshness_check
- : 'freshness using' S identifier freshness_variable? (S LT S staleness_threshold)? EOF
+ : 'freshness using' S identifier freshness_variable? (S LT S freshness_threshold_value)? EOF
  ;
 
 freshness_variable
  : S 'with' S identifier
  ;
 
-staleness_threshold
- : time_period_day
- | time_period_hour
- | time_period_minute
- ;
-
 warn_qualifier
  : S 'warn'
- ;
-
-time_period_day
- : integer 'd'
- ;
-
-time_period_hour
- : integer 'h' integer?
- ;
-
-time_period_minute
- : integer 'm' integer?
  ;
 
 failed_rows_check: IDENTIFIER_DOUBLE_QUOTE EOF;
@@ -93,7 +75,7 @@ threshold
  ;
 
 between_threshold
- : (NOT S)? BETWEEN S (SQUARE_LEFT|ROUND_LEFT)? threshold_value S AND S threshold_value  (SQUARE_RIGHT|ROUND_RIGHT)?
+ : (NOT S)? BETWEEN S (SQUARE_LEFT|ROUND_LEFT)? threshold_value S AND S threshold_value (SQUARE_RIGHT|ROUND_RIGHT)?
  ;
 
 comparator_threshold
@@ -118,6 +100,11 @@ comparator
 
 threshold_value
  : signed_number (S? PERCENT)?
+ | freshness_threshold_value
+ ;
+
+freshness_threshold_value
+ : (integer ('d'|'h'|'m'))+ integer?
  ;
 
 reference_check

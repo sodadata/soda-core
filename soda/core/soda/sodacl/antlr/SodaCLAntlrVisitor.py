@@ -24,28 +24,8 @@ class SodaCLAntlrVisitor(ParseTreeVisitor):
         return self.visitChildren(ctx)
 
 
-    # Visit a parse tree produced by SodaCLAntlrParser#staleness_threshold.
-    def visitStaleness_threshold(self, ctx:SodaCLAntlrParser.Staleness_thresholdContext):
-        return self.visitChildren(ctx)
-
-
     # Visit a parse tree produced by SodaCLAntlrParser#warn_qualifier.
     def visitWarn_qualifier(self, ctx:SodaCLAntlrParser.Warn_qualifierContext):
-        return self.visitChildren(ctx)
-
-
-    # Visit a parse tree produced by SodaCLAntlrParser#time_period_day.
-    def visitTime_period_day(self, ctx:SodaCLAntlrParser.Time_period_dayContext):
-        return self.visitChildren(ctx)
-
-
-    # Visit a parse tree produced by SodaCLAntlrParser#time_period_hour.
-    def visitTime_period_hour(self, ctx:SodaCLAntlrParser.Time_period_hourContext):
-        return self.visitChildren(ctx)
-
-
-    # Visit a parse tree produced by SodaCLAntlrParser#time_period_minute.
-    def visitTime_period_minute(self, ctx:SodaCLAntlrParser.Time_period_minuteContext):
         return self.visitChildren(ctx)
 
 
@@ -146,6 +126,11 @@ class SodaCLAntlrVisitor(ParseTreeVisitor):
 
     # Visit a parse tree produced by SodaCLAntlrParser#threshold_value.
     def visitThreshold_value(self, ctx:SodaCLAntlrParser.Threshold_valueContext):
+        return self.visitChildren(ctx)
+
+
+    # Visit a parse tree produced by SodaCLAntlrParser#freshness_threshold_value.
+    def visitFreshness_threshold_value(self, ctx:SodaCLAntlrParser.Freshness_threshold_valueContext):
         return self.visitChildren(ctx)
 
 
