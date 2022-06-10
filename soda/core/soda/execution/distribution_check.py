@@ -9,6 +9,7 @@ from soda.execution.metric import Metric
 from soda.execution.partition import Partition
 from soda.execution.query import Query
 from soda.sodacl.distribution_check_cfg import DistributionCheckCfg
+
 from soda.scientific.distribution.comparison import DistributionChecker
 
 
@@ -26,7 +27,7 @@ class DistributionCheck(Check):
             data_source_scan=data_source_scan,
             partition=partition,
             column=column,
-            name="distribution_difference"
+            name="distribution_difference",
         )
         self.distribution_check_cfg: DistributionCheckCfg = self.check_cfg
 
@@ -76,9 +77,9 @@ class DistributionCheck(Check):
         distribution_check_cfg: DistributionCheckCfg = self.check_cfg
         cloud_diagnostics = {"value": self.check_value}
         if distribution_check_cfg.fail_threshold_cfg is not None:
-            cloud_diagnostics['fail'] = distribution_check_cfg.fail_threshold_cfg.to_soda_cloud_diagnostics_json()
+            cloud_diagnostics["fail"] = distribution_check_cfg.fail_threshold_cfg.to_soda_cloud_diagnostics_json()
         if distribution_check_cfg.warn_threshold_cfg is not None:
-            cloud_diagnostics['warn'] = distribution_check_cfg.warn_threshold_cfg.to_soda_cloud_diagnostics_json()
+            cloud_diagnostics["warn"] = distribution_check_cfg.warn_threshold_cfg.to_soda_cloud_diagnostics_json()
         return cloud_diagnostics
 
     def get_log_diagnostic_dict(self) -> dict:
