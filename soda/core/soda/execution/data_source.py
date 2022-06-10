@@ -245,8 +245,6 @@ class DataSource:
         else:
             schema_filter = ""
 
-        order_clause = f"\nORDER BY ORDINAL_POSITION"
-
         if included_columns:
             included_columns_filter = ""
             for col in included_columns:
@@ -270,7 +268,7 @@ class DataSource:
             f"{schema_filter}"
             f"{included_columns_filter}"
             f"{excluded_columns_filter}"
-            f"{order_clause}"
+            "\nORDER BY ORDINAL_POSITION"
         )
         return sql
 
