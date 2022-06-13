@@ -17,7 +17,7 @@ class RefDataCfg(BaseModel):
     bins: Optional[List]
     weights: Optional[List[float]]
     labels: Optional[List]
-    method: str
+    distribution_type: str
 
     @validator("weights")
     def check_weights_sum(cls, v):
@@ -27,9 +27,9 @@ class RefDataCfg(BaseModel):
         )
         return v
 
-    @validator("method")
-    def check_accepted_values_method(cls, v):
-        valid_distribution_methods = ["categorical", "continuous", "ks", "chi_square"]
+    @validator("distribution_type")
+    def check_accepted_values_distribution_type(cls, v):
+        valid_distribution_methods = ["categorical", "continuous"]
         assert (
             v in valid_distribution_methods
         ), f"Method must be one of {valid_distribution_methods}, but '{v}' was provided."
@@ -70,3 +70,14 @@ def distribution_is_all_null(distribution: pd.Series) -> bool:
         return True
     else:
         return False
+
+
+def generate_ref_data(cfg: RefDataCfg, sample_size: int, rng: np.random.Generator) -> pd.Series:
+    if cfg.distribution_type == "continuous":
+        sample_data = rng.random((1, sample_size))[0]
+        xp = np.cumsum(cfg.weights)
+        yp = cfg.bins
+        ref_data = np.interp(sample_data, xp, yp)
+        return ref_data
+    else:
+        return pd.Series(rng.choice(cfg.bins, p=cfg.weights, size=sample_size))

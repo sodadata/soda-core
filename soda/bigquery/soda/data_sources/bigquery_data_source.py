@@ -1,8 +1,8 @@
+from __future__ import annotations
+
 import json
 import logging
-import re
 from json.decoder import JSONDecodeError
-from typing import Dict, List, Optional
 
 from google.cloud import bigquery
 from google.cloud.bigquery import dbapi
@@ -18,11 +18,11 @@ logger = logging.getLogger(__name__)
 class DataSourceImpl(DataSource):
     TYPE = "bigquery"
 
-    SCHEMA_CHECK_TYPES_MAPPING: Dict = {
+    SCHEMA_CHECK_TYPES_MAPPING: dict = {
         "STRING": ["character varying", "varchar"],
         "INT64": ["integer", "int"],
     }
-    SQL_TYPE_FOR_CREATE_TABLE_MAP: Dict = {
+    SQL_TYPE_FOR_CREATE_TABLE_MAP: dict = {
         DataType.TEXT: "STRING",
         DataType.INTEGER: "INT64",
         DataType.DECIMAL: "NUMERIC",
@@ -124,16 +124,30 @@ class DataSourceImpl(DataSource):
             except JSONDecodeError as e:
                 logger.error(f"Error parsing credential 'account_info_json': {e}")
 
-    def sql_to_get_column_metadata_for_table(self, table_name: str):
-        return (
+    def sql_get_table_columns(
+        self, table_name: str, included_columns: list[str] | None = None, excluded_columns: list[str] | None = None
+    ):
+        included_columns_filter = ""
+        excluded_columns_filter = ""
+        if included_columns:
+            for col in included_columns:
+                included_columns_filter += f"\n AND lower(column_name) LIKE lower('{col}')"
+
+        if excluded_columns:
+            for col in excluded_columns:
+                excluded_columns_filter += f"\n AND lower(column_name) NOT LIKE lower('{col}')"
+
+        sql = (
             f"SELECT column_name, data_type, is_nullable "
             f"FROM `{self.dataset_name}.INFORMATION_SCHEMA.COLUMNS` "
-            f"WHERE table_name = '{table_name}';"
+            f"WHERE table_name = '{table_name}'"
+            f"{included_columns_filter}"
+            f"{excluded_columns_filter}"
+            ";"
         )
+        return sql
 
-    def sql_get_column(
-        self, include_tables: Optional[List[str]] = None, exclude_tables: Optional[List[str]] = None
-    ) -> str:
+    def sql_get_column(self, include_tables: list[str] | None = None, exclude_tables: list[str] | None = None) -> str:
         table_filter_expression = self.sql_table_include_exclude_filter(
             "table_name", "table_schema", include_tables, exclude_tables
         )
@@ -145,7 +159,7 @@ class DataSourceImpl(DataSource):
         )
 
     def sql_get_table_names_with_count(
-        self, include_tables: Optional[List[str]] = None, exclude_tables: Optional[List[str]] = None
+        self, include_tables: list[str] | None = None, exclude_tables: list[str] | None = None
     ) -> str:
         table_filter_expression = self.sql_table_include_exclude_filter(
             "table_id", "dataset_id", include_tables, exclude_tables
@@ -153,7 +167,7 @@ class DataSourceImpl(DataSource):
         where_clause = f"\nWHERE {table_filter_expression} \n" if table_filter_expression else ""
         return f"SELECT table_id, row_count \n" f"FROM {self.dataset_name}.__TABLES__" f"{where_clause}"
 
-    def sql_select_star_with_limit(self, table_name: str, limit: int = None) -> str:
+    def sql_select_all(self, table_name: str, limit: int = None) -> str:
         limit_sql = ""
         if limit is not None:
             limit_sql = f" \n LIMIT {limit}"
@@ -167,15 +181,20 @@ class DataSourceImpl(DataSource):
         return f"`{column_name}`"
 
     def escape_regex(self, value: str):
-        return re.sub(r"(\\.)", r"\\\1", value)
+        if value.startswith("r'") or value.startswith('r"'):
+            return value
+        if value.startswith("'") or value.startswith('"'):
+            return f"r{value}"
+
+        return f"r'{value}'"
 
     def expr_regexp_like(self, expr: str, regex_pattern: str):
-        return f"REGEXP_CONTAINS({expr}, '{regex_pattern}')"
+        return f"REGEXP_CONTAINS({expr}, {regex_pattern})"
 
     def regex_replace_flags(self) -> str:
         return ""
 
-    def get_metric_sql_aggregation_expression(self, metric_name: str, metric_args: Optional[List[object]], expr: str):
+    def get_metric_sql_aggregation_expression(self, metric_name: str, metric_args: list[object] | None, expr: str):
         # TODO add all of these bigquery specific statistical aggregate functions: https://cloud.google.com/bigquery/docs/reference/standard-sql/aggregate_analytic_functions
         if metric_name in [
             "stddev",
@@ -203,3 +222,9 @@ class DataSourceImpl(DataSource):
 
     def rollback(self):
         pass
+
+    def cast_to_text(self, expr: str) -> str:
+        return f"CAST({expr} AS STRING)"
+
+    def sql_union(self):
+        return "UNION ALL"

@@ -479,6 +479,7 @@ class SodaCLParser(Parser):
         # Parse the nested check configuration details
         name = None
         filter = None
+        method = None
         missing_and_valid_cfg = None
         condition = None
         metric_expression = None
@@ -494,6 +495,8 @@ class SodaCLParser(Parser):
                     filter = configuration_value.strip()
                 elif "condition" == configuration_key:
                     condition = configuration_value.strip()
+                elif "method" == configuration_key:
+                    method = configuration_value.strip()
                 elif configuration_key.endswith("expression"):
                     metric_expression = configuration_value.strip()
                     configuration_metric_name = (
@@ -540,6 +543,29 @@ class SodaCLParser(Parser):
                 f"Check configuration details should be object/dict, but was {type(check_configurations).__name__}: \n{to_yaml_str(check_configurations)}",
                 location=self.location,
             )
+
+        if metric_name == "freshness":
+            if metric_args:
+                column_name = metric_args[0]
+                variable_name = metric_args[1] if len(metric_args) > 1 else None
+
+                fail_freshness_threshold = fail_threshold_cfg.get_freshness_threshold() if fail_threshold_cfg else None
+                warn_freshness_threshold = warn_threshold_cfg.get_freshness_threshold() if warn_threshold_cfg else None
+
+                return FreshnessCheckCfg(
+                    source_header=header_str,
+                    source_line=check_str,
+                    source_configurations=check_configurations,
+                    location=self.location,
+                    name=name,
+                    column_name=column_name,
+                    variable_name=variable_name,
+                    fail_freshness_threshold=fail_freshness_threshold,
+                    warn_freshness_threshold=warn_freshness_threshold,
+                )
+            else:
+                self.logs.error("Metric freshness must have at least 1 arg", location=self.location)
+                return None
 
         metric_check_cfg_class = MetricCheckCfg
 
@@ -631,6 +657,15 @@ class SodaCLParser(Parser):
             reference_file_path: str = os.path.join(
                 os.path.dirname(self.location.file_path), check_configurations.get("distribution reference file")
             )
+
+            if not fail_threshold_cfg and not warn_threshold_cfg:
+                self.logs.error(
+                    f"""You did not define a threshold for your distribution check. Please use the following syntax\n"""
+                    f"""- distribution_difference(column_name, reference_distribution) > threshold: \n"""
+                    f"""    distribution reference file: distribution_reference.yml""",
+                    location=self.location,
+                )
+
             return DistributionCheckCfg(
                 source_header=header_str,
                 source_line=check_str,
@@ -640,6 +675,7 @@ class SodaCLParser(Parser):
                 column_name=column_name,
                 distribution_name=distribution_name,
                 filter=None,
+                method=method,
                 reference_file_path=reference_file_path,
                 fail_threshold_cfg=fail_threshold_cfg,
                 warn_threshold_cfg=warn_threshold_cfg,
@@ -978,24 +1014,28 @@ class SodaCLParser(Parser):
         check_str: str,
         check_configurations: dict | None,
     ) -> CheckCfg:
+        self.logs.warning(
+            "Syntax of freshness check has changed and is deprecated.  Use freshness(column_name) < 24h30m  See docs"
+        )
+
         antlr_freshness_check: SodaCLAntlrParser.Freshness_checkContext = antlr_freshness_check
 
         column_name = self.__antlr_parse_identifier(antlr_freshness_check.identifier())
-        variable_name = "NOW"
+        variable_name = None
         if antlr_freshness_check.freshness_variable():
             variable_name = self.__antlr_parse_identifier(antlr_freshness_check.freshness_variable().identifier())
 
-        antlr_staleness_threshold = antlr_freshness_check.staleness_threshold()
-        warn_staleness_threshold = None
+        antlr_freshness_threshold = antlr_freshness_check.freshness_threshold_value()
+        warn_freshness_threshold = None
         name = None
-        if antlr_staleness_threshold:
-            fail_staleness_threshold = self.parse_staleness_threshold(antlr_staleness_threshold.getText())
+        if antlr_freshness_threshold:
+            fail_freshness_threshold = self.parse_freshness_threshold(antlr_freshness_threshold.getText())
         else:
             self._push_path_element(check_str, check_configurations)
             fail_staleness_threshold_text = self._get_optional(FAIL, str)
-            fail_staleness_threshold = self.parse_staleness_threshold_text(fail_staleness_threshold_text)
-            warn_staleness_threshold_text = self._get_optional(WARN, str)
-            warn_staleness_threshold = self.parse_staleness_threshold_text(warn_staleness_threshold_text)
+            fail_freshness_threshold = self.parse_staleness_threshold_text(fail_staleness_threshold_text)
+            warn_freshness_threshold_text = self._get_optional(WARN, str)
+            warn_freshness_threshold = self.parse_staleness_threshold_text(warn_freshness_threshold_text)
 
             name = self._get_optional(NAME, str)
             for configuration_key in check_configurations:
@@ -1014,41 +1054,51 @@ class SodaCLParser(Parser):
             name=name,
             column_name=column_name,
             variable_name=variable_name,
-            fail_staleness_threshold=fail_staleness_threshold,
-            warn_staleness_threshold=warn_staleness_threshold,
+            fail_freshness_threshold=fail_freshness_threshold,
+            warn_freshness_threshold=warn_freshness_threshold,
         )
 
     def parse_staleness_threshold_text(self, staleness_threshold_text):
         if isinstance(staleness_threshold_text, str):
             if staleness_threshold_text.startswith("when > "):
-                return self.parse_staleness_threshold(staleness_threshold_text[len("when > ") :])
+                return self.parse_freshness_threshold(staleness_threshold_text[len("when > ") :])
             else:
                 self.logs.error(
                     f'Invalid staleness threshold "{staleness_threshold_text}"',
                     location=self.location,
                 )
 
-    def parse_staleness_threshold(self, staleness_threshold_text: str) -> timedelta | None:
+    def parse_freshness_threshold(self, freshness_threshold_text: str) -> timedelta | None:
         try:
-            if "d" in staleness_threshold_text:
-                parts = staleness_threshold_text.split("d")
-                days = int(parts[0])
-                hours = int(parts[1]) if parts[1] != "" else 0
-                return timedelta(days=days, hours=hours)
-            elif "h" in staleness_threshold_text:
-                parts = staleness_threshold_text.split("h")
-                hours = int(parts[0])
-                minutes = int(parts[1]) if parts[1] != "" else 0
-                return timedelta(hours=hours, minutes=minutes)
-            elif "m" in staleness_threshold_text:
-                parts = staleness_threshold_text.split("m")
-                minutes = int(parts[0])
-                seconds = int(parts[1]) if parts[1] != "" else 0
-                return timedelta(minutes=minutes, seconds=seconds)
-        except:
+            days = 0
+            hours = 0
+            minutes = 0
+            seconds = 0
+            previous_unit = None
+            match = re.match(r"(\d+[dhms])+(\d+)?", freshness_threshold_text)
+            for group in match.groups():
+                if isinstance(group, str):
+                    if group.isdigit():
+                        unit = previous_unit
+                    else:
+                        unit = group[-1:]
+
+                    value = int(group[:-1])
+                    if unit == "d":
+                        days += value
+                    elif unit == "h":
+                        hours += value
+                    elif unit == "m":
+                        minutes += value
+                    elif unit == "s":
+                        seconds += value
+
+                    previous_unit = unit
+
+                return timedelta(days=days, hours=hours, minutes=minutes, seconds=seconds)
+        except Exception as e:
             self.logs.error(
-                f'Problem parsing freshness threshold "{staleness_threshold_text}"',
-                location=self.location,
+                f'Problem parsing freshness threshold "{freshness_threshold_text}"', location=self.location, exception=e
             )
 
     def __antlr_parse_threshold_condition(self, antlr_threshold) -> ThresholdCfg:
@@ -1057,6 +1107,7 @@ class SodaCLParser(Parser):
             comparator = antlr_comparator_threshold.comparator().getText()
             antlr_threshold_value = antlr_comparator_threshold.threshold_value()
             threshold_value = self.__antlr_threshold_value(antlr_threshold_value)
+
             if comparator == "<":
                 return ThresholdCfg(lt=threshold_value)
             if comparator == "<=":
@@ -1102,11 +1153,12 @@ class SodaCLParser(Parser):
 
         self.logs.error(f'Unknown threshold "{antlr_threshold.getText()}"', location=self.location)
 
-    def __antlr_threshold_value(self, antlr_threshold_value):
+    def __antlr_threshold_value(self, antlr_threshold_value: SodaCLAntlrParser.Threshold_valueContext):
         if antlr_threshold_value.signed_number():
             return self.__antlr_parse_signed_number(antlr_threshold_value.signed_number())
-        if antlr_threshold_value.percentage():
-            return self.__antlr_parse_signed_number(antlr_threshold_value.percentage())
+        if antlr_threshold_value.freshness_threshold_value():
+            freshness_threshold = antlr_threshold_value.freshness_threshold_value().getText()
+            return self.parse_freshness_threshold(freshness_threshold)
 
     def __antlr_parse_signed_number(self, antlr_signed_number):
         signed_number_str = antlr_signed_number.getText()

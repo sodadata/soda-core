@@ -1,0 +1,25 @@
+version: "3.7"
+services:
+  spark2-thrift:
+    image: godatadriven/pyspark:3.1
+    ports:
+      - "10000:10000"
+      - "4040:4040"
+    depends_on:
+      - hive-metastore
+    command: >
+      --class org.apache.spark.sql.hive.thriftserver.HiveThriftServer2 --name Thrift JDBC/ODBC Server
+    volumes:
+      - /tmp/.spark-warehouse/:/spark-warehouse/
+      - ./hive-site.xml:/usr/spark/conf/hive-site.xml
+    environment:
+      - WAIT_FOR=hive-metastore:5432
+
+  hive-metastore:
+    image: postgres:9.6.17-alpine
+    volumes:
+      - /tmp/.hive-metastore/:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_USER=soda
+      - POSTGRES_PASSWORD=soda
+      - POSTGRES_DB=metastore

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from numbers import Number
 from typing import TYPE_CHECKING, overload
 
 from soda.execution.query import Query
@@ -50,59 +51,68 @@ class ProfileColumnsRun:
         # row_counts is a dict that maps table names to row counts.
         row_counts_by_table_name: dict[str, int] = self.data_source.get_row_counts_all_tables(
             include_tables=self._get_table_expression(self.profile_columns_cfg.include_columns),
-            exclude_tables=self._get_table_expression(self.profile_columns_cfg.exclude_columns),
-            query_name="profile columns: get tables and row counts",
+            exclude_tables=self._get_table_expression(self.profile_columns_cfg.exclude_columns, is_for_exclusion=True),
+            query_name="profile-columns-get-tables-and-row-counts",
         )
-        parsed_tables_and_columns = self._build_column_inclusion(self.profile_columns_cfg.include_columns)
+        parsed_included_tables_and_columns = self._build_column_expression_list(
+            self.profile_columns_cfg.include_columns
+        )
+        parsed_excluded_tables_and_columns = self._build_column_expression_list(
+            self.profile_columns_cfg.exclude_columns
+        )
         for table_name in row_counts_by_table_name:
             self.logs.debug(f"Profiling columns for {table_name}")
             measured_row_count = row_counts_by_table_name[table_name]
             profile_columns_result_table = profile_columns_result.create_table(
                 table_name, self.data_source.data_source_name, measured_row_count
             )
-
-            # get columns & metadata for current table
-            columns_metadata_sql = self.data_source.sql_to_get_column_metadata_for_table(table_name)
-            columns_metadata_query = Query(
-                data_source_scan=self.data_source_scan,
-                unqualified_query_name=f"get col metadata for table: {table_name}",
-                sql=columns_metadata_sql,
+            included_columns, excluded_columns = self.build_column_inclusion_exclusion_lists(
+                table_name, parsed_included_tables_and_columns, parsed_excluded_tables_and_columns
             )
-            columns_metadata_query.execute()
-            assert columns_metadata_query.rows, f"No metadata was captured for table: {table_name}"
-            columns_metadata_result = {column[0]: column[1] for column in columns_metadata_query.rows}
-            # perform numerical metrics collection
-            numerical_columns = {
-                col_name: data_type
-                for col_name, data_type in columns_metadata_result.items()
-                if data_type in self.data_source.NUMERIC_TYPES_FOR_PROFILING
-            }
+            # get columns & metadata for current table
+            columns_metadata_result = self.data_source.get_table_columns(
+                table_name=table_name,
+                query_name=f"profile-columns-get-column-metadata-for-{table_name}",
+                included_columns=included_columns,
+                excluded_columns=excluded_columns,
+            )
+            if columns_metadata_result is not None:
+                # perform numerical metrics collection
+                numerical_columns = {
+                    col_name: data_type
+                    for col_name, data_type in columns_metadata_result.items()
+                    if data_type in self.data_source.NUMERIC_TYPES_FOR_PROFILING
+                }
 
-            for column_name, column_type in numerical_columns.items():
-                self.profile_numeric_column(
-                    column_name,
-                    column_type,
-                    table_name,
-                    columns_metadata_result,
-                    parsed_tables_and_columns,
-                    profile_columns_result_table,
-                )
+                for column_name, column_type in numerical_columns.items():
+                    try:
+                        self.profile_numeric_column(
+                            column_name,
+                            column_type,
+                            table_name,
+                            profile_columns_result_table,
+                        )
+                    except Exception as e:
+                        self.logs.error(
+                            f"Problem profiling numeric column {table_name}.{column_name}: {e}", exception=e
+                        )
 
-            # text columns
-            text_columns = {
-                col_name: data_type
-                for col_name, data_type in columns_metadata_result.items()
-                if data_type in self.data_source.TEXT_TYPES_FOR_PROFILING
-            }
-            for column_name, column_type in text_columns.items():
-                self.profile_text_column(
-                    column_name,
-                    column_type,
-                    table_name,
-                    columns_metadata_result,
-                    parsed_tables_and_columns,
-                    profile_columns_result_table,
-                )
+                # text columns
+                text_columns = {
+                    col_name: data_type
+                    for col_name, data_type in columns_metadata_result.items()
+                    if data_type in self.data_source.TEXT_TYPES_FOR_PROFILING
+                }
+                for column_name, column_type in text_columns.items():
+                    try:
+                        self.profile_text_column(
+                            column_name,
+                            column_type,
+                            table_name,
+                            profile_columns_result_table,
+                        )
+                    except Exception as e:
+                        self.logs.error(f"Problem profiling text column {table_name}.{column_name}: {e}", exception=e)
 
         if not profile_columns_result.tables:
             self.logs.error(f"Profiling for data source: {self.data_source.data_source_name} failed")
@@ -113,55 +123,61 @@ class ProfileColumnsRun:
         column_name: str,
         column_type: str,
         table_name: str,
-        columns_metadata_result: dict,
-        parsed_tables_and_columns: dict[str, list[str]],
         profile_columns_result_table: ProfileColumnsResultTable,
     ):
         self.logs.debug(f"Profiling column {column_name} of {table_name}")
         profile_columns_result_column, is_included_column = self.build_profiling_column(
             column_name,
             column_type,
-            table_name,
-            list(columns_metadata_result.keys()),
-            parsed_tables_and_columns,
             profile_columns_result_table,
         )
         if profile_columns_result_column and is_included_column:
-            value_frequencies_sql = self.data_source.profiling_sql_values_frequencies_query(table_name, column_name)
+            value_frequencies_sql = self.data_source.profiling_sql_values_frequencies_query(
+                "numeric",
+                table_name,
+                column_name,
+                self.profile_columns_cfg.limit_mins_maxs,
+                self.profile_columns_cfg.limit_frequent_values,
+            )
 
             value_frequencies_query = Query(
                 data_source_scan=self.data_source_scan,
-                unqualified_query_name=f"profiling: {table_name}, {column_name}: mins, maxes and values frequencies",
+                unqualified_query_name=f"profiling-{table_name}-{column_name}-value-frequencies-numeric",
                 sql=value_frequencies_sql,
             )
             value_frequencies_query.execute()
+
+            def unify_type(v):
+                return float(v) if isinstance(v, Number) else v
+
             if value_frequencies_query.rows is not None:
                 profile_columns_result_column.mins = [
-                    float(row[0]) if not isinstance(row[0], int) else row[0] for row in value_frequencies_query.rows
+                    unify_type(row[2]) for row in value_frequencies_query.rows if row[0] == "mins"
                 ]
-                profile_columns_result_column.maxes = [
-                    float(row[1]) if not isinstance(row[1], int) else row[1] for row in value_frequencies_query.rows
+                profile_columns_result_column.maxs = [
+                    unify_type(row[2]) for row in value_frequencies_query.rows if row[0] == "maxs"
                 ]
                 profile_columns_result_column.min = (
                     profile_columns_result_column.mins[0] if len(profile_columns_result_column.mins) >= 1 else None
                 )
                 profile_columns_result_column.max = (
-                    profile_columns_result_column.maxes[0] if len(profile_columns_result_column.maxes) >= 1 else None
+                    profile_columns_result_column.maxs[0] if len(profile_columns_result_column.maxs) >= 1 else None
                 )
-                profile_columns_result_column.frequent_values = self.build_frequent_values_dict(
-                    values=[row[2] for row in value_frequencies_query.rows],
-                    frequencies=[row[3] for row in value_frequencies_query.rows],
-                )
+                profile_columns_result_column.frequent_values = [
+                    {"value": str(row[2]), "frequency": int(row[3])}
+                    for row in value_frequencies_query.rows
+                    if row[0] == "frequent_values"
+                ]
             else:
                 self.logs.error(
                     f"Database returned no results for minumum values, maximum values and frequent values in table: {table_name}, columns: {column_name}"
                 )
 
             # pure aggregates
-            aggregates_sql = self.data_source.profiling_sql_numeric_aggregates(table_name, column_name)
+            aggregates_sql = self.data_source.profiling_sql_aggregates_numeric(table_name, column_name)
             aggregates_query = Query(
                 data_source_scan=self.data_source_scan,
-                unqualified_query_name=f"profiling: {table_name}, {column_name}: get_pure_profiling_aggregates",
+                unqualified_query_name=f"profiling-{table_name}-{column_name}-profiling-aggregates",
                 sql=aggregates_sql,
             )
             aggregates_query.execute()
@@ -199,7 +215,7 @@ class ProfileColumnsRun:
                 if histogram_sql is not None:
                     histogram_query = Query(
                         data_source_scan=self.data_source_scan,
-                        unqualified_query_name=f"profiling: {table_name}, {column_name}: get histogram",
+                        unqualified_query_name=f"profiling-{table_name}-{column_name}-histogram",
                         sql=histogram_sql,
                     )
                     histogram_query.execute()
@@ -231,38 +247,40 @@ class ProfileColumnsRun:
         column_name: str,
         column_type: str,
         table_name: str,
-        columns_metadata_result: dict,
-        parsed_tables_and_columns: dict[str, list[str]],
         profile_columns_result_table: ProfileColumnsResultTable,
     ):
         profile_columns_result_column, is_included_column = self.build_profiling_column(
             column_name,
             column_type,
-            table_name,
-            list(columns_metadata_result.keys()),
-            parsed_tables_and_columns,
             profile_columns_result_table,
         )
         if profile_columns_result_column and is_included_column:
             # frequent values for text column
-            frequent_values_sql = self.data_source.profiling_sql_top_values(table_name, column_name)
-            frequent_values_query = Query(
-                data_source_scan=self.data_source_scan,
-                unqualified_query_name=f"profiling: {table_name}, {column_name}: get frequent values text cols",
-                sql=frequent_values_sql,
+            value_frequencies_sql = self.data_source.profiling_sql_values_frequencies_query(
+                "text",
+                table_name,
+                column_name,
+                self.profile_columns_cfg.limit_mins_maxs,
+                self.profile_columns_cfg.limit_frequent_values,
             )
-            frequent_values_query.execute()
-            if frequent_values_query.rows:
-                profile_columns_result_column.frequent_values = self.build_frequent_values_dict(
-                    values=[row[2] for row in frequent_values_query.rows],
-                    frequencies=[row[0] for row in frequent_values_query.rows],
-                )
+            value_frequencies_query = Query(
+                data_source_scan=self.data_source_scan,
+                unqualified_query_name=f"profiling-{table_name}-{column_name}-value-frequencies-text",
+                sql=value_frequencies_sql,
+            )
+            value_frequencies_query.execute()
+            if value_frequencies_query.rows:
+                profile_columns_result_column.frequent_values = [
+                    {"value": str(row[2]), "frequency": int(row[3])}
+                    for row in value_frequencies_query.rows
+                    if row[0] == "frequent_values"
+                ]
             else:
                 self.logs.warning(
                     f"Database returned no results for textual frequent values in {table_name}, column: {column_name}"
                 )
             # pure text aggregates
-            text_aggregates_sql = self.data_source.profiling_sql_text_aggregates(table_name, column_name)
+            text_aggregates_sql = self.data_source.profiling_sql_aggregates_text(table_name, column_name)
             text_aggregates_query = Query(
                 data_source_scan=self.data_source_scan,
                 unqualified_query_name=f"profiling: {table_name}, {column_name}: get textual aggregates",
@@ -301,25 +319,11 @@ class ProfileColumnsRun:
         self,
         column_name: str,
         column_type: str,
-        table_name: str,
-        table_columns: list[str],
-        parsed_tables_and_columns: dict[str, list[str]],
         table_result: ProfileColumnsResultTable,
     ) -> tuple[ProfileColumnsResultColumn | None, bool]:
         column_name = column_name.lower()
-        if self._is_column_included_for_profiling(column_name, table_name, table_columns, parsed_tables_and_columns):
-            profile_columns_result_column: ProfileColumnsResultColumn = table_result.create_column(
-                column_name, column_type
-            )
-            return profile_columns_result_column, True
-        return None, False
-
-    @staticmethod
-    def build_frequent_values_dict(values: list[str | int | float], frequencies: list[int]) -> list[dict[str, int]]:
-        frequent_values = []
-        for i, value in enumerate(values):
-            frequent_values.append({"value": str(value), "frequency": frequencies[i]})
-        return frequent_values
+        profile_columns_result_column: ProfileColumnsResultColumn = table_result.create_column(column_name, column_type)
+        return profile_columns_result_column, True
 
     def _is_column_included_for_profiling(
         self,
@@ -344,20 +348,40 @@ class ProfileColumnsRun:
         else:
             return False
 
-    # TODO: Deal with exclude set as well
-    def _build_column_inclusion(self, columns_expression: list[str]) -> dict[str, list[str]]:
-        included_columns = {}
+    def build_column_inclusion_exclusion_lists(
+        self,
+        table_name: str,
+        included_columns: dict[str, list[str]],
+        excluded_columns: dict[str, list[str]],
+    ) -> tuple[list[str], list[str]]:
+        _included_columns = included_columns.copy()
+        _excluded_columns = excluded_columns.copy()
+        included_all_tables = _included_columns.pop("%", [])
+        excluded_all_tables = _excluded_columns.pop("%", [])
+        table_name = table_name.lower()
+        # get the table entry that matches the current table name (also think about potential regex matching)
+        qualified_included_table_columns = _included_columns.get(table_name, [])
+        # get the list of columns for that fully qualified entry out
+        qualified_included_table_columns.extend(included_all_tables)
+        # do the same for excludes
+        qualified_excluded_table_columns = _excluded_columns.get(table_name, [])
+        qualified_excluded_table_columns.extend(excluded_all_tables)
+
+        return set(qualified_included_table_columns), set(qualified_excluded_table_columns)
+
+    def _build_column_expression_list(self, columns_expression: list[str]) -> dict[str, list[str]]:
+        selected_columns = {}
         for col_expression in columns_expression:
             table, column = col_expression.split(".")
             table = table.lower()
-            if table in included_columns.keys():
-                if included_columns[table] is None:
-                    included_columns[table] = [column]
+            if table in selected_columns.keys():
+                if selected_columns[table] is None:
+                    selected_columns[table] = [column]
                 else:
-                    included_columns[table].append(column)
+                    selected_columns[table].append(column)
             else:
-                included_columns.update({table: [column]})
-        return included_columns
+                selected_columns.update({table: [column]})
+        return selected_columns
 
     def _get_table_expression(self, columns_expression: list[str]) -> list[str]:
         table_expressions = []
@@ -371,6 +395,24 @@ class ProfileColumnsRun:
             else:
                 table_expression = parts[0]
                 table_expressions.append(table_expression)
+        return table_expressions
+
+    def _get_table_expression(self, columns_expression: list[str], is_for_exclusion: bool = False) -> list[str]:
+        table_expressions = []
+        for column_expression in columns_expression:
+            parts = column_expression.split(".")
+            if len(parts) != 2:
+                self.logs.error(
+                    f'Invalid include column expression "{column_expression}"',
+                    location=self.profile_columns_cfg.location,
+                )
+            else:
+                if is_for_exclusion:
+                    table_expression = parts[0] if parts[1] == "%" else None
+                else:
+                    table_expression = parts[0]
+                if table_expression is not None:
+                    table_expressions.append(table_expression)
         return table_expressions
 
     def _get_colums(self, columns_expression: list[str]) -> list[str]:

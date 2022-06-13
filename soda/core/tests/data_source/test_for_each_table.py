@@ -1,9 +1,9 @@
 import pytest
-from tests.conftest import test_data_source
 from tests.helpers.common_test_tables import (
     customers_test_table,
     raw_customers_test_table,
 )
+from tests.helpers.fixtures import test_data_source
 from tests.helpers.scanner import Scanner
 
 
@@ -37,7 +37,7 @@ def test_for_each_table(scanner: Scanner):
 )
 def test_for_each_table_schema(scanner: Scanner):
     customers_table_name = scanner.ensure_test_table(customers_test_table)
-    actual_column_name = scanner.data_source.default_casify_column_name
+    casify = scanner.data_source.default_casify_column_name
 
     scan = scanner.create_test_scan()
     scan.add_sodacl_yaml_str(
@@ -48,7 +48,7 @@ def test_for_each_table_schema(scanner: Scanner):
             checks:
               - schema:
                   warn:
-                    when required column missing: [{actual_column_name('id')}]
+                    when required column missing: [{casify('id')}]
                   fail:
                     when forbidden column present:
                       - ssn

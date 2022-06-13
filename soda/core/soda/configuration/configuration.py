@@ -21,8 +21,11 @@ class Configuration:
         self.sampler: Sampler = DefaultSampler()
 
     def add_spark_session(self, data_source_name: str, spark_session):
-        self.connection_properties_by_name["provided_spark"] = {
-            "type": "provided_spark",
-            "provided_spark_session": spark_session,
+        self.connection_properties_by_name["spark_df_data_source"] = {
+            "type": "spark_df",
+            "spark_session": spark_session,
         }
-        self.data_source_properties_by_name[data_source_name] = {"connection": "provided_spark"}
+        self.data_source_properties_by_name[data_source_name] = {
+            "type": "spark_df",
+            "connection": "spark_df_data_source",
+        }

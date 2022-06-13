@@ -43,8 +43,8 @@ class DistributionCheck(Check):
         if self.query.exception is None and self.query.rows is not None:
             test_data = [row[0] for row in self.query.rows]
 
-            _, p_value = DistributionChecker(distribution_check_cfg, test_data).run()
-            self.check_value = p_value
+            check_result_dict = DistributionChecker(distribution_check_cfg, test_data).run()
+            self.check_value = check_result_dict["check_value"]
 
             self.set_outcome_based_on_check_value()
 
@@ -84,7 +84,7 @@ class DistributionCheck(Check):
         #     log_diagnostics.update(self.historic_diff_values)
         return log_diagnostics
 
-    def sql_column_values_query(self, distribution_check_cfg, limit=1000000):
+    def sql_column_values_query(self, distribution_check_cfg, limit=1000000) -> str:
 
         column_name = distribution_check_cfg.column_name
 
@@ -105,3 +105,12 @@ class DistributionCheck(Check):
             f"FROM {self.partition.table.fully_qualified_table_name}{partition_str}{limit_str}"
         )
         return sql
+
+    def get_summary(self) -> str:
+        error_summary = (
+            " NO THRESHOLD PROVIDED ->"
+            if not self.check_cfg.fail_threshold_cfg and not self.check_cfg.warn_threshold_cfg
+            else ""
+        )
+        summary_message = f"{super().get_summary()}{error_summary}"
+        return summary_message

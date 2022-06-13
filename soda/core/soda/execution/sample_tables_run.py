@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from soda.execution.query import Query
 from soda.profiling.sample_tables_result import SampleTablesResult
 from soda.sodacl.data_source_check_cfg import DataSourceCheckCfg
 
@@ -37,20 +36,11 @@ class SampleTablesRun:
             self.logs.debug(f"Sampling columns for {table_name}")
 
             # get columns and first n rows
-            sample_table_sql = self.data_source.sql_select_star_with_limit(table_name, limit=100)
-            sample_table_query = Query(
-                data_source_scan=self.data_source_scan,
-                unqualified_query_name=f"{QUERY_PREFIX} get samples from table: {table_name}",
-                sql=sample_table_sql,
-                sample_name="table_sample",
-            )
-            sample_table_query.store()
-            sample_ref = sample_table_query.sample_ref
-
+            sample_ref = self.data_source.store_table_sample(table_name, limit=100)
             sample_tables_result.append_table(table_name, self.data_source_name, sample_ref)
             self.logs.info(f"Successfully collected samples for table: {table_name}!")
 
-        if not sample_tables_result.tables:
+        if not isinstance(sample_tables_result.tables, list):
             self.logs.error(f"Sample tables for data source: {self.data_source_name} failed")
 
         return sample_tables_result
