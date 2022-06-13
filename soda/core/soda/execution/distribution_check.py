@@ -12,7 +12,7 @@ from soda.execution.query import Query
 from soda.sodacl.distribution_check_cfg import DistributionCheckCfg
 
 from soda.scientific.distribution.comparison import DistributionChecker
-from soda.execution.metric import Metric
+
 
 class DistributionCheck(Check):
     def __init__(
@@ -33,13 +33,13 @@ class DistributionCheck(Check):
 
         self.distribution_check_cfg: DistributionCheckCfg = self.check_cfg
         metric = Metric(
-                data_source_scan=self.data_source_scan,
-                name=self.distribution_check_cfg.source_line,
-                partition=None,
-                column=None,
-                check=self,
-                identity_parts=['distribution']
-            )
+            data_source_scan=self.data_source_scan,
+            name=self.distribution_check_cfg.source_line,
+            partition=None,
+            column=None,
+            check=self,
+            identity_parts=["distribution"],
+        )
         metric.value = inf
         metric = data_source_scan.resolve_metric(metric)
         self.metrics["distribution-difference-metric"] = metric
