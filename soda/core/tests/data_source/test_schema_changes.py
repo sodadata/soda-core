@@ -22,16 +22,40 @@ def test_schema_changes_pass(scanner: Scanner):
 
     scan.add_sodacl_yaml_str(
         f"""
-      checks for {table_name}:
-        - schema:
-            fail:
-              when schema changes: any
-    """
+        checks for {table_name}:
+          - schema:
+              fail:
+                when schema changes: any
+        """
     )
     scan.execute()
 
     scan.assert_all_checks_pass()
 
+
+def test_schema_check_have_no_data(scanner: Scanner):
+    table_name = scanner.ensure_test_table(customers_test_table)
+
+    scan = scanner.create_test_scan()
+
+    mock_soda_cloud = scan.enable_mock_soda_cloud()
+    scan.add_sodacl_yaml_str(
+        f"""
+        checks for {table_name}:
+          - schema:
+              fail:
+                when schema changes: any
+        """
+    )
+    scan.execute(allow_error_warning=True)
+    scan_cloud_result = mock_soda_cloud.pop_scan_result()
+    assert scan_cloud_result["checks"][0]["outcomeReasons"] == [
+        {
+            "code": "notEnoughHistory",
+            "message": "Skipping schema checks since there is no historic schema metrics!",
+            "severity": "warn",
+        }
+    ]
 
 def test_schema_changes_column_addition(scanner: Scanner):
     table_name = scanner.ensure_test_table(customers_test_table)

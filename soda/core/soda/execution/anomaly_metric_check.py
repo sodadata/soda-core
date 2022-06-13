@@ -63,7 +63,7 @@ class AnomalyMetricCheck(MetricCheck):
         historic_check_results = historic_values.get(KEY_HISTORIC_CHECK_RESULTS, {}).get("check_results", {})
 
         if not historic_measurements:
-            warning_message = "Skipping anomaly metric check eval because there is no historic data yet!"
+            warning_message = "Skipping anomaly metric check eval because there is no historic data yet"
             self.logs.warning(warning_message)
             self.add_outcome_reason(outcome_type="notEnoughHistory", message=warning_message, severity="warn")
             return

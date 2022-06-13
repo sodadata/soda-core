@@ -54,7 +54,7 @@ def test_anomaly_detection_not_enough_data(scanner: Scanner):
     ]
 
 
-# TODO: Ask Baturay why we test this?
+
 def test_anomaly_detection_have_no_data(scanner: Scanner):
     table_name = scanner.ensure_test_table(customers_test_table)
 
@@ -68,7 +68,14 @@ def test_anomaly_detection_have_no_data(scanner: Scanner):
         """
     )
     scan.execute(allow_error_warning=True)
-
+    scan_cloud_result = mock_soda_cloud.pop_scan_result()
+    assert scan_cloud_result["checks"][0]["outcomeReasons"] == [
+        {
+            "code": "notEnoughHistory",
+            "message": "Skipping anomaly metric check eval because there is no historic data yet",
+            "severity": "warn",
+        }
+    ]
 
 @pytest.mark.skip("custom threshold is not supported")
 def test_anomaly_detection_custom_threshold(scanner: Scanner):
