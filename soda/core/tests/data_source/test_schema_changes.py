@@ -57,6 +57,7 @@ def test_schema_check_have_no_data(scanner: Scanner):
         }
     ]
 
+
 def test_schema_changes_column_addition(scanner: Scanner):
     table_name = scanner.ensure_test_table(customers_test_table)
     data_source = scanner.data_source
