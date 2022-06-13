@@ -174,7 +174,7 @@ class MockSodaCloud(SodaCloud):
 
         if not historic_metric_values:
             self.logs.warning(f"No historic measurements for metric {metric_identity}")
-            return historic_metric_values
+            return {}
 
         if len(historic_metric_values) > 0:
             historic_metric_values.sort(key=lambda m: m["dataTime"], reverse=True)

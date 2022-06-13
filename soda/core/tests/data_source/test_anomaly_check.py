@@ -71,7 +71,7 @@ def test_anomaly_detection_have_no_data(scanner: Scanner):
     assert scan_cloud_result["checks"][0]["outcomeReasons"] == [
         {
             "code": "notEnoughHistory",
-            "message": "Skipping anomaly metric check eval because there is no historic data yet",
+            "message": "Skipping anomaly metric check eval because there is not enough historic data yet",
             "severity": "warn",
         }
     ]

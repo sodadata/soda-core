@@ -68,6 +68,7 @@ class AnomalyMetricCheck(MetricCheck):
             self.logs.warning(
                 f"This is the first time that we derive {metrics[self.name]} metric"
             )
+            historic_measurements["results"] = []
 
         # Append current results
         historic_measurements.get("results", []).append(
