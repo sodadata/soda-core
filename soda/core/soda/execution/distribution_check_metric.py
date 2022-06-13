@@ -20,4 +20,4 @@ class DistributionCheckMetric(Metric):
             check=check,
             identity_parts=["fake_metric"],
         )
-        self.value: object = inf
+        self.value: float = inf
