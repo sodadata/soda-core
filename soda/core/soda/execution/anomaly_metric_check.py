@@ -1,5 +1,4 @@
 from __future__ import annotations
-from ast import Return
 
 from datetime import timezone
 
@@ -65,9 +64,7 @@ class AnomalyMetricCheck(MetricCheck):
         historic_check_results = historic_values.get(KEY_HISTORIC_CHECK_RESULTS, {}).get("check_results", {})
 
         if not historic_measurements:
-            self.logs.warning(
-                f"This is the first time that we derive {metrics[self.name]} metric"
-            )
+            self.logs.warning(f"This is the first time that we derive {metrics[self.name]} metric")
 
         # Append current results
         historic_measurements.get("results", []).append(
