@@ -1,7 +1,9 @@
 from cmath import inf
-from soda.execution.metric import Metric
+
 from soda.execution.check import Check
 from soda.execution.data_source_scan import DataSourceScan
+from soda.execution.metric import Metric
+
 
 class DistributionCheckMetric(Metric):
     def __init__(
@@ -16,6 +18,6 @@ class DistributionCheckMetric(Metric):
             column=None,
             name=check_name,
             check=check,
-            identity_parts=['fake_metric'],
+            identity_parts=["fake_metric"],
         )
         self.value: object = inf
