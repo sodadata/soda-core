@@ -1,4 +1,5 @@
 from __future__ import annotations
+from ast import Return
 
 from datetime import timezone
 
@@ -56,6 +57,7 @@ class AnomalyMetricCheck(MetricCheck):
             )
             self.logs.error(error_message)
             self.add_outcome_reason(outcome_type="parserFailed", message=error_message, severity="warn")
+            # TODO: check it with Dirk TBD
             return
 
         # TODO Review the data structure and see if we still need the KEY_HISTORIC_*
@@ -63,10 +65,9 @@ class AnomalyMetricCheck(MetricCheck):
         historic_check_results = historic_values.get(KEY_HISTORIC_CHECK_RESULTS, {}).get("check_results", {})
 
         if not historic_measurements:
-            warning_message = "Skipping anomaly metric check eval because there is no historic data yet"
-            self.logs.warning(warning_message)
-            self.add_outcome_reason(outcome_type="notEnoughHistory", message=warning_message, severity="warn")
-            return
+            self.logs.warning(
+                f"This is the first time that we derive {metrics[self.name]} metric"
+            )
 
         # Append current results
         historic_measurements.get("results", []).append(
@@ -93,6 +94,7 @@ class AnomalyMetricCheck(MetricCheck):
             warning_message = "Skipping anomaly metric check eval because there is not enough historic data yet"
             self.logs.warning(warning_message)
             self.add_outcome_reason(outcome_type="notEnoughHistory", message=warning_message, severity="warn")
+            self.diagnostics = diagnostics
             return
 
         assert isinstance(
