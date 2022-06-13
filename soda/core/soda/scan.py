@@ -7,10 +7,10 @@ import textwrap
 from datetime import datetime
 
 from soda.__version__ import SODA_CORE_VERSION
+from soda.common.json_helper import JsonHelper
 from soda.common.log import Log, LogLevel
 from soda.common.logs import Logs
 from soda.common.undefined_instance import undefined
-from soda.common.json_helper import JsonHelper
 from soda.execution.check import Check
 from soda.execution.check_outcome import CheckOutcome
 from soda.execution.data_source_scan import DataSourceScan
