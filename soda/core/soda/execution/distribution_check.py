@@ -30,7 +30,7 @@ class DistributionCheck(Check):
             column=column,
             name="distribution_difference",
         )
-        
+
         self.distribution_check_cfg: DistributionCheckCfg = self.check_cfg
         metric = Metric(
                 data_source_scan=self.data_source_scan,
@@ -42,7 +42,7 @@ class DistributionCheck(Check):
             )
         metric.value = inf
         metric = data_source_scan.resolve_metric(metric)
-        self.metrics['distribution-difference-metric'] = metric
+        self.metrics["distribution-difference-metric"] = metric
 
     def evaluate(self, metrics: Dict[str, Metric], historic_values: Dict[str, object]):
 
@@ -59,7 +59,7 @@ class DistributionCheck(Check):
 
             check_result_dict = DistributionChecker(self.distribution_check_cfg, test_data).run()
             self.check_value = check_result_dict["check_value"]
-            self.metrics['distribution-difference-metric'].value = self.check_value
+            self.metrics["distribution-difference-metric"].value = self.check_value
             self.set_outcome_based_on_check_value()
 
     def set_outcome_based_on_check_value(self):
