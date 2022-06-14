@@ -32,7 +32,7 @@ def test_automated_monitoring(scanner: Scanner):
     scan.add_sodacl_yaml_str(
         f"""
             automated monitoring:
-              tables:
+              datasets:
                 - include {table_name}
                 - exclude PROD%
         """

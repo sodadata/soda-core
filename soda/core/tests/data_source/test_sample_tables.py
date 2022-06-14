@@ -18,7 +18,7 @@ def test_sample_tables(scanner: Scanner):
     scan.add_sodacl_yaml_str(
         f"""
           sample datasets:
-            tables:
+            datasets:
               - include {table_name}
         """
     )
@@ -68,7 +68,7 @@ def test_discover_tables_customer_wildcard_incl_only(scanner: Scanner):
     scan.add_sodacl_yaml_str(
         f"""
         sample datasets:
-          tables:
+          datasets:
             - include %{orders_test_table_name[:-2]}%
         """
     )
@@ -90,7 +90,7 @@ def test_discover_tables_customer_wildcard_incl_excl(scanner: Scanner):
     scan.add_sodacl_yaml_str(
         f"""
         sample datasets:
-          tables:
+          datasets:
             - include %sodatest_%
             - exclude %orders%
             - exclude %profiling%
