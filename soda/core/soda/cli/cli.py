@@ -217,9 +217,13 @@ def update(
         logging.error(f"Could not parse distribution reference file {distribution_reference_file}: {e}")
         return
 
-    table_name = distribution_dict.get("table")
-    if not table_name:
-        logging.error(f"Missing key 'table' in distribution reference file {distribution_reference_file}")
+    dataset_name = distribution_dict.get("dataset")
+    if not dataset_name:
+        dataset_name = distribution_dict.pop("table")
+        distribution_dict["dataset"] = dataset_name
+
+    if not dataset_name:
+        logging.error(f"Missing key 'dataset' in distribution reference file {distribution_reference_file}")
 
     column_name = distribution_dict.get("column")
     if not column_name:
@@ -234,8 +238,8 @@ def update(
     if filter is not None:
         filter_clause = f"WHERE {filter}"
 
-    if table_name and column_name and distribution_type:
-        query = f"SELECT {column_name} FROM {table_name} {filter_clause}"
+    if dataset_name and column_name and distribution_type:
+        query = f"SELECT {column_name} FROM {dataset_name} {filter_clause}"
         logging.info(f"Querying column values to build distribution reference:\n{query}")
 
         scan = Scan()
@@ -250,7 +254,10 @@ def update(
         from soda.scientific.distribution.generate_dro import DROGenerator
 
         dro = DROGenerator(RefDataCfg(distribution_type=distribution_type), column_values).generate()
-        distribution_dict["distribution reference"] = dro.dict()
+        distribution_dict["distribution_reference"] = dro.dict()
+        if "distribution reference" in distribution_dict:
+            # To clean up the file and don't leave the old syntax
+            distribution_dict.pop("distribution reference")
 
         new_file_content = to_yaml_str(distribution_dict)
 

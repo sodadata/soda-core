@@ -17,8 +17,8 @@ def test_discover_tables(scanner: Scanner):
     mock_soda_cloud = scan.enable_mock_soda_cloud()
     scan.add_sodacl_yaml_str(
         f"""
-          discover tables:
-            tables:
+          discover datasets:
+            datasets:
                 - include {table_name}
         """
     )
@@ -63,8 +63,8 @@ def test_discover_tables_customer_wildcard(scanner: Scanner):
     mock_soda_cloud = scan.enable_mock_soda_cloud()
     scan.add_sodacl_yaml_str(
         f"""
-        discover tables:
-          tables:
+        discover datasets:
+          datasets:
             - include %customers%
         """
     )
@@ -84,8 +84,8 @@ def test_discover_tables_customer_wildcard(scanner: Scanner):
     mock_soda_cloud = scan.enable_mock_soda_cloud()
     scan.add_sodacl_yaml_str(
         f"""
-        discover tables:
-          tables:
+        discover datasets:
+          datasets:
             - include sodatest_cust%
             - exclude sodatest_customersdist_%
         """

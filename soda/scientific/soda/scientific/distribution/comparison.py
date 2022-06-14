@@ -111,10 +111,15 @@ class DistributionChecker:
                         f""" {", ".join([f"'{method}'" for method in correct_configs[parsed_file["distribution_type"]]])}. For more information visit the docs: https://docs.soda.io/soda-cl/distribution.html#about-distribution-checks """
                     )
 
-                if "distribution reference" in parsed_file:
+                distribution_reference = parsed_file.get("distribution_reference")
+                if not distribution_reference:
+                    # added for backwards compatibility
+                    distribution_reference = parsed_file.get("distribution reference")
+
+                if distribution_reference:
                     # TODO: add checks for bins and weights
-                    ref_data_cfg["bins"] = parsed_file["distribution reference"]["bins"]
-                    ref_data_cfg["weights"] = parsed_file["distribution reference"]["weights"]
+                    ref_data_cfg["bins"] = distribution_reference["bins"]
+                    ref_data_cfg["weights"] = distribution_reference["weights"]
 
                 else:
                     dro = DROGenerator(
