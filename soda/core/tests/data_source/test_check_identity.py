@@ -58,7 +58,7 @@ def test_check_identity_ignore_name(scanner: Scanner):
         """,
     )
 
-    row_count_identity = "4bb40424"
+    row_count_identity = "4d18383d"
 
     assert scan_result["checks"][0]["identity"] == row_count_identity
 
@@ -96,7 +96,7 @@ def test_check_identity_line_number_change(scanner: Scanner):
         """,
     )
 
-    missing_identity = "bb6ad736"
+    missing_identity = "a918e4b0"
 
     assert scan_result["checks"][0]["identity"] == missing_identity
 
@@ -127,7 +127,7 @@ def test_explicitely_specified_check_identity(scanner: Scanner):
         """,
     )
 
-    row_count_identity = "4bb40424"
+    row_count_identity = "4d18383d"
 
     assert scan_result["checks"][0]["identity"] == row_count_identity
 
