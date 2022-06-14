@@ -58,7 +58,6 @@ class Scan:
         self._discover_tables_result_tables: list[DiscoverTablesResultTable] = []
         self._sample_tables_result_tables: list[SampleTablesResultTable] = []
         self._logs.info(f"Soda Core {SODA_CORE_VERSION}")
-        self._is_profiling_run = False
 
     def set_data_source_name(self, data_source_name: str):
         """
@@ -424,7 +423,7 @@ class Scan:
             self.__log_checks(None)
             checks_not_evaluated = len(self._checks) - checks_pass_count - checks_warn_count - checks_fail_count
 
-            if len(self._checks) == 0 and not self._is_profiling_run:
+            if len(self._checks) == 0:
                 self._logs.warning("No checks found, 0 checks evaluated.")
             if checks_not_evaluated:
                 self._logs.info(f"{checks_not_evaluated} checks not evaluated.")

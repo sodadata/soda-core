@@ -81,14 +81,11 @@ class DataSourceScan:
         if isinstance(data_source_check_cfg, ProfileColumnsCfg):
             profile_columns_run = ProfileColumnsRun(self, data_source_check_cfg).run()
             scan._profile_columns_result_tables.extend(profile_columns_run.tables)
-            scan._is_profiling_run = True  # TODO: delete this line
 
         if isinstance(data_source_check_cfg, DiscoverTablesCfg):
             discover_tables_run = DiscoverTablesRun(self, data_source_check_cfg).run()
             scan._discover_tables_result_tables.extend(discover_tables_run.tables)
-            scan._is_profiling_run = True  # TODO: delete this line
 
         if isinstance(data_source_check_cfg, SampleTablesCfg):
             sample_tables_run = SampleTablesRun(self, data_source_check_cfg).run()
             scan._sample_tables_result_tables.extend(sample_tables_run.tables)
-            scan._is_profiling_run = True  # TODO: delete this line
