@@ -69,5 +69,5 @@ def test_spark_df_complex_data_types(scanner: Scanner):
               - include {table_name}
         """
     )
-    scan.execute()
+    scan.execute(allow_warnings_only=True)
     scan.assert_no_error_logs()
