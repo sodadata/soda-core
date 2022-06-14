@@ -5,7 +5,7 @@ class ProfileColumnsResultColumn:
     def __init__(self, column_name: str, column_type: str):
         self.column_name: str = column_name
         self.mins: list[float | int] | None = None
-        self.maxes: list[float | int] | None = None
+        self.maxs: list[float | int] | None = None
         self.min: float | int | None = None
         self.max: float | int | None = None
         self.frequent_values: list[dict] | None = None
@@ -25,7 +25,7 @@ class ProfileColumnsResultColumn:
             "columnName": self.column_name,
             "profile": {
                 "mins": self.mins,
-                "maxs": self.maxes,
+                "maxs": self.maxs,
                 "min": self.min,
                 "max": self.max,
                 "frequent_values": self.frequent_values,

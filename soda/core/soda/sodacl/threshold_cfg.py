@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import timedelta
 
 from soda.execution.identity import Identity
 
@@ -27,6 +28,12 @@ class ThresholdCfg:
             Identity.property("lte", self.lte),
             Identity.property("is_split_zone", self.is_split_zone),
         ]
+
+    def get_freshness_threshold(self) -> timedelta | None:
+        if isinstance(self.gte, timedelta):
+            return self.gte
+        elif isinstance(self.gt, timedelta):
+            return self.gt
 
     def get_inverse(self) -> ThresholdCfg:
         has_lower_limit = self.gt is not None or self.gte is not None

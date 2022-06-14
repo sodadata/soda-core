@@ -27,7 +27,13 @@ if TYPE_CHECKING:
 
 class SodaCloud:
     def __init__(
-        self, host: str, api_key_id: str, api_key_secret: str, token: str | None, port: str | None, logs: Logs
+        self,
+        host: str,
+        api_key_id: str,
+        api_key_secret: str,
+        token: str | None,
+        port: str | None,
+        logs: Logs,
     ):
         self.host = host
         self.port = f":{port}" if port else ""
@@ -98,7 +104,7 @@ class SodaCloud:
             scan_folder_name = (
                 f"{self._fileify(scan_definition_name)}"
                 f'_{scan_data_timestamp.strftime("%Y%m%d%H%M%S")}'
-                f'_{datetime.now().strftime("%Y%m%d%H%M%S")}'
+                f'_{datetime.utcnow().strftime("%Y%m%d%H%M%S")}'
             )
 
             with tempfile.TemporaryFile() as temp_file:

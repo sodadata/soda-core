@@ -77,11 +77,16 @@ class TestScan(Scan):
             self._configuration.sampler = MockSampler()
         return self._configuration.sampler
 
-    def execute(self, allow_error_warning: bool = False):
+    def execute(self, allow_error_warning: bool = False, allow_warnings_only: bool = False):
         super().execute()
 
         if not allow_error_warning:
-            self.assert_no_error_nor_warning_logs()
+            if not allow_warnings_only:
+                self.assert_no_error_nor_warning_logs()
+            else:
+                self.assert_no_error_logs()
+        if allow_warnings_only:
+            self.assert_no_error_logs()
 
     def execute_unchecked(self):
         super().execute()
@@ -176,7 +181,12 @@ class TestScan(Scan):
 class Scanner:
     def __init__(self, data_source: DataSource):
         self.data_source = data_source
-        self.test_table_manager = TestTableManager(data_source)
+        if "spark_df" == data_source.data_source_name:
+            from tests.spark_df_test_table_manager import SparkDfTestTableManager
+
+            self.test_table_manager = SparkDfTestTableManager(data_source)
+        else:
+            self.test_table_manager = TestTableManager(data_source)
 
     def ensure_test_table(self, test_table: TestTable) -> str:
         return self.test_table_manager.ensure_test_table(test_table)
@@ -194,12 +204,3 @@ class Scanner:
             return cursor.fetchone()
         finally:
             cursor.close()
-
-    def actual_table_name(self, identifier: str) -> str:
-        return self.data_source.default_casify_table_name(identifier)
-
-    def actual_column_name(self, identifier: str) -> str:
-        return self.data_source.default_casify_column_name(identifier)
-
-    def actual_type_name(self, identifier: str) -> str:
-        return self.data_source.default_casify_type_name(identifier)

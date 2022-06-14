@@ -4,7 +4,7 @@ from soda.execution.aggregation_query import AggregationQuery
 from soda.execution.duplicates_query import DuplicatesQuery
 from soda.execution.numeric_query_metric import NumericQueryMetric
 from soda.execution.query import Query
-from soda.execution.schema_query import SchemaQuery
+from soda.execution.schema_query import TableColumnsQuery
 from soda.sodacl.partition_cfg import PartitionCfg
 
 
@@ -24,7 +24,7 @@ class Partition:
         self.metrics: list[Metric] = []
         self.column_metrics: dict[str, ColumnMetrics] = {}
 
-        self.schema_query: SchemaQuery | None = None
+        self.schema_query: TableColumnsQuery | None = None
         self.aggregation_queries: list[AggregationQuery] = []
         self.duplicate_queries: list[DuplicatesQuery] = []
 

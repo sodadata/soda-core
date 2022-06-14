@@ -154,7 +154,7 @@ class NumericQueryMetric(QueryMetric):
                         validity_clauses.append(data_source.expr_regexp_like(column_name, format_regex))
 
                 if missing_and_valid_cfg.missing_regex:
-                    missing_regex = missing_and_valid_cfg.missing_regex
+                    missing_regex = data_source.escape_regex(missing_and_valid_cfg.missing_regex)
                     validity_clauses.append(data_source.expr_regexp_like(column_name, missing_regex))
 
         validity_clauses = [f"{column_name} IS NULL"]
@@ -190,7 +190,7 @@ class NumericQueryMetric(QueryMetric):
                         regex_like_expr = data_source.expr_regexp_like(column_name, format_regex)
                         validity_clauses.append(regex_like_expr)
                 if missing_and_valid_cfg.valid_regex is not None:
-                    valid_regex = missing_and_valid_cfg.valid_regex
+                    valid_regex = data_source.escape_regex(missing_and_valid_cfg.valid_regex)
                     regex_like_expr = data_source.expr_regexp_like(column_name, valid_regex)
                     validity_clauses.append(regex_like_expr)
                 if missing_and_valid_cfg.valid_length is not None:

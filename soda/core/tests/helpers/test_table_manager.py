@@ -37,8 +37,9 @@ class TestTableManager:
             self._create_and_insert_test_table(test_table)
             self.data_source.commit()
 
+            # It seems to work fine without analyze table and I don't think that postgres needs it.
             # Run analyze table so that metadata works if applicable.
-            self.data_source.analyze_table(test_table.unique_table_name)
+            # self.data_source.analyze_table(test_table.unique_table_name)
 
         return test_table.unique_table_name
 
@@ -60,9 +61,9 @@ class TestTableManager:
         create_table_sql = self._create_test_table_sql(test_table)
         self.update(create_table_sql)
         self._get_existing_test_table_names().append(test_table.unique_table_name)
-        create_table_sql = self._insert_test_table_sql(test_table)
-        if create_table_sql:
-            self.update(create_table_sql)
+        insert_table_sql = self._insert_test_table_sql(test_table)
+        if insert_table_sql:
+            self.update(insert_table_sql)
 
     def _create_test_table_sql(self, test_table: TestTable) -> str:
         quoted_table_name = (

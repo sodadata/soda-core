@@ -5,8 +5,7 @@ from soda.execution.duplicates_query import DuplicatesQuery
 from soda.execution.numeric_query_metric import NumericQueryMetric
 from soda.execution.partition import Partition
 from soda.execution.query import Query
-from soda.execution.schema_metric import SchemaMetric
-from soda.execution.schema_query import SchemaQuery
+from soda.execution.schema_query import TableColumnsQuery
 
 
 class PartitionQueries:
@@ -16,16 +15,12 @@ class PartitionQueries:
         self.logs = partition.data_source_scan.scan._logs
         self.partition: Partition = partition
         self.data_source_scan: DataSourceScan = partition.data_source_scan
-        self.schema_query: Optional[SchemaQuery] = None
+        self.schema_query: Optional[TableColumnsQuery] = None
         self.aggregation_queries: List[AggregationQuery] = []
         self.duplicate_queries: List[DuplicatesQuery] = []
 
     def add_metric(self, metric: "Metric"):
-
-        if isinstance(metric, SchemaMetric):
-            self.schema_query = SchemaQuery(self.partition, metric)
-
-        elif isinstance(metric, NumericQueryMetric):
+        if isinstance(metric, NumericQueryMetric):
             sql_aggregation_expression = metric.get_sql_aggregation_expression()
             if sql_aggregation_expression:
                 max_aggregation_fields = self.data_source_scan.data_source.get_max_aggregation_fields()
@@ -50,8 +45,6 @@ class PartitionQueries:
 
     def get_queries(self) -> List[Query]:
         queries: List[Query] = []
-        if self.schema_query:
-            queries.append(self.schema_query)
         queries.extend(self.aggregation_queries)
         queries.extend(self.duplicate_queries)
         return queries
