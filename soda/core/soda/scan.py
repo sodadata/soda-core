@@ -499,12 +499,6 @@ class Scan:
                     automated_monitoring_checks: list[Check] = monitor_runner.run()
                     if automated_monitoring_checks:
                         _automated_checks += automated_monitoring_checks
-                else:
-                    data_source_names = ", ".join(self._data_source_manager.data_source_properties_by_name.keys())
-                    self._logs.error(
-                        f"Could not run monitors on data_source {data_source_name} because It is not "
-                        f"configured: {data_source_names}"
-                    )
         return _automated_checks
 
     def run_profile_columns(self):
@@ -517,13 +511,6 @@ class Scan:
                     profile_columns_result = profile_columns_run.run()
                     self._is_profiling_run = True
                     self._profile_columns_result_tables.extend(profile_columns_result.tables)
-                else:
-                    data_source_names = ", ".join(self._data_source_manager.data_source_properties_by_name.keys())
-                    self._logs.error(
-                        f"Could not profile columns on data_source {data_source_name} because it is not "
-                        f"configured: {data_source_names}",
-                        location=profile_columns_cfg.location,
-                    )
 
     def run_discover_tables(self):
         for data_source_scan in self._data_source_scans:
@@ -535,12 +522,6 @@ class Scan:
                     discover_tables_result = discover_tables_run.run()
                     self._is_profiling_run = True
                     self._discover_tables_result_tables.extend(discover_tables_result.tables)
-                else:
-                    data_source_names = ", ".join(self._data_source_manager.data_source_properties_by_name.keys())
-                    self._logs.error(
-                        f"Could not discover datasets on data_source {data_source_name} because it is not configured: {data_source_names}",
-                        location=discover_columns_cfg.location,
-                    )
 
     def run_sample_tables(self):
         for data_source_scan in self._data_source_scans:
@@ -552,12 +533,6 @@ class Scan:
                     sample_tables_result = sample_tables_run.run()
                     self._is_profiling_run = True
                     self._sample_tables_result_tables.extend(sample_tables_result.tables)
-                else:
-                    data_source_names = ", ".join(self._data_source_manager.data_source_properties_by_name.keys())
-                    self._logs.error(
-                        f"Could not discover datasets on data_source {data_source_name} because it is not configured: {data_source_names}",
-                        location=sample_tables_cfg.location,
-                    )
 
     def __checks_to_text(self, checks: list[Check]):
         return "/n".join([str(check) for check in checks])
@@ -636,8 +611,7 @@ class Scan:
             if data_source:
                 data_source_scan = data_source.create_data_source_scan(self, data_source_scan_cfg)
                 self._data_source_scans.append(data_source_scan)
-            else:
-                self._sodacl_cfg.data_source_scan_cfgs.pop(data_source_name)
+
         return data_source_scan
 
     def _jinja_resolve(
