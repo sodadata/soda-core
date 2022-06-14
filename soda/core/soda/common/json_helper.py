@@ -11,6 +11,7 @@
 
 import datetime
 import json
+from datetime import timezone
 from decimal import Decimal
 from enum import Enum
 
@@ -56,7 +57,7 @@ class JsonHelper:
         if isinstance(o, Decimal):
             return float(o)
         if isinstance(o, datetime.datetime):
-            return o.strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+            return o.astimezone(timezone.utc).isoformat(timespec="seconds")
         if isinstance(o, datetime.date):
             return o.strftime("%Y-%m-%d")
         if isinstance(o, datetime.time):
