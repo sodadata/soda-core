@@ -20,7 +20,7 @@ class DiscoverTablesRun:
 
     def run(self) -> DiscoverTablesResult:
         discover_tables_result: DiscoverTablesResult = DiscoverTablesResult(self.data_source_check_cfg)
-        self.logs.info(f"Running discover tables for data source: {self.data_source.data_source_name}")
+        self.logs.info(f"Running discover datasets for data source: {self.data_source.data_source_name}")
 
         # row_counts is a dict that maps table names to row counts.
         row_counts_by_table_name: dict[str, int] = self.data_source.get_row_counts_all_tables(

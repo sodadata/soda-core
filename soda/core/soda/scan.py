@@ -130,6 +130,8 @@ class Scan:
     def _parse_configuration_yaml_str(self, configuration_yaml_str: str, file_path: str = "yaml string"):
         from soda.configuration.configuration_parser import ConfigurationParser
 
+        assert "table" not in configuration_yaml_str
+
         environment_parse = ConfigurationParser(
             configuration=self._configuration,
             logs=self._logs,
@@ -323,7 +325,7 @@ class Scan:
                 self._configuration.sampler.logs = self._logs
 
             # Resolve the for each table checks and add them to the scan_cfg data structures
-            self.__resolve_for_each_table_checks()
+            self.__resolve_for_each_dataset_checks()
             # Resolve the for each column checks and add them to the scan_cfg data structures
             self.__resolve_for_each_column_checks()
 
@@ -536,7 +538,7 @@ class Scan:
                 else:
                     data_source_names = ", ".join(self._data_source_manager.data_source_properties_by_name.keys())
                     self._logs.error(
-                        f"Could not discover tables on data_source {data_source_name} because it is not configured: {data_source_names}",
+                        f"Could not discover datasets on data_source {data_source_name} because it is not configured: {data_source_names}",
                         location=discover_columns_cfg.location,
                     )
 
@@ -553,7 +555,7 @@ class Scan:
                 else:
                     data_source_names = ", ".join(self._data_source_manager.data_source_properties_by_name.keys())
                     self._logs.error(
-                        f"Could not discover tables on data_source {data_source_name} because it is not configured: {data_source_names}",
+                        f"Could not discover datasets on data_source {data_source_name} because it is not configured: {data_source_names}",
                         location=sample_tables_cfg.location,
                     )
 
@@ -574,18 +576,18 @@ class Scan:
         )
         self._checks.append(check)
 
-    def __resolve_for_each_table_checks(self):
+    def __resolve_for_each_dataset_checks(self):
         pass
 
         data_source_name = self._data_source_name
 
-        for index, for_each_table_cfg in enumerate(self._sodacl_cfg.for_each_table_cfgs):
-            include_tables = [include.table_name_filter for include in for_each_table_cfg.includes]
-            exclude_tables = [include.table_name_filter for include in for_each_table_cfg.excludes]
+        for index, for_each_dataset_cfg in enumerate(self._sodacl_cfg.for_each_dataset_cfgs):
+            include_tables = [include.table_name_filter for include in for_each_dataset_cfg.includes]
+            exclude_tables = [include.table_name_filter for include in for_each_dataset_cfg.excludes]
 
             data_source_scan = self._get_or_create_data_source_scan(data_source_name)
             if data_source_scan:
-                query_name = f"for_each_table_{for_each_table_cfg.table_alias_name}[{index}]"
+                query_name = f"for_each_dataset_{for_each_dataset_cfg.table_alias_name}[{index}]"
                 table_names = data_source_scan.data_source.get_table_names(
                     include_tables=include_tables, exclude_tables=exclude_tables, query_name=query_name
                 )
@@ -596,9 +598,9 @@ class Scan:
                     data_source_scan_cfg = self._sodacl_cfg.get_or_create_data_source_scan_cfgs(data_source_name)
                     table_cfg = data_source_scan_cfg.get_or_create_table_cfg(table_name)
                     partition_cfg = table_cfg.find_partition(None, None)
-                    for check_cfg_template in for_each_table_cfg.check_cfgs:
-                        check_cfg = check_cfg_template.instantiate_for_each_table(
-                            table_alias=for_each_table_cfg.table_alias_name,
+                    for check_cfg_template in for_each_dataset_cfg.check_cfgs:
+                        check_cfg = check_cfg_template.instantiate_for_each_dataset(
+                            table_alias=for_each_dataset_cfg.table_alias_name,
                             table_name=table_name,
                             partition_name=partition_cfg.partition_name,
                         )

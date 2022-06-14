@@ -305,12 +305,12 @@ class SodaCLAntlrListener(ParseTreeListener):
         pass
 
 
-    # Enter a parse tree produced by SodaCLAntlrParser#checks_for_each_table_header.
-    def enterChecks_for_each_table_header(self, ctx:SodaCLAntlrParser.Checks_for_each_table_headerContext):
+    # Enter a parse tree produced by SodaCLAntlrParser#checks_for_each_dataset_header.
+    def enterChecks_for_each_dataset_header(self, ctx:SodaCLAntlrParser.Checks_for_each_dataset_headerContext):
         pass
 
-    # Exit a parse tree produced by SodaCLAntlrParser#checks_for_each_table_header.
-    def exitChecks_for_each_table_header(self, ctx:SodaCLAntlrParser.Checks_for_each_table_headerContext):
+    # Exit a parse tree produced by SodaCLAntlrParser#checks_for_each_dataset_header.
+    def exitChecks_for_each_dataset_header(self, ctx:SodaCLAntlrParser.Checks_for_each_dataset_headerContext):
         pass
 
 
