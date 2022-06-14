@@ -52,6 +52,7 @@ def test_distribution_check(scanner: Scanner, mock_file_system):
 
     scan = scanner.create_test_scan()
     scan._configuration.file_system = mock_file_system
+    scan.enable_mock_soda_cloud()
     scan.add_sodacl_yaml_file(f"{user_home_dir}/the_distribution_check_file.yml")
     scan.execute()
 
@@ -99,6 +100,7 @@ def test_distribution_sql(scanner: Scanner, mock_file_system, table, expectation
 
     scan = scanner.create_test_scan()
     scan._configuration.file_system = mock_file_system
+    scan.enable_mock_soda_cloud()
     scan.add_sodacl_yaml_file(f"{user_home_dir}/the_distribution_check_file.yml")
     scan.execute()
 
