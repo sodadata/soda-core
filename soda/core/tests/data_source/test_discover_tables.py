@@ -1,4 +1,5 @@
 from __future__ import annotations
+import pytest
 
 from soda.execution.data_type import DataType
 from tests.helpers.common_test_tables import (
@@ -74,6 +75,7 @@ def test_discover_tables_customer_wildcard(scanner: Scanner):
     assert len(discover_tables_result["metadata"]) == 3
 
 
+@pytest.mark.skip("Ask Milan, the test is identical with above")
 def test_discover_tables_customer_wildcard(scanner: Scanner):
     scanner.ensure_test_table(customers_test_table)
     scanner.ensure_test_table(orders_test_table)
