@@ -3,7 +3,6 @@ from tests.helpers.common_test_tables import customers_test_table
 from tests.helpers.scanner import Scanner
 
 
-@pytest.mark.skip("test fails on tom's machine")
 def test_anomaly_detection_default(scanner: Scanner):
     table_name = scanner.ensure_test_table(customers_test_table)
 
