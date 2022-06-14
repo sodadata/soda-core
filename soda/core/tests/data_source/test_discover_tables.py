@@ -1,6 +1,6 @@
 from __future__ import annotations
-import pytest
 
+import pytest
 from soda.execution.data_type import DataType
 from tests.helpers.common_test_tables import (
     customers_dist_check_test_table,
