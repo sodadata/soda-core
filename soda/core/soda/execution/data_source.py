@@ -165,7 +165,7 @@ class DataSource:
         ):
             return True
 
-        return expected_type == actual_type
+        return expected_type == actual_type.lower()
 
     def qualify_table_name(self, table_name: str) -> str:
         return table_name

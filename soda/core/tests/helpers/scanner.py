@@ -204,3 +204,10 @@ class Scanner:
             return cursor.fetchone()
         finally:
             cursor.close()
+
+    def casify_data_type(self, data_type: str) -> str:
+        data_source_type = self.data_source.get_sql_type_for_schema_check(data_type)
+        return self.data_source.default_casify_column_name(data_source_type)
+
+    def casify_column_name(self, test_column_name: str) -> str:
+        return self.data_source.default_casify_column_name(test_column_name)

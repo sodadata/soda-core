@@ -10,18 +10,25 @@ def test_columns_types_pass(scanner: Scanner):
 
     scan = scanner.create_test_scan()
 
-    checks_str = format_checks(
-        [("id", "varchar"), ("distance", "integer")],
-        indent=15,
-        data_source=scanner.data_source,
-    )
+    def column_type_format(column_name: str) -> str:
+        test_column = customers_test_table.find_test_column_by_name(column_name)
+        casified_column_name = scanner.casify_column_name(column_name)
+        casified_data_type = scanner.casify_data_type(test_column.data_type)
+        return f"{casified_column_name}: {casified_data_type}"
+
     scan.add_sodacl_yaml_str(
         f"""
       checks for {table_name}:
         - schema:
             fail:
               when wrong column type:
-{checks_str}
+                {column_type_format('id')}
+                {column_type_format('size')}
+                {column_type_format('sizeTxt')}
+                {column_type_format('distance')}
+                {column_type_format('date')}
+                {column_type_format('ts')}
+                {column_type_format('ts_with_tz')}
     """
     )
     # This Also verifies type aliasing - check using "varchar", actual is "character varying"
