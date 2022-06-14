@@ -5,7 +5,7 @@ from soda.sodacl.location import Location
 from soda.sodacl.name_filter import NameFilter
 
 
-class ForEachTableCfg:
+class ForEachDatasetCfg:
     def __init__(self):
         self.table_alias_name: str = None
         self.includes: List[NameFilter] = []
