@@ -119,7 +119,7 @@ class DistributionCheck(Check):
         sql = (
             f"SELECT \n"
             f"  {column_name} \n"
-            f"FROM {self.partition.table.fully_qualified_table_name}{partition_str}{limit_str}"
+            f"FROM {self.partition.table.qualified_table_name}{partition_str}{limit_str}"
         )
         return sql
 

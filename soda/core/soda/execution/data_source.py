@@ -582,19 +582,24 @@ class DataSource:
                 sql=self.sql_analyze_table(table),
             ).execute()
 
-    def fully_qualified_table_name(self, table_name) -> str:
+    def qualified_table_name(self, table_name) -> str:
+        """
+        Prepend self.table_prefix if there is one specified.
+        (TODO currently there is also quoting of the schema, but I think that should be
+        removed as self.table_prefix should include the quotes)
+        """
         return self.prefix_table(table_name)
+
+    def prefix_table(self, table_name: str) -> str:
+        if self.table_prefix:
+            return f"{self.table_prefix}.{table_name}"
+        return table_name
 
     def quote_table_declaration(self, table_name) -> str:
         return self.quote_table(table_name=table_name)
 
     def quote_table(self, table_name) -> str:
         return f'"{table_name}"'
-
-    def prefix_table(self, table_name: str) -> str:
-        if self.table_prefix:
-            return f"{self.table_prefix}.{table_name}"
-        return table_name
 
     def quote_column_declaration(self, column_name: str) -> str:
         return self.quote_column(column_name)

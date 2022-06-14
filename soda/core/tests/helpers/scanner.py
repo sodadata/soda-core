@@ -188,6 +188,10 @@ class Scanner:
         else:
             self.test_table_manager = TestTableManager(data_source)
 
+    def drop_schema(self):
+        # create_schema is done directly from the TestTableManager constructor
+        self.test_table_manager.drop_schema_if_exists()
+
     def ensure_test_table(self, test_table: TestTable) -> str:
         return self.test_table_manager.ensure_test_table(test_table)
 

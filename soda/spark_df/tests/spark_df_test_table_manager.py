@@ -8,10 +8,18 @@ from soda.execution.data_type import DataType
 from tests.helpers.test_table import TestTable
 from tests.helpers.test_table_manager import TestTableManager
 
+logger = logging.getLogger(__name__)
+
 
 class SparkDfTestTableManager(TestTableManager):
     def __init__(self, spark_df_data_source: DataSourceImpl):
         super().__init__(data_source=spark_df_data_source)
+
+    def _initialize_schema(self):
+        logger.debug("Schema create is skipped spark_df")
+
+    def drop_schema_if_exists(self):
+        logger.debug("Schema drop is skipped for spark_df")
 
     def _create_and_insert_test_table(self, test_table: TestTable):
         spark_columns = []

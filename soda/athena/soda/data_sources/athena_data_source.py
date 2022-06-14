@@ -97,7 +97,7 @@ class DataSourceImpl(DataSource):
     def regex_replace_flags(self) -> str:
         return ""
 
-    def fully_qualified_table_name(self, table_name) -> str:
+    def qualified_table_name(self, table_name) -> str:
         return self.quote_table_declaration(table_name)
 
     @staticmethod

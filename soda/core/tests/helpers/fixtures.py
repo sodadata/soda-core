@@ -80,7 +80,9 @@ def data_source(scan: Scan) -> DataSource:
 
 @pytest.fixture(scope="session")
 def scanner(data_source):
-    yield Scanner(data_source)
+    scanner = Scanner(data_source)
+    yield scanner
+    scanner.drop_schema()
 
 
 @pytest.fixture
