@@ -236,13 +236,6 @@ class SparkSQLBase(DataSource):
                 ]
         return filtered_table_names
 
-    def qualify_table_name(self, table_name: str) -> str:
-        if self.database is None:
-            qualified_table_name = table_name
-        else:
-            qualified_table_name = f"{self.database}.{table_name}"
-        return qualified_table_name
-
     @staticmethod
     def default_casify_table_name(identifier: str) -> str:
         return identifier.lower()

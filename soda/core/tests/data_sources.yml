@@ -29,7 +29,7 @@ data_source redshift:
     username: ${ env_var('REDSHIFT_USERNAME', 'soda') }
     password: ${ env_var('REDSHIFT_PASSWORD') }
     database: ${ env_var('REDSHIFT_DATABASE', 'sodasql') }
-    schema: ${ env_var('REDSHIFT_SCHEMA', 'public') }
+  schema: ${ env_var('REDSHIFT_SCHEMA', 'public') }
 data_source athena:
   type: athena
   connection:

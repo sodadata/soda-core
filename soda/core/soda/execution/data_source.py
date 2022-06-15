@@ -167,9 +167,6 @@ class DataSource:
 
         return expected_type == actual_type
 
-    def qualify_table_name(self, table_name: str) -> str:
-        return table_name
-
     @staticmethod
     def column_metadata_columns() -> list:
         return ["column_name", "data_type", "is_nullable"]
@@ -194,11 +191,11 @@ class DataSource:
         return query.sample_ref
 
     def sql_select_all(self, table_name: str, limit: int | None = None) -> str:
-        quoted_table_name = self.quote_table(table_name)
+        qualified_table_name = self.qualified_table_name(table_name)
         limit_sql = ""
         if limit is not None:
             limit_sql = f" \n LIMIT {limit}"
-        sql = f"SELECT * FROM {quoted_table_name}{limit_sql}"
+        sql = f"SELECT * FROM {qualified_table_name}{limit_sql}"
         return sql
 
     ############################################
@@ -259,11 +256,18 @@ class DataSource:
         else:
             excluded_columns_filter = ""
 
+        table_name_lower = table_name.lower()
+        def is_quoted(table_name):
+            return (
+                (table_name.startswith('"') and table_name.endswith('"'))
+                or (table_name.startswith('`') and table_name.endswith('`'))
+            )
+        unquuoted_table_name_lower = table_name_lower[1:-1] if is_quoted(table_name_lower) else table_name_lower
         # compose query template
         sql = (
             f"SELECT {', '.join(self.column_metadata_columns())} \n"
             f"FROM information_schema.columns \n"
-            f"WHERE lower(table_name) = '{table_name.lower()}'"
+            f"WHERE lower(table_name) = '{unquuoted_table_name_lower}'"
             f"{database_filter}"
             f"{schema_filter}"
             f"{included_columns_filter}"
@@ -297,7 +301,7 @@ class DataSource:
         )
 
     def sql_get_table_count(self, table_name: str) -> str:
-        return f"SELECT {self.expr_count_all()} from {self.qualify_table_name(table_name)}"
+        return f"SELECT {self.expr_count_all()} from {self.qualified_table_name(table_name)}"
 
     def sql_table_include_exclude_filter(
         self,
@@ -435,17 +439,17 @@ class DataSource:
 
     def profiling_sql_value_frequencies_cte(self, table_name: str, column_name: str) -> str:
         quoted_column_name = self.quote_column(column_name)
-        quoted_table_name = self.quote_table(table_name)
+        qualified_table_name = self.qualified_table_name(table_name)
         return f"""value_frequencies AS (
                             SELECT {quoted_column_name} AS value_, count(*) AS frequency_
-                            FROM {quoted_table_name}
+                            FROM {qualified_table_name}
                             WHERE {quoted_column_name} IS NOT NULL
                             GROUP BY {quoted_column_name}
                         )"""
 
     def profiling_sql_aggregates_numeric(self, table_name: str, column_name: str) -> str:
         column_name = self.quote_column(column_name)
-        table_name = self.quote_table(table_name)
+        qualified_table_name = self.qualified_table_name(table_name)
         return dedent(
             f"""
             SELECT
@@ -455,13 +459,13 @@ class DataSource:
                 , stddev({column_name}) as standard_deviation
                 , count(distinct({column_name})) as distinct_values
                 , sum(case when {column_name} is null then 1 else 0 end) as missing_values
-            FROM {table_name}
+            FROM {qualified_table_name}
             """
         )
 
     def profiling_sql_aggregates_text(self, table_name: str, column_name: str) -> str:
         column_name = self.quote_column(column_name)
-        table_name = self.quote_table(table_name)
+        qualified_table_name = self.qualified_table_name(table_name)
         return dedent(
             f"""
             SELECT
@@ -470,7 +474,7 @@ class DataSource:
                 , avg(length({column_name})) as avg_length
                 , min(length({column_name})) as min_length
                 , max(length({column_name})) as max_length
-            FROM {table_name}
+            FROM {qualified_table_name}
             """
         )
 
@@ -537,11 +541,14 @@ class DataSource:
                 sql=sql,
             )
             query.execute()
-            return {row[0]: row[1] for row in query.rows}
+            return {
+                self._optionally_quote_table_name_from_meta_data(row[0]): row[1]
+                for row in query.rows
+            }
+
         # Single query to get the metadata not available, get the counts one by one.
         all_tables = self.get_table_names(include_tables=include_tables, exclude_tables=exclude_tables)
         result = {}
-
         for table in all_tables:
             query_name_str = f"get_row_count_{table}"
             if query_name:
@@ -571,8 +578,22 @@ class DataSource:
             sql=sql,
         )
         query.execute()
-        table_names = [row[0] for row in query.rows]
+        table_names = [self._optionally_quote_table_name_from_meta_data(row[0]) for row in query.rows]
         return table_names
+
+    def _optionally_quote_table_name_from_meta_data(self, table_name: str) -> str:
+        """
+        To be used by all table names coming from metadata queries.  Quotes are added if needed if the table
+        doesn't match the default casify rules.  The table_name is returned unquoted if it matches the default
+        casify rules.
+        """
+        # if the table name needs quoting
+        if table_name != self.default_casify_table_name(table_name):
+            # add the quotes
+            return self.quote_table(table_name)
+        else:
+            # return the bare table name
+            return table_name
 
     def analyze_table(self, table: str):
         if self.sql_analyze_table(table):
@@ -582,23 +603,21 @@ class DataSource:
                 sql=self.sql_analyze_table(table),
             ).execute()
 
-    def qualified_table_name(self, table_name) -> str:
+    def qualified_table_name(self, table_name: str) -> str:
         """
-        Prepend self.table_prefix if there is one specified.
-        (TODO currently there is also quoting of the schema, but I think that should be
-        removed as self.table_prefix should include the quotes)
+        table_name can be quoted or unquoted
         """
-        return self.prefix_table(table_name)
-
-    def prefix_table(self, table_name: str) -> str:
         if self.table_prefix:
             return f"{self.table_prefix}.{table_name}"
         return table_name
 
-    def quote_table_declaration(self, table_name) -> str:
+    def quote_table_declaration(self, table_name: str) -> str:
         return self.quote_table(table_name=table_name)
 
-    def quote_table(self, table_name) -> str:
+    def is_table_quoted(self, table_name: str) -> bool:
+        return table_name.startswith('"') and table_name.endswith('"')
+
+    def quote_table(self, table_name: str) -> str:
         return f'"{table_name}"'
 
     def quote_column_declaration(self, column_name: str) -> str:
