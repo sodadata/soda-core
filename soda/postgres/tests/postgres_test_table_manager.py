@@ -21,8 +21,8 @@ class PostgresTestTableManager(TestTableManager):
             self.drop_schema_if_exists()
         self._create_schema_if_not_exists()
 
-    def _use_schema_sql(self) -> str | None:
-        return f"SET search_path TO {self.schema_name}"
+    # def _use_schema_sql(self) -> str | None:
+    #     return f"SET search_path TO {self.schema_name}"
 
     def drop_schema_if_exists(self):
         if not self.local_dev_schema_reused:
