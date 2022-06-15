@@ -1,20 +1,10 @@
 # Developer documentation
 
-This is a guide providing pointers to all tasks related to the development of Soda Checks.
+This is a guide providing pointers to all tasks related to the development of Soda Core and Soda Checks Language.
 
-## Cloning the repo
+## Get started
 
-```
-> git clone git@github.com:sodadata/soda-core.git
-Cloning into 'soda-core'...
-remote: Enumerating objects: 5319, done.
-remote: Counting objects: 100% (5319/5319), done.
-remote: Compressing objects: 100% (2841/2841), done.
-remote: Total 5319 (delta 3358), reused 4187 (delta 2253), pack-reused 0
-Receiving objects: 100% (5319/5319), 1.44 MiB | 3.69 MiB/s, done.
-Resolving deltas: 100% (3358/3358), done.
->
-```
+To contribute, fork the sodadata/soda-core GitHub repo. 
 
 ## Folder structure
 
@@ -38,21 +28,24 @@ soda-core project root folder
 
 ## Requirements
 
-You'll need Python 3.8+
+* Python 3.8 or greater. 
+
+To check the version of your existing Python install, use:
 ```
 > python --version
 Python 3.8.12
 >
 ```
 
-In case you need to go and get it, see [Python downloads](https://www.python.org/downloads/)
-
-Although not required, we recommend to use [pyenv](https://github.com/pyenv/pyenv) to more easily manage multiple Python
+Although not required, we recommend using [pyenv](https://github.com/pyenv/pyenv) to more easily manage multiple Python
 versions.
 
-## Creating the virtual environment
+## Creat3 a virtual environment
 
-There is a convenience script `scripts/recreate_venv.sh` to create the virtual environment:
+This repo includes a convenient script to create a virtual environment.
+
+The `scripts/recreate_venv.sh` script installs the dependencies in your virtual environment.  Review the contents of the file
+as inspiration if you want to manage the virtual environment yourself.
 
 ```
 > scripts/recreate_venv.sh
@@ -62,23 +55,26 @@ Collecting pip
 Installing collected packages: pip
   Attempting uninstall: pip
 
-...loads of output and downloading going on here...
+...lots of output and downloading...
 
 Successfully installed Jinja2-2.11.3 MarkupSafe-2.0.1 cffi-1.15.0 click-8.0.3 cryptography-3.3.2 pycparser-2.21 ruamel.yaml-0.17.17 ruamel.yaml.clib-0.2.6 soda-sql-core-v3-3.0.0-prerelease-1
 >
 ```
 
-The `scripts/recreate_venv.sh` script will install the dependencies in your virtual environment.  See the contents
-as inspiration if you want to manage the virtual environment yourself.
 
-## Activating the virtual environment
+
+## Activate a virtual environment
 
 ```
-> source .venv/bin/activate
-(.venv) >
+source .venv/bin/activate
+```
+To deactivate the virtual environment, use the following command:
+
+```
+deactivate
 ```
 
-## Running tests
+## Run tests
 
 ### Postgres test database as a docker container
 
