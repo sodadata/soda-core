@@ -23,14 +23,14 @@ class DiscoverTablesRun:
         self.logs.info(f"Running discover datasets for data source: {self.data_source.data_source_name}")
 
         # row_counts is a dict that maps table names to row counts.
-        row_counts_by_table_name: dict[str, int] = self.data_source.get_row_counts_all_tables(
+        table_names: dict[str, int] = self.data_source.get_table_names(
             include_tables=self.data_source_check_cfg.include_tables,
             exclude_tables=self.data_source_check_cfg.exclude_tables,
             query_name=f"(row-counts",
         )
-        for table_name in row_counts_by_table_name:
+        for table_name in table_names:
             self.logs.debug(f"Discovering columns for {table_name}")
-            measured_row_count = row_counts_by_table_name[table_name]
+            measured_row_count = self.data_source.get_table_row_count(table_name)
             discover_tables_result_table = discover_tables_result.create_table(
                 table_name, self.data_source.data_source_name, measured_row_count
             )
