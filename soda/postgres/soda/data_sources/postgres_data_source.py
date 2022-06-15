@@ -85,6 +85,7 @@ class DataSourceImpl(DataSource):
 
     def create_test_table_manager(self):
         from tests.postgres_test_table_manager import PostgresTestTableManager
+
         return PostgresTestTableManager(self)
 
     type_names_by_type_code = {

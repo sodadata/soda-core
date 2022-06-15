@@ -14,7 +14,6 @@ from soda.scan import Scan
 from tests.helpers.mock_sampler import MockSampler
 from tests.helpers.mock_soda_cloud import MockSodaCloud, TimeGenerator
 from tests.helpers.test_table import TestTable
-from tests.helpers.test_table_manager import TestTableManager
 
 logger = logging.getLogger(__name__)
 

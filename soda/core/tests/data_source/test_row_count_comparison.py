@@ -1,5 +1,3 @@
-import textwrap
-
 from soda.common.yaml_helper import YamlHelper
 from tests.helpers.common_test_tables import (
     customers_test_table,
@@ -33,9 +31,7 @@ def test_row_count_comparison_cross_data_source(scanner: Scanner, data_source_co
     data_sources_config_dict = YamlHelper.from_yaml(data_source_config_str)
     data_source_dict = data_sources_config_dict["data_source postgres"]
     data_source_dict["schema"] = scanner.data_source.schema
-    other_configuration_dict = {
-        "data_source other": data_source_dict
-    }
+    other_configuration_dict = {"data_source other": data_source_dict}
     other_data_source_environment_yaml_str = YamlHelper.to_yaml(other_configuration_dict)
     scan.add_configuration_yaml_str(other_data_source_environment_yaml_str)
 

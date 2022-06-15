@@ -594,7 +594,9 @@ class Scan:
 
                 for table_name in table_names:
                     data_source_scan_cfg = self._sodacl_cfg.get_or_create_data_source_scan_cfgs(data_source_name)
-                    data_source_scan = self._get_or_create_data_source_scan(data_source_name=data_source_scan_cfg.data_source_name)
+                    data_source_scan = self._get_or_create_data_source_scan(
+                        data_source_name=data_source_scan_cfg.data_source_name
+                    )
                     quoted_table_name = data_source_scan.data_source.quote_table(table_name)
                     table_cfg = data_source_scan_cfg.get_or_create_table_cfg(quoted_table_name)
                     partition_cfg = table_cfg.find_partition(None, None)

@@ -134,4 +134,5 @@ class DataSourceImpl(DataSource):
 
     def create_test_table_manager(self):
         from tests.athena_test_table_manager import AthenaTestTableManager
+
         return AthenaTestTableManager(self)

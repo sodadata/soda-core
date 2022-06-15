@@ -127,4 +127,5 @@ class DataSourceImpl(DataSource):
 
     def create_test_table_manager(self):
         from tests.redshift_test_table_manager import RedshiftTestTableManager
+
         return RedshiftTestTableManager(self)

@@ -53,4 +53,5 @@ class DataSourceImpl(SparkSQLBase):
 
     def create_test_table_manager(self):
         from tests.spark_df_test_table_manager import SparkDfTestTableManager
+
         return SparkDfTestTableManager(self)

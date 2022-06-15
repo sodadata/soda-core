@@ -231,4 +231,5 @@ class DataSourceImpl(DataSource):
 
     def create_test_table_manager(self):
         from tests.bigquery_test_table_manager import BigQueryTestTableManager
+
         return BigQueryTestTableManager(self)

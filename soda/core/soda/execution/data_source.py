@@ -257,11 +257,12 @@ class DataSource:
             excluded_columns_filter = ""
 
         table_name_lower = table_name.lower()
+
         def is_quoted(table_name):
-            return (
-                (table_name.startswith('"') and table_name.endswith('"'))
-                or (table_name.startswith('`') and table_name.endswith('`'))
+            return (table_name.startswith('"') and table_name.endswith('"')) or (
+                table_name.startswith("`") and table_name.endswith("`")
             )
+
         unquuoted_table_name_lower = table_name_lower[1:-1] if is_quoted(table_name_lower) else table_name_lower
         # compose query template
         sql = (
@@ -541,10 +542,7 @@ class DataSource:
                 sql=sql,
             )
             query.execute()
-            return {
-                self._optionally_quote_table_name_from_meta_data(row[0]): row[1]
-                for row in query.rows
-            }
+            return {self._optionally_quote_table_name_from_meta_data(row[0]): row[1] for row in query.rows}
 
         # Single query to get the metadata not available, get the counts one by one.
         all_tables = self.get_table_names(include_tables=include_tables, exclude_tables=exclude_tables)

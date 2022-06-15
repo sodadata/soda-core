@@ -148,4 +148,5 @@ class DataSourceImpl(DataSource):
 
     def create_test_table_manager(self):
         from tests.snowflake_test_table_manager import SnowflakeTestTableManager
+
         return SnowflakeTestTableManager(self)

@@ -17,7 +17,7 @@ class TestTableManager:
 
     __test__ = False
 
-    def __init__(self, data_source: "DataSource"):
+    def __init__(self, data_source: DataSource):
         self.__existing_table_names = Lazy()
         from soda.execution.data_source import DataSource
 
@@ -152,7 +152,7 @@ class TestTableManager:
         qualified_table_name = self.data_source.qualified_table_name(table_name)
         return f"DROP TABLE {qualified_table_name} IF EXISTS;"
 
-    def fetch_all(self, sql: str) -> List[tuple]:
+    def fetch_all(self, sql: str) -> list[tuple]:
         cursor = self.data_source.connection.cursor()
         try:
             sql_indented = textwrap.indent(text=sql, prefix="  #   ")
