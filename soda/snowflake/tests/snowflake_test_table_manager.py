@@ -13,10 +13,10 @@ class SnowflakeTestTableManager(TestTableManager):
         super().__init__(data_source=data_source)
 
     def _create_schema_if_not_exists_sql(self) -> str:
-        return f"CREATE DATABASE IF NOT EXISTS {self.schema_name}"
+        return f"CREATE SCHEMA IF NOT EXISTS {self.schema_name}"
 
     def _use_schema_sql(self) -> str | None:
-        return f"USE DATABASE {self.schema_name}"
+        return None
 
     def _drop_schema_if_exists_sql(self):
-        return f"DROP DATABASE IF EXISTS {self.schema_name} CASCADE"
+        return f"DROP SCHEMA IF EXISTS {self.schema_name} CASCADE"
