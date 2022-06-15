@@ -145,3 +145,7 @@ class DataSourceImpl(DataSource):
             self.type,
             self.connection_properties.get("account"),
         ]
+
+    def create_test_table_manager(self):
+        from tests.snowflake_test_table_manager import SnowflakeTestTableManager
+        return SnowflakeTestTableManager(self)

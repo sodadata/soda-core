@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import logging
 import os
 import re
@@ -21,40 +23,49 @@ class TestTableManager:
 
         self.data_source: DataSource = data_source
         self.schema_name: str = self._create_schema_name()
-        self.drop_schema_enabled = os.getenv("GITHUB_ACTIONS") or self.data_source.type != 'postgres'
-        self._initialize_schema()
 
     def _create_schema_name(self):
-        schema_name_parts = [
-            "sodatest",
-            os.getenv("GITHUB_HEAD_REF", "local_dev")
-        ]
+        schema_name_parts = ["sodatest"]
+        github_head_ref = os.getenv("GITHUB_HEAD_REF")
+        if github_head_ref:
+            schema_name_parts.append("CI")
+            schema_name_parts.append(github_head_ref)
+        else:
+            schema_name_parts.append("dev")
+            schema_name_parts.append(os.getenv("USER", "anonymous"))
         schema_name_raw = "_".join(schema_name_parts)
         schema_name = re.sub("[^0-9a-zA-Z]+", "_", schema_name_raw)
         schema_name = self.data_source.default_casify_table_name(schema_name)
         return schema_name
 
-    def _initialize_schema(self):
-        if self.drop_schema_enabled:
-            self.drop_schema_if_exists()
-        self._create_schema_if_exists()
+    def initialize_schema(self):
+        self.drop_schema_if_exists()
+        self._create_schema_if_not_exists()
 
-    def _create_schema_if_exists(self):
-        create_schema_if_exists_sql = self._create_schema_if_exists_sql()
-        self.update(create_schema_if_exists_sql)
+    def drop_schema_if_exists(self):
+        drop_schema_if_exists_sql = self._drop_schema_if_exists_sql()
+        self.update(drop_schema_if_exists_sql)
+
+    def _drop_schema_if_exists_sql(self) -> str:
+        return f"DROP DATABASE {self.schema_name}"
+
+    def _create_schema_if_not_exists(self):
+        create_schema_if_not_exists_sql = self._create_schema_if_not_exists_sql()
+        self.update(create_schema_if_not_exists_sql)
+        self._use_schema()
         self.data_source.schema = self.schema_name
         self.data_source.table_prefix = f"{self.schema_name}"
 
-    def _create_schema_if_exists_sql(self):
-        return f"CREATE SCHEMA IF NOT EXISTS {self.schema_name} AUTHORIZATION CURRENT_USER"
+    def _use_schema(self):
+        use_schema_sql = self._use_schema_sql()
+        if use_schema_sql:
+            self.update(use_schema_sql)
 
-    def drop_schema_if_exists(self):
-        if self.drop_schema_enabled:
-            drop_schema_if_exists_sql = self._drop_schema_if_exists_sql()
-            self.update(drop_schema_if_exists_sql)
+    def _use_schema_sql(self) -> str | None:
+        return None
 
-    def _drop_schema_if_exists_sql(self):
-        return f"DROP SCHEMA IF EXISTS {self.schema_name} CASCADE"
+    def _create_schema_if_not_exists_sql(self) -> str:
+        return f"CREATE DATABASE {self.schema_name}"
 
     def ensure_test_table(self, test_table: TestTable) -> str:
         """
@@ -115,13 +126,7 @@ class TestTableManager:
             ]
         )
 
-        sql = f"CREATE TABLE {qualified_table_name} ( \n{columns_sql} \n)"
-
-        # TODO: a bit of a hack, but there is no need to build anything around data source for inserting for now.
-        if self.data_source.type == "athena":
-            sql += f"LOCATION '{self.data_source.athena_staging_dir}/data/{qualified_table_name}/' "
-
-        return sql
+        return f"CREATE TABLE {qualified_table_name} ( \n{columns_sql} \n)"
 
     def _insert_test_table_sql(self, test_table: TestTable) -> str:
         if test_table.values:
@@ -139,9 +144,13 @@ class TestTableManager:
             return f"INSERT INTO {qualified_table_name} VALUES \n" f"{rows_sql};"
 
     def _drop_test_table(self, table_name):
-        qualified_table_name = self.data_source.qualified_table_name(table_name)
-        self.update(f"DROP TABLE {qualified_table_name} IF EXISTS;")
+        drop_test_table_sql = self._drop_test_table_sql(table_name)
+        self.update(drop_test_table_sql)
         self._get_existing_test_table_names().remove(table_name)
+
+    def _drop_test_table_sql(self, table_name):
+        qualified_table_name = self.data_source.qualified_table_name(table_name)
+        return f"DROP TABLE {qualified_table_name} IF EXISTS;"
 
     def fetch_all(self, sql: str) -> List[tuple]:
         cursor = self.data_source.connection.cursor()

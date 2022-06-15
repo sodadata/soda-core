@@ -50,3 +50,7 @@ class DataSourceImpl(SparkSQLBase):
         df = self.connection.spark_session.sql(sqlQuery=sql)
         df.printSchema()
         df.show()
+
+    def create_test_table_manager(self):
+        from tests.spark_df_test_table_manager import SparkDfTestTableManager
+        return SparkDfTestTableManager(self)

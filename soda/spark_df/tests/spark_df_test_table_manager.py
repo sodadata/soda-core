@@ -15,7 +15,7 @@ class SparkDfTestTableManager(TestTableManager):
     def __init__(self, spark_df_data_source: DataSourceImpl):
         super().__init__(data_source=spark_df_data_source)
 
-    def _initialize_schema(self):
+    def initialize_schema(self):
         logger.debug("Schema create is skipped spark_df")
 
     def drop_schema_if_exists(self):

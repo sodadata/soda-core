@@ -131,3 +131,7 @@ class DataSourceImpl(DataSource):
 
     def rollback(self):
         pass
+
+    def create_test_table_manager(self):
+        from tests.athena_test_table_manager import AthenaTestTableManager
+        return AthenaTestTableManager(self)

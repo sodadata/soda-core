@@ -181,12 +181,8 @@ class TestScan(Scan):
 class Scanner:
     def __init__(self, data_source: DataSource):
         self.data_source = data_source
-        if "spark_df" == data_source.data_source_name:
-            from tests.spark_df_test_table_manager import SparkDfTestTableManager
-
-            self.test_table_manager = SparkDfTestTableManager(data_source)
-        else:
-            self.test_table_manager = TestTableManager(data_source)
+        self.test_table_manager = data_source.create_test_table_manager()
+        self.test_table_manager.initialize_schema()
 
     def drop_schema(self):
         # create_schema is done directly from the TestTableManager constructor

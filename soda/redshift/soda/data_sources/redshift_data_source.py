@@ -124,3 +124,7 @@ class DataSourceImpl(DataSource):
             self.connection_properties.get("port"),
             self.connection_properties.get("database"),
         ]
+
+    def create_test_table_manager(self):
+        from tests.redshift_test_table_manager import RedshiftTestTableManager
+        return RedshiftTestTableManager(self)

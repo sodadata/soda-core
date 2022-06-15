@@ -844,3 +844,6 @@ class DataSource:
 
         finally:
             cursor.close()
+
+    def create_test_table_manager(self):
+        raise Exception("Override this method and provide a data source specific test table manager")
