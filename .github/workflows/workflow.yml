@@ -35,9 +35,9 @@ jobs:
 
   run-tests:
     runs-on: ubuntu-latest
-    concurrency: ${{ matrix.python-version }}
     strategy:
       fail-fast: false
+      max-parallel: 1
       matrix:
         python-version:
           - "3.8"
