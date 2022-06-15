@@ -4,7 +4,6 @@ import logging
 import os
 import re
 import textwrap
-from typing import List
 
 from soda.common.lazy import Lazy
 from tests.helpers.test_column import TestColumn
