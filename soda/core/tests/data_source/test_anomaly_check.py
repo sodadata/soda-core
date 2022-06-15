@@ -10,6 +10,9 @@ from tests.helpers.scanner import Scanner
     reason="Environment variable SCIENTIFIC_TESTS is set to SKIP which skips tests depending on the scientific package",
 )
 def test_anomaly_detection_default(scanner: Scanner):
+    import numpy as np
+
+    np.random.seed(61)
     table_name = scanner.ensure_test_table(customers_test_table)
 
     scan = scanner.create_test_scan()
