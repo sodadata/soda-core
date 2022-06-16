@@ -21,15 +21,7 @@ data_source bigquery:
     dataset: ${ env_var('BIGQUERY_DATASET') }
     account_info_json_path: ${ env_var('BIGQUERY_ACCOUNT_INFO_JSON_PATH') }
     account_info_json: ${ env_var('BIGQUERY_ACCOUNT_INFO_JSON') }
-data_source redshift:
-  type: redshift
-  connection:
-    host: ${ env_var('REDSHIFT_HOST', 'localhost') }
-    port: ${ env_var('REDSHIFT_PORT', '5432') }
-    username: ${ env_var('REDSHIFT_USERNAME', 'soda') }
-    password: ${ env_var('REDSHIFT_PASSWORD') }
-    database: ${ env_var('REDSHIFT_DATABASE', 'sodasql') }
-  schema: ${ env_var('REDSHIFT_SCHEMA', 'public') }
+
 data_source spark:
   type: spark
   connection:

@@ -244,9 +244,6 @@ class SparkSQLBase(DataSource):
         # Spark does not have transactions so do nothing here.
         pass
 
-    def sql_use_database(self) -> str:
-        return f"Use {self.database}"
-
     def literal_date(self, date: date):
         date_string = date.strftime("%Y-%m-%d")
         return f"date'{date_string}'"

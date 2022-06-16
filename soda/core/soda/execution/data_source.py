@@ -108,7 +108,7 @@ class DataSource:
         # @see self.connect() for initialization
         self.type = self.data_source_properties.get("connection_type")
         self.connection = None
-        self.database: str | None = data_source_properties.get("database")
+        self.database: str | None = connection_properties.get("database")
         self.schema: str | None = data_source_properties.get("schema")
         self.table_prefix: str | None = self._create_table_prefix()
         # self.data_source_scan is initialized in create_data_source_scan(...) below
@@ -232,48 +232,37 @@ class DataSource:
     def sql_get_table_columns(
         self, table_name: str, included_columns: list[str] | None = None, excluded_columns: list[str] | None = None
     ) -> str:
-        # build optional filter clauses
-        if self.database:
-            database_filter = f" \n  AND lower({self.column_metadata_catalog_column()}) = '{self.database.lower()}'"
-        else:
-            database_filter = ""
-
-        if self.schema:
-            schema_filter = f" \n  AND lower(table_schema) = '{self.schema.lower()}'"
-        else:
-            schema_filter = ""
-
-        if included_columns:
-            included_columns_filter = ""
-            for col in included_columns:
-                included_columns_filter += f"\n AND lower(column_name) LIKE lower('{col}')"
-        else:
-            included_columns_filter = ""
-
-        if excluded_columns:
-            excluded_columns_filter = ""
-            for col in excluded_columns:
-                excluded_columns_filter += f"\n AND lower(column_name) NOT LIKE lower('{col}')"
-        else:
-            excluded_columns_filter = ""
-
-        table_name_lower = table_name.lower()
-
         def is_quoted(table_name):
             return (table_name.startswith('"') and table_name.endswith('"')) or (
                 table_name.startswith("`") and table_name.endswith("`")
             )
 
-        unquuoted_table_name_lower = table_name_lower[1:-1] if is_quoted(table_name_lower) else table_name_lower
+        table_name_lower = table_name.lower()
+        unquoted_table_name_lower = table_name_lower[1:-1] if is_quoted(table_name_lower) else table_name_lower
+
+        filter_clauses = [f"lower(table_name) = '{unquoted_table_name_lower}'"]
+
+        if self.database:
+            filter_clauses.append(f"lower({self.column_metadata_catalog_column()}) = '{self.database.lower()}'")
+
+        if self.schema:
+            filter_clauses.append(f"lower(table_schema) = '{self.schema.lower()}'")
+
+        if included_columns:
+            for col in included_columns:
+                filter_clauses.append(f"lower(column_name) LIKE lower('{col}')")
+
+        if excluded_columns:
+            for col in excluded_columns:
+                filter_clauses.append(f"lower(column_name) NOT LIKE lower('{col}')")
+
+        where_filter = " \n  AND ".join(filter_clauses)
+
         # compose query template
         sql = (
             f"SELECT {', '.join(self.column_metadata_columns())} \n"
             f"FROM information_schema.columns \n"
-            f"WHERE lower(table_name) = '{unquuoted_table_name_lower}'"
-            f"{database_filter}"
-            f"{schema_filter}"
-            f"{included_columns_filter}"
-            f"{excluded_columns_filter}"
+            f"WHERE {where_filter}"
             "\nORDER BY ORDINAL_POSITION"
         )
         return sql

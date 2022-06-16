@@ -4,7 +4,7 @@ import datetime
 import logging
 
 import pyathena
-from soda.cloud.aws.credentials import AwsCredentials
+from soda.common.aws_credentials import AwsCredentials
 from soda.common.exceptions import DataSourceConnectionError
 from soda.common.logs import Logs
 from soda.execution.data_source import DataSource
