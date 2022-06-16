@@ -11,7 +11,7 @@ from soda.execution.data_source import DataSource
 logger = logging.getLogger(__name__)
 
 
-class DataSourceImpl(DataSource):
+class RedshiftDataSource(DataSource):
     TYPE = "redshift"
 
     def connect(self, connection_properties):
@@ -126,6 +126,6 @@ class DataSourceImpl(DataSource):
         ]
 
     def create_test_table_manager(self):
-        from tests.redshift_test_table_manager import RedshiftTestTableManager
+        from tests.redshift_test_table_manager import RedshiftDataSourceFixture
 
-        return RedshiftTestTableManager(self)
+        return RedshiftDataSourceFixture(self)

@@ -274,7 +274,7 @@ class SparkSQLBase(DataSource):
         """TODO: implement for spark."""
 
 
-class DataSourceImpl(SparkSQLBase):
+class SparkDataSource(SparkSQLBase):
     TYPE = "spark"
 
     def __init__(self, logs: Logs, data_source_name: str, data_source_properties: dict, connection_properties: dict):

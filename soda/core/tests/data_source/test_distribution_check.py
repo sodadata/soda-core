@@ -4,15 +4,15 @@ from textwrap import dedent
 import pytest
 from tests.helpers.common_test_tables import customers_dist_check_test_table
 from tests.helpers.fixtures import test_data_source
-from tests.helpers.scanner import Scanner
+from tests.helpers.data_source_fixture import DataSourceFixture
 
 
 @pytest.mark.skipif(
     test_data_source == "athena",
     reason="TODO: fix for athena.",
 )
-def test_distribution_check(scanner: Scanner, mock_file_system):
-    table_name = scanner.ensure_test_table(customers_dist_check_test_table)
+def test_distribution_check(data_source_fixture: DataSourceFixture, mock_file_system):
+    table_name = data_source_fixture.ensure_test_table(customers_dist_check_test_table)
 
     user_home_dir = os.path.expanduser("~")
 
@@ -50,7 +50,7 @@ def test_distribution_check(scanner: Scanner, mock_file_system):
         """
         f.write(reference_table)
 
-    scan = scanner.create_test_scan()
+    scan = data_source_fixture.create_test_scan()
     scan._configuration.file_system = mock_file_system
     scan.enable_mock_soda_cloud()
     scan.add_sodacl_yaml_file(f"{user_home_dir}/the_distribution_check_file.yml")
@@ -70,8 +70,8 @@ def test_distribution_check(scanner: Scanner, mock_file_system):
 #     test_data_source == "athena",
 #     reason="TODO: fix for athena.",
 # )
-# def test_distribution_sql(scanner: Scanner, mock_file_system, table, expectation):
-#     table_name = scanner.ensure_test_table(table)
+# def test_distribution_sql(data_source_fixture: DataSourceFixture, mock_file_system, table, expectation):
+#     table_name = data_source_fixture.ensure_test_table(table)
 #
 #     user_home_dir = os.path.expanduser("~")
 #
@@ -98,7 +98,7 @@ def test_distribution_check(scanner: Scanner, mock_file_system):
 #         """
 #         f.write(reference_table)
 #
-#     scan = scanner.create_test_scan()
+#     scan = data_source_fixture.create_test_scan()
 #     scan._configuration.file_system = mock_file_system
 #     scan.enable_mock_soda_cloud()
 #     scan.add_sodacl_yaml_file(f"{user_home_dir}/the_distribution_check_file.yml")

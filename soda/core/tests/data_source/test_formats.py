@@ -1,14 +1,14 @@
 from soda.sodacl.format_cfg import FormatCfg
 from tests.helpers.common_test_tables import customers_test_table
-from tests.helpers.scanner import Scanner
+from tests.helpers.data_source_fixture import DataSourceFixture
 
 
-def test_formats(scanner: Scanner):
-    table_name = scanner.ensure_test_table(customers_test_table)
+def test_formats(data_source_fixture: DataSourceFixture):
+    table_name = data_source_fixture.ensure_test_table(customers_test_table)
 
     assert_format_values(
         "integer",
-        scanner,
+        data_source_fixture,
         table_name,
         passing_values=["0", "1234567890", "-0", "- 1234567890", "+0", "+1"],
         failing_values=["", "a", " "],
@@ -16,7 +16,7 @@ def test_formats(scanner: Scanner):
 
     assert_format_values(
         "positive integer",
-        scanner,
+        data_source_fixture,
         table_name,
         passing_values=["0", "1234567890", "+0", "+1"],
         failing_values=[
@@ -28,12 +28,12 @@ def test_formats(scanner: Scanner):
         ],
     )
 
-    # def test_negative_integer_format(scanner: Scanner):
-    #     table_name = scanner.ensure_test_table(customers_test_table)
+    # def test_negative_integer_format(data_source_fixture: DataSourceFixture):
+    #     table_name = data_source_fixture.ensure_test_table(customers_test_table)
 
     assert_format_values(
         "negative integer",
-        scanner,
+        data_source_fixture,
         table_name,
         passing_values=[
             "0",
@@ -43,12 +43,12 @@ def test_formats(scanner: Scanner):
         failing_values=["", "a", " ", "1234567890", "+0", "+1"],
     )
 
-    # def test_percentage_format(scanner: Scanner):
-    #     table_name = scanner.ensure_test_table(customers_test_table)
+    # def test_percentage_format(data_source_fixture: DataSourceFixture):
+    #     table_name = data_source_fixture.ensure_test_table(customers_test_table)
 
     assert_format_values(
         "percentage",
-        scanner,
+        data_source_fixture,
         table_name,
         passing_values=[
             "0%",
@@ -65,12 +65,12 @@ def test_formats(scanner: Scanner):
         failing_values=["", " ", "%", "a %", "0", "0.0"],
     )
 
-    # def test_date_iso_format(scanner: Scanner):
-    #     table_name = scanner.ensure_test_table(customers_test_table)
+    # def test_date_iso_format(data_source_fixture: DataSourceFixture):
+    #     table_name = data_source_fixture.ensure_test_table(customers_test_table)
 
     assert_format_values(
         "date iso 8601",
-        scanner,
+        data_source_fixture,
         table_name,
         passing_values=[
             "2020-02-08",
@@ -110,10 +110,10 @@ def test_formats(scanner: Scanner):
     )
 
 
-def assert_format_values(format, scanner: Scanner, table_name, passing_values, failing_values):
+def assert_format_values(format, data_source_fixture: DataSourceFixture, table_name, passing_values, failing_values):
     format_regex = FormatCfg.default_formats[format]
 
-    data_source = scanner.data_source
+    data_source = data_source_fixture.data_source
     qualified_table_name = data_source.qualified_table_name(table_name)
 
     values = []
@@ -140,7 +140,7 @@ def assert_format_values(format, scanner: Scanner, table_name, passing_values, f
 
     expressions_sql = ",\n  ".join(expressions)
     sql = f"SELECT \n  {expressions_sql} FROM {qualified_table_name}"
-    row = scanner.execute_query(sql)
+    row = data_source_fixture._fetch_all(sql)[0]
 
     failures_messages = []
     for index, expected_value in enumerate(expected_values):

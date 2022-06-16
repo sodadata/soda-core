@@ -3,19 +3,20 @@ from textwrap import dedent
 import pytest
 from soda.common.yaml_helper import YamlHelper
 from tests.cli.run_cli import run_cli
+from tests.helpers import data_source_fixture
 from tests.helpers.common_test_tables import customers_test_table
+from tests.helpers.data_source_fixture import DataSourceFixture
 from tests.helpers.fixtures import test_data_source
 from tests.helpers.mock_file_system import MockFileSystem
-from tests.helpers.scanner import Scanner
 
 
-def get_data_source_configuration(scanner: Scanner, data_source_config_str: str):
-    scanner.data_source.data_source_properties.copy()
+def get_data_source_configuration(data_source_fixture: DataSourceFixture, data_source_config_str: str):
+    data_source_fixture.data_source.data_source_properties.copy()
 
     data_sources_config_dict = YamlHelper.from_yaml(data_source_config_str)
     data_source_dict = data_sources_config_dict[f"data_source postgres"]
     # Update the schema to the test schema
-    data_source_dict["schema"] = scanner.data_source.schema
+    data_source_dict["schema"] = data_source_fixture.data_source.schema
 
     postgres_with_test_schema_configuration = {f"data_source cli_ds": data_source_dict}
 
@@ -28,14 +29,14 @@ def get_data_source_configuration(scanner: Scanner, data_source_config_str: str)
     test_data_source != "postgres",
     reason="Run for postgres only as nothing data source specific is tested.",
 )
-def test_non_existing_files(scanner: Scanner):
-    table_name = scanner.ensure_test_table(customers_test_table)
+def test_non_existing_files(data_source_fixture: DataSourceFixture):
+    table_name = data_source_fixture.ensure_test_table(customers_test_table)
 
     result = run_cli(
         [
             "scan",
             "-d",
-            "cli_ds",
+            data_source_fixture.data_source_name,
             "-c",
             "non-existing.yml",
             "checks.yml",
@@ -48,13 +49,13 @@ def test_non_existing_files(scanner: Scanner):
     test_data_source != "postgres",
     reason="Run for postgres only as nothing data source specific is tested.",
 )
-def test_ok_with_variable(scanner: Scanner, mock_file_system: MockFileSystem, data_source_config_str: str):
-    table_name = scanner.ensure_test_table(customers_test_table)
+def test_ok_with_variable(data_source_fixture: DataSourceFixture, mock_file_system: MockFileSystem):
+    table_name = data_source_fixture.ensure_test_table(customers_test_table)
 
     user_home_dir = mock_file_system.user_home_dir()
 
     mock_file_system.files = {
-        f"{user_home_dir}/configuration.yml": get_data_source_configuration(scanner, data_source_config_str),
+        f"{user_home_dir}/configuration.yml": data_source_fixture.create_test_configuration_yaml_str(),
         f"{user_home_dir}/checks.yml": dedent(
             f"""
                 checks for {table_name}:
@@ -67,7 +68,7 @@ def test_ok_with_variable(scanner: Scanner, mock_file_system: MockFileSystem, da
         [
             "scan",
             "-d",
-            "cli_ds",
+            data_source_fixture.data_source_name,
             "-c",
             "configuration.yml",
             "-v",
@@ -82,13 +83,13 @@ def test_ok_with_variable(scanner: Scanner, mock_file_system: MockFileSystem, da
     test_data_source != "postgres",
     reason="Run for postgres only as nothing data source specific is tested.",
 )
-def test_fail(scanner: Scanner, mock_file_system: MockFileSystem, data_source_config_str: str):
-    table_name = scanner.ensure_test_table(customers_test_table)
+def test_fail(data_source_fixture: DataSourceFixture, mock_file_system: MockFileSystem):
+    table_name = data_source_fixture.ensure_test_table(customers_test_table)
 
     user_home_dir = mock_file_system.user_home_dir()
 
     mock_file_system.files = {
-        f"{user_home_dir}/configuration.yml": get_data_source_configuration(scanner, data_source_config_str),
+        f"{user_home_dir}/configuration.yml": data_source_fixture.create_test_configuration_yaml_str(),
         f"{user_home_dir}/checks.yml": dedent(
             f"""
                 checks for {table_name}:
@@ -101,7 +102,7 @@ def test_fail(scanner: Scanner, mock_file_system: MockFileSystem, data_source_co
         [
             "scan",
             "-d",
-            "cli_ds",
+            data_source_fixture.data_source_name,
             "-c",
             "configuration.yml",
             "checks.yml",
@@ -114,13 +115,13 @@ def test_fail(scanner: Scanner, mock_file_system: MockFileSystem, data_source_co
     test_data_source != "postgres",
     reason="Run for postgres only as nothing data source specific is tested.",
 )
-def test_warn(scanner: Scanner, mock_file_system: MockFileSystem, data_source_config_str: str):
-    table_name = scanner.ensure_test_table(customers_test_table)
+def test_warn(data_source_fixture: DataSourceFixture, mock_file_system: MockFileSystem):
+    table_name = data_source_fixture.ensure_test_table(customers_test_table)
 
     user_home_dir = mock_file_system.user_home_dir()
 
     mock_file_system.files = {
-        f"{user_home_dir}/configuration.yml": get_data_source_configuration(scanner, data_source_config_str),
+        f"{user_home_dir}/configuration.yml": data_source_fixture.create_test_configuration_yaml_str(),
         f"{user_home_dir}/checks.yml": dedent(
             f"""
                 checks for {table_name}:
@@ -134,7 +135,7 @@ def test_warn(scanner: Scanner, mock_file_system: MockFileSystem, data_source_co
         [
             "scan",
             "-d",
-            "cli_ds",
+            data_source_fixture.data_source_name,
             "-c",
             "configuration.yml",
             "checks.yml",

@@ -1,11 +1,11 @@
 from tests.helpers.common_test_tables import customers_test_table
-from tests.helpers.scanner import Scanner
+from tests.helpers.data_source_fixture import DataSourceFixture
 
 
-def test_failed_rows_table_expression(scanner: Scanner):
-    table_name = scanner.ensure_test_table(customers_test_table)
+def test_failed_rows_table_expression(data_source_fixture: DataSourceFixture):
+    table_name = data_source_fixture.ensure_test_table(customers_test_table)
 
-    scan = scanner.create_test_scan()
+    scan = data_source_fixture.create_test_scan()
     mock_soda_cloud = scan.enable_mock_soda_cloud()
     scan.enable_mock_sampler()
     scan.add_sodacl_yaml_str(
@@ -23,12 +23,12 @@ def test_failed_rows_table_expression(scanner: Scanner):
     assert mock_soda_cloud.find_failed_rows_line_count(0) == 1
 
 
-def test_failed_rows_data_source_query(scanner: Scanner):
-    table_name = scanner.ensure_test_table(customers_test_table)
+def test_failed_rows_data_source_query(data_source_fixture: DataSourceFixture):
+    table_name = data_source_fixture.ensure_test_table(customers_test_table)
 
-    qualified_table_name = scanner.data_source.qualified_table_name(table_name)
+    qualified_table_name = data_source_fixture.data_source.qualified_table_name(table_name)
 
-    scan = scanner.create_test_scan()
+    scan = data_source_fixture.create_test_scan()
     mock_soda_cloud = scan.enable_mock_soda_cloud()
     scan.enable_mock_sampler()
     scan.add_sodacl_yaml_str(
@@ -49,12 +49,12 @@ def test_failed_rows_data_source_query(scanner: Scanner):
     assert mock_soda_cloud.find_failed_rows_line_count(0) == 3
 
 
-def test_failed_rows_table_query(scanner: Scanner):
-    table_name = scanner.ensure_test_table(customers_test_table)
+def test_failed_rows_table_query(data_source_fixture: DataSourceFixture):
+    table_name = data_source_fixture.ensure_test_table(customers_test_table)
 
-    qualified_table_name = scanner.data_source.qualified_table_name(table_name)
+    qualified_table_name = data_source_fixture.data_source.qualified_table_name(table_name)
 
-    scan = scanner.create_test_scan()
+    scan = data_source_fixture.create_test_scan()
     scan.add_sodacl_yaml_str(
         f"""
           checks for {table_name}:
@@ -71,8 +71,8 @@ def test_failed_rows_table_query(scanner: Scanner):
     scan.assert_check_fail()
 
 
-def test_bad_failed_rows_query(scanner: Scanner):
-    scan = scanner.create_test_scan()
+def test_bad_failed_rows_query(data_source_fixture: DataSourceFixture):
+    scan = data_source_fixture.create_test_scan()
     mock_soda_cloud = scan.enable_mock_soda_cloud()
     scan.add_sodacl_yaml_str(
         f"""

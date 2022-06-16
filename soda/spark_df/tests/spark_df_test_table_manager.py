@@ -6,19 +6,25 @@ from pyspark.sql import types
 from soda.data_sources.spark_df_data_source import DataSourceImpl
 from soda.execution.data_type import DataType
 from tests.helpers.test_table import TestTable
-from tests.helpers.test_table_manager import TestTableManager
+from tests.helpers.data_source_fixture import DataSourceFixture
 
 logger = logging.getLogger(__name__)
 
 
-class SparkDfTestTableManager(TestTableManager):
+class SparkDfDataSourceFixture(DataSourceFixture):
     def __init__(self, spark_df_data_source: DataSourceImpl):
         super().__init__(data_source=spark_df_data_source)
 
-    def initialize_schema(self):
+    # Needs to be added somewhere...
+    if data_source_name == "spark_df":
+        from tests.spark_df_data_source_test_helper import SparkDfDataSourceTestHelper
+
+        SparkDfDataSourceTestHelper.initialize_local_spark_session(scan)
+
+    def _initialize_schema(self):
         logger.debug("Schema create is skipped spark_df")
 
-    def drop_schema_if_exists(self):
+    def _drop_schema_if_exists(self):
         logger.debug("Schema drop is skipped for spark_df")
 
     def _create_and_insert_test_table(self, test_table: TestTable):
@@ -53,7 +59,7 @@ class SparkDfTestTableManager(TestTableManager):
     def build_spark_type(data_type: str) -> types.DataType:
         if data_type.startswith("array[") and data_type.endswith("]"):
             element_data_type = data_type[6:-1].strip()
-            element_spark_type = SparkDfTestTableManager.build_spark_type(element_data_type)
+            element_spark_type = SparkDfDataSourceFixture.build_spark_type(element_data_type)
             return types.ArrayType(element_spark_type)
 
         if data_type.startswith("struct[") and data_type.endswith("]"):
@@ -63,7 +69,7 @@ class SparkDfTestTableManager(TestTableManager):
                 field_type_parts = field_type.split(":", 1)
                 field_name = field_type_parts[0]
                 field_data_type = field_type_parts[1]
-                field_spark_type = SparkDfTestTableManager.build_spark_type(field_data_type)
+                field_spark_type = SparkDfDataSourceFixture.build_spark_type(field_data_type)
                 spark_field_types.append(types.StructField(field_name, field_spark_type))
             return types.StructType(spark_field_types)
 

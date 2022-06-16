@@ -1,11 +1,11 @@
 from tests.helpers.common_test_tables import customers_test_table
-from tests.helpers.scanner import Scanner
+from tests.helpers.data_source_fixture import DataSourceFixture
 
 
-def test_default_missing(scanner: Scanner):
-    table_name = scanner.ensure_test_table(customers_test_table)
+def test_default_missing(data_source_fixture: DataSourceFixture):
+    table_name = data_source_fixture.ensure_test_table(customers_test_table)
 
-    scan = scanner.create_test_scan()
+    scan = data_source_fixture.create_test_scan()
     scan.add_sodacl_yaml_str(
         f"""
           checks for {table_name}:
@@ -17,10 +17,10 @@ def test_default_missing(scanner: Scanner):
     scan.assert_all_checks_pass()
 
 
-def test_column_configured_missing_values(scanner: Scanner):
-    table_name = scanner.ensure_test_table(customers_test_table)
+def test_column_configured_missing_values(data_source_fixture: DataSourceFixture):
+    table_name = data_source_fixture.ensure_test_table(customers_test_table)
 
-    scan = scanner.create_test_scan()
+    scan = data_source_fixture.create_test_scan()
     scan.add_sodacl_yaml_str(
         f"""
       checks for {table_name}:
@@ -34,10 +34,10 @@ def test_column_configured_missing_values(scanner: Scanner):
     scan.assert_all_checks_pass()
 
 
-def test_check_configured_missing_values(scanner: Scanner):
-    table_name = scanner.ensure_test_table(customers_test_table)
+def test_check_configured_missing_values(data_source_fixture: DataSourceFixture):
+    table_name = data_source_fixture.ensure_test_table(customers_test_table)
 
-    scan = scanner.create_test_scan()
+    scan = data_source_fixture.create_test_scan()
     scan.add_sodacl_yaml_str(
         f"""
       checks for {table_name}:
@@ -51,7 +51,7 @@ def test_check_configured_missing_values(scanner: Scanner):
     scan.assert_all_checks_pass()
 
 
-def test_check_and_column_configured_missing_values(scanner: Scanner):
+def test_check_and_column_configured_missing_values(data_source_fixture: DataSourceFixture):
     """
     In case both column *and* check configurations are specified, they both are applied.
 
@@ -63,9 +63,9 @@ def test_check_and_column_configured_missing_values(scanner: Scanner):
         COUNT(CASE WHEN "id" IS NULL OR "id" IN ('ID1','ID2') OR "id" IN ('N/A','ID5') THEN 1 END)
       FROM "sodasql"."public"."SODATEST_CUSTOMERS_4ec6d529"
     """
-    table_name = scanner.ensure_test_table(customers_test_table)
+    table_name = data_source_fixture.ensure_test_table(customers_test_table)
 
-    scan = scanner.create_test_scan()
+    scan = data_source_fixture.create_test_scan()
     scan.add_sodacl_yaml_str(
         f"""
       checks for {table_name}:

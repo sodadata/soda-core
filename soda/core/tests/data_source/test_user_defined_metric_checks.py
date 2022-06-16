@@ -1,12 +1,12 @@
 from soda.execution.check_outcome import CheckOutcome
 from tests.helpers.common_test_tables import customers_test_table
-from tests.helpers.scanner import Scanner
+from tests.helpers.data_source_fixture import DataSourceFixture
 
 
-def test_user_defined_table_expression_metric_check(scanner: Scanner):
-    table_name = scanner.ensure_test_table(customers_test_table)
+def test_user_defined_table_expression_metric_check(data_source_fixture: DataSourceFixture):
+    table_name = data_source_fixture.ensure_test_table(customers_test_table)
 
-    scan = scanner.create_test_scan()
+    scan = data_source_fixture.create_test_scan()
     scan.add_sodacl_yaml_str(
         f"""
       checks for {table_name}:
@@ -34,12 +34,12 @@ def test_user_defined_table_expression_metric_check(scanner: Scanner):
     assert ones_check.outcome == CheckOutcome.WARN
 
 
-def test_user_defined_data_source_query_metric_check(scanner: Scanner):
-    table_name = scanner.ensure_test_table(customers_test_table)
+def test_user_defined_data_source_query_metric_check(data_source_fixture: DataSourceFixture):
+    table_name = data_source_fixture.ensure_test_table(customers_test_table)
 
-    qualified_table_name = scanner.data_source.qualified_table_name(table_name)
+    qualified_table_name = data_source_fixture.data_source.qualified_table_name(table_name)
 
-    scan = scanner.create_test_scan()
+    scan = data_source_fixture.create_test_scan()
     scan.add_sodacl_yaml_str(
         f"""
           checks:

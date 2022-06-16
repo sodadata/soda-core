@@ -6,13 +6,13 @@ from tests.helpers.common_test_tables import (
     customers_test_table,
     orders_test_table,
 )
-from tests.helpers.scanner import Scanner
+from tests.helpers.data_source_fixture import DataSourceFixture
 
 
-def test_sample_tables(scanner: Scanner):
-    table_name = scanner.ensure_test_table(orders_test_table)
+def test_sample_tables(data_source_fixture: DataSourceFixture):
+    table_name = data_source_fixture.ensure_test_table(orders_test_table)
 
-    scan = scanner.create_test_scan()
+    scan = data_source_fixture.create_test_scan()
     mock_soda_cloud = scan.enable_mock_soda_cloud()
     scan.enable_mock_sampler()
     scan.add_sodacl_yaml_str(
@@ -31,7 +31,7 @@ def test_sample_tables(scanner: Scanner):
     profiling = profilings[0]
     sample_file = profiling["sampleFile"]
     columns = sample_file["columns"]
-    casify = scanner.data_source.default_casify_column_name
+    casify = data_source_fixture.data_source.default_casify_column_name
     assert [c["name"] for c in columns] == [
         casify(c)
         for c in [
@@ -58,11 +58,11 @@ def test_sample_tables(scanner: Scanner):
     assert len(file_id) > 0
 
 
-def test_discover_tables_customer_wildcard_incl_only(scanner: Scanner):
-    scanner.ensure_test_table(customers_test_table)
-    orders_test_table_name = scanner.ensure_test_table(orders_test_table)
+def test_discover_tables_customer_wildcard_incl_only(data_source_fixture: DataSourceFixture):
+    data_source_fixture.ensure_test_table(customers_test_table)
+    orders_test_table_name = data_source_fixture.ensure_test_table(orders_test_table)
 
-    scan = scanner.create_test_scan()
+    scan = data_source_fixture.create_test_scan()
     mock_soda_cloud = scan.enable_mock_soda_cloud()
     scan.enable_mock_sampler()
     scan.add_sodacl_yaml_str(
@@ -80,11 +80,11 @@ def test_discover_tables_customer_wildcard_incl_only(scanner: Scanner):
     assert dataset_names == [orders_test_table_name.lower()]
 
 
-def test_discover_tables_customer_wildcard_incl_excl(scanner: Scanner):
-    scanner.ensure_test_table(customers_test_table)
-    scanner.ensure_test_table(orders_test_table)
+def test_discover_tables_customer_wildcard_incl_excl(data_source_fixture: DataSourceFixture):
+    data_source_fixture.ensure_test_table(customers_test_table)
+    data_source_fixture.ensure_test_table(orders_test_table)
 
-    scan = scanner.create_test_scan()
+    scan = data_source_fixture.create_test_scan()
     mock_soda_cloud = scan.enable_mock_soda_cloud()
     scan.enable_mock_sampler()
     scan.add_sodacl_yaml_str(

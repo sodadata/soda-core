@@ -15,7 +15,7 @@ from soda.execution.data_type import DataType
 logger = logging.getLogger(__name__)
 
 
-class DataSourceImpl(DataSource):
+class BigqueryDataSource(DataSource):
     TYPE = "bigquery"
 
     SCHEMA_CHECK_TYPES_MAPPING: dict = {
@@ -230,6 +230,6 @@ class DataSourceImpl(DataSource):
         return "UNION ALL"
 
     def create_test_table_manager(self):
-        from tests.bigquery_test_table_manager import BigQueryTestTableManager
+        from tests.bigquery_test_table_manager import BigQueryDataSourceFixture
 
-        return BigQueryTestTableManager(self)
+        return BigQueryDataSourceFixture(self)

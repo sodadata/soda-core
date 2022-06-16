@@ -8,7 +8,7 @@ from soda.data_sources.spark_df_connection import SparkDfConnection
 from soda.execution.data_type import DataType
 
 
-class DataSourceImpl(SparkSQLBase):
+class SparkDfDataSourceImpl(SparkSQLBase):
     TYPE = "spark_df"
 
     SCHEMA_CHECK_TYPES_MAPPING: dict = {
@@ -29,10 +29,10 @@ class DataSourceImpl(SparkSQLBase):
 
     def __init__(self, logs: Logs, data_source_name: str, data_source_properties: dict, connection_properties: dict):
         super().__init__(logs, data_source_name, data_source_properties, connection_properties)
+        self.spark_session = connection_properties.get("spark_session")
 
-    def connect(self, connection_properties: dict):
-        spark_session = connection_properties.get("spark_session")
-        self.connection = SparkDfConnection(spark_session)
+    def connect(self):
+        self.connection = SparkDfConnection(self.spark_session)
 
     def quote_table(self, table_name) -> str:
         return f"{table_name}"
@@ -52,6 +52,6 @@ class DataSourceImpl(SparkSQLBase):
         df.show()
 
     def create_test_table_manager(self):
-        from tests.spark_df_test_table_manager import SparkDfTestTableManager
+        from tests.spark_df_test_table_manager import SparkDfDataSourceFixture
 
-        return SparkDfTestTableManager(self)
+        return SparkDfDataSourceFixture(self)

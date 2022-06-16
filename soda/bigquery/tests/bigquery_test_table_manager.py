@@ -2,12 +2,12 @@ import logging
 
 from google.cloud import bigquery
 from soda.data_sources.spark_df_data_source import DataSourceImpl
-from tests.helpers.test_table_manager import TestTableManager
+from tests.helpers.data_source_fixture import DataSourceFixture
 
 logger = logging.getLogger(__name__)
 
 
-class BigQueryTestTableManager(TestTableManager):
+class BigQueryDataSourceFixture(DataSourceFixture):
     def __init__(self, data_source: DataSourceImpl):
         super().__init__(data_source=data_source)
 
@@ -20,7 +20,7 @@ class BigQueryTestTableManager(TestTableManager):
         dataset.location = "EU"
         self.data_source.client.create_dataset(dataset, timeout=30)
 
-    def drop_schema_if_exists(self):
+    def _drop_schema_if_exists(self):
         dataset_id = self._get_dataset_id()
         self.data_source.client.delete_dataset(dataset_id, delete_contents=True, not_found_ok=True)
 

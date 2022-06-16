@@ -1,19 +1,19 @@
 from soda.execution.check_outcome import CheckOutcome
 from soda.execution.data_type import DataType
 from tests.helpers.common_test_tables import customers_test_table
-from tests.helpers.scanner import Scanner
+from tests.helpers.data_source_fixture import DataSourceFixture
 from tests.helpers.utils import format_checks
 
 
-def test_columns_types_pass(scanner: Scanner):
-    table_name = scanner.ensure_test_table(customers_test_table)
+def test_columns_types_pass(data_source_fixture: DataSourceFixture):
+    table_name = data_source_fixture.ensure_test_table(customers_test_table)
 
-    scan = scanner.create_test_scan()
+    scan = data_source_fixture.create_test_scan()
 
     checks_str = format_checks(
         [("id", "varchar"), ("distance", "integer")],
         indent=15,
-        data_source=scanner.data_source,
+        data_source=data_source_fixture.data_source,
     )
     scan.add_sodacl_yaml_str(
         f"""
@@ -30,15 +30,15 @@ def test_columns_types_pass(scanner: Scanner):
     scan.assert_all_checks_pass()
 
 
-def test_columns_types_fail(scanner: Scanner):
+def test_columns_types_fail(data_source_fixture: DataSourceFixture):
     checks_str = format_checks(
         [("id", "integer"), ("does_not_exist", "integer"), ("pct", "varchar")],
         indent=15,
-        data_source=scanner.data_source,
+        data_source=data_source_fixture.data_source,
     )
-    table_name = scanner.ensure_test_table(customers_test_table)
+    table_name = data_source_fixture.ensure_test_table(customers_test_table)
 
-    scan = scanner.create_test_scan()
+    scan = data_source_fixture.create_test_scan()
     scan.add_sodacl_yaml_str(
         f"""
       checks for {table_name}:
@@ -54,7 +54,7 @@ def test_columns_types_fail(scanner: Scanner):
 
     assert check.outcome == CheckOutcome.FAIL
 
-    data_source = scanner.data_source
+    data_source = data_source_fixture.data_source
     default_casify_column_name = data_source.default_casify_column_name
 
     assert check.schema_missing_column_names == [default_casify_column_name("does_not_exist")]
@@ -66,15 +66,15 @@ def test_columns_types_fail(scanner: Scanner):
     }
 
 
-def test_columns_types_warn(scanner: Scanner):
+def test_columns_types_warn(data_source_fixture: DataSourceFixture):
     checks_str = format_checks(
         [("id", "integer"), ("does_not_exist", "integer"), ("pct", "varchar")],
         indent=15,
-        data_source=scanner.data_source,
+        data_source=data_source_fixture.data_source,
     )
-    table_name = scanner.ensure_test_table(customers_test_table)
+    table_name = data_source_fixture.ensure_test_table(customers_test_table)
 
-    scan = scanner.create_test_scan()
+    scan = data_source_fixture.create_test_scan()
     scan.add_sodacl_yaml_str(
         f"""
       checks for {table_name}:
@@ -90,7 +90,7 @@ def test_columns_types_warn(scanner: Scanner):
 
     assert check.outcome == CheckOutcome.WARN
 
-    data_source = scanner.data_source
+    data_source = data_source_fixture.data_source
     default_casify_column_name = data_source.default_casify_column_name
 
     assert check.schema_missing_column_names == [default_casify_column_name("does_not_exist")]

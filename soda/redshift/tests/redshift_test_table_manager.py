@@ -1,12 +1,12 @@
 import logging
 
 from soda.data_sources.spark_df_data_source import DataSourceImpl
-from tests.helpers.test_table_manager import TestTableManager
+from tests.helpers.data_source_fixture import DataSourceFixture
 
 logger = logging.getLogger(__name__)
 
 
-class RedshiftTestTableManager(TestTableManager):
+class RedshiftDataSourceFixture(DataSourceFixture):
     def __init__(self, data_source: DataSourceImpl):
         super().__init__(data_source=data_source)
 

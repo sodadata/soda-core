@@ -44,7 +44,7 @@ class DataSourceManager:
                             )
                             if data_source:
                                 try:
-                                    data_source.connect(connection_properties)
+                                    data_source.connect()
                                     self.data_sources[data_source_name] = data_source
                                 except BaseException as e:
                                     self.logs.error(
@@ -78,5 +78,5 @@ class DataSourceManager:
         connection = self.connections.get(connection_name)
         if connection is None:
             connection_properties = self.connection_properties_by_name.get(connection_name)
-            return data_source.connect(connection_properties)
+            return data_source.connect()
         return connection

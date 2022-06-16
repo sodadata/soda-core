@@ -2,6 +2,7 @@ from __future__ import annotations
 
 # Initialize telemetry in test mode. This is done before importing Scanner which initializes telemetry in standard mode so that we avoid unnecessary setup and re-setup which causes errors.
 from soda.telemetry.soda_telemetry import SodaTelemetry
+from tests.helpers.data_source_fixture import DataSourceFixture
 
 soda_telemetry = SodaTelemetry.get_instance(test_mode=True)
 
@@ -16,7 +17,6 @@ from soda.common.logs import configure_logging
 from soda.execution.data_source import DataSource
 from soda.scan import Scan
 from tests.helpers.mock_file_system import MockFileSystem
-from tests.helpers.scanner import Scanner
 
 logger = logging.getLogger(__name__)
 
@@ -39,7 +39,6 @@ def pytest_runtest_logstart(nodeid: str, location: tuple[str, int | None, str]) 
     logging.debug(f'### "soda/core/tests/{location[0]}:{(location[1]+1)}" {location[2]}')
 
 
-@pytest.fixture(scope="session")
 def data_source_config_str() -> str:
     """Whole test data source config as string."""
     with open(f"{project_root_dir}soda/core/tests/data_sources.yml") as f:
@@ -79,10 +78,11 @@ def data_source(scan: Scan) -> DataSource:
 
 
 @pytest.fixture(scope="session")
-def scanner(data_source):
-    scanner = Scanner(data_source)
-    yield scanner
-    scanner.drop_schema()
+def data_source_fixture():
+    data_source_fixture = DataSourceFixture._create()
+    data_source_fixture._test_session_starts()
+    yield data_source_fixture
+    data_source_fixture._test_session_ends()
 
 
 @pytest.fixture

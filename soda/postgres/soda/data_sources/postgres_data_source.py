@@ -1,31 +1,38 @@
 import logging
 from typing import List, Optional
 
+from soda.common.logs import Logs
 from soda.execution.data_source import DataSource
 
 logger = logging.getLogger(__name__)
 
 
-class DataSourceImpl(DataSource):
-    def connect(self, connection_properties):
+class PostgresDataSource(DataSource):
+
+    def __init__(self, logs: Logs, data_source_name: str, data_source_properties: dict, connection_properties: dict):
+        super().__init__(logs, data_source_name, data_source_properties, connection_properties)
+        self.host = connection_properties.get("host")
+        self.port = connection_properties.get("port")
+        self.password = connection_properties.get("password")
+        self.username = connection_properties.get("username")
+        self.connection_timeout = connection_properties.get("connection_timeout")
+
+    def connect(self):
         import psycopg2
 
-        schema = self.data_source_properties.get("schema")
-        options = f"-c search_path={schema}" if schema else None
+        options = f"-c search_path={self.schema}" if self.schema else None
 
-        password = connection_properties.get("password")
-        if password == "":
-            password = None
+        if self.password == "":
+            self.password = None
 
-        host = connection_properties.get("host")
-        if isinstance(host, str) and len(host) > 0:
+        if isinstance(self.host, str) and len(self.host) > 0:
             self.connection = psycopg2.connect(
-                user=connection_properties.get("username"),
-                password=password,
-                host=host,
-                port=connection_properties.get("port"),
-                connect_timeout=connection_properties.get("connection_timeout"),
-                database=self.data_source_properties.get("database"),
+                user=self.username,
+                password=self.password,
+                host=self.host,
+                port=self.port,
+                connect_timeout=self.connection_timeout,
+                database=self.database,
                 options=options,
             )
         else:
@@ -84,9 +91,9 @@ class DataSourceImpl(DataSource):
         )
 
     def create_test_table_manager(self):
-        from tests.postgres_test_table_manager import PostgresTestTableManager
+        from tests.postgres_data_source_fixture import PostgresDataSourceFixture
 
-        return PostgresTestTableManager(self)
+        return PostgresDataSourceFixture(self)
 
     type_names_by_type_code = {
         "16": "bool",

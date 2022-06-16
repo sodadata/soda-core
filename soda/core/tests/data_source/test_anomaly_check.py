@@ -2,17 +2,17 @@ import os
 
 import pytest
 from tests.helpers.common_test_tables import customers_test_table
-from tests.helpers.scanner import Scanner
+from tests.helpers.data_source_fixture import DataSourceFixture
 
 
 @pytest.mark.skipif(
     condition=os.getenv("SCIENTIFIC_TESTS") == "SKIP",
     reason="Environment variable SCIENTIFIC_TESTS is set to SKIP which skips tests depending on the scientific package",
 )
-def test_anomaly_detection_default(scanner: Scanner):
-    table_name = scanner.ensure_test_table(customers_test_table)
+def test_anomaly_detection_default(data_source_fixture: DataSourceFixture):
+    table_name = data_source_fixture.ensure_test_table(customers_test_table)
 
-    scan = scanner.create_test_scan()
+    scan = data_source_fixture.create_test_scan()
 
     scan.add_sodacl_yaml_str(
         f"""
@@ -32,10 +32,10 @@ def test_anomaly_detection_default(scanner: Scanner):
 
 
 @pytest.mark.skip("custom threshold is not supported")
-def test_anomaly_detection_custom_threshold(scanner: Scanner):
-    table_name = scanner.ensure_test_table(customers_test_table)
+def test_anomaly_detection_custom_threshold(data_source_fixture: DataSourceFixture):
+    table_name = data_source_fixture.ensure_test_table(customers_test_table)
 
-    scan = scanner.create_test_scan()
+    scan = data_source_fixture.create_test_scan()
 
     scan.add_sodacl_yaml_str(
         f"""
@@ -55,10 +55,10 @@ def test_anomaly_detection_custom_threshold(scanner: Scanner):
 
 
 @pytest.mark.skip("custom threshold is not supported")
-def test_anomaly_detection_fail_with_custom_threshold(scanner: Scanner):
-    table_name = scanner.ensure_test_table(customers_test_table)
+def test_anomaly_detection_fail_with_custom_threshold(data_source_fixture: DataSourceFixture):
+    table_name = data_source_fixture.ensure_test_table(customers_test_table)
 
-    scan = scanner.create_test_scan()
+    scan = data_source_fixture.create_test_scan()
 
     scan.add_sodacl_yaml_str(
         f"""
@@ -91,13 +91,13 @@ def test_anomaly_detection_fail_with_custom_threshold(scanner: Scanner):
         pytest.param("avg_length", "country", id="avg_length"),
     ],
 )
-def test_anomaly_detection_pass_numeric_metrics(numeric_metric, column, scanner):
+def test_anomaly_detection_pass_numeric_metrics(numeric_metric, column, data_source_fixture):
     import numpy as np
 
     np.random.seed(61)
-    table_name = scanner.ensure_test_table(customers_test_table)
+    table_name = data_source_fixture.ensure_test_table(customers_test_table)
 
-    scan = scanner.create_test_scan()
+    scan = data_source_fixture.create_test_scan()
 
     scan.add_sodacl_yaml_str(
         f"""
@@ -119,13 +119,13 @@ def test_anomaly_detection_pass_numeric_metrics(numeric_metric, column, scanner)
     condition=os.getenv("SCIENTIFIC_TESTS") == "SKIP",
     reason="Environment variable SCIENTIFIC_TESTS is set to SKIP which skips tests depending on the scientific package",
 )
-def test_anomaly_detection_missing_values(scanner):
+def test_anomaly_detection_missing_values(data_source_fixture):
     import numpy as np
 
     np.random.seed(61)
-    table_name = scanner.ensure_test_table(customers_test_table)
+    table_name = data_source_fixture.ensure_test_table(customers_test_table)
 
-    scan = scanner.create_test_scan()
+    scan = data_source_fixture.create_test_scan()
 
     scan.add_sodacl_yaml_str(
         f"""
@@ -148,13 +148,13 @@ def test_anomaly_detection_missing_values(scanner):
     condition=os.getenv("SCIENTIFIC_TESTS") == "SKIP",
     reason="Environment variable SCIENTIFIC_TESTS is set to SKIP which skips tests depending on the scientific package",
 )
-def test_anomaly_detection_invalid_values(scanner):
+def test_anomaly_detection_invalid_values(data_source_fixture):
     import numpy as np
 
     np.random.seed(61)
-    table_name = scanner.ensure_test_table(customers_test_table)
+    table_name = data_source_fixture.ensure_test_table(customers_test_table)
 
-    scan = scanner.create_test_scan()
+    scan = data_source_fixture.create_test_scan()
 
     scan.add_sodacl_yaml_str(
         f"""
