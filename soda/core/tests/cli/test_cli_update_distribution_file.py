@@ -13,13 +13,13 @@ from tests.helpers.mock_file_system import MockFileSystem
     test_data_source != "postgres",
     reason="Run for postgres only as nothing data source specific is tested.",
 )
-def test_cli_update_distribution_file(data_source_fixture: DataSourceFixture, mock_file_system: MockFileSystem, data_source_config_str: str):
+def test_cli_update_distribution_file(data_source_fixture: DataSourceFixture, mock_file_system: MockFileSystem):
     table_name = data_source_fixture.ensure_test_table(customers_test_table)
 
     user_home_dir = mock_file_system.user_home_dir()
 
     mock_file_system.files = {
-        f"{user_home_dir}/configuration.yml": data_source_config_str,
+        f"{user_home_dir}/configuration.yml": data_source_fixture.create_test_configuration_yaml_str(),
         f"{user_home_dir}/customers_distribution_reference.yml": dedent(
             f"""
                 table: {table_name}

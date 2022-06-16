@@ -38,7 +38,7 @@ class PostgresDataSourceFixture(DataSourceFixture):
             self.schema_connection = self.data_source.connection
             self._create_schema_if_not_exists()
             self._update(f"SET search_path = {self.schema_name}")
-            self.data_source.schema = self.schema_name
+            self.data_source.update_schema(self.schema_name)
         else:
             super()._test_session_starts()
 
