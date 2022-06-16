@@ -6,7 +6,6 @@ logger = logging.getLogger(__name__)
 
 
 class RedshiftDataSourceFixture(DataSourceFixture):
-
     def __init__(self, test_data_source: str):
         super().__init__(test_data_source)
 

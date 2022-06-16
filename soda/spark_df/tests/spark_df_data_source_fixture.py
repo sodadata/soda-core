@@ -3,7 +3,6 @@ import logging
 from datetime import datetime
 
 from pyspark.sql import types
-
 from soda.execution.data_type import DataType
 from tests.helpers.data_source_fixture import DataSourceFixture
 from tests.helpers.test_table import TestTable

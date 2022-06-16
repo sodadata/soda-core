@@ -6,8 +6,8 @@ from numbers import Number
 import pytest
 from soda.common.yaml_helper import to_yaml_str
 from tests.helpers.common_test_tables import customers_profiling
-from tests.helpers.fixtures import test_data_source
 from tests.helpers.data_source_fixture import DataSourceFixture
+from tests.helpers.fixtures import test_data_source
 
 
 @pytest.mark.skipif(
@@ -214,7 +214,9 @@ def test_profile_columns_all_tables_all_columns(data_source_fixture: DataSourceF
         ),
     ],
 )
-def test_profile_columns_inclusions_exclusions(data_source_fixture: DataSourceFixture, table_name, soda_cl_str, expectation):
+def test_profile_columns_inclusions_exclusions(
+    data_source_fixture: DataSourceFixture, table_name, soda_cl_str, expectation
+):
     _table_name = data_source_fixture.ensure_test_table(table_name)
     scan = data_source_fixture.create_test_scan()
     mock_soda_cloud = scan.enable_mock_soda_cloud()

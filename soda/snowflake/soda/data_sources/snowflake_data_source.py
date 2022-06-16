@@ -48,17 +48,17 @@ class SnowflakeDataSource(DataSource):
 
     def __init__(self, logs: Logs, data_source_name: str, data_source_properties: dict, connection_properties: dict):
         super().__init__(logs, data_source_name, data_source_properties, connection_properties)
-        self.user = connection_properties.get("username"),
-        self.password = connection_properties.get("password"),
-        self.account = connection_properties.get("account"),
-        self.data_source = connection_properties.get("data_source"),
-        self.database = connection_properties.get("database"),
-        self.schema = connection_properties.get("schema"),
-        self.warehouse = connection_properties.get("warehouse"),
-        self.login_timeout = connection_properties.get("connection_timeout", DEFAULT_SOCKET_CONNECT_TIMEOUT),
-        self.role = connection_properties.get("role"),
-        self.client_session_keep_alive = connection_properties.get("client_session_keep_alive"),
-        self.session_parameters = connection_properties.get("session_params"),
+        self.user = (connection_properties.get("username"),)
+        self.password = (connection_properties.get("password"),)
+        self.account = (connection_properties.get("account"),)
+        self.data_source = (connection_properties.get("data_source"),)
+        self.database = (connection_properties.get("database"),)
+        self.schema = (connection_properties.get("schema"),)
+        self.warehouse = (connection_properties.get("warehouse"),)
+        self.login_timeout = (connection_properties.get("connection_timeout", DEFAULT_SOCKET_CONNECT_TIMEOUT),)
+        self.role = (connection_properties.get("role"),)
+        self.client_session_keep_alive = (connection_properties.get("client_session_keep_alive"),)
+        self.session_parameters = (connection_properties.get("session_params"),)
 
     def connect(self):
         try:

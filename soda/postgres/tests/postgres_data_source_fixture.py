@@ -9,7 +9,6 @@ logger = logging.getLogger(__name__)
 
 
 class PostgresDataSourceFixture(DataSourceFixture):
-
     def __init__(self, test_data_source: str):
         super().__init__(test_data_source=test_data_source)
         is_local_dev = os.getenv("GITHUB_ACTIONS") is None
@@ -26,7 +25,7 @@ class PostgresDataSourceFixture(DataSourceFixture):
                     "password": os.getenv("POSTGRES_PASSWORD"),
                     "database": os.getenv("POSTGRES_HOST", "sodasql"),
                 },
-                "schema": schema_name if schema_name else os.getenv("POSTGRES_SCHEMA", "public")
+                "schema": schema_name if schema_name else os.getenv("POSTGRES_SCHEMA", "public"),
             }
         }
 

@@ -10,7 +10,6 @@ logger = logging.getLogger(__name__)
 
 
 class BigQueryDataSourceFixture(DataSourceFixture):
-
     def __init__(self, test_data_source: str):
         super().__init__(test_data_source)
 
@@ -22,9 +21,9 @@ class BigQueryDataSourceFixture(DataSourceFixture):
                     "host": "localhost",
                     "dataset": os.getenv("BIGQUERY_DATASET"),
                     "account_info_json_path": os.getenv("BIGQUERY_ACCOUNT_INFO_JSON_PATH"),
-                    "account_info_json": os.getenv("BIGQUERY_ACCOUNT_INFO_JSON")
+                    "account_info_json": os.getenv("BIGQUERY_ACCOUNT_INFO_JSON"),
                 },
-                "schema": schema_name
+                "schema": schema_name,
             }
         }
 

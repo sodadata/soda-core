@@ -58,11 +58,14 @@ class BigqueryDataSource(DataSource):
         # But users can optionally overwrite in the connection properties
         self.project_id = connection_properties.get("project_id", self.project_id)
 
-        self.credentials = Credentials.from_service_account_info(self.account_info_dict, scopes=[
+        self.credentials = Credentials.from_service_account_info(
+            self.account_info_dict,
+            scopes=[
                 "https://www.googleapis.com/auth/bigquery",
                 "https://www.googleapis.com/auth/cloud-platform",
                 "https://www.googleapis.com/auth/drive",
-            ])
+            ],
+        )
 
     def __parse_json_credential(self):
         account_info_path = self.connection_properties.get("account_info_json_path")
@@ -95,7 +98,7 @@ class BigqueryDataSource(DataSource):
                 credentials=self.credentials,
                 default_query_job_config=bigquery.QueryJobConfig(
                     default_dataset=f"{self.project_id}.{self.dataset_name}",
-                )
+                ),
             )
             self.connection = dbapi.Connection(self.client)
 

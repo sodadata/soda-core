@@ -9,8 +9,8 @@ from importlib import import_module
 from soda.common.lazy import Lazy
 from soda.common.yaml_helper import YamlHelper
 from soda.scan import Scan
-from tests.helpers.test_scan import TestScan
 from tests.helpers.test_column import TestColumn
+from tests.helpers.test_scan import TestScan
 from tests.helpers.test_table import TestTable
 
 logger = logging.getLogger(__name__)
@@ -75,12 +75,12 @@ class DataSourceFixture:
         self._create_schema_if_not_exists()
         self.data_source = self._create_test_data_source()
 
-    def _create_schema_data_source(self) -> 'DataSource':
+    def _create_schema_data_source(self) -> DataSource:
         configuration_dict = self._build_configuration_dict()
         configuration_yaml_str = YamlHelper.to_yaml(configuration_dict)
         return self._create_data_source_from_configuration_yaml_str(configuration_yaml_str)
 
-    def _create_data_source_from_configuration_yaml_str(self, configuration_yaml_str: str) -> 'DataSource':
+    def _create_data_source_from_configuration_yaml_str(self, configuration_yaml_str: str) -> DataSource:
         scan = Scan()
         scan.set_data_source_name(self.data_source_name)
         scan.add_configuration_yaml_str(configuration_yaml_str)
@@ -98,7 +98,7 @@ class DataSourceFixture:
     def _create_schema_if_not_exists_sql(self) -> str:
         return f"CREATE DATABASE {self.schema_name}"
 
-    def _create_test_data_source(self) -> 'DataSource':
+    def _create_test_data_source(self) -> DataSource:
         configuration_yaml_str = self.create_test_configuration_yaml_str()
         return self._create_data_source_from_configuration_yaml_str(configuration_yaml_str)
 

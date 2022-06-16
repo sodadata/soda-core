@@ -16,6 +16,7 @@ def dict_has_keys(dict: Dict, keys: List[str]):
     for key in keys:
         assert key in dict
 
+
 @pytest.mark.skip
 def test_basic_telemetry_structure():
     """Test for basic keys and values for any created span."""

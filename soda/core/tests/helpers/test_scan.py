@@ -13,7 +13,6 @@ from soda.sampler.log_sampler import LogSampler
 from soda.scan import Scan
 from tests.helpers.mock_sampler import MockSampler
 from tests.helpers.mock_soda_cloud import MockSodaCloud, TimeGenerator
-from tests.helpers.test_table import TestTable
 
 logger = logging.getLogger(__name__)
 
