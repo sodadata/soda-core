@@ -9,9 +9,9 @@ def test_freshness_without_table_filter(scanner: Scanner):
     scan.add_variables({"NOW": "2020-06-24 01:00:00"})
     scan.add_sodacl_yaml_str(
         f"""
-      checks for {table_name}:
-        - freshness(ts) < 1d
-    """
+          checks for {table_name}:
+            - freshness(ts) < 1d
+        """
     )
     scan.execute()
 
@@ -25,10 +25,10 @@ def test_freshness_timezones_input_no_tz(scanner: Scanner):
     scan.add_variables({"NOW": "2020-06-25 00:00:00"})  # NOW overrides default "now" variable in scan.
     scan.add_sodacl_yaml_str(
         f"""
-      checks for {table_name}:
-        - freshness(ts) < 1d
-        - freshness(ts_with_tz) < 1d
-    """
+          checks for {table_name}:
+            - freshness(ts) < 1d
+            - freshness(ts_with_tz) < 1d
+        """
     )
     scan.execute()
 

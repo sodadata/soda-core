@@ -37,6 +37,8 @@ def test_user_defined_table_expression_metric_check(scanner: Scanner):
 def test_user_defined_data_source_query_metric_check(scanner: Scanner):
     table_name = scanner.ensure_test_table(customers_test_table)
 
+    qualified_table_name = scanner.data_source.qualified_table_name(table_name)
+
     scan = scanner.create_test_scan()
     scan.add_sodacl_yaml_str(
         f"""
@@ -44,7 +46,7 @@ def test_user_defined_data_source_query_metric_check(scanner: Scanner):
             - avg_surface between 1068 and 1069:
                 avg_surface query: |
                   SELECT AVG(size * distance) as avg_surface
-                  FROM {table_name}
+                  FROM {qualified_table_name}
         """
     )
     scan.execute()

@@ -52,6 +52,8 @@ def test_failed_rows_data_source_query(scanner: Scanner):
 def test_failed_rows_table_query(scanner: Scanner):
     table_name = scanner.ensure_test_table(customers_test_table)
 
+    qualified_table_name = scanner.data_source.qualified_table_name(table_name)
+
     scan = scanner.create_test_scan()
     scan.add_sodacl_yaml_str(
         f"""
@@ -60,7 +62,7 @@ def test_failed_rows_table_query(scanner: Scanner):
                 name: Customers must have size
                 fail query: |
                   SELECT *
-                  FROM {table_name}
+                  FROM {qualified_table_name}
                   WHERE size < 0
         """
     )

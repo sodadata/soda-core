@@ -113,30 +113,33 @@ def test_formats(scanner: Scanner):
 def assert_format_values(format, scanner: Scanner, table_name, passing_values, failing_values):
     format_regex = FormatCfg.default_formats[format]
 
+    data_source = scanner.data_source
+    qualified_table_name = data_source.qualified_table_name(table_name)
+
     values = []
     expressions = []
     expected_values = []
     for passing_value in passing_values:
         expressions.append(
-            scanner.data_source.expr_regexp_like(
+            data_source.expr_regexp_like(
                 f"'{passing_value}'",
-                scanner.data_source.escape_regex(format_regex),
+                data_source.escape_regex(format_regex),
             )
         )
         values.append(passing_value)
         expected_values.append(True)
     for failing_value in failing_values:
         expressions.append(
-            scanner.data_source.expr_regexp_like(
+            data_source.expr_regexp_like(
                 f"'{failing_value}'",
-                scanner.data_source.escape_regex(format_regex),
+                data_source.escape_regex(format_regex),
             )
         )
         values.append(failing_value)
         expected_values.append(False)
 
     expressions_sql = ",\n  ".join(expressions)
-    sql = f"SELECT \n  {expressions_sql} FROM {table_name}"
+    sql = f"SELECT \n  {expressions_sql} FROM {qualified_table_name}"
     row = scanner.execute_query(sql)
 
     failures_messages = []
