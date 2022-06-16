@@ -4,6 +4,7 @@ from tests.helpers.common_test_tables import (
     raw_customers_test_table,
 )
 from tests.helpers.scanner import Scanner
+import textwrap
 
 
 def test_row_count_comparison(scanner: Scanner):
@@ -28,11 +29,8 @@ def test_row_count_comparison_cross_data_source(scanner: Scanner, data_source_co
 
     scan = scanner.create_test_scan()
 
-    data_sources_config_dict = YamlHelper.from_yaml(data_source_config_str)
-    data_source_dict = data_sources_config_dict[f"data_source {scanner.data_source.data_source_name}"]
-    data_source_dict["schema"] = scanner.data_source.schema
-    other_configuration_dict = {"data_source other": data_source_dict}
-    other_data_source_environment_yaml_str = YamlHelper.to_yaml(other_configuration_dict)
+    other_data_source_environment_yaml_str = data_source_config_str.replace("postgres:", f"{other_data_source_name}:")
+    other_data_source_environment_yaml_str = textwrap.dedent(other_data_source_environment_yaml_str)
     scan.add_configuration_yaml_str(other_data_source_environment_yaml_str)
 
     from soda.scan import Scan
