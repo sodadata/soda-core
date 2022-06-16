@@ -2,7 +2,7 @@ import decimal
 import logging
 from datetime import datetime
 
-from pyspark.sql import types, SparkSession
+from pyspark.sql import SparkSession, types
 from soda.execution.data_type import DataType
 from soda.scan import Scan
 from tests.helpers.data_source_fixture import DataSourceFixture

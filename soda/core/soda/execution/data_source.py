@@ -73,7 +73,6 @@ class DataSource:
         else:
             return f"{data_source_type[0:1].upper()}{data_source_type[1:]}"
 
-
     @staticmethod
     def create(
         logs: Logs,

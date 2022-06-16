@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import json
 import logging
-from json.decoder import JSONDecodeError
 
 from google.cloud import bigquery
 from google.cloud.bigquery import dbapi
