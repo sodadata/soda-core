@@ -1,10 +1,10 @@
-from soda.common.yaml_helper import YamlHelper
+import textwrap
+
 from tests.helpers.common_test_tables import (
     customers_test_table,
     raw_customers_test_table,
 )
 from tests.helpers.scanner import Scanner
-import textwrap
 
 
 def test_row_count_comparison(scanner: Scanner):
