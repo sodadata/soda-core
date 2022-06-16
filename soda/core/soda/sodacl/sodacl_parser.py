@@ -16,17 +16,20 @@ from soda.common.parser import Parser
 from soda.common.yaml_helper import to_yaml_str
 from soda.sodacl.antlr.SodaCLAntlrLexer import SodaCLAntlrLexer
 from soda.sodacl.antlr.SodaCLAntlrParser import SodaCLAntlrParser
-from soda.sodacl.automated_monitoring_cfg import AutomatedMonitoringCfg
 from soda.sodacl.change_over_time_cfg import ChangeOverTimeCfg
 from soda.sodacl.check_cfg import CheckCfg
-from soda.sodacl.data_source_check_cfg import DataSourceCheckCfg
+from soda.sodacl.data_source_check_cfg import (
+    AutomatedMonitoringCfg,
+    DiscoverTablesCfg,
+    ProfileColumnsCfg,
+    SampleTablesCfg,
+)
 from soda.sodacl.distribution_check_cfg import DistributionCheckCfg
 from soda.sodacl.for_each_column_cfg import ForEachColumnCfg
 from soda.sodacl.for_each_dataset_cfg import ForEachDatasetCfg
 from soda.sodacl.freshness_check_cfg import FreshnessCheckCfg
 from soda.sodacl.missing_and_valid_cfg import CFG_MISSING_VALID_ALL, MissingAndValidCfg
 from soda.sodacl.name_filter import NameFilter
-from soda.sodacl.profile_columns_cfg import ProfileColumnsCfg
 from soda.sodacl.reference_check_cfg import ReferenceCheckCfg
 from soda.sodacl.row_count_comparison_check_cfg import RowCountComparisonCheckCfg
 from soda.sodacl.schema_check_cfg import SchemaCheckCfg, SchemaValidations
@@ -1285,19 +1288,19 @@ class SodaCLParser(Parser):
     def __parse_automated_monitoring_section(self, header_str, header_content):
         automated_monitoring_cfg = AutomatedMonitoringCfg(self.data_source_name, self.location)
         self.__parse_tables(header_content, automated_monitoring_cfg)
-        self.get_data_source_scan_cfgs().add_monitoring_cfg(automated_monitoring_cfg)
+        self.get_data_source_scan_cfgs().add_data_source_cfg(automated_monitoring_cfg)
 
     @assert_header_content_is_dict
     def __parse_discover_tables_section(self, header_str, header_content):
-        data_source_check_cfg = DataSourceCheckCfg(self.data_source_name, self.location)
-        self.__parse_tables(header_content, data_source_check_cfg)
-        self.get_data_source_scan_cfgs().add_discover_tables_cfg(data_source_check_cfg)
+        discover_dataset_cfg = DiscoverTablesCfg(self.data_source_name, self.location)
+        self.__parse_tables(header_content, discover_dataset_cfg)
+        self.get_data_source_scan_cfgs().add_data_source_cfg(discover_dataset_cfg)
 
     @assert_header_content_is_dict
     def __parse_profile_columns_section(self, header_str, header_content):
         profile_columns_cfg = ProfileColumnsCfg(self.data_source_name, self.location)
         data_source_scan_cfg = self.get_data_source_scan_cfgs()
-        data_source_scan_cfg.add_profile_columns_cfg(profile_columns_cfg)
+        data_source_scan_cfg.add_data_source_cfg(profile_columns_cfg)
 
         columns = header_content.get("columns")
         if isinstance(columns, list):
@@ -1318,9 +1321,9 @@ class SodaCLParser(Parser):
 
     @assert_header_content_is_dict
     def __parse_sample_datasets_section(self, header_str, header_content):
-        data_source_check_cfg = DataSourceCheckCfg(self.data_source_name, self.location)
-        self.__parse_tables(header_content, data_source_check_cfg)
-        self.get_data_source_scan_cfgs().add_sample_tables_cfg(data_source_check_cfg)
+        sample_tables_cfg = SampleTablesCfg(self.data_source_name, self.location)
+        self.__parse_tables(header_content, sample_tables_cfg)
+        self.get_data_source_scan_cfgs().add_data_source_cfg(sample_tables_cfg)
 
     def __parse_nameset_list(self, header_content, for_each_cfg):
         for name_filter_index, name_filter_str in enumerate(header_content):

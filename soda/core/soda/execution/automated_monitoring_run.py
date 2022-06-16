@@ -6,17 +6,17 @@ from soda.execution.data_source_scan import DataSourceScan
 from soda.execution.partition import Partition
 from soda.execution.schema_check import SchemaCheck
 from soda.sodacl.anomaly_metric_check_cfg import AnomalyMetricCheckCfg
-from soda.sodacl.automated_monitoring_cfg import AutomatedMonitoringCfg
+from soda.sodacl.data_source_check_cfg import DataSourceCheckCfg
 from soda.sodacl.schema_check_cfg import SchemaCheckCfg, SchemaValidations
 from soda.sodacl.threshold_cfg import ThresholdCfg
 
 
 class AutomatedMonitoringRun:
-    def __init__(self, data_source_scan: DataSourceScan, automated_monitoring_cfg: AutomatedMonitoringCfg):
+    def __init__(self, data_source_scan: DataSourceScan, data_source_check_cfg: DataSourceCheckCfg):
         self.data_source_scan: DataSourceScan = data_source_scan
         self.soda_cloud = data_source_scan.scan._configuration.soda_cloud
         self.data_source = data_source_scan.data_source
-        self.automated_monitoring_cfg: AutomatedMonitoringCfg = automated_monitoring_cfg
+        self.data_source_check_cfg: DataSourceCheckCfg = data_source_check_cfg
         self.logs = self.data_source_scan.scan._logs
         self.table_names = self._get_table_names()
 
@@ -37,7 +37,7 @@ class AutomatedMonitoringRun:
                 source_header=f"checks for {measured_table_name}",
                 source_line="anomaly score for row_count < default",
                 source_configurations=None,
-                location=self.automated_monitoring_cfg.location,
+                location=self.data_source_check_cfg.location,
                 name=None,
                 metric_name="row_count",
                 metric_args=None,
@@ -97,7 +97,7 @@ class AutomatedMonitoringRun:
                 source_header=f"checks for {measured_table_name}",
                 source_line="schema",
                 source_configurations=None,
-                location=self.automated_monitoring_cfg.location,
+                location=self.data_source_check_cfg.location,
                 name=None,
                 warn_validations=warn_validations,
                 fail_validations=fail_validations,
@@ -120,7 +120,7 @@ class AutomatedMonitoringRun:
         Returns a dict that maps table names to a dict that maps column names to column types.
         {table_name -> {column_name -> column_type}}
         """
-        include_tables = self.automated_monitoring_cfg.include_tables
-        exclude_tables = self.automated_monitoring_cfg.exclude_tables
+        include_tables = self.data_source_check_cfg.include_tables
+        exclude_tables = self.data_source_check_cfg.exclude_tables
         table_names = self.data_source.get_table_names(include_tables=include_tables, exclude_tables=exclude_tables)
         return table_names
