@@ -29,6 +29,10 @@ class TestTableManager:
         if github_head_ref:
             schema_name_parts.append("CI")
             schema_name_parts.append(github_head_ref)
+            python_version = os.getenv("PYTHON_VERSION")
+            python_version = python_version.replace(".", "")
+            schema_name_parts.append(python_version)
+
         else:
             schema_name_parts.append("dev")
             schema_name_parts.append(os.getenv("USER", "anonymous"))
