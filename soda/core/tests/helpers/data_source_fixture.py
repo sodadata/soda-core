@@ -8,6 +8,7 @@ from importlib import import_module
 
 from soda.common.lazy import Lazy
 from soda.common.yaml_helper import YamlHelper
+from soda.execution.data_source import DataSource
 from soda.scan import Scan
 from tests.helpers.test_column import TestColumn
 from tests.helpers.test_scan import TestScan
@@ -29,16 +30,8 @@ class DataSourceFixture:
     @staticmethod
     def _create() -> DataSourceFixture:
         test_data_source = os.getenv("test_data_source", "postgres")
-
         module = import_module(f"tests.{test_data_source}_data_source_fixture")
-
-        if "bigquery" == test_data_source:
-            data_source_fixture_class = "BigQueryDataSourceFixture"
-        elif "spark_df" == test_data_source:
-            data_source_fixture_class = "SparkDfDataSourceFixture"
-        else:
-            data_source_fixture_class = f"{test_data_source[0:1].upper()}{test_data_source[1:]}DataSourceFixture"
-
+        data_source_fixture_class = f"{DataSource.camel_case_data_source_type(test_data_source)}DataSourceFixture"
         class_ = getattr(module, data_source_fixture_class)
         return class_(test_data_source)
 

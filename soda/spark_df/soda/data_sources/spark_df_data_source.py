@@ -8,7 +8,7 @@ from soda.data_sources.spark_df_connection import SparkDfConnection
 from soda.execution.data_type import DataType
 
 
-class SparkDfDataSourceImpl(SparkSQLBase):
+class SparkDfDataSource(SparkSQLBase):
     TYPE = "spark_df"
 
     SCHEMA_CHECK_TYPES_MAPPING: dict = {

@@ -51,10 +51,24 @@ class BigqueryDataSource(DataSource):
     def __init__(self, logs: Logs, data_source_name: str, data_source_properties: dict, connection_properties: dict):
         super().__init__(logs, data_source_name, data_source_properties, connection_properties)
         self.dataset_name = connection_properties.get("dataset")
-        self.account_info_dict = self.__parse_json_credential()
+
+        account_info_json_str = None
+        account_info_path = self.connection_properties.get("account_info_json_path")
+        if account_info_path:
+            if file_system().is_file(account_info_path):
+                account_info_json_str = file_system().file_read_as_str(account_info_path)
+            else:
+                logger.error(f"File not found: account_info_json_path: {account_info_path} ")
+        else:
+            account_info_json_str = self.connection_properties.get("account_info_json")
+
+        if account_info_json_str:
+            self.account_info_dict = json.loads(account_info_json_str)
+        else:
+            logger.error(f"No bigquery connection authentication: no account_info_json nor account_info_json_path")
 
         # Usually the project_id comes from the self.account_info_dict
-        self.project_id = self.account_info_dict.get("project_id")
+        self.project_id = self.account_info_dict.get("project_id") if self.account_info_dict else None
         # But users can optionally overwrite in the connection properties
         self.project_id = connection_properties.get("project_id", self.project_id)
 
@@ -66,30 +80,6 @@ class BigqueryDataSource(DataSource):
                 "https://www.googleapis.com/auth/drive",
             ],
         )
-
-    def __parse_json_credential(self):
-        account_info_path = self.connection_properties.get("account_info_json_path")
-        if account_info_path:
-            try:
-                account_info = file_system().file_read_as_str(account_info_path)
-                if account_info is None:
-                    logger.error(f"No credentials found in provided file {account_info_path}.")
-                else:
-                    return json.loads(account_info)
-            except JSONDecodeError as e:
-                logger.error(f"Error parsing credentials from {account_info_path}: {e}")
-            except Exception as e:
-                logger.error(f"Could not read file {account_info_path}: {str(e)}")
-        else:
-            try:
-                cred = self.connection_properties.get("account_info_json")
-                # Prevent json load when the Dialect is init from create command
-                if cred is not None:
-                    return json.loads(cred)
-                else:
-                    logger.warning("Dialect initiated from the create command, cred is None.")
-            except JSONDecodeError as e:
-                logger.error(f"Error parsing credential 'account_info_json': {e}")
 
     def connect(self):
         try:

@@ -2,9 +2,11 @@ import decimal
 import logging
 from datetime import datetime
 
-from pyspark.sql import types
+from pyspark.sql import types, SparkSession
 from soda.execution.data_type import DataType
+from soda.scan import Scan
 from tests.helpers.data_source_fixture import DataSourceFixture
+from tests.helpers.test_scan import TestScan
 from tests.helpers.test_table import TestTable
 
 logger = logging.getLogger(__name__)
@@ -13,18 +15,24 @@ logger = logging.getLogger(__name__)
 class SparkDfDataSourceFixture(DataSourceFixture):
     def __init__(self, test_data_source: str):
         super().__init__(test_data_source)
+        self.spark_session = SparkSession.builder.master("local").appName("test").getOrCreate()
 
-    # Needs to be added somewhere...
-    if data_source_name == "spark_df":
-        from tests.spark_df_data_source_test_helper import SparkDfDataSourceTestHelper
+    def create_test_scan(self) -> TestScan:
+        scan = super().create_test_scan()
+        scan.add_spark_session(spark_session=self.spark_session)
+        return scan
 
-        SparkDfDataSourceTestHelper.initialize_local_spark_session(scan)
-
-    def _initialize_schema(self):
-        logger.debug("Schema create is skipped spark_df")
+    def _test_session_starts(self):
+        scan = Scan()
+        scan.add_spark_session(spark_session=self.spark_session, data_source_name=self.data_source_name)
+        self.data_source = scan._data_source_manager.get_data_source(self.data_source_name)
+        scan._get_or_create_data_source_scan(self.data_source_name)
 
     def _drop_schema_if_exists(self):
         logger.debug("Schema drop is skipped for spark_df")
+
+    def _test_session_ends(self):
+        pass
 
     def _create_and_insert_test_table(self, test_table: TestTable):
         spark_columns = []

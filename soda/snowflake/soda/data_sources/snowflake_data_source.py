@@ -48,37 +48,30 @@ class SnowflakeDataSource(DataSource):
 
     def __init__(self, logs: Logs, data_source_name: str, data_source_properties: dict, connection_properties: dict):
         super().__init__(logs, data_source_name, data_source_properties, connection_properties)
-        self.user = (connection_properties.get("username"),)
-        self.password = (connection_properties.get("password"),)
-        self.account = (connection_properties.get("account"),)
-        self.data_source = (connection_properties.get("data_source"),)
-        self.database = (connection_properties.get("database"),)
-        self.schema = (connection_properties.get("schema"),)
-        self.warehouse = (connection_properties.get("warehouse"),)
-        self.login_timeout = (connection_properties.get("connection_timeout", DEFAULT_SOCKET_CONNECT_TIMEOUT),)
-        self.role = (connection_properties.get("role"),)
-        self.client_session_keep_alive = (connection_properties.get("client_session_keep_alive"),)
-        self.session_parameters = (connection_properties.get("session_params"),)
+        self.user = connection_properties.get("username")
+        self.password = connection_properties.get("password")
+        self.account = connection_properties.get("account")
+        self.data_source = connection_properties.get("data_source")
+        self.warehouse = connection_properties.get("warehouse")
+        self.login_timeout = connection_properties.get("connection_timeout", DEFAULT_SOCKET_CONNECT_TIMEOUT)
+        self.role = connection_properties.get("role")
+        self.client_session_keep_alive = connection_properties.get("client_session_keep_alive")
+        self.session_parameters = connection_properties.get("session_params")
 
     def connect(self):
-        try:
-            self.connection = connector.connect(
-                user=self.user,
-                password=self.password,
-                account=self.account,
-                data_source=self.data_source,
-                database=self.database,
-                schema=self.schema,
-                warehouse=self.warehouse,
-                login_timeout=self.login_timeout,
-                role=self.role,
-                client_session_keep_alive=self.client_session_keep_alive,
-                session_parameters=self.session_parameters,
-            )
-            return self.connection
-
-        except Exception as e:
-            raise DataSourceConnectionError(self.TYPE, e)
+        self.connection = connector.connect(
+            user=self.user,
+            password=self.password,
+            account=self.account,
+            data_source=self.data_source,
+            database=self.database,
+            schema=self.schema,
+            warehouse=self.warehouse,
+            login_timeout=self.login_timeout,
+            role=self.role,
+            client_session_keep_alive=self.client_session_keep_alive,
+            session_parameters=self.session_parameters,
+        )
 
     def __get_private_key(self):
         if not (self.connection_properties.get("private_key_path") or self.connection_properties.get("private_key")):
