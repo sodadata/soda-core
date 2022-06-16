@@ -40,6 +40,10 @@ class DistributionRefIncompatibleException(Exception):
     """Thrown when the DRO distribution_type is incompatible with the test that is used."""
 
 
+class MissingBinsAndWeights(Exception):
+    """Thrown when the DRO does not contain bins and weights."""
+
+
 class DistributionChecker:
     def __init__(self, distribution_check_cfg: DistributionCheckCfg, data: List[Any]):
         cfg = DistCfg(
@@ -122,11 +126,11 @@ class DistributionChecker:
                     ref_data_cfg["weights"] = distribution_reference["weights"]
 
                 else:
-                    dro = DROGenerator(
-                        cfg=RefDataCfg(distribution_type=ref_data_cfg["distribution_type"]), data=self.test_data
-                    ).generate()
-                    ref_data_cfg["bins"] = dro.bins
-                    ref_data_cfg["weights"] = dro.weights
+                    raise MissingBinsAndWeights(
+                        f'''The DRO in your "{ref_file_path}" distribution reference file does not contain a "distribution_reference" key with weights and bins.'''
+                        f''' Make sure that before running "soda scan" you create a DRO by running "soda update". For more information visit the docs:\n'''
+                        f'''https://docs.soda.io/soda-cl/distribution.html#generate-a-distribution-reference-object-dro.'''
+                    )
 
             except yaml.YAMLError as exc:
                 logging.error(exc)
