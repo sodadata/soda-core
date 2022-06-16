@@ -1,14 +1,14 @@
 import logging
 
-from soda.data_sources.spark_df_data_source import DataSourceImpl
 from tests.helpers.data_source_fixture import DataSourceFixture
 
 logger = logging.getLogger(__name__)
 
 
 class RedshiftDataSourceFixture(DataSourceFixture):
-    def __init__(self, data_source: DataSourceImpl):
-        super().__init__(data_source=data_source)
+
+    def __init__(self, test_data_source: str):
+        super().__init__(test_data_source)
 
     def _drop_schema_if_exists_sql(self) -> str:
         return f"DROP DATABASE {self.schema_name}"

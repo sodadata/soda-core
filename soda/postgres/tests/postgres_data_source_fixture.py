@@ -17,26 +17,24 @@ class PostgresDataSourceFixture(DataSourceFixture):
         self.local_dev_schema_reused = is_local_dev and not is_schema_reuse_disabled
 
     def _build_configuration_dict(self, schema_name: str | None = None) -> dict:
-        if schema_name is None:
-            schema_name = "public"
         return {
             "data_source postgres": {
                 "type": "postgres",
                 "connection": {
                     "host": "localhost",
-                    "username": "${env_var('POSTGRES_USERNAME', 'sodasql')}",
-                    "password": "${env_var('POSTGRES_PASSWORD')}",
-                    "database": "${env_var('POSTGRES_HOST', 'sodasql')}",
+                    "username": os.getenv("POSTGRES_USERNAME", "sodasql"),
+                    "password": os.getenv("POSTGRES_PASSWORD"),
+                    "database": os.getenv("POSTGRES_HOST", "sodasql"),
                 },
-                "schema": schema_name
+                "schema": schema_name if schema_name else os.getenv("POSTGRES_SCHEMA", "public")
             }
         }
 
     def _test_session_starts(self):
         if self.local_dev_schema_reused:
-            self.data_source = self._create_schema_data_source()
-            self.schema_connection = self.data_source.connection
+            self.schema_data_source = self._create_schema_data_source()
             self._create_schema_if_not_exists()
+            self.data_source = self.schema_data_source
             self._update(f"SET search_path = {self.schema_name}")
             self.data_source.update_schema(self.schema_name)
         else:

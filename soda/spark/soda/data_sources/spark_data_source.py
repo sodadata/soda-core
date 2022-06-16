@@ -296,7 +296,7 @@ class SparkDataSource(SparkSQLBase):
             f"SSP_{k}": f"{{{v}}}" for k, v in connection_properties.get("server_side_parameters", {})
         }
 
-    def connect(self, connection_properties):
+    def connect(self):
         if self.method == SparkConnectionMethod.HIVE:
             connection_function = hive_connection_function
         elif self.method == SparkConnectionMethod.ODBC:

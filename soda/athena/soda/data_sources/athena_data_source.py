@@ -17,12 +17,6 @@ class AthenaDataSource(DataSource):
     TYPE = "athena"
 
     def __init__(self, logs: Logs, data_source_name: str, data_source_properties: dict, connection_properties: dict):
-
-        if isinstance(connection_properties.get("database"), str) and connection_properties.get("schema") is None:
-            logs.warning("Please change Athena configuration: use 'schema' instead of 'database'. We'll switch it for you now and continue...")
-            connection_properties["schema"] = connection_properties.get("database")
-            connection_properties["database"] = None
-
         super().__init__(logs, data_source_name, data_source_properties, connection_properties)
 
         self.athena_staging_dir = connection_properties.get("staging_dir")
@@ -37,9 +31,7 @@ class AthenaDataSource(DataSource):
             profile_name=connection_properties.get("profile_name"),
         )
 
-    def connect(self, connection_properties):
-        self.connection_properties = connection_properties
-
+    def connect(self):
         try:
             self.connection = pyathena.connect(
                 profile_name=self.aws_credentials.profile_name,
@@ -134,6 +126,6 @@ class AthenaDataSource(DataSource):
         pass
 
     def create_test_table_manager(self):
-        from tests.athena_test_table_manager import AthenaDataSourceFixture
+        from tests.athena_data_source_fixture import AthenaDataSourceFixture
 
         return AthenaDataSourceFixture(self)

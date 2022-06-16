@@ -9,6 +9,7 @@ from google.cloud.bigquery import dbapi
 from google.oauth2.service_account import Credentials
 from soda.common.exceptions import DataSourceConnectionError
 from soda.common.file_system import file_system
+from soda.common.logs import Logs
 from soda.execution.data_source import DataSource
 from soda.execution.data_type import DataType
 
@@ -47,58 +48,21 @@ class BigqueryDataSource(DataSource):
     NUMERIC_TYPES_FOR_PROFILING = ["NUMERIC", "INT64"]
     TEXT_TYPES_FOR_PROFILING = ["STRING"]
 
-    def connect(self, connection_properties):
-        self.connection_properties = connection_properties
+    def __init__(self, logs: Logs, data_source_name: str, data_source_properties: dict, connection_properties: dict):
+        super().__init__(logs, data_source_name, data_source_properties, connection_properties)
+        self.dataset_name = connection_properties.get("dataset")
+        self.account_info_dict = self.__parse_json_credential()
 
-        try:
-            self.dataset_name = connection_properties.get("dataset")
-            # self.table_prefix = self.dataset_name
-            default_auth_scopes = [
+        # Usually the project_id comes from the self.account_info_dict
+        self.project_id = self.account_info_dict.get("project_id")
+        # But users can optionally overwrite in the connection properties
+        self.project_id = connection_properties.get("project_id", self.project_id)
+
+        self.credentials = Credentials.from_service_account_info(self.account_info_dict, scopes=[
                 "https://www.googleapis.com/auth/bigquery",
                 "https://www.googleapis.com/auth/cloud-platform",
                 "https://www.googleapis.com/auth/drive",
-            ]
-            self.auth_scopes = connection_properties.get("auth_scopes", default_auth_scopes)
-            # self.auth_scopes = parser.get_list_optional("auth_scopes", default_auth_scopes)
-            # self.__context_auth = parser.get_bool_optional("use_context_auth", None)
-            # if self.__context_auth:
-            #     self.account_info_dict = None
-            #     self.project_id = parser.get_str_required("project_id")
-            #     logger.info("Using context auth, account_info_json will be ignored.")
-            # else:
-            self.account_info_dict = self.__parse_json_credential()
-
-            # Use explicitly set project id if available, or the one from SA account.
-            self.project_id = None
-            if connection_properties.get("project_id"):
-                self.project_id = connection_properties.get("project_id")
-            elif self.account_info_dict:
-                self.project_id = self.account_info_dict.get("project_id")
-
-            if not self.project_id:
-                self.logs.error("Unable to detect project_id.")
-
-            # self.client = None
-
-            # if self.__context_auth:
-            #     credentials = None
-            # elif self.account_info_dict:
-            credentials = Credentials.from_service_account_info(self.account_info_dict, scopes=self.auth_scopes)
-            # else:
-            # raise Exception("Account_info_json or account_info_json_path or use_context_auth are not provided")
-
-            self.client = bigquery.Client(
-                project=self.project_id,
-                credentials=credentials,
-                default_query_job_config=bigquery.QueryJobConfig(
-                    default_dataset=f"{self.project_id}.{self.dataset_name}",
-                ),
-            )
-            self.connection = dbapi.Connection(self.client)
-
-            return self.connection
-        except Exception as e:
-            raise DataSourceConnectionError(self.TYPE, e)
+            ])
 
     def __parse_json_credential(self):
         account_info_path = self.connection_properties.get("account_info_json_path")
@@ -123,6 +87,21 @@ class BigqueryDataSource(DataSource):
                     logger.warning("Dialect initiated from the create command, cred is None.")
             except JSONDecodeError as e:
                 logger.error(f"Error parsing credential 'account_info_json': {e}")
+
+    def connect(self):
+        try:
+            self.client = bigquery.Client(
+                project=self.project_id,
+                credentials=self.credentials,
+                default_query_job_config=bigquery.QueryJobConfig(
+                    default_dataset=f"{self.project_id}.{self.dataset_name}",
+                )
+            )
+            self.connection = dbapi.Connection(self.client)
+
+            return self.connection
+        except Exception as e:
+            raise DataSourceConnectionError(self.TYPE, e)
 
     def sql_get_table_columns(
         self, table_name: str, included_columns: list[str] | None = None, excluded_columns: list[str] | None = None
@@ -230,6 +209,6 @@ class BigqueryDataSource(DataSource):
         return "UNION ALL"
 
     def create_test_table_manager(self):
-        from tests.bigquery_test_table_manager import BigQueryDataSourceFixture
+        from tests.bigquery_data_source_fixture import BigQueryDataSourceFixture
 
         return BigQueryDataSourceFixture(self)

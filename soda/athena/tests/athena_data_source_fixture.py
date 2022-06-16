@@ -1,19 +1,39 @@
+from __future__ import annotations
+
 import logging
+import os
 import re
-from os import path
 
 import boto3
-from pyathena import OperationalError
-from soda.data_sources.spark_df_data_source import DataSourceImpl
-from tests.helpers.test_table import TestTable
+
 from tests.helpers.data_source_fixture import DataSourceFixture
 
 logger = logging.getLogger(__name__)
 
 
 class AthenaDataSourceFixture(DataSourceFixture):
-    def __init__(self, data_source: DataSourceImpl):
-        super().__init__(data_source=data_source)
+
+    def __init__(self, test_data_source: str):
+        super().__init__(test_data_source)
+        self.s3_test_dir = os.environ["ATHENA_S3_TEST_DIR"]
+
+    def _build_configuration_dict(self, schema_name: str | None = None) -> dict:
+        return {
+            "data_source athena": {
+                "type": "athena",
+                "connection": {
+                    "access_key_id": os.environ["ATHENA_ACCESS_KEY_ID"],
+                    "secret_access_key": os.environ["ATHENA_SECRET_ACCESS_KEY"],
+                    "region_name": os.getenv("ATHENA_REGION_NAME", "eu-west-1"),
+                    "staging_dir": f'{self.s3_test_dir}/staging-dir'
+                },
+                "schema": schema_name if schema_name else os.getenv("ATHENA_SCHEMA")
+            }
+        }
+
+    def _drop_schema_if_exists(self):
+        super()._drop_schema_if_exists()
+        self._delete_s3_schema_files()
 
     def _drop_schema_if_exists_sql(self) -> str:
         return f"DROP SCHEMA IF EXISTS {self.schema_name} CASCADE"
@@ -24,20 +44,29 @@ class AthenaDataSourceFixture(DataSourceFixture):
     def _create_test_table_sql_compose(self, qualified_table_name, columns_sql) -> str:
         table_part = qualified_table_name.replace('"', "")
         table_part = re.sub("[^0-9a-zA-Z]+", "_", table_part)
-        location = f"{self.data_source.athena_staging_dir}{self.schema_name}_{table_part}"
+        location = f"{self._get_3_schema_dir()}/{table_part}"
         return f"CREATE EXTERNAL TABLE {qualified_table_name} ( \n{columns_sql} \n)LOCATION '{location}/'"
 
-    def delete_staging_files(self):
-        database_full_location = path.join(self.data_source.athena_staging_dir, self.suite_id)
-        logging.debug(f"Deleting all files under %s...", database_full_location)
-        bucket = self._extract_s3_bucket(database_full_location)
-        folder = self._extract_s3_folder(database_full_location)
+    def _get_3_schema_dir(self):
+        return f"{self.s3_test_dir}/{self.schema_name}"
+
+    def _delete_s3_schema_files(self):
+        s3_schema_dir = self._get_3_schema_dir()
+        logging.debug(f"Deleting all s3 files under %s...", s3_schema_dir)
+        bucket = self._extract_s3_bucket(s3_schema_dir)
+        folder = self._extract_s3_folder(s3_schema_dir)
         s3_client = self._create_s3_client()
-        self.delete_s3_files(s3_client, bucket, folder)
+        response = s3_client.list_objects_v2(Bucket=bucket, Prefix=folder)
+        object_keys = self._extract_object_keys(response)
+        assert len(object_keys) < 200, \
+            f"This method is intended for tests and hence limited to a maximum of {max_objects} objects, " \
+            f"{len(object_keys)} objects exceeds the limit."
+        if object_keys:
+            s3_client.delete_objects(Bucket=bucket, Delete={'Objects': object_keys})
 
     def _create_s3_client(self):
         self.filter_false_positive_boto3_warning()
-        aws_credentials = self.data_source.aws_credentials
+        aws_credentials = self.schema_data_source.aws_credentials
         aws_credentials = aws_credentials.resolve_role("soda_sql_test_cleanup")
         return boto3.client(
             's3',
@@ -46,15 +75,6 @@ class AthenaDataSourceFixture(DataSourceFixture):
             aws_secret_access_key=aws_credentials.secret_access_key,
             aws_session_token=aws_credentials.session_token
         )
-
-    def delete_s3_files(self, s3_client, bucket, folder, max_objects=200):
-        response = s3_client.list_objects_v2(Bucket=bucket, Prefix=folder)
-        object_keys = self._extract_object_keys(response)
-        assert len(object_keys) < max_objects, \
-            f"This method is intended for tests and hence limited to a maximum of {max_objects} objects, " \
-            f"{len(object_keys)} objects exceeds the limit."
-        if object_keys:
-            s3_client.delete_objects(Bucket=bucket, Delete={'Objects': object_keys})
 
     def _extract_object_keys(self, response):
         object_keys = []

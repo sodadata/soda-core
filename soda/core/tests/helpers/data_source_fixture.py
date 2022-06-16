@@ -29,9 +29,16 @@ class DataSourceFixture:
     @staticmethod
     def _create() -> DataSourceFixture:
         test_data_source = os.getenv("test_data_source", "postgres")
-        data_source_fixture_class = f"{test_data_source[0:1].upper()}{test_data_source[1:]}DataSourceFixture"
 
         module = import_module(f"tests.{test_data_source}_data_source_fixture")
+
+        if "bigquery" == test_data_source:
+            data_source_fixture_class = "BigQueryDataSourceFixture"
+        elif "spark_df" == test_data_source:
+            data_source_fixture_class = "SparkDfDataSourceFixture"
+        else:
+            data_source_fixture_class = f"{test_data_source[0:1].upper()}{test_data_source[1:]}DataSourceFixture"
+
         class_ = getattr(module, data_source_fixture_class)
         return class_(test_data_source)
 
@@ -39,8 +46,11 @@ class DataSourceFixture:
         self.data_source_name = test_data_source
         self.__existing_table_names = Lazy()
         self.schema_name: str = self._create_schema_name()
-        self.schema_connection = None
+        self.schema_data_source = None
         self.data_source = None
+
+    def _build_configuration_dict(self, schema_name: str | None = None) -> dict:
+        raise NotImplementedError("Override and implement this method")
 
     def _create_schema_name(self):
         schema_name_parts = []
@@ -60,8 +70,7 @@ class DataSourceFixture:
         return schema_name
 
     def _test_session_starts(self):
-        schema_data_source = self._create_schema_data_source()
-        self.schema_connection = schema_data_source.connection
+        self.schema_data_source = self._create_schema_data_source()
         self._drop_schema_if_exists()
         self._create_schema_if_not_exists()
         self.data_source = self._create_test_data_source()
@@ -71,15 +80,12 @@ class DataSourceFixture:
         configuration_yaml_str = YamlHelper.to_yaml(configuration_dict)
         return self._create_data_source_from_configuration_yaml_str(configuration_yaml_str)
 
-    def _build_configuration_dict(self, schema_name: str | None = None) -> dict:
-        raise NotImplementedError("Override and implement this method")
-
     def _create_data_source_from_configuration_yaml_str(self, configuration_yaml_str: str) -> 'DataSource':
         scan = Scan()
         scan.set_data_source_name(self.data_source_name)
         scan.add_configuration_yaml_str(configuration_yaml_str)
-        data_source_connection_manager = scan._data_source_manager
-        data_source = data_source_connection_manager.get_data_source(self.data_source_name)
+        data_source_manager = scan._data_source_manager
+        data_source = data_source_manager.get_data_source(self.data_source_name)
         if not data_source:
             raise Exception(f"Unable to create test data source '{self.data_source_name}'")
         scan._get_or_create_data_source_scan(self.data_source_name)
@@ -87,7 +93,7 @@ class DataSourceFixture:
 
     def _create_schema_if_not_exists(self):
         create_schema_if_not_exists_sql = self._create_schema_if_not_exists_sql()
-        self._update(create_schema_if_not_exists_sql, self.schema_connection)
+        self._update(create_schema_if_not_exists_sql, self.schema_data_source.connection)
 
     def _create_schema_if_not_exists_sql(self) -> str:
         return f"CREATE DATABASE {self.schema_name}"
@@ -185,11 +191,11 @@ class DataSourceFixture:
     def _test_session_ends(self):
         self.data_source.connection.close()
         self._drop_schema_if_exists()
-        self.schema_connection.close()
+        self.schema_data_source.connection.close()
 
     def _drop_schema_if_exists(self):
         drop_schema_if_exists_sql = self._drop_schema_if_exists_sql()
-        self._update(drop_schema_if_exists_sql, self.schema_connection)
+        self._update(drop_schema_if_exists_sql, self.schema_data_source.connection)
 
     def _drop_schema_if_exists_sql(self) -> str:
         return f"DROP DATABASE {self.schema_name}"

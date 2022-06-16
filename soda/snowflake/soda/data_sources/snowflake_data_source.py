@@ -161,6 +161,6 @@ class SnowflakeDataSource(DataSource):
         ]
 
     def create_test_table_manager(self):
-        from tests.snowflake_test_table_manager import SnowflakeDataSourceFixture
+        from tests.snowflake_data_source_fixture import SnowflakeDataSourceFixture
 
         return SnowflakeDataSourceFixture(self)

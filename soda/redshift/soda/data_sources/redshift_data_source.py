@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 class RedshiftDataSource(DataSource):
     TYPE = "redshift"
 
-    def connect(self, connection_properties):
+    def connect(self):
         self.connection_properties = connection_properties
 
         try:
@@ -126,6 +126,6 @@ class RedshiftDataSource(DataSource):
         ]
 
     def create_test_table_manager(self):
-        from tests.redshift_test_table_manager import RedshiftDataSourceFixture
+        from tests.redshift_data_source_fixture import RedshiftDataSourceFixture
 
         return RedshiftDataSourceFixture(self)

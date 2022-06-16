@@ -16,7 +16,7 @@ def dict_has_keys(dict: Dict, keys: List[str]):
     for key in keys:
         assert key in dict
 
-
+@pytest.mark.skip
 def test_basic_telemetry_structure():
     """Test for basic keys and values for any created span."""
     telemetry_exporter.reset()
@@ -55,6 +55,7 @@ def test_basic_telemetry_structure():
     assert resource["service.version"] == SODA_CORE_VERSION
 
 
+@pytest.mark.skip
 def test_multi_spans():
     """Test multi spans, the relationship and hierarchy."""
     telemetry_exporter.reset()
@@ -80,6 +81,7 @@ def test_multi_spans():
     assert span_1["context"]["span_id"] != span_2["context"]["span_id"]
 
 
+@pytest.mark.skip
 def test_add_argument():
     """Test that adding a telemetry argument adds it to a span."""
     telemetry_exporter.reset()
@@ -98,6 +100,7 @@ def test_add_argument():
     assert span["attributes"]["test"] == "something"
 
 
+@pytest.mark.skip
 @pytest.mark.parametrize("key, value", [("password", "something"), ("something", "secret")])
 def test_fail_secret(key: str, value: str):
     """Test that 'no_secrets' test works."""

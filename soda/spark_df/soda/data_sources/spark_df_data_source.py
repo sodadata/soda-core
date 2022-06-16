@@ -52,6 +52,6 @@ class SparkDfDataSourceImpl(SparkSQLBase):
         df.show()
 
     def create_test_table_manager(self):
-        from tests.spark_df_test_table_manager import SparkDfDataSourceFixture
+        from tests.spark_df_data_source_fixture import SparkDfDataSourceFixture
 
         return SparkDfDataSourceFixture(self)

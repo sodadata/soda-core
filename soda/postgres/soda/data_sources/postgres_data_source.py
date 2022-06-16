@@ -36,7 +36,7 @@ class PostgresDataSource(DataSource):
                 options=options,
             )
         else:
-            raise ConnectionError(f"Invalid postgres connection properties: invalid host: {host}")
+            raise ConnectionError(f"Invalid postgres connection properties: invalid host: {self.host}")
         return self.connection
 
     def expr_regexp_like(self, expr: str, excaped_regex_pattern: str):

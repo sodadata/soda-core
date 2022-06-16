@@ -3,17 +3,17 @@ import logging
 from datetime import datetime
 
 from pyspark.sql import types
-from soda.data_sources.spark_df_data_source import DataSourceImpl
+
 from soda.execution.data_type import DataType
-from tests.helpers.test_table import TestTable
 from tests.helpers.data_source_fixture import DataSourceFixture
+from tests.helpers.test_table import TestTable
 
 logger = logging.getLogger(__name__)
 
 
 class SparkDfDataSourceFixture(DataSourceFixture):
-    def __init__(self, spark_df_data_source: DataSourceImpl):
-        super().__init__(data_source=spark_df_data_source)
+    def __init__(self, test_data_source: str):
+        super().__init__(test_data_source)
 
     # Needs to be added somewhere...
     if data_source_name == "spark_df":
