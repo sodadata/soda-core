@@ -5,7 +5,6 @@ from typing import List, Optional
 import boto3
 import psycopg2
 from soda.common.aws_credentials import AwsCredentials
-from soda.common.exceptions import DataSourceConnectionError
 from soda.common.logs import Logs
 from soda.execution.data_source import DataSource
 
@@ -23,12 +22,12 @@ class RedshiftDataSource(DataSource):
 
         if not self.username or not self.password:
             aws_credentials = AwsCredentials(
-                access_key_id=connection_properties.get('access_key_id'),
-                secret_access_key=connection_properties.get('secret_access_key'),
-                role_arn=connection_properties.get('role_arn'),
-                session_token=connection_properties.get('session_token'),
-                region_name=connection_properties.get('region', 'eu-west-1'),
-                profile_name=connection_properties.get('profile_name')
+                access_key_id=connection_properties.get("access_key_id"),
+                secret_access_key=connection_properties.get("secret_access_key"),
+                role_arn=connection_properties.get("role_arn"),
+                session_token=connection_properties.get("session_token"),
+                region_name=connection_properties.get("region", "eu-west-1"),
+                profile_name=connection_properties.get("profile_name"),
             )
             self.username, self.password = self.__get_cluster_credentials(aws_credentials)
 

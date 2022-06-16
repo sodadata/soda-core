@@ -23,11 +23,11 @@ class RedshiftDataSourceFixture(DataSourceFixture):
                     "password": os.getenv("REDSHIFT_PASSWORD"),
                     "database": os.getenv("REDSHIFT_DATABASE", "sodasql"),
                 },
-                "schema": schema_name if schema_name else os.getenv("REDSHIFT_SCHEMA", "public")
+                "schema": schema_name if schema_name else os.getenv("REDSHIFT_SCHEMA", "public"),
             }
         }
 
-    def _create_schema_data_source(self) -> 'DataSource':
+    def _create_schema_data_source(self) -> DataSource:
         schema_data_source = super()._create_schema_data_source()
         schema_data_source.connection.set_session(autocommit=True)
         return schema_data_source
