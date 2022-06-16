@@ -217,25 +217,29 @@ def update(
         logging.error(f"Could not parse distribution reference file {distribution_reference_file}: {e}")
         return
 
-    table_name = distribution_dict.get("table")
-    if not table_name:
-        logging.error(f"Missing key 'table' in distribution reference file {distribution_reference_file}")
+    dataset_name = distribution_dict.get("dataset")
+    if not dataset_name:
+        dataset_name = distribution_dict.pop("table")
+        distribution_dict["dataset"] = dataset_name
+
+    if not dataset_name:
+        logging.error(f"Missing key 'dataset' in distribution reference file {distribution_reference_file}")
 
     column_name = distribution_dict.get("column")
     if not column_name:
         logging.error(f"Missing key 'column' in distribution reference file {distribution_reference_file}")
 
-    method = distribution_dict.get("method")
-    if not method:
-        logging.error(f"Missing key 'method' in distribution reference file {distribution_reference_file}")
+    distribution_type = distribution_dict.get("distribution_type")
+    if not distribution_type:
+        logging.error(f"Missing key 'distribution_type' in distribution reference file {distribution_reference_file}")
 
     filter = distribution_dict.get("filter")
     filter_clause = ""
     if filter is not None:
         filter_clause = f"WHERE {filter}"
 
-    if table_name and column_name and method:
-        query = f"SELECT {column_name} FROM {table_name} {filter_clause}"
+    if dataset_name and column_name and distribution_type:
+        query = f"SELECT {column_name} FROM {dataset_name} {filter_clause}"
         logging.info(f"Querying column values to build distribution reference:\n{query}")
 
         scan = Scan()
@@ -249,8 +253,11 @@ def update(
         from soda.scientific.distribution.comparison import RefDataCfg
         from soda.scientific.distribution.generate_dro import DROGenerator
 
-        dro = DROGenerator(RefDataCfg(method=method), column_values).generate()
-        distribution_dict["distribution reference"] = dro.dict()
+        dro = DROGenerator(RefDataCfg(distribution_type=distribution_type), column_values).generate()
+        distribution_dict["distribution_reference"] = dro.dict()
+        if "distribution reference" in distribution_dict:
+            # To clean up the file and don't leave the old syntax
+            distribution_dict.pop("distribution reference")
 
         new_file_content = to_yaml_str(distribution_dict)
 

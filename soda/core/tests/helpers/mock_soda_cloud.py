@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 class TimeGenerator:
     def __init__(
         self,
-        timestamp: datetime = datetime.now(),
+        timestamp: datetime = datetime.utcnow(),
         timedelta: timedelta = timedelta(days=-1),
     ):
         self.timestamp = timestamp

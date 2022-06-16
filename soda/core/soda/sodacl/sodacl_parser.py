@@ -16,17 +16,20 @@ from soda.common.parser import Parser
 from soda.common.yaml_helper import to_yaml_str
 from soda.sodacl.antlr.SodaCLAntlrLexer import SodaCLAntlrLexer
 from soda.sodacl.antlr.SodaCLAntlrParser import SodaCLAntlrParser
-from soda.sodacl.automated_monitoring_cfg import AutomatedMonitoringCfg
 from soda.sodacl.change_over_time_cfg import ChangeOverTimeCfg
 from soda.sodacl.check_cfg import CheckCfg
-from soda.sodacl.data_source_check_cfg import DataSourceCheckCfg
+from soda.sodacl.data_source_check_cfg import (
+    AutomatedMonitoringCfg,
+    DiscoverTablesCfg,
+    ProfileColumnsCfg,
+    SampleTablesCfg,
+)
 from soda.sodacl.distribution_check_cfg import DistributionCheckCfg
 from soda.sodacl.for_each_column_cfg import ForEachColumnCfg
-from soda.sodacl.for_each_table_cfg import ForEachTableCfg
+from soda.sodacl.for_each_dataset_cfg import ForEachDatasetCfg
 from soda.sodacl.freshness_check_cfg import FreshnessCheckCfg
 from soda.sodacl.missing_and_valid_cfg import CFG_MISSING_VALID_ALL, MissingAndValidCfg
 from soda.sodacl.name_filter import NameFilter
-from soda.sodacl.profile_columns_cfg import ProfileColumnsCfg
 from soda.sodacl.reference_check_cfg import ReferenceCheckCfg
 from soda.sodacl.row_count_comparison_check_cfg import RowCountComparisonCheckCfg
 from soda.sodacl.schema_check_cfg import SchemaCheckCfg, SchemaValidations
@@ -94,15 +97,22 @@ class SodaCLParser(Parser):
             return
 
         for header_str, header_content in headers_dict.items():
+
+            # Backwards compatibility warning
+            if "for each table" in header_str:
+                self.logs.warning(
+                    f"Please update 'for each table ...' to 'for each dataset ...'.", location=self.location
+                )
+
             self._push_path_element(header_str, header_content)
             try:
                 if "automated monitoring" == header_str:
                     self.__parse_automated_monitoring_section(header_str, header_content)
                 elif header_str.startswith("profile columns"):
                     self.__parse_profile_columns_section(header_str, header_content)
-                elif header_str.startswith("discover tables"):
+                elif header_str.startswith("discover datasets") or header_str.startswith("discover tables"):
                     self.__parse_discover_tables_section(header_str, header_content)
-                elif header_str.startswith("sample datasets"):
+                elif header_str.startswith("sample datasets") or header_str.startswith("sample tables"):
                     self.__parse_sample_datasets_section(header_str, header_content)
                 elif "checks" == header_str:
                     self.__parse_data_source_checks_section(header_str, header_content)
@@ -129,9 +139,9 @@ class SodaCLParser(Parser):
                             self.__parse_table_filter_section(
                                 antlr_section_header.table_filter_header(), header_str, header_content
                             )
-                        elif antlr_section_header.checks_for_each_table_header():
-                            self.__parse_antlr_checks_for_each_table_section(
-                                antlr_section_header.checks_for_each_table_header(),
+                        elif antlr_section_header.checks_for_each_dataset_header():
+                            self.__parse_antlr_checks_for_each_dataset_section(
+                                antlr_section_header.checks_for_each_dataset_header(),
                                 header_str,
                                 header_content,
                             )
@@ -476,6 +486,7 @@ class SodaCLParser(Parser):
         # Parse the nested check configuration details
         name = None
         filter = None
+        method = None
         missing_and_valid_cfg = None
         condition = None
         metric_expression = None
@@ -491,6 +502,8 @@ class SodaCLParser(Parser):
                     filter = configuration_value.strip()
                 elif "condition" == configuration_key:
                     condition = configuration_value.strip()
+                elif "method" == configuration_key:
+                    method = configuration_value.strip()
                 elif configuration_key.endswith("expression"):
                     metric_expression = configuration_value.strip()
                     configuration_metric_name = (
@@ -537,6 +550,29 @@ class SodaCLParser(Parser):
                 f"Check configuration details should be object/dict, but was {type(check_configurations).__name__}: \n{to_yaml_str(check_configurations)}",
                 location=self.location,
             )
+
+        if metric_name == "freshness":
+            if metric_args:
+                column_name = metric_args[0]
+                variable_name = metric_args[1] if len(metric_args) > 1 else None
+
+                fail_freshness_threshold = fail_threshold_cfg.get_freshness_threshold() if fail_threshold_cfg else None
+                warn_freshness_threshold = warn_threshold_cfg.get_freshness_threshold() if warn_threshold_cfg else None
+
+                return FreshnessCheckCfg(
+                    source_header=header_str,
+                    source_line=check_str,
+                    source_configurations=check_configurations,
+                    location=self.location,
+                    name=name,
+                    column_name=column_name,
+                    variable_name=variable_name,
+                    fail_freshness_threshold=fail_freshness_threshold,
+                    warn_freshness_threshold=warn_freshness_threshold,
+                )
+            else:
+                self.logs.error("Metric freshness must have at least 1 arg", location=self.location)
+                return None
 
         metric_check_cfg_class = MetricCheckCfg
 
@@ -628,6 +664,15 @@ class SodaCLParser(Parser):
             reference_file_path: str = os.path.join(
                 os.path.dirname(self.location.file_path), check_configurations.get("distribution reference file")
             )
+
+            if not fail_threshold_cfg and not warn_threshold_cfg:
+                self.logs.error(
+                    f"""You did not define a threshold for your distribution check. Please use the following syntax\n"""
+                    f"""- distribution_difference(column_name, reference_distribution) > threshold: \n"""
+                    f"""    distribution reference file: distribution_reference.yml""",
+                    location=self.location,
+                )
+
             return DistributionCheckCfg(
                 source_header=header_str,
                 source_line=check_str,
@@ -637,6 +682,7 @@ class SodaCLParser(Parser):
                 column_name=column_name,
                 distribution_name=distribution_name,
                 filter=None,
+                method=method,
                 reference_file_path=reference_file_path,
                 fail_threshold_cfg=fail_threshold_cfg,
                 warn_threshold_cfg=warn_threshold_cfg,
@@ -975,24 +1021,28 @@ class SodaCLParser(Parser):
         check_str: str,
         check_configurations: dict | None,
     ) -> CheckCfg:
+        self.logs.warning(
+            "Syntax of freshness check has changed and is deprecated.  Use freshness(column_name) < 24h30m  See docs"
+        )
+
         antlr_freshness_check: SodaCLAntlrParser.Freshness_checkContext = antlr_freshness_check
 
         column_name = self.__antlr_parse_identifier(antlr_freshness_check.identifier())
-        variable_name = "NOW"
+        variable_name = None
         if antlr_freshness_check.freshness_variable():
             variable_name = self.__antlr_parse_identifier(antlr_freshness_check.freshness_variable().identifier())
 
-        antlr_staleness_threshold = antlr_freshness_check.staleness_threshold()
-        warn_staleness_threshold = None
+        antlr_freshness_threshold = antlr_freshness_check.freshness_threshold_value()
+        warn_freshness_threshold = None
         name = None
-        if antlr_staleness_threshold:
-            fail_staleness_threshold = self.parse_staleness_threshold(antlr_staleness_threshold.getText())
+        if antlr_freshness_threshold:
+            fail_freshness_threshold = self.parse_freshness_threshold(antlr_freshness_threshold.getText())
         else:
             self._push_path_element(check_str, check_configurations)
             fail_staleness_threshold_text = self._get_optional(FAIL, str)
-            fail_staleness_threshold = self.parse_staleness_threshold_text(fail_staleness_threshold_text)
-            warn_staleness_threshold_text = self._get_optional(WARN, str)
-            warn_staleness_threshold = self.parse_staleness_threshold_text(warn_staleness_threshold_text)
+            fail_freshness_threshold = self.parse_staleness_threshold_text(fail_staleness_threshold_text)
+            warn_freshness_threshold_text = self._get_optional(WARN, str)
+            warn_freshness_threshold = self.parse_staleness_threshold_text(warn_freshness_threshold_text)
 
             name = self._get_optional(NAME, str)
             for configuration_key in check_configurations:
@@ -1011,41 +1061,51 @@ class SodaCLParser(Parser):
             name=name,
             column_name=column_name,
             variable_name=variable_name,
-            fail_staleness_threshold=fail_staleness_threshold,
-            warn_staleness_threshold=warn_staleness_threshold,
+            fail_freshness_threshold=fail_freshness_threshold,
+            warn_freshness_threshold=warn_freshness_threshold,
         )
 
     def parse_staleness_threshold_text(self, staleness_threshold_text):
         if isinstance(staleness_threshold_text, str):
             if staleness_threshold_text.startswith("when > "):
-                return self.parse_staleness_threshold(staleness_threshold_text[len("when > ") :])
+                return self.parse_freshness_threshold(staleness_threshold_text[len("when > ") :])
             else:
                 self.logs.error(
                     f'Invalid staleness threshold "{staleness_threshold_text}"',
                     location=self.location,
                 )
 
-    def parse_staleness_threshold(self, staleness_threshold_text: str) -> timedelta | None:
+    def parse_freshness_threshold(self, freshness_threshold_text: str) -> timedelta | None:
         try:
-            if "d" in staleness_threshold_text:
-                parts = staleness_threshold_text.split("d")
-                days = int(parts[0])
-                hours = int(parts[1]) if parts[1] != "" else 0
-                return timedelta(days=days, hours=hours)
-            elif "h" in staleness_threshold_text:
-                parts = staleness_threshold_text.split("h")
-                hours = int(parts[0])
-                minutes = int(parts[1]) if parts[1] != "" else 0
-                return timedelta(hours=hours, minutes=minutes)
-            elif "m" in staleness_threshold_text:
-                parts = staleness_threshold_text.split("m")
-                minutes = int(parts[0])
-                seconds = int(parts[1]) if parts[1] != "" else 0
-                return timedelta(minutes=minutes, seconds=seconds)
-        except:
+            days = 0
+            hours = 0
+            minutes = 0
+            seconds = 0
+            previous_unit = None
+            match = re.match(r"(\d+[dhms])+(\d+)?", freshness_threshold_text)
+            for group in match.groups():
+                if isinstance(group, str):
+                    if group.isdigit():
+                        unit = previous_unit
+                    else:
+                        unit = group[-1:]
+
+                    value = int(group[:-1])
+                    if unit == "d":
+                        days += value
+                    elif unit == "h":
+                        hours += value
+                    elif unit == "m":
+                        minutes += value
+                    elif unit == "s":
+                        seconds += value
+
+                    previous_unit = unit
+
+                return timedelta(days=days, hours=hours, minutes=minutes, seconds=seconds)
+        except Exception as e:
             self.logs.error(
-                f'Problem parsing freshness threshold "{staleness_threshold_text}"',
-                location=self.location,
+                f'Problem parsing freshness threshold "{freshness_threshold_text}"', location=self.location, exception=e
             )
 
     def __antlr_parse_threshold_condition(self, antlr_threshold) -> ThresholdCfg:
@@ -1054,6 +1114,7 @@ class SodaCLParser(Parser):
             comparator = antlr_comparator_threshold.comparator().getText()
             antlr_threshold_value = antlr_comparator_threshold.threshold_value()
             threshold_value = self.__antlr_threshold_value(antlr_threshold_value)
+
             if comparator == "<":
                 return ThresholdCfg(lt=threshold_value)
             if comparator == "<=":
@@ -1099,11 +1160,12 @@ class SodaCLParser(Parser):
 
         self.logs.error(f'Unknown threshold "{antlr_threshold.getText()}"', location=self.location)
 
-    def __antlr_threshold_value(self, antlr_threshold_value):
+    def __antlr_threshold_value(self, antlr_threshold_value: SodaCLAntlrParser.Threshold_valueContext):
         if antlr_threshold_value.signed_number():
             return self.__antlr_parse_signed_number(antlr_threshold_value.signed_number())
-        if antlr_threshold_value.percentage():
-            return self.__antlr_parse_signed_number(antlr_threshold_value.percentage())
+        if antlr_threshold_value.freshness_threshold_value():
+            freshness_threshold = antlr_threshold_value.freshness_threshold_value().getText()
+            return self.parse_freshness_threshold(freshness_threshold)
 
     def __antlr_parse_signed_number(self, antlr_signed_number):
         signed_number_str = antlr_signed_number.getText()
@@ -1203,9 +1265,11 @@ class SodaCLParser(Parser):
 
     def __parse_tables(self, header_content, data_source_check_cfg):
         data_source_check_cfg.data_source_name = header_content.get("data_source")
-        tables = header_content.get("tables")
-        if isinstance(tables, list):
-            for table in tables:
+        datasets = header_content.get("datasets")
+        if datasets is None:
+            datasets = header_content.get("tables")
+        if isinstance(datasets, list):
+            for table in datasets:
                 if table.startswith("exclude "):
                     exclude_table_expression = table[len("exclude ") :]
                     data_source_check_cfg.exclude_tables.append(exclude_table_expression)
@@ -1217,26 +1281,26 @@ class SodaCLParser(Parser):
                     data_source_check_cfg.include_tables.append(include_table_expression)
         else:
             self.logs.error(
-                'Content of "tables" must be a list of include and/or exclude expressions', location=self.location
+                'Content of "datasets" must be a list of include and/or exclude expressions', location=self.location
             )
 
     @assert_header_content_is_dict
     def __parse_automated_monitoring_section(self, header_str, header_content):
         automated_monitoring_cfg = AutomatedMonitoringCfg(self.data_source_name, self.location)
         self.__parse_tables(header_content, automated_monitoring_cfg)
-        self.get_data_source_scan_cfgs().add_monitoring_cfg(automated_monitoring_cfg)
+        self.get_data_source_scan_cfgs().add_data_source_cfg(automated_monitoring_cfg)
 
     @assert_header_content_is_dict
     def __parse_discover_tables_section(self, header_str, header_content):
-        data_source_check_cfg = DataSourceCheckCfg(self.data_source_name, self.location)
-        self.__parse_tables(header_content, data_source_check_cfg)
-        self.get_data_source_scan_cfgs().add_discover_tables_cfg(data_source_check_cfg)
+        discover_dataset_cfg = DiscoverTablesCfg(self.data_source_name, self.location)
+        self.__parse_tables(header_content, discover_dataset_cfg)
+        self.get_data_source_scan_cfgs().add_data_source_cfg(discover_dataset_cfg)
 
     @assert_header_content_is_dict
     def __parse_profile_columns_section(self, header_str, header_content):
         profile_columns_cfg = ProfileColumnsCfg(self.data_source_name, self.location)
         data_source_scan_cfg = self.get_data_source_scan_cfgs()
-        data_source_scan_cfg.add_profile_columns_cfg(profile_columns_cfg)
+        data_source_scan_cfg.add_data_source_cfg(profile_columns_cfg)
 
         columns = header_content.get("columns")
         if isinstance(columns, list):
@@ -1257,9 +1321,9 @@ class SodaCLParser(Parser):
 
     @assert_header_content_is_dict
     def __parse_sample_datasets_section(self, header_str, header_content):
-        data_source_check_cfg = DataSourceCheckCfg(self.data_source_name, self.location)
-        self.__parse_tables(header_content, data_source_check_cfg)
-        self.get_data_source_scan_cfgs().add_sample_tables_cfg(data_source_check_cfg)
+        sample_tables_cfg = SampleTablesCfg(self.data_source_name, self.location)
+        self.__parse_tables(header_content, sample_tables_cfg)
+        self.get_data_source_scan_cfgs().add_data_source_cfg(sample_tables_cfg)
 
     def __parse_nameset_list(self, header_content, for_each_cfg):
         for name_filter_index, name_filter_str in enumerate(header_content):
@@ -1277,7 +1341,7 @@ class SodaCLParser(Parser):
                 column_name_filter = None
 
                 filter_pieces_list = re.split(r"\.", name_filter_pieces_str)
-                if isinstance(for_each_cfg, ForEachTableCfg):
+                if isinstance(for_each_cfg, ForEachDatasetCfg):
                     if len(filter_pieces_list) == 1:
                         data_source_name_filter = self.data_source_name
                         table_name_filter = filter_pieces_list[0]
@@ -1354,25 +1418,31 @@ class SodaCLParser(Parser):
         # TODO consider resolving escape chars from a quoted strings:
         # identifier = re.sub(r'\\(.)', '\g<1>', unquoted_identifier)
 
-    def __parse_antlr_checks_for_each_table_section(
-        self, antlr_checks_for_each_table_header, header_str, header_content
+    def __parse_antlr_checks_for_each_dataset_section(
+        self, antlr_checks_for_each_dataset_header, header_str, header_content
     ):
-        for_each_table_cfg = ForEachTableCfg()
-        for_each_table_cfg.table_alias_name = self.__antlr_parse_identifier_name_from_header(
-            antlr_checks_for_each_table_header
+        for_each_dataset_cfg = ForEachDatasetCfg()
+        for_each_dataset_cfg.table_alias_name = self.__antlr_parse_identifier_name_from_header(
+            antlr_checks_for_each_dataset_header
         )
-        tables = self._get_required("tables", list)
-        if tables:
-            self._push_path_element("tables", tables)
-            self.__parse_nameset_list(tables, for_each_table_cfg)
+        datasets = self._get_optional("datasets", list)
+        if datasets is None:
+            datasets = self._get_optional("tables", list)
+            self._push_path_element("tables", datasets)
+        else:
+            self._push_path_element("datasets", datasets)
+        if datasets:
+            # moved couple of lines above for backwards compatibility with tables
+            # self._push_path_element("datasets", datasets)
+            self.__parse_nameset_list(datasets, for_each_dataset_cfg)
             self._pop_path_element()
         check_cfgs = self._get_required("checks", list)
         if check_cfgs:
             self._push_path_element("checks", check_cfgs)
-            for_each_table_cfg.check_cfgs = self.__parse_checks_in_for_each_section(header_str, check_cfgs)
+            for_each_dataset_cfg.check_cfgs = self.__parse_checks_in_for_each_section(header_str, check_cfgs)
             self._pop_path_element()
-        for_each_table_cfg.location = self.location
-        self.sodacl_cfg.for_each_table_cfgs.append(for_each_table_cfg)
+        for_each_dataset_cfg.location = self.location
+        self.sodacl_cfg.for_each_dataset_cfgs.append(for_each_dataset_cfg)
 
     def __parse_antlr_checks_for_each_column_section(
         self, antlr_checks_for_each_column_header, header_str, header_content

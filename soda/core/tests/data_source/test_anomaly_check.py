@@ -1,10 +1,18 @@
+import os
+
 import pytest
 from tests.helpers.common_test_tables import customers_test_table
 from tests.helpers.scanner import Scanner
 
 
-@pytest.mark.skip("test fails on tom's machine")
+@pytest.mark.skipif(
+    condition=os.getenv("SCIENTIFIC_TESTS") == "SKIP",
+    reason="Environment variable SCIENTIFIC_TESTS is set to SKIP which skips tests depending on the scientific package",
+)
 def test_anomaly_detection_default(scanner: Scanner):
+    import numpy as np
+
+    np.random.seed(61)
     table_name = scanner.ensure_test_table(customers_test_table)
 
     scan = scanner.create_test_scan()
@@ -72,6 +80,10 @@ def test_anomaly_detection_fail_with_custom_threshold(scanner: Scanner):
     scan.assert_all_checks_fail()
 
 
+@pytest.mark.skipif(
+    condition=os.getenv("SCIENTIFIC_TESTS") == "SKIP",
+    reason="Environment variable SCIENTIFIC_TESTS is set to SKIP which skips tests depending on the scientific package",
+)
 @pytest.mark.parametrize(
     "numeric_metric, column",
     [
@@ -106,6 +118,10 @@ def test_anomaly_detection_pass_numeric_metrics(numeric_metric, column, scanner)
     scan.assert_all_checks_pass()
 
 
+@pytest.mark.skipif(
+    condition=os.getenv("SCIENTIFIC_TESTS") == "SKIP",
+    reason="Environment variable SCIENTIFIC_TESTS is set to SKIP which skips tests depending on the scientific package",
+)
 def test_anomaly_detection_missing_values(scanner):
     import numpy as np
 
@@ -131,6 +147,10 @@ def test_anomaly_detection_missing_values(scanner):
     scan.assert_all_checks_pass()
 
 
+@pytest.mark.skipif(
+    condition=os.getenv("SCIENTIFIC_TESTS") == "SKIP",
+    reason="Environment variable SCIENTIFIC_TESTS is set to SKIP which skips tests depending on the scientific package",
+)
 def test_anomaly_detection_invalid_values(scanner):
     import numpy as np
 

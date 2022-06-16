@@ -22,18 +22,29 @@ def test_distribution_check(scanner: Scanner, mock_file_system):
                 checks for {table_name}:
                   - distribution_difference(size, my_happy_ml_model_distribution) >= 0.05:
                       distribution reference file: ./customers_size_distribution_reference.yml
+                      method: ks
             """
+        ).strip(),
+        f"{user_home_dir}/customers_size_distribution_reference.yml": dedent(
+            f"""
+            dataset: {table_name}
+            column: size
+            distribution_type: continuous
+            distribution_reference:
+                bins: [1, 2, 3]
+                weights: [0.5, 0.2, 0.3]
+        """
         ).strip(),
     }
 
-    # TODO: do this logic at mock file system
+    # TODO: do this logic at mock file system (its already added above to the mock file system)
     ref_file = f"{user_home_dir}/customers_size_distribution_reference.yml"
     with open(ref_file, "w") as f:
         reference_table = f"""
-            table: {table_name}
+            dataset: {table_name}
             column: size
-            method: continuous
-            distribution reference:
+            distribution_type: continuous
+            distribution_reference:
                 bins: [1, 2, 3]
                 weights: [0.5, 0.2, 0.3]
         """
@@ -41,8 +52,11 @@ def test_distribution_check(scanner: Scanner, mock_file_system):
 
     scan = scanner.create_test_scan()
     scan._configuration.file_system = mock_file_system
+    scan.enable_mock_soda_cloud()
     scan.add_sodacl_yaml_file(f"{user_home_dir}/the_distribution_check_file.yml")
     scan.execute()
+
+    # TODO: also remove this when removing the direct file system usage
     os.remove(ref_file)
 
 
@@ -67,6 +81,7 @@ def test_distribution_sql(scanner: Scanner, mock_file_system, table, expectation
                 checks for {table_name}:
                   - distribution_difference(size, my_happy_ml_model_distribution) >= 0.05:
                       distribution reference file: ./customers_size_distribution_reference.yml
+                      method: ks
             """
         ).strip(),
     }
@@ -76,7 +91,7 @@ def test_distribution_sql(scanner: Scanner, mock_file_system, table, expectation
         reference_table = f"""
             table: {table_name}
             column: size
-            method: continuous
+            distribution_type: continuous
             distribution reference:
                 bins: [1, 2, 3]
                 weights: [0.5, 0.2, 0.3]
@@ -85,6 +100,7 @@ def test_distribution_sql(scanner: Scanner, mock_file_system, table, expectation
 
     scan = scanner.create_test_scan()
     scan._configuration.file_system = mock_file_system
+    scan.enable_mock_soda_cloud()
     scan.add_sodacl_yaml_file(f"{user_home_dir}/the_distribution_check_file.yml")
     scan.execute()
 

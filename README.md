@@ -17,7 +17,7 @@ Connect Soda Core to your data source, then define your Soda Checks for data qua
 
 ## Get started
 
-Soda Core currently supports PostgreSQL, Amazon Redshift, GCP BigQuery, and Snowflake. To get started, use the install command, replacing `soda-postgres` with the package that matches your data source. 
+Soda Core currently supports PostgreSQL, Amazon Redshift, Amazon Athena, GCP BigQuery, and Snowflake. To get started, use the install command, replacing `soda-postgres` with the package that matches your data source. 
 
 `pip install soda-postgres`
 
@@ -25,6 +25,7 @@ Soda Core currently supports PostgreSQL, Amazon Redshift, GCP BigQuery, and Snow
 * `soda-core-redshift`
 * `soda-core-bigquery`
 * `soda-core-snowflake`
+* `soda-core-athena`
 
 
 

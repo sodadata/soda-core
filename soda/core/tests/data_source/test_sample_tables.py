@@ -18,11 +18,11 @@ def test_sample_tables(scanner: Scanner):
     scan.add_sodacl_yaml_str(
         f"""
           sample datasets:
-            tables:
+            datasets:
               - include {table_name}
         """
     )
-    scan.execute()
+    scan.execute(allow_warnings_only=True)
     # remove the data source name because it's a pain to test
     discover_tables_result = mock_soda_cloud.pop_scan_result()
 
@@ -68,11 +68,11 @@ def test_discover_tables_customer_wildcard_incl_only(scanner: Scanner):
     scan.add_sodacl_yaml_str(
         f"""
         sample datasets:
-          tables:
+          datasets:
             - include %{orders_test_table_name[:-2]}%
         """
     )
-    scan.execute()
+    scan.execute(allow_warnings_only=True)
     discover_tables_result = mock_soda_cloud.pop_scan_result()
     assert discover_tables_result is not None
     profilings = discover_tables_result["profiling"]
@@ -90,13 +90,13 @@ def test_discover_tables_customer_wildcard_incl_excl(scanner: Scanner):
     scan.add_sodacl_yaml_str(
         f"""
         sample datasets:
-          tables:
+          datasets:
             - include %sodatest_%
             - exclude %orders%
             - exclude %profiling%
         """
     )
-    scan.execute()
+    scan.execute(allow_warnings_only=True)
     discover_tables_result = mock_soda_cloud.pop_scan_result()
     profilings = discover_tables_result["profiling"]
     dataset_names = [profiling["table"] for profiling in profilings]
