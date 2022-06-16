@@ -117,7 +117,7 @@ class DataSourceImpl(DataSource):
         self, include_tables: Optional[List[str]] = None, exclude_tables: Optional[List[str]] = None
     ) -> str:
         table_filter_expression = self.sql_table_include_exclude_filter(
-            "table_name", "row_count", include_tables, exclude_tables
+            "table_name", "table_schema", include_tables, exclude_tables
         )
         where_clause = f"AND {table_filter_expression}" if table_filter_expression else ""
         sql = f"""
