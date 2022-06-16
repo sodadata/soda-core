@@ -33,7 +33,7 @@ def test_spark_df_complex_data_types(data_source_fixture: DataSourceFixture):
             - missing_count(a) >= 0
         """
     )
-    scan.execute()
+    scan.execute(allow_warnings_only=True)
     scan.assert_all_checks_pass()
     scan.assert_no_error_logs()
 
@@ -45,7 +45,7 @@ def test_spark_df_complex_data_types(data_source_fixture: DataSourceFixture):
               - include {table_name}
         """
     )
-    scan.execute()
+    scan.execute(allow_warnings_only=True)
     scan.assert_no_error_logs()
 
     scan = data_source_fixture.create_test_scan()
@@ -56,7 +56,7 @@ def test_spark_df_complex_data_types(data_source_fixture: DataSourceFixture):
               - include {table_name}.%
         """
     )
-    scan.execute()
+    scan.execute(allow_warnings_only=True)
     scan.assert_no_error_logs()
 
     scan = data_source_fixture.create_test_scan()
@@ -69,5 +69,5 @@ def test_spark_df_complex_data_types(data_source_fixture: DataSourceFixture):
               - include {table_name}
         """
     )
-    scan.execute()
+    scan.execute(allow_warnings_only=True)
     scan.assert_no_error_logs()

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import pytest
 from soda.execution.data_type import DataType
 from tests.helpers.common_test_tables import (
     customers_dist_check_test_table,
@@ -22,7 +23,7 @@ def test_discover_tables(data_source_fixture: DataSourceFixture):
                 - include {table_name}
         """
     )
-    scan.execute()
+    scan.execute(allow_warnings_only=True)
     # remove the data source name because it's a pain to test
     discover_tables_result = mock_soda_cloud.pop_scan_result()
 
@@ -68,12 +69,13 @@ def test_discover_tables_customer_wildcard(data_source_fixture: DataSourceFixtur
             - include %customers%
         """
     )
-    scan.execute()
+    scan.execute(allow_warnings_only=True)
     discover_tables_result = mock_soda_cloud.pop_scan_result()
     assert discover_tables_result is not None
     assert len(discover_tables_result["metadata"]) == 3
 
 
+@pytest.mark.skip("Ask Milan, the test is identical with above")
 def test_discover_tables_customer_wildcard(data_source_fixture: DataSourceFixture):
     data_source_fixture.ensure_test_table(customers_test_table)
     data_source_fixture.ensure_test_table(orders_test_table)
@@ -90,7 +92,7 @@ def test_discover_tables_customer_wildcard(data_source_fixture: DataSourceFixtur
             - exclude sodatest_customersdist_%
         """
     )
-    scan.execute()
+    scan.execute(allow_warnings_only=True)
     discover_tables_result = mock_soda_cloud.pop_scan_result()
     assert discover_tables_result is not None
     assert len(discover_tables_result["metadata"]) == 2

@@ -1,7 +1,7 @@
 from typing import List
 
 from soda.profiling.profile_columns_result_table import ProfileColumnsResultTable
-from soda.sodacl.profile_columns_cfg import ProfileColumnsCfg
+from soda.sodacl.data_source_check_cfg import ProfileColumnsCfg
 
 
 class ProfileColumnsResult:

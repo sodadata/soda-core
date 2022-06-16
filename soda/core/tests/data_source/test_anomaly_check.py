@@ -11,6 +11,9 @@ from tests.helpers.data_source_fixture import DataSourceFixture
 )
 def test_anomaly_detection_default(data_source_fixture: DataSourceFixture):
     table_name = data_source_fixture.ensure_test_table(customers_test_table)
+    
+    import numpy as np
+    np.random.seed(61)
 
     scan = data_source_fixture.create_test_scan()
 
