@@ -34,10 +34,12 @@ class BigQueryDataSourceFixture(DataSourceFixture):
         dataset_id = self._get_dataset_id()
         dataset = bigquery.Dataset(dataset_id)
         dataset.location = "EU"
+        logging.debug(f"CREATE SCHEMA: Creating BigQuery dataset '{dataset_id}'")
         self.schema_data_source.client.create_dataset(dataset, timeout=30)
 
     def _drop_schema_if_exists(self):
         dataset_id = self._get_dataset_id()
+        logging.debug(f"DROP SCHEMA: Deleting BigQuery dataset '{dataset_id}'")
         self.schema_data_source.client.delete_dataset(dataset_id, delete_contents=True, not_found_ok=True)
 
     def _drop_test_table_sql(self, table_name):
