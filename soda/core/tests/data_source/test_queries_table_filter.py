@@ -1,6 +1,6 @@
 import pytest
+from tests.helpers.data_source_fixture import DataSourceFixture
 from tests.helpers.fixtures import format_query_one_line, test_data_source
-from tests.helpers.scanner import Scanner
 
 
 @pytest.mark.parametrize(
@@ -28,8 +28,10 @@ from tests.helpers.scanner import Scanner
     ],
 )
 @pytest.mark.skip("Skipped until expected vs actual output can be reliably compared.")
-def test_sql_table_include_exclude_filter(scanner: Scanner, include_tables, exclude_tables, expected_sql):
-    scan = scanner.create_test_scan()
+def test_sql_table_include_exclude_filter(
+    data_source_fixture: DataSourceFixture, include_tables, exclude_tables, expected_sql
+):
+    scan = data_source_fixture.create_test_scan()
     data_source = scan._data_source_manager.get_data_source(test_data_source)
 
     generated_sql = data_source.sql_table_include_exclude_filter("table_column", None, include_tables, exclude_tables)

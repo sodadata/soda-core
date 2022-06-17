@@ -2,20 +2,20 @@ from __future__ import annotations
 
 import json
 import logging
-from json.decoder import JSONDecodeError
 
 from google.cloud import bigquery
 from google.cloud.bigquery import dbapi
 from google.oauth2.service_account import Credentials
 from soda.common.exceptions import DataSourceConnectionError
 from soda.common.file_system import file_system
+from soda.common.logs import Logs
 from soda.execution.data_source import DataSource
 from soda.execution.data_type import DataType
 
 logger = logging.getLogger(__name__)
 
 
-class DataSourceImpl(DataSource):
+class BigQueryDataSource(DataSource):
     TYPE = "bigquery"
 
     SCHEMA_CHECK_TYPES_MAPPING: dict = {
@@ -47,49 +47,44 @@ class DataSourceImpl(DataSource):
     NUMERIC_TYPES_FOR_PROFILING = ["NUMERIC", "INT64"]
     TEXT_TYPES_FOR_PROFILING = ["STRING"]
 
-    def connect(self, connection_properties):
-        self.connection_properties = connection_properties
+    def __init__(self, logs: Logs, data_source_name: str, data_source_properties: dict, connection_properties: dict):
+        super().__init__(logs, data_source_name, data_source_properties, connection_properties)
+        self.dataset_name = connection_properties.get("dataset")
 
-        try:
-            self.dataset_name = connection_properties.get("dataset")
-            # self.table_prefix = self.dataset_name
-            default_auth_scopes = [
+        account_info_json_str = None
+        account_info_path = self.connection_properties.get("account_info_json_path")
+        if account_info_path:
+            if file_system().is_file(account_info_path):
+                account_info_json_str = file_system().file_read_as_str(account_info_path)
+            else:
+                logger.error(f"File not found: account_info_json_path: {account_info_path} ")
+        else:
+            account_info_json_str = self.connection_properties.get("account_info_json")
+
+        if account_info_json_str:
+            self.account_info_dict = json.loads(account_info_json_str)
+        else:
+            logger.error(f"No bigquery connection authentication: no account_info_json nor account_info_json_path")
+
+        # Usually the project_id comes from the self.account_info_dict
+        self.project_id = self.account_info_dict.get("project_id") if self.account_info_dict else None
+        # But users can optionally overwrite in the connection properties
+        self.project_id = connection_properties.get("project_id", self.project_id)
+
+        self.credentials = Credentials.from_service_account_info(
+            self.account_info_dict,
+            scopes=[
                 "https://www.googleapis.com/auth/bigquery",
                 "https://www.googleapis.com/auth/cloud-platform",
                 "https://www.googleapis.com/auth/drive",
-            ]
-            self.auth_scopes = connection_properties.get("auth_scopes", default_auth_scopes)
-            # self.auth_scopes = parser.get_list_optional("auth_scopes", default_auth_scopes)
-            # self.__context_auth = parser.get_bool_optional("use_context_auth", None)
-            # if self.__context_auth:
-            #     self.account_info_dict = None
-            #     self.project_id = parser.get_str_required("project_id")
-            #     logger.info("Using context auth, account_info_json will be ignored.")
-            # else:
-            self.account_info_dict = self.__parse_json_credential()
+            ],
+        )
 
-            # Use explicitly set project id if available, or the one from SA account.
-            self.project_id = None
-            if connection_properties.get("project_id"):
-                self.project_id = connection_properties.get("project_id")
-            elif self.account_info_dict:
-                self.project_id = self.account_info_dict.get("project_id")
-
-            if not self.project_id:
-                self.logs.error("Unable to detect project_id.")
-
-            # self.client = None
-
-            # if self.__context_auth:
-            #     credentials = None
-            # elif self.account_info_dict:
-            credentials = Credentials.from_service_account_info(self.account_info_dict, scopes=self.auth_scopes)
-            # else:
-            # raise Exception("Account_info_json or account_info_json_path or use_context_auth are not provided")
-
+    def connect(self):
+        try:
             self.client = bigquery.Client(
                 project=self.project_id,
-                credentials=credentials,
+                credentials=self.credentials,
                 default_query_job_config=bigquery.QueryJobConfig(
                     default_dataset=f"{self.project_id}.{self.dataset_name}",
                 ),
@@ -99,30 +94,6 @@ class DataSourceImpl(DataSource):
             return self.connection
         except Exception as e:
             raise DataSourceConnectionError(self.TYPE, e)
-
-    def __parse_json_credential(self):
-        account_info_path = self.connection_properties.get("account_info_json_path")
-        if account_info_path:
-            try:
-                account_info = file_system().file_read_as_str(account_info_path)
-                if account_info is None:
-                    logger.error(f"No credentials found in provided file {account_info_path}.")
-                else:
-                    return json.loads(account_info)
-            except JSONDecodeError as e:
-                logger.error(f"Error parsing credentials from {account_info_path}: {e}")
-            except Exception as e:
-                logger.error(f"Could not read file {account_info_path}: {str(e)}")
-        else:
-            try:
-                cred = self.connection_properties.get("account_info_json")
-                # Prevent json load when the Dialect is init from create command
-                if cred is not None:
-                    return json.loads(cred)
-                else:
-                    logger.warning("Dialect initiated from the create command, cred is None.")
-            except JSONDecodeError as e:
-                logger.error(f"Error parsing credential 'account_info_json': {e}")
 
     def sql_get_table_columns(
         self, table_name: str, included_columns: list[str] | None = None, excluded_columns: list[str] | None = None
@@ -139,7 +110,7 @@ class DataSourceImpl(DataSource):
 
         sql = (
             f"SELECT column_name, data_type, is_nullable "
-            f"FROM `{self.dataset_name}.INFORMATION_SCHEMA.COLUMNS` "
+            f"FROM {self.sql_information_schema_columns()} "
             f"WHERE table_name = '{table_name}'"
             f"{included_columns_filter}"
             f"{excluded_columns_filter}"
@@ -154,7 +125,7 @@ class DataSourceImpl(DataSource):
         where_clause = f"\nWHERE {table_filter_expression} \n" if table_filter_expression else ""
         return (
             f"SELECT table_name, column_name, data_type, is_nullable \n"
-            f"FROM {self.dataset_name}.INFORMATION_SCHEMA.COLUMNS"
+            f"FROM {self.sql_information_schema_tables()}"
             f"{where_clause}"
         )
 
@@ -165,7 +136,7 @@ class DataSourceImpl(DataSource):
             "table_id", "dataset_id", include_tables, exclude_tables
         )
         where_clause = f"\nWHERE {table_filter_expression} \n" if table_filter_expression else ""
-        return f"SELECT table_id, row_count \n" f"FROM {self.dataset_name}.__TABLES__" f"{where_clause}"
+        return f"SELECT table_id, row_count \n" f"FROM {self.schema}.__TABLES__" f"{where_clause}"
 
     def sql_select_all(self, table_name: str, limit: int = None) -> str:
         limit_sql = ""
@@ -207,8 +178,11 @@ class DataSourceImpl(DataSource):
             return f"{metric_name.upper()}({expr})"
         return super().get_metric_sql_aggregation_expression(metric_name, metric_args, expr)
 
-    def sql_information_schema_identifier(self) -> str:
-        return f"{self.project_id}.{self.dataset_name}.INFORMATION_SCHEMA.TABLES"
+    def sql_information_schema_tables(self) -> str:
+        return f"{self.schema}.INFORMATION_SCHEMA.TABLES"
+
+    def sql_information_schema_columns(self) -> str:
+        return f"{self.schema}.INFORMATION_SCHEMA.COLUMNS"
 
     @staticmethod
     def default_casify_type_name(identifier: str) -> str:
@@ -228,3 +202,8 @@ class DataSourceImpl(DataSource):
 
     def sql_union(self):
         return "UNION ALL"
+
+    def create_test_table_manager(self):
+        from tests.bigquery_data_source_fixture import BigQueryDataSourceFixture
+
+        return BigQueryDataSourceFixture(self)
