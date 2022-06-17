@@ -2,16 +2,37 @@ import decimal
 import logging
 from datetime import datetime
 
-from pyspark.sql import types
-from soda.data_sources.spark_df_data_source import DataSourceImpl
+from pyspark.sql import SparkSession, types
 from soda.execution.data_type import DataType
+from soda.scan import Scan
+from tests.helpers.data_source_fixture import DataSourceFixture
+from tests.helpers.test_scan import TestScan
 from tests.helpers.test_table import TestTable
-from tests.helpers.test_table_manager import TestTableManager
+
+logger = logging.getLogger(__name__)
 
 
-class SparkDfTestTableManager(TestTableManager):
-    def __init__(self, spark_df_data_source: DataSourceImpl):
-        super().__init__(data_source=spark_df_data_source)
+class SparkDfDataSourceFixture(DataSourceFixture):
+    def __init__(self, test_data_source: str):
+        super().__init__(test_data_source)
+        self.spark_session = SparkSession.builder.master("local").appName("test").getOrCreate()
+
+    def create_test_scan(self) -> TestScan:
+        scan = super().create_test_scan()
+        scan.add_spark_session(spark_session=self.spark_session)
+        return scan
+
+    def _test_session_starts(self):
+        scan = Scan()
+        scan.add_spark_session(spark_session=self.spark_session, data_source_name=self.data_source_name)
+        self.data_source = scan._data_source_manager.get_data_source(self.data_source_name)
+        scan._get_or_create_data_source_scan(self.data_source_name)
+
+    def _drop_schema_if_exists(self):
+        logger.debug("Schema drop is skipped for spark_df")
+
+    def _test_session_ends(self):
+        pass
 
     def _create_and_insert_test_table(self, test_table: TestTable):
         spark_columns = []
@@ -45,7 +66,7 @@ class SparkDfTestTableManager(TestTableManager):
     def build_spark_type(data_type: str) -> types.DataType:
         if data_type.startswith("array[") and data_type.endswith("]"):
             element_data_type = data_type[6:-1].strip()
-            element_spark_type = SparkDfTestTableManager.build_spark_type(element_data_type)
+            element_spark_type = SparkDfDataSourceFixture.build_spark_type(element_data_type)
             return types.ArrayType(element_spark_type)
 
         if data_type.startswith("struct[") and data_type.endswith("]"):
@@ -55,7 +76,7 @@ class SparkDfTestTableManager(TestTableManager):
                 field_type_parts = field_type.split(":", 1)
                 field_name = field_type_parts[0]
                 field_data_type = field_type_parts[1]
-                field_spark_type = SparkDfTestTableManager.build_spark_type(field_data_type)
+                field_spark_type = SparkDfDataSourceFixture.build_spark_type(field_data_type)
                 spark_field_types.append(types.StructField(field_name, field_spark_type))
             return types.StructType(spark_field_types)
 
