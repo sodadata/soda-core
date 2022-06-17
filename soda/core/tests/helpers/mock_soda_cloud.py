@@ -76,6 +76,7 @@ class MockSodaCloud(SodaCloud):
              'value': v
             }
         """
+        print(historic_metric_values)
         self.historic_metric_values.extend(historic_metric_values)
 
     def get_historic_data(self, historic_descriptor: HistoricDescriptor):
@@ -106,7 +107,7 @@ class MockSodaCloud(SodaCloud):
                 elif change_over_time_aggregation == "avg":
                     value = sum(historic_values) / len(historic_values)
 
-                return value
+                return {"measurements": {"results": [{"value": value}]}}
 
             elif change_over_time_aggregation is None:
                 historic_metric_values = self.__get_historic_metric_values(historic_descriptor.metric_identity)
