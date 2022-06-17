@@ -52,8 +52,16 @@ class DataSourceManager:
                                     data_source = None
                         else:
                             self.logs.error(f'Data source "{data_source_name}" does not have a type')
+                    else:
+                        self.logs.error(f'Data source "{data_source_name}" does not have connection properties')
+                else:
+                    self.logs.error(f'Data source "{data_source_name}" does not have a connection name')
             else:
-                self.logs.error(f"Data source '{data_source_name}' not present in the configuration.")
+                data_source_names = ", ".join(self.data_source_properties_by_name.keys())
+                self.logs.error(
+                    f"Data source '{data_source_name}' not present in the configuration. "
+                    f"Configured data sources: {data_source_names}"
+                )
 
         return data_source
 
