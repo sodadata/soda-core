@@ -17,7 +17,6 @@ from ruamel.yaml import YAML
 from ruamel.yaml.main import round_trip_dump
 from soda.common.file_system import file_system
 from soda.common.logs import configure_logging
-from soda.common.yaml_helper import to_yaml_str
 from soda.scan import Scan
 from soda.telemetry.soda_telemetry import SodaTelemetry
 from soda.telemetry.soda_tracer import soda_trace, span_setup_function_args
@@ -227,13 +226,16 @@ def update(
         return
 
     named_format = all(isinstance(value, dict) for value in distribution_reference_dict.values())
-    unnamed_format = not any(isinstance(value, dict) and key != "distribution_reference" for key, value in distribution_reference_dict.items())
+    unnamed_format = not any(
+        isinstance(value, dict) and key != "distribution_reference"
+        for key, value in distribution_reference_dict.items()
+    )
     correct_format = named_format or unnamed_format
     if not correct_format:
         logging.error(
-            f'''Incorrect distribution reference file format in "{distribution_reference_file}". If you want to use multiple DROs in a single distribution'''
-            f''' reference file please make sure that they are all named. For more info see the documentation'''
-            f''' \nhttps://docs.soda.io/soda-cl/distribution.html#generate-a-distribution-reference-object-dro.'''
+            f"""Incorrect distribution reference file format in "{distribution_reference_file}". If you want to use multiple DROs in a single distribution"""
+            f""" reference file please make sure that they are all named. For more info see the documentation"""
+            f""" \nhttps://docs.soda.io/soda-cl/distribution.html#generate-a-distribution-reference-object-dro."""
         )
         return
 
@@ -241,15 +243,15 @@ def update(
         distribution_dict = distribution_reference_dict.get(name)
         if not distribution_dict:
             logging.error(
-                f'''The dro name "{name}" that you provided does not exist in your distribution reference file "{distribution_reference_file}". '''
-                f'''For more information see the documentation:\nhttps://docs.soda.io/soda-cl/distribution.html#generate-a-distribution-reference-object-dro.'''
+                f"""The dro name "{name}" that you provided does not exist in your distribution reference file "{distribution_reference_file}". """
+                f"""For more information see the documentation:\nhttps://docs.soda.io/soda-cl/distribution.html#generate-a-distribution-reference-object-dro."""
             )
-            return 
+            return
     elif named_format:
         logging.error(
-            f'''The distribution reference file "{distribution_reference_file}" that you used contains named DROs, but you did not provide'''
-            f''' a DRO name with the -n argument. Please run soda update with -n "dro_name" to indicate which DRO you want to update.'''
-            f''' For more info see the documentation:\nhttps://docs.soda.io/soda-cl/distribution.html#generate-a-distribution-reference-object-dro.'''
+            f"""The distribution reference file "{distribution_reference_file}" that you used contains named DROs, but you did not provide"""
+            f""" a DRO name with the -n argument. Please run soda update with -n "dro_name" to indicate which DRO you want to update."""
+            f""" For more info see the documentation:\nhttps://docs.soda.io/soda-cl/distribution.html#generate-a-distribution-reference-object-dro."""
         )
         return
     else:

@@ -55,7 +55,7 @@ class DistributionChecker:
     def __init__(self, distribution_check_cfg: DistributionCheckCfg, data: List[Any]):
         cfg = DistCfg(
             reference_file_path=distribution_check_cfg.reference_file_path,
-            distribution_name=distribution_check_cfg.distribution_name
+            distribution_name=distribution_check_cfg.distribution_name,
         )
         self.test_data = data
         self.method = distribution_check_cfg.method
@@ -103,15 +103,15 @@ class DistributionChecker:
                     parsed_file = parsed_file.get(distribution_name)
                     if not parsed_file:
                         raise DRONameNotFoundException(
-                            f'''Your DRO name "{distribution_name}" is not found in your distribution reference file "{ref_file_path}". Please make sure that the DRO name that you provide in'''
-                            f''' "distribution_difference(column_name, dro_name)" points to an existing DRO. For more information visit the docs:\n'''
-                            f'''https://docs.soda.io/soda-cl/distribution.html#define-a-distribution-check'''
+                            f"""Your DRO name "{distribution_name}" is not found in your distribution reference file "{ref_file_path}". Please make sure that the DRO name that you provide in"""
+                            f""" "distribution_difference(column_name, dro_name)" points to an existing DRO. For more information visit the docs:\n"""
+                            f"""https://docs.soda.io/soda-cl/distribution.html#define-a-distribution-check"""
                         )
                 elif all(isinstance(value, dict) for value in parsed_file.values()):
                     raise DRONameMissingException(
-                        f'''While your distribution reference file appears to contain named DROs, you did not specify a DRO name in your "checks.yml" file. '''
-                        f'''Please provide the DRO name that you want to use the distribution check for in the "distribution_difference(column_name, dro_name)'''                        
-                        f''' part of your check. For more information visit the docs: https://docs.soda.io/soda-cl/distribution.html#define-a-distribution-check.'''
+                        f"""While your distribution reference file appears to contain named DROs, you did not specify a DRO name in your "checks.yml" file. """
+                        f"""Please provide the DRO name that you want to use the distribution check for in the "distribution_difference(column_name, dro_name)"""
+                        f""" part of your check. For more information visit the docs: https://docs.soda.io/soda-cl/distribution.html#define-a-distribution-check."""
                     )
 
                 if "distribution_type" in parsed_file:
