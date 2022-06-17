@@ -1,12 +1,12 @@
 from tests.helpers.common_test_tables import customers_test_table
-from tests.helpers.scanner import Scanner
+from tests.helpers.data_source_fixture import DataSourceFixture
 
 
-def test_count_filtered(scanner: Scanner):
-    table_name = scanner.ensure_test_table(customers_test_table)
+def test_count_filtered(data_source_fixture: DataSourceFixture):
+    table_name = data_source_fixture.ensure_test_table(customers_test_table)
 
     # Row count is 10
-    scan = scanner.create_test_scan()
+    scan = data_source_fixture.create_test_scan()
     scan.add_sodacl_yaml_str(
         f"""
       checks for {table_name}:
@@ -19,11 +19,11 @@ def test_count_filtered(scanner: Scanner):
     scan.assert_all_checks_pass()
 
 
-def test_missing_filtered(scanner: Scanner):
-    table_name = scanner.ensure_test_table(customers_test_table)
+def test_missing_filtered(data_source_fixture: DataSourceFixture):
+    table_name = data_source_fixture.ensure_test_table(customers_test_table)
 
     # Row count is 10
-    scan = scanner.create_test_scan()
+    scan = data_source_fixture.create_test_scan()
     scan.add_sodacl_yaml_str(
         f"""
       checks for {table_name}:
@@ -37,11 +37,11 @@ def test_missing_filtered(scanner: Scanner):
     scan.assert_all_checks_pass()
 
 
-def test_valid_filtered(scanner: Scanner):
-    table_name = scanner.ensure_test_table(customers_test_table)
+def test_valid_filtered(data_source_fixture: DataSourceFixture):
+    table_name = data_source_fixture.ensure_test_table(customers_test_table)
 
     # Row count is 10
-    scan = scanner.create_test_scan()
+    scan = data_source_fixture.create_test_scan()
     scan.add_sodacl_yaml_str(
         f"""
           checks for {table_name}:
@@ -56,11 +56,11 @@ def test_valid_filtered(scanner: Scanner):
     scan.assert_all_checks_pass()
 
 
-def test_valid_percentage_filtered(scanner: Scanner):
-    table_name = scanner.ensure_test_table(customers_test_table)
+def test_valid_percentage_filtered(data_source_fixture: DataSourceFixture):
+    table_name = data_source_fixture.ensure_test_table(customers_test_table)
 
     # Row count is 10
-    scan = scanner.create_test_scan()
+    scan = data_source_fixture.create_test_scan()
     scan.add_sodacl_yaml_str(
         f"""
       checks for {table_name}:
