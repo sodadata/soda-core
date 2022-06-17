@@ -71,7 +71,7 @@ class RedshiftDataSource(DataSource):
         self, include_tables: Optional[List[str]] = None, exclude_tables: Optional[List[str]] = None
     ) -> str:
         table_filter_expression = self.sql_table_include_exclude_filter(
-            '"table"', "tbl_rows", include_tables, exclude_tables
+            '"table"', "schema", include_tables, exclude_tables
         )
         where_clause = f"\nWHERE {table_filter_expression} \n" if table_filter_expression else ""
         return f'SELECT "table", tbl_rows \n FROM svv_table_info {where_clause}'

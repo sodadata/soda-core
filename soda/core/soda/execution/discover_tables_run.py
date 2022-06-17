@@ -42,6 +42,4 @@ class DiscoverTablesRun:
             for column_name, column_type in columns_metadata_result.items():
                 _ = discover_tables_result_table.create_column(column_name, column_type)
 
-        if not discover_tables_result.tables:
-            self.logs.error(f"Discover tables for data source: {self.data_source.data_source_name} failed")
         return discover_tables_result
