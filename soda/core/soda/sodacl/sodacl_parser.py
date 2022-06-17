@@ -8,7 +8,6 @@ from builtins import isinstance
 from datetime import timedelta
 from numbers import Number
 from textwrap import dedent
-from typing import Union
 
 from antlr4 import CommonTokenStream, InputStream
 from antlr4.error.ErrorListener import ErrorListener
