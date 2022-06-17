@@ -1,6 +1,6 @@
 import abc
 import logging
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Union
 
 import numpy as np
 import pandas as pd
@@ -94,7 +94,7 @@ class DistributionChecker:
 
         return dict(check_value=check_value, stat_value=stat_value)
 
-    def _parse_reference_cfg(self, ref_file_path: FilePath, distribution_name: str) -> RefDataCfg:
+    def _parse_reference_cfg(self, ref_file_path: FilePath, distribution_name: Union[str, None]) -> RefDataCfg:
         with open(str(ref_file_path)) as stream:
             try:
                 parsed_file: dict = yaml.safe_load(stream)
