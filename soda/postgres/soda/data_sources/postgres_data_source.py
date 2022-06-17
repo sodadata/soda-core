@@ -26,7 +26,7 @@ class PostgresDataSource(DataSource):
 
         if isinstance(self.host, str) and len(self.host) > 0:
             self.logs.debug(
-                f'Connection properties: host="{self.host}", port="{self.port}", database="{self.database}", user="{self.username}", options="{self.options}", connection_timeout="{self.connection_timeout}"'
+                f'Postgres connection properties: host="{self.host}", port="{self.port}", database="{self.database}", user="{self.username}", options="{options}", connection_timeout="{self.connection_timeout}"'
             )
             self.connection = psycopg2.connect(
                 user=self.username,
