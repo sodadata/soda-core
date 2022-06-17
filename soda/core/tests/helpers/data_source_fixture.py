@@ -3,10 +3,13 @@ from __future__ import annotations
 import logging
 import os
 import re
+import string
 import textwrap
 from importlib import import_module
+import random
 
 from soda.common.lazy import Lazy
+from soda.common.random_helper import generate_random_alpha_num_str
 from soda.common.yaml_helper import YamlHelper
 from soda.execution.data_source import DataSource
 from soda.scan import Scan
@@ -47,27 +50,29 @@ class DataSourceFixture:
 
     def _create_schema_name(self):
         schema_name_parts = []
+
         github_ref_name = os.getenv("GITHUB_REF_NAME")
+        github_head_ref = os.getenv("GITHUB_HEAD_REF")
+        python_version = os.getenv("PYTHON_VERSION")
+        python_version_short = f'P{python_version.replace(".", "")}' if python_version else ""
 
-        logger.debug(f'GITHUB_REF_NAME={os.getenv("GITHUB_REF_NAME")}')
-        logger.debug(f'GITHUB_HEAD_REF={os.getenv("GITHUB_HEAD_REF")}')
-        logger.debug(f'GITHUB_REF={os.getenv("GITHUB_REF")}')
-        logger.debug(f'GITHUB_JOB={os.getenv("GITHUB_JOB")}')
-        logger.debug(f'GITHUB_RUN_ID={os.getenv("GITHUB_RUN_ID")}')
-        logger.debug(f'GITHUB_RUN_NUMBER={os.getenv("GITHUB_RUN_NUMBER")}')
-
-        if github_ref_name:
+        if github_head_ref:
             schema_name_parts.append("ci")
-            schema_name_parts.append(github_ref_name)
-            python_version = os.getenv("PYTHON_VERSION")
-            python_version = python_version.replace(".", "")
-            schema_name_parts.append(python_version)
+            schema_name_parts.append(github_head_ref)
+            schema_name_parts.append(python_version_short)
+            schema_name_parts.append(generate_random_alpha_num_str(5))
+
+        elif github_ref_name == "main":
+            schema_name_parts.append("ci_main")
+            schema_name_parts.append(python_version_short)
+            schema_name_parts.append(generate_random_alpha_num_str(5))
 
         else:
             schema_name_parts.append("dev")
             schema_name_parts.append(os.getenv("USER", "anonymous"))
+
         schema_name_raw = "_".join(schema_name_parts)
-        schema_name = re.sub("[^0-9a-zA-Z]+", "_", schema_name_raw)
+        schema_name = re.sub("[^0-9a-zA-Z]+", "_", schema_name_raw).lower()
         return schema_name
 
     def _test_session_starts(self):
