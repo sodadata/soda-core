@@ -1,12 +1,12 @@
 from soda.sampler.default_sampler import DefaultSampler
 from tests.helpers.common_test_tables import customers_test_table
-from tests.helpers.scanner import Scanner
+from tests.helpers.data_source_fixture import DataSourceFixture
 
 
-def test_missing_count_sample(scanner: Scanner):
-    table_name = scanner.ensure_test_table(customers_test_table)
+def test_missing_count_sample(data_source_fixture: DataSourceFixture):
+    table_name = data_source_fixture.ensure_test_table(customers_test_table)
 
-    scan = scanner.create_test_scan()
+    scan = data_source_fixture.create_test_scan()
     mock_soda_cloud = scan.enable_mock_soda_cloud()
     scan.enable_mock_sampler()
     scan.add_sodacl_yaml_str(
@@ -22,10 +22,10 @@ def test_missing_count_sample(scanner: Scanner):
     assert_missing_sample(mock_soda_cloud, 0)
 
 
-def test_missing_count_sample_disabled(scanner: Scanner):
-    table_name = scanner.ensure_test_table(customers_test_table)
+def test_missing_count_sample_disabled(data_source_fixture: DataSourceFixture):
+    table_name = data_source_fixture.ensure_test_table(customers_test_table)
 
-    scan = scanner.create_test_scan()
+    scan = data_source_fixture.create_test_scan()
     mock_soda_cloud = scan.enable_mock_soda_cloud()
     mock_soda_cloud.disable_collecting_warehouse_data = True
     scan.enable_mock_sampler()
@@ -43,10 +43,10 @@ def test_missing_count_sample_disabled(scanner: Scanner):
     assert isinstance(scan._configuration.sampler, DefaultSampler)
 
 
-def test_missing_percent_sample(scanner: Scanner):
-    table_name = scanner.ensure_test_table(customers_test_table)
+def test_missing_percent_sample(data_source_fixture: DataSourceFixture):
+    table_name = data_source_fixture.ensure_test_table(customers_test_table)
 
-    scan = scanner.create_test_scan()
+    scan = data_source_fixture.create_test_scan()
     mock_soda_cloud = scan.enable_mock_soda_cloud()
     scan.enable_mock_sampler()
     scan.add_sodacl_yaml_str(
@@ -78,10 +78,10 @@ def assert_missing_sample(mock_soda_cloud, check_index):
     assert file_content.startswith("[null, ")
 
 
-def test_various_valid_invalid_sample_combinations(scanner: Scanner):
-    table_name = scanner.ensure_test_table(customers_test_table)
+def test_various_valid_invalid_sample_combinations(data_source_fixture: DataSourceFixture):
+    table_name = data_source_fixture.ensure_test_table(customers_test_table)
 
-    scan = scanner.create_test_scan()
+    scan = data_source_fixture.create_test_scan()
     mock_soda_cloud = scan.enable_mock_soda_cloud()
     scan.enable_mock_sampler()
     scan.add_sodacl_yaml_str(
@@ -113,10 +113,10 @@ def test_various_valid_invalid_sample_combinations(scanner: Scanner):
     assert mock_soda_cloud.find_failed_rows_line_count(7) == 2
 
 
-def test_duplicate_samples(scanner: Scanner):
-    table_name = scanner.ensure_test_table(customers_test_table)
+def test_duplicate_samples(data_source_fixture: DataSourceFixture):
+    table_name = data_source_fixture.ensure_test_table(customers_test_table)
 
-    scan = scanner.create_test_scan()
+    scan = data_source_fixture.create_test_scan()
     mock_soda_cloud = scan.enable_mock_soda_cloud()
     scan.enable_mock_sampler()
     scan.add_sodacl_yaml_str(
@@ -132,10 +132,10 @@ def test_duplicate_samples(scanner: Scanner):
     assert mock_soda_cloud.find_failed_rows_line_count(1) == 1
 
 
-def test_duplicate_without_rows_samples(scanner: Scanner):
-    table_name = scanner.ensure_test_table(customers_test_table)
+def test_duplicate_without_rows_samples(data_source_fixture: DataSourceFixture):
+    table_name = data_source_fixture.ensure_test_table(customers_test_table)
 
-    scan = scanner.create_test_scan()
+    scan = data_source_fixture.create_test_scan()
     mock_soda_cloud = scan.enable_mock_soda_cloud()
     scan.enable_mock_sampler()
     scan.add_sodacl_yaml_str(
