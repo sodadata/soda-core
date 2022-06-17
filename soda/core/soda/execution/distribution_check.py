@@ -56,8 +56,12 @@ class DistributionCheck(Check):
         self.query.execute()
         if self.query.exception is None and self.query.rows is not None:
             test_data = [row[0] for row in self.query.rows]
-
-            check_result_dict = DistributionChecker(self.distribution_check_cfg, test_data).run()
+            ref_file_path = self.distribution_check_cfg.reference_file_path
+            dist_method = self.distribution_check_cfg.method
+            dist_ref_yaml = self.data_source_scan.scan._read_file(
+                file_type="disribution reference object yaml", file_path=ref_file_path
+            )
+            check_result_dict = DistributionChecker(dist_method, dist_ref_yaml, ref_file_path, test_data).run()
             self.check_value = check_result_dict["check_value"]
             self.metrics["distribution-difference-metric"].value = self.check_value
             self.set_outcome_based_on_check_value()
