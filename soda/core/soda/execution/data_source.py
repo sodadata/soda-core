@@ -40,7 +40,7 @@ class DataSource:
         "character varying": ["varchar", "text"],
         "double precision": ["decimal"],
         "timestamp without time zone": ["timestamp"],
-        "timestamp with time zone": ["timestamptz"]
+        "timestamp with time zone": ["timestamptz"],
     }
     SQL_TYPE_FOR_CREATE_TABLE_MAP: dict = {
         DataType.TEXT: "VARCHAR(255)",
