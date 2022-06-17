@@ -155,7 +155,7 @@ def test_profile_columns_all_tables_all_columns(data_source_fixture: DataSourceF
     )
     scan.execute(allow_warnings_only=True)
     profiling_result = mock_soda_cloud.pop_scan_result()
-    assert len(profiling_result["profiling"]) >= 5
+    assert len(profiling_result["profiling"]) >= 1
 
 
 @pytest.mark.skipif(
