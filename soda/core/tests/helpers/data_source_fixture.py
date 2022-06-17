@@ -215,7 +215,7 @@ class DataSourceFixture:
 
     def _drop_test_table_sql(self, table_name):
         qualified_table_name = self.data_source.qualified_table_name(table_name)
-        return f"DROP TABLE {qualified_table_name} IF EXISTS;"
+        return f"DROP TABLE IF EXISTS {qualified_table_name}"
 
     def _fetch_all(self, sql: str, connection=None) -> list[tuple]:
         if connection is None:
