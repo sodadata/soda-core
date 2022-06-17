@@ -9,7 +9,7 @@ class DistCfg(BaseModel):
     """Validation model for configuration."""
 
     reference_file_path: Optional[FilePath] = None
-
+    distribution_name: Optional[str] = None
 
 class RefDataCfg(BaseModel):
     """Validation model for reference data configuration."""
