@@ -197,7 +197,8 @@ class SodaCloud:
         )
 
     def _get_historic_measurements(self, hd: HistoricMeasurementsDescriptor):
-        return self._execute_query(
+
+        historic_measurements = self._execute_query(
             {
                 "type": "sodaCoreHistoricMeasurements",
                 "limit": hd.limit,
@@ -213,6 +214,11 @@ class SodaCloud:
                 },
             }
         )
+        # Filter out historic_measurements not having 'value' key
+        historic_measurements["results"] = [
+            measurement for measurement in historic_measurements["results"] if "value" in measurement
+        ]
+        return historic_measurements
 
     def _get_hisotric_check_results(self, hd: HistoricCheckResultsDescriptor):
         return self._execute_query(
