@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import logging
 import re
-from typing import Dict, List, Optional
 
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import serialization
