@@ -1,14 +1,14 @@
 from tests.helpers.common_test_tables import customers_test_table
-from tests.helpers.scanner import Scanner
+from tests.helpers.data_source_fixture import DataSourceFixture
 
 
-def test_row_count_thresholds_passing(scanner: Scanner):
+def test_row_count_thresholds_passing(data_source_fixture: DataSourceFixture):
     """
     Tests all passing thresholds on a simple row count
     """
-    table_name = scanner.ensure_test_table(customers_test_table)
+    table_name = data_source_fixture.ensure_test_table(customers_test_table)
 
-    scan = scanner.create_test_scan()
+    scan = data_source_fixture.create_test_scan()
     scan.add_sodacl_yaml_str(
         f"""
       checks for {table_name}:
@@ -34,14 +34,14 @@ def test_row_count_thresholds_passing(scanner: Scanner):
     scan.assert_all_checks_pass()
 
 
-def test_row_count_thresholds_failing(scanner: Scanner):
+def test_row_count_thresholds_failing(data_source_fixture: DataSourceFixture):
     """
     Tests all failing thresholds on a simple row count
     """
-    table_name = scanner.ensure_test_table(customers_test_table)
+    table_name = data_source_fixture.ensure_test_table(customers_test_table)
 
     # Row count is 10
-    scan = scanner.create_test_scan()
+    scan = data_source_fixture.create_test_scan()
     scan.add_sodacl_yaml_str(
         f"""
       checks for {table_name}:

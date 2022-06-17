@@ -1,11 +1,11 @@
 from tests.helpers.common_test_tables import customers_test_table
-from tests.helpers.scanner import Scanner
+from tests.helpers.data_source_fixture import DataSourceFixture
 
 
-def test_table_metric_identities(scanner: Scanner):
-    table_name = scanner.ensure_test_table(customers_test_table)
+def test_table_metric_identities(data_source_fixture: DataSourceFixture):
+    table_name = data_source_fixture.ensure_test_table(customers_test_table)
 
-    scan = scanner.create_test_scan()
+    scan = data_source_fixture.create_test_scan()
     scan.add_sodacl_yaml_str(
         f"""
           checks for {table_name}:
@@ -26,10 +26,10 @@ def test_table_metric_identities(scanner: Scanner):
     assert len(scan._metrics) == 2
 
 
-def test_column_metric_identities(scanner: Scanner):
-    table_name = scanner.ensure_test_table(customers_test_table)
+def test_column_metric_identities(data_source_fixture: DataSourceFixture):
+    table_name = data_source_fixture.ensure_test_table(customers_test_table)
 
-    scan = scanner.create_test_scan()
+    scan = data_source_fixture.create_test_scan()
     scan.add_sodacl_yaml_str(
         f"""
           checks for {table_name}:
