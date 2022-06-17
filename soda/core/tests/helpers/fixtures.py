@@ -1,11 +1,9 @@
 from __future__ import annotations
 
-# Initialize telemetry in test mode. This is done before importing Scanner which initializes telemetry in standard mode so that we avoid unnecessary setup and re-setup which causes errors.
+# Initialize telemetry in test mode. This is done before importing anythin datasource/scan/scanner related which initializes telemetry in standard mode so that we avoid unnecessary setup and re-setup which easily causes errors.
 from soda.telemetry.soda_telemetry import SodaTelemetry
 
 soda_telemetry = SodaTelemetry.get_instance(test_mode=True)
-
-from tests.helpers.data_source_fixture import DataSourceFixture
 
 import logging
 import os
@@ -17,6 +15,7 @@ from soda.common.file_system import FileSystemSingleton
 from soda.common.logs import configure_logging
 from soda.execution.data_source import DataSource
 from soda.scan import Scan
+from tests.helpers.data_source_fixture import DataSourceFixture
 from tests.helpers.mock_file_system import MockFileSystem
 
 logger = logging.getLogger(__name__)
