@@ -22,7 +22,7 @@ class BigQueryDataSource(DataSource):
         "STRING": ["character varying", "varchar", "text"],
         "INT64": ["integer", "int"],
         "NUMERIC": ["decimal"],
-        "TIMESTAMP": ["timestamptz"]
+        "TIMESTAMP": ["timestamptz"],
     }
     SQL_TYPE_FOR_CREATE_TABLE_MAP: dict = {
         DataType.TEXT: "STRING",
