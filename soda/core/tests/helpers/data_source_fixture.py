@@ -51,23 +51,27 @@ class DataSourceFixture:
 
         github_ref_name = os.getenv("GITHUB_REF_NAME")
         github_head_ref = os.getenv("GITHUB_HEAD_REF")
-        python_version = os.getenv("PYTHON_VERSION")
-        python_version_short = f'P{python_version.replace(".", "")}' if python_version else ""
 
-        if github_head_ref:
-            schema_name_parts.append("ci")
-            schema_name_parts.append(github_head_ref)
-            schema_name_parts.append(python_version_short)
-            schema_name_parts.append(generate_random_alpha_num_str(5))
-
-        elif github_ref_name == "main":
-            schema_name_parts.append("ci_main")
-            schema_name_parts.append(python_version_short)
-            schema_name_parts.append(generate_random_alpha_num_str(5))
+        if not github_ref_name and not github_head_ref:
+            user = os.getenv("USER", "anonymous")
+            schema_name_parts.append("dev")
+            schema_name_parts.append(user)
 
         else:
-            schema_name_parts.append("dev")
-            schema_name_parts.append(os.getenv("USER", "anonymous"))
+            python_version = os.getenv("PYTHON_VERSION")
+            python_version_short = f'P{python_version.replace(".", "")}' if python_version else ""
+
+            if github_head_ref:
+                github_head_ref_short = github_head_ref[:15] if github_head_ref and len(github_head_ref) > 15 else None
+                schema_name_parts.append("ci")
+                schema_name_parts.append(github_head_ref_short)
+                schema_name_parts.append(python_version_short)
+                schema_name_parts.append(generate_random_alpha_num_str(5))
+
+            else:
+                schema_name_parts.append("ci_main")
+                schema_name_parts.append(python_version_short)
+                schema_name_parts.append(generate_random_alpha_num_str(5))
 
         schema_name_raw = "_".join(schema_name_parts)
         schema_name = re.sub("[^0-9a-zA-Z]+", "_", schema_name_raw).lower()
