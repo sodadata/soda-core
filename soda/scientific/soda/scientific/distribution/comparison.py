@@ -9,7 +9,6 @@ from pydantic import FilePath
 from scipy.stats import chisquare, ks_2samp, wasserstein_distance
 from soda.sodacl.distribution_check_cfg import DistributionCheckCfg
 
-from soda.scientific.distribution.generate_dro import DROGenerator
 from soda.scientific.distribution.utils import (
     DistCfg,
     RefDataCfg,
@@ -150,9 +149,9 @@ class DistributionChecker:
 
                 else:
                     raise MissingBinsAndWeights(
-                        f'''The DRO in your "{ref_file_path}" distribution reference file does not contain a "distribution_reference" key with weights and bins.'''
-                        f''' Make sure that before running "soda scan" you create a DRO by running "soda update". For more information visit the docs:\n'''
-                        f'''https://docs.soda.io/soda-cl/distribution.html#generate-a-distribution-reference-object-dro.'''
+                        f"""The DRO in your "{ref_file_path}" distribution reference file does not contain a "distribution_reference" key with weights and bins."""
+                        f""" Make sure that before running "soda scan" you create a DRO by running "soda update". For more information visit the docs:\n"""
+                        f"""https://docs.soda.io/soda-cl/distribution.html#generate-a-distribution-reference-object-dro."""
                     )
 
             except yaml.YAMLError as exc:
