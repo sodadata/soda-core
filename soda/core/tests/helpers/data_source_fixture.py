@@ -47,10 +47,18 @@ class DataSourceFixture:
 
     def _create_schema_name(self):
         schema_name_parts = []
-        github_head_ref = os.getenv("GITHUB_HEAD_REF")
-        if github_head_ref:
+        github_ref_name = os.getenv("GITHUB_REF_NAME")
+
+        logger.debug(f'GITHUB_REF_NAME={os.getenv("GITHUB_REF_NAME")}')
+        logger.debug(f'GITHUB_HEAD_REF={os.getenv("GITHUB_HEAD_REF")}')
+        logger.debug(f'GITHUB_REF={os.getenv("GITHUB_REF")}')
+        logger.debug(f'GITHUB_JOB={os.getenv("GITHUB_JOB")}')
+        logger.debug(f'GITHUB_RUN_ID={os.getenv("GITHUB_RUN_ID")}')
+        logger.debug(f'GITHUB_RUN_NUMBER={os.getenv("GITHUB_RUN_NUMBER")}')
+
+        if github_ref_name:
             schema_name_parts.append("ci")
-            schema_name_parts.append(github_head_ref)
+            schema_name_parts.append(github_ref_name)
             python_version = os.getenv("PYTHON_VERSION")
             python_version = python_version.replace(".", "")
             schema_name_parts.append(python_version)
