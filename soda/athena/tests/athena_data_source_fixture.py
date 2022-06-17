@@ -14,6 +14,8 @@ class AthenaDataSourceFixture(DataSourceFixture):
     def __init__(self, test_data_source: str):
         super().__init__(test_data_source)
         self.s3_test_dir = os.environ["ATHENA_S3_TEST_DIR"]
+        if self.s3_test_dir.endswith("/"):
+            self.s3_test_dir = self.s3_test_dir[:-1]
 
     def _build_configuration_dict(self, schema_name: str | None = None) -> dict:
         return {
@@ -25,6 +27,7 @@ class AthenaDataSourceFixture(DataSourceFixture):
                     "region_name": os.getenv("ATHENA_REGION_NAME", "eu-west-1"),
                     "staging_dir": f"{self.s3_test_dir}/staging-dir",
                 },
+                "schema": schema_name if schema_name else os.getenv("ATHENA_SCHEMA"),
                 "schema": schema_name if schema_name else os.getenv("ATHENA_SCHEMA"),
             }
         }
@@ -56,12 +59,19 @@ class AthenaDataSourceFixture(DataSourceFixture):
         s3_client = self._create_s3_client()
         response = s3_client.list_objects_v2(Bucket=bucket, Prefix=folder)
         object_keys = self._extract_object_keys(response)
-        assert len(object_keys) < 200, (
+        logging.debug(f"Found {len(object_keys)} to be deleted")
+        max_objects = 200
+        assert len(object_keys) < max_objects, (
             f"This method is intended for tests and hence limited to a maximum of {max_objects} objects, "
             f"{len(object_keys)} objects exceeds the limit."
         )
-        if object_keys:
-            s3_client.delete_objects(Bucket=bucket, Delete={"Objects": object_keys})
+        if len(object_keys) > 0:
+            response: dict = s3_client.delete_objects(Bucket=bucket, Delete={"Objects": object_keys})
+            deleted_list = response.get("Deleted") if isinstance(response, dict) else None
+            deleted_count = (
+                len(deleted_list) if isinstance(deleted_list, list) else "Unknown aws delete objects reponse"
+            )
+            logging.debug(f"Deleted {deleted_count}")
 
     def _create_s3_client(self):
         self.filter_false_positive_boto3_warning()
