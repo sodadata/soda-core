@@ -95,7 +95,8 @@ def test_config_weights(weights):
 )
 def test_distribution_checker(method, reference_file_path, test_data, expected_stat, expected_p):
     from soda.scientific.distribution.comparison import DistributionChecker
-    with open(reference_file_path, "r") as f:
+
+    with open(reference_file_path) as f:
         dist_ref_yaml = f.read()
 
     check = DistributionChecker(method, dist_ref_yaml, reference_file_path, test_data)
@@ -124,7 +125,7 @@ def test_ref_config_file_exceptions(reference_file_path, exception):
 
     with pytest.raises(exception):
         test_data = list(pd.Series(default_rng(61).normal(loc=1.0, scale=1.0, size=1000)))
-        with open(reference_file_path, "r") as f:
+        with open(reference_file_path) as f:
             dist_ref_yaml = f.read()
         DistributionChecker("continuous", dist_ref_yaml, reference_file_path, test_data)
 
@@ -144,8 +145,8 @@ def test_ref_config_file_exceptions(reference_file_path, exception):
 def test_with_no_bins_and_weights(method, dist_ref_file_path, expected_stat, expected_p):
     from soda.scientific.distribution.comparison import DistributionChecker
 
-    with open(dist_ref_file_path, "r") as f:
-            dist_ref_yaml = f.read()
+    with open(dist_ref_file_path) as f:
+        dist_ref_yaml = f.read()
     test_data = list(default_rng(61).normal(loc=1.0, scale=1.0, size=1000))
     check_results = DistributionChecker(method, dist_ref_yaml, dist_ref_file_path, test_data).run()
     assert check_results["stat_value"] == pytest.approx(expected_stat, abs=1e-3)
@@ -559,6 +560,6 @@ def test_ref_config_incompatible(test_data, dist_ref_file_path, method):
     )
 
     with pytest.raises(DistributionRefIncompatibleException):
-        with open(dist_ref_file_path, "r") as f:
+        with open(dist_ref_file_path) as f:
             dist_ref_yaml = f.read()
         DistributionChecker(method, dist_ref_yaml, dist_ref_file_path, test_data)
