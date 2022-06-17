@@ -19,6 +19,9 @@ class SnowflakeDataSource(DataSource):
     SCHEMA_CHECK_TYPES_MAPPING: Dict = {
         "TEXT": ["character varying", "varchar", "string"],
         "NUMBER": ["integer", "int"],
+        "FLOAT": ["decimal"],
+        "TIMESTAMP_NTZ": ["timestamp"],
+        "TIMESTAMP_TZ": ["timestamptz"],
     }
     SQL_TYPE_FOR_CREATE_TABLE_MAP: Dict = {
         DataType.TEXT: "TEXT",
