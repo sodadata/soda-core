@@ -84,22 +84,6 @@ def test_ref_file_path(reference_file_path):
             id="Different continuous distribution with ks",
         ),
         pytest.param(
-            "ks",
-            "soda/scientific/tests/assets/dist_ref_continuous_no_bins.yml",
-            list(default_rng(61).normal(loc=1.0, scale=1.0, size=1000)),
-            0.0245,
-            0.9211961644657093,
-            id="Similar continuous distribution without bins and weights using ks",
-        ),
-        pytest.param(
-            "chi_square",
-            "soda/scientific/tests/assets/dist_ref_categorical_no_bins.yml",
-            ["peace", "at", "home", "peace", "in", "the", "world"] * 1000,
-            2.849628571261552,
-            0.7222714008190096,
-            id="Similar categorical distribution without bins and weights with chi-square",
-        ),
-        pytest.param(
             "chi_square",
             "soda/scientific/tests/assets/dist_ref_categorical.yml",
             [1, 1, 2, 3] * 1000,
@@ -119,6 +103,30 @@ def test_distribution_checker(method, reference_file_path, test_data, expected_s
     assert check_results["stat_value"] == pytest.approx(expected_stat, abs=1e-3)
     assert check_results["check_value"] == pytest.approx(expected_p, abs=1e-3)
 
+@pytest.mark.parametrize(
+    "method, reference_file_path, test_data",
+    [
+        pytest.param(
+            "ks",
+            "soda/scientific/tests/assets/dist_ref_continuous_no_bins.yml",
+            list(default_rng(61).normal(loc=1.0, scale=1.0, size=1000)),
+            id="Similar continuous distribution without bins and weights using ks",
+        ),
+        pytest.param(
+            "chi_square",
+            "soda/scientific/tests/assets/dist_ref_categorical_no_bins.yml",
+            ["peace", "at", "home", "peace", "in", "the", "world"] * 1000,
+            id="Similar categorical distribution without bins and weights with chi-square",
+        ),
+    ],
+)
+def test_distribution_checker_no_bins_weights(method, reference_file_path, test_data):
+    from soda.scientific.distribution.comparison import DistributionChecker, MissingBinsAndWeights
+
+    with pytest.raises(MissingBinsAndWeights):
+        test_dist_cfg = DistCfg(reference_file_path=reference_file_path)
+        DistCfg.method = method
+        DistributionChecker(test_dist_cfg, test_data)
 
 @pytest.mark.parametrize(
     "reference_file_path, exception",
@@ -141,30 +149,28 @@ def test_ref_config_file_exceptions(reference_file_path, exception):
     with pytest.raises(exception):
         test_data = list(pd.Series(default_rng(61).normal(loc=1.0, scale=1.0, size=1000)))
         test_dist_cfg = DistCfg(reference_file_path=reference_file_path)
+        DistCfg.method = 'psi'
         DistributionChecker(test_dist_cfg, test_data)
 
 
 @pytest.mark.parametrize(
-    "method, reference_file_path, expected_stat, expected_p",
+    "method, reference_file_path",
     [
         pytest.param(
             "ks",
             "soda/scientific/tests/assets/dist_ref_continuous_no_bins.yml",
-            0.0245,
-            0.9211961644657093,
             id="Missing bins and weights",
         ),
     ],
 )
-def test_with_no_bins_and_weights(method, reference_file_path, expected_stat, expected_p):
-    from soda.scientific.distribution.comparison import DistributionChecker
-
-    test_dist_cfg = DistCfg(reference_file_path=reference_file_path)
-    DistCfg.method = method
-    test_data = list(default_rng(61).normal(loc=1.0, scale=1.0, size=1000))
-    check_results = DistributionChecker(test_dist_cfg, test_data).run()
-    assert check_results["stat_value"] == pytest.approx(expected_stat, abs=1e-3)
-    assert check_results["check_value"] == pytest.approx(expected_p, abs=1e-3)
+def test_with_no_bins_and_weights(method, reference_file_path):
+    from soda.scientific.distribution.comparison import DistributionChecker, MissingBinsAndWeights
+    
+    with pytest.raises(MissingBinsAndWeights):
+        test_dist_cfg = DistCfg(reference_file_path=reference_file_path)
+        DistCfg.method = method
+        test_data = list(default_rng(61).normal(loc=1.0, scale=1.0, size=1000))
+        DistributionChecker(test_dist_cfg, test_data)
 
 
 # The following bins and weights are generated based on
