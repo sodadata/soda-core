@@ -20,7 +20,7 @@ def test_distribution_check(scanner: Scanner, mock_file_system):
         f"{user_home_dir}/the_distribution_check_file.yml": dedent(
             f"""
                 checks for {table_name}:
-                  - distribution_difference(size, my_happy_ml_model_distribution) >= 0.05:
+                  - distribution_difference(size) >= 0.05:
                       distribution reference file: ./customers_size_distribution_reference.yml
                       method: ks
             """
@@ -79,7 +79,7 @@ def test_distribution_sql(scanner: Scanner, mock_file_system, table, expectation
         f"{user_home_dir}/the_distribution_check_file.yml": dedent(
             f"""
                 checks for {table_name}:
-                  - distribution_difference(size, my_happy_ml_model_distribution) >= 0.05:
+                  - distribution_difference(size) >= 0.05:
                       distribution reference file: ./customers_size_distribution_reference.yml
                       method: ks
             """
