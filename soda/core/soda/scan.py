@@ -574,8 +574,7 @@ class Scan:
             if data_source:
                 data_source_scan = data_source.create_data_source_scan(self, data_source_scan_cfg)
                 self._data_source_scans.append(data_source_scan)
-            else:
-                self._sodacl_cfg.data_source_scan_cfgs.pop(data_source_name)
+
         return data_source_scan
 
     def _jinja_resolve(
