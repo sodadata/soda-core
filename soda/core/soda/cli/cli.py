@@ -14,6 +14,7 @@ from typing import List, Optional, Tuple
 
 import click
 from ruamel.yaml import YAML
+from ruamel.yaml.main import round_trip_dump
 from soda.common.file_system import file_system
 from soda.common.logs import configure_logging
 from soda.common.yaml_helper import to_yaml_str
@@ -259,7 +260,7 @@ def update(
             # To clean up the file and don't leave the old syntax
             distribution_dict.pop("distribution reference")
 
-        new_file_content = to_yaml_str(distribution_dict)
+        new_file_content = round_trip_dump(distribution_reference_dict)
 
         fs.file_write_from_str(path=distribution_reference_file, file_content_str=new_file_content)
 
