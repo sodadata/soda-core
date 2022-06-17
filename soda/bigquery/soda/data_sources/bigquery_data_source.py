@@ -110,7 +110,7 @@ class BigQueryDataSource(DataSource):
 
         sql = (
             f"SELECT column_name, data_type, is_nullable "
-            f"FROM `{self.dataset_name}.INFORMATION_SCHEMA.COLUMNS` "
+            f"FROM {self.sql_information_schema_columns()} "
             f"WHERE table_name = '{table_name}'"
             f"{included_columns_filter}"
             f"{excluded_columns_filter}"
@@ -125,7 +125,7 @@ class BigQueryDataSource(DataSource):
         where_clause = f"\nWHERE {table_filter_expression} \n" if table_filter_expression else ""
         return (
             f"SELECT table_name, column_name, data_type, is_nullable \n"
-            f"FROM {self.dataset_name}.INFORMATION_SCHEMA.COLUMNS"
+            f"FROM {self.sql_information_schema_tables()}"
             f"{where_clause}"
         )
 
@@ -178,8 +178,11 @@ class BigQueryDataSource(DataSource):
             return f"{metric_name.upper()}({expr})"
         return super().get_metric_sql_aggregation_expression(metric_name, metric_args, expr)
 
-    def sql_information_schema_identifier(self) -> str:
-        return f"{self.project_id}.{self.dataset_name}.INFORMATION_SCHEMA.TABLES"
+    def sql_information_schema_tables(self) -> str:
+        return f"{self.schema}.INFORMATION_SCHEMA.TABLES"
+
+    def sql_information_schema_columns(self) -> str:
+        return f"{self.schema}.INFORMATION_SCHEMA.COLUMNS"
 
     @staticmethod
     def default_casify_type_name(identifier: str) -> str:

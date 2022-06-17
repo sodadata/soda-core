@@ -270,7 +270,7 @@ class DataSource:
         # compose query template
         sql = (
             f"SELECT {', '.join(self.column_metadata_columns())} \n"
-            f"FROM information_schema.columns \n"
+            f"FROM {self.sql_information_schema_columns()} \n"
             f"WHERE {where_filter}"
             "\nORDER BY ORDINAL_POSITION"
         )
@@ -288,17 +288,6 @@ class DataSource:
         )
         where_clause = f"\nWHERE {table_filter_expression} \n" if table_filter_expression else ""
         return f"SELECT relname, n_live_tup \n" f"FROM pg_stat_user_tables" f"{where_clause}"
-
-    def sql_get_column(self, include_tables: list[str] | None = None, exclude_tables: list[str] | None = None) -> str:
-        table_filter_expression = self.sql_table_include_exclude_filter(
-            "table_name", "table_schema", include_tables, exclude_tables
-        )
-        where_clause = f"\nWHERE {table_filter_expression} \n" if table_filter_expression else ""
-        return (
-            f"SELECT table_name, column_name, data_type, is_nullable \n"
-            f"FROM information_schema.columns"
-            f"{where_clause}"
-        )
 
     def sql_get_table_count(self, table_name: str) -> str:
         return f"SELECT {self.expr_count_all()} from {self.qualified_table_name(table_name)}"
@@ -334,7 +323,7 @@ class DataSource:
         table_column_name: str = "table_name",
         schema_column_name: str = "table_schema",
     ) -> str:
-        sql = f"SELECT table_name \n" f"FROM {self.sql_information_schema_identifier()}"
+        sql = f"SELECT table_name \n" f"FROM {self.sql_information_schema_tables()}"
         where_clauses = []
 
         if filter:
@@ -352,8 +341,11 @@ class DataSource:
 
         return sql
 
-    def sql_information_schema_identifier(self) -> str:
+    def sql_information_schema_tables(self) -> str:
         return "information_schema.tables"
+
+    def sql_information_schema_columns(self) -> str:
+        return "information_schema.columns"
 
     def sql_analyze_table(self, table: str) -> str | None:
         return None
