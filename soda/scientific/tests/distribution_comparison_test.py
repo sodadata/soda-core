@@ -103,6 +103,7 @@ def test_distribution_checker(method, reference_file_path, test_data, expected_s
     assert check_results["stat_value"] == pytest.approx(expected_stat, abs=1e-3)
     assert check_results["check_value"] == pytest.approx(expected_p, abs=1e-3)
 
+
 @pytest.mark.parametrize(
     "method, reference_file_path, test_data",
     [
@@ -121,12 +122,16 @@ def test_distribution_checker(method, reference_file_path, test_data, expected_s
     ],
 )
 def test_distribution_checker_no_bins_weights(method, reference_file_path, test_data):
-    from soda.scientific.distribution.comparison import DistributionChecker, MissingBinsAndWeights
+    from soda.scientific.distribution.comparison import (
+        DistributionChecker,
+        MissingBinsAndWeights,
+    )
 
     with pytest.raises(MissingBinsAndWeights):
         test_dist_cfg = DistCfg(reference_file_path=reference_file_path)
         DistCfg.method = method
         DistributionChecker(test_dist_cfg, test_data)
+
 
 @pytest.mark.parametrize(
     "reference_file_path, exception",
@@ -149,7 +154,7 @@ def test_ref_config_file_exceptions(reference_file_path, exception):
     with pytest.raises(exception):
         test_data = list(pd.Series(default_rng(61).normal(loc=1.0, scale=1.0, size=1000)))
         test_dist_cfg = DistCfg(reference_file_path=reference_file_path)
-        DistCfg.method = 'psi'
+        DistCfg.method = "psi"
         DistributionChecker(test_dist_cfg, test_data)
 
 
@@ -164,8 +169,11 @@ def test_ref_config_file_exceptions(reference_file_path, exception):
     ],
 )
 def test_with_no_bins_and_weights(method, reference_file_path):
-    from soda.scientific.distribution.comparison import DistributionChecker, MissingBinsAndWeights
-    
+    from soda.scientific.distribution.comparison import (
+        DistributionChecker,
+        MissingBinsAndWeights,
+    )
+
     with pytest.raises(MissingBinsAndWeights):
         test_dist_cfg = DistCfg(reference_file_path=reference_file_path)
         DistCfg.method = method
