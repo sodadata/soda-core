@@ -1,15 +1,15 @@
 import pytest
 from tests.helpers.common_test_tables import customers_test_table
+from tests.helpers.data_source_fixture import DataSourceFixture
 from tests.helpers.fixtures import test_data_source
-from tests.helpers.scanner import Scanner
 
 
 @pytest.mark.skipif(
     test_data_source != "postgres",
     reason="postgres-only aggregation functions",
 )
-def test_data_source_specific_statistics_aggregation_metrics(scanner: Scanner):
-    table_name = scanner.ensure_test_table(customers_test_table)
+def test_data_source_specific_statistics_aggregation_metrics(data_source_fixture: DataSourceFixture):
+    table_name = data_source_fixture.ensure_test_table(customers_test_table)
 
     all_checks = {
         "stdev": "stddev(size) between 3.26 and 3.27",
@@ -30,7 +30,7 @@ def test_data_source_specific_statistics_aggregation_metrics(scanner: Scanner):
     for check in supported_checks.values():
         checks_str += f"  - {check}\n"
 
-    scan = scanner.create_test_scan()
+    scan = data_source_fixture.create_test_scan()
     scan.add_sodacl_yaml_str(
         f"""
 checks for {table_name}:

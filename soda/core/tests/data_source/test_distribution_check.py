@@ -1,22 +1,24 @@
-import os
 from textwrap import dedent
 
 import pytest
 from tests.helpers.common_test_tables import customers_dist_check_test_table
+from tests.helpers.data_source_fixture import DataSourceFixture
 from tests.helpers.mock_file_system import MockFileSystem
 from tests.helpers.fixtures import test_data_source
-from tests.helpers.scanner import Scanner
 
 
 @pytest.mark.skipif(
     test_data_source == "athena",
     reason="TODO: fix for athena.",
 )
-def test_distribution_check(scanner: Scanner, mock_file_system: MockFileSystem):
-    table_name = scanner.ensure_test_table(customers_dist_check_test_table)
-    table_name = scanner.data_source.default_casify_table_name(table_name)
+
+def test_distribution_check(data_source_fixture: DataSourceFixture, mock_file_system: MockFileSystem):
+    table_name = data_source_fixture.ensure_test_table(customers_dist_check_test_table)
+    table_name = data_source_fixture.data_source.default_casify_table_name(table_name)
+
     
-    scan = scanner.create_test_scan()
+    scan = data_source_fixture.create_test_scan()
+
     user_home_dir = mock_file_system.user_home_dir()
 
     mock_file_system.files = {
@@ -48,17 +50,18 @@ def test_distribution_check(scanner: Scanner, mock_file_system: MockFileSystem):
 @pytest.mark.parametrize(
     "table, expectation",
     [
-        pytest.param(customers_dist_check_test_table, "SELECT \n  size \nFROM {table_name}\n LIMIT 1000000"),
+        pytest.param(customers_dist_check_test_table, "SELECT \n  size \nFROM {schema_name}.{table_name}\n LIMIT 1000000"),
     ],
 )
 @pytest.mark.skipif(
     test_data_source == "athena",
     reason="TODO: fix for athena.",
 )
-def test_distribution_sql(scanner: Scanner, mock_file_system, table, expectation):
-    table_name = scanner.ensure_test_table(table)
-    table_name = scanner.data_source.default_casify_table_name(table_name)
-    scan = scanner.create_test_scan()
+def test_distribution_sql(data_source_fixture: DataSourceFixture, mock_file_system, table, expectation):
+    table_name = data_source_fixture.ensure_test_table(table)
+    table_name = data_source_fixture.data_source.default_casify_table_name(table_name)
+
+    scan = data_source_fixture.create_test_scan()
     user_home_dir = mock_file_system.user_home_dir()
 
     mock_file_system.files = {
@@ -85,4 +88,4 @@ def test_distribution_sql(scanner: Scanner, mock_file_system, table, expectation
 
     scan.enable_mock_soda_cloud()
     scan.execute()
-    assert scan._checks[0].query.sql == expectation.format(table_name=table_name)
+    assert scan._checks[0].query.sql == expectation.format(table_name=table_name, schema_name=data_source_fixture.schema_name)

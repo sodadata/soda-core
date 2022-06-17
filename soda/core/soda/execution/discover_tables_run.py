@@ -26,7 +26,7 @@ class DiscoverTablesRun:
         row_counts_by_table_name: dict[str, int] = self.data_source.get_row_counts_all_tables(
             include_tables=self.data_source_check_cfg.include_tables,
             exclude_tables=self.data_source_check_cfg.exclude_tables,
-            query_name=f"discover-tables-find-tables-and-row-counts",
+            query_name=f"(row-counts",
         )
         for table_name in row_counts_by_table_name:
             self.logs.debug(f"Discovering columns for {table_name}")
@@ -42,6 +42,4 @@ class DiscoverTablesRun:
             for column_name, column_type in columns_metadata_result.items():
                 _ = discover_tables_result_table.create_column(column_name, column_type)
 
-        if not discover_tables_result.tables:
-            self.logs.error(f"Discover tables for data source: {self.data_source.data_source_name} failed")
         return discover_tables_result

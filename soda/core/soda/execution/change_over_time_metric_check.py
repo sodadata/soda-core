@@ -36,7 +36,9 @@ class ChangeOverTimeMetricCheck(MetricCheck):
 
         metric_value = self.get_metric_value()
 
-        historic_value = historic_values.get(KEY_HISTORIC_METRIC_AGGREGATE)
+        historic_value = (
+            historic_values.get(KEY_HISTORIC_METRIC_AGGREGATE).get("measurements").get("results")[0].get("value")
+        )
         if historic_value is not None:
             if isinstance(metric_value, int) and isinstance(historic_value, int):
                 self.check_value = metric_value - historic_value
