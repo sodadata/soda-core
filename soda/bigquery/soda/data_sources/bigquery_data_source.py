@@ -136,7 +136,7 @@ class BigQueryDataSource(DataSource):
             "table_id", "dataset_id", include_tables, exclude_tables
         )
         where_clause = f"\nWHERE {table_filter_expression} \n" if table_filter_expression else ""
-        return f"SELECT table_id, row_count \n" f"FROM {self.dataset_name}.__TABLES__" f"{where_clause}"
+        return f"SELECT table_id, row_count \n" f"FROM {self.schema}.__TABLES__" f"{where_clause}"
 
     def sql_select_all(self, table_name: str, limit: int = None) -> str:
         limit_sql = ""
