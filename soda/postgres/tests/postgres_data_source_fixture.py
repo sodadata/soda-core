@@ -23,7 +23,7 @@ class PostgresDataSourceFixture(DataSourceFixture):
                     "host": "localhost",
                     "username": os.getenv("POSTGRES_USERNAME", "sodasql"),
                     "password": os.getenv("POSTGRES_PASSWORD"),
-                    "database": os.getenv("POSTGRES_HOST", "sodasql"),
+                    "database": os.getenv("POSTGRES_DATABASE", "sodasql"),
                 },
                 "schema": schema_name if schema_name else os.getenv("POSTGRES_SCHEMA", "public"),
             }

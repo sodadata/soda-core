@@ -13,8 +13,6 @@ import pytest
 from dotenv import load_dotenv
 from soda.common.file_system import FileSystemSingleton
 from soda.common.logs import configure_logging
-from soda.execution.data_source import DataSource
-from soda.scan import Scan
 from tests.helpers.data_source_fixture import DataSourceFixture
 from tests.helpers.mock_file_system import MockFileSystem
 
@@ -37,44 +35,6 @@ def pytest_runtest_logstart(nodeid: str, location: tuple[str, int | None, str]) 
     Prints the test function name and the location in a format that PyCharm recognizes and turns into a link in the console
     """
     logging.debug(f'### "soda/core/tests/{location[0]}:{(location[1]+1)}" {location[2]}')
-
-
-def data_source_config_str() -> str:
-    """Whole test data source config as string."""
-    with open(f"{project_root_dir}soda/core/tests/data_sources.yml") as f:
-        return f.read()
-
-
-@pytest.fixture(scope="session")
-def scan(data_source_config_str: str) -> Scan:
-    data_source_name = test_data_source
-
-    scan = Scan()
-    scan.set_data_source_name(data_source_name)
-    scan.add_configuration_yaml_str(data_source_config_str)
-
-    return scan
-
-
-@pytest.fixture(scope="session")
-def data_source(scan: Scan) -> DataSource:
-    data_source_name = test_data_source
-
-    if data_source_name == "spark_df":
-        from tests.spark_df_data_source_test_helper import SparkDfDataSourceTestHelper
-
-        SparkDfDataSourceTestHelper.initialize_local_spark_session(scan)
-
-    data_source_connection_manager = scan._data_source_manager
-    data_source = data_source_connection_manager.get_data_source(data_source_name)
-    if not data_source:
-        raise Exception(f"Unable to find and/or set up specified '{data_source_name}' test data_source config.")
-    connection = data_source_connection_manager.connect(data_source)
-    scan._get_or_create_data_source_scan(test_data_source)
-
-    yield data_source
-
-    connection.close()
 
 
 @pytest.fixture(scope="session")

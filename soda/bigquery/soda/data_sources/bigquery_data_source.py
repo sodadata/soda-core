@@ -15,7 +15,7 @@ from soda.execution.data_type import DataType
 logger = logging.getLogger(__name__)
 
 
-class BigqueryDataSource(DataSource):
+class BigQueryDataSource(DataSource):
     TYPE = "bigquery"
 
     SCHEMA_CHECK_TYPES_MAPPING: dict = {
