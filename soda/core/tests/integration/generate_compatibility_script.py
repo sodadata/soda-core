@@ -51,7 +51,6 @@ def generate_compatibility_script():
 
 
 class SqlHandler(Handler):
-
     def __init__(self):
         super().__init__()
 
@@ -60,7 +59,7 @@ class SqlHandler(Handler):
         if record.name == "tests.helpers.data_source_fixture":
             prefix = "  # Test data handler update: \n  #   "
             if msg.startswith(prefix):
-                ddl = msg[len(prefix):]
+                ddl = msg[len(prefix) :]
                 ddl = ddl.replace("\n  #", "\n")
                 print(f"{ddl}\n")
         elif msg.startswith("Query "):
@@ -69,7 +68,7 @@ class SqlHandler(Handler):
                 query_name = msg[6:colon_index]
                 if query_name.startswith("postgres."):
                     query_name = query_name[9:]
-                sql = msg[colon_index+2:]
+                sql = msg[colon_index + 2 :]
                 print(f"# {query_name}")
                 print(f"{sql}\n")
 
