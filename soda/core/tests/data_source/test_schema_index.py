@@ -1,18 +1,18 @@
 from soda.execution.schema_check import SchemaCheck
 from tests.helpers.common_test_tables import customers_test_table
-from tests.helpers.scanner import Scanner
+from tests.helpers.data_source_fixture import DataSourceFixture
 from tests.helpers.utils import format_checks
 
 
-def test_required_columns_indexes_pass(scanner: Scanner):
-    table_name = scanner.ensure_test_table(customers_test_table)
+def test_required_columns_indexes_pass(data_source_fixture: DataSourceFixture):
+    table_name = data_source_fixture.ensure_test_table(customers_test_table)
 
-    scan = scanner.create_test_scan()
+    scan = data_source_fixture.create_test_scan()
 
     checks_str = format_checks(
         [("id", "0"), ("sizeTxt", "2"), ("distance", "3")],
         indent=15,
-        data_source=scanner.data_source,
+        data_source=data_source_fixture.data_source,
     )
     scan.add_sodacl_yaml_str(
         f"""
@@ -28,16 +28,16 @@ def test_required_columns_indexes_pass(scanner: Scanner):
     scan.assert_all_checks_pass()
 
 
-def test_required_columns_indexes_fail(scanner: Scanner):
-    table_name = scanner.ensure_test_table(customers_test_table)
-    default_casify_column_name = scanner.data_source.default_casify_column_name
+def test_required_columns_indexes_fail(data_source_fixture: DataSourceFixture):
+    table_name = data_source_fixture.ensure_test_table(customers_test_table)
+    default_casify_column_name = data_source_fixture.data_source.default_casify_column_name
     checks_str = format_checks(
         [("id", "6"), ("sizeTxt", "3"), ("distance", "4")],
         indent=15,
-        data_source=scanner.data_source,
+        data_source=data_source_fixture.data_source,
     )
 
-    scan = scanner.create_test_scan()
+    scan = data_source_fixture.create_test_scan()
     scan.add_sodacl_yaml_str(
         f"""
       checks for {table_name}:
@@ -70,16 +70,16 @@ def test_required_columns_indexes_fail(scanner: Scanner):
     }
 
 
-def test_required_columns_indexes_warn(scanner: Scanner):
-    table_name = scanner.ensure_test_table(customers_test_table)
-    default_casify_column_name = scanner.data_source.default_casify_column_name
+def test_required_columns_indexes_warn(data_source_fixture: DataSourceFixture):
+    table_name = data_source_fixture.ensure_test_table(customers_test_table)
+    default_casify_column_name = data_source_fixture.data_source.default_casify_column_name
     checks_str = format_checks(
         [("id", "6"), ("sizeTxt", "3"), ("distance", "4")],
         indent=15,
-        data_source=scanner.data_source,
+        data_source=data_source_fixture.data_source,
     )
 
-    scan = scanner.create_test_scan()
+    scan = data_source_fixture.create_test_scan()
     scan.add_sodacl_yaml_str(
         f"""
       checks for {table_name}:

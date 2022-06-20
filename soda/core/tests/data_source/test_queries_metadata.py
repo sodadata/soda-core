@@ -3,8 +3,8 @@ from tests.helpers.common_test_tables import (
     customers_test_table,
     raw_customers_test_table,
 )
+from tests.helpers.data_source_fixture import DataSourceFixture
 from tests.helpers.fixtures import test_data_source
-from tests.helpers.scanner import Scanner
 
 
 @pytest.mark.parametrize(
@@ -22,10 +22,12 @@ from tests.helpers.scanner import Scanner
     ],
 )
 @pytest.mark.skip
-def test_get_row_counts_all_tables(scanner: Scanner, include_tables, exclude_tables, expected_count):
-    scanner.ensure_test_table(customers_test_table)
-    scanner.ensure_test_table(raw_customers_test_table)
-    scan = scanner.create_test_scan()
+def test_get_row_counts_all_tables(
+    data_source_fixture: DataSourceFixture, include_tables, exclude_tables, expected_count
+):
+    data_source_fixture.ensure_test_table(customers_test_table)
+    data_source_fixture.ensure_test_table(raw_customers_test_table)
+    scan = data_source_fixture.create_test_scan()
     data_source = scan._data_source_manager.get_data_source(test_data_source)
 
     result = data_source.get_row_counts_all_tables(include_tables=include_tables, exclude_tables=exclude_tables)

@@ -129,8 +129,6 @@ class Scan:
     def _parse_configuration_yaml_str(self, configuration_yaml_str: str, file_path: str = "yaml string"):
         from soda.configuration.configuration_parser import ConfigurationParser
 
-        assert "table" not in configuration_yaml_str
-
         environment_parse = ConfigurationParser(
             configuration=self._configuration,
             logs=self._logs,
@@ -532,7 +530,11 @@ class Scan:
 
                 for table_name in table_names:
                     data_source_scan_cfg = self._sodacl_cfg.get_or_create_data_source_scan_cfgs(data_source_name)
-                    table_cfg = data_source_scan_cfg.get_or_create_table_cfg(table_name)
+                    data_source_scan = self._get_or_create_data_source_scan(
+                        data_source_name=data_source_scan_cfg.data_source_name
+                    )
+                    quoted_table_name = data_source_scan.data_source.quote_table(table_name)
+                    table_cfg = data_source_scan_cfg.get_or_create_table_cfg(quoted_table_name)
                     partition_cfg = table_cfg.find_partition(None, None)
                     for check_cfg_template in for_each_dataset_cfg.check_cfgs:
                         check_cfg = check_cfg_template.instantiate_for_each_dataset(
@@ -572,8 +574,7 @@ class Scan:
             if data_source:
                 data_source_scan = data_source.create_data_source_scan(self, data_source_scan_cfg)
                 self._data_source_scans.append(data_source_scan)
-            else:
-                self._sodacl_cfg.data_source_scan_cfgs.pop(data_source_name)
+
         return data_source_scan
 
     def _jinja_resolve(
