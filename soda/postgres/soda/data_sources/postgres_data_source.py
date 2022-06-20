@@ -61,16 +61,13 @@ class PostgresDataSource(DataSource):
             return f"PERCENTILE_DISC({percentile_fraction}) WITHIN GROUP (ORDER BY {expr})"
         return super().get_metric_sql_aggregation_expression(metric_name, metric_args, expr)
 
-    @staticmethod
-    def default_casify_table_name(identifier: str) -> str:
+    def default_casify_table_name(self, identifier: str) -> str:
         return identifier.lower()
 
-    @staticmethod
-    def default_casify_column_name(identifier: str) -> str:
+    def default_casify_column_name(self, identifier: str) -> str:
         return identifier.lower()
 
-    @staticmethod
-    def default_casify_type_name(identifier: str) -> str:
+    def default_casify_type_name(self, identifier: str) -> str:
         return identifier.lower()
 
     def safe_connection_data(self):
