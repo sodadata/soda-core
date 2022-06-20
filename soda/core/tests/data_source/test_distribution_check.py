@@ -93,6 +93,4 @@ def test_distribution_sql(data_source_fixture: DataSourceFixture, mock_file_syst
             table_name=table_name, schema_name=data_source_fixture.schema_name + "."
         )
     else:
-        assert scan._checks[0].query.sql == expectation.format(
-            table_name=table_name, schema_name=""
-        )
+        assert scan._checks[0].query.sql == expectation.format(table_name=table_name, schema_name="")
