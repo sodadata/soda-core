@@ -37,7 +37,10 @@ class DataSource:
     # Maps synonym types for the convenience of use in checks.
     # Keys represent the data_source type, values are lists of "aliases" that can be used in SodaCL as synonyms.
     SCHEMA_CHECK_TYPES_MAPPING: dict = {
-        "character varying": ["varchar"],
+        "character varying": ["varchar", "text"],
+        "double precision": ["decimal"],
+        "timestamp without time zone": ["timestamp"],
+        "timestamp with time zone": ["timestamptz"],
     }
     SQL_TYPE_FOR_CREATE_TABLE_MAP: dict = {
         DataType.TEXT: "VARCHAR(255)",
@@ -175,7 +178,7 @@ class DataSource:
         ):
             return True
 
-        return expected_type == actual_type
+        return expected_type == actual_type.lower()
 
     @staticmethod
     def column_metadata_columns() -> list:
@@ -806,18 +809,15 @@ class DataSource:
     def rollback(self):
         self.connection.rollback()
 
-    @staticmethod
-    def default_casify_table_name(identifier: str) -> str:
+    def default_casify_table_name(self, identifier: str) -> str:
         """Formats table identifier to e.g. a default case for a given data source."""
         return identifier
 
-    @staticmethod
-    def default_casify_column_name(identifier: str) -> str:
+    def default_casify_column_name(self, identifier: str) -> str:
         """Formats column identifier to e.g. a default case for a given data source."""
         return identifier
 
-    @staticmethod
-    def default_casify_type_name(identifier: str) -> str:
+    def default_casify_type_name(self, identifier: str) -> str:
         """Formats type identifier to e.g. a default case for a given data source."""
         return identifier
 

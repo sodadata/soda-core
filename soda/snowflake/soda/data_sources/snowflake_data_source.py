@@ -20,6 +20,9 @@ class SnowflakeDataSource(DataSource):
     SCHEMA_CHECK_TYPES_MAPPING: dict = {
         "TEXT": ["character varying", "varchar", "string"],
         "NUMBER": ["integer", "int"],
+        "FLOAT": ["decimal"],
+        "TIMESTAMP_NTZ": ["timestamp"],
+        "TIMESTAMP_TZ": ["timestamptz"],
     }
     SQL_TYPE_FOR_CREATE_TABLE_MAP: dict = {
         DataType.TEXT: "TEXT",
@@ -183,16 +186,13 @@ class SnowflakeDataSource(DataSource):
             tablename_filter_clauses.append(f"{schema_column_name.upper()} = '{self.schema.lower()}'")
         return "\n      AND ".join(tablename_filter_clauses) if tablename_filter_clauses else None
 
-    @staticmethod
-    def default_casify_table_name(identifier: str) -> str:
+    def default_casify_table_name(self, identifier: str) -> str:
         return identifier.upper()
 
-    @staticmethod
-    def default_casify_column_name(identifier: str) -> str:
+    def default_casify_column_name(self, identifier: str) -> str:
         return identifier.upper()
 
-    @staticmethod
-    def default_casify_type_name(identifier: str) -> str:
+    def default_casify_type_name(self, identifier: str) -> str:
         return identifier.upper()
 
     def safe_connection_data(self):

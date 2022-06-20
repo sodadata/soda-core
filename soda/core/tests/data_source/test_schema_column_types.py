@@ -10,18 +10,25 @@ def test_columns_types_pass(data_source_fixture: DataSourceFixture):
 
     scan = data_source_fixture.create_test_scan()
 
-    checks_str = format_checks(
-        [("id", "varchar"), ("distance", "integer")],
-        indent=15,
-        data_source=data_source_fixture.data_source,
-    )
+    def column_type_format(column_name: str) -> str:
+        test_column = customers_test_table.find_test_column_by_name(column_name)
+        casified_column_name = data_source_fixture.data_source.default_casify_column_name(column_name)
+        casified_data_type = data_source_fixture.data_source.default_casify_type_name(test_column.data_type)
+        return f"{casified_column_name}: {casified_data_type}"
+
     scan.add_sodacl_yaml_str(
         f"""
       checks for {table_name}:
         - schema:
             fail:
               when wrong column type:
-{checks_str}
+                {column_type_format('id')}
+                {column_type_format('size')}
+                {column_type_format('sizeTxt')}
+                {column_type_format('distance')}
+                {column_type_format('date')}
+                {column_type_format('ts')}
+                {column_type_format('ts_with_tz')}
     """
     )
     # This Also verifies type aliasing - check using "varchar", actual is "character varying"

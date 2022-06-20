@@ -236,8 +236,7 @@ class SparkSQLBase(DataSource):
                 ]
         return filtered_table_names
 
-    @staticmethod
-    def default_casify_table_name(identifier: str) -> str:
+    def default_casify_table_name(self, identifier: str) -> str:
         return identifier.lower()
 
     def rollback(self):

@@ -9,7 +9,7 @@ if sys.version_info < (3, 7):
     sys.exit(1)
 
 package_name = "soda-core-spark"
-package_version = "3.0.0rc1"
+package_version = "3.0.0rc2"
 description = "Soda Core Spark Package"
 
 requires = [
