@@ -4,6 +4,7 @@ from textwrap import dedent
 import pytest
 from tests.helpers.common_test_tables import customers_dist_check_test_table
 from tests.helpers.data_source_fixture import DataSourceFixture
+from tests.helpers.fixtures import test_data_source
 
 
 # @pytest.mark.skipif(
@@ -62,7 +63,9 @@ def test_distribution_check(data_source_fixture: DataSourceFixture, mock_file_sy
 @pytest.mark.parametrize(
     "table, expectation",
     [
-        pytest.param(customers_dist_check_test_table, "LIMIT 1000000"),
+        pytest.param(
+            customers_dist_check_test_table, "SELECT \n  size \nFROM {schema_name}{table_name}\n LIMIT 1000000"
+        ),
     ],
 )
 # @pytest.mark.skipif(
@@ -104,4 +107,11 @@ def test_distribution_sql(data_source_fixture: DataSourceFixture, mock_file_syst
     scan.execute()
 
     os.remove(ref_file)
-    assert expectation.format(table_name=table_name) in scan._checks[0].query.sql
+    # TODO: We might want to put this into a helper at some point if we're to use this
+    # in more than one test down the line.
+    if test_data_source != "spark_df":
+        assert scan._checks[0].query.sql == expectation.format(
+            table_name=table_name, schema_name=f"{data_source_fixture.schema_name}."
+        )
+    else:
+        assert scan._checks[0].query.sql == expectation.format(table_name=table_name, schema_name="")
