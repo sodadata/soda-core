@@ -19,8 +19,10 @@ class BigQueryDataSource(DataSource):
     TYPE = "bigquery"
 
     SCHEMA_CHECK_TYPES_MAPPING: dict = {
-        "STRING": ["character varying", "varchar"],
+        "STRING": ["character varying", "varchar", "text"],
         "INT64": ["integer", "int"],
+        "NUMERIC": ["decimal"],
+        "TIMESTAMP": ["timestamptz"],
     }
     SQL_TYPE_FOR_CREATE_TABLE_MAP: dict = {
         DataType.TEXT: "STRING",
@@ -138,13 +140,6 @@ class BigQueryDataSource(DataSource):
         where_clause = f"\nWHERE {table_filter_expression} \n" if table_filter_expression else ""
         return f"SELECT table_id, row_count \n" f"FROM {self.schema}.__TABLES__" f"{where_clause}"
 
-    def sql_select_all(self, table_name: str, limit: int = None) -> str:
-        limit_sql = ""
-        if limit is not None:
-            limit_sql = f" \n LIMIT {limit}"
-        sql = f"SELECT * FROM {table_name}{limit_sql}"
-        return sql
-
     def quote_table(self, table_name) -> str:
         return f"`{table_name}`"
 
@@ -184,8 +179,7 @@ class BigQueryDataSource(DataSource):
     def sql_information_schema_columns(self) -> str:
         return f"{self.schema}.INFORMATION_SCHEMA.COLUMNS"
 
-    @staticmethod
-    def default_casify_type_name(identifier: str) -> str:
+    def default_casify_type_name(self, identifier: str) -> str:
         return identifier.upper()
 
     def safe_connection_data(self):

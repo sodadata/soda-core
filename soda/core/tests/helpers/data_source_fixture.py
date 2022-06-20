@@ -7,6 +7,7 @@ import textwrap
 from importlib import import_module
 
 from soda.common.lazy import Lazy
+from soda.common.random_helper import generate_random_alpha_num_str
 from soda.common.yaml_helper import YamlHelper
 from soda.execution.data_source import DataSource
 from soda.scan import Scan
@@ -47,19 +48,35 @@ class DataSourceFixture:
 
     def _create_schema_name(self):
         schema_name_parts = []
+
+        github_ref_name = os.getenv("GITHUB_REF_NAME")
         github_head_ref = os.getenv("GITHUB_HEAD_REF")
-        if github_head_ref:
-            schema_name_parts.append("ci")
-            schema_name_parts.append(github_head_ref)
-            python_version = os.getenv("PYTHON_VERSION")
-            python_version = python_version.replace(".", "")
-            schema_name_parts.append(python_version)
+
+        if not github_ref_name and not github_head_ref:
+            user = os.getenv("USER", "anonymous")
+            schema_name_parts.append("dev")
+            schema_name_parts.append(user)
 
         else:
-            schema_name_parts.append("dev")
-            schema_name_parts.append(os.getenv("USER", "anonymous"))
+            python_version = os.getenv("PYTHON_VERSION")
+            python_version_short = f'P{python_version.replace(".", "")}' if python_version else ""
+
+            if github_head_ref:
+                github_head_ref_short = (
+                    github_head_ref[:15] if github_head_ref and len(github_head_ref) > 15 else github_head_ref
+                )
+                schema_name_parts.append("ci")
+                schema_name_parts.append(github_head_ref_short)
+                schema_name_parts.append(python_version_short)
+                schema_name_parts.append(generate_random_alpha_num_str(5))
+
+            else:
+                schema_name_parts.append("ci_main")
+                schema_name_parts.append(python_version_short)
+                schema_name_parts.append(generate_random_alpha_num_str(5))
+
         schema_name_raw = "_".join(schema_name_parts)
-        schema_name = re.sub("[^0-9a-zA-Z]+", "_", schema_name_raw)
+        schema_name = re.sub("[^0-9a-zA-Z]+", "_", schema_name_raw).lower()
         return schema_name
 
     def _test_session_starts(self):
@@ -200,7 +217,7 @@ class DataSourceFixture:
 
     def _drop_test_table_sql(self, table_name):
         qualified_table_name = self.data_source.qualified_table_name(table_name)
-        return f"DROP TABLE {qualified_table_name} IF EXISTS;"
+        return f"DROP TABLE IF EXISTS {qualified_table_name}"
 
     def _fetch_all(self, sql: str, connection=None) -> list[tuple]:
         if connection is None:
