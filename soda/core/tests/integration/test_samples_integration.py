@@ -4,15 +4,15 @@ from textwrap import dedent
 import pytest
 from soda.scan import Scan
 from tests.helpers.common_test_tables import customers_test_table
-from tests.helpers.scanner import Scanner
+from tests.helpers.data_source_fixture import DataSourceFixture
 
 
 @pytest.mark.skipif(
     os.getenv("INTEGRATION", None) != "ENABLED",
     reason="Run only if integration tests are enabled.",
 )
-def test_scan(scanner: Scanner, data_source_config_str: str):
-    table_name = scanner.ensure_test_table(customers_test_table)
+def test_scan(data_source_fixture: DataSourceFixture, data_source_config_str: str):
+    table_name = data_source_fixture.ensure_test_table(customers_test_table)
 
     scan = Scan()
     scan.set_verbose()
@@ -34,7 +34,7 @@ def test_scan(scanner: Scanner, data_source_config_str: str):
     scan.add_sodacl_yaml_str(
         f"""
           checks for {table_name}:
-            - missing_count(cat) > 0
+            - row_count > 0
         """
     )
     scan.execute()
