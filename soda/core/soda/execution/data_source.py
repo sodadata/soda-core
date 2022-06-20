@@ -563,6 +563,18 @@ class DataSource:
 
         return result
 
+    def get_table_row_count(self, table_name: str) -> int | None:
+        query_name_str = f"get_row_count_{table_name}"
+        query = Query(
+            data_source_scan=self.data_source_scan,
+            unqualified_query_name=query_name_str,
+            sql=self.sql_get_table_count(self.quote_table(table_name)),
+        )
+        query.execute()
+        if query.rows:
+            return query.rows[0][0]
+        return None
+
     def get_table_names(
         self,
         filter: str | None = None,
