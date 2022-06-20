@@ -49,12 +49,12 @@ class ProfileColumnsRun:
         self.logs.info(f"Running column profiling for data source: {self.data_source.data_source_name}")
 
         # row_counts is a dict that maps table names to row counts.
-        row_counts_by_table_name: dict[str, int] = self.data_source.get_row_counts_all_tables(
+        table_names: dict[str, int] = self.data_source.get_table_names(
             include_tables=self._get_table_expression(self.profile_columns_cfg.include_columns),
             exclude_tables=self._get_table_expression(self.profile_columns_cfg.exclude_columns, is_for_exclusion=True),
-            query_name="profile-columns-get-tables-and-row-counts",
+            query_name="profile-columns-get-table-names",
         )
-        if len(row_counts_by_table_name) < 1:
+        if len(table_names) < 1:
             self.logs.warning(
                 f"No table matching your SodaCL inclusion list found on your {self.data_source.data_source_name} "
                 "data source. Profiling results may be incomplete or entirely skipped"
@@ -66,9 +66,9 @@ class ProfileColumnsRun:
         parsed_excluded_tables_and_columns = self._build_column_expression_list(
             self.profile_columns_cfg.exclude_columns
         )
-        for table_name in row_counts_by_table_name:
+        for table_name in table_names:
             self.logs.debug(f"Profiling columns for {table_name}")
-            measured_row_count = row_counts_by_table_name[table_name]
+            measured_row_count = self.data_source.get_table_row_count(table_name)
             profile_columns_result_table = profile_columns_result.create_table(
                 table_name, self.data_source.data_source_name, measured_row_count
             )
