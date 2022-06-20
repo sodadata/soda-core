@@ -38,7 +38,7 @@ class MissingCategories(Exception):
 class DistributionRefIncompatibleException(Exception):
     """Thrown when the DRO distribution_type is incompatible with the test that is used."""
 
-    
+
 class DistributionChecker:
     def __init__(self, distribution_check_cfg: DistributionCheckCfg, data: List[Any]):
         cfg = DistCfg(
