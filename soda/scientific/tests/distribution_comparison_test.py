@@ -103,6 +103,7 @@ def test_distribution_checker(method, reference_file_path, test_data, expected_s
     assert check_results["stat_value"] == pytest.approx(expected_stat, abs=1e-3)
     assert check_results["check_value"] == pytest.approx(expected_p, abs=1e-3)
 
+
 # The following bins and weights are generated based on
 # default_rng().normal(loc=1.0, scale=1.0, size=1000)
 TEST_CONFIG_CONT_1 = RefDataCfg(
