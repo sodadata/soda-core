@@ -53,3 +53,6 @@ class TestTable:
         )
         hexdigest = hashlib.md5(json_text.encode()).hexdigest()
         return hexdigest[-8:]
+
+    def find_test_column_by_name(self, column_name: str) -> TestColumn:
+        return next(test_column for test_column in self.test_columns if test_column.name == column_name)
