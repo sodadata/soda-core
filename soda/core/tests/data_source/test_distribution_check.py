@@ -49,7 +49,7 @@ def test_distribution_check(data_source_fixture: DataSourceFixture, mock_file_sy
     "table, expectation",
     [
         pytest.param(
-            customers_dist_check_test_table, "SELECT \n  size \nFROM {schema_name}.{table_name}\n LIMIT 1000000"
+            customers_dist_check_test_table, "SELECT \n  size \nFROM {schema_name}{table_name}\n LIMIT 1000000"
         ),
     ],
 )
@@ -88,6 +88,11 @@ def test_distribution_sql(data_source_fixture: DataSourceFixture, mock_file_syst
 
     scan.enable_mock_soda_cloud()
     scan.execute()
-    assert scan._checks[0].query.sql == expectation.format(
-        table_name=table_name, schema_name=data_source_fixture.schema_name
-    )
+    if test_data_source != "spark_df":
+        assert scan._checks[0].query.sql == expectation.format(
+            table_name=table_name, schema_name=data_source_fixture.schema_name + "."
+        )
+    else:
+        assert scan._checks[0].query.sql == expectation.format(
+            table_name=table_name, schema_name=""
+        )
