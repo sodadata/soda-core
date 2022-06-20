@@ -52,7 +52,7 @@ class AthenaDataSource(DataSource):
     SCHEMA_CHECK_TYPES_MAPPING: dict = {
         "varchar": ["character varying", "varchar", "text"],
         "double": ["decimal"],
-        "timestamp": ["timestamptz"]
+        "timestamp": ["timestamptz"],
     }
     SQL_TYPE_FOR_CREATE_TABLE_MAP: dict = {
         DataType.TEXT: "string",
