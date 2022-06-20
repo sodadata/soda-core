@@ -34,7 +34,7 @@ def test_scan(data_source_fixture: DataSourceFixture, data_source_config_str: st
     scan.add_sodacl_yaml_str(
         f"""
           checks for {table_name}:
-            - missing_count(cat) > 0
+            - row_count > 0
         """
     )
     scan.execute()
