@@ -135,9 +135,7 @@ def test_profile_columns_text(data_source_fixture: DataSourceFixture):
         }
 
 
-@pytest.mark.skip(
-    reason="TODO: table names are not handled for some of the data sources"
-)
+@pytest.mark.skip(reason="TODO: table names are not handled for some of the data sources")
 # @pytest.mark.skipif(
 #     test_data_source == "spark_df",
 #     reason="TODO: fix for spark_df.",

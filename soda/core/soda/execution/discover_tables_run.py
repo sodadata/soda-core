@@ -28,7 +28,7 @@ class DiscoverTablesRun:
             exclude_tables=self.data_source_check_cfg.exclude_tables,
             query_name="discover-tables-find-tables-and-row-counts",
         )
-        
+
         if len(table_names) < 1:
             self.logs.warning(
                 f"No table matching your SodaCL inclusion list found on your {self.data_source.data_source_name} "
