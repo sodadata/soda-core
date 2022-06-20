@@ -4,7 +4,6 @@ import pytest
 from tests.helpers.common_test_tables import customers_dist_check_test_table
 from tests.helpers.data_source_fixture import DataSourceFixture
 from tests.helpers.fixtures import test_data_source
-from tests.helpers.mock_file_system import MockFileSystem
 
 
 # @pytest.mark.skipif(
