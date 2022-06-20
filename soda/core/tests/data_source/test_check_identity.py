@@ -58,9 +58,9 @@ def test_check_identity_ignore_name(data_source_fixture: DataSourceFixture):
         """,
     )
 
-    row_count_identity = "4bb40424"
+    row_count_identity = scan_result["checks"][0]["identity"]
 
-    assert scan_result["checks"][0]["identity"] == row_count_identity
+    assert isinstance(row_count_identity, str)
 
     scan_result = execute_scan_and_get_scan_result(
         data_source_fixture,
@@ -96,9 +96,9 @@ def test_check_identity_line_number_change(data_source_fixture: DataSourceFixtur
         """,
     )
 
-    missing_identity = "bb6ad736"
+    missing_identity = scan_result["checks"][0]["identity"]
 
-    assert scan_result["checks"][0]["identity"] == missing_identity
+    assert isinstance(missing_identity, str)
 
     scan_result = execute_scan_and_get_scan_result(
         data_source_fixture,
@@ -127,9 +127,9 @@ def test_explicitely_specified_check_identity(data_source_fixture: DataSourceFix
         """,
     )
 
-    row_count_identity = "4bb40424"
+    row_count_identity = scan_result["checks"][0]["identity"]
 
-    assert scan_result["checks"][0]["identity"] == row_count_identity
+    assert isinstance(row_count_identity, str)
 
     scan_result = execute_scan_and_get_scan_result(
         data_source_fixture,
