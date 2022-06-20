@@ -30,9 +30,9 @@ class TestScan(Scan):
 
         test_name = os.environ.get("PYTEST_CURRENT_TEST")
         if test_name:
-            scan_definition_name = test_name[test_name.rfind("/") + 1: -7]
+            scan_definition_name = test_name[test_name.rfind("/") + 1 : -7]
         else:
-            scan_definition_name = 'test-scan-definition'
+            scan_definition_name = "test-scan-definition"
 
         self.set_scan_definition_name(scan_definition_name)
 
