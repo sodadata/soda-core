@@ -242,7 +242,10 @@ class DataSource:
         return TableColumnsQuery(partition, schema_metric)
 
     def sql_get_table_columns(
-        self, table_name: str, included_columns: list[str] | None = None, excluded_columns: list[str] | None = None
+        self,
+        table_name: str,
+        included_columns: list[str] | None = None,
+        excluded_columns: list[str] | None = None,
     ) -> str:
         def is_quoted(table_name):
             return (table_name.startswith('"') and table_name.endswith('"')) or (
@@ -271,6 +274,10 @@ class DataSource:
         where_filter = " \n  AND ".join(filter_clauses)
 
         # compose query template
+        # NOTE: we use `order by ordinal_position` to guarantee stable orders of columns
+        # (see https://www.postgresql.org/docs/current/infoschema-columns.html)
+        # this mainly has an advantage in testing but bears very little as to how Soda Cloud
+        # displays those columns as they are ordered alphabetically in the UI.
         sql = (
             f"SELECT {', '.join(self.column_metadata_columns())} \n"
             f"FROM {self.sql_information_schema_columns()} \n"
