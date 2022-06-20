@@ -146,7 +146,7 @@ class SnowflakeDataSource(DataSource):
         table_column_name: str = "table_name",
         schema_column_name: str = "table_schema",
     ) -> str:
-        sql = f"SELECT table_name \n" f"FROM {self.sql_information_schema_identifier()}"
+        sql = f"SELECT table_name \n" f"FROM {self.sql_information_schema_tables()}"
         where_clauses = []
 
         if filter:
