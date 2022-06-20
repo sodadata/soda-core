@@ -300,7 +300,6 @@ def update(
                 # To clean up the file and don't leave the old syntax
                 distribution_dict.pop("distribution reference")
 
-
             new_file_content = round_trip_dump(distribution_reference_dict)
 
             fs.file_write_from_str(path=distribution_reference_file, file_content_str=new_file_content)
