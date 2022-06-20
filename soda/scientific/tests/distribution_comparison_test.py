@@ -129,6 +129,35 @@ def test_distribution_checker_no_bins_weights(method, reference_file_path, test_
         DistributionChecker(test_dist_cfg, test_data)
 
 @pytest.mark.parametrize(
+    "method, reference_file_path, test_data",
+    [
+        pytest.param(
+            "ks",
+            "soda/scientific/tests/assets/dist_ref_continuous_no_bins.yml",
+            list(default_rng(61).normal(loc=1.0, scale=1.0, size=1000)),
+            id="Similar continuous distribution without bins and weights using ks",
+        ),
+        pytest.param(
+            "chi_square",
+            "soda/scientific/tests/assets/dist_ref_categorical_no_bins.yml",
+            ["peace", "at", "home", "peace", "in", "the", "world"] * 1000,
+            id="Similar categorical distribution without bins and weights with chi-square",
+        ),
+    ],
+)
+def test_distribution_checker_no_bins_weights(method, reference_file_path, test_data):
+    from soda.scientific.distribution.comparison import (
+        DistributionChecker,
+        MissingBinsAndWeights,
+    )
+
+    with pytest.raises(MissingBinsAndWeights):
+        test_dist_cfg = DistCfg(reference_file_path=reference_file_path)
+        DistCfg.method = method
+        DistributionChecker(test_dist_cfg, test_data)
+
+
+@pytest.mark.parametrize(
     "reference_file_path, exception",
     [
         pytest.param(
@@ -164,8 +193,11 @@ def test_ref_config_file_exceptions(reference_file_path, exception):
     ],
 )
 def test_with_no_bins_and_weights(method, reference_file_path):
-    from soda.scientific.distribution.comparison import DistributionChecker, MissingBinsAndWeights
-    
+    from soda.scientific.distribution.comparison import (
+        DistributionChecker,
+        MissingBinsAndWeights,
+    )
+
     with pytest.raises(MissingBinsAndWeights):
         test_dist_cfg = DistCfg(reference_file_path=reference_file_path)
         DistCfg.method = method

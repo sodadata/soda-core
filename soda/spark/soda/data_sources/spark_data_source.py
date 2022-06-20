@@ -236,13 +236,6 @@ class SparkSQLBase(DataSource):
                 ]
         return filtered_table_names
 
-    def qualify_table_name(self, table_name: str) -> str:
-        if self.database is None:
-            qualified_table_name = table_name
-        else:
-            qualified_table_name = f"{self.database}.{table_name}"
-        return qualified_table_name
-
     @staticmethod
     def default_casify_table_name(identifier: str) -> str:
         return identifier.lower()
@@ -250,9 +243,6 @@ class SparkSQLBase(DataSource):
     def rollback(self):
         # Spark does not have transactions so do nothing here.
         pass
-
-    def sql_use_database(self) -> str:
-        return f"Use {self.database}"
 
     def literal_date(self, date: date):
         date_string = date.strftime("%Y-%m-%d")
@@ -281,7 +271,7 @@ class SparkSQLBase(DataSource):
         """TODO: implement for spark."""
 
 
-class DataSourceImpl(SparkSQLBase):
+class SparkDataSource(SparkSQLBase):
     TYPE = "spark"
 
     def __init__(self, logs: Logs, data_source_name: str, data_source_properties: dict, connection_properties: dict):
@@ -303,7 +293,7 @@ class DataSourceImpl(SparkSQLBase):
             f"SSP_{k}": f"{{{v}}}" for k, v in connection_properties.get("server_side_parameters", {})
         }
 
-    def connect(self, connection_properties):
+    def connect(self):
         if self.method == SparkConnectionMethod.HIVE:
             connection_function = hive_connection_function
         elif self.method == SparkConnectionMethod.ODBC:

@@ -1,19 +1,19 @@
 from soda.execution.check_outcome import CheckOutcome
 from soda.execution.data_type import DataType
 from tests.helpers.common_test_tables import customers_test_table
-from tests.helpers.scanner import Scanner
+from tests.helpers.data_source_fixture import DataSourceFixture
 from tests.helpers.utils import derive_schema_metric_value_from_test_table
 
 
-def test_schema_changes_pass(scanner: Scanner):
-    table_name = scanner.ensure_test_table(customers_test_table)
-    data_source = scanner.data_source
+def test_schema_changes_pass(data_source_fixture: DataSourceFixture):
+    table_name = data_source_fixture.ensure_test_table(customers_test_table)
+    data_source = data_source_fixture.data_source
 
     schema_metric_value_derived_from_test_table = derive_schema_metric_value_from_test_table(
         customers_test_table, data_source
     )
 
-    scan = scanner.create_test_scan()
+    scan = data_source_fixture.create_test_scan()
 
     scan.mock_historic_values(
         metric_identity=f"metric-{scan._scan_definition_name}-{scan._data_source_name}-{table_name}-schema",
@@ -33,9 +33,9 @@ def test_schema_changes_pass(scanner: Scanner):
     scan.assert_all_checks_pass()
 
 
-def test_schema_changes_column_addition(scanner: Scanner):
-    table_name = scanner.ensure_test_table(customers_test_table)
-    data_source = scanner.data_source
+def test_schema_changes_column_addition(data_source_fixture: DataSourceFixture):
+    table_name = data_source_fixture.ensure_test_table(customers_test_table)
+    data_source = data_source_fixture.data_source
 
     # start from the historic measurement value
     schema_metric_value_derived_from_test_table = derive_schema_metric_value_from_test_table(
@@ -45,10 +45,10 @@ def test_schema_changes_column_addition(scanner: Scanner):
     # this will result in schema check discovering a column being added
     schema_metric_value_derived_from_test_table.pop(3)
 
-    scan = scanner.create_test_scan()
+    scan = data_source_fixture.create_test_scan()
 
     scan.mock_historic_values(
-        metric_identity=f"metric-{scan._scan_definition_name}-{scanner.data_source.data_source_name}-{table_name}-schema",
+        metric_identity=f"metric-{scan._scan_definition_name}-{data_source_fixture.data_source.data_source_name}-{table_name}-schema",
         metric_values=[schema_metric_value_derived_from_test_table],
     )
 
@@ -109,9 +109,9 @@ def test_schema_changes_column_addition(scanner: Scanner):
     assert scan._checks[9].outcome == CheckOutcome.WARN
 
 
-def test_schema_changes_column_deletion(scanner: Scanner):
-    table_name = scanner.ensure_test_table(customers_test_table)
-    data_source = scanner.data_source
+def test_schema_changes_column_deletion(data_source_fixture: DataSourceFixture):
+    table_name = data_source_fixture.ensure_test_table(customers_test_table)
+    data_source = data_source_fixture.data_source
 
     schema_metric_value_derived_from_test_table = derive_schema_metric_value_from_test_table(
         customers_test_table, data_source
@@ -126,10 +126,10 @@ def test_schema_changes_column_deletion(scanner: Scanner):
         },
     )
 
-    scan = scanner.create_test_scan()
+    scan = data_source_fixture.create_test_scan()
 
     scan.mock_historic_values(
-        metric_identity=f"metric-{scan._scan_definition_name}-{scanner.data_source.data_source_name}-{table_name}-schema",
+        metric_identity=f"metric-{scan._scan_definition_name}-{data_source_fixture.data_source.data_source_name}-{table_name}-schema",
         metric_values=[schema_metric_value_derived_from_test_table],
     )
 
@@ -190,9 +190,9 @@ def test_schema_changes_column_deletion(scanner: Scanner):
     assert scan._checks[9].outcome == CheckOutcome.WARN
 
 
-def test_schema_changes_warn_and_fail(scanner: Scanner):
-    table_name = scanner.ensure_test_table(customers_test_table)
-    data_source = scanner.data_source
+def test_schema_changes_warn_and_fail(data_source_fixture: DataSourceFixture):
+    table_name = data_source_fixture.ensure_test_table(customers_test_table)
+    data_source = data_source_fixture.data_source
 
     # start from the historic measurement value
     schema_metric_value_derived_from_test_table = derive_schema_metric_value_from_test_table(
@@ -202,10 +202,10 @@ def test_schema_changes_warn_and_fail(scanner: Scanner):
     # this will result in schema check discovering a column being added
     schema_metric_value_derived_from_test_table.pop(3)
 
-    scan = scanner.create_test_scan()
+    scan = data_source_fixture.create_test_scan()
 
     scan.mock_historic_values(
-        metric_identity=f"metric-{scan._scan_definition_name}-{scanner.data_source.data_source_name}-{table_name}-schema",
+        metric_identity=f"metric-{scan._scan_definition_name}-{data_source_fixture.data_source.data_source_name}-{table_name}-schema",
         metric_values=[schema_metric_value_derived_from_test_table],
     )
 

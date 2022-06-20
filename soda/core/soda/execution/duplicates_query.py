@@ -27,7 +27,7 @@ class DuplicatesQuery(Query):
         self.sql = (
             f"WITH frequencies AS (\n"
             f"  SELECT {column_names}, COUNT(*) AS frequency \n"
-            f"  FROM {self.partition.table.fully_qualified_table_name} \n"
+            f"  FROM {self.partition.table.qualified_table_name} \n"
             f"  WHERE {values_filter} \n"
             f"  GROUP BY {column_names}) \n"
             f"SELECT * \n"

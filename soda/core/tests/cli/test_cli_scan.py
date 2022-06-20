@@ -3,17 +3,17 @@ from textwrap import dedent
 import pytest
 from tests.cli.run_cli import run_cli
 from tests.helpers.common_test_tables import customers_test_table
+from tests.helpers.data_source_fixture import DataSourceFixture
 from tests.helpers.fixtures import test_data_source
 from tests.helpers.mock_file_system import MockFileSystem
-from tests.helpers.scanner import Scanner
 
 
 @pytest.mark.skipif(
     test_data_source != "postgres",
     reason="Run for postgres only as nothing data source specific is tested.",
 )
-def test_imports(scanner: Scanner, mock_file_system: MockFileSystem):
-    table_name = scanner.ensure_test_table(customers_test_table)
+def test_imports(data_source_fixture: DataSourceFixture, mock_file_system: MockFileSystem):
+    table_name = data_source_fixture.ensure_test_table(customers_test_table)
 
     user_home_dir = mock_file_system.user_home_dir()
 
@@ -67,8 +67,8 @@ def test_imports(scanner: Scanner, mock_file_system: MockFileSystem):
     test_data_source != "postgres",
     reason="Run for postgres only as nothing data source specific is tested.",
 )
-def test_non_existing_configuration_file(scanner: Scanner, mock_file_system: MockFileSystem):
-    table_name = scanner.ensure_test_table(customers_test_table)
+def test_non_existing_configuration_file(data_source_fixture: DataSourceFixture, mock_file_system: MockFileSystem):
+    table_name = data_source_fixture.ensure_test_table(customers_test_table)
 
     user_home_dir = mock_file_system.user_home_dir()
 
