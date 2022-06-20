@@ -108,7 +108,6 @@ def test_distribution_check(data_source_fixture: DataSourceFixture, mock_file_sy
 #     assert scan._checks[0].query.sql == expectation.format(table_name=table_name)
 
 
-
 @pytest.mark.skipif(
     test_data_source == "athena",
     reason="TODO: fix for athena.",
