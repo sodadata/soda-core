@@ -12,8 +12,10 @@ class SparkDfDataSource(SparkSQLBase):
     TYPE = "spark_df"
 
     SCHEMA_CHECK_TYPES_MAPPING: dict = {
-        "string": ["character varying", "varchar"],
+        "string": ["character varying", "varchar", "text"],
         "int": ["integer", "int"],
+        "double": ["decimal"],
+        "timestamp": ["timestamptz"],
     }
 
     SQL_TYPE_FOR_SCHEMA_CHECK_MAP = {

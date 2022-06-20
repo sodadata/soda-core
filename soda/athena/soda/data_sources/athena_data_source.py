@@ -50,7 +50,9 @@ class AthenaDataSource(DataSource):
             raise DataSourceConnectionError(self.TYPE, e)
 
     SCHEMA_CHECK_TYPES_MAPPING: dict = {
-        "string": ["character varying", "varchar"],
+        "varchar": ["character varying", "varchar", "text"],
+        "double": ["decimal"],
+        "timestamp": ["timestamptz"],
     }
     SQL_TYPE_FOR_CREATE_TABLE_MAP: dict = {
         DataType.TEXT: "string",
@@ -97,12 +99,10 @@ class AthenaDataSource(DataSource):
     def column_metadata_catalog_column() -> str:
         return "table_schema"
 
-    @staticmethod
-    def default_casify_table_name(identifier: str) -> str:
+    def default_casify_table_name(self, identifier: str) -> str:
         return identifier.lower()
 
-    @staticmethod
-    def default_casify_column_name(identifier: str) -> str:
+    def default_casify_column_name(self, identifier: str) -> str:
         return identifier.lower()
 
     def get_metric_sql_aggregation_expression(self, metric_name: str, metric_args: list[object] | None, expr: str):
