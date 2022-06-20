@@ -14,7 +14,7 @@ class Script:
     lines = []
 
 
-def append_to_script(line=''):
+def append_to_script(line=""):
     Script.lines.append(line)
 
 
@@ -23,14 +23,12 @@ def generate_compatibility_script():
     script_file_path = f"{integration_dir}/compatibility_script.py"
 
     compatibility_script = file_system().file_read_as_str(script_file_path)
-    first_execute_index = compatibility_script.find("\nexecute(")+1
-    first_part = compatibility_script[:first_execute_index-1]
+    first_execute_index = compatibility_script.find("\nexecute(") + 1
+    first_part = compatibility_script[: first_execute_index - 1]
     append_to_script(first_part)
-
 
     os.environ["POSTGRES_REUSE_SCHEMA"] = "DISABLED"
     configure_sql_logging()
-
 
     data_source_fixture = DataSourceFixture._create()
     data_source_fixture._test_session_starts()
@@ -113,15 +111,15 @@ class SqlHandler(Handler):
             # msg = msg.replace("\n", "")
             # append_sql(f"          [NoSQL] {msg}")
 
-    def print_sql(self, sql: str, header: str=None):
+    def print_sql(self, sql: str, header: str = None):
         sql = sql.replace('"', '\\"')
         if header:
-            append_to_script(f'# {header}')
-        append_to_script(f'execute(')
+            append_to_script(f"# {header}")
+        append_to_script(f"execute(")
         append_to_script(f'    """')
         append_to_script(f'{indent(sql.strip(), "        ")}')
         append_to_script(f'    """')
-        append_to_script(f')')
+        append_to_script(f")")
         append_to_script()
 
 

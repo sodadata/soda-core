@@ -9,11 +9,12 @@ def create_connection():
         password=os.getenv("POSTGRES_PASSWORD"),
         host=os.getenv("POSTGRES_HOST", "localhost"),
         port=os.getenv("POSTGRES_PORT"),
-        database=os.getenv("POSTGRES_DATABASE", "sodasql")
+        database=os.getenv("POSTGRES_DATABASE", "sodasql"),
     )
 
 
 connection = create_connection()
+
 
 def execute(sql: str):
     cursor = connection.cursor()
@@ -40,7 +41,7 @@ execute(
 
 execute(
     """
-        CREATE TABLE dev_tom.SODATEST_Customers_a0344266 ( 
+        CREATE TABLE dev_tom.SODATEST_Customers_a0344266 (
              id VARCHAR(255),
              size FLOAT,
              sizeTxt VARCHAR(255),
@@ -52,14 +53,14 @@ execute(
              email VARCHAR(255),
              date DATE,
              ts TIMESTAMP,
-             ts_with_tz TIMESTAMPTZ 
+             ts_with_tz TIMESTAMPTZ
            )
     """
 )
 
 execute(
     """
-        INSERT INTO dev_tom.SODATEST_Customers_a0344266 VALUES 
+        INSERT INTO dev_tom.SODATEST_Customers_a0344266 VALUES
              ('ID1',1,'1',0,'- 28,42 %','HIGH','BE','2360','john.doe@example.com',DATE '2020-06-23','2020-06-23T00:00:10','2020-06-23T00:00:10+00:00'),
              ('ID2',0.5,'.5',-999,'+22,75 %','HIGH','BE','2361','JOE.SMOE@EXAMPLE.COM',DATE '2020-06-23','2020-06-23T00:01:10','2020-06-23T00:01:10+00:00'),
              ('ID3',-1.2,'-1.2',5,'.92 %','MEDIUM','BE','2362','milan.lukáč@example.com',DATE '2020-06-23','2020-06-23T00:02:10','2020-06-23T00:02:10+00:00'),
@@ -75,20 +76,20 @@ execute(
 
 execute(
     """
-        CREATE TABLE dev_tom.SODATEST_Orders_f7532be6 ( 
+        CREATE TABLE dev_tom.SODATEST_Orders_f7532be6 (
              id VARCHAR(255),
              customer_id_nok VARCHAR(255),
              customer_id_ok VARCHAR(255),
              customer_country VARCHAR(255),
              customer_zip VARCHAR(255),
-             text VARCHAR(255) 
+             text VARCHAR(255)
            )
     """
 )
 
 execute(
     """
-        INSERT INTO dev_tom.SODATEST_Orders_f7532be6 VALUES 
+        INSERT INTO dev_tom.SODATEST_Orders_f7532be6 VALUES
              ('O1','ID1','ID1','BE','2360','one'),
              ('O2','ID99','ID1','BE','2360','two'),
              ('O3','ID1','ID2','BE','2000','three'),
@@ -101,8 +102,8 @@ execute(
 
 # SODATEST_Customers_a0344266.aggregation[0]
 execute(
-    """
-        SELECT 
+    r"""
+        SELECT
           COUNT(*),
           COUNT(CASE WHEN cat = 'HIGH' THEN 1 END),
           COUNT(CASE WHEN pct IS NULL THEN 1 END),
@@ -117,7 +118,7 @@ execute(
           VAR_POP(size),
           VAR_SAMP(size),
           PERCENTILE_DISC(0.7) WITHIN GROUP (ORDER BY distance),
-          MAX(ts) 
+          MAX(ts)
         FROM dev_tom.SODATEST_Customers_a0344266
     """
 )
@@ -125,17 +126,17 @@ execute(
 # pct.failed_rows[missing_count]
 execute(
     """
-        SELECT * 
-        FROM dev_tom.SODATEST_Customers_a0344266 
+        SELECT *
+        FROM dev_tom.SODATEST_Customers_a0344266
         WHERE pct IS NULL
     """
 )
 
 # pct.failed_rows[invalid_count]
 execute(
-    """
-        SELECT * 
-        FROM dev_tom.SODATEST_Customers_a0344266 
+    r"""
+        SELECT *
+        FROM dev_tom.SODATEST_Customers_a0344266
         WHERE NOT pct IS NULL AND NOT pct ~ '^ *[-+]? *(\d+([\.,]\d+)?|([\.,]\d+)) *% *$'
     """
 )
@@ -143,10 +144,10 @@ execute(
 # SODATEST_Customers_a0344266.schema[SODATEST_Customers_a0344266]
 execute(
     """
-        SELECT column_name, data_type, is_nullable 
-        FROM information_schema.columns 
-        WHERE lower(table_name) = 'sodatest_customers_a0344266' 
-          AND lower(table_catalog) = 'sodasql' 
+        SELECT column_name, data_type, is_nullable
+        FROM information_schema.columns
+        WHERE lower(table_name) = 'sodatest_customers_a0344266'
+          AND lower(table_catalog) = 'sodasql'
           AND lower(table_schema) = 'dev_tom'
         ORDER BY ORDINAL_POSITION
     """
@@ -155,9 +156,9 @@ execute(
 # reference[customer_id_nok]
 execute(
     """
-        SELECT SOURCE.* 
-        FROM dev_tom.SODATEST_Orders_f7532be6 as SOURCE 
-             LEFT JOIN dev_tom.SODATEST_Customers_a0344266 as TARGET on SOURCE.customer_id_nok = TARGET.id 
+        SELECT SOURCE.*
+        FROM dev_tom.SODATEST_Orders_f7532be6 as SOURCE
+             LEFT JOIN dev_tom.SODATEST_Customers_a0344266 as TARGET on SOURCE.customer_id_nok = TARGET.id
         WHERE TARGET.id IS NULL
     """
 )
@@ -165,7 +166,7 @@ execute(
 # discover-tables-find-tables-and-row-counts
 execute(
     """
-        SELECT relname, n_live_tup 
+        SELECT relname, n_live_tup
         FROM pg_stat_user_tables
         WHERE (lower(relname) like 'sodatest_customers_a0344266')
               AND lower(schemaname) = 'dev_tom'
@@ -175,10 +176,10 @@ execute(
 # discover-tables-column-metadata-for-sodatest_customers_a0344266
 execute(
     """
-        SELECT column_name, data_type, is_nullable 
-        FROM information_schema.columns 
-        WHERE lower(table_name) = 'sodatest_customers_a0344266' 
-          AND lower(table_catalog) = 'sodasql' 
+        SELECT column_name, data_type, is_nullable
+        FROM information_schema.columns
+        WHERE lower(table_name) = 'sodatest_customers_a0344266'
+          AND lower(table_catalog) = 'sodasql'
           AND lower(table_schema) = 'dev_tom'
         ORDER BY ORDINAL_POSITION
     """
@@ -187,7 +188,7 @@ execute(
 # get_table_names
 execute(
     """
-        SELECT table_name 
+        SELECT table_name
         FROM information_schema.tables
         WHERE (lower(table_name) like 'sodatest_customers_a0344266')
               AND lower(table_schema) = 'dev_tom'
@@ -196,8 +197,8 @@ execute(
 
 # SODATEST_Customers_a0344266.aggregation[0]
 execute(
-    """
-        SELECT 
+    r"""
+        SELECT
           COUNT(*),
           COUNT(CASE WHEN cat = 'HIGH' THEN 1 END),
           COUNT(CASE WHEN pct IS NULL THEN 1 END),
@@ -212,7 +213,7 @@ execute(
           VAR_POP(size),
           VAR_SAMP(size),
           PERCENTILE_DISC(0.7) WITHIN GROUP (ORDER BY distance),
-          MAX(ts) 
+          MAX(ts)
         FROM dev_tom.SODATEST_Customers_a0344266
     """
 )
@@ -220,17 +221,17 @@ execute(
 # pct.failed_rows[missing_count]
 execute(
     """
-        SELECT * 
-        FROM dev_tom.SODATEST_Customers_a0344266 
+        SELECT *
+        FROM dev_tom.SODATEST_Customers_a0344266
         WHERE pct IS NULL
     """
 )
 
 # pct.failed_rows[invalid_count]
 execute(
-    """
-        SELECT * 
-        FROM dev_tom.SODATEST_Customers_a0344266 
+    r"""
+        SELECT *
+        FROM dev_tom.SODATEST_Customers_a0344266
         WHERE NOT pct IS NULL AND NOT pct ~ '^ *[-+]? *(\d+([\.,]\d+)?|([\.,]\d+)) *% *$'
     """
 )
@@ -238,8 +239,8 @@ execute(
 # sodatest_customers_a0344266.aggregation[0]
 execute(
     """
-        SELECT 
-          COUNT(*) 
+        SELECT
+          COUNT(*)
         FROM dev_tom.sodatest_customers_a0344266
     """
 )
@@ -247,10 +248,10 @@ execute(
 # SODATEST_Customers_a0344266.schema[SODATEST_Customers_a0344266]
 execute(
     """
-        SELECT column_name, data_type, is_nullable 
-        FROM information_schema.columns 
-        WHERE lower(table_name) = 'sodatest_customers_a0344266' 
-          AND lower(table_catalog) = 'sodasql' 
+        SELECT column_name, data_type, is_nullable
+        FROM information_schema.columns
+        WHERE lower(table_name) = 'sodatest_customers_a0344266'
+          AND lower(table_catalog) = 'sodasql'
           AND lower(table_schema) = 'dev_tom'
         ORDER BY ORDINAL_POSITION
     """
@@ -259,17 +260,17 @@ execute(
 # reference[customer_id_nok]
 execute(
     """
-        SELECT SOURCE.* 
-        FROM dev_tom.SODATEST_Orders_f7532be6 as SOURCE 
-             LEFT JOIN dev_tom.SODATEST_Customers_a0344266 as TARGET on SOURCE.customer_id_nok = TARGET.id 
+        SELECT SOURCE.*
+        FROM dev_tom.SODATEST_Orders_f7532be6 as SOURCE
+             LEFT JOIN dev_tom.SODATEST_Customers_a0344266 as TARGET on SOURCE.customer_id_nok = TARGET.id
         WHERE TARGET.id IS NULL
     """
 )
 
 # SODATEST_Customers_a0344266.aggregation[0]
 execute(
-    """
-        SELECT 
+    r"""
+        SELECT
           COUNT(*),
           COUNT(CASE WHEN cat = 'HIGH' THEN 1 END),
           COUNT(CASE WHEN pct IS NULL THEN 1 END),
@@ -284,7 +285,7 @@ execute(
           VAR_POP(size),
           VAR_SAMP(size),
           PERCENTILE_DISC(0.7) WITHIN GROUP (ORDER BY distance),
-          MAX(ts) 
+          MAX(ts)
         FROM dev_tom.SODATEST_Customers_a0344266
     """
 )
@@ -292,17 +293,17 @@ execute(
 # pct.failed_rows[missing_count]
 execute(
     """
-        SELECT * 
-        FROM dev_tom.SODATEST_Customers_a0344266 
+        SELECT *
+        FROM dev_tom.SODATEST_Customers_a0344266
         WHERE pct IS NULL
     """
 )
 
 # pct.failed_rows[invalid_count]
 execute(
-    """
-        SELECT * 
-        FROM dev_tom.SODATEST_Customers_a0344266 
+    r"""
+        SELECT *
+        FROM dev_tom.SODATEST_Customers_a0344266
         WHERE NOT pct IS NULL AND NOT pct ~ '^ *[-+]? *(\d+([\.,]\d+)?|([\.,]\d+)) *% *$'
     """
 )
@@ -310,8 +311,8 @@ execute(
 # sodatest_customers_a0344266.aggregation[0]
 execute(
     """
-        SELECT 
-          COUNT(*) 
+        SELECT
+          COUNT(*)
         FROM dev_tom.sodatest_customers_a0344266
     """
 )
@@ -319,10 +320,10 @@ execute(
 # SODATEST_Customers_a0344266.schema[SODATEST_Customers_a0344266]
 execute(
     """
-        SELECT column_name, data_type, is_nullable 
-        FROM information_schema.columns 
-        WHERE lower(table_name) = 'sodatest_customers_a0344266' 
-          AND lower(table_catalog) = 'sodasql' 
+        SELECT column_name, data_type, is_nullable
+        FROM information_schema.columns
+        WHERE lower(table_name) = 'sodatest_customers_a0344266'
+          AND lower(table_catalog) = 'sodasql'
           AND lower(table_schema) = 'dev_tom'
         ORDER BY ORDINAL_POSITION
     """
@@ -331,9 +332,9 @@ execute(
 # reference[customer_id_nok]
 execute(
     """
-        SELECT SOURCE.* 
-        FROM dev_tom.SODATEST_Orders_f7532be6 as SOURCE 
-             LEFT JOIN dev_tom.SODATEST_Customers_a0344266 as TARGET on SOURCE.customer_id_nok = TARGET.id 
+        SELECT SOURCE.*
+        FROM dev_tom.SODATEST_Orders_f7532be6 as SOURCE
+             LEFT JOIN dev_tom.SODATEST_Customers_a0344266 as TARGET on SOURCE.customer_id_nok = TARGET.id
         WHERE TARGET.id IS NULL
     """
 )
@@ -341,10 +342,10 @@ execute(
 # sodatest_customers_a0344266.schema[sodatest_customers_a0344266]
 execute(
     """
-        SELECT column_name, data_type, is_nullable 
-        FROM information_schema.columns 
-        WHERE lower(table_name) = 'sodatest_customers_a0344266' 
-          AND lower(table_catalog) = 'sodasql' 
+        SELECT column_name, data_type, is_nullable
+        FROM information_schema.columns
+        WHERE lower(table_name) = 'sodatest_customers_a0344266'
+          AND lower(table_catalog) = 'sodasql'
           AND lower(table_schema) = 'dev_tom'
         ORDER BY ORDINAL_POSITION
     """
@@ -353,7 +354,7 @@ execute(
 # profile-columns-get-tables-and-row-counts
 execute(
     """
-        SELECT relname, n_live_tup 
+        SELECT relname, n_live_tup
         FROM pg_stat_user_tables
         WHERE (lower(relname) like 'sodatest_customers_a0344266' OR lower(relname) like 'sodatest_customers_a0344266')
               AND lower(schemaname) = 'dev_tom'
@@ -363,11 +364,11 @@ execute(
 # profile-columns-get-column-metadata-for-sodatest_customers_a0344266
 execute(
     """
-        SELECT column_name, data_type, is_nullable 
-        FROM information_schema.columns 
-        WHERE lower(table_name) = 'sodatest_customers_a0344266' 
-          AND lower(table_catalog) = 'sodasql' 
-          AND lower(table_schema) = 'dev_tom' 
+        SELECT column_name, data_type, is_nullable
+        FROM information_schema.columns
+        WHERE lower(table_name) = 'sodatest_customers_a0344266'
+          AND lower(table_catalog) = 'sodasql'
+          AND lower(table_schema) = 'dev_tom'
           AND (lower(column_name) LIKE lower('sizeTxt') OR lower(column_name) LIKE lower('size'))
         ORDER BY ORDINAL_POSITION
     """
