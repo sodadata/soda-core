@@ -26,8 +26,16 @@ class DiscoverTablesRun:
         table_names: dict[str, int] = self.data_source.get_table_names(
             include_tables=self.data_source_check_cfg.include_tables,
             exclude_tables=self.data_source_check_cfg.exclude_tables,
-            query_name=f"(row-counts",
+            query_name="discover-tables-find-tables-and-row-counts",
         )
+        
+        if len(table_names) < 1:
+            self.logs.warning(
+                f"No table matching your SodaCL inclusion list found on your {self.data_source.data_source_name} "
+                "data source. Table discovery results may be incomplete or entirely skipped"
+            )
+            return discover_tables_result
+
         for table_name in table_names:
             self.logs.debug(f"Discovering columns for {table_name}")
             measured_row_count = self.data_source.get_table_row_count(table_name)
@@ -36,7 +44,8 @@ class DiscoverTablesRun:
             )
             # get columns & metadata for current table
             columns_metadata_result = self.data_source.get_table_columns(
-                table_name=table_name, query_name=f"discover-tables-column-metadata-for-{table_name}"
+                table_name=table_name,
+                query_name=f"discover-tables-column-metadata-for-{table_name}",
             )
 
             for column_name, column_type in columns_metadata_result.items():

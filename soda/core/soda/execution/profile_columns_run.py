@@ -54,6 +54,12 @@ class ProfileColumnsRun:
             exclude_tables=self._get_table_expression(self.profile_columns_cfg.exclude_columns, is_for_exclusion=True),
             query_name="profile-columns-get-table-names",
         )
+        if len(row_counts_by_table_name) < 1:
+            self.logs.warning(
+                f"No table matching your SodaCL inclusion list found on your {self.data_source.data_source_name} "
+                "data source. Profiling results may be incomplete or entirely skipped"
+            )
+            return profile_columns_result
         parsed_included_tables_and_columns = self._build_column_expression_list(
             self.profile_columns_cfg.include_columns
         )
@@ -94,7 +100,8 @@ class ProfileColumnsRun:
                         )
                     except Exception as e:
                         self.logs.error(
-                            f"Problem profiling numeric column {table_name}.{column_name}: {e}", exception=e
+                            f"Problem profiling numeric column {table_name}.{column_name}: {e}",
+                            exception=e,
                         )
 
                 # text columns
@@ -112,10 +119,13 @@ class ProfileColumnsRun:
                             profile_columns_result_table,
                         )
                     except Exception as e:
-                        self.logs.error(f"Problem profiling text column {table_name}.{column_name}: {e}", exception=e)
+                        self.logs.error(
+                            f"Problem profiling text column {table_name}.{column_name}: {e}",
+                            exception=e,
+                        )
 
-        if not profile_columns_result.tables:
-            self.logs.error(f"Profiling for data source: {self.data_source.data_source_name} failed")
+            else:
+                self.logs.warning(f"No columns matching your SodaCL inclusion patterns were found on {table_name}.")
         return profile_columns_result
 
     def profile_numeric_column(
