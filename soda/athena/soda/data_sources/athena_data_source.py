@@ -50,7 +50,9 @@ class AthenaDataSource(DataSource):
             raise DataSourceConnectionError(self.TYPE, e)
 
     SCHEMA_CHECK_TYPES_MAPPING: dict = {
-        "string": ["character varying", "varchar"],
+        "varchar": ["character varying", "varchar", "text"],
+        "double": ["decimal"],
+        "timestamp": ["timestamptz"]
     }
     SQL_TYPE_FOR_CREATE_TABLE_MAP: dict = {
         DataType.TEXT: "string",
