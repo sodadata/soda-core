@@ -62,7 +62,7 @@ def test_distribution_check(data_source_fixture: DataSourceFixture, mock_file_sy
 @pytest.mark.parametrize(
     "table, expectation",
     [
-        pytest.param(customers_dist_check_test_table, "SELECT \n  size \nFROM {table_name}\n LIMIT 1000000"),
+        pytest.param(customers_dist_check_test_table, "LIMIT 1000000"),
     ],
 )
 # @pytest.mark.skipif(
@@ -104,4 +104,4 @@ def test_distribution_sql(data_source_fixture: DataSourceFixture, mock_file_syst
     scan.execute()
 
     os.remove(ref_file)
-    assert scan._checks[0].query.sql == expectation.format(table_name=table_name)
+    assert expectation.format(table_name=table_name) in scan._checks[0].query.sql
