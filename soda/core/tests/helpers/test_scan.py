@@ -29,8 +29,12 @@ class TestScan(Scan):
         self.check_index = 0
 
         test_name = os.environ.get("PYTEST_CURRENT_TEST")
-        schedule_name = test_name[test_name.rfind("/") + 1 : -7]
-        self.set_scan_definition_name(schedule_name)
+        if test_name:
+            scan_definition_name = test_name[test_name.rfind("/") + 1 : -7]
+        else:
+            scan_definition_name = "test-scan-definition"
+
+        self.set_scan_definition_name(scan_definition_name)
 
         self._configuration.sampler = LogSampler()
         self.set_verbose()
