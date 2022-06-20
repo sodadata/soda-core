@@ -54,7 +54,7 @@ class ProfileColumnsRun:
             exclude_tables=self._get_table_expression(self.profile_columns_cfg.exclude_columns, is_for_exclusion=True),
             query_name="profile-columns-get-table-names",
         )
-        if len(row_counts_by_table_name) < 1:
+        if len(table_names) < 1:
             self.logs.warning(
                 f"No table matching your SodaCL inclusion list found on your {self.data_source.data_source_name} "
                 "data source. Profiling results may be incomplete or entirely skipped"
