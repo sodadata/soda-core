@@ -62,7 +62,9 @@ class DataSourceFixture:
             python_version_short = f'P{python_version.replace(".", "")}' if python_version else ""
 
             if github_head_ref:
-                github_head_ref_short = github_head_ref[:15] if github_head_ref and len(github_head_ref) > 15 else github_head_ref
+                github_head_ref_short = (
+                    github_head_ref[:15] if github_head_ref and len(github_head_ref) > 15 else github_head_ref
+                )
                 schema_name_parts.append("ci")
                 schema_name_parts.append(github_head_ref_short)
                 schema_name_parts.append(python_version_short)
