@@ -1,10 +1,10 @@
-import os
 from textwrap import dedent
 
 import pytest
 from tests.helpers.common_test_tables import customers_dist_check_test_table
 from tests.helpers.data_source_fixture import DataSourceFixture
 from tests.helpers.fixtures import test_data_source
+from tests.helpers.mock_file_system import MockFileSystem
 
 
 # @pytest.mark.skipif(
@@ -13,18 +13,13 @@ from tests.helpers.fixtures import test_data_source
 # )
 def test_distribution_check(data_source_fixture: DataSourceFixture, mock_file_system):
     table_name = data_source_fixture.ensure_test_table(customers_dist_check_test_table)
+    table_name = data_source_fixture.data_source.default_casify_table_name(table_name)
 
-    user_home_dir = os.path.expanduser("~")
+    scan = data_source_fixture.create_test_scan()
+
+    user_home_dir = mock_file_system.user_home_dir()
 
     mock_file_system.files = {
-        f"{user_home_dir}/the_distribution_check_file.yml": dedent(
-            f"""
-                checks for {table_name}:
-                  - distribution_difference(size, my_happy_ml_model_distribution) >= 0.05:
-                      distribution reference file: ./customers_size_distribution_reference.yml
-                      method: ks
-            """
-        ).strip(),
         f"{user_home_dir}/customers_size_distribution_reference.yml": dedent(
             f"""
             dataset: {table_name}
@@ -37,27 +32,17 @@ def test_distribution_check(data_source_fixture: DataSourceFixture, mock_file_sy
         ).strip(),
     }
 
-    # TODO: do this logic at mock file system (its already added above to the mock file system)
-    ref_file = f"{user_home_dir}/customers_size_distribution_reference.yml"
-    with open(ref_file, "w") as f:
-        reference_table = f"""
-            dataset: {table_name}
-            column: size
-            distribution_type: continuous
-            distribution_reference:
-                bins: [1, 2, 3]
-                weights: [0.5, 0.2, 0.3]
-        """
-        f.write(reference_table)
+    scan.add_sodacl_yaml_str(
+        f"""
+        checks for {table_name}:
+            - distribution_difference(size, my_happy_ml_model_distribution) >= 0.05:
+                distribution reference file: {user_home_dir}/customers_size_distribution_reference.yml
+                method: ks
+    """
+    )
 
-    scan = data_source_fixture.create_test_scan()
-    scan._configuration.file_system = mock_file_system
     scan.enable_mock_soda_cloud()
-    scan.add_sodacl_yaml_file(f"{user_home_dir}/the_distribution_check_file.yml")
     scan.execute()
-
-    # TODO: also remove this when removing the direct file system usage
-    os.remove(ref_file)
 
 
 @pytest.mark.parametrize(
