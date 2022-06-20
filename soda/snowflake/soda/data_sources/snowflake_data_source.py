@@ -173,17 +173,17 @@ class SnowflakeDataSource(DataSource):
         tablename_filter_clauses = []
         if include_tables:
             sql_include_clauses = " OR ".join(
-                [f"{table_column_name.upper()} like '{include_table.lower()}'" for include_table in include_tables]
+                [f"{table_column_name.upper()} like '{include_table.upper()}'" for include_table in include_tables]
             )
             tablename_filter_clauses.append(f"({sql_include_clauses})")
 
         if exclude_tables:
             tablename_filter_clauses.extend(
-                [f"{table_column_name.upper()} not like '{exclude_table.lower()}'" for exclude_table in exclude_tables]
+                [f"{table_column_name.upper()} not like '{exclude_table.upper()}'" for exclude_table in exclude_tables]
             )
 
         if hasattr(self, "schema") and self.schema and schema_column_name:
-            tablename_filter_clauses.append(f"{schema_column_name.upper()} = '{self.schema.lower()}'")
+            tablename_filter_clauses.append(f"{schema_column_name.upper()} = '{self.schema.upper()}'")
         return "\n      AND ".join(tablename_filter_clauses) if tablename_filter_clauses else None
 
     def default_casify_table_name(self, identifier: str) -> str:
