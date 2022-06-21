@@ -56,6 +56,7 @@ def test_discover_tables(data_source_fixture: DataSourceFixture):
 def test_discover_tables_customer_wildcard(data_source_fixture: DataSourceFixture):
     
     data_source_fixture.ensure_test_table(orders_test_table)
+    data_source_fixture.ensure_test_table(customers_profiling)
     data_source_fixture.ensure_test_table(customers_dist_check_test_table)
 
     table_name = data_source_fixture.ensure_test_table(customers_test_table)
@@ -74,4 +75,4 @@ def test_discover_tables_customer_wildcard(data_source_fixture: DataSourceFixtur
     scan.execute(allow_warnings_only=True)
     discover_tables_result = mock_soda_cloud.pop_scan_result()
     assert discover_tables_result is not None
-    assert len(discover_tables_result["metadata"]) == 2
+    assert len(discover_tables_result["metadata"]) == 3
