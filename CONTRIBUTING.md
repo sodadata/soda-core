@@ -4,7 +4,7 @@ This is a guide providing pointers to all tasks related to the development of So
 
 ## Get started
 
-To contribute, fork the sodadata/soda-core GitHub repo. 
+To contribute, fork the `sodadata/soda-core` GitHub repo.
 
 ## Folder structure
 
@@ -12,10 +12,10 @@ To contribute, fork the sodadata/soda-core GitHub repo.
 soda-core project root folder
 ├── soda                  # Root for all Python packages
 │   ├── core              # Root for the soda-core package
-│   │   ├── soda          # Python source code for the soda-core package 
+│   │   ├── soda          # Python source code for the soda-core package
 │   │   └── tests         # Test suite code and artefacts for soda-core package
-│   ├── scientific        # Root for the scientific package 
-│   ├── postgres          # Root for the soda-core-postgres package 
+│   ├── scientific        # Root for the scientific package
+│   ├── postgres          # Root for the soda-core-postgres package
 │   ├── snowflake         # Root for the soda-core-snowflake package
 │   └── ...               # Root for the other data source packages
 ├── scripts               # Scripts for developer workflows
@@ -28,7 +28,7 @@ soda-core project root folder
 
 ## Requirements
 
-* Python 3.8 or greater. 
+* Python 3.8 or greater.
 
 To check the version of your existing Python install, use:
 ```
@@ -37,7 +37,7 @@ Python 3.8.12
 >
 ```
 
-Although not required, we recommend using [pyenv](https://github.com/pyenv/pyenv) to more easily manage multiple Python
+Although not required, we recommend using [pyenv](https://github.com/pyenv/pyenv) or [virtualenv](https://virtualenv.pypa.io/en/latest/) to more easily manage multiple Python
 versions.
 
 ## Create a virtual environment
@@ -83,7 +83,7 @@ up and running is
 ```shell
 docker-compose -f soda/postgres/docker-compose.yml up --remove-orphans
 ```
-This will launch a docker container with postgres on your machine available on the default postgres port 
+This will launch a docker container with postgres on your machine available on the default postgres port
 needed for running the test suite.
 
 This command is also available as `scripts/start_postgres_container.sh`
@@ -139,7 +139,7 @@ Copy `.env.example` to `.env` and update the contents.  Ask one of the other eng
 
 By default, the test suite will run on [your local postgres](#postgres-test-database-as-a-docker-container).
 
-In your `.env`, uncomment one of the following environment variables to run on a different data source:  
+In your `.env`, uncomment one of the following environment variables to run on a different data source:
 ```
 # test_data_source=athena
 # test_data_source=bigquery
@@ -158,7 +158,7 @@ The CI environment uses [Tox]() to run the test suite matrix combinations.
 tox -- soda -k soda/snowflake
 ```
 
-I believe this will launch separate test container(s), even if you already have a local postgres running. 
+I believe this will launch separate test container(s), even if you already have a local postgres running.
 
 ## CI
 
@@ -177,3 +177,12 @@ TODO update this list!  I think some of these are obsolete.
 * `export WESTMALLE=LEKKER` : activates soda cloud connection
 * `export CHIMAY=YUMMIE` : activates local storage of files
 * `export ROCHEFORT=HMMM` : activates notifications
+
+
+## Code guidelines and style
+
+- CI runs [pre-commit](http://pre-commit.com) hooks and uses [pre-commit CI](https://pre-commit.ci) to do all code style and formatting for us, so we do not need to sweat about it. In case you want, you can run the hooks locally using `pre-commit run --all-files`.
+- Try to strike a balance between “self-explanatory clean code” and using comments.
+- Follow [git commit](https://tbaggery.com/2008/04/19/a-note-about-git-commit-messages.html) message guidelines. Always reference a github issue in the body of the commit message using `#xxx` format.
+- Use latest Python code style whenever applicable and reasonable:
+    - 3.9+ style type annotations, e.g. `dict` over `Dict`, use  `str | None` over `Optional[str]` etc.
