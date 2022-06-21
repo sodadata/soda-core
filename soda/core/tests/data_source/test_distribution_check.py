@@ -4,14 +4,9 @@ import pytest
 from tests.helpers.common_test_tables import customers_dist_check_test_table
 from tests.helpers.data_source_fixture import DataSourceFixture
 from tests.helpers.fixtures import test_data_source
-from tests.helpers.mock_file_system import MockFileSystem
 
 
-@pytest.mark.skipif(
-    test_data_source == "athena",
-    reason="TODO: fix for athena.",
-)
-def test_distribution_check(data_source_fixture: DataSourceFixture, mock_file_system: MockFileSystem):
+def test_distribution_check(data_source_fixture: DataSourceFixture, mock_file_system):
     table_name = data_source_fixture.ensure_test_table(customers_dist_check_test_table)
     table_name = data_source_fixture.data_source.default_casify_table_name(table_name)
 
@@ -53,10 +48,6 @@ def test_distribution_check(data_source_fixture: DataSourceFixture, mock_file_sy
         ),
     ],
 )
-@pytest.mark.skipif(
-    test_data_source == "athena",
-    reason="TODO: fix for athena.",
-)
 def test_distribution_sql(data_source_fixture: DataSourceFixture, mock_file_system, table, expectation):
     table_name = data_source_fixture.ensure_test_table(table)
     table_name = data_source_fixture.data_source.default_casify_table_name(table_name)
@@ -90,7 +81,7 @@ def test_distribution_sql(data_source_fixture: DataSourceFixture, mock_file_syst
     scan.execute()
     if test_data_source != "spark_df":
         assert scan._checks[0].query.sql == expectation.format(
-            table_name=table_name, schema_name=data_source_fixture.schema_name + "."
+            table_name=table_name, schema_name=f"{data_source_fixture.schema_name}."
         )
     else:
         assert scan._checks[0].query.sql == expectation.format(table_name=table_name, schema_name="")
