@@ -310,19 +310,29 @@ class DataSource:
         exclude_tables: list[str] = [],
     ) -> str | None:
         tablename_filter_clauses = []
+
+        def build_table_matching_conditions(tables: list[str], comparison_operator: str):
+            conditions = []
+
+            for table in tables:
+                # This is intended to be future proof and support quoted table names. The method is not used in such way and table names/patterns that still
+                # need to be quoted are passed here, e.g. `%sodatest_%`. I.e. this condition is always met and default casify is always used, table name below is therefore single quoted.
+                if not self.is_table_quoted(table):
+                    table = self.default_casify_table_name(table)
+
+                conditions.append(f"{table_column_name} {comparison_operator} '{table}'")
+            return conditions
+
         if include_tables:
-            sql_include_clauses = " OR ".join(
-                [f"lower({table_column_name}) like '{include_table.lower()}'" for include_table in include_tables]
-            )
+            sql_include_clauses = " OR ".join(build_table_matching_conditions(include_tables, "like"))
             tablename_filter_clauses.append(f"({sql_include_clauses})")
 
         if exclude_tables:
-            tablename_filter_clauses.extend(
-                [f"lower({table_column_name}) not like '{exclude_table.lower()}'" for exclude_table in exclude_tables]
-            )
+            tablename_filter_clauses.extend(build_table_matching_conditions(exclude_tables, "not like"))
 
         if hasattr(self, "schema") and self.schema and schema_column_name:
             tablename_filter_clauses.append(f"lower({schema_column_name}) = '{self.schema.lower()}'")
+
         return "\n      AND ".join(tablename_filter_clauses) if tablename_filter_clauses else None
 
     def sql_find_table_names(
@@ -337,7 +347,7 @@ class DataSource:
         where_clauses = []
 
         if filter:
-            where_clauses.append(f"lower({table_column_name}) like '{filter.lower()}'")
+            where_clauses.append(f"lower({self.default_casify_column_name(table_column_name)}) like '{filter.lower()}'")
 
         includes_excludes_filter = self.sql_table_include_exclude_filter(
             table_column_name, schema_column_name, include_tables, exclude_tables
@@ -548,22 +558,15 @@ class DataSource:
         # Single query to get the metadata not available, get the counts one by one.
         all_tables = self.get_table_names(include_tables=include_tables, exclude_tables=exclude_tables)
         result = {}
-        for table in all_tables:
-            query_name_str = f"get_row_count_{table}"
-            if query_name:
-                query_name_str = f"{query_name}_{table}"
-            query = Query(
-                data_source_scan=self.data_source_scan,
-                unqualified_query_name=query_name_str,
-                sql=self.sql_get_table_count(self.quote_table(table)),
-            )
-            query.execute()
-            if query.rows:
-                result[table] = query.rows[0][0]
+        for table_name in all_tables:
+            table_count = self.get_table_row_count(table_name)
+            if table_count:
+                result[table_name] = table_count
 
         return result
 
     def get_table_row_count(self, table_name: str) -> int | None:
+        """Deprecated, use get_row_counts_all_tables whenever possible."""
         query_name_str = f"get_row_count_{table_name}"
         query = Query(
             data_source_scan=self.data_source_scan,
@@ -646,7 +649,9 @@ class DataSource:
         return self.quote_table(table_name=table_name)
 
     def is_table_quoted(self, table_name: str) -> bool:
-        return table_name.startswith('"') and table_name.endswith('"')
+        return (table_name.startswith('"') and table_name.endswith('"')) or (
+            table_name.startswith("'") and table_name.endswith("'")
+        )
 
     def quote_table(self, table_name: str) -> str:
         return f'"{table_name}"'

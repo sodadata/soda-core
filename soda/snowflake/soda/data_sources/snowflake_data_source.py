@@ -138,54 +138,6 @@ class SnowflakeDataSource(DataSource):
             """
         return sql
 
-    def sql_find_table_names(
-        self,
-        filter: str | None = None,
-        include_tables: list[str] = [],
-        exclude_tables: list[str] = [],
-        table_column_name: str = "table_name",
-        schema_column_name: str = "table_schema",
-    ) -> str:
-        sql = f"SELECT table_name \n" f"FROM {self.sql_information_schema_tables()}"
-        where_clauses = []
-
-        if filter:
-            where_clauses.append(f"{table_column_name.upper()} like '{filter.lower()}'")
-
-        includes_excludes_filter = self.sql_table_include_exclude_filter(
-            table_column_name, schema_column_name, include_tables, exclude_tables
-        )
-        if includes_excludes_filter:
-            where_clauses.append(includes_excludes_filter)
-
-        if where_clauses:
-            where_clauses_sql = "\n  AND ".join(where_clauses)
-            sql += f"\nWHERE {where_clauses_sql}"
-        return sql
-
-    def sql_table_include_exclude_filter(
-        self,
-        table_column_name: str,
-        schema_column_name: str | None = None,
-        include_tables: list[str] = [],
-        exclude_tables: list[str] = [],
-    ) -> str | None:
-        tablename_filter_clauses = []
-        if include_tables:
-            sql_include_clauses = " OR ".join(
-                [f"{table_column_name.upper()} like '{include_table.upper()}'" for include_table in include_tables]
-            )
-            tablename_filter_clauses.append(f"({sql_include_clauses})")
-
-        if exclude_tables:
-            tablename_filter_clauses.extend(
-                [f"{table_column_name.upper()} not like '{exclude_table.upper()}'" for exclude_table in exclude_tables]
-            )
-
-        if hasattr(self, "schema") and self.schema and schema_column_name:
-            tablename_filter_clauses.append(f"{schema_column_name.upper()} = '{self.schema.upper()}'")
-        return "\n      AND ".join(tablename_filter_clauses) if tablename_filter_clauses else None
-
     def default_casify_table_name(self, identifier: str) -> str:
         return identifier.upper()
 
