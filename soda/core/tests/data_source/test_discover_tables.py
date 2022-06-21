@@ -54,10 +54,13 @@ def test_discover_tables(data_source_fixture: DataSourceFixture):
 
 
 def test_discover_tables_customer_wildcard(data_source_fixture: DataSourceFixture):
-    data_source_fixture.ensure_test_table(customers_test_table)
+    
     data_source_fixture.ensure_test_table(orders_test_table)
-    data_source_fixture.ensure_test_table(customers_profiling)
     data_source_fixture.ensure_test_table(customers_dist_check_test_table)
+
+    table_name = data_source_fixture.ensure_test_table(customers_test_table)
+    table_name = data_source_fixture.data_source.default_casify_table_name(table_name)
+    wildcard = f"%{table_name.split('_')[1]}%"
 
     scan = data_source_fixture.create_test_scan()
     mock_soda_cloud = scan.enable_mock_soda_cloud()
@@ -65,10 +68,10 @@ def test_discover_tables_customer_wildcard(data_source_fixture: DataSourceFixtur
         f"""
         discover datasets:
           datasets:
-            - include %customers%
+            - include {wildcard}
         """
     )
     scan.execute(allow_warnings_only=True)
     discover_tables_result = mock_soda_cloud.pop_scan_result()
     assert discover_tables_result is not None
-    assert len(discover_tables_result["metadata"]) == 3
+    assert len(discover_tables_result["metadata"]) == 2
