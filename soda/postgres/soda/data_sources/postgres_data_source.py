@@ -15,6 +15,7 @@ class PostgresDataSource(DataSource):
         self.password = connection_properties.get("password")
         self.username = connection_properties.get("username")
         self.connection_timeout = connection_properties.get("connection_timeout")
+        self.schema = connection_properties.get("schema")
 
     def connect(self):
         import psycopg2

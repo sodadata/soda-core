@@ -19,6 +19,7 @@ class RedshiftDataSource(DataSource):
 
         self.username = connection_properties.get("username")
         self.password = connection_properties.get("password")
+        self.schema = connection_properties.get("schema")
 
         if not self.username or not self.password:
             aws_credentials = AwsCredentials(

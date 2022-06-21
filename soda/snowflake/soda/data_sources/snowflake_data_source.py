@@ -60,6 +60,7 @@ class SnowflakeDataSource(DataSource):
         self.role = connection_properties.get("role")
         self.client_session_keep_alive = connection_properties.get("client_session_keep_alive")
         self.session_parameters = connection_properties.get("session_params")
+        self.schema = connection_properties.get("schema")
 
     def connect(self):
         self.connection = connector.connect(
