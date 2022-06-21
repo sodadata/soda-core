@@ -7,7 +7,6 @@ import pytest
 from soda.common.yaml_helper import to_yaml_str
 from tests.helpers.common_test_tables import customers_profiling
 from tests.helpers.data_source_fixture import DataSourceFixture
-from tests.helpers.fixtures import test_data_source
 
 
 def test_profile_columns_numeric(data_source_fixture: DataSourceFixture):
