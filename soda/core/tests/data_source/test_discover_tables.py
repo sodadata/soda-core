@@ -54,7 +54,7 @@ def test_discover_tables(data_source_fixture: DataSourceFixture):
 
 
 def test_discover_tables_customer_wildcard(data_source_fixture: DataSourceFixture):
-    
+
     data_source_fixture.ensure_test_table(orders_test_table)
     data_source_fixture.ensure_test_table(customers_profiling)
     data_source_fixture.ensure_test_table(customers_dist_check_test_table)
