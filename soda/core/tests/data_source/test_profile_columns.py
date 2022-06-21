@@ -64,10 +64,6 @@ def test_profile_columns_numeric(data_source_fixture: DataSourceFixture):
         assert isinstance(f, int)
 
 
-# @pytest.mark.skipif(
-#     test_data_source == "spark_df",
-#     reason="TODO: fix for spark_df.",
-# )
 def test_profile_columns_text(data_source_fixture: DataSourceFixture):
     table_name = data_source_fixture.ensure_test_table(customers_profiling)
 
