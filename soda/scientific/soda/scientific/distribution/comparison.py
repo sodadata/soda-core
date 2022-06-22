@@ -86,16 +86,16 @@ class DistributionChecker:
 
         return dict(check_value=check_value, stat_value=stat_value)
 
-    def _parse_reference_cfg(self, dist_method: str, dist_ref_yaml: str, dist_ref_file_path: str, distribution_name: Union[str, None]) -> RefDataCfg:
+    def _parse_reference_cfg(self, dist_method: str, dist_ref_yaml: str, dist_ref_file_path: str, dist_name: Union[str, None]) -> RefDataCfg:
         try:
             parsed_ref_cfg: dict = YAML().load(dist_ref_yaml)
             ref_data_cfg = {}
 
-            if distribution_name:
-                    parsed_file = parsed_ref_cfg.get(distribution_name)
+            if dist_name:
+                    parsed_file = parsed_ref_cfg.get(dist_name)
                     if not parsed_file:
                         raise DRONameNotFoundException(
-                            f"""Your DRO name "{distribution_name}" is not found in your distribution reference file "{dist_ref_file_path}". Please make sure that the DRO name that you provide in"""
+                            f"""Your DRO name "{dist_name}" is not found in your distribution reference file "{dist_ref_file_path}". Please make sure that the DRO name that you provide in"""
                             f""" "distribution_difference(column_name, dro_name)" points to an existing DRO. For more information visit the docs:\n"""
                             f"""https://docs.soda.io/soda-cl/distribution.html#define-a-distribution-check"""
                         )
