@@ -64,13 +64,13 @@ ERROR_CODE_LEVEL_CUTTOFF = 99
 DETECTOR_MESSAGES: Dict[str, DetectorMessageComponent] = {
     "native_freq": DetectorMessageComponent(
         log_message="native frequency detected",
-        severity="pass",
+        severity="info",
         error_code_int=0,
         error_code_str="Native frequency is detected successfully",
     ),
     "converted_daily_no_dupes": DetectorMessageComponent(
         log_message="converted to daily frequency no dupes with time info removed",
-        severity="pass",
+        severity="info",
         error_code_int=1,
         error_code_str="",
     ),
