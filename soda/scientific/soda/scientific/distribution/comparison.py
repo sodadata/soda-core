@@ -41,6 +41,14 @@ class MissingBinsWeightsException(LoggableException):
     """Thrown when there there are no bins and weights in the distribution reference file"""
 
 
+class DRONameNotFoundException(LoggableException):
+    """Thrown when the provided DRO name is not found in the distribution reference file"""
+
+
+class MissingDRONameException(LoggableException):
+    """Thrown when the distribution reference file structure appears to contain named DROs but no DRO name is provided"""
+
+
 class DistributionChecker:
     def __init__(self, dist_method: str, dist_ref_yaml: str, dist_ref_file_path: str, dist_name: Union[str, None], data: List[Any]):
         self.test_data = data
@@ -86,20 +94,18 @@ class DistributionChecker:
             if distribution_name:
                     parsed_file = parsed_ref_cfg.get(distribution_name)
                     if not parsed_file:
-                        logging.error(
+                        raise DRONameNotFoundException(
                             f"""Your DRO name "{distribution_name}" is not found in your distribution reference file "{dist_ref_file_path}". Please make sure that the DRO name that you provide in"""
                             f""" "distribution_difference(column_name, dro_name)" points to an existing DRO. For more information visit the docs:\n"""
                             f"""https://docs.soda.io/soda-cl/distribution.html#define-a-distribution-check"""
                         )
-                        return 
 
             elif all(isinstance(value, dict) for value in parsed_ref_cfg.values()):
-                    logging.error(
+                    raise MissingDRONameException(
                         f"""While your distribution reference file appears to contain named DROs, you did not specify a DRO name in your "checks.yml" file. """
                         f"""Please provide the DRO name that you want to use the distribution check for in the "distribution_difference(column_name, dro_name)"""
                         f""" part of your check. For more information visit the docs: https://docs.soda.io/soda-cl/distribution.html#define-a-distribution-check."""
                     )
-                    return
 
             if "distribution_type" in parsed_ref_cfg:
                 ref_data_cfg["distribution_type"] = parsed_ref_cfg["distribution_type"]
