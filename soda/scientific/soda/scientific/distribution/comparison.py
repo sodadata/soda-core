@@ -14,26 +14,30 @@ from soda.scientific.distribution.utils import (
     distribution_is_all_null,
     generate_ref_data,
 )
+from soda.scientific.common.exceptions import LoggableException
 
-
-class NotEnoughSamplesException(Exception):
+class NotEnoughSamplesException(LoggableException):
     """Thrown when inssuficient samples-like events are detected."""
 
 
-class DistributionRefKeyException(Exception):
+class DistributionRefKeyException(LoggableException):
     """Thrown when ref key parsing fails"""
 
 
-class DistributionRefParsingException(Exception):
+class DistributionRefParsingException(LoggableException):
     """Thrown when ref yaml file parsing fails"""
 
 
-class MissingCategories(Exception):
+class MissingCategories(LoggableException):
     """Thrown when a category in the test data is missing from the ref data."""
 
 
-class DistributionRefIncompatibleException(Exception):
+class DistributionRefIncompatibleException(LoggableException):
     """Thrown when the DRO distribution_type is incompatible with the test that is used."""
+
+
+class MissingBinsWeightsException(LoggableException):
+    """Thrown when there there are no bins and weights in the distribution reference file"""
 
 
 class DistributionChecker:
@@ -112,13 +116,12 @@ class DistributionChecker:
                 ref_data_cfg["weights"] = distribution_reference["weights"]
 
             else:
-                logging.error(
+                raise MissingBinsWeightsException(
                     f"""The DRO in your "{dist_ref_file_path}" distribution reference file does not contain a "distribution_reference" key with weights and bins."""
                     f""" Make sure that before running "soda scan" you create a DRO by running "soda update". For more information visit the docs:\n"""
                     f"""https://docs.soda.io/soda-cl/distribution.html#generate-a-distribution-reference-object-dro."""
                     )
-                return
-
+        
         except YAMLError as exc:
             logging.error(exc)
             raise DistributionRefParsingException(
