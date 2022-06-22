@@ -54,7 +54,6 @@ class AnomalyMetricCheck(MetricCheck):
             error_message = (
                 "Anomaly detection was not given a threshold. You might want to check if the parser returned errors"
             )
-            self.logs.error(error_message)
             self.add_outcome_reason(outcome_type="parserFailed", message=error_message, severity="error")
             return
 
@@ -88,13 +87,14 @@ class AnomalyMetricCheck(MetricCheck):
         assert isinstance(diagnostics, dict), f"Anomaly diagnostics should be a dict. Got a {type(diagnostics)} instead"
 
         if diagnostics["anomalyErrorCode"] == "not_enough_measurements":
-            self.logs.warning(diagnostics["anomalyErrorMessage"])
             self.add_outcome_reason(
                 outcome_type=diagnostics["anomalyErrorCode"],
                 message="Anomaly detection needs at least 5 measurements",
                 severity=diagnostics["anomalyErrorSeverity"],
             )
             self.diagnostics = diagnostics
+            if self.diagnostics["value"] is None:
+                self.diagnostics["value"] = self.get_metric_value()
             return
 
         assert isinstance(
