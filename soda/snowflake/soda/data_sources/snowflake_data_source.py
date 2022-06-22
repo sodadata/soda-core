@@ -1,6 +1,7 @@
+from __future__ import annotations
+
 import logging
 import re
-from typing import Dict, List, Optional
 
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import serialization
@@ -16,14 +17,14 @@ logger = logging.getLogger(__name__)
 class SnowflakeDataSource(DataSource):
     TYPE = "snowflake"
 
-    SCHEMA_CHECK_TYPES_MAPPING: Dict = {
+    SCHEMA_CHECK_TYPES_MAPPING: dict = {
         "TEXT": ["character varying", "varchar", "string"],
         "NUMBER": ["integer", "int"],
         "FLOAT": ["decimal"],
         "TIMESTAMP_NTZ": ["timestamp"],
         "TIMESTAMP_TZ": ["timestamptz"],
     }
-    SQL_TYPE_FOR_CREATE_TABLE_MAP: Dict = {
+    SQL_TYPE_FOR_CREATE_TABLE_MAP: dict = {
         DataType.TEXT: "TEXT",
         DataType.INTEGER: "INT",
         DataType.DECIMAL: "FLOAT",
@@ -105,7 +106,7 @@ class SnowflakeDataSource(DataSource):
     def regex_replace_flags(self) -> str:
         return ""
 
-    def get_metric_sql_aggregation_expression(self, metric_name: str, metric_args: Optional[List[object]], expr: str):
+    def get_metric_sql_aggregation_expression(self, metric_name: str, metric_args: list[object] | None, expr: str):
         # TODO add all of these snowflake specific statistical aggregate functions: https://docs.snowflake.com/en/sql-reference/functions-aggregation.html
         if metric_name in [
             "stddev",
@@ -123,7 +124,7 @@ class SnowflakeDataSource(DataSource):
         return super().get_metric_sql_aggregation_expression(metric_name, metric_args, expr)
 
     def sql_get_table_names_with_count(
-        self, include_tables: Optional[List[str]] = None, exclude_tables: Optional[List[str]] = None
+        self, include_tables: list[str] | None = None, exclude_tables: list[str] | None = None
     ) -> str:
         table_filter_expression = self.sql_table_include_exclude_filter(
             "table_name", "table_schema", include_tables, exclude_tables

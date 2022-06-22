@@ -7,17 +7,8 @@ import pytest
 from soda.common.yaml_helper import to_yaml_str
 from tests.helpers.common_test_tables import customers_profiling
 from tests.helpers.data_source_fixture import DataSourceFixture
-from tests.helpers.fixtures import test_data_source
 
 
-@pytest.mark.skipif(
-    test_data_source == "athena",
-    reason="TODO: fix for athena.",
-)
-# @pytest.mark.skipif(
-#     test_data_source == "spark_df",
-#     reason="TODO: fix for spark_df.",
-# )
 def test_profile_columns_numeric(data_source_fixture: DataSourceFixture):
     table_name = data_source_fixture.ensure_test_table(customers_profiling)
 
@@ -73,14 +64,6 @@ def test_profile_columns_numeric(data_source_fixture: DataSourceFixture):
         assert isinstance(f, int)
 
 
-@pytest.mark.skipif(
-    test_data_source == "athena",
-    reason="TODO: fix for athena.",
-)
-# @pytest.mark.skipif(
-#     test_data_source == "spark_df",
-#     reason="TODO: fix for spark_df.",
-# )
 def test_profile_columns_text(data_source_fixture: DataSourceFixture):
     table_name = data_source_fixture.ensure_test_table(customers_profiling)
 
@@ -135,10 +118,7 @@ def test_profile_columns_text(data_source_fixture: DataSourceFixture):
         }
 
 
-@pytest.mark.skipif(
-    test_data_source == "athena",
-    reason="TODO: fix for athena.",
-)
+@pytest.mark.skip(reason="TODO: table names are not handled for some of the data sources")
 # @pytest.mark.skipif(
 #     test_data_source == "spark_df",
 #     reason="TODO: fix for spark_df.",
@@ -158,10 +138,6 @@ def test_profile_columns_all_tables_all_columns(data_source_fixture: DataSourceF
     assert len(profiling_result["profiling"]) >= 1
 
 
-@pytest.mark.skipif(
-    test_data_source == "athena",
-    reason="TODO: fix for athena.",
-)
 @pytest.mark.parametrize(
     "table_name, soda_cl_str, expectation",
     [

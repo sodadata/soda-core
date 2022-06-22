@@ -2,13 +2,7 @@ from typing import List, Optional, Sequence
 
 import numpy as np
 import pandas as pd
-from pydantic import BaseModel, FilePath, validator
-
-
-class DistCfg(BaseModel):
-    """Validation model for configuration."""
-
-    reference_file_path: Optional[FilePath] = None
+from pydantic import BaseModel, validator
 
 
 class RefDataCfg(BaseModel):

@@ -8,7 +8,7 @@ from soda.scientific.distribution.comparison import (
     DistributionRefParsingException,
     SWDAlgorithm,
 )
-from soda.scientific.distribution.utils import DistCfg, RefDataCfg
+from soda.scientific.distribution.utils import RefDataCfg
 
 
 @pytest.mark.parametrize(
@@ -49,22 +49,6 @@ def test_config_weights(weights):
 
 
 @pytest.mark.parametrize(
-    "reference_file_path",
-    [
-        pytest.param("LICENSE", id="Valid file that exists"),
-        pytest.param("1967.txt", id="Invalid file that doesn't exists"),
-    ],
-)
-def test_ref_file_path(reference_file_path):
-    from pydantic.error_wrappers import ValidationError
-
-    try:
-        DistCfg(reference_file_path=reference_file_path)
-    except ValidationError:
-        pass
-
-
-@pytest.mark.parametrize(
     "method, reference_file_path, test_data, expected_stat, expected_p",
     [
         pytest.param(
@@ -96,12 +80,38 @@ def test_ref_file_path(reference_file_path):
 def test_distribution_checker(method, reference_file_path, test_data, expected_stat, expected_p):
     from soda.scientific.distribution.comparison import DistributionChecker
 
-    test_dist_cfg = DistCfg(reference_file_path=reference_file_path)
-    DistCfg.method = method
-    check = DistributionChecker(test_dist_cfg, test_data)
+    with open(reference_file_path) as f:
+        dist_ref_yaml = f.read()
+
+    check = DistributionChecker(method, dist_ref_yaml, reference_file_path, test_data)
     check_results = check.run()
     assert check_results["stat_value"] == pytest.approx(expected_stat, abs=1e-3)
     assert check_results["check_value"] == pytest.approx(expected_p, abs=1e-3)
+
+
+@pytest.mark.parametrize(
+    "reference_file_path, exception",
+    [
+        pytest.param(
+            "soda/scientific/tests/assets/dist_ref_missing_method.yml",
+            DistributionRefKeyException,
+            id="Missing key method",
+        ),
+        pytest.param(
+            "soda/scientific/tests/assets/invalid.yml",
+            DistributionRefParsingException,
+            id="Corrupted yaml file",
+        ),
+    ],
+)
+def test_ref_config_file_exceptions(reference_file_path, exception):
+    from soda.scientific.distribution.comparison import DistributionChecker
+
+    with pytest.raises(exception):
+        test_data = list(pd.Series(default_rng(61).normal(loc=1.0, scale=1.0, size=1000)))
+        with open(reference_file_path) as f:
+            dist_ref_yaml = f.read()
+        DistributionChecker("continuous", dist_ref_yaml, reference_file_path, test_data)
 
 
 # The following bins and weights are generated based on
@@ -488,7 +498,7 @@ def test_psi_comparison_null(test_data, expected_psi):
 
 
 @pytest.mark.parametrize(
-    "test_data, reference_file_path, method",
+    "test_data, dist_ref_file_path, method",
     [
         pytest.param(
             pd.Series(default_rng(61).choice([0, 1, 2], p=[0.1, 0.4, 0.5], size=1000)),
@@ -504,13 +514,13 @@ def test_psi_comparison_null(test_data, expected_psi):
         ),
     ],
 )
-def test_ref_config_incompatible(test_data, reference_file_path, method):
+def test_ref_config_incompatible(test_data, dist_ref_file_path, method):
     from soda.scientific.distribution.comparison import (
         DistributionChecker,
         DistributionRefIncompatibleException,
     )
 
-    test_dist_cfg = DistCfg(reference_file_path=reference_file_path)
-    DistCfg.method = method
     with pytest.raises(DistributionRefIncompatibleException):
-        DistributionChecker(test_dist_cfg, test_data)
+        with open(dist_ref_file_path) as f:
+            dist_ref_yaml = f.read()
+        DistributionChecker(method, dist_ref_yaml, dist_ref_file_path, test_data)
