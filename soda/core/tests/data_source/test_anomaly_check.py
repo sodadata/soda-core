@@ -59,7 +59,7 @@ def test_anomaly_detection_not_enough_data(data_source_fixture: DataSourceFixtur
         {
             "code": "not_enough_measurements",
             "message": "Skipping anomaly metric check eval because there is not enough historic data yet",
-            "severity": "warn",
+            "severity": "error",
         }
     ]
 
