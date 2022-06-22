@@ -11,8 +11,8 @@ from soda.execution.partition import Partition
 from soda.execution.query import Query
 from soda.sodacl.distribution_check_cfg import DistributionCheckCfg
 
-from soda.scientific.distribution.comparison import DistributionChecker
 from soda.scientific.common.exceptions import LoggableException
+from soda.scientific.distribution.comparison import DistributionChecker
 
 
 class DistributionCheck(Check):
@@ -66,7 +66,7 @@ class DistributionCheck(Check):
                 check_result_dict = DistributionChecker(dist_method, dist_ref_yaml, ref_file_path, test_data).run()
             except LoggableException as e:
                 self.logs.error(e)
-                
+
             self.check_value = check_result_dict["check_value"]
             self.metrics["distribution-difference-metric"].value = self.check_value
             self.set_outcome_based_on_check_value()

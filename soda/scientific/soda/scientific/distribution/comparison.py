@@ -7,6 +7,7 @@ import pandas as pd
 from ruamel.yaml import YAML, YAMLError
 from scipy.stats import chisquare, ks_2samp, wasserstein_distance
 
+from soda.scientific.common.exceptions import LoggableException
 from soda.scientific.distribution.utils import (
     RefDataCfg,
     assert_bidirectional_categorial_values,
@@ -14,7 +15,7 @@ from soda.scientific.distribution.utils import (
     distribution_is_all_null,
     generate_ref_data,
 )
-from soda.scientific.common.exceptions import LoggableException
+
 
 class NotEnoughSamplesException(LoggableException):
     """Thrown when inssuficient samples-like events are detected."""
@@ -120,8 +121,8 @@ class DistributionChecker:
                     f"""The DRO in your "{dist_ref_file_path}" distribution reference file does not contain a "distribution_reference" key with weights and bins."""
                     f""" Make sure that before running "soda scan" you create a DRO by running "soda update". For more information visit the docs:\n"""
                     f"""https://docs.soda.io/soda-cl/distribution.html#generate-a-distribution-reference-object-dro."""
-                    )
-        
+                )
+
         except YAMLError as exc:
             logging.error(exc)
             raise DistributionRefParsingException(
