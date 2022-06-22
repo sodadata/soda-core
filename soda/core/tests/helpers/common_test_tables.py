@@ -110,7 +110,7 @@ raw_customers_test_table = TestTable(
 )
 
 customers_profiling = TestTable(
-    name="Customers_Profiling",
+    name="CustomersProfiling",
     columns=[
         ("id", DataType.TEXT),
         ("size", DataType.DECIMAL),
