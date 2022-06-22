@@ -64,7 +64,9 @@ class DistributionCheck(Check):
                 file_type="disribution reference object yaml", file_path=ref_file_path
             )
             try:
-                check_result_dict = DistributionChecker(dist_method, dist_ref_yaml, ref_file_path, dist_name, test_data).run()
+                check_result_dict = DistributionChecker(
+                    dist_method, dist_ref_yaml, ref_file_path, dist_name, test_data
+                ).run()
             except LoggableException as e:
                 self.logs.error(e, location=self.check_cfg.location)
 

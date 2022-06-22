@@ -110,7 +110,7 @@ def test_distribution_missing_bins_weights(data_source_fixture: DataSourceFixtur
     scan.add_sodacl_yaml_str(
         f"""
         checks for {table_name}:
-            - distribution_difference(size, my_happy_ml_model_distribution) >= 0.05:
+            - distribution_difference(size) >= 0.05:
                 distribution reference file: {user_home_dir}/customers_size_distribution_reference.yml
                 method: ks
     """
