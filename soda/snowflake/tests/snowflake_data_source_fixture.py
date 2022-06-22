@@ -16,13 +16,11 @@ class SnowflakeDataSourceFixture(DataSourceFixture):
         return {
             "data_source snowflake": {
                 "type": "snowflake",
-                "connection": {
-                    "host": os.getenv("SNOWFLAKE_HOST"),
-                    "account": os.getenv("SNOWFLAKE_ACCOUNT"),
-                    "username": os.getenv("SNOWFLAKE_USERNAME"),
-                    "password": os.getenv("SNOWFLAKE_PASSWORD"),
-                    "database": os.getenv("SNOWFLAKE_DATABASE", "sodasql"),
-                },
+                "host": os.getenv("SNOWFLAKE_HOST"),
+                "account": os.getenv("SNOWFLAKE_ACCOUNT"),
+                "username": os.getenv("SNOWFLAKE_USERNAME"),
+                "password": os.getenv("SNOWFLAKE_PASSWORD"),
+                "database": os.getenv("SNOWFLAKE_DATABASE", "sodasql"),
                 "schema": schema_name if schema_name else os.getenv("SNOWFLAKE_SCHEMA", "public"),
             }
         }

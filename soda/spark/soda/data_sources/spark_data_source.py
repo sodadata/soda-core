@@ -154,8 +154,8 @@ class SparkSQLBase(DataSource):
     NUMERIC_TYPES_FOR_PROFILING = ["integer", "int", "double", "float"]
     TEXT_TYPES_FOR_PROFILING = ["string"]
 
-    def __init__(self, logs: Logs, data_source_name: str, data_source_properties: dict, connection_properties: dict):
-        super().__init__(logs, data_source_name, data_source_properties, connection_properties)
+    def __init__(self, logs: Logs, data_source_name: str, data_source_properties: dict):
+        super().__init__(logs, data_source_name, data_source_properties)
 
     def get_table_columns(
         self,
@@ -297,23 +297,23 @@ class SparkSQLBase(DataSource):
 class SparkDataSource(SparkSQLBase):
     TYPE = "spark"
 
-    def __init__(self, logs: Logs, data_source_name: str, data_source_properties: dict, connection_properties: dict):
-        super().__init__(logs, data_source_name, data_source_properties, connection_properties)
+    def __init__(self, logs: Logs, data_source_name: str, data_source_properties: dict):
+        super().__init__(logs, data_source_name, data_source_properties)
 
-        self.method = connection_properties.get("method", "hive")
-        self.host = connection_properties.get("host", "localhost")
-        self.port = connection_properties.get("port", "10000")
-        self.username = connection_properties.get("username")
-        self.password = connection_properties.get("password")
-        self.database = connection_properties.get("database", "default")
-        self.auth_method = connection_properties.get("authentication", None)
-        self.configuration = connection_properties.get("configuration", {})
-        self.driver = connection_properties.get("driver", None)
-        self.token = connection_properties.get("token")
-        self.organization = connection_properties.get("organization", None)
-        self.cluster = connection_properties.get("cluster", None)
+        self.method = data_source_properties.get("method", "hive")
+        self.host = data_source_properties.get("host", "localhost")
+        self.port = data_source_properties.get("port", "10000")
+        self.username = data_source_properties.get("username")
+        self.password = data_source_properties.get("password")
+        self.database = data_source_properties.get("database", "default")
+        self.auth_method = data_source_properties.get("authentication", None)
+        self.configuration = data_source_properties.get("configuration", {})
+        self.driver = data_source_properties.get("driver", None)
+        self.token = data_source_properties.get("token")
+        self.organization = data_source_properties.get("organization", None)
+        self.cluster = data_source_properties.get("cluster", None)
         self.server_side_parameters = {
-            f"SSP_{k}": f"{{{v}}}" for k, v in connection_properties.get("server_side_parameters", {})
+            f"SSP_{k}": f"{{{v}}}" for k, v in data_source_properties.get("server_side_parameters", {})
         }
 
     def connect(self):

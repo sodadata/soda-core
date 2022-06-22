@@ -16,13 +16,11 @@ class RedshiftDataSourceFixture(DataSourceFixture):
         return {
             "data_source redshift": {
                 "type": "redshift",
-                "connection": {
-                    "host": os.getenv("REDSHIFT_HOST", "localhost"),
-                    "port": os.getenv("REDSHIFT_PORT", "5432"),
-                    "username": os.getenv("REDSHIFT_USERNAME", "soda"),
-                    "password": os.getenv("REDSHIFT_PASSWORD"),
-                    "database": os.getenv("REDSHIFT_DATABASE", "sodasql"),
-                },
+                "host": os.getenv("REDSHIFT_HOST", "localhost"),
+                "port": os.getenv("REDSHIFT_PORT", "5432"),
+                "username": os.getenv("REDSHIFT_USERNAME", "soda"),
+                "password": os.getenv("REDSHIFT_PASSWORD"),
+                "database": os.getenv("REDSHIFT_DATABASE", "sodasql"),
                 "schema": schema_name if schema_name else os.getenv("REDSHIFT_SCHEMA", "public"),
             }
         }
