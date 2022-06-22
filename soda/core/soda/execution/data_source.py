@@ -264,8 +264,11 @@ class DataSource:
             filter_clauses.append(f"lower(table_schema) = '{self.schema.lower()}'")
 
         if included_columns:
+            include_clauses = []
             for col in included_columns:
-                filter_clauses.append(f"lower(column_name) LIKE lower('{col}')")
+                include_clauses.append(f"lower(column_name) LIKE lower('{col}')")
+            include_causes_or = " OR ".join(include_clauses)
+            filter_clauses.append(f"({include_causes_or})")
 
         if excluded_columns:
             for col in excluded_columns:
