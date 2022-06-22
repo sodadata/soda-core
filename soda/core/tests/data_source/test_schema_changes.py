@@ -33,10 +33,10 @@ def test_schema_changes_pass(data_source_fixture: DataSourceFixture):
     scan.assert_all_checks_pass()
 
 
-def test_schema_check_have_no_data(scanner: Scanner):
-    table_name = scanner.ensure_test_table(customers_test_table)
+def test_schema_check_have_no_data(data_source_fixture: DataSourceFixture):
+    table_name = data_source_fixture.ensure_test_table(customers_test_table)
 
-    scan = scanner.create_test_scan()
+    scan = data_source_fixture.create_test_scan()
 
     mock_soda_cloud = scan.enable_mock_soda_cloud()
     scan.add_sodacl_yaml_str(

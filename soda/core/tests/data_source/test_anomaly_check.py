@@ -35,10 +35,10 @@ def test_anomaly_detection_default(data_source_fixture: DataSourceFixture):
     scan.assert_all_checks_pass()
 
 
-def test_anomaly_detection_not_enough_data(scanner: Scanner):
-    table_name = scanner.ensure_test_table(customers_test_table)
+def test_anomaly_detection_not_enough_data(data_source_fixture: DataSourceFixture):
+    table_name = data_source_fixture.ensure_test_table(customers_test_table)
 
-    scan = scanner.create_test_scan()
+    scan = data_source_fixture.create_test_scan()
 
     mock_soda_cloud = scan.enable_mock_soda_cloud()
     scan.add_sodacl_yaml_str(
@@ -64,10 +64,10 @@ def test_anomaly_detection_not_enough_data(scanner: Scanner):
     ]
 
 
-def test_anomaly_detection_have_no_data(scanner: Scanner):
-    table_name = scanner.ensure_test_table(customers_test_table)
+def test_anomaly_detection_have_no_data(data_source_fixture: DataSourceFixture):
+    table_name = data_source_fixture.ensure_test_table(customers_test_table)
 
-    scan = scanner.create_test_scan()
+    scan = data_source_fixture.create_test_scan()
 
     mock_soda_cloud = scan.enable_mock_soda_cloud()
     scan.add_sodacl_yaml_str(
