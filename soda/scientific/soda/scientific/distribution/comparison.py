@@ -116,7 +116,7 @@ class DistributionChecker:
                     f"""The DRO in your "{dist_ref_file_path}" distribution reference file does not contain a "distribution_reference" key with weights and bins."""
                     f""" Make sure that before running "soda scan" you create a DRO by running "soda update". For more information visit the docs:\n"""
                     f"""https://docs.soda.io/soda-cl/distribution.html#generate-a-distribution-reference-object-dro."""
-                    )
+                )
                 return
 
         except YAMLError as exc:
