@@ -59,7 +59,7 @@ class DistributionCheck(Check):
             test_data = [row[0] for row in self.query.rows]
             ref_file_path = self.distribution_check_cfg.reference_file_path
             dist_method = self.distribution_check_cfg.method
-            dist_name = self.distribution_check_cfg.name
+            dist_name = self.distribution_check_cfg.distribution_name
             dist_ref_yaml = self.data_source_scan.scan._read_file(
                 file_type="disribution reference object yaml", file_path=ref_file_path
             )

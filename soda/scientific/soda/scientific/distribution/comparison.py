@@ -92,8 +92,8 @@ class DistributionChecker:
             ref_data_cfg = {}
 
             if dist_name:
-                    parsed_file = parsed_ref_cfg.get(dist_name)
-                    if not parsed_file:
+                    parsed_ref_cfg = parsed_ref_cfg.get(dist_name)
+                    if not parsed_ref_cfg:
                         raise DRONameNotFoundException(
                             f"""Your DRO name "{dist_name}" is not found in your distribution reference file "{dist_ref_file_path}". Please make sure that the DRO name that you provide in"""
                             f""" "distribution_difference(column_name, dro_name)" points to an existing DRO. For more information visit the docs:\n"""
