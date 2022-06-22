@@ -35,7 +35,7 @@ default_anomaly_threshold
  ;
 
 change_over_time
- : CHANGE S (change_over_time_config S)? FOR S
+ : CHANGE S (change_over_time_config S)? percent? FOR S
  ;
 
 change_over_time_config
@@ -46,6 +46,10 @@ change_over_time_config
 
 change_aggregation
  : (AVG|MIN|MAX)
+ ;
+
+percent
+ : 'percent' S
  ;
 
 anomaly_score
