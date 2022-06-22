@@ -64,6 +64,11 @@ class SodaCLAntlrVisitor(ParseTreeVisitor):
         return self.visitChildren(ctx)
 
 
+    # Visit a parse tree produced by SodaCLAntlrParser#percent.
+    def visitPercent(self, ctx:SodaCLAntlrParser.PercentContext):
+        return self.visitChildren(ctx)
+
+
     # Visit a parse tree produced by SodaCLAntlrParser#anomaly_score.
     def visitAnomaly_score(self, ctx:SodaCLAntlrParser.Anomaly_scoreContext):
         return self.visitChildren(ctx)

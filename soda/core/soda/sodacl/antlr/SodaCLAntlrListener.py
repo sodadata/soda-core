@@ -107,6 +107,15 @@ class SodaCLAntlrListener(ParseTreeListener):
         pass
 
 
+    # Enter a parse tree produced by SodaCLAntlrParser#percent.
+    def enterPercent(self, ctx:SodaCLAntlrParser.PercentContext):
+        pass
+
+    # Exit a parse tree produced by SodaCLAntlrParser#percent.
+    def exitPercent(self, ctx:SodaCLAntlrParser.PercentContext):
+        pass
+
+
     # Enter a parse tree produced by SodaCLAntlrParser#anomaly_score.
     def enterAnomaly_score(self, ctx:SodaCLAntlrParser.Anomaly_scoreContext):
         pass

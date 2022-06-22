@@ -45,6 +45,17 @@ class ChangeOverTimeMetricCheck(MetricCheck):
             else:
                 self.check_value = float(metric_value) - float(historic_value)
 
+            historic_descriptor = self.historic_descriptors[KEY_HISTORIC_METRIC_AGGREGATE]
+            if isinstance(historic_descriptor, HistoricChangeOverTimeDescriptor):
+                if historic_descriptor.change_over_time_cfg.percent:
+                    if historic_value == 0:
+                        if self.check_value == 0:
+                            self.check_value = 0
+                        else:
+                            self.check_value = None
+                    else:
+                        self.check_value = self.check_value / historic_value * 100
+
             self.historic_diff_values = {
                 "historic_value": historic_value,
                 "metric_value": metric_value,
