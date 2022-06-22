@@ -12,6 +12,7 @@ from soda.execution.query import Query
 from soda.sodacl.distribution_check_cfg import DistributionCheckCfg
 
 from soda.scientific.distribution.comparison import DistributionChecker
+from soda.scientific.common.exceptions import LoggableException
 
 
 class DistributionCheck(Check):
@@ -61,7 +62,11 @@ class DistributionCheck(Check):
             dist_ref_yaml = self.data_source_scan.scan._read_file(
                 file_type="disribution reference object yaml", file_path=ref_file_path
             )
-            check_result_dict = DistributionChecker(dist_method, dist_ref_yaml, ref_file_path, test_data).run()
+            try:
+                check_result_dict = DistributionChecker(dist_method, dist_ref_yaml, ref_file_path, test_data).run()
+            except LoggableException as e:
+                self.logs.error(e)
+                
             self.check_value = check_result_dict["check_value"]
             self.metrics["distribution-difference-metric"].value = self.check_value
             self.set_outcome_based_on_check_value()
