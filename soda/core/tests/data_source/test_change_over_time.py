@@ -11,12 +11,14 @@ def test_change_over_time(data_source_fixture: DataSourceFixture):
         f"""
           checks for {table_name}:
             - change avg last 7 for row_count = 1
-            - change for row_count < 50
+            - change for row_count between -10 and +50
             - change percent for row_count < 1200 %
             - change avg last 7 for row_count < 50
             - change min last 7 for row_count < 50
-            - change min last 5 percent for row_count between -10 and +25 %
-            - change min last 7 for duplicate_count(size) < 50
+            - change min last 5 percent for row_count between -10% and +25%
+            - change min last 7 for duplicate_count(size):
+                warn: when not between -10 and +20
+                fail: when not between -50 and +100
             - change min last 7 percent for duplicate_count(size) < 50 %
         """
     )
