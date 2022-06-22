@@ -57,9 +57,9 @@ def test_anomaly_detection_not_enough_data(data_source_fixture: DataSourceFixtur
     scan_cloud_result = mock_soda_cloud.pop_scan_result()
     assert scan_cloud_result["checks"][0]["outcomeReasons"] == [
         {
-            "code": "not_enough_history",
-            "message": "Anomaly detection needs at least 5 measurements",
-            "severity": "error",
+            "code": "notEnoughHistory",
+            "message": "Skipping anomaly metric check eval because there is not enough historic data yet",
+            "severity": "warn",
         }
     ]
 

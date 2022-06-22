@@ -55,8 +55,7 @@ class AnomalyMetricCheck(MetricCheck):
                 "Anomaly detection was not given a threshold. You might want to check if the parser returned errors"
             )
             self.logs.error(error_message)
-            self.add_outcome_reason(outcome_type="parserFailed", message=error_message, severity="warn")
-            # TODO: check it with Dirk TBD
+            self.add_outcome_reason(outcome_type="parserFailed", message=error_message, severity="error")
             return
 
         # TODO Review the data structure and see if we still need the KEY_HISTORIC_*
