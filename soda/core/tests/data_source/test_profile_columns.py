@@ -85,37 +85,33 @@ def test_profile_columns_text(data_source_fixture: DataSourceFixture):
     profiling.pop("dataSource")
     profiling.pop("table")
 
-    if scan._data_source_name == "spark_df":
-        # TODO when we fix spark and add columns inclusions we should be able to make this work correctly.
-        pass
-    else:
-        assert profiling == {
-            "columnProfiles": [
-                {
-                    "columnName": "country",
-                    "profile": {
-                        "mins": None,
-                        "maxs": None,
-                        "min": None,
-                        "min_length": 2,
-                        "max": None,
-                        "max_length": 2,
-                        "frequent_values": [
-                            {"value": "BE", "frequency": 6},
-                            {"value": "NL", "frequency": 4},
-                        ],
-                        "avg": None,
-                        "avg_length": 2,
-                        "sum": None,
-                        "stddev": None,
-                        "variance": None,
-                        "distinct": 2,
-                        "missing_count": 0,
-                        "histogram": None,
-                    },
-                }
-            ],
-        }
+    assert profiling == {
+        "columnProfiles": [
+            {
+                "columnName": "country",
+                "profile": {
+                    "mins": None,
+                    "maxs": None,
+                    "min": None,
+                    "min_length": 2,
+                    "max": None,
+                    "max_length": 2,
+                    "frequent_values": [
+                        {"value": "BE", "frequency": 6},
+                        {"value": "NL", "frequency": 4},
+                    ],
+                    "avg": None,
+                    "avg_length": 2,
+                    "sum": None,
+                    "stddev": None,
+                    "variance": None,
+                    "distinct": 2,
+                    "missing_count": 0,
+                    "histogram": None,
+                },
+            }
+        ],
+    }
 
 
 @pytest.mark.skip(reason="TODO: table names are not handled for some of the data sources")
@@ -201,18 +197,14 @@ def test_profile_columns_inclusions_exclusions(
     # it is most likely will be related to https://sodadata.atlassian.net/browse/CLOUD-155
     scan.execute(allow_error_warning=True)
     profiling_result = mock_soda_cloud.pop_scan_result()
-    if scan._data_source_name == "spark_df":
-        # we deliberately have to not test this for spark as column inclusion and exclusion is unsupported
-        pass
-    else:
-        for table_result in profiling_result["profiling"]:
-            if table_result["table"].lower().startswith("sodatest_customer"):
-                column_names = [col_profile["columnName"] for col_profile in table_result["columnProfiles"]]
-                if expectation == "all but id":
-                    assert "id" not in column_names
-                elif expectation == "all but nothing":
-                    assert len(column_names) == 0
-                else:
-                    assert "id" not in column_names
-                    assert "size" in column_names
-                    assert "country" not in column_names
+    for table_result in profiling_result["profiling"]:
+        if table_result["table"].lower().startswith("sodatest_customer"):
+            column_names = [col_profile["columnName"] for col_profile in table_result["columnProfiles"]]
+            if expectation == "all but id":
+                assert "id" not in column_names
+            elif expectation == "all but nothing":
+                assert len(column_names) == 0
+            else:
+                assert "id" not in column_names
+                assert "size" in column_names
+                assert "country" not in column_names
