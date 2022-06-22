@@ -93,7 +93,7 @@ class AnomalyMetricCheck(MetricCheck):
             self.add_outcome_reason(
                 outcome_type=diagnostics["anomalyErrorCode"],
                 message="Anomaly detection needs at least 5 measurements",
-                severity=diagnostics["anomalyErrorSeverity"],
+                severity="error",
             )
             self.diagnostics = diagnostics
             return
