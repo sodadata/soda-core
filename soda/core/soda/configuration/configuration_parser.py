@@ -46,23 +46,18 @@ class ConfigurationParser(Parser):
 
                 self._get_required("type", str)
 
+                # Backward compatibility. Merge connection properties one level up, into the data source properties. DS properties take precedence.
                 data_source_connection = header_value.get("connection")
-                if data_source_connection is None:
-                    self.logs.error("connection is required", location=self.location)
-                elif isinstance(data_source_connection, dict):
-                    connection_name = data_source_name
-                    self.configuration.connection_properties_by_name[connection_name] = data_source_connection
-                    header_value["connection"] = connection_name
-                elif not isinstance(data_source_connection, str):
-                    self.logs.error(
-                        "connection must be a string or a dict",
-                        location=self.location,
-                    )
-                self._pop_path_element()
-            elif environment_header.startswith(f"{CONNECTION} "):
-                self._push_path_element(environment_header, header_value)
-                connection_name = environment_header[len(f"{CONNECTION} ") :].strip()
-                self.configuration.connection_properties_by_name[connection_name] = header_value
+                if data_source_connection:
+                    if isinstance(data_source_connection, dict):
+                        for k, v in data_source_connection.items():
+                            if k not in self.configuration.data_source_properties_by_name[data_source_name]:
+                                self.configuration.data_source_properties_by_name[data_source_name][k] = v
+                    else:
+                        self.logs.error(
+                            "connection must be a dict",
+                            location=self.location,
+                        )
                 self._pop_path_element()
 
             elif environment_header == "soda_cloud":
@@ -74,8 +69,7 @@ class ConfigurationParser(Parser):
 
             else:
                 self.logs.error(
-                    f'Invalid configuration header: expected either "{DATA_SOURCE} {{data source name}}" '
-                    f'or "{CONNECTION} {{connection name}}"',
+                    f'Invalid configuration header: expected "{DATA_SOURCE} {{data source name}}".',
                     location=self.location,
                 )
 

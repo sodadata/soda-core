@@ -15,9 +15,8 @@ def test_parse_environment_yaml(monkeypatch):
             """
         data_source local_postgres_soda:
           type: postgres
-          connection:
-            host: localhost
-            username: simon
+          host: localhost
+          username: simon
           database: soda
           schema: public
 
@@ -30,15 +29,11 @@ def test_parse_environment_yaml(monkeypatch):
 
     lpsp_properties: dict = scan._configuration.data_source_properties_by_name["local_postgres_soda"]
     assert lpsp_properties["type"] == "postgres"
-    assert lpsp_properties["connection"] == "local_postgres_soda"
     assert lpsp_properties["database"] == "soda"
     assert lpsp_properties["schema"] == "public"
-
-    lp_properties: dict = scan._configuration.connection_properties_by_name["local_postgres_soda"]
-    assert "type" not in lp_properties
-    assert lp_properties["host"] == "localhost"
-    assert lp_properties["username"] == "simon"
-    assert lp_properties.get("password") is None
+    assert lpsp_properties["host"] == "localhost"
+    assert lpsp_properties["username"] == "simon"
+    assert lpsp_properties.get("password") is None
 
     assert scan._configuration.soda_cloud.api_key_id == "s09d8fs09d8f09sd"
 
@@ -55,10 +50,9 @@ def test_parse_configuration_yaml_env_var_resolving(monkeypatch):
             """
         data_source local_postgres_soda:
           type: postgres
-          connection:
-            host: ${ E }
-            username: ${ env_var('E') }
-            password: ${ env_var('E') }
+          host: ${ E }
+          username: ${ env_var('E') }
+          password: ${ env_var('E') }
           database: ${ env_var('E') }
           schema: ${ env_var('E') }
 
@@ -72,14 +66,11 @@ def test_parse_configuration_yaml_env_var_resolving(monkeypatch):
 
     lpsp_properties: dict = scan._configuration.data_source_properties_by_name["local_postgres_soda"]
     assert lpsp_properties["type"] == "postgres"
-    assert lpsp_properties["connection"] == "local_postgres_soda"
     assert lpsp_properties["database"] == "x"
     assert lpsp_properties["schema"] == "x"
-
-    lp_properties: dict = scan._configuration.connection_properties_by_name["local_postgres_soda"]
-    assert lp_properties["host"] == "x"
-    assert lp_properties["username"] == "x"
-    assert lp_properties["password"] == "x"
+    assert lpsp_properties["host"] == "x"
+    assert lpsp_properties["username"] == "x"
+    assert lpsp_properties["password"] == "x"
 
     assert scan._configuration.soda_cloud.api_key_id == "x"
 
@@ -90,8 +81,7 @@ def test_no_data_source_type():
         dedent(
             """
         data_source local_postgres_soda:
-          connection:
-            host: localhost
+          host: localhost
     """
         )
     )

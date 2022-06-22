@@ -29,9 +29,9 @@ class SparkDfDataSource(SparkSQLBase):
         DataType.BOOLEAN: "boolean",
     }
 
-    def __init__(self, logs: Logs, data_source_name: str, data_source_properties: dict, connection_properties: dict):
-        super().__init__(logs, data_source_name, data_source_properties, connection_properties)
-        self.spark_session = connection_properties.get("spark_session")
+    def __init__(self, logs: Logs, data_source_name: str, data_source_properties: dict):
+        super().__init__(logs, data_source_name, data_source_properties)
+        self.spark_session = data_source_properties.get("spark_session")
 
     def connect(self):
         self.connection = SparkDfConnection(self.spark_session)
