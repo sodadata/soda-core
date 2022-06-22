@@ -217,9 +217,13 @@ def update(
         logging.error(f"Could not parse distribution reference file {distribution_reference_file}: {e}")
         return
 
-    table_name = distribution_dict.get("table")
-    if not table_name:
-        logging.error(f"Missing key 'table' in distribution reference file {distribution_reference_file}")
+    dataset_name = distribution_dict.get("dataset")
+    if not dataset_name:
+        dataset_name = distribution_dict.pop("table")
+        distribution_dict["dataset"] = dataset_name
+
+    if not dataset_name:
+        logging.error(f"Missing key 'dataset' in distribution reference file {distribution_reference_file}")
 
     column_name = distribution_dict.get("column")
     if not column_name:
@@ -234,27 +238,31 @@ def update(
     if filter is not None:
         filter_clause = f"WHERE {filter}"
 
-    if table_name and column_name and distribution_type:
-        query = f"SELECT {column_name} FROM {table_name} {filter_clause}"
+    if dataset_name and column_name and distribution_type:
+        query = f"SELECT {column_name} FROM {dataset_name} {filter_clause}"
         logging.info(f"Querying column values to build distribution reference:\n{query}")
 
         scan = Scan()
         scan.add_configuration_yaml_files(configuration)
         data_source_scan = scan._get_or_create_data_source_scan(data_source_name=data_source)
-        rows = __execute_query(data_source_scan.data_source.connection, query)
+        if data_source_scan:
+            rows = __execute_query(data_source_scan.data_source.connection, query)
 
-        # TODO document what the supported data types are per data source type. And ensure proper Python data type conversion if needed
-        column_values = [row[0] for row in rows]
+            # TODO document what the supported data types are per data source type. And ensure proper Python data type conversion if needed
+            column_values = [row[0] for row in rows]
 
-        from soda.scientific.distribution.comparison import RefDataCfg
-        from soda.scientific.distribution.generate_dro import DROGenerator
+            from soda.scientific.distribution.comparison import RefDataCfg
+            from soda.scientific.distribution.generate_dro import DROGenerator
 
-        dro = DROGenerator(RefDataCfg(distribution_type=distribution_type), column_values).generate()
-        distribution_dict["distribution reference"] = dro.dict()
+            dro = DROGenerator(RefDataCfg(distribution_type=distribution_type), column_values).generate()
+            distribution_dict["distribution_reference"] = dro.dict()
+            if "distribution reference" in distribution_dict:
+                # To clean up the file and don't leave the old syntax
+                distribution_dict.pop("distribution reference")
 
-        new_file_content = to_yaml_str(distribution_dict)
+            new_file_content = to_yaml_str(distribution_dict)
 
-        fs.file_write_from_str(path=distribution_reference_file, file_content_str=new_file_content)
+            fs.file_write_from_str(path=distribution_reference_file, file_content_str=new_file_content)
 
 
 def __execute_query(connection, sql: str) -> List[Tuple]:

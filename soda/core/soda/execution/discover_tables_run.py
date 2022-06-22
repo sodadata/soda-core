@@ -20,28 +20,35 @@ class DiscoverTablesRun:
 
     def run(self) -> DiscoverTablesResult:
         discover_tables_result: DiscoverTablesResult = DiscoverTablesResult(self.data_source_check_cfg)
-        self.logs.info(f"Running discover tables for data source: {self.data_source.data_source_name}")
+        self.logs.info(f"Running discover datasets for data source: {self.data_source.data_source_name}")
 
         # row_counts is a dict that maps table names to row counts.
-        row_counts_by_table_name: dict[str, int] = self.data_source.get_row_counts_all_tables(
+        table_names: dict[str, int] = self.data_source.get_table_names(
             include_tables=self.data_source_check_cfg.include_tables,
             exclude_tables=self.data_source_check_cfg.exclude_tables,
-            query_name=f"discover-tables-find-tables-and-row-counts",
+            query_name="discover-tables-find-tables-and-row-counts",
         )
-        for table_name in row_counts_by_table_name:
+
+        if len(table_names) < 1:
+            self.logs.warning(
+                f"No table matching your SodaCL inclusion list found on your {self.data_source.data_source_name} "
+                "data source. Table discovery results may be incomplete or entirely skipped"
+            )
+            return discover_tables_result
+
+        for table_name in table_names:
             self.logs.debug(f"Discovering columns for {table_name}")
-            measured_row_count = row_counts_by_table_name[table_name]
+            measured_row_count = self.data_source.get_table_row_count(table_name)
             discover_tables_result_table = discover_tables_result.create_table(
                 table_name, self.data_source.data_source_name, measured_row_count
             )
             # get columns & metadata for current table
             columns_metadata_result = self.data_source.get_table_columns(
-                table_name=table_name, query_name=f"discover-tables-column-metadata-for-{table_name}"
+                table_name=table_name,
+                query_name=f"discover-tables-column-metadata-for-{table_name}",
             )
 
             for column_name, column_type in columns_metadata_result.items():
                 _ = discover_tables_result_table.create_column(column_name, column_type)
 
-        if not discover_tables_result.tables:
-            self.logs.error(f"Discover tables for data source: {self.data_source.data_source_name} failed")
         return discover_tables_result

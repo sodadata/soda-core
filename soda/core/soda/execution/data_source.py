@@ -37,7 +37,10 @@ class DataSource:
     # Maps synonym types for the convenience of use in checks.
     # Keys represent the data_source type, values are lists of "aliases" that can be used in SodaCL as synonyms.
     SCHEMA_CHECK_TYPES_MAPPING: dict = {
-        "character varying": ["varchar"],
+        "character varying": ["varchar", "text"],
+        "double precision": ["decimal"],
+        "timestamp without time zone": ["timestamp"],
+        "timestamp with time zone": ["timestamptz"],
     }
     SQL_TYPE_FOR_CREATE_TABLE_MAP: dict = {
         DataType.TEXT: "VARCHAR(255)",
@@ -61,14 +64,23 @@ class DataSource:
         DataType.BOOLEAN: "boolean",
     }
 
-    NUMERIC_TYPES_FOR_PROFILING = ["integer", "double precision"]
-    TEXT_TYPES_FOR_PROFILING = ["character varying"]
+    NUMERIC_TYPES_FOR_PROFILING = ["integer", "double precision", "double"]
+    TEXT_TYPES_FOR_PROFILING = ["character varying", "varchar"]
+
+    @staticmethod
+    def camel_case_data_source_type(data_source_type: str) -> str:
+        if "bigquery" == data_source_type:
+            return "BigQuery"
+        elif "spark_df" == data_source_type:
+            return "SparkDf"
+        else:
+            return f"{data_source_type[0:1].upper()}{data_source_type[1:]}"
 
     @staticmethod
     def create(
         logs: Logs,
         data_source_name: str,
-        connection_type: str,
+        data_source_type: str,
         data_source_properties: dict,
         connection_properties: dict,
     ) -> DataSource:
@@ -77,17 +89,18 @@ class DataSource:
         the caller to initialize data_source.connection.  To create a new connection,
         use data_source.connect(...)
         """
-        module_name = f"soda.data_sources.{connection_type}_data_source"
-        data_source_properties["connection_type"] = connection_type
         try:
-            module = importlib.import_module(module_name)
-            return module.DataSourceImpl(logs, data_source_name, data_source_properties, connection_properties)
+            data_source_properties["connection_type"] = data_source_type
+            module = importlib.import_module(f"soda.data_sources.{data_source_type}_data_source")
+            data_source_class = f"{DataSource.camel_case_data_source_type(data_source_type)}DataSource"
+            class_ = getattr(module, data_source_class)
+            return class_(logs, data_source_name, data_source_properties, connection_properties)
         except ModuleNotFoundError as e:
-            if connection_type == "postgresql":
-                logs.error(f'Data source type "{connection_type}" not found. Did you mean postgres?')
+            if data_source_type == "postgresql":
+                logs.error(f'Data source type "{data_source_type}" not found. Did you mean postgres?')
             else:
                 raise DataSourceError(
-                    f'Data source type "{connection_type}" not found. Did you spell {connection_type} correctly? Did you install module soda-core-{connection_type}?'
+                    f'Data source type "{data_source_type}" not found. Did you spell {data_source_type} correctly? Did you install module soda-core-{data_source_type}?'
                 )
             return None
 
@@ -107,9 +120,9 @@ class DataSource:
         # @see self.connect() for initialization
         self.type = self.data_source_properties.get("connection_type")
         self.connection = None
-        self.database: str = data_source_properties.get("database")
+        self.database: str | None = connection_properties.get("database")
         self.schema: str | None = data_source_properties.get("schema")
-        self.table_prefix = data_source_properties.get("table_prefix")
+        self.table_prefix: str | None = self._create_table_prefix()
         # self.data_source_scan is initialized in create_data_source_scan(...) below
         self.data_source_scan: DataSourceScan | None = None
 
@@ -165,10 +178,7 @@ class DataSource:
         ):
             return True
 
-        return expected_type == actual_type
-
-    def qualify_table_name(self, table_name: str) -> str:
-        return table_name
+        return expected_type == actual_type.lower()
 
     @staticmethod
     def column_metadata_columns() -> list:
@@ -194,11 +204,11 @@ class DataSource:
         return query.sample_ref
 
     def sql_select_all(self, table_name: str, limit: int | None = None) -> str:
-        quoted_table_name = self.quote_table(table_name)
+        qualified_table_name = self.qualified_table_name(table_name)
         limit_sql = ""
         if limit is not None:
             limit_sql = f" \n LIMIT {limit}"
-        sql = f"SELECT * FROM {quoted_table_name}{limit_sql}"
+        sql = f"SELECT * FROM {qualified_table_name}{limit_sql}"
         return sql
 
     ############################################
@@ -232,42 +242,46 @@ class DataSource:
         return TableColumnsQuery(partition, schema_metric)
 
     def sql_get_table_columns(
-        self, table_name: str, included_columns: list[str] | None = None, excluded_columns: list[str] | None = None
+        self,
+        table_name: str,
+        included_columns: list[str] | None = None,
+        excluded_columns: list[str] | None = None,
     ) -> str:
-        # build optional filter clauses
+        def is_quoted(table_name):
+            return (table_name.startswith('"') and table_name.endswith('"')) or (
+                table_name.startswith("`") and table_name.endswith("`")
+            )
+
+        table_name_lower = table_name.lower()
+        unquoted_table_name_lower = table_name_lower[1:-1] if is_quoted(table_name_lower) else table_name_lower
+
+        filter_clauses = [f"lower(table_name) = '{unquoted_table_name_lower}'"]
+
         if self.database:
-            database_filter = f" \n  AND lower({self.column_metadata_catalog_column()}) = '{self.database.lower()}'"
-        else:
-            database_filter = ""
+            filter_clauses.append(f"lower({self.column_metadata_catalog_column()}) = '{self.database.lower()}'")
 
         if self.schema:
-            schema_filter = f" \n  AND lower(table_schema) = '{self.schema.lower()}'"
-        else:
-            schema_filter = ""
+            filter_clauses.append(f"lower(table_schema) = '{self.schema.lower()}'")
 
         if included_columns:
-            included_columns_filter = ""
             for col in included_columns:
-                included_columns_filter += f"\n AND lower(column_name) LIKE lower('{col}')"
-        else:
-            included_columns_filter = ""
+                filter_clauses.append(f"lower(column_name) LIKE lower('{col}')")
 
         if excluded_columns:
-            excluded_columns_filter = ""
             for col in excluded_columns:
-                excluded_columns_filter += f"\n AND lower(column_name) NOT LIKE lower('{col}')"
-        else:
-            excluded_columns_filter = ""
+                filter_clauses.append(f"lower(column_name) NOT LIKE lower('{col}')")
+
+        where_filter = " \n  AND ".join(filter_clauses)
 
         # compose query template
+        # NOTE: we use `order by ordinal_position` to guarantee stable orders of columns
+        # (see https://www.postgresql.org/docs/current/infoschema-columns.html)
+        # this mainly has an advantage in testing but bears very little as to how Soda Cloud
+        # displays those columns as they are ordered alphabetically in the UI.
         sql = (
             f"SELECT {', '.join(self.column_metadata_columns())} \n"
-            f"FROM information_schema.columns \n"
-            f"WHERE lower(table_name) = '{table_name.lower()}'"
-            f"{database_filter}"
-            f"{schema_filter}"
-            f"{included_columns_filter}"
-            f"{excluded_columns_filter}"
+            f"FROM {self.sql_information_schema_columns()} \n"
+            f"WHERE {where_filter}"
             "\nORDER BY ORDINAL_POSITION"
         )
         return sql
@@ -285,19 +299,8 @@ class DataSource:
         where_clause = f"\nWHERE {table_filter_expression} \n" if table_filter_expression else ""
         return f"SELECT relname, n_live_tup \n" f"FROM pg_stat_user_tables" f"{where_clause}"
 
-    def sql_get_column(self, include_tables: list[str] | None = None, exclude_tables: list[str] | None = None) -> str:
-        table_filter_expression = self.sql_table_include_exclude_filter(
-            "table_name", "table_schema", include_tables, exclude_tables
-        )
-        where_clause = f"\nWHERE {table_filter_expression} \n" if table_filter_expression else ""
-        return (
-            f"SELECT table_name, column_name, data_type, is_nullable \n"
-            f"FROM information_schema.columns"
-            f"{where_clause}"
-        )
-
     def sql_get_table_count(self, table_name: str) -> str:
-        return f"SELECT {self.expr_count_all()} from {self.qualify_table_name(table_name)}"
+        return f"SELECT {self.expr_count_all()} from {self.qualified_table_name(table_name)}"
 
     def sql_table_include_exclude_filter(
         self,
@@ -307,19 +310,29 @@ class DataSource:
         exclude_tables: list[str] = [],
     ) -> str | None:
         tablename_filter_clauses = []
+
+        def build_table_matching_conditions(tables: list[str], comparison_operator: str):
+            conditions = []
+
+            for table in tables:
+                # This is intended to be future proof and support quoted table names. The method is not used in such way and table names/patterns that still
+                # need to be quoted are passed here, e.g. `%sodatest_%`. I.e. this condition is always met and default casify is always used, table name below is therefore single quoted.
+                if not self.is_table_quoted(table):
+                    table = self.default_casify_table_name(table)
+
+                conditions.append(f"{table_column_name} {comparison_operator} '{table}'")
+            return conditions
+
         if include_tables:
-            sql_include_clauses = " OR ".join(
-                [f"lower({table_column_name}) like '{include_table.lower()}'" for include_table in include_tables]
-            )
+            sql_include_clauses = " OR ".join(build_table_matching_conditions(include_tables, "like"))
             tablename_filter_clauses.append(f"({sql_include_clauses})")
 
         if exclude_tables:
-            tablename_filter_clauses.extend(
-                [f"lower({table_column_name}) not like '{exclude_table.lower()}'" for exclude_table in exclude_tables]
-            )
+            tablename_filter_clauses.extend(build_table_matching_conditions(exclude_tables, "not like"))
 
         if hasattr(self, "schema") and self.schema and schema_column_name:
             tablename_filter_clauses.append(f"lower({schema_column_name}) = '{self.schema.lower()}'")
+
         return "\n      AND ".join(tablename_filter_clauses) if tablename_filter_clauses else None
 
     def sql_find_table_names(
@@ -330,11 +343,11 @@ class DataSource:
         table_column_name: str = "table_name",
         schema_column_name: str = "table_schema",
     ) -> str:
-        sql = f"SELECT table_name \n" f"FROM {self.sql_information_schema_identifier()}"
+        sql = f"SELECT table_name \n" f"FROM {self.sql_information_schema_tables()}"
         where_clauses = []
 
         if filter:
-            where_clauses.append(f"lower({table_column_name}) like '{filter.lower()}'")
+            where_clauses.append(f"lower({self.default_casify_column_name(table_column_name)}) like '{filter.lower()}'")
 
         includes_excludes_filter = self.sql_table_include_exclude_filter(
             table_column_name, schema_column_name, include_tables, exclude_tables
@@ -348,8 +361,11 @@ class DataSource:
 
         return sql
 
-    def sql_information_schema_identifier(self) -> str:
+    def sql_information_schema_tables(self) -> str:
         return "information_schema.tables"
+
+    def sql_information_schema_columns(self) -> str:
+        return "information_schema.columns"
 
     def sql_analyze_table(self, table: str) -> str | None:
         return None
@@ -435,17 +451,17 @@ class DataSource:
 
     def profiling_sql_value_frequencies_cte(self, table_name: str, column_name: str) -> str:
         quoted_column_name = self.quote_column(column_name)
-        quoted_table_name = self.quote_table(table_name)
+        qualified_table_name = self.qualified_table_name(table_name)
         return f"""value_frequencies AS (
                             SELECT {quoted_column_name} AS value_, count(*) AS frequency_
-                            FROM {quoted_table_name}
+                            FROM {qualified_table_name}
                             WHERE {quoted_column_name} IS NOT NULL
                             GROUP BY {quoted_column_name}
                         )"""
 
     def profiling_sql_aggregates_numeric(self, table_name: str, column_name: str) -> str:
         column_name = self.quote_column(column_name)
-        table_name = self.quote_table(table_name)
+        qualified_table_name = self.qualified_table_name(table_name)
         return dedent(
             f"""
             SELECT
@@ -455,13 +471,13 @@ class DataSource:
                 , stddev({column_name}) as standard_deviation
                 , count(distinct({column_name})) as distinct_values
                 , sum(case when {column_name} is null then 1 else 0 end) as missing_values
-            FROM {table_name}
+            FROM {qualified_table_name}
             """
         )
 
     def profiling_sql_aggregates_text(self, table_name: str, column_name: str) -> str:
         column_name = self.quote_column(column_name)
-        table_name = self.quote_table(table_name)
+        qualified_table_name = self.qualified_table_name(table_name)
         return dedent(
             f"""
             SELECT
@@ -470,7 +486,7 @@ class DataSource:
                 , avg(length({column_name})) as avg_length
                 , min(length({column_name})) as min_length
                 , max(length({column_name})) as max_length
-            FROM {table_name}
+            FROM {qualified_table_name}
             """
         )
 
@@ -537,25 +553,30 @@ class DataSource:
                 sql=sql,
             )
             query.execute()
-            return {row[0]: row[1] for row in query.rows}
+            return {self._optionally_quote_table_name_from_meta_data(row[0]): row[1] for row in query.rows}
+
         # Single query to get the metadata not available, get the counts one by one.
         all_tables = self.get_table_names(include_tables=include_tables, exclude_tables=exclude_tables)
         result = {}
-
-        for table in all_tables:
-            query_name_str = f"get_row_count_{table}"
-            if query_name:
-                query_name_str = f"{query_name}_{table}"
-            query = Query(
-                data_source_scan=self.data_source_scan,
-                unqualified_query_name=query_name_str,
-                sql=self.sql_get_table_count(self.quote_table(table)),
-            )
-            query.execute()
-            if query.rows:
-                result[table] = query.rows[0][0]
+        for table_name in all_tables:
+            table_count = self.get_table_row_count(table_name)
+            if table_count:
+                result[table_name] = table_count
 
         return result
+
+    def get_table_row_count(self, table_name: str) -> int | None:
+        """Deprecated, use get_row_counts_all_tables whenever possible."""
+        query_name_str = f"get_row_count_{table_name}"
+        query = Query(
+            data_source_scan=self.data_source_scan,
+            unqualified_query_name=query_name_str,
+            sql=self.sql_get_table_count(self.quote_table(table_name)),
+        )
+        query.execute()
+        if query.rows:
+            return query.rows[0][0]
+        return None
 
     def get_table_names(
         self,
@@ -571,8 +592,22 @@ class DataSource:
             sql=sql,
         )
         query.execute()
-        table_names = [row[0] for row in query.rows]
+        table_names = [self._optionally_quote_table_name_from_meta_data(row[0]) for row in query.rows]
         return table_names
+
+    def _optionally_quote_table_name_from_meta_data(self, table_name: str) -> str:
+        """
+        To be used by all table names coming from metadata queries.  Quotes are added if needed if the table
+        doesn't match the default casify rules.  The table_name is returned unquoted if it matches the default
+        casify rules.
+        """
+        # if the table name needs quoting
+        if table_name != self.default_casify_table_name(table_name):
+            # add the quotes
+            return self.quote_table(table_name)
+        else:
+            # return the bare table name
+            return table_name
 
     def analyze_table(self, table: str):
         if self.sql_analyze_table(table):
@@ -582,19 +617,44 @@ class DataSource:
                 sql=self.sql_analyze_table(table),
             ).execute()
 
-    def fully_qualified_table_name(self, table_name) -> str:
-        return self.prefix_table(table_name)
+    def _create_table_prefix(self):
+        """
+        Use
+            * self.schema
+            * self.database
+            * self.quote_table(unquoted_table_name)
+        to compose the table prefix to be used in Soda Core queries.  The returned table prefix
+        should not include the dot (.) and can optionally be None.  Consider quoting as well.
+        Examples:
+            return None
+            return self.schema
+            return self.database
+            return f'"{self.database}"."{self.schema}"'
+        """
+        return self.schema
 
-    def quote_table_declaration(self, table_name) -> str:
-        return self.quote_table(table_name=table_name)
+    def update_schema(self, schema_name):
+        self.schema = schema_name
+        self.table_prefix = self._create_table_prefix()
 
-    def quote_table(self, table_name) -> str:
-        return f'"{table_name}"'
-
-    def prefix_table(self, table_name: str) -> str:
+    def qualified_table_name(self, table_name: str) -> str:
+        """
+        table_name can be quoted or unquoted
+        """
         if self.table_prefix:
             return f"{self.table_prefix}.{table_name}"
         return table_name
+
+    def quote_table_declaration(self, table_name: str) -> str:
+        return self.quote_table(table_name=table_name)
+
+    def is_table_quoted(self, table_name: str) -> bool:
+        return (table_name.startswith('"') and table_name.endswith('"')) or (
+            table_name.startswith("'") and table_name.endswith("'")
+        )
+
+    def quote_table(self, table_name: str) -> str:
+        return f'"{table_name}"'
 
     def quote_column_declaration(self, column_name: str) -> str:
         return self.quote_column(column_name)
@@ -719,7 +779,7 @@ class DataSource:
         """
         return 50
 
-    def connect(self, connection_properties: dict):
+    def connect(self):
         """
         Subclasses use self.connection_properties to initialize self.connection with a PEP 249 connection
 
@@ -761,18 +821,15 @@ class DataSource:
     def rollback(self):
         self.connection.rollback()
 
-    @staticmethod
-    def default_casify_table_name(identifier: str) -> str:
+    def default_casify_table_name(self, identifier: str) -> str:
         """Formats table identifier to e.g. a default case for a given data source."""
         return identifier
 
-    @staticmethod
-    def default_casify_column_name(identifier: str) -> str:
+    def default_casify_column_name(self, identifier: str) -> str:
         """Formats column identifier to e.g. a default case for a given data source."""
         return identifier
 
-    @staticmethod
-    def default_casify_type_name(identifier: str) -> str:
+    def default_casify_type_name(self, identifier: str) -> str:
         """Formats type identifier to e.g. a default case for a given data source."""
         return identifier
 
@@ -820,3 +877,6 @@ class DataSource:
 
         finally:
             cursor.close()
+
+    def create_test_table_manager(self):
+        raise Exception("Override this method and provide a data source specific test table manager")

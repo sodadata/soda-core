@@ -13,8 +13,6 @@ from soda.sampler.log_sampler import LogSampler
 from soda.scan import Scan
 from tests.helpers.mock_sampler import MockSampler
 from tests.helpers.mock_soda_cloud import MockSodaCloud, TimeGenerator
-from tests.helpers.test_table import TestTable
-from tests.helpers.test_table_manager import TestTableManager
 
 logger = logging.getLogger(__name__)
 
@@ -31,8 +29,12 @@ class TestScan(Scan):
         self.check_index = 0
 
         test_name = os.environ.get("PYTEST_CURRENT_TEST")
-        schedule_name = test_name[test_name.rfind("/") + 1 : -7]
-        self.set_scan_definition_name(schedule_name)
+        if test_name:
+            scan_definition_name = test_name[test_name.rfind("/") + 1 : -7]
+        else:
+            scan_definition_name = "test-scan-definition"
+
+        self.set_scan_definition_name(scan_definition_name)
 
         self._configuration.sampler = LogSampler()
         self.set_verbose()
@@ -177,30 +179,36 @@ class TestScan(Scan):
 
         return error_message
 
+    # class Scanner:
+    #     def __init__(self, data_source: DataSource):
+    #         self.data_source = data_source
+    #         self.test_table_manager = data_source.create_test_table_manager()
+    #         self.test_table_manager._initialize_schema()
+    #
+    #     def drop_schema(self):
+    #         # create_schema is done directly from the TestTableManager constructor
+    #         self.test_table_manager._drop_schema_if_exists()
+    #
+    #     def ensure_test_table(self, test_table: TestTable) -> str:
+    #         return self.test_table_manager.ensure_test_table(test_table)
+    #
+    #     def create_test_scan(self) -> TestScan:
+    #         return TestScan(data_source=self.data_source)
+    #
+    #     def execute_query(self, sql):
+    #         data_source = self.data_source
+    #         cursor = data_source.connection.cursor()
+    #         try:
+    #             indented_sql = textwrap.indent(text=sql, prefix="  #   ")
+    #             logging.debug(f"  # Query: \n{indented_sql}")
+    #             cursor.execute(sql)
+    #             return cursor.fetchone()
+    #         finally:
+    #             cursor.close()
 
-class Scanner:
-    def __init__(self, data_source: DataSource):
-        self.data_source = data_source
-        if "spark_df" == data_source.data_source_name:
-            from tests.spark_df_test_table_manager import SparkDfTestTableManager
+    def casify_data_type(self, data_type: str) -> str:
+        data_source_type = self.data_source.get_sql_type_for_schema_check(data_type)
+        return self.data_source.default_casify_column_name(data_source_type)
 
-            self.test_table_manager = SparkDfTestTableManager(data_source)
-        else:
-            self.test_table_manager = TestTableManager(data_source)
-
-    def ensure_test_table(self, test_table: TestTable) -> str:
-        return self.test_table_manager.ensure_test_table(test_table)
-
-    def create_test_scan(self) -> TestScan:
-        return TestScan(data_source=self.data_source)
-
-    def execute_query(self, sql):
-        data_source = self.data_source
-        cursor = data_source.connection.cursor()
-        try:
-            indented_sql = textwrap.indent(text=sql, prefix="  #   ")
-            logging.debug(f"  # Query: \n{indented_sql}")
-            cursor.execute(sql)
-            return cursor.fetchone()
-        finally:
-            cursor.close()
+    def casify_column_name(self, test_column_name: str) -> str:
+        return self.data_source.default_casify_column_name(test_column_name)

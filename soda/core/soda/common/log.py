@@ -49,7 +49,7 @@ class Log:
         self.location: Location | None = location
         self.doc: str | None = doc
         self.exception: BaseException | None = exception
-        self.timestamp: datetime = timestamp if isinstance(timestamp, datetime) else datetime.now()
+        self.timestamp: datetime = timestamp if isinstance(timestamp, datetime) else datetime.utcnow()
         self.index = self.get_next_index()
 
     __index = 0

@@ -106,7 +106,7 @@ class SodaCloud:
             scan_folder_name = (
                 f"{self._fileify(scan_definition_name)}"
                 f'_{scan_data_timestamp.strftime("%Y%m%d%H%M%S")}'
-                f'_{datetime.now().strftime("%Y%m%d%H%M%S")}'
+                f'_{datetime.utcnow().strftime("%Y%m%d%H%M%S")}'
             )
 
             with tempfile.TemporaryFile() as temp_file:
@@ -199,7 +199,8 @@ class SodaCloud:
         )
 
     def _get_historic_measurements(self, hd: HistoricMeasurementsDescriptor):
-        return self._execute_query(
+
+        historic_measurements = self._execute_query(
             {
                 "type": "sodaCoreHistoricMeasurements",
                 "limit": hd.limit,
@@ -215,6 +216,11 @@ class SodaCloud:
                 },
             }
         )
+        # Filter out historic_measurements not having 'value' key
+        historic_measurements["results"] = [
+            measurement for measurement in historic_measurements["results"] if "value" in measurement
+        ]
+        return historic_measurements
 
     def _get_hisotric_check_results(self, hd: HistoricCheckResultsDescriptor):
         return self._execute_query(

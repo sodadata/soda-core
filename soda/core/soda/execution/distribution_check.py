@@ -1,3 +1,4 @@
+from cmath import inf
 from numbers import Number
 from typing import Dict, Optional
 
@@ -21,6 +22,7 @@ class DistributionCheck(Check):
         partition: Optional[Partition] = None,
         column: Optional[Column] = None,
     ):
+
         super().__init__(
             check_cfg=check_cfg,
             data_source_scan=data_source_scan,
@@ -29,10 +31,22 @@ class DistributionCheck(Check):
             name="distribution_difference",
         )
 
-    def evaluate(self, metrics: Dict[str, Metric], historic_values: Dict[str, object]):
-        distribution_check_cfg: DistributionCheckCfg = self.check_cfg
+        self.distribution_check_cfg: DistributionCheckCfg = self.check_cfg
+        metric = Metric(
+            data_source_scan=self.data_source_scan,
+            name=self.distribution_check_cfg.source_line,
+            partition=None,
+            column=None,
+            check=self,
+            identity_parts=["distribution"],
+        )
+        metric.value = inf
+        metric = data_source_scan.resolve_metric(metric)
+        self.metrics["distribution-difference-metric"] = metric
 
-        sql = self.sql_column_values_query(distribution_check_cfg)
+    def evaluate(self, metrics: Dict[str, Metric], historic_values: Dict[str, object]):
+
+        sql = self.sql_column_values_query(self.distribution_check_cfg)
 
         self.query = Query(
             data_source_scan=self.data_source_scan,
@@ -42,26 +56,30 @@ class DistributionCheck(Check):
         self.query.execute()
         if self.query.exception is None and self.query.rows is not None:
             test_data = [row[0] for row in self.query.rows]
-
-            check_result_dict = DistributionChecker(distribution_check_cfg, test_data).run()
+            ref_file_path = self.distribution_check_cfg.reference_file_path
+            dist_method = self.distribution_check_cfg.method
+            dist_ref_yaml = self.data_source_scan.scan._read_file(
+                file_type="disribution reference object yaml", file_path=ref_file_path
+            )
+            check_result_dict = DistributionChecker(dist_method, dist_ref_yaml, ref_file_path, test_data).run()
             self.check_value = check_result_dict["check_value"]
-
+            self.metrics["distribution-difference-metric"].value = self.check_value
             self.set_outcome_based_on_check_value()
 
     def set_outcome_based_on_check_value(self):
-        from soda.sodacl.distribution_check_cfg import DistributionCheckCfg
 
-        distribution_check_cfg: DistributionCheckCfg = self.check_cfg
         if self.check_value is not None and (
-            distribution_check_cfg.warn_threshold_cfg or distribution_check_cfg.fail_threshold_cfg
+            self.distribution_check_cfg.warn_threshold_cfg or self.distribution_check_cfg.fail_threshold_cfg
         ):
             if isinstance(self.check_value, Number):
-                if distribution_check_cfg.fail_threshold_cfg and distribution_check_cfg.fail_threshold_cfg.is_bad(
-                    self.check_value
+                if (
+                    self.distribution_check_cfg.fail_threshold_cfg
+                    and self.distribution_check_cfg.fail_threshold_cfg.is_bad(self.check_value)
                 ):
                     self.outcome = CheckOutcome.FAIL
-                elif distribution_check_cfg.warn_threshold_cfg and distribution_check_cfg.warn_threshold_cfg.is_bad(
-                    self.check_value
+                elif (
+                    self.distribution_check_cfg.warn_threshold_cfg
+                    and self.distribution_check_cfg.warn_threshold_cfg.is_bad(self.check_value)
                 ):
                     self.outcome = CheckOutcome.WARN
                 else:
@@ -73,9 +91,12 @@ class DistributionCheck(Check):
                 )
 
     def get_cloud_diagnostics_dict(self) -> dict:
-        cloud_diagnostics = super().get_cloud_diagnostics_dict()
-        # if self.historic_diff_values:
-        #     cloud_diagnostics["historic_diff_values"] = self.historic_diff_values
+        distribution_check_cfg: DistributionCheckCfg = self.check_cfg
+        cloud_diagnostics = {"value": self.check_value}
+        if distribution_check_cfg.fail_threshold_cfg is not None:
+            cloud_diagnostics["fail"] = distribution_check_cfg.fail_threshold_cfg.to_soda_cloud_diagnostics_json()
+        if distribution_check_cfg.warn_threshold_cfg is not None:
+            cloud_diagnostics["warn"] = distribution_check_cfg.warn_threshold_cfg.to_soda_cloud_diagnostics_json()
         return cloud_diagnostics
 
     def get_log_diagnostic_dict(self) -> dict:
@@ -102,7 +123,7 @@ class DistributionCheck(Check):
         sql = (
             f"SELECT \n"
             f"  {column_name} \n"
-            f"FROM {self.partition.table.fully_qualified_table_name}{partition_str}{limit_str}"
+            f"FROM {self.partition.table.qualified_table_name}{partition_str}{limit_str}"
         )
         return sql
 

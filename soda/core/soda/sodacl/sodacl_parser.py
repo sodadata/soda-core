@@ -16,17 +16,20 @@ from soda.common.parser import Parser
 from soda.common.yaml_helper import to_yaml_str
 from soda.sodacl.antlr.SodaCLAntlrLexer import SodaCLAntlrLexer
 from soda.sodacl.antlr.SodaCLAntlrParser import SodaCLAntlrParser
-from soda.sodacl.automated_monitoring_cfg import AutomatedMonitoringCfg
 from soda.sodacl.change_over_time_cfg import ChangeOverTimeCfg
 from soda.sodacl.check_cfg import CheckCfg
-from soda.sodacl.data_source_check_cfg import DataSourceCheckCfg
+from soda.sodacl.data_source_check_cfg import (
+    AutomatedMonitoringCfg,
+    DiscoverTablesCfg,
+    ProfileColumnsCfg,
+    SampleTablesCfg,
+)
 from soda.sodacl.distribution_check_cfg import DistributionCheckCfg
 from soda.sodacl.for_each_column_cfg import ForEachColumnCfg
-from soda.sodacl.for_each_table_cfg import ForEachTableCfg
+from soda.sodacl.for_each_dataset_cfg import ForEachDatasetCfg
 from soda.sodacl.freshness_check_cfg import FreshnessCheckCfg
 from soda.sodacl.missing_and_valid_cfg import CFG_MISSING_VALID_ALL, MissingAndValidCfg
 from soda.sodacl.name_filter import NameFilter
-from soda.sodacl.profile_columns_cfg import ProfileColumnsCfg
 from soda.sodacl.reference_check_cfg import ReferenceCheckCfg
 from soda.sodacl.row_count_comparison_check_cfg import RowCountComparisonCheckCfg
 from soda.sodacl.schema_check_cfg import SchemaCheckCfg, SchemaValidations
@@ -94,15 +97,22 @@ class SodaCLParser(Parser):
             return
 
         for header_str, header_content in headers_dict.items():
+
+            # Backwards compatibility warning
+            if "for each table" in header_str:
+                self.logs.warning(
+                    f"Please update 'for each table ...' to 'for each dataset ...'.", location=self.location
+                )
+
             self._push_path_element(header_str, header_content)
             try:
                 if "automated monitoring" == header_str:
                     self.__parse_automated_monitoring_section(header_str, header_content)
                 elif header_str.startswith("profile columns"):
                     self.__parse_profile_columns_section(header_str, header_content)
-                elif header_str.startswith("discover tables"):
+                elif header_str.startswith("discover datasets") or header_str.startswith("discover tables"):
                     self.__parse_discover_tables_section(header_str, header_content)
-                elif header_str.startswith("sample datasets"):
+                elif header_str.startswith("sample datasets") or header_str.startswith("sample tables"):
                     self.__parse_sample_datasets_section(header_str, header_content)
                 elif "checks" == header_str:
                     self.__parse_data_source_checks_section(header_str, header_content)
@@ -129,9 +139,9 @@ class SodaCLParser(Parser):
                             self.__parse_table_filter_section(
                                 antlr_section_header.table_filter_header(), header_str, header_content
                             )
-                        elif antlr_section_header.checks_for_each_table_header():
-                            self.__parse_antlr_checks_for_each_table_section(
-                                antlr_section_header.checks_for_each_table_header(),
+                        elif antlr_section_header.checks_for_each_dataset_header():
+                            self.__parse_antlr_checks_for_each_dataset_section(
+                                antlr_section_header.checks_for_each_dataset_header(),
                                 header_str,
                                 header_content,
                             )
@@ -1255,9 +1265,11 @@ class SodaCLParser(Parser):
 
     def __parse_tables(self, header_content, data_source_check_cfg):
         data_source_check_cfg.data_source_name = header_content.get("data_source")
-        tables = header_content.get("tables")
-        if isinstance(tables, list):
-            for table in tables:
+        datasets = header_content.get("datasets")
+        if datasets is None:
+            datasets = header_content.get("tables")
+        if isinstance(datasets, list):
+            for table in datasets:
                 if table.startswith("exclude "):
                     exclude_table_expression = table[len("exclude ") :]
                     data_source_check_cfg.exclude_tables.append(exclude_table_expression)
@@ -1269,26 +1281,26 @@ class SodaCLParser(Parser):
                     data_source_check_cfg.include_tables.append(include_table_expression)
         else:
             self.logs.error(
-                'Content of "tables" must be a list of include and/or exclude expressions', location=self.location
+                'Content of "datasets" must be a list of include and/or exclude expressions', location=self.location
             )
 
     @assert_header_content_is_dict
     def __parse_automated_monitoring_section(self, header_str, header_content):
         automated_monitoring_cfg = AutomatedMonitoringCfg(self.data_source_name, self.location)
         self.__parse_tables(header_content, automated_monitoring_cfg)
-        self.get_data_source_scan_cfgs().add_monitoring_cfg(automated_monitoring_cfg)
+        self.get_data_source_scan_cfgs().add_data_source_cfg(automated_monitoring_cfg)
 
     @assert_header_content_is_dict
     def __parse_discover_tables_section(self, header_str, header_content):
-        data_source_check_cfg = DataSourceCheckCfg(self.data_source_name, self.location)
-        self.__parse_tables(header_content, data_source_check_cfg)
-        self.get_data_source_scan_cfgs().add_discover_tables_cfg(data_source_check_cfg)
+        discover_dataset_cfg = DiscoverTablesCfg(self.data_source_name, self.location)
+        self.__parse_tables(header_content, discover_dataset_cfg)
+        self.get_data_source_scan_cfgs().add_data_source_cfg(discover_dataset_cfg)
 
     @assert_header_content_is_dict
     def __parse_profile_columns_section(self, header_str, header_content):
         profile_columns_cfg = ProfileColumnsCfg(self.data_source_name, self.location)
         data_source_scan_cfg = self.get_data_source_scan_cfgs()
-        data_source_scan_cfg.add_profile_columns_cfg(profile_columns_cfg)
+        data_source_scan_cfg.add_data_source_cfg(profile_columns_cfg)
 
         columns = header_content.get("columns")
         if isinstance(columns, list):
@@ -1309,9 +1321,9 @@ class SodaCLParser(Parser):
 
     @assert_header_content_is_dict
     def __parse_sample_datasets_section(self, header_str, header_content):
-        data_source_check_cfg = DataSourceCheckCfg(self.data_source_name, self.location)
-        self.__parse_tables(header_content, data_source_check_cfg)
-        self.get_data_source_scan_cfgs().add_sample_tables_cfg(data_source_check_cfg)
+        sample_tables_cfg = SampleTablesCfg(self.data_source_name, self.location)
+        self.__parse_tables(header_content, sample_tables_cfg)
+        self.get_data_source_scan_cfgs().add_data_source_cfg(sample_tables_cfg)
 
     def __parse_nameset_list(self, header_content, for_each_cfg):
         for name_filter_index, name_filter_str in enumerate(header_content):
@@ -1329,7 +1341,7 @@ class SodaCLParser(Parser):
                 column_name_filter = None
 
                 filter_pieces_list = re.split(r"\.", name_filter_pieces_str)
-                if isinstance(for_each_cfg, ForEachTableCfg):
+                if isinstance(for_each_cfg, ForEachDatasetCfg):
                     if len(filter_pieces_list) == 1:
                         data_source_name_filter = self.data_source_name
                         table_name_filter = filter_pieces_list[0]
@@ -1406,25 +1418,31 @@ class SodaCLParser(Parser):
         # TODO consider resolving escape chars from a quoted strings:
         # identifier = re.sub(r'\\(.)', '\g<1>', unquoted_identifier)
 
-    def __parse_antlr_checks_for_each_table_section(
-        self, antlr_checks_for_each_table_header, header_str, header_content
+    def __parse_antlr_checks_for_each_dataset_section(
+        self, antlr_checks_for_each_dataset_header, header_str, header_content
     ):
-        for_each_table_cfg = ForEachTableCfg()
-        for_each_table_cfg.table_alias_name = self.__antlr_parse_identifier_name_from_header(
-            antlr_checks_for_each_table_header
+        for_each_dataset_cfg = ForEachDatasetCfg()
+        for_each_dataset_cfg.table_alias_name = self.__antlr_parse_identifier_name_from_header(
+            antlr_checks_for_each_dataset_header
         )
-        tables = self._get_required("tables", list)
-        if tables:
-            self._push_path_element("tables", tables)
-            self.__parse_nameset_list(tables, for_each_table_cfg)
+        datasets = self._get_optional("datasets", list)
+        if datasets is None:
+            datasets = self._get_optional("tables", list)
+            self._push_path_element("tables", datasets)
+        else:
+            self._push_path_element("datasets", datasets)
+        if datasets:
+            # moved couple of lines above for backwards compatibility with tables
+            # self._push_path_element("datasets", datasets)
+            self.__parse_nameset_list(datasets, for_each_dataset_cfg)
             self._pop_path_element()
         check_cfgs = self._get_required("checks", list)
         if check_cfgs:
             self._push_path_element("checks", check_cfgs)
-            for_each_table_cfg.check_cfgs = self.__parse_checks_in_for_each_section(header_str, check_cfgs)
+            for_each_dataset_cfg.check_cfgs = self.__parse_checks_in_for_each_section(header_str, check_cfgs)
             self._pop_path_element()
-        for_each_table_cfg.location = self.location
-        self.sodacl_cfg.for_each_table_cfgs.append(for_each_table_cfg)
+        for_each_dataset_cfg.location = self.location
+        self.sodacl_cfg.for_each_dataset_cfgs.append(for_each_dataset_cfg)
 
     def __parse_antlr_checks_for_each_column_section(
         self, antlr_checks_for_each_column_header, header_str, header_content

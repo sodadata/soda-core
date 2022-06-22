@@ -174,8 +174,8 @@ class SodaCLAntlrVisitor(ParseTreeVisitor):
         return self.visitChildren(ctx)
 
 
-    # Visit a parse tree produced by SodaCLAntlrParser#checks_for_each_table_header.
-    def visitChecks_for_each_table_header(self, ctx:SodaCLAntlrParser.Checks_for_each_table_headerContext):
+    # Visit a parse tree produced by SodaCLAntlrParser#checks_for_each_dataset_header.
+    def visitChecks_for_each_dataset_header(self, ctx:SodaCLAntlrParser.Checks_for_each_dataset_headerContext):
         return self.visitChildren(ctx)
 
 

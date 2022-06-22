@@ -1,35 +1,44 @@
 import logging
 from typing import List, Optional
 
+from soda.common.logs import Logs
 from soda.execution.data_source import DataSource
 
 logger = logging.getLogger(__name__)
 
 
-class DataSourceImpl(DataSource):
-    def connect(self, connection_properties):
+class PostgresDataSource(DataSource):
+    def __init__(self, logs: Logs, data_source_name: str, data_source_properties: dict, connection_properties: dict):
+        super().__init__(logs, data_source_name, data_source_properties, connection_properties)
+        self.host = connection_properties.get("host")
+        self.port = connection_properties.get("port")
+        self.password = connection_properties.get("password")
+        self.username = connection_properties.get("username")
+        self.connection_timeout = connection_properties.get("connection_timeout")
+
+    def connect(self):
         import psycopg2
 
-        schema = self.data_source_properties.get("schema")
-        options = f"-c search_path={schema}" if schema else None
+        options = f"-c search_path={self.schema}" if self.schema else None
 
-        password = connection_properties.get("password")
-        if password == "":
-            password = None
+        if self.password == "":
+            self.password = None
 
-        host = connection_properties.get("host")
-        if isinstance(host, str) and len(host) > 0:
+        if isinstance(self.host, str) and len(self.host) > 0:
+            self.logs.debug(
+                f'Postgres connection properties: host="{self.host}", port="{self.port}", database="{self.database}", user="{self.username}", options="{options}", connection_timeout="{self.connection_timeout}"'
+            )
             self.connection = psycopg2.connect(
-                user=connection_properties.get("username"),
-                password=password,
-                host=host,
-                port=connection_properties.get("port"),
-                connect_timeout=connection_properties.get("connection_timeout"),
-                database=self.data_source_properties.get("database"),
+                user=self.username,
+                password=self.password,
+                host=self.host,
+                port=self.port,
+                connect_timeout=self.connection_timeout,
+                database=self.database,
                 options=options,
             )
         else:
-            raise ConnectionError(f"Invalid postgres connection properties: invalid host: {host}")
+            raise ConnectionError(f"Invalid postgres connection properties: invalid host: {self.host}")
         return self.connection
 
     def expr_regexp_like(self, expr: str, excaped_regex_pattern: str):
@@ -52,16 +61,13 @@ class DataSourceImpl(DataSource):
             return f"PERCENTILE_DISC({percentile_fraction}) WITHIN GROUP (ORDER BY {expr})"
         return super().get_metric_sql_aggregation_expression(metric_name, metric_args, expr)
 
-    @staticmethod
-    def default_casify_table_name(identifier: str) -> str:
+    def default_casify_table_name(self, identifier: str) -> str:
         return identifier.lower()
 
-    @staticmethod
-    def default_casify_column_name(identifier: str) -> str:
+    def default_casify_column_name(self, identifier: str) -> str:
         return identifier.lower()
 
-    @staticmethod
-    def default_casify_type_name(identifier: str) -> str:
+    def default_casify_type_name(self, identifier: str) -> str:
         return identifier.lower()
 
     def safe_connection_data(self):
@@ -82,6 +88,11 @@ class DataSourceImpl(DataSource):
             if type_code_str in self.type_names_by_type_code
             else type_code_str
         )
+
+    def create_test_table_manager(self):
+        from tests.postgres_data_source_fixture import PostgresDataSourceFixture
+
+        return PostgresDataSourceFixture(self)
 
     type_names_by_type_code = {
         "16": "bool",

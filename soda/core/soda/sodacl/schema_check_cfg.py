@@ -41,6 +41,7 @@ class SchemaCheckCfg(CheckCfg):
         self.warn_validations: SchemaValidations = warn_validations
         self.fail_validations: SchemaValidations = fail_validations
         self.is_automated_monitoring = is_automated_monitoring
+        self.name = name if name else "Schema Check"
 
     def has_change_validations(self) -> bool:
         return (self.warn_validations and self.warn_validations.has_change_validations()) or (

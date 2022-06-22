@@ -1,54 +1,51 @@
 import logging
 import re
-from typing import Dict, List, Optional
+from typing import List, Optional
 
 import boto3
 import psycopg2
-from soda.cloud.aws.credentials import AwsCredentials
-from soda.common.exceptions import DataSourceConnectionError
+from soda.common.aws_credentials import AwsCredentials
+from soda.common.logs import Logs
 from soda.execution.data_source import DataSource
 
 logger = logging.getLogger(__name__)
 
 
-class DataSourceImpl(DataSource):
+class RedshiftDataSource(DataSource):
     TYPE = "redshift"
 
-    def connect(self, connection_properties):
-        self.connection_properties = connection_properties
+    def __init__(self, logs: Logs, data_source_name: str, data_source_properties: dict, connection_properties: dict):
+        super().__init__(logs, data_source_name, data_source_properties, connection_properties)
 
-        try:
-            username = connection_properties.get("username")
-            password = connection_properties.get("password")
-            if not username or not password:
-                username, password = self.__get_cluster_credentials(self.__get_aws_credentials)
+        self.username = connection_properties.get("username")
+        self.password = connection_properties.get("password")
 
-            conn = psycopg2.connect(
-                user=username,
-                password=password,
-                host=connection_properties.get("host", "localhost"),
-                port=connection_properties.get("port", "5439"),
-                connect_timeout=connection_properties.get("connection_timeout_sec"),
-                database=connection_properties.get("database"),
+        if not self.username or not self.password:
+            aws_credentials = AwsCredentials(
+                access_key_id=connection_properties.get("access_key_id"),
+                secret_access_key=connection_properties.get("secret_access_key"),
+                role_arn=connection_properties.get("role_arn"),
+                session_token=connection_properties.get("session_token"),
+                region_name=connection_properties.get("region", "eu-west-1"),
+                profile_name=connection_properties.get("profile_name"),
             )
-            return conn
-        except Exception as e:
-            raise DataSourceConnectionError(self.TYPE, e)
+            self.username, self.password = self.__get_cluster_credentials(aws_credentials)
 
-    def __get_aws_credentials(self):
-        access_key_id = self.connection_properties.get("access_key_id")
-        role_arn = self.connection_properties.get("role_arn")
-        profile_name = self.connection_properties.get("profile_name")
-        if access_key_id or role_arn or profile_name:
-            return AwsCredentials(
-                access_key_id=access_key_id,
-                secret_access_key=self.connection_properties.get("secret_access_key"),
-                role_arn=self.connection_properties.get("role_arn"),
-                session_token=self.connection_properties.get("session_token"),
-                region_name=self.connection_properties.get("region", "eu-west-1"),
-            )
+        self.host = connection_properties.get("host", "localhost")
+        self.port = connection_properties.get("port", "5439")
+        self.connect_timeout = connection_properties.get("connection_timeout_sec")
 
-    def __get_cluster_credentials(self, aws_credentials: Dict):
+    def connect(self):
+        self.connection = psycopg2.connect(
+            user=self.username,
+            password=self.password,
+            host=self.host,
+            port=self.port,
+            connect_timeout=self.connect_timeout,
+            database=self.database,
+        )
+
+    def __get_cluster_credentials(self, aws_credentials: AwsCredentials):
         resolved_aws_credentials = aws_credentials.resolve_role(
             role_session_name="soda_redshift_get_cluster_credentials"
         )
@@ -74,7 +71,7 @@ class DataSourceImpl(DataSource):
         self, include_tables: Optional[List[str]] = None, exclude_tables: Optional[List[str]] = None
     ) -> str:
         table_filter_expression = self.sql_table_include_exclude_filter(
-            '"table"', "tbl_rows", include_tables, exclude_tables
+            '"table"', "schema", include_tables, exclude_tables
         )
         where_clause = f"\nWHERE {table_filter_expression} \n" if table_filter_expression else ""
         return f'SELECT "table", tbl_rows \n FROM svv_table_info {where_clause}'
@@ -105,16 +102,13 @@ class DataSourceImpl(DataSource):
     def regex_replace_flags(self) -> str:
         return ""
 
-    @staticmethod
-    def default_casify_table_name(identifier: str) -> str:
+    def default_casify_table_name(self, identifier: str) -> str:
         return identifier.lower()
 
-    @staticmethod
-    def default_casify_column_name(identifier: str) -> str:
+    def default_casify_column_name(self, identifier: str) -> str:
         return identifier.lower()
 
-    @staticmethod
-    def default_casify_type_name(identifier: str) -> str:
+    def default_casify_type_name(self, identifier: str) -> str:
         return identifier.lower()
 
     def safe_connection_data(self):
@@ -124,3 +118,8 @@ class DataSourceImpl(DataSource):
             self.connection_properties.get("port"),
             self.connection_properties.get("database"),
         ]
+
+    def create_test_table_manager(self):
+        from tests.redshift_data_source_fixture import RedshiftDataSourceFixture
+
+        return RedshiftDataSourceFixture(self)

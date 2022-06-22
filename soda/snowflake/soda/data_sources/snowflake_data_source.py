@@ -1,26 +1,30 @@
+from __future__ import annotations
+
 import logging
 import re
-from typing import Dict, List, Optional
 
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import serialization
 from snowflake import connector
 from snowflake.connector.network import DEFAULT_SOCKET_CONNECT_TIMEOUT
-from soda.common.exceptions import DataSourceConnectionError
+from soda.common.logs import Logs
 from soda.execution.data_source import DataSource
 from soda.execution.data_type import DataType
 
 logger = logging.getLogger(__name__)
 
 
-class DataSourceImpl(DataSource):
+class SnowflakeDataSource(DataSource):
     TYPE = "snowflake"
 
-    SCHEMA_CHECK_TYPES_MAPPING: Dict = {
+    SCHEMA_CHECK_TYPES_MAPPING: dict = {
         "TEXT": ["character varying", "varchar", "string"],
         "NUMBER": ["integer", "int"],
+        "FLOAT": ["decimal"],
+        "TIMESTAMP_NTZ": ["timestamp"],
+        "TIMESTAMP_TZ": ["timestamptz"],
     }
-    SQL_TYPE_FOR_CREATE_TABLE_MAP: Dict = {
+    SQL_TYPE_FOR_CREATE_TABLE_MAP: dict = {
         DataType.TEXT: "TEXT",
         DataType.INTEGER: "INT",
         DataType.DECIMAL: "FLOAT",
@@ -45,26 +49,32 @@ class DataSourceImpl(DataSource):
     NUMERIC_TYPES_FOR_PROFILING = ["FLOAT", "NUMBER", "INT"]
     TEXT_TYPES_FOR_PROFILING = ["TEXT"]
 
-    def connect(self, connection_properties):
-        self.connection_properties = connection_properties
-        try:
-            self.connection = connector.connect(
-                user=connection_properties.get("username"),
-                password=connection_properties.get("password"),
-                account=connection_properties.get("account"),
-                data_source=connection_properties.get("data_source"),
-                database=connection_properties.get("database"),
-                schema=connection_properties.get("schema"),
-                warehouse=connection_properties.get("warehouse"),
-                login_timeout=connection_properties.get("connection_timeout", DEFAULT_SOCKET_CONNECT_TIMEOUT),
-                role=connection_properties.get("role"),
-                client_session_keep_alive=connection_properties.get("client_session_keep_alive"),
-                session_parameters=connection_properties.get("session_params"),
-            )
-            return self.connection
+    def __init__(self, logs: Logs, data_source_name: str, data_source_properties: dict, connection_properties: dict):
+        super().__init__(logs, data_source_name, data_source_properties, connection_properties)
+        self.user = connection_properties.get("username")
+        self.password = connection_properties.get("password")
+        self.account = connection_properties.get("account")
+        self.data_source = connection_properties.get("data_source")
+        self.warehouse = connection_properties.get("warehouse")
+        self.login_timeout = connection_properties.get("connection_timeout", DEFAULT_SOCKET_CONNECT_TIMEOUT)
+        self.role = connection_properties.get("role")
+        self.client_session_keep_alive = connection_properties.get("client_session_keep_alive")
+        self.session_parameters = connection_properties.get("session_params")
 
-        except Exception as e:
-            raise DataSourceConnectionError(self.TYPE, e)
+    def connect(self):
+        self.connection = connector.connect(
+            user=self.user,
+            password=self.password,
+            account=self.account,
+            data_source=self.data_source,
+            database=self.database,
+            schema=self.schema,
+            warehouse=self.warehouse,
+            login_timeout=self.login_timeout,
+            role=self.role,
+            client_session_keep_alive=self.client_session_keep_alive,
+            session_parameters=self.session_parameters,
+        )
 
     def __get_private_key(self):
         if not (self.connection_properties.get("private_key_path") or self.connection_properties.get("private_key")):
@@ -96,7 +106,7 @@ class DataSourceImpl(DataSource):
     def regex_replace_flags(self) -> str:
         return ""
 
-    def get_metric_sql_aggregation_expression(self, metric_name: str, metric_args: Optional[List[object]], expr: str):
+    def get_metric_sql_aggregation_expression(self, metric_name: str, metric_args: list[object] | None, expr: str):
         # TODO add all of these snowflake specific statistical aggregate functions: https://docs.snowflake.com/en/sql-reference/functions-aggregation.html
         if metric_name in [
             "stddev",
@@ -114,10 +124,10 @@ class DataSourceImpl(DataSource):
         return super().get_metric_sql_aggregation_expression(metric_name, metric_args, expr)
 
     def sql_get_table_names_with_count(
-        self, include_tables: Optional[List[str]] = None, exclude_tables: Optional[List[str]] = None
+        self, include_tables: list[str] | None = None, exclude_tables: list[str] | None = None
     ) -> str:
         table_filter_expression = self.sql_table_include_exclude_filter(
-            "table_name", "row_count", include_tables, exclude_tables
+            "table_name", "table_schema", include_tables, exclude_tables
         )
         where_clause = f"AND {table_filter_expression}" if table_filter_expression else ""
         sql = f"""
@@ -128,16 +138,13 @@ class DataSourceImpl(DataSource):
             """
         return sql
 
-    @staticmethod
-    def default_casify_table_name(identifier: str) -> str:
+    def default_casify_table_name(self, identifier: str) -> str:
         return identifier.upper()
 
-    @staticmethod
-    def default_casify_column_name(identifier: str) -> str:
+    def default_casify_column_name(self, identifier: str) -> str:
         return identifier.upper()
 
-    @staticmethod
-    def default_casify_type_name(identifier: str) -> str:
+    def default_casify_type_name(self, identifier: str) -> str:
         return identifier.upper()
 
     def safe_connection_data(self):
@@ -145,3 +152,8 @@ class DataSourceImpl(DataSource):
             self.type,
             self.connection_properties.get("account"),
         ]
+
+    def create_test_table_manager(self):
+        from tests.snowflake_data_source_fixture import SnowflakeDataSourceFixture
+
+        return SnowflakeDataSourceFixture(self)

@@ -240,7 +240,9 @@ class Check(ABC):
         return log_diagnostic_lines
 
     def get_log_diagnostic_dict(self) -> dict:
-        return self.get_cloud_diagnostics_dict()
+        diagnostics_dict = self.get_cloud_diagnostics_dict()
+        diagnostics_dict.pop("failedRowsFile", None)
+        return diagnostics_dict
 
     def get_summary(self) -> str:
         return self.check_cfg.name if self.check_cfg.name else self.check_cfg.source_line
