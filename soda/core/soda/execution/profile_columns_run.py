@@ -4,9 +4,11 @@ from numbers import Number
 from typing import TYPE_CHECKING, overload
 
 from soda.execution.query import Query
-from soda.profiling.profile_columns_result import ProfileColumnsResult
-from soda.profiling.profile_columns_result_column import ProfileColumnsResultColumn
-from soda.profiling.profile_columns_result_table import ProfileColumnsResultTable
+from soda.profiling.profile_columns_result import (
+    ProfileColumnsResult,
+    ProfileColumnsResultColumn,
+    ProfileColumnsResultTable,
+)
 from soda.sodacl.data_source_check_cfg import ProfileColumnsCfg
 
 if TYPE_CHECKING:

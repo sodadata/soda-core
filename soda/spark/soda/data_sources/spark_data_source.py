@@ -157,14 +157,38 @@ class SparkSQLBase(DataSource):
     def __init__(self, logs: Logs, data_source_name: str, data_source_properties: dict, connection_properties: dict):
         super().__init__(logs, data_source_name, data_source_properties, connection_properties)
 
+    def get_table_columns(
+        self,
+        table_name: str,
+        query_name: str,
+        included_columns: list[str] | None = None,
+        excluded_columns: list[str] | None = None,
+    ) -> dict[str, str] | None:
+        """
+        :return: A dict mapping column names to data source data types.  Like eg
+        {"id": "varchar", "size": "int8", ...}
+        """
+        columns = {}
+        query = Query(
+            data_source_scan=self.data_source_scan,
+            unqualified_query_name=query_name,
+            sql=self.sql_get_table_columns(
+                table_name, included_columns=included_columns, excluded_columns=excluded_columns
+            ),
+        )
+        query.execute()
+        if len(query.rows) > 0:
+            columns = {row[0]: row[1] for row in query.rows}
+
+            if included_columns or excluded_columns:
+                column_names = list(columns.keys())
+                filtered_column_names = self._filter_include_exclude(column_names, included_columns, excluded_columns)
+                columns = {col_name: dtype for col_name, dtype in columns.items() if col_name in filtered_column_names}
+        return columns
+
     def sql_get_table_columns(
         self, table_name: str, included_columns: list[str] | None = None, excluded_columns: list[str] | None = None
     ):
-        if included_columns or excluded_columns:
-            self.logs.warning(
-                f"Column selection (inclusion and exclusion) is currently not supported in Spark. The entire table will therefore be profiled."
-            )
-
         return f"DESCRIBE TABLE {table_name}"
 
     def sql_get_column(self, include_tables: list[str] | None = None, exclude_tables: list[str] | None = None) -> str:
@@ -212,29 +236,29 @@ class SparkSQLBase(DataSource):
 
     @staticmethod
     def _filter_include_exclude(
-        table_names: list[str], include_tables: list[str], exclude_tables: list[str]
+        item_names: list[str], included_items: list[str], excluded_items: list[str]
     ) -> list[str]:
-        filtered_table_names = table_names
-        if include_tables or exclude_tables:
+        filtered_names = item_names
+        if included_items or excluded_items:
 
-            def matches(table_name, table_pattern: str) -> bool:
-                table_pattern_regex = table_pattern.replace("%", ".*").lower()
-                is_match = re.match(table_pattern_regex, table_name.lower())
+            def matches(name, pattern: str) -> bool:
+                pattern_regex = pattern.replace("%", ".*").lower()
+                is_match = re.match(pattern_regex, name.lower())
                 return bool(is_match)
 
-            if include_tables:
-                filtered_table_names = [
-                    table_name
-                    for table_name in filtered_table_names
-                    if any(matches(table_name, include_table) for include_table in include_tables)
+            if included_items:
+                filtered_names = [
+                    filtered_name
+                    for filtered_name in filtered_names
+                    if any(matches(filtered_name, included_item) for included_item in included_items)
                 ]
-            if exclude_tables:
-                filtered_table_names = [
-                    table_name
-                    for table_name in filtered_table_names
-                    if all(not matches(table_name, exclude_table) for exclude_table in exclude_tables)
+            if excluded_items:
+                filtered_names = [
+                    filtered_name
+                    for filtered_name in filtered_names
+                    if all(not matches(filtered_name, excluded_item) for excluded_item in excluded_items)
                 ]
-        return filtered_table_names
+        return filtered_names
 
     def default_casify_table_name(self, identifier: str) -> str:
         return identifier.lower()
