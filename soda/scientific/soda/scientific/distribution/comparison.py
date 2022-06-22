@@ -111,8 +111,8 @@ class DistributionChecker:
 
             elif all(isinstance(value, dict) for value in parsed_ref_cfg.values()):
                 raise MissingDRONameException(
-                    f"""While your distribution reference file appears to contain named DROs, you did not specify a DRO name in your "checks.yml" file. """
-                    f"""Please provide the DRO name that you want to use the distribution check for in the "distribution_difference(column_name, dro_name)"""
+                    f"""While your distribution reference file "{dist_ref_file_path}" appears to contain named DROs, you did not provide a DRO name to your distribution check. """
+                    f"""Please provide the DRO name that you want to use in the "distribution_difference(column_name, dro_name)"""
                     f""" part of your check. For more information visit the docs: https://docs.soda.io/soda-cl/distribution.html#define-a-distribution-check."""
                 )
 
