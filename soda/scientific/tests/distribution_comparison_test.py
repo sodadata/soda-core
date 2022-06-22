@@ -524,3 +524,32 @@ def test_ref_config_incompatible(test_data, dist_ref_file_path, method):
         with open(dist_ref_file_path) as f:
             dist_ref_yaml = f.read()
         DistributionChecker(method, dist_ref_yaml, dist_ref_file_path, test_data)
+
+
+@pytest.mark.parametrize(
+    "test_data, dist_ref_file_path, method",
+    [
+        pytest.param(
+            pd.Series(default_rng(61).choice([0, 1, 2], p=[0.1, 0.4, 0.5], size=1000)),
+            "soda/scientific/tests/assets/dist_ref_categorical_no_bins.yml",
+            "chi_square",
+            id="missing bins and weights with with distribution_type categorical",
+        ),
+        pytest.param(
+            pd.Series(default_rng(61).choice([0, 1, 2], p=[0.1, 0.4, 0.5], size=1000)),
+            "soda/scientific/tests/assets/dist_ref_continuous_no_bins.yml",
+            "ks",
+            id="missing bins and weights with distribution_type continuous",
+        ),
+    ],
+)
+def test_missing_bins_weights(test_data, dist_ref_file_path, method):
+    from soda.scientific.distribution.comparison import (
+        DistributionChecker,
+        MissingBinsWeightsException,
+    )
+
+    with pytest.raises(MissingBinsWeightsException):
+        with open(dist_ref_file_path) as f:
+            dist_ref_yaml = f.read()
+        DistributionChecker(method, dist_ref_yaml, dist_ref_file_path, test_data)
