@@ -65,7 +65,10 @@ class DistributionCheck(Check):
             try:
                 check_result_dict = DistributionChecker(dist_method, dist_ref_yaml, ref_file_path, test_data).run()
             except LoggableException as e:
-                self.logs.error(e)
+                self.logs.error(
+                    e,
+                    location=self.check_cfg.location
+                    )
                 
             self.check_value = check_result_dict["check_value"]
             self.metrics["distribution-difference-metric"].value = self.check_value
