@@ -85,3 +85,46 @@ def test_distribution_sql(data_source_fixture: DataSourceFixture, mock_file_syst
         )
     else:
         assert scan._checks[0].query.sql == expectation.format(table_name=table_name, schema_name="")
+
+
+def test_distribution_missing_bins_weights(data_source_fixture: DataSourceFixture, mock_file_system):
+    from soda.scientific.distribution.comparison import MissingBinsWeightsException
+
+    table_name = data_source_fixture.ensure_test_table(customers_dist_check_test_table)
+    table_name = data_source_fixture.data_source.default_casify_table_name(table_name)
+
+    scan = data_source_fixture.create_test_scan()
+
+    user_home_dir = mock_file_system.user_home_dir()
+
+    mock_file_system.files = {
+        f"{user_home_dir}/customers_size_distribution_reference.yml": dedent(
+            f"""
+            dataset: {table_name}
+            column: size
+            distribution_type: continuous
+        """
+        ).strip(),
+    }
+
+    scan.add_sodacl_yaml_str(
+        f"""
+        checks for {table_name}:
+            - distribution_difference(size, my_happy_ml_model_distribution) >= 0.05:
+                distribution reference file: {user_home_dir}/customers_size_distribution_reference.yml
+                method: ks
+    """
+    )
+    
+    scan.execute(allow_error_warning=True)
+ 
+    log_message = \
+        'The DRO in your "/Users/johndoe/customers_size_distribution_reference.yml" distribution reference file does' \
+        ' not contain a "distribution_reference" key with weights and bins. Make sure that before running "soda scan" you' \
+        ' create a DRO by running "soda update". For more information visit the docs:\nhttps://docs.soda.io/soda-cl/distribution.html#generate-a-distribution-reference-object-dro.'
+    
+    log = next(
+        log for log in scan._logs.logs if isinstance(log.message, MissingBinsWeightsException)
+    ) 
+    assert log.message.args[0] == log_message
+       
