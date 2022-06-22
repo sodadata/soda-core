@@ -49,17 +49,17 @@ class SnowflakeDataSource(DataSource):
     NUMERIC_TYPES_FOR_PROFILING = ["FLOAT", "NUMBER", "INT"]
     TEXT_TYPES_FOR_PROFILING = ["TEXT"]
 
-    def __init__(self, logs: Logs, data_source_name: str, data_source_properties: dict, connection_properties: dict):
-        super().__init__(logs, data_source_name, data_source_properties, connection_properties)
-        self.user = connection_properties.get("username")
-        self.password = connection_properties.get("password")
-        self.account = connection_properties.get("account")
-        self.data_source = connection_properties.get("data_source")
-        self.warehouse = connection_properties.get("warehouse")
-        self.login_timeout = connection_properties.get("connection_timeout", DEFAULT_SOCKET_CONNECT_TIMEOUT)
-        self.role = connection_properties.get("role")
-        self.client_session_keep_alive = connection_properties.get("client_session_keep_alive")
-        self.session_parameters = connection_properties.get("session_params")
+    def __init__(self, logs: Logs, data_source_name: str, data_source_properties: dict):
+        super().__init__(logs, data_source_name, data_source_properties)
+        self.user = data_source_properties.get("username")
+        self.password = data_source_properties.get("password")
+        self.account = data_source_properties.get("account")
+        self.data_source = data_source_properties.get("data_source")
+        self.warehouse = data_source_properties.get("warehouse")
+        self.login_timeout = data_source_properties.get("connection_timeout", DEFAULT_SOCKET_CONNECT_TIMEOUT)
+        self.role = data_source_properties.get("role")
+        self.client_session_keep_alive = data_source_properties.get("client_session_keep_alive")
+        self.session_parameters = data_source_properties.get("session_params")
 
     def connect(self):
         self.connection = connector.connect(
@@ -77,19 +77,19 @@ class SnowflakeDataSource(DataSource):
         )
 
     def __get_private_key(self):
-        if not (self.connection_properties.get("private_key_path") or self.connection_properties.get("private_key")):
+        if not (self.data_source_properties.get("private_key_path") or self.data_source_properties.get("private_key")):
             return None
 
-        if self.connection_properties.get("private_key_passphrase"):
-            encoded_passphrase = self.connection_properties.get("private_key_passphrase").encode()
+        if self.data_source_properties.get("private_key_passphrase"):
+            encoded_passphrase = self.data_source_properties.get("private_key_passphrase").encode()
         else:
             encoded_passphrase = None
 
         pk_bytes = None
-        if self.connection_properties.get("private_key"):
-            pk_bytes = self.connection_properties.get("private_key").encode()
-        elif self.connection_properties.get("private_key_path"):
-            with open(self.connection_properties.get("private_key_path"), "rb") as pk:
+        if self.data_source_properties.get("private_key"):
+            pk_bytes = self.data_source_properties.get("private_key").encode()
+        elif self.data_source_properties.get("private_key_path"):
+            with open(self.data_source_properties.get("private_key_path"), "rb") as pk:
                 pk_bytes = pk.read()
 
         p_key = serialization.load_pem_private_key(pk_bytes, password=encoded_passphrase, backend=default_backend())
@@ -150,7 +150,7 @@ class SnowflakeDataSource(DataSource):
     def safe_connection_data(self):
         return [
             self.type,
-            self.connection_properties.get("account"),
+            self.account,
         ]
 
     def create_test_table_manager(self):

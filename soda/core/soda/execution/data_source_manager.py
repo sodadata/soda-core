@@ -11,7 +11,6 @@ class DataSourceManager:
     def __init__(self, logs: "Logs", configuration: "Configuration"):
         self.logs = logs
         self.configuration = configuration
-        self.connection_properties_by_name: Dict[str, dict] = configuration.connection_properties_by_name
         self.data_source_properties_by_name: Dict[str, dict] = configuration.data_source_properties_by_name
         self.connections: Dict[str, object] = {}
         self.data_sources: Dict[str, DataSource] = {}
@@ -28,34 +27,23 @@ class DataSourceManager:
         if not data_source:
             data_source_properties = self.data_source_properties_by_name.get(data_source_name)
             if data_source_properties:
-                connection_name = data_source_properties.get("connection")
-                if connection_name:
-                    connection_properties = self.connection_properties_by_name.get(connection_name)
-                    if connection_properties:
-                        connection_type = data_source_properties.get("type")
-                        if connection_type:
-                            data_source = DataSource.create(
-                                self.logs,
-                                data_source_name,
-                                connection_type,
-                                data_source_properties,
-                                connection_properties,
-                            )
-                            if data_source:
-                                try:
-                                    data_source.connect()
-                                    self.data_sources[data_source_name] = data_source
-                                except BaseException as e:
-                                    self.logs.error(
-                                        f'Could not connect to data source "{data_source_name}": {e}', exception=e
-                                    )
-                                    data_source = None
-                        else:
-                            self.logs.error(f'Data source "{data_source_name}" does not have a type')
-                    else:
-                        self.logs.error(f'Data source "{data_source_name}" does not have connection properties')
+                connection_type = data_source_properties.get("type")
+                if connection_type:
+                    data_source = DataSource.create(
+                        self.logs,
+                        data_source_name,
+                        connection_type,
+                        data_source_properties,
+                    )
+                    if data_source:
+                        try:
+                            data_source.connect()
+                            self.data_sources[data_source_name] = data_source
+                        except BaseException as e:
+                            self.logs.error(f'Could not connect to data source "{data_source_name}": {e}', exception=e)
+                            data_source = None
                 else:
-                    self.logs.error(f'Data source "{data_source_name}" does not have a connection name')
+                    self.logs.error(f'Data source "{data_source_name}" does not have a type')
             else:
                 data_source_names = ", ".join(self.data_source_properties_by_name.keys())
                 self.logs.error(
@@ -84,6 +72,5 @@ class DataSourceManager:
         """
         connection = self.connections.get(connection_name)
         if connection is None:
-            connection_properties = self.connection_properties_by_name.get(connection_name)
             return data_source.connect()
         return connection
