@@ -39,10 +39,6 @@ class DistributionRefIncompatibleException(Exception):
     """Thrown when the DRO distribution_type is incompatible with the test that is used."""
 
 
-class MissingBinsAndWeights(Exception):
-    """Thrown when the DRO does not contain bins and weights."""
-
-
 class DistributionChecker:
     def __init__(self, distribution_check_cfg: DistributionCheckCfg, data: List[Any]):
         cfg = DistCfg(
