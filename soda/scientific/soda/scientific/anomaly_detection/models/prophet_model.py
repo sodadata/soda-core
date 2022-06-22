@@ -5,7 +5,8 @@ import os
 import sys
 from dataclasses import dataclass
 from typing import Any, Dict, Optional
-
+import warnings 
+warnings.filterwarnings('ignore', '.*The frame.append method is deprecated and will be removed from pandas in a future version. Use pandas.concat instead.*')
 import numpy as np
 import pandas as pd
 from soda.common.logs import Logs
