@@ -64,8 +64,8 @@ class DataSource:
         DataType.BOOLEAN: "boolean",
     }
 
-    NUMERIC_TYPES_FOR_PROFILING = ["integer", "double precision"]
-    TEXT_TYPES_FOR_PROFILING = ["character varying"]
+    NUMERIC_TYPES_FOR_PROFILING = ["integer", "double precision", "double"]
+    TEXT_TYPES_FOR_PROFILING = ["character varying", "varchar"]
 
     @staticmethod
     def camel_case_data_source_type(data_source_type: str) -> str:
