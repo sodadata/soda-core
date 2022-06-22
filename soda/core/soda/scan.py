@@ -16,7 +16,7 @@ from soda.execution.data_source_scan import DataSourceScan
 from soda.execution.derived_metric import DerivedMetric
 from soda.execution.metric import Metric
 from soda.profiling.discover_table_result_table import DiscoverTablesResultTable
-from soda.profiling.profile_columns_result_table import ProfileColumnsResultTable
+from soda.profiling.profile_columns_result import ProfileColumnsResultTable
 from soda.profiling.sample_tables_result import SampleTablesResultTable
 from soda.sampler.default_sampler import DefaultSampler
 from soda.soda_cloud.historic_descriptor import HistoricDescriptor
