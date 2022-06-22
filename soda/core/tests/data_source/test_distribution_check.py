@@ -115,16 +115,14 @@ def test_distribution_missing_bins_weights(data_source_fixture: DataSourceFixtur
                 method: ks
     """
     )
-    
+
     scan.execute(allow_error_warning=True)
- 
-    log_message = \
-        'The DRO in your "/Users/johndoe/customers_size_distribution_reference.yml" distribution reference file does' \
-        ' not contain a "distribution_reference" key with weights and bins. Make sure that before running "soda scan" you' \
+
+    log_message = (
+        'The DRO in your "/Users/johndoe/customers_size_distribution_reference.yml" distribution reference file does'
+        ' not contain a "distribution_reference" key with weights and bins. Make sure that before running "soda scan" you'
         ' create a DRO by running "soda update". For more information visit the docs:\nhttps://docs.soda.io/soda-cl/distribution.html#generate-a-distribution-reference-object-dro.'
-    
-    log = next(
-        log for log in scan._logs.logs if isinstance(log.message, MissingBinsWeightsException)
-    ) 
+    )
+
+    log = next(log for log in scan._logs.logs if isinstance(log.message, MissingBinsWeightsException))
     assert log.message.args[0] == log_message
-       

@@ -11,8 +11,8 @@ from soda.execution.partition import Partition
 from soda.execution.query import Query
 from soda.sodacl.distribution_check_cfg import DistributionCheckCfg
 
-from soda.scientific.distribution.comparison import DistributionChecker
 from soda.scientific.common.exceptions import LoggableException
+from soda.scientific.distribution.comparison import DistributionChecker
 
 
 class DistributionCheck(Check):
