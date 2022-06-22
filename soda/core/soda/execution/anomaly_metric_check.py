@@ -89,9 +89,12 @@ class AnomalyMetricCheck(MetricCheck):
         assert isinstance(diagnostics, dict), f"Anomaly diagnostics should be a dict. Got a {type(diagnostics)} instead"
 
         if diagnostics["anomalyErrorCode"] == "not_enough_measurements":
-            warning_message = "Skipping anomaly metric check eval because there is not enough historic data yet"
-            self.logs.warning(warning_message)
-            self.add_outcome_reason(outcome_type="notEnoughHistory", message=warning_message, severity="warn")
+            self.logs.warning(diagnostics["anomalyErrorMessage"])
+            self.add_outcome_reason(
+                outcome_type=diagnostics["anomalyErrorCode"],
+                message="Anomaly detection needs at least 5 measurements",
+                severity=diagnostics["anomalyErrorSeverity"],
+            )
             self.diagnostics = diagnostics
             return
 
@@ -101,6 +104,12 @@ class AnomalyMetricCheck(MetricCheck):
         self.check_value = diagnostics["anomalyProbability"]
         self.outcome = CheckOutcome(level)
         self.diagnostics = diagnostics
+        if diagnostics["anomalyErrorCode"]:
+            self.add_outcome_reason(
+                outcome_type=diagnostics["anomalyErrorCode"],
+                message=diagnostics["anomalyErrorMessage"],
+                severity=diagnostics["anomalyErrorSeverity"],
+            )
 
     def get_cloud_diagnostics_dict(self) -> dict:
         cloud_diagnostics = super().get_cloud_diagnostics_dict()

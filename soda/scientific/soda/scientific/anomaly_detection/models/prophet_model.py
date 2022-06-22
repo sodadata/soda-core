@@ -111,6 +111,7 @@ class FreqDetectionResult:
     error_code_int: int
     error_code: str
     error_severity: str
+    error_message: str
 
 
 class PreprocessError(Exception):
@@ -185,6 +186,7 @@ class ProphetDetector(BaseDetector):
             error_code_int=DETECTOR_MESSAGES["not_enough_measurements"].error_code_int,
             error_code=DETECTOR_MESSAGES["not_enough_measurements"].error_code_str,
             error_severity=DETECTOR_MESSAGES["not_enough_measurements"].severity,
+            error_message=DETECTOR_MESSAGES["not_enough_measurements"].log_message,
         )
 
         if not len(self.time_series_data) >= 4:
@@ -225,6 +227,7 @@ class ProphetDetector(BaseDetector):
                 error_code_int=DETECTOR_MESSAGES["native_freq"].error_code_int,
                 error_code=DETECTOR_MESSAGES["converted_daily_no_dupes"].error_code_str,
                 error_severity=DETECTOR_MESSAGES["converted_daily_no_dupes"].severity,
+                error_message=DETECTOR_MESSAGES["converted_daily_no_dupes"].log_message,
             )
 
         #       # if not a near daily, then it's more frequent and we cannot chuck the time
@@ -244,6 +247,7 @@ class ProphetDetector(BaseDetector):
                         error_code_int=DETECTOR_MESSAGES["native_freq"].error_code_int,
                         error_code=DETECTOR_MESSAGES["coerced_daily"].error_code_str,
                         error_severity=DETECTOR_MESSAGES["coerced_daily"].severity,
+                        error_message=DETECTOR_MESSAGES["coerced_daily"].log_message,
                     )
                 else:
                     return not_enough_measurements_freq_result
@@ -263,6 +267,7 @@ class ProphetDetector(BaseDetector):
                 error_code_int=DETECTOR_MESSAGES["native_freq"].error_code_int,
                 error_code=DETECTOR_MESSAGES["last_four"].error_code_str,
                 error_severity=DETECTOR_MESSAGES["last_four"].severity,
+                error_message=DETECTOR_MESSAGES["last_four"].log_message,
             )
         #           # if we get it:
         #               # make it be the freq of the df, fill missing dates and values and run with it.
@@ -290,6 +295,7 @@ class ProphetDetector(BaseDetector):
                     error_code_int=DETECTOR_MESSAGES["bailing_out"].error_code_int,
                     error_code=DETECTOR_MESSAGES["bailing_out"].error_code_str,
                     error_severity=DETECTOR_MESSAGES["bailing_out"].severity,
+                    error_message=DETECTOR_MESSAGES["bailing_out"].log_message,
                 )
             self._logs.error(e)
             return
