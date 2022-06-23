@@ -36,6 +36,8 @@ class RedshiftDataSource(DataSource):
         self.connect_timeout = data_source_properties.get("connection_timeout_sec")
 
     def connect(self):
+        options = f"-c search_path={self.schema}" if self.schema else None
+
         self.connection = psycopg2.connect(
             user=self.username,
             password=self.password,
@@ -43,6 +45,7 @@ class RedshiftDataSource(DataSource):
             port=self.port,
             connect_timeout=self.connect_timeout,
             database=self.database,
+            options = options
         )
 
     def __get_cluster_credentials(self, aws_credentials: AwsCredentials):
