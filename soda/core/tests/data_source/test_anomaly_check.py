@@ -30,7 +30,7 @@ def test_anomaly_detection_default(data_source_fixture: DataSourceFixture):
         metric_values=[10, 10, 10, 9, 8, 8, 8, 0, 0, 0],
     )
 
-    scan.execute()
+    scan.execute(allow_warnings_only=True)
 
     scan.assert_all_checks_pass()
 
