@@ -80,7 +80,7 @@ jobs:
       # TODO: add appropriate vars
       SPARK_DF_HOST: ${{ secrets.SPARK_DF_HOST }}
       # Temporary to test all the data sources with views instead of tables
-      TEST_WITH_VIEWS:'true'
+      TEST_WITH_VIEWS: 'true'
 
     steps:
       - uses: actions/checkout@v2
