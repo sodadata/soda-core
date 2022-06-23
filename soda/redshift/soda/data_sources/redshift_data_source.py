@@ -45,7 +45,7 @@ class RedshiftDataSource(DataSource):
             port=self.port,
             connect_timeout=self.connect_timeout,
             database=self.database,
-            options = options
+            options=options,
         )
 
     def __get_cluster_credentials(self, aws_credentials: AwsCredentials):
