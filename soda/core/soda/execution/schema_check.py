@@ -80,7 +80,9 @@ class SchemaCheck(Check):
             self.schema_comparator = SchemaComparator(schema_previous, self.measured_schema)
         else:
             if schema_check_cfg.has_change_validations():
-                self.logs.warning("Skipping schema checks since there is no historic schema metrics!")
+                warning_message = "Skipping schema checks since there is no historic schema metrics!"
+                self.logs.warning(warning_message)
+                self.add_outcome_reason(outcome_type="notEnoughHistory", message=warning_message, severity="warn")
                 return
 
         if self.has_schema_violations(schema_check_cfg.fail_validations):

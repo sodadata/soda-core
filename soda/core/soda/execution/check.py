@@ -122,6 +122,10 @@ class Check(ABC):
         # Check evaluation outcome
         self.outcome: CheckOutcome | None = None
 
+        # Check outcome reasons in case of fail or pass
+        self.outcome_reasons: list[dict] = []
+        self.force_send_results_to_cloud = False
+
     def create_definition(self) -> str:
         check_cfg: CheckCfg = self.check_cfg
         from soda.common.yaml_helper import to_yaml_str
@@ -162,6 +166,10 @@ class Check(ABC):
                 hash_builder.add(identity_source_configurations_yaml)
         return hash_builder.get_hash()
 
+    def add_outcome_reason(self, outcome_type: str, message: str, severity: str):
+        self.force_send_results_to_cloud = True
+        self.outcome_reasons.append({"code": outcome_type, "message": message, "severity": severity})  # error/warn/info
+
     @staticmethod
     def __check_source_to_yaml(source_header: str, source_line: str, source_configurations: dict | None) -> str:
         from soda.common.yaml_helper import to_yaml_str
@@ -192,6 +200,9 @@ class Check(ABC):
         if self.archetype is not None:
             cloud_dict.update({"archetype": self.archetype})
 
+        # Update dict if check is skipped and we want to push reason to cloud
+        if self.outcome_reasons:
+            cloud_dict.update({"outcomeReasons": self.outcome_reasons})
         return cloud_dict
 
     def generate_soda_cloud_check_name(self) -> str:
