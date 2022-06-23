@@ -120,9 +120,6 @@ def test_profile_columns_text(data_source_fixture: DataSourceFixture):
 
 
 def test_profile_columns_all_tables_all_columns(data_source_fixture: DataSourceFixture):
-    _ = data_source_fixture.ensure_test_table(orders_test_table)
-    _ = data_source_fixture.ensure_test_table(customers_dist_check_test_table)
-
     scan = data_source_fixture.create_test_scan()
 
     scan.add_sodacl_yaml_str(
