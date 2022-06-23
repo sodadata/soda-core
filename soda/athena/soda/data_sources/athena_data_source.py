@@ -16,19 +16,24 @@ logger = logging.getLogger(__name__)
 class AthenaDataSource(DataSource):
     TYPE = "athena"
 
-    def __init__(self, logs: Logs, data_source_name: str, data_source_properties: dict, connection_properties: dict):
-        super().__init__(logs, data_source_name, data_source_properties, connection_properties)
+    def __init__(
+        self,
+        logs: Logs,
+        data_source_name: str,
+        data_source_properties: dict,
+    ):
+        super().__init__(logs, data_source_name, data_source_properties)
 
-        self.athena_staging_dir = connection_properties.get("staging_dir")
-        self.catalog = connection_properties.get("catalog")
-        self.work_group = connection_properties.get("work_group")
+        self.athena_staging_dir = data_source_properties.get("staging_dir")
+        self.catalog = data_source_properties.get("catalog")
+        self.work_group = data_source_properties.get("work_group")
         self.aws_credentials = AwsCredentials(
-            access_key_id=connection_properties.get("access_key_id"),
-            secret_access_key=connection_properties.get("secret_access_key"),
-            role_arn=connection_properties.get("role_arn"),
-            session_token=connection_properties.get("session_token"),
-            region_name=connection_properties.get("region_name"),
-            profile_name=connection_properties.get("profile_name"),
+            access_key_id=data_source_properties.get("access_key_id"),
+            secret_access_key=data_source_properties.get("secret_access_key"),
+            role_arn=data_source_properties.get("role_arn"),
+            session_token=data_source_properties.get("session_token"),
+            region_name=data_source_properties.get("region_name"),
+            profile_name=data_source_properties.get("profile_name"),
         )
 
     def connect(self):
