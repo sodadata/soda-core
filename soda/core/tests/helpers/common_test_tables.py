@@ -1,11 +1,14 @@
+import os
 from datetime import date, datetime, timezone
 
 from soda.execution.data_type import DataType
 from tests.helpers.test_table import TestTable
 
 utc = timezone.utc
+
 customers_test_table = TestTable(
     name="Customers",
+    create_view=os.getenv("TEST_WITH_VIEWS", False),
     columns=[
         ("id", DataType.TEXT),
         ("size", DataType.DECIMAL),
@@ -40,6 +43,7 @@ customers_test_table = TestTable(
 
 customers_dist_check_test_table = TestTable(
     name="CustomersDist",
+    create_view=os.getenv("TEST_WITH_VIEWS", False),
     columns=[
         ("id", DataType.TEXT),
         ("size", DataType.DECIMAL),
@@ -84,6 +88,7 @@ customers_dist_check_test_table = TestTable(
 
 orders_test_table = TestTable(
     name="Orders",
+    create_view=os.getenv("TEST_WITH_VIEWS", False),
     columns=[
         ("id", DataType.TEXT),
         ("customer_id_nok", DataType.TEXT),
@@ -105,12 +110,14 @@ orders_test_table = TestTable(
 
 raw_customers_test_table = TestTable(
     name="RAWCUSTOMERS",
+    create_view=os.getenv("TEST_WITH_VIEWS", False),
     columns=customers_test_table.test_columns,
     values=customers_test_table.values,
 )
 
 customers_profiling = TestTable(
     name="CustomersProfiling",
+    create_view=os.getenv("TEST_WITH_VIEWS", False),
     columns=[
         ("id", DataType.TEXT),
         ("size", DataType.DECIMAL),
