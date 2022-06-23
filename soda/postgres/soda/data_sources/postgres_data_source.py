@@ -8,13 +8,13 @@ logger = logging.getLogger(__name__)
 
 
 class PostgresDataSource(DataSource):
-    def __init__(self, logs: Logs, data_source_name: str, data_source_properties: dict, connection_properties: dict):
-        super().__init__(logs, data_source_name, data_source_properties, connection_properties)
-        self.host = connection_properties.get("host")
-        self.port = connection_properties.get("port")
-        self.password = connection_properties.get("password")
-        self.username = connection_properties.get("username")
-        self.connection_timeout = connection_properties.get("connection_timeout")
+    def __init__(self, logs: Logs, data_source_name: str, data_source_properties: dict):
+        super().__init__(logs, data_source_name, data_source_properties)
+        self.host = data_source_properties.get("host")
+        self.port = data_source_properties.get("port")
+        self.password = data_source_properties.get("password")
+        self.username = data_source_properties.get("username")
+        self.connection_timeout = data_source_properties.get("connection_timeout")
 
     def connect(self):
         import psycopg2
@@ -73,9 +73,9 @@ class PostgresDataSource(DataSource):
     def safe_connection_data(self):
         return [
             self.type,
-            self.connection_properties.get("host"),
-            self.connection_properties.get("port"),
-            self.connection_properties.get("database"),
+            self.host,
+            self.port,
+            self.database,
         ]
 
     def sql_analyze_table(self, table: str) -> str:

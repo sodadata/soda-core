@@ -82,7 +82,6 @@ class DataSource:
         data_source_name: str,
         data_source_type: str,
         data_source_properties: dict,
-        connection_properties: dict,
     ) -> DataSource:
         """
         The returned data_source does not have a connection.  It is the responsibility of
@@ -94,7 +93,7 @@ class DataSource:
             module = importlib.import_module(f"soda.data_sources.{data_source_type}_data_source")
             data_source_class = f"{DataSource.camel_case_data_source_type(data_source_type)}DataSource"
             class_ = getattr(module, data_source_class)
-            return class_(logs, data_source_name, data_source_properties, connection_properties)
+            return class_(logs, data_source_name, data_source_properties)
         except ModuleNotFoundError as e:
             if data_source_type == "postgresql":
                 logs.error(f'Data source type "{data_source_type}" not found. Did you mean postgres?')
@@ -109,18 +108,16 @@ class DataSource:
         logs: Logs,
         data_source_name: str,
         data_source_properties: dict,
-        connection_properties: dict,
     ):
         self.logs = logs
         self.data_source_name = data_source_name
         self.data_source_properties: dict = data_source_properties
-        self.connection_properties = connection_properties
         # Pep 249 compliant connection object (aka DBAPI)
         # https://www.python.org/dev/peps/pep-0249/#connection-objects
         # @see self.connect() for initialization
         self.type = self.data_source_properties.get("connection_type")
         self.connection = None
-        self.database: str | None = connection_properties.get("database")
+        self.database: str | None = data_source_properties.get("database")
         self.schema: str | None = data_source_properties.get("schema")
         self.table_prefix: str | None = self._create_table_prefix()
         # self.data_source_scan is initialized in create_data_source_scan(...) below
@@ -134,10 +131,7 @@ class DataSource:
 
         return self.data_source_scan
 
-    def validate_configuration(self, connection_properties: dict, logs: Logs) -> None:
-        """
-        validates connection_properties and self.data_source_properties
-        """
+    def validate_configuration(self, logs: Logs) -> None:
         raise NotImplementedError(f"TODO: Implement {type(self)}.validate_configuration(...)")
 
     def get_type_name(self, type_code):
@@ -784,11 +778,10 @@ class DataSource:
 
     def connect(self):
         """
-        Subclasses use self.connection_properties to initialize self.connection with a PEP 249 connection
+        Subclasses use self.data_source_properties to initialize self.connection with a PEP 249 connection
 
-        Any BaseException may be raised in case of errors in the connection_properties or in case
-        the database.connect itself fails for some other reason.  The caller of this method will
-        catch the exception and add an error log to the scan.
+        Any BaseException may be raised in case of errors.
+        The caller of this method will catch the exception and add an error log to the scan.
         """
         raise NotImplementedError(f"TODO: Implement {type(self)}.connect()")
 

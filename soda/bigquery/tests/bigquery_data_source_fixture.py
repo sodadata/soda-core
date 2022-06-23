@@ -17,12 +17,10 @@ class BigQueryDataSourceFixture(DataSourceFixture):
         return {
             "data_source bigquery": {
                 "type": "bigquery",
-                "connection": {
-                    "host": "localhost",
-                    "dataset": os.getenv("BIGQUERY_DATASET"),
-                    "account_info_json_path": os.getenv("BIGQUERY_ACCOUNT_INFO_JSON_PATH"),
-                    "account_info_json": os.getenv("BIGQUERY_ACCOUNT_INFO_JSON"),
-                },
+                "host": "localhost",
+                "dataset": os.getenv("BIGQUERY_DATASET"),
+                "account_info_json_path": os.getenv("BIGQUERY_ACCOUNT_INFO_JSON_PATH"),
+                "account_info_json": os.getenv("BIGQUERY_ACCOUNT_INFO_JSON"),
                 "schema": schema_name,
             }
         }

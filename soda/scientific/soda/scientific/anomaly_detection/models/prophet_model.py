@@ -3,9 +3,14 @@
 import multiprocessing
 import os
 import sys
+import warnings
 from dataclasses import dataclass
 from typing import Any, Dict, Optional
 
+warnings.filterwarnings(
+    "ignore",
+    ".*The frame.append method is deprecated and will be removed from pandas in a future version. Use pandas.concat instead.*",
+)
 import numpy as np
 import pandas as pd
 from soda.common.logs import Logs
@@ -64,13 +69,13 @@ ERROR_CODE_LEVEL_CUTTOFF = 99
 DETECTOR_MESSAGES: Dict[str, DetectorMessageComponent] = {
     "native_freq": DetectorMessageComponent(
         log_message="native frequency detected",
-        severity="pass",
+        severity="info",
         error_code_int=0,
-        error_code_str="",
+        error_code_str="Native frequency is detected successfully",
     ),
     "converted_daily_no_dupes": DetectorMessageComponent(
         log_message="converted to daily frequency no dupes with time info removed",
-        severity="pass",
+        severity="info",
         error_code_int=1,
         error_code_str="",
     ),
@@ -111,6 +116,7 @@ class FreqDetectionResult:
     error_code_int: int
     error_code: str
     error_severity: str
+    error_message: str
 
 
 class PreprocessError(Exception):
@@ -185,6 +191,7 @@ class ProphetDetector(BaseDetector):
             error_code_int=DETECTOR_MESSAGES["not_enough_measurements"].error_code_int,
             error_code=DETECTOR_MESSAGES["not_enough_measurements"].error_code_str,
             error_severity=DETECTOR_MESSAGES["not_enough_measurements"].severity,
+            error_message=DETECTOR_MESSAGES["not_enough_measurements"].log_message,
         )
 
         if not len(self.time_series_data) >= 4:
@@ -225,6 +232,7 @@ class ProphetDetector(BaseDetector):
                 error_code_int=DETECTOR_MESSAGES["native_freq"].error_code_int,
                 error_code=DETECTOR_MESSAGES["converted_daily_no_dupes"].error_code_str,
                 error_severity=DETECTOR_MESSAGES["converted_daily_no_dupes"].severity,
+                error_message=DETECTOR_MESSAGES["converted_daily_no_dupes"].log_message,
             )
 
         #       # if not a near daily, then it's more frequent and we cannot chuck the time
@@ -244,6 +252,7 @@ class ProphetDetector(BaseDetector):
                         error_code_int=DETECTOR_MESSAGES["native_freq"].error_code_int,
                         error_code=DETECTOR_MESSAGES["coerced_daily"].error_code_str,
                         error_severity=DETECTOR_MESSAGES["coerced_daily"].severity,
+                        error_message=DETECTOR_MESSAGES["coerced_daily"].log_message,
                     )
                 else:
                     return not_enough_measurements_freq_result
@@ -263,6 +272,7 @@ class ProphetDetector(BaseDetector):
                 error_code_int=DETECTOR_MESSAGES["native_freq"].error_code_int,
                 error_code=DETECTOR_MESSAGES["last_four"].error_code_str,
                 error_severity=DETECTOR_MESSAGES["last_four"].severity,
+                error_message=DETECTOR_MESSAGES["last_four"].log_message,
             )
         #           # if we get it:
         #               # make it be the freq of the df, fill missing dates and values and run with it.
@@ -290,6 +300,7 @@ class ProphetDetector(BaseDetector):
                     error_code_int=DETECTOR_MESSAGES["bailing_out"].error_code_int,
                     error_code=DETECTOR_MESSAGES["bailing_out"].error_code_str,
                     error_severity=DETECTOR_MESSAGES["bailing_out"].severity,
+                    error_message=DETECTOR_MESSAGES["bailing_out"].log_message,
                 )
             self._logs.error(e)
             return

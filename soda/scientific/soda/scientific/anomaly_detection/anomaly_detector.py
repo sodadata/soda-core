@@ -45,6 +45,7 @@ class AnomalyDiagnostics(BaseModel):
     anomalyPredictedValue: Optional[float] = None
     anomalyErrorSeverity: str = "pass"
     anomalyErrorCode: str = ""
+    anomalyErrorMessage: str = ""
     feedback: Optional[UserFeedback] = UserFeedback()
 
 
@@ -228,6 +229,7 @@ class AnomalyDetector:
                 "anomalyPredictedValue": results_dict["trend"],
                 "anomalyErrorSeverity": freq_detection_result.error_severity,
                 "anomalyErrorCode": freq_detection_result.error_code,
+                "anomalyErrorMessage": freq_detection_result.error_message,
             }
         else:
             level = "pass"
@@ -239,6 +241,7 @@ class AnomalyDetector:
                 "anomalyPredictedValue": None,
                 "anomalyErrorSeverity": freq_detection_result.error_severity,
                 "anomalyErrorCode": freq_detection_result.error_code,
+                "amomalyErrorMessage": freq_detection_result.error_message,
             }
 
         diagnostics_dict: Dict[str, Any] = AnomalyDiagnostics.parse_obj(diagnostics).dict()

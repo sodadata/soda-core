@@ -21,13 +21,10 @@ class AthenaDataSourceFixture(DataSourceFixture):
         return {
             "data_source athena": {
                 "type": "athena",
-                "connection": {
-                    "access_key_id": os.environ["ATHENA_ACCESS_KEY_ID"],
-                    "secret_access_key": os.environ["ATHENA_SECRET_ACCESS_KEY"],
-                    "region_name": os.getenv("ATHENA_REGION_NAME", "eu-west-1"),
-                    "staging_dir": f"{self.s3_test_dir}/staging-dir",
-                },
-                "schema": schema_name if schema_name else os.getenv("ATHENA_SCHEMA"),
+                "access_key_id": os.environ["ATHENA_ACCESS_KEY_ID"],
+                "secret_access_key": os.environ["ATHENA_SECRET_ACCESS_KEY"],
+                "region_name": os.getenv("ATHENA_REGION_NAME", "eu-west-1"),
+                "staging_dir": f"{self.s3_test_dir}/staging-dir",
                 "schema": schema_name if schema_name else os.getenv("ATHENA_SCHEMA"),
             }
         }

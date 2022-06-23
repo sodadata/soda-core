@@ -49,19 +49,19 @@ class BigQueryDataSource(DataSource):
     NUMERIC_TYPES_FOR_PROFILING = ["NUMERIC", "INT64"]
     TEXT_TYPES_FOR_PROFILING = ["STRING"]
 
-    def __init__(self, logs: Logs, data_source_name: str, data_source_properties: dict, connection_properties: dict):
-        super().__init__(logs, data_source_name, data_source_properties, connection_properties)
-        self.dataset_name = connection_properties.get("dataset")
+    def __init__(self, logs: Logs, data_source_name: str, data_source_properties: dict):
+        super().__init__(logs, data_source_name, data_source_properties)
+        self.dataset_name = data_source_properties.get("dataset")
 
         account_info_json_str = None
-        account_info_path = self.connection_properties.get("account_info_json_path")
+        account_info_path = self.data_source_properties.get("account_info_json_path")
         if account_info_path:
             if file_system().is_file(account_info_path):
                 account_info_json_str = file_system().file_read_as_str(account_info_path)
             else:
                 logger.error(f"File not found: account_info_json_path: {account_info_path} ")
         else:
-            account_info_json_str = self.connection_properties.get("account_info_json")
+            account_info_json_str = self.data_source_properties.get("account_info_json")
 
         if account_info_json_str:
             self.account_info_dict = json.loads(account_info_json_str)
@@ -71,7 +71,7 @@ class BigQueryDataSource(DataSource):
         # Usually the project_id comes from the self.account_info_dict
         self.project_id = self.account_info_dict.get("project_id") if self.account_info_dict else None
         # But users can optionally overwrite in the connection properties
-        self.project_id = connection_properties.get("project_id", self.project_id)
+        self.project_id = data_source_properties.get("project_id", self.project_id)
 
         self.credentials = Credentials.from_service_account_info(
             self.account_info_dict,
@@ -185,7 +185,7 @@ class BigQueryDataSource(DataSource):
     def safe_connection_data(self):
         return [
             self.type,
-            self.connection_properties.get("project_id"),
+            self.data_source_properties.get("project_id"),
         ]
 
     def rollback(self):

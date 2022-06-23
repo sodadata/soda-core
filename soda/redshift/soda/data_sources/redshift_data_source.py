@@ -14,26 +14,26 @@ logger = logging.getLogger(__name__)
 class RedshiftDataSource(DataSource):
     TYPE = "redshift"
 
-    def __init__(self, logs: Logs, data_source_name: str, data_source_properties: dict, connection_properties: dict):
-        super().__init__(logs, data_source_name, data_source_properties, connection_properties)
+    def __init__(self, logs: Logs, data_source_name: str, data_source_properties: dict):
+        super().__init__(logs, data_source_name, data_source_properties)
 
-        self.username = connection_properties.get("username")
-        self.password = connection_properties.get("password")
+        self.username = data_source_properties.get("username")
+        self.password = data_source_properties.get("password")
 
         if not self.username or not self.password:
             aws_credentials = AwsCredentials(
-                access_key_id=connection_properties.get("access_key_id"),
-                secret_access_key=connection_properties.get("secret_access_key"),
-                role_arn=connection_properties.get("role_arn"),
-                session_token=connection_properties.get("session_token"),
-                region_name=connection_properties.get("region", "eu-west-1"),
-                profile_name=connection_properties.get("profile_name"),
+                access_key_id=data_source_properties.get("access_key_id"),
+                secret_access_key=data_source_properties.get("secret_access_key"),
+                role_arn=data_source_properties.get("role_arn"),
+                session_token=data_source_properties.get("session_token"),
+                region_name=data_source_properties.get("region", "eu-west-1"),
+                profile_name=data_source_properties.get("profile_name"),
             )
             self.username, self.password = self.__get_cluster_credentials(aws_credentials)
 
-        self.host = connection_properties.get("host", "localhost")
-        self.port = connection_properties.get("port", "5439")
-        self.connect_timeout = connection_properties.get("connection_timeout_sec")
+        self.host = data_source_properties.get("host", "localhost")
+        self.port = data_source_properties.get("port", "5439")
+        self.connect_timeout = data_source_properties.get("connection_timeout_sec")
 
     def connect(self):
         self.connection = psycopg2.connect(
@@ -114,9 +114,9 @@ class RedshiftDataSource(DataSource):
     def safe_connection_data(self):
         return [
             self.type,
-            self.connection_properties.get("host"),
-            self.connection_properties.get("port"),
-            self.connection_properties.get("database"),
+            self.host,
+            self.port,
+            self.database,
         ]
 
     def create_test_table_manager(self):
