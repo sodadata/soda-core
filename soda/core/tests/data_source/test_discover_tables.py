@@ -77,5 +77,5 @@ def test_discover_tables_customer_wildcard(data_source_fixture: DataSourceFixtur
     # we only expect tables with customer in the relation name
 
     expected_datasets = {x.lower() for x in [profiling_table, dist_check_test_table, test_table]}
-    actual_datasets = {t.get("table") for t in discover_tables_result["metadata"]}
+    actual_datasets = {t.get("table").lower() for t in discover_tables_result["metadata"]}
     assert expected_datasets.issubset(actual_datasets)
