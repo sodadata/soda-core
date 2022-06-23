@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import os
+
 from soda.execution.data_type import DataType
 from tests.helpers.common_test_tables import (
     customers_dist_check_test_table,
@@ -75,4 +77,7 @@ def test_discover_tables_customer_wildcard(data_source_fixture: DataSourceFixtur
     scan.execute(allow_warnings_only=True)
     discover_tables_result = mock_soda_cloud.pop_scan_result()
     assert discover_tables_result is not None
-    assert len(discover_tables_result["metadata"]) == 3
+    if os.getenv("TEST_WITH_VIEWS", False):
+        assert len(discover_tables_result["metadata"]) == 8
+    else:
+        assert len(discover_tables_result["metadata"]) == 3
