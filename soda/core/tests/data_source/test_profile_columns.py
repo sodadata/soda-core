@@ -6,7 +6,11 @@ from numbers import Number
 import pytest
 from soda.common.yaml_helper import to_yaml_str
 from soda.execution.profile_columns_run import ProfileColumnsRun
-from tests.helpers.common_test_tables import customers_profiling, orders_test_table, customers_dist_check_test_table
+from tests.helpers.common_test_tables import (
+    customers_dist_check_test_table,
+    customers_profiling,
+    orders_test_table,
+)
 from tests.helpers.data_source_fixture import DataSourceFixture
 
 
@@ -124,7 +128,7 @@ def test_profile_columns_all_tables_all_columns(data_source_fixture: DataSourceF
     scan.add_sodacl_yaml_str(
         """
             profile columns:
-                columns: 
+                columns:
                   - "%.%"
         """
     )
@@ -138,29 +142,25 @@ def test_profile_columns_all_tables_all_columns(data_source_fixture: DataSourceF
     profile_columns_run = ProfileColumnsRun(data_source_scan, profiling_cfg)
 
     table_names: dict[str, int] = data_source.get_table_names(
-            include_tables=profile_columns_run._get_table_expression(include_columns),
-            exclude_tables=profile_columns_run._get_table_expression(exclude_columns, is_for_exclusion=True),
-            query_name="profile-columns-get-table-names",
+        include_tables=profile_columns_run._get_table_expression(include_columns),
+        exclude_tables=profile_columns_run._get_table_expression(exclude_columns, is_for_exclusion=True),
+        query_name="profile-columns-get-table-names",
     )
     assert len(table_names) > 2
 
-    parsed_included_tables_and_columns = profile_columns_run._build_column_expression_list(
-        include_columns
-    )
+    parsed_included_tables_and_columns = profile_columns_run._build_column_expression_list(include_columns)
     assert parsed_included_tables_and_columns == {"%": ["%"]}
 
-    parsed_excluded_tables_and_columns = profile_columns_run._build_column_expression_list(
-        exclude_columns
-    )
+    parsed_excluded_tables_and_columns = profile_columns_run._build_column_expression_list(exclude_columns)
     assert parsed_excluded_tables_and_columns == {}
 
     for table_name in table_names:
         columns_metadata_result = data_source.get_table_columns(
-                table_name=table_name,
-                query_name=f"profile-columns-get-column-metadata-for-{table_name}",
-                included_columns=parsed_included_tables_and_columns,
-                excluded_columns=parsed_excluded_tables_and_columns
-            )
+            table_name=table_name,
+            query_name=f"profile-columns-get-column-metadata-for-{table_name}",
+            included_columns=parsed_included_tables_and_columns,
+            excluded_columns=parsed_excluded_tables_and_columns,
+        )
         assert columns_metadata_result
 
 
