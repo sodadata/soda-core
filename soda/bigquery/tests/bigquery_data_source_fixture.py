@@ -5,6 +5,7 @@ import os
 
 from google.cloud import bigquery
 from tests.helpers.data_source_fixture import DataSourceFixture
+from tests.helpers.test_table import  TestTable
 
 logger = logging.getLogger(__name__)
 
@@ -51,3 +52,6 @@ class BigQueryDataSourceFixture(DataSourceFixture):
     def _drop_test_table_sql(self, table_name):
         qualified_table_name = self.data_source.qualified_table_name(table_name)
         return f"DROP TABLE {qualified_table_name};"
+
+    def _create_view_from_table_sql(self, test_table: TestTable):
+        return f"CREATE VIEW {self.schema_name}.{test_table.unique_view_name} AS SELECT * FROM {self.schema_name}.{test_table.unique_table_name}"
