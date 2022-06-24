@@ -515,7 +515,7 @@ class DataSource:
             bin_width = int(bin_width)
             min_value = int(min_value)
             max_value = int(max_value)
-            
+
         bins_list = [round(min_value + i * bin_width, 2) for i in range(0, number_of_bins)]
 
         field_clauses = []
