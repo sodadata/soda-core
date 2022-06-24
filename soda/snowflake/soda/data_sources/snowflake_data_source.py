@@ -61,6 +61,15 @@ class SnowflakeDataSource(DataSource):
         self.client_session_keep_alive = data_source_properties.get("client_session_keep_alive")
         self.session_parameters = data_source_properties.get("session_params")
 
+        self.passcode_in_password = data_source_properties.get("passcode_in_password", False)
+        self.private_key_passphrase = data_source_properties.get("private_key_passphrase")
+        self.private_key = data_source_properties.get("private_key")
+        self.private_key_path = data_source_properties.get("private_key_path")
+        self.client_prefetch_threads = data_source_properties.get("client_prefetch_threads", 4)
+        self.client_session_keep_alive = data_source_properties.get("client_session_keep_alive", False)
+        self.authenticator = data_source_properties.get("authenticator", "snowflake")
+        self.session_params = data_source_properties.get("session_parameters")
+
     def connect(self):
         self.connection = connector.connect(
             user=self.user,
@@ -74,22 +83,26 @@ class SnowflakeDataSource(DataSource):
             role=self.role,
             client_session_keep_alive=self.client_session_keep_alive,
             session_parameters=self.session_parameters,
+            passcode_in_password=self.passcode_in_password,
+            private_key=self.__get_private_key(),
+            client_prefetch_threads=self.client_prefetch_threads,
+            authenticator=self.authenticator,
         )
 
     def __get_private_key(self):
-        if not (self.data_source_properties.get("private_key_path") or self.data_source_properties.get("private_key")):
+        if not (self.private_key_path or self.private_key):
             return None
 
-        if self.data_source_properties.get("private_key_passphrase"):
-            encoded_passphrase = self.data_source_properties.get("private_key_passphrase").encode()
+        if self.private_key_passphrase:
+            encoded_passphrase = self.private_key_passphrase.encode()
         else:
             encoded_passphrase = None
 
         pk_bytes = None
-        if self.data_source_properties.get("private_key"):
-            pk_bytes = self.data_source_properties.get("private_key").encode()
-        elif self.data_source_properties.get("private_key_path"):
-            with open(self.data_source_properties.get("private_key_path"), "rb") as pk:
+        if self.private_key:
+            pk_bytes = self.private_key.encode()
+        elif self.private_key_path:
+            with open(self.private_key_path, "rb") as pk:
                 pk_bytes = pk.read()
 
         p_key = serialization.load_pem_private_key(pk_bytes, password=encoded_passphrase, backend=default_backend())
