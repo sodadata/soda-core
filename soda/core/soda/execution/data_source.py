@@ -488,26 +488,41 @@ class DataSource:
         )
 
     def histogram_sql_and_boundaries(
-        self, table_name: str, column_name: str, min: int | float, max: int | float
+        self,
+        table_name: str,
+        column_name: str,
+        minimum: int | float,
+        maximum: int | float,
+        n_distinct: int,
+        column_type: str,
     ) -> tuple[str | None, list[int | float]]:
         # TODO: make configurable or derive dynamically based on data quantiles etc.
-        number_of_bins: int = 20
+        max_n_bins = 20
+        number_of_bins: int = max(1, min(n_distinct, max_n_bins))
+        number_of_intervals: int = number_of_bins - 1
 
-        if not min < max:
+        if not minimum < maximum:
             self.logs.warning(
-                f"Min of {column_name} on table: {table_name} must be smaller than max value. Min is {min}, and max is {max}"
+                f"Min of {column_name} on table: {table_name} must be smaller than max value. Min is {minimum}, and max is {maximum}"
             )
             return None, []
 
-        min_value = floor(min * 1000) / 1000
-        max_value = ceil(max * 1000) / 1000
-        bin_width = (max_value - min_value) / number_of_bins
+        min_value = floor(minimum * 1000) / 1000
+        max_value = ceil(maximum * 1000) / 1000
+        if column_type == "integer":
+            min_value = int(min_value)
+            max_value = int(max_value)
+            bin_width = (max_value - min_value) / number_of_intervals
+            if bin_width.is_integer():
+                bin_width = int(bin_width)
+        else:
+            bin_width = (max_value - min_value) / number_of_bins
 
         boundary_start = min_value
         bins_list = [min_value]
-        for _ in range(0, number_of_bins):
+        for _ in range(0, number_of_intervals):
             boundary_start += bin_width
-            bins_list.append(round(boundary_start, 3))
+            bins_list.append(round(boundary_start, 2))
 
         field_clauses = []
         for i in range(0, number_of_bins):

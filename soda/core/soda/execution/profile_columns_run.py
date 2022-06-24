@@ -223,6 +223,8 @@ class ProfileColumnsRun:
                     column_name,
                     profile_columns_result_column.min,
                     profile_columns_result_column.max,
+                    profile_columns_result_column.distinct_values,
+                    column_type,
                 )
                 if histogram_sql is not None:
                     histogram_query = Query(
