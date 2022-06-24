@@ -662,12 +662,18 @@ class SodaCLParser(Parser):
             )
         elif metric_name == "distribution_difference":
             column_name: str = metric_args[0]
-            # TODO: To be reenbabled when DRO can be refered to by name: https://sodadata.atlassian.net/browse/SODA-199
-            distribution_name: str = "default"
-            reference_file_path: str = os.path.join(
-                os.path.dirname(self.location.file_path), check_configurations.get("distribution reference file")
-            )
+            distribution_name: str | None = metric_args[1] if len(metric_args) > 1 else None
 
+            if check_configurations.get("distribution reference file"):
+                reference_file_path: str = os.path.join(
+                    os.path.dirname(self.location.file_path), check_configurations.get("distribution reference file")
+                )
+            else:
+                self.logs.error(
+                    f"""You did not define a `distribution reference file` key. See the docs for more information:\n"""
+                    f"""https://docs.soda.io/soda-cl/distribution.html#define-a-distribution-check""",
+                    location=self.location,
+                )
             if not fail_threshold_cfg and not warn_threshold_cfg:
                 self.logs.error(
                     f"""You did not define a threshold for your distribution check. Please use the following syntax\n"""
