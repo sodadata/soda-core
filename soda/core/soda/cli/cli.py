@@ -162,7 +162,7 @@ def scan(
 
 
 @main.command(
-    short_help="updates a distribution reference file",
+    short_help="updates a DRO in the distribution reference file",
 )
 @click.option("-d", "--data-source", envvar="SODA_DATA_SOURCE", required=True, multiple=False, type=click.STRING)
 @click.option(
@@ -181,7 +181,7 @@ def scan(
 )
 @click.option("-V", "--verbose", is_flag=True)
 @click.argument("distribution_reference_file", type=click.STRING)
-def update(
+def update_dro(
     distribution_reference_file: str,
     data_source: str,
     configuration: str,
@@ -189,7 +189,7 @@ def update(
     verbose: Optional[bool],
 ):
     """
-    soda update will
+    soda update-dro will
       * Read the configuration and instantiate a connection to the data source
       * Read the definition properties in the distribution reference file
       * Update bins, labels and/or weights under key "reference distribution" in the distribution reference file
@@ -199,13 +199,14 @@ def update(
     option -c --configuration is the configuration file containing the data source definitions.  The default
     is ~/.soda/configuration.yml is used.
 
+
     option -V --verbose activates more verbose logging, including the queries that are executed.
 
     [DISTRIBUTION_REFERENCE_FILE] is a distribution reference file
 
     Example:
 
-    soda update -d snowflake_customer_data ./customers_size_distribution_reference.yml
+    soda update-dro -d snowflake_customer_data ./customers_size_distribution_reference.yml
     """
 
     configure_logging()
