@@ -5,7 +5,7 @@ import os
 
 from google.cloud import bigquery
 from tests.helpers.data_source_fixture import DataSourceFixture
-from tests.helpers.test_table import  TestTable
+from tests.helpers.test_table import TestTable
 
 logger = logging.getLogger(__name__)
 
