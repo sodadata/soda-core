@@ -143,7 +143,7 @@ def test_profile_columns_all_tables_all_columns(data_source_fixture: DataSourceF
         exclude_tables=profile_columns_run._get_table_expression(exclude_columns, is_for_exclusion=True),
         query_name="profile-columns-get-table-names",
     )
-    assert len(table_names) > 2
+    assert len(table_names) == 7
 
     parsed_included_tables_and_columns = profile_columns_run._build_column_expression_list(include_columns)
     assert parsed_included_tables_and_columns == {"%": ["%"]}
@@ -151,14 +151,15 @@ def test_profile_columns_all_tables_all_columns(data_source_fixture: DataSourceF
     parsed_excluded_tables_and_columns = profile_columns_run._build_column_expression_list(exclude_columns)
     assert parsed_excluded_tables_and_columns == {}
 
-    for table_name in table_names:
+    table_index_n_cols_pairs = {0: 6, 1: 12, 2: 2, 3: 12, 4: 1, 5: 12, 6: 8}
+    for i, table_name in enumerate(table_names):
         columns_metadata_result = data_source.get_table_columns(
             table_name=table_name,
             query_name=f"profile-columns-get-column-metadata-for-{table_name}",
             included_columns=parsed_included_tables_and_columns,
             excluded_columns=parsed_excluded_tables_and_columns,
         )
-        assert columns_metadata_result
+        assert len(columns_metadata_result) == table_index_n_cols_pairs[i]
 
 
 @pytest.mark.parametrize(
