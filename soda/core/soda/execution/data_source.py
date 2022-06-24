@@ -509,20 +509,14 @@ class DataSource:
 
         min_value = floor(minimum * 1000) / 1000
         max_value = ceil(maximum * 1000) / 1000
-        if column_type == "integer":
+        bin_width = (max_value - min_value) / number_of_intervals
+
+        if bin_width.is_integer() and column_type == "integer":
+            bin_width = int(bin_width)
             min_value = int(min_value)
             max_value = int(max_value)
-            bin_width = (max_value - min_value) / number_of_intervals
-            if bin_width.is_integer():
-                bin_width = int(bin_width)
-        else:
-            bin_width = (max_value - min_value) / number_of_bins
-
-        boundary_start = min_value
-        bins_list = [min_value]
-        for _ in range(0, number_of_intervals):
-            boundary_start += bin_width
-            bins_list.append(round(boundary_start, 2))
+            
+        bins_list = [round(min_value + i * bin_width, 2) for i in range(0, number_of_bins)]
 
         field_clauses = []
         for i in range(0, number_of_bins):
