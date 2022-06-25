@@ -1,12 +1,11 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import List, Tuple, Iterable
+from typing import Iterable, List
 
 
 @dataclass
 class TablePrinter:
-
     def __init__(
         self,
         cursor: object | None = None,
@@ -44,12 +43,8 @@ class TablePrinter:
     def get_column_names_from_cursor_description(cursor):
         return [column[0] for column in cursor.description]
 
-    def get_lines(self, max_column_length: int = 25, quote_strings: bool = False) -> List[str]:
-        column_titles = self._serialize_row(
-            self.column_names,
-            max_column_length=max_column_length,
-            quote_strings=False
-        )
+    def get_lines(self, max_column_length: int = 25, quote_strings: bool = False) -> list[str]:
+        column_titles = self._serialize_row(self.column_names, max_column_length=max_column_length, quote_strings=False)
 
         lengths = []
         rules = []
@@ -72,7 +67,7 @@ class TablePrinter:
             result.append(format % tuple(row))
         return result
 
-    def get_table(self, max_column_length: int = 25, prefix: str = '') -> str:
+    def get_table(self, max_column_length: int = 25, prefix: str = "") -> str:
         return prefix + f"\n{prefix}".join(self.get_lines(max_column_length=max_column_length))
 
     def _serialize_row(self, row, max_column_length: int, quote_strings: bool):
