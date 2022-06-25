@@ -3,11 +3,15 @@ import os
 import sys
 from logging import Handler, LogRecord
 from textwrap import indent
+from typing import Tuple
 
 from soda.common.exception_helper import get_exception_stacktrace
 from soda.common.file_system import file_system
+from soda.common.table_printer import TablePrinter
+from soda.execution.data_type import DataType
 from tests.helpers.common_test_tables import customers_test_table, orders_test_table
 from tests.helpers.data_source_fixture import DataSourceFixture
+from tests.helpers.test_table import TestTable
 
 
 class Script:
@@ -16,6 +20,59 @@ class Script:
 
 def append_to_script(line=""):
     Script.lines.append(line)
+
+
+class WrappedCursor:
+    def __init__(self, cursor):
+        self.cursor = cursor
+        self.description = None
+
+    def execute(self, sql: str):
+        execute_result = self.cursor.execute(sql)
+        self.description = self.cursor.description
+        return execute_result
+
+    def fetchall(self) -> Tuple[tuple]:
+        rows = self.cursor.fetchall()
+        column_names = TablePrinter.get_column_names_from_cursor_description(self.cursor)
+        table_as_comment = TablePrinter(rows=rows, column_names=column_names).get_table(prefix="    # ")
+        append_to_script("    # Previous SQL query should produce:")
+        append_to_script(table_as_comment)
+        append_to_script()
+        return rows
+
+    def fetchone(self) -> tuple:
+        row = self.cursor.fetchone()
+        column_names = TablePrinter.get_column_names_from_cursor_description(self.cursor)
+        table_as_comment = TablePrinter(rows=[row], column_names=column_names).get_table(prefix="    # ")
+        append_to_script("    # Previous SQL query should produce:")
+        append_to_script(table_as_comment)
+        append_to_script()
+        return row
+
+    def close(self):
+        self.cursor.close()
+
+
+class WrappedConnection:
+    def __init__(self, connection):
+        self.connection = connection
+
+    def cursor(self) -> WrappedCursor:
+        return WrappedCursor(self.connection.cursor())
+
+    def close(self):
+        self.connection.close()
+
+    def commit(self):
+        self.connection.commit()
+
+    def rollback(self):
+        self.connection.rollback()
+
+
+def wrap_connection(data_source_fixture):
+    data_source_fixture.data_source.connection = WrappedConnection(data_source_fixture.data_source.connection)
 
 
 def generate_compatibility_script():
@@ -32,9 +89,17 @@ def generate_compatibility_script():
 
     data_source_fixture = DataSourceFixture._create()
     data_source_fixture._test_session_starts()
+    wrap_connection(data_source_fixture)
 
     table_name = data_source_fixture.ensure_test_table(customers_test_table)
     orders_table_name = data_source_fixture.ensure_test_table(orders_test_table)
+    case_sensitive_table_name = data_source_fixture.ensure_test_table(
+        TestTable(
+            name="CaseSensitive",
+            columns=[("Id", DataType.TEXT)],
+            quote_names=True,
+        )
+    )
 
     scan = data_source_fixture.create_test_scan()
     scan.add_sodacl_yaml_str(
@@ -74,6 +139,9 @@ def generate_compatibility_script():
 
           checks for {orders_table_name}:
             - values in customer_id_nok must exist in {table_name} id
+
+          checks for \"{case_sensitive_table_name}\":
+            - row_count >= 0
         """
     )
     scan.execute_unchecked()
@@ -112,15 +180,16 @@ class SqlHandler(Handler):
             # append_sql(f"          [NoSQL] {msg}")
 
     def print_sql(self, sql: str, header: str = None):
-        sql = sql.replace('"', '\\"')
+        append_to_script()
         if header:
             append_to_script(f"# {header}")
+
         append_to_script(f"execute(")
         append_to_script(f'    """')
+        sql = sql.replace('"', '\\"')
         append_to_script(f'{indent(sql.strip(), "        ")}')
         append_to_script(f'    """')
         append_to_script(f")")
-        append_to_script()
 
 
 def configure_sql_logging():

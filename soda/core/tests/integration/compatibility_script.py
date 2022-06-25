@@ -38,6 +38,10 @@ execute(
         CREATE SCHEMA IF NOT EXISTS dev_tom AUTHORIZATION CURRENT_USER
     """
 )
+# Previous SQL query should produce:
+# │table_name│
+# │----------│
+
 
 execute(
     """
@@ -100,6 +104,14 @@ execute(
     """
 )
 
+execute(
+    """
+        CREATE TABLE dev_tom.\"SODATEST_CaseSensitive_5fd7051f\" (
+             \"Id\" VARCHAR(255)
+           )
+    """
+)
+
 # SODATEST_Customers_a0344266.aggregation[0]
 execute(
     r"""
@@ -122,6 +134,11 @@ execute(
         FROM dev_tom.SODATEST_Customers_a0344266
     """
 )
+# Previous SQL query should produce:
+# │count│count│count│count│min│max│avg               │stddev          │stddev_pop      │stddev_samp     │variance        │var_pop        │var_samp        │percentile_disc│max                │
+# │-----│-----│-----│-----│---│---│------------------│----------------│----------------│----------------│----------------│---------------│----------------│---------------│-------------------│
+# │10   │3    │1    │3    │3  │6  │4.2000000000000000│3.26430915902803│3.02216303129978│3.26430915902803│10.6557142857143│9.1334693877551│10.6557142857143│999            │2020-06-24 00:04:10│
+
 
 # pct.failed_rows[missing_count]
 execute(
@@ -131,6 +148,11 @@ execute(
         WHERE pct IS NULL
     """
 )
+# Previous SQL query should produce:
+# │id│size│sizetxt│distance│pct│cat │country│zip │email│date      │ts                 │ts_with_tz               │
+# │--│----│-------│--------│---│----│-------│----│-----│----------│-------------------│-------------------------│
+# │  │    │       │        │   │HIGH│NL     │2363│     │2020-06-24│2020-06-24 00:04:10│2020-06-24 00:04:10+00:00│
+
 
 # pct.failed_rows[invalid_count]
 execute(
@@ -140,6 +162,27 @@ execute(
         WHERE NOT pct IS NULL AND NOT pct ~ '^ *[-+]? *(\d+([\.,]\d+)?|([\.,]\d+)) *% *$'
     """
 )
+# Previous SQL query should produce:
+# │id │size│sizetxt│distance│pct     │cat│country│zip │email│date      │ts                 │ts_with_tz               │
+# │---│----│-------│--------│--------│---│-------│----│-----│----------│-------------------│-------------------------│
+# │ID7│6.0 │6      │999     │error   │   │NL     │2360│     │2020-06-24│2020-06-24 00:01:10│2020-06-24 00:01:10+00:00│
+# │ID8│    │       │999     │No value│   │NL     │2361│     │2020-06-24│2020-06-24 00:02:10│2020-06-24 00:02:10+00:00│
+# │ID9│    │       │999     │N/A     │   │NL     │2362│     │2020-06-24│2020-06-24 00:03:10│2020-06-24 00:03:10+00:00│
+
+
+# "SODATEST_CaseSensitive_5fd7051f".aggregation[0]
+execute(
+    """
+        SELECT
+          COUNT(*)
+        FROM dev_tom.\"SODATEST_CaseSensitive_5fd7051f\"
+    """
+)
+# Previous SQL query should produce:
+# │count│
+# │-----│
+# │0    │
+
 
 # SODATEST_Customers_a0344266.schema[SODATEST_Customers_a0344266]
 execute(
@@ -152,6 +195,22 @@ execute(
         ORDER BY ORDINAL_POSITION
     """
 )
+# Previous SQL query should produce:
+# │column_name│data_type                │is_nullable│
+# │-----------│-------------------------│-----------│
+# │id         │character varying        │YES        │
+# │size       │double precision         │YES        │
+# │sizetxt    │character varying        │YES        │
+# │distance   │integer                  │YES        │
+# │pct        │character varying        │YES        │
+# │cat        │character varying        │YES        │
+# │country    │character varying        │YES        │
+# │zip        │character varying        │YES        │
+# │email      │character varying        │YES        │
+# │date       │date                     │YES        │
+# │ts         │timestamp without time...│YES        │
+# │ts_with_tz │timestamp with time zone │YES        │
+
 
 # reference[customer_id_nok]
 execute(
@@ -162,16 +221,42 @@ execute(
         WHERE TARGET.id IS NULL
     """
 )
+# Previous SQL query should produce:
+# │id│customer_id_nok│customer_id_ok│customer_country│customer_zip│text │
+# │--│---------------│--------------│----------------│------------│-----│
+# │O2│ID99           │ID1           │BE              │2360        │two  │
+# │O4│               │ID1           │BE              │            │four │
+# │O5│ID98           │ID4           │                │2360        │five │
+# │O6│ID99           │ID1           │UK              │2360        │six  │
+# │  │               │ID3           │                │            │seven│
+
 
 # discover-tables-find-tables-and-row-counts
 execute(
     """
-        SELECT relname, n_live_tup
-        FROM pg_stat_user_tables
-        WHERE (lower(relname) like 'sodatest_customers_a0344266')
-              AND lower(schemaname) = 'dev_tom'
+        SELECT table_name
+        FROM information_schema.tables
+        WHERE (table_name like 'sodatest_customers_a0344266')
+              AND lower(table_schema) = 'dev_tom'
     """
 )
+# Previous SQL query should produce:
+# │table_name               │
+# │-------------------------│
+# │sodatest_customers_a03...│
+
+
+# get_row_count_sodatest_customers_a0344266
+execute(
+    """
+        SELECT COUNT(*) from dev_tom.\"sodatest_customers_a0344266\"
+    """
+)
+# Previous SQL query should produce:
+# │count│
+# │-----│
+# │10   │
+
 
 # discover-tables-column-metadata-for-sodatest_customers_a0344266
 execute(
@@ -184,16 +269,37 @@ execute(
         ORDER BY ORDINAL_POSITION
     """
 )
+# Previous SQL query should produce:
+# │column_name│data_type                │is_nullable│
+# │-----------│-------------------------│-----------│
+# │id         │character varying        │YES        │
+# │size       │double precision         │YES        │
+# │sizetxt    │character varying        │YES        │
+# │distance   │integer                  │YES        │
+# │pct        │character varying        │YES        │
+# │cat        │character varying        │YES        │
+# │country    │character varying        │YES        │
+# │zip        │character varying        │YES        │
+# │email      │character varying        │YES        │
+# │date       │date                     │YES        │
+# │ts         │timestamp without time...│YES        │
+# │ts_with_tz │timestamp with time zone │YES        │
+
 
 # get_table_names
 execute(
     """
         SELECT table_name
         FROM information_schema.tables
-        WHERE (lower(table_name) like 'sodatest_customers_a0344266')
+        WHERE (table_name like 'sodatest_customers_a0344266')
               AND lower(table_schema) = 'dev_tom'
     """
 )
+# Previous SQL query should produce:
+# │table_name               │
+# │-------------------------│
+# │sodatest_customers_a03...│
+
 
 # SODATEST_Customers_a0344266.aggregation[0]
 execute(
@@ -217,6 +323,11 @@ execute(
         FROM dev_tom.SODATEST_Customers_a0344266
     """
 )
+# Previous SQL query should produce:
+# │count│count│count│count│min│max│avg               │stddev          │stddev_pop      │stddev_samp     │variance        │var_pop        │var_samp        │percentile_disc│max                │
+# │-----│-----│-----│-----│---│---│------------------│----------------│----------------│----------------│----------------│---------------│----------------│---------------│-------------------│
+# │10   │3    │1    │3    │3  │6  │4.2000000000000000│3.26430915902803│3.02216303129978│3.26430915902803│10.6557142857143│9.1334693877551│10.6557142857143│999            │2020-06-24 00:04:10│
+
 
 # pct.failed_rows[missing_count]
 execute(
@@ -226,6 +337,11 @@ execute(
         WHERE pct IS NULL
     """
 )
+# Previous SQL query should produce:
+# │id│size│sizetxt│distance│pct│cat │country│zip │email│date      │ts                 │ts_with_tz               │
+# │--│----│-------│--------│---│----│-------│----│-----│----------│-------------------│-------------------------│
+# │  │    │       │        │   │HIGH│NL     │2363│     │2020-06-24│2020-06-24 00:04:10│2020-06-24 00:04:10+00:00│
+
 
 # pct.failed_rows[invalid_count]
 execute(
@@ -235,6 +351,27 @@ execute(
         WHERE NOT pct IS NULL AND NOT pct ~ '^ *[-+]? *(\d+([\.,]\d+)?|([\.,]\d+)) *% *$'
     """
 )
+# Previous SQL query should produce:
+# │id │size│sizetxt│distance│pct     │cat│country│zip │email│date      │ts                 │ts_with_tz               │
+# │---│----│-------│--------│--------│---│-------│----│-----│----------│-------------------│-------------------------│
+# │ID7│6.0 │6      │999     │error   │   │NL     │2360│     │2020-06-24│2020-06-24 00:01:10│2020-06-24 00:01:10+00:00│
+# │ID8│    │       │999     │No value│   │NL     │2361│     │2020-06-24│2020-06-24 00:02:10│2020-06-24 00:02:10+00:00│
+# │ID9│    │       │999     │N/A     │   │NL     │2362│     │2020-06-24│2020-06-24 00:03:10│2020-06-24 00:03:10+00:00│
+
+
+# "SODATEST_CaseSensitive_5fd7051f".aggregation[0]
+execute(
+    """
+        SELECT
+          COUNT(*)
+        FROM dev_tom.\"SODATEST_CaseSensitive_5fd7051f\"
+    """
+)
+# Previous SQL query should produce:
+# │count│
+# │-----│
+# │0    │
+
 
 # sodatest_customers_a0344266.aggregation[0]
 execute(
@@ -244,6 +381,11 @@ execute(
         FROM dev_tom.sodatest_customers_a0344266
     """
 )
+# Previous SQL query should produce:
+# │count│
+# │-----│
+# │10   │
+
 
 # SODATEST_Customers_a0344266.schema[SODATEST_Customers_a0344266]
 execute(
@@ -256,6 +398,22 @@ execute(
         ORDER BY ORDINAL_POSITION
     """
 )
+# Previous SQL query should produce:
+# │column_name│data_type                │is_nullable│
+# │-----------│-------------------------│-----------│
+# │id         │character varying        │YES        │
+# │size       │double precision         │YES        │
+# │sizetxt    │character varying        │YES        │
+# │distance   │integer                  │YES        │
+# │pct        │character varying        │YES        │
+# │cat        │character varying        │YES        │
+# │country    │character varying        │YES        │
+# │zip        │character varying        │YES        │
+# │email      │character varying        │YES        │
+# │date       │date                     │YES        │
+# │ts         │timestamp without time...│YES        │
+# │ts_with_tz │timestamp with time zone │YES        │
+
 
 # reference[customer_id_nok]
 execute(
@@ -266,6 +424,15 @@ execute(
         WHERE TARGET.id IS NULL
     """
 )
+# Previous SQL query should produce:
+# │id│customer_id_nok│customer_id_ok│customer_country│customer_zip│text │
+# │--│---------------│--------------│----------------│------------│-----│
+# │O2│ID99           │ID1           │BE              │2360        │two  │
+# │O4│               │ID1           │BE              │            │four │
+# │O5│ID98           │ID4           │                │2360        │five │
+# │O6│ID99           │ID1           │UK              │2360        │six  │
+# │  │               │ID3           │                │            │seven│
+
 
 # SODATEST_Customers_a0344266.aggregation[0]
 execute(
@@ -289,6 +456,11 @@ execute(
         FROM dev_tom.SODATEST_Customers_a0344266
     """
 )
+# Previous SQL query should produce:
+# │count│count│count│count│min│max│avg               │stddev          │stddev_pop      │stddev_samp     │variance        │var_pop        │var_samp        │percentile_disc│max                │
+# │-----│-----│-----│-----│---│---│------------------│----------------│----------------│----------------│----------------│---------------│----------------│---------------│-------------------│
+# │10   │3    │1    │3    │3  │6  │4.2000000000000000│3.26430915902803│3.02216303129978│3.26430915902803│10.6557142857143│9.1334693877551│10.6557142857143│999            │2020-06-24 00:04:10│
+
 
 # pct.failed_rows[missing_count]
 execute(
@@ -298,6 +470,11 @@ execute(
         WHERE pct IS NULL
     """
 )
+# Previous SQL query should produce:
+# │id│size│sizetxt│distance│pct│cat │country│zip │email│date      │ts                 │ts_with_tz               │
+# │--│----│-------│--------│---│----│-------│----│-----│----------│-------------------│-------------------------│
+# │  │    │       │        │   │HIGH│NL     │2363│     │2020-06-24│2020-06-24 00:04:10│2020-06-24 00:04:10+00:00│
+
 
 # pct.failed_rows[invalid_count]
 execute(
@@ -307,6 +484,27 @@ execute(
         WHERE NOT pct IS NULL AND NOT pct ~ '^ *[-+]? *(\d+([\.,]\d+)?|([\.,]\d+)) *% *$'
     """
 )
+# Previous SQL query should produce:
+# │id │size│sizetxt│distance│pct     │cat│country│zip │email│date      │ts                 │ts_with_tz               │
+# │---│----│-------│--------│--------│---│-------│----│-----│----------│-------------------│-------------------------│
+# │ID7│6.0 │6      │999     │error   │   │NL     │2360│     │2020-06-24│2020-06-24 00:01:10│2020-06-24 00:01:10+00:00│
+# │ID8│    │       │999     │No value│   │NL     │2361│     │2020-06-24│2020-06-24 00:02:10│2020-06-24 00:02:10+00:00│
+# │ID9│    │       │999     │N/A     │   │NL     │2362│     │2020-06-24│2020-06-24 00:03:10│2020-06-24 00:03:10+00:00│
+
+
+# "SODATEST_CaseSensitive_5fd7051f".aggregation[0]
+execute(
+    """
+        SELECT
+          COUNT(*)
+        FROM dev_tom.\"SODATEST_CaseSensitive_5fd7051f\"
+    """
+)
+# Previous SQL query should produce:
+# │count│
+# │-----│
+# │0    │
+
 
 # sodatest_customers_a0344266.aggregation[0]
 execute(
@@ -316,6 +514,11 @@ execute(
         FROM dev_tom.sodatest_customers_a0344266
     """
 )
+# Previous SQL query should produce:
+# │count│
+# │-----│
+# │10   │
+
 
 # SODATEST_Customers_a0344266.schema[SODATEST_Customers_a0344266]
 execute(
@@ -328,6 +531,22 @@ execute(
         ORDER BY ORDINAL_POSITION
     """
 )
+# Previous SQL query should produce:
+# │column_name│data_type                │is_nullable│
+# │-----------│-------------------------│-----------│
+# │id         │character varying        │YES        │
+# │size       │double precision         │YES        │
+# │sizetxt    │character varying        │YES        │
+# │distance   │integer                  │YES        │
+# │pct        │character varying        │YES        │
+# │cat        │character varying        │YES        │
+# │country    │character varying        │YES        │
+# │zip        │character varying        │YES        │
+# │email      │character varying        │YES        │
+# │date       │date                     │YES        │
+# │ts         │timestamp without time...│YES        │
+# │ts_with_tz │timestamp with time zone │YES        │
+
 
 # reference[customer_id_nok]
 execute(
@@ -338,6 +557,15 @@ execute(
         WHERE TARGET.id IS NULL
     """
 )
+# Previous SQL query should produce:
+# │id│customer_id_nok│customer_id_ok│customer_country│customer_zip│text │
+# │--│---------------│--------------│----------------│------------│-----│
+# │O2│ID99           │ID1           │BE              │2360        │two  │
+# │O4│               │ID1           │BE              │            │four │
+# │O5│ID98           │ID4           │                │2360        │five │
+# │O6│ID99           │ID1           │UK              │2360        │six  │
+# │  │               │ID3           │                │            │seven│
+
 
 # sodatest_customers_a0344266.schema[sodatest_customers_a0344266]
 execute(
@@ -350,16 +578,49 @@ execute(
         ORDER BY ORDINAL_POSITION
     """
 )
+# Previous SQL query should produce:
+# │column_name│data_type                │is_nullable│
+# │-----------│-------------------------│-----------│
+# │id         │character varying        │YES        │
+# │size       │double precision         │YES        │
+# │sizetxt    │character varying        │YES        │
+# │distance   │integer                  │YES        │
+# │pct        │character varying        │YES        │
+# │cat        │character varying        │YES        │
+# │country    │character varying        │YES        │
+# │zip        │character varying        │YES        │
+# │email      │character varying        │YES        │
+# │date       │date                     │YES        │
+# │ts         │timestamp without time...│YES        │
+# │ts_with_tz │timestamp with time zone │YES        │
 
-# profile-columns-get-tables-and-row-counts
+
+# profile-columns-get-table-names
 execute(
     """
-        SELECT relname, n_live_tup
-        FROM pg_stat_user_tables
-        WHERE (lower(relname) like 'sodatest_customers_a0344266' OR lower(relname) like 'sodatest_customers_a0344266')
-              AND lower(schemaname) = 'dev_tom'
+        SELECT table_name
+        FROM information_schema.tables
+        WHERE (table_name like 'sodatest_customers_a0344266' OR table_name like 'sodatest_customers_a0344266')
+              AND lower(table_schema) = 'dev_tom'
     """
 )
+# Previous SQL query should produce:
+# │table_name               │
+# │-------------------------│
+# │sodatest_customers_a03...│
+
+
+# get_row_count_sodatest_customers_a0344266
+execute(
+    """
+        SELECT COUNT(*) from dev_tom.\"sodatest_customers_a0344266\"
+    """
+)
+# Previous SQL query should produce:
+# │count│
+# │-----│
+# │10   │
+
 
 # profile-columns-get-column-metadata-for-sodatest_customers_a0344266
 execute(
@@ -373,6 +634,12 @@ execute(
         ORDER BY ORDINAL_POSITION
     """
 )
+# Previous SQL query should produce:
+# │column_name│data_type        │is_nullable│
+# │-----------│-----------------│-----------│
+# │size       │double precision │YES        │
+# │sizetxt    │character varying│YES        │
+
 
 # profiling-sodatest_customers_a0344266-size-value-frequencies-numeric
 execute(
@@ -416,6 +683,27 @@ execute(
         ORDER BY metric_ ASC, index_ ASC
     """
 )
+# Previous SQL query should produce:
+# │metric_        │index_│value_│frequency_│
+# │---------------│------│------│----------│
+# │frequent_values│1     │-3.0  │1         │
+# │frequent_values│2     │5.0   │1         │
+# │frequent_values│3     │0.5   │1         │
+# │frequent_values│4     │-1.2  │1         │
+# │frequent_values│5     │1.0   │1         │
+# │frequent_values│6     │6.0   │1         │
+# │frequent_values│7     │-0.4  │1         │
+# │maxs           │1     │6.0   │1         │
+# │maxs           │2     │5.0   │1         │
+# │maxs           │3     │1.0   │1         │
+# │maxs           │4     │0.5   │1         │
+# │maxs           │5     │-0.4  │1         │
+# │mins           │1     │-3.0  │1         │
+# │mins           │2     │-1.2  │1         │
+# │mins           │3     │-0.4  │1         │
+# │mins           │4     │0.5   │1         │
+# │mins           │5     │1.0   │1         │
+
 
 # profiling-sodatest_customers_a0344266-size-profiling-aggregates
 execute(
@@ -430,6 +718,11 @@ execute(
         FROM dev_tom.sodatest_customers_a0344266
     """
 )
+# Previous SQL query should produce:
+# │average         │sum│variance        │standard_deviation│distinct_values│missing_values│
+# │----------------│---│----------------│------------------│---------------│--------------│
+# │1.12857142857143│7.9│10.6557142857143│3.26430915902803  │7              │3             │
+
 
 # profiling-sodatest_customers_a0344266-size-histogram
 execute(
@@ -464,6 +757,11 @@ execute(
                    FROM value_frequencies
     """
 )
+# Previous SQL query should produce:
+# │sum│sum│sum│sum│sum│sum│sum│sum│sum│sum│sum│sum│sum│sum│sum│sum│sum│sum│sum│sum│
+# │---│---│---│---│---│---│---│---│---│---│---│---│---│---│---│---│---│---│---│---│
+# │1  │   │   │   │1  │1  │   │1  │1  │   │   │   │   │   │   │   │   │1  │   │1  │
+
 
 # profiling-sodatest_customers_a0344266-sizetxt-value-frequencies-text
 execute(
@@ -486,6 +784,17 @@ execute(
         ORDER BY metric_ ASC, index_ ASC
     """
 )
+# Previous SQL query should produce:
+# │metric_        │index_│value_│frequency_│
+# │---------------│------│------│----------│
+# │frequent_values│1     │.5    │1         │
+# │frequent_values│2     │-3    │1         │
+# │frequent_values│3     │5     │1         │
+# │frequent_values│4     │1     │1         │
+# │frequent_values│5     │-.4   │1         │
+# │frequent_values│6     │6     │1         │
+# │frequent_values│7     │-1.2  │1         │
+
 
 # profiling: sodatest_customers_a0344266, sizetxt: get textual aggregates
 execute(
@@ -499,6 +808,11 @@ execute(
         FROM dev_tom.sodatest_customers_a0344266
     """
 )
+# Previous SQL query should produce:
+# │distinct_values│missing_values│avg_length        │min_length│max_length│
+# │---------------│--------------│------------------│----------│----------│
+# │7              │3             │2.0000000000000000│1         │4         │
+
 
 execute(
     """
