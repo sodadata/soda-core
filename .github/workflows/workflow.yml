@@ -79,10 +79,6 @@ jobs:
       SPARK_DATABASE: ${{ secrets.SPARK_DATABASE }}
       # TODO: add appropriate vars
       SPARK_DF_HOST: ${{ secrets.SPARK_DF_HOST }}
-      # Set this to to true if the checks need to be tested on views
-      # Note: This will fail on Spark Dataframe because we use df createOrReplaceTempView already,
-      # so view based testing doesn't make much sense
-      TEST_WITH_VIEWS: 'false'
 
     steps:
       - uses: actions/checkout@v2
