@@ -138,7 +138,7 @@ class DataSourceFixture:
             # TODO investigate if this is really needed
             self.data_source.analyze_table(test_table.unique_table_name)
 
-        return test_table.unique_table_name
+        return test_table.unique_view_name if test_table.create_view else test_table.unique_table_name
 
     def _get_existing_test_table_names(self):
         if not self.__existing_table_names.is_set():
@@ -148,13 +148,15 @@ class DataSourceFixture:
             self.__existing_table_names.set(table_names)
         return self.__existing_table_names.get()
 
-    def _create_and_insert_test_table(self, test_table):
+    def _create_and_insert_test_table(self, test_table: TestTable):
         create_table_sql = self._create_test_table_sql(test_table)
         self._update(create_table_sql)
         self._get_existing_test_table_names().append(test_table.unique_table_name)
         insert_table_sql = self._insert_test_table_sql(test_table)
         if insert_table_sql:
             self._update(insert_table_sql)
+        if test_table.create_view:
+            self._update(self._create_view_from_table_sql(test_table))
 
     def _create_test_table_sql(self, test_table: TestTable) -> str:
         table_name = test_table.unique_table_name
@@ -176,6 +178,9 @@ class DataSourceFixture:
             ]
         )
         return self._create_test_table_sql_compose(qualified_table_name, columns_sql)
+
+    def _create_view_from_table_sql(self, test_table: TestTable):
+        return f"CREATE VIEW {test_table.unique_view_name} AS SELECT * FROM {test_table.unique_table_name}"
 
     def _create_test_table_sql_compose(self, qualified_table_name, columns_sql) -> str:
         return f"CREATE TABLE {qualified_table_name} ( \n{columns_sql} \n)"
