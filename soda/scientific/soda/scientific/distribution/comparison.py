@@ -1,6 +1,6 @@
 import abc
 import logging
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Union
 
 import numpy as np
 import pandas as pd
@@ -41,10 +41,25 @@ class MissingBinsWeightsException(LoggableException):
     """Thrown when there there are no bins and weights in the distribution reference file"""
 
 
+class DRONameNotFoundException(LoggableException):
+    """Thrown when the provided DRO name is not found in the distribution reference file"""
+
+
+class MissingDRONameException(LoggableException):
+    """Thrown when the distribution reference file structure appears to contain named DROs but no DRO name is provided"""
+
+
 class DistributionChecker:
-    def __init__(self, dist_method: str, dist_ref_yaml: str, dist_ref_file_path: str, data: List[Any]):
+    def __init__(
+        self,
+        dist_method: str,
+        dist_ref_yaml: str,
+        dist_ref_file_path: str,
+        dist_name: Union[str, None],
+        data: List[Any],
+    ):
         self.test_data = data
-        self.dist_ref = self._parse_reference_cfg(dist_method, dist_ref_yaml, dist_ref_file_path)
+        self.dist_ref = self._parse_reference_cfg(dist_method, dist_ref_yaml, dist_ref_file_path, dist_name)
 
         algo_mapping = {
             "chi_square": ChiSqAlgorithm,
@@ -78,10 +93,28 @@ class DistributionChecker:
 
         return dict(check_value=check_value, stat_value=stat_value)
 
-    def _parse_reference_cfg(self, dist_method: str, dist_ref_yaml: str, dist_ref_file_path: str) -> RefDataCfg:
+    def _parse_reference_cfg(
+        self, dist_method: str, dist_ref_yaml: str, dist_ref_file_path: str, dist_name: Union[str, None]
+    ) -> RefDataCfg:
         try:
             parsed_ref_cfg: dict = YAML().load(dist_ref_yaml)
             ref_data_cfg = {}
+
+            if dist_name:
+                parsed_ref_cfg = parsed_ref_cfg.get(dist_name)
+                if not parsed_ref_cfg:
+                    raise DRONameNotFoundException(
+                        f"""Your DRO name "{dist_name}" is not found in your distribution reference file "{dist_ref_file_path}". Please make sure that the DRO name that you provide in"""
+                        f""" "distribution_difference(column_name, dro_name)" points to an existing DRO. For more information visit the docs:\n"""
+                        f"""https://docs.soda.io/soda-cl/distribution.html#define-a-distribution-check"""
+                    )
+
+            elif all(isinstance(value, dict) for value in parsed_ref_cfg.values()):
+                raise MissingDRONameException(
+                    f"""While your distribution reference file "{dist_ref_file_path}" appears to contain named DROs, you did not provide a DRO name to your distribution check. """
+                    f"""Please provide the DRO name that you want to use in the "distribution_difference(column_name, dro_name)"""
+                    f""" part of your check. For more information visit the docs: https://docs.soda.io/soda-cl/distribution.html#define-a-distribution-check."""
+                )
 
             if "distribution_type" in parsed_ref_cfg:
                 ref_data_cfg["distribution_type"] = parsed_ref_cfg["distribution_type"]
@@ -119,7 +152,7 @@ class DistributionChecker:
             else:
                 raise MissingBinsWeightsException(
                     f"""The DRO in your "{dist_ref_file_path}" distribution reference file does not contain a "distribution_reference" key with weights and bins."""
-                    f""" Make sure that before running "soda scan" you create a DRO by running "soda update". For more information visit the docs:\n"""
+                    f""" Make sure that before running "soda scan" you create a DRO by running "soda update-dro". For more information visit the docs:\n"""
                     f"""https://docs.soda.io/soda-cl/distribution.html#generate-a-distribution-reference-object-dro."""
                 )
 
