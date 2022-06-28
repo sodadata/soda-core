@@ -51,7 +51,9 @@ class BigQueryDataSource(DataSource):
 
     def __init__(self, logs: Logs, data_source_name: str, data_source_properties: dict):
         super().__init__(logs, data_source_name, data_source_properties)
-        self.dataset_name = data_source_properties.get("dataset")
+
+        # Authentication parameters
+        self.account_info_dict = None
 
         account_info_json_str = None
         account_info_path = self.data_source_properties.get("account_info_json_path")
@@ -65,24 +67,36 @@ class BigQueryDataSource(DataSource):
 
         if account_info_json_str:
             self.account_info_dict = json.loads(account_info_json_str)
-        else:
-            logger.error(f"No bigquery connection authentication: no account_info_json nor account_info_json_path")
 
+        default_auth_scopes = [
+            "https://www.googleapis.com/auth/bigquery",
+            "https://www.googleapis.com/auth/cloud-platform",
+            "https://www.googleapis.com/auth/drive",
+        ]
+        self.auth_scopes = data_source_properties.get("auth_scopes", default_auth_scopes)
+
+        self.credentials = None
+        if self.account_info_dict:
+            self.credentials = Credentials.from_service_account_info(
+                self.account_info_dict,
+                scopes=self.auth_scopes,
+            )
+
+        # All remaining parameters
         # Usually the project_id comes from the self.account_info_dict
         self.project_id = self.account_info_dict.get("project_id") if self.account_info_dict else None
         # But users can optionally overwrite in the connection properties
         self.project_id = data_source_properties.get("project_id", self.project_id)
 
-        self.credentials = Credentials.from_service_account_info(
-            self.account_info_dict,
-            scopes=[
-                "https://www.googleapis.com/auth/bigquery",
-                "https://www.googleapis.com/auth/cloud-platform",
-                "https://www.googleapis.com/auth/drive",
-            ],
-        )
+        self.dataset_name = data_source_properties.get("dataset")
+
+        self.location = data_source_properties.get("location")
+        self.client_info = data_source_properties.get("client_info")
+        self.client_options = data_source_properties.get("client_options")
 
     def connect(self):
+        if not self.credentials:
+            self.logs.info("Using application default credentials.")
         try:
             self.client = bigquery.Client(
                 project=self.project_id,
@@ -90,6 +104,9 @@ class BigQueryDataSource(DataSource):
                 default_query_job_config=bigquery.QueryJobConfig(
                     default_dataset=f"{self.project_id}.{self.dataset_name}",
                 ),
+                location=self.location,
+                client_info=self.client_info,
+                client_options=self.client_options,
             )
             self.connection = dbapi.Connection(self.client)
 
