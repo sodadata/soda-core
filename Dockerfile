@@ -45,15 +45,7 @@ COPY . .
 RUN pip install "$(cat dev-requirements.in | grep pip-tools)" && \
     pip install -r dev-requirements.txt
 
-# skipping spark for now
-#RUN cat requirements.txt | while read requirement || [[ -n $requirement ]]; do pip install -e $requirement; done
-RUN pip install -e ./soda/core && \
-    pip install -e ./soda/postgres && \
-    pip install -e ./soda/bigquery && \
-    pip install -e ./soda/snowflake && \
-    pip install -e ./soda/redshift && \
-    pip install -e ./soda/athena && \
-    pip install -e ./soda/scientific
+RUN cat requirements.txt | while read requirement || [[ -n $requirement ]]; do pip install -e $requirement; done
 
 RUN apt-get purge -y build-essential git curl && \
     apt-get clean -qq -y && \
