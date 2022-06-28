@@ -16,9 +16,6 @@ from soda.execution.partition_queries import PartitionQueries
 from soda.execution.query import Query
 from soda.execution.schema_query import TableColumnsQuery
 from soda.sampler.sample_ref import SampleRef
-from soda.telemetry.soda_telemetry import SodaTelemetry
-
-soda_telemetry = SodaTelemetry.get_instance()
 
 
 class DataSource:

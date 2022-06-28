@@ -1,6 +1,9 @@
 from typing import Dict, List
 
 from soda.execution.data_source import DataSource
+from soda.telemetry.soda_telemetry import SodaTelemetry
+
+soda_telemetry = SodaTelemetry.get_instance()
 
 
 class DataSourceManager:
@@ -36,6 +39,11 @@ class DataSourceManager:
                         data_source_properties,
                     )
                     if data_source:
+                        soda_telemetry.set_attribute("datasource_type", data_source.type)
+                        soda_telemetry.set_attribute(
+                            "datasource_id", soda_telemetry.obtain_datasource_hash(data_source)
+                        )
+
                         try:
                             data_source.connect()
                             self.data_sources[data_source_name] = data_source
