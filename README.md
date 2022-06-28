@@ -1,7 +1,11 @@
-<p align="center"><img src="https://raw.githubusercontent.com/sodadata/docs/main/assets/images/soda-banner.png" alt="Soda logo" /></p>
+ 📣 **Tuesday, June 28:** 📣
+ **After months of hard work, Soda Core + SodaCL are now generally available!** 🎉 🎉
+**Check out the [Release notes](https://github.com/sodadata/soda-core/releases) for details.**
+
+---
 
 <h1 align="center">Soda Core</h1>
-<p align="center"><b>Data testing, monitoring and profiling for SQL-accessible data.</b></p>
+<p align="center"><b>Data reliability testing for SQL- and Spark- accesssible data.</b></p>
 
 <p align="center">
   <a href="https://github.com/sodadata/soda-core/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-Apache%202-blue.svg" alt="License: Apache 2.0"></a>
