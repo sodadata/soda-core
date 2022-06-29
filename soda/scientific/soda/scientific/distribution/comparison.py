@@ -59,7 +59,7 @@ class DistributionChecker:
         data: List[Any],
     ):
         self.test_data = data
-        self.dist_ref = self._parse_reference_cfg(dist_method, dist_ref_yaml, dist_ref_file_path, dist_name)
+        self.dist_ref, dist_method = self._parse_reference_cfg(dist_method, dist_ref_yaml, dist_ref_file_path, dist_name)
 
         algo_mapping = {
             "chi_square": ChiSqAlgorithm,
@@ -161,7 +161,7 @@ class DistributionChecker:
             raise DistributionRefParsingException(
                 f"Cannot parse {dist_ref_file_path}, please check your reference file! \n"
             )
-        return RefDataCfg.parse_obj(ref_data_cfg)
+        return RefDataCfg.parse_obj(ref_data_cfg), dist_method
 
 
 class DistributionAlgorithm(abc.ABC):
