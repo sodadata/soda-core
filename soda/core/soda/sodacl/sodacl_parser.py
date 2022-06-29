@@ -351,7 +351,7 @@ class SodaCLParser(Parser):
 
             self._push_path_element(check_str, check_configurations)
             try:
-                name = self._get_required(NAME, str)
+                name = self._get_optional(NAME, str)
                 for invalid_configuration_key in [
                     key
                     for key in check_configurations
