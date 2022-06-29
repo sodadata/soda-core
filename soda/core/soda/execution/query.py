@@ -19,6 +19,7 @@ class Query:
         sql: str | None = None,
         sample_name: str = "failed_rows",
         location: Location | None = None,
+        samples_limit: int | None = 100,
     ):
         self.logs = data_source_scan.scan._logs
         self.data_source_scan = data_source_scan
@@ -30,6 +31,7 @@ class Query:
         self.partition: Partition | None = partition
         self.column: Column | None = column
         self.location: Location | None = location
+        self.samples_limit: int | None = samples_limit
 
         # The SQL query that is used _fetchone or _fetchall or _store
         # This field can also be initialized in the execute method before any of _fetchone,
@@ -158,6 +160,7 @@ class Query:
                     column=self.column,
                     scan=self.data_source_scan.scan,
                     logs=self.data_source_scan.scan._logs,
+                    samples_limit=self.samples_limit,
                 )
 
                 self.sample_ref = sampler.store_sample(sample_context)
