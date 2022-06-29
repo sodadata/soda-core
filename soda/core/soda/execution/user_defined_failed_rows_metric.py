@@ -34,5 +34,10 @@ class UserDefinedFailedRowsMetric(QueryMetric):
         check = next(iter(self.checks), None)
         location = check.check_cfg.location if check else None
         self.data_source_scan.queries.append(
-            UserDefinedFailedRowsQuery(data_source_scan=self.data_source_scan, metric=self, location=location)
+            UserDefinedFailedRowsQuery(
+                data_source_scan=self.data_source_scan,
+                metric=self,
+                location=location,
+                samples_limit=check.check_cfg.samples_limit,
+            )
         )
