@@ -18,11 +18,9 @@ class BigQueryDataSourceFixture(DataSourceFixture):
         return {
             "data_source bigquery": {
                 "type": "bigquery",
-                "host": "localhost",
-                "dataset": os.getenv("BIGQUERY_DATASET"),
+                "dataset": schema_name or os.getenv("BIGQUERY_DATASET"),
                 "account_info_json_path": os.getenv("BIGQUERY_ACCOUNT_INFO_JSON_PATH"),
                 "account_info_json": os.getenv("BIGQUERY_ACCOUNT_INFO_JSON"),
-                "schema": schema_name,
             }
         }
 
@@ -54,4 +52,4 @@ class BigQueryDataSourceFixture(DataSourceFixture):
         return f"DROP TABLE {qualified_table_name};"
 
     def _create_view_from_table_sql(self, test_table: TestTable):
-        return f"CREATE VIEW {self.schema_name}.{test_table.unique_view_name} AS SELECT * FROM {self.schema_name}.{test_table.unique_table_name}"
+        return f"CREATE VIEW {self.dataset}.{test_table.unique_view_name} AS SELECT * FROM {self.dataset}.{test_table.unique_table_name}"
