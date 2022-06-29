@@ -59,7 +59,9 @@ class DistributionChecker:
         data: List[Any],
     ):
         self.test_data = data
-        self.dist_ref, dist_method = self._parse_reference_cfg(dist_method, dist_ref_yaml, dist_ref_file_path, dist_name)
+        self.dist_ref, dist_method = self._parse_reference_cfg(
+            dist_method, dist_ref_yaml, dist_ref_file_path, dist_name
+        )
 
         algo_mapping = {
             "chi_square": ChiSqAlgorithm,
