@@ -485,5 +485,5 @@ class ProphetDetector(BaseDetector):
                 self.anomalies = pd.DataFrame()
                 return self.anomalies
         except Exception as e:
-            self._logs.error(e, exc_info=True)
+            self._logs.error(e, exception=e)
             raise e
