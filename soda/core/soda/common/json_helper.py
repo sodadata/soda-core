@@ -38,6 +38,7 @@ class JsonHelper:
                     del o[key]
                     key = str(key)
                     update = True
+
                 jsonnable_value = JsonHelper.to_jsonnable(value)
                 if value is not jsonnable_value:
                     value = jsonnable_value
@@ -68,6 +69,8 @@ class JsonHelper:
             return o.value
         if isinstance(o, Undefined):
             return None
+        if isinstance(o, Exception):
+            return str(o)
         raise RuntimeError(f"Do not know how to jsonize {o} ({type(o)})")
 
     @classmethod
