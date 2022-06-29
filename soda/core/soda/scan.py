@@ -517,8 +517,6 @@ class Scan:
         self._checks.append(check)
 
     def __resolve_for_each_dataset_checks(self):
-        pass
-
         data_source_name = self._data_source_name
 
         for index, for_each_dataset_cfg in enumerate(self._sodacl_cfg.for_each_dataset_cfgs):
@@ -536,11 +534,7 @@ class Scan:
 
                 for table_name in table_names:
                     data_source_scan_cfg = self._sodacl_cfg.get_or_create_data_source_scan_cfgs(data_source_name)
-                    data_source_scan = self._get_or_create_data_source_scan(
-                        data_source_name=data_source_scan_cfg.data_source_name
-                    )
-                    quoted_table_name = data_source_scan.data_source.quote_table(table_name)
-                    table_cfg = data_source_scan_cfg.get_or_create_table_cfg(quoted_table_name)
+                    table_cfg = data_source_scan_cfg.get_or_create_table_cfg(table_name)
                     partition_cfg = table_cfg.find_partition(None, None)
                     for check_cfg_template in for_each_dataset_cfg.check_cfgs:
                         check_cfg = check_cfg_template.instantiate_for_each_dataset(

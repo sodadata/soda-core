@@ -14,9 +14,9 @@ from typing import List, Optional, Tuple
 
 import click
 from ruamel.yaml import YAML
+from ruamel.yaml.main import round_trip_dump
 from soda.common.file_system import file_system
 from soda.common.logs import configure_logging
-from soda.common.yaml_helper import to_yaml_str
 from soda.scan import Scan
 from soda.telemetry.soda_telemetry import SodaTelemetry
 from soda.telemetry.soda_tracer import soda_trace, span_setup_function_args
@@ -162,7 +162,7 @@ def scan(
 
 
 @main.command(
-    short_help="updates a distribution reference file",
+    short_help="updates a DRO in the distribution reference file",
 )
 @click.option("-d", "--data-source", envvar="SODA_DATA_SOURCE", required=True, multiple=False, type=click.STRING)
 @click.option(
@@ -172,16 +172,24 @@ def scan(
     multiple=False,
     type=click.STRING,
 )
+@click.option(
+    "-n",
+    "--name",
+    required=False,
+    multiple=False,
+    type=click.STRING,
+)
 @click.option("-V", "--verbose", is_flag=True)
 @click.argument("distribution_reference_file", type=click.STRING)
-def update(
+def update_dro(
     distribution_reference_file: str,
     data_source: str,
     configuration: str,
+    name: Optional[str],
     verbose: Optional[bool],
 ):
     """
-    soda update will
+    soda update-dro will
       * Read the configuration and instantiate a connection to the data source
       * Read the definition properties in the distribution reference file
       * Update bins, labels and/or weights under key "reference distribution" in the distribution reference file
@@ -191,13 +199,14 @@ def update(
     option -c --configuration is the configuration file containing the data source definitions.  The default
     is ~/.soda/configuration.yml is used.
 
+
     option -V --verbose activates more verbose logging, including the queries that are executed.
 
     [DISTRIBUTION_REFERENCE_FILE] is a distribution reference file
 
     Example:
 
-    soda update -d snowflake_customer_data ./customers_size_distribution_reference.yml
+    soda update-dro -d snowflake_customer_data ./customers_size_distribution_reference.yml
     """
 
     configure_logging()
@@ -212,10 +221,42 @@ def update(
 
     yaml = YAML()
     try:
-        distribution_dict = yaml.load(distribution_reference_yaml_str)
+        distribution_reference_dict = yaml.load(distribution_reference_yaml_str)
     except BaseException as e:
         logging.error(f"Could not parse distribution reference file {distribution_reference_file}: {e}")
         return
+
+    named_format = all(isinstance(value, dict) for value in distribution_reference_dict.values())
+    unnamed_format = not any(
+        isinstance(value, dict) and key != "distribution_reference"
+        for key, value in distribution_reference_dict.items()
+    )
+    correct_format = named_format or unnamed_format
+    if not correct_format:
+        logging.error(
+            f"""Incorrect distribution reference file format in "{distribution_reference_file}". If you want to use multiple DROs in a single distribution"""
+            f""" reference file please make sure that they are all named. For more info see the documentation"""
+            f""" \nhttps://docs.soda.io/soda-cl/distribution.html#generate-a-distribution-reference-object-dro."""
+        )
+        return
+
+    if name and named_format:
+        distribution_dict = distribution_reference_dict.get(name)
+        if not distribution_dict:
+            logging.error(
+                f"""The dro name "{name}" that you provided does not exist in your distribution reference file "{distribution_reference_file}". """
+                f"""For more information see the documentation:\nhttps://docs.soda.io/soda-cl/distribution.html#generate-a-distribution-reference-object-dro."""
+            )
+            return
+    elif named_format:
+        logging.error(
+            f"""The distribution reference file "{distribution_reference_file}" that you used contains named DROs, but you did not provide"""
+            f""" a DRO name with the -n argument. Please run soda update with -n "dro_name" to indicate which DRO you want to update."""
+            f""" For more info see the documentation:\nhttps://docs.soda.io/soda-cl/distribution.html#generate-a-distribution-reference-object-dro."""
+        )
+        return
+    else:
+        distribution_dict = distribution_reference_dict
 
     dataset_name = distribution_dict.get("dataset")
     if not dataset_name:
@@ -260,7 +301,7 @@ def update(
                 # To clean up the file and don't leave the old syntax
                 distribution_dict.pop("distribution reference")
 
-            new_file_content = to_yaml_str(distribution_dict)
+            new_file_content = round_trip_dump(distribution_reference_dict)
 
             fs.file_write_from_str(path=distribution_reference_file, file_content_str=new_file_content)
 

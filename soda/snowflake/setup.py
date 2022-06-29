@@ -9,7 +9,7 @@ if sys.version_info < (3, 8):
     sys.exit(1)
 
 package_name = "soda-core-snowflake"
-package_version = "3.0.0rc2"
+package_version = "3.0.1"
 description = "Soda Core Snowflake Package"
 
 requires = [

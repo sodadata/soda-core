@@ -9,7 +9,7 @@ if sys.version_info < (3, 8):
     sys.exit(1)
 
 package_name = "soda-core-scientific"
-package_version = "3.0.0rc2"
+package_version = "3.0.1"
 description = "Soda Core Scientific Package"
 requires = [
     f"soda-core=={package_version}",
@@ -21,7 +21,7 @@ requires = [
     "PyYAML>=5.4.1,<6.0.0",
     "cython>=0.22",
     "pystan==2.19.1.1",
-    "prophet>=1.0.0"
+    "prophet==1.0.0"  # Pinned 1.0.0 until 1.1 (and above) installation issues are resolved. https://sodadata.atlassian.net/browse/CLOUD-446
     # Uncomment & recreate .venv to make scientific tests work
     # "prophet @ git+https://github.com/facebook/prophet.git#egg=prophet&subdirectory=python",
 ]

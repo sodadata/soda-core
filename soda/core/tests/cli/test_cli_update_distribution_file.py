@@ -30,7 +30,7 @@ def test_cli_update_distribution_file(data_source_fixture: DataSourceFixture, mo
 
     run_cli(
         [
-            "update",
+            "update-dro",
             "-c",
             "configuration.yml",
             "-d",

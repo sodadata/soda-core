@@ -6,7 +6,6 @@ import importlib
 import json
 import re
 from datetime import date, datetime
-from math import ceil, floor
 from numbers import Number
 from textwrap import dedent
 
@@ -17,9 +16,6 @@ from soda.execution.partition_queries import PartitionQueries
 from soda.execution.query import Query
 from soda.execution.schema_query import TableColumnsQuery
 from soda.sampler.sample_ref import SampleRef
-from soda.telemetry.soda_telemetry import SodaTelemetry
-
-soda_telemetry = SodaTelemetry.get_instance()
 
 
 class DataSource:
@@ -488,26 +484,33 @@ class DataSource:
         )
 
     def histogram_sql_and_boundaries(
-        self, table_name: str, column_name: str, min: int | float, max: int | float
+        self,
+        table_name: str,
+        column_name: str,
+        min_value: int | float,
+        max_value: int | float,
+        n_distinct: int,
+        column_type: str,
     ) -> tuple[str | None, list[int | float]]:
         # TODO: make configurable or derive dynamically based on data quantiles etc.
-        number_of_bins: int = 20
+        max_n_bins = 20
+        number_of_bins: int = max(1, min(n_distinct, max_n_bins))
+        number_of_intervals: int = number_of_bins - 1
 
-        if not min < max:
+        if min_value >= max_value:
             self.logs.warning(
-                f"Min of {column_name} on table: {table_name} must be smaller than max value. Min is {min}, and max is {max}"
+                f"Min of {column_name} on table: {table_name} must be smaller than max value. Min is {minimum}, and max is {maximum}"
             )
             return None, []
 
-        min_value = floor(min * 1000) / 1000
-        max_value = ceil(max * 1000) / 1000
-        bin_width = (max_value - min_value) / number_of_bins
+        bin_width = (max_value - min_value) / number_of_intervals
 
-        boundary_start = min_value
-        bins_list = [min_value]
-        for _ in range(0, number_of_bins):
-            boundary_start += bin_width
-            bins_list.append(round(boundary_start, 3))
+        if bin_width.is_integer() and column_type == "integer":
+            bin_width = int(bin_width)
+            min_value = int(min_value)
+            max_value = int(max_value)
+
+        bins_list = [round(min_value + i * bin_width, 2) for i in range(0, number_of_bins)]
 
         field_clauses = []
         for i in range(0, number_of_bins):
