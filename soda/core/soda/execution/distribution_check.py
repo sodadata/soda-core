@@ -65,7 +65,7 @@ class DistributionCheck(Check):
                 file_type="disribution reference object yaml", file_path=ref_file_path
             )
             try:
-                check_result_dict = DistributionChecker(dist_method, dist_ref_yaml, ref_file_path, test_data).run()
+                check_result_dict = DistributionChecker(dist_method, dist_ref_yaml, ref_file_path, dist_name, test_data).run()
                 self.check_value = check_result_dict["check_value"]
                 self.metrics["distribution-difference-metric"].value = self.check_value
                 self.set_outcome_based_on_check_value() 
