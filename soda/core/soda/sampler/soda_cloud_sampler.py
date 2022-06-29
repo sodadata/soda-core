@@ -24,12 +24,16 @@ class SodaCloudSampler(Sampler):
                 sample_file_name=sample_context.get_sample_file_name(),
                 samples_limit=sample_context.samples_limit,
             )
+        if sample_context.samples_limit is not None:
+            stored_row_count = row_count if row_count < sample_context.samples_limit else sample_context.samples_limit
+        else:
+            stored_row_count = row_count
 
         return SampleRef(
             name=sample_context.sample_name,
             schema=sample_schema,
             total_row_count=row_count,
-            stored_row_count=row_count,
+            stored_row_count=stored_row_count,
             type=type,
             soda_cloud_file_id=soda_cloud_file_id,
         )
