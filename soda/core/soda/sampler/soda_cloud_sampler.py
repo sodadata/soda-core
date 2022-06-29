@@ -19,7 +19,10 @@ class SodaCloudSampler(Sampler):
             scan = sample_context.scan
             soda_cloud = scan._configuration.soda_cloud
             soda_cloud_file_id = soda_cloud.upload_sample(
-                scan=scan, sample_rows=sample_rows, sample_file_name=sample_context.get_sample_file_name()
+                scan=scan,
+                sample_rows=sample_rows,
+                sample_file_name=sample_context.get_sample_file_name(),
+                samples_limit=sample_context.samples_limit,
             )
 
         return SampleRef(

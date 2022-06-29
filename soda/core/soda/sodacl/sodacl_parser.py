@@ -39,13 +39,13 @@ from soda.sodacl.threshold_cfg import ThresholdCfg
 
 logger = logging.getLogger(__name__)
 
-
 WARN = "warn"
 FAIL = "fail"
 NAME = "name"
 IDENTITY = "identity"
 FAIL_CONDITION = "fail condition"
 FAIL_QUERY = "fail query"
+SAMPLES_LIMIT = "samples limit"
 WHEN_REQUIRED_COLUMN_MISSING = "when required column missing"
 WHEN_WRONG_COLUMN_TYPE = "when wrong column type"
 WHEN_WRONG_COLUMN_INDEX = "when wrong column index"
@@ -353,13 +353,16 @@ class SodaCLParser(Parser):
             try:
                 name = self._get_required(NAME, str)
                 for invalid_configuration_key in [
-                    key for key in check_configurations if key not in [NAME, WARN, FAIL, FAIL_CONDITION, FAIL_QUERY]
+                    key
+                    for key in check_configurations
+                    if key not in [NAME, WARN, FAIL, FAIL_CONDITION, FAIL_QUERY, SAMPLES_LIMIT]
                 ]:
                     self.logs.error(
                         f'Invalid user defined failed rows check configuration key "{invalid_configuration_key}"',
                         location=self.location,
                     )
                 fail_condition_sql_expr = self._get_optional(FAIL_CONDITION, str)
+                samples_limit = self._get_optional(SAMPLES_LIMIT, int)
                 if fail_condition_sql_expr:
                     return UserDefinedFailedRowsExpressionCheckCfg(
                         source_header=header_str,
@@ -368,6 +371,7 @@ class SodaCLParser(Parser):
                         location=self.location,
                         name=name,
                         fail_condition_sql_expr=fail_condition_sql_expr,
+                        samples_limit=samples_limit,
                     )
                 else:
                     fail_query = self._get_optional(FAIL_QUERY, str)
@@ -379,6 +383,7 @@ class SodaCLParser(Parser):
                             location=self.location,
                             name=name,
                             query=fail_query,
+                            samples_limit=samples_limit,
                         )
                     else:
                         self.logs.error(
@@ -434,6 +439,7 @@ class SodaCLParser(Parser):
             try:
                 name = self._get_optional(NAME, str)
                 query = self._get_required(FAIL_QUERY, str)
+                samples_limit = self._get_optional(SAMPLES_LIMIT, int)
                 return UserDefinedFailedRowsCheckCfg(
                     source_header=header_str,
                     source_line=check_str,
@@ -441,6 +447,7 @@ class SodaCLParser(Parser):
                     location=self.location,
                     name=name,
                     query=query,
+                    samples_limit=samples_limit,
                 )
             finally:
                 self._pop_path_element()
