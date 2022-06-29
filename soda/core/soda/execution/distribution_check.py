@@ -1,4 +1,3 @@
-from cmath import inf
 from numbers import Number
 from typing import Dict, Optional
 
@@ -41,9 +40,10 @@ class DistributionCheck(Check):
             check=self,
             identity_parts=["distribution"],
         )
-        metric.value = inf
+        metric.value = None
         metric = data_source_scan.resolve_metric(metric)
         self.metrics["distribution-difference-metric"] = metric
+        self.check_value: Optional[float] = None
 
     def evaluate(self, metrics: Dict[str, Metric], historic_values: Dict[str, object]):
 
@@ -67,12 +67,11 @@ class DistributionCheck(Check):
                 check_result_dict = DistributionChecker(
                     dist_method, dist_ref_yaml, ref_file_path, dist_name, test_data
                 ).run()
+                self.check_value = check_result_dict["check_value"]
+                self.metrics["distribution-difference-metric"].value = self.check_value
+                self.set_outcome_based_on_check_value()
             except LoggableException as e:
                 self.logs.error(e, location=self.check_cfg.location)
-
-            self.check_value = check_result_dict["check_value"]
-            self.metrics["distribution-difference-metric"].value = self.check_value
-            self.set_outcome_based_on_check_value()
 
     def set_outcome_based_on_check_value(self):
 

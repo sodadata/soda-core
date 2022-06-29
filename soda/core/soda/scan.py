@@ -369,7 +369,10 @@ class Scan:
                     metric.compute_derived_metric_values()
 
             # Run profiling, data samples, automated monitoring, sample tables
-            self.run_data_source_scan()
+            try:
+                self.run_data_source_scan()
+            except Exception as e:
+                self._logs.error(f"""An error occurred while executing data source scan""", exception=e)
 
             # Evaluates the checks based on all the metric values
             for check in self._checks:
