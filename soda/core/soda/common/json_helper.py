@@ -38,7 +38,7 @@ class JsonHelper:
                     del o[key]
                     key = str(key)
                     update = True
-                
+
                 jsonnable_value = JsonHelper.to_jsonnable(value)
                 if value is not jsonnable_value:
                     value = jsonnable_value

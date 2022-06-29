@@ -376,10 +376,7 @@ class Scan:
             try:
                 self.run_data_source_scan()
             except Exception as e:
-                self._logs.error(
-                    f'''An error occurred while executing data source scan''',
-                    exception=e
-                )
+                self._logs.error(f"""An error occurred while executing data source scan""", exception=e)
 
             # Evaluates the checks based on all the metric values
             for check in self._checks:
@@ -463,7 +460,7 @@ class Scan:
             if self._configuration.soda_cloud:
                 self._logs.info("Sending results to Soda Cloud")
                 self._configuration.soda_cloud.send_scan_results(self)
-            
+
             # Telemetry data
             soda_telemetry.set_attributes(
                 {
