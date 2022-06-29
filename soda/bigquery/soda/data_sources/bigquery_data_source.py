@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import logging
 
+from google.auth import impersonated_credentials, default
 from google.cloud import bigquery
 from google.cloud.bigquery import dbapi
 from google.oauth2.service_account import Credentials
@@ -49,38 +50,55 @@ class BigQueryDataSource(DataSource):
     NUMERIC_TYPES_FOR_PROFILING = ["NUMERIC", "INT64"]
     TEXT_TYPES_FOR_PROFILING = ["STRING"]
 
+    DEFAULT_SCOPES = [
+        "https://www.googleapis.com/auth/bigquery",
+        "https://www.googleapis.com/auth/cloud-platform",
+        "https://www.googleapis.com/auth/drive",
+    ]
+
     def __init__(self, logs: Logs, data_source_name: str, data_source_properties: dict):
         super().__init__(logs, data_source_name, data_source_properties)
         self.dataset_name = data_source_properties.get("dataset")
+        use_context_auth = self.data_source_properties.get("use_context_auth", None)
 
-        account_info_json_str = None
-        account_info_path = self.data_source_properties.get("account_info_json_path")
-        if account_info_path:
-            if file_system().is_file(account_info_path):
-                account_info_json_str = file_system().file_read_as_str(account_info_path)
+        if use_context_auth:
+            if data_source_properties.get("project_id", None):
+                self.project_id = data_source_properties.get("project_id")
+                self.credentials, _ = default()
             else:
-                logger.error(f"File not found: account_info_json_path: {account_info_path} ")
+                logger.error("Specify project_id if using context_auth")
         else:
-            account_info_json_str = self.data_source_properties.get("account_info_json")
+            account_info_json_str = None
+            account_info_path = data_source_properties.get("account_info_json_path")
+            if account_info_path:
+                if file_system().is_file(account_info_path):
+                    account_info_json_str = file_system().file_read_as_str(account_info_path)
+                else:
+                    logger.error(f"File not found: account_info_json_path: {account_info_path} ")
+            else:
+                account_info_json_str = data_source_properties.get("account_info_json")
 
-        if account_info_json_str:
-            self.account_info_dict = json.loads(account_info_json_str)
-        else:
-            logger.error(f"No bigquery connection authentication: no account_info_json nor account_info_json_path")
+            if account_info_json_str:
+                self.account_info_dict = json.loads(account_info_json_str)
+            else:
+                logger.error(f"No bigquery connection authentication: no account_info_json nor account_info_json_path")
 
-        # Usually the project_id comes from the self.account_info_dict
-        self.project_id = self.account_info_dict.get("project_id") if self.account_info_dict else None
-        # But users can optionally overwrite in the connection properties
-        self.project_id = data_source_properties.get("project_id", self.project_id)
+            # Usually the project_id comes from the self.account_info_dict
+            self.project_id = self.account_info_dict.get("project_id") if self.account_info_dict else None
+            # But users can optionally overwrite in the connection properties
+            self.project_id = data_source_properties.get("project_id", self.project_id)
 
-        self.credentials = Credentials.from_service_account_info(
-            self.account_info_dict,
-            scopes=[
-                "https://www.googleapis.com/auth/bigquery",
-                "https://www.googleapis.com/auth/cloud-platform",
-                "https://www.googleapis.com/auth/drive",
-            ],
-        )
+            self.credentials = Credentials.from_service_account_info(
+                self.account_info_dict, scopes=self.data_source_properties.get("scopes", self.DEFAULT_SCOPES)
+            )
+
+        # Impersonation can be used with service account keys and context_auth
+        if self.data_source_properties.get("impersonation", None):
+            self.credentials = impersonated_credentials.Credentials(
+                source_credentials=self.credentials,
+                target_principal=self.data_source_properties.get("impersonation"),
+                target_scopes=self.data_source_properties.get("scopes", self.DEFAULT_SCOPES),
+            )
 
     def connect(self):
         try:
