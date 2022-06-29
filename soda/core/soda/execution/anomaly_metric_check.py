@@ -26,28 +26,35 @@ class AnomalyMetricCheck(MetricCheck):
         partition: Partition | None = None,
         column: Column | None = None,
     ):
-        super().__init__(
-            check_cfg=check_cfg,
-            data_source_scan=data_source_scan,
-            partition=partition,
-            column=column,
-        )
-        self.skip_anomaly_check = False
-        metric_check_cfg: MetricCheckCfg = self.check_cfg
-        if not metric_check_cfg.fail_threshold_cfg and not metric_check_cfg.warn_threshold_cfg:
-            self.skip_anomaly_check = True
-        metric_name = metric_check_cfg.metric_name
-        metric = self.metrics[metric_name]
 
-        self.historic_descriptors[KEY_HISTORIC_MEASUREMENTS] = HistoricMeasurementsDescriptor(
-            metric_identity=metric.identity,
-            limit=1000,
-        )
-        self.historic_descriptors[KEY_HISTORIC_CHECK_RESULTS] = HistoricCheckResultsDescriptor(
-            check_identity=self.create_identity(), limit=3
-        )
-        self.diagnostics = {}
-        self.cloud_check_type = "anomalyDetection"
+        try:
+            super().__init__(
+                check_cfg=check_cfg,
+                data_source_scan=data_source_scan,
+                partition=partition,
+                column=column,
+            )
+
+            self.skip_anomaly_check = False
+            metric_check_cfg: MetricCheckCfg = self.check_cfg
+            if not metric_check_cfg.fail_threshold_cfg and not metric_check_cfg.warn_threshold_cfg:
+                self.skip_anomaly_check = True
+            metric_name = metric_check_cfg.metric_name
+            metric = self.metrics[metric_name]
+
+            self.historic_descriptors[KEY_HISTORIC_MEASUREMENTS] = HistoricMeasurementsDescriptor(
+                metric_identity=metric.identity,
+                limit=1000,
+            )
+            self.historic_descriptors[KEY_HISTORIC_CHECK_RESULTS] = HistoricCheckResultsDescriptor(
+                check_identity=self.create_identity(), limit=3
+            )
+            self.diagnostics = {}
+            self.cloud_check_type = "anomalyDetection"
+        except Exception as e:
+            data_source_scan.scan._logs.error(
+                f"""An error occurred during the initialization of AnomalyMetricCheck""", exception=e
+            )
 
     def evaluate(self, metrics: dict[str, Metric], historic_values: dict[str, object]):
         if self.skip_anomaly_check:
