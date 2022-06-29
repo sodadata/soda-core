@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 import logging
 
-from google.auth import impersonated_credentials, default
+from google.auth import default, impersonated_credentials
 from google.cloud import bigquery
 from google.cloud.bigquery import dbapi
 from google.oauth2.service_account import Credentials
