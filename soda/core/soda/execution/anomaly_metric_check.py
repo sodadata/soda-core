@@ -1,8 +1,6 @@
 from __future__ import annotations
 
 from datetime import timezone
-from sys import exc_info
-from tabnanny import check
 
 from soda.execution.check_outcome import CheckOutcome
 from soda.execution.column import Column
@@ -29,7 +27,7 @@ class AnomalyMetricCheck(MetricCheck):
         column: Column | None = None,
     ):
 
-        try:   
+        try:
             super().__init__(
                 check_cfg=check_cfg,
                 data_source_scan=data_source_scan,
@@ -55,8 +53,7 @@ class AnomalyMetricCheck(MetricCheck):
             self.cloud_check_type = "anomalyDetection"
         except Exception as e:
             data_source_scan.scan._logs.error(
-                f'''An error occurred during the initialization of AnomalyMetricCheck''',
-                exception=e
+                f"""An error occurred during the initialization of AnomalyMetricCheck""", exception=e
             )
 
     def evaluate(self, metrics: dict[str, Metric], historic_values: dict[str, object]):

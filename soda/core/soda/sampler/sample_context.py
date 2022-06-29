@@ -17,6 +17,7 @@ class SampleContext:
     column: Optional["Column"]
     scan: "Scan"
     logs: "Logs"
+    samples_limit: Optional[int]
 
     def get_scan_folder_name(self):
         parts = [

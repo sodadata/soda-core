@@ -94,7 +94,9 @@ class SodaCloud:
             return value
         return str(value)
 
-    def upload_sample(self, scan: Scan, sample_rows: tuple[tuple], sample_file_name: str) -> str:
+    def upload_sample(
+        self, scan: Scan, sample_rows: tuple[tuple], sample_file_name: str, samples_limit: int | None = 100
+    ) -> str:
         """
         :param sample_file_name: file name without extension
         :return: Soda Cloud file_id
@@ -110,7 +112,7 @@ class SodaCloud:
             )
 
             with tempfile.TemporaryFile() as temp_file:
-                for row in sample_rows:
+                for row in sample_rows[0:samples_limit]:
                     row = [self._serialize_file_upload_value(v) for v in row]
                     rows_json_str = json.dumps(row)
                     rows_json_bytes = bytearray(rows_json_str, "utf-8")

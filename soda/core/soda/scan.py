@@ -308,10 +308,6 @@ class Scan:
                         "scan.set_scan_definition_name(...) is not set and it is required to make the Soda Cloud integration work.  For this scan, Soda Cloud will be disabled."
                     )
                     self._configuration.soda_cloud = None
-                    from soda.sampler.soda_cloud_sampler import SodaCloudSampler
-
-                    if isinstance(self._configuration.sampler, SodaCloudSampler):
-                        self._configuration.sampler = DefaultSampler()
                 else:
                     if self._configuration.soda_cloud.is_samples_disabled():
                         self._configuration.sampler = DefaultSampler()
@@ -376,10 +372,7 @@ class Scan:
             try:
                 self.run_data_source_scan()
             except Exception as e:
-                self._logs.error(
-                    f'''An error occurred while executing data source scan''',
-                    exception=e
-                )
+                self._logs.error(f"""An error occurred while executing data source scan""", exception=e)
 
             # Evaluates the checks based on all the metric values
             for check in self._checks:
@@ -463,7 +456,7 @@ class Scan:
             if self._configuration.soda_cloud:
                 self._logs.info("Sending results to Soda Cloud")
                 self._configuration.soda_cloud.send_scan_results(self)
-            
+
             # Telemetry data
             soda_telemetry.set_attributes(
                 {
