@@ -1298,12 +1298,14 @@ class SodaCLParser(Parser):
             if any(x in (" ").join(data_source_check_cfg.include_tables) for x in ['"', "'"]):
                 self.logs.warning(
                     "It looks like quote characters are present in one of more of your included dataset identifiers. "
-                    "This may result in erroneous or no matches as most data sources do not support such characters in table names."
+                    "This may result in erroneous or no matches as most data sources do not support such characters in table names.",
+                    location=self.location,
                 )
             if any(x in (" ").join(data_source_check_cfg.exclude_tables) for x in ['"', "'"]):
                 self.logs.warning(
                     "It looks like quote characters are present in one of more of your excluded dataset identifiers. "
-                    "This may result in erroneous or no matches as most data sources do not support such characters in table names."
+                    "This may result in erroneous or no matches as most data sources do not support such characters in table names.",
+                    location=self.location,
                 )
         else:
             self.logs.error(
@@ -1343,12 +1345,14 @@ class SodaCLParser(Parser):
             if any(x in (" ").join(profile_columns_cfg.include_columns) for x in ['"', "'"]):
                 self.logs.warning(
                     "It looks like quote characters are present in one of more of your included columns identifiers. "
-                    "This may result in erroneous or no matches as most data sources do not support such characters in table or column names."
+                    "This may result in erroneous or no matches as most data sources do not support such characters in table or column names.",
+                    location=self.location,
                 )
             if any(x in (" ").join(profile_columns_cfg.exclude_columns) for x in ['"', "'"]):
                 self.logs.warning(
                     "It looks like quote characters are present in one of more of your excluded columns identifiers. "
-                    "This may result in erroneous or no matches as most data sources do not support such characters in table or column names."
+                    "This may result in erroneous or no matches as most data sources do not support such characters in table or column names.",
+                    location=self.location,
                 )
         elif columns is None:
             self.logs.error('Configuration key "columns" is required in profile columns', location=self.location)
@@ -1433,6 +1437,7 @@ class SodaCLParser(Parser):
                     )
                     if is_include:
                         for_each_cfg.includes.append(name_filter)
+
                     else:
                         for_each_cfg.excludes.append(name_filter)
             else:
@@ -1440,6 +1445,18 @@ class SodaCLParser(Parser):
                     f'Name filter "{name_filter_str}" is not a string',
                     location=self.location,
                 )
+        if any(x in (" ").join([x.table_name_filter for x in for_each_cfg.includes]) for x in ['"', "'"]):
+            self.logs.warning(
+                "It looks like quote characters are present in one of more of your included columns identifiers. "
+                "This may result in erroneous or no matches as most data sources do not support such characters in table or column names.",
+                location=self.location,
+            )
+        if any(x in (" ").join([x.table_name_filter for x in for_each_cfg.excludes]) for x in ['"', "'"]):
+            self.logs.warning(
+                "It looks like quote characters are present in one of more of your excluded columns identifiers. "
+                "This may result in erroneous or no matches as most data sources do not support such characters in table or column names.",
+                location=self.location,
+            )
 
     def __antlr_parse_identifier_name_from_header(self, antlr_header, identifier_index: int = 0):
         antlr_identifier = antlr_header.getTypedRuleContext(SodaCLAntlrParser.IdentifierContext, identifier_index)
