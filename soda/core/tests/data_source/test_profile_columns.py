@@ -211,7 +211,6 @@ def test_profile_columns_inclusions_exclusions(
 
 
 def test_profile_columns_quotes_warning(data_source_fixture: DataSourceFixture):
-    table_name = data_source_fixture.ensure_test_table(customers_profiling)
     scan = data_source_fixture.create_test_scan()
     mock_soda_cloud = scan.enable_mock_soda_cloud()
     scan.add_sodacl_yaml_str(
