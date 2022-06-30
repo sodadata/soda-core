@@ -4,6 +4,7 @@
 ./soda/snowflake
 ./soda/redshift
 ./soda/athena
+./soda/db2
 ./soda/spark
 ./soda/spark_df
 ./soda/scientific

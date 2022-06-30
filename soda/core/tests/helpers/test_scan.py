@@ -5,14 +5,14 @@ import os
 import textwrap
 from textwrap import dedent
 
+from helpers.mock_sampler import MockSampler
+from helpers.mock_soda_cloud import MockSodaCloud, TimeGenerator
 from soda.common.log import LogLevel
 from soda.execution.check import Check
 from soda.execution.check_outcome import CheckOutcome
 from soda.execution.data_source import DataSource
 from soda.sampler.log_sampler import LogSampler
 from soda.scan import Scan
-from tests.helpers.mock_sampler import MockSampler
-from tests.helpers.mock_soda_cloud import MockSodaCloud, TimeGenerator
 
 logger = logging.getLogger(__name__)
 
@@ -45,7 +45,7 @@ class TestScan(Scan):
             self._data_source_manager.data_source_properties_by_name[data_source.data_source_name] = {}
 
         if os.environ.get("WESTMALLE"):
-            from tests.helpers.mock_soda_cloud import MockSodaCloud
+            from helpers.mock_soda_cloud import MockSodaCloud
 
             self._configuration.soda_cloud = MockSodaCloud(self)
 

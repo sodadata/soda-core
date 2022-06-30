@@ -1,6 +1,6 @@
 import pytest
-from tests.helpers.data_source_fixture import DataSourceFixture
-from tests.helpers.fixtures import format_query_one_line, test_data_source
+from helpers.data_source_fixture import DataSourceFixture
+from helpers.fixtures import format_query_one_line, test_data_source
 
 
 @pytest.mark.parametrize(

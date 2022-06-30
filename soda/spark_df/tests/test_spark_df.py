@@ -1,6 +1,6 @@
+from helpers.data_source_fixture import DataSourceFixture
+from helpers.test_table import TestTable
 from soda.execution.data_type import DataType
-from tests.helpers.data_source_fixture import DataSourceFixture
-from tests.helpers.test_table import TestTable
 
 
 def test_spark_df_complex_data_types(data_source_fixture: DataSourceFixture):

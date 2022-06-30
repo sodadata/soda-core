@@ -2,6 +2,7 @@ scripts/antlr*.jar
 
 .idea/
 .postgres/
+.db2/
 .sqlserver/
 .mysql/
 .vscode/

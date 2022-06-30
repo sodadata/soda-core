@@ -1,8 +1,8 @@
+from helpers.common_test_tables import customers_test_table
+from helpers.data_source_fixture import DataSourceFixture
+from helpers.utils import format_checks
 from soda.execution.check_outcome import CheckOutcome
 from soda.execution.data_type import DataType
-from tests.helpers.common_test_tables import customers_test_table
-from tests.helpers.data_source_fixture import DataSourceFixture
-from tests.helpers.utils import format_checks
 
 
 def test_columns_types_pass(data_source_fixture: DataSourceFixture):
@@ -13,7 +13,9 @@ def test_columns_types_pass(data_source_fixture: DataSourceFixture):
     def column_type_format(column_name: str) -> str:
         test_column = customers_test_table.find_test_column_by_name(column_name)
         casified_column_name = data_source_fixture.data_source.default_casify_column_name(column_name)
-        casified_data_type = data_source_fixture.data_source.default_casify_type_name(test_column.data_type)
+        casified_data_type = data_source_fixture.data_source.default_casify_type_name(
+            data_source_fixture.data_source.get_sql_type_for_schema_check(test_column.data_type)
+        )
         return f"{casified_column_name}: {casified_data_type}"
 
     scan.add_sodacl_yaml_str(
