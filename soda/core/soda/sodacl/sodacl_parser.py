@@ -1295,6 +1295,16 @@ class SodaCLParser(Parser):
                     else:
                         include_table_expression = table
                     data_source_check_cfg.include_tables.append(include_table_expression)
+            if any(x in (" ").join(data_source_check_cfg.include_tables) for x in ['"', "'"]):
+                self.logs.warning(
+                    "It looks like quote characters are present in one of more of your included dataset identifiers. "
+                    "This may result in erroneous or no matches as most data sources do not support such characters in table names."
+                )
+            if any(x in (" ").join(data_source_check_cfg.exclude_tables) for x in ['"', "'"]):
+                self.logs.warning(
+                    "It looks like quote characters are present in one of more of your excluded dataset identifiers. "
+                    "This may result in erroneous or no matches as most data sources do not support such characters in table names."
+                )
         else:
             self.logs.error(
                 'Content of "datasets" must be a list of include and/or exclude expressions', location=self.location
@@ -1330,6 +1340,16 @@ class SodaCLParser(Parser):
                     else:
                         include_column_expression = column_expression
                     profile_columns_cfg.include_columns.append(include_column_expression)
+            if any(x in (" ").join(profile_columns_cfg.include_columns) for x in ['"', "'"]):
+                self.logs.warning(
+                    "It looks like quote characters are present in one of more of your included columns identifiers. "
+                    "This may result in erroneous or no matches as most data sources do not support such characters in table or column names."
+                )
+            if any(x in (" ").join(profile_columns_cfg.exclude_columns) for x in ['"', "'"]):
+                self.logs.warning(
+                    "It looks like quote characters are present in one of more of your excluded columns identifiers. "
+                    "This may result in erroneous or no matches as most data sources do not support such characters in table or column names."
+                )
         elif columns is None:
             self.logs.error('Configuration key "columns" is required in profile columns', location=self.location)
         else:
