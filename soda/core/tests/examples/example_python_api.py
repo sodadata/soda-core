@@ -36,12 +36,17 @@ def example_python_api():
         """
         data_source events:
           type: snowflake
-          connection:
-            host: ${SNOWFLAKE_HOST}
-            username: ${SNOWFLAKE_USERNAME}
-            password: ${SNOWFLAKE_PASSWORD}
+          host: ${SNOWFLAKE_HOST}
+          username: ${SNOWFLAKE_USERNAME}
+          password: ${SNOWFLAKE_PASSWORD}
           database: events
           schema: public
+
+        soda_cloud:
+          api_key_id: "..."
+          api_key_secret: "..."
+          host: sodadata.io
+
     """
     )
 
@@ -57,7 +62,21 @@ def example_python_api():
 
     # Spark
     ###########
+    from pyspark.sql import SparkSession, types
+
     spark_session = None
+    # Or alternatively create a testing spark session with:
+    spark_session = SparkSession.builder.master("local").appName("test").getOrCreate()
+
+    # Construct the dataframes, example users df can be used to test things out.
+    users_df = spark_session.createDataFrame(
+        data=[{"id": "1", "name": "John Doe"}],
+        schema=types.StructType(
+            [types.StructField("id", types.StringType()), types.StructField("name", types.StringType())]
+        ),
+    )
+    users_df.createOrReplaceTempView("users")
+
     df1 = None
     df2 = None
     # If the spark_session is connected to a Hive catalog, all the table names will be known already in the spark_session
@@ -73,6 +92,10 @@ def example_python_api():
 
     # Execute the scan
     ##################
+    # Set logs to verbose mode, equivalent to CLI -V option
+    scan.set_verbose(True)
+
+    # Execute the scan
     scan.execute()
 
     # Inspect the scan result
@@ -85,6 +108,9 @@ def example_python_api():
     # More advanced scan execution log introspection methods
     scan.has_error_logs()
     scan.get_error_logs_text()
+
+    # Inspect the scan logs.
+    scan.get_logs_text()
 
     # More advanced check results details methods
     scan.get_checks_fail()
