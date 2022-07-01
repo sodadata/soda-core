@@ -26,6 +26,7 @@ from ..__version__ import SODA_CORE_VERSION
 soda_telemetry = SodaTelemetry.get_instance()
 
 
+@click.version_option(package_name="soda-core", prog_name="soda-core")
 @click.group(help=f"Soda Core CLI version {SODA_CORE_VERSION}")
 def main():
     pass
