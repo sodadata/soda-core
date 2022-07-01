@@ -169,3 +169,36 @@ def test_distribution_check_with_dro_name(data_source_fixture: DataSourceFixture
 
     scan.enable_mock_soda_cloud()
     scan.execute()
+
+
+def test_distribution_check_without_method(data_source_fixture: DataSourceFixture, mock_file_system):
+    table_name = data_source_fixture.ensure_test_table(customers_dist_check_test_table)
+    table_name = data_source_fixture.data_source.default_casify_table_name(table_name)
+
+    scan = data_source_fixture.create_test_scan()
+
+    user_home_dir = mock_file_system.user_home_dir()
+
+    mock_file_system.files = {
+        f"{user_home_dir}/customers_size_distribution_reference.yml": dedent(
+            f"""
+            dataset: {table_name}
+            column: size
+            distribution_type: continuous
+            distribution_reference:
+                bins: [1, 2, 3]
+                weights: [0.5, 0.2, 0.3]
+        """
+        ).strip(),
+    }
+
+    scan.add_sodacl_yaml_str(
+        f"""
+        checks for {table_name}:
+            - distribution_difference(size) >= 0.05:
+                distribution reference file: {user_home_dir}/customers_size_distribution_reference.yml
+    """
+    )
+
+    scan.enable_mock_soda_cloud()
+    scan.execute()
