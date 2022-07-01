@@ -170,6 +170,7 @@ def test_distribution_check_with_dro_name(data_source_fixture: DataSourceFixture
     scan.enable_mock_soda_cloud()
     scan.execute()
 
+
 def test_distribution_check_without_method(data_source_fixture: DataSourceFixture, mock_file_system):
     table_name = data_source_fixture.ensure_test_table(customers_dist_check_test_table)
     table_name = data_source_fixture.data_source.default_casify_table_name(table_name)
