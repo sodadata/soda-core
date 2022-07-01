@@ -59,7 +59,9 @@ class DistributionChecker:
         data: List[Any],
     ):
         self.test_data = data
-        self.dist_ref, dist_method = self._parse_reference_cfg(dist_method, dist_ref_yaml, dist_ref_file_path, dist_name)
+        self.dist_ref, dist_method = self._parse_reference_cfg(
+            dist_method, dist_ref_yaml, dist_ref_file_path, dist_name
+        )
 
         algo_mapping = {
             "chi_square": ChiSqAlgorithm,
@@ -120,14 +122,17 @@ class DistributionChecker:
                 ref_data_cfg["distribution_type"] = parsed_ref_cfg["distribution_type"]
             else:
                 raise DistributionRefKeyException(
-                    f"Your {dist_ref_file_path} reference yaml file must have `distribution_type` key. The `distribution_type` is used to create a sample from your DRO."
-                    f" For more information visit the docs: https://docs.soda.io/soda-cl/distribution.html#generate-a-distribution-reference-object-dro"
+                    f"""Your "{dist_ref_file_path}" reference yaml file must have `distribution_type` key. The `distribution_type` is used to create a sample from your DRO."""
+                    f""" For more information visit the docs: https://docs.soda.io/soda-cl/distribution.html#generate-a-distribution-reference-object-dro"""
                 )
 
             if not dist_method:
                 default_configs = {"continuous": "ks", "categorical": "chi_square"}
                 dist_method = default_configs[ref_data_cfg["distribution_type"]]
-
+                logging.info(
+                    f"""You did not specify a `method` key in your distribution check. Since your DRO distribution_type is "{ref_data_cfg["distribution_type"]}" this means that the default "{dist_method}" method will be used.\n"""
+                    f"""For more information visit the docs: https://docs.soda.io/soda-cl/distribution.html#define-a-distribution-check"""
+                )
             correct_configs = {
                 "continuous": ["ks", "psi", "swd", "semd"],
                 "categorical": ["chi_square", "psi", "swd", "semd"],
@@ -135,7 +140,7 @@ class DistributionChecker:
 
             if dist_method not in correct_configs[ref_data_cfg["distribution_type"]]:
                 raise DistributionRefIncompatibleException(
-                    f"""Your DRO distribution_type '{parsed_ref_cfg['distribution_type']}' is incompatible with the method '{dist_method}'. Your DRO distribution_type allows you to use one of the following methods:"""
+                    f"""Your DRO distribution_type "{parsed_ref_cfg['distribution_type']}" is incompatible with the method "{dist_method}". Your DRO distribution_type allows you to use one of the following methods:"""
                     f""" {", ".join([f"'{method}'" for method in correct_configs[parsed_ref_cfg["distribution_type"]]])}. For more information visit the docs: https://docs.soda.io/soda-cl/distribution.html#about-distribution-checks """
                 )
 
