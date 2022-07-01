@@ -88,7 +88,9 @@ class BigQueryDataSource(DataSource):
         # But users can optionally overwrite in the connection properties
         self.project_id = data_source_properties.get("project_id", self.project_id)
 
-        self.dataset_name = data_source_properties.get("dataset")
+        self.dataset = data_source_properties.get("dataset")
+        # Set schema and table prefix to the same value as dataset, we need one attribute to access this value as it's used in building sql statements.
+        self.update_schema(self.dataset)
 
         self.location = data_source_properties.get("location")
         self.client_info = data_source_properties.get("client_info")
@@ -102,7 +104,7 @@ class BigQueryDataSource(DataSource):
                 project=self.project_id,
                 credentials=self.credentials,
                 default_query_job_config=bigquery.QueryJobConfig(
-                    default_dataset=f"{self.project_id}.{self.dataset_name}",
+                    default_dataset=f"{self.project_id}.{self.dataset}",
                 ),
                 location=self.location,
                 client_info=self.client_info,
@@ -191,10 +193,10 @@ class BigQueryDataSource(DataSource):
         return super().get_metric_sql_aggregation_expression(metric_name, metric_args, expr)
 
     def sql_information_schema_tables(self) -> str:
-        return f"{self.schema}.INFORMATION_SCHEMA.TABLES"
+        return f"{self.dataset}.INFORMATION_SCHEMA.TABLES"
 
     def sql_information_schema_columns(self) -> str:
-        return f"{self.schema}.INFORMATION_SCHEMA.COLUMNS"
+        return f"{self.dataset}.INFORMATION_SCHEMA.COLUMNS"
 
     def default_casify_type_name(self, identifier: str) -> str:
         return identifier.upper()
