@@ -81,3 +81,22 @@ def test_for_each_table_backwards_compatibility(data_source_fixture: DataSourceF
 
     scan.assert_no_error_logs()
     assert scan.has_error_or_warning_logs()
+
+
+def test_for_each_dataset_with_quotes_warning(data_source_fixture: DataSourceFixture):
+    scan = data_source_fixture.create_test_scan()
+    mock_soda_cloud = scan.enable_mock_soda_cloud()
+    scan.add_sodacl_yaml_str(
+        """
+        for each dataset T:
+            datasets:
+                - include "some_table"
+                - exclude "some_other_table"
+        """
+    )
+    scan.execute(allow_error_warning=True)
+    scan_results = mock_soda_cloud.pop_scan_result()
+    character_log_warnings = [
+        x for x in scan_results["logs"] if "It looks like quote characters are present" in x["message"]
+    ]
+    assert len(character_log_warnings) == 2
