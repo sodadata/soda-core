@@ -26,6 +26,7 @@ from ..__version__ import SODA_CORE_VERSION
 soda_telemetry = SodaTelemetry.get_instance()
 
 
+@click.version_option(package_name="soda-core", prog_name="soda-core")
 @click.group(help=f"Soda Core CLI version {SODA_CORE_VERSION}")
 def main():
     pass
@@ -46,7 +47,7 @@ if __name__ == "__main__":
     required=False,
     multiple=False,
     type=click.STRING,
-    default="test",
+    default="Soda Core CLI",
 )
 @click.option("-v", "--variable", required=False, default=None, multiple=True, type=click.STRING)
 @click.option(
@@ -90,7 +91,7 @@ def scan(
 
     option -s --scan-definition is used By Soda Cloud (only if configured) to correlate subsequent scans and
     show check history over time. Scans normally happen as part of a schedule. It's optional. The default
-    is "test", which is usually sufficient when testing the CLI and Soda Cloud connection.
+    is "Soda Core CLI", which is usually sufficient when testing the CLI and Soda Cloud connection.
 
     option -V --verbose activates more verbose logging, including the queries that are executed.
 

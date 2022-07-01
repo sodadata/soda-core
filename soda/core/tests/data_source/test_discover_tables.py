@@ -20,6 +20,7 @@ def test_discover_tables(data_source_fixture: DataSourceFixture):
           discover datasets:
             datasets:
                 - include {table_name}
+                - include hello
         """
     )
     scan.execute(allow_warnings_only=True)
@@ -79,3 +80,24 @@ def test_discover_tables_customer_wildcard(data_source_fixture: DataSourceFixtur
     expected_datasets = {x.lower() for x in [profiling_table, dist_check_test_table, test_table]}
     actual_datasets = {t.get("table").lower() for t in discover_tables_result["metadata"]}
     assert expected_datasets.issubset(actual_datasets)
+
+
+def test_discover_table_with_quotes_warning(data_source_fixture: DataSourceFixture):
+    orders_table = data_source_fixture.ensure_test_table(orders_test_table)
+    scan = data_source_fixture.create_test_scan()
+    mock_soda_cloud = scan.enable_mock_soda_cloud()
+    scan.add_sodacl_yaml_str(
+        f"""
+        discover datasets:
+            datasets:
+                - include "{orders_table}"
+                - exclude "{orders_table}"
+        """
+    )
+    scan.execute(allow_warnings_only=True)
+    scan_results = mock_soda_cloud.pop_scan_result()
+    character_log_warnings = [
+        x for x in scan_results["logs"] if "It looks like quote characters are present" in x["message"]
+    ]
+
+    assert len(character_log_warnings) == 2
