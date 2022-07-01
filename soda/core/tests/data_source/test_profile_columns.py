@@ -208,3 +208,22 @@ def test_profile_columns_inclusions_exclusions(
                 assert "id" not in column_names
                 assert "size" in column_names
                 assert "country" not in column_names
+
+
+def test_profile_columns_quotes_warning(data_source_fixture: DataSourceFixture):
+    scan = data_source_fixture.create_test_scan()
+    mock_soda_cloud = scan.enable_mock_soda_cloud()
+    scan.add_sodacl_yaml_str(
+        f"""
+        profile columns:
+            columns:
+                - include "%.%"
+                - exclude "something.else"
+        """
+    )
+    scan.execute(allow_warnings_only=True)
+    scan_results = mock_soda_cloud.pop_scan_result()
+    character_log_warnings = [
+        x for x in scan_results["logs"] if "It looks like quote characters are present" in x["message"]
+    ]
+    assert len(character_log_warnings) == 2

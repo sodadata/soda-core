@@ -397,27 +397,17 @@ class ProfileColumnsRun:
                 selected_columns.update({table: [column]})
         return selected_columns
 
-    def _get_table_expression(self, columns_expression: list[str]) -> list[str]:
-        table_expressions = []
-        for column_expression in columns_expression:
-            parts = column_expression.split(".")
-            if len(parts) != 2:
-                self.logs.error(
-                    f'Invalid include column expression "{column_expression}"',
-                    location=self.profile_columns_cfg.location,
-                )
-            else:
-                table_expression = parts[0]
-                table_expressions.append(table_expression)
-        return table_expressions
-
     def _get_table_expression(self, columns_expression: list[str], is_for_exclusion: bool = False) -> list[str]:
         table_expressions = []
+        if is_for_exclusion:
+            operation_word = "exclude"
+        else:
+            operation_word = "include"
         for column_expression in columns_expression:
             parts = column_expression.split(".")
             if len(parts) != 2:
                 self.logs.error(
-                    f'Invalid include column expression "{column_expression}"',
+                    f'Invalid {operation_word} column expression "{column_expression}"',
                     location=self.profile_columns_cfg.location,
                 )
             else:
