@@ -46,7 +46,7 @@ if __name__ == "__main__":
     required=False,
     multiple=False,
     type=click.STRING,
-    default="test",
+    default="Soda Core CLI",
 )
 @click.option("-v", "--variable", required=False, default=None, multiple=True, type=click.STRING)
 @click.option(
@@ -90,7 +90,7 @@ def scan(
 
     option -s --scan-definition is used By Soda Cloud (only if configured) to correlate subsequent scans and
     show check history over time. Scans normally happen as part of a schedule. It's optional. The default
-    is "test", which is usually sufficient when testing the CLI and Soda Cloud connection.
+    is "Soda Core CLI", which is usually sufficient when testing the CLI and Soda Cloud connection.
 
     option -V --verbose activates more verbose logging, including the queries that are executed.
 
