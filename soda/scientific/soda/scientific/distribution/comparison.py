@@ -1,6 +1,6 @@
 import abc
 import logging
-from typing import Any, Dict, List, Union
+from typing import Any, Dict, List, Tuple, Union
 
 import numpy as np
 import pandas as pd
@@ -95,7 +95,7 @@ class DistributionChecker:
 
     def _parse_reference_cfg(
         self, dist_method: str, dist_ref_yaml: str, dist_ref_file_path: str, dist_name: Union[str, None]
-    ) -> RefDataCfg:
+    ) -> Tuple[RefDataCfg, str]:
         try:
             parsed_ref_cfg: dict = YAML().load(dist_ref_yaml)
             ref_data_cfg = {}
