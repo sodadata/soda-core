@@ -53,6 +53,7 @@ class SnowflakeDataSource(DataSource):
         super().__init__(logs, data_source_name, data_source_properties)
         self.user = data_source_properties.get("username")
         self.password = data_source_properties.get("password")
+        self.token = data_source_properties.get("token")
         self.account = data_source_properties.get("account")
         self.data_source = data_source_properties.get("data_source")
         self.warehouse = data_source_properties.get("warehouse")
@@ -74,6 +75,7 @@ class SnowflakeDataSource(DataSource):
         self.connection = connector.connect(
             user=self.user,
             password=self.password,
+            token=self.token,
             account=self.account,
             data_source=self.data_source,
             database=self.database,
