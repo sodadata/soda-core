@@ -219,3 +219,25 @@ jobs:
             echo "There was an error, check the logs please."
             exit 1
           fi
+  trigger-docker-build:
+    name: Trigger Docker build workflow
+    needs: [ publish-pypi ]
+    timeout-minutes: 10
+    runs-on: ubuntu-20.04
+    if: contains(github.ref, 'refs/tags/')
+    steps:
+      - name: check if a version tag
+        id: check-version-tag
+        run: |
+          if [[ ${{ github.event.ref }} =~ ^refs/tags/v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+              echo ::set-output name=match::true
+              echo ::set-output name=versiontag::$(echo $GITHUB_REF | cut -d / -f 3)
+          fi
+      - name: Repository Dispatch
+        if: steps.check-version-tag.outputs.match == 'true'
+        uses: peter-evans/repository-dispatch@v2
+        with:
+          token: ${{ secrets.REPO_ACCESS_TOKEN_DISPATCH }}
+          repository: sodadata/soda-core
+          event-type: started-from-version-tag
+          client-payload: '{"tag": "${{ steps.check-version-tag.outputs.versiontag }}", "ref": "${{ github.ref }}"}'
