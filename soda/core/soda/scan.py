@@ -4,7 +4,7 @@ import json
 import logging
 import os
 import textwrap
-from datetime import datetime
+from datetime import datetime, timezone
 
 from soda.__version__ import SODA_CORE_VERSION
 from soda.common.log import Log, LogLevel
@@ -37,7 +37,9 @@ class Scan:
         from soda.execution.data_source_manager import DataSourceManager
         from soda.execution.query import Query
 
-        now = datetime.utcnow()
+        # Using this instead of utcnow() as that creates tz naive object, this has explicitly utc set. More info https://docs.python.org/3/library/datetime.html#datetime.datetime.utcnow
+        now = datetime.now(tz=timezone.utc)
+
         self._logs = Logs(logger)
         self._scan_definition_name: str | None = None
         self._data_source_name: str | None = None
