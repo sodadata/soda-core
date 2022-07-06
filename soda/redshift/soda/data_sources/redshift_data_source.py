@@ -17,6 +17,9 @@ class RedshiftDataSource(DataSource):
     def __init__(self, logs: Logs, data_source_name: str, data_source_properties: dict):
         super().__init__(logs, data_source_name, data_source_properties)
 
+        self.host = data_source_properties.get("host", "localhost")
+        self.port = data_source_properties.get("port", "5439")
+        self.connect_timeout = data_source_properties.get("connection_timeout_sec")
         self.username = data_source_properties.get("username")
         self.password = data_source_properties.get("password")
 
@@ -30,10 +33,6 @@ class RedshiftDataSource(DataSource):
                 profile_name=data_source_properties.get("profile_name"),
             )
             self.username, self.password = self.__get_cluster_credentials(aws_credentials)
-
-        self.host = data_source_properties.get("host", "localhost")
-        self.port = data_source_properties.get("port", "5439")
-        self.connect_timeout = data_source_properties.get("connection_timeout_sec")
 
     def connect(self):
         options = f"-c search_path={self.schema}" if self.schema else None
