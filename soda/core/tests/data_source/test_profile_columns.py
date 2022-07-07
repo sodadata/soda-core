@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import logging
 from numbers import Number
-from typing import List
 
 import pytest
 from soda.common.yaml_helper import to_yaml_str
