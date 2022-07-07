@@ -11,19 +11,25 @@ DERIVED_METRIC_NAMES = [
 
 
 def derive_missing_percentage(values: Dict[str, int]):
-    if values["missing_count"] == 0:
-        missing_percentage = 0
+    missing_count = values["missing_count"]
+    row_count = values["row_count"]
+
+    if missing_count and row_count:
+        missing_percentage = missing_count * 100 / row_count
     else:
-        missing_percentage = values["missing_count"] * 100 / values["row_count"]
+        missing_percentage = 0
 
     return float(round(missing_percentage, 2))
 
 
 def derive_invalid_percentage(values: Dict[str, int]):
-    if values["invalid_count"] == 0:
-        invalid_percentage = 0
+    invalid_count = values["invalid_count"]
+    row_count = values["row_count"]
+
+    if invalid_count and row_count:
+        invalid_percentage = invalid_count * 100 / row_count
     else:
-        invalid_percentage = values["invalid_count"] * 100 / values["row_count"]
+        invalid_percentage = 0
 
     return float(round(invalid_percentage, 2))
 
