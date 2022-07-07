@@ -7,10 +7,7 @@ from typing import List
 import pytest
 from soda.common.yaml_helper import to_yaml_str
 from soda.execution.profile_columns_run import ProfileColumnsRun
-from tests.helpers.common_test_tables import (
-    customers_profiling,
-    orders_test_table,
-)
+from tests.helpers.common_test_tables import customers_profiling, orders_test_table
 from tests.helpers.data_source_fixture import DataSourceFixture
 
 
@@ -126,9 +123,7 @@ def test_profile_columns_all_tables_all_columns(data_source_fixture: DataSourceF
         customers_profiling_table_name
     )
     orders_test_table_name = data_source_fixture.ensure_test_table(orders_test_table)
-    orders_test_table_name = data_source_fixture.data_source.default_casify_table_name(
-        orders_test_table_name
-    )
+    orders_test_table_name = data_source_fixture.data_source.default_casify_table_name(orders_test_table_name)
 
     scan = data_source_fixture.create_test_scan()
 
@@ -148,7 +143,7 @@ def test_profile_columns_all_tables_all_columns(data_source_fixture: DataSourceF
 
     profile_columns_run = ProfileColumnsRun(data_source_scan, profiling_cfg)
 
-    table_names: List[str] = data_source.get_table_names(
+    table_names: list[str] = data_source.get_table_names(
         include_tables=profile_columns_run._get_table_expression(include_columns),
         exclude_tables=profile_columns_run._get_table_expression(exclude_columns, is_for_exclusion=True),
         query_name="profile-columns-get-table-names",
