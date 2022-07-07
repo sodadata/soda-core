@@ -2,12 +2,12 @@ from __future__ import annotations
 
 import logging
 from numbers import Number
+from typing import List
 
 import pytest
 from soda.common.yaml_helper import to_yaml_str
 from soda.execution.profile_columns_run import ProfileColumnsRun
 from tests.helpers.common_test_tables import (
-    customers_dist_check_test_table,
     customers_profiling,
     orders_test_table,
 )
@@ -120,6 +120,16 @@ def test_profile_columns_text(data_source_fixture: DataSourceFixture):
 
 
 def test_profile_columns_all_tables_all_columns(data_source_fixture: DataSourceFixture):
+    # Make sure that two tables are created in database
+    customers_profiling_table_name = data_source_fixture.ensure_test_table(customers_profiling)
+    customers_profiling_table_name = data_source_fixture.data_source.default_casify_table_name(
+        customers_profiling_table_name
+    )
+    orders_test_table_name = data_source_fixture.ensure_test_table(orders_test_table)
+    orders_test_table_name = data_source_fixture.data_source.default_casify_table_name(
+        orders_test_table_name
+    )
+
     scan = data_source_fixture.create_test_scan()
 
     scan.add_sodacl_yaml_str(
@@ -138,12 +148,15 @@ def test_profile_columns_all_tables_all_columns(data_source_fixture: DataSourceF
 
     profile_columns_run = ProfileColumnsRun(data_source_scan, profiling_cfg)
 
-    table_names: dict[str, int] = data_source.get_table_names(
+    table_names: List[str] = data_source.get_table_names(
         include_tables=profile_columns_run._get_table_expression(include_columns),
         exclude_tables=profile_columns_run._get_table_expression(exclude_columns, is_for_exclusion=True),
         query_name="profile-columns-get-table-names",
     )
-    assert len(table_names) == 7
+
+    # Test only two tables
+    assert customers_profiling_table_name in table_names
+    assert orders_test_table_name in table_names
 
     parsed_included_tables_and_columns = profile_columns_run._build_column_expression_list(include_columns)
     assert parsed_included_tables_and_columns == {"%": ["%"]}
@@ -151,15 +164,21 @@ def test_profile_columns_all_tables_all_columns(data_source_fixture: DataSourceF
     parsed_excluded_tables_and_columns = profile_columns_run._build_column_expression_list(exclude_columns)
     assert parsed_excluded_tables_and_columns == {}
 
-    table_index_n_cols_pairs = {0: 6, 1: 12, 2: 2, 3: 12, 4: 1, 5: 12, 6: 8}
-    for i, table_name in enumerate(table_names):
-        columns_metadata_result = data_source.get_table_columns(
-            table_name=table_name,
-            query_name=f"profile-columns-get-column-metadata-for-{table_name}",
-            included_columns=parsed_included_tables_and_columns,
-            excluded_columns=parsed_excluded_tables_and_columns,
-        )
-        assert len(columns_metadata_result) == table_index_n_cols_pairs[i]
+    customers_columns_metadata_result = data_source.get_table_columns(
+        table_name=customers_profiling_table_name,
+        query_name=f"profile-columns-get-column-metadata-for-{customers_profiling_table_name}",
+        included_columns=parsed_included_tables_and_columns,
+        excluded_columns=parsed_excluded_tables_and_columns,
+    )
+    assert len(customers_columns_metadata_result) == 12
+
+    orders_columns_metadata_result = data_source.get_table_columns(
+        table_name=orders_test_table_name,
+        query_name=f"profile-columns-get-column-metadata-for-{orders_test_table_name}",
+        included_columns=parsed_included_tables_and_columns,
+        excluded_columns=parsed_excluded_tables_and_columns,
+    )
+    assert len(orders_columns_metadata_result) == 6
 
 
 @pytest.mark.parametrize(
