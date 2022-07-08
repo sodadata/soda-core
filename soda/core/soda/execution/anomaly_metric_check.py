@@ -42,14 +42,10 @@ class AnomalyMetricCheck(MetricCheck):
 
             if not metric_check_cfg.fail_threshold_cfg and not metric_check_cfg.warn_threshold_cfg:
                 self.skip_anomaly_check = True
-                self.add_outcome_reason(
-                    outcome_type="parserFailed",
-                    message=(
-                        "Non default threshold for anomaly detection is currently not supported. "
-                        "Make sure that your check definition adheres to the following "
-                        f"syntax: 'anomaly score for {metric} < default'."
-                    ),
-                    severity="error",
+                self.logs.error(
+                    "Non default threshold for anomaly detection is currently not supported. "
+                    "Make sure that your check definition adheres to the following "
+                    f"syntax: 'anomaly score for {metric} < default'."
                 )
 
             self.historic_descriptors[KEY_HISTORIC_MEASUREMENTS] = HistoricMeasurementsDescriptor(
