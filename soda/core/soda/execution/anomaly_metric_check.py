@@ -37,10 +37,20 @@ class AnomalyMetricCheck(MetricCheck):
 
             self.skip_anomaly_check = False
             metric_check_cfg: MetricCheckCfg = self.check_cfg
-            if not metric_check_cfg.fail_threshold_cfg and not metric_check_cfg.warn_threshold_cfg:
-                self.skip_anomaly_check = True
             metric_name = metric_check_cfg.metric_name
             metric = self.metrics[metric_name]
+
+            if not metric_check_cfg.fail_threshold_cfg and not metric_check_cfg.warn_threshold_cfg:
+                self.skip_anomaly_check = True
+                self.add_outcome_reason(
+                    outcome_type="parserFailed",
+                    message=(
+                        "Non default threshold for anomaly detection is currently not supported. "
+                        "Make sure that your check definition adheres to the following "
+                        f"syntax: 'anomaly score for {metric} < default'."
+                    ),
+                    severity="error",
+                )
 
             self.historic_descriptors[KEY_HISTORIC_MEASUREMENTS] = HistoricMeasurementsDescriptor(
                 metric_identity=metric.identity,
@@ -58,10 +68,6 @@ class AnomalyMetricCheck(MetricCheck):
 
     def evaluate(self, metrics: dict[str, Metric], historic_values: dict[str, object]):
         if self.skip_anomaly_check:
-            error_message = (
-                "Anomaly detection was not given a threshold. You might want to check if the parser returned errors"
-            )
-            self.add_outcome_reason(outcome_type="parserFailed", message=error_message, severity="error")
             return
 
         # TODO Review the data structure and see if we still need the KEY_HISTORIC_*
