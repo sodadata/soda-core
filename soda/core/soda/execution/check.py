@@ -168,7 +168,6 @@ class Check(ABC):
 
     def add_outcome_reason(self, outcome_type: str, message: str, severity: str):
         self.force_send_results_to_cloud = True
-        self.logs.error(message)
         self.outcome_reasons.append({"code": outcome_type, "message": message, "severity": severity})  # error/warn/info
 
     @staticmethod
