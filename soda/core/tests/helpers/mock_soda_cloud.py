@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from requests import Response
 from soda.common.json_helper import JsonHelper
@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 class TimeGenerator:
     def __init__(
         self,
-        timestamp: datetime = datetime.utcnow(),
+        timestamp: datetime = datetime.now(tz=timezone.utc),
         timedelta: timedelta = timedelta(days=-1),
     ):
         self.timestamp = timestamp

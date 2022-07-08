@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 
 from soda.common.logs import Logs
@@ -23,7 +23,7 @@ class SampleContext:
         parts = [
             self.scan._scan_definition_name,
             self.scan._data_timestamp.strftime("%Y%m%d%H%M%S"),
-            datetime.utcnow().strftime("%Y%m%d%H%M%S"),
+            datetime.now(tz=timezone.utc).strftime("%Y%m%d%H%M%S"),
         ]
         return "_".join([part for part in parts if part])
 
