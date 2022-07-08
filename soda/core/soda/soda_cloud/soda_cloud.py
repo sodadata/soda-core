@@ -4,7 +4,7 @@ import json
 import logging
 import re
 import tempfile
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import TYPE_CHECKING
 
 import requests
@@ -108,7 +108,7 @@ class SodaCloud:
             scan_folder_name = (
                 f"{self._fileify(scan_definition_name)}"
                 f'_{scan_data_timestamp.strftime("%Y%m%d%H%M%S")}'
-                f'_{datetime.utcnow().strftime("%Y%m%d%H%M%S")}'
+                f'_{datetime.now(tz=timezone.utc).strftime("%Y%m%d%H%M%S")}'
             )
 
             with tempfile.TemporaryFile() as temp_file:
