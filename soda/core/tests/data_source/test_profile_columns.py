@@ -268,3 +268,42 @@ def test_profile_columns_quotes_warning(data_source_fixture: DataSourceFixture):
         x for x in scan_results["logs"] if "It looks like quote characters are present" in x["message"]
     ]
     assert len(character_log_warnings) == 2
+
+
+def test_profile_columns_invalid_format(data_source_fixture: DataSourceFixture):
+    scan = data_source_fixture.create_test_scan()
+    mock_soda_cloud = scan.enable_mock_soda_cloud()
+    scan.add_sodacl_yaml_str(
+        f"""
+        profile columns:
+            columns:
+                - "invalid%"
+        """
+    )
+    scan.execute(allow_error_warning=True)
+    scan_results = mock_soda_cloud.pop_scan_result()
+    assert scan_results["hasErrors"]
+    character_log_warnings = [
+        x
+        for x in scan_results["logs"]
+        if "Invalid column expression: invalid% - must be in the form of table.column" in x["message"]
+    ]
+    assert len(character_log_warnings) == 1
+
+
+def test_profile_columns_no_table_or_column(data_source_fixture: DataSourceFixture):
+    scan = data_source_fixture.create_test_scan()
+    mock_soda_cloud = scan.enable_mock_soda_cloud()
+    scan.add_sodacl_yaml_str(
+        f"""
+        profile columns:
+            columns:
+        """
+    )
+    scan.execute(allow_error_warning=True)
+    scan_results = mock_soda_cloud.pop_scan_result()
+    assert scan_results["hasErrors"]
+    character_log_warnings = [
+        x for x in scan_results["logs"] if 'Configuration key "columns" is required in profile columns' in x["message"]
+    ]
+    assert len(character_log_warnings) == 1
