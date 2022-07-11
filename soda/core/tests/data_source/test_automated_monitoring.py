@@ -38,3 +38,22 @@ def test_automated_monitoring(data_source_fixture: DataSourceFixture):
         """
     )
     scan.execute()
+
+
+def test_automated_monitoring_no_provided_table(data_source_fixture: DataSourceFixture):
+    scan = data_source_fixture.create_test_scan()
+    mock_soda_cloud = scan.enable_mock_soda_cloud()
+    scan.add_sodacl_yaml_str(
+        f"""
+        automated monitoring:
+            datasets:
+        """
+    )
+    scan.execute(allow_error_warning=True)
+    scan_results = mock_soda_cloud.pop_scan_result()
+    assert scan_results["hasErrors"]
+    assert [
+        x
+        for x in scan_results["logs"]
+        if 'Content of "datasets" must be a list of include and/or exclude expressions' in x["message"]
+    ]
