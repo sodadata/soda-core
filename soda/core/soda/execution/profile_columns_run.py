@@ -49,13 +49,19 @@ class ProfileColumnsRun:
     def run(self) -> ProfileColumnsResult:
         profile_columns_result: ProfileColumnsResult = ProfileColumnsResult(self.profile_columns_cfg)
         self.logs.info(f"Running column profiling for data source: {self.data_source.data_source_name}")
+        include_tables = self._get_table_expression(self.profile_columns_cfg.include_columns)
+        exclude_tables = self._get_table_expression(self.profile_columns_cfg.exclude_columns)
 
-        # row_counts is a dict that maps table names to row counts.
-        table_names: dict[str, int] = self.data_source.get_table_names(
-            include_tables=self._get_table_expression(self.profile_columns_cfg.include_columns),
-            exclude_tables=self._get_table_expression(self.profile_columns_cfg.exclude_columns, is_for_exclusion=True),
-            query_name="profile-columns-get-table-names",
-        )
+        if include_tables or exclude_tables:
+            # row_counts is a dict that maps table names to row counts.
+            table_names: dict[str, int] = self.data_source.get_table_names(
+                include_tables=include_tables,
+                exclude_tables=exclude_tables,
+                query_name="profile-columns-get-table-names",
+            )
+        else:
+            table_names = []
+
         if len(table_names) < 1:
             self.logs.warning(
                 f"No table matching your SodaCL inclusion list found on your {self.data_source.data_source_name} "
