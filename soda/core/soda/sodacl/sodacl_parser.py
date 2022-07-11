@@ -1335,7 +1335,9 @@ class SodaCLParser(Parser):
             for column_expression in columns:
                 if not "." in column_expression:
                     self.logs.error(
-                        f"Invalid column expression: {column_expression} - must be in the form of table.column",
+                        "Invalid column expression: {column_expression} - must be in the form of table.column".format(
+                            column_expression=column_expression
+                        ),
                         location=profile_columns_cfg.location,
                     )
                     continue
