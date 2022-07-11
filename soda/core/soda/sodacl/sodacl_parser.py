@@ -1333,7 +1333,7 @@ class SodaCLParser(Parser):
         columns = header_content.get("columns")
         if isinstance(columns, list):
             for column_expression in columns:
-                if not "." in column_expression:
+                if "." not in column_expression:
                     self.logs.error(
                         "Invalid column expression: {column_expression} - must be in the form of table.column".format(
                             column_expression=column_expression
