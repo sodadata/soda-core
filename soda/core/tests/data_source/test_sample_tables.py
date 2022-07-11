@@ -103,3 +103,22 @@ def test_discover_tables_customer_wildcard_incl_excl(data_source_fixture: DataSo
     for dataset_name in dataset_names:
         assert "order" not in dataset_name.lower()
         assert "profiling" not in dataset_name.lower()
+
+
+def test_sample_datasets_no_provided_table(data_source_fixture: DataSourceFixture):
+    scan = data_source_fixture.create_test_scan()
+    mock_soda_cloud = scan.enable_mock_soda_cloud()
+    scan.add_sodacl_yaml_str(
+        f"""
+        sample datasets:
+            datasets:
+        """
+    )
+    scan.execute(allow_error_warning=True)
+    scan_results = mock_soda_cloud.pop_scan_result()
+    assert scan_results["hasErrors"]
+    assert [
+        x
+        for x in scan_results["logs"]
+        if 'Content of "datasets" must be a list of include and/or exclude expressions' in x["message"]
+    ]

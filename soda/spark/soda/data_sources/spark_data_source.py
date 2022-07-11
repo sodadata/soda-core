@@ -225,6 +225,8 @@ class SparkSQLBase(DataSource):
         exclude_tables: list[str] = [],
         query_name: str | None = None,
     ) -> list[str]:
+        if not include_tables or not exclude_tables:
+            return []
         sql = self.sql_find_table_names(filter, include_tables, exclude_tables)
         query = Query(
             data_source_scan=self.data_source_scan, unqualified_query_name=query_name or "get_table_names", sql=sql
