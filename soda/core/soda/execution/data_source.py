@@ -499,7 +499,9 @@ class DataSource:
 
         if min_value >= max_value:
             self.logs.warning(
-                f"Min of {column_name} on table: {table_name} must be smaller than max value. Min is {minimum}, and max is {maximum}"
+                "Min of {column_name} on table: {table_name} must be smaller than max value. Min is {min_value}, and max is {max_value}".format(
+                    column_name=column_name, table_name=table_name, min_value=min_value, max_value=max_value
+                )
             )
             return None, []
 
