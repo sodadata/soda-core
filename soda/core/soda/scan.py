@@ -495,7 +495,7 @@ class Scan:
                     )
 
     def __checks_to_text(self, checks: list[Check]):
-        return "/n".join([str(check) for check in checks])
+        return "\n".join([str(check) for check in checks])
 
     def _close(self):
         self._data_source_manager.close_all_connections()
