@@ -104,6 +104,7 @@ def test_discover_table_with_quotes_warning(data_source_fixture: DataSourceFixtu
 
 
 def test_discover_datasets_no_provided_table(data_source_fixture: DataSourceFixture):
+    _ = data_source_fixture.ensure_test_table(orders_test_table)
     scan = data_source_fixture.create_test_scan()
     mock_soda_cloud = scan.enable_mock_soda_cloud()
     scan.add_sodacl_yaml_str(
