@@ -614,11 +614,6 @@ class SodaCLParser(Parser):
             metric_check_cfg_class = AnomalyMetricCheckCfg
 
             if not antlr_metric_check.default_anomaly_threshold():
-                self.logs.error(
-                    "Non default threshold for anomaly detection is currently not supported. "
-                    "Make sure that your check definition adheres to the following syntax: 'anomaly score for {metric} < default'.",
-                    location=self.location,
-                )
                 return metric_check_cfg_class(
                     source_header=header_str,
                     source_line=check_str,
@@ -1333,6 +1328,15 @@ class SodaCLParser(Parser):
         columns = header_content.get("columns")
         if isinstance(columns, list):
             for column_expression in columns:
+                if "." not in column_expression:
+                    self.logs.error(
+                        "Invalid column expression: {column_expression} - must be in the form of table.column".format(
+                            column_expression=column_expression
+                        ),
+                        location=profile_columns_cfg.location,
+                    )
+                    continue
+
                 if column_expression.startswith("exclude "):
                     exclude_column_expression = column_expression[len("exclude ") :]
                     profile_columns_cfg.exclude_columns.append(exclude_column_expression)

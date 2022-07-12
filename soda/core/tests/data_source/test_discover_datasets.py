@@ -28,9 +28,9 @@ def test_discover_tables(data_source_fixture: DataSourceFixture):
     discover_tables_result = mock_soda_cloud.pop_scan_result()
 
     assert discover_tables_result is not None
-    actual_metadatas = discover_tables_result["metadata"]
-    actual_metadata = actual_metadatas[0]
-    actual_schema = actual_metadata["schema"]
+    actual_metadata = discover_tables_result["metadata"]
+    actual_metadatum = actual_metadata[0]
+    actual_schema = actual_metadatum["schema"]
 
     data_source = data_source_fixture.data_source
     to_ds_type = data_source.get_sql_type_for_schema_check
@@ -101,3 +101,23 @@ def test_discover_table_with_quotes_warning(data_source_fixture: DataSourceFixtu
     ]
 
     assert len(character_log_warnings) == 2
+
+
+def test_discover_datasets_no_provided_table(data_source_fixture: DataSourceFixture):
+    _ = data_source_fixture.ensure_test_table(orders_test_table)
+    scan = data_source_fixture.create_test_scan()
+    mock_soda_cloud = scan.enable_mock_soda_cloud()
+    scan.add_sodacl_yaml_str(
+        f"""
+        discover datasets:
+            datasets:
+        """
+    )
+    scan.execute(allow_error_warning=True)
+    scan_results = mock_soda_cloud.pop_scan_result()
+    assert scan_results["hasErrors"]
+    assert [
+        x
+        for x in scan_results["logs"]
+        if 'Content of "datasets" must be a list of include and/or exclude expressions' in x["message"]
+    ]
