@@ -28,9 +28,9 @@ def test_discover_tables(data_source_fixture: DataSourceFixture):
     discover_tables_result = mock_soda_cloud.pop_scan_result()
 
     assert discover_tables_result is not None
-    actual_metadatas = discover_tables_result["metadata"]
-    actual_metadata = actual_metadatas[0]
-    actual_schema = actual_metadata["schema"]
+    actual_metadata = discover_tables_result["metadata"]
+    actual_metadatum = actual_metadata[0]
+    actual_schema = actual_metadatum["schema"]
 
     data_source = data_source_fixture.data_source
     to_ds_type = data_source.get_sql_type_for_schema_check

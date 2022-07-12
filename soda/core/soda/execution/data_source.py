@@ -587,7 +587,7 @@ class DataSource:
         exclude_tables: list[str] = [],
         query_name: str | None = None,
     ) -> list[str]:
-        if not include_tables or not exclude_tables:
+        if not include_tables and not exclude_tables:
             return []
         sql = self.sql_find_table_names(filter, include_tables, exclude_tables)
         query = Query(
