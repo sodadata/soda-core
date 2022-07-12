@@ -1,8 +1,8 @@
 import os
 from datetime import date, datetime, timezone
 
+from helpers.test_table import TestTable
 from soda.execution.data_type import DataType
-from tests.helpers.test_table import TestTable
 
 utc = timezone.utc
 

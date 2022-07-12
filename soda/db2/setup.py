@@ -8,14 +8,12 @@ if sys.version_info < (3, 8):
     print("Error: Please upgrade your Python version to 3.8 or later")
     sys.exit(1)
 
-package_name = "soda-core-bigquery"
+package_name = "soda-core-db2"
 package_version = "3.0.2"
-description = "Soda Core Bigquery Package"
+# TODO Add proper description
+description = "Soda Core IBM DB2 Package"
 
-requires = [
-    f"soda-core=={package_version}",
-    "google-cloud-bigquery>=2.25.0, <3.0",
-]
+requires = [f"soda-core=={package_version}", "ibm-db==3.1.2"]
 # TODO Fix the params
 setup(
     name=package_name,

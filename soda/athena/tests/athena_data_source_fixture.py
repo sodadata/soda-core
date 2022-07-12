@@ -5,7 +5,7 @@ import os
 import re
 
 import boto3
-from tests.helpers.data_source_fixture import DataSourceFixture
+from helpers.data_source_fixture import DataSourceFixture
 
 logger = logging.getLogger(__name__)
 
@@ -66,7 +66,7 @@ class AthenaDataSourceFixture(DataSourceFixture):
             response: dict = s3_client.delete_objects(Bucket=bucket, Delete={"Objects": object_keys})
             deleted_list = response.get("Deleted") if isinstance(response, dict) else None
             deleted_count = (
-                len(deleted_list) if isinstance(deleted_list, list) else "Unknown aws delete objects reponse"
+                len(deleted_list) if isinstance(deleted_list, list) else "Unknown aws delete objects response"
             )
             logging.debug(f"Deleted {deleted_count}")
 

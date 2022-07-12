@@ -215,8 +215,3 @@ class BigQueryDataSource(DataSource):
 
     def sql_union(self):
         return "UNION ALL"
-
-    def create_test_table_manager(self):
-        from tests.bigquery_data_source_fixture import BigQueryDataSourceFixture
-
-        return BigQueryDataSourceFixture(self)

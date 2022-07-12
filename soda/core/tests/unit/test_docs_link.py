@@ -1,4 +1,4 @@
-from tests.helpers.test_scan import TestScan
+from helpers.test_scan import TestScan
 
 
 def test_docs_link():

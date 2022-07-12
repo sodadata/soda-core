@@ -1,1 +1,1 @@
-from tests.conftest import *  # NOQA
+from conftest import *  # NOQA
