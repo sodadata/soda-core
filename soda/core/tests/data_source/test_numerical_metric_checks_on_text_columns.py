@@ -1,5 +1,5 @@
-from tests.helpers.common_test_tables import customers_test_table
-from tests.helpers.data_source_fixture import DataSourceFixture
+from helpers.common_test_tables import customers_test_table
+from helpers.data_source_fixture import DataSourceFixture
 
 
 def test_numeric_metric_checks_on_text_column(data_source_fixture: DataSourceFixture):

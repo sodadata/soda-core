@@ -1,12 +1,12 @@
 import logging
 from typing import Dict, List
 
-from soda.common.yaml_helper import to_yaml_str
-from tests.helpers.common_test_tables import (
+from helpers.common_test_tables import (
     customers_dist_check_test_table,
     customers_test_table,
 )
-from tests.helpers.data_source_fixture import DataSourceFixture
+from helpers.data_source_fixture import DataSourceFixture
+from soda.common.yaml_helper import to_yaml_str
 
 
 def assert_no_duplicate_check_identities(scan_result: dict):

@@ -1,5 +1,5 @@
-from tests.helpers.common_test_tables import customers_test_table
-from tests.helpers.data_source_fixture import DataSourceFixture
+from helpers.common_test_tables import customers_test_table
+from helpers.data_source_fixture import DataSourceFixture
 
 
 def test_failed_rows_table_expression_with_limit(data_source_fixture: DataSourceFixture):

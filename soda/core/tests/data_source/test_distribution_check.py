@@ -1,9 +1,9 @@
 from textwrap import dedent
 
 import pytest
-from tests.helpers.common_test_tables import customers_dist_check_test_table
-from tests.helpers.data_source_fixture import DataSourceFixture
-from tests.helpers.fixtures import test_data_source
+from helpers.common_test_tables import customers_dist_check_test_table
+from helpers.data_source_fixture import DataSourceFixture
+from helpers.fixtures import test_data_source
 
 
 def test_distribution_check(data_source_fixture: DataSourceFixture, mock_file_system):

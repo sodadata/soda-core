@@ -89,11 +89,6 @@ class PostgresDataSource(DataSource):
             else type_code_str
         )
 
-    def create_test_table_manager(self):
-        from tests.postgres_data_source_fixture import PostgresDataSourceFixture
-
-        return PostgresDataSourceFixture(self)
-
     type_names_by_type_code = {
         "16": "bool",
         "17": "bytea",

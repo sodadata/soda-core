@@ -129,8 +129,3 @@ class AthenaDataSource(DataSource):
 
     def rollback(self):
         pass
-
-    def create_test_table_manager(self):
-        from tests.athena_data_source_fixture import AthenaDataSourceFixture
-
-        return AthenaDataSourceFixture(self)

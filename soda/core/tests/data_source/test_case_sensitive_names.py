@@ -1,8 +1,8 @@
 import pytest
+from helpers.data_source_fixture import DataSourceFixture
+from helpers.fixtures import test_data_source
+from helpers.test_table import TestTable
 from soda.execution.data_type import DataType
-from tests.helpers.data_source_fixture import DataSourceFixture
-from tests.helpers.fixtures import test_data_source
-from tests.helpers.test_table import TestTable
 
 
 @pytest.mark.skipif(

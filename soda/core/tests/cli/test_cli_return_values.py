@@ -1,12 +1,12 @@
 from textwrap import dedent
 
 import pytest
+from cli.run_cli import run_cli
+from helpers.common_test_tables import customers_test_table
+from helpers.data_source_fixture import DataSourceFixture
+from helpers.fixtures import test_data_source
+from helpers.mock_file_system import MockFileSystem
 from soda.common.yaml_helper import YamlHelper
-from tests.cli.run_cli import run_cli
-from tests.helpers.common_test_tables import customers_test_table
-from tests.helpers.data_source_fixture import DataSourceFixture
-from tests.helpers.fixtures import test_data_source
-from tests.helpers.mock_file_system import MockFileSystem
 
 
 def get_data_source_configuration(data_source_fixture: DataSourceFixture, data_source_config_str: str):
