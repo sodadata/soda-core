@@ -38,6 +38,7 @@ Soda Core currently supports Amazon Athena, Amazon Redshift, GCP BigQuery, Postg
 `pip install soda-core-postgres`
 * `soda-core-athena`
 * `soda-core-bigquery`
+* `soda-core-db2`
 * `soda-core-postgres`
 * `soda-core-redshift`
 * `soda-core-snowflake`
