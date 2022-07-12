@@ -4,7 +4,6 @@ import functools
 import logging
 import os
 import re
-from builtins import isinstance
 from datetime import timedelta
 from numbers import Number
 from textwrap import dedent
