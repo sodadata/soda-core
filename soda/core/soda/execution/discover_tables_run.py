@@ -30,9 +30,10 @@ class DiscoverTablesRun:
         )
 
         if len(table_names) < 1:
-            self.logs.warning(
+            self.logs.error(
                 f"No table matching your SodaCL inclusion list found on your {self.data_source.data_source_name} "
-                "data source. Table discovery results may be incomplete or entirely skipped"
+                "data source. Table discovery results may be incomplete or entirely skipped",
+                location=self.data_source_check_cfg.location,
             )
             return discover_tables_result
 
