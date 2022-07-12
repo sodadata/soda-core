@@ -44,15 +44,15 @@ def test_sample_tables(data_source_fixture: DataSourceFixture):
         ]
     ]
     for c in columns:
-        type = c["type"]
-        assert isinstance(type, str)
-        assert len(type) > 0
+        col_type = c["type"]
+        assert isinstance(col_type, str)
+        assert len(col_type) > 0
     assert sample_file["totalRowCount"] == 7
     assert sample_file["storedRowCount"] == 7
 
     reference = sample_file["reference"]
-    type = reference["type"]
-    assert type == "sodaCloudStorage"
+    ref_type = reference["type"]
+    assert ref_type == "sodaCloudStorage"
     file_id = reference["fileId"]
     assert isinstance(file_id, str)
     assert len(file_id) > 0
