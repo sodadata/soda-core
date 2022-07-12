@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from tests.helpers.common_test_tables import customers_test_table, orders_test_table
-from tests.helpers.data_source_fixture import DataSourceFixture
+from helpers.common_test_tables import customers_test_table, orders_test_table
+from helpers.data_source_fixture import DataSourceFixture
 
 
 def test_sample_tables(data_source_fixture: DataSourceFixture):
