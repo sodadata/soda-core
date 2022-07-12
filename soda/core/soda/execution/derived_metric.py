@@ -10,6 +10,30 @@ DERIVED_METRIC_NAMES = [
 ]
 
 
+def derive_missing_percentage(values: Dict[str, int]):
+    missing_count = values["missing_count"]
+    row_count = values["row_count"]
+
+    if missing_count and row_count:
+        missing_percentage = missing_count * 100 / row_count
+    else:
+        missing_percentage = 0
+
+    return float(round(missing_percentage, 2))
+
+
+def derive_invalid_percentage(values: Dict[str, int]):
+    invalid_count = values["invalid_count"]
+    row_count = values["row_count"]
+
+    if invalid_count and row_count:
+        invalid_percentage = invalid_count * 100 / row_count
+    else:
+        invalid_percentage = 0
+
+    return float(round(invalid_percentage, 2))
+
+
 class DerivedMetric(Metric):
     def __init__(
         self,
@@ -57,11 +81,6 @@ class DerivedMetric(Metric):
         from soda.execution.derived_formula import DerivedFormula
 
         if METRIC_NAME_MISSING_PERCENT == self.name:
-
-            def derive_missing_percentage(values: Dict[str, int]):
-                missing_percentage = values["missing_count"] * 100 / values["row_count"]
-                return float(round(missing_percentage, 2))
-
             return DerivedFormula(
                 function=derive_missing_percentage,
                 metric_dependencies={
@@ -71,11 +90,6 @@ class DerivedMetric(Metric):
             )
 
         if METRIC_NAME_INVALID_PERCENT == self.name:
-
-            def derive_invalid_percentage(values: Dict[str, int]):
-                invalid_percentage = values["invalid_count"] * 100 / values["row_count"]
-                return float(round(invalid_percentage, 2))
-
             return DerivedFormula(
                 function=derive_invalid_percentage,
                 metric_dependencies={
