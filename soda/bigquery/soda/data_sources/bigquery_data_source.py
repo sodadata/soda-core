@@ -6,6 +6,7 @@ import logging
 from google.cloud import bigquery
 from google.cloud.bigquery import dbapi
 from google.oauth2.service_account import Credentials
+from google.auth import impersonated_credentials
 from soda.common.exceptions import DataSourceConnectionError
 from soda.common.file_system import file_system
 from soda.common.logs import Logs
@@ -80,6 +81,14 @@ class BigQueryDataSource(DataSource):
             self.credentials = Credentials.from_service_account_info(
                 self.account_info_dict,
                 scopes=self.auth_scopes,
+            )
+
+        impersonation_account = self.data_source_properties.get("impersonation_account")
+        if impersonation_account:
+            self.credentials = impersonated_credentials.Credentials(
+                source_credentials=self.credentials,
+                target_principal=impersonation_account,
+                target_scopes=self.data_source_properties.get("scopes",default_auth_scopes ),
             )
 
         # All remaining parameters
