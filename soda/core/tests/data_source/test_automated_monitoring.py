@@ -1,9 +1,9 @@
 import os
 
 import pytest
-from tests.helpers.common_test_tables import customers_test_table
-from tests.helpers.data_source_fixture import DataSourceFixture
-from tests.helpers.utils import derive_schema_metric_value_from_test_table
+from helpers.common_test_tables import customers_test_table
+from helpers.data_source_fixture import DataSourceFixture
+from helpers.utils import derive_schema_metric_value_from_test_table
 
 
 @pytest.mark.skipif(

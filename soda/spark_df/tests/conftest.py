@@ -1,1 +1,1 @@
-from tests.helpers.fixtures import *  # NOQA
+from helpers.fixtures import *  # NOQA

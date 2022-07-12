@@ -120,8 +120,3 @@ class RedshiftDataSource(DataSource):
             self.port,
             self.database,
         ]
-
-    def create_test_table_manager(self):
-        from tests.redshift_data_source_fixture import RedshiftDataSourceFixture
-
-        return RedshiftDataSourceFixture(self)

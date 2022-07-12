@@ -167,8 +167,3 @@ class SnowflakeDataSource(DataSource):
             self.type,
             self.account,
         ]
-
-    def create_test_table_manager(self):
-        from tests.snowflake_data_source_fixture import SnowflakeDataSourceFixture
-
-        return SnowflakeDataSourceFixture(self)

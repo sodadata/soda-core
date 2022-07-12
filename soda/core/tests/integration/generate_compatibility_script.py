@@ -4,10 +4,10 @@ import sys
 from logging import Handler, LogRecord
 from textwrap import indent
 
+from helpers.common_test_tables import customers_test_table, orders_test_table
+from helpers.data_source_fixture import DataSourceFixture
 from soda.common.exception_helper import get_exception_stacktrace
 from soda.common.file_system import file_system
-from tests.helpers.common_test_tables import customers_test_table, orders_test_table
-from tests.helpers.data_source_fixture import DataSourceFixture
 
 
 class Script:
@@ -92,7 +92,7 @@ class SqlHandler(Handler):
 
     def emit(self, record: LogRecord) -> None:
         msg = record.msg
-        if record.name == "tests.helpers.data_source_fixture":
+        if record.name == "helpers.data_source_fixture":
             prefix = "  # Test data handler update: \n  #   "
             if msg.startswith(prefix):
                 ddl = msg[len(prefix) :]
@@ -125,7 +125,7 @@ class SqlHandler(Handler):
 
 def configure_sql_logging():
     sys.stderr = sys.stdout
-    logging.getLogger("tests.helpers.data_source_fixture").setLevel(logging.DEBUG)
+    logging.getLogger("helpers.data_source_fixture").setLevel(logging.DEBUG)
     logging.getLogger("soda.scan").setLevel(logging.DEBUG)
 
     logging.basicConfig(

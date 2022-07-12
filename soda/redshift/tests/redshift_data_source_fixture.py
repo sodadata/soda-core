@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 import os
 
-from tests.helpers.data_source_fixture import DataSourceFixture
+from helpers.data_source_fixture import DataSourceFixture
 
 logger = logging.getLogger(__name__)
 
