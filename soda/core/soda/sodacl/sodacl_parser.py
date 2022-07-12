@@ -614,11 +614,6 @@ class SodaCLParser(Parser):
             metric_check_cfg_class = AnomalyMetricCheckCfg
 
             if not antlr_metric_check.default_anomaly_threshold():
-                self.logs.error(
-                    "Non default threshold for anomaly detection is currently not supported. "
-                    "Make sure that your check definition adheres to the following syntax: 'anomaly score for {metric} < default'.",
-                    location=self.location,
-                )
                 return metric_check_cfg_class(
                     source_header=header_str,
                     source_line=check_str,
