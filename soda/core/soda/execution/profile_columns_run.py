@@ -52,15 +52,12 @@ class ProfileColumnsRun:
         include_tables = self._get_table_expression(self.profile_columns_cfg.include_columns)
         exclude_tables = self._get_table_expression(self.profile_columns_cfg.exclude_columns)
 
-        if include_tables or exclude_tables:
-            # row_counts is a dict that maps table names to row counts.
-            table_names: dict[str, int] = self.data_source.get_table_names(
-                include_tables=include_tables,
-                exclude_tables=exclude_tables,
-                query_name="profile-columns-get-table-names",
-            )
-        else:
-            table_names = []
+        # row_counts is a dict that maps table names to row counts.
+        table_names: dict[str, int] = self.data_source.get_table_names(
+            include_tables=include_tables,
+            exclude_tables=exclude_tables,
+            query_name="profile-columns-get-table-names",
+        )
 
         if len(table_names) < 1:
             self.logs.error(
@@ -75,8 +72,10 @@ class ProfileColumnsRun:
         parsed_excluded_tables_and_columns = self._build_column_expression_list(
             self.profile_columns_cfg.exclude_columns
         )
+
+        self.logs.info(f"Profiling columns for the following tables;")
         for table_name in table_names:
-            self.logs.debug(f"Profiling columns for {table_name}")
+            self.logs.info(f"  - {table_name}")
             measured_row_count = self.data_source.get_table_row_count(table_name)
             profile_columns_result_table = profile_columns_result.create_table(
                 table_name, self.data_source.data_source_name, measured_row_count
