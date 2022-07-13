@@ -1,4 +1,4 @@
-from soda.execution.derived_metric import (
+from soda.execution.metric.derived_metric import (
     derive_invalid_percentage,
     derive_missing_percentage,
 )

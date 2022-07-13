@@ -1,17 +1,17 @@
 from __future__ import annotations
 
-from soda.execution.aggregation_query import AggregationQuery
-from soda.execution.duplicates_query import DuplicatesQuery
-from soda.execution.numeric_query_metric import NumericQueryMetric
-from soda.execution.query import Query
-from soda.execution.schema_query import TableColumnsQuery
+from soda.execution.query.aggregation_query import AggregationQuery
+from soda.execution.query.duplicates_query import DuplicatesQuery
+from soda.execution.metric.numeric_query_metric import NumericQueryMetric
+from soda.execution.query.query import Query
+from soda.execution.query.schema_query import TableColumnsQuery
 from soda.sodacl.partition_cfg import PartitionCfg
 
 
 class Partition:
     def __init__(self, table: Table, partition_name: str):
-        from soda.execution.column_metrics import ColumnMetrics
-        from soda.execution.metric import Metric
+        from soda.execution.metric.column_metrics import ColumnMetrics
+        from soda.execution.metric.metric import Metric
         from soda.execution.table import Table
         from soda.sodacl.partition_cfg import PartitionCfg
 
@@ -38,7 +38,7 @@ class Partition:
         self.partition_cfg.add_check_cfg(check_cfg)
 
     def get_or_create_column_metrics(self, column_name: str):
-        from soda.execution.column_metrics import ColumnMetrics
+        from soda.execution.metric.column_metrics import ColumnMetrics
 
         column_metrics = self.column_metrics.get(column_name)
         if not column_metrics:

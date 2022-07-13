@@ -10,11 +10,11 @@ from soda.__version__ import SODA_CORE_VERSION
 from soda.common.log import Log, LogLevel
 from soda.common.logs import Logs
 from soda.common.undefined_instance import undefined
-from soda.execution.check import Check
+from soda.execution.check.check import Check
 from soda.execution.check_outcome import CheckOutcome
 from soda.execution.data_source_scan import DataSourceScan
-from soda.execution.derived_metric import DerivedMetric
-from soda.execution.metric import Metric
+from soda.execution.metric.derived_metric import DerivedMetric
+from soda.execution.metric.metric import Metric
 from soda.profiling.discover_table_result_table import DiscoverTablesResultTable
 from soda.profiling.profile_columns_result import ProfileColumnsResultTable
 from soda.profiling.sample_tables_result import SampleTablesResultTable
@@ -33,9 +33,9 @@ soda_telemetry = SodaTelemetry.get_instance()
 class Scan:
     def __init__(self):
         from soda.configuration.configuration import Configuration
-        from soda.execution.check import Check
+        from soda.execution.check.check import Check
         from soda.execution.data_source_manager import DataSourceManager
-        from soda.execution.query import Query
+        from soda.execution.query.query import Query
 
         # Using this instead of utcnow() as that creates tz naive object, this has explicitly utc set. More info https://docs.python.org/3/library/datetime.html#datetime.datetime.utcnow
         now = datetime.now(tz=timezone.utc)
@@ -299,7 +299,7 @@ class Scan:
         exit_value = 0
         try:
             from soda.execution.column import Column
-            from soda.execution.column_metrics import ColumnMetrics
+            from soda.execution.metric.column_metrics import ColumnMetrics
             from soda.execution.partition import Partition
             from soda.execution.table import Table
 
@@ -501,7 +501,7 @@ class Scan:
         self._data_source_manager.close_all_connections()
 
     def __create_check(self, check_cfg, data_source_scan=None, partition=None, column=None):
-        from soda.execution.check import Check
+        from soda.execution.check.check import Check
 
         check = Check.create(
             check_cfg=check_cfg,

@@ -12,9 +12,9 @@ from textwrap import dedent
 from soda.common.exceptions import DataSourceError
 from soda.common.logs import Logs
 from soda.execution.data_type import DataType
-from soda.execution.partition_queries import PartitionQueries
-from soda.execution.query import Query
-from soda.execution.schema_query import TableColumnsQuery
+from soda.execution.query.partition_queries import PartitionQueries
+from soda.execution.query.query import Query
+from soda.execution.query.schema_query import TableColumnsQuery
 from soda.sampler.sample_ref import SampleRef
 
 
