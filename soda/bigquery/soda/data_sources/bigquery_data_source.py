@@ -3,10 +3,10 @@ from __future__ import annotations
 import json
 import logging
 
+from google.auth import default, impersonated_credentials
 from google.cloud import bigquery
 from google.cloud.bigquery import dbapi
 from google.oauth2.service_account import Credentials
-from google.auth import impersonated_credentials, default
 from soda.common.exceptions import DataSourceConnectionError
 from soda.common.file_system import file_system
 from soda.common.logs import Logs
@@ -97,12 +97,14 @@ class BigQueryDataSource(DataSource):
             self.credentials = impersonated_credentials.Credentials(
                 source_credentials=self.credentials,
                 target_principal=str(impersonation_account),
-                target_scopes=self.data_source_properties.get("scopes", default_auth_scopes ),
+                target_scopes=self.data_source_properties.get("scopes", default_auth_scopes),
             )
 
         # All remaining parameters
         # Usually the project_id comes from the self.account_info_dict or the credentials itself
-        self.project_id = self.account_info_dict.get("project_id") if self.account_info_dict else self.credentials.quota_project_id
+        self.project_id = (
+            self.account_info_dict.get("project_id") if self.account_info_dict else self.credentials.quota_project_id
+        )
         # But users can optionally overwrite in the connection properties
         self.project_id = data_source_properties.get("project_id", self.project_id)
 
