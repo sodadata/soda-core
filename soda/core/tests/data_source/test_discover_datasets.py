@@ -83,7 +83,7 @@ def test_discover_tables_customer_wildcard(data_source_fixture: DataSourceFixtur
     assert expected_datasets.issubset(actual_datasets)
 
 
-def test_discover_table_with_quotes_warning(data_source_fixture: DataSourceFixture):
+def test_discover_table_with_quotes_error(data_source_fixture: DataSourceFixture):
     orders_table = data_source_fixture.ensure_test_table(orders_test_table)
     scan = data_source_fixture.create_test_scan()
     mock_soda_cloud = scan.enable_mock_soda_cloud()
@@ -95,10 +95,12 @@ def test_discover_table_with_quotes_warning(data_source_fixture: DataSourceFixtu
                 - exclude "{orders_table}"
         """
     )
-    scan.execute(allow_warnings_only=True)
+    scan.execute(allow_error_warning=True)
     scan_results = mock_soda_cloud.pop_scan_result()
     character_log_warnings = [
-        x for x in scan_results["logs"] if "It looks like quote characters are present" in x["message"]
+        x
+        for x in scan_results["logs"]
+        if "It looks like quote characters are present" in x["message"] and x["level"] == "error"
     ]
 
     assert len(character_log_warnings) == 2

@@ -59,6 +59,13 @@ ALL_SCHEMA_VALIDATIONS = [
 ]
 
 
+# Generic log messages for SODACL parser
+QUOTE_CHAR_ERROR = """It looks like quote characters are present in one of more of your {dataset_type}
+dataset identifiers. This may result in erroneous or no matches as most data sources do not
+support such characters in table names.
+"""
+
+
 class SodaCLParser(Parser):
     def __init__(
         self,
@@ -90,6 +97,9 @@ class SodaCLParser(Parser):
         sodacl_dict = self._parse_yaml_str(sodacl_yaml_str)
         if sodacl_dict is not None:
             self.__parse_headers(sodacl_dict)
+
+    def __check_str_list_has_quotes(self, check_str_list: list[str]):
+        return any(x in (" ").join(check_str_list) for x in ['"', "'"])
 
     def __parse_headers(self, headers_dict: dict) -> None:
         if not headers_dict:
@@ -1289,16 +1299,14 @@ class SodaCLParser(Parser):
                     else:
                         include_table_expression = table
                     data_source_check_cfg.include_tables.append(include_table_expression)
-            if any(x in (" ").join(data_source_check_cfg.include_tables) for x in ['"', "'"]):
-                self.logs.warning(
-                    "It looks like quote characters are present in one of more of your included dataset identifiers. "
-                    "This may result in erroneous or no matches as most data sources do not support such characters in table names.",
+            if self.__check_str_list_has_quotes(data_source_check_cfg.include_tables):
+                self.logs.error(
+                    QUOTE_CHAR_ERROR.format(dataset_type="included"),
                     location=self.location,
                 )
-            if any(x in (" ").join(data_source_check_cfg.exclude_tables) for x in ['"', "'"]):
-                self.logs.warning(
-                    "It looks like quote characters are present in one of more of your excluded dataset identifiers. "
-                    "This may result in erroneous or no matches as most data sources do not support such characters in table names.",
+            if self.__check_str_list_has_quotes(data_source_check_cfg.exclude_tables):
+                self.logs.error(
+                    QUOTE_CHAR_ERROR.format(dataset_type="excluded"),
                     location=self.location,
                 )
         else:
@@ -1345,16 +1353,14 @@ class SodaCLParser(Parser):
                     else:
                         include_column_expression = column_expression
                     profile_columns_cfg.include_columns.append(include_column_expression)
-            if any(x in (" ").join(profile_columns_cfg.include_columns) for x in ['"', "'"]):
-                self.logs.warning(
-                    "It looks like quote characters are present in one of more of your included columns identifiers. "
-                    "This may result in erroneous or no matches as most data sources do not support such characters in table or column names.",
+            if self.__check_str_list_has_quotes(profile_columns_cfg.include_columns):
+                self.logs.error(
+                    QUOTE_CHAR_ERROR.format(dataset_type="included"),
                     location=self.location,
                 )
-            if any(x in (" ").join(profile_columns_cfg.exclude_columns) for x in ['"', "'"]):
-                self.logs.warning(
-                    "It looks like quote characters are present in one of more of your excluded columns identifiers. "
-                    "This may result in erroneous or no matches as most data sources do not support such characters in table or column names.",
+            if self.__check_str_list_has_quotes(profile_columns_cfg.exclude_columns):
+                self.logs.error(
+                    QUOTE_CHAR_ERROR.format(dataset_type="excluded"),
                     location=self.location,
                 )
         elif columns is None:
@@ -1448,16 +1454,14 @@ class SodaCLParser(Parser):
                     f'Name filter "{name_filter_str}" is not a string',
                     location=self.location,
                 )
-        if any(x in (" ").join([x.table_name_filter for x in for_each_cfg.includes]) for x in ['"', "'"]):
-            self.logs.warning(
-                "It looks like quote characters are present in one of more of your included columns identifiers. "
-                "This may result in erroneous or no matches as most data sources do not support such characters in table or column names.",
+        if self.__check_str_list_has_quotes([x.table_name_filter for x in for_each_cfg.includes]):
+            self.logs.error(
+                QUOTE_CHAR_ERROR.format(dataset_type="included"),
                 location=self.location,
             )
-        if any(x in (" ").join([x.table_name_filter for x in for_each_cfg.excludes]) for x in ['"', "'"]):
-            self.logs.warning(
-                "It looks like quote characters are present in one of more of your excluded columns identifiers. "
-                "This may result in erroneous or no matches as most data sources do not support such characters in table or column names.",
+        if self.__check_str_list_has_quotes([x.table_name_filter for x in for_each_cfg.excludes]):
+            self.logs.error(
+                QUOTE_CHAR_ERROR.format(dataset_type="included"),
                 location=self.location,
             )
 
