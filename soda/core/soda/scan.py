@@ -533,6 +533,9 @@ class Scan:
                     partition_cfg = table_cfg.find_partition(None, None)
                     for check_cfg_template in for_each_dataset_cfg.check_cfgs:
                         check_cfg = check_cfg_template.instantiate_for_each_dataset(
+                            name=self._jinja_resolve(
+                                check_cfg_template.name, variables={for_each_dataset_cfg.table_alias_name: table_name}
+                            ),
                             table_alias=for_each_dataset_cfg.table_alias_name,
                             table_name=table_name,
                             partition_name=partition_cfg.partition_name,
@@ -660,7 +663,7 @@ class Scan:
 
     def __log_check_group(self, checks, indent, check_outcome, outcome_text):
         for check in checks:
-            self._logs.info(f"{indent}{check.get_summary()} [{outcome_text}]")
+            self._logs.info(f"{indent}{check.name} [{outcome_text}]")
             if self._logs.verbose or check_outcome != CheckOutcome.PASS:
                 for diagnostic in check.get_log_diagnostic_lines():
                     self._logs.info(f"{indent}  {diagnostic}")
