@@ -28,7 +28,6 @@ class DistributionCheck(Check):
             data_source_scan=data_source_scan,
             partition=partition,
             column=column,
-            name="distribution_difference",
         )
 
         self.distribution_check_cfg: DistributionCheckCfg = self.check_cfg

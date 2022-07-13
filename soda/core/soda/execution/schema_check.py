@@ -26,7 +26,6 @@ class SchemaCheck(Check):
             data_source_scan=data_source_scan,
             partition=partition if partition.partition_name is None else partition.table.partitions[None],
             column=None,
-            name="schema",
         )
 
         self.cloud_check_type = "schema"

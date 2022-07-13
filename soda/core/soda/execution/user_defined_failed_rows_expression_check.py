@@ -24,7 +24,6 @@ class UserDefinedFailedRowsExpressionCheck(Check):
             data_source_scan=data_source_scan,
             partition=partition,
             column=None,
-            name="user-defined-failed-rows-expression",
         )
         self.check_value = None
         self.metrics[KEY_FAILED_ROWS_COUNT] = self.data_source_scan.resolve_metric(

@@ -66,19 +66,20 @@ class AnomalyMetricCheck(MetricCheck):
         if self.skip_anomaly_check:
             return
 
+        metric_name = self.check_cfg.metric_name
         # TODO Review the data structure and see if we still need the KEY_HISTORIC_*
         historic_measurements = historic_values.get(KEY_HISTORIC_MEASUREMENTS, {}).get("measurements", {})
         historic_check_results = historic_values.get(KEY_HISTORIC_CHECK_RESULTS, {}).get("check_results", {})
 
         if not historic_measurements:
-            self.logs.warning(f"This is the first time that we derive {metrics[self.name]} metric")
+            self.logs.warning(f"This is the first time that we derive {metrics[metric_name]} metric")
             historic_measurements["results"] = []
 
         # Append current results
         historic_measurements.get("results", []).append(
             {
                 "id": 61,  # Placeholder number that will be overwritten
-                "identity": metrics[self.name].identity,
+                "identity": metrics[metric_name].identity,
                 "value": self.get_metric_value(),
                 "dataTime": (
                     self.data_source_scan.scan._data_timestamp.replace(tzinfo=timezone.utc).strftime(

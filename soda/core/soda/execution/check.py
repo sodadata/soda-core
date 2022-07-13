@@ -100,11 +100,9 @@ class Check(ABC):
         data_source_scan: DataSourceScan,
         partition: Partition | None,
         column: Column | None,
-        name: str | None,
     ):
         from soda.execution.partition import Partition
 
-        self.name: str = name
         self.check_cfg: CheckCfg = check_cfg
         self.logs = data_source_scan.scan._logs
         self.data_source_scan = data_source_scan
@@ -125,6 +123,28 @@ class Check(ABC):
         # Check outcome reasons in case of fail or pass
         self.outcome_reasons: list[dict] = []
         self.force_send_results_to_cloud = False
+
+    @property
+    def name(self) -> str:
+        """User readable name.
+
+        Uses user provided name if available or generates one from the check definition and thresholds.
+        """
+        if self.check_cfg.name:
+            return self.check_cfg.name
+
+        name = self.check_cfg.source_line
+
+        if self.check_cfg.source_configurations:
+            source_cfg = dict(self.check_cfg.source_configurations)
+
+            if source_cfg.get("warn"):
+                name += f" warn {source_cfg['warn']}"
+
+            if source_cfg.get("fail"):
+                name += f" fail {source_cfg['fail']}"
+
+        return name
 
     def create_definition(self) -> str:
         check_cfg: CheckCfg = self.check_cfg
@@ -184,7 +204,7 @@ class Check(ABC):
 
         cloud_dict = {
             "identity": self.create_identity(),
-            "name": self.generate_soda_cloud_check_name(),
+            "name": self.name,
             "type": self.cloud_check_type,
             "definition": self.create_definition(),
             "location": self.check_cfg.location.to_soda_cloud_json(),
@@ -204,23 +224,6 @@ class Check(ABC):
         if self.outcome_reasons:
             cloud_dict.update({"outcomeReasons": self.outcome_reasons})
         return cloud_dict
-
-    def generate_soda_cloud_check_name(self) -> str:
-        if self.check_cfg.name:
-            return self.check_cfg.name
-
-        name = self.check_cfg.source_line
-
-        if self.check_cfg.source_configurations:
-            source_cfg = dict(self.check_cfg.source_configurations)
-
-            if source_cfg.get("warn"):
-                name += f" warn {source_cfg['warn']}"
-
-            if source_cfg.get("fail"):
-                name += f" fail {source_cfg['fail']}"
-
-        return name
 
     @abstractmethod
     def get_cloud_diagnostics_dict(self) -> dict:

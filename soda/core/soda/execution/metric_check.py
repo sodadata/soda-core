@@ -22,13 +22,7 @@ class MetricCheck(Check):
         metric_check_cfg: MetricCheckCfg = check_cfg
         metric_name = metric_check_cfg.metric_name
 
-        super().__init__(
-            check_cfg=check_cfg,
-            data_source_scan=data_source_scan,
-            partition=partition,
-            column=column,
-            name=check_cfg.name or metric_name,
-        )
+        super().__init__(check_cfg=check_cfg, data_source_scan=data_source_scan, partition=partition, column=column)
 
         self.historic_descriptor = None
         self.metric_store_request = None

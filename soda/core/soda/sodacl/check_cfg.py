@@ -6,6 +6,8 @@ from soda.sodacl.location import Location
 
 
 class CheckCfg:
+    """Represents the config from the check config (yaml or otherwise) as closely as possible."""
+
     def __init__(
         self,
         source_header: str,

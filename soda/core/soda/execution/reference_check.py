@@ -21,7 +21,6 @@ class ReferenceCheck(Check):
             data_source_scan=data_source_scan,
             partition=partition,
             column=single_source_column,
-            name="reference",
         )
         metric = ReferenceMetric(
             data_source_scan=self.data_source_scan,
