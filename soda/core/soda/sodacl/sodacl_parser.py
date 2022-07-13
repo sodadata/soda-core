@@ -60,7 +60,7 @@ ALL_SCHEMA_VALIDATIONS = [
 
 
 # Generic log messages for SODACL parser
-QUOTE_CHAR_ERROR = """It looks like quote characters are present in one of more of your {dataset_type}
+QUOTE_CHAR_ERROR_LOG = """It looks like quote characters are present in one of more of your {dataset_type}
 dataset identifiers. This may result in erroneous or no matches as most data sources do not
 support such characters in table names.
 """
@@ -1301,12 +1301,12 @@ class SodaCLParser(Parser):
                     data_source_check_cfg.include_tables.append(include_table_expression)
             if self.__check_str_list_has_quotes(data_source_check_cfg.include_tables):
                 self.logs.error(
-                    QUOTE_CHAR_ERROR.format(dataset_type="included"),
+                    QUOTE_CHAR_ERROR_LOG.format(dataset_type="included"),
                     location=self.location,
                 )
             if self.__check_str_list_has_quotes(data_source_check_cfg.exclude_tables):
                 self.logs.error(
-                    QUOTE_CHAR_ERROR.format(dataset_type="excluded"),
+                    QUOTE_CHAR_ERROR_LOG.format(dataset_type="excluded"),
                     location=self.location,
                 )
         else:
@@ -1355,12 +1355,12 @@ class SodaCLParser(Parser):
                     profile_columns_cfg.include_columns.append(include_column_expression)
             if self.__check_str_list_has_quotes(profile_columns_cfg.include_columns):
                 self.logs.error(
-                    QUOTE_CHAR_ERROR.format(dataset_type="included"),
+                    QUOTE_CHAR_ERROR_LOG.format(dataset_type="included"),
                     location=self.location,
                 )
             if self.__check_str_list_has_quotes(profile_columns_cfg.exclude_columns):
                 self.logs.error(
-                    QUOTE_CHAR_ERROR.format(dataset_type="excluded"),
+                    QUOTE_CHAR_ERROR_LOG.format(dataset_type="excluded"),
                     location=self.location,
                 )
         elif columns is None:
@@ -1456,12 +1456,12 @@ class SodaCLParser(Parser):
                 )
         if self.__check_str_list_has_quotes([x.table_name_filter for x in for_each_cfg.includes]):
             self.logs.error(
-                QUOTE_CHAR_ERROR.format(dataset_type="included"),
+                QUOTE_CHAR_ERROR_LOG.format(dataset_type="included"),
                 location=self.location,
             )
         if self.__check_str_list_has_quotes([x.table_name_filter for x in for_each_cfg.excludes]):
             self.logs.error(
-                QUOTE_CHAR_ERROR.format(dataset_type="included"),
+                QUOTE_CHAR_ERROR_LOG.format(dataset_type="included"),
                 location=self.location,
             )
 
