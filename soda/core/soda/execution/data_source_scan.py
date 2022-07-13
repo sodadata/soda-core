@@ -1,11 +1,11 @@
 from typing import TYPE_CHECKING, Dict, List
 
-from soda.execution.data_source import DataSource
 from soda.execution.check.discover_tables_run import DiscoverTablesRun
-from soda.execution.metric.metric import Metric
 from soda.execution.check.profile_columns_run import ProfileColumnsRun
-from soda.execution.query.query import Query
 from soda.execution.check.sample_tables_run import SampleTablesRun
+from soda.execution.data_source import DataSource
+from soda.execution.metric.metric import Metric
+from soda.execution.query.query import Query
 from soda.execution.table import Table
 from soda.sodacl.data_source_check_cfg import (
     AutomatedMonitoringCfg,
@@ -73,7 +73,9 @@ class DataSourceScan:
 
     def run(self, data_source_check_cfg: DataSourceScanCfg, scan: "Scan"):
         if isinstance(data_source_check_cfg, AutomatedMonitoringCfg):
-            from soda.execution.check.automated_monitoring_run import AutomatedMonitoringRun
+            from soda.execution.check.automated_monitoring_run import (
+                AutomatedMonitoringRun,
+            )
 
             automated_monitoring_run = AutomatedMonitoringRun(self, data_source_check_cfg).run()
             scan._checks.extend(automated_monitoring_run)

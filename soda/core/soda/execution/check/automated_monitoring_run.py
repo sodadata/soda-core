@@ -2,9 +2,9 @@ from typing import Dict, List
 
 from soda.execution.check.anomaly_metric_check import AnomalyMetricCheck
 from soda.execution.check.check import Check
+from soda.execution.check.schema_check import SchemaCheck
 from soda.execution.data_source_scan import DataSourceScan
 from soda.execution.partition import Partition
-from soda.execution.check.schema_check import SchemaCheck
 from soda.sodacl.anomaly_metric_check_cfg import AnomalyMetricCheckCfg
 from soda.sodacl.data_source_check_cfg import DataSourceCheckCfg
 from soda.sodacl.schema_check_cfg import SchemaCheckCfg, SchemaValidations

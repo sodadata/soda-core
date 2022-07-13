@@ -1,8 +1,8 @@
 from __future__ import annotations
 
+from soda.execution.metric.numeric_query_metric import NumericQueryMetric
 from soda.execution.query.aggregation_query import AggregationQuery
 from soda.execution.query.duplicates_query import DuplicatesQuery
-from soda.execution.metric.numeric_query_metric import NumericQueryMetric
 from soda.execution.query.query import Query
 from soda.execution.query.schema_query import TableColumnsQuery
 from soda.sodacl.partition_cfg import PartitionCfg

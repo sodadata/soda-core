@@ -1,5 +1,7 @@
 from soda.execution.metric.query_metric import QueryMetric
-from soda.execution.query.user_defined_failed_rows_query import UserDefinedFailedRowsQuery
+from soda.execution.query.user_defined_failed_rows_query import (
+    UserDefinedFailedRowsQuery,
+)
 
 
 class UserDefinedFailedRowsMetric(QueryMetric):

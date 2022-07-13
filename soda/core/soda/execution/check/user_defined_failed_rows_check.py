@@ -3,7 +3,9 @@ from typing import Dict
 from soda.execution.check.check import Check
 from soda.execution.check_outcome import CheckOutcome
 from soda.execution.metric.metric import Metric
-from soda.execution.metric.user_defined_failed_rows_metric import UserDefinedFailedRowsMetric
+from soda.execution.metric.user_defined_failed_rows_metric import (
+    UserDefinedFailedRowsMetric,
+)
 
 KEY_FAILED_ROWS_COUNT = "failed_rows_count"
 

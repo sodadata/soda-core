@@ -1,9 +1,9 @@
 from typing import List, Optional
 
-from soda.execution.query.aggregation_query import AggregationQuery
-from soda.execution.query.duplicates_query import DuplicatesQuery
 from soda.execution.metric.numeric_query_metric import NumericQueryMetric
 from soda.execution.partition import Partition
+from soda.execution.query.aggregation_query import AggregationQuery
+from soda.execution.query.duplicates_query import DuplicatesQuery
 from soda.execution.query.query import Query
 from soda.execution.query.schema_query import TableColumnsQuery
 

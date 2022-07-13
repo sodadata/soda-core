@@ -1,7 +1,7 @@
 from typing import Dict, Optional
 
-from soda.execution.metric.metric import Metric
 from soda.execution.check.metric_check import MetricCheck
+from soda.execution.metric.metric import Metric
 from soda.soda_cloud.historic_descriptor import HistoricChangeOverTimeDescriptor
 from soda.sodacl.metric_check_cfg import MetricCheckCfg
 

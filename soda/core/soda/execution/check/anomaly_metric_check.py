@@ -2,11 +2,11 @@ from __future__ import annotations
 
 from datetime import timezone
 
+from soda.execution.check.metric_check import MetricCheck
 from soda.execution.check_outcome import CheckOutcome
 from soda.execution.column import Column
 from soda.execution.data_source_scan import DataSourceScan
 from soda.execution.metric.metric import Metric
-from soda.execution.check.metric_check import MetricCheck
 from soda.execution.partition import Partition
 from soda.soda_cloud.historic_descriptor import (
     HistoricCheckResultsDescriptor,
