@@ -6,7 +6,7 @@ import logging
 from google.cloud import bigquery
 from google.cloud.bigquery import dbapi
 from google.oauth2.service_account import Credentials
-from google.auth import impersonated_credentials
+from google.auth import impersonated_credentials, default
 from soda.common.exceptions import DataSourceConnectionError
 from soda.common.file_system import file_system
 from soda.common.logs import Logs
@@ -69,6 +69,10 @@ class BigQueryDataSource(DataSource):
         if account_info_json_str:
             self.account_info_dict = json.loads(account_info_json_str)
 
+        if self.account_info_dict is None:
+            self.logs.info("Using application default credentials.")
+            self.credentials, _ = default()
+
         default_auth_scopes = [
             "https://www.googleapis.com/auth/bigquery",
             "https://www.googleapis.com/auth/cloud-platform",
@@ -83,17 +87,22 @@ class BigQueryDataSource(DataSource):
                 scopes=self.auth_scopes,
             )
 
+        if self.data_source_properties.get("use_context_auth"):
+            self.logs.info("Using application default credentials.")
+            self.credentials, _ = default(quota_project_id="experimentplanet")
+
         impersonation_account = self.data_source_properties.get("impersonation_account")
         if impersonation_account:
+            self.logs.info("Using impersonation of Service Account.")
             self.credentials = impersonated_credentials.Credentials(
                 source_credentials=self.credentials,
-                target_principal=impersonation_account,
-                target_scopes=self.data_source_properties.get("scopes",default_auth_scopes ),
+                target_principal=str(impersonation_account),
+                target_scopes=self.data_source_properties.get("scopes", default_auth_scopes ),
             )
 
         # All remaining parameters
-        # Usually the project_id comes from the self.account_info_dict
-        self.project_id = self.account_info_dict.get("project_id") if self.account_info_dict else None
+        # Usually the project_id comes from the self.account_info_dict or the credentials itself
+        self.project_id = self.account_info_dict.get("project_id") if self.account_info_dict else self.credentials.quota_project_id
         # But users can optionally overwrite in the connection properties
         self.project_id = data_source_properties.get("project_id", self.project_id)
 
