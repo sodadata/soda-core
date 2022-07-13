@@ -89,7 +89,7 @@ class BigQueryDataSource(DataSource):
 
         if self.data_source_properties.get("use_context_auth"):
             self.logs.info("Using application default credentials.")
-            self.credentials, _ = default(quota_project_id="experimentplanet")
+            self.credentials, _ = default()
 
         impersonation_account = self.data_source_properties.get("impersonation_account")
         if impersonation_account:
