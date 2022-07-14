@@ -73,7 +73,7 @@ class ProfileColumnsRun:
             self.profile_columns_cfg.exclude_columns
         )
 
-        self.logs.info(f"Profiling columns for the following tables;")
+        self.logs.info(f"Profiling columns for the following tables:")
         for table_name in table_names:
             self.logs.info(f"  - {table_name}")
             measured_row_count = self.data_source.get_table_row_count(table_name)
