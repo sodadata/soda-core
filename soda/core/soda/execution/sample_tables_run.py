@@ -29,7 +29,7 @@ class SampleTablesRun:
             query_name=f"sample-datasets-find-datasets",
         )
 
-        self.logs.info(f"Sampling the following tables;")
+        self.logs.info(f"Sampling the following tables:")
         for table_name in table_names:
             self.logs.info(f"  - {table_name}")
 
