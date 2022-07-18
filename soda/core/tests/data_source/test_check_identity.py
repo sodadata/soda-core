@@ -6,6 +6,7 @@ from helpers.common_test_tables import (
     customers_test_table,
 )
 from helpers.data_source_fixture import DataSourceFixture
+from helpers.utils import execute_scan_and_get_scan_result
 from soda.common.yaml_helper import to_yaml_str
 
 
@@ -37,14 +38,6 @@ def get_cloud_checks_by_identity(scan_result) -> Dict[str, List[dict]]:
         identity = cloud_check["identity"]
         cloud_checks_by_identity.setdefault(identity, []).append(cloud_check)
     return cloud_checks_by_identity
-
-
-def execute_scan_and_get_scan_result(data_source_fixture: DataSourceFixture, sodacl_yaml_str: str) -> dict:
-    scan = data_source_fixture.create_test_scan()
-    mock_soda_cloud = scan.enable_mock_soda_cloud()
-    scan.add_sodacl_yaml_str(sodacl_yaml_str)
-    scan.execute()
-    return mock_soda_cloud.pop_scan_result()
 
 
 def test_check_identity_ignore_name(data_source_fixture: DataSourceFixture):

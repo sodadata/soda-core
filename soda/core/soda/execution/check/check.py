@@ -105,7 +105,7 @@ class Check(ABC):
 
         self.check_cfg: CheckCfg = check_cfg
         self.logs = data_source_scan.scan._logs
-        self.data_source_scan = data_source_scan
+        self.data_source_scan: DataSourceScan = data_source_scan
         self.partition: Partition = partition
         self.column: Column = column
         self.metrics: dict[str, Metric] = {}
@@ -130,8 +130,9 @@ class Check(ABC):
 
         Uses user provided name if available or generates one from the check definition and thresholds.
         """
+        jinja_resolve = self.data_source_scan.scan._jinja_resolve
         if self.check_cfg.name:
-            return self.check_cfg.name
+            return jinja_resolve(self.check_cfg.name)
 
         name = self.check_cfg.source_line
 
@@ -144,7 +145,7 @@ class Check(ABC):
             if source_cfg.get("fail"):
                 name += f" fail {source_cfg['fail']}"
 
-        return name
+        return jinja_resolve(name)
 
     def create_definition(self) -> str:
         check_cfg: CheckCfg = self.check_cfg
@@ -246,9 +247,6 @@ class Check(ABC):
         diagnostics_dict = self.get_cloud_diagnostics_dict()
         diagnostics_dict.pop("failedRowsFile", None)
         return diagnostics_dict
-
-    def get_summary(self) -> str:
-        return self.check_cfg.name if self.check_cfg.name else self.check_cfg.source_line
 
     def __str__(self):
         log_diagnostic_lines = self.get_log_diagnostic_lines()

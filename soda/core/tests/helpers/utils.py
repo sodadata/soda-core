@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from helpers.data_source_fixture import DataSourceFixture
 from soda.execution.data_source import DataSource
 
 
@@ -26,3 +27,14 @@ def derive_schema_metric_value_from_test_table(test_table, data_source: DataSour
         }
         for test_column in test_table.test_columns
     ]
+
+
+def execute_scan_and_get_scan_result(
+    data_source_fixture: DataSourceFixture, sodacl_yaml_str: str, variables: dict = {}
+) -> dict:
+    scan = data_source_fixture.create_test_scan()
+    scan.add_variables(variables)
+    mock_soda_cloud = scan.enable_mock_soda_cloud()
+    scan.add_sodacl_yaml_str(sodacl_yaml_str)
+    scan.execute()
+    return mock_soda_cloud.pop_scan_result()
