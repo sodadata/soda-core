@@ -10,11 +10,11 @@ from soda.__version__ import SODA_CORE_VERSION
 from soda.common.log import Log, LogLevel
 from soda.common.logs import Logs
 from soda.common.undefined_instance import undefined
-from soda.execution.check import Check
+from soda.execution.check.check import Check
 from soda.execution.check_outcome import CheckOutcome
 from soda.execution.data_source_scan import DataSourceScan
-from soda.execution.derived_metric import DerivedMetric
-from soda.execution.metric import Metric
+from soda.execution.metric.derived_metric import DerivedMetric
+from soda.execution.metric.metric import Metric
 from soda.profiling.discover_table_result_table import DiscoverTablesResultTable
 from soda.profiling.profile_columns_result import ProfileColumnsResultTable
 from soda.profiling.sample_tables_result import SampleTablesResultTable
@@ -33,9 +33,9 @@ soda_telemetry = SodaTelemetry.get_instance()
 class Scan:
     def __init__(self):
         from soda.configuration.configuration import Configuration
-        from soda.execution.check import Check
+        from soda.execution.check.check import Check
         from soda.execution.data_source_manager import DataSourceManager
-        from soda.execution.query import Query
+        from soda.execution.query.query import Query
 
         # Using this instead of utcnow() as that creates tz naive object, this has explicitly utc set. More info https://docs.python.org/3/library/datetime.html#datetime.datetime.utcnow
         now = datetime.now(tz=timezone.utc)
@@ -299,7 +299,7 @@ class Scan:
         exit_value = 0
         try:
             from soda.execution.column import Column
-            from soda.execution.column_metrics import ColumnMetrics
+            from soda.execution.metric.column_metrics import ColumnMetrics
             from soda.execution.partition import Partition
             from soda.execution.table import Table
 
@@ -501,7 +501,7 @@ class Scan:
         self._data_source_manager.close_all_connections()
 
     def __create_check(self, check_cfg, data_source_scan=None, partition=None, column=None):
-        from soda.execution.check import Check
+        from soda.execution.check.check import Check
 
         check = Check.create(
             check_cfg=check_cfg,
@@ -533,6 +533,9 @@ class Scan:
                     partition_cfg = table_cfg.find_partition(None, None)
                     for check_cfg_template in for_each_dataset_cfg.check_cfgs:
                         check_cfg = check_cfg_template.instantiate_for_each_dataset(
+                            name=self._jinja_resolve(
+                                check_cfg_template.name, variables={for_each_dataset_cfg.table_alias_name: table_name}
+                            ),
                             table_alias=for_each_dataset_cfg.table_alias_name,
                             table_name=table_name,
                             partition_name=partition_cfg.partition_name,
@@ -660,7 +663,7 @@ class Scan:
 
     def __log_check_group(self, checks, indent, check_outcome, outcome_text):
         for check in checks:
-            self._logs.info(f"{indent}{check.get_summary()} [{outcome_text}]")
+            self._logs.info(f"{indent}{check.name} [{outcome_text}]")
             if self._logs.verbose or check_outcome != CheckOutcome.PASS:
                 for diagnostic in check.get_log_diagnostic_lines():
                     self._logs.info(f"{indent}  {diagnostic}")
