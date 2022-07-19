@@ -1,7 +1,7 @@
 from helpers.common_test_tables import customers_test_table
 from helpers.data_source_fixture import DataSourceFixture
 from helpers.utils import format_checks
-from soda.execution.schema_check import SchemaCheck
+from soda.execution.check.schema_check import SchemaCheck
 
 
 def test_required_columns_pass(data_source_fixture: DataSourceFixture):

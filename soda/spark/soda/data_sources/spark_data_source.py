@@ -13,7 +13,7 @@ from soda.common.exceptions import DataSourceConnectionError
 from soda.common.logs import Logs
 from soda.execution.data_source import DataSource
 from soda.execution.data_type import DataType
-from soda.execution.query import Query
+from soda.execution.query.query import Query
 
 logger = logging.getLogger(__name__)
 ColumnMetadata = namedtuple("ColumnMetadata", ["name", "data_type", "is_nullable"])
