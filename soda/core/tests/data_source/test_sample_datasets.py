@@ -1,11 +1,6 @@
 from __future__ import annotations
 
-from helpers.common_test_tables import (
-    customers_dist_check_test_table,
-    customers_profiling,
-    customers_test_table,
-    orders_test_table,
-)
+from helpers.common_test_tables import customers_test_table, orders_test_table
 from helpers.data_source_fixture import DataSourceFixture
 
 

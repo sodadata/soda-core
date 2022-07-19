@@ -251,7 +251,7 @@ def test_profile_columns_inclusions_exclusions(
                 assert "country" not in column_names
 
 
-def test_profile_columns_quotes_warning(data_source_fixture: DataSourceFixture):
+def test_profile_columns_quotes_error(data_source_fixture: DataSourceFixture):
     scan = data_source_fixture.create_test_scan()
     mock_soda_cloud = scan.enable_mock_soda_cloud()
     scan.add_sodacl_yaml_str(
@@ -262,10 +262,12 @@ def test_profile_columns_quotes_warning(data_source_fixture: DataSourceFixture):
                 - exclude "something.else"
         """
     )
-    scan.execute(allow_warnings_only=True)
+    scan.execute(allow_error_warning=True)
     scan_results = mock_soda_cloud.pop_scan_result()
     character_log_warnings = [
-        x for x in scan_results["logs"] if "It looks like quote characters are present" in x["message"]
+        x
+        for x in scan_results["logs"]
+        if "It looks like quote characters are present" in x["message"] and x["level"] == "error"
     ]
     assert len(character_log_warnings) == 2
 

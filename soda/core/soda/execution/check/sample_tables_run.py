@@ -29,8 +29,9 @@ class SampleTablesRun:
             query_name=f"sample-datasets-find-datasets",
         )
 
+        self.logs.info(f"Sampling the following tables:")
         for table_name in table_names:
-            self.logs.debug(f"Sampling columns for {table_name}")
+            self.logs.info(f"  - {table_name}")
 
             # get columns and first n rows
             sample_ref = self.data_source.store_table_sample(table_name, limit=100)
