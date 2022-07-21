@@ -84,8 +84,8 @@ class ConfigHelper:
                 try:
                     logger.info(f"Trying to create config YAML file {destination} ...")
                     self.file_system.mkdirs(self.file_system.dirname(destination))
-                    self.upsert_config_file(self.DEFAULT_CONFIG)
                     self.config_path = destination
+                    self.upsert_config_file(self.DEFAULT_CONFIG)
                     return
                 except OSError:
                     logger.warning(f"Unable to create config path in {destination}")
