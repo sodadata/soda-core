@@ -33,10 +33,15 @@ class ReferenceCheck(Check):
         self.failed_rows_sample_ref = None
 
     def get_cloud_diagnostics_dict(self) -> dict:
-        return {
+        cloud_diagnostics = {
             # TODO Check with Soda Cloud what should be the value
             "value": self.metrics.get(KEY_INVALID_REFERENCE_COUNT).value
         }
+
+        if self.failed_rows_sample_ref:
+            cloud_diagnostics["failedRowsFile"] = self.failed_rows_sample_ref.get_cloud_diagnostics_dict()
+
+        return cloud_diagnostics
 
     def evaluate(self, metrics: Dict[str, Metric], historic_values: Dict[str, object]):
         metric = metrics.get(KEY_INVALID_REFERENCE_COUNT)

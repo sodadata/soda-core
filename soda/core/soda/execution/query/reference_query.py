@@ -59,4 +59,4 @@ class ReferenceQuery(Query):
         if self.sample_ref:
             self.metric.set_value(self.sample_ref.total_row_count)
             if self.sample_ref.is_persisted():
-                self.metric.invalid_references_sample_ref = self.sample_ref
+                self.metric.failed_rows_sample_ref = self.sample_ref
