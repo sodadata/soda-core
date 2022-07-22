@@ -110,7 +110,7 @@ class Scan:
             for configuration_yaml_file_path in configuration_yaml_file_paths:
                 self.add_configuration_yaml_file(file_path=configuration_yaml_file_path)
         except Exception as e:
-            self._logs.error(f"Could not add configuration files from dir {dir}", exception=e)
+            self._logs.error(f"Could not add configuration files from dir {path}", exception=e)
 
     def add_configuration_yaml_str(self, environment_yaml_str: str, file_path: str = "yaml string"):
         """
