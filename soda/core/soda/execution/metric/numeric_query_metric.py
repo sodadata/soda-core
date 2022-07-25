@@ -71,7 +71,7 @@ class NumericQueryMetric(QueryMetric):
                     condition = f"NOT ({missing_condition}) AND NOT ({valid_condition})"
                 else:
                     self.logs.warning("Counting invalid without valid specification does not make sense")
-                    condition = f"FALSE"
+                    condition = self.data_source_scan.data_source.expr_false_condition()
 
             if self.filter:
                 condition = f"({self.filter}) AND ({condition})" if condition else self.filter

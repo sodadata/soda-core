@@ -7,14 +7,16 @@ def test_user_defined_table_expression_metric_check(data_source_fixture: DataSou
     table_name = data_source_fixture.ensure_test_table(customers_test_table)
 
     scan = data_source_fixture.create_test_scan()
+    length_expr = "LEN" if data_source_fixture.data_source_name == "sqlserver" else "LENGTH"
+
     scan.add_sodacl_yaml_str(
         f"""
       checks for {table_name}:
         - avg_surface between 1068 and 1069:
             avg_surface expression: AVG(size * distance)
         - ones(sizeTxt):
-            name: There must be 3 occurences of 1 in sizeText
-            ones expression: SUM(LENGTH(sizeTxt) - LENGTH(REPLACE(sizeTxt, '1', '')))
+            name: There must be 3 occurrences of 1 in sizeText
+            ones expression: SUM({length_expr}(sizeTxt) - {length_expr}(REPLACE(sizeTxt, '1', '')))
             warn: when < 3
             fail: when < 2
     """
@@ -30,7 +32,7 @@ def test_user_defined_table_expression_metric_check(data_source_fixture: DataSou
     ones_check = scan._checks[1]
     assert isinstance(ones_check.check_value, int)
     assert ones_check.check_value == 2
-    assert ones_check.check_cfg.name == "There must be 3 occurences of 1 in sizeText"
+    assert ones_check.check_cfg.name == "There must be 3 occurrences of 1 in sizeText"
     assert ones_check.outcome == CheckOutcome.WARN
 
 

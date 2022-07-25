@@ -8,3 +8,4 @@
 ./soda/spark
 ./soda/spark_df
 ./soda/scientific
+./soda/sqlserver
