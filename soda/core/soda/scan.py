@@ -454,11 +454,6 @@ class Scan:
             if error_count > 0:
                 Log.log_errors(self.get_error_logs())
 
-            self._scan_end_timestamp = datetime.now(tz=timezone.utc)
-            if self._configuration.soda_cloud:
-                self._logs.info("Sending results to Soda Cloud")
-                self._configuration.soda_cloud.send_scan_results(self)
-
             # Telemetry data
             soda_telemetry.set_attributes(
                 {
@@ -476,6 +471,15 @@ class Scan:
             exit_value = 3
             self._logs.error(f"Error occurred while executing scan.", exception=e)
         finally:
+            try:
+                self._scan_end_timestamp = datetime.now(tz=timezone.utc)
+                if self._configuration.soda_cloud:
+                    self._logs.info("Sending results to Soda Cloud")
+                    self._configuration.soda_cloud.send_scan_results(self)
+
+            except Exception as e:
+                exit_value = 3
+                self._logs.error(f"Error occurred while sending scan results to soda cloud.", exception=e)
 
             self._close()
         return exit_value
