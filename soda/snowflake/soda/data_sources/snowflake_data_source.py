@@ -121,6 +121,18 @@ class SnowflakeDataSource(DataSource):
     def regex_replace_flags(self) -> str:
         return ""
 
+    def expr_regexp_like(self, expr: str, pattern: str):
+        return f"REGEXP_LIKE(COLLATE({expr}, ''), '{pattern}')"
+
+    def cast_text_to_number(self, column_name, validity_format: str):
+        """Cast string to number
+        - first regex replace removes extra chars, keeps: "digits + - . ,"
+        - second regex changes "," to "."
+        - Nullif makes sure that if regexes return empty string then Null is returned instead
+        """
+        regex = self.escape_regex(r"'[^-0-9\.\,]'")
+        return f"CAST(NULLIF(REGEXP_REPLACE(REGEXP_REPLACE(COLLATE({column_name}, ''), {regex}, ''{self.regex_replace_flags()}), ',', '.'{self.regex_replace_flags()}), '') AS {self.SQL_TYPE_FOR_CREATE_TABLE_MAP[DataType.DECIMAL]})"
+
     def get_metric_sql_aggregation_expression(self, metric_name: str, metric_args: list[object] | None, expr: str):
         # TODO add all of these snowflake specific statistical aggregate functions: https://docs.snowflake.com/en/sql-reference/functions-aggregation.html
         if metric_name in [
