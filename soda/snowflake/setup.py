@@ -16,7 +16,7 @@ requires = [
     f"soda-core=={package_version}",
     "snowflake-connector-python~=2.7",
     # https://github.com/snowflakedb/snowflake-connector-python/issues/1206
-    "typing-extensions>=4.3.0"
+    "typing-extensions>=4.3.0",
 ]
 # TODO Fix the params
 setup(
