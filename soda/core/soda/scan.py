@@ -457,10 +457,6 @@ class Scan:
             # Telemetry data
             soda_telemetry.set_attributes(
                 {
-                    "scan_exit_code": exit_value,
-                    "checks_count": len(self._checks),
-                    "queries_count": len(self._queries),
-                    "metrics_count": len(self._metrics),
                     "pass_count": checks_pass_count,
                     "error_count": error_count,
                     "failures_count": checks_fail_count,
@@ -482,6 +478,16 @@ class Scan:
                 self._logs.error(f"Error occurred while sending scan results to soda cloud.", exception=e)
 
             self._close()
+
+        # Telemetry data
+        soda_telemetry.set_attributes(
+            {
+                "scan_exit_code": exit_value,
+                "checks_count": len(self._checks),
+                "queries_count": len(self._queries),
+                "metrics_count": len(self._metrics),
+            }
+        )
         return exit_value
 
     def run_data_source_scan(self):
