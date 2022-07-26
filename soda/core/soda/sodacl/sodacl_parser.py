@@ -35,7 +35,6 @@ from soda.sodacl.schema_check_cfg import SchemaCheckCfg, SchemaValidations
 from soda.sodacl.sodacl_cfg import SodaCLCfg
 from soda.sodacl.table_cfg import TableCfg
 from soda.sodacl.threshold_cfg import ThresholdCfg
-from soda.scan import verbose
 
 logger = logging.getLogger(__name__)
 
