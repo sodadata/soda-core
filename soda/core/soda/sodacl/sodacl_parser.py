@@ -35,6 +35,7 @@ from soda.sodacl.schema_check_cfg import SchemaCheckCfg, SchemaValidations
 from soda.sodacl.sodacl_cfg import SodaCLCfg
 from soda.sodacl.table_cfg import TableCfg
 from soda.sodacl.threshold_cfg import ThresholdCfg
+from soda.scan import verbose
 
 logger = logging.getLogger(__name__)
 
@@ -197,19 +198,7 @@ class SodaCLParser(Parser):
             for check_index, check_list_element in enumerate(header_content):
                 self._push_path_element(check_index, check_list_element)
 
-                check_str: str = None
-                check_configurations = None
-
-                if isinstance(check_list_element, str):
-                    check_str = check_list_element
-                elif isinstance(check_list_element, dict):
-                    check_str = next(iter(check_list_element))
-                    check_configurations = check_list_element[check_str]
-                else:
-                    self.logs.error(
-                        f"Skipping unsupported check definition: {to_yaml_str(check_list_element)}",
-                        location=self.location,
-                    )
+                check_str, check_configurations = self.__parse_check_configuration(check_list_element)
 
                 if check_str is not None:
                     check_cfg = self.__parse_table_check_str(header_str, check_str, check_configurations)
@@ -236,19 +225,7 @@ class SodaCLParser(Parser):
             for check_index, check_list_element in enumerate(header_content):
                 self._push_path_element(check_index, check_list_element)
 
-                check_str: str = None
-                check_configurations = None
-
-                if isinstance(check_list_element, str):
-                    check_str = check_list_element
-                elif isinstance(check_list_element, dict):
-                    check_str = next(iter(check_list_element))
-                    check_configurations = check_list_element[check_str]
-                else:
-                    self.logs.error(
-                        f"Skipping unsupported check definition: {to_yaml_str(check_list_element)}",
-                        location=self.location,
-                    )
+                check_str, check_configurations = self.__parse_check_configuration(check_list_element)
 
                 if check_str is not None:
                     check_cfg = self.__parse_data_source_check_str(header_str, check_str, check_configurations)
@@ -1525,19 +1502,7 @@ class SodaCLParser(Parser):
             for check_index, check_list_element in enumerate(header_content):
                 self._push_path_element(check_index, check_list_element)
 
-                check_str: str = None
-                check_configurations = None
-
-                if isinstance(check_list_element, str):
-                    check_str = check_list_element
-                elif isinstance(check_list_element, dict):
-                    check_str = next(iter(check_list_element))
-                    check_configurations = check_list_element[check_str]
-                else:
-                    self.logs.error(
-                        f"Skipping unsupported check definition: {to_yaml_str(check_list_element)}",
-                        location=self.location,
-                    )
+                check_str, check_configurations = self.__parse_check_configuration(check_list_element)
 
                 if check_str is not None:
                     check_cfg = self.__parse_table_check_str(header_str, check_str, check_configurations)
@@ -1550,6 +1515,29 @@ class SodaCLParser(Parser):
                 location=self.location,
             )
         return check_cfgs
+
+    def __parse_check_configuration(self, check_list_element) -> tuple:
+        check_str: str = None
+        check_configurations = None
+
+        if isinstance(check_list_element, str):
+            check_str = check_list_element
+        elif isinstance(check_list_element, dict):
+            check_str = next(iter(check_list_element))
+            check_configurations = check_list_element[check_str]
+            ignored_config_keys = [k for k in check_configurations if k != check_str]
+
+            if len(check_list_element) > 1:
+                self.logs.info(
+                    f"Check '{check_str}' contains same-level configuration keys {ignored_config_keys} that will be ignored. Is your indentation correct?"
+                )
+        else:
+            self.logs.error(
+                f"Skipping unsupported check definition: {to_yaml_str(check_list_element)}",
+                location=self.location,
+            )
+
+        return check_str, check_configurations
 
     def antlr_parse_check(self, text: str) -> AntlrParser:
         return AntlrParser(text, lambda p: p.check())
