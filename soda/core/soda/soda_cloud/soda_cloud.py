@@ -43,6 +43,7 @@ class SodaCloud:
         self.token: str | None = token
         self.headers = {"User-Agent": f"SodaCore/{SODA_CORE_VERSION}"}
         self.logs = logs
+        self.soda_cloud_trace_ids = {}
 
     @staticmethod
     def build_scan_results(scan) -> dict:
@@ -159,7 +160,7 @@ class SodaCloud:
     def send_scan_results(self, scan: Scan):
         scan_results = self.build_scan_results(scan)
         scan_results["type"] = "sodaCoreInsertScanResults"
-        return self._execute_command(scan_results)
+        return self._execute_command(scan_results, command_name="send_scan_results")
 
     def get_historic_data(self, historic_descriptor: HistoricDescriptor):
         measurements = {}
@@ -177,7 +178,10 @@ class SodaCloud:
         return {"measurements": measurements, "check_results": check_results}
 
     def is_samples_disabled(self) -> bool:
-        response_json_dict = self._execute_query({"type": "sodaCoreCloudConfiguration"})
+        response_json_dict = self._execute_query(
+            {"type": "sodaCoreCloudConfiguration"},
+            query_name="is_samples_disabled",
+        )
         is_disabled_bool = (
             response_json_dict.get("disableCollectingWarehouseData") if isinstance(response_json_dict, dict) else None
         )
@@ -197,7 +201,8 @@ class SodaCloud:
                         }
                     ],
                 },
-            }
+            },
+            query_name="get_hisoric_changes_over_time",
         )
 
     def _get_historic_measurements(self, hd: HistoricMeasurementsDescriptor):
@@ -216,7 +221,8 @@ class SodaCloud:
                         }
                     ],
                 },
-            }
+            },
+            query_name="get_hisotric_check_results",
         )
         # Filter out historic_measurements not having 'value' key
         historic_measurements["results"] = [
@@ -239,25 +245,28 @@ class SodaCloud:
                         }
                     ],
                 },
-            }
+            },
+            query_name="get_hisotric_check_results",
         )
 
-    def _execute_query(self, command: dict):
-        return self._execute_request("query", command, False)
+    def _execute_query(self, query: dict, query_name: str):
+        return self._execute_request("query", query, False, query_name)
 
-    def _execute_command(self, command: dict):
-        return self._execute_request("command", command, False)
+    def _execute_command(self, command: dict, command_name: str):
+        return self._execute_request("command", command, False, command_name)
 
-    def _execute_request(self, request_type: str, request_body: dict, is_retry: bool):
+    def _execute_request(self, request_type: str, request_body: dict, is_retry: bool, request_name: str):
         try:
             request_body["token"] = self._get_token()
             # logger.debug(f"Sending to Soda Cloud {JsonHelper.to_json_pretty(request_body)}")
-            response = self._http_post(url=f"{self.api_url}/{request_type}", headers=self.headers, json=request_body)
+            response = self._http_post(
+                url=f"{self.api_url}/{request_type}", headers=self.headers, json=request_body, request_name=request_name
+            )
             response_json = response.json()
             if response.status_code == 401 and not is_retry:
                 logger.debug(f"Authentication failed. Probably token expired. Re-authenticating...")
                 self.token = None
-                response_json = self._execute_request(request_type, request_body, True)
+                response_json = self._execute_request(request_type, request_body, True, request_name)
             elif response.status_code != 200:
                 self.logs.error(
                     f"Error while executing Soda Cloud {request_type} response code: {response.status_code}"
@@ -279,7 +288,9 @@ class SodaCloud:
             else:
                 raise RuntimeError("No API KEY and/or SECRET provided ")
 
-            login_response = self._http_post(url=f"{self.api_url}/command", headers=self.headers, json=login_command)
+            login_response = self._http_post(
+                url=f"{self.api_url}/command", headers=self.headers, json=login_command, request_name="get_token"
+            )
             if login_response.status_code != 200:
                 raise AssertionError(f"Soda Cloud login failed {login_response.status_code}. Check credentials.")
             login_response_json = login_response.json()
@@ -288,5 +299,12 @@ class SodaCloud:
             assert self.token, "No token in login response?!"
         return self.token
 
-    def _http_post(self, **kwargs) -> Response:
-        return requests.post(**kwargs)
+    def _http_post(self, request_name: str = None, **kwargs) -> Response:
+        response = requests.post(**kwargs)
+
+        if request_name:
+            trace_id = response.headers.get("X-Soda-Trace-Id")
+            if trace_id:
+                self.soda_cloud_trace_ids[request_name] = trace_id
+
+        return response

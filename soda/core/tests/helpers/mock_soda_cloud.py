@@ -205,7 +205,7 @@ class MockSodaCloud(SodaCloud):
             kwargs["data"] = data.read().decode("utf-8")
         raise AssertionError(f"Unsupported request to mock soda cloud: {JsonHelper.to_json_pretty(kwargs)}")
 
-    def _mock_server_command(self, url, headers, json):
+    def _mock_server_command(self, url, headers, json, request_name):
         command_type = json.get("type")
         if command_type == "login":
             return self._mock_server_command_login(url, headers, json)
@@ -213,7 +213,7 @@ class MockSodaCloud(SodaCloud):
             return self._mock_server_command_sodaCoreInsertScanResults(url, headers, json)
         raise AssertionError(f"Unsupported command type {command_type}")
 
-    def _mock_server_query(self, url, headers, json):
+    def _mock_server_query(self, url, headers, json, request_name):
         query_type = json.get("type")
         if query_type == "sodaCoreCloudConfiguration":
             return self._mock_server_query_core_cfg(url, headers, json)
