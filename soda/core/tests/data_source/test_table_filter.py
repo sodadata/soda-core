@@ -1,5 +1,6 @@
 from helpers.common_test_tables import customers_test_table
 from helpers.data_source_fixture import DataSourceFixture
+from helpers.fixtures import test_data_source
 
 
 def test_filter_on_date(data_source_fixture: DataSourceFixture):
@@ -7,10 +8,11 @@ def test_filter_on_date(data_source_fixture: DataSourceFixture):
 
     scan = data_source_fixture.create_test_scan()
     scan.add_variables({"DATE": "2020-06-23"})
+    date_expr = "" if test_data_source == "sqlserver" else "DATE"
     scan.add_sodacl_yaml_str(
         f"""
           filter {table_name} [daily]:
-            where: date = DATE '${{DATE}}'
+            where: date = {date_expr} '${{DATE}}'
 
           checks for {table_name}:
             - row_count = 10
@@ -30,7 +32,7 @@ def test_filter_on_date(data_source_fixture: DataSourceFixture):
     scan.add_sodacl_yaml_str(
         f"""
           filter {table_name} [daily]:
-            where: date = DATE '${{date}}'
+            where: date = {date_expr} '${{date}}'
 
           checks for {table_name}:
             - row_count = 10
@@ -46,15 +48,24 @@ def test_filter_on_date(data_source_fixture: DataSourceFixture):
     scan.assert_all_checks_pass()
 
 
+# @pytest.mark.skipif(
+#     test_data_source != "sqlserver",
+#     reason="Check syntax for timestamp comparison for SQLServer",
+#     )
 def test_table_filter_on_timestamp(data_source_fixture: DataSourceFixture):
     table_name = data_source_fixture.ensure_test_table(customers_test_table)
 
     scan = data_source_fixture.create_test_scan()
+    where_cond = (
+        f"""CONVERT(DATETIME, '${{ts_start}}') <= ts AND ts <  CONVERT(DATETIME,'${{ts_end}}')"""
+        if test_data_source == "sqlserver"
+        else f"""TIMESTAMP '${{ts_start}}' <= ts AND ts < TIMESTAMP '${{ts_end}}'"""
+    )
     scan.add_variables({"ts_start": "2020-06-23 00:00:00", "ts_end": "2020-06-24 00:00:00"})
     scan.add_sodacl_yaml_str(
         f"""
           filter {table_name} [daily]:
-            where: TIMESTAMP '${{ts_start}}' <= ts AND ts < TIMESTAMP '${{ts_end}}'
+            where: {where_cond}
 
           checks for {table_name}:
             - row_count = 10
@@ -74,7 +85,7 @@ def test_table_filter_on_timestamp(data_source_fixture: DataSourceFixture):
     scan.add_sodacl_yaml_str(
         f"""
           filter {table_name} [daily]:
-            where: TIMESTAMP '${{ts_start}}' <= ts AND ts < TIMESTAMP '${{ts_end}}'
+            where:  {where_cond}
 
           checks for {table_name}:
             - row_count = 10

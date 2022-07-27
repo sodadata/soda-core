@@ -19,7 +19,6 @@ from soda.sampler.sample_ref import SampleRef
 
 
 class DataSource:
-
     """
     Implementing a DataSource:
     @m1n0, can you add a checklist here of places where DataSource implementors need to make updates to add
@@ -69,6 +68,8 @@ class DataSource:
             return "BigQuery"
         elif "spark_df" == data_source_type:
             return "SparkDf"
+        elif "sqlserver" == data_source_type:
+            return "SQLServer"
         else:
             return f"{data_source_type[0:1].upper()}{data_source_type[1:]}"
 
@@ -520,7 +521,7 @@ class DataSource:
         field_clauses = []
         for i in range(0, number_of_bins):
             lower_bound = "" if i == 0 else f"{bins_list[i]} <= value_"
-            upper_bound = "" if i == number_of_bins - 1 else f"value_ < {bins_list[i+1]}"
+            upper_bound = "" if i == number_of_bins - 1 else f"value_ < {bins_list[i + 1]}"
             optional_and = "" if lower_bound == "" or upper_bound == "" else " AND "
             field_clauses.append(f"SUM(CASE WHEN {lower_bound}{optional_and}{upper_bound} THEN frequency_ END)")
 
@@ -883,3 +884,16 @@ class DataSource:
 
         finally:
             cursor.close()
+
+    def sql_select_column_with_filter_and_limit(
+        self, column_name: str, table_name: str, filter_clause: str, limit: int | None = None
+    ) -> str:
+        limit_str = ""
+        if limit:
+            limit_str = f"\n LIMIT {limit}"
+
+        sql = f"SELECT \n" f"  {column_name} \n" f"FROM {table_name}{filter_clause}{limit_str}"
+        return sql
+
+    def expr_false_condition(self):
+        return "FALSE"

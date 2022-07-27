@@ -121,17 +121,12 @@ class DistributionCheck(Check):
             scan = self.data_source_scan.scan
             resolved_filter = scan._jinja_resolve(definition=partition_filter)
             partition_str = f"\nWHERE {resolved_filter}"
-
-        limit_str = ""
-        if limit:
-            limit_str = f"\n LIMIT {limit}"
-
-        sql = (
-            f"SELECT \n"
-            f"  {column_name} \n"
-            f"FROM {self.partition.table.qualified_table_name}{partition_str}{limit_str}"
+        return self.data_source_scan.data_source.sql_select_column_with_filter_and_limit(
+            column_name=column_name,
+            table_name=self.partition.table.qualified_table_name,
+            limit=limit,
+            filter_clause=partition_str,
         )
-        return sql
 
     def get_summary(self) -> str:
         error_summary = (
