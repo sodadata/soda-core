@@ -1,5 +1,7 @@
+import pytest
 from helpers.common_test_tables import customers_test_table
 from helpers.data_source_fixture import DataSourceFixture
+from helpers.fixtures import test_data_source
 
 
 def test_default_invalid(data_source_fixture: DataSourceFixture):
@@ -57,6 +59,10 @@ def test_valid_min_max(data_source_fixture: DataSourceFixture):
     scan.assert_all_checks_pass()
 
 
+@pytest.mark.skipif(
+    test_data_source == "sqlserver",
+    reason="Regex support is not implemented for SQLServer",
+)
 def test_valid_format_email(data_source_fixture: DataSourceFixture):
     table_name = data_source_fixture.ensure_test_table(customers_test_table)
 
@@ -74,6 +80,10 @@ def test_valid_format_email(data_source_fixture: DataSourceFixture):
     scan.assert_all_checks_pass()
 
 
+@pytest.mark.skipif(
+    test_data_source == "sqlserver",
+    reason="Regex support is not implemented for SQLServer",
+)
 def test_column_configured_invalid_and_missing_values(data_source_fixture: DataSourceFixture):
     table_name = data_source_fixture.ensure_test_table(customers_test_table)
 
