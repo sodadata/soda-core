@@ -61,7 +61,7 @@ class DataSource:
     }
 
     NUMERIC_TYPES_FOR_PROFILING = ["integer", "double precision", "double"]
-    TEXT_TYPES_FOR_PROFILING = ["character varying", "varchar"]
+    TEXT_TYPES_FOR_PROFILING = ["character varying", "varchar", "text"]
 
     @staticmethod
     def camel_case_data_source_type(data_source_type: str) -> str:
@@ -500,7 +500,10 @@ class DataSource:
         if min_value >= max_value:
             self.logs.warning(
                 "Min of {column_name} on table: {table_name} must be smaller than max value. Min is {min_value}, and max is {max_value}".format(
-                    column_name=column_name, table_name=table_name, min_value=min_value, max_value=max_value
+                    column_name=column_name,
+                    table_name=table_name,
+                    min_value=min_value,
+                    max_value=max_value,
                 )
             )
             return None, []
