@@ -47,10 +47,10 @@ class ProfileColumnsResultColumn:
 
 
 class ProfileColumnsResultTable:
-    def __init__(self, table_name: str, data_source: str, row_count: int):
+    def __init__(self, table_name: str, data_source: str, row_count: int | None = None):
         self.table_name: str = table_name
         self.data_source: str = data_source
-        self.row_count: int = row_count
+        self.row_count: int | None = row_count
         self.result_columns: list[ProfileColumnsResultColumn] = []
 
     def create_column(self, column_name: str, column_type: str) -> ProfileColumnsResultColumn:
@@ -72,7 +72,9 @@ class ProfileColumnsResult:
         self.profile_columns_cfg: ProfileColumnsCfg = profile_columns_cfg
         self.tables: list[ProfileColumnsResultTable] = []
 
-    def create_table(self, table_name: str, data_source_name: str, row_count: int) -> ProfileColumnsResultTable:
+    def create_table(
+        self, table_name: str, data_source_name: str, row_count: int | None = None
+    ) -> ProfileColumnsResultTable:
         table = ProfileColumnsResultTable(table_name, data_source_name, row_count)
         self.tables.append(table)
         return table
