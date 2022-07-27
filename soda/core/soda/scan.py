@@ -110,7 +110,7 @@ class Scan:
             for configuration_yaml_file_path in configuration_yaml_file_paths:
                 self.add_configuration_yaml_file(file_path=configuration_yaml_file_path)
         except Exception as e:
-            self._logs.error(f"Could not add configuration files from dir {dir}", exception=e)
+            self._logs.error(f"Could not add configuration files from dir {path}", exception=e)
 
     def add_configuration_yaml_str(self, environment_yaml_str: str, file_path: str = "yaml string"):
         """
@@ -454,18 +454,9 @@ class Scan:
             if error_count > 0:
                 Log.log_errors(self.get_error_logs())
 
-            self._scan_end_timestamp = datetime.now(tz=timezone.utc)
-            if self._configuration.soda_cloud:
-                self._logs.info("Sending results to Soda Cloud")
-                self._configuration.soda_cloud.send_scan_results(self)
-
             # Telemetry data
             soda_telemetry.set_attributes(
                 {
-                    "scan_exit_code": exit_value,
-                    "checks_count": len(self._checks),
-                    "queries_count": len(self._queries),
-                    "metrics_count": len(self._metrics),
                     "pass_count": checks_pass_count,
                     "error_count": error_count,
                     "failures_count": checks_fail_count,
@@ -476,8 +467,27 @@ class Scan:
             exit_value = 3
             self._logs.error(f"Error occurred while executing scan.", exception=e)
         finally:
+            try:
+                self._scan_end_timestamp = datetime.now(tz=timezone.utc)
+                if self._configuration.soda_cloud:
+                    self._logs.info("Sending results to Soda Cloud")
+                    self._configuration.soda_cloud.send_scan_results(self)
+
+            except Exception as e:
+                exit_value = 3
+                self._logs.error(f"Error occurred while sending scan results to soda cloud.", exception=e)
 
             self._close()
+
+        # Telemetry data
+        soda_telemetry.set_attributes(
+            {
+                "scan_exit_code": exit_value,
+                "checks_count": len(self._checks),
+                "queries_count": len(self._queries),
+                "metrics_count": len(self._metrics),
+            }
+        )
         return exit_value
 
     def run_data_source_scan(self):

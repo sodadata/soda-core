@@ -264,6 +264,9 @@ class NumericQueryMetric(QueryMetric):
                 where_clauses.append(f"NOT {self.build_missing_condition()}")
                 where_clauses.append(f"NOT {self.build_valid_condition()}")
 
+            if self.filter:
+                where_clauses.append(self.filter)
+
             where_sql = " AND ".join(where_clauses)
 
             sql = f"SELECT * \n" f"FROM {self.partition.table.qualified_table_name} \n" f"WHERE {where_sql}"

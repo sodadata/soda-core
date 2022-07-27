@@ -42,8 +42,15 @@ class ReferenceQuery(Query):
                 for index, source_column_name in enumerate(source_column_names)
             ]
         )
+
+        # Search for all rows where:
+        # 1. source value is not null - to avoid null values triggering fails
+        # 2. target value is null - this means that source value was not found in target column.
         where_condition = " OR ".join(
-            [f"TARGET.{target_column_name} IS NULL" for target_column_name in target_column_names]
+            [
+                f"(SOURCE.{source_column_name} IS NOT NULL AND TARGET.{target_column_name} IS NULL)"
+                for source_column_name, target_column_name in zip(source_column_names, target_column_names)
+            ]
         )
 
         self.sql = (
@@ -59,4 +66,4 @@ class ReferenceQuery(Query):
         if self.sample_ref:
             self.metric.set_value(self.sample_ref.total_row_count)
             if self.sample_ref.is_persisted():
-                self.metric.invalid_references_sample_ref = self.sample_ref
+                self.metric.failed_rows_sample_ref = self.sample_ref
