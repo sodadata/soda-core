@@ -34,7 +34,7 @@ jobs:
         run: pre-commit run --all-files
 
   run-tests:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     strategy:
       fail-fast: false
       matrix:
@@ -98,7 +98,7 @@ jobs:
         run: |
           curl https://packages.microsoft.com/keys/microsoft.asc | sudo apt-key add -
           curl https://packages.microsoft.com/config/ubuntu/$(lsb_release -rs)/prod.list | sudo tee /etc/apt/sources.list.d/mssql-release.list > /dev/null
-          sudo apt-get install -y libsasl2-dev msodbcsql18 unixodbc-dev
+          sudo apt-get install -y libsasl2-dev msodbcsql17 unixodbc-dev
           python -m pip install --upgrade pip
           cat dev-requirements.in | grep tox | xargs pip install
 
