@@ -98,7 +98,7 @@ jobs:
         run: |
           curl https://packages.microsoft.com/keys/microsoft.asc | sudo apt-key add -
           curl https://packages.microsoft.com/config/ubuntu/21.04/prod.list | sudo tee /etc/apt/sources.list.d/mssql-release.list > /dev/null
-          apt-get update
+          sudo apt-get update
           ACCEPT_EULA=Y sudo apt-get install -y libsasl2-dev odbcinst msodbcsql18 unixodbc-dev
           python -m pip install --upgrade pip
           cat dev-requirements.in | grep tox | xargs pip install
