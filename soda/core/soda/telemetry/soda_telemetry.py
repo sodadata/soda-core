@@ -105,6 +105,10 @@ class SodaTelemetry:
 
         trace.set_tracer_provider(self.__provider)
 
+    def get_attribute(self, key: str, default_value=None) -> any:
+        """There is no obvious easy way to get attribute value from the current span."""
+        raise NotImplementedError()
+
     def set_attribute(self, key: str, value: str) -> None:
         """Set attribute value in the current span."""
         if self.__send:
