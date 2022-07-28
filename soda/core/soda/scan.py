@@ -473,6 +473,12 @@ class Scan:
                     self._logs.info("Sending results to Soda Cloud")
                     self._configuration.soda_cloud.send_scan_results(self)
 
+                    if "send_scan_results" in self._configuration.soda_cloud.soda_cloud_trace_ids:
+                        cloud_trace_id = self._configuration.soda_cloud.soda_cloud_trace_ids["send_scan_results"]
+                        self._logs.info(f"Soda Cloud Trace: {cloud_trace_id}")
+                    else:
+                        self._logs.info("Soda Cloud Trace ID not available.")
+
             except Exception as e:
                 exit_value = 3
                 self._logs.error(f"Error occurred while sending scan results to soda cloud.", exception=e)
@@ -488,6 +494,10 @@ class Scan:
                 "metrics_count": len(self._metrics),
             }
         )
+        if self._configuration.soda_cloud:
+            for request_name, trace_id in self._configuration.soda_cloud.soda_cloud_trace_ids.items():
+                soda_telemetry.set_attribute(f"soda_cloud_trace_id__{request_name}", trace_id)
+
         return exit_value
 
     def run_data_source_scan(self):
