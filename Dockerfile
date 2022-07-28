@@ -4,7 +4,10 @@ ENV DEBIAN_FRONTEND=noninteractive
 ENV TZ=Etc/UTC
 ENV LC_ALL=C.UTF-8
 ENV LANG=C.UTF-8
-
+ENV ACCEPT_EULA=Y
+RUN apt-get update && apt-get install -y curl gnupg2
+RUN curl https://packages.microsoft.com/keys/microsoft.asc | apt-key add -
+RUN curl https://packages.microsoft.com/config/ubuntu/21.04/prod.list > /etc/apt/sources.list.d/mssql-release.list
 # install dependencies
 RUN apt-get update && \
     apt-get upgrade -y && \
@@ -14,12 +17,14 @@ RUN apt-get update && \
     apt-get update && \
     apt-get upgrade -y && \
     apt-get install -y --no-install-recommends \
-    build-essential curl \
+    build-essential \
     libpq-dev \
     libsasl2-dev \
     libssl-dev libffi-dev \
     python3.9 python3.9-dev python3.9-venv libpython3.9-dev libpython3.9 \
     python3.9-distutils \
+    odbcinst \
+    msodbcsql18 \
     unixodbc-dev git && \
     apt-get clean -qq -y && \
     apt-get autoclean -qq -y && \
