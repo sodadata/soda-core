@@ -12,7 +12,7 @@ def test_min_max_avg_sum(data_source_fixture: DataSourceFixture):
         - min(size) = -3
         - max(size) = 6
         - avg(size) between 1.12 and 1.13
-        - sum(size) = 7.9
+        - sum(size) between 7.8 and 7.9
     """
     )
     scan.execute()
