@@ -6,6 +6,7 @@ from soda.sampler.default_sampler import DefaultSampler
 from soda.sampler.sampler import Sampler
 from soda.scan import Scan
 from soda.soda_cloud.soda_cloud import SodaCloud
+from soda.cloud.dbt_config import DbtCloudConfig
 
 
 class Configuration:
@@ -16,6 +17,7 @@ class Configuration:
         self.soda_cloud: SodaCloud | None = None
         self.file_system = file_system()
         self.sampler: Sampler = DefaultSampler()
+        self.dbt_cloud: DbtCloudConfig | None = None
 
     def add_spark_session(self, data_source_name: str, spark_session):
         self.data_source_properties_by_name[data_source_name] = {
