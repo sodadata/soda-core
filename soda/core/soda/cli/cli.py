@@ -58,6 +58,12 @@ if __name__ == "__main__":
     type=click.STRING,
 )
 @click.option("-V", "--verbose", is_flag=True)
+@click.option(
+    '-srf', '--scan-results-file',
+    required=False,
+    default=None,
+    help='Specify the file path where the scan results as json will be stored'
+)
 @click.argument("sodacl_paths", nargs=-1, type=click.STRING)
 @soda_trace
 def scan(
@@ -67,6 +73,7 @@ def scan(
     configuration: List[str],
     variable: List[str],
     verbose: Optional[bool],
+    scan_results_file: Optional[str] = None,
 ):
     """
     soda scan will
@@ -121,6 +128,7 @@ def scan(
                 "offline": False,  # TODO: change after offline mode is supported.
                 "non_interactive": False,  # TODO: change after non interactive mode is supported.
                 "verbose": verbose,
+                "scan_results_file": scan_results_file,
             },
         }
     )
@@ -158,6 +166,9 @@ def scan(
     if variable:
         variables_dict = dict([tuple(v.split("=")) for v in variable])
         scan.add_variables(variables_dict)
+
+    if isinstance(scan_results_file, str):
+        scan.set_scan_results_file(scan_results_file)
 
     sys.exit(scan.execute())
 
