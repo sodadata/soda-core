@@ -59,10 +59,11 @@ if __name__ == "__main__":
 )
 @click.option("-V", "--verbose", is_flag=True)
 @click.option(
-    '-srf', '--scan-results-file',
+    "-srf",
+    "--scan-results-file",
     required=False,
     default=None,
-    help='Specify the file path where the scan results as json will be stored'
+    help="Specify the file path where the scan results as json will be stored",
 )
 @click.argument("sodacl_paths", nargs=-1, type=click.STRING)
 @soda_trace

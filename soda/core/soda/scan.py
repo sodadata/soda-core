@@ -491,8 +491,8 @@ class Scan:
             self._close()
 
         if self._scan_results_file is not None:
-            logger.info(f'Saving scan results to {self._scan_results_file}')
-            with open(self._scan_results_file, 'w') as f:
+            logger.info(f"Saving scan results to {self._scan_results_file}")
+            with open(self._scan_results_file, "w") as f:
                 json.dump(SodaCloud.build_scan_results(self), f)
 
         # Telemetry data
