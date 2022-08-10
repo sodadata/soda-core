@@ -9,7 +9,7 @@ if sys.version_info < (3, 7):
     sys.exit(1)
 
 package_name = "soda-core-redshift"
-package_version = "3.0.3"
+package_version = "3.0.4"
 description = "Soda Core Redshift Package"
 
 requires = [f"soda-core=={package_version}", "boto3"]
