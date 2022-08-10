@@ -176,7 +176,7 @@ class NumericQueryMetric(QueryMetric):
 
                 valid_format = missing_and_valid_cfg.valid_format
                 if valid_format is not None:
-                    format_cfgs = self.data_source_scan.scan._configuration.format_cfgs
+                    format_cfgs = self.data_source_scan.data_source.DEFAULT_FORMATS
                     format_regex = format_cfgs.get(valid_format)
                     # TODO generate error if format does not exist!
                     if not format_regex:

@@ -2,7 +2,6 @@ import pytest
 from helpers.common_test_tables import customers_test_table
 from helpers.data_source_fixture import DataSourceFixture
 from helpers.fixtures import test_data_source
-from soda.sodacl.format_cfg import FormatCfg
 
 
 @pytest.mark.skipif(
@@ -34,9 +33,6 @@ def test_formats(data_source_fixture: DataSourceFixture):
         ],
     )
 
-    # def test_negative_integer_format(data_source_fixture: DataSourceFixture):
-    #     table_name = data_source_fixture.ensure_test_table(customers_test_table)
-
     assert_format_values(
         "negative integer",
         data_source_fixture,
@@ -48,9 +44,6 @@ def test_formats(data_source_fixture: DataSourceFixture):
         ],
         failing_values=["", "a", " ", "1234567890", "+0", "+1"],
     )
-
-    # def test_percentage_format(data_source_fixture: DataSourceFixture):
-    #     table_name = data_source_fixture.ensure_test_table(customers_test_table)
 
     assert_format_values(
         "percentage",
@@ -70,9 +63,6 @@ def test_formats(data_source_fixture: DataSourceFixture):
         ],
         failing_values=["", " ", "%", "a %", "0", "0.0"],
     )
-
-    # def test_date_iso_format(data_source_fixture: DataSourceFixture):
-    #     table_name = data_source_fixture.ensure_test_table(customers_test_table)
 
     assert_format_values(
         "date iso 8601",
@@ -117,7 +107,7 @@ def test_formats(data_source_fixture: DataSourceFixture):
 
 
 def assert_format_values(format, data_source_fixture: DataSourceFixture, table_name, passing_values, failing_values):
-    format_regex = FormatCfg.default_formats[format]
+    format_regex = data_source_fixture.data_source.DEFAULT_FORMATS[format]
 
     data_source = data_source_fixture.data_source
     qualified_table_name = data_source.qualified_table_name(table_name)

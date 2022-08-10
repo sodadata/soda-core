@@ -55,6 +55,7 @@ jobs:
           # - "spark"
           - "spark_df"
           - "sqlserver"
+          - "mysql"
     env:
       DATA_SOURCE: ${{ matrix.data-source }}
       PYTHON_VERSION: ${{ matrix.python-version }}
@@ -83,6 +84,9 @@ jobs:
       SQLSERVER_PASSWORD: Password1!
       SQLSERVER_DATABASE: master
       SQLSERVER_SCHEMA: dbo
+      MYSQL_USER: sodacore
+      MYSQL_PASSWORD: sodacore
+      MYSQL_ROOT_PASSWORD: sodacore
       # TODO: add appropriate vars
       SPARK_DF_HOST: ${{ secrets.SPARK_DF_HOST }}
 

@@ -22,6 +22,7 @@ requires = [
     "ruamel.yaml~=0.17.21",
     "requests~=2.27.1",
     "antlr4-python3-runtime~=4.9.3",
+    "opentelemetry-api~=1.11.0",
     "opentelemetry-exporter-otlp-proto-http~=1.11.0",
     "protobuf~=3.19.0",
 ]
