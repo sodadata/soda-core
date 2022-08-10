@@ -6,7 +6,7 @@ from soda.execution.data_type import DataType
 
 
 @pytest.mark.skipif(
-    test_data_source in ["athena", "spark"],
+    test_data_source in ["athena", "spark", "mysql"],
     reason="Case sensitive identifiers not supported in tested data source.",
 )
 def test_row_count_thresholds_passing(data_source_fixture: DataSourceFixture):
