@@ -142,7 +142,19 @@ class DataSource:
         DataType.BOOLEAN: "boolean",
     }
 
-    NUMERIC_TYPES_FOR_PROFILING = ["integer", "double precision", "double"]
+    NUMERIC_TYPES_FOR_PROFILING = [
+        "integer",
+        "double precision",
+        "double",
+        "smallint",
+        "bigint",
+        "decimal",
+        "numeric",
+        "real",
+        "smallserial",
+        "serial",
+        "bigserial",
+    ]
     TEXT_TYPES_FOR_PROFILING = ["character varying", "varchar", "text"]
 
     DEFAULT_FORMATS: dict[str, str] = FormatHelper.build_default_formats()
