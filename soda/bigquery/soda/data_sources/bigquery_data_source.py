@@ -46,7 +46,19 @@ class BigQueryDataSource(DataSource):
         DataType.BOOLEAN: "BOOL",
     }
 
-    NUMERIC_TYPES_FOR_PROFILING = ["NUMERIC", "INT64"]
+    NUMERIC_TYPES_FOR_PROFILING = [
+        "NUMERIC",
+        "INT64",
+        "INT",
+        "SMALLINT",
+        "INTEGER",
+        "BIGINT",
+        "TINYINT",
+        "DECIMAL",
+        "BIGNUMERIC",
+        "BIGDECIMAL",
+        "FLOAT64",
+    ]
     TEXT_TYPES_FOR_PROFILING = ["STRING"]
 
     def __init__(self, logs: Logs, data_source_name: str, data_source_properties: dict):
@@ -117,7 +129,10 @@ class BigQueryDataSource(DataSource):
             raise DataSourceConnectionError(self.TYPE, e)
 
     def sql_get_table_columns(
-        self, table_name: str, included_columns: list[str] | None = None, excluded_columns: list[str] | None = None
+        self,
+        table_name: str,
+        included_columns: list[str] | None = None,
+        excluded_columns: list[str] | None = None,
     ):
         included_columns_filter = ""
         excluded_columns_filter = ""
