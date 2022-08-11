@@ -155,7 +155,7 @@ class DataSource:
         "serial",
         "bigserial",
     ]
-    TEXT_TYPES_FOR_PROFILING = ["character varying", "varchar", "text"]
+    TEXT_TYPES_FOR_PROFILING = ["character varying", "varchar", "text", "character", "char"]
 
     DEFAULT_FORMATS: dict[str, str] = FormatHelper.build_default_formats()
 
