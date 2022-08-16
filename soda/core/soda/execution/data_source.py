@@ -103,13 +103,9 @@ class FormatHelper:
 
 class DataSource:
     """
-    Implementing a DataSource:
-    @m1n0, can you add a checklist here of places where DataSource implementors need to make updates to add
-    a new DataSource?
+    Data source implementation.
 
-    Validation of the connection configuration properties:
-    The DataSource impl is only responsible to raise an exception with an appropriate message in te #connect()
-    See that abstract method below for more details.
+    For documentation on implementing a new DataSource see the CONTRIBUTING-DATA-SOURCE.md document.
     """
 
     # Maps synonym types for the convenience of use in checks.
@@ -120,6 +116,8 @@ class DataSource:
         "timestamp without time zone": ["timestamp"],
         "timestamp with time zone": ["timestamptz"],
     }
+
+    # Supported data types used in create statements. These are used in tests for creating test data and do not affect the actual library functionality.
     SQL_TYPE_FOR_CREATE_TABLE_MAP: dict = {
         DataType.TEXT: "VARCHAR(255)",
         DataType.INTEGER: "INT",
@@ -131,6 +129,7 @@ class DataSource:
         DataType.BOOLEAN: "BOOLEAN",
     }
 
+    # Supported data types as returned by the given data source when retrieving dataset schema. Used in schema checks.
     SQL_TYPE_FOR_SCHEMA_CHECK_MAP = {
         DataType.TEXT: "character varying",
         DataType.INTEGER: "integer",
@@ -142,6 +141,7 @@ class DataSource:
         DataType.BOOLEAN: "boolean",
     }
 
+    # Indicate which numeric/test data types can be used for profiling checks.
     NUMERIC_TYPES_FOR_PROFILING = ["integer", "double precision", "double"]
     TEXT_TYPES_FOR_PROFILING = ["character varying", "varchar", "text"]
 
@@ -260,10 +260,12 @@ class DataSource:
 
     @staticmethod
     def column_metadata_columns() -> list:
+        """Columns to be used for retrieving column metadata."""
         return ["column_name", "data_type", "is_nullable"]
 
     @staticmethod
     def column_metadata_catalog_column() -> str:
+        """Column to be used as a 'database' equivalent."""
         return "table_catalog"
 
     ######################
@@ -930,7 +932,7 @@ class DataSource:
     def safe_connection_data(self):
         """Return non-critically sensitive connection details.
 
-        Useful for debugging.
+        Useful for debugging and telemetry.
         """
         # to be overridden by subclass
 
