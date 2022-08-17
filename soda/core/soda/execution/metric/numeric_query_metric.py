@@ -142,7 +142,7 @@ class NumericQueryMetric(QueryMetric):
 
                 missing_format = missing_and_valid_cfg.missing_format
                 if missing_format:
-                    format_cfgs = self.table.scan._configuration.format_cfgs
+                    format_cfgs = self.data_source_scan.data_source.DEFAULT_FORMATS
                     format_regex = format_cfgs.get(missing_format)
                     if not format_regex:
                         self.logs.error(
