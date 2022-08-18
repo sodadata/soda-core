@@ -1,27 +1,29 @@
-# Overview
+# Contribute support for a datasource
 
-Things we need to support a data source:
-- Working data source
-    - locally - command to launch a docker container with the data source. Docker file or docker compose file.
-    - in cloud - service account to connect
-- Python library for the connection. This usually means installing an existing official connector library.
-- Data source package that handles
-    - getting connection properties
-    - connecting to the data source
-    - any data source specific code to ensure full support
+Thanks for considering contributing to Soda Core's library of supported data sources! 
 
-# Implementation
+To make a data source available to our user community, we require that you provide the following:
+- a **working data source**
+    - locally - provide a command to launch a docker container with the data source, either a Docker file or docker-compose file.
+    - in the cloud - provide a service account to connect to.
+- a **Python library** for the data source connection. Usually, you need to install an existing official connector library.
+- a **data source package** that handles the following:
+    - get connection properties
+    - connect to the data source
+    - access any data source-specific code to ensure full support
 
-File and folder structure:
-- package goes to `soda/xy`, follows same structure as other packages
-- main file is `soda/xy/soda/data_sources/xy_data_source.py` with a `XyDataSource(DataSource)` class
+## Implementation basics
 
-Basic code in the Data Source class:
-- implement the `__init__` method to retrieve and save connection properties
-- implement the `connect` method that returns a PEP 249 compatible connection object
+**Datasource file and folder structure**
+- The package goes to `soda/xy`, following the same structure as other datasource packages.
+- The main file is `soda/xy/soda/data_sources/xy_data_source.py` with a `XyDataSource(DataSource)` class.
 
-What certainly needs to be overridden:
-- type mappings - see more details in the base DataSource class comments.
+**Basic code in the data source class**
+- Implement the `__init__` method to retrieve and save connection properties.
+- Implement the `connect` method that returns a PEP 249-compatible connection object.
+
+**Required overrides**
+- Type mappings; refer to the base DataSource class comments for more detail.
     - `SCHEMA_CHECK_TYPES_MAPPING`
     - `SQL_TYPE_FOR_CREATE_TABLE_MAP`
     - `SQL_TYPE_FOR_SCHEMA_CHECK_MAP`
@@ -29,33 +31,36 @@ What certainly needs to be overridden:
     - `TEXT_TYPES_FOR_PROFILING`
 - `safe_connection_data()` method
 
-What usually needs to be overridden:
-- `sql_get_table_names_with_count()` - sql to retrieve all tables with their respective counts. Usually data source specific.
-- `default_casify_*()` - indicates any default case manipulation that a data source does when retrieving respective identifiers
-- table/column metadata methods:
+**Optional overrides, frequent**
+- `sql_get_table_names_with_count()` - SQL query to retrieve all tables and their respective counts. This is usually data source-specific.
+- `default_casify_*()` - indicates any default case manipulation that a data source does when retrieving respective identifiers.
+- Table/column metadata methods
     - `column_metadata_columns()`
     - `column_metadata_catalog_column()`
     - `sql_get_table_names_with_count()`
-- regex support:
-    - `escape_regex()` or `escape_string()` to assure correct regex format
-    - `regex_replace_flags()` - some data sources support regex replace flags (e.g. `g` for `global`), some do not
-- identifier quoting:
-    - `quote_*()` methods take care of identifier quoting, `qualified_table_name()` creates a fully qualified table name
+- Regex support
+    - `escape_regex()` or `escape_string()` to ensure correct regex formatting.
+    - `regex_replace_flags()` - for data sources that support regex replace flags; for example, `g` for `global`.
+- Identifier quoting - `quote_*()` methods handle identifier quoting; `qualified_table_name()` creates a fully-qualified table name.
 
-What sometimes needs to be overridden:
-- any of the `sql_*` methods when a particular data source needs a specific query to get desired result
+**Optional overrides, infrequent**
+- Any of the `sql_*` methods when a particular data source needs a specific query to get a desired result.
 
-Things to consider:
-- How are schemas (or equivalent) handled - can it be set globally for the connection, or does it need to be prefixed in all the queries?
+**Further considerations**
+- How are schemas (or the equivalent) handled? Can they be set globally for the connection, or do they need to be prefixed in all the queries?
 
-Tests:
-- Create a `soda/xy/tests/text_xy.py` file with `test_xy()` method. This file is used for any data source specific tests.
-- Implement `XyDataSourceFixture` for everything tests related:
-    - `_build_configuration_dict()` - configuration of the connection used in tests
-    - `_create_schema_if_not_exists_sql()` / `_drop_schema_if_exists_sql` - DDL to create / drop a new schema / database
 
-# How to test
 
-- Create `.env` file based on `.env.example` and add appropriate variables for given data source.
-- Change the `test_data_source` variable to tested data source
-- Run tests using `pytest`
+## Test the datasource support
+
+**Required tests**
+- Create a `soda/xy/tests/text_xy.py` file with `test_xy()` method. Use this file for any data source-specific tests.
+- Implement `XyDataSourceFixture` for everything related to tests:
+    - `_build_configuration_dict()` - connection configuration the tests use
+    - `_create_schema_if_not_exists_sql()` / `_drop_schema_if_exists_sql` - DDL to create or drop a new schema or database
+
+**To test the data source**
+
+1. Create an `.env` file based on `.env.example` and add the appropriate variables for the data source.
+2. Change the `test_data_source` variable to the data source you are testing.
+3. Run the tests using `pytest`.
