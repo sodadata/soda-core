@@ -60,7 +60,7 @@ class ProfileColumnsRun:
         )
 
         if len(table_names) < 1:
-            self.logs.error(
+            self.logs.warning(
                 f"No table matching your SodaCL inclusion list found on your {self.data_source.data_source_name} "
                 "data source. Profiling results may be incomplete or entirely skipped",
                 location=self.profile_columns_cfg.location,
