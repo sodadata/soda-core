@@ -68,9 +68,9 @@ class SodaCloud:
             {
                 "definitionName": scan._scan_definition_name,
                 "defaultDataSource": scan._data_source_name,
-                "dataTimestamp": scan._data_timestamp,
-                "scanStartTimestamp": scan._scan_start_timestamp,
-                "scanEndTimestamp": scan._scan_end_timestamp,
+                "dataTimestamp": scan._data_timestamp,  # Can be changed by user, this is shown in Cloud as time of a scan.
+                "scanStartTimestamp": scan._scan_start_timestamp,  # Actual time when the scan started.
+                "scanEndTimestamp": scan._scan_end_timestamp,  # Actual time when scan ended.
                 "hasErrors": scan.has_error_logs(),
                 "hasWarnings": scan.has_check_warns(),
                 "hasFailures": scan.has_check_fails(),

@@ -1,5 +1,5 @@
 [version]
-current = "3.0.3"
+current = "3.0.4"
 
 regex = '''
   (?P<major>\d+)\.(?P<minor>\d+)\.(?P<patch>\d+)((?P<prerelease>[a-z]+)(?P<build>\d+))?
@@ -58,3 +58,8 @@ search = 'package_version = "{current_version}"'
 [[file]]
 src = "soda/sqlserver/setup.py"
 search = 'package_version = "{current_version}"'
+
+[[file]]
+src = "soda/mysql/setup.py"
+search = 'package_version = "{current_version}"'
+
