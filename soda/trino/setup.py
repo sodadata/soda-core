@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 import sys
-from setuptools import setup, find_namespace_packages
+
+from setuptools import find_namespace_packages, setup
 
 if sys.version_info < (3, 8):
     print("Error: Soda Core requires at least Python 3.8")
@@ -11,14 +12,11 @@ package_name = "soda-core-trino"
 package_version = "3.0.4"
 description = "Soda Core Trino Package"
 
-requires = [
-    f"soda-core=={package_version}",
-    "trino>=0.315.0"
-]
+requires = [f"soda-core=={package_version}", "trino>=0.315.0"]
 
 setup(
     name=package_name,
     version=package_version,
     install_requires=requires,
-    packages=find_namespace_packages(include=["soda*"])
+    packages=find_namespace_packages(include=["soda*"]),
 )
