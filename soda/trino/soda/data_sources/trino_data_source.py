@@ -79,6 +79,9 @@ class TrinoDataSource(DataSource):
             auth = trino.auth.BasicAuthentication(self.username, self.password)
         )
 
+    def regex_replace_flags(self) -> str:
+        return ""
+
     def sql_get_table_names_with_count(
         self,
         include_tables: list[str] | None = None,
