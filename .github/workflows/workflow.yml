@@ -34,7 +34,7 @@ jobs:
         run: pre-commit run --all-files
 
   run-tests:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     strategy:
       fail-fast: false
       matrix:
@@ -54,6 +54,8 @@ jobs:
           #  - "db2"
           # - "spark"
           - "spark_df"
+          - "sqlserver"
+          - "mysql"
     env:
       DATA_SOURCE: ${{ matrix.data-source }}
       PYTHON_VERSION: ${{ matrix.python-version }}
@@ -78,6 +80,13 @@ jobs:
       SPARK_USERNAME: ${{ secrets.SPARK_USERNAME }}
       SPARK_PASSWORD: ${{ secrets.SPARK_PASSWORD }}
       SPARK_DATABASE: ${{ secrets.SPARK_DATABASE }}
+      SQLSERVER_USERNAME: SA
+      SQLSERVER_PASSWORD: Password1!
+      SQLSERVER_DATABASE: master
+      SQLSERVER_SCHEMA: dbo
+      MYSQL_USER: sodacore
+      MYSQL_PASSWORD: sodacore
+      MYSQL_ROOT_PASSWORD: sodacore
       # TODO: add appropriate vars
       SPARK_DF_HOST: ${{ secrets.SPARK_DF_HOST }}
 
@@ -91,7 +100,10 @@ jobs:
 
       - name: Install dependencies
         run: |
-          sudo apt-get install -y libsasl2-dev
+          curl https://packages.microsoft.com/keys/microsoft.asc | sudo apt-key add -
+          curl https://packages.microsoft.com/config/ubuntu/21.04/prod.list | sudo tee /etc/apt/sources.list.d/mssql-release.list > /dev/null
+          sudo apt-get update
+          ACCEPT_EULA=Y sudo apt-get install -y libsasl2-dev odbcinst msodbcsql18 unixodbc-dev
           python -m pip install --upgrade pip
           cat dev-requirements.in | grep tox | xargs pip install
 

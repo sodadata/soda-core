@@ -1,5 +1,7 @@
+import pytest
 from helpers.common_test_tables import customers_test_table
 from helpers.data_source_fixture import DataSourceFixture
+from helpers.fixtures import test_data_source
 
 
 def test_default_invalid(data_source_fixture: DataSourceFixture):
@@ -57,6 +59,10 @@ def test_valid_min_max(data_source_fixture: DataSourceFixture):
     scan.assert_all_checks_pass()
 
 
+@pytest.mark.skipif(
+    test_data_source == "sqlserver",
+    reason="Regex support is not implemented for SQLServer",
+)
 def test_valid_format_email(data_source_fixture: DataSourceFixture):
     table_name = data_source_fixture.ensure_test_table(customers_test_table)
 
@@ -66,7 +72,7 @@ def test_valid_format_email(data_source_fixture: DataSourceFixture):
           checks for {table_name}:
             - invalid_count(email) = 1:
                 valid format: email
-            - missing_count(email) = 5
+
         """
     )
     scan.execute()
@@ -74,6 +80,10 @@ def test_valid_format_email(data_source_fixture: DataSourceFixture):
     scan.assert_all_checks_pass()
 
 
+@pytest.mark.skipif(
+    test_data_source == "sqlserver",
+    reason="Regex support is not implemented for SQLServer",
+)
 def test_column_configured_invalid_and_missing_values(data_source_fixture: DataSourceFixture):
     table_name = data_source_fixture.ensure_test_table(customers_test_table)
 
@@ -133,7 +143,11 @@ def test_check_and_column_configured_invalid_values(data_source_fixture: DataSou
     """
     table_name = data_source_fixture.ensure_test_table(customers_test_table)
 
-    digit_regex = data_source_fixture.data_source.escape_regex(r"ID\d")
+    digit_regex = (
+        r"ID[[:digit:]]"
+        if data_source_fixture.data_source_name == "mysql"
+        else data_source_fixture.data_source.escape_regex(r"ID\d")
+    )
 
     scan = data_source_fixture.create_test_scan()
     scan.add_sodacl_yaml_str(
