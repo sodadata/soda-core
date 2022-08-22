@@ -142,8 +142,20 @@ class DataSource:
     }
 
     # Indicate which numeric/test data types can be used for profiling checks.
-    NUMERIC_TYPES_FOR_PROFILING = ["integer", "double precision", "double"]
-    TEXT_TYPES_FOR_PROFILING = ["character varying", "varchar", "text"]
+    NUMERIC_TYPES_FOR_PROFILING = [
+        "integer",
+        "double precision",
+        "double",
+        "smallint",
+        "bigint",
+        "decimal",
+        "numeric",
+        "real",
+        "smallserial",
+        "serial",
+        "bigserial",
+    ]
+    TEXT_TYPES_FOR_PROFILING = ["character varying", "varchar", "text", "character", "char"]
 
     DEFAULT_FORMATS: dict[str, str] = FormatHelper.build_default_formats()
 
