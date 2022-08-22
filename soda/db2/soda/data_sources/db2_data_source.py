@@ -44,8 +44,18 @@ class Db2DataSource(DataSource):
         DataType.BOOLEAN: "BOOLEAN",
     }
 
-    NUMERIC_TYPES_FOR_PROFILING = ["INT", "DOUBLE"]
-    TEXT_TYPES_FOR_PROFILING = ["VARCHAR"]
+    NUMERIC_TYPES_FOR_PROFILING = [
+        "INT",
+        "DOUBLE",
+        "SMALLINT",
+        "INTEGER",
+        "BIGINT",
+        "DECIMAL",
+        "NUMERIC",
+        "REAL",
+        "DECFLOAT",
+    ]
+    TEXT_TYPES_FOR_PROFILING = ["VARCHAR", "CHARACTER"]
 
     def __init__(self, logs: Logs, data_source_name: str, data_source_properties: dict):
         super().__init__(logs, data_source_name, data_source_properties)
@@ -147,7 +157,11 @@ class Db2DataSource(DataSource):
         schema_column_name: str = "table_schema",
     ) -> str:
         return super().sql_find_table_names(
-            filter, include_tables, exclude_tables, table_column_name="TABNAME", schema_column_name="TABSCHEMA"
+            filter,
+            include_tables,
+            exclude_tables,
+            table_column_name="TABNAME",
+            schema_column_name="TABSCHEMA",
         )
 
     def literal_datetime(self, datetime: datetime):
