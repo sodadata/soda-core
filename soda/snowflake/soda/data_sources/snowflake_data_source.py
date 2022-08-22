@@ -46,8 +46,32 @@ class SnowflakeDataSource(DataSource):
         DataType.BOOLEAN: "BOOLEAN",
     }
 
-    NUMERIC_TYPES_FOR_PROFILING = ["FLOAT", "NUMBER", "INT"]
-    TEXT_TYPES_FOR_PROFILING = ["TEXT"]
+    NUMERIC_TYPES_FOR_PROFILING = [
+        "FLOAT",
+        "NUMBER",
+        "INT",
+        "DECIMAL",
+        "NUMERIC",
+        "INTEGER",
+        "BIGINT",
+        "SMALLINT",
+        "TINYINT",
+        "FLOAT4",
+        "FLOAT8",
+        "REAL",
+    ]
+    TEXT_TYPES_FOR_PROFILING = [
+        "TEXT",
+        "VARCHAR",
+        "CHAR",
+        "CHARACTER",
+        "NCHAR",
+        "STRING",
+        "NVARCHAR",
+        "NVARCHAR2",
+        "CHAR VARYING",
+        "NCHAR VARYING",
+    ]
 
     def __init__(self, logs: Logs, data_source_name: str, data_source_properties: dict):
         super().__init__(logs, data_source_name, data_source_properties)
