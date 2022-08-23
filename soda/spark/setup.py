@@ -13,17 +13,23 @@ package_version = "3.0.4"
 description = "Soda Core Spark Package"
 
 requires = [
-    f"soda-core=={package_version}",
-    "pyodbc",
-    "PyHive",
-    "thrift",
-    "sasl",
-    "thrift-sasl",
+    f"soda-core=={package_version}"
+
 ]
+
+extras = {
+    "hive": [
+        "PyHive[hive]",
+    ],
+    "odbc": [
+        "pyodbc",
+    ]
+}
 # TODO Fix the params
 setup(
     name=package_name,
     version=package_version,
     install_requires=requires,
     packages=find_namespace_packages(include=["soda*"]),
+    extras_require=extras
 )

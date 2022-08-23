@@ -7,7 +7,6 @@ from datetime import date, datetime
 from enum import Enum
 from typing import Any
 
-from pyhive import hive
 from soda.__version__ import SODA_CORE_VERSION
 from soda.common.exceptions import DataSourceConnectionError
 from soda.common.logs import Logs
@@ -27,7 +26,7 @@ def hive_connection_function(
     database: str,
     auth_method: str,
     **kwargs,
-) -> hive.Connection:
+):
     """
     Connect to hive.
 
@@ -51,6 +50,7 @@ def hive_connection_function(
     out : hive.Connection
         The hive connection
     """
+    from pyhive import hive
     connection = hive.connect(
         username=username, password=password, host=host, port=port, database=database, auth=auth_method
     )
@@ -70,9 +70,9 @@ def odbc_connection_function(
     cluster: str,
     server_side_parameters: dict[str, str],
     **kwargs,
-) -> pyodbc.Connection:
+):
     """
-    Connect to hive.
+    Connect to odbc.
 
     Parameters
     ----------
@@ -96,6 +96,7 @@ def odbc_connection_function(
     out : pyobc.Connection
         The connection
     """
+    from pyodbc import pyodbc
     http_path = f"/sql/protocolv1/o/{organization}/{cluster}"
     user_agent_entry = f"soda-sql-spark/{SODA_CORE_VERSION} (Databricks)"
 
@@ -124,7 +125,6 @@ class SparkConnectionMethod(str, Enum):
 
 
 class SparkSQLBase(DataSource):
-
     SCHEMA_CHECK_TYPES_MAPPING: dict = {
         "string": ["character varying", "varchar"],
         "int": ["integer", "int"],
