@@ -51,6 +51,7 @@ def hive_connection_function(
         The hive connection
     """
     from pyhive import hive
+
     connection = hive.connect(
         username=username, password=password, host=host, port=port, database=database, auth=auth_method
     )
@@ -97,6 +98,7 @@ def odbc_connection_function(
         The connection
     """
     from pyodbc import pyodbc
+
     http_path = f"/sql/protocolv1/o/{organization}/{cluster}"
     user_agent_entry = f"soda-sql-spark/{SODA_CORE_VERSION} (Databricks)"
 
