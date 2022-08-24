@@ -63,3 +63,6 @@ search = 'package_version = "{current_version}"'
 src = "soda/mysql/setup.py"
 search = 'package_version = "{current_version}"'
 
+[[file]]
+src = "soda/trino/setup.py"
+search = 'package_version = "{current_version}"'
