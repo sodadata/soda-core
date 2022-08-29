@@ -20,8 +20,7 @@ class SparkDataSourceFixture(DataSourceFixture):
                 "method": os.getenv("SPARK_METHOD"),
                 "http_path": os.getenv("DATABRICKS_HTTP_PATH"),
                 "token": os.getenv("DATABRICKS_TOKEN"),
-                "database": os.getenv("DATABRICKS_DATABASE")
-
+                "database": os.getenv("DATABRICKS_DATABASE"),
             }
         }
 
