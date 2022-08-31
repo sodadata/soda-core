@@ -97,7 +97,7 @@ def odbc_connection_function(
     out : pyobc.Connection
         The connection
     """
-    from pyodbc import pyodbc
+    import pyodbc
 
     http_path = f"/sql/protocolv1/o/{organization}/{cluster}"
     user_agent_entry = f"soda-sql-spark/{SODA_CORE_VERSION} (Databricks)"
@@ -121,9 +121,19 @@ def odbc_connection_function(
     return connection
 
 
+def databricks_connection_function(host: str, http_path: str, token: str, database: str, schema: str, **kwargs):
+    from databricks import sql
+
+    connection = sql.connect(
+        server_hostname=host, catalog=database, schema=schema, http_path=http_path, access_token=token
+    )
+    return connection
+
+
 class SparkConnectionMethod(str, Enum):
     HIVE = "hive"
     ODBC = "odbc"
+    DATABRICKS = "databricks"
 
 
 class SparkSQLBase(DataSource):
@@ -200,7 +210,7 @@ class SparkSQLBase(DataSource):
         where_clause = f"\nWHERE {table_filter_expression} \n" if table_filter_expression else ""
         return (
             f"SELECT table_name, column_name, data_type, is_nullable \n"
-            f"FROM {self.dataset_name}.INFORMATION_SCHEMA.COLUMNS"
+            f"FROM {self.schema}.INFORMATION_SCHEMA.COLUMNS"
             f"{where_clause}"
         )
 
@@ -306,14 +316,16 @@ class SparkDataSource(SparkSQLBase):
 
         self.method = data_source_properties.get("method", "hive")
         self.host = data_source_properties.get("host", "localhost")
+        self.http_path = data_source_properties.get("http_path", "http_path")
+        self.token = data_source_properties.get("token")
         self.port = data_source_properties.get("port", "10000")
         self.username = data_source_properties.get("username")
         self.password = data_source_properties.get("password")
-        self.database = data_source_properties.get("database", "default")
+        self.database = data_source_properties.get("catalog", "default")
+        self.schema = data_source_properties.get("schema", "default")
         self.auth_method = data_source_properties.get("authentication", None)
         self.configuration = data_source_properties.get("configuration", {})
         self.driver = data_source_properties.get("driver", None)
-        self.token = data_source_properties.get("token")
         self.organization = data_source_properties.get("organization", None)
         self.cluster = data_source_properties.get("cluster", None)
         self.server_side_parameters = {
@@ -325,6 +337,8 @@ class SparkDataSource(SparkSQLBase):
             connection_function = hive_connection_function
         elif self.method == SparkConnectionMethod.ODBC:
             connection_function = odbc_connection_function
+        elif self.method == SparkConnectionMethod.DATABRICKS:
+            connection_function = databricks_connection_function
         else:
             raise NotImplementedError(f"Unknown Spark connection method {self.method}")
 
@@ -338,11 +352,13 @@ class SparkDataSource(SparkSQLBase):
                 auth_method=self.auth_method,
                 driver=self.driver,
                 token=self.token,
+                schema=self.schema,
+                http_path=self.http_path,
                 organization=self.organization,
                 cluster=self.cluster,
                 server_side_parameters=self.server_side_parameters,
             )
 
-            return connection
+            self.connection = connection
         except Exception as e:
             raise DataSourceConnectionError(self.type, e)
