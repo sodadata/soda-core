@@ -21,6 +21,7 @@ extras = {
     "odbc": [
         "pyodbc",
     ],
+    "databricks": ["databricks-sql-connector"],
 }
 # TODO Fix the params
 setup(
