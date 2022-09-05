@@ -105,10 +105,10 @@ def test_check_identity_line_number_change(data_source_fixture: DataSourceFixtur
     assert scan_result["checks"][1]["identity"] == missing_identity
 
 
-def test_explicitely_specified_check_identity(data_source_fixture: DataSourceFixture):
+def test_explicitly_specified_check_identity(data_source_fixture: DataSourceFixture):
     # 1. First a Soda Cloud user creates a new check
     # 2. Then the soda cloud user asks the Soda Cloud editor to fill in the identity in the check source so that...
-    # 3. The Soda Cloud user can update the check keeping the same identity and hence without loosing the history
+    # 3. The Soda Cloud user can update the check keeping the same identity and hence without losing the history
 
     table_name = data_source_fixture.ensure_test_table(customers_test_table)
 
@@ -129,7 +129,7 @@ def test_explicitely_specified_check_identity(data_source_fixture: DataSourceFix
         f"""
           checks for {table_name}:
             - row_count > 0:
-                identity: {row_count_identity}
+                identity: '{row_count_identity}'
         """,
     )
 
@@ -141,7 +141,7 @@ def test_explicitely_specified_check_identity(data_source_fixture: DataSourceFix
         f"""
           checks for {table_name}:
             - row_count > 1:
-                identity: {row_count_identity}
+                identity: '{row_count_identity}'
         """,
     )
 
