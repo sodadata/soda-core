@@ -115,14 +115,14 @@ class DbtCloud:
         self,
         check_results_iterator: Iterator[tuple[Dataset, list[Check]]],
         soda_cloud: SodaCloud,
-        *,
-        warehouse_name: str,
-        warehouse_type: str,
+        # *
+        # warehouse_name: str,
+        # warehouse_type: str,
     ) -> None:
         data_source_name = self.scan._data_source_name
         data_source_type = self.scan._configuration.data_source_properties_by_name[self.scan._data_source_name]["type"]
         for dataset, checks in check_results_iterator:
-            test_results_jsons = [check.to_dict() for check in checks]
+            test_results_jsons = [check.get_cloud_dict() for check in checks]
             if len(test_results_jsons) == 0:
                 continue
 
@@ -175,7 +175,6 @@ class DbtCloud:
         )
 
         soda_checks = self._dbt_run_results_to_soda_checks(test_nodes, parsed_run_results)
-
         for unique_id, test_unique_ids in models_with_tests.items():
             node = model_seed_and_source_nodes[unique_id]
             dataset = Dataset(
@@ -188,7 +187,7 @@ class DbtCloud:
             for test_unique_id in test_unique_ids:
                 check: DbtCheck = soda_checks[test_unique_id]
                 check.dataset = dataset
-                checks.append(dataset)
+                checks.append(check)
 
             yield dataset, checks
 
@@ -209,11 +208,16 @@ class DbtCloud:
         for run_result in run_results:
             if run_result.unique_id in test_nodes.keys():
                 test_node = test_nodes[run_result.unique_id]
+
                 check = DbtCheck(
-                    check_cfg=DbtCheckCfg(name=test_node.name, file_path=test_node.original_file_path),
+                    check_cfg=DbtCheckCfg(name=test_node.name,
+                                          file_path=test_node.original_file_path,
+                                          table_name=test_node.file_key_name,
+                                          column_name=test_node.column_name),
                     identity=test_node.unique_id,
-                    expression=test_node.raw_code,
+                    expression=test_node.compiled_sql,
                 )
+                check.data_source_scan = self.scan._get_or_create_data_source_scan(self.scan._data_source_name)
                 if run_result.status == TestStatus.Pass:
                     check.outcome = CheckOutcome.PASS
                 elif run_result.status == TestStatus.Warn:

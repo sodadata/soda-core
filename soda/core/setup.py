@@ -17,7 +17,7 @@ description = "Soda Core"
 
 requires = [
     "markupsafe~=2.0",
-    "Jinja2~=3.0",
+    "Jinja2~=2.11",
     "click~=8.0",
     "ruamel.yaml~=0.17.21",
     "requests~=2.27.1",
