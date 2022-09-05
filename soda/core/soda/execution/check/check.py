@@ -156,7 +156,7 @@ class Check(ABC):
         else:
             return f"{check_cfg.source_header}:\n  {check_cfg.source_line}"
 
-    def create_identity(self, alt: bool = False) -> str:
+    def create_identity(self, with_datasource: bool = False) -> str:
         check_cfg: CheckCfg = self.check_cfg
         from soda.common.yaml_helper import to_yaml_str
 
@@ -185,9 +185,9 @@ class Check(ABC):
                 identity_source_configurations = collections.OrderedDict(sorted(identity_source_configurations.items()))
                 identity_source_configurations_yaml = to_yaml_str(identity_source_configurations)
                 hash_builder.add(identity_source_configurations_yaml)
-        # Temp solution to introduce identityB to help cloud identifying datasets with same name
-        # See https://sodadata.atlassian.net/browse/CORE-207
-        if alt:
+        # Temp solution to introduce new variant of identity to help cloud identifying datasets with same name
+        # See https://sodadata.atlassian.net/browse/CLOUD-1143
+        if with_datasource:
             hash_builder.add(self.data_source_scan.data_source.data_source_name)
 
         return hash_builder.get_hash()
@@ -209,8 +209,13 @@ class Check(ABC):
         from soda.execution.partition import Partition
 
         cloud_dict = {
-            "identity": self.create_identity(),
-            "identityB": self.create_identity(alt=True),
+            # See https://sodadata.atlassian.net/browse/CLOUD-1143
+            "identity": self.create_identity(with_datasource=True),
+            "identities": {
+                # v1 is original without the datasource name and v2 is with datasource name in the hash
+                "v1": self.create_identity(with_datasource=False),
+                "v2": self.create_identity(with_datasource=True),
+            },
             "name": self.name,
             "type": self.cloud_check_type,
             "definition": self.create_definition(),
