@@ -19,6 +19,7 @@ from soda.profiling.discover_table_result_table import DiscoverTablesResultTable
 from soda.profiling.profile_columns_result import ProfileColumnsResultTable
 from soda.profiling.sample_tables_result import SampleTablesResultTable
 from soda.sampler.default_sampler import DefaultSampler
+from soda.sampler.sampler import Sampler
 from soda.soda_cloud.historic_descriptor import HistoricDescriptor
 from soda.sodacl.location import Location
 from soda.sodacl.sodacl_cfg import SodaCLCfg
@@ -39,7 +40,7 @@ class Scan:
 
         # Using this instead of utcnow() as that creates tz naive object, this has explicitly utc set. More info https://docs.python.org/3/library/datetime.html#datetime.datetime.utcnow
         now = datetime.now(tz=timezone.utc)
-
+        self.sampler: Sampler | None = None
         self._logs = Logs(logger)
         self._scan_definition_name: str | None = None
         self._data_source_name: str | None = None
@@ -60,6 +61,7 @@ class Scan:
         self._discover_tables_result_tables: list[DiscoverTablesResultTable] = []
         self._sample_tables_result_tables: list[SampleTablesResultTable] = []
         self._logs.info(f"Soda Core {SODA_CORE_VERSION}")
+
 
     def set_data_source_name(self, data_source_name: str):
         """
@@ -314,7 +316,10 @@ class Scan:
                     if self._configuration.soda_cloud.is_samples_disabled():
                         self._configuration.sampler = DefaultSampler()
 
-            # If there is a sampler
+            # Override the sampler, if it is co
+            if self.sampler is not None:
+                self._configuration.sampler = self.sampler
+
             if self._configuration.sampler:
                 # ensure the sampler is configured with the scan logs
                 self._configuration.sampler.logs = self._logs
