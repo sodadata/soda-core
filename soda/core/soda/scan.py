@@ -62,7 +62,6 @@ class Scan:
         self._sample_tables_result_tables: list[SampleTablesResultTable] = []
         self._logs.info(f"Soda Core {SODA_CORE_VERSION}")
 
-
     def set_data_source_name(self, data_source_name: str):
         """
         Specifies which datasource to use for the checks.
