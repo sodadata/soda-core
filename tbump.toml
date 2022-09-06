@@ -50,7 +50,6 @@ search = 'package_version = "{current_version}"'
 src = "soda/db2/setup.py"
 search = 'package_version = "{current_version}"'
 
-
 [[file]]
 src = "soda/scientific/setup.py"
 search = 'package_version = "{current_version}"'
@@ -65,4 +64,8 @@ search = 'package_version = "{current_version}"'
 
 [[file]]
 src = "soda/trino/setup.py"
+search = 'package_version = "{current_version}"'
+
+[[file]]
+src = "soda/dbt/setup.py"
 search = 'package_version = "{current_version}"'
