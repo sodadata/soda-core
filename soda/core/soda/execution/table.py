@@ -7,7 +7,7 @@ class Table:
         from soda.execution.partition import Partition
 
         self.data_source_scan = data_source_scan
-        self.table_name = table_name
+        self.table_name = str(table_name)
         self.qualified_table_name = self.data_source_scan.data_source.qualified_table_name(table_name)
         self.columns_by_name: dict[str, Column] = {}
         self.partitions: dict[str, Partition] = {}
