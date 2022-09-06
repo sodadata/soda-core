@@ -23,6 +23,7 @@ from dbt.contracts.results import RunResultOutput
 from dbt.node_types import NodeType
 from requests.structures import CaseInsensitiveDict
 from soda.cloud.dbt_config import DbtCloudConfig
+from soda.common.json_helper import JsonHelper
 from soda.execution.check.check import Check
 from soda.execution.check.dbt_check import DbtCheck
 from soda.execution.check_outcome import CheckOutcome
@@ -30,7 +31,6 @@ from soda.model.dataset import Dataset
 from soda.scan import Scan
 from soda.soda_cloud.soda_cloud import SodaCloud
 from soda.sodacl.dbt_check_cfg import DbtCheckCfg
-from soda.common.json_helper import JsonHelper
 
 
 class DbtCloud:
@@ -113,9 +113,7 @@ class DbtCloud:
         return return_code
 
     def flush_test_results(
-        self,
-        check_results_iterator: Iterator[tuple[Dataset, list[Check]]],
-        soda_cloud: SodaCloud
+        self, check_results_iterator: Iterator[tuple[Dataset, list[Check]]], soda_cloud: SodaCloud
     ) -> None:
         for dataset, checks in check_results_iterator:
             if len(checks) == 0:
@@ -126,10 +124,7 @@ class DbtCloud:
             return soda_cloud._execute_command(scan_results, command_name="send_scan_results")
 
     def build_scan_results(self, checks):
-        check_dicts = [
-            check.get_cloud_dict()
-            for check in checks
-        ]
+        check_dicts = [check.get_cloud_dict() for check in checks]
 
         return JsonHelper.to_jsonnable(  # type: ignore
             {
@@ -142,13 +137,7 @@ class DbtCloud:
                 "hasErrors": self.scan.has_error_logs(),
                 "hasWarnings": self.scan.has_check_warns(),
                 "hasFailures": self.scan.has_check_fails(),
-                "metrics": [
-                    {
-                        "identity": "dbt_metric",
-                        "metricName": "dbt_metric",
-                        "value": 0
-
-                    }],
+                "metrics": [{"identity": "dbt_metric", "metricName": "dbt_metric", "value": 0}],
                 "checks": check_dicts,
                 "logs": [log.get_cloud_dict() for log in self.scan._logs.logs],
             }
@@ -225,10 +214,12 @@ class DbtCloud:
                 test_node = test_nodes[run_result.unique_id]
 
                 check = DbtCheck(
-                    check_cfg=DbtCheckCfg(name=test_node.name,
-                                          file_path=test_node.original_file_path,
-                                          table_name=test_node.file_key_name,
-                                          column_name=test_node.column_name),
+                    check_cfg=DbtCheckCfg(
+                        name=test_node.name,
+                        file_path=test_node.original_file_path,
+                        table_name=test_node.file_key_name,
+                        column_name=test_node.column_name,
+                    ),
                     identity=test_node.unique_id,
                     expression=test_node.compiled_sql,
                 )

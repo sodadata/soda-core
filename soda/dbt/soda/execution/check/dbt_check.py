@@ -6,13 +6,7 @@ from soda.sodacl.dbt_check_cfg import DbtCheckCfg
 
 
 class DbtCheck(Check):
-
-    def __init__(
-        self,
-        check_cfg: DbtCheckCfg,
-        identity: str,
-        expression: str
-    ):
+    def __init__(self, check_cfg: DbtCheckCfg, identity: str, expression: str):
         self.identity = identity
         self.check_cfg = check_cfg
         self.expression = expression
@@ -45,7 +39,7 @@ class DbtCheck(Check):
             "dataSource": self.data_source_scan.data_source.data_source_name,
             "table": self.check_cfg.table_name,
             "column": self.check_cfg.column_name,
-            "metrics": ['dbt_metric'],
+            "metrics": ["dbt_metric"],
             "outcome": self.outcome.value if self.outcome else None,
             "diagnostics": self.get_cloud_diagnostics_dict(),
         }
