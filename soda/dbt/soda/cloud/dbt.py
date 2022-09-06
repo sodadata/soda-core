@@ -212,12 +212,12 @@ class DbtCloud:
         for run_result in run_results:
             if run_result.unique_id in test_nodes.keys():
                 test_node = test_nodes[run_result.unique_id]
-
                 check = DbtCheck(
                     check_cfg=DbtCheckCfg(
                         name=test_node.name,
                         file_path=test_node.original_file_path,
-                        table_name=test_node.file_key_name,
+                        # TODO Hacky way to get the model name, currently it picks the first ref
+                        table_name=test_node.refs[0][0],
                         column_name=test_node.column_name,
                     ),
                     identity=test_node.unique_id,
