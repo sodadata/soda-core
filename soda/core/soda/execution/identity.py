@@ -44,7 +44,7 @@ class Identity:
             if hash:
                 parts.append(hash)
 
-        return "-".join(parts)
+        return "-".join([str(p) for p in parts])
 
 
 @dataclass
