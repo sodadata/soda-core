@@ -1,9 +1,7 @@
 from __future__ import annotations
 
 from soda.execution.check.check import Check
-from soda.execution.column import Column
 from soda.execution.metric.metric import Metric
-from soda.execution.partition import Partition
 from soda.sodacl.dbt_check_cfg import DbtCheckCfg
 
 
@@ -21,13 +19,14 @@ class DbtCheck(Check):
         self.cloud_check_type = "metricThreshold"
 
     def get_cloud_diagnostics_dict(self) -> dict:
-        return {}
+        return {"value": 0}
 
     def evaluate(self, metrics: dict[str, Metric], historic_values: dict[str, object]):
         # Not much to evaluate since this is done by dbt
         pass
 
     def get_cloud_dict(self):
+        # TODO some values are hard-coded like location and metrics since dbt tests don't map properly to our model
         cloud_dict = {
             "identity": self.identity,
             "identities": {
@@ -38,11 +37,15 @@ class DbtCheck(Check):
             "name": self.name,
             "type": self.cloud_check_type,
             "definition": self.check_cfg.name,
-            "location": "",
+            "location": {
+                "filePath": self.check_cfg.file_path,
+                "line": 0,
+                "col": 0,
+            },
             "dataSource": self.data_source_scan.data_source.data_source_name,
             "table": self.check_cfg.table_name,
             "column": self.check_cfg.column_name,
-            "metrics": [],
+            "metrics": ['dbt_metric'],
             "outcome": self.outcome.value if self.outcome else None,
             "diagnostics": self.get_cloud_diagnostics_dict(),
         }

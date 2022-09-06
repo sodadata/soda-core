@@ -30,6 +30,7 @@ from soda.model.dataset import Dataset
 from soda.scan import Scan
 from soda.soda_cloud.soda_cloud import SodaCloud
 from soda.sodacl.dbt_check_cfg import DbtCheckCfg
+from soda.common.json_helper import JsonHelper
 
 
 class DbtCloud:
@@ -79,7 +80,7 @@ class DbtCloud:
                 dbt_run_results,
             )
         else:
-            # TODO: test cloud !!!
+
             self.scan._logs.info("Getting dbt artifacts from dbt Cloud.")
 
             error_values = [self.dbt_cloud_config.api_token, self.dbt_cloud_config.account_id]
@@ -114,30 +115,44 @@ class DbtCloud:
     def flush_test_results(
         self,
         check_results_iterator: Iterator[tuple[Dataset, list[Check]]],
-        soda_cloud: SodaCloud,
-        # *
-        # warehouse_name: str,
-        # warehouse_type: str,
+        soda_cloud: SodaCloud
     ) -> None:
-        data_source_name = self.scan._data_source_name
-        data_source_type = self.scan._configuration.data_source_properties_by_name[self.scan._data_source_name]["type"]
         for dataset, checks in check_results_iterator:
-            test_results_jsons = [check.get_cloud_dict() for check in checks]
-            if len(test_results_jsons) == 0:
+            if len(checks) == 0:
                 continue
+            scan_results = self.build_scan_results(checks)
+            scan_results["type"] = "sodaCoreInsertScanResults"
 
-            # start_scan_response = soda_cloud.scan_start(
-            #     warehouse_name=warehouse_name,
-            #     warehouse_type=warehouse_type,
-            #     warehouse_database_name=table.database,
-            #     warehouse_database_schema=table.schema,
-            #     table_name=table.name,
-            #     scan_yml_columns=None,
-            #     scan_time=dt.datetime.utcnow().isoformat(),
-            #     origin=os.environ.get("SODA_SCAN_ORIGIN", "external"),
-            # )
-            # soda_cloud.scan_test_results(start_scan_response["scanReference"], test_results_jsons)
-            # soda_cloud.scan_ended(start_scan_response["scanReference"])
+            return soda_cloud._execute_command(scan_results, command_name="send_scan_results")
+
+    def build_scan_results(self, checks):
+        check_dicts = [
+            check.get_cloud_dict()
+            for check in checks
+        ]
+
+        return JsonHelper.to_jsonnable(  # type: ignore
+            {
+                "definitionName": self.scan._scan_definition_name,
+                "defaultDataSource": self.scan._data_source_name,
+                "dataTimestamp": self.scan._data_timestamp,
+                # Can be changed by user, this is shown in Cloud as time of a scan.
+                "scanStartTimestamp": self.scan._scan_start_timestamp,  # Actual time when the scan started.
+                "scanEndTimestamp": self.scan._scan_start_timestamp,  # Actual time when scan ended.
+                "hasErrors": self.scan.has_error_logs(),
+                "hasWarnings": self.scan.has_check_warns(),
+                "hasFailures": self.scan.has_check_fails(),
+                "metrics": [
+                    {
+                        "identity": "dbt_metric",
+                        "metricName": "dbt_metric",
+                        "value": 0
+
+                    }],
+                "checks": check_dicts,
+                "logs": [log.get_cloud_dict() for log in self.scan._logs.logs],
+            }
+        )
 
     def _load_dbt_artifacts(
         self,
