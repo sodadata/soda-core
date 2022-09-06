@@ -8,10 +8,12 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
+from __future__ import annotations
+
 import logging
 import sys
 from datetime import datetime, timezone
-from typing import List, Optional, Tuple
+from pathlib import Path
 
 import click
 from ruamel.yaml import YAML
@@ -70,13 +72,13 @@ if __name__ == "__main__":
 @click.argument("sodacl_paths", nargs=-1, type=click.STRING)
 @soda_trace
 def scan(
-    sodacl_paths: List[str],
+    sodacl_paths: list[str],
     data_source: str,
-    scan_definition: Optional[str],
-    configuration: List[str],
+    scan_definition: str | None,
+    configuration: list[str],
     data_timestamp: str,
-    variable: List[str],
-    verbose: Optional[bool],
+    variable: list[str],
+    verbose: bool | None,
 ):
     """
     soda scan will
@@ -199,8 +201,8 @@ def update_dro(
     distribution_reference_file: str,
     data_source: str,
     configuration: str,
-    name: Optional[str],
-    verbose: Optional[bool],
+    name: str | None,
+    verbose: bool | None,
 ):
     """
     soda update-dro will
@@ -320,7 +322,127 @@ def update_dro(
             fs.file_write_from_str(path=distribution_reference_file, file_content_str=new_file_content)
 
 
-def __execute_query(connection, sql: str) -> List[Tuple]:
+@main.command(short_help="Ingest test information from different tools")
+@click.argument(
+    "tool",
+    required=True,
+    type=click.Choice(["dbt"]),
+)
+@click.option("-d", "--data-source", envvar="SODA_DATA_SOURCE", required=True, multiple=False, type=click.STRING)
+@click.option(
+    "-c",
+    "--configuration",
+    required=False,
+    type=click.STRING,
+)
+@click.option("-V", "--verbose", is_flag=True)
+@click.option(
+    "--dbt-artifacts",
+    help=(
+        "The path that contains both the manifest and run_result JSONs from dbt. Typically `/dbt_project/target/` "
+        "When provided, --dbt-manifest and --dbt-run-results are not required and will be ignored"
+    ),
+    default=None,
+    type=Path,
+)
+@click.option(
+    "--dbt-manifest",
+    help="The path to the dbt manifest file",
+    default=None,
+    type=Path,
+)
+@click.option(
+    "--dbt-run-results",
+    help="The path to the dbt run results file",
+    default=None,
+    type=Path,
+)
+@click.option(
+    "--dbt-cloud-run-id",
+    help=(
+        "The id of the dbt job run of which you would like to ingest the test results. "
+        "Use when you want to target a specific run otherwise consider using `--dbt-cloud-job-id`."
+    ),
+    default=None,
+    type=click.STRING,
+)
+@click.option(
+    "--dbt-cloud-job-id",
+    help="The job id from which you want to ingest the latest run results.",
+    default=None,
+    type=click.STRING,
+)
+@soda_trace
+def ingest(tool: str, data_source: str, configuration: str, verbose: bool | None, **kwargs):
+    """
+    Ingest test information from different tools.
+    """
+    configure_logging()
+    fs = file_system()
+
+    soda_telemetry.set_attribute("cli_command_name", "ingest")
+
+    telemetry_kwargs = {k: bool(v) for k, v in kwargs.items()}
+
+    span_setup_function_args(
+        {
+            "command_argument": {
+                "tool": tool,
+            },
+            "command_option": {
+                "configuration_path": bool(configuration),
+                "verbose": verbose,
+                **telemetry_kwargs,
+            },
+        }
+    )
+
+    scan = Scan()
+    scan.set_scan_definition_name(f"Ingest - {tool}")
+    scan.set_data_source_name(data_source)
+
+    if verbose:
+        scan.set_verbose()
+
+    if not fs.exists(configuration):
+        scan._logs.error(f"Configuration path '{configuration}' does not exist")
+    else:
+        scan.add_configuration_yaml_file(configuration)
+
+        if scan._data_source_name not in scan._data_source_manager.data_source_properties_by_name:
+            scan._logs.error(f"Provided data source '{data_source}' not present in configuration.")
+
+    if not scan._configuration.soda_cloud:
+        scan._logs.error("Soda Cloud configuration is required for Ingest command to work.")
+
+    return_value = 1
+
+    # TODO: Sloppy for now as we support only one tool. Make this command more generic, consider using visitor pattern or some
+    # other way of generic implementation of multi tool support.
+    ingestor = None
+
+    if tool == "dbt":
+        try:
+            from soda.cloud.dbt import DbtCloud
+
+            ingestor = DbtCloud(
+                scan,
+                **kwargs,
+            )
+        except ModuleNotFoundError:
+            scan._logs.error("Unable to import dbt module. Did you install `pip install soda-core-dbt`?")
+    else:
+        scan._logs.error(f"Unknown tool: {tool}")
+
+    if ingestor and not scan.has_error_logs():
+        return_value = ingestor.ingest()
+    else:
+        scan._logs.info("Unable to proceed with ingest.")
+
+    sys.exit(return_value)
+
+
+def __execute_query(connection, sql: str) -> list[tuple]:
     try:
         cursor = connection.cursor()
         try:
