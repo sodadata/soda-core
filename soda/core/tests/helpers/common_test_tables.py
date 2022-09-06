@@ -148,3 +148,18 @@ customers_profiling = TestTable(
     ]
     # fmt: on
 )
+# Special table for edge case identifier, data types etc.
+special_table = TestTable(
+    name="SpecialTable",
+    create_view=os.getenv("TEST_WITH_VIEWS", False),
+    columns=[
+        ("1", DataType.TEXT),
+    ],
+    # fmt: off
+    values=[
+        ("value_1",),
+        ("value_2",),
+    ],
+    quote_names=True
+    # fmt: on
+)

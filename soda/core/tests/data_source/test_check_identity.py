@@ -1,11 +1,14 @@
 import logging
 from typing import Dict, List
 
+import pytest
 from helpers.common_test_tables import (
     customers_dist_check_test_table,
     customers_test_table,
+    special_table,
 )
 from helpers.data_source_fixture import DataSourceFixture
+from helpers.fixtures import test_data_source
 from helpers.utils import execute_scan_and_get_scan_result
 from soda.common.yaml_helper import to_yaml_str
 
@@ -170,3 +173,29 @@ def test_for_each_identity(data_source_fixture: DataSourceFixture):
     assert scan_result["checks"][0]["identity"] != scan_result["checks"][1]["identity"]
     assert scan_result["checks"][0]["identity"] != scan_result["checks"][2]["identity"]
     assert scan_result["checks"][1]["identity"] != scan_result["checks"][2]["identity"]
+
+
+@pytest.mark.skipif(
+    test_data_source
+    in [
+        "bigquery",
+        "spark_df",
+        "mysql",
+        "athena",
+    ],
+    reason="Column name starting with number is not allowed in some data sources.",
+)
+def test_check_identity_special_table(data_source_fixture: DataSourceFixture):
+    table_name = data_source_fixture.ensure_test_table(special_table)
+
+    scan_result = execute_scan_and_get_scan_result(
+        data_source_fixture,
+        f"""
+          checks for "{table_name}":
+            - row_count > 0
+            - missing_count(1) = 0
+        """,
+    )
+    row_count_identity = scan_result["checks"][0]["identity"]
+
+    assert isinstance(row_count_identity, str)
