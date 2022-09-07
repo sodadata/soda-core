@@ -109,13 +109,12 @@ class FreshnessCheck(Check):
         }
 
     def get_cloud_diagnostics_dict(self):
-        freshness_dict = {}
-
         freshness = 0
         if self.freshness_values["freshness"] and isinstance(self.freshness_values["freshness"], timedelta):
-            freshness = self.freshness_values["freshness"].microseconds
+            freshness = round(self.freshness_values["freshness"].total_seconds() * 1000)
         freshness_dict = {
-            "value": freshness,  # microseconds difference
+            "value": freshness,  # milliseconds difference
+            "measure": "time",
             "maxColumnTimestamp": self.freshness_values["max_column_timestamp"],
             "maxColumnTimestampUtc": self.freshness_values["max_column_timestamp_utc"],
             "nowVariableName": self.freshness_values["now_variable_name"],
