@@ -557,7 +557,7 @@ class Scan:
                     partition_cfg = table_cfg.find_partition(None, None)
                     for check_cfg_template in for_each_dataset_cfg.check_cfgs:
                         check_cfg = check_cfg_template.instantiate_for_each_dataset(
-                            name=self._jinja_resolve(
+                            name=self.jinja_resolve(
                                 check_cfg_template.name, variables={for_each_dataset_cfg.table_alias_name: table_name}
                             ),
                             table_alias=for_each_dataset_cfg.table_alias_name,
@@ -599,7 +599,7 @@ class Scan:
 
         return data_source_scan
 
-    def _jinja_resolve(
+    def jinja_resolve(
         self,
         definition: str,
         variables: dict[str, object] = None,

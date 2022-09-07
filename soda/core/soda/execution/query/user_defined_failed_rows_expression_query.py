@@ -9,7 +9,7 @@ class UserDefinedFailedRowsExpressionQuery(Query):
             data_source_scan=data_source_scan,
             unqualified_query_name=f"user_defined_failed_rows_expression_query[{check_name}]",
         )
-        self.sql: str = sql
+        self.sql: str = data_source_scan.scan.jinja_resolve(sql)
         self.samples_limit = samples_limit
 
     def execute(self):
