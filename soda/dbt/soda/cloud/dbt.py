@@ -210,6 +210,9 @@ class DbtCloud:
         for run_result in run_results:
             if run_result.unique_id in test_nodes.keys():
                 test_node = test_nodes[run_result.unique_id]
+
+                self.scan._logs.debug(f"Ingesting test node '{test_node.name}' (id: '{test_node.unique_id}').")
+
                 check = DbtCheck(
                     check_cfg=DbtCheckCfg(
                         name=test_node.name,
@@ -219,7 +222,7 @@ class DbtCloud:
                         column_name=test_node.column_name,
                     ),
                     identity=test_node.unique_id,
-                    expression=test_node.compiled_sql,
+                    expression=test_node.compiled_sql if hasattr(test_node, "compiled_sql") else None,
                 )
                 check.data_source_scan = self.scan._get_or_create_data_source_scan(self.scan._data_source_name)
                 if run_result.status == TestStatus.Pass:
@@ -269,7 +272,7 @@ class DbtCloud:
         headers["Authorization"] = f"Token {api_token}"
         headers["Content-Type"] = "application/json"
 
-        self.scan_logs.info(f"Downloading artifact: {artifact}, from run: {run_id}")
+        self.scan._logs.info(f"Downloading artifact: {artifact}, from run: {run_id}")
 
         response = requests.get(url, headers=headers)
         if response.status_code != requests.codes.ok:
