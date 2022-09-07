@@ -119,7 +119,7 @@ class DistributionCheck(Check):
         partition_str = ""
         if partition_filter:
             scan = self.data_source_scan.scan
-            resolved_filter = scan._jinja_resolve(definition=partition_filter)
+            resolved_filter = scan.jinja_resolve(definition=partition_filter)
             partition_str = f"\nWHERE {resolved_filter}"
         return self.data_source_scan.data_source.sql_select_column_with_filter_and_limit(
             column_name=column_name,

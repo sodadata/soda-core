@@ -17,7 +17,7 @@ class UserDefinedFailedRowsQuery(Query):
             location=location,
             samples_limit=samples_limit,
         )
-        self.sql = metric.query
+        self.sql = data_source_scan.scan.jinja_resolve(metric.query)
         self.metric = metric
 
     def execute(self):
