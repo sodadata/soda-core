@@ -34,8 +34,6 @@ from soda.sodacl.dbt_check_cfg import DbtCheckCfg
 
 
 class DbtCloud:
-    ADMIN_API_BASE_URL = "https://cloud.getdbt.com/api/v2/accounts/"
-
     def __init__(
         self,
         scan: Scan,
@@ -265,7 +263,7 @@ class DbtCloud:
                 "Either a dbt run_id or a job_id must be provided. If a job_id is provided "
                 "soda ingest will fetch the latest available run artifacts from dbt Cloud for that job_id."
             )
-        url = f"{self.ADMIN_API_BASE_URL}{account_id}/runs/{run_id}/artifacts/{artifact}"
+        url = f"{self.dbt_cloud_config.api_url}{account_id}/runs/{run_id}/artifacts/{artifact}"
 
         headers = CaseInsensitiveDict()
         headers["Authorization"] = f"Token {api_token}"
@@ -280,7 +278,7 @@ class DbtCloud:
         return response.json()
 
     def _get_latest_run_id(self, api_token: str, account_id: str, job_id: str) -> str | None:
-        url = f"{self.ADMIN_API_BASE_URL}{account_id}/runs"
+        url = f"{self.dbt_cloud_config.api_url}{account_id}/runs"
 
         headers = CaseInsensitiveDict()
         headers["Authorization"] = f"Token {api_token}"

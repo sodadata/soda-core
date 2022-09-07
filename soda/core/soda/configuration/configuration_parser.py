@@ -96,5 +96,6 @@ class ConfigurationParser(Parser):
     def parse_dbt_cloud_cfg(self, config_dict: dict):
         api_token = config_dict.get("api_token")
         account_id = config_dict.get("account_id")
+        api_url = config_dict.get("api_url", "https://cloud.getdbt.com/api/v2/accounts/")
 
-        return DbtCloudConfig(api_token=api_token, account_id=account_id)
+        return DbtCloudConfig(api_token=api_token, account_id=account_id, api_url=api_url)
