@@ -255,7 +255,7 @@ class NumericQueryMetric(QueryMetric):
             where_clauses = []
             partition_filter = self.partition.sql_partition_filter
             if partition_filter:
-                resolved_filter = self.data_source_scan.scan._jinja_resolve(definition=partition_filter)
+                resolved_filter = self.data_source_scan.scan.jinja_resolve(definition=partition_filter)
                 where_clauses.append(resolved_filter)
 
             if self.name == "missing_count":

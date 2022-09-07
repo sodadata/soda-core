@@ -67,7 +67,7 @@ class UserDefinedFailedRowsExpressionCheck(Check):
         partition_filter = self.partition.sql_partition_filter
         if partition_filter:
             scan = self.data_source_scan.scan
-            condition = scan._jinja_resolve(definition=partition_filter, location=self.check_cfg.location)
+            condition = scan.jinja_resolve(definition=partition_filter, location=self.check_cfg.location)
             sql += f"\n      AND ({condition})"
         return sql
 

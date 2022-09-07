@@ -16,7 +16,7 @@ class DuplicatesQuery(Query):
         partition_filter = self.partition.sql_partition_filter
         if partition_filter:
             scan = self.data_source_scan.scan
-            resolved_partition_filter = scan._jinja_resolve(definition=partition_filter)
+            resolved_partition_filter = scan.jinja_resolve(definition=partition_filter)
             values_filter_clauses.append(resolved_partition_filter)
 
         values_filter = " \n  AND ".join(values_filter_clauses)

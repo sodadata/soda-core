@@ -130,7 +130,7 @@ class Check(ABC):
 
         Uses user provided name if available or generates one from the check definition and thresholds.
         """
-        jinja_resolve = self.data_source_scan.scan._jinja_resolve
+        jinja_resolve = self.data_source_scan.scan.jinja_resolve
         if self.check_cfg.name:
             return jinja_resolve(self.check_cfg.name)
 
@@ -210,7 +210,7 @@ class Check(ABC):
 
         cloud_dict = {
             # See https://sodadata.atlassian.net/browse/CLOUD-1143
-            "identity": self.create_identity(with_datasource=True),
+            "identity": self.create_identity(with_datasource=False),
             "identities": {
                 # v1 is original without the datasource name and v2 is with datasource name in the hash
                 "v1": self.create_identity(with_datasource=False),

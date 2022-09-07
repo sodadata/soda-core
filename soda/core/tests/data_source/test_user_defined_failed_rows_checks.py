@@ -118,6 +118,29 @@ def test_failed_rows_table_query(data_source_fixture: DataSourceFixture):
     scan.assert_check_fail()
 
 
+def test_failed_rows_table_query_with_variables(data_source_fixture: DataSourceFixture):
+    table_name = data_source_fixture.ensure_test_table(customers_test_table)
+
+    qualified_table_name = data_source_fixture.data_source.qualified_table_name(table_name)
+
+    scan = data_source_fixture.create_test_scan()
+    scan.add_variables({"size_count": "0"})
+    scan.add_sodacl_yaml_str(
+        f"""
+          checks for {table_name}:
+            - failed rows:
+                name: Customers must have size
+                fail query: |
+                  SELECT *
+                  FROM {qualified_table_name}
+                  WHERE size < ${{size_count}}
+        """
+    )
+    scan.execute()
+
+    scan.assert_check_fail()
+
+
 def test_failed_rows_table_query_with_limit(data_source_fixture: DataSourceFixture):
     table_name = data_source_fixture.ensure_test_table(customers_test_table)
 
