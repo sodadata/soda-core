@@ -28,7 +28,7 @@ class DbtCheck(Check):
                 "v1": self.identity,
                 "v2": self.identity,
             },
-            "name": self.name,
+            "name": "dbt:" + self.name,
             "type": self.cloud_check_type,
             "definition": self.check_cfg.name,
             "location": {
