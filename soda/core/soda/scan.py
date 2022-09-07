@@ -48,7 +48,6 @@ class Scan:
         self._configuration: Configuration = Configuration(scan=self)
         self._sodacl_cfg: SodaCLCfg = SodaCLCfg(scan=self)
         self._file_paths: set[str] = set()
-        self._file_paths: set[str] = set()
         self._data_timestamp: datetime = now
         self._scan_start_timestamp: datetime = now
         # FIXME: this attribute cannot be None if typed as `datetime`
