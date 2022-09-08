@@ -110,20 +110,15 @@ class DbtCloud:
 
         return return_code
 
-    def flush_test_results(
-        self, check_results_iterator: Iterator[tuple[Dataset, list[Check]]], soda_cloud: SodaCloud
-    ) -> None:
-        for dataset, checks in check_results_iterator:
-            if len(checks) == 0:
-                continue
+    def flush_test_results(self, checks: list[Check], soda_cloud: SodaCloud) -> None:
+
+        if len(checks) != 0:
             scan_results = self.build_scan_results(checks)
             scan_results["type"] = "sodaCoreInsertScanResults"
-
-            return soda_cloud._execute_command(scan_results, command_name="send_scan_results")
+            soda_cloud._execute_command(scan_results, command_name="send_scan_results")
 
     def build_scan_results(self, checks):
         check_dicts = [check.get_cloud_dict() for check in checks]
-
         return JsonHelper.to_jsonnable(  # type: ignore
             {
                 "definitionName": self.scan._scan_definition_name,
@@ -177,6 +172,7 @@ class DbtCloud:
         )
 
         soda_checks = self._dbt_run_results_to_soda_checks(test_nodes, parsed_run_results)
+        checks = []
         for unique_id, test_unique_ids in models_with_tests.items():
             node = model_seed_and_source_nodes[unique_id]
             dataset = Dataset(
@@ -184,14 +180,13 @@ class DbtCloud:
                 node.database,
                 node.schema,
             )
-            checks = []
 
             for test_unique_id in test_unique_ids:
                 check: DbtCheck = soda_checks[test_unique_id]
                 check.dataset = dataset
                 checks.append(check)
 
-            yield dataset, checks
+        return checks
 
     def _dbt_run_results_to_soda_checks(
         self,
@@ -235,7 +230,6 @@ class DbtCloud:
                 # values={"failures": run_result.failures}, - take this into diagnostics?
 
                 checks[run_result.unique_id] = check
-
         return checks
 
     def _download_dbt_artifact_from_cloud(
