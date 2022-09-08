@@ -6,7 +6,7 @@ from soda.sodacl.dbt_check_cfg import DbtCheckCfg
 
 
 class DbtCheck(Check):
-    def __init__(self, check_cfg: DbtCheckCfg, identity: str, expression: str):
+    def __init__(self, check_cfg: DbtCheckCfg, identity: str, expression: str | None):
         self.identity = identity
         self.check_cfg = check_cfg
         self.expression = expression
