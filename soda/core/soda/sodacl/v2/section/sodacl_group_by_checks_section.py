@@ -8,4 +8,4 @@ from soda.sodacl.v2.section.sodacl_table_checks_section import SodaClTableChecks
 
 @dataclass
 class SodaClGroupByChecksSection(SodaClTableChecksSection):
-    group_by_column_names: List[str]
+    group_by_column_names: list[str]

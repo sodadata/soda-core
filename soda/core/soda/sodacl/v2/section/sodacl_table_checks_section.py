@@ -11,4 +11,4 @@ from soda.sodacl.v2.section.sodacl_section import SodaClSection
 class SodaClTableChecksSection(SodaClSection):
     table_name: str
     partition_name: str | None
-    sodacl_checks: List[SodaClCheck]
+    sodacl_checks: list[SodaClCheck]
