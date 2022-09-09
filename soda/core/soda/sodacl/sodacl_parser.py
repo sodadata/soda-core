@@ -105,6 +105,8 @@ class SodaCLParser(Parser):
         if not headers_dict:
             return
 
+        headers_dict = self.__resolve_recursive(headers_dict)
+
         for header_str, header_content in headers_dict.items():
 
             # Backwards compatibility warning
@@ -173,6 +175,31 @@ class SodaCLParser(Parser):
 
             finally:
                 self._pop_path_element()
+
+    def __resolve_recursive(self, o: object) -> object:
+        # values of reserved keys will not yet be resolved
+        reserved_keys = []
+        if isinstance(o, dict):
+            for k, v in o.items():
+                k_resolved = self.__resolve_jinja_sodacl_value(k)
+                if k_resolved not in reserved_keys:
+                    if k != k_resolved:
+                        del o[k]
+                    v_resolved = v
+                    if k not in reserved_keys:
+                        v_resolved = self.__resolve_recursive(v)
+                    o[k_resolved] = v_resolved
+            return o
+        elif isinstance(o, list):
+            for index, e in enumerate(o):
+                o[index] = self.__resolve_recursive(e)
+            return o
+        elif isinstance(o, str):
+            return self.__resolve_jinja_sodacl_value(o)
+
+    def __resolve_jinja_sodacl_value(self, text: str) -> str:
+        variables = self.sodacl_cfg.scan._variables
+        return self._resolve_jinja(text, variables)
 
     def __parse_table_checks_section(self, antlr_table_checks_header, header_str, header_content):
         if isinstance(header_content, list):
