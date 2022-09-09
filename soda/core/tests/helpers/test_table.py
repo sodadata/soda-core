@@ -32,7 +32,7 @@ class TestTable:
         """
         # Ensure unique table data names
         if name in TestTable.__names:
-            raise AssertionError(f"Duplicate TableData name: {name}")
+            raise AssertionError(f"Duplicate TestTable: {name}")
         TestTable.__names.append(name)
 
         self.name: str = name
