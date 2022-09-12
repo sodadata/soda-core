@@ -81,10 +81,6 @@ class BigQueryDataSource(DataSource):
         if account_info_json_str:
             self.account_info_dict = json.loads(account_info_json_str)
 
-        if self.account_info_dict is None:
-            self.logs.info("Using application default credentials.")
-            self.credentials, _ = default()
-
         default_auth_scopes = [
             "https://www.googleapis.com/auth/bigquery",
             "https://www.googleapis.com/auth/cloud-platform",
@@ -99,7 +95,7 @@ class BigQueryDataSource(DataSource):
                 scopes=self.auth_scopes,
             )
 
-        if self.data_source_properties.get("use_context_auth"):
+        if self.data_source_properties.get("use_context_auth") or self.account_info_dict is None:
             self.logs.info("Using application default credentials.")
             self.credentials, _ = default()
 
