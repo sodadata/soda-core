@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import timezone
 
+from soda.common.exceptions import SODA_SCIENTIFIC_MISSING_LOG_MESSAGE
 from soda.execution.check.metric_check import MetricCheck
 from soda.execution.check_outcome import CheckOutcome
 from soda.execution.column import Column
@@ -59,7 +60,8 @@ class AnomalyMetricCheck(MetricCheck):
             self.cloud_check_type = "anomalyDetection"
         except Exception as e:
             data_source_scan.scan._logs.error(
-                f"""An error occurred during the initialization of AnomalyMetricCheck""", exception=e
+                f"""An error occurred during the initialization of AnomalyMetricCheck""",
+                exception=e,
             )
 
     def evaluate(self, metrics: dict[str, Metric], historic_values: dict[str, object]):
@@ -90,7 +92,13 @@ class AnomalyMetricCheck(MetricCheck):
         )
 
         # TODO test for module installation and set check status to is_skipped if the module is not installed
-        from soda.scientific.anomaly_detection.anomaly_detector import AnomalyDetector
+        try:
+            from soda.scientific.anomaly_detection.anomaly_detector import (
+                AnomalyDetector,
+            )
+        except ModuleNotFoundError as e:
+            self.logs.error(f"{SODA_SCIENTIFIC_MISSING_LOG_MESSAGE}\n Original error: {e}")
+            return
 
         anomaly_detector = AnomalyDetector(historic_measurements, historic_check_results, self.logs)
         level, diagnostics = anomaly_detector.evaluate()
