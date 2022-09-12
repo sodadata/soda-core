@@ -1,5 +1,11 @@
 ERROR_CODE_GENERIC = "generic_error"
 ERROR_CODE_CONNECTION_FAILED = "connection_failed"
+SODA_SCIENTIFIC_MISSING_LOG_MESSAGE = (
+    "The anomaly detection module could not be imported. "
+    "This is often the case when the soda-scientific package was not installed. "
+    "\n Please check https://docs.soda.io/soda-core/installation.html#install-soda-core-scientific "
+    "for instructions."
+)
 
 
 class SodaSqlError(Exception):
