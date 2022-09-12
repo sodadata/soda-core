@@ -18,6 +18,7 @@ from pathlib import Path
 import click
 from ruamel.yaml import YAML
 from ruamel.yaml.main import round_trip_dump
+from soda.common.exceptions import SODA_SCIENTIFIC_MISSING_LOG_MESSAGE
 from soda.common.file_system import file_system
 from soda.common.logs import configure_logging
 from soda.scan import Scan
@@ -42,7 +43,14 @@ if __name__ == "__main__":
 @main.command(
     short_help="runs a scan",
 )
-@click.option("-d", "--data-source", envvar="SODA_DATA_SOURCE", required=True, multiple=False, type=click.STRING)
+@click.option(
+    "-d",
+    "--data-source",
+    envvar="SODA_DATA_SOURCE",
+    required=True,
+    multiple=False,
+    type=click.STRING,
+)
 @click.option(
     "-s",
     "--scan-definition",
@@ -180,7 +188,14 @@ def scan(
 @main.command(
     short_help="updates a DRO in the distribution reference file",
 )
-@click.option("-d", "--data-source", envvar="SODA_DATA_SOURCE", required=True, multiple=False, type=click.STRING)
+@click.option(
+    "-d",
+    "--data-source",
+    envvar="SODA_DATA_SOURCE",
+    required=True,
+    multiple=False,
+    type=click.STRING,
+)
 @click.option(
     "-c",
     "--configuration",
@@ -308,8 +323,12 @@ def update_dro(
             # TODO document what the supported data types are per data source type. And ensure proper Python data type conversion if needed
             column_values = [row[0] for row in rows]
 
-            from soda.scientific.distribution.comparison import RefDataCfg
-            from soda.scientific.distribution.generate_dro import DROGenerator
+            try:
+                from soda.scientific.distribution.comparison import RefDataCfg
+                from soda.scientific.distribution.generate_dro import DROGenerator
+            except ModuleNotFoundError as e:
+                logging.error(f"{SODA_SCIENTIFIC_MISSING_LOG_MESSAGE}\n Original error: {e}")
+                return
 
             dro = DROGenerator(RefDataCfg(distribution_type=distribution_type), column_values).generate()
             distribution_dict["distribution_reference"] = dro.dict()
@@ -328,7 +347,14 @@ def update_dro(
     required=True,
     type=click.Choice(["dbt"]),
 )
-@click.option("-d", "--data-source", envvar="SODA_DATA_SOURCE", required=True, multiple=False, type=click.STRING)
+@click.option(
+    "-d",
+    "--data-source",
+    envvar="SODA_DATA_SOURCE",
+    required=True,
+    multiple=False,
+    type=click.STRING,
+)
 @click.option(
     "-c",
     "--configuration",
