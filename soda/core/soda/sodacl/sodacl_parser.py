@@ -196,6 +196,8 @@ class SodaCLParser(Parser):
             return o
         elif isinstance(o, str):
             return self.__resolve_jinja_sodacl_value(o)
+        else:
+            return o
 
     def __resolve_jinja_sodacl_value(self, text: str) -> str:
         variables = self.sodacl_cfg.scan._variables
