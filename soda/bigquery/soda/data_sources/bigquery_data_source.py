@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import logging
 
+from google.auth import default, impersonated_credentials
 from google.cloud import bigquery
 from google.cloud.bigquery import dbapi
 from google.oauth2.service_account import Credentials
@@ -88,16 +89,28 @@ class BigQueryDataSource(DataSource):
         self.auth_scopes = data_source_properties.get("auth_scopes", default_auth_scopes)
 
         self.credentials = None
+        self.project_id = None
+
         if self.account_info_dict:
             self.credentials = Credentials.from_service_account_info(
                 self.account_info_dict,
                 scopes=self.auth_scopes,
             )
+            self.project_id = self.account_info_dict.get("project_id")
 
-        # All remaining parameters
-        # Usually the project_id comes from the self.account_info_dict
-        self.project_id = self.account_info_dict.get("project_id") if self.account_info_dict else None
-        # But users can optionally overwrite in the connection properties
+        if self.data_source_properties.get("use_context_auth") or self.account_info_dict is None:
+            self.logs.info("Using application default credentials.")
+            self.credentials, self.project_id = default()
+
+        if self.data_source_properties.get("impersonation_account"):
+            self.logs.info("Using impersonation of Service Account.")
+            self.credentials = impersonated_credentials.Credentials(
+                source_credentials=self.credentials,
+                target_principal=str(self.data_source_properties.get("impersonation_account")),
+                target_scopes=self.auth_scopes,
+            )
+
+        # Users can optionally overwrite in the connection properties
         self.project_id = data_source_properties.get("project_id", self.project_id)
 
         self.dataset = data_source_properties.get("dataset")
@@ -109,8 +122,6 @@ class BigQueryDataSource(DataSource):
         self.client_options = data_source_properties.get("client_options")
 
     def connect(self):
-        if not self.credentials:
-            self.logs.info("Using application default credentials.")
         try:
             self.client = bigquery.Client(
                 project=self.project_id,
