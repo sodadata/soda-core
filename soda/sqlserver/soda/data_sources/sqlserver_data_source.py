@@ -71,6 +71,36 @@ class SQLServerDataSource(DataSource):
         self.encrypt = data_source_properties.get("encrypt", False)
         self.trust_server_certificate = data_source_properties.get("trust_server_certificate", False)
 
+        self.DEFAULT_FORMAT_EXPRESSIONS.update(self.build_default_format_expressions())
+
+    def build_default_format_expressions(self) -> dict[str, str]:
+        def construct_case_when(
+            pattern_like: str, pattern_not_like: str | None = None, extra_conditions: str | None = None
+        ) -> str:
+            if pattern_not_like and extra_conditions:
+                return (
+                    f"(({{expr}} like '{pattern_like}' and {{expr}} not like '{pattern_not_like}') {extra_conditions})"
+                )
+            elif pattern_not_like:
+                return f"({{expr}} like '{pattern_like}' and {{expr}} not like '{pattern_not_like}')"
+            elif extra_conditions:
+                return f"(({{expr}} like '{pattern_like}') {extra_conditions})"
+
+            return f"({{expr}} like '{pattern_like}')"
+
+        return {
+            "integer": construct_case_when(r"[-+0-9]%", r"[-+0-9][.,]%"),
+            "positive integer": construct_case_when(r"[+0-9]%", r"[+0-9][.,]%"),
+            "negative integer": construct_case_when(r"-%[0-9]%", r"-%[-0-9][.,]%", r"or {expr} like '0'"),
+            "date eu": f"CASE WHEN {{expr}} LIKE '[0-9][0-9]/[0-9][0-9]/[0-9][0-9][0-9][0-9]' OR {{expr}} LIKE '[0-9][0-9]-[0-9][0-9]-[0-9][0-9][0-9][0-9]' OR {{expr}} LIKE '[0-9][0-9].[0-9][0-9].[0-9][0-9][0-9][0-9]' THEN 1 END",
+            "date us": f"CASE WHEN {{expr}} LIKE '[0-9][0-9]/[0-9][0-9]/[0-9][0-9][0-9][0-9]' OR {{expr}} LIKE '[0-9][0-9]-[0-9][0-9]-[0-9][0-9][0-9][0-9]' OR {{expr}} LIKE '[0-9][0-9].[0-9][0-9].[0-9][0-9][0-9][0-9]' THEN 1 END",
+            "date inverse": f"CASE WHEN {{expr}} LIKE '[0-9][0-9][0-9][0-9]/[0-9][0-9]/[0-9][0-9]' OR {{expr}} LIKE '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]' OR {{expr}} LIKE '[0-9][0-9][0-9][0-9].[0-9][0-9].[0-9][0-9]' THEN 1 END",
+            "ip address": f"CASE WHEN {{expr}} LIKE '[0-9]%.%' and {{expr}} like '[0-9].[0-9].[0-9].[0-9]'  or {{expr}} like '[0-9][0-9].%' or {{expr}} like '[0-9][0-9][0-9].%' or {{expr}} like '[0-9][0-9][0-9].%' THEN 1 END",
+            "uuid": f"CASE WHEN {{expr}} LIKE '[0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F]-[0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F]-[0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F]-[0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F]-[0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F]' THEN 1 END",
+            "phone number": f"CASE WHEN {{expr}} like '[+!0-9]%' and {{expr}} not like '%[a-z!A-z]' THEN 1 END",
+            "decimal": construct_case_when(r"[-0-9][.0-9]%[0-9]%"),
+        }
+
     def connect(self):
         def handle_datetime(dto_value):
             tup = struct.unpack("<6hI2h", dto_value)  # e.g., (2017, 3, 16, 10, 35, 18, 500000000, -6, 0)
@@ -234,7 +264,7 @@ class SQLServerDataSource(DataSource):
         )
 
     def expr_regexp_like(self, expr: str, regex_pattern: str):
-        return f"PATINDEX ('%{regex_pattern}%' ,{expr} ) = 0 "
+        return f"PATINDEX ('%{regex_pattern}%' ,{expr} ) = 0"
 
     def sql_select_all(self, table_name: str, limit: int | None = None) -> str:
         qualified_table_name = self.qualified_table_name(table_name)

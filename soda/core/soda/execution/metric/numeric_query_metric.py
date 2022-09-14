@@ -142,16 +142,11 @@ class NumericQueryMetric(QueryMetric):
 
                 missing_format = missing_and_valid_cfg.missing_format
                 if missing_format:
-                    format_cfgs = self.data_source_scan.data_source.DEFAULT_FORMATS
-                    format_regex = format_cfgs.get(missing_format)
-                    if not format_regex:
-                        self.logs.error(
-                            f"Missing format {missing_format}",
-                            location=missing_and_valid_cfg.missing_format_location,
-                        )
-                    else:
-                        format_regex = data_source.escape_regex(format_regex)
-                        validity_clauses.append(data_source.expr_regexp_like(column_name, format_regex))
+                    missing_expression = self.data_source_scan.data_source.get_default_format_expression(
+                        column_name, missing_format, missing_and_valid_cfg.missing_format_location
+                    )
+                    if missing_expression:
+                        validity_clauses.append(missing_expression)
 
                 if missing_and_valid_cfg.missing_regex:
                     missing_regex = data_source.escape_regex(missing_and_valid_cfg.missing_regex)
@@ -175,20 +170,12 @@ class NumericQueryMetric(QueryMetric):
                     validity_clauses.append(in_expr)
 
                 valid_format = missing_and_valid_cfg.valid_format
-                if valid_format is not None:
-                    format_cfgs = self.data_source_scan.data_source.DEFAULT_FORMATS
-                    format_regex = format_cfgs.get(valid_format)
-                    # TODO generate error if format does not exist!
-                    if not format_regex:
-                        # TODO move this to a validate step between configuration parsing and execution so that it can be validated without running
-                        self.logs.error(
-                            f"Valid format {valid_format} does not exist",
-                            location=missing_and_valid_cfg.valid_format_location,
-                        )
-                    else:
-                        format_regex = data_source.escape_regex(format_regex)
-                        regex_like_expr = data_source.expr_regexp_like(column_name, format_regex)
-                        validity_clauses.append(regex_like_expr)
+                if valid_format:
+                    validity_expression = self.data_source_scan.data_source.get_default_format_expression(
+                        column_name, valid_format, missing_and_valid_cfg.valid_format_location
+                    )
+                    if validity_expression:
+                        validity_clauses.append(validity_expression)
                 if missing_and_valid_cfg.valid_regex is not None:
                     valid_regex = data_source.escape_regex(missing_and_valid_cfg.valid_regex)
                     regex_like_expr = data_source.expr_regexp_like(column_name, valid_regex)
