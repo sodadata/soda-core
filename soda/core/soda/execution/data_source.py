@@ -16,6 +16,7 @@ from soda.execution.query.partition_queries import PartitionQueries
 from soda.execution.query.query import Query
 from soda.execution.query.schema_query import TableColumnsQuery
 from soda.sampler.sample_ref import SampleRef
+from soda.sodacl.location import Location
 
 
 class FormatHelper:
@@ -157,7 +158,11 @@ class DataSource:
     ]
     TEXT_TYPES_FOR_PROFILING = ["character varying", "varchar", "text", "character", "char"]
 
+    # Building up format queries normally works with regexp expression + a set of formats,
+    # but some use cases require whole completely custom format expressions.
+    # DEFAULT_FORMAT_EXPRESSIONS take precedence over DEFAULT_FORMATS.
     DEFAULT_FORMATS: dict[str, str] = FormatHelper.build_default_formats()
+    DEFAULT_FORMAT_EXPRESSIONS: dict[str, str] = {}
 
     @staticmethod
     def camel_case_data_source_type(data_source_type: str) -> str:
@@ -859,6 +864,26 @@ class DataSource:
 
     def expr_regexp_like(self, expr: str, regex_pattern: str):
         return f"REGEXP_LIKE({expr}, '{regex_pattern}')"
+
+    def expr_regex_condition(self, expr: str, condition: str) -> str:
+        return condition.format(expr=expr)
+
+    def get_default_format_expression(self, expr: str, format: str, location: Location | None = None) -> str | None:
+        default_expression = self.DEFAULT_FORMAT_EXPRESSIONS.get(format)
+        if default_expression:
+            return self.expr_regex_condition(expr, default_expression)
+
+        default_format = self.DEFAULT_FORMATS.get(format)
+        if default_format:
+            return self.expr_regexp_like(expr, self.escape_regex(default_format))
+
+        # TODO move this to a validate step between configuration parsing and execution so that it can be validated without running
+        self.logs.error(
+            f"Format {format} is not supported.",
+            location=location,
+        )
+
+        return None
 
     def expr_in(self, left: str, right: str):
         return f"{left} IN {right}"

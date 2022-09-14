@@ -61,7 +61,7 @@ def test_valid_min_max(data_source_fixture: DataSourceFixture):
 
 @pytest.mark.skipif(
     test_data_source == "sqlserver",
-    reason="Regex support is not implemented for SQLServer",
+    reason="Full regex support is not supported by SQLServer",
 )
 def test_valid_format_email(data_source_fixture: DataSourceFixture):
     table_name = data_source_fixture.ensure_test_table(customers_test_table)
@@ -82,7 +82,7 @@ def test_valid_format_email(data_source_fixture: DataSourceFixture):
 
 @pytest.mark.skipif(
     test_data_source == "sqlserver",
-    reason="Regex support is not implemented for SQLServer",
+    reason="Full regex support is not supported by SQLServer. 'Percentage' format is supported but with limited functionality.",
 )
 def test_column_configured_invalid_and_missing_values(data_source_fixture: DataSourceFixture):
     table_name = data_source_fixture.ensure_test_table(customers_test_table)
