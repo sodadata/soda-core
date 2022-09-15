@@ -109,7 +109,7 @@ def scan(
     option -v --variable Optional. Use to pass a variable to the scan.  You can specify multiple variables:
     -variable "today=2020-04-12" -variable "yesterday=2020-04-11"
 
-    option -s --scan-definition Optional. If connected to Soda Cloud, specify a scan definition name 
+    option -s --scan-definition Optional. If connected to Soda Cloud, specify a scan definition name
     to keep check results from different environments (dev, prod, staging) separate. The default scan
     definition name is "Soda Core CLI".
 
@@ -386,9 +386,7 @@ def update_dro(
 )
 @click.option(
     "--dbt-cloud-run-id",
-    help=(
-        "Optional. Specify the id of the specific dbt job run that contains tests that you want Soda to ingest. "
-    ),
+    help=("Optional. Specify the id of the specific dbt job run that contains tests that you want Soda to ingest. "),
     default=None,
     type=click.STRING,
 )
