@@ -184,6 +184,7 @@ class DbtCloud:
             for test_unique_id in test_unique_ids:
                 check: DbtCheck = soda_checks[test_unique_id]
                 check.dataset = dataset
+                check.check_cfg.table_name = dataset.name
                 checks.append(check)
 
         return checks
@@ -205,15 +206,12 @@ class DbtCloud:
         for run_result in run_results:
             if run_result.unique_id in test_nodes.keys():
                 test_node = test_nodes[run_result.unique_id]
-
                 self.scan._logs.debug(f"Ingesting test node '{test_node.name}' (id: '{test_node.unique_id}').")
 
                 check = DbtCheck(
                     check_cfg=DbtCheckCfg(
                         name=test_node.name,
                         file_path=test_node.original_file_path,
-                        # TODO Hacky way to get the model name, currently it picks the first ref
-                        table_name=test_node.refs[0][0],
                         column_name=test_node.column_name,
                     ),
                     identity=test_node.unique_id,
