@@ -111,3 +111,6 @@ class MySQLDataSource(DataSource):
 
     def regex_replace_flags(self) -> str:
         return ""
+
+    def expr_regexp_like(self, expr: str, pattern: str):
+        return f"'{expr}' RLIKE '{pattern}'"
