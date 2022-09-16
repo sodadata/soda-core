@@ -114,4 +114,3 @@ class MySQLDataSource(DataSource):
 
     def expr_regexp_like(self, expr: str, pattern: str):
         return f"{expr} RLIKE '{pattern}'"
-
