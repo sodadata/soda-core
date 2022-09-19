@@ -12,3 +12,9 @@ class DiscoverTablesResultColumn:
             "sourceDataType": self.column_type,
         }
         return cloud_dict
+
+    def get_dict(self) -> dict:
+        return {
+            "columnName": self.column_name,
+            "sourceDataType": self.column_type,
+        }

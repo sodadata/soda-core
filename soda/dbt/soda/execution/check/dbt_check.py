@@ -45,3 +45,23 @@ class DbtCheck(Check):
         }
 
         return cloud_dict
+
+    def get_dict(self):
+        cloud_dict = {
+            "identity": self.identity,
+            "name": "dbt:" + self.name,
+            "type": self.cloud_check_type,
+            "definition": self.check_cfg.name,
+            "location": {
+                "filePath": self.check_cfg.file_path,
+                "line": 0,
+                "col": 0,
+            },
+            "dataSource": self.data_source_scan.data_source.data_source_name,
+            "table": self.check_cfg.table_name,
+            "column": self.check_cfg.column_name,
+            "metrics": ["dbt_metric"],
+            "outcome": self.outcome.value if self.outcome else None,
+        }
+
+        return cloud_dict

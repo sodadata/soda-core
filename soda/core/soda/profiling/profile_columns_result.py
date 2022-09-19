@@ -45,6 +45,28 @@ class ProfileColumnsResultColumn:
         }
         return cloud_dict
 
+    def get_dict(self) -> dict:
+        return {
+            "columnName": self.column_name,
+            "profile": {
+                "mins": self.mins,
+                "maxs": self.maxs,
+                "min": self.min,
+                "max": self.max,
+                "frequent_values": self.frequent_values,
+                "avg": self.average,
+                "sum": self.sum,
+                "stddev": self.standard_deviation,
+                "variance": self.variance,
+                "distinct": self.distinct_values,
+                "missing_count": self.missing_values,
+                "histogram": self.histogram,
+                "avg_length": self.average_length,
+                "min_length": self.min_length,
+                "max_length": self.max_length,
+            },
+        }
+
 
 class ProfileColumnsResultTable:
     def __init__(self, table_name: str, data_source: str, row_count: int | None = None):
@@ -65,6 +87,13 @@ class ProfileColumnsResultTable:
             "columnProfiles": [result_column.get_cloud_dict() for result_column in self.result_columns],
         }
         return cloud_dict
+
+    def get_dict(self) -> dict:
+        return {
+            "table": self.table_name,
+            "dataSource": self.data_source,
+            "columnProfiles": [result_column.get_dict() for result_column in self.result_columns],
+        }
 
 
 class ProfileColumnsResult:

@@ -21,7 +21,14 @@ class Location:
     def get_identity_parts(self) -> list:
         return [self.file_path, self.line]
 
-    def to_soda_cloud_json(self):
+    def get_cloud_dict(self):
+        return {
+            "filePath": self.file_path,
+            "line": self.line,
+            "col": self.col,
+        }
+
+    def get_dict(self):
         return {
             "filePath": self.file_path,
             "line": self.line,

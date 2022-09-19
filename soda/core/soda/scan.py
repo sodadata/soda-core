@@ -62,38 +62,31 @@ class Scan:
         self._discover_tables_result_tables: list[DiscoverTablesResultTable] = []
         self._sample_tables_result_tables: list[SampleTablesResultTable] = []
         self._logs.info(f"Soda Core {SODA_CORE_VERSION}")
-        self._is_profiling_run = False
-        self.scan_results = dict = {}
+        self.scan_results: dict = {}
 
-    @staticmethod
-    def build_scan_results(scan) -> dict:
-
-        checks = [
-            check.get_cloud_dict() for check in scan._checks if check.outcome is not None and check.archetype is None
-        ]
+    def build_scan_results(self) -> dict:
+        checks = [check.get_dict() for check in self._checks if check.outcome is not None and check.archetype is None]
         autoamted_monitoring_checks = [
-            check.get_cloud_dict()
-            for check in scan._checks
-            if check.outcome is not None and check.archetype is not None
+            check.get_dict() for check in self._checks if check.outcome is not None and check.archetype is not None
         ]
 
         # TODO: [SODA-608] separate profile columns and sample tables by aligning with the backend team
         profiling = [
-            profile_table.get_cloud_dict()
-            for profile_table in scan._profile_columns_result_tables + scan._sample_tables_result_tables
+            profile_table.get_dict()
+            for profile_table in self._profile_columns_result_tables + self._sample_tables_result_tables
         ]
 
         return JsonHelper.to_jsonnable(  # type: ignore
             {
-                "definitionName": scan._scan_definition_name,
-                "defaultDataSource": scan._data_source_name,
-                "dataTimestamp": scan._data_timestamp,
-                "scanStartTimestamp": scan._scan_start_timestamp,
-                "scanEndTimestamp": scan._scan_end_timestamp,
-                "hasErrors": scan.has_error_logs(),
-                "hasWarnings": scan.has_check_warns(),
-                "hasFailures": scan.has_check_fails(),
-                "metrics": [metric.get_cloud_dict() for metric in scan._metrics],
+                "definitionName": self._scan_definition_name,
+                "defaultDataSource": self._data_source_name,
+                "dataTimestamp": self._data_timestamp,
+                "scanStartTimestamp": self._scan_start_timestamp,
+                "scanEndTimestamp": self._scan_end_timestamp,
+                "hasErrors": self.has_error_logs(),
+                "hasWarnings": self.has_check_warns(),
+                "hasFailures": self.has_check_fails(),
+                "metrics": [metric.get_cloud_dict() for metric in self._metrics],
                 # If archetype is not None, it means that check is automated monitoring
                 "checks": checks,
                 # TODO Queries are not supported by Soda Cloud yet.
@@ -102,9 +95,9 @@ class Scan:
                 "profiling": profiling,
                 "metadata": [
                     discover_tables_result.get_cloud_dict()
-                    for discover_tables_result in scan._discover_tables_result_tables
+                    for discover_tables_result in self._discover_tables_result_tables
                 ],
-                "logs": [log.get_cloud_dict() for log in scan._logs.logs],
+                "logs": [log.get_cloud_dict() for log in self._logs.logs],
             }
         )
 
@@ -517,9 +510,6 @@ class Scan:
             exit_value = 3
             self._logs.error(f"Error occurred while executing scan.", exception=e)
         finally:
-<<<<<<< HEAD
-            self.scan_results = self.build_scan_results(scan=self)
-=======
             try:
                 self._scan_end_timestamp = datetime.now(tz=timezone.utc)
                 if self._configuration.soda_cloud:
@@ -536,8 +526,8 @@ class Scan:
                 exit_value = 3
                 self._logs.error(f"Error occurred while sending scan results to soda cloud.", exception=e)
 
->>>>>>> f25353ae74fbd019c017e1ef7f2b78659a0e1d54
             self._close()
+            self.scan_results = self.build_scan_results()
 
         # Telemetry data
         soda_telemetry.set_attributes(
