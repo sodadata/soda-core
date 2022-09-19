@@ -578,6 +578,10 @@ class SodaCLParser(Parser):
             change_over_time_cfg = ChangeOverTimeCfg()
             antlr_change_over_time = antlr_metric_check.change_over_time()
             antlr_change_over_time_config = antlr_change_over_time.change_over_time_config()
+
+            if antlr_change_over_time.percent():
+                change_over_time_cfg.percent = True
+
             if antlr_change_over_time_config:
                 if antlr_change_over_time_config.LAST():
                     change_over_time_cfg.last_measurements = int(antlr_change_over_time_config.integer().getText())
@@ -586,9 +590,6 @@ class SodaCLParser(Parser):
                     change_over_time_cfg.same_day_last_week = True
                 elif antlr_change_over_time_config.SAME_DAY_LAST_MONTH():
                     change_over_time_cfg.same_day_last_month = True
-                if antlr_change_over_time.percent():
-                    change_over_time_cfg.percent = True
-
             else:
                 change_over_time_cfg.last_measurements = 1
                 change_over_time_cfg.last_aggregation = "min"

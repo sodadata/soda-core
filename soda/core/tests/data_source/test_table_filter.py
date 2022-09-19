@@ -48,10 +48,6 @@ def test_filter_on_date(data_source_fixture: DataSourceFixture):
     scan.assert_all_checks_pass()
 
 
-# @pytest.mark.skipif(
-#     test_data_source != "sqlserver",
-#     reason="Check syntax for timestamp comparison for SQLServer",
-#     )
 def test_table_filter_on_timestamp(data_source_fixture: DataSourceFixture):
     table_name = data_source_fixture.ensure_test_table(customers_test_table)
 
