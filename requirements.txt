@@ -4,6 +4,12 @@
 ./soda/snowflake
 ./soda/redshift
 ./soda/athena
-./soda/spark
+./soda/db2
+./soda/spark[hive]
+./soda/spark[odbc]
+./soda/spark[databricks]
 ./soda/spark_df
 ./soda/scientific
+./soda/sqlserver
+./soda/mysql
+

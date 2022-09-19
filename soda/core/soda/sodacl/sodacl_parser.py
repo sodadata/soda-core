@@ -4,7 +4,6 @@ import functools
 import logging
 import os
 import re
-from builtins import isinstance
 from datetime import timedelta
 from numbers import Number
 from textwrap import dedent
@@ -16,17 +15,20 @@ from soda.common.parser import Parser
 from soda.common.yaml_helper import to_yaml_str
 from soda.sodacl.antlr.SodaCLAntlrLexer import SodaCLAntlrLexer
 from soda.sodacl.antlr.SodaCLAntlrParser import SodaCLAntlrParser
-from soda.sodacl.automated_monitoring_cfg import AutomatedMonitoringCfg
 from soda.sodacl.change_over_time_cfg import ChangeOverTimeCfg
 from soda.sodacl.check_cfg import CheckCfg
-from soda.sodacl.data_source_check_cfg import DataSourceCheckCfg
+from soda.sodacl.data_source_check_cfg import (
+    AutomatedMonitoringCfg,
+    DiscoverTablesCfg,
+    ProfileColumnsCfg,
+    SampleTablesCfg,
+)
 from soda.sodacl.distribution_check_cfg import DistributionCheckCfg
 from soda.sodacl.for_each_column_cfg import ForEachColumnCfg
-from soda.sodacl.for_each_table_cfg import ForEachTableCfg
+from soda.sodacl.for_each_dataset_cfg import ForEachDatasetCfg
 from soda.sodacl.freshness_check_cfg import FreshnessCheckCfg
 from soda.sodacl.missing_and_valid_cfg import CFG_MISSING_VALID_ALL, MissingAndValidCfg
 from soda.sodacl.name_filter import NameFilter
-from soda.sodacl.profile_columns_cfg import ProfileColumnsCfg
 from soda.sodacl.reference_check_cfg import ReferenceCheckCfg
 from soda.sodacl.row_count_comparison_check_cfg import RowCountComparisonCheckCfg
 from soda.sodacl.schema_check_cfg import SchemaCheckCfg, SchemaValidations
@@ -36,13 +38,13 @@ from soda.sodacl.threshold_cfg import ThresholdCfg
 
 logger = logging.getLogger(__name__)
 
-
 WARN = "warn"
 FAIL = "fail"
 NAME = "name"
 IDENTITY = "identity"
 FAIL_CONDITION = "fail condition"
 FAIL_QUERY = "fail query"
+SAMPLES_LIMIT = "samples limit"
 WHEN_REQUIRED_COLUMN_MISSING = "when required column missing"
 WHEN_WRONG_COLUMN_TYPE = "when wrong column type"
 WHEN_WRONG_COLUMN_INDEX = "when wrong column index"
@@ -55,6 +57,13 @@ ALL_SCHEMA_VALIDATIONS = [
     WHEN_FORBIDDEN_COLUMN_PRESENT,
     WHEN_SCHEMA_CHANGES,
 ]
+
+
+# Generic log messages for SODACL parser
+QUOTE_CHAR_ERROR_LOG = """It looks like quote characters are present in one of more of your {dataset_type}
+dataset identifiers. This may result in erroneous or no matches as most data sources do not
+support such characters in table names.
+"""
 
 
 class SodaCLParser(Parser):
@@ -89,20 +98,30 @@ class SodaCLParser(Parser):
         if sodacl_dict is not None:
             self.__parse_headers(sodacl_dict)
 
+    def __check_str_list_has_quotes(self, check_str_list: list[str]):
+        return any(x in (" ").join(check_str_list) for x in ['"', "'"])
+
     def __parse_headers(self, headers_dict: dict) -> None:
         if not headers_dict:
             return
 
         for header_str, header_content in headers_dict.items():
+
+            # Backwards compatibility warning
+            if "for each table" in header_str:
+                self.logs.warning(
+                    f"Please update 'for each table ...' to 'for each dataset ...'.", location=self.location
+                )
+
             self._push_path_element(header_str, header_content)
             try:
                 if "automated monitoring" == header_str:
                     self.__parse_automated_monitoring_section(header_str, header_content)
                 elif header_str.startswith("profile columns"):
                     self.__parse_profile_columns_section(header_str, header_content)
-                elif header_str.startswith("discover tables"):
+                elif header_str.startswith("discover datasets") or header_str.startswith("discover tables"):
                     self.__parse_discover_tables_section(header_str, header_content)
-                elif header_str.startswith("sample datasets"):
+                elif header_str.startswith("sample datasets") or header_str.startswith("sample tables"):
                     self.__parse_sample_datasets_section(header_str, header_content)
                 elif "checks" == header_str:
                     self.__parse_data_source_checks_section(header_str, header_content)
@@ -129,9 +148,9 @@ class SodaCLParser(Parser):
                             self.__parse_table_filter_section(
                                 antlr_section_header.table_filter_header(), header_str, header_content
                             )
-                        elif antlr_section_header.checks_for_each_table_header():
-                            self.__parse_antlr_checks_for_each_table_section(
-                                antlr_section_header.checks_for_each_table_header(),
+                        elif antlr_section_header.checks_for_each_dataset_header():
+                            self.__parse_antlr_checks_for_each_dataset_section(
+                                antlr_section_header.checks_for_each_dataset_header(),
                                 header_str,
                                 header_content,
                             )
@@ -178,19 +197,7 @@ class SodaCLParser(Parser):
             for check_index, check_list_element in enumerate(header_content):
                 self._push_path_element(check_index, check_list_element)
 
-                check_str: str = None
-                check_configurations = None
-
-                if isinstance(check_list_element, str):
-                    check_str = check_list_element
-                elif isinstance(check_list_element, dict):
-                    check_str = next(iter(check_list_element))
-                    check_configurations = check_list_element[check_str]
-                else:
-                    self.logs.error(
-                        f"Skipping unsupported check definition: {to_yaml_str(check_list_element)}",
-                        location=self.location,
-                    )
+                check_str, check_configurations = self.__parse_check_configuration(check_list_element)
 
                 if check_str is not None:
                     check_cfg = self.__parse_table_check_str(header_str, check_str, check_configurations)
@@ -217,19 +224,7 @@ class SodaCLParser(Parser):
             for check_index, check_list_element in enumerate(header_content):
                 self._push_path_element(check_index, check_list_element)
 
-                check_str: str = None
-                check_configurations = None
-
-                if isinstance(check_list_element, str):
-                    check_str = check_list_element
-                elif isinstance(check_list_element, dict):
-                    check_str = next(iter(check_list_element))
-                    check_configurations = check_list_element[check_str]
-                else:
-                    self.logs.error(
-                        f"Skipping unsupported check definition: {to_yaml_str(check_list_element)}",
-                        location=self.location,
-                    )
+                check_str, check_configurations = self.__parse_check_configuration(check_list_element)
 
                 if check_str is not None:
                     check_cfg = self.__parse_data_source_check_str(header_str, check_str, check_configurations)
@@ -341,15 +336,18 @@ class SodaCLParser(Parser):
 
             self._push_path_element(check_str, check_configurations)
             try:
-                name = self._get_required(NAME, str)
+                name = self._get_optional(NAME, str)
                 for invalid_configuration_key in [
-                    key for key in check_configurations if key not in [NAME, WARN, FAIL, FAIL_CONDITION, FAIL_QUERY]
+                    key
+                    for key in check_configurations
+                    if key not in [NAME, WARN, FAIL, FAIL_CONDITION, FAIL_QUERY, SAMPLES_LIMIT]
                 ]:
                     self.logs.error(
                         f'Invalid user defined failed rows check configuration key "{invalid_configuration_key}"',
                         location=self.location,
                     )
                 fail_condition_sql_expr = self._get_optional(FAIL_CONDITION, str)
+                samples_limit = self._get_optional(SAMPLES_LIMIT, int)
                 if fail_condition_sql_expr:
                     return UserDefinedFailedRowsExpressionCheckCfg(
                         source_header=header_str,
@@ -358,6 +356,7 @@ class SodaCLParser(Parser):
                         location=self.location,
                         name=name,
                         fail_condition_sql_expr=fail_condition_sql_expr,
+                        samples_limit=samples_limit,
                     )
                 else:
                     fail_query = self._get_optional(FAIL_QUERY, str)
@@ -369,6 +368,7 @@ class SodaCLParser(Parser):
                             location=self.location,
                             name=name,
                             query=fail_query,
+                            samples_limit=samples_limit,
                         )
                     else:
                         self.logs.error(
@@ -424,6 +424,7 @@ class SodaCLParser(Parser):
             try:
                 name = self._get_optional(NAME, str)
                 query = self._get_required(FAIL_QUERY, str)
+                samples_limit = self._get_optional(SAMPLES_LIMIT, int)
                 return UserDefinedFailedRowsCheckCfg(
                     source_header=header_str,
                     source_line=check_str,
@@ -431,6 +432,7 @@ class SodaCLParser(Parser):
                     location=self.location,
                     name=name,
                     query=query,
+                    samples_limit=samples_limit,
                 )
             finally:
                 self._pop_path_element()
@@ -575,14 +577,18 @@ class SodaCLParser(Parser):
             metric_check_cfg_class = ChangeOverTimeMetricCheckCfg
             change_over_time_cfg = ChangeOverTimeCfg()
             antlr_change_over_time = antlr_metric_check.change_over_time()
-            change_over_time_config = antlr_change_over_time.change_over_time_config()
-            if change_over_time_config:
-                if change_over_time_config.LAST():
-                    change_over_time_cfg.last_measurements = int(change_over_time_config.integer().getText())
-                    change_over_time_cfg.last_aggregation = change_over_time_config.change_aggregation().getText()
-                elif change_over_time_config.SAME_DAY_LAST_WEEK():
+            antlr_change_over_time_config = antlr_change_over_time.change_over_time_config()
+
+            if antlr_change_over_time.percent():
+                change_over_time_cfg.percent = True
+
+            if antlr_change_over_time_config:
+                if antlr_change_over_time_config.LAST():
+                    change_over_time_cfg.last_measurements = int(antlr_change_over_time_config.integer().getText())
+                    change_over_time_cfg.last_aggregation = antlr_change_over_time_config.change_aggregation().getText()
+                elif antlr_change_over_time_config.SAME_DAY_LAST_WEEK():
                     change_over_time_cfg.same_day_last_week = True
-                elif change_over_time_config.SAME_DAY_LAST_MONTH():
+                elif antlr_change_over_time_config.SAME_DAY_LAST_MONTH():
                     change_over_time_cfg.same_day_last_month = True
             else:
                 change_over_time_cfg.last_measurements = 1
@@ -594,11 +600,6 @@ class SodaCLParser(Parser):
             metric_check_cfg_class = AnomalyMetricCheckCfg
 
             if not antlr_metric_check.default_anomaly_threshold():
-                self.logs.error(
-                    "Non default threshold for anomaly detection is currently not supported. "
-                    "Make sure that your check definition adheres to the following syntax: 'anomaly score for {metric} < default'.",
-                    location=self.location,
-                )
                 return metric_check_cfg_class(
                     source_header=header_str,
                     source_line=check_str,
@@ -649,12 +650,18 @@ class SodaCLParser(Parser):
             )
         elif metric_name == "distribution_difference":
             column_name: str = metric_args[0]
-            # TODO: To be reenbabled when DRO can be refered to by name: https://sodadata.atlassian.net/browse/SODA-199
-            distribution_name: str = "default"
-            reference_file_path: str = os.path.join(
-                os.path.dirname(self.location.file_path), check_configurations.get("distribution reference file")
-            )
+            distribution_name: str | None = metric_args[1] if len(metric_args) > 1 else None
 
+            if check_configurations.get("distribution reference file"):
+                reference_file_path: str = os.path.join(
+                    os.path.dirname(self.location.file_path), check_configurations.get("distribution reference file")
+                )
+            else:
+                self.logs.error(
+                    f"""You did not define a `distribution reference file` key. See the docs for more information:\n"""
+                    f"""https://docs.soda.io/soda-cl/distribution.html#define-a-distribution-check""",
+                    location=self.location,
+                )
             if not fail_threshold_cfg and not warn_threshold_cfg:
                 self.logs.error(
                     f"""You did not define a threshold for your distribution check. Please use the following syntax\n"""
@@ -1255,9 +1262,11 @@ class SodaCLParser(Parser):
 
     def __parse_tables(self, header_content, data_source_check_cfg):
         data_source_check_cfg.data_source_name = header_content.get("data_source")
-        tables = header_content.get("tables")
-        if isinstance(tables, list):
-            for table in tables:
+        datasets = header_content.get("datasets")
+        if datasets is None:
+            datasets = header_content.get("tables")
+        if isinstance(datasets, list):
+            for table in datasets:
                 if table.startswith("exclude "):
                     exclude_table_expression = table[len("exclude ") :]
                     data_source_check_cfg.exclude_tables.append(exclude_table_expression)
@@ -1267,32 +1276,51 @@ class SodaCLParser(Parser):
                     else:
                         include_table_expression = table
                     data_source_check_cfg.include_tables.append(include_table_expression)
+            if self.__check_str_list_has_quotes(data_source_check_cfg.include_tables):
+                self.logs.error(
+                    QUOTE_CHAR_ERROR_LOG.format(dataset_type="included"),
+                    location=self.location,
+                )
+            if self.__check_str_list_has_quotes(data_source_check_cfg.exclude_tables):
+                self.logs.error(
+                    QUOTE_CHAR_ERROR_LOG.format(dataset_type="excluded"),
+                    location=self.location,
+                )
         else:
             self.logs.error(
-                'Content of "tables" must be a list of include and/or exclude expressions', location=self.location
+                'Content of "datasets" must be a list of include and/or exclude expressions', location=self.location
             )
 
     @assert_header_content_is_dict
     def __parse_automated_monitoring_section(self, header_str, header_content):
         automated_monitoring_cfg = AutomatedMonitoringCfg(self.data_source_name, self.location)
         self.__parse_tables(header_content, automated_monitoring_cfg)
-        self.get_data_source_scan_cfgs().add_monitoring_cfg(automated_monitoring_cfg)
+        self.get_data_source_scan_cfgs().add_data_source_cfg(automated_monitoring_cfg)
 
     @assert_header_content_is_dict
     def __parse_discover_tables_section(self, header_str, header_content):
-        data_source_check_cfg = DataSourceCheckCfg(self.data_source_name, self.location)
-        self.__parse_tables(header_content, data_source_check_cfg)
-        self.get_data_source_scan_cfgs().add_discover_tables_cfg(data_source_check_cfg)
+        discover_dataset_cfg = DiscoverTablesCfg(self.data_source_name, self.location)
+        self.__parse_tables(header_content, discover_dataset_cfg)
+        self.get_data_source_scan_cfgs().add_data_source_cfg(discover_dataset_cfg)
 
     @assert_header_content_is_dict
     def __parse_profile_columns_section(self, header_str, header_content):
         profile_columns_cfg = ProfileColumnsCfg(self.data_source_name, self.location)
         data_source_scan_cfg = self.get_data_source_scan_cfgs()
-        data_source_scan_cfg.add_profile_columns_cfg(profile_columns_cfg)
+        data_source_scan_cfg.add_data_source_cfg(profile_columns_cfg)
 
         columns = header_content.get("columns")
         if isinstance(columns, list):
             for column_expression in columns:
+                if "." not in column_expression:
+                    self.logs.error(
+                        "Invalid column expression: {column_expression} - must be in the form of table.column".format(
+                            column_expression=column_expression
+                        ),
+                        location=profile_columns_cfg.location,
+                    )
+                    continue
+
                 if column_expression.startswith("exclude "):
                     exclude_column_expression = column_expression[len("exclude ") :]
                     profile_columns_cfg.exclude_columns.append(exclude_column_expression)
@@ -1302,6 +1330,16 @@ class SodaCLParser(Parser):
                     else:
                         include_column_expression = column_expression
                     profile_columns_cfg.include_columns.append(include_column_expression)
+            if self.__check_str_list_has_quotes(profile_columns_cfg.include_columns):
+                self.logs.error(
+                    QUOTE_CHAR_ERROR_LOG.format(dataset_type="included"),
+                    location=self.location,
+                )
+            if self.__check_str_list_has_quotes(profile_columns_cfg.exclude_columns):
+                self.logs.error(
+                    QUOTE_CHAR_ERROR_LOG.format(dataset_type="excluded"),
+                    location=self.location,
+                )
         elif columns is None:
             self.logs.error('Configuration key "columns" is required in profile columns', location=self.location)
         else:
@@ -1309,9 +1347,9 @@ class SodaCLParser(Parser):
 
     @assert_header_content_is_dict
     def __parse_sample_datasets_section(self, header_str, header_content):
-        data_source_check_cfg = DataSourceCheckCfg(self.data_source_name, self.location)
-        self.__parse_tables(header_content, data_source_check_cfg)
-        self.get_data_source_scan_cfgs().add_sample_tables_cfg(data_source_check_cfg)
+        sample_tables_cfg = SampleTablesCfg(self.data_source_name, self.location)
+        self.__parse_tables(header_content, sample_tables_cfg)
+        self.get_data_source_scan_cfgs().add_data_source_cfg(sample_tables_cfg)
 
     def __parse_nameset_list(self, header_content, for_each_cfg):
         for name_filter_index, name_filter_str in enumerate(header_content):
@@ -1329,7 +1367,7 @@ class SodaCLParser(Parser):
                 column_name_filter = None
 
                 filter_pieces_list = re.split(r"\.", name_filter_pieces_str)
-                if isinstance(for_each_cfg, ForEachTableCfg):
+                if isinstance(for_each_cfg, ForEachDatasetCfg):
                     if len(filter_pieces_list) == 1:
                         data_source_name_filter = self.data_source_name
                         table_name_filter = filter_pieces_list[0]
@@ -1385,6 +1423,7 @@ class SodaCLParser(Parser):
                     )
                     if is_include:
                         for_each_cfg.includes.append(name_filter)
+
                     else:
                         for_each_cfg.excludes.append(name_filter)
             else:
@@ -1392,6 +1431,16 @@ class SodaCLParser(Parser):
                     f'Name filter "{name_filter_str}" is not a string',
                     location=self.location,
                 )
+        if self.__check_str_list_has_quotes([x.table_name_filter for x in for_each_cfg.includes]):
+            self.logs.error(
+                QUOTE_CHAR_ERROR_LOG.format(dataset_type="included"),
+                location=self.location,
+            )
+        if self.__check_str_list_has_quotes([x.table_name_filter for x in for_each_cfg.excludes]):
+            self.logs.error(
+                QUOTE_CHAR_ERROR_LOG.format(dataset_type="included"),
+                location=self.location,
+            )
 
     def __antlr_parse_identifier_name_from_header(self, antlr_header, identifier_index: int = 0):
         antlr_identifier = antlr_header.getTypedRuleContext(SodaCLAntlrParser.IdentifierContext, identifier_index)
@@ -1406,25 +1455,31 @@ class SodaCLParser(Parser):
         # TODO consider resolving escape chars from a quoted strings:
         # identifier = re.sub(r'\\(.)', '\g<1>', unquoted_identifier)
 
-    def __parse_antlr_checks_for_each_table_section(
-        self, antlr_checks_for_each_table_header, header_str, header_content
+    def __parse_antlr_checks_for_each_dataset_section(
+        self, antlr_checks_for_each_dataset_header, header_str, header_content
     ):
-        for_each_table_cfg = ForEachTableCfg()
-        for_each_table_cfg.table_alias_name = self.__antlr_parse_identifier_name_from_header(
-            antlr_checks_for_each_table_header
+        for_each_dataset_cfg = ForEachDatasetCfg()
+        for_each_dataset_cfg.table_alias_name = self.__antlr_parse_identifier_name_from_header(
+            antlr_checks_for_each_dataset_header
         )
-        tables = self._get_required("tables", list)
-        if tables:
-            self._push_path_element("tables", tables)
-            self.__parse_nameset_list(tables, for_each_table_cfg)
+        datasets = self._get_optional("datasets", list)
+        if datasets is None:
+            datasets = self._get_optional("tables", list)
+            self._push_path_element("tables", datasets)
+        else:
+            self._push_path_element("datasets", datasets)
+        if datasets:
+            # moved couple of lines above for backwards compatibility with tables
+            # self._push_path_element("datasets", datasets)
+            self.__parse_nameset_list(datasets, for_each_dataset_cfg)
             self._pop_path_element()
         check_cfgs = self._get_required("checks", list)
         if check_cfgs:
             self._push_path_element("checks", check_cfgs)
-            for_each_table_cfg.check_cfgs = self.__parse_checks_in_for_each_section(header_str, check_cfgs)
+            for_each_dataset_cfg.check_cfgs = self.__parse_checks_in_for_each_section(header_str, check_cfgs)
             self._pop_path_element()
-        for_each_table_cfg.location = self.location
-        self.sodacl_cfg.for_each_table_cfgs.append(for_each_table_cfg)
+        for_each_dataset_cfg.location = self.location
+        self.sodacl_cfg.for_each_dataset_cfgs.append(for_each_dataset_cfg)
 
     def __parse_antlr_checks_for_each_column_section(
         self, antlr_checks_for_each_column_header, header_str, header_content
@@ -1447,19 +1502,7 @@ class SodaCLParser(Parser):
             for check_index, check_list_element in enumerate(header_content):
                 self._push_path_element(check_index, check_list_element)
 
-                check_str: str = None
-                check_configurations = None
-
-                if isinstance(check_list_element, str):
-                    check_str = check_list_element
-                elif isinstance(check_list_element, dict):
-                    check_str = next(iter(check_list_element))
-                    check_configurations = check_list_element[check_str]
-                else:
-                    self.logs.error(
-                        f"Skipping unsupported check definition: {to_yaml_str(check_list_element)}",
-                        location=self.location,
-                    )
+                check_str, check_configurations = self.__parse_check_configuration(check_list_element)
 
                 if check_str is not None:
                     check_cfg = self.__parse_table_check_str(header_str, check_str, check_configurations)
@@ -1472,6 +1515,29 @@ class SodaCLParser(Parser):
                 location=self.location,
             )
         return check_cfgs
+
+    def __parse_check_configuration(self, check_list_element) -> tuple:
+        check_str: str = None
+        check_configurations = None
+
+        if isinstance(check_list_element, str):
+            check_str = check_list_element
+        elif isinstance(check_list_element, dict):
+            check_str = next(iter(check_list_element))
+            check_configurations = check_list_element[check_str]
+            ignored_config_keys = [k for k in check_configurations if k != check_str]
+
+            if len(check_list_element) > 1:
+                self.logs.info(
+                    f"Check '{check_str}' contains same-level configuration keys {ignored_config_keys} that will be ignored. Is your indentation correct?"
+                )
+        else:
+            self.logs.error(
+                f"Skipping unsupported check definition: {to_yaml_str(check_list_element)}",
+                location=self.location,
+            )
+
+        return check_str, check_configurations
 
     def antlr_parse_check(self, text: str) -> AntlrParser:
         return AntlrParser(text, lambda p: p.check())

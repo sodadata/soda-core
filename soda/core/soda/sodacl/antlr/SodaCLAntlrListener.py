@@ -1,4 +1,4 @@
-# Generated from /Users/tom/Code/soda-core/soda/core/soda/sodacl/antlr/SodaCLAntlr.g4 by ANTLR 4.9.3
+# Generated from /Users/vijay/work/soda/code/soda-core/soda/core/soda/sodacl/antlr/SodaCLAntlr.g4 by ANTLR 4.9.3
 from antlr4 import *
 if __name__ is not None and "." in __name__:
     from .SodaCLAntlrParser import SodaCLAntlrParser
@@ -104,6 +104,15 @@ class SodaCLAntlrListener(ParseTreeListener):
 
     # Exit a parse tree produced by SodaCLAntlrParser#change_aggregation.
     def exitChange_aggregation(self, ctx:SodaCLAntlrParser.Change_aggregationContext):
+        pass
+
+
+    # Enter a parse tree produced by SodaCLAntlrParser#percent.
+    def enterPercent(self, ctx:SodaCLAntlrParser.PercentContext):
+        pass
+
+    # Exit a parse tree produced by SodaCLAntlrParser#percent.
+    def exitPercent(self, ctx:SodaCLAntlrParser.PercentContext):
         pass
 
 
@@ -305,12 +314,12 @@ class SodaCLAntlrListener(ParseTreeListener):
         pass
 
 
-    # Enter a parse tree produced by SodaCLAntlrParser#checks_for_each_table_header.
-    def enterChecks_for_each_table_header(self, ctx:SodaCLAntlrParser.Checks_for_each_table_headerContext):
+    # Enter a parse tree produced by SodaCLAntlrParser#checks_for_each_dataset_header.
+    def enterChecks_for_each_dataset_header(self, ctx:SodaCLAntlrParser.Checks_for_each_dataset_headerContext):
         pass
 
-    # Exit a parse tree produced by SodaCLAntlrParser#checks_for_each_table_header.
-    def exitChecks_for_each_table_header(self, ctx:SodaCLAntlrParser.Checks_for_each_table_headerContext):
+    # Exit a parse tree produced by SodaCLAntlrParser#checks_for_each_dataset_header.
+    def exitChecks_for_each_dataset_header(self, ctx:SodaCLAntlrParser.Checks_for_each_dataset_headerContext):
         pass
 
 

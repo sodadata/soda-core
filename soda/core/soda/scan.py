@@ -4,22 +4,23 @@ import json
 import logging
 import os
 import textwrap
-from datetime import datetime
+from datetime import datetime, timezone
 
 from soda.__version__ import SODA_CORE_VERSION
 from soda.common.json_helper import JsonHelper
 from soda.common.log import Log, LogLevel
 from soda.common.logs import Logs
 from soda.common.undefined_instance import undefined
-from soda.execution.check import Check
+from soda.execution.check.check import Check
 from soda.execution.check_outcome import CheckOutcome
 from soda.execution.data_source_scan import DataSourceScan
-from soda.execution.derived_metric import DerivedMetric
-from soda.execution.metric import Metric
+from soda.execution.metric.derived_metric import DerivedMetric
+from soda.execution.metric.metric import Metric
 from soda.profiling.discover_table_result_table import DiscoverTablesResultTable
-from soda.profiling.profile_columns_result_table import ProfileColumnsResultTable
+from soda.profiling.profile_columns_result import ProfileColumnsResultTable
 from soda.profiling.sample_tables_result import SampleTablesResultTable
 from soda.sampler.default_sampler import DefaultSampler
+from soda.sampler.sampler import Sampler
 from soda.soda_cloud.historic_descriptor import HistoricDescriptor
 from soda.sodacl.location import Location
 from soda.sodacl.sodacl_cfg import SodaCLCfg
@@ -34,11 +35,13 @@ soda_telemetry = SodaTelemetry.get_instance()
 class Scan:
     def __init__(self):
         from soda.configuration.configuration import Configuration
-        from soda.execution.check import Check
+        from soda.execution.check.check import Check
         from soda.execution.data_source_manager import DataSourceManager
-        from soda.execution.query import Query
+        from soda.execution.query.query import Query
 
-        now = datetime.utcnow()
+        # Using this instead of utcnow() as that creates tz naive object, this has explicitly utc set. More info https://docs.python.org/3/library/datetime.html#datetime.datetime.utcnow
+        now = datetime.now(tz=timezone.utc)
+        self.sampler: Sampler | None = None
         self._logs = Logs(logger)
         self._scan_definition_name: str | None = None
         self._data_source_name: str | None = None
@@ -154,7 +157,7 @@ class Scan:
             for configuration_yaml_file_path in configuration_yaml_file_paths:
                 self.add_configuration_yaml_file(file_path=configuration_yaml_file_path)
         except Exception as e:
-            self._logs.error(f"Could not add configuration files from dir {dir}", exception=e)
+            self._logs.error(f"Could not add configuration files from dir {path}", exception=e)
 
     def add_configuration_yaml_str(self, environment_yaml_str: str, file_path: str = "yaml string"):
         """
@@ -343,7 +346,7 @@ class Scan:
         exit_value = 0
         try:
             from soda.execution.column import Column
-            from soda.execution.column_metrics import ColumnMetrics
+            from soda.execution.metric.column_metrics import ColumnMetrics
             from soda.execution.partition import Partition
             from soda.execution.table import Table
 
@@ -354,21 +357,20 @@ class Scan:
                         "scan.set_scan_definition_name(...) is not set and it is required to make the Soda Cloud integration work.  For this scan, Soda Cloud will be disabled."
                     )
                     self._configuration.soda_cloud = None
-                    from soda.sampler.soda_cloud_sampler import SodaCloudSampler
-
-                    if isinstance(self._configuration.sampler, SodaCloudSampler):
-                        self._configuration.sampler = DefaultSampler()
                 else:
                     if self._configuration.soda_cloud.is_samples_disabled():
                         self._configuration.sampler = DefaultSampler()
 
-            # If there is a sampler
+            # Override the sampler, if it is co
+            if self.sampler is not None:
+                self._configuration.sampler = self.sampler
+
             if self._configuration.sampler:
                 # ensure the sampler is configured with the scan logs
                 self._configuration.sampler.logs = self._logs
 
             # Resolve the for each table checks and add them to the scan_cfg data structures
-            self.__resolve_for_each_table_checks()
+            self.__resolve_for_each_dataset_checks()
             # Resolve the for each column checks and add them to the scan_cfg data structures
             self.__resolve_for_each_column_checks()
 
@@ -418,9 +420,11 @@ class Scan:
                 if isinstance(metric, DerivedMetric):
                     metric.compute_derived_metric_values()
 
-            # Extend automated checks into checks
-            automated_monitoring_checks = self.run_automated_monitoring()
-            self._checks.extend(automated_monitoring_checks)
+            # Run profiling, data samples, automated monitoring, sample tables
+            try:
+                self.run_data_source_scan()
+            except Exception as e:
+                self._logs.error(f"""An error occurred while executing data source scan""", exception=e)
 
             # Evaluates the checks based on all the metric values
             for check in self._checks:
@@ -454,10 +458,6 @@ class Scan:
                         f"Metrics {missing_metrics_str} were not computed for check {check.check_cfg.source_line}"
                     )
 
-            self.run_discover_tables()
-            self.run_profile_columns()
-            self.run_sample_tables()
-
             self._logs.info("Scan summary:")
             self.__log_queries(having_exception=False)
             self.__log_queries(having_exception=True)
@@ -472,7 +472,7 @@ class Scan:
             self.__log_checks(None)
             checks_not_evaluated = len(self._checks) - checks_pass_count - checks_warn_count - checks_fail_count
 
-            if len(self._checks) == 0 and not self._is_profiling_run:
+            if len(self._checks) == 0:
                 self._logs.warning("No checks found, 0 checks evaluated.")
             if checks_not_evaluated:
                 self._logs.info(f"{checks_not_evaluated} checks not evaluated.")
@@ -504,18 +504,9 @@ class Scan:
             if error_count > 0:
                 Log.log_errors(self.get_error_logs())
 
-            self._scan_end_timestamp = datetime.utcnow()
-            if self._configuration.soda_cloud:
-                self._logs.info("Sending results to Soda Cloud")
-                self._configuration.soda_cloud.send_scan_results(self)
-
             # Telemetry data
             soda_telemetry.set_attributes(
                 {
-                    "scan_exit_code": exit_value,
-                    "checks_count": len(self._checks),
-                    "queries_count": len(self._queries),
-                    "metrics_count": len(self._metrics),
                     "pass_count": checks_pass_count,
                     "error_count": error_count,
                     "failures_count": checks_fail_count,
@@ -526,90 +517,65 @@ class Scan:
             exit_value = 3
             self._logs.error(f"Error occurred while executing scan.", exception=e)
         finally:
+<<<<<<< HEAD
             self.scan_results = self.build_scan_results(scan=self)
+=======
+            try:
+                self._scan_end_timestamp = datetime.now(tz=timezone.utc)
+                if self._configuration.soda_cloud:
+                    self._logs.info("Sending results to Soda Cloud")
+                    self._configuration.soda_cloud.send_scan_results(self)
+
+                    if "send_scan_results" in self._configuration.soda_cloud.soda_cloud_trace_ids:
+                        cloud_trace_id = self._configuration.soda_cloud.soda_cloud_trace_ids["send_scan_results"]
+                        self._logs.info(f"Soda Cloud Trace: {cloud_trace_id}")
+                    else:
+                        self._logs.info("Soda Cloud Trace ID not available.")
+
+            except Exception as e:
+                exit_value = 3
+                self._logs.error(f"Error occurred while sending scan results to soda cloud.", exception=e)
+
+>>>>>>> f25353ae74fbd019c017e1ef7f2b78659a0e1d54
             self._close()
+
+        # Telemetry data
+        soda_telemetry.set_attributes(
+            {
+                "scan_exit_code": exit_value,
+                "checks_count": len(self._checks),
+                "queries_count": len(self._queries),
+                "metrics_count": len(self._metrics),
+            }
+        )
+        if self._configuration.soda_cloud:
+            for request_name, trace_id in self._configuration.soda_cloud.soda_cloud_trace_ids.items():
+                soda_telemetry.set_attribute(f"soda_cloud_trace_id__{request_name}", trace_id)
+
         return exit_value
 
-    def run_automated_monitoring(self):
-        # this is where automated monitoring is called
-        _automated_checks = []
+    def run_data_source_scan(self):
         for data_source_scan in self._data_source_scans:
-            for monitoring_cfg in data_source_scan.data_source_scan_cfg.monitoring_cfgs:
+            for data_source_cfg in data_source_scan.data_source_scan_cfg.data_source_cfgs:
                 data_source_name = data_source_scan.data_source_scan_cfg.data_source_name
                 data_source_scan = self._get_or_create_data_source_scan(data_source_name)
                 if data_source_scan:
-                    monitor_runner = data_source_scan.create_automated_monitor_run(monitoring_cfg, self)
-                    automated_monitoring_checks: list[Check] = monitor_runner.run()
-                    if automated_monitoring_checks:
-                        _automated_checks += automated_monitoring_checks
+                    data_source_scan.run(data_source_cfg, self)
                 else:
                     data_source_names = ", ".join(self._data_source_manager.data_source_properties_by_name.keys())
                     self._logs.error(
                         f"Could not run monitors on data_source {data_source_name} because It is not "
                         f"configured: {data_source_names}"
                     )
-        return _automated_checks
-
-    def run_profile_columns(self):
-        for data_source_scan in self._data_source_scans:
-            for profile_columns_cfg in data_source_scan.data_source_scan_cfg.profile_columns_cfgs:
-                data_source_name = data_source_scan.data_source_scan_cfg.data_source_name
-                data_source_scan = self._get_or_create_data_source_scan(data_source_name)
-                if data_source_scan:
-                    profile_columns_run = data_source_scan.create_profile_columns_run(profile_columns_cfg, self)
-                    profile_columns_result = profile_columns_run.run()
-                    self._is_profiling_run = True
-                    self._profile_columns_result_tables.extend(profile_columns_result.tables)
-                else:
-                    data_source_names = ", ".join(self._data_source_manager.data_source_properties_by_name.keys())
-                    self._logs.error(
-                        f"Could not profile columns on data_source {data_source_name} because it is not "
-                        f"configured: {data_source_names}",
-                        location=profile_columns_cfg.location,
-                    )
-
-    def run_discover_tables(self):
-        for data_source_scan in self._data_source_scans:
-            for discover_columns_cfg in data_source_scan.data_source_scan_cfg.discover_tables_cfgs:
-                data_source_name = data_source_scan.data_source_scan_cfg.data_source_name
-                data_source_scan = self._get_or_create_data_source_scan(data_source_name)
-                if data_source_scan:
-                    discover_tables_run = data_source_scan.create_discover_tables_run(discover_columns_cfg, self)
-                    discover_tables_result = discover_tables_run.run()
-                    self._is_profiling_run = True
-                    self._discover_tables_result_tables.extend(discover_tables_result.tables)
-                else:
-                    data_source_names = ", ".join(self._data_source_manager.data_source_properties_by_name.keys())
-                    self._logs.error(
-                        f"Could not discover tables on data_source {data_source_name} because it is not configured: {data_source_names}",
-                        location=discover_columns_cfg.location,
-                    )
-
-    def run_sample_tables(self):
-        for data_source_scan in self._data_source_scans:
-            for sample_tables_cfg in data_source_scan.data_source_scan_cfg.sample_tables_cfgs:
-                data_source_name = data_source_scan.data_source_scan_cfg.data_source_name
-                data_source_scan = self._get_or_create_data_source_scan(data_source_name)
-                if data_source_scan:
-                    sample_tables_run = data_source_scan.create_sample_tables_run(sample_tables_cfg)
-                    sample_tables_result = sample_tables_run.run()
-                    self._is_profiling_run = True
-                    self._sample_tables_result_tables.extend(sample_tables_result.tables)
-                else:
-                    data_source_names = ", ".join(self._data_source_manager.data_source_properties_by_name.keys())
-                    self._logs.error(
-                        f"Could not discover tables on data_source {data_source_name} because it is not configured: {data_source_names}",
-                        location=sample_tables_cfg.location,
-                    )
 
     def __checks_to_text(self, checks: list[Check]):
-        return "/n".join([str(check) for check in checks])
+        return "\n".join([str(check) for check in checks])
 
     def _close(self):
         self._data_source_manager.close_all_connections()
 
     def __create_check(self, check_cfg, data_source_scan=None, partition=None, column=None):
-        from soda.execution.check import Check
+        from soda.execution.check.check import Check
 
         check = Check.create(
             check_cfg=check_cfg,
@@ -619,18 +585,16 @@ class Scan:
         )
         self._checks.append(check)
 
-    def __resolve_for_each_table_checks(self):
-        pass
-
+    def __resolve_for_each_dataset_checks(self):
         data_source_name = self._data_source_name
 
-        for index, for_each_table_cfg in enumerate(self._sodacl_cfg.for_each_table_cfgs):
-            include_tables = [include.table_name_filter for include in for_each_table_cfg.includes]
-            exclude_tables = [include.table_name_filter for include in for_each_table_cfg.excludes]
+        for index, for_each_dataset_cfg in enumerate(self._sodacl_cfg.for_each_dataset_cfgs):
+            include_tables = [include.table_name_filter for include in for_each_dataset_cfg.includes]
+            exclude_tables = [include.table_name_filter for include in for_each_dataset_cfg.excludes]
 
             data_source_scan = self._get_or_create_data_source_scan(data_source_name)
             if data_source_scan:
-                query_name = f"for_each_table_{for_each_table_cfg.table_alias_name}[{index}]"
+                query_name = f"for_each_dataset_{for_each_dataset_cfg.table_alias_name}[{index}]"
                 table_names = data_source_scan.data_source.get_table_names(
                     include_tables=include_tables, exclude_tables=exclude_tables, query_name=query_name
                 )
@@ -641,9 +605,12 @@ class Scan:
                     data_source_scan_cfg = self._sodacl_cfg.get_or_create_data_source_scan_cfgs(data_source_name)
                     table_cfg = data_source_scan_cfg.get_or_create_table_cfg(table_name)
                     partition_cfg = table_cfg.find_partition(None, None)
-                    for check_cfg_template in for_each_table_cfg.check_cfgs:
-                        check_cfg = check_cfg_template.instantiate_for_each_table(
-                            table_alias=for_each_table_cfg.table_alias_name,
+                    for check_cfg_template in for_each_dataset_cfg.check_cfgs:
+                        check_cfg = check_cfg_template.instantiate_for_each_dataset(
+                            name=self.jinja_resolve(
+                                check_cfg_template.name, variables={for_each_dataset_cfg.table_alias_name: table_name}
+                            ),
+                            table_alias=for_each_dataset_cfg.table_alias_name,
                             table_name=table_name,
                             partition_name=partition_cfg.partition_name,
                         )
@@ -679,11 +646,10 @@ class Scan:
             if data_source:
                 data_source_scan = data_source.create_data_source_scan(self, data_source_scan_cfg)
                 self._data_source_scans.append(data_source_scan)
-            else:
-                self._sodacl_cfg.data_source_scan_cfgs.pop(data_source_name)
+
         return data_source_scan
 
-    def _jinja_resolve(
+    def jinja_resolve(
         self,
         definition: str,
         variables: dict[str, object] = None,
@@ -771,7 +737,7 @@ class Scan:
 
     def __log_check_group(self, checks, indent, check_outcome, outcome_text):
         for check in checks:
-            self._logs.info(f"{indent}{check.get_summary()} [{outcome_text}]")
+            self._logs.info(f"{indent}{check.name} [{outcome_text}]")
             if self._logs.verbose or check_outcome != CheckOutcome.PASS:
                 for diagnostic in check.get_log_diagnostic_lines():
                     self._logs.info(f"{indent}  {diagnostic}")

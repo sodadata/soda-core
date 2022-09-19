@@ -8,12 +8,14 @@ from soda.data_sources.spark_df_connection import SparkDfConnection
 from soda.execution.data_type import DataType
 
 
-class DataSourceImpl(SparkSQLBase):
+class SparkDfDataSource(SparkSQLBase):
     TYPE = "spark_df"
 
     SCHEMA_CHECK_TYPES_MAPPING: dict = {
-        "string": ["character varying", "varchar"],
+        "string": ["character varying", "varchar", "text"],
         "int": ["integer", "int"],
+        "double": ["decimal"],
+        "timestamp": ["timestamptz"],
     }
 
     SQL_TYPE_FOR_SCHEMA_CHECK_MAP = {
@@ -27,12 +29,12 @@ class DataSourceImpl(SparkSQLBase):
         DataType.BOOLEAN: "boolean",
     }
 
-    def __init__(self, logs: Logs, data_source_name: str, data_source_properties: dict, connection_properties: dict):
-        super().__init__(logs, data_source_name, data_source_properties, connection_properties)
+    def __init__(self, logs: Logs, data_source_name: str, data_source_properties: dict):
+        super().__init__(logs, data_source_name, data_source_properties)
+        self.spark_session = data_source_properties.get("spark_session")
 
-    def connect(self, connection_properties: dict):
-        spark_session = connection_properties.get("spark_session")
-        self.connection = SparkDfConnection(spark_session)
+    def connect(self):
+        self.connection = SparkDfConnection(self.spark_session)
 
     def quote_table(self, table_name) -> str:
         return f"{table_name}"

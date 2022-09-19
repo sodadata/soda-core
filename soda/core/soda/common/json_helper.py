@@ -11,6 +11,7 @@
 
 import datetime
 import json
+from datetime import timezone
 from decimal import Decimal
 from enum import Enum
 
@@ -37,6 +38,7 @@ class JsonHelper:
                     del o[key]
                     key = str(key)
                     update = True
+
                 jsonnable_value = JsonHelper.to_jsonnable(value)
                 if value is not jsonnable_value:
                     value = jsonnable_value
@@ -56,7 +58,7 @@ class JsonHelper:
         if isinstance(o, Decimal):
             return float(o)
         if isinstance(o, datetime.datetime):
-            return o.isoformat(timespec="seconds")
+            return o.astimezone(timezone.utc).isoformat(timespec="seconds")
         if isinstance(o, datetime.date):
             return o.strftime("%Y-%m-%d")
         if isinstance(o, datetime.time):
@@ -67,6 +69,8 @@ class JsonHelper:
             return o.value
         if isinstance(o, Undefined):
             return None
+        if isinstance(o, Exception):
+            return str(o)
         raise RuntimeError(f"Do not know how to jsonize {o} ({type(o)})")
 
     @classmethod

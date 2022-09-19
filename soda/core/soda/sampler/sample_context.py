@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 
 from soda.common.logs import Logs
@@ -17,12 +17,13 @@ class SampleContext:
     column: Optional["Column"]
     scan: "Scan"
     logs: "Logs"
+    samples_limit: Optional[int]
 
     def get_scan_folder_name(self):
         parts = [
             self.scan._scan_definition_name,
             self.scan._data_timestamp.strftime("%Y%m%d%H%M%S"),
-            datetime.now().strftime("%Y%m%d%H%M%S"),
+            datetime.now(tz=timezone.utc).strftime("%Y%m%d%H%M%S"),
         ]
         return "_".join([part for part in parts if part])
 

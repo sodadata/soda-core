@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from requests import Response
 from soda.common.json_helper import JsonHelper
@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 class TimeGenerator:
     def __init__(
         self,
-        timestamp: datetime = datetime.now(),
+        timestamp: datetime = datetime.now(tz=timezone.utc),
         timedelta: timedelta = timedelta(days=-1),
     ):
         self.timestamp = timestamp
@@ -76,6 +76,7 @@ class MockSodaCloud(SodaCloud):
              'value': v
             }
         """
+        print(historic_metric_values)
         self.historic_metric_values.extend(historic_metric_values)
 
     def get_historic_data(self, historic_descriptor: HistoricDescriptor):
@@ -106,7 +107,7 @@ class MockSodaCloud(SodaCloud):
                 elif change_over_time_aggregation == "avg":
                     value = sum(historic_values) / len(historic_values)
 
-                return value
+                return {"measurements": {"results": [{"value": value}]}}
 
             elif change_over_time_aggregation is None:
                 historic_metric_values = self.__get_historic_metric_values(historic_descriptor.metric_identity)
@@ -173,7 +174,8 @@ class MockSodaCloud(SodaCloud):
             ]
 
         if not historic_metric_values:
-            raise AssertionError(f"No historic measurements for metric {metric_identity}")
+            self.logs.warning(f"No historic measurements for metric {metric_identity}")
+            return {}
 
         if len(historic_metric_values) > 0:
             historic_metric_values.sort(key=lambda m: m["dataTime"], reverse=True)
@@ -203,7 +205,7 @@ class MockSodaCloud(SodaCloud):
             kwargs["data"] = data.read().decode("utf-8")
         raise AssertionError(f"Unsupported request to mock soda cloud: {JsonHelper.to_json_pretty(kwargs)}")
 
-    def _mock_server_command(self, url, headers, json):
+    def _mock_server_command(self, url, headers, json, request_name):
         command_type = json.get("type")
         if command_type == "login":
             return self._mock_server_command_login(url, headers, json)
@@ -211,7 +213,7 @@ class MockSodaCloud(SodaCloud):
             return self._mock_server_command_sodaCoreInsertScanResults(url, headers, json)
         raise AssertionError(f"Unsupported command type {command_type}")
 
-    def _mock_server_query(self, url, headers, json):
+    def _mock_server_query(self, url, headers, json, request_name):
         query_type = json.get("type")
         if query_type == "sodaCoreCloudConfiguration":
             return self._mock_server_query_core_cfg(url, headers, json)

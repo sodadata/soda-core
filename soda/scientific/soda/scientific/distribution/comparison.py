@@ -1,17 +1,14 @@
 import abc
 import logging
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Tuple, Union
 
 import numpy as np
 import pandas as pd
-import yaml
-from pydantic import FilePath
+from ruamel.yaml import YAML, YAMLError
 from scipy.stats import chisquare, ks_2samp, wasserstein_distance
-from soda.sodacl.distribution_check_cfg import DistributionCheckCfg
 
-from soda.scientific.distribution.generate_dro import DROGenerator
+from soda.scientific.common.exceptions import LoggableException
 from soda.scientific.distribution.utils import (
-    DistCfg,
     RefDataCfg,
     assert_bidirectional_categorial_values,
     assert_categorical_min_sample_size,
@@ -20,35 +17,51 @@ from soda.scientific.distribution.utils import (
 )
 
 
-class NotEnoughSamplesException(Exception):
+class NotEnoughSamplesException(LoggableException):
     """Thrown when inssuficient samples-like events are detected."""
 
 
-class DistributionRefKeyException(Exception):
+class DistributionRefKeyException(LoggableException):
     """Thrown when ref key parsing fails"""
 
 
-class DistributionRefParsingException(Exception):
+class DistributionRefParsingException(LoggableException):
     """Thrown when ref yaml file parsing fails"""
 
 
-class MissingCategories(Exception):
+class MissingCategories(LoggableException):
     """Thrown when a category in the test data is missing from the ref data."""
 
 
-class DistributionRefIncompatibleException(Exception):
+class DistributionRefIncompatibleException(LoggableException):
     """Thrown when the DRO distribution_type is incompatible with the test that is used."""
 
 
-class DistributionChecker:
-    def __init__(self, distribution_check_cfg: DistributionCheckCfg, data: List[Any]):
-        cfg = DistCfg(
-            reference_file_path=distribution_check_cfg.reference_file_path,
-        )
-        self.test_data = data
+class MissingBinsWeightsException(LoggableException):
+    """Thrown when there there are no bins and weights in the distribution reference file"""
 
-        self.method = distribution_check_cfg.method
-        self.ref_cfg = self._parse_reference_cfg(cfg.reference_file_path)
+
+class DRONameNotFoundException(LoggableException):
+    """Thrown when the provided DRO name is not found in the distribution reference file"""
+
+
+class MissingDRONameException(LoggableException):
+    """Thrown when the distribution reference file structure appears to contain named DROs but no DRO name is provided"""
+
+
+class DistributionChecker:
+    def __init__(
+        self,
+        dist_method: str,
+        dist_ref_yaml: str,
+        dist_ref_file_path: str,
+        dist_name: Union[str, None],
+        data: List[Any],
+    ):
+        self.test_data = data
+        self.dist_ref, dist_method = self._parse_reference_cfg(
+            dist_method, dist_ref_yaml, dist_ref_file_path, dist_name
+        )
 
         algo_mapping = {
             "chi_square": ChiSqAlgorithm,
@@ -57,7 +70,7 @@ class DistributionChecker:
             "semd": SWDAlgorithm,
             "psi": PSIAlgorithm,
         }
-        self.choosen_algo = algo_mapping.get(self.method)
+        self.choosen_algo = algo_mapping.get(dist_method)
 
     def run(self) -> Dict[str, float]:
         test_data = pd.Series(self.test_data)
@@ -67,7 +80,7 @@ class DistributionChecker:
         stat_values = []
 
         for i in range(bootstrap_size):
-            check_results = self.choosen_algo(self.ref_cfg, test_data, seed=i).evaluate()
+            check_results = self.choosen_algo(self.dist_ref, test_data, seed=i).evaluate()
 
             check_value = check_results.get("check_value")
             check_values.append(check_value)
@@ -82,53 +95,78 @@ class DistributionChecker:
 
         return dict(check_value=check_value, stat_value=stat_value)
 
-    def _parse_reference_cfg(self, ref_file_path: FilePath) -> RefDataCfg:
-        with open(str(ref_file_path)) as stream:
-            try:
-                parsed_file: dict = yaml.safe_load(stream)
-                ref_data_cfg = {}
+    def _parse_reference_cfg(
+        self, dist_method: str, dist_ref_yaml: str, dist_ref_file_path: str, dist_name: Union[str, None]
+    ) -> Tuple[RefDataCfg, str]:
+        try:
+            parsed_ref_cfg: dict = YAML().load(dist_ref_yaml)
+            ref_data_cfg = {}
 
-                if "distribution_type" in parsed_file:
-                    ref_data_cfg["distribution_type"] = parsed_file["distribution_type"]
-                else:
-                    raise DistributionRefKeyException(
-                        f"Your {ref_file_path} reference yaml file must have `distribution_type` key. The `distribution_type` is used to create a sample from your DRO."
-                        f" For more information visit the docs: https://docs.soda.io/soda-cl/distribution.html#generate-a-distribution-reference-object-dro"
+            if dist_name:
+                parsed_ref_cfg = parsed_ref_cfg.get(dist_name)
+                if not parsed_ref_cfg:
+                    raise DRONameNotFoundException(
+                        f"""Your DRO name "{dist_name}" is not found in your distribution reference file "{dist_ref_file_path}". Please make sure that the DRO name that you provide in"""
+                        f""" "distribution_difference(column_name, dro_name)" points to an existing DRO. For more information visit the docs:\n"""
+                        f"""https://docs.soda.io/soda-cl/distribution.html#define-a-distribution-check"""
                     )
 
-                if not self.method:
-                    default_configs = {"continuous": "ks", "categorical": "chi_square"}
-                    self.method = default_configs[ref_data_cfg["distribution_type"]]
-
-                correct_configs = {
-                    "continuous": ["ks", "psi", "swd", "semd"],
-                    "categorical": ["chi_square", "psi", "swd", "semd"],
-                }
-
-                if self.method not in correct_configs[ref_data_cfg["distribution_type"]]:
-                    raise DistributionRefIncompatibleException(
-                        f"""Your DRO distribution_type '{parsed_file['distribution_type']}' is incompatible with the method '{self.method}'. Your DRO distribution_type allows you to use one of the following methods:"""
-                        f""" {", ".join([f"'{method}'" for method in correct_configs[parsed_file["distribution_type"]]])}. For more information visit the docs: https://docs.soda.io/soda-cl/distribution.html#about-distribution-checks """
-                    )
-
-                if "distribution reference" in parsed_file:
-                    # TODO: add checks for bins and weights
-                    ref_data_cfg["bins"] = parsed_file["distribution reference"]["bins"]
-                    ref_data_cfg["weights"] = parsed_file["distribution reference"]["weights"]
-
-                else:
-                    dro = DROGenerator(
-                        cfg=RefDataCfg(distribution_type=ref_data_cfg["distribution_type"]), data=self.test_data
-                    ).generate()
-                    ref_data_cfg["bins"] = dro.bins
-                    ref_data_cfg["weights"] = dro.weights
-
-            except yaml.YAMLError as exc:
-                logging.error(exc)
-                raise DistributionRefParsingException(
-                    f"Cannot parse {ref_file_path}, please check your reference file! \n"
+            elif all(isinstance(value, dict) for value in parsed_ref_cfg.values()):
+                raise MissingDRONameException(
+                    f"""While your distribution reference file "{dist_ref_file_path}" appears to contain named DROs, you did not provide a DRO name to your distribution check. """
+                    f"""Please provide the DRO name that you want to use in the "distribution_difference(column_name, dro_name)"""
+                    f""" part of your check. For more information visit the docs: https://docs.soda.io/soda-cl/distribution.html#define-a-distribution-check."""
                 )
-        return RefDataCfg.parse_obj(ref_data_cfg)
+
+            if "distribution_type" in parsed_ref_cfg:
+                ref_data_cfg["distribution_type"] = parsed_ref_cfg["distribution_type"]
+            else:
+                raise DistributionRefKeyException(
+                    f"""Your "{dist_ref_file_path}" reference yaml file must have `distribution_type` key. The `distribution_type` is used to create a sample from your DRO."""
+                    f""" For more information visit the docs: https://docs.soda.io/soda-cl/distribution.html#generate-a-distribution-reference-object-dro"""
+                )
+
+            if not dist_method:
+                default_configs = {"continuous": "ks", "categorical": "chi_square"}
+                dist_method = default_configs[ref_data_cfg["distribution_type"]]
+                logging.info(
+                    f"""You did not specify a `method` key in your distribution check. Since your DRO distribution_type is "{ref_data_cfg["distribution_type"]}" this means that the default "{dist_method}" method will be used.\n"""
+                    f"""For more information visit the docs: https://docs.soda.io/soda-cl/distribution.html#define-a-distribution-check"""
+                )
+            correct_configs = {
+                "continuous": ["ks", "psi", "swd", "semd"],
+                "categorical": ["chi_square", "psi", "swd", "semd"],
+            }
+
+            if dist_method not in correct_configs[ref_data_cfg["distribution_type"]]:
+                raise DistributionRefIncompatibleException(
+                    f"""Your DRO distribution_type "{parsed_ref_cfg['distribution_type']}" is incompatible with the method "{dist_method}". Your DRO distribution_type allows you to use one of the following methods:"""
+                    f""" {", ".join([f"'{method}'" for method in correct_configs[parsed_ref_cfg["distribution_type"]]])}. For more information visit the docs: https://docs.soda.io/soda-cl/distribution.html#about-distribution-checks """
+                )
+
+            distribution_reference = parsed_ref_cfg.get("distribution_reference")
+            if not distribution_reference:
+                # added for backwards compatibility
+                distribution_reference = parsed_ref_cfg.get("distribution reference")
+
+            if distribution_reference:
+                # TODO: add checks for bins and weights
+                ref_data_cfg["bins"] = distribution_reference["bins"]
+                ref_data_cfg["weights"] = distribution_reference["weights"]
+
+            else:
+                raise MissingBinsWeightsException(
+                    f"""The DRO in your "{dist_ref_file_path}" distribution reference file does not contain a "distribution_reference" key with weights and bins."""
+                    f""" Make sure that before running "soda scan" you create a DRO by running "soda update-dro". For more information visit the docs:\n"""
+                    f"""https://docs.soda.io/soda-cl/distribution.html#generate-a-distribution-reference-object-dro."""
+                )
+
+        except YAMLError as exc:
+            logging.error(exc)
+            raise DistributionRefParsingException(
+                f"Cannot parse {dist_ref_file_path}, please check your reference file! \n"
+            )
+        return RefDataCfg.parse_obj(ref_data_cfg), dist_method
 
 
 class DistributionAlgorithm(abc.ABC):

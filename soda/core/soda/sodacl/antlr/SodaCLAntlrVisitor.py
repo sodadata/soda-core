@@ -1,4 +1,4 @@
-# Generated from /Users/tom/Code/soda-core/soda/core/soda/sodacl/antlr/SodaCLAntlr.g4 by ANTLR 4.9.3
+# Generated from /Users/vijay/work/soda/code/soda-core/soda/core/soda/sodacl/antlr/SodaCLAntlr.g4 by ANTLR 4.9.3
 from antlr4 import *
 if __name__ is not None and "." in __name__:
     from .SodaCLAntlrParser import SodaCLAntlrParser
@@ -61,6 +61,11 @@ class SodaCLAntlrVisitor(ParseTreeVisitor):
 
     # Visit a parse tree produced by SodaCLAntlrParser#change_aggregation.
     def visitChange_aggregation(self, ctx:SodaCLAntlrParser.Change_aggregationContext):
+        return self.visitChildren(ctx)
+
+
+    # Visit a parse tree produced by SodaCLAntlrParser#percent.
+    def visitPercent(self, ctx:SodaCLAntlrParser.PercentContext):
         return self.visitChildren(ctx)
 
 
@@ -174,8 +179,8 @@ class SodaCLAntlrVisitor(ParseTreeVisitor):
         return self.visitChildren(ctx)
 
 
-    # Visit a parse tree produced by SodaCLAntlrParser#checks_for_each_table_header.
-    def visitChecks_for_each_table_header(self, ctx:SodaCLAntlrParser.Checks_for_each_table_headerContext):
+    # Visit a parse tree produced by SodaCLAntlrParser#checks_for_each_dataset_header.
+    def visitChecks_for_each_dataset_header(self, ctx:SodaCLAntlrParser.Checks_for_each_dataset_headerContext):
         return self.visitChildren(ctx)
 
 

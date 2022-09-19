@@ -4,36 +4,40 @@ import datetime
 import logging
 
 import pyathena
-from soda.cloud.aws.credentials import AwsCredentials
+from soda.common.aws_credentials import AwsCredentials
 from soda.common.exceptions import DataSourceConnectionError
+from soda.common.logs import Logs
 from soda.execution.data_source import DataSource
 from soda.execution.data_type import DataType
 
 logger = logging.getLogger(__name__)
 
 
-class DataSourceImpl(DataSource):
+class AthenaDataSource(DataSource):
     TYPE = "athena"
 
-    def connect(self, connection_properties):
-        self.connection_properties = connection_properties
+    def __init__(
+        self,
+        logs: Logs,
+        data_source_name: str,
+        data_source_properties: dict,
+    ):
+        super().__init__(logs, data_source_name, data_source_properties)
 
+        self.athena_staging_dir = data_source_properties.get("staging_dir")
+        self.catalog = data_source_properties.get("catalog")
+        self.work_group = data_source_properties.get("work_group")
+        self.aws_credentials = AwsCredentials(
+            access_key_id=data_source_properties.get("access_key_id"),
+            secret_access_key=data_source_properties.get("secret_access_key"),
+            role_arn=data_source_properties.get("role_arn"),
+            session_token=data_source_properties.get("session_token"),
+            region_name=data_source_properties.get("region_name"),
+            profile_name=data_source_properties.get("profile_name"),
+        )
+
+    def connect(self):
         try:
-            self.aws_credentials = AwsCredentials(
-                access_key_id=connection_properties.get("access_key_id"),
-                secret_access_key=connection_properties.get("secret_access_key"),
-                role_arn=connection_properties.get("role_arn"),
-                session_token=connection_properties.get("session_token"),
-                region_name=connection_properties.get("region_name"),
-                profile_name=connection_properties.get("profile_name"),
-            )
-
-            self.athena_staging_dir = connection_properties.get("staging_dir")
-            self.database = connection_properties.get("database")
-            self.table_prefix = self.database
-            self.catalog = connection_properties.get("catalog")
-            self.work_group = connection_properties.get("work_group")
-
             self.connection = pyathena.connect(
                 profile_name=self.aws_credentials.profile_name,
                 aws_access_key_id=self.aws_credentials.access_key_id,
@@ -43,7 +47,7 @@ class DataSourceImpl(DataSource):
                 role_arn=self.aws_credentials.role_arn,
                 catalog_name=self.catalog,
                 work_group=self.work_group,
-                schema_name=self.database,
+                schema_name=self.schema,
             )
 
             return self.connection
@@ -51,7 +55,9 @@ class DataSourceImpl(DataSource):
             raise DataSourceConnectionError(self.TYPE, e)
 
     SCHEMA_CHECK_TYPES_MAPPING: dict = {
-        "string": ["character varying", "varchar"],
+        "varchar": ["character varying", "varchar", "text"],
+        "double": ["decimal"],
+        "timestamp": ["timestamptz"],
     }
     SQL_TYPE_FOR_CREATE_TABLE_MAP: dict = {
         DataType.TEXT: "string",
@@ -82,9 +88,6 @@ class DataSourceImpl(DataSource):
         formatted = datetime.strftime("%Y-%m-%d %H:%M:%S")
         return f"TIMESTAMP '{formatted}'"
 
-    def quote_table_declaration(self, table_name) -> str:
-        return f"{self.quote_table(self.database)}.{self.quote_table(table_name)}"
-
     def quote_column_declaration(self, column_name: str) -> str:
         return self.quote_column_for_create(column_name)
 
@@ -97,19 +100,14 @@ class DataSourceImpl(DataSource):
     def regex_replace_flags(self) -> str:
         return ""
 
-    def fully_qualified_table_name(self, table_name) -> str:
-        return self.quote_table_declaration(table_name)
-
     @staticmethod
     def column_metadata_catalog_column() -> str:
         return "table_schema"
 
-    @staticmethod
-    def default_casify_table_name(identifier: str) -> str:
+    def default_casify_table_name(self, identifier: str) -> str:
         return identifier.lower()
 
-    @staticmethod
-    def default_casify_column_name(identifier: str) -> str:
+    def default_casify_column_name(self, identifier: str) -> str:
         return identifier.lower()
 
     def get_metric_sql_aggregation_expression(self, metric_name: str, metric_args: list[object] | None, expr: str):

@@ -1,5 +1,5 @@
 [version]
-current = "3.0.0rc1"
+current = "3.0.7"
 
 regex = '''
   (?P<major>\d+)\.(?P<minor>\d+)\.(?P<patch>\d+)((?P<prerelease>[a-z]+)(?P<build>\d+))?
@@ -45,6 +45,27 @@ search = 'package_version = "{current_version}"'
 src = "soda/spark_df/setup.py"
 search = 'package_version = "{current_version}"'
 
+
+[[file]]
+src = "soda/db2/setup.py"
+search = 'package_version = "{current_version}"'
+
 [[file]]
 src = "soda/scientific/setup.py"
+search = 'package_version = "{current_version}"'
+
+[[file]]
+src = "soda/sqlserver/setup.py"
+search = 'package_version = "{current_version}"'
+
+[[file]]
+src = "soda/mysql/setup.py"
+search = 'package_version = "{current_version}"'
+
+[[file]]
+src = "soda/trino/setup.py"
+search = 'package_version = "{current_version}"'
+
+[[file]]
+src = "soda/dbt/setup.py"
 search = 'package_version = "{current_version}"'

@@ -35,7 +35,7 @@ default_anomaly_threshold
  ;
 
 change_over_time
- : CHANGE S (change_over_time_config S)? FOR S
+ : CHANGE S (change_over_time_config S)? percent? FOR S
  ;
 
 change_over_time_config
@@ -46,6 +46,10 @@ change_over_time_config
 
 change_aggregation
  : (AVG|MIN|MAX)
+ ;
+
+percent
+ : 'percent' S
  ;
 
 anomaly_score
@@ -126,7 +130,7 @@ section_header
  : table_checks_header
  | column_configurations_header
  | table_filter_header
- | checks_for_each_table_header
+ | checks_for_each_dataset_header
  | checks_for_each_column_header
  ;
 
@@ -146,8 +150,9 @@ column_configurations_header
  : 'configurations for' S identifier EOF
  ;
 
-checks_for_each_table_header
- : 'for each table' S identifier EOF
+checks_for_each_dataset_header
+ : 'for each dataset' S identifier EOF
+ | 'for each table' S identifier EOF
  ;
 
 checks_for_each_column_header

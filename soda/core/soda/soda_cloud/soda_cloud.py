@@ -4,7 +4,7 @@ import json
 import logging
 import re
 import tempfile
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import TYPE_CHECKING
 
 import requests
@@ -43,16 +43,19 @@ class SodaCloud:
         self.token: str | None = token
         self.headers = {"User-Agent": f"SodaCore/{SODA_CORE_VERSION}"}
         self.logs = logs
+        self.soda_cloud_trace_ids = {}
 
     @staticmethod
     def build_scan_results(scan) -> dict:
         checks = [
-            check.get_cloud_dict() for check in scan._checks if check.outcome is not None and check.archetype is None
-        ]
-        autoamted_monitoring_checks = [
             check.get_cloud_dict()
             for check in scan._checks
-            if check.outcome is not None and check.archetype is not None
+            if (check.outcome is not None or check.force_send_results_to_cloud == True) and check.archetype is None
+        ]
+        automated_monitoring_checks = [
+            check.get_cloud_dict()
+            for check in scan._checks
+            if (check.outcome is not None or check.force_send_results_to_cloud == True) and check.archetype is not None
         ]
 
         # TODO: [SODA-608] separate profile columns and sample tables by aligning with the backend team
@@ -65,9 +68,9 @@ class SodaCloud:
             {
                 "definitionName": scan._scan_definition_name,
                 "defaultDataSource": scan._data_source_name,
-                "dataTimestamp": scan._data_timestamp,
-                "scanStartTimestamp": scan._scan_start_timestamp,
-                "scanEndTimestamp": scan._scan_end_timestamp,
+                "dataTimestamp": scan._data_timestamp,  # Can be changed by user, this is shown in Cloud as time of a scan.
+                "scanStartTimestamp": scan._scan_start_timestamp,  # Actual time when the scan started.
+                "scanEndTimestamp": scan._scan_end_timestamp,  # Actual time when scan ended.
                 "hasErrors": scan.has_error_logs(),
                 "hasWarnings": scan.has_check_warns(),
                 "hasFailures": scan.has_check_fails(),
@@ -76,7 +79,7 @@ class SodaCloud:
                 "checks": checks,
                 # TODO Queries are not supported by Soda Cloud yet.
                 # "queries": [query.get_cloud_dict() for query in scan._queries],
-                "automatedMonitoringChecks": autoamted_monitoring_checks,
+                "automatedMonitoringChecks": automated_monitoring_checks,
                 "profiling": profiling,
                 "metadata": [
                     discover_tables_result.get_cloud_dict()
@@ -92,7 +95,9 @@ class SodaCloud:
             return value
         return str(value)
 
-    def upload_sample(self, scan: Scan, sample_rows: tuple[tuple], sample_file_name: str) -> str:
+    def upload_sample(
+        self, scan: Scan, sample_rows: tuple[tuple], sample_file_name: str, samples_limit: int | None = 100
+    ) -> str:
         """
         :param sample_file_name: file name without extension
         :return: Soda Cloud file_id
@@ -104,11 +109,11 @@ class SodaCloud:
             scan_folder_name = (
                 f"{self._fileify(scan_definition_name)}"
                 f'_{scan_data_timestamp.strftime("%Y%m%d%H%M%S")}'
-                f'_{datetime.now().strftime("%Y%m%d%H%M%S")}'
+                f'_{datetime.now(tz=timezone.utc).strftime("%Y%m%d%H%M%S")}'
             )
 
             with tempfile.TemporaryFile() as temp_file:
-                for row in sample_rows:
+                for row in sample_rows[0:samples_limit]:
                     row = [self._serialize_file_upload_value(v) for v in row]
                     rows_json_str = json.dumps(row)
                     rows_json_bytes = bytearray(rows_json_str, "utf-8")
@@ -155,7 +160,7 @@ class SodaCloud:
     def send_scan_results(self, scan: Scan):
         scan_results = self.build_scan_results(scan)
         scan_results["type"] = "sodaCoreInsertScanResults"
-        return self._execute_command(scan_results)
+        return self._execute_command(scan_results, command_name="send_scan_results")
 
     def get_historic_data(self, historic_descriptor: HistoricDescriptor):
         measurements = {}
@@ -173,7 +178,10 @@ class SodaCloud:
         return {"measurements": measurements, "check_results": check_results}
 
     def is_samples_disabled(self) -> bool:
-        response_json_dict = self._execute_query({"type": "sodaCoreCloudConfiguration"})
+        response_json_dict = self._execute_query(
+            {"type": "sodaCoreCloudConfiguration"},
+            query_name="is_samples_disabled",
+        )
         is_disabled_bool = (
             response_json_dict.get("disableCollectingWarehouseData") if isinstance(response_json_dict, dict) else None
         )
@@ -193,11 +201,13 @@ class SodaCloud:
                         }
                     ],
                 },
-            }
+            },
+            query_name="get_hisoric_changes_over_time",
         )
 
     def _get_historic_measurements(self, hd: HistoricMeasurementsDescriptor):
-        return self._execute_query(
+
+        historic_measurements = self._execute_query(
             {
                 "type": "sodaCoreHistoricMeasurements",
                 "limit": hd.limit,
@@ -211,8 +221,14 @@ class SodaCloud:
                         }
                     ],
                 },
-            }
+            },
+            query_name="get_hisotric_check_results",
         )
+        # Filter out historic_measurements not having 'value' key
+        historic_measurements["results"] = [
+            measurement for measurement in historic_measurements["results"] if "value" in measurement
+        ]
+        return historic_measurements
 
     def _get_hisotric_check_results(self, hd: HistoricCheckResultsDescriptor):
         return self._execute_query(
@@ -229,25 +245,28 @@ class SodaCloud:
                         }
                     ],
                 },
-            }
+            },
+            query_name="get_hisotric_check_results",
         )
 
-    def _execute_query(self, command: dict):
-        return self._execute_request("query", command, False)
+    def _execute_query(self, query: dict, query_name: str):
+        return self._execute_request("query", query, False, query_name)
 
-    def _execute_command(self, command: dict):
-        return self._execute_request("command", command, False)
+    def _execute_command(self, command: dict, command_name: str):
+        return self._execute_request("command", command, False, command_name)
 
-    def _execute_request(self, request_type: str, request_body: dict, is_retry: bool):
+    def _execute_request(self, request_type: str, request_body: dict, is_retry: bool, request_name: str):
         try:
             request_body["token"] = self._get_token()
             # logger.debug(f"Sending to Soda Cloud {JsonHelper.to_json_pretty(request_body)}")
-            response = self._http_post(url=f"{self.api_url}/{request_type}", headers=self.headers, json=request_body)
+            response = self._http_post(
+                url=f"{self.api_url}/{request_type}", headers=self.headers, json=request_body, request_name=request_name
+            )
             response_json = response.json()
             if response.status_code == 401 and not is_retry:
                 logger.debug(f"Authentication failed. Probably token expired. Re-authenticating...")
                 self.token = None
-                response_json = self._execute_request(request_type, request_body, True)
+                response_json = self._execute_request(request_type, request_body, True, request_name)
             elif response.status_code != 200:
                 self.logs.error(
                     f"Error while executing Soda Cloud {request_type} response code: {response.status_code}"
@@ -269,7 +288,9 @@ class SodaCloud:
             else:
                 raise RuntimeError("No API KEY and/or SECRET provided ")
 
-            login_response = self._http_post(url=f"{self.api_url}/command", headers=self.headers, json=login_command)
+            login_response = self._http_post(
+                url=f"{self.api_url}/command", headers=self.headers, json=login_command, request_name="get_token"
+            )
             if login_response.status_code != 200:
                 raise AssertionError(f"Soda Cloud login failed {login_response.status_code}. Check credentials.")
             login_response_json = login_response.json()
@@ -278,5 +299,12 @@ class SodaCloud:
             assert self.token, "No token in login response?!"
         return self.token
 
-    def _http_post(self, **kwargs) -> Response:
-        return requests.post(**kwargs)
+    def _http_post(self, request_name: str = None, **kwargs) -> Response:
+        response = requests.post(**kwargs)
+
+        if request_name:
+            trace_id = response.headers.get("X-Soda-Trace-Id")
+            if trace_id:
+                self.soda_cloud_trace_ids[request_name] = trace_id
+
+        return response

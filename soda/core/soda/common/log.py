@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from textwrap import indent
 
@@ -49,7 +49,7 @@ class Log:
         self.location: Location | None = location
         self.doc: str | None = doc
         self.exception: BaseException | None = exception
-        self.timestamp: datetime = timestamp if isinstance(timestamp, datetime) else datetime.now()
+        self.timestamp: datetime = timestamp if isinstance(timestamp, datetime) else datetime.now(tz=timezone.utc)
         self.index = self.get_next_index()
 
     __index = 0

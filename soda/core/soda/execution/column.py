@@ -7,7 +7,7 @@ class Column:
 
         self.data_source_scan = table.data_source_scan
         self.table = table
-        self.column_name = column_name
+        self.column_name = str(column_name)
         self.column_configurations_cfg: ColumnConfigurationsCfg = None
 
     def set_column_configuration_cfg(self, column_configurations_cfg: "ColumnConfigurationsCfg"):

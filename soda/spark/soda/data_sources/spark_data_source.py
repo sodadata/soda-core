@@ -7,13 +7,12 @@ from datetime import date, datetime
 from enum import Enum
 from typing import Any
 
-from pyhive import hive
 from soda.__version__ import SODA_CORE_VERSION
 from soda.common.exceptions import DataSourceConnectionError
 from soda.common.logs import Logs
 from soda.execution.data_source import DataSource
 from soda.execution.data_type import DataType
-from soda.execution.query import Query
+from soda.execution.query.query import Query
 
 logger = logging.getLogger(__name__)
 ColumnMetadata = namedtuple("ColumnMetadata", ["name", "data_type", "is_nullable"])
@@ -27,7 +26,7 @@ def hive_connection_function(
     database: str,
     auth_method: str,
     **kwargs,
-) -> hive.Connection:
+):
     """
     Connect to hive.
 
@@ -51,6 +50,8 @@ def hive_connection_function(
     out : hive.Connection
         The hive connection
     """
+    from pyhive import hive
+
     connection = hive.connect(
         username=username, password=password, host=host, port=port, database=database, auth=auth_method
     )
@@ -70,9 +71,9 @@ def odbc_connection_function(
     cluster: str,
     server_side_parameters: dict[str, str],
     **kwargs,
-) -> pyodbc.Connection:
+):
     """
-    Connect to hive.
+    Connect to odbc.
 
     Parameters
     ----------
@@ -96,6 +97,8 @@ def odbc_connection_function(
     out : pyobc.Connection
         The connection
     """
+    import pyodbc
+
     http_path = f"/sql/protocolv1/o/{organization}/{cluster}"
     user_agent_entry = f"soda-sql-spark/{SODA_CORE_VERSION} (Databricks)"
 
@@ -118,13 +121,22 @@ def odbc_connection_function(
     return connection
 
 
+def databricks_connection_function(host: str, http_path: str, token: str, database: str, schema: str, **kwargs):
+    from databricks import sql
+
+    connection = sql.connect(
+        server_hostname=host, catalog=database, schema=schema, http_path=http_path, access_token=token
+    )
+    return connection
+
+
 class SparkConnectionMethod(str, Enum):
     HIVE = "hive"
     ODBC = "odbc"
+    DATABRICKS = "databricks"
 
 
 class SparkSQLBase(DataSource):
-
     SCHEMA_CHECK_TYPES_MAPPING: dict = {
         "string": ["character varying", "varchar"],
         "int": ["integer", "int"],
@@ -154,17 +166,41 @@ class SparkSQLBase(DataSource):
     NUMERIC_TYPES_FOR_PROFILING = ["integer", "int", "double", "float"]
     TEXT_TYPES_FOR_PROFILING = ["string"]
 
-    def __init__(self, logs: Logs, data_source_name: str, data_source_properties: dict, connection_properties: dict):
-        super().__init__(logs, data_source_name, data_source_properties, connection_properties)
+    def __init__(self, logs: Logs, data_source_name: str, data_source_properties: dict):
+        super().__init__(logs, data_source_name, data_source_properties)
+
+    def get_table_columns(
+        self,
+        table_name: str,
+        query_name: str,
+        included_columns: list[str] | None = None,
+        excluded_columns: list[str] | None = None,
+    ) -> dict[str, str] | None:
+        """
+        :return: A dict mapping column names to data source data types.  Like eg
+        {"id": "varchar", "size": "int8", ...}
+        """
+        columns = {}
+        query = Query(
+            data_source_scan=self.data_source_scan,
+            unqualified_query_name=query_name,
+            sql=self.sql_get_table_columns(
+                table_name, included_columns=included_columns, excluded_columns=excluded_columns
+            ),
+        )
+        query.execute()
+        if len(query.rows) > 0:
+            columns = {row[0]: row[1] for row in query.rows}
+
+            if included_columns or excluded_columns:
+                column_names = list(columns.keys())
+                filtered_column_names = self._filter_include_exclude(column_names, included_columns, excluded_columns)
+                columns = {col_name: dtype for col_name, dtype in columns.items() if col_name in filtered_column_names}
+        return columns
 
     def sql_get_table_columns(
         self, table_name: str, included_columns: list[str] | None = None, excluded_columns: list[str] | None = None
     ):
-        if included_columns or excluded_columns:
-            self.logs.warning(
-                f"Column selection (inclusion and exclusion) is currently not supported in Spark. The entire table will therefore be profiled."
-            )
-
         return f"DESCRIBE TABLE {table_name}"
 
     def sql_get_column(self, include_tables: list[str] | None = None, exclude_tables: list[str] | None = None) -> str:
@@ -174,7 +210,7 @@ class SparkSQLBase(DataSource):
         where_clause = f"\nWHERE {table_filter_expression} \n" if table_filter_expression else ""
         return (
             f"SELECT table_name, column_name, data_type, is_nullable \n"
-            f"FROM {self.dataset_name}.INFORMATION_SCHEMA.COLUMNS"
+            f"FROM {self.schema}.INFORMATION_SCHEMA.COLUMNS"
             f"{where_clause}"
         )
 
@@ -201,6 +237,8 @@ class SparkSQLBase(DataSource):
         exclude_tables: list[str] = [],
         query_name: str | None = None,
     ) -> list[str]:
+        if not include_tables and not exclude_tables:
+            return []
         sql = self.sql_find_table_names(filter, include_tables, exclude_tables)
         query = Query(
             data_source_scan=self.data_source_scan, unqualified_query_name=query_name or "get_table_names", sql=sql
@@ -212,47 +250,36 @@ class SparkSQLBase(DataSource):
 
     @staticmethod
     def _filter_include_exclude(
-        table_names: list[str], include_tables: list[str], exclude_tables: list[str]
+        item_names: list[str], included_items: list[str], excluded_items: list[str]
     ) -> list[str]:
-        filtered_table_names = table_names
-        if include_tables or exclude_tables:
+        filtered_names = item_names
+        if included_items or excluded_items:
 
-            def matches(table_name, table_pattern: str) -> bool:
-                table_pattern_regex = table_pattern.replace("%", ".*").lower()
-                is_match = re.match(table_pattern_regex, table_name.lower())
+            def matches(name, pattern: str) -> bool:
+                pattern_regex = pattern.replace("%", ".*").lower()
+                is_match = re.match(pattern_regex, name.lower())
                 return bool(is_match)
 
-            if include_tables:
-                filtered_table_names = [
-                    table_name
-                    for table_name in filtered_table_names
-                    if any(matches(table_name, include_table) for include_table in include_tables)
+            if included_items:
+                filtered_names = [
+                    filtered_name
+                    for filtered_name in filtered_names
+                    if any(matches(filtered_name, included_item) for included_item in included_items)
                 ]
-            if exclude_tables:
-                filtered_table_names = [
-                    table_name
-                    for table_name in filtered_table_names
-                    if all(not matches(table_name, exclude_table) for exclude_table in exclude_tables)
+            if excluded_items:
+                filtered_names = [
+                    filtered_name
+                    for filtered_name in filtered_names
+                    if all(not matches(filtered_name, excluded_item) for excluded_item in excluded_items)
                 ]
-        return filtered_table_names
+        return filtered_names
 
-    def qualify_table_name(self, table_name: str) -> str:
-        if self.database is None:
-            qualified_table_name = table_name
-        else:
-            qualified_table_name = f"{self.database}.{table_name}"
-        return qualified_table_name
-
-    @staticmethod
-    def default_casify_table_name(identifier: str) -> str:
+    def default_casify_table_name(self, identifier: str) -> str:
         return identifier.lower()
 
     def rollback(self):
         # Spark does not have transactions so do nothing here.
         pass
-
-    def sql_use_database(self) -> str:
-        return f"Use {self.database}"
 
     def literal_date(self, date: date):
         date_string = date.strftime("%Y-%m-%d")
@@ -281,33 +308,37 @@ class SparkSQLBase(DataSource):
         """TODO: implement for spark."""
 
 
-class DataSourceImpl(SparkSQLBase):
+class SparkDataSource(SparkSQLBase):
     TYPE = "spark"
 
-    def __init__(self, logs: Logs, data_source_name: str, data_source_properties: dict, connection_properties: dict):
-        super().__init__(logs, data_source_name, data_source_properties, connection_properties)
+    def __init__(self, logs: Logs, data_source_name: str, data_source_properties: dict):
+        super().__init__(logs, data_source_name, data_source_properties)
 
-        self.method = connection_properties.get("method", "hive")
-        self.host = connection_properties.get("host", "localhost")
-        self.port = connection_properties.get("port", "10000")
-        self.username = connection_properties.get("username")
-        self.password = connection_properties.get("password")
-        self.database = connection_properties.get("database", "default")
-        self.auth_method = connection_properties.get("authentication", None)
-        self.configuration = connection_properties.get("configuration", {})
-        self.driver = connection_properties.get("driver", None)
-        self.token = connection_properties.get("token")
-        self.organization = connection_properties.get("organization", None)
-        self.cluster = connection_properties.get("cluster", None)
+        self.method = data_source_properties.get("method", "hive")
+        self.host = data_source_properties.get("host", "localhost")
+        self.http_path = data_source_properties.get("http_path", "http_path")
+        self.token = data_source_properties.get("token")
+        self.port = data_source_properties.get("port", "10000")
+        self.username = data_source_properties.get("username")
+        self.password = data_source_properties.get("password")
+        self.database = data_source_properties.get("catalog", "default")
+        self.schema = data_source_properties.get("schema", "default")
+        self.auth_method = data_source_properties.get("authentication", None)
+        self.configuration = data_source_properties.get("configuration", {})
+        self.driver = data_source_properties.get("driver", None)
+        self.organization = data_source_properties.get("organization", None)
+        self.cluster = data_source_properties.get("cluster", None)
         self.server_side_parameters = {
-            f"SSP_{k}": f"{{{v}}}" for k, v in connection_properties.get("server_side_parameters", {})
+            f"SSP_{k}": f"{{{v}}}" for k, v in data_source_properties.get("server_side_parameters", {})
         }
 
-    def connect(self, connection_properties):
+    def connect(self):
         if self.method == SparkConnectionMethod.HIVE:
             connection_function = hive_connection_function
         elif self.method == SparkConnectionMethod.ODBC:
             connection_function = odbc_connection_function
+        elif self.method == SparkConnectionMethod.DATABRICKS:
+            connection_function = databricks_connection_function
         else:
             raise NotImplementedError(f"Unknown Spark connection method {self.method}")
 
@@ -321,11 +352,13 @@ class DataSourceImpl(SparkSQLBase):
                 auth_method=self.auth_method,
                 driver=self.driver,
                 token=self.token,
+                schema=self.schema,
+                http_path=self.http_path,
                 organization=self.organization,
                 cluster=self.cluster,
                 server_side_parameters=self.server_side_parameters,
             )
 
-            return connection
+            self.connection = connection
         except Exception as e:
             raise DataSourceConnectionError(self.type, e)

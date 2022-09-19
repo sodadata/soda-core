@@ -1,12 +1,16 @@
 import logging
 from typing import Dict, List
 
-from soda.common.yaml_helper import to_yaml_str
-from tests.helpers.common_test_tables import (
+import pytest
+from helpers.common_test_tables import (
     customers_dist_check_test_table,
     customers_test_table,
+    special_table,
 )
-from tests.helpers.scanner import Scanner
+from helpers.data_source_fixture import DataSourceFixture
+from helpers.fixtures import test_data_source
+from helpers.utils import execute_scan_and_get_scan_result
+from soda.common.yaml_helper import to_yaml_str
 
 
 def assert_no_duplicate_check_identities(scan_result: dict):
@@ -39,31 +43,23 @@ def get_cloud_checks_by_identity(scan_result) -> Dict[str, List[dict]]:
     return cloud_checks_by_identity
 
 
-def execute_scan_and_get_scan_result(scanner: Scanner, sodacl_yaml_str: str) -> dict:
-    scan = scanner.create_test_scan()
-    mock_soda_cloud = scan.enable_mock_soda_cloud()
-    scan.add_sodacl_yaml_str(sodacl_yaml_str)
-    scan.execute()
-    return mock_soda_cloud.pop_scan_result()
-
-
-def test_check_identity_ignore_name(scanner: Scanner):
-    table_name = scanner.ensure_test_table(customers_test_table)
+def test_check_identity_ignore_name(data_source_fixture: DataSourceFixture):
+    table_name = data_source_fixture.ensure_test_table(customers_test_table)
 
     scan_result = execute_scan_and_get_scan_result(
-        scanner,
+        data_source_fixture,
         f"""
           checks for {table_name}:
             - row_count > 0
         """,
     )
 
-    row_count_identity = "4bb40424"
+    row_count_identity = scan_result["checks"][0]["identity"]
 
-    assert scan_result["checks"][0]["identity"] == row_count_identity
+    assert isinstance(row_count_identity, str)
 
     scan_result = execute_scan_and_get_scan_result(
-        scanner,
+        data_source_fixture,
         f"""
           checks for {table_name}:
             - row_count > 0:
@@ -85,23 +81,23 @@ def test_check_identity_ignore_name(scanner: Scanner):
     assert isinstance(first_log_timestamp, str) and len(first_log_timestamp) > 0
 
 
-def test_check_identity_line_number_change(scanner: Scanner):
-    table_name = scanner.ensure_test_table(customers_test_table)
+def test_check_identity_line_number_change(data_source_fixture: DataSourceFixture):
+    table_name = data_source_fixture.ensure_test_table(customers_test_table)
 
     scan_result = execute_scan_and_get_scan_result(
-        scanner,
+        data_source_fixture,
         f"""
           checks for {table_name}:
             - missing_count(id) < 10
         """,
     )
 
-    missing_identity = "bb6ad736"
+    missing_identity = scan_result["checks"][0]["identity"]
 
-    assert scan_result["checks"][0]["identity"] == missing_identity
+    assert isinstance(missing_identity, str)
 
     scan_result = execute_scan_and_get_scan_result(
-        scanner,
+        data_source_fixture,
         f"""
           checks for {table_name}:
             - row_count > 0
@@ -112,31 +108,31 @@ def test_check_identity_line_number_change(scanner: Scanner):
     assert scan_result["checks"][1]["identity"] == missing_identity
 
 
-def test_explicitely_specified_check_identity(scanner: Scanner):
+def test_explicitly_specified_check_identity(data_source_fixture: DataSourceFixture):
     # 1. First a Soda Cloud user creates a new check
     # 2. Then the soda cloud user asks the Soda Cloud editor to fill in the identity in the check source so that...
-    # 3. The Soda Cloud user can update the check keeping the same identity and hence without loosing the history
+    # 3. The Soda Cloud user can update the check keeping the same identity and hence without losing the history
 
-    table_name = scanner.ensure_test_table(customers_test_table)
+    table_name = data_source_fixture.ensure_test_table(customers_test_table)
 
     scan_result = execute_scan_and_get_scan_result(
-        scanner,
+        data_source_fixture,
         f"""
           checks for {table_name}:
             - row_count > 0
         """,
     )
 
-    row_count_identity = "4bb40424"
+    row_count_identity = scan_result["checks"][0]["identity"]
 
-    assert scan_result["checks"][0]["identity"] == row_count_identity
+    assert isinstance(row_count_identity, str)
 
     scan_result = execute_scan_and_get_scan_result(
-        scanner,
+        data_source_fixture,
         f"""
           checks for {table_name}:
             - row_count > 0:
-                identity: {row_count_identity}
+                identity: '{row_count_identity}'
         """,
     )
 
@@ -144,11 +140,11 @@ def test_explicitely_specified_check_identity(scanner: Scanner):
     assert scan_result["checks"][0]["identity"] == row_count_identity
 
     scan_result = execute_scan_and_get_scan_result(
-        scanner,
+        data_source_fixture,
         f"""
           checks for {table_name}:
             - row_count > 1:
-                identity: {row_count_identity}
+                identity: '{row_count_identity}'
         """,
     )
 
@@ -156,16 +152,16 @@ def test_explicitely_specified_check_identity(scanner: Scanner):
     assert scan_result["checks"][0]["identity"] == row_count_identity
 
 
-def test_for_each_identity(scanner: Scanner):
+def test_for_each_identity(data_source_fixture: DataSourceFixture):
     """Tests that same check generated by "for each" clause and manually will have unique identity and definition."""
-    customers_table_name = scanner.ensure_test_table(customers_test_table)
-    customers_dist_table_name = scanner.ensure_test_table(customers_dist_check_test_table)
+    customers_table_name = data_source_fixture.ensure_test_table(customers_test_table)
+    customers_dist_table_name = data_source_fixture.ensure_test_table(customers_dist_check_test_table)
 
     scan_result = execute_scan_and_get_scan_result(
-        scanner,
+        data_source_fixture,
         f"""
-          for each table T:
-            tables:
+          for each dataset D:
+            datasets:
                 - {customers_table_name}
                 - {customers_dist_table_name}
             checks:
@@ -177,3 +173,29 @@ def test_for_each_identity(scanner: Scanner):
     assert scan_result["checks"][0]["identity"] != scan_result["checks"][1]["identity"]
     assert scan_result["checks"][0]["identity"] != scan_result["checks"][2]["identity"]
     assert scan_result["checks"][1]["identity"] != scan_result["checks"][2]["identity"]
+
+
+@pytest.mark.skipif(
+    test_data_source
+    in [
+        "bigquery",
+        "spark_df",
+        "mysql",
+        "athena",
+    ],
+    reason="Column name starting with number is not allowed in some data sources.",
+)
+def test_check_identity_special_table(data_source_fixture: DataSourceFixture):
+    table_name = data_source_fixture.ensure_test_table(special_table)
+
+    scan_result = execute_scan_and_get_scan_result(
+        data_source_fixture,
+        f"""
+          checks for "{table_name}":
+            - row_count > 0
+            - missing_count(1) = 0
+        """,
+    )
+    row_count_identity = scan_result["checks"][0]["identity"]
+
+    assert isinstance(row_count_identity, str)

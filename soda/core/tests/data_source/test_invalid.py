@@ -1,11 +1,13 @@
-from tests.helpers.common_test_tables import customers_test_table
-from tests.helpers.scanner import Scanner
+import pytest
+from helpers.common_test_tables import customers_test_table
+from helpers.data_source_fixture import DataSourceFixture
+from helpers.fixtures import test_data_source
 
 
-def test_default_invalid(scanner: Scanner):
-    table_name = scanner.ensure_test_table(customers_test_table)
+def test_default_invalid(data_source_fixture: DataSourceFixture):
+    table_name = data_source_fixture.ensure_test_table(customers_test_table)
 
-    scan = scanner.create_test_scan()
+    scan = data_source_fixture.create_test_scan()
     scan.add_sodacl_yaml_str(
         f"""
       checks for {table_name}:
@@ -19,10 +21,10 @@ def test_default_invalid(scanner: Scanner):
     scan.assert_all_checks_pass()
 
 
-def test_column_configured_invalid_values(scanner: Scanner):
-    table_name = scanner.ensure_test_table(customers_test_table)
+def test_column_configured_invalid_values(data_source_fixture: DataSourceFixture):
+    table_name = data_source_fixture.ensure_test_table(customers_test_table)
 
-    scan = scanner.create_test_scan()
+    scan = data_source_fixture.create_test_scan()
     scan.add_sodacl_yaml_str(
         f"""
       checks for {table_name}:
@@ -40,10 +42,10 @@ def test_column_configured_invalid_values(scanner: Scanner):
     scan.assert_all_checks_pass()
 
 
-def test_valid_min_max(scanner: Scanner):
-    table_name = scanner.ensure_test_table(customers_test_table)
+def test_valid_min_max(data_source_fixture: DataSourceFixture):
+    table_name = data_source_fixture.ensure_test_table(customers_test_table)
 
-    scan = scanner.create_test_scan()
+    scan = data_source_fixture.create_test_scan()
     scan.add_sodacl_yaml_str(
         f"""
       checks for {table_name}:
@@ -57,16 +59,20 @@ def test_valid_min_max(scanner: Scanner):
     scan.assert_all_checks_pass()
 
 
-def test_valid_format_email(scanner: Scanner):
-    table_name = scanner.ensure_test_table(customers_test_table)
+@pytest.mark.skipif(
+    test_data_source == "sqlserver",
+    reason="Full regex support is not supported by SQLServer",
+)
+def test_valid_format_email(data_source_fixture: DataSourceFixture):
+    table_name = data_source_fixture.ensure_test_table(customers_test_table)
 
-    scan = scanner.create_test_scan()
+    scan = data_source_fixture.create_test_scan()
     scan.add_sodacl_yaml_str(
         f"""
           checks for {table_name}:
             - invalid_count(email) = 1:
                 valid format: email
-            - missing_count(email) = 5
+
         """
     )
     scan.execute()
@@ -74,10 +80,14 @@ def test_valid_format_email(scanner: Scanner):
     scan.assert_all_checks_pass()
 
 
-def test_column_configured_invalid_and_missing_values(scanner: Scanner):
-    table_name = scanner.ensure_test_table(customers_test_table)
+@pytest.mark.skipif(
+    test_data_source == "sqlserver",
+    reason="Full regex support is not supported by SQLServer. 'Percentage' format is supported but with limited functionality.",
+)
+def test_column_configured_invalid_and_missing_values(data_source_fixture: DataSourceFixture):
+    table_name = data_source_fixture.ensure_test_table(customers_test_table)
 
-    scan = scanner.create_test_scan()
+    scan = data_source_fixture.create_test_scan()
     scan.add_sodacl_yaml_str(
         f"""
           checks for {table_name}:
@@ -94,10 +104,10 @@ def test_column_configured_invalid_and_missing_values(scanner: Scanner):
     scan.assert_all_checks_pass()
 
 
-def test_valid_length(scanner: Scanner):
-    table_name = scanner.ensure_test_table(customers_test_table)
+def test_valid_length(data_source_fixture: DataSourceFixture):
+    table_name = data_source_fixture.ensure_test_table(customers_test_table)
 
-    scan = scanner.create_test_scan()
+    scan = data_source_fixture.create_test_scan()
     scan.add_sodacl_yaml_str(
         f"""
           checks for {table_name}:
@@ -112,7 +122,7 @@ def test_valid_length(scanner: Scanner):
 
     scan.assert_all_checks_pass()
 
-    scan = scanner.create_test_scan()
+    scan = data_source_fixture.create_test_scan()
     scan.add_sodacl_yaml_str(
         f"""
           checks for {table_name}:
@@ -127,15 +137,19 @@ def test_valid_length(scanner: Scanner):
     scan.assert_all_checks_pass()
 
 
-def test_check_and_column_configured_invalid_values(scanner: Scanner):
+def test_check_and_column_configured_invalid_values(data_source_fixture: DataSourceFixture):
     """
     In case both column *and* check configurations are specified, they both are applied.
     """
-    table_name = scanner.ensure_test_table(customers_test_table)
+    table_name = data_source_fixture.ensure_test_table(customers_test_table)
 
-    digit_regex = scanner.data_source.escape_regex(r"ID\d")
+    digit_regex = (
+        r"ID[[:digit:]]"
+        if data_source_fixture.data_source_name == "mysql"
+        else data_source_fixture.data_source.escape_regex(r"ID\d")
+    )
 
-    scan = scanner.create_test_scan()
+    scan = data_source_fixture.create_test_scan()
     scan.add_sodacl_yaml_str(
         f"""
           checks for {table_name}:
