@@ -41,7 +41,7 @@ if __name__ == "__main__":
 
 
 @main.command(
-    short_help="runs a scan",
+    short_help="Runs a scan",
 )
 @click.option(
     "-d",
@@ -73,7 +73,7 @@ if __name__ == "__main__":
     "--data-timestamp",
     required=False,
     default=datetime.now(tz=timezone.utc).isoformat(timespec="seconds"),
-    help="The scan time in ISO8601 format like eg 2021-04-28T09:00:00+02:00",
+    help="The scan time in ISO8601 format. Example: 2021-04-28T09:00:00+02:00",
     type=click.STRING,
 )
 @click.option("-V", "--verbose", is_flag=True)
@@ -89,38 +89,38 @@ def scan(
     verbose: bool | None,
 ):
     """
-    soda scan will
+    The soda scan command:
 
-      * Parse the SodaCL files and report any errors
+      * parses the checks files and reports any errors
 
-      * Build and execute queries for the checks
+      * build and executes SQL queries for the checks
 
-      * Evaluate the checks
+      * evaluates the checks
 
-      * Produce a summary on the console
+      * produces a summary of scan results in the console
 
-      * If configured, send results to Soda Cloud
+      * if connected, sends scan results to Soda Cloud
 
-    option -d --data-source is the name of the data source in the configuration.  It's required.
+    option -d --data-source Required. Specify the name of the data source in the configuration.
 
-    option -c --configuration is the configuration file containing the data source definitions.
-    If not provided, the default ~/.soda/configuration.yml is used.
+    option -c --configuration Optional. Specify the filepath of the configuration file. The default filepath
+    is ~/.soda/configuration.yml.
 
-    option -v --variable pass a variable to the scan.  Variables are optional and multiple variables
-    can be specified : -var "today=2020-04-12" -var "yesterday=2020-04-11"
+    option -v --variable Optional. Use to pass a variable to the scan.  You can specify multiple variables:
+    -variable "today=2020-04-12" -variable "yesterday=2020-04-11"
 
-    option -s --scan-definition is used By Soda Cloud (only if configured) to correlate subsequent scans and
-    show check history over time. Scans normally happen as part of a schedule. It's optional. The default
-    is "Soda Core CLI", which is usually sufficient when testing the CLI and Soda Cloud connection.
+    option -s --scan-definition Optional. If connected to Soda Cloud, specify a scan definition name
+    to keep check results from different environments (dev, prod, staging) separate. The default scan
+    definition name is "Soda Core CLI".
 
-    option -V --verbose activates more verbose logging, including the queries that are executed.
+    option -V --verbose Optional. Activate verbose logging, including the SQL queries that Soda executes.
 
-    option -t --data-timestamp set the scan data timestamp, can be used to 'backfill' the data for a previous date
+    option -t --data-timestamp Optional. Set the scan data timestamp to backfill the data for a previous date.
 
-    [SODACL_PATHS] is a list of file paths that can be either a SodaCL file or a directory.
-    Directories are scanned recursive and will add all files ending with .yml
+    [CHECKS_FILE_PATHS] Required. Specify a list of file paths for checks files. Can be a file or a directory.
+    Soda recursively scans directories and adds all files ending with .yml.
 
-    Example:
+    Example command:
 
     soda scan -d snowflake_customer_data -v TODAY=2022-03-11 -V ./snfk/pipeline_customer_checks.yml
     """
@@ -170,13 +170,13 @@ def scan(
         if fs.is_file(default_configuration_file_path):
             scan.add_configuration_yaml_file(default_configuration_file_path)
         elif not fs.exists(default_configuration_file_path):
-            scan._logs.warning("No configuration file specified nor found on ~/.soda/configuration.yml")
+            scan._logs.warning("No configuration file specified nor found in ~/.soda/configuration.yml")
 
     if sodacl_paths:
         for sodacl_path_element in sodacl_paths:
             scan.add_sodacl_yaml_files(sodacl_path_element)
     else:
-        scan._logs.warning("No SodaCL files specified")
+        scan._logs.warning("No checks file specified")
 
     if variable:
         variables_dict = dict([tuple(v.split("=")) for v in variable])
@@ -186,7 +186,7 @@ def scan(
 
 
 @main.command(
-    short_help="updates a DRO in the distribution reference file",
+    short_help="Updates contents of a distribution reference file",
 )
 @click.option(
     "-d",
@@ -220,22 +220,23 @@ def update_dro(
     verbose: bool | None,
 ):
     """
-    soda update-dro will
-      * Read the configuration and instantiate a connection to the data source
-      * Read the definition properties in the distribution reference file
-      * Update bins, labels and/or weights under key "reference distribution" in the distribution reference file
+    The soda update-dro command:
 
-    option -d --data-source is the name of the data source in the configuration.  It's required.
+      * reads the configuration and instantiates a connection to the data source
+      * reads the definition properties in the distribution reference file
+      * updates bins, labels and/or weights values for key "reference distribution" in the distribution reference file
 
-    option -c --configuration is the configuration file containing the data source definitions.  The default
-    is ~/.soda/configuration.yml is used.
+    option -d --data-source Required. Specify the name of the data source in the configuration.
+
+    option -c --configuration Optional. Specify the filepath of the configuration file. The default filepath
+    is ~/.soda/configuration.yml.
 
 
-    option -V --verbose activates more verbose logging, including the queries that are executed.
+    option -V --verbose Optional. Activate verbose logging, including the SQL queries that Soda executes.
 
-    [DISTRIBUTION_REFERENCE_FILE] is a distribution reference file
+    [DISTRIBUTION_REFERENCE_FILE] Required. A distribution reference file.
 
-    Example:
+    Example command:
 
     soda update-dro -d snowflake_customer_data ./customers_size_distribution_reference.yml
     """
@@ -265,9 +266,9 @@ def update_dro(
     correct_format = named_format or unnamed_format
     if not correct_format:
         logging.error(
-            f"""Incorrect distribution reference file format in "{distribution_reference_file}". If you want to use multiple DROs in a single distribution"""
-            f""" reference file please make sure that they are all named. For more info see the documentation"""
-            f""" \nhttps://docs.soda.io/soda-cl/distribution.html#generate-a-distribution-reference-object-dro."""
+            f"""Incorrect distribution reference file format in "{distribution_reference_file}". To use multiple DROs in a single distribution"""
+            f""" reference file, ensure that each is named. Refer to"""
+            f""" \nhhttps://go.soda.io/dro."""
         )
         return
 
@@ -276,14 +277,14 @@ def update_dro(
         if not distribution_dict:
             logging.error(
                 f"""The dro name "{name}" that you provided does not exist in your distribution reference file "{distribution_reference_file}". """
-                f"""For more information see the documentation:\nhttps://docs.soda.io/soda-cl/distribution.html#generate-a-distribution-reference-object-dro."""
+                f"""Refer to \nhttps://go.soda.io/dro."""
             )
             return
     elif named_format:
         logging.error(
             f"""The distribution reference file "{distribution_reference_file}" that you used contains named DROs, but you did not provide"""
-            f""" a DRO name with the -n argument. Please run soda update with -n "dro_name" to indicate which DRO you want to update."""
-            f""" For more info see the documentation:\nhttps://docs.soda.io/soda-cl/distribution.html#generate-a-distribution-reference-object-dro."""
+            f""" a DRO name with the -n argument. Run soda update with -n "dro_name" to indicate which DRO you want to update."""
+            f""" Refer to \nhttps://go.soda.io/dro."""
         )
         return
     else:
@@ -341,7 +342,7 @@ def update_dro(
             fs.file_write_from_str(path=distribution_reference_file, file_content_str=new_file_content)
 
 
-@main.command(short_help="Ingest test information from different tools")
+@main.command(short_help="Ingests test results from a different tool")
 @click.argument(
     "tool",
     required=True,
@@ -365,43 +366,40 @@ def update_dro(
 @click.option(
     "--dbt-artifacts",
     help=(
-        "The path that contains both the manifest and run_result JSONs from dbt. Typically `/dbt_project/target/` "
-        "When provided, --dbt-manifest and --dbt-run-results are not required and will be ignored"
+        "Optional. Specify the path that contains both the manifest and run_result JSON files from dbt. Typically, /dbt_project/target/. "
+        "If provided, --dbt-manifest and --dbt-run-results are not required."
     ),
     default=None,
     type=Path,
 )
 @click.option(
     "--dbt-manifest",
-    help="The path to the dbt manifest file",
+    help="Optional. Specify the path to the dbt manifest JSON file",
     default=None,
     type=Path,
 )
 @click.option(
     "--dbt-run-results",
-    help="The path to the dbt run results file",
+    help="Optional. Specify the path to the dbt run results JSON file",
     default=None,
     type=Path,
 )
 @click.option(
     "--dbt-cloud-run-id",
-    help=(
-        "The id of the dbt job run of which you would like to ingest the test results. "
-        "Use when you want to target a specific run otherwise consider using `--dbt-cloud-job-id`."
-    ),
+    help=("Optional. Specify the id of the specific dbt job run that contains tests that you want Soda to ingest. "),
     default=None,
     type=click.STRING,
 )
 @click.option(
     "--dbt-cloud-job-id",
-    help="The job id from which you want to ingest the latest run results.",
+    help="Optional. Specify the job id that contains the latest dbt run results that you want Soda to ingest.",
     default=None,
     type=click.STRING,
 )
 @soda_trace
 def ingest(tool: str, data_source: str, configuration: str, verbose: bool | None, **kwargs):
     """
-    Ingest test information from different tools.
+    The soda ingest command ingests test results from a different tool to send to Soda Cloud.
     """
     configure_logging()
     fs = file_system()
@@ -436,10 +434,10 @@ def ingest(tool: str, data_source: str, configuration: str, verbose: bool | None
         scan.add_configuration_yaml_file(configuration)
 
         if scan._data_source_name not in scan._data_source_manager.data_source_properties_by_name:
-            scan._logs.error(f"Provided data source '{data_source}' not present in configuration.")
+            scan._logs.error(f"The data source '{data_source}' is not present in configuration.")
 
     if not scan._configuration.soda_cloud:
-        scan._logs.error("Soda Cloud configuration is required for Ingest command to work.")
+        scan._logs.error("A Soda Cloud configuration is required for the ingest command to work.")
 
     return_value = 1
 
