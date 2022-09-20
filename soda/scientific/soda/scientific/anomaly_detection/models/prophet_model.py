@@ -116,7 +116,7 @@ class FreqDetectionResult:
     error_code_int: int
     error_code: str
     error_severity: str
-    error_message: str = ""
+    error_message: str
 
 
 class PreprocessError(Exception):
