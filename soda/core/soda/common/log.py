@@ -73,12 +73,22 @@ class Log:
             "index": self.index,
         }
         if self.location:
-            location_cloud_dict = self.location.to_soda_cloud_json()
+            location_cloud_dict = self.location.get_cloud_dict()
             log_cloud_dict["errorLocation"] = location_cloud_dict
             log_cloud_dict["location"] = location_cloud_dict
         if self.doc:
             log_cloud_dict["doc"] = self.doc
         return log_cloud_dict
+
+    def get_dict(self) -> dict:
+        return {
+            "level": self.level,
+            "message": self.message,
+            "timestamp": self.timestamp,
+            "index": self.index,
+            "doc": self.doc,
+            "location": self.location.get_dict(),
+        }
 
     @staticmethod
     def log_errors(error_logs):

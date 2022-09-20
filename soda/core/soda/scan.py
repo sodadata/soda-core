@@ -7,6 +7,7 @@ import textwrap
 from datetime import datetime, timezone
 
 from soda.__version__ import SODA_CORE_VERSION
+from soda.common.json_helper import JsonHelper
 from soda.common.log import Log, LogLevel
 from soda.common.logs import Logs
 from soda.common.undefined_instance import undefined
@@ -61,6 +62,44 @@ class Scan:
         self._discover_tables_result_tables: list[DiscoverTablesResultTable] = []
         self._sample_tables_result_tables: list[SampleTablesResultTable] = []
         self._logs.info(f"Soda Core {SODA_CORE_VERSION}")
+        self.scan_results: dict = {}
+
+    def build_scan_results(self) -> dict:
+        checks = [check.get_dict() for check in self._checks if check.outcome is not None and check.archetype is None]
+        autoamted_monitoring_checks = [
+            check.get_dict() for check in self._checks if check.outcome is not None and check.archetype is not None
+        ]
+
+        # TODO: [SODA-608] separate profile columns and sample tables by aligning with the backend team
+        profiling = [
+            profile_table.get_dict()
+            for profile_table in self._profile_columns_result_tables + self._sample_tables_result_tables
+        ]
+
+        return JsonHelper.to_jsonnable(  # type: ignore
+            {
+                "definitionName": self._scan_definition_name,
+                "defaultDataSource": self._data_source_name,
+                "dataTimestamp": self._data_timestamp,
+                "scanStartTimestamp": self._scan_start_timestamp,
+                "scanEndTimestamp": self._scan_end_timestamp,
+                "hasErrors": self.has_error_logs(),
+                "hasWarnings": self.has_check_warns(),
+                "hasFailures": self.has_check_fails(),
+                "metrics": [metric.get_cloud_dict() for metric in self._metrics],
+                # If archetype is not None, it means that check is automated monitoring
+                "checks": checks,
+                # TODO Queries are not supported by Soda Cloud yet.
+                # "queries": [query.get_cloud_dict() for query in scan._queries],
+                "automatedMonitoringChecks": autoamted_monitoring_checks,
+                "profiling": profiling,
+                "metadata": [
+                    discover_tables_result.get_cloud_dict()
+                    for discover_tables_result in self._discover_tables_result_tables
+                ],
+                "logs": [log.get_cloud_dict() for log in self._logs.logs],
+            }
+        )
 
     def set_data_source_name(self, data_source_name: str):
         """
@@ -488,6 +527,7 @@ class Scan:
                 self._logs.error(f"Error occurred while sending scan results to soda cloud.", exception=e)
 
             self._close()
+            self.scan_results = self.build_scan_results()
 
         # Telemetry data
         soda_telemetry.set_attributes(

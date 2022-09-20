@@ -18,6 +18,12 @@ class SampleTablesResultTable:
         }
         return cloud_dict
 
+    def get_dict(self) -> dict:
+        return {
+            "table": self.table_name,
+            "dataSource": self.data_source,
+        }
+
 
 class SampleTablesResult:
     def __init__(self, data_source_check_cfg: DataSourceCheckCfg):

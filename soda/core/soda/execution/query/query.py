@@ -61,6 +61,21 @@ class Query:
             "duration": self.duration,
         }
 
+    def get_dict(self):
+        from soda.execution.column import Column
+        from soda.execution.partition import Partition
+
+        return {
+            "name": self.query_name,
+            "dataSource": self.data_source_scan.data_source.data_source_name,
+            "table": Partition.get_table_name(self.partition),
+            "partition": Partition.get_partition_name(self.partition),
+            "column": Column.get_partition_name(self.column),
+            "sql": self.sql,
+            "exception": get_exception_stacktrace(self.exception),
+            "duration": self.duration,
+        }
+
     @staticmethod
     def build_query_name(data_source_scan, table, partition, column, unqualified_query_name):
         full_query_pieces = [data_source_scan.data_source.data_source_name]

@@ -11,6 +11,9 @@ class SampleColumn:
     def get_cloud_dict(self):
         return {"name": self.name, "type": self.type}
 
+    def get_dict(self):
+        return {"name": self.name, "type": self.type}
+
     @staticmethod
     def create_sample_columns(dbapi_description, data_source) -> list[SampleColumn]:
         return [
