@@ -211,6 +211,7 @@ class ProphetDetector(BaseDetector):
                 error_code_int=DETECTOR_MESSAGES["native_freq"].error_code_int,
                 error_code=DETECTOR_MESSAGES["native_freq"].error_code_str,
                 error_severity=DETECTOR_MESSAGES["native_freq"].severity,
+                error_message=DETECTOR_MESSAGES["native_freq"].log_message,
             )
         #   # if FAILED:
         #       # is it in fact a "daily dataset"?
