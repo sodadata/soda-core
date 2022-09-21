@@ -37,6 +37,27 @@ def test_user_defined_table_expression_metric_check(data_source_fixture: DataSou
     assert ones_check.outcome == CheckOutcome.WARN
 
 
+def test_user_defined_table_expression_metric_check_with_variables(data_source_fixture: DataSourceFixture):
+    table_name = data_source_fixture.ensure_test_table(customers_test_table)
+
+    scan = data_source_fixture.create_test_scan()
+    scan.add_variables({"dist": "distance"})
+    scan.add_sodacl_yaml_str(
+        f"""
+          checks for {table_name}:
+            - avg_surface between 1068 and 1069:
+                avg_surface expression: AVG(size * ${{dist}})
+        """
+    )
+    scan.execute()
+
+    scan.assert_all_checks_pass()
+
+    avg_surface = scan._checks[0].check_value
+    assert isinstance(avg_surface, float)
+    assert 1068 < avg_surface < 1069
+
+
 def test_user_defined_data_source_query_metric_check(data_source_fixture: DataSourceFixture):
     table_name = data_source_fixture.ensure_test_table(customers_test_table)
 
@@ -51,6 +72,31 @@ def test_user_defined_data_source_query_metric_check(data_source_fixture: DataSo
                   SELECT AVG(size * distance) as avg_surface
                   FROM {qualified_table_name}
         """
+    )
+    scan.execute()
+
+    scan.assert_all_checks_pass()
+
+    avg_surface = scan._checks[0].check_value
+    assert isinstance(avg_surface, float)
+    assert 1068 < avg_surface < 1069
+
+
+def test_user_defined_data_source_query_metric_check_with_variable(data_source_fixture: DataSourceFixture):
+    table_name = data_source_fixture.ensure_test_table(customers_test_table)
+
+    qualified_table_name = data_source_fixture.data_source.qualified_table_name(table_name)
+
+    scan = data_source_fixture.create_test_scan()
+    scan.add_variables({"dist": "distance"})
+    scan.add_sodacl_yaml_str(
+        f"""
+              checks:
+                - avg_surface between 1068 and 1069:
+                    avg_surface query: |
+                      SELECT AVG(size * ${{dist}}) as avg_surface
+                      FROM {qualified_table_name}
+            """
     )
     scan.execute()
 

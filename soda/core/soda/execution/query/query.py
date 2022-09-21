@@ -36,7 +36,7 @@ class Query:
         # The SQL query that is used _fetchone or _fetchall or _store
         # This field can also be initialized in the execute method before any of _fetchone,
         # _fetchall or _store are called
-        self.sql: str = sql
+        self.sql: str = data_source_scan.scan.jinja_resolve(sql)
 
         # Following fields are initialized in execute method
         self.description: tuple | None = None

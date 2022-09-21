@@ -11,10 +11,8 @@ class UserDefinedNumericQuery(Query):
         metric: Metric,
     ):
         super().__init__(
-            data_source_scan=data_source_scan,
-            unqualified_query_name=f"user_defined_query[{check_name}]",
+            data_source_scan=data_source_scan, unqualified_query_name=f"user_defined_query[{check_name}]", sql=sql
         )
-        self.sql: str = sql
         self.metric = metric
 
     def execute(self):

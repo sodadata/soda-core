@@ -46,3 +46,9 @@ class MetricCheckCfg(CheckCfg):
 
     def has_threshold(self):
         return self.fail_threshold_cfg or self.warn_threshold_cfg
+
+    def resolve_thresholds(self, f):
+        if self.fail_threshold_cfg:
+            self.fail_threshold_cfg = self.fail_threshold_cfg.resolve(f)
+        if self.warn_threshold_cfg:
+            self.warn_threshold_cfg = self.warn_threshold_cfg.resolve(f)

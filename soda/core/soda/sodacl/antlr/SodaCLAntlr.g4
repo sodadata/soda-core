@@ -105,7 +105,9 @@ comparator
 threshold_value
  : signed_number (S? PERCENT)?
  | freshness_threshold_value
+ | IDENTIFIER_UNQUOTED
  ;
+
 
 freshness_threshold_value
  : (integer ('d'|'h'|'m'))+ integer?
@@ -220,8 +222,8 @@ GT: '>';
 
 IDENTIFIER_DOUBLE_QUOTE: '"' ( ~'"' | '\\"')+ '"';
 IDENTIFIER_BACKTICK: '`' ( ~'`' | '\\`')+ '`';
-IDENTIFIER_UNQUOTED: [a-zA-Z_] ~(' ' | '<' | '=' | '>' | '(' | ')' | '[' | ']' | ',')*;
-
+IDENTIFIER_UNQUOTED: [a-zA-Z_$] ~(' ' | '<' | '=' | '>' | '(' | ')' | '[' | ']' | ',')*;
+STRING: [a-z]+;
 DIGITS: [0-9]+;
 
 S: ' ';
