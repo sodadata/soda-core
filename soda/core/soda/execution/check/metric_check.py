@@ -103,6 +103,7 @@ class MetricCheck(Check):
     def set_outcome_based_on_check_value(self):
         metric_check_cfg: MetricCheckCfg = self.check_cfg
         if self.check_value is not None and metric_check_cfg.has_threshold():
+            metric_check_cfg.resolve_thresholds(self.data_source_scan.scan.jinja_resolve)
             if isinstance(self.check_value, Number):
                 if metric_check_cfg.fail_threshold_cfg and metric_check_cfg.fail_threshold_cfg.is_bad(self.check_value):
                     self.outcome = CheckOutcome.FAIL

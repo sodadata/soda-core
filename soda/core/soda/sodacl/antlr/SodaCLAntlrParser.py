@@ -1,4 +1,4 @@
-# Generated from /Users/vijay/work/soda/code/soda-core/soda/core/soda/sodacl/antlr/SodaCLAntlr.g4 by ANTLR 4.9.3
+# Generated from /Users/vijay/work/soda/code/soda-core/soda/core/soda/sodacl/antlr/SodaCLAntlr.g4 by ANTLR 4.11.1
 # encoding: utf-8
 from antlr4 import *
 from io import StringIO
@@ -8,177 +8,141 @@ if sys.version_info[1] > 5:
 else:
 	from typing.io import TextIO
 
-
 def serializedATN():
-    with StringIO() as buf:
-        buf.write("\3\u608b\ua72a\u8133\ub9ed\u417c\u3be7\u7786\u5964\39")
-        buf.write("\u017f\4\2\t\2\4\3\t\3\4\4\t\4\4\5\t\5\4\6\t\6\4\7\t\7")
-        buf.write("\4\b\t\b\4\t\t\t\4\n\t\n\4\13\t\13\4\f\t\f\4\r\t\r\4\16")
-        buf.write("\t\16\4\17\t\17\4\20\t\20\4\21\t\21\4\22\t\22\4\23\t\23")
-        buf.write("\4\24\t\24\4\25\t\25\4\26\t\26\4\27\t\27\4\30\t\30\4\31")
-        buf.write("\t\31\4\32\t\32\4\33\t\33\4\34\t\34\4\35\t\35\4\36\t\36")
-        buf.write("\4\37\t\37\4 \t \4!\t!\4\"\t\"\4#\t#\4$\t$\4%\t%\4&\t")
-        buf.write("&\4\'\t\'\4(\t(\4)\t)\3\2\3\2\3\2\3\2\3\2\5\2X\n\2\3\3")
-        buf.write("\3\3\3\3\3\3\5\3^\n\3\3\3\3\3\3\3\3\3\5\3d\n\3\3\3\3\3")
-        buf.write("\3\4\3\4\3\4\3\4\3\4\3\5\3\5\3\5\3\6\3\6\3\6\3\7\3\7\3")
-        buf.write("\7\3\7\3\7\5\7x\n\7\3\7\3\7\3\7\3\7\5\7~\n\7\3\7\3\7\3")
-        buf.write("\b\3\b\5\b\u0084\n\b\3\b\3\b\3\b\3\b\5\b\u008a\n\b\5\b")
-        buf.write("\u008c\n\b\3\b\3\b\3\t\3\t\3\t\3\t\3\n\3\n\3\n\3\n\3\n")
-        buf.write("\5\n\u0099\n\n\3\n\5\n\u009c\n\n\3\n\3\n\3\n\3\13\3\13")
-        buf.write("\3\13\3\13\3\13\3\13\3\13\3\13\5\13\u00a9\n\13\3\f\3\f")
-        buf.write("\3\r\3\r\3\r\3\16\3\16\3\17\3\17\5\17\u00b4\n\17\3\20")
-        buf.write("\3\20\3\21\3\21\3\21\3\21\3\21\7\21\u00bd\n\21\f\21\16")
-        buf.write("\21\u00c0\13\21\3\21\3\21\3\22\3\22\5\22\u00c6\n\22\3")
-        buf.write("\23\3\23\5\23\u00ca\n\23\3\24\3\24\5\24\u00ce\n\24\3\24")
-        buf.write("\3\24\3\24\5\24\u00d3\n\24\3\24\3\24\3\24\3\24\3\24\3")
-        buf.write("\24\5\24\u00db\n\24\3\25\3\25\3\25\3\25\3\26\3\26\3\26")
-        buf.write("\3\26\3\26\3\26\3\26\3\26\3\26\6\26\u00ea\n\26\r\26\16")
-        buf.write("\26\u00eb\3\26\3\26\3\27\3\27\3\30\3\30\3\31\3\31\3\32")
-        buf.write("\3\32\5\32\u00f8\n\32\3\32\5\32\u00fb\n\32\3\32\5\32\u00fe")
-        buf.write("\n\32\3\33\3\33\3\33\6\33\u0103\n\33\r\33\16\33\u0104")
-        buf.write("\3\33\5\33\u0108\n\33\3\34\3\34\3\34\3\34\3\34\3\34\3")
-        buf.write("\34\3\34\3\34\3\34\3\34\3\34\3\34\3\34\3\34\3\34\3\34")
-        buf.write("\7\34\u011b\n\34\f\34\16\34\u011e\13\34\3\34\3\34\3\34")
-        buf.write("\3\34\3\34\3\34\3\34\3\34\3\34\3\34\3\34\7\34\u012b\n")
-        buf.write("\34\f\34\16\34\u012e\13\34\3\34\3\34\5\34\u0132\n\34\3")
-        buf.write("\35\3\35\3\36\3\36\3\37\3\37\3\37\3\37\3\37\5\37\u013d")
-        buf.write("\n\37\3 \3 \3 \3 \3 \5 \u0144\n \3 \3 \3!\3!\3!\3!\3\"")
-        buf.write("\3\"\3\"\3\"\3\"\3\"\3\"\3#\3#\3#\3#\3#\3$\3$\3$\3$\3")
-        buf.write("$\3$\3$\3$\3$\3$\5$\u0162\n$\3%\3%\3%\3%\3%\3&\5&\u016a")
-        buf.write("\n&\3&\3&\3\'\3\'\3\'\3\'\5\'\u0172\n\'\3\'\5\'\u0175")
-        buf.write("\n\'\3\'\3\'\5\'\u0179\n\'\3(\3(\3)\3)\3)\2\2*\2\4\6\b")
-        buf.write("\n\f\16\20\22\24\26\30\32\34\36 \"$&(*,.\60\62\64\668")
-        buf.write(":<>@BDFHJLNP\2\13\3\2!#\4\2$$((\4\2%%))\3\2\34\36\4\2")
-        buf.write("\60\60\63\63\3\2.\64\3\2\13\r\3\2,-\4\2!#\65\67\2\u0181")
-        buf.write("\2W\3\2\2\2\4Y\3\2\2\2\6g\3\2\2\2\bl\3\2\2\2\no\3\2\2")
-        buf.write("\2\fr\3\2\2\2\16\u0083\3\2\2\2\20\u008f\3\2\2\2\22\u0093")
-        buf.write("\3\2\2\2\24\u00a8\3\2\2\2\26\u00aa\3\2\2\2\30\u00ac\3")
-        buf.write("\2\2\2\32\u00af\3\2\2\2\34\u00b1\3\2\2\2\36\u00b5\3\2")
-        buf.write("\2\2 \u00b7\3\2\2\2\"\u00c5\3\2\2\2$\u00c9\3\2\2\2&\u00cd")
-        buf.write("\3\2\2\2(\u00dc\3\2\2\2*\u00e9\3\2\2\2,\u00ef\3\2\2\2")
-        buf.write(".\u00f1\3\2\2\2\60\u00f3\3\2\2\2\62\u00fd\3\2\2\2\64\u0102")
-        buf.write("\3\2\2\2\66\u0131\3\2\2\28\u0133\3\2\2\2:\u0135\3\2\2")
-        buf.write("\2<\u013c\3\2\2\2>\u013e\3\2\2\2@\u0147\3\2\2\2B\u014b")
-        buf.write("\3\2\2\2D\u0152\3\2\2\2F\u0161\3\2\2\2H\u0163\3\2\2\2")
-        buf.write("J\u0169\3\2\2\2L\u0178\3\2\2\2N\u017a\3\2\2\2P\u017c\3")
-        buf.write("\2\2\2RX\5\n\6\2SX\5\f\7\2TX\5\16\b\2UX\5\66\34\2VX\5")
-        buf.write("\4\3\2WR\3\2\2\2WS\3\2\2\2WT\3\2\2\2WU\3\2\2\2WV\3\2\2")
-        buf.write("\2X\3\3\2\2\2YZ\7\3\2\2Z[\79\2\2[]\5P)\2\\^\5\6\4\2]\\")
-        buf.write("\3\2\2\2]^\3\2\2\2^c\3\2\2\2_`\79\2\2`a\7\63\2\2ab\79")
-        buf.write("\2\2bd\5\64\33\2c_\3\2\2\2cd\3\2\2\2de\3\2\2\2ef\7\2\2")
-        buf.write("\3f\5\3\2\2\2gh\79\2\2hi\7\4\2\2ij\79\2\2jk\5P)\2k\7\3")
-        buf.write("\2\2\2lm\79\2\2mn\7\34\2\2n\t\3\2\2\2op\7\65\2\2pq\7\2")
-        buf.write("\2\3q\13\3\2\2\2rs\7\5\2\2st\79\2\2tw\5P)\2uv\79\2\2v")
-        buf.write("x\5@!\2wu\3\2\2\2wx\3\2\2\2x}\3\2\2\2yz\79\2\2z{\7\33")
-        buf.write("\2\2{|\79\2\2|~\5P)\2}y\3\2\2\2}~\3\2\2\2~\177\3\2\2\2")
-        buf.write("\177\u0080\7\2\2\3\u0080\r\3\2\2\2\u0081\u0084\5\22\n")
-        buf.write("\2\u0082\u0084\5\32\16\2\u0083\u0081\3\2\2\2\u0083\u0082")
-        buf.write("\3\2\2\2\u0083\u0084\3\2\2\2\u0084\u0085\3\2\2\2\u0085")
-        buf.write("\u008b\5\34\17\2\u0086\u0089\79\2\2\u0087\u008a\5$\23")
-        buf.write("\2\u0088\u008a\5\20\t\2\u0089\u0087\3\2\2\2\u0089\u0088")
-        buf.write("\3\2\2\2\u008a\u008c\3\2\2\2\u008b\u0086\3\2\2\2\u008b")
-        buf.write("\u008c\3\2\2\2\u008c\u008d\3\2\2\2\u008d\u008e\7\2\2\3")
-        buf.write("\u008e\17\3\2\2\2\u008f\u0090\7\63\2\2\u0090\u0091\79")
-        buf.write("\2\2\u0091\u0092\7\6\2\2\u0092\21\3\2\2\2\u0093\u0094")
-        buf.write("\7\37\2\2\u0094\u0098\79\2\2\u0095\u0096\5\24\13\2\u0096")
-        buf.write("\u0097\79\2\2\u0097\u0099\3\2\2\2\u0098\u0095\3\2\2\2")
-        buf.write("\u0098\u0099\3\2\2\2\u0099\u009b\3\2\2\2\u009a\u009c\5")
-        buf.write("\30\r\2\u009b\u009a\3\2\2\2\u009b\u009c\3\2\2\2\u009c")
-        buf.write("\u009d\3\2\2\2\u009d\u009e\7\27\2\2\u009e\u009f\79\2\2")
-        buf.write("\u009f\23\3\2\2\2\u00a0\u00a1\5\26\f\2\u00a1\u00a2\79")
-        buf.write("\2\2\u00a2\u00a3\7 \2\2\u00a3\u00a4\79\2\2\u00a4\u00a5")
-        buf.write("\5N(\2\u00a5\u00a9\3\2\2\2\u00a6\u00a9\7\7\2\2\u00a7\u00a9")
-        buf.write("\7\b\2\2\u00a8\u00a0\3\2\2\2\u00a8\u00a6\3\2\2\2\u00a8")
-        buf.write("\u00a7\3\2\2\2\u00a9\25\3\2\2\2\u00aa\u00ab\t\2\2\2\u00ab")
-        buf.write("\27\3\2\2\2\u00ac\u00ad\7\t\2\2\u00ad\u00ae\79\2\2\u00ae")
-        buf.write("\31\3\2\2\2\u00af\u00b0\7\n\2\2\u00b0\33\3\2\2\2\u00b1")
-        buf.write("\u00b3\5\36\20\2\u00b2\u00b4\5 \21\2\u00b3\u00b2\3\2\2")
-        buf.write("\2\u00b3\u00b4\3\2\2\2\u00b4\35\3\2\2\2\u00b5\u00b6\5")
-        buf.write("P)\2\u00b6\37\3\2\2\2\u00b7\u00b8\7(\2\2\u00b8\u00be\5")
-        buf.write("\"\22\2\u00b9\u00ba\7*\2\2\u00ba\u00bb\79\2\2\u00bb\u00bd")
-        buf.write("\5\"\22\2\u00bc\u00b9\3\2\2\2\u00bd\u00c0\3\2\2\2\u00be")
-        buf.write("\u00bc\3\2\2\2\u00be\u00bf\3\2\2\2\u00bf\u00c1\3\2\2\2")
-        buf.write("\u00c0\u00be\3\2\2\2\u00c1\u00c2\7)\2\2\u00c2!\3\2\2\2")
-        buf.write("\u00c3\u00c6\5J&\2\u00c4\u00c6\5P)\2\u00c5\u00c3\3\2\2")
-        buf.write("\2\u00c5\u00c4\3\2\2\2\u00c6#\3\2\2\2\u00c7\u00ca\5(\25")
-        buf.write("\2\u00c8\u00ca\5&\24\2\u00c9\u00c7\3\2\2\2\u00c9\u00c8")
-        buf.write("\3\2\2\2\u00ca%\3\2\2\2\u00cb\u00cc\7\32\2\2\u00cc\u00ce")
-        buf.write("\79\2\2\u00cd\u00cb\3\2\2\2\u00cd\u00ce\3\2\2\2\u00ce")
-        buf.write("\u00cf\3\2\2\2\u00cf\u00d0\7\31\2\2\u00d0\u00d2\79\2\2")
-        buf.write("\u00d1\u00d3\t\3\2\2\u00d2\u00d1\3\2\2\2\u00d2\u00d3\3")
-        buf.write("\2\2\2\u00d3\u00d4\3\2\2\2\u00d4\u00d5\5\62\32\2\u00d5")
-        buf.write("\u00d6\79\2\2\u00d6\u00d7\7\30\2\2\u00d7\u00d8\79\2\2")
-        buf.write("\u00d8\u00da\5\62\32\2\u00d9\u00db\t\4\2\2\u00da\u00d9")
-        buf.write("\3\2\2\2\u00da\u00db\3\2\2\2\u00db\'\3\2\2\2\u00dc\u00dd")
-        buf.write("\5\60\31\2\u00dd\u00de\79\2\2\u00de\u00df\5\62\32\2\u00df")
-        buf.write(")\3\2\2\2\u00e0\u00e1\5,\27\2\u00e1\u00e2\79\2\2\u00e2")
-        buf.write("\u00e3\5.\30\2\u00e3\u00e4\79\2\2\u00e4\u00e5\5\62\32")
-        buf.write("\2\u00e5\u00e6\79\2\2\u00e6\u00e7\5.\30\2\u00e7\u00e8")
-        buf.write("\79\2\2\u00e8\u00ea\3\2\2\2\u00e9\u00e0\3\2\2\2\u00ea")
-        buf.write("\u00eb\3\2\2\2\u00eb\u00e9\3\2\2\2\u00eb\u00ec\3\2\2\2")
-        buf.write("\u00ec\u00ed\3\2\2\2\u00ed\u00ee\5,\27\2\u00ee+\3\2\2")
-        buf.write("\2\u00ef\u00f0\t\5\2\2\u00f0-\3\2\2\2\u00f1\u00f2\t\6")
-        buf.write("\2\2\u00f2/\3\2\2\2\u00f3\u00f4\t\7\2\2\u00f4\61\3\2\2")
-        buf.write("\2\u00f5\u00fa\5J&\2\u00f6\u00f8\79\2\2\u00f7\u00f6\3")
-        buf.write("\2\2\2\u00f7\u00f8\3\2\2\2\u00f8\u00f9\3\2\2\2\u00f9\u00fb")
-        buf.write("\7+\2\2\u00fa\u00f7\3\2\2\2\u00fa\u00fb\3\2\2\2\u00fb")
-        buf.write("\u00fe\3\2\2\2\u00fc\u00fe\5\64\33\2\u00fd\u00f5\3\2\2")
-        buf.write("\2\u00fd\u00fc\3\2\2\2\u00fe\63\3\2\2\2\u00ff\u0100\5")
-        buf.write("N(\2\u0100\u0101\t\b\2\2\u0101\u0103\3\2\2\2\u0102\u00ff")
-        buf.write("\3\2\2\2\u0103\u0104\3\2\2\2\u0104\u0102\3\2\2\2\u0104")
-        buf.write("\u0105\3\2\2\2\u0105\u0107\3\2\2\2\u0106\u0108\5N(\2\u0107")
-        buf.write("\u0106\3\2\2\2\u0107\u0108\3\2\2\2\u0108\65\3\2\2\2\u0109")
-        buf.write("\u010a\7\16\2\2\u010a\u010b\79\2\2\u010b\u010c\58\35\2")
-        buf.write("\u010c\u010d\79\2\2\u010d\u010e\7\17\2\2\u010e\u010f\7")
-        buf.write("9\2\2\u010f\u0110\5P)\2\u0110\u0111\79\2\2\u0111\u0112")
-        buf.write("\5:\36\2\u0112\u0132\3\2\2\2\u0113\u0114\7\16\2\2\u0114")
-        buf.write("\u0115\79\2\2\u0115\u0116\7(\2\2\u0116\u011c\58\35\2\u0117")
-        buf.write("\u0118\7*\2\2\u0118\u0119\79\2\2\u0119\u011b\58\35\2\u011a")
-        buf.write("\u0117\3\2\2\2\u011b\u011e\3\2\2\2\u011c\u011a\3\2\2\2")
-        buf.write("\u011c\u011d\3\2\2\2\u011d\u011f\3\2\2\2\u011e\u011c\3")
-        buf.write("\2\2\2\u011f\u0120\7)\2\2\u0120\u0121\79\2\2\u0121\u0122")
-        buf.write("\7\17\2\2\u0122\u0123\79\2\2\u0123\u0124\5P)\2\u0124\u0125")
-        buf.write("\79\2\2\u0125\u0126\7(\2\2\u0126\u012c\5:\36\2\u0127\u0128")
-        buf.write("\7*\2\2\u0128\u0129\79\2\2\u0129\u012b\5:\36\2\u012a\u0127")
-        buf.write("\3\2\2\2\u012b\u012e\3\2\2\2\u012c\u012a\3\2\2\2\u012c")
-        buf.write("\u012d\3\2\2\2\u012d\u012f\3\2\2\2\u012e\u012c\3\2\2\2")
-        buf.write("\u012f\u0130\7)\2\2\u0130\u0132\3\2\2\2\u0131\u0109\3")
-        buf.write("\2\2\2\u0131\u0113\3\2\2\2\u0132\67\3\2\2\2\u0133\u0134")
-        buf.write("\5P)\2\u01349\3\2\2\2\u0135\u0136\5P)\2\u0136;\3\2\2\2")
-        buf.write("\u0137\u013d\5> \2\u0138\u013d\5D#\2\u0139\u013d\5B\"")
-        buf.write("\2\u013a\u013d\5F$\2\u013b\u013d\5H%\2\u013c\u0137\3\2")
-        buf.write("\2\2\u013c\u0138\3\2\2\2\u013c\u0139\3\2\2\2\u013c\u013a")
-        buf.write("\3\2\2\2\u013c\u013b\3\2\2\2\u013d=\3\2\2\2\u013e\u013f")
-        buf.write("\7\20\2\2\u013f\u0140\79\2\2\u0140\u0143\5P)\2\u0141\u0142")
-        buf.write("\79\2\2\u0142\u0144\5@!\2\u0143\u0141\3\2\2\2\u0143\u0144")
-        buf.write("\3\2\2\2\u0144\u0145\3\2\2\2\u0145\u0146\7\2\2\3\u0146")
-        buf.write("?\3\2\2\2\u0147\u0148\7$\2\2\u0148\u0149\5P)\2\u0149\u014a")
-        buf.write("\7%\2\2\u014aA\3\2\2\2\u014b\u014c\7\21\2\2\u014c\u014d")
-        buf.write("\79\2\2\u014d\u014e\5P)\2\u014e\u014f\79\2\2\u014f\u0150")
-        buf.write("\5@!\2\u0150\u0151\7\2\2\3\u0151C\3\2\2\2\u0152\u0153")
-        buf.write("\7\22\2\2\u0153\u0154\79\2\2\u0154\u0155\5P)\2\u0155\u0156")
-        buf.write("\7\2\2\3\u0156E\3\2\2\2\u0157\u0158\7\23\2\2\u0158\u0159")
-        buf.write("\79\2\2\u0159\u015a\5P)\2\u015a\u015b\7\2\2\3\u015b\u0162")
-        buf.write("\3\2\2\2\u015c\u015d\7\24\2\2\u015d\u015e\79\2\2\u015e")
-        buf.write("\u015f\5P)\2\u015f\u0160\7\2\2\3\u0160\u0162\3\2\2\2\u0161")
-        buf.write("\u0157\3\2\2\2\u0161\u015c\3\2\2\2\u0162G\3\2\2\2\u0163")
-        buf.write("\u0164\7\25\2\2\u0164\u0165\79\2\2\u0165\u0166\5P)\2\u0166")
-        buf.write("\u0167\7\2\2\3\u0167I\3\2\2\2\u0168\u016a\t\t\2\2\u0169")
-        buf.write("\u0168\3\2\2\2\u0169\u016a\3\2\2\2\u016a\u016b\3\2\2\2")
-        buf.write("\u016b\u016c\5L\'\2\u016cK\3\2\2\2\u016d\u0179\5N(\2\u016e")
-        buf.write("\u016f\78\2\2\u016f\u0171\7\26\2\2\u0170\u0172\78\2\2")
-        buf.write("\u0171\u0170\3\2\2\2\u0171\u0172\3\2\2\2\u0172\u0179\3")
-        buf.write("\2\2\2\u0173\u0175\78\2\2\u0174\u0173\3\2\2\2\u0174\u0175")
-        buf.write("\3\2\2\2\u0175\u0176\3\2\2\2\u0176\u0177\7\26\2\2\u0177")
-        buf.write("\u0179\78\2\2\u0178\u016d\3\2\2\2\u0178\u016e\3\2\2\2")
-        buf.write("\u0178\u0174\3\2\2\2\u0179M\3\2\2\2\u017a\u017b\78\2\2")
-        buf.write("\u017bO\3\2\2\2\u017c\u017d\t\n\2\2\u017dQ\3\2\2\2$W]")
-        buf.write("cw}\u0083\u0089\u008b\u0098\u009b\u00a8\u00b3\u00be\u00c5")
-        buf.write("\u00c9\u00cd\u00d2\u00da\u00eb\u00f7\u00fa\u00fd\u0104")
-        buf.write("\u0107\u011c\u012c\u0131\u013c\u0143\u0161\u0169\u0171")
-        buf.write("\u0174\u0178")
-        return buf.getvalue()
-
+    return [
+        4,1,56,382,2,0,7,0,2,1,7,1,2,2,7,2,2,3,7,3,2,4,7,4,2,5,7,5,2,6,7,
+        6,2,7,7,7,2,8,7,8,2,9,7,9,2,10,7,10,2,11,7,11,2,12,7,12,2,13,7,13,
+        2,14,7,14,2,15,7,15,2,16,7,16,2,17,7,17,2,18,7,18,2,19,7,19,2,20,
+        7,20,2,21,7,21,2,22,7,22,2,23,7,23,2,24,7,24,2,25,7,25,2,26,7,26,
+        2,27,7,27,2,28,7,28,2,29,7,29,2,30,7,30,2,31,7,31,2,32,7,32,2,33,
+        7,33,2,34,7,34,2,35,7,35,2,36,7,36,2,37,7,37,2,38,7,38,2,39,7,39,
+        1,0,1,0,1,0,1,0,1,0,3,0,86,8,0,1,1,1,1,1,1,1,1,3,1,92,8,1,1,1,1,
+        1,1,1,1,1,3,1,98,8,1,1,1,1,1,1,2,1,2,1,2,1,2,1,2,1,3,1,3,1,3,1,4,
+        1,4,1,4,1,5,1,5,1,5,1,5,1,5,3,5,118,8,5,1,5,1,5,1,5,1,5,3,5,124,
+        8,5,1,5,1,5,1,6,1,6,3,6,130,8,6,1,6,1,6,1,6,1,6,3,6,136,8,6,3,6,
+        138,8,6,1,6,1,6,1,7,1,7,1,7,1,7,1,8,1,8,1,8,1,8,1,8,3,8,151,8,8,
+        1,8,3,8,154,8,8,1,8,1,8,1,8,1,9,1,9,1,9,1,9,1,9,1,9,1,9,1,9,3,9,
+        167,8,9,1,10,1,10,1,11,1,11,1,11,1,12,1,12,1,13,1,13,3,13,178,8,
+        13,1,14,1,14,1,15,1,15,1,15,1,15,1,15,5,15,187,8,15,10,15,12,15,
+        190,9,15,1,15,1,15,1,16,1,16,3,16,196,8,16,1,17,1,17,3,17,200,8,
+        17,1,18,1,18,3,18,204,8,18,1,18,1,18,1,18,3,18,209,8,18,1,18,1,18,
+        1,18,1,18,1,18,1,18,3,18,217,8,18,1,19,1,19,1,19,1,19,1,20,1,20,
+        1,20,1,20,1,20,1,20,1,20,1,20,1,20,4,20,232,8,20,11,20,12,20,233,
+        1,20,1,20,1,21,1,21,1,22,1,22,1,23,1,23,1,24,1,24,3,24,246,8,24,
+        1,24,3,24,249,8,24,1,24,1,24,3,24,253,8,24,1,25,1,25,1,25,4,25,258,
+        8,25,11,25,12,25,259,1,25,3,25,263,8,25,1,26,1,26,1,26,1,26,1,26,
+        1,26,1,26,1,26,1,26,1,26,1,26,1,26,1,26,1,26,1,26,1,26,1,26,5,26,
+        282,8,26,10,26,12,26,285,9,26,1,26,1,26,1,26,1,26,1,26,1,26,1,26,
+        1,26,1,26,1,26,1,26,5,26,298,8,26,10,26,12,26,301,9,26,1,26,1,26,
+        3,26,305,8,26,1,27,1,27,1,28,1,28,1,29,1,29,1,29,1,29,1,29,3,29,
+        316,8,29,1,30,1,30,1,30,1,30,1,30,3,30,323,8,30,1,30,1,30,1,31,1,
+        31,1,31,1,31,1,32,1,32,1,32,1,32,1,32,1,32,1,32,1,33,1,33,1,33,1,
+        33,1,33,1,34,1,34,1,34,1,34,1,34,1,34,1,34,1,34,1,34,1,34,3,34,353,
+        8,34,1,35,1,35,1,35,1,35,1,35,1,36,3,36,361,8,36,1,36,1,36,1,37,
+        1,37,1,37,1,37,3,37,369,8,37,1,37,3,37,372,8,37,1,37,1,37,3,37,376,
+        8,37,1,38,1,38,1,39,1,39,1,39,0,0,40,0,2,4,6,8,10,12,14,16,18,20,
+        22,24,26,28,30,32,34,36,38,40,42,44,46,48,50,52,54,56,58,60,62,64,
+        66,68,70,72,74,76,78,0,9,1,0,31,33,2,0,34,34,38,38,2,0,35,35,39,
+        39,1,0,26,28,2,0,46,46,49,49,1,0,44,50,1,0,9,11,1,0,42,43,2,0,31,
+        33,51,53,385,0,85,1,0,0,0,2,87,1,0,0,0,4,101,1,0,0,0,6,106,1,0,0,
+        0,8,109,1,0,0,0,10,112,1,0,0,0,12,129,1,0,0,0,14,141,1,0,0,0,16,
+        145,1,0,0,0,18,166,1,0,0,0,20,168,1,0,0,0,22,170,1,0,0,0,24,173,
+        1,0,0,0,26,175,1,0,0,0,28,179,1,0,0,0,30,181,1,0,0,0,32,195,1,0,
+        0,0,34,199,1,0,0,0,36,203,1,0,0,0,38,218,1,0,0,0,40,231,1,0,0,0,
+        42,237,1,0,0,0,44,239,1,0,0,0,46,241,1,0,0,0,48,252,1,0,0,0,50,257,
+        1,0,0,0,52,304,1,0,0,0,54,306,1,0,0,0,56,308,1,0,0,0,58,315,1,0,
+        0,0,60,317,1,0,0,0,62,326,1,0,0,0,64,330,1,0,0,0,66,337,1,0,0,0,
+        68,352,1,0,0,0,70,354,1,0,0,0,72,360,1,0,0,0,74,375,1,0,0,0,76,377,
+        1,0,0,0,78,379,1,0,0,0,80,86,3,8,4,0,81,86,3,10,5,0,82,86,3,12,6,
+        0,83,86,3,52,26,0,84,86,3,2,1,0,85,80,1,0,0,0,85,81,1,0,0,0,85,82,
+        1,0,0,0,85,83,1,0,0,0,85,84,1,0,0,0,86,1,1,0,0,0,87,88,5,1,0,0,88,
+        89,5,56,0,0,89,91,3,78,39,0,90,92,3,4,2,0,91,90,1,0,0,0,91,92,1,
+        0,0,0,92,97,1,0,0,0,93,94,5,56,0,0,94,95,5,49,0,0,95,96,5,56,0,0,
+        96,98,3,50,25,0,97,93,1,0,0,0,97,98,1,0,0,0,98,99,1,0,0,0,99,100,
+        5,0,0,1,100,3,1,0,0,0,101,102,5,56,0,0,102,103,5,2,0,0,103,104,5,
+        56,0,0,104,105,3,78,39,0,105,5,1,0,0,0,106,107,5,56,0,0,107,108,
+        5,26,0,0,108,7,1,0,0,0,109,110,5,51,0,0,110,111,5,0,0,1,111,9,1,
+        0,0,0,112,113,5,3,0,0,113,114,5,56,0,0,114,117,3,78,39,0,115,116,
+        5,56,0,0,116,118,3,62,31,0,117,115,1,0,0,0,117,118,1,0,0,0,118,123,
+        1,0,0,0,119,120,5,56,0,0,120,121,5,25,0,0,121,122,5,56,0,0,122,124,
+        3,78,39,0,123,119,1,0,0,0,123,124,1,0,0,0,124,125,1,0,0,0,125,126,
+        5,0,0,1,126,11,1,0,0,0,127,130,3,16,8,0,128,130,3,24,12,0,129,127,
+        1,0,0,0,129,128,1,0,0,0,129,130,1,0,0,0,130,131,1,0,0,0,131,137,
+        3,26,13,0,132,135,5,56,0,0,133,136,3,34,17,0,134,136,3,14,7,0,135,
+        133,1,0,0,0,135,134,1,0,0,0,136,138,1,0,0,0,137,132,1,0,0,0,137,
+        138,1,0,0,0,138,139,1,0,0,0,139,140,5,0,0,1,140,13,1,0,0,0,141,142,
+        5,49,0,0,142,143,5,56,0,0,143,144,5,4,0,0,144,15,1,0,0,0,145,146,
+        5,29,0,0,146,150,5,56,0,0,147,148,3,18,9,0,148,149,5,56,0,0,149,
+        151,1,0,0,0,150,147,1,0,0,0,150,151,1,0,0,0,151,153,1,0,0,0,152,
+        154,3,22,11,0,153,152,1,0,0,0,153,154,1,0,0,0,154,155,1,0,0,0,155,
+        156,5,21,0,0,156,157,5,56,0,0,157,17,1,0,0,0,158,159,3,20,10,0,159,
+        160,5,56,0,0,160,161,5,30,0,0,161,162,5,56,0,0,162,163,3,76,38,0,
+        163,167,1,0,0,0,164,167,5,5,0,0,165,167,5,6,0,0,166,158,1,0,0,0,
+        166,164,1,0,0,0,166,165,1,0,0,0,167,19,1,0,0,0,168,169,7,0,0,0,169,
+        21,1,0,0,0,170,171,5,7,0,0,171,172,5,56,0,0,172,23,1,0,0,0,173,174,
+        5,8,0,0,174,25,1,0,0,0,175,177,3,28,14,0,176,178,3,30,15,0,177,176,
+        1,0,0,0,177,178,1,0,0,0,178,27,1,0,0,0,179,180,3,78,39,0,180,29,
+        1,0,0,0,181,182,5,38,0,0,182,188,3,32,16,0,183,184,5,40,0,0,184,
+        185,5,56,0,0,185,187,3,32,16,0,186,183,1,0,0,0,187,190,1,0,0,0,188,
+        186,1,0,0,0,188,189,1,0,0,0,189,191,1,0,0,0,190,188,1,0,0,0,191,
+        192,5,39,0,0,192,31,1,0,0,0,193,196,3,72,36,0,194,196,3,78,39,0,
+        195,193,1,0,0,0,195,194,1,0,0,0,196,33,1,0,0,0,197,200,3,38,19,0,
+        198,200,3,36,18,0,199,197,1,0,0,0,199,198,1,0,0,0,200,35,1,0,0,0,
+        201,202,5,24,0,0,202,204,5,56,0,0,203,201,1,0,0,0,203,204,1,0,0,
+        0,204,205,1,0,0,0,205,206,5,23,0,0,206,208,5,56,0,0,207,209,7,1,
+        0,0,208,207,1,0,0,0,208,209,1,0,0,0,209,210,1,0,0,0,210,211,3,48,
+        24,0,211,212,5,56,0,0,212,213,5,22,0,0,213,214,5,56,0,0,214,216,
+        3,48,24,0,215,217,7,2,0,0,216,215,1,0,0,0,216,217,1,0,0,0,217,37,
+        1,0,0,0,218,219,3,46,23,0,219,220,5,56,0,0,220,221,3,48,24,0,221,
+        39,1,0,0,0,222,223,3,42,21,0,223,224,5,56,0,0,224,225,3,44,22,0,
+        225,226,5,56,0,0,226,227,3,48,24,0,227,228,5,56,0,0,228,229,3,44,
+        22,0,229,230,5,56,0,0,230,232,1,0,0,0,231,222,1,0,0,0,232,233,1,
+        0,0,0,233,231,1,0,0,0,233,234,1,0,0,0,234,235,1,0,0,0,235,236,3,
+        42,21,0,236,41,1,0,0,0,237,238,7,3,0,0,238,43,1,0,0,0,239,240,7,
+        4,0,0,240,45,1,0,0,0,241,242,7,5,0,0,242,47,1,0,0,0,243,248,3,72,
+        36,0,244,246,5,56,0,0,245,244,1,0,0,0,245,246,1,0,0,0,246,247,1,
+        0,0,0,247,249,5,41,0,0,248,245,1,0,0,0,248,249,1,0,0,0,249,253,1,
+        0,0,0,250,253,3,50,25,0,251,253,5,53,0,0,252,243,1,0,0,0,252,250,
+        1,0,0,0,252,251,1,0,0,0,253,49,1,0,0,0,254,255,3,76,38,0,255,256,
+        7,6,0,0,256,258,1,0,0,0,257,254,1,0,0,0,258,259,1,0,0,0,259,257,
+        1,0,0,0,259,260,1,0,0,0,260,262,1,0,0,0,261,263,3,76,38,0,262,261,
+        1,0,0,0,262,263,1,0,0,0,263,51,1,0,0,0,264,265,5,12,0,0,265,266,
+        5,56,0,0,266,267,3,54,27,0,267,268,5,56,0,0,268,269,5,13,0,0,269,
+        270,5,56,0,0,270,271,3,78,39,0,271,272,5,56,0,0,272,273,3,56,28,
+        0,273,305,1,0,0,0,274,275,5,12,0,0,275,276,5,56,0,0,276,277,5,38,
+        0,0,277,283,3,54,27,0,278,279,5,40,0,0,279,280,5,56,0,0,280,282,
+        3,54,27,0,281,278,1,0,0,0,282,285,1,0,0,0,283,281,1,0,0,0,283,284,
+        1,0,0,0,284,286,1,0,0,0,285,283,1,0,0,0,286,287,5,39,0,0,287,288,
+        5,56,0,0,288,289,5,13,0,0,289,290,5,56,0,0,290,291,3,78,39,0,291,
+        292,5,56,0,0,292,293,5,38,0,0,293,299,3,56,28,0,294,295,5,40,0,0,
+        295,296,5,56,0,0,296,298,3,56,28,0,297,294,1,0,0,0,298,301,1,0,0,
+        0,299,297,1,0,0,0,299,300,1,0,0,0,300,302,1,0,0,0,301,299,1,0,0,
+        0,302,303,5,39,0,0,303,305,1,0,0,0,304,264,1,0,0,0,304,274,1,0,0,
+        0,305,53,1,0,0,0,306,307,3,78,39,0,307,55,1,0,0,0,308,309,3,78,39,
+        0,309,57,1,0,0,0,310,316,3,60,30,0,311,316,3,66,33,0,312,316,3,64,
+        32,0,313,316,3,68,34,0,314,316,3,70,35,0,315,310,1,0,0,0,315,311,
+        1,0,0,0,315,312,1,0,0,0,315,313,1,0,0,0,315,314,1,0,0,0,316,59,1,
+        0,0,0,317,318,5,14,0,0,318,319,5,56,0,0,319,322,3,78,39,0,320,321,
+        5,56,0,0,321,323,3,62,31,0,322,320,1,0,0,0,322,323,1,0,0,0,323,324,
+        1,0,0,0,324,325,5,0,0,1,325,61,1,0,0,0,326,327,5,34,0,0,327,328,
+        3,78,39,0,328,329,5,35,0,0,329,63,1,0,0,0,330,331,5,15,0,0,331,332,
+        5,56,0,0,332,333,3,78,39,0,333,334,5,56,0,0,334,335,3,62,31,0,335,
+        336,5,0,0,1,336,65,1,0,0,0,337,338,5,16,0,0,338,339,5,56,0,0,339,
+        340,3,78,39,0,340,341,5,0,0,1,341,67,1,0,0,0,342,343,5,17,0,0,343,
+        344,5,56,0,0,344,345,3,78,39,0,345,346,5,0,0,1,346,353,1,0,0,0,347,
+        348,5,18,0,0,348,349,5,56,0,0,349,350,3,78,39,0,350,351,5,0,0,1,
+        351,353,1,0,0,0,352,342,1,0,0,0,352,347,1,0,0,0,353,69,1,0,0,0,354,
+        355,5,19,0,0,355,356,5,56,0,0,356,357,3,78,39,0,357,358,5,0,0,1,
+        358,71,1,0,0,0,359,361,7,7,0,0,360,359,1,0,0,0,360,361,1,0,0,0,361,
+        362,1,0,0,0,362,363,3,74,37,0,363,73,1,0,0,0,364,376,3,76,38,0,365,
+        366,5,55,0,0,366,368,5,20,0,0,367,369,5,55,0,0,368,367,1,0,0,0,368,
+        369,1,0,0,0,369,376,1,0,0,0,370,372,5,55,0,0,371,370,1,0,0,0,371,
+        372,1,0,0,0,372,373,1,0,0,0,373,374,5,20,0,0,374,376,5,55,0,0,375,
+        364,1,0,0,0,375,365,1,0,0,0,375,371,1,0,0,0,376,75,1,0,0,0,377,378,
+        5,55,0,0,378,77,1,0,0,0,379,380,7,8,0,0,380,79,1,0,0,0,34,85,91,
+        97,117,123,129,135,137,150,153,166,177,188,195,199,203,208,216,233,
+        245,248,252,259,262,283,299,304,315,322,352,360,368,371,375
+    ]
 
 class SodaCLAntlrParser ( Parser ):
 
@@ -201,7 +165,7 @@ class SodaCLAntlrParser ( Parser ):
                      "'['", "']'", "'{'", "'}'", "'('", "')'", "','", "'%'", 
                      "'+'", "'-'", "'!='", "'<>'", "'<='", "'>='", "'='", 
                      "'<'", "'>'", "<INVALID>", "<INVALID>", "<INVALID>", 
-                     "<INVALID>", "' '" ]
+                     "<INVALID>", "<INVALID>", "' '" ]
 
     symbolicNames = [ "<INVALID>", "<INVALID>", "<INVALID>", "<INVALID>", 
                       "<INVALID>", "<INVALID>", "<INVALID>", "<INVALID>", 
@@ -214,8 +178,8 @@ class SodaCLAntlrParser ( Parser ):
                       "CURLY_RIGHT", "ROUND_LEFT", "ROUND_RIGHT", "COMMA", 
                       "PERCENT", "PLUS", "MINUS", "NOT_EQUAL", "NOT_EQUAL_SQL", 
                       "LTE", "GTE", "EQUAL", "LT", "GT", "IDENTIFIER_DOUBLE_QUOTE", 
-                      "IDENTIFIER_BACKTICK", "IDENTIFIER_UNQUOTED", "DIGITS", 
-                      "S" ]
+                      "IDENTIFIER_BACKTICK", "IDENTIFIER_UNQUOTED", "STRING", 
+                      "DIGITS", "S" ]
 
     RULE_check = 0
     RULE_freshness_check = 1
@@ -325,12 +289,13 @@ class SodaCLAntlrParser ( Parser ):
     IDENTIFIER_DOUBLE_QUOTE=51
     IDENTIFIER_BACKTICK=52
     IDENTIFIER_UNQUOTED=53
-    DIGITS=54
-    S=55
+    STRING=54
+    DIGITS=55
+    S=56
 
     def __init__(self, input:TokenStream, output:TextIO = sys.stdout):
         super().__init__(input, output)
-        self.checkVersion("4.9.3")
+        self.checkVersion("4.11.1")
         self._interp = ParserATNSimulator(self, self.atn, self.decisionsToDFA, self.sharedContextCache)
         self._predicates = None
 
@@ -507,7 +472,7 @@ class SodaCLAntlrParser ( Parser ):
             self.state = 97
             self._errHandler.sync(self)
             _la = self._input.LA(1)
-            if _la==SodaCLAntlrParser.S:
+            if _la==56:
                 self.state = 93
                 self.match(SodaCLAntlrParser.S)
                 self.state = 94
@@ -769,7 +734,7 @@ class SodaCLAntlrParser ( Parser ):
             self.state = 123
             self._errHandler.sync(self)
             _la = self._input.LA(1)
-            if _la==SodaCLAntlrParser.S:
+            if _la==56:
                 self.state = 119
                 self.match(SodaCLAntlrParser.S)
                 self.state = 120
@@ -854,15 +819,15 @@ class SodaCLAntlrParser ( Parser ):
             self.state = 129
             self._errHandler.sync(self)
             token = self._input.LA(1)
-            if token in [SodaCLAntlrParser.CHANGE]:
+            if token in [29]:
                 self.state = 127
                 self.change_over_time()
                 pass
-            elif token in [SodaCLAntlrParser.T__7]:
+            elif token in [8]:
                 self.state = 128
                 self.anomaly_score()
                 pass
-            elif token in [SodaCLAntlrParser.AVG, SodaCLAntlrParser.MIN, SodaCLAntlrParser.MAX, SodaCLAntlrParser.IDENTIFIER_DOUBLE_QUOTE, SodaCLAntlrParser.IDENTIFIER_BACKTICK, SodaCLAntlrParser.IDENTIFIER_UNQUOTED]:
+            elif token in [31, 32, 33, 51, 52, 53]:
                 pass
             else:
                 pass
@@ -871,7 +836,7 @@ class SodaCLAntlrParser ( Parser ):
             self.state = 137
             self._errHandler.sync(self)
             _la = self._input.LA(1)
-            if _la==SodaCLAntlrParser.S:
+            if _la==56:
                 self.state = 132
                 self.match(SodaCLAntlrParser.S)
                 self.state = 135
@@ -1016,7 +981,7 @@ class SodaCLAntlrParser ( Parser ):
             self.state = 150
             self._errHandler.sync(self)
             _la = self._input.LA(1)
-            if (((_la) & ~0x3f) == 0 and ((1 << _la) & ((1 << SodaCLAntlrParser.T__4) | (1 << SodaCLAntlrParser.T__5) | (1 << SodaCLAntlrParser.AVG) | (1 << SodaCLAntlrParser.MIN) | (1 << SodaCLAntlrParser.MAX))) != 0):
+            if ((_la) & ~0x3f) == 0 and ((1 << _la) & 15032385632) != 0:
                 self.state = 147
                 self.change_over_time_config()
                 self.state = 148
@@ -1026,7 +991,7 @@ class SodaCLAntlrParser ( Parser ):
             self.state = 153
             self._errHandler.sync(self)
             _la = self._input.LA(1)
-            if _la==SodaCLAntlrParser.T__6:
+            if _la==7:
                 self.state = 152
                 self.percent()
 
@@ -1096,7 +1061,7 @@ class SodaCLAntlrParser ( Parser ):
             self.state = 166
             self._errHandler.sync(self)
             token = self._input.LA(1)
-            if token in [SodaCLAntlrParser.AVG, SodaCLAntlrParser.MIN, SodaCLAntlrParser.MAX]:
+            if token in [31, 32, 33]:
                 self.enterOuterAlt(localctx, 1)
                 self.state = 158
                 self.change_aggregation()
@@ -1109,12 +1074,12 @@ class SodaCLAntlrParser ( Parser ):
                 self.state = 162
                 self.integer()
                 pass
-            elif token in [SodaCLAntlrParser.T__4]:
+            elif token in [5]:
                 self.enterOuterAlt(localctx, 2)
                 self.state = 164
                 self.match(SodaCLAntlrParser.T__4)
                 pass
-            elif token in [SodaCLAntlrParser.T__5]:
+            elif token in [6]:
                 self.enterOuterAlt(localctx, 3)
                 self.state = 165
                 self.match(SodaCLAntlrParser.T__5)
@@ -1176,7 +1141,7 @@ class SodaCLAntlrParser ( Parser ):
             self.enterOuterAlt(localctx, 1)
             self.state = 168
             _la = self._input.LA(1)
-            if not((((_la) & ~0x3f) == 0 and ((1 << _la) & ((1 << SodaCLAntlrParser.AVG) | (1 << SodaCLAntlrParser.MIN) | (1 << SodaCLAntlrParser.MAX))) != 0)):
+            if not(((_la) & ~0x3f) == 0 and ((1 << _la) & 15032385536) != 0):
                 self._errHandler.recoverInline(self)
             else:
                 self._errHandler.reportMatch(self)
@@ -1331,7 +1296,7 @@ class SodaCLAntlrParser ( Parser ):
             self.state = 177
             self._errHandler.sync(self)
             _la = self._input.LA(1)
-            if _la==SodaCLAntlrParser.ROUND_LEFT:
+            if _la==38:
                 self.state = 176
                 self.metric_args()
 
@@ -1459,7 +1424,7 @@ class SodaCLAntlrParser ( Parser ):
             self.state = 188
             self._errHandler.sync(self)
             _la = self._input.LA(1)
-            while _la==SodaCLAntlrParser.COMMA:
+            while _la==40:
                 self.state = 183
                 self.match(SodaCLAntlrParser.COMMA)
                 self.state = 184
@@ -1524,12 +1489,12 @@ class SodaCLAntlrParser ( Parser ):
             self.state = 195
             self._errHandler.sync(self)
             token = self._input.LA(1)
-            if token in [SodaCLAntlrParser.T__19, SodaCLAntlrParser.PLUS, SodaCLAntlrParser.MINUS, SodaCLAntlrParser.DIGITS]:
+            if token in [20, 42, 43, 55]:
                 self.enterOuterAlt(localctx, 1)
                 self.state = 193
                 self.signed_number()
                 pass
-            elif token in [SodaCLAntlrParser.AVG, SodaCLAntlrParser.MIN, SodaCLAntlrParser.MAX, SodaCLAntlrParser.IDENTIFIER_DOUBLE_QUOTE, SodaCLAntlrParser.IDENTIFIER_BACKTICK, SodaCLAntlrParser.IDENTIFIER_UNQUOTED]:
+            elif token in [31, 32, 33, 51, 52, 53]:
                 self.enterOuterAlt(localctx, 2)
                 self.state = 194
                 self.identifier()
@@ -1589,12 +1554,12 @@ class SodaCLAntlrParser ( Parser ):
             self.state = 199
             self._errHandler.sync(self)
             token = self._input.LA(1)
-            if token in [SodaCLAntlrParser.NOT_EQUAL, SodaCLAntlrParser.NOT_EQUAL_SQL, SodaCLAntlrParser.LTE, SodaCLAntlrParser.GTE, SodaCLAntlrParser.EQUAL, SodaCLAntlrParser.LT, SodaCLAntlrParser.GT]:
+            if token in [44, 45, 46, 47, 48, 49, 50]:
                 self.enterOuterAlt(localctx, 1)
                 self.state = 197
                 self.comparator_threshold()
                 pass
-            elif token in [SodaCLAntlrParser.BETWEEN, SodaCLAntlrParser.NOT]:
+            elif token in [23, 24]:
                 self.enterOuterAlt(localctx, 2)
                 self.state = 198
                 self.between_threshold()
@@ -1682,7 +1647,7 @@ class SodaCLAntlrParser ( Parser ):
             self.state = 203
             self._errHandler.sync(self)
             _la = self._input.LA(1)
-            if _la==SodaCLAntlrParser.NOT:
+            if _la==24:
                 self.state = 201
                 self.match(SodaCLAntlrParser.NOT)
                 self.state = 202
@@ -1696,10 +1661,10 @@ class SodaCLAntlrParser ( Parser ):
             self.state = 208
             self._errHandler.sync(self)
             _la = self._input.LA(1)
-            if _la==SodaCLAntlrParser.SQUARE_LEFT or _la==SodaCLAntlrParser.ROUND_LEFT:
+            if _la==34 or _la==38:
                 self.state = 207
                 _la = self._input.LA(1)
-                if not(_la==SodaCLAntlrParser.SQUARE_LEFT or _la==SodaCLAntlrParser.ROUND_LEFT):
+                if not(_la==34 or _la==38):
                     self._errHandler.recoverInline(self)
                 else:
                     self._errHandler.reportMatch(self)
@@ -1719,10 +1684,10 @@ class SodaCLAntlrParser ( Parser ):
             self.state = 216
             self._errHandler.sync(self)
             _la = self._input.LA(1)
-            if _la==SodaCLAntlrParser.SQUARE_RIGHT or _la==SodaCLAntlrParser.ROUND_RIGHT:
+            if _la==35 or _la==39:
                 self.state = 215
                 _la = self._input.LA(1)
-                if not(_la==SodaCLAntlrParser.SQUARE_RIGHT or _la==SodaCLAntlrParser.ROUND_RIGHT):
+                if not(_la==35 or _la==39):
                     self._errHandler.recoverInline(self)
                 else:
                     self._errHandler.reportMatch(self)
@@ -1941,7 +1906,7 @@ class SodaCLAntlrParser ( Parser ):
             self.enterOuterAlt(localctx, 1)
             self.state = 237
             _la = self._input.LA(1)
-            if not((((_la) & ~0x3f) == 0 and ((1 << _la) & ((1 << SodaCLAntlrParser.WARN) | (1 << SodaCLAntlrParser.FAIL) | (1 << SodaCLAntlrParser.PASS))) != 0)):
+            if not(((_la) & ~0x3f) == 0 and ((1 << _la) & 469762048) != 0):
                 self._errHandler.recoverInline(self)
             else:
                 self._errHandler.reportMatch(self)
@@ -1997,7 +1962,7 @@ class SodaCLAntlrParser ( Parser ):
             self.enterOuterAlt(localctx, 1)
             self.state = 239
             _la = self._input.LA(1)
-            if not(_la==SodaCLAntlrParser.LTE or _la==SodaCLAntlrParser.LT):
+            if not(_la==46 or _la==49):
                 self._errHandler.recoverInline(self)
             else:
                 self._errHandler.reportMatch(self)
@@ -2068,7 +2033,7 @@ class SodaCLAntlrParser ( Parser ):
             self.enterOuterAlt(localctx, 1)
             self.state = 241
             _la = self._input.LA(1)
-            if not((((_la) & ~0x3f) == 0 and ((1 << _la) & ((1 << SodaCLAntlrParser.NOT_EQUAL) | (1 << SodaCLAntlrParser.NOT_EQUAL_SQL) | (1 << SodaCLAntlrParser.LTE) | (1 << SodaCLAntlrParser.GTE) | (1 << SodaCLAntlrParser.EQUAL) | (1 << SodaCLAntlrParser.LT) | (1 << SodaCLAntlrParser.GT))) != 0)):
+            if not(((_la) & ~0x3f) == 0 and ((1 << _la) & 2234207627640832) != 0):
                 self._errHandler.recoverInline(self)
             else:
                 self._errHandler.reportMatch(self)
@@ -2103,6 +2068,9 @@ class SodaCLAntlrParser ( Parser ):
             return self.getTypedRuleContext(SodaCLAntlrParser.Freshness_threshold_valueContext,0)
 
 
+        def IDENTIFIER_UNQUOTED(self):
+            return self.getToken(SodaCLAntlrParser.IDENTIFIER_UNQUOTED, 0)
+
         def getRuleIndex(self):
             return SodaCLAntlrParser.RULE_threshold_value
 
@@ -2129,7 +2097,7 @@ class SodaCLAntlrParser ( Parser ):
         self.enterRule(localctx, 48, self.RULE_threshold_value)
         self._la = 0 # Token type
         try:
-            self.state = 251
+            self.state = 252
             self._errHandler.sync(self)
             la_ = self._interp.adaptivePredict(self._input,21,self._ctx)
             if la_ == 1:
@@ -2143,7 +2111,7 @@ class SodaCLAntlrParser ( Parser ):
                     self.state = 245
                     self._errHandler.sync(self)
                     _la = self._input.LA(1)
-                    if _la==SodaCLAntlrParser.S:
+                    if _la==56:
                         self.state = 244
                         self.match(SodaCLAntlrParser.S)
 
@@ -2158,6 +2126,12 @@ class SodaCLAntlrParser ( Parser ):
                 self.enterOuterAlt(localctx, 2)
                 self.state = 250
                 self.freshness_threshold_value()
+                pass
+
+            elif la_ == 3:
+                self.enterOuterAlt(localctx, 3)
+                self.state = 251
+                self.match(SodaCLAntlrParser.IDENTIFIER_UNQUOTED)
                 pass
 
 
@@ -2211,16 +2185,16 @@ class SodaCLAntlrParser ( Parser ):
         self._la = 0 # Token type
         try:
             self.enterOuterAlt(localctx, 1)
-            self.state = 256 
+            self.state = 257 
             self._errHandler.sync(self)
             _alt = 1
             while _alt!=2 and _alt!=ATN.INVALID_ALT_NUMBER:
                 if _alt == 1:
-                    self.state = 253
-                    self.integer()
                     self.state = 254
+                    self.integer()
+                    self.state = 255
                     _la = self._input.LA(1)
-                    if not((((_la) & ~0x3f) == 0 and ((1 << _la) & ((1 << SodaCLAntlrParser.T__8) | (1 << SodaCLAntlrParser.T__9) | (1 << SodaCLAntlrParser.T__10))) != 0)):
+                    if not(((_la) & ~0x3f) == 0 and ((1 << _la) & 3584) != 0):
                         self._errHandler.recoverInline(self)
                     else:
                         self._errHandler.reportMatch(self)
@@ -2228,15 +2202,15 @@ class SodaCLAntlrParser ( Parser ):
 
                 else:
                     raise NoViableAltException(self)
-                self.state = 258 
+                self.state = 259 
                 self._errHandler.sync(self)
                 _alt = self._interp.adaptivePredict(self._input,22,self._ctx)
 
-            self.state = 261
+            self.state = 262
             self._errHandler.sync(self)
             _la = self._input.LA(1)
-            if _la==SodaCLAntlrParser.DIGITS:
-                self.state = 260
+            if _la==55:
+                self.state = 261
                 self.integer()
 
 
@@ -2324,86 +2298,86 @@ class SodaCLAntlrParser ( Parser ):
         self.enterRule(localctx, 52, self.RULE_reference_check)
         self._la = 0 # Token type
         try:
-            self.state = 303
+            self.state = 304
             self._errHandler.sync(self)
             la_ = self._interp.adaptivePredict(self._input,26,self._ctx)
             if la_ == 1:
                 self.enterOuterAlt(localctx, 1)
-                self.state = 263
-                self.match(SodaCLAntlrParser.T__11)
                 self.state = 264
-                self.match(SodaCLAntlrParser.S)
+                self.match(SodaCLAntlrParser.T__11)
                 self.state = 265
-                self.source_column_name()
+                self.match(SodaCLAntlrParser.S)
                 self.state = 266
-                self.match(SodaCLAntlrParser.S)
+                self.source_column_name()
                 self.state = 267
-                self.match(SodaCLAntlrParser.T__12)
+                self.match(SodaCLAntlrParser.S)
                 self.state = 268
-                self.match(SodaCLAntlrParser.S)
+                self.match(SodaCLAntlrParser.T__12)
                 self.state = 269
-                self.identifier()
-                self.state = 270
                 self.match(SodaCLAntlrParser.S)
+                self.state = 270
+                self.identifier()
                 self.state = 271
+                self.match(SodaCLAntlrParser.S)
+                self.state = 272
                 self.target_column_name()
                 pass
 
             elif la_ == 2:
                 self.enterOuterAlt(localctx, 2)
-                self.state = 273
-                self.match(SodaCLAntlrParser.T__11)
                 self.state = 274
-                self.match(SodaCLAntlrParser.S)
+                self.match(SodaCLAntlrParser.T__11)
                 self.state = 275
-                self.match(SodaCLAntlrParser.ROUND_LEFT)
+                self.match(SodaCLAntlrParser.S)
                 self.state = 276
-                self.source_column_name()
-                self.state = 282
-                self._errHandler.sync(self)
-                _la = self._input.LA(1)
-                while _la==SodaCLAntlrParser.COMMA:
-                    self.state = 277
-                    self.match(SodaCLAntlrParser.COMMA)
-                    self.state = 278
-                    self.match(SodaCLAntlrParser.S)
-                    self.state = 279
-                    self.source_column_name()
-                    self.state = 284
-                    self._errHandler.sync(self)
-                    _la = self._input.LA(1)
-
-                self.state = 285
-                self.match(SodaCLAntlrParser.ROUND_RIGHT)
-                self.state = 286
-                self.match(SodaCLAntlrParser.S)
-                self.state = 287
-                self.match(SodaCLAntlrParser.T__12)
-                self.state = 288
-                self.match(SodaCLAntlrParser.S)
-                self.state = 289
-                self.identifier()
-                self.state = 290
-                self.match(SodaCLAntlrParser.S)
-                self.state = 291
                 self.match(SodaCLAntlrParser.ROUND_LEFT)
-                self.state = 292
-                self.target_column_name()
-                self.state = 298
+                self.state = 277
+                self.source_column_name()
+                self.state = 283
                 self._errHandler.sync(self)
                 _la = self._input.LA(1)
-                while _la==SodaCLAntlrParser.COMMA:
-                    self.state = 293
+                while _la==40:
+                    self.state = 278
                     self.match(SodaCLAntlrParser.COMMA)
-                    self.state = 294
+                    self.state = 279
                     self.match(SodaCLAntlrParser.S)
-                    self.state = 295
-                    self.target_column_name()
-                    self.state = 300
+                    self.state = 280
+                    self.source_column_name()
+                    self.state = 285
                     self._errHandler.sync(self)
                     _la = self._input.LA(1)
 
-                self.state = 301
+                self.state = 286
+                self.match(SodaCLAntlrParser.ROUND_RIGHT)
+                self.state = 287
+                self.match(SodaCLAntlrParser.S)
+                self.state = 288
+                self.match(SodaCLAntlrParser.T__12)
+                self.state = 289
+                self.match(SodaCLAntlrParser.S)
+                self.state = 290
+                self.identifier()
+                self.state = 291
+                self.match(SodaCLAntlrParser.S)
+                self.state = 292
+                self.match(SodaCLAntlrParser.ROUND_LEFT)
+                self.state = 293
+                self.target_column_name()
+                self.state = 299
+                self._errHandler.sync(self)
+                _la = self._input.LA(1)
+                while _la==40:
+                    self.state = 294
+                    self.match(SodaCLAntlrParser.COMMA)
+                    self.state = 295
+                    self.match(SodaCLAntlrParser.S)
+                    self.state = 296
+                    self.target_column_name()
+                    self.state = 301
+                    self._errHandler.sync(self)
+                    _la = self._input.LA(1)
+
+                self.state = 302
                 self.match(SodaCLAntlrParser.ROUND_RIGHT)
                 pass
 
@@ -2454,7 +2428,7 @@ class SodaCLAntlrParser ( Parser ):
         self.enterRule(localctx, 54, self.RULE_source_column_name)
         try:
             self.enterOuterAlt(localctx, 1)
-            self.state = 305
+            self.state = 306
             self.identifier()
         except RecognitionException as re:
             localctx.exception = re
@@ -2502,7 +2476,7 @@ class SodaCLAntlrParser ( Parser ):
         self.enterRule(localctx, 56, self.RULE_target_column_name)
         try:
             self.enterOuterAlt(localctx, 1)
-            self.state = 307
+            self.state = 308
             self.identifier()
         except RecognitionException as re:
             localctx.exception = re
@@ -2565,32 +2539,32 @@ class SodaCLAntlrParser ( Parser ):
         localctx = SodaCLAntlrParser.Section_headerContext(self, self._ctx, self.state)
         self.enterRule(localctx, 58, self.RULE_section_header)
         try:
-            self.state = 314
+            self.state = 315
             self._errHandler.sync(self)
             token = self._input.LA(1)
-            if token in [SodaCLAntlrParser.T__13]:
+            if token in [14]:
                 self.enterOuterAlt(localctx, 1)
-                self.state = 309
+                self.state = 310
                 self.table_checks_header()
                 pass
-            elif token in [SodaCLAntlrParser.T__15]:
+            elif token in [16]:
                 self.enterOuterAlt(localctx, 2)
-                self.state = 310
+                self.state = 311
                 self.column_configurations_header()
                 pass
-            elif token in [SodaCLAntlrParser.T__14]:
+            elif token in [15]:
                 self.enterOuterAlt(localctx, 3)
-                self.state = 311
+                self.state = 312
                 self.table_filter_header()
                 pass
-            elif token in [SodaCLAntlrParser.T__16, SodaCLAntlrParser.T__17]:
+            elif token in [17, 18]:
                 self.enterOuterAlt(localctx, 4)
-                self.state = 312
+                self.state = 313
                 self.checks_for_each_dataset_header()
                 pass
-            elif token in [SodaCLAntlrParser.T__18]:
+            elif token in [19]:
                 self.enterOuterAlt(localctx, 5)
-                self.state = 313
+                self.state = 314
                 self.checks_for_each_column_header()
                 pass
             else:
@@ -2656,23 +2630,23 @@ class SodaCLAntlrParser ( Parser ):
         self._la = 0 # Token type
         try:
             self.enterOuterAlt(localctx, 1)
-            self.state = 316
-            self.match(SodaCLAntlrParser.T__13)
             self.state = 317
-            self.match(SodaCLAntlrParser.S)
+            self.match(SodaCLAntlrParser.T__13)
             self.state = 318
+            self.match(SodaCLAntlrParser.S)
+            self.state = 319
             self.identifier()
-            self.state = 321
+            self.state = 322
             self._errHandler.sync(self)
             _la = self._input.LA(1)
-            if _la==SodaCLAntlrParser.S:
-                self.state = 319
-                self.match(SodaCLAntlrParser.S)
+            if _la==56:
                 self.state = 320
+                self.match(SodaCLAntlrParser.S)
+                self.state = 321
                 self.partition_name()
 
 
-            self.state = 323
+            self.state = 324
             self.match(SodaCLAntlrParser.EOF)
         except RecognitionException as re:
             localctx.exception = re
@@ -2726,11 +2700,11 @@ class SodaCLAntlrParser ( Parser ):
         self.enterRule(localctx, 62, self.RULE_partition_name)
         try:
             self.enterOuterAlt(localctx, 1)
-            self.state = 325
-            self.match(SodaCLAntlrParser.SQUARE_LEFT)
             self.state = 326
-            self.identifier()
+            self.match(SodaCLAntlrParser.SQUARE_LEFT)
             self.state = 327
+            self.identifier()
+            self.state = 328
             self.match(SodaCLAntlrParser.SQUARE_RIGHT)
         except RecognitionException as re:
             localctx.exception = re
@@ -2791,17 +2765,17 @@ class SodaCLAntlrParser ( Parser ):
         self.enterRule(localctx, 64, self.RULE_table_filter_header)
         try:
             self.enterOuterAlt(localctx, 1)
-            self.state = 329
-            self.match(SodaCLAntlrParser.T__14)
             self.state = 330
-            self.match(SodaCLAntlrParser.S)
+            self.match(SodaCLAntlrParser.T__14)
             self.state = 331
-            self.identifier()
-            self.state = 332
             self.match(SodaCLAntlrParser.S)
+            self.state = 332
+            self.identifier()
             self.state = 333
-            self.partition_name()
+            self.match(SodaCLAntlrParser.S)
             self.state = 334
+            self.partition_name()
+            self.state = 335
             self.match(SodaCLAntlrParser.EOF)
         except RecognitionException as re:
             localctx.exception = re
@@ -2855,13 +2829,13 @@ class SodaCLAntlrParser ( Parser ):
         self.enterRule(localctx, 66, self.RULE_column_configurations_header)
         try:
             self.enterOuterAlt(localctx, 1)
-            self.state = 336
-            self.match(SodaCLAntlrParser.T__15)
             self.state = 337
-            self.match(SodaCLAntlrParser.S)
+            self.match(SodaCLAntlrParser.T__15)
             self.state = 338
-            self.identifier()
+            self.match(SodaCLAntlrParser.S)
             self.state = 339
+            self.identifier()
+            self.state = 340
             self.match(SodaCLAntlrParser.EOF)
         except RecognitionException as re:
             localctx.exception = re
@@ -2914,29 +2888,29 @@ class SodaCLAntlrParser ( Parser ):
         localctx = SodaCLAntlrParser.Checks_for_each_dataset_headerContext(self, self._ctx, self.state)
         self.enterRule(localctx, 68, self.RULE_checks_for_each_dataset_header)
         try:
-            self.state = 351
+            self.state = 352
             self._errHandler.sync(self)
             token = self._input.LA(1)
-            if token in [SodaCLAntlrParser.T__16]:
+            if token in [17]:
                 self.enterOuterAlt(localctx, 1)
-                self.state = 341
-                self.match(SodaCLAntlrParser.T__16)
                 self.state = 342
-                self.match(SodaCLAntlrParser.S)
+                self.match(SodaCLAntlrParser.T__16)
                 self.state = 343
-                self.identifier()
+                self.match(SodaCLAntlrParser.S)
                 self.state = 344
+                self.identifier()
+                self.state = 345
                 self.match(SodaCLAntlrParser.EOF)
                 pass
-            elif token in [SodaCLAntlrParser.T__17]:
+            elif token in [18]:
                 self.enterOuterAlt(localctx, 2)
-                self.state = 346
-                self.match(SodaCLAntlrParser.T__17)
                 self.state = 347
-                self.match(SodaCLAntlrParser.S)
+                self.match(SodaCLAntlrParser.T__17)
                 self.state = 348
-                self.identifier()
+                self.match(SodaCLAntlrParser.S)
                 self.state = 349
+                self.identifier()
+                self.state = 350
                 self.match(SodaCLAntlrParser.EOF)
                 pass
             else:
@@ -2994,13 +2968,13 @@ class SodaCLAntlrParser ( Parser ):
         self.enterRule(localctx, 70, self.RULE_checks_for_each_column_header)
         try:
             self.enterOuterAlt(localctx, 1)
-            self.state = 353
-            self.match(SodaCLAntlrParser.T__18)
             self.state = 354
-            self.match(SodaCLAntlrParser.S)
+            self.match(SodaCLAntlrParser.T__18)
             self.state = 355
-            self.identifier()
+            self.match(SodaCLAntlrParser.S)
             self.state = 356
+            self.identifier()
+            self.state = 357
             self.match(SodaCLAntlrParser.EOF)
         except RecognitionException as re:
             localctx.exception = re
@@ -3055,20 +3029,20 @@ class SodaCLAntlrParser ( Parser ):
         self._la = 0 # Token type
         try:
             self.enterOuterAlt(localctx, 1)
-            self.state = 359
+            self.state = 360
             self._errHandler.sync(self)
             _la = self._input.LA(1)
-            if _la==SodaCLAntlrParser.PLUS or _la==SodaCLAntlrParser.MINUS:
-                self.state = 358
+            if _la==42 or _la==43:
+                self.state = 359
                 _la = self._input.LA(1)
-                if not(_la==SodaCLAntlrParser.PLUS or _la==SodaCLAntlrParser.MINUS):
+                if not(_la==42 or _la==43):
                     self._errHandler.recoverInline(self)
                 else:
                     self._errHandler.reportMatch(self)
                     self.consume()
 
 
-            self.state = 361
+            self.state = 362
             self.number()
         except RecognitionException as re:
             localctx.exception = re
@@ -3122,26 +3096,26 @@ class SodaCLAntlrParser ( Parser ):
         self.enterRule(localctx, 74, self.RULE_number)
         self._la = 0 # Token type
         try:
-            self.state = 374
+            self.state = 375
             self._errHandler.sync(self)
             la_ = self._interp.adaptivePredict(self._input,33,self._ctx)
             if la_ == 1:
                 self.enterOuterAlt(localctx, 1)
-                self.state = 363
+                self.state = 364
                 self.integer()
                 pass
 
             elif la_ == 2:
                 self.enterOuterAlt(localctx, 2)
-                self.state = 364
-                self.match(SodaCLAntlrParser.DIGITS)
                 self.state = 365
+                self.match(SodaCLAntlrParser.DIGITS)
+                self.state = 366
                 self.match(SodaCLAntlrParser.T__19)
-                self.state = 367
+                self.state = 368
                 self._errHandler.sync(self)
                 _la = self._input.LA(1)
-                if _la==SodaCLAntlrParser.DIGITS:
-                    self.state = 366
+                if _la==55:
+                    self.state = 367
                     self.match(SodaCLAntlrParser.DIGITS)
 
 
@@ -3149,17 +3123,17 @@ class SodaCLAntlrParser ( Parser ):
 
             elif la_ == 3:
                 self.enterOuterAlt(localctx, 3)
-                self.state = 370
+                self.state = 371
                 self._errHandler.sync(self)
                 _la = self._input.LA(1)
-                if _la==SodaCLAntlrParser.DIGITS:
-                    self.state = 369
+                if _la==55:
+                    self.state = 370
                     self.match(SodaCLAntlrParser.DIGITS)
 
 
-                self.state = 372
-                self.match(SodaCLAntlrParser.T__19)
                 self.state = 373
+                self.match(SodaCLAntlrParser.T__19)
+                self.state = 374
                 self.match(SodaCLAntlrParser.DIGITS)
                 pass
 
@@ -3209,7 +3183,7 @@ class SodaCLAntlrParser ( Parser ):
         self.enterRule(localctx, 76, self.RULE_integer)
         try:
             self.enterOuterAlt(localctx, 1)
-            self.state = 376
+            self.state = 377
             self.match(SodaCLAntlrParser.DIGITS)
         except RecognitionException as re:
             localctx.exception = re
@@ -3272,9 +3246,9 @@ class SodaCLAntlrParser ( Parser ):
         self._la = 0 # Token type
         try:
             self.enterOuterAlt(localctx, 1)
-            self.state = 378
+            self.state = 379
             _la = self._input.LA(1)
-            if not((((_la) & ~0x3f) == 0 and ((1 << _la) & ((1 << SodaCLAntlrParser.AVG) | (1 << SodaCLAntlrParser.MIN) | (1 << SodaCLAntlrParser.MAX) | (1 << SodaCLAntlrParser.IDENTIFIER_DOUBLE_QUOTE) | (1 << SodaCLAntlrParser.IDENTIFIER_BACKTICK) | (1 << SodaCLAntlrParser.IDENTIFIER_UNQUOTED))) != 0)):
+            if not(((_la) & ~0x3f) == 0 and ((1 << _la) & 15762613728182272) != 0):
                 self._errHandler.recoverInline(self)
             else:
                 self._errHandler.reportMatch(self)

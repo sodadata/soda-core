@@ -8,10 +8,11 @@ def test_default_invalid(data_source_fixture: DataSourceFixture):
     table_name = data_source_fixture.ensure_test_table(customers_test_table)
 
     scan = data_source_fixture.create_test_scan()
+    scan.add_variables({"zero": "0"})
     scan.add_sodacl_yaml_str(
         f"""
       checks for {table_name}:
-        - invalid_count(id) = 0
+        - invalid_count(id) = ${{zero}}
         - valid_count(id) = 9
     """
     )

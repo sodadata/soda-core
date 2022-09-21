@@ -23,7 +23,7 @@ class DuplicatesQuery(Query):
 
         column_names = ", ".join(self.metric.metric_args)
 
-        self.sql = (
+        self.sql = self.data_source_scan.scan.jinja_resolve(
             f"WITH frequencies AS (\n"
             f"  SELECT {column_names}, COUNT(*) AS frequency \n"
             f"  FROM {self.partition.table.qualified_table_name} \n"
