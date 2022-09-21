@@ -231,7 +231,7 @@ class NumericQueryMetric(QueryMetric):
 
     metric_names_with_failed_rows = ["missing_count", "invalid_count"]
 
-    def create_failed_rows_sample_query(self) -> SampleQuery | None:
+    def create_failed_rows_sample_query(self, limit: int = 1000) -> SampleQuery | None:
         sampler = self.data_source_scan.scan._configuration.sampler
         if (
             sampler
@@ -256,6 +256,8 @@ class NumericQueryMetric(QueryMetric):
 
             where_sql = " AND ".join(where_clauses)
 
-            sql = f"SELECT * \n" f"FROM {self.partition.table.qualified_table_name} \n" f"WHERE {where_sql}"
+            sql = (
+                f"SELECT * \n" f"FROM {self.partition.table.qualified_table_name} \n" f"WHERE {where_sql} limit {limit}"
+            )
 
             return SampleQuery(self.data_source_scan, self, "failed_rows", sql)
