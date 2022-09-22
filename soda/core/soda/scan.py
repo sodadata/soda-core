@@ -740,6 +740,9 @@ class Scan:
             return self._variables[variable_name]
         return default_value
 
+    def get_scan_results(self) -> dict:
+        return self.scan_results
+
     def get_logs_text(self) -> str | None:
         return self.__logs_to_text(self._logs.logs)
 
