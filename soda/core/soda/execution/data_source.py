@@ -289,8 +289,8 @@ class DataSource:
     # Store Table Sample
     ######################
 
-    def store_table_sample(self, table_name: str, limit: int | None = None) -> SampleRef:
-        sql = self.sql_select_all(table_name=table_name, limit=limit)
+    def store_table_sample(self, table_name: str, limit: int | None = None, filter: str | None = None) -> SampleRef:
+        sql = self.sql_select_all(table_name=table_name, limit=limit, filter=filter)
         query = Query(
             data_source_scan=self.data_source_scan,
             unqualified_query_name=f"store-sample-for-{table_name}",
@@ -300,12 +300,18 @@ class DataSource:
         query.store()
         return query.sample_ref
 
-    def sql_select_all(self, table_name: str, limit: int | None = None) -> str:
+    def sql_select_all(self, table_name: str, limit: int | None = None, filter: str | None = None) -> str:
         qualified_table_name = self.qualified_table_name(table_name)
+
+        filter_sql = ""
+        if filter:
+            filter_sql = f" \n WHERE {filter}"
+
         limit_sql = ""
         if limit is not None:
             limit_sql = f" \n LIMIT {limit}"
-        sql = f"SELECT * FROM {qualified_table_name}{limit_sql}"
+
+        sql = f"SELECT * FROM {qualified_table_name}{filter_sql}{limit_sql}"
         return sql
 
     ############################################

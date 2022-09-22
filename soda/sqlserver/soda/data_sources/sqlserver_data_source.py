@@ -266,12 +266,17 @@ class SQLServerDataSource(DataSource):
     def expr_regexp_like(self, expr: str, regex_pattern: str):
         return f"PATINDEX ('%{regex_pattern}%' ,{expr} ) = 0"
 
-    def sql_select_all(self, table_name: str, limit: int | None = None) -> str:
+    def sql_select_all(self, table_name: str, limit: int | None = None, filter: str | None = None) -> str:
         qualified_table_name = self.qualified_table_name(table_name)
+
+        filter_sql = ""
+        if filter:
+            filter_sql = f" \n WHERE {filter}"
+
         limit_sql = ""
         if limit is not None:
             limit_sql = f" \n TOP {limit} \n"
-        sql = f"SELECT {limit_sql} * FROM {qualified_table_name}"
+        sql = f"SELECT {limit_sql} * FROM {qualified_table_name}{filter_sql}"
         return sql
 
     def sql_select_column_with_filter_and_limit(
