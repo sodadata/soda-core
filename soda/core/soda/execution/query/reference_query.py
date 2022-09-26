@@ -53,12 +53,13 @@ class ReferenceQuery(Query):
             ]
         )
 
-        self.sql = (
+        self.sql = self.data_source_scan.scan.jinja_resolve(
             f"SELECT {source_diagnostic_column_fields} \n"
             f"FROM {source_table_name} as SOURCE \n"
             f"     LEFT JOIN {target_table_name} as TARGET on {join_condition} \n"
             f"WHERE {where_condition}"
         )
+
         self.metric = metric
 
     def execute(self):

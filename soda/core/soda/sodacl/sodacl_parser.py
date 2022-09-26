@@ -1163,6 +1163,8 @@ class SodaCLParser(Parser):
         if antlr_threshold_value.freshness_threshold_value():
             freshness_threshold = antlr_threshold_value.freshness_threshold_value().getText()
             return self.parse_freshness_threshold(freshness_threshold)
+        if antlr_threshold_value.IDENTIFIER_UNQUOTED():
+            return antlr_threshold_value.IDENTIFIER_UNQUOTED().getText()
 
     def __antlr_parse_signed_number(self, antlr_signed_number):
         signed_number_str = antlr_signed_number.getText()
