@@ -22,6 +22,7 @@ from soda.profiling.sample_tables_result import SampleTablesResultTable
 from soda.sampler.default_sampler import DefaultSampler
 from soda.sampler.sampler import Sampler
 from soda.soda_cloud.historic_descriptor import HistoricDescriptor
+from soda.soda_cloud.soda_cloud import SodaCloud
 from soda.sodacl.location import Location
 from soda.sodacl.sodacl_cfg import SodaCLCfg
 from soda.telemetry.soda_telemetry import SodaTelemetry
@@ -44,6 +45,7 @@ class Scan:
         self.sampler: Sampler | None = None
         self._logs = Logs(logger)
         self._scan_definition_name: str | None = None
+        self._scan_results_file: str | None = None
         self._data_source_name: str | None = None
         self._variables: dict[str, object] = {"NOW": now.isoformat()}
         self._configuration: Configuration = Configuration(scan=self)
@@ -117,6 +119,9 @@ class Scan:
         self._logs.verbose = verbose_var
         global verbose
         verbose = verbose_var
+
+    def set_scan_results_file(self, set_scan_results_file: str):
+        self._scan_results_file = set_scan_results_file
 
     def add_configuration_yaml_file(self, file_path: str):
         """
@@ -528,6 +533,11 @@ class Scan:
 
             self._close()
             self.scan_results = self.build_scan_results()
+
+        if self._scan_results_file is not None:
+            logger.info(f"Saving scan results to {self._scan_results_file}")
+            with open(self._scan_results_file, "w") as f:
+                json.dump(SodaCloud.build_scan_results(self), f)
 
         # Telemetry data
         soda_telemetry.set_attributes(
