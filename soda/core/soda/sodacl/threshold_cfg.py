@@ -8,15 +8,14 @@ from soda.execution.identity import Identity
 
 @dataclass
 class ThresholdCfg:
-
     # value must be greater than or equal to be ok
-    gte: float | None = None
+    gte: float | str = None
     # value must be greater than to be ok
-    gt: float | None = None
+    gt: float | str = None
     # value must be less than to be ok
-    lt: float | None = None
+    lt: float | str = None
     # value must be less than or equal to be ok
-    lte: float | None = None
+    lte: float | str = None
 
     is_split_zone: bool = False
 
@@ -46,6 +45,22 @@ class ThresholdCfg:
             lte=self.gt if self.gt is not None else None,
             is_split_zone=new_is_split_zone,
         )
+
+    def resolve(self, f):
+        """
+        Resolve if the values are set to be strings
+        :param f:
+        :return:
+        """
+        if isinstance(self.lt, str):
+            self.lt = float(f(self.lt))
+        if isinstance(self.gte, str):
+            self.gte = float(f(self.gte))
+        if isinstance(self.gt, str):
+            self.gt = float(f(self.gt))
+        if isinstance(self.lte, str):
+            self.lte = float(f(self.lte))
+        return self
 
     def is_bad(self, value) -> bool:
         if self.is_split_zone:

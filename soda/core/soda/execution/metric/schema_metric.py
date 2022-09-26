@@ -35,3 +35,17 @@ class SchemaMetric(QueryMetric):
             "columnName": Column.get_partition_name(self.column),
             "value": [{"columnName": c["name"], "sourceDataType": c["type"]} for c in self.value],
         }
+
+    def get_dict(self):
+        from soda.execution.column import Column
+        from soda.execution.partition import Partition
+
+        return {
+            "identity": self.identity,
+            "metricName": self.name,
+            "dataSourceName": self.data_source_scan.data_source.data_source_name,
+            "tableName": Partition.get_table_name(self.partition),
+            "partitionName": Partition.get_partition_name(self.partition),
+            "columnName": Column.get_partition_name(self.column),
+            "value": [{"columnName": c["name"], "sourceDataType": c["type"]} for c in self.value],
+        }

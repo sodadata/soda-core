@@ -77,7 +77,7 @@ class MySQLDataSource(DataSource):
     def connect(self):
         try:
             self.connection = mysql.connector.connect(
-                user=self.username, password=self.password, host=self.host, database=self.database
+                user=self.username, password=self.password, host=self.host, port=self.port, database=self.database
             )
             return self.connection
         except Exception as e:
@@ -111,3 +111,6 @@ class MySQLDataSource(DataSource):
 
     def regex_replace_flags(self) -> str:
         return ""
+
+    def expr_regexp_like(self, expr: str, pattern: str):
+        return f"{expr} RLIKE '{pattern}'"

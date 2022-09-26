@@ -27,9 +27,9 @@ class AggregationQuery(Query):
 
         partition_filter = self.partition.sql_partition_filter
         if partition_filter:
-            resolved_filter = scan._jinja_resolve(definition=partition_filter)
+            resolved_filter = scan.jinja_resolve(definition=partition_filter)
             self.sql += f"\nWHERE {resolved_filter}"
-
+        self.sql = self.data_source_scan.scan.jinja_resolve(self.sql)
         self.fetchone()
         if self.row:
             for i in range(0, len(self.row)):

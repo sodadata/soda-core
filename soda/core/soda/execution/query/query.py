@@ -36,7 +36,7 @@ class Query:
         # The SQL query that is used _fetchone or _fetchall or _store
         # This field can also be initialized in the execute method before any of _fetchone,
         # _fetchall or _store are called
-        self.sql: str = sql
+        self.sql: str = data_source_scan.scan.jinja_resolve(sql)
 
         # Following fields are initialized in execute method
         self.description: tuple | None = None
@@ -47,6 +47,21 @@ class Query:
         self.duration: timedelta | None = None
 
     def get_cloud_dict(self):
+        from soda.execution.column import Column
+        from soda.execution.partition import Partition
+
+        return {
+            "name": self.query_name,
+            "dataSource": self.data_source_scan.data_source.data_source_name,
+            "table": Partition.get_table_name(self.partition),
+            "partition": Partition.get_partition_name(self.partition),
+            "column": Column.get_partition_name(self.column),
+            "sql": self.sql,
+            "exception": get_exception_stacktrace(self.exception),
+            "duration": self.duration,
+        }
+
+    def get_dict(self):
         from soda.execution.column import Column
         from soda.execution.partition import Partition
 

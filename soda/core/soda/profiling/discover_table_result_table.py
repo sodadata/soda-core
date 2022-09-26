@@ -23,3 +23,11 @@ class DiscoverTablesResultTable:
             "schema": [result_column.get_cloud_dict() for result_column in self.result_columns],
         }
         return cloud_dict
+
+    def get_dict(self) -> dict:
+        return {
+            "table": self.table_name,
+            "dataSource": self.data_source,
+            "rowCount": self.row_count,
+            "schema": [result_column.get_dict() for result_column in self.result_columns],
+        }

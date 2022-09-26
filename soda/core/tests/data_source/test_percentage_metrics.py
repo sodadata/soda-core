@@ -6,7 +6,7 @@ from helpers.fixtures import test_data_source
 
 @pytest.mark.skipif(
     test_data_source == "sqlserver",
-    reason="Regex support is not implemented for SQLServer",
+    reason="Full regex support is not supported by SQLServer. 'Percentage' format is supported but with limited functionality.",
 )
 def test_default_missing_percentage(data_source_fixture: DataSourceFixture):
     table_name = data_source_fixture.ensure_test_table(customers_test_table)

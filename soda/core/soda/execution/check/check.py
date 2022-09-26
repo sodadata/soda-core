@@ -130,7 +130,7 @@ class Check(ABC):
 
         Uses user provided name if available or generates one from the check definition and thresholds.
         """
-        jinja_resolve = self.data_source_scan.scan._jinja_resolve
+        jinja_resolve = self.data_source_scan.scan.jinja_resolve
         if self.check_cfg.name:
             return jinja_resolve(self.check_cfg.name)
 
@@ -156,7 +156,7 @@ class Check(ABC):
         else:
             return f"{check_cfg.source_header}:\n  {check_cfg.source_line}"
 
-    def create_identity(self) -> str:
+    def create_identity(self, with_datasource: bool = False) -> str:
         check_cfg: CheckCfg = self.check_cfg
         from soda.common.yaml_helper import to_yaml_str
 
@@ -185,6 +185,11 @@ class Check(ABC):
                 identity_source_configurations = collections.OrderedDict(sorted(identity_source_configurations.items()))
                 identity_source_configurations_yaml = to_yaml_str(identity_source_configurations)
                 hash_builder.add(identity_source_configurations_yaml)
+        # Temp solution to introduce new variant of identity to help cloud identifying datasets with same name
+        # See https://sodadata.atlassian.net/browse/CLOUD-1143
+        if with_datasource:
+            hash_builder.add(self.data_source_scan.data_source.data_source_name)
+
         return hash_builder.get_hash()
 
     def add_outcome_reason(self, outcome_type: str, message: str, severity: str):
@@ -204,11 +209,17 @@ class Check(ABC):
         from soda.execution.partition import Partition
 
         cloud_dict = {
-            "identity": self.create_identity(),
+            # See https://sodadata.atlassian.net/browse/CLOUD-1143
+            "identity": self.create_identity(with_datasource=False),
+            "identities": {
+                # v1 is original without the datasource name and v2 is with datasource name in the hash
+                "v1": self.create_identity(with_datasource=False),
+                "v2": self.create_identity(with_datasource=True),
+            },
             "name": self.name,
             "type": self.cloud_check_type,
             "definition": self.create_definition(),
-            "location": self.check_cfg.location.to_soda_cloud_json(),
+            "location": self.check_cfg.location.get_cloud_dict(),
             "dataSource": self.data_source_scan.data_source.data_source_name,
             "table": Partition.get_table_name(self.partition),
             # "filter": Partition.get_partition_name(self.partition), TODO: re-enable once backend supports the property.
@@ -225,6 +236,26 @@ class Check(ABC):
         if self.outcome_reasons:
             cloud_dict.update({"outcomeReasons": self.outcome_reasons})
         return cloud_dict
+
+    def get_dict(self):
+        from soda.execution.column import Column
+        from soda.execution.partition import Partition
+
+        return {
+            "identity": self.create_identity(with_datasource=True),
+            "name": self.name,
+            "type": self.cloud_check_type,
+            "definition": self.create_definition(),
+            "location": self.check_cfg.location.get_dict(),
+            "dataSource": self.data_source_scan.data_source.data_source_name,
+            "table": Partition.get_table_name(self.partition),
+            "filter": Partition.get_partition_name(self.partition),
+            "column": Column.get_partition_name(self.column),
+            "metrics": [metric.identity for metric in self.metrics.values()],
+            "outcome": self.outcome.value if self.outcome else None,
+            "outcomeReasons": self.outcome_reasons,
+            "archetype": self.archetype,
+        }
 
     @abstractmethod
     def get_cloud_diagnostics_dict(self) -> dict:

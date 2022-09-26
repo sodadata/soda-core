@@ -1,11 +1,14 @@
 import logging
 from typing import Dict, List
 
+import pytest
 from helpers.common_test_tables import (
     customers_dist_check_test_table,
     customers_test_table,
+    special_table,
 )
 from helpers.data_source_fixture import DataSourceFixture
+from helpers.fixtures import test_data_source
 from helpers.utils import execute_scan_and_get_scan_result
 from soda.common.yaml_helper import to_yaml_str
 
@@ -105,10 +108,10 @@ def test_check_identity_line_number_change(data_source_fixture: DataSourceFixtur
     assert scan_result["checks"][1]["identity"] == missing_identity
 
 
-def test_explicitely_specified_check_identity(data_source_fixture: DataSourceFixture):
+def test_explicitly_specified_check_identity(data_source_fixture: DataSourceFixture):
     # 1. First a Soda Cloud user creates a new check
     # 2. Then the soda cloud user asks the Soda Cloud editor to fill in the identity in the check source so that...
-    # 3. The Soda Cloud user can update the check keeping the same identity and hence without loosing the history
+    # 3. The Soda Cloud user can update the check keeping the same identity and hence without losing the history
 
     table_name = data_source_fixture.ensure_test_table(customers_test_table)
 
@@ -129,7 +132,7 @@ def test_explicitely_specified_check_identity(data_source_fixture: DataSourceFix
         f"""
           checks for {table_name}:
             - row_count > 0:
-                identity: {row_count_identity}
+                identity: '{row_count_identity}'
         """,
     )
 
@@ -141,7 +144,7 @@ def test_explicitely_specified_check_identity(data_source_fixture: DataSourceFix
         f"""
           checks for {table_name}:
             - row_count > 1:
-                identity: {row_count_identity}
+                identity: '{row_count_identity}'
         """,
     )
 
@@ -170,3 +173,29 @@ def test_for_each_identity(data_source_fixture: DataSourceFixture):
     assert scan_result["checks"][0]["identity"] != scan_result["checks"][1]["identity"]
     assert scan_result["checks"][0]["identity"] != scan_result["checks"][2]["identity"]
     assert scan_result["checks"][1]["identity"] != scan_result["checks"][2]["identity"]
+
+
+@pytest.mark.skipif(
+    test_data_source
+    in [
+        "bigquery",
+        "spark_df",
+        "mysql",
+        "athena",
+    ],
+    reason="Column name starting with number is not allowed in some data sources.",
+)
+def test_check_identity_special_table(data_source_fixture: DataSourceFixture):
+    table_name = data_source_fixture.ensure_test_table(special_table)
+
+    scan_result = execute_scan_and_get_scan_result(
+        data_source_fixture,
+        f"""
+          checks for "{table_name}":
+            - row_count > 0
+            - missing_count(1) = 0
+        """,
+    )
+    row_count_identity = scan_result["checks"][0]["identity"]
+
+    assert isinstance(row_count_identity, str)

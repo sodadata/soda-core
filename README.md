@@ -45,6 +45,7 @@ Soda Core currently supports Amazon Athena, Amazon Redshift, GCP BigQuery, Postg
 * `soda-core-spark-df`
 * `soda-core-sqlserver`
 * `soda-core-mysql`
+* `soda-core-trino`
 2. Prepare a `configuration.yml` file to connect to your data source. Then, write data quality checks in a `checks.yml` file. See [Configure Soda Core](https://docs.soda.io/soda-core/configuration.html#configuration-instructions).
 3. Run a scan to review checks that passed, failed, or warned during a scan. See [Run a Soda Core scan](https://docs.soda.io/soda-core/scan-core.html).
 `soda scan -d your_datasource -c configuration.yml checks.yml`

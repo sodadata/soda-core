@@ -1,6 +1,7 @@
 from numbers import Number
 from typing import Dict, Optional
 
+from soda.common.exceptions import SODA_SCIENTIFIC_MISSING_LOG_MESSAGE
 from soda.execution.check.check import Check
 from soda.execution.check_outcome import CheckOutcome
 from soda.execution.column import Column
@@ -9,9 +10,6 @@ from soda.execution.metric.metric import Metric
 from soda.execution.partition import Partition
 from soda.execution.query.query import Query
 from soda.sodacl.distribution_check_cfg import DistributionCheckCfg
-
-from soda.scientific.common.exceptions import LoggableException
-from soda.scientific.distribution.comparison import DistributionChecker
 
 
 class DistributionCheck(Check):
@@ -45,6 +43,12 @@ class DistributionCheck(Check):
         self.check_value: Optional[float] = None
 
     def evaluate(self, metrics: Dict[str, Metric], historic_values: Dict[str, object]):
+        try:
+            from soda.scientific.common.exceptions import LoggableException
+            from soda.scientific.distribution.comparison import DistributionChecker
+        except ModuleNotFoundError as e:
+            self.logs.error(f"{SODA_SCIENTIFIC_MISSING_LOG_MESSAGE}\n Original error: {e}")
+            return
 
         sql = self.sql_column_values_query(self.distribution_check_cfg)
 
@@ -119,7 +123,7 @@ class DistributionCheck(Check):
         partition_str = ""
         if partition_filter:
             scan = self.data_source_scan.scan
-            resolved_filter = scan._jinja_resolve(definition=partition_filter)
+            resolved_filter = scan.jinja_resolve(definition=partition_filter)
             partition_str = f"\nWHERE {resolved_filter}"
         return self.data_source_scan.data_source.sql_select_column_with_filter_and_limit(
             column_name=column_name,

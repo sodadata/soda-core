@@ -85,6 +85,7 @@ jobs:
       SQLSERVER_DATABASE: master
       SQLSERVER_SCHEMA: dbo
       MYSQL_USER: sodacore
+      MYSQL_DATABASE: sodacore
       MYSQL_PASSWORD: sodacore
       MYSQL_ROOT_PASSWORD: sodacore
       # TODO: add appropriate vars

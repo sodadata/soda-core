@@ -14,7 +14,7 @@ class SQLServerDataSourceFixture(DataSourceFixture):
         return {
             "data_source sqlserver": {
                 "type": "sqlserver",
-                "host": "localhost",
+                "host": os.getenv("SQLSERVER_HOST", "localhost"),
                 "username": os.getenv("SQLSERVER_USERNAME", "SA"),
                 "password": os.getenv("SQLSERVER_PASSWORD", "Password1!"),
                 "database": os.getenv("SQLSERVER_DATABASE", "master"),

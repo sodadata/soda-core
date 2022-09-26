@@ -16,6 +16,7 @@ from soda.execution.query.partition_queries import PartitionQueries
 from soda.execution.query.query import Query
 from soda.execution.query.schema_query import TableColumnsQuery
 from soda.sampler.sample_ref import SampleRef
+from soda.sodacl.location import Location
 
 
 class FormatHelper:
@@ -103,13 +104,9 @@ class FormatHelper:
 
 class DataSource:
     """
-    Implementing a DataSource:
-    @m1n0, can you add a checklist here of places where DataSource implementors need to make updates to add
-    a new DataSource?
+    Data source implementation.
 
-    Validation of the connection configuration properties:
-    The DataSource impl is only responsible to raise an exception with an appropriate message in te #connect()
-    See that abstract method below for more details.
+    For documentation on implementing a new DataSource see the CONTRIBUTING-DATA-SOURCE.md document.
     """
 
     # Maps synonym types for the convenience of use in checks.
@@ -120,6 +117,8 @@ class DataSource:
         "timestamp without time zone": ["timestamp"],
         "timestamp with time zone": ["timestamptz"],
     }
+
+    # Supported data types used in create statements. These are used in tests for creating test data and do not affect the actual library functionality.
     SQL_TYPE_FOR_CREATE_TABLE_MAP: dict = {
         DataType.TEXT: "VARCHAR(255)",
         DataType.INTEGER: "INT",
@@ -131,6 +130,7 @@ class DataSource:
         DataType.BOOLEAN: "BOOLEAN",
     }
 
+    # Supported data types as returned by the given data source when retrieving dataset schema. Used in schema checks.
     SQL_TYPE_FOR_SCHEMA_CHECK_MAP = {
         DataType.TEXT: "character varying",
         DataType.INTEGER: "integer",
@@ -142,10 +142,27 @@ class DataSource:
         DataType.BOOLEAN: "boolean",
     }
 
-    NUMERIC_TYPES_FOR_PROFILING = ["integer", "double precision", "double"]
-    TEXT_TYPES_FOR_PROFILING = ["character varying", "varchar", "text"]
+    # Indicate which numeric/test data types can be used for profiling checks.
+    NUMERIC_TYPES_FOR_PROFILING = [
+        "integer",
+        "double precision",
+        "double",
+        "smallint",
+        "bigint",
+        "decimal",
+        "numeric",
+        "real",
+        "smallserial",
+        "serial",
+        "bigserial",
+    ]
+    TEXT_TYPES_FOR_PROFILING = ["character varying", "varchar", "text", "character", "char"]
 
+    # Building up format queries normally works with regexp expression + a set of formats,
+    # but some use cases require whole completely custom format expressions.
+    # DEFAULT_FORMAT_EXPRESSIONS take precedence over DEFAULT_FORMATS.
     DEFAULT_FORMATS: dict[str, str] = FormatHelper.build_default_formats()
+    DEFAULT_FORMAT_EXPRESSIONS: dict[str, str] = {}
 
     @staticmethod
     def camel_case_data_source_type(data_source_type: str) -> str:
@@ -260,18 +277,20 @@ class DataSource:
 
     @staticmethod
     def column_metadata_columns() -> list:
+        """Columns to be used for retrieving column metadata."""
         return ["column_name", "data_type", "is_nullable"]
 
     @staticmethod
     def column_metadata_catalog_column() -> str:
+        """Column to be used as a 'database' equivalent."""
         return "table_catalog"
 
     ######################
     # Store Table Sample
     ######################
 
-    def store_table_sample(self, table_name: str, limit: int | None = None) -> SampleRef:
-        sql = self.sql_select_all(table_name=table_name, limit=limit)
+    def store_table_sample(self, table_name: str, limit: int | None = None, filter: str | None = None) -> SampleRef:
+        sql = self.sql_select_all(table_name=table_name, limit=limit, filter=filter)
         query = Query(
             data_source_scan=self.data_source_scan,
             unqualified_query_name=f"store-sample-for-{table_name}",
@@ -281,12 +300,18 @@ class DataSource:
         query.store()
         return query.sample_ref
 
-    def sql_select_all(self, table_name: str, limit: int | None = None) -> str:
+    def sql_select_all(self, table_name: str, limit: int | None = None, filter: str | None = None) -> str:
         qualified_table_name = self.qualified_table_name(table_name)
+
+        filter_sql = ""
+        if filter:
+            filter_sql = f" \n WHERE {filter}"
+
         limit_sql = ""
         if limit is not None:
             limit_sql = f" \n LIMIT {limit}"
-        sql = f"SELECT * FROM {qualified_table_name}{limit_sql}"
+
+        sql = f"SELECT * FROM {qualified_table_name}{filter_sql}{limit_sql}"
         return sql
 
     ############################################
@@ -846,6 +871,26 @@ class DataSource:
     def expr_regexp_like(self, expr: str, regex_pattern: str):
         return f"REGEXP_LIKE({expr}, '{regex_pattern}')"
 
+    def expr_regex_condition(self, expr: str, condition: str) -> str:
+        return condition.format(expr=expr)
+
+    def get_default_format_expression(self, expr: str, format: str, location: Location | None = None) -> str | None:
+        default_expression = self.DEFAULT_FORMAT_EXPRESSIONS.get(format)
+        if default_expression:
+            return self.expr_regex_condition(expr, default_expression)
+
+        default_format = self.DEFAULT_FORMATS.get(format)
+        if default_format:
+            return self.expr_regexp_like(expr, self.escape_regex(default_format))
+
+        # TODO move this to a validate step between configuration parsing and execution so that it can be validated without running
+        self.logs.error(
+            f"Format {format} is not supported.",
+            location=location,
+        )
+
+        return None
+
     def expr_in(self, left: str, right: str):
         return f"{left} IN {right}"
 
@@ -930,7 +975,7 @@ class DataSource:
     def safe_connection_data(self):
         """Return non-critically sensitive connection details.
 
-        Useful for debugging.
+        Useful for debugging and telemetry.
         """
         # to be overridden by subclass
 

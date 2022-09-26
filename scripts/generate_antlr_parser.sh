@@ -3,7 +3,7 @@
 # set -x
 set -e
 
-ANTLR_FILE="antlr-4.9.3-complete.jar"
+ANTLR_FILE="antlr-4.11.1-complete.jar"
 ANTLR_DOWNLOAD_URL="https://www.antlr.org/download/$ANTLR_FILE"
 SCRIPTS_DIR=$(cd "$(dirname "$0")"; pwd -P)
 ANTLR_LOCAL_JAR_PATH="$SCRIPTS_DIR/$ANTLR_FILE"

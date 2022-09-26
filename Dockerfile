@@ -50,7 +50,7 @@ COPY . .
 RUN pip --no-cache-dir install "$(cat dev-requirements.in | grep pip-tools)" && \
     pip --no-cache-dir install -r dev-requirements.txt
 
-RUN cat requirements.txt | while read requirement || [[ -n $requirement ]]; do pip --no-cache-dir install $requirement; done
+RUN pip --no-cache-dir install -r requirements.txt
 
 RUN apt-get purge -y build-essential git curl && \
     apt-get clean -qq -y && \

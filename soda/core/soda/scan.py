@@ -7,6 +7,7 @@ import textwrap
 from datetime import datetime, timezone
 
 from soda.__version__ import SODA_CORE_VERSION
+from soda.common.json_helper import JsonHelper
 from soda.common.log import Log, LogLevel
 from soda.common.logs import Logs
 from soda.common.undefined_instance import undefined
@@ -19,6 +20,7 @@ from soda.profiling.discover_table_result_table import DiscoverTablesResultTable
 from soda.profiling.profile_columns_result import ProfileColumnsResultTable
 from soda.profiling.sample_tables_result import SampleTablesResultTable
 from soda.sampler.default_sampler import DefaultSampler
+from soda.sampler.sampler import Sampler
 from soda.soda_cloud.historic_descriptor import HistoricDescriptor
 from soda.soda_cloud.soda_cloud import SodaCloud
 from soda.sodacl.location import Location
@@ -40,7 +42,7 @@ class Scan:
 
         # Using this instead of utcnow() as that creates tz naive object, this has explicitly utc set. More info https://docs.python.org/3/library/datetime.html#datetime.datetime.utcnow
         now = datetime.now(tz=timezone.utc)
-
+        self.sampler: Sampler | None = None
         self._logs = Logs(logger)
         self._scan_definition_name: str | None = None
         self._scan_results_file: str | None = None
@@ -62,6 +64,44 @@ class Scan:
         self._discover_tables_result_tables: list[DiscoverTablesResultTable] = []
         self._sample_tables_result_tables: list[SampleTablesResultTable] = []
         self._logs.info(f"Soda Core {SODA_CORE_VERSION}")
+        self.scan_results: dict = {}
+
+    def build_scan_results(self) -> dict:
+        checks = [check.get_dict() for check in self._checks if check.outcome is not None and check.archetype is None]
+        autoamted_monitoring_checks = [
+            check.get_dict() for check in self._checks if check.outcome is not None and check.archetype is not None
+        ]
+
+        # TODO: [SODA-608] separate profile columns and sample tables by aligning with the backend team
+        profiling = [
+            profile_table.get_dict()
+            for profile_table in self._profile_columns_result_tables + self._sample_tables_result_tables
+        ]
+
+        return JsonHelper.to_jsonnable(  # type: ignore
+            {
+                "definitionName": self._scan_definition_name,
+                "defaultDataSource": self._data_source_name,
+                "dataTimestamp": self._data_timestamp,
+                "scanStartTimestamp": self._scan_start_timestamp,
+                "scanEndTimestamp": self._scan_end_timestamp,
+                "hasErrors": self.has_error_logs(),
+                "hasWarnings": self.has_check_warns(),
+                "hasFailures": self.has_check_fails(),
+                "metrics": [metric.get_cloud_dict() for metric in self._metrics],
+                # If archetype is not None, it means that check is automated monitoring
+                "checks": checks,
+                # TODO Queries are not supported by Soda Cloud yet.
+                # "queries": [query.get_cloud_dict() for query in scan._queries],
+                "automatedMonitoringChecks": autoamted_monitoring_checks,
+                "profiling": profiling,
+                "metadata": [
+                    discover_tables_result.get_cloud_dict()
+                    for discover_tables_result in self._discover_tables_result_tables
+                ],
+                "logs": [log.get_cloud_dict() for log in self._logs.logs],
+            }
+        )
 
     def set_data_source_name(self, data_source_name: str):
         """
@@ -319,7 +359,10 @@ class Scan:
                     if self._configuration.soda_cloud.is_samples_disabled():
                         self._configuration.sampler = DefaultSampler()
 
-            # If there is a sampler
+            # Override the sampler, if it is co
+            if self.sampler is not None:
+                self._configuration.sampler = self.sampler
+
             if self._configuration.sampler:
                 # ensure the sampler is configured with the scan logs
                 self._configuration.sampler.logs = self._logs
@@ -489,6 +532,7 @@ class Scan:
                 self._logs.error(f"Error occurred while sending scan results to soda cloud.", exception=e)
 
             self._close()
+            self.scan_results = self.build_scan_results()
 
         if self._scan_results_file is not None:
             logger.info(f"Saving scan results to {self._scan_results_file}")
@@ -563,7 +607,7 @@ class Scan:
                     partition_cfg = table_cfg.find_partition(None, None)
                     for check_cfg_template in for_each_dataset_cfg.check_cfgs:
                         check_cfg = check_cfg_template.instantiate_for_each_dataset(
-                            name=self._jinja_resolve(
+                            name=self.jinja_resolve(
                                 check_cfg_template.name, variables={for_each_dataset_cfg.table_alias_name: table_name}
                             ),
                             table_alias=for_each_dataset_cfg.table_alias_name,
@@ -605,7 +649,7 @@ class Scan:
 
         return data_source_scan
 
-    def _jinja_resolve(
+    def jinja_resolve(
         self,
         definition: str,
         variables: dict[str, object] = None,
@@ -705,6 +749,9 @@ class Scan:
         elif variable_name in self._variables:
             return self._variables[variable_name]
         return default_value
+
+    def get_scan_results(self) -> dict:
+        return self.scan_results
 
     def get_logs_text(self) -> str | None:
         return self.__logs_to_text(self._logs.logs)

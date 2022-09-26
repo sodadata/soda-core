@@ -16,8 +16,8 @@ class UserDefinedFailedRowsQuery(Query):
             unqualified_query_name=f"failed_rows[{metric.name}]",
             location=location,
             samples_limit=samples_limit,
+            sql=metric.query,
         )
-        self.sql = metric.query
         self.metric = metric
 
     def execute(self):

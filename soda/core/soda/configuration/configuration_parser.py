@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 import re
 
+from soda.cloud.dbt_config import DbtCloudConfig
 from soda.common.logs import Logs
 from soda.common.parser import Parser
 from soda.configuration.configuration import Configuration
@@ -13,12 +14,13 @@ logger = logging.getLogger(__name__)
 
 DATA_SOURCE = "data_source"
 CONNECTION = "connection"
+SODA_CLOUD = "soda_cloud"
+DBT_CLOUD_API_TOKEN = "dbt_cloud"
 
 
 class ConfigurationParser(Parser):
     def __init__(self, configuration: Configuration, logs: Logs, file_path: str):
         super().__init__(file_path=file_path, logs=logs)
-        from soda.configuration.configuration import Configuration
 
         self.configuration: Configuration = configuration
 
@@ -60,11 +62,16 @@ class ConfigurationParser(Parser):
                         )
                 self._pop_path_element()
 
-            elif environment_header == "soda_cloud":
-                self._push_path_element("soda_cloud", header_value)
+            elif environment_header == SODA_CLOUD:
+                self._push_path_element(SODA_CLOUD, header_value)
                 self.configuration.soda_cloud = self.parse_soda_cloud_cfg(header_value)
                 if self.configuration.soda_cloud and not header_value.get("disable_samples"):
                     self.configuration.sampler = SodaCloudSampler()
+                self._pop_path_element()
+
+            elif environment_header == DBT_CLOUD_API_TOKEN:
+                self._push_path_element(DBT_CLOUD_API_TOKEN, header_value)
+                self.configuration.dbt_cloud = self.parse_dbt_cloud_cfg(header_value)
                 self._pop_path_element()
 
             else:
@@ -73,15 +80,22 @@ class ConfigurationParser(Parser):
                     location=self.location,
                 )
 
-    def parse_soda_cloud_cfg(self, soda_cloud_dict: dict):
-        api_key = soda_cloud_dict.get("api_key_id")
-        api_secret = soda_cloud_dict.get("api_key_secret")
+    def parse_soda_cloud_cfg(self, config_dict: dict):
+        api_key = config_dict.get("api_key_id")
+        api_secret = config_dict.get("api_key_secret")
         host = None
-        if "host" in soda_cloud_dict:
-            host = soda_cloud_dict.get("host")
+        if "host" in config_dict:
+            host = config_dict.get("host")
         port = None
-        if "port" in soda_cloud_dict:
-            port = soda_cloud_dict.get("port")
+        if "port" in config_dict:
+            port = config_dict.get("port")
         return SodaCloud(
             api_key_id=api_key, api_key_secret=api_secret, host=host, token=None, port=port, logs=self.logs
         )
+
+    def parse_dbt_cloud_cfg(self, config_dict: dict):
+        api_token = config_dict.get("api_token")
+        account_id = config_dict.get("account_id")
+        api_url = config_dict.get("api_url", "https://cloud.getdbt.com/api/v2/accounts/")
+
+        return DbtCloudConfig(api_token=api_token, account_id=account_id, api_url=api_url)

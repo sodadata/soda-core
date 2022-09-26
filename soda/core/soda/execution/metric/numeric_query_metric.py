@@ -142,16 +142,11 @@ class NumericQueryMetric(QueryMetric):
 
                 missing_format = missing_and_valid_cfg.missing_format
                 if missing_format:
-                    format_cfgs = self.table.scan._configuration.format_cfgs
-                    format_regex = format_cfgs.get(missing_format)
-                    if not format_regex:
-                        self.logs.error(
-                            f"Missing format {missing_format}",
-                            location=missing_and_valid_cfg.missing_format_location,
-                        )
-                    else:
-                        format_regex = data_source.escape_regex(format_regex)
-                        validity_clauses.append(data_source.expr_regexp_like(column_name, format_regex))
+                    missing_expression = self.data_source_scan.data_source.get_default_format_expression(
+                        column_name, missing_format, missing_and_valid_cfg.missing_format_location
+                    )
+                    if missing_expression:
+                        validity_clauses.append(missing_expression)
 
                 if missing_and_valid_cfg.missing_regex:
                     missing_regex = data_source.escape_regex(missing_and_valid_cfg.missing_regex)
@@ -175,20 +170,12 @@ class NumericQueryMetric(QueryMetric):
                     validity_clauses.append(in_expr)
 
                 valid_format = missing_and_valid_cfg.valid_format
-                if valid_format is not None:
-                    format_cfgs = self.data_source_scan.data_source.DEFAULT_FORMATS
-                    format_regex = format_cfgs.get(valid_format)
-                    # TODO generate error if format does not exist!
-                    if not format_regex:
-                        # TODO move this to a validate step between configuration parsing and execution so that it can be validated without running
-                        self.logs.error(
-                            f"Valid format {valid_format} does not exist",
-                            location=missing_and_valid_cfg.valid_format_location,
-                        )
-                    else:
-                        format_regex = data_source.escape_regex(format_regex)
-                        regex_like_expr = data_source.expr_regexp_like(column_name, format_regex)
-                        validity_clauses.append(regex_like_expr)
+                if valid_format:
+                    validity_expression = self.data_source_scan.data_source.get_default_format_expression(
+                        column_name, valid_format, missing_and_valid_cfg.valid_format_location
+                    )
+                    if validity_expression:
+                        validity_clauses.append(validity_expression)
                 if missing_and_valid_cfg.valid_regex is not None:
                     valid_regex = data_source.escape_regex(missing_and_valid_cfg.valid_regex)
                     regex_like_expr = data_source.expr_regexp_like(column_name, valid_regex)
@@ -244,7 +231,7 @@ class NumericQueryMetric(QueryMetric):
 
     metric_names_with_failed_rows = ["missing_count", "invalid_count"]
 
-    def create_failed_rows_sample_query(self) -> SampleQuery | None:
+    def create_failed_rows_sample_query(self, limit: int = 1000) -> SampleQuery | None:
         sampler = self.data_source_scan.scan._configuration.sampler
         if (
             sampler
@@ -255,7 +242,7 @@ class NumericQueryMetric(QueryMetric):
             where_clauses = []
             partition_filter = self.partition.sql_partition_filter
             if partition_filter:
-                resolved_filter = self.data_source_scan.scan._jinja_resolve(definition=partition_filter)
+                resolved_filter = self.data_source_scan.scan.jinja_resolve(definition=partition_filter)
                 where_clauses.append(resolved_filter)
 
             if self.name == "missing_count":
@@ -269,6 +256,6 @@ class NumericQueryMetric(QueryMetric):
 
             where_sql = " AND ".join(where_clauses)
 
-            sql = f"SELECT * \n" f"FROM {self.partition.table.qualified_table_name} \n" f"WHERE {where_sql}"
+            sql = self.data_source_scan.data_source.sql_select_all(self.partition.table.table_name, limit, where_sql)
 
             return SampleQuery(self.data_source_scan, self, "failed_rows", sql)
