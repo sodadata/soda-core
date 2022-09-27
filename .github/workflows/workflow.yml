@@ -46,16 +46,16 @@ jobs:
           # - "3.10"
 
         data-source:
-          #- "postgres"
+          - "postgres"
           - "snowflake"
-          #- "bigquery"
-          #- "redshift"
-          #- "athena"
+          - "bigquery"
+          - "redshift"
+          - "athena"
           #  - "db2"
           # - "spark"
-          #- "spark_df"
-          #- "sqlserver"
-          #- "mysql"
+          - "spark_df"
+          - "sqlserver"
+          - "mysql"
     env:
       DATA_SOURCE: ${{ matrix.data-source }}
       PYTHON_VERSION: ${{ matrix.python-version }}
