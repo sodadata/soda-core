@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import collections
+import os
 from abc import ABC, abstractmethod
 
 from soda.execution.check_outcome import CheckOutcome
@@ -156,7 +157,7 @@ class Check(ABC):
         else:
             return f"{check_cfg.source_header}:\n  {check_cfg.source_line}"
 
-    def create_identity(self, with_datasource: bool = False) -> str:
+    def create_identity(self, with_datasource: bool = False, with_filename: bool = False) -> str:
         check_cfg: CheckCfg = self.check_cfg
         from soda.common.yaml_helper import to_yaml_str
 
@@ -190,6 +191,9 @@ class Check(ABC):
         if with_datasource:
             hash_builder.add(self.data_source_scan.data_source.data_source_name)
 
+        if with_filename:
+            hash_builder.add(os.path.basename(self.check_cfg.location.file_path))
+
         return hash_builder.get_hash()
 
     def add_outcome_reason(self, outcome_type: str, message: str, severity: str):
@@ -210,11 +214,12 @@ class Check(ABC):
 
         cloud_dict = {
             # See https://sodadata.atlassian.net/browse/CLOUD-1143
-            "identity": self.create_identity(with_datasource=False),
+            "identity": self.create_identity(with_datasource=False, with_filename=False),
             "identities": {
                 # v1 is original without the datasource name and v2 is with datasource name in the hash
-                "v1": self.create_identity(with_datasource=False),
-                "v2": self.create_identity(with_datasource=True),
+                "v1": self.create_identity(with_datasource=False, with_filename=False),
+                "v2": self.create_identity(with_datasource=True, with_filename=False),
+                "v3": self.create_identity(with_datasource=True, with_filename=True),
             },
             "name": self.name,
             "type": self.cloud_check_type,
