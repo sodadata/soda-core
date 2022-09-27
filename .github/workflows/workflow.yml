@@ -232,7 +232,7 @@ jobs:
           fi
   trigger-docker-build:
     name: Trigger Docker build workflow
-    needs: [ publish-pypi ]
+    needs: [publish-pypi]
     timeout-minutes: 10
     runs-on: ubuntu-20.04
     if: contains(github.ref, 'refs/tags/')
