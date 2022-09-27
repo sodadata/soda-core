@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import os
 import collections
 import os
 from abc import ABC, abstractmethod
