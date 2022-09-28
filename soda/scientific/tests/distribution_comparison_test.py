@@ -572,7 +572,7 @@ def test_decimal_psi(test_data, expected_psi):
     test_data.iloc[0] += Decimal(f'{10**6}')
     test_data.iloc[-1] -= Decimal(f'{10**6}')
     check_results = PSIAlgorithm(TEST_CONFIG_CONT_1, test_data).evaluate()
-    assert check_results["check_value"] == expected_psi
+    assert round(check_results["check_value"], 10) == round(expected_psi, 10)
 
 
 @pytest.mark.parametrize(
