@@ -483,12 +483,14 @@ class SodaCLParser(Parser):
         condition = None
         metric_expression = None
         metric_query = None
+        samples_limit = None
 
         if isinstance(check_configurations, dict):
             for configuration_key in check_configurations:
                 configuration_value = check_configurations[configuration_key]
                 self._push_path_element(check_str, check_configurations)
                 name = self._get_optional(NAME, str)
+                samples_limit = self._get_optional(SAMPLES_LIMIT, int)
                 self._push_path_element(configuration_key, configuration_value)
                 if "filter" == configuration_key:
                     filter = configuration_value.strip()
@@ -526,7 +528,7 @@ class SodaCLParser(Parser):
                         configuration_value,
                         missing_and_valid_cfg,
                     )
-                elif configuration_key not in [NAME, IDENTITY, WARN, FAIL]:
+                elif configuration_key not in [NAME, IDENTITY, WARN, FAIL, SAMPLES_LIMIT]:
                     if metric_name != "distribution_difference":
                         self.logs.error(
                             f"Skipping unsupported check configuration: {configuration_key}",
@@ -704,6 +706,7 @@ class SodaCLParser(Parser):
             change_over_time_cfg=change_over_time_cfg,
             fail_threshold_cfg=fail_threshold_cfg,
             warn_threshold_cfg=warn_threshold_cfg,
+            samples_limit=samples_limit,
         )
 
     def __parse_configuration_threshold_condition(self, value) -> ThresholdCfg | None:
@@ -990,13 +993,16 @@ class SodaCLParser(Parser):
             )
 
         name = None
+        samples_limit = None
         if isinstance(check_configurations, dict):
             self._push_path_element(check_str, check_configurations)
             name = self._get_optional(NAME, str)
+            samples_limit = self._get_optional(SAMPLES_LIMIT, int)
+
             for configuration_key in check_configurations:
-                if configuration_key != NAME:
+                if configuration_key not in [NAME, SAMPLES_LIMIT]:
                     self.logs.error(
-                        f"Invalid row count comparison configuration key {configuration_key}", location=self.location
+                        f"Invalid reference check configuration key {configuration_key}", location=self.location
                     )
             self._pop_path_element()
 
@@ -1009,6 +1015,7 @@ class SodaCLParser(Parser):
             source_column_names=source_column_names,
             target_table_name=target_table_name,
             target_column_names=target_column_names,
+            samples_limit=samples_limit,
         )
 
     def __parse_freshness_check(
@@ -1044,9 +1051,7 @@ class SodaCLParser(Parser):
             name = self._get_optional(NAME, str)
             for configuration_key in check_configurations:
                 if configuration_key not in [NAME, WARN, FAIL]:
-                    self.logs.error(
-                        f"Invalid row count comparison configuration key {configuration_key}", location=self.location
-                    )
+                    self.logs.error(f"Invalid freshness configuration key {configuration_key}", location=self.location)
 
             self._pop_path_element()
 

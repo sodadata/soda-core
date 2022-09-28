@@ -26,5 +26,5 @@ class QueryMetric(Metric, ABC):
             identity_parts=identity_parts,
         )
 
-    def create_failed_rows_sample_query(self, limit: int = 1000):
+    def create_failed_rows_sample_query(self):
         return None
