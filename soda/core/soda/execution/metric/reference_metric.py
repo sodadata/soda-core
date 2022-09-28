@@ -1,4 +1,4 @@
-from typing import Optional
+from __future__ import annotations
 
 from soda.execution.metric.query_metric import QueryMetric
 from soda.sampler.sample_ref import SampleRef
@@ -7,10 +7,10 @@ from soda.sampler.sample_ref import SampleRef
 class ReferenceMetric(QueryMetric):
     def __init__(
         self,
-        data_source_scan: "DataSourceScan",
-        check: "ReferentialIntegrityCheck",
-        partition: "Partition",
-        single_source_column: "Column",
+        data_source_scan: DataSourceScan,
+        check: ReferenceCheck,
+        partition: Partition,
+        single_source_column: Column,
     ):
         super().__init__(
             data_source_scan=data_source_scan,
@@ -33,4 +33,6 @@ class ReferenceMetric(QueryMetric):
     def ensure_query(self):
         from soda.execution.query.reference_query import ReferenceQuery
 
-        self.data_source_scan.queries.append(ReferenceQuery(data_source_scan=self.data_source_scan, metric=self))
+        self.data_source_scan.queries.append(
+            ReferenceQuery(data_source_scan=self.data_source_scan, metric=self, samples_limit=self.samples_limit)
+        )

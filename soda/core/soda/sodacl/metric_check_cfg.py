@@ -25,8 +25,9 @@ class MetricCheckCfg(CheckCfg):
         change_over_time_cfg: ChangeOverTimeCfg | None,
         fail_threshold_cfg: ThresholdCfg | None,
         warn_threshold_cfg: ThresholdCfg | None,
+        samples_limit: int | None = 100,
     ):
-        super().__init__(source_header, source_line, source_configurations, location, name)
+        super().__init__(source_header, source_line, source_configurations, location, name, samples_limit)
         self.metric_name: str = metric_name
         self.metric_args: list[object] | None = metric_args
         self.missing_and_valid_cfg: MissingAndValidCfg = missing_and_valid_cfg
