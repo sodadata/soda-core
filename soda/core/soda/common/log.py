@@ -86,8 +86,8 @@ class Log:
             "message": self.message,
             "timestamp": self.timestamp,
             "index": self.index,
-            "doc": self.doc,
-            "location": self.location.get_dict(),
+            "doc": self.doc if self.doc else None,
+            "location": self.location.get_dict() if self.location else None,
         }
 
     @staticmethod
