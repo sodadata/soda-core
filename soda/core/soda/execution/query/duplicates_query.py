@@ -12,6 +12,9 @@ class DuplicatesQuery(Query):
         )
         self.metric = metric
 
+        # TODO: refactor this, it is confusing that samples limits are coming from different places.
+        self.samples_limit = self.metric.samples_limit
+
         values_filter_clauses = [f"{column_name} IS NOT NULL" for column_name in self.metric.metric_args]
         partition_filter = self.partition.sql_partition_filter
         if partition_filter:
@@ -24,14 +27,9 @@ class DuplicatesQuery(Query):
         column_names = ", ".join(self.metric.metric_args)
 
         self.sql = self.data_source_scan.scan.jinja_resolve(
-            f"WITH frequencies AS (\n"
-            f"  SELECT {column_names}, COUNT(*) AS frequency \n"
-            f"  FROM {self.partition.table.qualified_table_name} \n"
-            f"  WHERE {values_filter} \n"
-            f"  GROUP BY {column_names}) \n"
-            f"SELECT * \n"
-            f"FROM frequencies \n"
-            f"WHERE frequency > 1;"
+            self.data_source_scan.data_source.sql_get_duplicates(
+                column_names, self.partition.table.qualified_table_name, values_filter
+            )
         )
 
     def execute(self):
