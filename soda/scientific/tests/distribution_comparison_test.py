@@ -2,13 +2,13 @@ import numpy as np
 import pandas as pd
 import pytest
 from numpy.random import default_rng
-
+from decimal import Decimal
 from soda.scientific.distribution.comparison import (
     DistributionRefKeyException,
     DistributionRefParsingException,
     SWDAlgorithm,
 )
-from soda.scientific.distribution.utils import RefDataCfg
+from soda.scientific.distribution.utils import RefDataCfg, generate_ref_data
 
 
 @pytest.mark.parametrize(
@@ -553,3 +553,42 @@ def test_missing_bins_weights(test_data, dist_ref_file_path, method):
         with open(dist_ref_file_path) as f:
             dist_ref_yaml = f.read()
         DistributionChecker(method, dist_ref_yaml, dist_ref_file_path, None, test_data)
+
+
+@pytest.mark.parametrize(
+    "test_data, expected_psi",
+    [
+        pytest.param(
+            pd.Series([Decimal(i) for i in generate_ref_data(TEST_CONFIG_CONT_1, 1000, np.random.default_rng(61))]),
+            0.009122241118036133,
+            id="psi with decimals",
+        ),
+    ],
+)
+def test_decimal_psi(test_data, expected_psi):
+    from soda.scientific.distribution.comparison import (
+        PSIAlgorithm,
+    )
+    test_data.iloc[0] += Decimal(f'{10**6}')
+    test_data.iloc[-1] -= Decimal(f'{10**6}')
+    check_results = PSIAlgorithm(TEST_CONFIG_CONT_1, test_data).evaluate()
+    assert check_results["check_value"] == expected_psi
+
+
+@pytest.mark.parametrize(
+    "test_data, expected_psi",
+    [
+        pytest.param(
+            pd.Series([Decimal(i) for i in generate_ref_data(TEST_CONFIG_CONT_1, 1000, np.random.default_rng(63))]),
+            0.03929019501923124,
+            id="swd with decimals",
+        ),
+    ],
+)
+def test_decimal_swd(test_data, expected_psi):
+    from soda.scientific.distribution.comparison import (
+        SWDAlgorithm,
+    )
+
+    check_results = SWDAlgorithm(TEST_CONFIG_CONT_1, test_data).evaluate()
+    assert check_results["check_value"] == expected_psi
