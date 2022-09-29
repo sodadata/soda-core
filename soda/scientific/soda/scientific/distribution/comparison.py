@@ -1,7 +1,8 @@
 import abc
+import decimal
 import logging
 from typing import Any, Dict, List, Tuple, Union
-import decimal
+
 import numpy as np
 import pandas as pd
 from ruamel.yaml import YAML, YAMLError
@@ -241,7 +242,7 @@ class KSAlgorithm(DistributionAlgorithm):
 class SWDAlgorithm(DistributionAlgorithm):
     def evaluate(self) -> Dict[str, float]:
         if any(isinstance(i, decimal.Decimal) for i in self.test_data):
-            self.test_data = self.test_data.astype('float')
+            self.test_data = self.test_data.astype("float")
 
         wd = wasserstein_distance(self.ref_data, self.test_data)
         swd = wd / np.std(np.concatenate([self.ref_data, self.test_data]))
@@ -251,7 +252,7 @@ class SWDAlgorithm(DistributionAlgorithm):
 class PSIAlgorithm(DistributionAlgorithm):
     def evaluate(self) -> Dict[str, float]:
         if any(isinstance(i, decimal.Decimal) for i in self.test_data):
-            self.test_data = self.test_data.astype('float')
+            self.test_data = self.test_data.astype("float")
 
         max_val = max(np.max(self.test_data), np.max(self.ref_data))
         min_val = min(np.min(self.test_data), np.min(self.ref_data))
@@ -271,4 +272,3 @@ class PSIAlgorithm(DistributionAlgorithm):
         small_num = 10**-5
         hist_a += np.where(hist_a == 0, small_num, 0)
         return hist_a
-
