@@ -1,7 +1,8 @@
 import abc
+import decimal
 import logging
 from typing import Any, Dict, List, Tuple, Union
-import decimal
+
 import numpy as np
 import pandas as pd
 from ruamel.yaml import YAML, YAMLError
@@ -268,4 +269,3 @@ class PSIAlgorithm(DistributionAlgorithm):
         small_num = 10**-5
         hist_a += np.where(hist_a == 0, small_num, 0)
         return hist_a
-

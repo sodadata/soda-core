@@ -1,8 +1,10 @@
+from decimal import Decimal
+
 import numpy as np
 import pandas as pd
 import pytest
 from numpy.random import default_rng
-from decimal import Decimal
+
 from soda.scientific.distribution.comparison import (
     DistributionRefKeyException,
     DistributionRefParsingException,
