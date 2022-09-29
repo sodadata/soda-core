@@ -256,6 +256,8 @@ class NumericQueryMetric(QueryMetric):
 
             where_sql = " AND ".join(where_clauses)
 
-            sql = f"SELECT * \n" f"FROM {self.partition.table.qualified_table_name} \n" f"WHERE {where_sql}"
+            sql = self.data_source_scan.data_source.sql_select_all(
+                self.partition.table.table_name, self.samples_limit, where_sql
+            )
 
             return SampleQuery(self.data_source_scan, self, "failed_rows", sql)

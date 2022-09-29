@@ -46,6 +46,7 @@ class Metric(ABC):
         self.queries: list[Query] = []
         self.formula_values: dict[str, object] = None
         self.failed_rows_sample_ref: SampleRef | None = None
+        self.samples_limit = check.check_cfg.samples_limit
 
     def __eq__(self, other: Metric) -> bool:
         if self is other:
@@ -93,7 +94,4 @@ class Metric(ABC):
             "metricName": self.name,
             "value": self.value,
             "dataSourceName": self.data_source_scan.data_source.data_source_name,
-            "tableName": Partition.get_table_name(self.partition),
-            "filterName": Partition.get_partition_name(self.partition),
-            "columnName": Column.get_partition_name(self.column),
         }

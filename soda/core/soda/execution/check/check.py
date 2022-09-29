@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import collections
+import os
 from abc import ABC, abstractmethod
 
 from soda.execution.check_outcome import CheckOutcome
@@ -156,7 +157,7 @@ class Check(ABC):
         else:
             return f"{check_cfg.source_header}:\n  {check_cfg.source_line}"
 
-    def create_identity(self, with_datasource: bool = False) -> str:
+    def create_identity(self, with_datasource: bool = False, with_filename: bool = False) -> str:
         check_cfg: CheckCfg = self.check_cfg
         from soda.common.yaml_helper import to_yaml_str
 
@@ -177,9 +178,10 @@ class Check(ABC):
         if isinstance(check_cfg.source_configurations, dict):
 
             identity_source_configurations = dict(check_cfg.source_configurations)
-            # The next lines ensures that configuration properties 'name' and 'identity' are ignored
+            # The next lines ensures that configuration properties 'name' and 'samples limit' are ignored
             # for computing the check identity
             identity_source_configurations.pop("name", None)
+            identity_source_configurations.pop("samples limit", None)
             if len(identity_source_configurations) > 0:
                 # The next line ensures that ordering of the check configurations don't matter for identity
                 identity_source_configurations = collections.OrderedDict(sorted(identity_source_configurations.items()))
@@ -189,6 +191,9 @@ class Check(ABC):
         # See https://sodadata.atlassian.net/browse/CLOUD-1143
         if with_datasource:
             hash_builder.add(self.data_source_scan.data_source.data_source_name)
+
+        if with_filename:
+            hash_builder.add(os.path.basename(self.check_cfg.location.file_path))
 
         return hash_builder.get_hash()
 
@@ -210,11 +215,12 @@ class Check(ABC):
 
         cloud_dict = {
             # See https://sodadata.atlassian.net/browse/CLOUD-1143
-            "identity": self.create_identity(with_datasource=False),
+            "identity": self.create_identity(with_datasource=False, with_filename=False),
             "identities": {
                 # v1 is original without the datasource name and v2 is with datasource name in the hash
-                "v1": self.create_identity(with_datasource=False),
-                "v2": self.create_identity(with_datasource=True),
+                "v1": self.create_identity(with_datasource=False, with_filename=False),
+                "v2": self.create_identity(with_datasource=True, with_filename=False),
+                "v3": self.create_identity(with_datasource=True, with_filename=True),
             },
             "name": self.name,
             "type": self.cloud_check_type,
@@ -227,6 +233,7 @@ class Check(ABC):
             "metrics": [metric.identity for metric in self.metrics.values()],
             "outcome": self.outcome.value if self.outcome else None,
             "diagnostics": self.get_cloud_diagnostics_dict(),
+            "source": "soda-core",
         }
         # Update dict if automated monitoring is running
         if self.archetype is not None:

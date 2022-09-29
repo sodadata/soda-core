@@ -1,4 +1,7 @@
-from helpers.common_test_tables import customers_test_table
+from helpers.common_test_tables import (
+    customers_dist_check_test_table,
+    customers_test_table,
+)
 from helpers.data_source_fixture import DataSourceFixture
 from soda.sampler.default_sampler import DefaultSampler
 
@@ -147,3 +150,31 @@ def test_duplicate_without_rows_samples(data_source_fixture: DataSourceFixture):
     scan.execute_unchecked()
 
     assert len(mock_soda_cloud.files) == 0
+
+
+def test_sample_limit_configuration(data_source_fixture: DataSourceFixture):
+    table_name = data_source_fixture.ensure_test_table(customers_test_table)
+    another_table_name = data_source_fixture.ensure_test_table(customers_dist_check_test_table)
+
+    scan = data_source_fixture.create_test_scan()
+    mock_soda_cloud = scan.enable_mock_soda_cloud()
+    scan.enable_mock_sampler()
+
+    scan.add_sodacl_yaml_str(
+        f"""
+      checks for {table_name}:
+        - missing_percent(email) < 50:
+            samples limit: 2
+        - values in (size) must exist in {another_table_name} (size):
+            samples limit: 2
+        - duplicate_count(zip) = 0:
+            samples limit: 2
+    """
+    )
+    scan.execute()
+
+    scan.assert_all_checks_fail()
+
+    assert mock_soda_cloud.find_failed_rows_line_count(0) == 2
+    assert mock_soda_cloud.find_failed_rows_line_count(1) == 2
+    assert mock_soda_cloud.find_failed_rows_line_count(2) == 2

@@ -121,13 +121,19 @@ class BigQueryDataSource(DataSource):
         self.client_info = data_source_properties.get("client_info")
         self.client_options = data_source_properties.get("client_options")
 
+        # Allow to separate default dataset location from compute (project_id).
+        self.storage_project_id = self.project_id
+        storage_project_id = data_source_properties.get("storage_project_id")
+        if storage_project_id:
+            self.storage_project_id = storage_project_id
+
     def connect(self):
         try:
             self.client = bigquery.Client(
                 project=self.project_id,
                 credentials=self.credentials,
                 default_query_job_config=bigquery.QueryJobConfig(
-                    default_dataset=f"{self.project_id}.{self.dataset}",
+                    default_dataset=f"{self.storage_project_id}.{self.dataset}",
                 ),
                 location=self.location,
                 client_info=self.client_info,

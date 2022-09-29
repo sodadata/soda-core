@@ -12,6 +12,7 @@ class SampleQuery(Query):
             column=metric.column,
             unqualified_query_name=f"{sample_type}[{metric.name}]",
             sql=sql,
+            samples_limit=metric.samples_limit,
         )
         self.metric = metric
 

@@ -22,6 +22,7 @@ from soda.profiling.sample_tables_result import SampleTablesResultTable
 from soda.sampler.default_sampler import DefaultSampler
 from soda.sampler.sampler import Sampler
 from soda.soda_cloud.historic_descriptor import HistoricDescriptor
+from soda.soda_cloud.soda_cloud import SodaCloud
 from soda.sodacl.location import Location
 from soda.sodacl.sodacl_cfg import SodaCLCfg
 from soda.telemetry.soda_telemetry import SodaTelemetry
@@ -44,6 +45,7 @@ class Scan:
         self.sampler: Sampler | None = None
         self._logs = Logs(logger)
         self._scan_definition_name: str | None = None
+        self._scan_results_file: str | None = None
         self._data_source_name: str | None = None
         self._variables: dict[str, object] = {"NOW": now.isoformat()}
         self._configuration: Configuration = Configuration(scan=self)
@@ -86,7 +88,7 @@ class Scan:
                 "hasErrors": self.has_error_logs(),
                 "hasWarnings": self.has_check_warns(),
                 "hasFailures": self.has_check_fails(),
-                "metrics": [metric.get_cloud_dict() for metric in self._metrics],
+                "metrics": [metric.get_dict() for metric in self._metrics],
                 # If archetype is not None, it means that check is automated monitoring
                 "checks": checks,
                 # TODO Queries are not supported by Soda Cloud yet.
@@ -94,10 +96,9 @@ class Scan:
                 "automatedMonitoringChecks": autoamted_monitoring_checks,
                 "profiling": profiling,
                 "metadata": [
-                    discover_tables_result.get_cloud_dict()
-                    for discover_tables_result in self._discover_tables_result_tables
+                    discover_tables_result.get_dict() for discover_tables_result in self._discover_tables_result_tables
                 ],
-                "logs": [log.get_cloud_dict() for log in self._logs.logs],
+                "logs": [log.get_dict() for log in self._logs.logs],
             }
         )
 
@@ -117,6 +118,9 @@ class Scan:
         self._logs.verbose = verbose_var
         global verbose
         verbose = verbose_var
+
+    def set_scan_results_file(self, set_scan_results_file: str):
+        self._scan_results_file = set_scan_results_file
 
     def add_configuration_yaml_file(self, file_path: str):
         """
@@ -529,6 +533,11 @@ class Scan:
             self._close()
             self.scan_results = self.build_scan_results()
 
+        if self._scan_results_file is not None:
+            logger.info(f"Saving scan results to {self._scan_results_file}")
+            with open(self._scan_results_file, "w") as f:
+                json.dump(SodaCloud.build_scan_results(self), f)
+
         # Telemetry data
         soda_telemetry.set_attributes(
             {
@@ -745,6 +754,9 @@ class Scan:
         elif variable_name in self._variables:
             return self._variables[variable_name]
         return default_value
+
+    def get_scan_results(self) -> dict:
+        return self.scan_results
 
     def get_logs_text(self) -> str | None:
         return self.__logs_to_text(self._logs.logs)

@@ -15,12 +15,14 @@ class CheckCfg:
         source_configurations: dict | None,
         location: Location,
         name: str | None,
+        samples_limit: int | None = 100,
     ):
         self.source_header: str = source_header
         self.source_line: str = source_line
         self.source_configurations = source_configurations
         self.location: Location = location
         self.name: str | None = name
+        self.samples_limit: int | None = samples_limit
 
     def get_column_name(self) -> str | None:
         pass

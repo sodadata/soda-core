@@ -1,4 +1,4 @@
-from typing import List, Optional
+from __future__ import annotations
 
 from soda.sodacl.location import Location
 from soda.sodacl.metric_check_cfg import MetricCheckCfg
@@ -11,19 +11,20 @@ class ChangeOverTimeMetricCheckCfg(MetricCheckCfg):
         self,
         source_header: str,
         source_line: str,
-        source_configurations: Optional[str],
+        source_configurations: str | None,
         location: Location,
-        name: Optional[str],
+        name: str | None,
         metric_name: str,
-        metric_args: Optional[List[object]],
-        missing_and_valid_cfg: Optional[MissingAndValidCfg],
-        filter: Optional[str],
-        condition: Optional[str],
-        metric_expression: Optional[str],
-        metric_query: Optional[str],
-        change_over_time_cfg: Optional["ChangeOverTimeCfg"],
-        fail_threshold_cfg: Optional[ThresholdCfg],
-        warn_threshold_cfg: Optional[ThresholdCfg],
+        metric_args: list[object] | None,
+        missing_and_valid_cfg: MissingAndValidCfg | None,
+        filter: str | None,
+        condition: str | None,
+        metric_expression: str | None,
+        metric_query: str | None,
+        change_over_time_cfg: ChangeOverTimeCfg | None,
+        fail_threshold_cfg: ThresholdCfg | None,
+        warn_threshold_cfg: ThresholdCfg | None,
+        samples_limit: int | None = 100,
     ):
         super().__init__(
             source_header,
@@ -41,4 +42,5 @@ class ChangeOverTimeMetricCheckCfg(MetricCheckCfg):
             change_over_time_cfg,
             fail_threshold_cfg,
             warn_threshold_cfg,
+            samples_limit=samples_limit,
         )
