@@ -129,6 +129,9 @@ class TestScan(Scan):
     def assert_all_checks_warn(self):
         self.assert_all_checks(CheckOutcome.WARN)
 
+    def assert_all_checks_skipped(self):
+        self.assert_all_checks(None)
+
     def assert_all_checks(self, expected_outcome):
         if len(self._checks) == 0:
             raise AssertionError("Expected at least 1 check result")
