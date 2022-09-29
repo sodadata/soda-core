@@ -75,6 +75,30 @@ def test_config_weights(weights):
             1.960998922048572e-34,
             id="Different categorical distribution with chi-square",
         ),
+        pytest.param(
+            "psi",
+            "soda/scientific/tests/assets/dist_ref_continuous.yml",
+            [1.0, Decimal('2.5'), Decimal('0.1'), Decimal('-2.5')],
+            None,
+            10.126226038606184,
+            id="Different continuous distribution with psi and decimal values",
+        ),
+        pytest.param(
+            "swd",
+            "soda/scientific/tests/assets/dist_ref_continuous.yml",
+            [1.0, 2.5, Decimal('0.1')],
+            None,
+            0.7177783796435317,
+            id="Different continuous distribution with swd and decimal values",
+        ),
+        pytest.param(
+            "semd",
+            "soda/scientific/tests/assets/dist_ref_continuous.yml",
+            [1.0, 2.5, Decimal('0.1')],
+            None,
+            0.7177783796435317,
+            id="Different continuous distribution with semd and decimal values",
+        ),
     ],
 )
 def test_distribution_checker(method, reference_file_path, test_data, expected_stat, expected_p):
@@ -396,11 +420,6 @@ def test_chi_sq_2_samples_comparison_not_enough_samples(test_data, config):
             1.2438664038653537,
             id="distributions are extremely different",
         ),
-        pytest.param(
-            pd.Series([Decimal(i) for i in generate_ref_data(TEST_CONFIG_CONT_1, 1000, np.random.default_rng(63))]),
-            0.03929019501923124,
-            id="distributions are different with decimals",
-        ),
     ],
 )
 def test_swd_continuous(test_data, expected_swd):
@@ -462,12 +481,7 @@ def test_swd_comparison_null(test_data):
             pd.Series(default_rng(61).normal(loc=10, scale=10, size=1000)),
             8.478605750455749,
             id="distributions are extremely different",
-        ),
-        pytest.param(
-            pd.Series([Decimal(i) for i in generate_ref_data(TEST_CONFIG_CONT_1, 1000, np.random.default_rng(61))]),
-            0.0,
-            id="distributions are same with decimals",
-        ),
+        )
     ],
 )
 def test_psi_continuous(test_data, expected_psi):
