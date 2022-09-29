@@ -288,3 +288,22 @@ class SQLServerDataSource(DataSource):
 
     def expr_false_condition(self):
         return "1 = 0"
+
+    def sql_get_duplicates(
+        self, column_names: str, table_name: str, filter: str, limit: str | None = None
+    ) -> str | None:
+        limit_sql = ""
+
+        if limit:
+            limit_sql = f" TOP {limit} "
+
+        sql = f"""WITH frequencies AS (
+              SELECT {column_names}, COUNT(*) AS frequency
+              FROM {table_name}
+              WHERE {filter}
+              GROUP BY {column_names})
+            SELECT {limit_sql} *
+            FROM frequencies
+            WHERE frequency > 1"""
+
+        return sql

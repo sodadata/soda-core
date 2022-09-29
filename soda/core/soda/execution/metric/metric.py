@@ -94,7 +94,4 @@ class Metric(ABC):
             "metricName": self.name,
             "value": self.value,
             "dataSourceName": self.data_source_scan.data_source.data_source_name,
-            "tableName": Partition.get_table_name(self.partition),
-            "filterName": Partition.get_partition_name(self.partition),
-            "columnName": Column.get_partition_name(self.column),
         }
