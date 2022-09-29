@@ -89,25 +89,31 @@ class MockSodaCloud(SodaCloud):
         if type(historic_descriptor) == HistoricChangeOverTimeDescriptor and historic_descriptor.change_over_time_cfg:
             change_over_time_aggregation = historic_descriptor.change_over_time_cfg.last_aggregation
             if change_over_time_aggregation in ["avg", "min", "max"]:
-                historic_metric_values = self.__get_historic_metric_values(historic_descriptor.metric_identity)[
-                    "results"
-                ]
+                historic_metric = self.__get_historic_metric_values(historic_descriptor.metric_identity)
 
-                max_historic_values = historic_descriptor.change_over_time_cfg.last_measurements
+                # Extra check for agg historic values so that we can test a case with no historic values.
+                if "results" in historic_metric:
+                    historic_metric_values = self.__get_historic_metric_values(historic_descriptor.metric_identity)[
+                        "results"
+                    ]
 
-                if max_historic_values < len(historic_metric_values):
-                    historic_metric_values = historic_metric_values[:max_historic_values]
+                    max_historic_values = historic_descriptor.change_over_time_cfg.last_measurements
 
-                historic_values = [historic_metric_value["value"] for historic_metric_value in historic_metric_values]
+                    if max_historic_values < len(historic_metric_values):
+                        historic_metric_values = historic_metric_values[:max_historic_values]
 
-                if change_over_time_aggregation == "min":
-                    value = min(historic_values)
-                elif change_over_time_aggregation == "max":
-                    value = max(historic_values)
-                elif change_over_time_aggregation == "avg":
-                    value = sum(historic_values) / len(historic_values)
+                    historic_values = [
+                        historic_metric_value["value"] for historic_metric_value in historic_metric_values
+                    ]
 
-                return {"measurements": {"results": [{"value": value}]}}
+                    if change_over_time_aggregation == "min":
+                        value = min(historic_values)
+                    elif change_over_time_aggregation == "max":
+                        value = max(historic_values)
+                    elif change_over_time_aggregation == "avg":
+                        value = sum(historic_values) / len(historic_values)
+
+                    return {"measurements": {"results": [{"value": value}]}}
 
             elif change_over_time_aggregation is None:
                 historic_metric_values = self.__get_historic_metric_values(historic_descriptor.metric_identity)
