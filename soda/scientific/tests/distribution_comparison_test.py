@@ -1,17 +1,14 @@
-from decimal import Decimal
-
 import numpy as np
 import pandas as pd
 import pytest
 from numpy.random import default_rng
-
 from soda.scientific.distribution.comparison import (
     DistributionRefKeyException,
     DistributionRefParsingException,
     SWDAlgorithm,
 )
 from soda.scientific.distribution.utils import RefDataCfg, generate_ref_data
-
+import decimal 
 
 @pytest.mark.parametrize(
     "distribution_type",
@@ -80,7 +77,7 @@ def test_config_weights(weights):
         pytest.param(
             "psi",
             "soda/scientific/tests/assets/dist_ref_continuous.yml",
-            [1.0, Decimal('2.5'), Decimal('0.1'), Decimal('-2.5')],
+            [1.0, decimal.Decimal('2.5'), decimal.Decimal('0.1'), decimal.Decimal('-2.5')],
             None,
             10.126226038606184,
             id="Different continuous distribution with psi and decimal values",
@@ -88,7 +85,7 @@ def test_config_weights(weights):
         pytest.param(
             "swd",
             "soda/scientific/tests/assets/dist_ref_continuous.yml",
-            [1.0, 2.5, Decimal('0.1')],
+            [1.0, 2.5, decimal.Decimal('0.1')],
             None,
             0.7177783796435317,
             id="Different continuous distribution with swd and decimal values",
@@ -96,7 +93,7 @@ def test_config_weights(weights):
         pytest.param(
             "semd",
             "soda/scientific/tests/assets/dist_ref_continuous.yml",
-            [1.0, 2.5, Decimal('0.1')],
+            [1.0, 2.5, decimal.Decimal('0.1')],
             None,
             0.7177783796435317,
             id="Different continuous distribution with semd and decimal values",
