@@ -399,7 +399,7 @@ def test_chi_sq_2_samples_comparison_not_enough_samples(test_data, config):
         pytest.param(
             pd.Series([Decimal(i) for i in generate_ref_data(TEST_CONFIG_CONT_1, 1000, np.random.default_rng(63))]),
             0.03929019501923124,
-            id="using with decimals",
+            id="distributions are different with decimals",
         ),
     ],
 )
