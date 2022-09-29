@@ -476,6 +476,23 @@ class DataSource:
     def sql_analyze_table(self, table: str) -> str | None:
         return None
 
+    def sql_get_duplicates(
+        self, column_names: str, table_name: str, filter: str, limit: str | None = None
+    ) -> str | None:
+        sql = f"""WITH frequencies AS (
+              SELECT {column_names}, COUNT(*) AS frequency
+              FROM {table_name}
+              WHERE {filter}
+              GROUP BY {column_names})
+            SELECT *
+            FROM frequencies
+            WHERE frequency > 1"""
+
+        if limit:
+            sql += f"\n LIMIT {limit}"
+
+        return sql
+
     def cast_to_text(self, expr: str) -> str:
         return f"CAST({expr} AS VARCHAR)"
 

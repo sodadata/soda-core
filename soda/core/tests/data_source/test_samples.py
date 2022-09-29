@@ -167,6 +167,8 @@ def test_sample_limit_configuration(data_source_fixture: DataSourceFixture):
             samples limit: 2
         - values in (size) must exist in {another_table_name} (size):
             samples limit: 2
+        - duplicate_count(zip) = 0:
+            samples limit: 2
     """
     )
     scan.execute()
@@ -175,3 +177,4 @@ def test_sample_limit_configuration(data_source_fixture: DataSourceFixture):
 
     assert mock_soda_cloud.find_failed_rows_line_count(0) == 2
     assert mock_soda_cloud.find_failed_rows_line_count(1) == 2
+    assert mock_soda_cloud.find_failed_rows_line_count(2) == 2
