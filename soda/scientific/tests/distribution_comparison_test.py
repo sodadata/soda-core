@@ -483,7 +483,7 @@ def test_swd_comparison_null(test_data):
             pd.Series(default_rng(61).normal(loc=10, scale=10, size=1000)),
             8.478605750455749,
             id="distributions are extremely different",
-        )
+        ),
     ],
 )
 def test_psi_continuous(test_data, expected_psi):
