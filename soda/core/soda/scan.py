@@ -88,7 +88,7 @@ class Scan:
                 "hasErrors": self.has_error_logs(),
                 "hasWarnings": self.has_check_warns(),
                 "hasFailures": self.has_check_fails(),
-                "metrics": [metric.get_cloud_dict() for metric in self._metrics],
+                "metrics": [metric.get_dict() for metric in self._metrics],
                 # If archetype is not None, it means that check is automated monitoring
                 "checks": checks,
                 # TODO Queries are not supported by Soda Cloud yet.
@@ -96,10 +96,9 @@ class Scan:
                 "automatedMonitoringChecks": autoamted_monitoring_checks,
                 "profiling": profiling,
                 "metadata": [
-                    discover_tables_result.get_cloud_dict()
-                    for discover_tables_result in self._discover_tables_result_tables
+                    discover_tables_result.get_dict() for discover_tables_result in self._discover_tables_result_tables
                 ],
-                "logs": [log.get_cloud_dict() for log in self._logs.logs],
+                "logs": [log.get_dict() for log in self._logs.logs],
             }
         )
 
