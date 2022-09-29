@@ -59,7 +59,7 @@ class DistributionChecker:
         data: List[Any],
     ):
         self.test_data = data
-        self.dist_ref, dist_method = self._parse_reference_cfg(
+        self.dist_ref, self.dist_method = self._parse_reference_cfg(
             dist_method, dist_ref_yaml, dist_ref_file_path, dist_name
         )
 
@@ -70,10 +70,13 @@ class DistributionChecker:
             "semd": SWDAlgorithm,
             "psi": PSIAlgorithm,
         }
-        self.choosen_algo = algo_mapping.get(dist_method)
+        
+        self.choosen_algo = algo_mapping.get(self.dist_method)
 
     def run(self) -> Dict[str, float]:
         test_data = pd.Series(self.test_data)
+        if (self.dist_method in ["semd", "swd", "psi"]) and pd.core.dtypes.common.is_dtype_equal(test_data, decimal.Decimal):
+            test_data = test_data.astype('float')
 
         bootstrap_size = 10
         check_values = []
@@ -240,9 +243,6 @@ class KSAlgorithm(DistributionAlgorithm):
 
 class SWDAlgorithm(DistributionAlgorithm):
     def evaluate(self) -> Dict[str, float]:
-        if any(isinstance(i, decimal.Decimal) for i in self.test_data):
-            self.test_data = self.test_data.astype('float')
-
         wd = wasserstein_distance(self.ref_data, self.test_data)
         swd = wd / np.std(np.concatenate([self.ref_data, self.test_data]))
         return dict(check_value=swd)
@@ -250,9 +250,6 @@ class SWDAlgorithm(DistributionAlgorithm):
 
 class PSIAlgorithm(DistributionAlgorithm):
     def evaluate(self) -> Dict[str, float]:
-        if any(isinstance(i, decimal.Decimal) for i in self.test_data):
-            self.test_data = self.test_data.astype('float')
-
         max_val = max(np.max(self.test_data), np.max(self.ref_data))
         min_val = min(np.min(self.test_data), np.min(self.ref_data))
 
