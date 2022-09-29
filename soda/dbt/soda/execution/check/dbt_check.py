@@ -24,11 +24,12 @@ class DbtCheck(Check):
         cloud_dict = {
             "identity": self.identity,
             "identities": {
-                # v1 is original without the datasource name and v2 is with datasource name in the hash
+                # All versions are the same here, but we have all of them for compatibility with standard check.
                 "v1": self.identity,
                 "v2": self.identity,
+                "v3": self.identity,
             },
-            "name": "dbt:" + self.name,
+            "name": self.name,
             "type": self.cloud_check_type,
             "definition": self.check_cfg.name,
             "location": {
@@ -42,14 +43,15 @@ class DbtCheck(Check):
             "metrics": ["dbt_metric"],
             "outcome": self.outcome.value if self.outcome else None,
             "diagnostics": self.get_cloud_diagnostics_dict(),
+            "source": "dbt",
         }
 
         return cloud_dict
 
     def get_dict(self):
-        cloud_dict = {
+        dict = {
             "identity": self.identity,
-            "name": "dbt:" + self.name,
+            "name": self.name,
             "type": self.cloud_check_type,
             "definition": self.check_cfg.name,
             "location": {
@@ -64,4 +66,4 @@ class DbtCheck(Check):
             "outcome": self.outcome.value if self.outcome else None,
         }
 
-        return cloud_dict
+        return dict
