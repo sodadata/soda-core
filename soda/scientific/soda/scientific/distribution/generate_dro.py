@@ -43,22 +43,13 @@ class DROGenerator:
         lower_range = q1 - (1.5 * IQR)
         upper_range = q3 + (1.5 * IQR)
         filtered_data = data[np.where((data >= lower_range) & (data <= upper_range))]
+        # TODO: insert doc link that explains IQR
         logging.warning(
-            f"""While generating the distribution reference object, the automatic bin size detection
-exceeded the memory. It is generally caused by outliers in the data. You can reproduce the issue
-with the following example
+            f"""Generating the distribution reference object using automatic bin size detection would cause a
+memory error. This is generally caused by the presence of outliers in the dataset which leads to very high number
+of bins.
 
-```
-training_input = np.random.rand(7000)
-training_input[1000] = 1000000000000000
-np.histogram(training_input, bins="auto")
-```
-
-To fix the issue, we filtered the outliers using the Interquanlite Range (https://en.wikipedia.org/wiki/Interquartile_range)
-The values  which are less than 1st Ouartile - 1.5 IQR and more than 3rd Quartile + 1.5 IQR has been removed from the data.
-
-lower limit (1st Ouartile - 1.5 IQR) = {lower_range}
-upper limit (3rd Ouartile + 1.5 IQR) = {upper_range}
+We filtered values above {lower_range} and below {upper_range} using IQR
 """
         )
         return filtered_data
@@ -97,18 +88,15 @@ has been ignored!
                 n_sqrt_bins = int(np.ceil(math.sqrt(outlier_filtered_data.size)))
                 if n_sqrt_bins < self.maximum_allowed_bin_size:
                     logging.warning(
-                        f"""Filtering out outliers does not solved the memory error, so we will
-take the square root of the data size to set the number of bins where;
-
-n_bins = {n_bins}
-sqrt(n_bins) = {n_sqrt_bins}
+                        f"""Filtering out outliers did not solve the memory error. As a last resort, we will
+take the square root of the data size to set the number of bins.
 """
                     )
                     weights, bins = np.histogram(outlier_filtered_data, bins=n_sqrt_bins, density=False)
                 else:
                     logging.warning(
-                        f"""We set n_bins={self.maximum_allowed_bin_size} as maximum since your
-n_bins={n_bins} which is higher then {self.maximum_allowed_bin_size}"""
+                        f"""We set n_bins={self.maximum_allowed_bin_size} as maximum since
+automatically computed {n_bins} is higher than maximum allowed bin size: {self.maximum_allowed_bin_size}"""
                     )
                     weights, bins = np.histogram(
                         outlier_filtered_data, bins=self.maximum_allowed_bin_size, density=False
