@@ -71,13 +71,15 @@ class DistributionChecker:
             "semd": SWDAlgorithm,
             "psi": PSIAlgorithm,
         }
-        
+
         self.choosen_algo = algo_mapping.get(self.dist_method)
 
     def run(self) -> Dict[str, float]:
         test_data = pd.Series(self.test_data)
-        if (self.dist_method in ["semd", "swd", "psi"]) and pd.core.dtypes.common.is_dtype_equal(test_data, decimal.Decimal):
-            test_data = test_data.astype('float')
+        if (self.dist_method in ["semd", "swd", "psi"]) and pd.core.dtypes.common.is_dtype_equal(
+            test_data, decimal.Decimal
+        ):
+            test_data = test_data.astype("float")
 
         bootstrap_size = 10
         check_values = []
