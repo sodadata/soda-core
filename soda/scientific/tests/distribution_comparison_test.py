@@ -396,6 +396,11 @@ def test_chi_sq_2_samples_comparison_not_enough_samples(test_data, config):
             1.2438664038653537,
             id="distributions are extremely different",
         ),
+        pytest.param(
+            pd.Series([Decimal(i) for i in generate_ref_data(TEST_CONFIG_CONT_1, 1000, np.random.default_rng(63))]),
+            0.03929019501923124,
+            id="using with decimals",
+        ),
     ],
 )
 def test_swd_continuous(test_data, expected_swd):
@@ -457,6 +462,11 @@ def test_swd_comparison_null(test_data):
             pd.Series(default_rng(61).normal(loc=10, scale=10, size=1000)),
             8.478605750455749,
             id="distributions are extremely different",
+        ),
+        pytest.param(
+            pd.Series([Decimal(i) for i in generate_ref_data(TEST_CONFIG_CONT_1, 1000, np.random.default_rng(61))]),
+            0.0,
+            id="distributions are same with decimals",
         ),
     ],
 )
@@ -553,42 +563,3 @@ def test_missing_bins_weights(test_data, dist_ref_file_path, method):
         with open(dist_ref_file_path) as f:
             dist_ref_yaml = f.read()
         DistributionChecker(method, dist_ref_yaml, dist_ref_file_path, None, test_data)
-
-
-@pytest.mark.parametrize(
-    "test_data, expected_psi",
-    [
-        pytest.param(
-            pd.Series([Decimal(i) for i in generate_ref_data(TEST_CONFIG_CONT_1, 1000, np.random.default_rng(61))]),
-            0.009122241118036133,
-            id="psi with decimals",
-        ),
-    ],
-)
-def test_decimal_psi(test_data, expected_psi):
-    from soda.scientific.distribution.comparison import (
-        PSIAlgorithm,
-    )
-    test_data.iloc[0] += Decimal(f'{10**6}')
-    test_data.iloc[-1] -= Decimal(f'{10**6}')
-    check_results = PSIAlgorithm(TEST_CONFIG_CONT_1, test_data).evaluate()
-    assert round(check_results["check_value"], 10) == round(expected_psi, 10)
-
-
-@pytest.mark.parametrize(
-    "test_data, expected_psi",
-    [
-        pytest.param(
-            pd.Series([Decimal(i) for i in generate_ref_data(TEST_CONFIG_CONT_1, 1000, np.random.default_rng(63))]),
-            0.03929019501923124,
-            id="swd with decimals",
-        ),
-    ],
-)
-def test_decimal_swd(test_data, expected_psi):
-    from soda.scientific.distribution.comparison import (
-        SWDAlgorithm,
-    )
-
-    check_results = SWDAlgorithm(TEST_CONFIG_CONT_1, test_data).evaluate()
-    assert check_results["check_value"] == expected_psi
