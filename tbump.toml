@@ -69,3 +69,7 @@ search = 'package_version = "{current_version}"'
 [[file]]
 src = "soda/dbt/setup.py"
 search = 'package_version = "{current_version}"'
+
+[[file]]
+src = "soda/dremio/setup.py"
+search = 'package_version = "{current_version}"'

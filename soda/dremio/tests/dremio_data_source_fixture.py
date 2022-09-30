@@ -16,11 +16,10 @@ class DremioDataSourceFixture(DataSourceFixture):
         return {
             "data_source dremio": {
                 "type": "dremio",
-                "host": os.getenv("DREMIO_HOST"),
-                "username": os.getenv("DREMIO_USERNAME"),
-                "password": os.getenv("DREMIO_PASSWORD"),
-                "catalog": os.getenv("DREMIO_CATALOG", "test_soda"),
-                "schema": schema_name if schema_name else os.getenv("DREMIO_SCHEMA", "soda_core"),
+                "host": os.getenv("DREMIO_HOST", "localhost"),
+                "username": os.getenv("DREMIO_USERNAME", "admin"),
+                "password": os.getenv("DREMIO_PASSWORD", "admin1234"),
+                "schema": schema_name if schema_name else os.getenv("DREMIO_SCHEMA", "test"),
             }
         }
 
