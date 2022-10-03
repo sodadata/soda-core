@@ -61,7 +61,7 @@ We filtered values above {lower_range} and below {upper_range} using IQR
             none_count = np.count_nonzero(np.isnan(data))
             data = data[~np.isnan(data)]
             logging.warning(
-                f"""{none_count} out of {data_len} rows ({none_count/data_len}%)
+                f"""{none_count} out of {data_len} rows
 has None values! To estimate the weights and bins, the null values
 has been ignored!
             """
