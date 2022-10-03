@@ -69,9 +69,17 @@ class AnomalyMetricCheck(MetricCheck):
             return
 
         metric_name = self.check_cfg.metric_name
-        # TODO Review the data structure and see if we still need the KEY_HISTORIC_*
-        historic_measurements = historic_values.get(KEY_HISTORIC_MEASUREMENTS, {}).get("measurements", {})
-        historic_check_results = historic_values.get(KEY_HISTORIC_CHECK_RESULTS, {}).get("check_results", {})
+        # check that we get data objects from cloud that we can work with
+        if isinstance(historic_values, dict):
+            historic_measurements = historic_values.get(KEY_HISTORIC_MEASUREMENTS, {}).get("measurements", {})
+            historic_check_results = historic_values.get(KEY_HISTORIC_CHECK_RESULTS, {}).get("check_results", {})
+        else:
+            self.logs.error(
+                "Getting historical measurements and check results from Soda Cloud resulted in a "
+                f"{type(historic_values)} object which is not compatible with anomaly detection. "
+                "Check previous log messages for more information."
+            )
+            return
 
         if not historic_measurements:
             self.logs.warning(f"This is the first time that we derive {metrics[metric_name]} metric")

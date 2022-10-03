@@ -548,7 +548,10 @@ class Scan:
             }
         )
         if self._configuration.soda_cloud:
-            for request_name, trace_id in self._configuration.soda_cloud.soda_cloud_trace_ids.items():
+            for (
+                request_name,
+                trace_id,
+            ) in self._configuration.soda_cloud.soda_cloud_trace_ids.items():
                 soda_telemetry.set_attribute(f"soda_cloud_trace_id__{request_name}", trace_id)
 
         return exit_value
@@ -595,7 +598,9 @@ class Scan:
             if data_source_scan:
                 query_name = f"for_each_dataset_{for_each_dataset_cfg.table_alias_name}[{index}]"
                 table_names = data_source_scan.data_source.get_table_names(
-                    include_tables=include_tables, exclude_tables=exclude_tables, query_name=query_name
+                    include_tables=include_tables,
+                    exclude_tables=exclude_tables,
+                    query_name=query_name,
                 )
 
                 logger.info(f"Instantiating for each for {table_names}")
@@ -607,7 +612,8 @@ class Scan:
                     for check_cfg_template in for_each_dataset_cfg.check_cfgs:
                         check_cfg = check_cfg_template.instantiate_for_each_dataset(
                             name=self.jinja_resolve(
-                                check_cfg_template.name, variables={for_each_dataset_cfg.table_alias_name: table_name}
+                                check_cfg_template.name,
+                                variables={for_each_dataset_cfg.table_alias_name: table_name},
                             ),
                             table_alias=for_each_dataset_cfg.table_alias_name,
                             table_name=table_name,
