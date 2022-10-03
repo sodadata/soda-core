@@ -12,7 +12,7 @@ package_name = "soda-core-redshift"
 package_version = "3.0.9"
 description = "Soda Core Redshift Package"
 
-requires = [f"soda-core=={package_version}", "boto3"]
+requires = [f"soda-core=={package_version}", "boto3", "psycopg2-binary>=2.8.5, <3.0"]
 # TODO Fix the params
 setup(
     name=package_name,
