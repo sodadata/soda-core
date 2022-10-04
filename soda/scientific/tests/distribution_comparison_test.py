@@ -1,3 +1,5 @@
+import decimal
+
 import numpy as np
 import pandas as pd
 import pytest
@@ -74,6 +76,30 @@ def test_config_weights(weights):
             156.32764391336602,
             1.960998922048572e-34,
             id="Different categorical distribution with chi-square",
+        ),
+        pytest.param(
+            "psi",
+            "soda/scientific/tests/assets/dist_ref_continuous.yml",
+            [1.0, decimal.Decimal("2.5"), decimal.Decimal("0.1"), decimal.Decimal("-2.5")],
+            None,
+            10.126226038606184,
+            id="Different continuous distribution with psi and decimal values",
+        ),
+        pytest.param(
+            "swd",
+            "soda/scientific/tests/assets/dist_ref_continuous.yml",
+            [1.0, 2.5, decimal.Decimal("0.1")],
+            None,
+            0.7177783796435317,
+            id="Different continuous distribution with swd and decimal values",
+        ),
+        pytest.param(
+            "semd",
+            "soda/scientific/tests/assets/dist_ref_continuous.yml",
+            [1.0, 2.5, decimal.Decimal("0.1")],
+            None,
+            0.7177783796435317,
+            id="Different continuous distribution with semd and decimal values",
         ),
     ],
 )
