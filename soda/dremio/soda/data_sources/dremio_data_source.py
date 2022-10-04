@@ -13,10 +13,10 @@
 import logging
 
 import pyodbc
+from soda.common.exceptions import DataSourceConnectionError
 from soda.common.logs import Logs
 from soda.execution.data_source import DataSource
 from soda.execution.data_type import DataType
-from soda.common.exceptions import DataSourceConnectionError
 
 logger = logging.getLogger(__name__)
 
@@ -83,7 +83,7 @@ class DremioDataSource(DataSource):
                 + self.password
                 + ";useEncryption="
                 + self.use_encryption,
-                autocommit=True
+                autocommit=True,
             )
         except Exception as e:
             raise DataSourceConnectionError(self.TYPE, e)
