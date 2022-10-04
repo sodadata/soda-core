@@ -76,6 +76,7 @@ class DistributionChecker:
 
     def run(self) -> Dict[str, float]:
         test_data = pd.Series(self.test_data)
+        # check whether self.dist_method requires floats and test_data is of type decimal.Decimal
         if (self.dist_method in ["semd", "swd", "psi"]) and pd.core.dtypes.common.is_dtype_equal(
             test_data, decimal.Decimal
         ):
