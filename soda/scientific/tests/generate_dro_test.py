@@ -176,6 +176,17 @@ def test_generate_dro_continuous_exceeding_max_allowed_bin_size():
     assert_almost_equal(dro.bins, [0.0035455468097308485, 13291058005749.78, 26582116011499.555, 39873174017249.33])
 
 
+def test_generate_dro_continuous_all_same_values():
+    from soda.scientific.distribution.generate_dro import DROGenerator
+
+    cfg = RefDataCfg(distribution_type="continuous")
+    data = np.ones(20)
+    dro_generator = DROGenerator(cfg, data)
+    dro = dro_generator.generate()
+    assert_almost_equal(dro.weights, [0.0, 1.0])
+    assert_almost_equal(dro.bins, [0.5, 1.5])
+
+
 @pytest.mark.parametrize(
     "cfg, data, expected_weights, expected_bins",
     [
