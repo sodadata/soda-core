@@ -341,6 +341,12 @@ def update_dro(
                     f"""{column_name} column does not have any data! To generate a distribution reference object (DRO) your column needs to have more than 0 rows!"""
                 )
                 return
+
+            if all(i is None for i in column_values):
+                logging.error(
+                    f"""{column_name} column has only NULL values! To generate a distribution reference object (DRO) your column needs to have more than 0 not null values!"""
+                )
+                return
             try:
                 from soda.scientific.distribution.comparison import RefDataCfg
                 from soda.scientific.distribution.generate_dro import DROGenerator
