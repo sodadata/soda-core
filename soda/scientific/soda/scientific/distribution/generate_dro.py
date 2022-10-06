@@ -30,10 +30,17 @@ class DROGenerator:
     @staticmethod
     def _compute_n_bins(data: np.ndarray) -> int:
         _range = (data.min(), data.max())
-        bin_width = np.lib.histograms._hist_bin_auto(data, _range)
+
+        if _range[0] == _range[1]:  # It means that there is a single distinct value in array
+            n_bins = 1
+            return n_bins
+
         first_edge, last_edge = np.lib.histograms._get_outer_edges(data, _range)
-        n_bins = int(np.ceil(np.lib.histograms._unsigned_subtract(last_edge, first_edge) / bin_width))
-        return n_bins
+
+        bin_width = np.lib.histograms._hist_bin_auto(data, _range)
+
+        n_bins = min(np.ceil(np.lib.histograms._unsigned_subtract(last_edge, first_edge) / bin_width), data.size)
+        return int(n_bins)
 
     @staticmethod
     def _remove_outliers_with_iqr(data: np.ndarray) -> np.ndarray:
@@ -80,7 +87,7 @@ has been ignored!
             n_bins = self._compute_n_bins(outlier_filtered_data)
 
             # If n_bins is lower than data size then run auto mode again
-            if n_bins < min(self.maximum_allowed_bin_size, data.size):
+            if n_bins < min(self.maximum_allowed_bin_size, outlier_filtered_data.size):
                 weights, bins = np.histogram(outlier_filtered_data, bins="auto", density=False)
 
             # If not then take the sqrt of data size and make it as our new n_bins
