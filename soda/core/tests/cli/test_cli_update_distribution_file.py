@@ -23,7 +23,7 @@ def test_cli_update_distribution_file(data_source_fixture: DataSourceFixture, mo
             f"""
                 table: {table_name}
                 column: size
-                method: continuous
+                distribution_type: continuous
             """
         ),
     }
@@ -38,5 +38,4 @@ def test_cli_update_distribution_file(data_source_fixture: DataSourceFixture, mo
             f"{user_home_dir}/customers_distribution_reference.yml",
         ]
     )
-
-    print(mock_file_system.files[f"{user_home_dir}/customers_distribution_reference.yml"])
+    assert ("weights" and "bins") in mock_file_system.files[f"{user_home_dir}/customers_distribution_reference.yml"]
