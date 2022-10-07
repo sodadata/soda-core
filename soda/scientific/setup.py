@@ -21,8 +21,7 @@ requires = [
     "httpx>=0.18.1,<2.0.0",
     "PyYAML>=5.4.1,<6.0.0",
     "cython>=0.22",
-    "pystan==2.19.1.1",
-    "prophet==1.0.0"  # Pinned 1.0.0 until 1.1 (and above) installation issues are resolved. https://sodadata.atlassian.net/browse/CLOUD-446
+    "prophet>=1.1.0,<2.0.0"  # Pinned 1.0.0 until 1.1 (and above) installation issues are resolved. https://sodadata.atlassian.net/browse/CLOUD-446
     # Uncomment & recreate .venv to make scientific tests work
     # "prophet @ git+https://github.com/facebook/prophet.git#egg=prophet&subdirectory=python",
 ]

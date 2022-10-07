@@ -37,8 +37,6 @@ RUN ln -s /usr/bin/python3.9 /usr/bin/python && \
 # extra dependencies for soda-scientific
 RUN pip --no-cache-dir install "numpy>=1.15.4" \
                                "Cython>=0.22"
-RUN pip --no-cache-dir install -r "https://raw.githubusercontent.com/facebook/prophet/v1.0/python/requirements.txt"
-
 RUN mkdir /app
 
 WORKDIR /app
