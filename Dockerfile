@@ -7,7 +7,7 @@ ENV LANG=C.UTF-8
 ENV ACCEPT_EULA=Y
 RUN apt-get update && apt-get install -y curl gnupg2
 RUN curl https://packages.microsoft.com/keys/microsoft.asc | apt-key add -
-RUN curl https://packages.microsoft.com/config/ubuntu/21.04/prod.list > /etc/apt/sources.list.d/mssql-release.list
+RUN curl https://packages.microsoft.com/config/ubuntu/22.04/prod.list > /etc/apt/sources.list.d/mssql-release.list
 # install dependencies
 RUN apt-get update && \
     apt-get upgrade -y && \
