@@ -120,3 +120,6 @@ class RedshiftDataSource(DataSource):
             self.port,
             self.database,
         ]
+
+    def sql_information_schema_columns(self) -> str:
+        return "SVV_COLUMNS"
