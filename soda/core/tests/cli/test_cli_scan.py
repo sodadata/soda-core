@@ -65,6 +65,7 @@ def test_imports(data_source_fixture: DataSourceFixture, mock_file_system: MockF
 
     assert result.exit_code == 0
 
+
 @pytest.mark.skipif(
     test_data_source != "postgres",
     reason="Run for postgres only as nothing data source specific is tested.",
