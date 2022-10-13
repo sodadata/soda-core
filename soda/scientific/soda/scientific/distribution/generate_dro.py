@@ -9,7 +9,7 @@ from pydantic import BaseModel
 from soda.scientific.distribution.utils import RefDataCfg
 
 BINS_AND_WEIGHTS_REF_LOG = (
-    "To learn more about the computation of bins and weights" "refer https://go.soda.io/bins-weights"
+    "To learn more about the computation of bins and weights refer https://go.soda.io/bins-weights"
 )
 
 
