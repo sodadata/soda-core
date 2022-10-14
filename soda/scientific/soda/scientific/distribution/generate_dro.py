@@ -8,6 +8,10 @@ from pydantic import BaseModel
 
 from soda.scientific.distribution.utils import RefDataCfg
 
+BINS_AND_WEIGHTS_REF_LOG = (
+    "To learn more about the computation of bins and weights refer https://go.soda.io/bins-weights"
+)
+
 
 class DRO(BaseModel):
     weights: List
@@ -57,6 +61,8 @@ memory error. This is generally caused by the presence of outliers in the datase
 of bins.
 
 We filtered values above {lower_range} and below {upper_range} using IQR
+
+{BINS_AND_WEIGHTS_REF_LOG}
 """
         )
         return filtered_data
@@ -97,13 +103,18 @@ has been ignored!
                     logging.warning(
                         f"""Filtering out outliers did not solve the memory error. As a last resort, we will
 take the square root of the data size to set the number of bins.
+
+{BINS_AND_WEIGHTS_REF_LOG}
 """
                     )
                     weights, bins = np.histogram(outlier_filtered_data, bins=n_sqrt_bins, density=False)
                 else:
                     logging.warning(
                         f"""We set n_bins={self.maximum_allowed_bin_size} as maximum since
-automatically computed {n_bins} is higher than maximum allowed bin size: {self.maximum_allowed_bin_size}"""
+automatically computed {n_bins} is higher than maximum allowed bin size: {self.maximum_allowed_bin_size}
+
+{BINS_AND_WEIGHTS_REF_LOG}
+"""
                     )
                     weights, bins = np.histogram(
                         outlier_filtered_data, bins=self.maximum_allowed_bin_size, density=False

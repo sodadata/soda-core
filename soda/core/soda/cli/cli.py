@@ -175,7 +175,12 @@ def scan(
         scan._logs.warning("No checks file specified")
 
     if variable:
-        variables_dict = dict([tuple(v.split("=")) for v in variable])
+        variables_dict = {}
+        for v in variable:
+            # Partition by first occurrence of "=" as variable value may contain "=" sign.
+            variable_key, _, variable_value = v.partition("=")
+            if variable_key and variable_value:
+                variables_dict[variable_key] = variable_value
         scan.add_variables(variables_dict)
 
     if isinstance(scan_results_file, str):
