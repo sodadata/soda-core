@@ -135,8 +135,6 @@ def scan(
 
     configure_logging()
 
-    fs = file_system()
-
     soda_telemetry.set_attribute("cli_command_name", "scan")
 
     span_setup_function_args(
@@ -168,18 +166,7 @@ def scan(
     if isinstance(scan_definition, str):
         scan.set_scan_definition_name(scan_definition)
 
-    if configuration:
-        for configuration_path in configuration:
-            if not fs.exists(configuration_path):
-                scan._logs.error(f"Configuration path '{configuration_path}' does not exist")
-            else:
-                scan.add_configuration_yaml_files(configuration_path)
-    else:
-        default_configuration_file_path = "~/.soda/configuration.yml"
-        if fs.is_file(default_configuration_file_path):
-            scan.add_configuration_yaml_file(default_configuration_file_path)
-        elif not fs.exists(default_configuration_file_path):
-            scan._logs.warning("No configuration file specified nor found in ~/.soda/configuration.yml")
+    __load_configuration(scan, configuration)
 
     if sodacl_paths:
         for sodacl_path_element in sodacl_paths:
@@ -494,6 +481,91 @@ def ingest(tool: str, data_source: str, configuration: str, verbose: bool | None
     sys.exit(return_value)
 
 
+@main.command(
+    short_help="Tests a connection",
+)
+@click.option(
+    "-d",
+    "--data-source",
+    envvar="SODA_DATA_SOURCE",
+    required=True,
+    multiple=False,
+    type=click.STRING,
+)
+@click.option(
+    "-c",
+    "--configuration",
+    required=False,
+    multiple=True,
+    type=click.STRING,
+)
+@click.option("-V", "--verbose", is_flag=True)
+@soda_trace
+def test_connection(
+    data_source: str,
+    configuration: list[str],
+    verbose: bool | None,
+):
+    """
+    The soda test connection command:
+
+      * tests whether a specified warehouse connection works
+
+    option -d --data-source Required. Specify the name of the data source in the configuration.
+
+    option -c --configuration Optional. Specify the filepath of the configuration file. The default filepath
+    is ~/.soda/configuration.yml.
+
+    option -V --verbose Optional. Activate verbose logging.
+
+    Example command:
+
+    soda test-connection -d snowflake_customer_data -c configuration.yml -V
+    """
+    configure_logging()
+
+    soda_telemetry.set_attribute("cli_command_name", "test-connection")
+
+    span_setup_function_args(
+        {
+            "command_option": {
+                "configuration_paths": len(configuration),
+                "verbose": verbose,
+            },
+        }
+    )
+
+    scan = Scan()
+
+    if verbose:
+        scan.set_verbose()
+
+    if isinstance(data_source, str):
+        scan.set_data_source_name(data_source)
+
+    __load_configuration(scan, configuration)
+    scan._get_or_create_data_source_scan(data_source_name=data_source)
+    ds = scan._data_source_manager.get_data_source(scan._data_source_name)
+
+    result = 0
+
+    if ds:
+        logging.info(f"Successfully connected to '{data_source}'.")
+    else:
+        logging.error(f"Unable to connect to '{data_source}'.")
+        result = 1
+
+    has_valid_connection = ds.has_valid_connection()
+
+    if has_valid_connection:
+        logging.info(f"Connection '{data_source}' is valid.")
+    else:
+        logging.error(f"Unable to run verification query for '{data_source}'.")
+        result = 1
+
+    sys.exit(result)
+
+
 def __execute_query(connection, sql: str) -> list[tuple]:
     try:
         cursor = connection.cursor()
@@ -504,3 +576,20 @@ def __execute_query(connection, sql: str) -> list[tuple]:
             cursor.close()
     except BaseException as e:
         logging.error(f"Query error: {e}\n{sql}", exception=e)
+
+
+def __load_configuration(scan: Scan, configuration_paths: list[str] | None):
+    fs = file_system()
+
+    if configuration_paths:
+        for configuration_path in configuration_paths:
+            if not fs.exists(configuration_path):
+                scan._logs.error(f"Configuration path '{configuration_path}' does not exist")
+            else:
+                scan.add_configuration_yaml_files(configuration_path)
+    else:
+        default_configuration_file_path = "~/.soda/configuration.yml"
+        if fs.is_file(default_configuration_file_path):
+            scan.add_configuration_yaml_file(default_configuration_file_path)
+        elif not fs.exists(default_configuration_file_path):
+            scan._logs.warning("No configuration file specified nor found in ~/.soda/configuration.yml")
