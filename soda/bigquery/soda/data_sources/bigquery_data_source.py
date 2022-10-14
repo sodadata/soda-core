@@ -189,7 +189,7 @@ class BigQueryDataSource(DataSource):
             "table_id", "dataset_id", include_tables, exclude_tables
         )
         where_clause = f"\nWHERE {table_filter_expression} \n" if table_filter_expression else ""
-        return f"SELECT table_id, row_count \n" f"FROM {self.schema}.__TABLES__" f"{where_clause}"
+        return f"SELECT table_id, row_count \n" f"FROM __TABLES__" f"{where_clause}"
 
     def quote_table(self, table_name) -> str:
         return f"`{table_name}`"
