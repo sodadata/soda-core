@@ -114,3 +114,9 @@ class MySQLDataSource(DataSource):
 
     def expr_regexp_like(self, expr: str, pattern: str):
         return f"{expr} RLIKE '{pattern}'"
+
+    def default_casify_sql_function(self) -> str:
+        return ""
+
+    def default_casify_system_name(self, identifier: str) -> str:
+        return identifier

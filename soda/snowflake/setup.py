@@ -17,6 +17,7 @@ requires = [
     "snowflake-connector-python~=2.7",
     # https://github.com/snowflakedb/snowflake-connector-python/issues/1206
     "typing-extensions>=4.3.0",
+    "pyarrow<8.1.0,>=8.0.0",
 ]
 # TODO Fix the params
 setup(
