@@ -79,3 +79,26 @@ def test_change_over_time_no_historical_data(data_source_fixture: DataSourceFixt
 
     scan.assert_log_warning("No historic measurements for metric metric-test_change_over_time.py")
     scan.assert_all_checks_skipped()
+
+
+def test_change_over_time_last_x(data_source_fixture: DataSourceFixture):
+    """This does not actually test the cloud part of the last week/month, just the syntax."""
+    table_name = data_source_fixture.ensure_test_table(customers_test_table)
+
+    scan = data_source_fixture.create_test_scan()
+
+    scan.add_sodacl_yaml_str(
+        f"""
+          checks for {table_name}:
+            - change same day last week for row_count = 0
+            - change same day last month for row_count = 0
+        """
+    )
+
+    scan.mock_historic_values(
+        metric_identity=f"metric-{scan._scan_definition_name}-{scan._data_source_name}-{table_name}-row_count",
+        metric_values=[10],
+    )
+    scan.execute()
+
+    scan.assert_all_checks_pass()
