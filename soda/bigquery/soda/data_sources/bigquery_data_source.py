@@ -114,8 +114,6 @@ class BigQueryDataSource(DataSource):
         self.project_id = data_source_properties.get("project_id", self.project_id)
 
         self.dataset = data_source_properties.get("dataset")
-        # Set schema and table prefix to the same value as dataset, we need one attribute to access this value as it's used in building sql statements.
-        self.update_schema(self.dataset)
 
         self.location = data_source_properties.get("location")
         self.client_info = data_source_properties.get("client_info")
