@@ -210,6 +210,7 @@ class DataSource:
         data_source_name: str,
         data_source_properties: dict,
     ):
+        self.host = data_source_properties.get("host")
         self.logs = logs
         self.data_source_name = data_source_name
         self.data_source_properties: dict = data_source_properties
@@ -223,6 +224,19 @@ class DataSource:
         self.table_prefix: str | None = self._create_table_prefix()
         # self.data_source_scan is initialized in create_data_source_scan(...) below
         self.data_source_scan: DataSourceScan | None = None
+
+    def has_valid_connection(self) -> bool:
+        query = Query(
+            data_source_scan=self.data_source_scan,
+            sql=self.sql_test_connection(),
+            unqualified_query_name="test-connection",
+        )
+        query.execute()
+
+        if query.exception:
+            return False
+
+        return True
 
     def create_data_source_scan(self, scan: Scan, data_source_scan_cfg: DataSourceScanCfg):
         from soda.execution.data_source_scan import DataSourceScan
@@ -350,32 +364,32 @@ class DataSource:
         included_columns: list[str] | None = None,
         excluded_columns: list[str] | None = None,
     ) -> str:
-        def is_quoted(table_name):
-            return (table_name.startswith('"') and table_name.endswith('"')) or (
-                table_name.startswith("`") and table_name.endswith("`")
-            )
+        table_name_default_case = self.default_casify_table_name(table_name)
+        unquoted_table_name_default_case = (
+            table_name_default_case[1:-1] if self.is_quoted(table_name_default_case) else table_name_default_case
+        )
 
-        table_name_lower = table_name.lower()
-        unquoted_table_name_lower = table_name_lower[1:-1] if is_quoted(table_name_lower) else table_name_lower
-
-        filter_clauses = [f"lower(table_name) = '{unquoted_table_name_lower}'"]
+        casify_function = self.default_casify_sql_function()
+        filter_clauses = [f"{casify_function}(table_name) = '{unquoted_table_name_default_case}'"]
 
         if self.database:
-            filter_clauses.append(f"lower({self.column_metadata_catalog_column()}) = '{self.database.lower()}'")
+            filter_clauses.append(
+                f"{casify_function}({self.column_metadata_catalog_column()}) = '{self.default_casify_system_name(self.database)}'"
+            )
 
         if self.schema:
-            filter_clauses.append(f"lower(table_schema) = '{self.schema.lower()}'")
+            filter_clauses.append(f"{casify_function}(table_schema) = '{self.default_casify_system_name(self.schema)}'")
 
         if included_columns:
             include_clauses = []
             for col in included_columns:
-                include_clauses.append(f"lower(column_name) LIKE lower('{col}')")
+                include_clauses.append(f"{casify_function}(column_name) LIKE {casify_function}('{col}')")
             include_causes_or = " OR ".join(include_clauses)
             filter_clauses.append(f"({include_causes_or})")
 
         if excluded_columns:
             for col in excluded_columns:
-                filter_clauses.append(f"lower(column_name) NOT LIKE lower('{col}')")
+                filter_clauses.append(f"{casify_function}(column_name) NOT LIKE {casify_function}('{col}')")
 
         where_filter = " \n  AND ".join(filter_clauses)
 
@@ -423,7 +437,7 @@ class DataSource:
             for table in tables:
                 # This is intended to be future proof and support quoted table names. The method is not used in such way and table names/patterns that still
                 # need to be quoted are passed here, e.g. `%sodatest_%`. I.e. this condition is always met and default casify is always used, table name below is therefore single quoted.
-                if not self.is_table_quoted(table):
+                if not self.is_quoted(table):
                     table = self.default_casify_table_name(table)
 
                 conditions.append(f"{table_column_name} {comparison_operator} '{table}'")
@@ -667,6 +681,9 @@ class DataSource:
         )
         return sql, bins_list
 
+    def sql_test_connection(self) -> str:
+        return "SELECT 1"
+
     ######################
     # Query Execution
     ######################
@@ -785,7 +802,7 @@ class DataSource:
     def quote_table_declaration(self, table_name: str) -> str:
         return self.quote_table(table_name=table_name)
 
-    def is_table_quoted(self, table_name: str) -> bool:
+    def is_quoted(self, table_name: str) -> bool:
         return (table_name.startswith('"') and table_name.endswith('"')) or (
             table_name.startswith("'") and table_name.endswith("'")
         )
@@ -976,6 +993,14 @@ class DataSource:
 
     def rollback(self):
         self.connection.rollback()
+
+    def default_casify_sql_function(self) -> str:
+        """Returns the sql function to use for default casify."""
+        return "lower"
+
+    def default_casify_system_name(self, identifier: str) -> str:
+        """Formats database/schema/etc identifier to e.g. a default case for a given data source."""
+        return identifier.lower()
 
     def default_casify_table_name(self, identifier: str) -> str:
         """Formats table identifier to e.g. a default case for a given data source."""

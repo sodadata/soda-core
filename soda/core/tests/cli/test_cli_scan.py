@@ -19,14 +19,13 @@ def test_imports(data_source_fixture: DataSourceFixture, mock_file_system: MockF
 
     mock_file_system.files = {
         f"{user_home_dir}/configuration1.yml": dedent(
-            """
+            f"""
                 data_source cli_ds:
                   type: postgres
-                  connection:
-                    host: localhost
-                    username: sodasql
+                  host: localhost
+                  username: sodasql
                   database: sodasql
-                  schema: public
+                  schema: {data_source_fixture.schema_name}
             """
         ).strip(),
         f"{user_home_dir}/configuration2.yml": "",
@@ -44,7 +43,7 @@ def test_imports(data_source_fixture: DataSourceFixture, mock_file_system: MockF
         ).strip(),
     }
 
-    run_cli(
+    result = run_cli(
         [
             "scan",
             "-d",
@@ -57,10 +56,14 @@ def test_imports(data_source_fixture: DataSourceFixture, mock_file_system: MockF
             "DAY=today",
             "-v",
             "MONTH=june",
+            "-v",
+            "another_var=some_special=chars%!$&*()_+",
             "checks1.yml",
             "checks2.yml",
         ]
     )
+
+    assert result.exit_code == 0
 
 
 @pytest.mark.skipif(
@@ -74,14 +77,13 @@ def test_non_existing_configuration_file(data_source_fixture: DataSourceFixture,
 
     mock_file_system.files = {
         f"{user_home_dir}/.yml": dedent(
-            """
+            f"""
                 data_source cli_ds:
                   type: postgres
-                  connection:
-                    host: localhost
-                    username: sodasql
+                  host: localhost
+                  username: sodasql
                   database: sodasql
-                  schema: public
+                  schema: {data_source_fixture.schema_name}
             """
         ).strip(),
         f"{user_home_dir}/configuration2.yml": "",
@@ -99,7 +101,7 @@ def test_non_existing_configuration_file(data_source_fixture: DataSourceFixture,
         ).strip(),
     }
 
-    run_cli(
+    result = run_cli(
         [
             "scan",
             "-d",
@@ -116,3 +118,5 @@ def test_non_existing_configuration_file(data_source_fixture: DataSourceFixture,
             "checks2.yml",
         ]
     )
+
+    assert result.exit_code == 3
