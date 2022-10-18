@@ -1,7 +1,6 @@
 from helpers.common_test_tables import customers_test_table
 from helpers.data_source_fixture import DataSourceFixture
 from helpers.utils import execute_scan_and_get_scan_result
-from soda.execution.check_outcome import CheckOutcome
 
 
 def test_vars_in_name(data_source_fixture: DataSourceFixture):
@@ -36,5 +35,3 @@ def test_vars_in_foreach_name(data_source_fixture: DataSourceFixture):
         """,
     )
     assert scan_result["checks"][0]["name"].lower() == f"Row count in {table_name} must be positive".lower()
-
-
