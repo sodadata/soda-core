@@ -190,6 +190,12 @@ class SnowflakeDataSource(DataSource):
             """
         return sql
 
+    def default_casify_sql_function(self) -> str:
+        return "upper"
+
+    def default_casify_system_name(self, identifier: str) -> str:
+        return identifier.upper()
+
     def default_casify_table_name(self, identifier: str) -> str:
         return identifier.upper()
 
