@@ -80,13 +80,13 @@ DETECTOR_MESSAGES: Dict[str, DetectorMessageComponent] = {
         error_code_str="",
     ),
     "coerced_daily": DetectorMessageComponent(
-        log_message="coerced to daily freq with last daily time point kept",
+        log_message="Coerced to daily frequency with last daily time point kept",
         severity="warn",
         error_code_int=2,
         error_code_str="made_daily_keeping_last_point_only",
     ),
     "last_four": DetectorMessageComponent(
-        log_message="frequency inferred from the last 4 stable data points",
+        log_message="Frequency inferred from the last 4 stable data points",
         severity="warn",
         error_code_int=3,
         error_code_str="frequency_from_last_4_points",
