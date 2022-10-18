@@ -39,7 +39,7 @@ def test_vars_in_foreach_name(data_source_fixture: DataSourceFixture):
 
 
 def test_vars_schema_check(data_source_fixture: DataSourceFixture):
-    table_name = data_source_fixture.ensure_test_table(customers_test_table)
+    table_name = data_source_fixture.ensure_test_table(customers_test_table).lower()
 
     scan = data_source_fixture.create_test_scan()
     scan.add_sodacl_yaml_str(
