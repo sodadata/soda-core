@@ -210,6 +210,7 @@ class DataSource:
         data_source_name: str,
         data_source_properties: dict,
     ):
+        self.host = data_source_properties.get("host")
         self.logs = logs
         self.data_source_name = data_source_name
         self.data_source_properties: dict = data_source_properties
@@ -223,6 +224,19 @@ class DataSource:
         self.table_prefix: str | None = self._create_table_prefix()
         # self.data_source_scan is initialized in create_data_source_scan(...) below
         self.data_source_scan: DataSourceScan | None = None
+
+    def has_valid_connection(self) -> bool:
+        query = Query(
+            data_source_scan=self.data_source_scan,
+            sql=self.sql_test_connection(),
+            unqualified_query_name="test-connection",
+        )
+        query.execute()
+
+        if query.exception:
+            return False
+
+        return True
 
     def create_data_source_scan(self, scan: Scan, data_source_scan_cfg: DataSourceScanCfg):
         from soda.execution.data_source_scan import DataSourceScan
@@ -666,6 +680,9 @@ class DataSource:
             FROM value_frequencies"""
         )
         return sql, bins_list
+
+    def sql_test_connection(self) -> str:
+        return "SELECT 1"
 
     ######################
     # Query Execution
