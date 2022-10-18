@@ -129,7 +129,7 @@ class AnomalyMetricCheck(MetricCheck):
         self.check_value = diagnostics["anomalyProbability"]
         self.outcome = CheckOutcome(level)
         self.diagnostics = diagnostics
-        if diagnostics["anomalyErrorCode"]:
+        if diagnostics["anomalyErrorSeverity"] in ["warn", "error"]:
             self.add_outcome_reason(
                 outcome_type=diagnostics["anomalyErrorCode"],
                 message=diagnostics["anomalyErrorMessage"],
