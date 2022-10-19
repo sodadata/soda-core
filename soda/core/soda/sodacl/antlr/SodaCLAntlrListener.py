@@ -1,4 +1,4 @@
-# Generated from /Users/vijay/work/soda/code/soda-core/soda/core/soda/sodacl/antlr/SodaCLAntlr.g4 by ANTLR 4.11.1
+# Generated from /Users/m1n0/dev/soda/soda-sql/soda-core/soda/core/soda/sodacl/antlr/SodaCLAntlr.g4 by ANTLR 4.11.1
 from antlr4 import *
 if __name__ is not None and "." in __name__:
     from .SodaCLAntlrParser import SodaCLAntlrParser
@@ -104,6 +104,24 @@ class SodaCLAntlrListener(ParseTreeListener):
 
     # Exit a parse tree produced by SodaCLAntlrParser#change_aggregation.
     def exitChange_aggregation(self, ctx:SodaCLAntlrParser.Change_aggregationContext):
+        pass
+
+
+    # Enter a parse tree produced by SodaCLAntlrParser#same_day_last_week.
+    def enterSame_day_last_week(self, ctx:SodaCLAntlrParser.Same_day_last_weekContext):
+        pass
+
+    # Exit a parse tree produced by SodaCLAntlrParser#same_day_last_week.
+    def exitSame_day_last_week(self, ctx:SodaCLAntlrParser.Same_day_last_weekContext):
+        pass
+
+
+    # Enter a parse tree produced by SodaCLAntlrParser#same_day_last_month.
+    def enterSame_day_last_month(self, ctx:SodaCLAntlrParser.Same_day_last_monthContext):
+        pass
+
+    # Exit a parse tree produced by SodaCLAntlrParser#same_day_last_month.
+    def exitSame_day_last_month(self, ctx:SodaCLAntlrParser.Same_day_last_monthContext):
         pass
 
 

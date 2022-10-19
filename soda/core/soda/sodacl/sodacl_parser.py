@@ -588,9 +588,9 @@ class SodaCLParser(Parser):
                 if antlr_change_over_time_config.LAST():
                     change_over_time_cfg.last_measurements = int(antlr_change_over_time_config.integer().getText())
                     change_over_time_cfg.last_aggregation = antlr_change_over_time_config.change_aggregation().getText()
-                elif antlr_change_over_time_config.SAME_DAY_LAST_WEEK():
+                elif antlr_change_over_time_config.same_day_last_week():
                     change_over_time_cfg.same_day_last_week = True
-                elif antlr_change_over_time_config.SAME_DAY_LAST_MONTH():
+                elif antlr_change_over_time_config.same_day_last_month():
                     change_over_time_cfg.same_day_last_month = True
             else:
                 change_over_time_cfg.last_measurements = 1

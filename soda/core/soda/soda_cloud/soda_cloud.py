@@ -4,7 +4,7 @@ import json
 import logging
 import re
 import tempfile
-from datetime import datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from typing import TYPE_CHECKING
 
 import requests
@@ -169,9 +169,9 @@ class SodaCloud:
         if type(historic_descriptor) == HistoricMeasurementsDescriptor:
             measurements = self._get_historic_measurements(historic_descriptor)
         elif type(historic_descriptor) == HistoricCheckResultsDescriptor:
-            check_results = self._get_hisotric_check_results(historic_descriptor)
+            check_results = self._get_historic_check_results(historic_descriptor)
         elif type(historic_descriptor) == HistoricChangeOverTimeDescriptor:
-            measurements = self._get_hisoric_changes_over_time(historic_descriptor)
+            measurements = self._get_historic_changes_over_time(historic_descriptor)
         else:
             logger.error(f"Invalid Historic Descriptor provided {historic_descriptor}")
 
@@ -187,21 +187,72 @@ class SodaCloud:
         )
         return is_disabled_bool if isinstance(is_disabled_bool, bool) else True
 
-    def _get_hisoric_changes_over_time(self, hd: HistoricChangeOverTimeDescriptor):
-        return self._execute_query(
-            {
-                "type": "sodaCoreHistoricMeasurements",
-                "filter": {
-                    "type": "and",
-                    "andExpressions": [
-                        {
-                            "type": "equals",
-                            "left": {"type": "columnValue", "columnName": "metric.identity"},
-                            "right": {"type": "string", "value": hd.metric_identity},
-                        }
-                    ],
-                },
+    def _get_historic_changes_over_time(self, hd: HistoricChangeOverTimeDescriptor):
+        query = {
+            "type": "sodaCoreHistoricMeasurements",
+            "filter": {
+                "type": "and",
+                "andExpressions": [
+                    {
+                        "type": "equals",
+                        "left": {"type": "columnValue", "columnName": "metric.identity"},
+                        "right": {"type": "string", "value": hd.metric_identity},
+                    }
+                ],
             },
+        }
+
+        previous_time_start = None
+        previous_time_end = None
+        today = date.today()
+
+        if hd.change_over_time_cfg.same_day_last_week:
+            last_week = today - timedelta(days=7)
+            previous_time_start = datetime(
+                year=last_week.year, month=last_week.month, day=last_week.day, tzinfo=timezone.utc
+            )
+            previous_time_end = datetime(
+                year=last_week.year,
+                month=last_week.month,
+                day=last_week.day,
+                hour=23,
+                minute=59,
+                second=59,
+                tzinfo=timezone.utc,
+            )
+        elif hd.change_over_time_cfg.same_day_last_month:
+            last_month = today - timedelta(month=1)
+            previous_time_start = datetime(
+                year=last_month.year, month=last_month.month, day=last_month.day, tzinfo=timezone.utc
+            )
+            previous_time_start = datetime(
+                year=last_month.year,
+                month=last_month.month,
+                day=last_month.day,
+                hour=23,
+                minute=59,
+                second=59,
+                tzinfo=timezone.utc,
+            )
+
+        if previous_time_start and previous_time_end:
+            query["filter"]["andExpressions"].append(
+                {
+                    "type": "greaterThanOrEqual",
+                    "left": {"type": "columnValue", "columnName": "measurement.dataTime"},
+                    "right": {"type": "time", "scanTime": False, "time": previous_time_start.isoformat()},
+                }
+            )
+            query["filter"]["andExpressions"].append(
+                {
+                    "type": "lessThanOrEqual",
+                    "left": {"type": "columnValue", "columnName": "measurement.dataTime"},
+                    "right": {"type": "time", "scanTime": False, "time": previous_time_end.isoformat()},
+                }
+            )
+
+        return self._execute_query(
+            query,
             query_name="get_hisoric_changes_over_time",
         )
 
@@ -230,7 +281,7 @@ class SodaCloud:
         ]
         return historic_measurements
 
-    def _get_hisotric_check_results(self, hd: HistoricCheckResultsDescriptor):
+    def _get_historic_check_results(self, hd: HistoricCheckResultsDescriptor):
         return self._execute_query(
             {
                 "type": "sodaCoreHistoricCheckResults",
