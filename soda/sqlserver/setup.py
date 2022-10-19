@@ -9,7 +9,7 @@ if sys.version_info < (3, 7):
     sys.exit(1)
 
 package_name = "soda-core-sqlserver"
-package_version = "3.0.10"
+package_version = "3.0.11"
 description = "Soda Core SQL Server Package"
 
 requires = [
