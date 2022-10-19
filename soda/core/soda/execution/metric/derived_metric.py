@@ -4,9 +4,11 @@ from soda.execution.metric.metric import Metric
 
 METRIC_NAME_MISSING_PERCENT = "missing_percent"
 METRIC_NAME_INVALID_PERCENT = "invalid_percent"
+METRIC_NAME_DUPLICATE_PERCENT = "duplicate_percent"
 DERIVED_METRIC_NAMES = [
     METRIC_NAME_MISSING_PERCENT,
     METRIC_NAME_INVALID_PERCENT,
+    METRIC_NAME_DUPLICATE_PERCENT,
 ]
 
 
@@ -32,6 +34,18 @@ def derive_invalid_percentage(values: Dict[str, int]):
         invalid_percentage = 0
 
     return float(round(invalid_percentage, 2))
+
+
+def derive_duplicate_percentage(values: Dict[str, int]):
+    duplicate_count = values["duplicate_count"]
+    row_count = values["row_count"]
+
+    if duplicate_count and row_count:
+        duplicate_percentage = duplicate_count * 100 / row_count
+    else:
+        duplicate_percentage = 0
+
+    return float(round(duplicate_percentage, 2))
 
 
 class DerivedMetric(Metric):
@@ -95,6 +109,15 @@ class DerivedMetric(Metric):
                 metric_dependencies={
                     "row_count": self.build_dependency_metric("row_count"),
                     "invalid_count": self.build_dependency_metric("invalid_count"),
+                },
+            )
+
+        if METRIC_NAME_DUPLICATE_PERCENT == self.name:
+            return DerivedFormula(
+                function=derive_duplicate_percentage,
+                metric_dependencies={
+                    "row_count": self.build_dependency_metric("row_count"),
+                    "duplicate_count": self.build_dependency_metric("duplicate_count"),
                 },
             )
 
