@@ -116,15 +116,6 @@ class SodaCLAntlrListener(ParseTreeListener):
         pass
 
 
-    # Enter a parse tree produced by SodaCLAntlrParser#same_day_last_month.
-    def enterSame_day_last_month(self, ctx:SodaCLAntlrParser.Same_day_last_monthContext):
-        pass
-
-    # Exit a parse tree produced by SodaCLAntlrParser#same_day_last_month.
-    def exitSame_day_last_month(self, ctx:SodaCLAntlrParser.Same_day_last_monthContext):
-        pass
-
-
     # Enter a parse tree produced by SodaCLAntlrParser#percent.
     def enterPercent(self, ctx:SodaCLAntlrParser.PercentContext):
         pass

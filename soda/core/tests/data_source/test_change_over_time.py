@@ -91,7 +91,6 @@ def test_change_over_time_last_x(data_source_fixture: DataSourceFixture):
         f"""
           checks for {table_name}:
             - change same day last week for row_count = 0
-            - change same day last month for row_count = 0
         """
     )
 

@@ -135,6 +135,25 @@ def test_duplicate_samples(data_source_fixture: DataSourceFixture):
     assert mock_soda_cloud.find_failed_rows_line_count(1) == 1
 
 
+def test_duplicate_percent_samples(data_source_fixture: DataSourceFixture):
+    table_name = data_source_fixture.ensure_test_table(customers_test_table)
+
+    scan = data_source_fixture.create_test_scan()
+    mock_soda_cloud = scan.enable_mock_soda_cloud()
+    scan.enable_mock_sampler()
+    scan.add_sodacl_yaml_str(
+        f"""
+          checks for {table_name}:
+            - duplicate_percent(cat) > 0
+            - duplicate_percent(cat, country) > 0
+        """
+    )
+    scan.execute_unchecked()
+
+    assert mock_soda_cloud.find_failed_rows_line_count(0) == 1
+    assert mock_soda_cloud.find_failed_rows_line_count(1) == 1
+
+
 def test_duplicate_without_rows_samples(data_source_fixture: DataSourceFixture):
     table_name = data_source_fixture.ensure_test_table(customers_test_table)
 

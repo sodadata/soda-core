@@ -220,20 +220,6 @@ class SodaCloud:
                 second=59,
                 tzinfo=timezone.utc,
             )
-        elif hd.change_over_time_cfg.same_day_last_month:
-            last_month = today - timedelta(month=1)
-            previous_time_start = datetime(
-                year=last_month.year, month=last_month.month, day=last_month.day, tzinfo=timezone.utc
-            )
-            previous_time_start = datetime(
-                year=last_month.year,
-                month=last_month.month,
-                day=last_month.day,
-                hour=23,
-                minute=59,
-                second=59,
-                tzinfo=timezone.utc,
-            )
 
         if previous_time_start and previous_time_end:
             query["filter"]["andExpressions"].append(

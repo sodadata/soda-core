@@ -590,8 +590,6 @@ class SodaCLParser(Parser):
                     change_over_time_cfg.last_aggregation = antlr_change_over_time_config.change_aggregation().getText()
                 elif antlr_change_over_time_config.same_day_last_week():
                     change_over_time_cfg.same_day_last_week = True
-                elif antlr_change_over_time_config.same_day_last_month():
-                    change_over_time_cfg.same_day_last_month = True
             else:
                 change_over_time_cfg.last_measurements = 1
                 change_over_time_cfg.last_aggregation = "min"
