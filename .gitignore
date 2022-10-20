@@ -1,4 +1,5 @@
 scripts/antlr*.jar
+.antlr
 
 .idea/
 .postgres/
