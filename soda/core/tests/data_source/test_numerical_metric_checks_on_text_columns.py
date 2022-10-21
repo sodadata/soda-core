@@ -15,14 +15,14 @@ def test_numeric_metric_checks_on_text_column(data_source_fixture: DataSourceFix
     scan.add_sodacl_yaml_str(
         f"""
           checks for {table_name}:
-            - min(sizeTxt) = -3
-            - max(sizeTxt) = 6
-            - avg(sizeTxt) between 1.12 and 1.13
-            - sum(sizeTxt) = 7.9
+            - min(cst_size_txt) = -3
+            - max(cst_size_txt) = 6
+            - avg(cst_size_txt) between 1.12 and 1.13
+            - sum(cst_size_txt) = 7.9
             - min(pct) = -28.42
             - max(pct) = 22.75
           configurations for {table_name}:
-            valid format for sizeTxt: decimal
+            valid format for cst_size_txt: decimal
             valid format for pct: percentage
         """
     )
@@ -42,9 +42,9 @@ def test_numeric_metric_checks_on_text_column_local_format(data_source_fixture: 
     scan.add_sodacl_yaml_str(
         f"""
           checks for {table_name}:
-            - min(sizeTxt) = -3:
+            - min(cst_size_txt) = -3:
                 valid format: decimal
-            - max(sizeTxt) = 6:
+            - max(cst_size_txt) = 6:
                 valid format: decimal
             - min(pct) = -28.42:
                 valid format: percentage

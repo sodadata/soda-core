@@ -63,7 +63,7 @@ def test_forbidden_columns_fail_matching_wildcard(data_source_fixture: DataSourc
     scan.assert_all_checks_fail()
     check: SchemaCheck = scan._checks[0]
     assert sorted(check.schema_present_column_names) == sorted(
-        [default_casify_column_name("cst_size"), default_casify_column_name("sizeTxt")]
+        [default_casify_column_name("cst_size"), default_casify_column_name("cst_size_txt")]
     )
 
 

@@ -48,7 +48,7 @@ def generate_compatibility_script():
           profile columns:
             columns:
               - {table_name}.cst_size
-              - {table_name}.sizeTxt
+              - {table_name}.cst_size_txt
           checks for {table_name}:
             - row_count = 10.0
             - row_count = 3:

@@ -12,7 +12,7 @@ customers_test_table = TestTable(
     columns=[
         ("id", DataType.TEXT),
         ("cst_size", DataType.DECIMAL),
-        ("sizeTxt", DataType.TEXT),
+        ("cst_size_txt", DataType.TEXT),
         ("distance", DataType.INTEGER),
         ("pct", DataType.TEXT),
         ("cat", DataType.TEXT),
@@ -121,7 +121,7 @@ customers_profiling = TestTable(
     columns=[
         ("id", DataType.TEXT),
         ("cst_size", DataType.DECIMAL),
-        ("sizeTxt", DataType.TEXT),
+        ("cst_size_txt", DataType.TEXT),
         ("distance", DataType.INTEGER),
         ("pct", DataType.TEXT),
         ("cat", DataType.TEXT),
