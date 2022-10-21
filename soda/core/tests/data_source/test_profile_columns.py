@@ -18,7 +18,7 @@ def test_profile_columns_numeric(data_source_fixture: DataSourceFixture):
     scan.add_sodacl_yaml_str(
         f"""
           profile columns:
-            columns: [{table_name}.size]
+            columns: [{table_name}.cst_size]
         """
     )
     scan.execute(allow_warnings_only=True)

@@ -11,7 +11,7 @@ customers_test_table = TestTable(
     create_view=os.getenv("TEST_WITH_VIEWS", False),
     columns=[
         ("id", DataType.TEXT),
-        ("size", DataType.DECIMAL),
+        ("cst_size", DataType.DECIMAL),
         ("sizeTxt", DataType.TEXT),
         ("distance", DataType.INTEGER),
         ("pct", DataType.TEXT),
@@ -46,7 +46,7 @@ customers_dist_check_test_table = TestTable(
     create_view=os.getenv("TEST_WITH_VIEWS", False),
     columns=[
         ("id", DataType.TEXT),
-        ("size", DataType.DECIMAL),
+        ("cst_size", DataType.DECIMAL),
     ],
     # fmt: off
     values=[
@@ -120,7 +120,7 @@ customers_profiling = TestTable(
     create_view=os.getenv("TEST_WITH_VIEWS", False),
     columns=[
         ("id", DataType.TEXT),
-        ("size", DataType.DECIMAL),
+        ("cst_size", DataType.DECIMAL),
         ("sizeTxt", DataType.TEXT),
         ("distance", DataType.INTEGER),
         ("pct", DataType.TEXT),

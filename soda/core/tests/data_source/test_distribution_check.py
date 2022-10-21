@@ -18,7 +18,7 @@ def test_distribution_check(data_source_fixture: DataSourceFixture, mock_file_sy
         f"{user_home_dir}/customers_size_distribution_reference.yml": dedent(
             f"""
             dataset: {table_name}
-            column: size
+            column: cst_size
             distribution_type: continuous
             distribution_reference:
                 bins: [1, 2, 3]
@@ -30,7 +30,7 @@ def test_distribution_check(data_source_fixture: DataSourceFixture, mock_file_sy
     scan.add_sodacl_yaml_str(
         f"""
         checks for {table_name}:
-            - distribution_difference(size) >= 0.05:
+            - distribution_difference(cst_size) >= 0.05:
                 distribution reference file: {user_home_dir}/customers_size_distribution_reference.yml
                 method: ks
     """

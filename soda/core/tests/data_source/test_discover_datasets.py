@@ -38,7 +38,7 @@ def test_discover_tables(data_source_fixture: DataSourceFixture):
 
     expected_schema = [
         {"columnName": to_ds_case("id"), "sourceDataType": to_ds_type(DataType.TEXT)},
-        {"columnName": to_ds_case("size"), "sourceDataType": to_ds_type(DataType.DECIMAL)},
+        {"columnName": to_ds_case("cst_size"), "sourceDataType": to_ds_type(DataType.DECIMAL)},
         {"columnName": to_ds_case("sizeTxt"), "sourceDataType": to_ds_type(DataType.TEXT)},
         {"columnName": to_ds_case("distance"), "sourceDataType": to_ds_type(DataType.INTEGER)},
         {"columnName": to_ds_case("pct"), "sourceDataType": to_ds_type(DataType.TEXT)},

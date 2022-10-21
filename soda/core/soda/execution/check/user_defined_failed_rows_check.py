@@ -19,7 +19,7 @@ class UserDefinedFailedRowsCheck(Check):
           failed rows query: |
             SELECT *
             FROM {table_name}
-            WHERE size < 0
+            WHERE cst_size < 0
     """
 
     def __init__(

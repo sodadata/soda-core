@@ -15,7 +15,7 @@ def test_user_defined_table_expression_metric_check(data_source_fixture: DataSou
         f"""
       checks for {table_name}:
         - avg_surface between 1068 and 1069:
-            avg_surface expression: AVG(size * distance)
+            avg_surface expression: AVG(cst_size * distance)
         - ones(sizeTxt):
             name: There must be 3 occurrences of 1 in sizeText
             ones expression: {ones_expression}
@@ -46,7 +46,7 @@ def test_user_defined_table_expression_metric_check_with_variables(data_source_f
         f"""
           checks for {table_name}:
             - avg_surface between 1068 and 1069:
-                avg_surface expression: AVG(size * ${{dist}})
+                avg_surface expression: AVG(cst_size * ${{dist}})
         """
     )
     scan.execute()
@@ -69,7 +69,7 @@ def test_user_defined_data_source_query_metric_check(data_source_fixture: DataSo
           checks:
             - avg_surface between 1068 and 1069:
                 avg_surface query: |
-                  SELECT AVG(size * distance) as avg_surface
+                  SELECT AVG(cst_size * distance) as avg_surface
                   FROM {qualified_table_name}
         """
     )
@@ -94,7 +94,7 @@ def test_user_defined_data_source_query_metric_check_with_variable(data_source_f
               checks:
                 - avg_surface between 1068 and 1069:
                     avg_surface query: |
-                      SELECT AVG(size * ${{dist}}) as avg_surface
+                      SELECT AVG(cst_size * ${{dist}}) as avg_surface
                       FROM {qualified_table_name}
             """
     )
