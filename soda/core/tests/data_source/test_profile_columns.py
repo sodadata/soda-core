@@ -32,7 +32,7 @@ def test_profile_columns_numeric(data_source_fixture: DataSourceFixture):
     column_profiles_by_name = {
         column_profile["columnName"].lower(): column_profile for column_profile in column_profiles
     }
-    size_column = column_profiles_by_name["size"]
+    size_column = column_profiles_by_name["cst_size"]
     size_profile = size_column["profile"]
 
     logging.debug(f"Size profile cloud dict: \n{to_yaml_str(size_profile)}")
@@ -184,7 +184,7 @@ def test_profile_columns_all_tables_all_columns(data_source_fixture: DataSourceF
                 profile columns:
                     columns:
                         - include {table_name}.%
-                        - include %.size
+                        - include %.cst_size
                         - exclude %.country
                         - exclude %.id
             """,
@@ -247,7 +247,7 @@ def test_profile_columns_inclusions_exclusions(
                 assert len(column_names) == 0
             else:
                 assert "id" not in column_names
-                assert "size" in column_names
+                assert "cst_size" in column_names
                 assert "country" not in column_names
 
 

@@ -43,7 +43,7 @@ execute(
     """
         CREATE TABLE dev_tom.SODATEST_Customers_a0344266 (
              id VARCHAR(255),
-             size FLOAT,
+             cst_size FLOAT,
              sizeTxt VARCHAR(255),
              distance INT,
              pct VARCHAR(255),
@@ -111,12 +111,12 @@ execute(
           MIN(LENGTH(cat)),
           MAX(LENGTH(cat)),
           AVG(LENGTH(cat)),
-          STDDEV(size),
-          STDDEV_POP(size),
-          STDDEV_SAMP(size),
-          VARIANCE(size),
-          VAR_POP(size),
-          VAR_SAMP(size),
+          STDDEV(cst_size),
+          STDDEV_POP(cst_size),
+          STDDEV_SAMP(cst_size),
+          VARIANCE(cst_size),
+          VAR_POP(cst_size),
+          VAR_SAMP(cst_size),
           PERCENTILE_DISC(0.7) WITHIN GROUP (ORDER BY distance),
           MAX(ts)
         FROM dev_tom.SODATEST_Customers_a0344266
@@ -278,12 +278,12 @@ execute(
           MIN(LENGTH(cat)),
           MAX(LENGTH(cat)),
           AVG(LENGTH(cat)),
-          STDDEV(size),
-          STDDEV_POP(size),
-          STDDEV_SAMP(size),
-          VARIANCE(size),
-          VAR_POP(size),
-          VAR_SAMP(size),
+          STDDEV(cst_size),
+          STDDEV_POP(cst_size),
+          STDDEV_SAMP(cst_size),
+          VARIANCE(cst_size),
+          VAR_POP(cst_size),
+          VAR_SAMP(cst_size),
           PERCENTILE_DISC(0.7) WITHIN GROUP (ORDER BY distance),
           MAX(ts)
         FROM dev_tom.SODATEST_Customers_a0344266

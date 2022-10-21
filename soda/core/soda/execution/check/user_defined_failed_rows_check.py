@@ -15,7 +15,7 @@ class UserDefinedFailedRowsCheck(Check):
     Eg:
 
     checks:
-      - "Customers must have size":
+      - "Customers must have cst_size":
           failed rows query: |
             SELECT *
             FROM {table_name}
