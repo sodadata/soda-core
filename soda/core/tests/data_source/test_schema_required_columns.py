@@ -14,7 +14,7 @@ def test_required_columns_pass(data_source_fixture: DataSourceFixture):
       checks for {table_name}:
         - schema:
             fail:
-              when required column missing: [{default_casify_column_name('id')}, {default_casify_column_name('sizeTxt')}, {default_casify_column_name('distance')}]
+              when required column missing: [{default_casify_column_name('id')}, {default_casify_column_name('cst_size_txt')}, {default_casify_column_name('distance')}]
     """
     )
     scan.execute()
@@ -28,7 +28,7 @@ def test_required_columns_fail(data_source_fixture: DataSourceFixture):
 
     scan = data_source_fixture.create_test_scan()
     checks_str = format_checks(
-        ["id", "sizeTxt", "non_existing_column", "name"],
+        ["id", "cst_size_txt", "non_existing_column", "name"],
         indent=15,
         prefix="-",
         data_source=data_source_fixture.data_source,
@@ -57,7 +57,7 @@ def test_required_columns_warn(data_source_fixture: DataSourceFixture):
 
     scan = data_source_fixture.create_test_scan()
     checks_str = format_checks(
-        ["id", "sizeTxt", "non_existing_column", "name"],
+        ["id", "cst_size_txt", "non_existing_column", "name"],
         indent=15,
         prefix="-",
         data_source=data_source_fixture.data_source,

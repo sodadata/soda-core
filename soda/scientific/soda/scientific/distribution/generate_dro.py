@@ -43,7 +43,7 @@ class DROGenerator:
 
         bin_width = np.lib.histograms._hist_bin_auto(data, _range)
 
-        n_bins = min(np.ceil(np.lib.histograms._unsigned_subtract(last_edge, first_edge) / bin_width), data.size)
+        n_bins = min(np.ceil(np.lib.histograms._unsigned_subtract(last_edge, first_edge) / bin_width), data.cst_size)
         return int(n_bins)
 
     @staticmethod
@@ -83,7 +83,7 @@ has been ignored!
         n_bins = self._compute_n_bins(data)
 
         # First check whether we have n_bins having lower than data size
-        if n_bins < min(self.maximum_allowed_bin_size, data.size):
+        if n_bins < min(self.maximum_allowed_bin_size, data.cst_size):
             weights, bins = np.histogram(data, bins="auto", density=False)
 
         # If we have too much n_bins, then we apply several methods
@@ -93,12 +93,12 @@ has been ignored!
             n_bins = self._compute_n_bins(outlier_filtered_data)
 
             # If n_bins is lower than data size then run auto mode again
-            if n_bins < min(self.maximum_allowed_bin_size, outlier_filtered_data.size):
+            if n_bins < min(self.maximum_allowed_bin_size, outlier_filtered_data.cst_size):
                 weights, bins = np.histogram(outlier_filtered_data, bins="auto", density=False)
 
             # If not then take the sqrt of data size and make it as our new n_bins
             else:
-                n_sqrt_bins = int(np.ceil(math.sqrt(outlier_filtered_data.size)))
+                n_sqrt_bins = int(np.ceil(math.sqrt(outlier_filtered_data.cst_size)))
                 if n_sqrt_bins < self.maximum_allowed_bin_size:
                     logging.warning(
                         f"""Filtering out outliers did not solve the memory error. As a last resort, we will

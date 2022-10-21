@@ -25,8 +25,8 @@ def test_columns_types_pass(data_source_fixture: DataSourceFixture):
             fail:
               when wrong column type:
                 {column_type_format('id')}
-                {column_type_format('size')}
-                {column_type_format('sizeTxt')}
+                {column_type_format('cst_size')}
+                {column_type_format('cst_size_txt')}
                 {column_type_format('distance')}
                 {column_type_format('date')}
                 {column_type_format('ts')}

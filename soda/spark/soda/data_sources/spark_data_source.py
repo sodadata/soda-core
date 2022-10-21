@@ -178,7 +178,7 @@ class SparkSQLBase(DataSource):
     ) -> dict[str, str] | None:
         """
         :return: A dict mapping column names to data source data types.  Like eg
-        {"id": "varchar", "size": "int8", ...}
+        {"id": "varchar", "cst_size": "int8", ...}
         """
         columns = {}
         query = Query(

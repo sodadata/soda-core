@@ -50,9 +50,9 @@ def test_valid_min_max(data_source_fixture: DataSourceFixture):
     scan.add_sodacl_yaml_str(
         f"""
       checks for {table_name}:
-        - invalid_count(size) = 3:
+        - invalid_count(cst_size) = 3:
             valid min: 0
-        - invalid_count(size) = 4:
+        - invalid_count(cst_size) = 4:
             valid max: 0
     """
     )
