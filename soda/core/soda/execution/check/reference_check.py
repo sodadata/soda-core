@@ -4,6 +4,7 @@ from soda.execution.check.check import Check
 from soda.execution.check_outcome import CheckOutcome
 from soda.execution.metric.metric import Metric
 from soda.execution.metric.reference_metric import ReferenceMetric
+from soda.sampler.sample_ref import SampleRef
 
 KEY_INVALID_REFERENCE_COUNT = "invalid_reference_count"
 
@@ -38,7 +39,7 @@ class ReferenceCheck(Check):
             "value": self.metrics.get(KEY_INVALID_REFERENCE_COUNT).value
         }
 
-        if self.failed_rows_sample_ref:
+        if self.failed_rows_sample_ref and self.failed_rows_sample_ref.type != SampleRef.TYPE_NOT_PERSISTED:
             cloud_diagnostics["failedRowsFile"] = self.failed_rows_sample_ref.get_cloud_diagnostics_dict()
 
         return cloud_diagnostics
