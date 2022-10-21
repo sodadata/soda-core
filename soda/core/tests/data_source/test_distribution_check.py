@@ -15,7 +15,7 @@ def test_distribution_check(data_source_fixture: DataSourceFixture, mock_file_sy
     user_home_dir = mock_file_system.user_home_dir()
 
     mock_file_system.files = {
-        f"{user_home_dir}/customers_size_distribution_reference.yml": dedent(
+        f"{user_home_dir}/customers_cst_size_distribution_reference.yml": dedent(
             f"""
             dataset: {table_name}
             column: cst_size
@@ -31,7 +31,7 @@ def test_distribution_check(data_source_fixture: DataSourceFixture, mock_file_sy
         f"""
         checks for {table_name}:
             - distribution_difference(cst_size) >= 0.05:
-                distribution reference file: {user_home_dir}/customers_size_distribution_reference.yml
+                distribution reference file: {user_home_dir}/customers_cst_size_distribution_reference.yml
                 method: ks
     """
     )
@@ -60,7 +60,7 @@ def test_distribution_sql(data_source_fixture: DataSourceFixture, mock_file_syst
     user_home_dir = mock_file_system.user_home_dir()
 
     mock_file_system.files = {
-        f"{user_home_dir}/customers_size_distribution_reference.yml": dedent(
+        f"{user_home_dir}/customers_cst_size_distribution_reference.yml": dedent(
             f"""
             dataset: {table_name}
             column: cst_size
@@ -76,7 +76,7 @@ def test_distribution_sql(data_source_fixture: DataSourceFixture, mock_file_syst
         f"""
             checks for {table_name}:
                 - distribution_difference(cst_size) >= 0.05:
-                    distribution reference file:  {user_home_dir}/customers_size_distribution_reference.yml
+                    distribution reference file:  {user_home_dir}/customers_cst_size_distribution_reference.yml
                     method: ks
         """
     )
@@ -111,7 +111,7 @@ def test_distribution_missing_bins_weights(data_source_fixture: DataSourceFixtur
     user_home_dir = mock_file_system.user_home_dir()
 
     mock_file_system.files = {
-        f"{user_home_dir}/customers_size_distribution_reference.yml": dedent(
+        f"{user_home_dir}/customers_cst_size_distribution_reference.yml": dedent(
             f"""
             dataset: {table_name}
             column: cst_size
@@ -124,7 +124,7 @@ def test_distribution_missing_bins_weights(data_source_fixture: DataSourceFixtur
         f"""
         checks for {table_name}:
             - distribution_difference(cst_size) >= 0.05:
-                distribution reference file: {user_home_dir}/customers_size_distribution_reference.yml
+                distribution reference file: {user_home_dir}/customers_cst_size_distribution_reference.yml
                 method: ks
     """
     )
@@ -150,7 +150,7 @@ def test_distribution_check_with_dro_name(data_source_fixture: DataSourceFixture
     user_home_dir = mock_file_system.user_home_dir()
 
     mock_file_system.files = {
-        f"{user_home_dir}/customers_size_distribution_reference.yml": dedent(
+        f"{user_home_dir}/customers_cst_size_distribution_reference.yml": dedent(
             f"""
             customers_dro1:
                 dataset: {table_name}
@@ -175,7 +175,7 @@ def test_distribution_check_with_dro_name(data_source_fixture: DataSourceFixture
         f"""
         checks for {table_name}:
             - distribution_difference(cst_size, customers_dro1) >= 0.05:
-                distribution reference file: {user_home_dir}/customers_size_distribution_reference.yml
+                distribution reference file: {user_home_dir}/customers_cst_size_distribution_reference.yml
                 method: ks
     """
     )
@@ -193,7 +193,7 @@ def test_distribution_check_without_method(data_source_fixture: DataSourceFixtur
     user_home_dir = mock_file_system.user_home_dir()
 
     mock_file_system.files = {
-        f"{user_home_dir}/customers_size_distribution_reference.yml": dedent(
+        f"{user_home_dir}/customers_cst_size_distribution_reference.yml": dedent(
             f"""
             dataset: {table_name}
             column: cst_size
@@ -209,7 +209,7 @@ def test_distribution_check_without_method(data_source_fixture: DataSourceFixtur
         f"""
         checks for {table_name}:
             - distribution_difference(cst_size) >= 0.05:
-                distribution reference file: {user_home_dir}/customers_size_distribution_reference.yml
+                distribution reference file: {user_home_dir}/customers_cst_size_distribution_reference.yml
     """
     )
 

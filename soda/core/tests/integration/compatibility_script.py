@@ -282,8 +282,8 @@ execute(
           STDDEV_POP(cst_size),
           STDDEV_SAMP(cst_size),
           VARIANCE(cst_size),
-          VAR_POP(size),
-          VAR_SAMP(size),
+          VAR_POP(cst_size),
+          VAR_SAMP(cst_size),
           PERCENTILE_DISC(0.7) WITHIN GROUP (ORDER BY distance),
           MAX(ts)
         FROM dev_tom.SODATEST_Customers_a0344266
@@ -369,7 +369,7 @@ execute(
         WHERE lower(table_name) = 'sodatest_customers_a0344266'
           AND lower(table_catalog) = 'sodasql'
           AND lower(table_schema) = 'dev_tom'
-          AND (lower(column_name) LIKE lower('cst_size_txt') OR lower(column_name) LIKE lower('size'))
+          AND (lower(column_name) LIKE lower('cst_size_txt') OR lower(column_name) LIKE lower('cst_size'))
         ORDER BY ORDINAL_POSITION
     """
 )
@@ -379,10 +379,10 @@ execute(
     """
         WITH
             value_frequencies AS (
-                SELECT \"size\" AS value_, count(*) AS frequency_
+                SELECT \"cst_size\" AS value_, count(*) AS frequency_
                 FROM dev_tom.sodatest_customers_a0344266
-                WHERE \"size\" IS NOT NULL
-                GROUP BY \"size\"
+                WHERE \"cst_size\" IS NOT NULL
+                GROUP BY \"cst_size\"
             ),
             mins AS (
                 SELECT CAST('mins' AS VARCHAR) AS metric_, ROW_NUMBER() OVER(ORDER BY value_ ASC) AS index_, value_, frequency_
@@ -421,12 +421,12 @@ execute(
 execute(
     """
         SELECT
-            avg(\"size\") as average
-            , sum(\"size\") as sum
-            , variance(\"size\") as variance
-            , stddev(\"size\") as standard_deviation
-            , count(distinct(\"size\")) as distinct_values
-            , sum(case when \"size\" is null then 1 else 0 end) as missing_values
+            avg(\"cst_size\") as average
+            , sum(\"cst_size\") as sum
+            , variance(\"cst_size\") as variance
+            , stddev(\"cst_size\") as standard_deviation
+            , count(distinct(\"cst_size\")) as distinct_values
+            , sum(case when \"cst_size\" is null then 1 else 0 end) as missing_values
         FROM dev_tom.sodatest_customers_a0344266
     """
 )
@@ -436,10 +436,10 @@ execute(
     """
         WITH
                        value_frequencies AS (
-                                   SELECT \"size\" AS value_, count(*) AS frequency_
+                                   SELECT \"cst_size\" AS value_, count(*) AS frequency_
                                    FROM dev_tom.sodatest_customers_a0344266
-                                   WHERE \"size\" IS NOT NULL
-                                   GROUP BY \"size\"
+                                   WHERE \"cst_size\" IS NOT NULL
+                                   GROUP BY \"cst_size\"
                                )
                    SELECT SUM(CASE WHEN value_ < -2.55 THEN frequency_ END),
         SUM(CASE WHEN -2.55 <= value_ AND value_ < -2.1 THEN frequency_ END),

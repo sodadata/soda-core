@@ -17,7 +17,7 @@ def test_user_defined_table_expression_metric_check(data_source_fixture: DataSou
         - avg_surface between 1068 and 1069:
             avg_surface expression: AVG(cst_size * distance)
         - ones(cst_size_txt):
-            name: There must be 3 occurrences of 1 in sizeText
+            name: There must be 3 occurrences of 1 in cst_size_text
             ones expression: {ones_expression}
             warn: when < 3
             fail: when < 2
@@ -33,7 +33,7 @@ def test_user_defined_table_expression_metric_check(data_source_fixture: DataSou
 
     ones_check = scan._checks[1]
     assert ones_check.check_value == 2
-    assert ones_check.check_cfg.name == "There must be 3 occurrences of 1 in sizeText"
+    assert ones_check.check_cfg.name == "There must be 3 occurrences of 1 in cst_size_text"
     assert ones_check.outcome == CheckOutcome.WARN
 
 
