@@ -68,7 +68,7 @@ class Scan:
 
     def build_scan_results(self) -> dict:
         checks = [check.get_dict() for check in self._checks if check.outcome is not None and check.archetype is None]
-        autoamted_monitoring_checks = [
+        automated_monitoring_checks = [
             check.get_dict() for check in self._checks if check.outcome is not None and check.archetype is not None
         ]
 
@@ -93,7 +93,7 @@ class Scan:
                 "checks": checks,
                 # TODO Queries are not supported by Soda Cloud yet.
                 # "queries": [query.get_cloud_dict() for query in scan._queries],
-                "automatedMonitoringChecks": autoamted_monitoring_checks,
+                "automatedMonitoringChecks": automated_monitoring_checks,
                 "profiling": profiling,
                 "metadata": [
                     discover_tables_result.get_dict() for discover_tables_result in self._discover_tables_result_tables
@@ -358,7 +358,7 @@ class Scan:
                     if self._configuration.soda_cloud.is_samples_disabled():
                         self._configuration.sampler = DefaultSampler()
 
-            # Override the sampler, if it is co
+            # Override the sampler, if it is configured
             if self.sampler is not None:
                 self._configuration.sampler = self.sampler
 

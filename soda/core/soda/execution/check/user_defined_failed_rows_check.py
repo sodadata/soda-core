@@ -6,6 +6,7 @@ from soda.execution.metric.metric import Metric
 from soda.execution.metric.user_defined_failed_rows_metric import (
     UserDefinedFailedRowsMetric,
 )
+from soda.sampler.sample_ref import SampleRef
 
 KEY_FAILED_ROWS_COUNT = "failed_rows_count"
 
@@ -63,6 +64,6 @@ class UserDefinedFailedRowsCheck(Check):
         cloud_diagnostics = {
             "value": self.check_value,
         }
-        if self.failed_rows_sample_ref:
+        if self.failed_rows_sample_ref and self.failed_rows_sample_ref.type != SampleRef.TYPE_NOT_PERSISTED:
             cloud_diagnostics["failedRowsFile"] = self.failed_rows_sample_ref.get_cloud_diagnostics_dict()
         return cloud_diagnostics
