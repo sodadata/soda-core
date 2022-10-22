@@ -213,7 +213,7 @@ class DataSourceFixture:
         self._update(drop_schema_if_exists_sql, self.schema_data_source.connection)
 
     def _drop_schema_if_exists_sql(self) -> str:
-        return f"DROP DATABASE {self.schema_name} CASCADE"
+        return f"DROP DATABASE {self.schema_name}"
 
     def _drop_test_table(self, table_name):
         drop_test_table_sql = self._drop_test_table_sql(table_name)
