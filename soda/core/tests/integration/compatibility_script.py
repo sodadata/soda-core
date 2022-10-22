@@ -51,7 +51,7 @@ execute(
              country VARCHAR(255),
              zip VARCHAR(255),
              email VARCHAR(255),
-             date DATE,
+             date_updated DATE,
              ts TIMESTAMP,
              ts_with_tz TIMESTAMPTZ
            )

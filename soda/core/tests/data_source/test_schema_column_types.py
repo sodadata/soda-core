@@ -28,7 +28,7 @@ def test_columns_types_pass(data_source_fixture: DataSourceFixture):
                 {column_type_format('cst_size')}
                 {column_type_format('cst_size_txt')}
                 {column_type_format('distance')}
-                {column_type_format('date')}
+                {column_type_format('date_updated')}
                 {column_type_format('ts')}
                 {column_type_format('ts_with_tz')}
     """
