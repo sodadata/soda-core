@@ -43,7 +43,7 @@ class DROGenerator:
 
         bin_width = np.lib.histograms._hist_bin_auto(data, _range)
 
-        n_bins = min(np.ceil(np.lib.histograms._unsigned_subtract(last_edge, first_edge) / bin_width), data.cst)
+        n_bins = min(np.ceil(np.lib.histograms._unsigned_subtract(last_edge, first_edge) / bin_width), data.size)
         return int(n_bins)
 
     @staticmethod
