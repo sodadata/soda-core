@@ -43,15 +43,15 @@ execute(
     """
         CREATE TABLE dev_tom.SODATEST_Customers_a0344266 (
              id VARCHAR(255),
-             size FLOAT,
-             sizeTxt VARCHAR(255),
+             cst_size FLOAT,
+             cst_size_txt VARCHAR(255),
              distance INT,
              pct VARCHAR(255),
              cat VARCHAR(255),
              country VARCHAR(255),
              zip VARCHAR(255),
              email VARCHAR(255),
-             date DATE,
+             date_updated DATE,
              ts TIMESTAMP,
              ts_with_tz TIMESTAMPTZ
            )
@@ -111,12 +111,12 @@ execute(
           MIN(LENGTH(cat)),
           MAX(LENGTH(cat)),
           AVG(LENGTH(cat)),
-          STDDEV(size),
-          STDDEV_POP(size),
-          STDDEV_SAMP(size),
-          VARIANCE(size),
-          VAR_POP(size),
-          VAR_SAMP(size),
+          STDDEV(cst_size),
+          STDDEV_POP(cst_size),
+          STDDEV_SAMP(cst_size),
+          VARIANCE(cst_size),
+          VAR_POP(cst_size),
+          VAR_SAMP(cst_size),
           PERCENTILE_DISC(0.7) WITHIN GROUP (ORDER BY distance),
           MAX(ts)
         FROM dev_tom.SODATEST_Customers_a0344266
@@ -206,12 +206,12 @@ execute(
           MIN(LENGTH(cat)),
           MAX(LENGTH(cat)),
           AVG(LENGTH(cat)),
-          STDDEV(size),
-          STDDEV_POP(size),
-          STDDEV_SAMP(size),
-          VARIANCE(size),
-          VAR_POP(size),
-          VAR_SAMP(size),
+          STDDEV(cst_size),
+          STDDEV_POP(cst_size),
+          STDDEV_SAMP(cst_size),
+          VARIANCE(cst_size),
+          VAR_POP(cst_size),
+          VAR_SAMP(cst_size),
           PERCENTILE_DISC(0.7) WITHIN GROUP (ORDER BY distance),
           MAX(ts)
         FROM dev_tom.SODATEST_Customers_a0344266
@@ -278,12 +278,12 @@ execute(
           MIN(LENGTH(cat)),
           MAX(LENGTH(cat)),
           AVG(LENGTH(cat)),
-          STDDEV(size),
-          STDDEV_POP(size),
-          STDDEV_SAMP(size),
-          VARIANCE(size),
-          VAR_POP(size),
-          VAR_SAMP(size),
+          STDDEV(cst_size),
+          STDDEV_POP(cst_size),
+          STDDEV_SAMP(cst_size),
+          VARIANCE(cst_size),
+          VAR_POP(cst_size),
+          VAR_SAMP(cst_size),
           PERCENTILE_DISC(0.7) WITHIN GROUP (ORDER BY distance),
           MAX(ts)
         FROM dev_tom.SODATEST_Customers_a0344266
@@ -369,7 +369,7 @@ execute(
         WHERE lower(table_name) = 'sodatest_customers_a0344266'
           AND lower(table_catalog) = 'sodasql'
           AND lower(table_schema) = 'dev_tom'
-          AND (lower(column_name) LIKE lower('sizeTxt') OR lower(column_name) LIKE lower('size'))
+          AND (lower(column_name) LIKE lower('cst_size_txt') OR lower(column_name) LIKE lower('cst_size'))
         ORDER BY ORDINAL_POSITION
     """
 )
@@ -379,10 +379,10 @@ execute(
     """
         WITH
             value_frequencies AS (
-                SELECT \"size\" AS value_, count(*) AS frequency_
+                SELECT \"cst_size\" AS value_, count(*) AS frequency_
                 FROM dev_tom.sodatest_customers_a0344266
-                WHERE \"size\" IS NOT NULL
-                GROUP BY \"size\"
+                WHERE \"cst_size\" IS NOT NULL
+                GROUP BY \"cst_size\"
             ),
             mins AS (
                 SELECT CAST('mins' AS VARCHAR) AS metric_, ROW_NUMBER() OVER(ORDER BY value_ ASC) AS index_, value_, frequency_
@@ -421,12 +421,12 @@ execute(
 execute(
     """
         SELECT
-            avg(\"size\") as average
-            , sum(\"size\") as sum
-            , variance(\"size\") as variance
-            , stddev(\"size\") as standard_deviation
-            , count(distinct(\"size\")) as distinct_values
-            , sum(case when \"size\" is null then 1 else 0 end) as missing_values
+            avg(\"cst_size\") as average
+            , sum(\"cst_size\") as sum
+            , variance(\"cst_size\") as variance
+            , stddev(\"cst_size\") as standard_deviation
+            , count(distinct(\"cst_size\")) as distinct_values
+            , sum(case when \"cst_size\" is null then 1 else 0 end) as missing_values
         FROM dev_tom.sodatest_customers_a0344266
     """
 )
@@ -436,10 +436,10 @@ execute(
     """
         WITH
                        value_frequencies AS (
-                                   SELECT \"size\" AS value_, count(*) AS frequency_
+                                   SELECT \"cst_size\" AS value_, count(*) AS frequency_
                                    FROM dev_tom.sodatest_customers_a0344266
-                                   WHERE \"size\" IS NOT NULL
-                                   GROUP BY \"size\"
+                                   WHERE \"cst_size\" IS NOT NULL
+                                   GROUP BY \"cst_size\"
                                )
                    SELECT SUM(CASE WHEN value_ < -2.55 THEN frequency_ END),
         SUM(CASE WHEN -2.55 <= value_ AND value_ < -2.1 THEN frequency_ END),
@@ -465,15 +465,15 @@ execute(
     """
 )
 
-# profiling-sodatest_customers_a0344266-sizetxt-value-frequencies-text
+# profiling-sodatest_customers_a0344266-cst_size_txt-value-frequencies-text
 execute(
     """
         WITH
             value_frequencies AS (
-                SELECT \"sizetxt\" AS value_, count(*) AS frequency_
+                SELECT \"cst_size_txt\" AS value_, count(*) AS frequency_
                 FROM dev_tom.sodatest_customers_a0344266
-                WHERE \"sizetxt\" IS NOT NULL
-                GROUP BY \"sizetxt\"
+                WHERE \"cst_size_txt\" IS NOT NULL
+                GROUP BY \"cst_size_txt\"
             ),
             frequent_values AS (
                 SELECT CAST('frequent_values' AS VARCHAR) AS metric_, ROW_NUMBER() OVER(ORDER BY frequency_ DESC) AS index_, value_, frequency_
@@ -487,15 +487,15 @@ execute(
     """
 )
 
-# profiling: sodatest_customers_a0344266, sizetxt: get textual aggregates
+# profiling: sodatest_customers_a0344266, cst_size_txt: get textual aggregates
 execute(
     """
         SELECT
-            count(distinct(\"sizetxt\")) as distinct_values
-            , sum(case when \"sizetxt\" is null then 1 else 0 end) as missing_values
-            , avg(length(\"sizetxt\")) as avg_length
-            , min(length(\"sizetxt\")) as min_length
-            , max(length(\"sizetxt\")) as max_length
+            count(distinct(\"cst_size_txt\")) as distinct_values
+            , sum(case when \"cst_size_txt\" is null then 1 else 0 end) as missing_values
+            , avg(length(\"cst_size_txt\")) as avg_length
+            , min(length(\"cst_size_txt\")) as min_length
+            , max(length(\"cst_size_txt\")) as max_length
         FROM dev_tom.sodatest_customers_a0344266
     """
 )

@@ -9,10 +9,10 @@ def test_min_max_avg_sum(data_source_fixture: DataSourceFixture):
     scan.add_sodacl_yaml_str(
         f"""
       checks for {table_name}:
-        - min(size) = -3
-        - max(size) = 6
-        - avg(size) between 1.12 and 1.13
-        - sum(size) between 7.8 and 7.9
+        - min(cst_size) = -3
+        - max(cst_size) = 6
+        - avg(cst_size) between 1.12 and 1.13
+        - sum(cst_size) between 7.8 and 7.9
     """
     )
     scan.execute()

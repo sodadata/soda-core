@@ -14,7 +14,7 @@ def test_failed_rows_table_expression_with_limit(data_source_fixture: DataSource
             - failed rows:
                 name: failed rows with limit
                 samples limit: 1
-                fail condition: cat = 'HIGH' and size > 0
+                fail condition: cat = 'HIGH' and cst_size > 0
         """
     )
     scan.execute()
@@ -32,8 +32,8 @@ def test_failed_rows_table_expression(data_source_fixture: DataSourceFixture):
         f"""
           checks for {table_name}:
             - failed rows:
-                name: High customers must have size less than 3
-                fail condition: cat = 'HIGH' and size < .7
+                name: High customers must have cst_size less than 3
+                fail condition: cat = 'HIGH' and cst_size < .7
         """
     )
     scan.execute()
@@ -55,12 +55,12 @@ def test_failed_rows_data_source_query_with_limit(data_source_fixture: DataSourc
         f"""
           checks:
             - failed rows:
-                name: Customers must have size
+                name: Customers must have cst_size
                 samples limit: 1
                 fail query: |
                   SELECT *
                   FROM {qualified_table_name}
-                  WHERE size > 0
+                  WHERE cst_size > 0
         """
     )
     scan.execute()
@@ -82,11 +82,11 @@ def test_failed_rows_data_source_query(data_source_fixture: DataSourceFixture):
         f"""
           checks:
             - failed rows:
-                name: Customers must have size
+                name: Customers must have cst_size
                 fail query: |
                   SELECT *
                   FROM {qualified_table_name}
-                  WHERE size < 0
+                  WHERE cst_size < 0
         """
     )
     scan.execute()
@@ -106,11 +106,11 @@ def test_failed_rows_table_query(data_source_fixture: DataSourceFixture):
         f"""
           checks for {table_name}:
             - failed rows:
-                name: Customers must have size
+                name: Customers must have cst_size
                 fail query: |
                   SELECT *
                   FROM {qualified_table_name}
-                  WHERE size < 0
+                  WHERE cst_size < 0
         """
     )
     scan.execute()
@@ -129,11 +129,11 @@ def test_failed_rows_table_query_with_variables(data_source_fixture: DataSourceF
         f"""
           checks for {table_name}:
             - failed rows:
-                name: Customers must have size
+                name: Customers must have cst_size
                 fail query: |
                   SELECT *
                   FROM {qualified_table_name}
-                  WHERE size < ${{size_count}}
+                  WHERE cst_size < ${{size_count}}
         """
     )
     scan.execute()
@@ -154,7 +154,7 @@ def test_failed_rows_table_query_with_limit(data_source_fixture: DataSourceFixtu
         f"""
           checks for {table_name}:
             - failed rows:
-                name: Customers must have size
+                name: Customers must have cst_size
                 samples limit: 1
                 fail query: |
                   SELECT *

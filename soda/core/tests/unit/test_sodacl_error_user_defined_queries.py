@@ -10,7 +10,7 @@ def test_user_defined_metric_query_unsupported_configuration():
             """
       checks for CUSTOMERS:
         - avg_surface between 1068 and 1069:
-            typo config: AVG(size * distance)
+            typo config: AVG(cst_size * distance)
     """
         )
     )
@@ -24,7 +24,7 @@ def test_user_defined_metric_query_metric_name_typo():
             """
       checks for CUSTOMERS:
         - avg_surface between 1068 and 1069:
-            avg_surfas expression: AVG(size * distance)
+            avg_surfas expression: AVG(cst_size * distance)
     """
         )
     )

@@ -47,8 +47,8 @@ def generate_compatibility_script():
               - include {table_name}
           profile columns:
             columns:
-              - {table_name}.size
-              - {table_name}.sizeTxt
+              - {table_name}.cst_size
+              - {table_name}.cst_size_txt
           checks for {table_name}:
             - row_count = 10.0
             - row_count = 3:
@@ -60,12 +60,12 @@ def generate_compatibility_script():
             - min_length(cat) = 3
             - max_length(cat) = 6
             - avg_length(cat) = 4.2
-            - stddev(size) between 3.26 and 3.27
-            - stddev_pop(size) between 3.02 and 3.03
-            - stddev_samp(size) between 3.26 and 3.27
-            - variance(size) between 10.65 and 10.66
-            - var_pop(size) between 9.13 and 9.14
-            - var_samp(size) between 10.65 and 10.66
+            - stddev(cst_size) between 3.26 and 3.27
+            - stddev_pop(cst_size) between 3.02 and 3.03
+            - stddev_samp(cst_size) between 3.26 and 3.27
+            - variance(cst_size) between 10.65 and 10.66
+            - var_pop(cst_size) between 9.13 and 9.14
+            - var_samp(cst_size) between 10.65 and 10.66
             - percentile(distance, 0.7) = 999
             - freshness(ts) < 1d
             - schema:

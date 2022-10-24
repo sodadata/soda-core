@@ -143,7 +143,7 @@ def test_anomaly_detection_fail_with_custom_threshold(data_source_fixture: DataS
         pytest.param("duplicate_count", "country", id="duplicate_count"),
         pytest.param("missing_count", "country", id="missing_count"),
         pytest.param("missing_percent", "country", id="missing_percent"),
-        pytest.param("min", "size", id="min"),
+        pytest.param("min", "cst_size", id="min"),
         pytest.param("avg_length", "country", id="avg_length"),
     ],
 )
