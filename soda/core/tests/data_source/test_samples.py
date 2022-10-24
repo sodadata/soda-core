@@ -68,7 +68,7 @@ def assert_missing_sample(mock_soda_cloud, check_index):
     failed_rows_file = diagnostics["failedRowsFile"]
     columns = failed_rows_file["columns"]
     assert columns[0]["name"].lower() == "id"
-    assert columns[1]["name"].lower() == "size"
+    assert columns[1]["name"].lower() == "cst_size"
     assert failed_rows_file["totalRowCount"] == 1
     assert failed_rows_file["storedRowCount"] == 1
     reference = failed_rows_file["reference"]
@@ -184,7 +184,7 @@ def test_sample_limit_configuration(data_source_fixture: DataSourceFixture):
       checks for {table_name}:
         - missing_percent(email) < 50:
             samples limit: 2
-        - values in (size) must exist in {another_table_name} (size):
+        - values in (cst_size) must exist in {another_table_name} (cst_size):
             samples limit: 2
         - duplicate_count(zip) = 0:
             samples limit: 2

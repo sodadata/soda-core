@@ -17,8 +17,8 @@ def test_checks_parsing():
         - row_count between .0005 and 10.45
         - row_count between (0 and 10.
         - row_count between (0 and 10.0)
-        - invalid_count(size) >= .5
-        - change avg last 7 for missing(size) between -100 and +1)
+        - invalid_count(cst_size) >= .5
+        - change avg last 7 for missing(cst_size) between -100 and +1)
       checks for "Quoted table name with weird $%()[]\\" chars":
         - row_count between 100 and 500
         - custom_column_metric("Weird column with [$%\\(\\)[] special chars") = 0
@@ -32,7 +32,7 @@ def test_checks_parsing():
     customers_table_cfg = data_source_scan_cfg.tables_cfgs["CUSTOMERS"]
     customers_partition_cfg = customers_table_cfg.partition_cfgs[0]
     assert len(customers_partition_cfg.check_cfgs) == 4
-    assert len(customers_partition_cfg.column_checks_cfgs["size"].check_cfgs) == 2
+    assert len(customers_partition_cfg.column_checks_cfgs["cst_size"].check_cfgs) == 2
 
     weird_name_table_cfg = data_source_scan_cfg.tables_cfgs['"Quoted table name with weird $%()[]\\" chars"']
     weird_name_partition_cfg = weird_name_table_cfg.partition_cfgs[0]
@@ -56,8 +56,8 @@ def test_configurations_parsing():
       configurations for CUSTOMERS:
         missing values for id: [N/A, No value]
         valid format for id: uuid
-        valid max length for size: 6
-        valid min for size: -500.10
+        valid max length for cst_size: 6
+        valid min for cst_size: -500.10
     """
         ).strip()
     )
@@ -68,8 +68,8 @@ def test_configurations_parsing():
 
     assert customers_table_cfg.column_configurations_cfgs["id"].missing_values == ["N/A", "No value"]
     assert customers_table_cfg.column_configurations_cfgs["id"].valid_format == "uuid"
-    assert customers_table_cfg.column_configurations_cfgs["size"].valid_max_length == 6
-    assert customers_table_cfg.column_configurations_cfgs["size"].valid_min == -500.10
+    assert customers_table_cfg.column_configurations_cfgs["cst_size"].valid_max_length == 6
+    assert customers_table_cfg.column_configurations_cfgs["cst_size"].valid_min == -500.10
 
 
 def test_wrong_yaml():
