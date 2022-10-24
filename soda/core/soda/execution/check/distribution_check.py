@@ -121,10 +121,18 @@ class DistributionCheck(Check):
 
         partition_filter = self.partition.sql_partition_filter
         partition_str = ""
-        if partition_filter:
+        
+        distribution_check_filter = distribution_check_cfg.filter
+
+        if distribution_check_filter:
+            scan = self.data_source_scan.scan 
+            resolved_distribution_check_filter = scan.jinja_resolve(definition=distribution_check_filter)
+            partition_str = f"\nWHERE {resolved_distribution_check_filter}"
+        elif partition_filter:
             scan = self.data_source_scan.scan
             resolved_filter = scan.jinja_resolve(definition=partition_filter)
             partition_str = f"\nWHERE {resolved_filter}"
+
         return self.data_source_scan.data_source.sql_select_column_with_filter_and_limit(
             column_name=column_name,
             table_name=self.partition.table.qualified_table_name,
