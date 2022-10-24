@@ -63,7 +63,7 @@ class DistributionChecker:
         dist_name: Union[str, None],
         data: List[Any],
     ):
-        if not data:
+        if len(data) == 0:
             raise EmptyDistributionCheckColumn(
                 f"""The column for which you defined this distribution check does not return any data. Make sure that """
                 f"""the columns + filters that you use do not result in empty datasets. For more information visit the docs:\n"""
