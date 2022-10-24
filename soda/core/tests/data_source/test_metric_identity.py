@@ -35,13 +35,13 @@ def test_column_metric_identities(data_source_fixture: DataSourceFixture):
           checks for {table_name}:
 
             # Next checks should be based on the same, single metric
-            - missing_count(size) > 0
-            - missing_count(size) > 0:
+            - missing_count(cst_size) > 0
+            - missing_count(cst_size) > 0:
                 name: This custom name should not affect metric identity
-            - missing_count(size) > 1 # Another threshold should also not affect metric identity
+            - missing_count(cst_size) > 1 # Another threshold should also not affect metric identity
 
             # Next check should create a second, distinct metric
-            - missing_count(size) > 2:
+            - missing_count(cst_size) > 2:
                 filter: cat is not null
         """
     )

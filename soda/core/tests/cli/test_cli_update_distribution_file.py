@@ -22,7 +22,7 @@ def test_cli_update_distribution_file(data_source_fixture: DataSourceFixture, mo
         f"{user_home_dir}/customers_distribution_reference.yml": dedent(
             f"""
                 table: {table_name}
-                column: size
+                column: cst_size
                 distribution_type: continuous
             """
         ),
