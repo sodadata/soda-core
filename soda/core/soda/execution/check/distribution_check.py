@@ -121,11 +121,11 @@ class DistributionCheck(Check):
 
         partition_filter = self.partition.sql_partition_filter
         partition_str = ""
-        
+
         distribution_check_filter = distribution_check_cfg.filter
 
         if distribution_check_filter:
-            scan = self.data_source_scan.scan 
+            scan = self.data_source_scan.scan
             resolved_distribution_check_filter = scan.jinja_resolve(definition=distribution_check_filter)
             partition_str = f"\nWHERE ({resolved_distribution_check_filter})"
         if partition_filter:
