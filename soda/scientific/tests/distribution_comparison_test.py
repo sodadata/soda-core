@@ -587,7 +587,7 @@ def test_missing_bins_weights(test_data, dist_ref_file_path, method):
         pytest.param(
             pd.Series([]),
             "soda/scientific/tests/assets/dist_ref_continuous.yml",
-            'ks', 
+            "ks",
             id="empty test data",
         ),
     ],
