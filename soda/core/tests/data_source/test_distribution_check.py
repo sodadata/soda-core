@@ -138,7 +138,7 @@ def test_distribution_missing_bins_weights(data_source_fixture: DataSourceFixtur
     )
 
     log = next(log for log in scan._logs.logs if isinstance(log.message, MissingBinsWeightsException))
-    assert log.message.args[0] == log_message
+    assert str(log.message) == log_message
 
 
 def test_distribution_check_with_dro_name(data_source_fixture: DataSourceFixture, mock_file_system):
@@ -215,3 +215,48 @@ def test_distribution_check_without_method(data_source_fixture: DataSourceFixtur
 
     scan.enable_mock_soda_cloud()
     scan.execute()
+
+
+def test_distribution_check_with_filter_empty_data(data_source_fixture: DataSourceFixture, mock_file_system):
+    from soda.scientific.distribution.comparison import EmptyDistributionCheckColumn
+    table_name = data_source_fixture.ensure_test_table(customers_dist_check_test_table)
+    table_name = data_source_fixture.data_source.default_casify_table_name(table_name)
+
+    scan = data_source_fixture.create_test_scan()
+
+    user_home_dir = mock_file_system.user_home_dir()
+
+    mock_file_system.files = {
+        f"{user_home_dir}/customers_cst_size_distribution_reference.yml": dedent(
+            f"""
+            dataset: {table_name}
+            column: cst_size
+            distribution_type: continuous
+            distribution_reference:
+                bins: [1, 2, 3]
+                weights: [0.5, 0.2, 0.3]
+        """
+        ).strip(),
+    }
+
+    scan.add_sodacl_yaml_str(
+        f"""
+        checks for {table_name}:
+            - distribution_difference(cst_size) >= 0.05:
+                distribution reference file: {user_home_dir}/customers_cst_size_distribution_reference.yml
+                filter: cst_size > 1000000
+    """
+    )
+    
+    scan.enable_mock_soda_cloud()
+
+    scan.execute(allow_error_warning=True)
+
+    log_message = (
+        'The column for which you defined this distribution check does not return any data. Make sure'
+        ' that the columns + filters that you use do not result in empty datasets. For more'
+        ' information visit the docs:\nhttps://docs.soda.io/soda-cl/distribution.html#define-a-distribution-check'
+    )
+
+    log = next(log for log in scan._logs.logs if isinstance(log.message, EmptyDistributionCheckColumn))
+    assert str(log.message) == log_message
