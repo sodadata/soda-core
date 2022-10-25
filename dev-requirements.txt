@@ -4,43 +4,45 @@
 #
 #    pip-compile dev-requirements.in
 #
-attrs==21.4.0
+attrs==22.1.0
     # via pytest
 black==22.6.0
     # via -r dev-requirements.in
-bleach==4.1.0
+bleach==5.0.1
     # via readme-renderer
-certifi==2021.10.8
+build==0.8.0
+    # via pip-tools
+certifi==2022.9.24
     # via requests
-charset-normalizer==2.0.12
+charset-normalizer==2.1.1
     # via requests
-cli-ui==0.16.0
+cli-ui==0.17.2
     # via tbump
-click==8.0.4
+click==8.1.3
     # via
     #   black
     #   pip-tools
-colorama==0.4.4
+colorama==0.4.6
     # via cli-ui
 contextlib2==21.6.0
     # via schema
-coverage[toml]==6.3.2
+coverage[toml]==6.5.0
     # via pytest-cov
-distlib==0.3.4
+distlib==0.3.6
     # via virtualenv
 docker==5.0.3
     # via tox-docker
 docopt==0.6.2
     # via tbump
-docutils==0.18.1
+docutils==0.19
     # via readme-renderer
-faker==13.3.0
+faker==15.1.1
     # via -r dev-requirements.in
-filelock==3.6.0
+filelock==3.8.0
     # via
     #   tox
     #   virtualenv
-idna==3.3
+idna==3.4
     # via requests
 iniconfig==1.1.1
     # via pytest
@@ -48,16 +50,16 @@ mypy-extensions==0.4.3
     # via black
 packaging==21.3
     # via
-    #   bleach
+    #   build
     #   pytest
     #   tox
-pathspec==0.9.0
+pathspec==0.10.1
     # via black
-pep517==0.12.0
-    # via pip-tools
-pip-tools==6.5.1
+pep517==0.13.0
+    # via build
+pip-tools==6.9.0
     # via -r dev-requirements.in
-platformdirs==2.5.1
+platformdirs==2.5.2
     # via
     #   black
     #   virtualenv
@@ -69,31 +71,31 @@ py==1.11.0
     # via
     #   pytest
     #   tox
-pygments==2.11.2
+pygments==2.13.0
     # via
     #   -r dev-requirements.in
     #   readme-renderer
-pyparsing==3.0.7
+pyparsing==3.0.9
     # via packaging
-pytest==7.0.1
+pytest==7.1.3
     # via
     #   -r dev-requirements.in
     #   pytest-cov
     #   pytest-html
     #   pytest-metadata
-pytest-cov==3.0.0
+pytest-cov==4.0.0
     # via -r dev-requirements.in
 pytest-html==3.1.1
     # via -r dev-requirements.in
-pytest-metadata==1.11.0
+pytest-metadata==2.0.2
     # via pytest-html
 python-dateutil==2.8.2
     # via faker
-python-dotenv==0.19.2
+python-dotenv==0.21.0
     # via -r dev-requirements.in
-readme-renderer==32.0
+readme-renderer==37.2
     # via -r dev-requirements.in
-requests==2.27.1
+requests==2.28.1
     # via docker
 schema==0.7.5
     # via tbump
@@ -102,42 +104,41 @@ six==1.16.0
     #   bleach
     #   python-dateutil
     #   tox
-    #   virtualenv
-tabulate==0.8.9
+tabulate==0.8.10
     # via cli-ui
-tbump==6.7.0
+tbump==6.9.0
     # via -r dev-requirements.in
-toml==0.10.2
-    # via tox
 tomli==2.0.1
     # via
     #   black
+    #   build
     #   coverage
     #   pep517
     #   pytest
-tomlkit==0.10.0
+    #   tox
+tomlkit==0.11.5
     # via tbump
-tox==3.24.5
+tox==3.26.0
     # via
     #   -r dev-requirements.in
     #   tox-docker
 tox-docker==3.1.0
     # via -r dev-requirements.in
-typing-extensions==4.3.0
+typing-extensions==4.4.0
     # via
     #   -r dev-requirements.in
     #   black
-unidecode==1.3.3
+unidecode==1.3.6
     # via cli-ui
-urllib3==1.26.8
+urllib3==1.26.12
     # via
     #   -r dev-requirements.in
     #   requests
-virtualenv==20.13.2
+virtualenv==20.16.5
     # via tox
 webencodings==0.5.1
     # via bleach
-websocket-client==1.3.1
+websocket-client==1.4.1
     # via docker
 wheel==0.37.1
     # via pip-tools
