@@ -50,6 +50,10 @@ class MissingDRONameException(LoggableException):
     """Thrown when the distribution reference file structure appears to contain named DROs but no DRO name is provided"""
 
 
+class EmptyDistributionCheckColumn(LoggableException):
+    """Thrown when the column for which the distribution check is defined contains no data"""
+
+
 class DistributionChecker:
     def __init__(
         self,
@@ -59,6 +63,12 @@ class DistributionChecker:
         dist_name: Union[str, None],
         data: List[Any],
     ):
+        if len(data) == 0:
+            raise EmptyDistributionCheckColumn(
+                f"""The column for which you defined this distribution check does not return any data. Make sure that """
+                f"""the columns + filters that you use do not result in empty datasets. For more information visit the docs:\n"""
+                f"""https://docs.soda.io/soda-cl/distribution.html#define-a-distribution-check"""
+            )
         self.test_data = data
         self.dist_ref, self.dist_method = self._parse_reference_cfg(
             dist_method, dist_ref_yaml, dist_ref_file_path, dist_name
