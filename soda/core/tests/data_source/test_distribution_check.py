@@ -217,7 +217,7 @@ def test_distribution_check_without_method(data_source_fixture: DataSourceFixtur
     scan.execute()
 
 
-def test_distribution_check_with_filter_empty_data(data_source_fixture: DataSourceFixture, mock_file_system):
+def test_distribution_check_with_filter_no_data(data_source_fixture: DataSourceFixture, mock_file_system):
     from soda.scientific.distribution.comparison import EmptyDistributionCheckColumn
     table_name = data_source_fixture.ensure_test_table(customers_dist_check_test_table)
     table_name = data_source_fixture.data_source.default_casify_table_name(table_name)
@@ -249,7 +249,6 @@ def test_distribution_check_with_filter_empty_data(data_source_fixture: DataSour
     )
     
     scan.enable_mock_soda_cloud()
-
     scan.execute(allow_error_warning=True)
 
     log_message = (
