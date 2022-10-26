@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 DATA_SOURCE = "data_source"
 CONNECTION = "connection"
 SODA_CLOUD = "soda_cloud"
-DBT_CLOUD_API_TOKEN = "dbt_cloud"
+DBT_CLOUD = "dbt_cloud"
 
 
 class ConfigurationParser(Parser):
@@ -57,9 +57,34 @@ class ConfigurationParser(Parser):
                                 self.configuration.data_source_properties_by_name[data_source_name][k] = v
                     else:
                         self.logs.error(
-                            "connection must be a dict",
+                            "'connection' configuration must be a dict",
                             location=self.location,
                         )
+
+                # Sampler configuration
+                sampler_configuration = header_value.get("sampler")
+                if sampler_configuration:
+                    if isinstance(sampler_configuration, dict):
+                        exclude_columns = sampler_configuration.get("exclude_columns", {})
+                        if exclude_columns:
+                            if isinstance(exclude_columns, dict):
+                                self.configuration.exclude_columns = exclude_columns
+                            else:
+                                self.logs.error(
+                                    "'exclude_columns' configuration must be a dict",
+                                    location=self.location,
+                                )
+
+                        custom_storage = sampler_configuration.get("custom_storage")
+                        if custom_storage:
+                            # TODO: deal with custom sampler storage config.
+                            pass
+                    else:
+                        self.logs.error(
+                            "'sampler' configuration must be a dict",
+                            location=self.location,
+                        )
+
                 self._pop_path_element()
 
             elif environment_header == SODA_CLOUD:
@@ -69,8 +94,8 @@ class ConfigurationParser(Parser):
                     self.configuration.sampler = SodaCloudSampler()
                 self._pop_path_element()
 
-            elif environment_header == DBT_CLOUD_API_TOKEN:
-                self._push_path_element(DBT_CLOUD_API_TOKEN, header_value)
+            elif environment_header == DBT_CLOUD:
+                self._push_path_element(DBT_CLOUD, header_value)
                 self.configuration.dbt_cloud = self.parse_dbt_cloud_cfg(header_value)
                 self._pop_path_element()
 
