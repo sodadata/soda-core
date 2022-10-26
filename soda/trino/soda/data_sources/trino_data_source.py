@@ -63,22 +63,36 @@ class TrinoDataSource(DataSource):
         self.host = data_source_properties.get("host", "localhost")
         self.port = data_source_properties.get("port", "443")
         self.http_scheme = data_source_properties.get("http_scheme", "https")
-        self.username = data_source_properties.get("username")
-        self.password = data_source_properties.get("password")
         self.catalog = data_source_properties.get("catalog")
         self.schema = data_source_properties.get("schema")
+        self.username = data_source_properties.get("username")
+        self.authType = data_source_properties.get("auth_type", "BasicAuthentication")
+        self.password = data_source_properties.get("password")
 
     def connect(self):
+        # Default to BasicAuthentication so we don't break current users.
+        if self.authType == 'BasicAuthentication':
+            self.auth = trino.auth.BasicAuthentication(self.username, self.password)
+        elif self.authType == 'NoAuthentication':
+            # No auth typically should use http. If your connection fails, try 'http_scheme: http' in your data source confguration.
+            self.auth = None
+        # Add other auth types here as needed
+        else:
+            logger.error("Unrecognized Trino authentication type.")
+            self.connection = None
+            return
+
         self.connection = trino.dbapi.connect(
-            # experimental_python_types is required to recieve value in appropriate python data types
+            # experimental_python_types is required to recieve values in appropriate python data types
             # https://github.com/trinodb/trino-python-client#improved-python-types
-            experimental_python_types=True,
-            host=self.host,
-            port=self.port,
-            catalog=self.catalog,
-            schema=self.schema,
-            http_scheme=self.http_scheme,
-            auth=trino.auth.BasicAuthentication(self.username, self.password),
+            experimental_python_types = True,
+            host = self.host,
+            port = self.port,
+            catalog = self.catalog,
+            schema = self.schema,
+            user = self.username,
+            http_scheme = self.http_scheme,
+            auth = self.auth
         )
 
     def regex_replace_flags(self) -> str:
