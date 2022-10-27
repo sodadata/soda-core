@@ -154,6 +154,10 @@ class SQLServerDataSource(DataSource):
     def literal_date(self, dt: datetime):
         return f"'{dt.strftime('%Y-%m-%d')}'"
 
+
+    def expr_count(self, expr):
+        return f"COUNT_BIG({expr})"
+
     def expr_length(self, expr):
         return f"LEN({expr})"
 
