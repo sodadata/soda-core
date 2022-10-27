@@ -95,6 +95,10 @@ class SnowflakeDataSource(DataSource):
         self.authenticator = data_source_properties.get("authenticator", "snowflake")
         self.session_params = data_source_properties.get("session_parameters")
 
+    @property
+    def has_sample_sql(self) -> bool:
+        return True
+
     def connect(self):
         self.connection = connector.connect(
             user=self.user,

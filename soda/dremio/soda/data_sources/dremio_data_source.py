@@ -68,6 +68,10 @@ class DremioDataSource(DataSource):
         self.schema = data_source_properties.get("schema")
         self.use_encryption = data_source_properties.get("use_encryption", "false")
 
+    @property
+    def has_sample_sql(self) -> bool:
+        return False
+
     def connect(self):
         try:
             self.connection = pyodbc.connect(

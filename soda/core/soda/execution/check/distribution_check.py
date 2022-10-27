@@ -50,9 +50,7 @@ class DistributionCheck(Check):
         except ModuleNotFoundError as e:
             self.logs.error(f"{SODA_SCIENTIFIC_MISSING_LOG_MESSAGE}\n Original error: {e}")
             return
-        # Disable limit if sample is defined by the user
-        limit = 1e6
-        sql = self.sql_column_values_query(self.distribution_check_cfg, limit=limit)
+        sql = self.sql_column_values_query(self.distribution_check_cfg, limit=1e6)
 
         self.query = Query(
             data_source_scan=self.data_source_scan,
@@ -64,14 +62,12 @@ class DistributionCheck(Check):
             test_data = [row[0] for row in self.query.rows]
             ref_file_path = self.distribution_check_cfg.reference_file_path
             dist_method = self.distribution_check_cfg.method
-            dist_name = self.distribution_check_cfg.distribution_name
+
             dist_ref_yaml = self.data_source_scan.scan._read_file(
                 file_type="disribution reference object yaml", file_path=ref_file_path
             )
             try:
-                check_result_dict = DistributionChecker(
-                    dist_method, dist_ref_yaml, ref_file_path, dist_name, test_data
-                ).run()
+                check_result_dict = DistributionChecker(dist_method, dist_ref_yaml, ref_file_path, test_data).run()
                 self.check_value = check_result_dict["check_value"]
                 self.metrics["distribution-difference-metric"].value = self.check_value
                 self.set_outcome_based_on_check_value()

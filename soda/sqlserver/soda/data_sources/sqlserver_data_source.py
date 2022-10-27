@@ -73,6 +73,10 @@ class SQLServerDataSource(DataSource):
 
         self.DEFAULT_FORMAT_EXPRESSIONS.update(self.build_default_format_expressions())
 
+    @property
+    def has_sample_sql(self) -> bool:
+        return True
+
     def build_default_format_expressions(self) -> dict[str, str]:
         def construct_like(
             pattern_like: str, pattern_not_like: str | None = None, extra_conditions: str | None = None

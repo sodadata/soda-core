@@ -1,3 +1,4 @@
+import pytest
 from helpers.common_test_tables import customers_test_table
 from helpers.data_source_fixture import DataSourceFixture
 from helpers.fixtures import test_data_source
@@ -94,4 +95,48 @@ def test_table_filter_on_timestamp(data_source_fixture: DataSourceFixture):
     )
     scan.execute()
 
+    scan.assert_all_checks_pass()
+
+
+def test_filter_with_random_key(data_source_fixture: DataSourceFixture):
+    table_name = data_source_fixture.ensure_test_table(customers_test_table)
+    scan = data_source_fixture.create_test_scan()
+    scan.add_variables({"DATE": "2020-06-23"})
+    date_expr = "" if test_data_source == "sqlserver" else "DATE"
+    scan.add_sodacl_yaml_str(
+        f"""
+          filter {table_name} [daily]:
+            random: date = {date_expr} '${{DATE}}'
+
+          checks for {table_name}:
+            - row_count = 10
+            - missing_count(cat) = 5
+
+          checks for {table_name} [daily]:
+            - row_count = 6
+            - missing_count(cat) = 2
+        """
+    )
+    scan.execute(allow_error_warning=True)
+    scan.assert_check_fail()
+
+
+@pytest.mark.skip(reason="Does not work with the unit test DB yet")
+def test_filter_with_sample_key(data_source_fixture: DataSourceFixture):
+    table_name = data_source_fixture.ensure_test_table(customers_test_table)
+    scan = data_source_fixture.create_test_scan()
+
+    scan.add_sodacl_yaml_str(
+        f"""
+          filter {table_name} [daily]:
+            sample: TABLESAMPLE  SYSTEM (20) REPEATABLE (200)
+
+          checks for {table_name}:
+            - min(cat) = 0
+
+          checks for {table_name} [daily]:
+            - min(cat) = 2
+        """
+    )
+    scan.execute()
     scan.assert_all_checks_pass()

@@ -125,6 +125,10 @@ class BigQueryDataSource(DataSource):
         if storage_project_id:
             self.storage_project_id = storage_project_id
 
+    @property
+    def has_sample_sql(self) -> bool:
+        return True
+
     def connect(self):
         try:
             self.client = bigquery.Client(

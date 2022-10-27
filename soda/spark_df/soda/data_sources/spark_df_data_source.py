@@ -33,6 +33,10 @@ class SparkDfDataSource(SparkSQLBase):
         super().__init__(logs, data_source_name, data_source_properties)
         self.spark_session = data_source_properties.get("spark_session")
 
+    @property
+    def has_sample_sql(self) -> bool:
+        return True
+
     def connect(self):
         self.connection = SparkDfConnection(self.spark_session)
 

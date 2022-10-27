@@ -67,6 +67,10 @@ class Db2DataSource(DataSource):
         self.schema = data_source_properties.get("schema")
         self.update_schema(self.schema)
 
+    @property
+    def has_sample_sql(self) -> bool:
+        return True
+
     def connect(self):
         conn_str = (
             f"DATABASE={self.database};HOSTNAME={self.host};PORT={self.port};UID={self.username};PWD={self.password}"

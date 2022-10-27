@@ -68,6 +68,10 @@ class TrinoDataSource(DataSource):
         self.catalog = data_source_properties.get("catalog")
         self.schema = data_source_properties.get("schema")
 
+    @property
+    def has_sample_sql(self) -> bool:
+        return False
+
     def connect(self):
         self.connection = trino.dbapi.connect(
             # experimental_python_types is required to recieve value in appropriate python data types

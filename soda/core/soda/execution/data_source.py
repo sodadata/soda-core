@@ -238,6 +238,12 @@ class DataSource:
 
         return True
 
+    @property
+    def has_sample_sql(self) -> bool:
+        if self.database == "postgres":
+            return True
+        return False
+
     def create_data_source_scan(self, scan: Scan, data_source_scan_cfg: DataSourceScanCfg):
         from soda.execution.data_source_scan import DataSourceScan
 
@@ -1075,7 +1081,6 @@ class DataSource:
         sample_clauses_str = f"\n {sample_clause}" if sample_clause else ""
         limit_str = f"\n LIMIT {limit}" if limit else ""
         sql = f"SELECT \n" f"  {column_name} \n" f"FROM {table_name}{sample_clauses_str}{filter_clauses_str}{limit_str}"
-
         return sql
 
     def expr_false_condition(self):

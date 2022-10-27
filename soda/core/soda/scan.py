@@ -389,7 +389,12 @@ class Scan:
                         for partition_cfg in table_cfg.partition_cfgs:
                             partition: Partition = table.get_or_create_partition(partition_cfg.partition_name)
                             partition.set_partition_cfg(partition_cfg)
-
+                            if partition.sql_sample and not data_source_scan.data_source.has_sample_sql:
+                                self._logs.error(
+                                    f'Data source:{data_source_scan.data_source.database} does not support "sample" '
+                                    'queries, instead use "where" in your dataset filter at '
+                                    f"{partition_cfg.locations[0]}"
+                                )
                             for check_cfg in partition_cfg.check_cfgs:
                                 self.__create_check(check_cfg, data_source_scan, partition)
 

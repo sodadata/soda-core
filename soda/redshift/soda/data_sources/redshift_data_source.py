@@ -47,6 +47,10 @@ class RedshiftDataSource(DataSource):
             options=options,
         )
 
+    @property
+    def has_sample_sql(self) -> bool:
+        return True
+
     def __get_cluster_credentials(self, aws_credentials: AwsCredentials):
         resolved_aws_credentials = aws_credentials.resolve_role(
             role_session_name="soda_redshift_get_cluster_credentials"

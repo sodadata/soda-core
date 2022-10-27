@@ -169,6 +169,10 @@ class SparkSQLBase(DataSource):
     def __init__(self, logs: Logs, data_source_name: str, data_source_properties: dict):
         super().__init__(logs, data_source_name, data_source_properties)
 
+    @property
+    def has_sample_sql(self) -> bool:
+        return True
+
     def get_table_columns(
         self,
         table_name: str,

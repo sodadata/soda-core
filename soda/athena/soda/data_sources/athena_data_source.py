@@ -36,6 +36,10 @@ class AthenaDataSource(DataSource):
             profile_name=data_source_properties.get("profile_name"),
         )
 
+    @property
+    def has_sample_sql(self) -> bool:
+        return True
+
     def connect(self):
         try:
             self.connection = pyathena.connect(

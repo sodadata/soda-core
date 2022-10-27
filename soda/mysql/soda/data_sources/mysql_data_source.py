@@ -74,6 +74,10 @@ class MySQLDataSource(DataSource):
             }
         )
 
+    @property
+    def has_sample_sql(self) -> bool:
+        return True
+
     def connect(self):
         try:
             self.connection = mysql.connector.connect(
