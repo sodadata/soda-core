@@ -25,10 +25,16 @@ class AggregationQuery(Query):
         select_expression_sql = f",\n  ".join(self.select_expressions)
         self.sql = f"SELECT \n" f"  {select_expression_sql} \n" f"FROM {self.partition.table.qualified_table_name}"
 
+        sql_sample = self.partition.sql_sample
+        if sql_sample:
+            resolved_sample = scan.jinja_resolve(definition=sql_sample)
+            self.sql += f"\n{resolved_sample}"
+
         partition_filter = self.partition.sql_partition_filter
         if partition_filter:
             resolved_filter = scan.jinja_resolve(definition=partition_filter)
             self.sql += f"\nWHERE {resolved_filter}"
+
         self.sql = self.data_source_scan.scan.jinja_resolve(self.sql)
         self.fetchone()
         if self.row:

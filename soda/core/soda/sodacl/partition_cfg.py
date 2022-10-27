@@ -11,6 +11,7 @@ class PartitionCfg:
         # partition_name None means the default partition (without filter)
         self.partition_name: Optional[str] = partition_name
         self.sql_partition_filter: Optional[str] = None
+        self.sql_sample: Optional[str] = None
         self.check_cfgs: List[CheckCfg] = []
         self.column_checks_cfgs: Dict[str, ColumnChecksCfg] = {}
         self.locations: List[Location] = []
@@ -24,3 +25,9 @@ class PartitionCfg:
             column_checks_cfg = ColumnChecksCfg(column_name)
             self.column_checks_cfgs[column_name] = column_checks_cfg
         return column_checks_cfg
+
+    def set_sql_sample(self, sql_sample: str) -> None:
+        self.sql_sample = sql_sample
+
+    def set_sql_partition_filter(self, sql_partition_filter: str) -> None:
+        self.sql_partition_filter = sql_partition_filter

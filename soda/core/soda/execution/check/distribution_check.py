@@ -1,5 +1,6 @@
+from __future__ import annotations
+
 from numbers import Number
-from typing import Dict, Optional
 
 from soda.common.exceptions import SODA_SCIENTIFIC_MISSING_LOG_MESSAGE
 from soda.execution.check.check import Check
@@ -17,8 +18,8 @@ class DistributionCheck(Check):
         self,
         check_cfg: DistributionCheckCfg,
         data_source_scan: DataSourceScan,
-        partition: Optional[Partition] = None,
-        column: Optional[Column] = None,
+        partition: Partition,
+        column: Column,
     ):
 
         super().__init__(
@@ -32,25 +33,26 @@ class DistributionCheck(Check):
         metric = Metric(
             data_source_scan=self.data_source_scan,
             name=self.distribution_check_cfg.source_line,
-            partition=None,
-            column=None,
+            partition=partition,
+            column=column,
             check=self,
             identity_parts=["distribution"],
         )
         metric.value = None
         metric = data_source_scan.resolve_metric(metric)
         self.metrics["distribution-difference-metric"] = metric
-        self.check_value: Optional[float] = None
+        self.check_value: float | None = None
 
-    def evaluate(self, metrics: Dict[str, Metric], historic_values: Dict[str, object]):
+    def evaluate(self, metrics: dict[str, Metric], historic_values: dict[str, object]):
         try:
             from soda.scientific.common.exceptions import LoggableException
             from soda.scientific.distribution.comparison import DistributionChecker
         except ModuleNotFoundError as e:
             self.logs.error(f"{SODA_SCIENTIFIC_MISSING_LOG_MESSAGE}\n Original error: {e}")
             return
-
-        sql = self.sql_column_values_query(self.distribution_check_cfg)
+        # Disable limit if sample is defined by the user
+        limit = 1e6
+        sql = self.sql_column_values_query(self.distribution_check_cfg, limit=limit)
 
         self.query = Query(
             data_source_scan=self.data_source_scan,
@@ -115,21 +117,27 @@ class DistributionCheck(Check):
         #     log_diagnostics.update(self.historic_diff_values)
         return log_diagnostics
 
-    def sql_column_values_query(self, distribution_check_cfg, limit=1000000) -> str:
-
+    def sql_column_values_query(self, distribution_check_cfg: DistributionCheckCfg, limit: int | None) -> str:
         column_name = distribution_check_cfg.column_name
 
         partition_filter = self.partition.sql_partition_filter
-        partition_str = ""
+        sample_filter = self.partition.sql_sample
+        scan = self.data_source_scan.scan
+
+        filter_clause = None
+        sample_clause = None
+
         if partition_filter:
-            scan = self.data_source_scan.scan
-            resolved_filter = scan.jinja_resolve(definition=partition_filter)
-            partition_str = f"\nWHERE {resolved_filter}"
+            filter_clause = scan.jinja_resolve(definition=partition_filter)
+        if sample_filter:
+            sample_clause = scan.jinja_resolve(definition=sample_filter)
+
         return self.data_source_scan.data_source.sql_select_column_with_filter_and_limit(
             column_name=column_name,
             table_name=self.partition.table.qualified_table_name,
+            filter_clause=filter_clause,
+            sample_clause=sample_clause,
             limit=limit,
-            filter_clause=partition_str,
         )
 
     def get_summary(self) -> str:

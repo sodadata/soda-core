@@ -491,11 +491,12 @@ class DataSource:
         return None
 
     def sql_get_duplicates(
-        self, column_names: str, table_name: str, filter: str, limit: str | None = None
+        self, column_names: str, table_name: str, filter: str, limit: str | None = None, sql_sample: str | None = None
     ) -> str | None:
         sql = f"""WITH frequencies AS (
               SELECT {column_names}, COUNT(*) AS frequency
               FROM {table_name}
+              {sql_sample}
               WHERE {filter}
               GROUP BY {column_names})
             SELECT *
@@ -504,7 +505,6 @@ class DataSource:
 
         if limit:
             sql += f"\n LIMIT {limit}"
-
         return sql
 
     def cast_to_text(self, expr: str) -> str:
@@ -1060,13 +1060,22 @@ class DataSource:
             cursor.close()
 
     def sql_select_column_with_filter_and_limit(
-        self, column_name: str, table_name: str, filter_clause: str, limit: int | None = None
+        self,
+        column_name: str,
+        table_name: str,
+        filter_clause: str | None = None,
+        sample_clause: str | None = None,
+        limit: int | None = None,
     ) -> str:
-        limit_str = ""
-        if limit:
-            limit_str = f"\n LIMIT {limit}"
+        """
+        Returns a SQL query that selects a column from a table with optional filter, sample query
+        and limit.
+        """
+        filter_clauses_str = f"\n WHERE {filter_clause}" if filter_clause else ""
+        sample_clauses_str = f"\n {sample_clause}" if sample_clause else ""
+        limit_str = f"\n LIMIT {limit}" if limit else ""
+        sql = f"SELECT \n" f"  {column_name} \n" f"FROM {table_name}{sample_clauses_str}{filter_clauses_str}{limit_str}"
 
-        sql = f"SELECT \n" f"  {column_name} \n" f"FROM {table_name}{filter_clause}{limit_str}"
         return sql
 
     def expr_false_condition(self):

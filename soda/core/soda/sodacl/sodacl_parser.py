@@ -650,7 +650,6 @@ class SodaCLParser(Parser):
             )
         elif metric_name == "distribution_difference":
             column_name: str = metric_args[0]
-            distribution_name: str | None = metric_args[1] if len(metric_args) > 1 else None
 
             if check_configurations.get("distribution reference file"):
                 reference_file_path: str = os.path.join(
@@ -677,7 +676,6 @@ class SodaCLParser(Parser):
                 location=self.location,
                 name=name,
                 column_name=column_name,
-                distribution_name=distribution_name,
                 filter=None,
                 method=method,
                 reference_file_path=reference_file_path,
@@ -1250,14 +1248,17 @@ class SodaCLParser(Parser):
 
             partition_name = self.__antlr_parse_partition_from_header(antlr_table_filter_header)
             partition_cfg: PartitionCfg = table_cfg.create_partition(self.location.file_path, partition_name)
+
+            partition_sample_sql = header_content.get("sample")
+            partition_cfg.set_sql_sample(partition_sample_sql)
+
             partition_filter = header_content.get("where")
-            if partition_filter is None:
+            partition_cfg.set_sql_partition_filter(partition_filter)
+            if not partition_filter and not partition_sample_sql:
                 self.logs.error(
-                    f'Expecting "where" with a SQL expression as a configuration under {header_str}',
+                    f'Expecting "where" or "sample" with a SQL expression as a configuration under {header_str}',
                     location=self.location,
                 )
-            else:
-                partition_cfg.sql_partition_filter = partition_filter
 
         else:
             self.logs.error(

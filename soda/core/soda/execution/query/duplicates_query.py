@@ -25,10 +25,10 @@ class DuplicatesQuery(Query):
         values_filter = " \n  AND ".join(values_filter_clauses)
 
         column_names = ", ".join(self.metric.metric_args)
-
+        sql_sample = self.partition.sql_sample
         self.sql = self.data_source_scan.scan.jinja_resolve(
             self.data_source_scan.data_source.sql_get_duplicates(
-                column_names, self.partition.table.qualified_table_name, values_filter
+                column_names, self.partition.table.qualified_table_name, values_filter, sql_sample=sql_sample
             )
         )
 

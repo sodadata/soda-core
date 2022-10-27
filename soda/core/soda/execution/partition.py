@@ -20,6 +20,7 @@ class Partition:
         self.partition_name = partition_name
         self.partition_cfg: PartitionCfg = None
         self.sql_partition_filter: str | None = None
+        self.sql_sample: str | None = None
         self.data_source_scan = table.data_source_scan
         self.metrics: list[Metric] = []
         self.column_metrics: dict[str, ColumnMetrics] = {}
@@ -31,6 +32,7 @@ class Partition:
     def set_partition_cfg(self, partition_cfg: PartitionCfg):
         self.partition_cfg = partition_cfg
         self.sql_partition_filter = partition_cfg.sql_partition_filter
+        self.sql_sample = partition_cfg.sql_sample
 
     def add_check_cfg(self, check_cfg: CheckCfg):
         if self.partition_cfg is None:
