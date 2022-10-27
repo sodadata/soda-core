@@ -8,6 +8,7 @@ class UserDefinedFailedRowsQuery(Query):
         self,
         data_source_scan: DataSourceScan,
         metric: FailedRowsQueryMetric,
+        partition: Partition,
         location: Location | None = None,
         samples_limit: int | None = 100,
     ):
@@ -17,6 +18,7 @@ class UserDefinedFailedRowsQuery(Query):
             location=location,
             samples_limit=samples_limit,
             sql=metric.query,
+            partition=partition,
         )
         self.metric = metric
 

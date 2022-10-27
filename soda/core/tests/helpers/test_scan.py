@@ -110,6 +110,9 @@ class TestScan(Scan):
                 except BaseException as e:
                     self._logs.error(f"Could not close connection {connection_name}: {e}", exception=e)
 
+    def assert_log_info(self, message):
+        self.assert_log(message, LogLevel.INFO)
+
     def assert_log_warning(self, message):
         self.assert_log(message, LogLevel.WARNING)
 

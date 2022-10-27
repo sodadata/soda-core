@@ -11,10 +11,11 @@ class UserDefinedFailedRowsMetric(QueryMetric):
         check_name: str,
         query: str,
         check: "Check",
+        partition: "Partition",
     ):
         super().__init__(
             data_source_scan=data_source_scan,
-            partition=None,
+            partition=partition,
             column=None,
             name=check_name,
             check=check,
@@ -41,5 +42,6 @@ class UserDefinedFailedRowsMetric(QueryMetric):
                 metric=self,
                 location=location,
                 samples_limit=check.check_cfg.samples_limit,
+                partition=self.partition,
             )
         )

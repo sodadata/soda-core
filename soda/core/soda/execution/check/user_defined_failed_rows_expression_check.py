@@ -54,6 +54,7 @@ class UserDefinedFailedRowsExpressionCheck(Check):
                 check_name=self.check_cfg.source_line,
                 sql=failed_rows_sql,
                 samples_limit=self.check_cfg.samples_limit,
+                partition=self.partition,
             )
             failed_rows_query.execute()
             if failed_rows_query.sample_ref and failed_rows_query.sample_ref.is_persisted():

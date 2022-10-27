@@ -13,12 +13,14 @@ class ReferenceQuery(Query):
         self,
         data_source_scan: DataSourceScan,
         metric: ReferentialIntegrityMetric,
+        partition: Partition,
         samples_limit: int | None = None,
     ):
         super().__init__(
             data_source_scan=data_source_scan,
             unqualified_query_name=f"reference[{ReferenceQuery.build_source_column_list(metric)}]",
             samples_limit=samples_limit,
+            partition=partition,
         )
 
         from soda.execution.data_source import DataSource

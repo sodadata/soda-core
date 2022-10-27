@@ -1,6 +1,7 @@
+from __future__ import annotations
+
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import Optional
 
 from soda.common.logs import Logs
 from soda.sampler.sample import Sample
@@ -12,12 +13,12 @@ class SampleContext:
     sample: Sample
     sample_name: str
     query: str
-    data_source: "DataSource"
-    partition: Optional["Partition"]
-    column: Optional["Column"]
-    scan: "Scan"
-    logs: "Logs"
-    samples_limit: Optional[int]
+    data_source: DataSource
+    partition: Partition | None
+    column: Column | None
+    scan: Scan
+    logs: Logs
+    samples_limit: int | None
 
     def get_scan_folder_name(self):
         parts = [
