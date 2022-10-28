@@ -300,7 +300,7 @@ class SQLServerDataSource(DataSource):
         """
         filter_clauses_str = f"\n WHERE {filter_clause}" if filter_clause else ""
         sample_clauses_str = f"\n {sample_clause}" if sample_clause else ""
-        limit_str = f"\n LIMIT {limit}" if limit else ""
+        limit_str = f"{limit}" if limit else ""
         sql = (
             f"SELECT TOP {limit_str}\n"
             f"  {column_name} \n"
