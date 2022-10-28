@@ -1,5 +1,5 @@
 table: ex_table
-column: size
+column: cst_size
 distribution reference:
     bins: [
         -3.34034354,

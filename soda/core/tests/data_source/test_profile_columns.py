@@ -18,7 +18,7 @@ def test_profile_columns_numeric(data_source_fixture: DataSourceFixture):
     scan.add_sodacl_yaml_str(
         f"""
           profile columns:
-            columns: [{table_name}.size]
+            columns: [{table_name}.cst_size]
         """
     )
     scan.execute(allow_warnings_only=True)
@@ -32,7 +32,7 @@ def test_profile_columns_numeric(data_source_fixture: DataSourceFixture):
     column_profiles_by_name = {
         column_profile["columnName"].lower(): column_profile for column_profile in column_profiles
     }
-    size_column = column_profiles_by_name["size"]
+    size_column = column_profiles_by_name["cst_size"]
     size_profile = size_column["profile"]
 
     logging.debug(f"Size profile cloud dict: \n{to_yaml_str(size_profile)}")
@@ -53,7 +53,7 @@ def test_profile_columns_numeric(data_source_fixture: DataSourceFixture):
         v = size_profile[numeric_stat]
         assert isinstance(
             v, Number
-        ), f"{numeric_stat} in profile of column 'size' is not a number: {v} ({type(v).__name__})"
+        ), f"{numeric_stat} in profile of column 'cst_size' is not a number: {v} ({type(v).__name__})"
     histogram = size_profile["histogram"]
     boundaries = histogram["boundaries"]
     assert len(boundaries) > 0
@@ -184,7 +184,7 @@ def test_profile_columns_all_tables_all_columns(data_source_fixture: DataSourceF
                 profile columns:
                     columns:
                         - include {table_name}.%
-                        - include %.size
+                        - include %.cst_size
                         - exclude %.country
                         - exclude %.id
             """,
@@ -247,7 +247,7 @@ def test_profile_columns_inclusions_exclusions(
                 assert len(column_names) == 0
             else:
                 assert "id" not in column_names
-                assert "size" in column_names
+                assert "cst_size" in column_names
                 assert "country" not in column_names
 
 

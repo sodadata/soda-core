@@ -579,3 +579,26 @@ def test_missing_bins_weights(test_data, dist_ref_file_path, method):
         with open(dist_ref_file_path) as f:
             dist_ref_yaml = f.read()
         DistributionChecker(method, dist_ref_yaml, dist_ref_file_path, None, test_data)
+
+
+@pytest.mark.parametrize(
+    "test_data, dist_ref_file_path, method",
+    [
+        pytest.param(
+            pd.Series([]),
+            "soda/scientific/tests/assets/dist_ref_continuous.yml",
+            "ks",
+            id="empty test data",
+        ),
+    ],
+)
+def test_empty_test_data(test_data, dist_ref_file_path, method):
+    from soda.scientific.distribution.comparison import (
+        DistributionChecker,
+        EmptyDistributionCheckColumn,
+    )
+
+    with pytest.raises(EmptyDistributionCheckColumn):
+        with open(dist_ref_file_path) as f:
+            dist_ref_yaml = f.read()
+        DistributionChecker(method, dist_ref_yaml, dist_ref_file_path, None, test_data)

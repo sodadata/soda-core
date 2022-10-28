@@ -13,7 +13,7 @@ def test_filter_on_date(data_source_fixture: DataSourceFixture):
     scan.add_sodacl_yaml_str(
         f"""
           filter {table_name} [daily]:
-            where: date = {date_expr} '${{DATE}}'
+            where: date_updated = {date_expr} '${{DATE}}'
 
           checks for {table_name}:
             - row_count = 10
@@ -33,7 +33,7 @@ def test_filter_on_date(data_source_fixture: DataSourceFixture):
     scan.add_sodacl_yaml_str(
         f"""
           filter {table_name} [daily]:
-            where: date = {date_expr} '${{date}}'
+            where: date_updated = {date_expr} '${{date}}'
 
           checks for {table_name}:
             - row_count = 10

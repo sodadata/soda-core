@@ -16,11 +16,11 @@ class UserDefinedFailedRowsCheck(Check):
     Eg:
 
     checks:
-      - "Customers must have size":
+      - "Customers must have cst_size":
           failed rows query: |
             SELECT *
             FROM {table_name}
-            WHERE size < 0
+            WHERE cst_size < 0
     """
 
     def __init__(

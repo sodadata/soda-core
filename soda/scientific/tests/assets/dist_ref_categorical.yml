@@ -1,5 +1,5 @@
 table: ex_table
-column: size
+column: cst_size
 distribution_type: categorical
 distribution reference:
     bins: [1, 2, 3]

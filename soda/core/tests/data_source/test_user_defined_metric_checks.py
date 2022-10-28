@@ -9,15 +9,15 @@ def test_user_defined_table_expression_metric_check(data_source_fixture: DataSou
     scan = data_source_fixture.create_test_scan()
     length_expr = "LEN" if data_source_fixture.data_source_name == "sqlserver" else "LENGTH"
 
-    ones_expression = f"SUM({length_expr}(sizeTxt) - {length_expr}(REPLACE(sizeTxt, '1', '')))"
+    ones_expression = f"SUM({length_expr}(cst_size_txt) - {length_expr}(REPLACE(cst_size_txt, '1', '')))"
 
     scan.add_sodacl_yaml_str(
         f"""
       checks for {table_name}:
         - avg_surface between 1068 and 1069:
-            avg_surface expression: AVG(size * distance)
-        - ones(sizeTxt):
-            name: There must be 3 occurrences of 1 in sizeText
+            avg_surface expression: AVG(cst_size * distance)
+        - ones(cst_size_txt):
+            name: There must be 3 occurrences of 1 in cst_size_text
             ones expression: {ones_expression}
             warn: when < 3
             fail: when < 2
@@ -33,7 +33,7 @@ def test_user_defined_table_expression_metric_check(data_source_fixture: DataSou
 
     ones_check = scan._checks[1]
     assert ones_check.check_value == 2
-    assert ones_check.check_cfg.name == "There must be 3 occurrences of 1 in sizeText"
+    assert ones_check.check_cfg.name == "There must be 3 occurrences of 1 in cst_size_text"
     assert ones_check.outcome == CheckOutcome.WARN
 
 
@@ -46,7 +46,7 @@ def test_user_defined_table_expression_metric_check_with_variables(data_source_f
         f"""
           checks for {table_name}:
             - avg_surface between 1068 and 1069:
-                avg_surface expression: AVG(size * ${{dist}})
+                avg_surface expression: AVG(cst_size * ${{dist}})
         """
     )
     scan.execute()
@@ -69,7 +69,7 @@ def test_user_defined_data_source_query_metric_check(data_source_fixture: DataSo
           checks:
             - avg_surface between 1068 and 1069:
                 avg_surface query: |
-                  SELECT AVG(size * distance) as avg_surface
+                  SELECT AVG(cst_size * distance) as avg_surface
                   FROM {qualified_table_name}
         """
     )
@@ -94,7 +94,7 @@ def test_user_defined_data_source_query_metric_check_with_variable(data_source_f
               checks:
                 - avg_surface between 1068 and 1069:
                     avg_surface query: |
-                      SELECT AVG(size * ${{dist}}) as avg_surface
+                      SELECT AVG(cst_size * ${{dist}}) as avg_surface
                       FROM {qualified_table_name}
             """
     )

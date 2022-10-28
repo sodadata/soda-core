@@ -12,12 +12,12 @@ def test_data_source_specific_statistics_aggregation_metrics(data_source_fixture
     table_name = data_source_fixture.ensure_test_table(customers_test_table)
 
     all_checks = {
-        "stdev": "stddev(size) between 3.26 and 3.27",
-        "stddev_pop": "stddev_pop(size) between 3.02 and 3.03",
-        "stddev_samp": "stddev_samp(size) between 3.26 and 3.27",
-        "variance(size)": "variance(size) between 10.65 and 10.66",
-        "var_pop(size)": "var_pop(size) between 9.13 and 9.14",
-        "var_samp(size)": "var_samp(size) between 10.65 and 10.66",
+        "stdev": "stddev(cst_size) between 3.26 and 3.27",
+        "stddev_pop": "stddev_pop(cst_size) between 3.02 and 3.03",
+        "stddev_samp": "stddev_samp(cst_size) between 3.26 and 3.27",
+        "variance(cst_size)": "variance(cst_size) between 10.65 and 10.66",
+        "var_pop(cst_size)": "var_pop(cst_size) between 9.13 and 9.14",
+        "var_samp(cst_size)": "var_samp(cst_size) between 10.65 and 10.66",
         "percentile(distance, 0.7)": "percentile(distance, 0.7) = 999",
     }
 

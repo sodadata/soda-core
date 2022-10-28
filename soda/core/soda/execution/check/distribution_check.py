@@ -120,6 +120,7 @@ class DistributionCheck(Check):
 
         partition_filter = self.partition.sql_partition_filter
         sample_filter = self.partition.sql_sample
+        distribution_check_filter = distribution_check_cfg.filter
         scan = self.data_source_scan.scan
 
         filter_clause = None
@@ -129,6 +130,14 @@ class DistributionCheck(Check):
             filter_clause = scan.jinja_resolve(definition=partition_filter)
         if sample_filter:
             sample_clause = scan.jinja_resolve(definition=sample_filter)
+
+        if partition_filter and distribution_check_filter:
+            self.logs.error(
+                "Cannot have both dataset filter and distribution check filter at the same time",
+                location=distribution_check_cfg.location,
+            )
+        elif distribution_check_filter:
+            filter_clause = scan.jinja_resolve(definition=distribution_check_filter)
 
         return self.data_source_scan.data_source.sql_select_column_with_filter_and_limit(
             column_name=column_name,
