@@ -1,4 +1,3 @@
-import pytest
 from helpers.common_test_tables import customers_test_table
 from helpers.data_source_fixture import DataSourceFixture
 from helpers.fixtures import test_data_source
@@ -121,8 +120,8 @@ def test_filter_with_random_key(data_source_fixture: DataSourceFixture):
     scan.assert_check_fail()
 
 
-@pytest.mark.skip(reason="Does not work with the unit test DB yet")
-def test_filter_with_sample_key(data_source_fixture: DataSourceFixture):
+# @pytest.mark.skip(reason="skip for now")
+def test_filter_with_sample_key(data_source_fixture: DataSourceFixture) -> None:
     table_name = data_source_fixture.ensure_test_table(customers_test_table)
     scan = data_source_fixture.create_test_scan()
 
@@ -132,10 +131,10 @@ def test_filter_with_sample_key(data_source_fixture: DataSourceFixture):
             sample: TABLESAMPLE  SYSTEM (20) REPEATABLE (200)
 
           checks for {table_name}:
-            - min(cat) = 0
+            - min(distance) = 0
 
           checks for {table_name} [daily]:
-            - min(cat) = 2
+            - min(distance) = 2
         """
     )
     scan.execute()
