@@ -391,7 +391,7 @@ class Scan:
                             partition.set_partition_cfg(partition_cfg)
                             if partition.sql_sample and not data_source_scan.data_source.has_sample_sql:
                                 self._logs.error(
-                                    f'Data source:{data_source_scan.data_source.database} does not support "sample" '
+                                    f'Data source:{data_source_scan.data_source.data_source_name} does not support "sample" '
                                     'queries, instead use "where" in your dataset filter at '
                                     f"{partition_cfg.locations[0]}"
                                 )

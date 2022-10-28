@@ -650,6 +650,7 @@ class SodaCLParser(Parser):
             )
         elif metric_name == "distribution_difference":
             column_name: str = metric_args[0]
+            distribution_name: str | None = metric_args[1] if len(metric_args) > 1 else None
 
             if check_configurations.get("distribution reference file"):
                 reference_file_path: str = os.path.join(
@@ -676,6 +677,7 @@ class SodaCLParser(Parser):
                 location=self.location,
                 name=name,
                 column_name=column_name,
+                distribution_name=distribution_name,
                 filter=None,
                 method=method,
                 reference_file_path=reference_file_path,

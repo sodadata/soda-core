@@ -240,7 +240,7 @@ class DataSource:
 
     @property
     def has_sample_sql(self) -> bool:
-        if self.database == "postgres":
+        if self.data_source_name == "postgres":
             return True
         return False
 

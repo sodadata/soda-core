@@ -1,7 +1,7 @@
 import abc
 import decimal
 import logging
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Tuple, Union
 
 import numpy as np
 import pandas as pd
@@ -56,10 +56,13 @@ class DistributionChecker:
         dist_method: str,
         dist_ref_yaml: str,
         dist_ref_file_path: str,
+        dist_name: Union[str, None],
         data: List[Any],
     ):
         self.test_data = data
-        self.dist_ref, self.dist_method = self._parse_reference_cfg(dist_method, dist_ref_yaml, dist_ref_file_path)
+        self.dist_ref, self.dist_method = self._parse_reference_cfg(
+            dist_method, dist_ref_yaml, dist_ref_file_path, dist_name
+        )
 
         algo_mapping = {
             "chi_square": ChiSqAlgorithm,
@@ -100,13 +103,21 @@ class DistributionChecker:
         return dict(check_value=check_value, stat_value=stat_value)
 
     def _parse_reference_cfg(
-        self, dist_method: str, dist_ref_yaml: str, dist_ref_file_path: str
+        self, dist_method: str, dist_ref_yaml: str, dist_ref_file_path: str, dist_name: Union[str, None]
     ) -> Tuple[RefDataCfg, str]:
         try:
             parsed_ref_cfg: dict = YAML().load(dist_ref_yaml)
             ref_data_cfg = {}
 
-            if all(isinstance(value, dict) for value in parsed_ref_cfg.values()):
+            if dist_name:
+                parsed_ref_cfg = parsed_ref_cfg.get(dist_name)
+                if not parsed_ref_cfg:
+                    raise DRONameNotFoundException(
+                        f"""Your DRO name "{dist_name}" is not found in your distribution reference file "{dist_ref_file_path}". Please make sure that the DRO name that you provide in"""
+                        f""" "distribution_difference(column_name, dro_name)" points to an existing DRO. For more information visit the docs:\n"""
+                        f"""https://docs.soda.io/soda-cl/distribution.html#define-a-distribution-check"""
+                    )
+            elif all(isinstance(value, dict) for value in parsed_ref_cfg.values()):
                 raise MissingDRONameException(
                     f"""While your distribution reference file "{dist_ref_file_path}" appears to contain named DROs, you did not provide a DRO name to your distribution check. """
                     f"""Please provide the DRO name that you want to use in the "distribution_difference(column_name, dro_name)"""
