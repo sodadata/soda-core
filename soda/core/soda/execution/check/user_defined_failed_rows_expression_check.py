@@ -61,8 +61,11 @@ class UserDefinedFailedRowsExpressionCheck(Check):
                 self.failed_rows_sample_ref = failed_rows_query.sample_ref
 
     def get_failed_rows_sql(self) -> str:
+        columns = ", ".join(
+            self.data_source_scan.data_source.sql_select_all_column_names(self.partition.table.table_name)
+        )
         sql = (
-            f"SELECT * \n"
+            f"SELECT {columns} \n"
             f"FROM {self.partition.table.qualified_table_name} \n"
             f"WHERE ({self.check_cfg.fail_condition_sql_expr})"
         )

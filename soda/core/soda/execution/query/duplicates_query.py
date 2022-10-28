@@ -26,6 +26,9 @@ class DuplicatesQuery(Query):
 
         column_names = ", ".join(self.metric.metric_args)
 
+        # This does not respect the exclude_columns config because removing any of the excluded columns here would
+        # effectively change the definition of the check. Let all columns through and samples will not be collected
+        # if excluded columns are present (see "gatekeeper" in Query).
         self.sql = self.data_source_scan.scan.jinja_resolve(
             self.data_source_scan.data_source.sql_get_duplicates(
                 column_names, self.partition.table.qualified_table_name, values_filter

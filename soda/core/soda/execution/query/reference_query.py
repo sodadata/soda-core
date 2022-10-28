@@ -34,7 +34,10 @@ class ReferenceQuery(Query):
         target_table_name = data_source.qualified_table_name(check_cfg.target_table_name)
         target_column_names = check_cfg.target_column_names
 
-        source_diagnostic_column_fields = "SOURCE.*"
+        selectable_source_columns = self.data_source_scan.data_source.sql_select_all_column_names(
+            self.partition.table.table_name
+        )
+        source_diagnostic_column_fields = ", ".join([f"SOURCE.{c}" for c in selectable_source_columns])
 
         # TODO add global config of table diagnostic columns and apply that here
         # source_diagnostic_column_names = check_cfg.source_diagnostic_column_names

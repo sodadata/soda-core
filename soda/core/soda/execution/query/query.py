@@ -187,12 +187,14 @@ class Query:
                 allow_samples = True
 
                 if self.partition and self.partition.table:
+                    # TODO (DEAL WITH BEFORE MERGING) Refactor and use new (now duplicated) logic from data_source
                     table_name_lower = self.partition.table.table_name.lower()
                     if table_name_lower in exclude_columns_config:
                         # TODO: Revisit - using partition since partition is generally set on check->metrics->queries and contains reference to Table anyway.
                         exclude_columns = exclude_columns + exclude_columns_config[table_name_lower]
                         has_dataset_exclude_config = True
-                elif "global" in exclude_columns_config:
+
+                if "global" in exclude_columns_config:
                     # Global exclude is just added to dataset specific.
                     # TODO: (DEAL WITH BEFORE MERGING) is "global" the best key in config here? Also, dont forget to document!!!
                     # TODO (DEAL WITH BEFORE MERGING) - this is not truly "global". If set to a list of columns we cannot block all sample queries with "*" in them, do we want such incomplete feature?

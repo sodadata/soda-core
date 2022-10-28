@@ -305,7 +305,7 @@ class SQLServerDataSource(DataSource):
               FROM {table_name}
               WHERE {filter}
               GROUP BY {column_names})
-            SELECT {limit_sql} *
+            SELECT {limit_sql} {column_names}, frequency
             FROM frequencies
             WHERE frequency > 1"""
 

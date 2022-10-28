@@ -325,8 +325,41 @@ class DataSource:
         if limit is not None:
             limit_sql = f" \n LIMIT {limit}"
 
-        sql = f"SELECT * FROM {qualified_table_name}{filter_sql}{limit_sql}"
+        columns_names = ", ".join(self.sql_select_all_column_names(table_name))
+
+        sql = f"SELECT {columns_names} FROM {qualified_table_name}{filter_sql}{limit_sql}"
         return sql
+
+    def sql_select_all_column_names(self, table_name: str) -> list:
+        all_columns = ["*"]
+
+        exclude_columns = self.get_excluded_columns_for_table(table_name)
+        if exclude_columns and self.data_source_scan.scan._configuration.sampler:
+            columns = self.get_table_columns(table_name, f"get_table_columns_{table_name}")
+            all_columns = [c for c in columns if c not in exclude_columns]
+            self.logs.debug(
+                f"Skipping columns {exclude_columns} from table '{table_name}' when selecting all columns data."
+            )
+
+        return all_columns
+
+    def get_excluded_columns_for_table(self, table_name: str) -> list[str]:
+        """Match table name case insensitive."""
+        exclude_columns_config = {
+            k.lower(): v for k, v in self.data_source_scan.scan._configuration.exclude_columns.items()
+        }
+        exclude_columns = []
+
+        table_name_lower = table_name.lower()
+        if table_name_lower in exclude_columns_config:
+            exclude_columns = exclude_columns + exclude_columns_config[table_name_lower]
+
+        if "global" in exclude_columns_config:
+            exclude_columns = exclude_columns + exclude_columns_config["global"]
+
+        exclude_columns = list(set(exclude_columns))
+
+        return exclude_columns
 
     ############################################
     # For a table, get the columns metadata
@@ -498,7 +531,7 @@ class DataSource:
               FROM {table_name}
               WHERE {filter}
               GROUP BY {column_names})
-            SELECT *
+            SELECT {column_names}, frequency
             FROM frequencies
             WHERE frequency > 1"""
 
