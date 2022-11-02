@@ -11,6 +11,7 @@ from textwrap import dedent
 
 from soda.common.exceptions import DataSourceError
 from soda.common.logs import Logs
+from soda.common.string_helper import string_matches_simple_pattern
 from soda.execution.data_type import DataType
 from soda.execution.query.partition_queries import PartitionQueries
 from soda.execution.query.query import Query
@@ -331,35 +332,60 @@ class DataSource:
         return sql
 
     def sql_select_all_column_names(self, table_name: str) -> list:
-        all_columns = ["*"]
+        selectable_columns = []
 
-        exclude_columns = self.get_excluded_columns_for_table(table_name)
-        if exclude_columns and self.data_source_scan.scan._configuration.sampler:
-            columns = self.get_table_columns(table_name, f"get_table_columns_{table_name}")
-            all_columns = [c for c in columns if c not in exclude_columns]
-            self.logs.debug(
-                f"Skipping columns {exclude_columns} from table '{table_name}' when selecting all columns data."
+        if self.get_exclude_column_patterns_for_table(table_name) and self.data_source_scan.scan._configuration.sampler:
+            all_columns = self.get_table_columns(table_name, f"get_table_columns_{table_name}")
+            exclude_columns = self.get_excluded_columns_for_table(table_name, all_columns)
+            selectable_columns = [c for c in all_columns if c not in exclude_columns]
+
+            if exclude_columns:
+                self.logs.debug(
+                    f"Skipping columns {exclude_columns} from table '{table_name}' when selecting all columns data."
+                )
+
+        if not selectable_columns:
+            self.logs.info(
+                f"Unable to select data for failed rows from table '{table_name}', all columns are excluded. Selecting '*' for the check, no failed rows samples will be created."
             )
+            selectable_columns = ["*"]
 
-        return all_columns
+        return selectable_columns
 
-    def get_excluded_columns_for_table(self, table_name: str) -> list[str]:
-        """Match table name case insensitive."""
+    def get_exclude_column_patterns_for_table(self, table_name: str) -> list[str]:
+        """Match table and column names case insensitive."""
         exclude_columns_config = {
-            k.lower(): v for k, v in self.data_source_scan.scan._configuration.exclude_columns.items()
+            k.lower(): [c.lower() for c in v]
+            for k, v in self.data_source_scan.scan._configuration.exclude_columns.items()
         }
-        exclude_columns = []
+        exclude_column_patterns = []
 
         table_name_lower = table_name.lower()
-        if table_name_lower in exclude_columns_config:
-            exclude_columns = exclude_columns + exclude_columns_config[table_name_lower]
 
-        if "global" in exclude_columns_config:
-            exclude_columns = exclude_columns + exclude_columns_config["global"]
+        for table_pattern, column_patterns in exclude_columns_config.items():
+            if string_matches_simple_pattern(table_name_lower, table_pattern):
+                exclude_column_patterns += column_patterns
 
-        exclude_columns = list(set(exclude_columns))
+        return list(set(exclude_column_patterns))
 
-        return exclude_columns
+    def get_excluded_columns_for_table(self, table_name: str, columns: list(str) | None = None):
+        excluded_columns = []
+
+        column_patterns_for_table = self.get_exclude_column_patterns_for_table(table_name)
+
+        if column_patterns_for_table:
+            # If there is any kind of exclusion set for the table we want to disallow "*" as well.
+            excluded_columns.append("*")
+
+            if not columns:
+                columns = self.get_table_columns(table_name, f"get_table_columns_{table_name}")
+
+            for column in columns:
+                for column_pattern in column_patterns_for_table:
+                    if string_matches_simple_pattern(column, column_pattern):
+                        excluded_columns.append(column)
+
+        return list(set(excluded_columns))
 
     ############################################
     # For a table, get the columns metadata

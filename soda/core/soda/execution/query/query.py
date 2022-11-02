@@ -182,7 +182,7 @@ class Query:
                     )
 
                     for column in query_columns:
-                        if (column == "*" and exclude_columns) or column in exclude_columns:
+                        if column in exclude_columns:
                             allow_samples = False
                             offending_columns.append(column)
 

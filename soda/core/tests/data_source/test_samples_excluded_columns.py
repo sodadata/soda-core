@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from textwrap import dedent
 
 import pytest
@@ -37,7 +39,7 @@ from helpers.data_source_fixture import DataSourceFixture
         ),
         pytest.param(
             """- failed rows:
-                   fail query: Select * from sodatest_customers_6c2f3574 WHERE cat = 'HIGH' and cst_size < .7""",
+                   fail query: Select * from {{table_name}} WHERE cat = 'HIGH' and cst_size < .7""",
             True,
             id="failed_rows_expression",
         ),
@@ -52,6 +54,9 @@ def test_dataset_checks(check: str, skip_samples: bool, data_source_fixture: Dat
     scan.enable_mock_sampler()
 
     scan._configuration.exclude_columns = {table_name: ["cat", "cst_size"]}
+
+    if "{{table_name}}" in check:
+        check = check.replace("{{table_name}}", table_name)
 
     if "{{another_table_name}}" in check:
         check = check.replace("{{another_table_name}}", another_table_name)
@@ -149,3 +154,62 @@ def test_datasource_checks(check: str, data_source_fixture: DataSourceFixture):
     scan.assert_no_error_nor_warning_logs()
     scan.assert_log_info("Skipping samples from query")
     assert "failedRowsFile" not in mock_soda_cloud.find_check_diagnostics(0).keys()
+
+
+@pytest.mark.parametrize(
+    "config, table_name, columns, expected",
+    [
+        pytest.param(
+            {
+                "*": ["*"],
+            },
+            "table_1",
+            ["a", "b", "c"],
+            ["a", "b", "c", "*"],
+            id="all",
+        ),
+        pytest.param(
+            {
+                "soda_*": ["*"],
+            },
+            "soda_table_1",
+            ["a", "b", "c"],
+            ["a", "b", "c", "*"],
+            id="all in soda_",
+        ),
+        pytest.param(
+            {
+                "soda_table_1": ["*"],
+            },
+            "table_1",
+            ["a", "b", "c"],
+            [],
+            id="wrong table pattern",
+        ),
+        pytest.param(
+            {
+                "table_*": ["cst_*"],
+            },
+            "table_1",
+            ["cst_id", "id", "cst_salary", "salary", "registered_at"],
+            ["cst_id", "cst_salary", "*"],
+            id="all cst_ columns",
+        ),
+    ],
+)
+def test_config_pattern_matching(
+    config: dict(str, list),
+    table_name: str,
+    columns: list(str),
+    expected: list(str),
+    data_source_fixture: DataSourceFixture,
+):
+    scan = data_source_fixture.create_test_scan()
+    scan._configuration.exclude_columns = config
+
+    ds_scan = scan._get_or_create_data_source_scan(scan._data_source_name)
+    ds = ds_scan.data_source
+
+    excluded_columns = ds.get_excluded_columns_for_table(table_name, columns)
+
+    assert sorted(excluded_columns) == sorted(expected)
