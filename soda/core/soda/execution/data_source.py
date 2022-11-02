@@ -11,6 +11,7 @@ from textwrap import dedent
 
 from soda.common.exceptions import DataSourceError
 from soda.common.logs import Logs
+from soda.common.string_helper import string_matches_simple_pattern
 from soda.execution.data_type import DataType
 from soda.execution.query.partition_queries import PartitionQueries
 from soda.execution.query.query import Query
@@ -325,8 +326,63 @@ class DataSource:
         if limit is not None:
             limit_sql = f" \n LIMIT {limit}"
 
-        sql = f"SELECT * FROM {qualified_table_name}{filter_sql}{limit_sql}"
+        columns_names = ", ".join(self.sql_select_all_column_names(table_name))
+
+        sql = f"SELECT {columns_names} FROM {qualified_table_name}{filter_sql}{limit_sql}"
         return sql
+
+    def sql_select_all_column_names(self, table_name: str) -> list:
+        selectable_columns = []
+
+        if self.get_exclude_column_patterns_for_table(table_name) and self.data_source_scan.scan._configuration.sampler:
+            all_columns = self.get_table_columns(table_name, f"get_table_columns_{table_name}")
+            exclude_columns = []
+
+            for column in all_columns:
+                if self.is_column_excluded(table_name, column):
+                    exclude_columns.append(column)
+                else:
+                    selectable_columns.append(column)
+
+            if exclude_columns:
+                self.logs.debug(
+                    f"Skipping columns {exclude_columns} from table '{table_name}' when selecting all columns data."
+                )
+            if not selectable_columns:
+                self.logs.info(
+                    f"Unable to select data for failed rows from table '{table_name}', all columns are excluded. Selecting '*' for the check, no failed rows samples will be created."
+                )
+
+        if not selectable_columns:
+            selectable_columns = ["*"]
+
+        return selectable_columns
+
+    def get_exclude_column_patterns_for_table(self, table_name: str) -> list[str]:
+        """Match table and column names case insensitive."""
+        exclude_columns_config = {
+            k.lower(): [c.lower() for c in v]
+            for k, v in self.data_source_scan.scan._configuration.exclude_columns.items()
+        }
+        exclude_column_patterns = []
+
+        table_name_lower = table_name.lower()
+
+        for table_pattern, column_patterns in exclude_columns_config.items():
+            if string_matches_simple_pattern(table_name_lower, table_pattern):
+                exclude_column_patterns += column_patterns
+
+        return list(set(exclude_column_patterns))
+
+    def is_column_excluded(self, table_name: str, column: str) -> bool:
+        column_patterns_for_table = self.get_exclude_column_patterns_for_table(table_name)
+
+        for pattern in column_patterns_for_table:
+            if string_matches_simple_pattern(column, pattern) or column == "*":
+                # '*' is a special case - it is considered excluded in case there is at least one column exclude pattern for the given table.
+                return True
+
+        return False
 
     ############################################
     # For a table, get the columns metadata
@@ -351,7 +407,7 @@ class DataSource:
             ),
         )
         query.execute()
-        if len(query.rows) > 0:
+        if query.rows and len(query.rows) > 0:
             return {row[0]: row[1] for row in query.rows}
         return None
 
@@ -498,7 +554,7 @@ class DataSource:
               FROM {table_name}
               WHERE {filter}
               GROUP BY {column_names})
-            SELECT *
+            SELECT {column_names}, frequency
             FROM frequencies
             WHERE frequency > 1"""
 
