@@ -332,16 +332,16 @@ def test_distribution_check_with_filter_and_partition(data_source_fixture: DataS
     scan.add_sodacl_yaml_str(
         f"""
         filter {table_name} [filtered]:
-            where: cst_size > 1
+            where: cst_size > 0
 
         checks for {table_name} [filtered]:
             - distribution_difference(cst_size) >= 0.05:
                 distribution reference file: {user_home_dir}/customers_cst_size_distribution_reference.yml
                 method: ks
-                filter: cst_size > 2
+                filter: cst_size < 100
     """
     )
 
     scan.enable_mock_soda_cloud()
-    scan.execute(allow_error_warning=True)
-    scan.assert_all_checks_fail()
+    scan.execute()
+    scan.assert_all_checks_pass()
