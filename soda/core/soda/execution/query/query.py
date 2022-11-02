@@ -168,9 +168,9 @@ class Query:
                 self.description = cursor.description
 
                 # Check if query does not contain forbidden columns and only create sample if it does not.
-                # Query still needs to execute in such situation because some of the queries create both a metric
+                # Query still needs to execute in such situation because some queries create both a metric
                 # for a check and get the samples.
-                # This has a limitation - some of the metrics (e.g. duplicate_count) are set when storing the sample,
+                # This has a limitation - some metrics (e.g. duplicate_count) are set when storing the sample,
                 # so those need a workaround - see below.
                 allow_samples = True
                 offending_columns = []

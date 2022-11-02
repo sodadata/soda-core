@@ -31,3 +31,6 @@ class SampleColumn:
 @dataclass
 class SampleSchema:
     columns: list[SampleColumn]
+
+    def get_dict(self):
+        return [x.get_dict() for x in self.columns]
