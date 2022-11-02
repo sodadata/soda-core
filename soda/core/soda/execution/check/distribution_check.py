@@ -1,5 +1,6 @@
+from __future__ import annotations
+
 from numbers import Number
-from typing import Dict, Optional
 
 from soda.common.exceptions import SODA_SCIENTIFIC_MISSING_LOG_MESSAGE
 from soda.execution.check.check import Check
@@ -40,9 +41,9 @@ class DistributionCheck(Check):
         metric.value = None
         metric = data_source_scan.resolve_metric(metric)
         self.metrics["distribution-difference-metric"] = metric
-        self.check_value: Optional[float] = None
+        self.check_value: float | None = None
 
-    def evaluate(self, metrics: Dict[str, Metric], historic_values: Dict[str, object]):
+    def evaluate(self, metrics: dict[str, Metric], historic_values: dict[str, object]) -> None:
         try:
             from soda.scientific.common.exceptions import LoggableException
             from soda.scientific.distribution.comparison import DistributionChecker
@@ -115,29 +116,24 @@ class DistributionCheck(Check):
         #     log_diagnostics.update(self.historic_diff_values)
         return log_diagnostics
 
-    def sql_column_values_query(self, distribution_check_cfg) -> str:
-
+    def sql_column_values_query(self, distribution_check_cfg: DistributionCheckCfg) -> str:
         column_name = distribution_check_cfg.column_name
-        partition_filter = self.partition.sql_partition_filter
-        distribution_check_filter = distribution_check_cfg.filter
-        sample_clause = distribution_check_cfg.sample_clause
         scan = self.data_source_scan.scan
 
-        filter_clause = None
-        limit = int(1e6)
+        partition_filter = scan.jinja_resolve(self.partition.sql_partition_filter)
+        distribution_check_filter = scan.jinja_resolve(distribution_check_cfg.filter)
+        sample_clause = scan.jinja_resolve(distribution_check_cfg.sample_clause)
 
-        if partition_filter and distribution_check_filter:
-            self.logs.error(
-                "Cannot have both dataset filter and distribution check filter at the same time",
-                location=distribution_check_cfg.location,
-            )
-        if partition_filter:
-            filter_clause = scan.jinja_resolve(definition=partition_filter)
-        if distribution_check_filter:
-            filter_clause = scan.jinja_resolve(definition=distribution_check_filter)
+        filters = []
+        filters.append(partition_filter)
+        filters.append(distribution_check_filter)
+
+        filter_clause = " AND ".join(_filter for _filter in filters if _filter)
+
         if sample_clause:
-            sample_clause = scan.jinja_resolve(definition=sample_clause)
             limit = None  # No need to apply limit if we are sampling
+        else:
+            limit = int(1e6)
 
         return self.data_source_scan.data_source.sql_select_column_with_filter_and_limit(
             column_name=column_name,
