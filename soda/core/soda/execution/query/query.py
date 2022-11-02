@@ -172,40 +172,19 @@ class Query:
                 # for a check and get the samples.
                 # This has a limitation - some of the metrics (e.g. duplicate_count) are set when storing the sample,
                 # so those need a workaround - see below.
-
-                # Match table name and exclude config case insensitive - this might be problematic for some edge cases when case sensitivity is desired, but it makes it easier
-                # for for-each checks to work here as expected.
-                exclude_columns_config = {
-                    k.lower(): v for k, v in self.data_source_scan.scan._configuration.exclude_columns.items()
-                }
-
-                columns = self._parse_columns_from_query(self.sql)
-
-                has_dataset_exclude_config = False
-                offending_columns = []
-                exclude_columns = []
                 allow_samples = True
+                offending_columns = []
 
                 if self.partition and self.partition.table:
-                    # TODO (DEAL WITH BEFORE MERGING) Refactor and use new (now duplicated) logic from data_source
-                    table_name_lower = self.partition.table.table_name.lower()
-                    if table_name_lower in exclude_columns_config:
-                        # TODO: Revisit - using partition since partition is generally set on check->metrics->queries and contains reference to Table anyway.
-                        exclude_columns = exclude_columns + exclude_columns_config[table_name_lower]
-                        has_dataset_exclude_config = True
+                    query_columns = self._parse_columns_from_query(self.sql)
+                    exclude_columns = self.data_source_scan.data_source.get_excluded_columns_for_table(
+                        self.partition.table.table_name
+                    )
 
-                if "global" in exclude_columns_config:
-                    # Global exclude is just added to dataset specific.
-                    # TODO: (DEAL WITH BEFORE MERGING) is "global" the best key in config here? Also, dont forget to document!!!
-                    # TODO (DEAL WITH BEFORE MERGING) - this is not truly "global". If set to a list of columns we cannot block all sample queries with "*" in them, do we want such incomplete feature?
-                    exclude_columns = exclude_columns + exclude_columns_config["global"]
-
-                exclude_columns = list(set(exclude_columns))
-
-                for column in columns:
-                    if (column == "*" and has_dataset_exclude_config) or column in exclude_columns:
-                        allow_samples = False
-                        offending_columns.append(column)
+                    for column in query_columns:
+                        if (column == "*" and exclude_columns) or column in exclude_columns:
+                            allow_samples = False
+                            offending_columns.append(column)
 
                 db_sample = DbSample(cursor, self.data_source_scan.data_source)
 
