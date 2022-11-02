@@ -18,13 +18,13 @@ from helpers.data_source_fixture import DataSourceFixture
         pytest.param("- missing_percent(cat) = 0", False, id="missing_percent"),
         pytest.param(
             """- invalid_count(cat) = 0:
-                   valid format: email""",
+                   valid format: uuid""",
             False,
             id="invalid_count",
         ),
         pytest.param(
             """- invalid_percent(cat) = 0:
-                   valid format: email""",
+                   valid format: uuid""",
             False,
             id="invalid_percent",
         ),
@@ -39,7 +39,7 @@ from helpers.data_source_fixture import DataSourceFixture
         ),
         pytest.param(
             """- failed rows:
-                   fail query: Select * from {{table_name}} WHERE cat = 'HIGH' and cst_size < .7""",
+                   fail query: Select * from {{schema}}{{table_name}} WHERE cat = 'HIGH' and cst_size < .7""",
             True,
             id="failed_rows_expression",
         ),
@@ -54,6 +54,12 @@ def test_dataset_checks(check: str, skip_samples: bool, data_source_fixture: Dat
     scan.enable_mock_sampler()
 
     scan._configuration.exclude_columns = {table_name: ["cat", "cst_size"]}
+
+    if "{{schema}}" in check:
+        if data_source_fixture.data_source.schema:
+            check = check.replace("{{schema}}", f"{data_source_fixture.data_source.schema}.")
+        else:
+            check = check.replace("{{schema}}", "")
 
     if "{{table_name}}" in check:
         check = check.replace("{{table_name}}", table_name)
