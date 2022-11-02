@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta
 
-import sqlparse
 from soda.common.exception_helper import get_exception_stacktrace
+from soda.common.query_helper import parse_columns_from_query
 from soda.common.undefined_instance import undefined
 from soda.sampler.db_sample import DbSample
 from soda.sampler.sample_context import SampleContext
@@ -176,7 +176,7 @@ class Query:
                 offending_columns = []
 
                 if self.partition and self.partition.table:
-                    query_columns = self._parse_columns_from_query(self.sql)
+                    query_columns = parse_columns_from_query(self.sql)
                     exclude_columns = self.data_source_scan.data_source.get_excluded_columns_for_table(
                         self.partition.table.table_name
                     )
@@ -225,31 +225,3 @@ class Query:
         scan = self.data_source_scan.scan
         self.index = len(scan._queries)
         scan._queries.append(self)
-
-    def _parse_columns_from_query(self, query: str) -> list[str]:
-        columns = []
-        statements = sqlparse.split(query)
-
-        for statement in statements:
-            column_lines = None
-            start_looking_for_columns = False
-            parsed = sqlparse.parse(statement)[0]
-            for token in parsed.tokens:
-                if token.ttype == sqlparse.tokens.Keyword.DML and token.value.lower() == "select":
-                    start_looking_for_columns = True
-
-                # This is now after a "select", look for a) no type which is list of columns or b) wildcard which is "*"
-                if start_looking_for_columns and (token.ttype == None or token.ttype == sqlparse.tokens.Token.Wildcard):
-                    column_lines = token.value
-                    break
-            # Remove newlines, double whitespaces and split by colon.
-            column_lines = " ".join(column_lines.replace("\n", "").split()).split(",")
-
-            # Strip each "column statement" of whitespace, remove everything after the first whitespace and keep everything after first dot.
-            for column in column_lines:
-                column, _, _ = column.strip().partition(" ")
-                if "." in column:
-                    _, _, column = column.strip().partition(".")
-                columns.append(column)
-
-        return columns
