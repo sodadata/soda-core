@@ -176,7 +176,7 @@ class Query:
                 offending_columns = []
 
                 if self.partition and self.partition.table:
-                    query_columns = parse_columns_from_query(self.sql)
+                    query_columns = parse_columns_from_query(self.sql, to_lowercase=True)
                     exclude_columns = self.data_source_scan.data_source.get_excluded_columns_for_table(
                         self.partition.table.table_name
                     )

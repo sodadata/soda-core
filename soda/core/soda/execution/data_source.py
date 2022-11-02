@@ -369,6 +369,7 @@ class DataSource:
         return list(set(exclude_column_patterns))
 
     def get_excluded_columns_for_table(self, table_name: str, columns: list(str) | None = None):
+        """Match table and column names case insensitive, return everything in lowercase."""
         excluded_columns = []
 
         column_patterns_for_table = self.get_exclude_column_patterns_for_table(table_name)
@@ -381,9 +382,10 @@ class DataSource:
                 columns = self.get_table_columns(table_name, f"get_table_columns_{table_name}")
 
             for column in columns:
+                column_lower = column.lower()
                 for column_pattern in column_patterns_for_table:
-                    if string_matches_simple_pattern(column, column_pattern):
-                        excluded_columns.append(column)
+                    if string_matches_simple_pattern(column_lower, column_pattern):
+                        excluded_columns.append(column_lower)
 
         return list(set(excluded_columns))
 

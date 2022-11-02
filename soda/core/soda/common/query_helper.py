@@ -3,7 +3,7 @@ from __future__ import annotations
 import sqlparse
 
 
-def parse_columns_from_query(query: str) -> list[str]:
+def parse_columns_from_query(query: str, to_lowercase: bool = False) -> list[str]:
     columns = []
     statements = sqlparse.split(query)
 
@@ -27,6 +27,10 @@ def parse_columns_from_query(query: str) -> list[str]:
             column, _, _ = column.strip().partition(" ")
             if "." in column:
                 _, _, column = column.strip().partition(".")
+
+            if to_lowercase:
+                column = column.lower()
+
             columns.append(column)
 
     return columns
