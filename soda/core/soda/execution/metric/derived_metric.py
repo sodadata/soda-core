@@ -1,5 +1,6 @@
 from typing import Dict, List, Optional
 
+from soda.common.undefined_instance import undefined
 from soda.execution.metric.metric import Metric
 
 METRIC_NAME_MISSING_PERCENT = "missing_percent"
@@ -16,7 +17,7 @@ def derive_missing_percentage(values: Dict[str, int]):
     missing_count = values["missing_count"]
     row_count = values["row_count"]
 
-    if missing_count and row_count:
+    if _is_not_undefined_and_is(missing_count) and _is_not_undefined_and_is(row_count):
         missing_percentage = missing_count * 100 / row_count
     else:
         missing_percentage = 0
@@ -28,7 +29,7 @@ def derive_invalid_percentage(values: Dict[str, int]):
     invalid_count = values["invalid_count"]
     row_count = values["row_count"]
 
-    if invalid_count and row_count:
+    if _is_not_undefined_and_is(invalid_count) and _is_not_undefined_and_is(row_count):
         invalid_percentage = invalid_count * 100 / row_count
     else:
         invalid_percentage = 0
@@ -40,12 +41,16 @@ def derive_duplicate_percentage(values: Dict[str, int]):
     duplicate_count = values["duplicate_count"]
     row_count = values["row_count"]
 
-    if duplicate_count and row_count:
+    if _is_not_undefined_and_is(duplicate_count) and _is_not_undefined_and_is(row_count):
         duplicate_percentage = duplicate_count * 100 / row_count
     else:
         duplicate_percentage = 0
 
     return float(round(duplicate_percentage, 2))
+
+
+def _is_not_undefined_and_is(variable) -> bool:
+    return variable and variable != undefined
 
 
 class DerivedMetric(Metric):

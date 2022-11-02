@@ -4,11 +4,19 @@ from soda.execution.query.query import Query
 
 
 class UserDefinedFailedRowsExpressionQuery(Query):
-    def __init__(self, data_source_scan: DataSourceScan, check_name: str, sql: str, samples_limit: int | None = 100):
+    def __init__(
+        self,
+        data_source_scan: DataSourceScan,
+        check_name: str,
+        sql: str,
+        partition: Partition,
+        samples_limit: int | None = 100,
+    ):
         super().__init__(
             data_source_scan=data_source_scan,
             sql=sql,
             unqualified_query_name=f"user_defined_failed_rows_expression_query[{check_name}]",
+            partition=partition,
         )
         self.samples_limit = samples_limit
 

@@ -45,6 +45,7 @@ class UserDefinedFailedRowsCheck(Check):
             check_name=check_cfg.source_line,
             query=check_cfg.query,
             check=self,
+            partition=partition,
         )
         metric = self.data_source_scan.resolve_metric(metric)
         self.metrics[KEY_FAILED_ROWS_COUNT] = metric
