@@ -336,18 +336,24 @@ class DataSource:
 
         if self.get_exclude_column_patterns_for_table(table_name) and self.data_source_scan.scan._configuration.sampler:
             all_columns = self.get_table_columns(table_name, f"get_table_columns_{table_name}")
-            exclude_columns = self.get_excluded_columns_for_table(table_name, all_columns)
-            selectable_columns = [c for c in all_columns if c not in exclude_columns]
+            exclude_columns = []
+
+            for column in all_columns:
+                if self.is_column_excluded(table_name, column):
+                    exclude_columns.append(column)
+                else:
+                    selectable_columns.append(column)
 
             if exclude_columns:
                 self.logs.debug(
                     f"Skipping columns {exclude_columns} from table '{table_name}' when selecting all columns data."
                 )
+            if not selectable_columns:
+                self.logs.info(
+                    f"Unable to select data for failed rows from table '{table_name}', all columns are excluded. Selecting '*' for the check, no failed rows samples will be created."
+                )
 
         if not selectable_columns:
-            self.logs.info(
-                f"Unable to select data for failed rows from table '{table_name}', all columns are excluded. Selecting '*' for the check, no failed rows samples will be created."
-            )
             selectable_columns = ["*"]
 
         return selectable_columns
@@ -368,26 +374,15 @@ class DataSource:
 
         return list(set(exclude_column_patterns))
 
-    def get_excluded_columns_for_table(self, table_name: str, columns: list(str) | None = None):
-        """Match table and column names case insensitive, return everything in lowercase."""
-        excluded_columns = []
-
+    def is_column_excluded(self, table_name: str, column: str) -> bool:
         column_patterns_for_table = self.get_exclude_column_patterns_for_table(table_name)
 
-        if column_patterns_for_table:
-            # If there is any kind of exclusion set for the table we want to disallow "*" as well.
-            excluded_columns.append("*")
+        for pattern in column_patterns_for_table:
+            if string_matches_simple_pattern(column, pattern) or column == "*":
+                # '*' is a special case - it is considered excluded in case there is at least one column exclude pattern for the given table.
+                return True
 
-            if not columns:
-                columns = self.get_table_columns(table_name, f"get_table_columns_{table_name}")
-
-            for column in columns:
-                column_lower = column.lower()
-                for column_pattern in column_patterns_for_table:
-                    if string_matches_simple_pattern(column_lower, column_pattern):
-                        excluded_columns.append(column_lower)
-
-        return list(set(excluded_columns))
+        return False
 
     ############################################
     # For a table, get the columns metadata
@@ -412,7 +407,7 @@ class DataSource:
             ),
         )
         query.execute()
-        if len(query.rows) > 0:
+        if query.rows and len(query.rows) > 0:
             return {row[0]: row[1] for row in query.rows}
         return None
 

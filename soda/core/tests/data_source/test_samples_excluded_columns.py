@@ -165,7 +165,7 @@ def test_datasource_checks(check: str, data_source_fixture: DataSourceFixture):
             },
             "table_1",
             ["a", "b", "c"],
-            ["a", "b", "c", "*"],
+            ["a", "b", "c"],
             id="all",
         ),
         pytest.param(
@@ -174,7 +174,7 @@ def test_datasource_checks(check: str, data_source_fixture: DataSourceFixture):
             },
             "soda_table_1",
             ["a", "b", "c"],
-            ["a", "b", "c", "*"],
+            ["a", "b", "c"],
             id="all in soda_",
         ),
         pytest.param(
@@ -192,7 +192,7 @@ def test_datasource_checks(check: str, data_source_fixture: DataSourceFixture):
             },
             "table_1",
             ["cst_id", "id", "cst_salary", "salary", "registered_at"],
-            ["cst_id", "cst_salary", "*"],
+            ["cst_id", "cst_salary"],
             id="all cst_ columns",
         ),
     ],
@@ -210,6 +210,9 @@ def test_config_pattern_matching(
     ds_scan = scan._get_or_create_data_source_scan(scan._data_source_name)
     ds = ds_scan.data_source
 
-    excluded_columns = ds.get_excluded_columns_for_table(table_name, columns)
+    excluded_columns = []
+    for column in columns:
+        if ds.is_column_excluded(table_name, column):
+            excluded_columns.append(column)
 
     assert sorted(excluded_columns) == sorted(expected)

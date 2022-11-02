@@ -176,13 +176,12 @@ class Query:
                 offending_columns = []
 
                 if self.partition and self.partition.table:
-                    query_columns = parse_columns_from_query(self.sql, to_lowercase=True)
-                    exclude_columns = self.data_source_scan.data_source.get_excluded_columns_for_table(
-                        self.partition.table.table_name
-                    )
+                    query_columns = parse_columns_from_query(self.sql)
 
                     for column in query_columns:
-                        if column in exclude_columns:
+                        if self.data_source_scan.data_source.is_column_excluded(
+                            self.partition.table.table_name, column
+                        ):
                             allow_samples = False
                             offending_columns.append(column)
 
