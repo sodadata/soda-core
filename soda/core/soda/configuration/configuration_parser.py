@@ -7,6 +7,7 @@ from soda.cloud.dbt_config import DbtCloudConfig
 from soda.common.logs import Logs
 from soda.common.parser import Parser
 from soda.configuration.configuration import Configuration
+from soda.sampler.http_sampler import HTTPSampler
 from soda.sampler.soda_cloud_sampler import SodaCloudSampler
 from soda.soda_cloud.soda_cloud import SodaCloud
 
@@ -75,10 +76,19 @@ class ConfigurationParser(Parser):
                                     location=self.location,
                                 )
 
-                        custom_storage = sampler_configuration.get("custom_storage")
-                        if custom_storage:
-                            # TODO: deal with custom sampler storage config.
-                            pass
+                        storage = sampler_configuration.get("storage")
+                        if storage:
+                            storage_type = storage.get("type")
+                            if storage_type in ["http", "s3"]:
+                                if storage_type == "http":
+                                    url = storage.get("url")
+                                    self.configuration.sampler = HTTPSampler(url)
+                            else:
+                                self.logs.error(
+                                    f"Invalid storage type: {storage_type} specified, must be one of ['http', 's3']",
+                                    location=self.location,
+                                )
+
                     else:
                         self.logs.error(
                             "'sampler' configuration must be a dict",

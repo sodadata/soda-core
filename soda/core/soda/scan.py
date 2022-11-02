@@ -358,7 +358,7 @@ class Scan:
                     if self._configuration.soda_cloud.is_samples_disabled():
                         self._configuration.sampler = DefaultSampler()
 
-            # Override the sampler, if it is configured
+            # Override the sampler, if it is configured programmatically
             if self.sampler is not None:
                 self._configuration.sampler = self.sampler
 
