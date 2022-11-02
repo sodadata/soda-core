@@ -299,8 +299,12 @@ class SQLServerDataSource(DataSource):
         """
         filter_clauses_str = f"\n WHERE {filter_clause}" if filter_clause else ""
         sample_clauses_str = f"\n {sample_clause}" if sample_clause else ""
+        limit_clauses_str = f"TOP {limit}" if limit else ""
+
         sql = (
-            f"SELECT TOP {limit} \n" f"  {column_name} \n" f"FROM {table_name}{sample_clauses_str}{filter_clauses_str}"
+            f"SELECT {limit_clauses_str} \n"
+            f"  {column_name} \n"
+            f"FROM {table_name}{sample_clauses_str}{filter_clauses_str}"
         )
         return sql
 
