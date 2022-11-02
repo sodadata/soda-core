@@ -285,13 +285,11 @@ def test_distribution_check_with_sample(data_source_fixture: DataSourceFixture, 
     sample_query = ""
     if data_source_name in ["postgres", "snowflake"]:
         sample_query = "TABLESAMPLE SYSTEM (100)"
-    elif data_source_name in ["sqlserver"]:
+    elif data_source_name == "sqlserver":
         sample_query = "TABLESAMPLE (100 PERCENT)"
-    elif data_source_name == "db2":
-        sample_query = "SAMPLE BERNOULLI 100"
     elif data_source_name == "athena":
-        sample_query = "SAMPLE BERNOULLI(100)"
-    elif data_source_name in ["bigquery"]:
+        sample_query = "TABLESAMPLE BERNOULLI(100)"
+    elif data_source_name == "bigquery":
         sample_query = "TABLESAMPLE SYSTEM (100 PERCENT)"
     else:
         sample_query = ""
