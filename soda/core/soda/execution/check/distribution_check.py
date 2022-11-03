@@ -1,5 +1,6 @@
+from __future__ import annotations
+
 from numbers import Number
-from typing import Dict, Optional
 
 from soda.common.exceptions import SODA_SCIENTIFIC_MISSING_LOG_MESSAGE
 from soda.execution.check.check import Check
@@ -17,8 +18,8 @@ class DistributionCheck(Check):
         self,
         check_cfg: DistributionCheckCfg,
         data_source_scan: DataSourceScan,
-        partition: Optional[Partition] = None,
-        column: Optional[Column] = None,
+        partition: Partition = None,
+        column: Column = None,
     ):
 
         super().__init__(
@@ -32,17 +33,17 @@ class DistributionCheck(Check):
         metric = Metric(
             data_source_scan=self.data_source_scan,
             name=self.distribution_check_cfg.source_line,
-            partition=None,
-            column=None,
+            partition=partition,
+            column=column,
             check=self,
             identity_parts=["distribution"],
         )
         metric.value = None
         metric = data_source_scan.resolve_metric(metric)
         self.metrics["distribution-difference-metric"] = metric
-        self.check_value: Optional[float] = None
+        self.check_value: float | None = None
 
-    def evaluate(self, metrics: Dict[str, Metric], historic_values: Dict[str, object]):
+    def evaluate(self, metrics: dict[str, Metric], historic_values: dict[str, object]) -> None:
         try:
             from soda.scientific.common.exceptions import LoggableException
             from soda.scientific.distribution.comparison import DistributionChecker
@@ -76,7 +77,7 @@ class DistributionCheck(Check):
             except LoggableException as e:
                 self.logs.error(e, location=self.check_cfg.location)
 
-    def set_outcome_based_on_check_value(self):
+    def set_outcome_based_on_check_value(self) -> None:
 
         if self.check_value is not None and (
             self.distribution_check_cfg.warn_threshold_cfg or self.distribution_check_cfg.fail_threshold_cfg
@@ -115,31 +116,31 @@ class DistributionCheck(Check):
         #     log_diagnostics.update(self.historic_diff_values)
         return log_diagnostics
 
-    def sql_column_values_query(self, distribution_check_cfg, limit=1000000) -> str:
-
+    def sql_column_values_query(self, distribution_check_cfg: DistributionCheckCfg) -> str:
         column_name = distribution_check_cfg.column_name
+        scan = self.data_source_scan.scan
 
-        partition_filter = self.partition.sql_partition_filter
-        partition_str = ""
+        partition_filter = scan.jinja_resolve(self.partition.sql_partition_filter)
+        distribution_check_filter = scan.jinja_resolve(distribution_check_cfg.filter)
+        sample_clause = scan.jinja_resolve(distribution_check_cfg.sample_clause)
 
-        distribution_check_filter = distribution_check_cfg.filter
+        filters = []
+        filters.append(partition_filter)
+        filters.append(distribution_check_filter)
 
-        if distribution_check_filter:
-            scan = self.data_source_scan.scan
-            resolved_distribution_check_filter = scan.jinja_resolve(definition=distribution_check_filter)
-            partition_str = f"\nWHERE ({resolved_distribution_check_filter})"
-        if partition_filter:
-            scan = self.data_source_scan.scan
-            resolved_filter = scan.jinja_resolve(definition=partition_filter)
-            partition_str = (
-                f"{partition_str} AND ({resolved_filter})" if partition_str else f"\nWHERE {resolved_filter}"
-            )
+        filter_clause = " AND ".join(_filter for _filter in filters if _filter)
+
+        if sample_clause:
+            limit = None  # No need to apply limit if we are sampling
+        else:
+            limit = int(1e6)
 
         return self.data_source_scan.data_source.sql_select_column_with_filter_and_limit(
             column_name=column_name,
             table_name=self.partition.table.qualified_table_name,
+            filter_clause=filter_clause,
+            sample_clause=sample_clause,
             limit=limit,
-            filter_clause=partition_str,
         )
 
     def get_summary(self) -> str:
