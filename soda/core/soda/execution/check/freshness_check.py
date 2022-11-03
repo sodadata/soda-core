@@ -1,5 +1,6 @@
-from datetime import datetime, timedelta, timezone
-from typing import Dict, Optional
+from __future__ import annotations
+
+from datetime import date, datetime, timedelta, timezone
 
 from soda.execution.check.check import Check
 from soda.execution.check_outcome import CheckOutcome
@@ -12,10 +13,10 @@ MAX_COLUMN_TIMESTAMP = "max_column_timestamp"
 class FreshnessCheck(Check):
     def __init__(
         self,
-        check_cfg: "FreshnessCheckCfg",
-        data_source_scan: "DataSourceScan",
-        partition: "Partition",
-        column: "Column",
+        check_cfg: FreshnessCheckCfg,
+        data_source_scan: DataSourceScan,
+        partition: Partition,
+        column: Column,
     ):
         super().__init__(
             check_cfg=check_cfg,
@@ -23,7 +24,7 @@ class FreshnessCheck(Check):
             partition=partition,
             column=column,
         )
-        self.freshness_values: Optional[dict] = None
+        self.freshness_values: dict | None = None
         self.metrics[MAX_COLUMN_TIMESTAMP] = data_source_scan.resolve_metric(
             NumericQueryMetric(
                 data_source_scan=self.data_source_scan,
@@ -39,7 +40,7 @@ class FreshnessCheck(Check):
             )
         )
 
-    def evaluate(self, metrics: Dict[str, Metric], historic_values: Dict[str, object]):
+    def evaluate(self, metrics: dict[str, Metric], historic_values: dict[str, object]):
         from soda.sodacl.freshness_check_cfg import FreshnessCheckCfg
 
         check_cfg: FreshnessCheckCfg = self.check_cfg
@@ -53,8 +54,13 @@ class FreshnessCheck(Check):
             )
             return
 
-        max_column_timestamp: Optional[datetime] = metrics.get(MAX_COLUMN_TIMESTAMP).value
-        now_variable_timestamp: Optional[datetime] = None
+        max_column_timestamp: datetime | None = metrics.get(MAX_COLUMN_TIMESTAMP).value
+        now_variable_timestamp: datetime | None = None
+
+        if type(max_column_timestamp) == date:  # using type instead of isinstance because datetime is subclass of date.
+            # Convert data to datetime if its date, use max time (1ms before midnight)
+            min_time = datetime.max.time()
+            max_column_timestamp = datetime.combine(max_column_timestamp, min_time)
 
         is_max_column_timestamp_valid = isinstance(max_column_timestamp, datetime)
         if not is_max_column_timestamp_valid and max_column_timestamp is not None:
