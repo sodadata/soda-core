@@ -547,7 +547,12 @@ class DataSource:
         return None
 
     def sql_get_duplicates(
-        self, column_names: str, table_name: str, filter: str, limit: str | None = None
+        self,
+        column_names: str,
+        table_name: str,
+        filter: str,
+        limit: str | None = None,
+        invert_condition: bool = False,
     ) -> str | None:
         sql = f"""WITH frequencies AS (
               SELECT {column_names}, COUNT(*) AS frequency
@@ -556,7 +561,7 @@ class DataSource:
               GROUP BY {column_names})
             SELECT {column_names}, frequency
             FROM frequencies
-            WHERE frequency > 1"""
+            WHERE frequency {'<' if invert_condition else '>'} 1"""
 
         if limit:
             sql += f"\n LIMIT {limit}"
