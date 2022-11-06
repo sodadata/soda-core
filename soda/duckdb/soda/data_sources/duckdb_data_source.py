@@ -9,6 +9,7 @@
 #  limitations under the License.
 
 import logging
+
 from soda.common.exceptions import DataSourceConnectionError
 from soda.common.logs import Logs
 from soda.execution.data_source import DataSource
@@ -51,7 +52,16 @@ class DuckDBDataSource(DataSource):
         DataType.BOOLEAN: "BOOLEAN",
     }
 
-    NUMERIC_TYPES_FOR_PROFILING = ["TINYINT", "SMALLINT", "INTEGER", "BIGINT", "DECIMAL", "DECIMAL(18,3)", "DOUBLE", "REAL"]
+    NUMERIC_TYPES_FOR_PROFILING = [
+        "TINYINT",
+        "SMALLINT",
+        "INTEGER",
+        "BIGINT",
+        "DECIMAL",
+        "DECIMAL(18,3)",
+        "DOUBLE",
+        "REAL",
+    ]
     TEXT_TYPES_FOR_PROFILING = ["CHAR", "VARCHAR"]
 
     def __init__(self, logs: Logs, data_source_name: str, data_source_properties: dict):
@@ -62,11 +72,14 @@ class DuckDBDataSource(DataSource):
 
     def connect(self):
         import duckdb
+
         try:
             if self.duckdb_connection:
                 self.connection = self.duckdb_connection
             else:
-                self.connection = duckdb.connect(database = self.path if self.path else ":memory:", read_only = self.read_only)
+                self.connection = duckdb.connect(
+                    database=self.path if self.path else ":memory:", read_only=self.read_only
+                )
         except Exception as e:
             raise DataSourceConnectionError(self.TYPE, e)
 
@@ -81,4 +94,3 @@ class DuckDBDataSource(DataSource):
     def default_casify_sql_function(self) -> str:
         """Returns the sql function to use for default casify."""
         return ""
-    
