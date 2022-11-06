@@ -58,20 +58,24 @@ class DuckDBDataSource(DataSource):
 
     def __init__(self, logs: Logs, data_source_name: str, data_source_properties: dict):
         super().__init__(logs, data_source_name, data_source_properties)
-        self.path = data_source_properties.get("path", ":memory:")
+        self.path = data_source_properties.get("path")
         self.read_only = data_source_properties.get("read_only", False)
+        self.duckdb_connection = data_source_properties.get("duckdb_connection")
 
     def connect(self):
         import duckdb
         try:
-            self.connection = duckdb.connect(database = self.path, read_only = self.read_only)
+            if self.duckdb_connection:
+                self.connection = self.duckdb_connection
+            else:
+                self.connection = duckdb.connect(database = self.path if self.path else ":memory:", read_only = self.read_only)
         except Exception as e:
             raise DataSourceConnectionError(self.TYPE, e)
 
         return self.connection
 
     def safe_connection_data(self):
-        return [self.database, self.read_only]
+        return [self.path, self.read_only]
 
     def expr_regexp_like(self, expr: str, regex_pattern: str):
         return f"REGEXP_MATCHES({expr}, '{regex_pattern}')"
