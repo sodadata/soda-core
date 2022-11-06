@@ -194,6 +194,18 @@ class Scan:
                 exception=e,
             )
 
+    def add_dask_context(self, dask_context, data_source_name: str = "dask") -> None:
+        """
+        Pass a dask_context to the scan.  Only required in case of Dask scans.
+        """
+        try:
+            self._configuration.add_dask_context(data_source_name=data_source_name, dask_context=dask_context)
+        except Exception as e:
+            self._logs.error(
+                f"Could not add environment dask context for data_source {data_source_name}",
+                exception=e,
+            )
+
     def add_sodacl_yaml_files(
         self,
         path: str,
