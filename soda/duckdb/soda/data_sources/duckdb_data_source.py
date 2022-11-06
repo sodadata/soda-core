@@ -53,7 +53,7 @@ class DuckDBDataSource(DataSource):
         DataType.BOOLEAN: "BOOLEAN",
     }
 
-    NUMERIC_TYPES_FOR_PROFILING = ["TINYINT", "SMALLINT", "INTEGER", "BIGINT", "DECIMAL", "DOUBLE", "REAL"]
+    NUMERIC_TYPES_FOR_PROFILING = ["TINYINT", "SMALLINT", "INTEGER", "BIGINT", "DECIMAL", "DECIMAL(18,3)", "DOUBLE", "REAL"]
     TEXT_TYPES_FOR_PROFILING = ["CHAR", "VARCHAR"]
 
     def __init__(self, logs: Logs, data_source_name: str, data_source_properties: dict):

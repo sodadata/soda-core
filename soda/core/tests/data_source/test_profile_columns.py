@@ -24,14 +24,17 @@ def test_profile_columns_numeric(data_source_fixture: DataSourceFixture):
     scan.execute(allow_warnings_only=True)
     # remove the data source name because it's a pain to test
     scan_result = mock_soda_cloud.pop_scan_result()
+    logging.debug(f"scan result: {scan_result}")
     assert scan_result
     profiling = scan_result["profiling"]
     assert profiling
+    logging.debug(f"profiling: {profiling}")
     first_profiling = profiling[0]
     column_profiles = first_profiling["columnProfiles"]
     column_profiles_by_name = {
         column_profile["columnName"].lower(): column_profile for column_profile in column_profiles
     }
+    logging.debug(f"column profiles by name: {column_profiles_by_name}, {column_profiles}")
     size_column = column_profiles_by_name["cst_size"]
     size_profile = size_column["profile"]
 
