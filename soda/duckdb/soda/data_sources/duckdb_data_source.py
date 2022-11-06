@@ -19,42 +19,42 @@ from soda.execution.data_type import DataType
 logger = logging.getLogger(__name__)
 
 
-class DuckdbDataSource(DataSource):
+class DuckDBDataSource(DataSource):
     TYPE = "duckdb"
 
     # Maps synonym types for the convenience of use in checks.
     # Keys represent the data_source type, values are lists of "aliases" that can be used in SodaCL as synonyms.
     SCHEMA_CHECK_TYPES_MAPPING: dict = {
-        "character varying": ["varchar"],
-        "double precision": ["double"],
-        "timestamp without time zone": ["timestamp"],
-        "timestamp with time zone": ["timestamp with time zone"],
+        "character varying": ["VARCHAR"],
+        "double precision": ["DOUBLE"],
+        "timestamp without time zone": ["TIMESTAMP"],
+        "timestamp with time zone": ["TIMESTAMP WITH TIME ZONE"],
     }
 
     SQL_TYPE_FOR_CREATE_TABLE_MAP: dict = {
-        DataType.TEXT: "varchar",
-        DataType.INTEGER: "integer",
-        DataType.DECIMAL: "decimal",
-        DataType.DATE: "date",
-        DataType.TIME: "time",
-        DataType.TIMESTAMP: "timestamp",
-        DataType.TIMESTAMP_TZ: "timestamp with time zone",
-        DataType.BOOLEAN: "boolean",
+        DataType.TEXT: "VARCHAR",
+        DataType.INTEGER: "INTEGER",
+        DataType.DECIMAL: "DECIMAL",
+        DataType.DATE: "DATE",
+        DataType.TIME: "TIME",
+        DataType.TIMESTAMP: "TIMESTAMP",
+        DataType.TIMESTAMP_TZ: "TIMESTAMP WITH TIME ZONE",
+        DataType.BOOLEAN: "BOOLEAN",
     }
 
     SQL_TYPE_FOR_SCHEMA_CHECK_MAP = {
-        DataType.TEXT: "varchar",
-        DataType.INTEGER: "integer",
-        DataType.DECIMAL: "decimal",
-        DataType.DATE: "date",
-        DataType.TIME: "time",
-        DataType.TIMESTAMP: "timestamp",
-        DataType.TIMESTAMP_TZ: "timestamp with time zone",
-        DataType.BOOLEAN: "boolean",
+        DataType.TEXT: "VARCHAR",
+        DataType.INTEGER: "INTEGER",
+        DataType.DECIMAL: "DECIMAL(18,3)",
+        DataType.DATE: "DATE",
+        DataType.TIME: "TIME",
+        DataType.TIMESTAMP: "TIMESTAMP",
+        DataType.TIMESTAMP_TZ: "TIMESTAMP WITH TIME ZONE",
+        DataType.BOOLEAN: "BOOLEAN",
     }
 
-    NUMERIC_TYPES_FOR_PROFILING = ["tinyint", "smallint", "integer", "bigint", "decimal", "double", "real"]
-    TEXT_TYPES_FOR_PROFILING = ["char", "varchar"]
+    NUMERIC_TYPES_FOR_PROFILING = ["TINYINT", "SMALLINT", "INTEGER", "BIGINT", "DECIMAL", "DOUBLE", "REAL"]
+    TEXT_TYPES_FOR_PROFILING = ["CHAR", "VARCHAR"]
 
     def __init__(self, logs: Logs, data_source_name: str, data_source_properties: dict):
         super().__init__(logs, data_source_name, data_source_properties)
@@ -70,8 +70,13 @@ class DuckdbDataSource(DataSource):
 
         return self.connection
 
-    def regex_replace_flags(self) -> str:
-        return ""
-
     def safe_connection_data(self):
         return [self.database, self.read_only]
+
+    def expr_regexp_like(self, expr: str, regex_pattern: str):
+        return f"REGEXP_MATCHES({expr}, '{regex_pattern}')"
+
+    def default_casify_sql_function(self) -> str:
+        """Returns the sql function to use for default casify."""
+        return ""
+    

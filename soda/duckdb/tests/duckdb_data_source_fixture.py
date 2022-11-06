@@ -7,7 +7,7 @@ from helpers.data_source_fixture import DataSourceFixture
 
 logger = logging.getLogger(__name__)
 
-class DuckdbDataSourceFixture(DataSourceFixture):
+class DuckDBDataSourceFixture(DataSourceFixture):
     def __init__(self, test_data_source: str):
         super().__init__(test_data_source)
 
@@ -15,15 +15,12 @@ class DuckdbDataSourceFixture(DataSourceFixture):
         return {
             "data_source duckdb": {
                 "type": "duckdb",
-                "database": ":memory:"
+                "path": ":memory:"
             }
         }
 
     def _create_schema_if_not_exists_sql(self) -> str:
         return f"CREATE SCHEMA IF NOT EXISTS {self.schema_name}"
-
-    def _use_schema_sql(self) -> str | None:
-        return None
 
     def _drop_schema_if_exists_sql(self):
         return f"DROP SCHEMA IF EXISTS {self.schema_name}"
