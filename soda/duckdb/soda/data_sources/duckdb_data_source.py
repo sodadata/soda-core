@@ -1,5 +1,3 @@
-#  (c) 2022 Walt Disney Parks and Resorts U.S., Inc.
-#  (c) 2022 Soda Data NV.
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
 #  You may obtain a copy of the License at
