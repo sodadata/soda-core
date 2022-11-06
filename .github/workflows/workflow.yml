@@ -56,6 +56,7 @@ jobs:
           - "spark_df"
           - "sqlserver"
           - "mysql"
+          - "duckdb"
     env:
       DATA_SOURCE: ${{ matrix.data-source }}
       PYTHON_VERSION: ${{ matrix.python-version }}
