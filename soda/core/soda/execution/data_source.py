@@ -176,6 +176,8 @@ class DataSource:
             return "SQLServer"
         elif "mysql" == data_source_type:
             return "MySQL"
+        elif "duckdb" == data_source_type:
+            return "DuckDB"
         else:
             return f"{data_source_type[0:1].upper()}{data_source_type[1:]}"
 
