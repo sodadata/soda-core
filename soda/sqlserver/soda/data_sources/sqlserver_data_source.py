@@ -279,14 +279,33 @@ class SQLServerDataSource(DataSource):
         limit_sql = ""
         if limit is not None:
             limit_sql = f" \n TOP {limit} \n"
-        sql = f"SELECT {limit_sql} * FROM {qualified_table_name}{filter_sql}"
+
+        columns_names = ", ".join(self.sql_select_all_column_names(table_name))
+
+        sql = f"SELECT {limit_sql} {columns_names} FROM {qualified_table_name}{filter_sql}"
         return sql
 
     def sql_select_column_with_filter_and_limit(
-        self, column_name: str, table_name: str, filter_clause: str, limit: int | None = None
+        self,
+        column_name: str,
+        table_name: str,
+        filter_clause: str | None = None,
+        sample_clause: str | None = None,
+        limit: int | None = None,
     ) -> str:
+        """
+        Returns a SQL query that selects a column from a table with optional filter, sample query
+        and limit.
+        """
+        filter_clauses_str = f"\n WHERE {filter_clause}" if filter_clause else ""
+        sample_clauses_str = f"\n {sample_clause}" if sample_clause else ""
+        limit_clauses_str = f"TOP {limit}" if limit else ""
 
-        sql = f"SELECT TOP {limit} \n" f" {column_name} \n" f"FROM {table_name}{filter_clause}"
+        sql = (
+            f"SELECT {limit_clauses_str} \n"
+            f"  {column_name} \n"
+            f"FROM {table_name}{sample_clauses_str}{filter_clauses_str}"
+        )
         return sql
 
     def expr_false_condition(self):
@@ -305,7 +324,7 @@ class SQLServerDataSource(DataSource):
               FROM {table_name}
               WHERE {filter}
               GROUP BY {column_names})
-            SELECT {limit_sql} *
+            SELECT {limit_sql} {column_names}, frequency
             FROM frequencies
             WHERE frequency > 1"""
 

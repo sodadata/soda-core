@@ -34,5 +34,10 @@ class ReferenceMetric(QueryMetric):
         from soda.execution.query.reference_query import ReferenceQuery
 
         self.data_source_scan.queries.append(
-            ReferenceQuery(data_source_scan=self.data_source_scan, metric=self, samples_limit=self.samples_limit)
+            ReferenceQuery(
+                data_source_scan=self.data_source_scan,
+                metric=self,
+                samples_limit=self.samples_limit,
+                partition=self.partition,
+            )
         )

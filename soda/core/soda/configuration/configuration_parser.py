@@ -7,6 +7,7 @@ from soda.cloud.dbt_config import DbtCloudConfig
 from soda.common.logs import Logs
 from soda.common.parser import Parser
 from soda.configuration.configuration import Configuration
+from soda.sampler.http_sampler import HTTPSampler
 from soda.sampler.soda_cloud_sampler import SodaCloudSampler
 from soda.soda_cloud.soda_cloud import SodaCloud
 
@@ -15,7 +16,7 @@ logger = logging.getLogger(__name__)
 DATA_SOURCE = "data_source"
 CONNECTION = "connection"
 SODA_CLOUD = "soda_cloud"
-DBT_CLOUD_API_TOKEN = "dbt_cloud"
+DBT_CLOUD = "dbt_cloud"
 
 
 class ConfigurationParser(Parser):
@@ -57,9 +58,43 @@ class ConfigurationParser(Parser):
                                 self.configuration.data_source_properties_by_name[data_source_name][k] = v
                     else:
                         self.logs.error(
-                            "connection must be a dict",
+                            "'connection' configuration must be a dict",
                             location=self.location,
                         )
+
+                # Sampler configuration
+                sampler_configuration = header_value.get("sampler")
+                if sampler_configuration:
+                    if isinstance(sampler_configuration, dict):
+                        exclude_columns = sampler_configuration.get("exclude_columns", {})
+                        if exclude_columns:
+                            if isinstance(exclude_columns, dict):
+                                self.configuration.exclude_columns = exclude_columns
+                            else:
+                                self.logs.error(
+                                    "'exclude_columns' configuration must be a dict",
+                                    location=self.location,
+                                )
+
+                        storage = sampler_configuration.get("storage")
+                        if storage:
+                            storage_type = storage.get("type")
+                            if storage_type in ["http", "s3"]:
+                                if storage_type == "http":
+                                    url = storage.get("url")
+                                    self.configuration.sampler = HTTPSampler(url)
+                            else:
+                                self.logs.error(
+                                    f"Invalid storage type: {storage_type} specified, must be one of ['http', 's3']",
+                                    location=self.location,
+                                )
+
+                    else:
+                        self.logs.error(
+                            "'sampler' configuration must be a dict",
+                            location=self.location,
+                        )
+
                 self._pop_path_element()
 
             elif environment_header == SODA_CLOUD:
@@ -69,8 +104,8 @@ class ConfigurationParser(Parser):
                     self.configuration.sampler = SodaCloudSampler()
                 self._pop_path_element()
 
-            elif environment_header == DBT_CLOUD_API_TOKEN:
-                self._push_path_element(DBT_CLOUD_API_TOKEN, header_value)
+            elif environment_header == DBT_CLOUD:
+                self._push_path_element(DBT_CLOUD, header_value)
                 self.configuration.dbt_cloud = self.parse_dbt_cloud_cfg(header_value)
                 self._pop_path_element()
 

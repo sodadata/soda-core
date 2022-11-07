@@ -358,7 +358,7 @@ class Scan:
                     if self._configuration.soda_cloud.is_samples_disabled():
                         self._configuration.sampler = DefaultSampler()
 
-            # Override the sampler, if it is configured
+            # Override the sampler, if it is configured programmatically
             if self.sampler is not None:
                 self._configuration.sampler = self.sampler
 
@@ -377,6 +377,7 @@ class Scan:
                 data_source_scan = self._get_or_create_data_source_scan(data_source_scan_cfg.data_source_name)
                 if data_source_scan:
                     for check_cfg in data_source_scan_cfg.check_cfgs:
+                        # Data source checks are created here, i.e. no dataset associated (e.g. failed rows check)
                         self.__create_check(check_cfg, data_source_scan)
 
                     for table_cfg in data_source_scan_cfg.tables_cfgs.values():
@@ -452,7 +453,7 @@ class Scan:
                 else:
                     missing_metrics_str = ",".join([str(metric) for metric in missing_value_metrics])
                     self._logs.error(
-                        f"Metrics {missing_metrics_str} were not computed for check {check.check_cfg.source_line}"
+                        f"Metrics '{missing_metrics_str}' were not computed for check '{check.check_cfg.source_line}'"
                     )
 
             self._logs.info("Scan summary:")

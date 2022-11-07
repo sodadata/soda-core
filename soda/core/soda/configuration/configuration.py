@@ -18,6 +18,7 @@ class Configuration:
         self.file_system = file_system()
         self.sampler: Sampler = DefaultSampler()
         self.dbt_cloud: DbtCloudConfig | None = None
+        self.exclude_columns: dict[str, list] = {}
 
     def add_spark_session(self, data_source_name: str, spark_session):
         self.data_source_properties_by_name[data_source_name] = {

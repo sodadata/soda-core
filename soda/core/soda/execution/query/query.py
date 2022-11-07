@@ -3,6 +3,8 @@ from __future__ import annotations
 from datetime import datetime, timedelta
 
 from soda.common.exception_helper import get_exception_stacktrace
+from soda.common.query_helper import parse_columns_from_query
+from soda.common.undefined_instance import undefined
 from soda.sampler.db_sample import DbSample
 from soda.sampler.sample_context import SampleContext
 from soda.sampler.sampler import Sampler
@@ -94,6 +96,7 @@ class Query:
           - invoke either self.fetchone, self.fetchall or self.store
           - update the metrics with value and optionally other diagnostic information
         """
+        # TODO: some of the subclasses couple setting metric with storing the sample - refactor that.
         self.fetchall()
 
     def fetchone(self):
@@ -164,21 +167,50 @@ class Query:
                 cursor.execute(self.sql)
                 self.description = cursor.description
 
+                # Check if query does not contain forbidden columns and only create sample if it does not.
+                # Query still needs to execute in such situation because some queries create both a metric
+                # for a check and get the samples.
+                # This has a limitation - some metrics (e.g. duplicate_count) are set when storing the sample,
+                # so those need a workaround - see below.
+                allow_samples = True
+                offending_columns = []
+
+                if self.partition and self.partition.table:
+                    query_columns = parse_columns_from_query(self.sql)
+
+                    for column in query_columns:
+                        if self.data_source_scan.data_source.is_column_excluded(
+                            self.partition.table.table_name, column
+                        ):
+                            allow_samples = False
+                            offending_columns.append(column)
+
                 db_sample = DbSample(cursor, self.data_source_scan.data_source)
 
-                sample_context = SampleContext(
-                    sample=db_sample,
-                    sample_name=self.sample_name,
-                    query=self.sql,
-                    data_source=self.data_source_scan.data_source,
-                    partition=self.partition,
-                    column=self.column,
-                    scan=self.data_source_scan.scan,
-                    logs=self.data_source_scan.scan._logs,
-                    samples_limit=self.samples_limit,
-                )
+                # A bit of a hacky workaround for queries that also set the metric in one go.
+                # TODO: revisit after decoupling getting metric values and storing samples. This can be dangerous, it sets the metric value
+                # only when metric value is not set, but this could cause weird regressions.
+                if hasattr(self, "metric") and self.metric and self.metric.value == undefined:
+                    self.metric.set_value(len(db_sample.get_rows()))
 
-                self.sample_ref = sampler.store_sample(sample_context)
+                if allow_samples:
+                    sample_context = SampleContext(
+                        sample=db_sample,
+                        sample_name=self.sample_name,
+                        query=self.sql,
+                        data_source=self.data_source_scan.data_source,
+                        partition=self.partition,
+                        column=self.column,
+                        scan=self.data_source_scan.scan,
+                        logs=self.data_source_scan.scan._logs,
+                        samples_limit=self.samples_limit,
+                    )
+
+                    self.sample_ref = sampler.store_sample(sample_context)
+                else:
+                    self.logs.info(
+                        f"Skipping samples from query '{self.query_name}'. Excluded column(s) present: {offending_columns}."
+                    )
             finally:
                 cursor.close()
         except BaseException as e:

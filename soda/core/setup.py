@@ -10,7 +10,7 @@ if sys.version_info < (3, 7):
 
 package_name = "soda-core"
 # Managed by tbump - do not change manually
-package_version = "3.0.11"
+package_version = "3.0.12"
 description = "Soda Core"
 
 # long_description = (pathlib.Path(__file__).parent.parent / "README.md").read_text()
@@ -23,6 +23,7 @@ requires = [
     "antlr4-python3-runtime~=4.11.1",
     "opentelemetry-api~=1.13.0",
     "opentelemetry-exporter-otlp-proto-http~=1.13.0",
+    "sqlparse~=0.4",
 ]
 
 setup(

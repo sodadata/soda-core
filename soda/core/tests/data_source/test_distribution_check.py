@@ -87,7 +87,7 @@ def test_distribution_sql(data_source_fixture: DataSourceFixture, mock_file_syst
     if test_data_source == "spark_df":
         assert scan._checks[0].query.sql == expectation.format(table_name=table_name, schema_name="")
     elif test_data_source == "sqlserver":
-        expectation = "SELECT TOP 1000000 \n cst_size \nFROM {schema_name}{table_name}"
+        expectation = "SELECT TOP 1000000 \n  cst_size \nFROM {schema_name}{table_name}"
         assert scan._checks[0].query.sql == expectation.format(
             table_name=table_name, schema_name=f"{data_source_fixture.schema_name}."
         )
@@ -260,3 +260,88 @@ def test_distribution_check_with_filter_no_data(data_source_fixture: DataSourceF
 
     log = next(log for log in scan._logs.logs if isinstance(log.message, EmptyDistributionCheckColumn))
     assert str(log.message) == log_message
+
+
+def test_distribution_check_with_sample(data_source_fixture: DataSourceFixture, mock_file_system):
+    table_name = data_source_fixture.ensure_test_table(customers_dist_check_test_table)
+    table_name = data_source_fixture.data_source.default_casify_table_name(table_name)
+
+    scan = data_source_fixture.create_test_scan()
+    data_source_name = data_source_fixture.data_source_name
+    user_home_dir = mock_file_system.user_home_dir()
+
+    mock_file_system.files = {
+        f"{user_home_dir}/customers_cst_size_distribution_reference.yml": dedent(
+            f"""
+            dataset: {table_name}
+            column: cst_size
+            distribution_type: continuous
+            distribution_reference:
+                bins: [1, 2, 3]
+                weights: [0.5, 0.2, 0.3]
+        """
+        ).strip(),
+    }
+    sample_query = ""
+    if data_source_name in ["postgres", "snowflake"]:
+        sample_query = "TABLESAMPLE SYSTEM (100)"
+    elif data_source_name == "sqlserver":
+        sample_query = "TABLESAMPLE (100 PERCENT)"
+    elif data_source_name == "athena":
+        sample_query = "TABLESAMPLE BERNOULLI(100)"
+    elif data_source_name == "bigquery":
+        sample_query = "TABLESAMPLE SYSTEM (100 PERCENT)"
+    else:
+        sample_query = ""
+
+    scan.add_sodacl_yaml_str(
+        f"""
+        checks for {table_name}:
+            - distribution_difference(cst_size) >= 0.05:
+                distribution reference file: {user_home_dir}/customers_cst_size_distribution_reference.yml
+                method: ks
+                sample: {sample_query}
+    """
+    )
+
+    scan.enable_mock_soda_cloud()
+    scan.execute()
+
+
+def test_distribution_check_with_filter_and_partition(data_source_fixture: DataSourceFixture, mock_file_system) -> None:
+    table_name = data_source_fixture.ensure_test_table(customers_dist_check_test_table)
+    table_name = data_source_fixture.data_source.default_casify_table_name(table_name)
+
+    scan = data_source_fixture.create_test_scan()
+
+    user_home_dir = mock_file_system.user_home_dir()
+
+    mock_file_system.files = {
+        f"{user_home_dir}/customers_cst_size_distribution_reference.yml": dedent(
+            f"""
+            dataset: {table_name}
+            column: cst_size
+            distribution_type: continuous
+            distribution_reference:
+                bins: [1, 2, 3]
+                weights: [0.5, 0.2, 0.3]
+        """
+        ).strip(),
+    }
+
+    scan.add_sodacl_yaml_str(
+        f"""
+        filter {table_name} [filtered]:
+            where: cst_size > 0
+
+        checks for {table_name} [filtered]:
+            - distribution_difference(cst_size) >= 0.05:
+                distribution reference file: {user_home_dir}/customers_cst_size_distribution_reference.yml
+                method: ks
+                filter: cst_size < 100
+    """
+    )
+
+    scan.enable_mock_soda_cloud()
+    scan.execute()
+    scan.assert_all_checks_pass()
