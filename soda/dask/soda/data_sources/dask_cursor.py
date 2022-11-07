@@ -1,25 +1,31 @@
 from __future__ import annotations
 
-from dask import dataframe
+import numpy as np
+from dask.dataframe.core import DataFrame
 from dask_sql import Context
 
 
 class DaskCursor:
     def __init__(self, context: Context):
         self.context = context
-        self.df: dataframe | None = None
+        self.df: DataFrame
         self.description: tuple[tuple] | None = None
         self.row_count: int = -1
 
     def execute(self, sql: str) -> None:
-        self.df = self.context.sql(sql).compute()
+        # Run sql query in dask sql context and replace np.nan with None
+        self.df = self.context.sql(sql).compute().replace({np.nan: None})
         self.description = self.get_description()
 
-    def fetchall(self) -> tuple[tuple]:
-        ...
+    def fetchall(self) -> tuple[list]:
+        self.row_count = self.df.shape[0]
+        rows: list = self.df.values.tolist()
+        return tuple(rows)
 
     def fetchone(self) -> tuple:
-        return tuple(self.df.values[0])
+        self.row_count = self.df.shape[0]
+        row_value = self.df.values[0]
+        return tuple(row_value)
 
     def close(self):
         pass
