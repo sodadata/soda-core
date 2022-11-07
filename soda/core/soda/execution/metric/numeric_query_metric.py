@@ -254,7 +254,7 @@ class NumericQueryMetric(QueryMetric):
                 where_clauses.append(f"NOT {self.build_missing_condition()}")
                 where_clauses.append(f"NOT {self.build_valid_condition()}")
 
-                passing_where_clauses.append(self.build_missing_condition())
+                passing_where_clauses.append(f"NOT {self.build_missing_condition()}")
                 passing_where_clauses.append(self.build_valid_condition())
 
             if self.filter:

@@ -331,6 +331,6 @@ class SQLServerDataSource(DataSource):
               GROUP BY {column_names})
             SELECT {limit_sql} {column_names}, frequency
             FROM frequencies
-            WHERE frequency {'<' if invert_condition else '>'} 1"""
+            WHERE frequency {'<=' if invert_condition else '>'} 1"""
 
         return sql
