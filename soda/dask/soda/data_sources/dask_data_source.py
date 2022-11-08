@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 
+from dask.dataframe.core import Series
 from soda.common.logs import Logs
 from soda.data_sources.dask_connection import DaskConnection
 from soda.execution.data_source import DataSource
@@ -32,6 +33,7 @@ class DaskDataSource(DataSource):
     def __init__(self, logs: Logs, data_source_name: str, data_source_properties: dict):
         super().__init__(logs, data_source_name, data_source_properties)
         self.context = data_source_properties.get("context")
+        self.context.register_function(self.regexp_like, "regexp_like", [("regex_pattern", str)], str, row_udf=False)
 
     def connect(self) -> None:
         self.connection = DaskConnection(self.context)
@@ -78,3 +80,8 @@ class DaskDataSource(DataSource):
         logging.debug(f"Running SQL query:\n{sql}")
         df = self.connection.context.sql(sql)
         df.compute()
+
+    @staticmethod
+    def regexp_like(selected_column: Series, regex_pattern: str) -> Series:
+        selected_column = selected_column.str.contains(regex_pattern, regex=True, na=False)
+        return selected_column

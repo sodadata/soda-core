@@ -9,11 +9,11 @@ class DaskConnection:
     def cursor(self) -> DaskCursor:
         return DaskCursor(self.context)
 
-    def close(self):
-        pass
+    def close(self) -> None:
+        ...
 
-    def commit(self):
-        pass
+    def commit(self) -> None:
+        ...
 
-    def rollback(self):
-        pass
+    def rollback(self) -> None:
+        ...

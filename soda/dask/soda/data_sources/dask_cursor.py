@@ -15,20 +15,20 @@ class DaskCursor:
     def execute(self, sql: str) -> None:
         # Run sql query in dask sql context and replace np.nan with None
         self.df = self.context.sql(sql).compute().replace({np.nan: None})
-        self.description = self.get_description()
+        self.description: tuple = self.get_description()
 
-    def fetchall(self) -> tuple[list]:
+    def fetchall(self) -> tuple[list, ...]:
         self.row_count = self.df.shape[0]
-        rows: list = self.df.values.tolist()
-        return tuple(rows)
+        rows: tuple[list, ...] = tuple(self.df.values.tolist())
+        return rows
 
     def fetchone(self) -> tuple:
         self.row_count = self.df.shape[0]
         row_value = self.df.values[0]
         return tuple(row_value)
 
-    def close(self):
-        pass
+    def close(self) -> None:
+        ...
 
-    def get_description(self) -> tuple[tuple]:
+    def get_description(self) -> tuple:
         return tuple((field, type(self.df[field][0]).__name__) for field in self.df.columns)

@@ -15,10 +15,10 @@ class DaskDataSourceFixture(DataSourceFixture):
         return {"data_source dask": {"type": "dask"}}
 
     def _create_schema_if_not_exists_sql(self) -> str:
-        return f"CREATE SCHEMA IF NOT EXISTS {self.schema_name}"
+        ...
 
     def _use_schema_sql(self) -> str | None:
-        return None
+        ...
 
     def _drop_schema_if_exists_sql(self):
-        return f"DROP SCHEMA IF EXISTS {self.schema_name} CASCADE"
+        ...
