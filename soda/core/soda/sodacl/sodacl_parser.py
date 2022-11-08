@@ -1224,7 +1224,7 @@ class SodaCLParser(Parser):
                 set_configuration_value(float(configuration_value))
             except ValueError:
                 self.logs.error(
-                    f"{configuration_type} must be an number (float), but was {configuration_value}",
+                    f"{configuration_type} must be an number (float), but was '{configuration_value}'",
                     location=self.location,
                 )
 
