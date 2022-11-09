@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+from datetime import datetime
 from decimal import Decimal
+from importlib.util import find_spec
 from numbers import Number
 
 from soda.execution.metric.query_metric import QueryMetric
@@ -122,6 +124,13 @@ class NumericQueryMetric(QueryMetric):
             self.value = int(value)
         elif isinstance(value, Decimal):
             self.value = float(value)
+        # Check if numpy is installed
+        elif find_spec("numpy"):
+            import numpy as np
+
+            if isinstance(value, np.datetime64):
+                # Convert numpy datetime64 to python datetime
+                self.value = datetime.utcfromtimestamp(value.tolist() / 1e9)
         else:
             self.value = value
 
