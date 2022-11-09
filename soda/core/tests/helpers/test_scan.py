@@ -168,6 +168,14 @@ class TestScan(Scan):
         if error_message:
             raise AssertionError(error_message)
 
+    def get_passing_queries(self):
+        queries = []
+        for query in self._queries:
+            if query.passing_sql:
+                queries.append(query.passing_sql)
+
+        return queries
+
     def __get_error_message(self, expected_outcome) -> str | None:
         """
         Returns None if the next check result has the expected_outcome, otherwise an assertion error message.
