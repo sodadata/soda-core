@@ -64,7 +64,7 @@ class MySQLDataSource(DataSource):
         # Override the formats
         self.DEFAULT_FORMATS.update(
             {
-                "email": r"^[a-zA-ZÀ-ÿĀ-ſƀ-ȳ0-9.\\-_%]+@[a-zA-ZÀ-ÿĀ-ſƀ-ȳ0-9.\-_%]+\\.[A-Za-z]{2,4}$",
+                "email": r"^[a-zA-ZÀ-ÿĀ-ſƀ-ȳ0-9.\\-_%+]+@[a-zA-ZÀ-ÿĀ-ſƀ-ȳ0-9.\-_%]+\\.[A-Za-z]{2,4}$",
                 "percentage": r"^[[:blank:]]*[-+]?[[:blank:]]*([[:digit:]]+([\.,][[:digit:]]+)?|([\.,][[:digit:]]+))[[:blank:]]*%[[:blank:]]*$",
                 "decimal": r"^[[:blank:]]*[-+]?[[:blank:]]*[[:digit:]]*[\.,]*[[:digit:]]*[[:blank:]]*$",
                 "integer": r"^[[:blank:]]*[-+]?[[:blank:]]*[[:digit:]]+$",

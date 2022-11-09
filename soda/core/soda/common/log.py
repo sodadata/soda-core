@@ -98,7 +98,8 @@ class Log:
 
     def log_to_python_logging(self):
         python_log_level = Log.__log_level_mappings[self.level]
-        logger.log(python_log_level, self.message)
+        time = datetime.now().strftime("%H:%M:%S")
+        logger.log(python_log_level, f"[{time}] {self.message}")
         if self.exception is not None:
             exception_str = str(self.exception)
             exception_str = indent(text=exception_str, prefix="  | ")
