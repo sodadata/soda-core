@@ -4,10 +4,6 @@ from helpers.data_source_fixture import DataSourceFixture
 from helpers.fixtures import test_data_source
 
 
-@pytest.mark.skipif(
-    test_data_source != "postgres",
-    reason="postgres-only aggregation functions",
-)
 def test_data_source_specific_statistics_aggregation_metrics(data_source_fixture: DataSourceFixture):
     table_name = data_source_fixture.ensure_test_table(customers_test_table)
 
