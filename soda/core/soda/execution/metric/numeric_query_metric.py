@@ -240,24 +240,36 @@ class NumericQueryMetric(QueryMetric):
             and self.value > 0
         ):
             where_clauses = []
+            passing_where_clauses = []
             partition_filter = self.partition.sql_partition_filter
             if partition_filter:
                 resolved_filter = self.data_source_scan.scan.jinja_resolve(definition=partition_filter)
                 where_clauses.append(resolved_filter)
+                passing_where_clauses.append(resolved_filter)
 
             if self.name == "missing_count":
                 where_clauses.append(self.build_missing_condition())
+                passing_where_clauses.append(f"NOT {self.build_missing_condition()}")
             elif self.name == "invalid_count":
                 where_clauses.append(f"NOT {self.build_missing_condition()}")
                 where_clauses.append(f"NOT {self.build_valid_condition()}")
 
+                passing_where_clauses.append(f"NOT {self.build_missing_condition()}")
+                passing_where_clauses.append(self.build_valid_condition())
+
             if self.filter:
                 where_clauses.append(self.filter)
+                passing_where_clauses.append(self.filter)
 
             where_sql = " AND ".join(where_clauses)
+            passing_where_sql = " AND ".join(passing_where_clauses)
 
             sql = self.data_source_scan.data_source.sql_select_all(
                 self.partition.table.table_name, self.samples_limit, where_sql
             )
 
-            return SampleQuery(self.data_source_scan, self, "failed_rows", sql)
+            passing_sql = self.data_source_scan.data_source.sql_select_all(
+                self.partition.table.table_name, self.samples_limit, passing_where_sql
+            )
+
+            return SampleQuery(self.data_source_scan, self, "failed_rows", sql, passing_sql=passing_sql)
