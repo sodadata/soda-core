@@ -1,4 +1,3 @@
-import pytest
 from helpers.common_test_tables import customers_test_table
 from helpers.data_source_fixture import DataSourceFixture
 from helpers.fixtures import test_data_source
@@ -22,19 +21,24 @@ def test_data_source_specific_statistics_aggregation_metrics(data_source_fixture
     if test_data_source in ["bigquery", "redshift", "athena"]:
         supported_checks.pop("percentile(distance, 0.7)")
 
-    checks_str = ""
-    for check in supported_checks.values():
-        checks_str += f"  - {check}\n"
+    if test_data_source in ["sqlserver", "mysql", "spark_df"]:
+        supported_checks = {}
 
-    scan = data_source_fixture.create_test_scan()
-    scan.add_sodacl_yaml_str(
-        f"""
+    if supported_checks:
+
+        checks_str = ""
+        for check in supported_checks.values():
+            checks_str += f"  - {check}\n"
+
+        scan = data_source_fixture.create_test_scan()
+        scan.add_sodacl_yaml_str(
+            f"""
 checks for {table_name}:
 {checks_str}
 configurations for {table_name}:
-  valid min for distance: 0
+    valid min for distance: 0
 """
-    )
-    scan.execute()
+        )
+        scan.execute()
 
-    scan.assert_all_checks_pass()
+        scan.assert_all_checks_pass()
