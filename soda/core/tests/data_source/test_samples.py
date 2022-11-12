@@ -1,3 +1,8 @@
+from __future__ import annotations
+
+from textwrap import dedent
+
+import pytest
 from helpers.common_test_tables import (
     customers_dist_check_test_table,
     customers_test_table,
@@ -171,29 +176,101 @@ def test_duplicate_without_rows_samples(data_source_fixture: DataSourceFixture):
     assert len(mock_soda_cloud.files) == 0
 
 
-def test_sample_limit_configuration(data_source_fixture: DataSourceFixture):
+sample_limit_config_header = "check"
+sample_limit_config = [
+    pytest.param(
+        """- missing_count(cat) = 0:
+                samples limit: {{samples_limit}}""",
+        id="missing_count",
+    ),
+    pytest.param(
+        """- missing_percent(cat) = 0:
+                samples limit: {{samples_limit}}""",
+        id="missing_percent",
+    ),
+    pytest.param(
+        """- invalid_count(cat) = 0:
+                   valid format: uuid
+                   samples limit: {{samples_limit}}""",
+        id="invalid_count",
+    ),
+    pytest.param(
+        """- invalid_percent(cat) = 0:
+                   valid format: uuid
+                   samples limit: {{samples_limit}}""",
+        id="invalid_percent",
+    ),
+    pytest.param(
+        """- duplicate_count(cat) = 0:
+                samples limit: {{samples_limit}}""",
+        id="duplicate_count",
+    ),
+    pytest.param(
+        """- duplicate_percent(cat) = 0:
+                samples limit: {{samples_limit}}""",
+        id="duplicate_percent",
+    ),
+    pytest.param(
+        """- values in (cst_size) must exist in {{another_table_name}} (cst_size):
+                samples limit: {{samples_limit}}""",
+        id="reference",
+    ),
+    pytest.param(
+        """- failed rows:
+                   fail condition: cat = 'HIGH' and cst_size < .7
+                   samples limit: {{samples_limit}}""",
+        id="failed_rows_condition",
+    ),
+]
+
+
+@pytest.mark.parametrize(
+    sample_limit_config_header,
+    sample_limit_config,
+)
+def test_sample_limit_configuration(check: str, data_source_fixture: DataSourceFixture):
+    """
+    Tests failed rows queries + sampler.
+    Tests both the resulting count but checks whether query has the limit applied as well.
+    """
     table_name = data_source_fixture.ensure_test_table(customers_test_table)
-    another_table_name = data_source_fixture.ensure_test_table(customers_dist_check_test_table)
+    samples_limit = 2
 
     scan = data_source_fixture.create_test_scan()
     mock_soda_cloud = scan.enable_mock_soda_cloud()
     scan.enable_mock_sampler()
 
+    check = check.replace("{{samples_limit}}", str(samples_limit))
+    if "{{schema}}" in check:
+        if data_source_fixture.data_source.schema:
+            check = check.replace("{{schema}}", f"{data_source_fixture.data_source.schema}.")
+        else:
+            check = check.replace("{{schema}}", "")
+
+    if "{{table_name}}" in check:
+        check = check.replace("{{table_name}}", table_name)
+
+    if "{{another_table_name}}" in check:
+        another_table_name = data_source_fixture.ensure_test_table(customers_dist_check_test_table)
+        check = check.replace("{{another_table_name}}", another_table_name)
+
     scan.add_sodacl_yaml_str(
-        f"""
-      checks for {table_name}:
-        - missing_percent(email) < 50:
-            samples limit: 2
-        - values in (cst_size) must exist in {another_table_name} (cst_size):
-            samples limit: 2
-        - duplicate_count(zip) = 0:
-            samples limit: 2
-    """
+        dedent(
+            f"""
+          checks for {table_name}:
+            {check}
+        """
+        )
     )
     scan.execute()
 
     scan.assert_all_checks_fail()
 
-    assert mock_soda_cloud.find_failed_rows_line_count(0) == 2
-    assert mock_soda_cloud.find_failed_rows_line_count(1) == 2
-    assert mock_soda_cloud.find_failed_rows_line_count(2) == 2
+    sample_queries = scan.get_sample_queries()
+
+    assert len(sample_queries) == 1
+
+    limit_keyword = data_source_fixture.data_source.LIMIT_KEYWORD
+    assert f"{limit_keyword} {samples_limit}" in sample_queries[0]
+
+    assert mock_soda_cloud.find_failed_rows_line_count(0) == samples_limit

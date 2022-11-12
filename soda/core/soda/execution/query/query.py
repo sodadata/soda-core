@@ -21,7 +21,7 @@ class Query:
         sql: str | None = None,
         sample_name: str = "failed_rows",
         location: Location | None = None,
-        samples_limit: int | None = 100,
+        samples_limit: int | None = None,
         passing_sql: str | None = None,
     ):
         self.logs = data_source_scan.scan._logs

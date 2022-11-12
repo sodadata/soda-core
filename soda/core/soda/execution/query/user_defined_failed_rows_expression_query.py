@@ -10,7 +10,7 @@ class UserDefinedFailedRowsExpressionQuery(Query):
         check_name: str,
         sql: str,
         partition: Partition,
-        samples_limit: int | None = 100,
+        samples_limit: int | None = None,
     ):
         super().__init__(
             data_source_scan=data_source_scan,
