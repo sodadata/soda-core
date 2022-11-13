@@ -19,6 +19,7 @@ class SampleContext:
     scan: Scan
     logs: Logs
     samples_limit: int | None
+    passing_query: str | None
 
     def get_scan_folder_name(self):
         parts = [

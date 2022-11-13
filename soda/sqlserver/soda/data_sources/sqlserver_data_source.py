@@ -312,7 +312,12 @@ class SQLServerDataSource(DataSource):
         return "1 = 0"
 
     def sql_get_duplicates(
-        self, column_names: str, table_name: str, filter: str, limit: str | None = None
+        self,
+        column_names: str,
+        table_name: str,
+        filter: str,
+        limit: str | None = None,
+        invert_condition: bool = False,
     ) -> str | None:
         limit_sql = ""
 
@@ -326,6 +331,6 @@ class SQLServerDataSource(DataSource):
               GROUP BY {column_names})
             SELECT {limit_sql} {column_names}, frequency
             FROM frequencies
-            WHERE frequency > 1"""
+            WHERE frequency {'<=' if invert_condition else '>'} 1"""
 
         return sql
