@@ -13,8 +13,11 @@ class DaskCursor:
         self.row_count: int = -1
 
     def execute(self, sql: str) -> None:
+        # Some queries doesn't work with capital letters in the column names
+        lower_sql = sql.lower()
+
         # Run sql query in dask sql context and replace np.nan with None
-        self.df = self.context.sql(sql).compute().replace({np.nan: None})
+        self.df = self.context.sql(lower_sql).compute().replace({np.nan: None})
         self.description: tuple = self.get_description()
 
     def fetchall(self) -> tuple[list, ...]:
@@ -31,4 +34,6 @@ class DaskCursor:
         ...
 
     def get_description(self) -> tuple:
-        return tuple((field, type(self.df[field][0]).__name__) for field in self.df.columns)
+        if self.df.empty:
+            return tuple((column, None) for column in self.df.columns)
+        return tuple((column, type(self.df[column][0]).__name__) for column in self.df.columns)

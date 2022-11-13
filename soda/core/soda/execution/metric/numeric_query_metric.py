@@ -131,6 +131,10 @@ class NumericQueryMetric(QueryMetric):
             if isinstance(value, np.datetime64):
                 # Convert numpy datetime64 to python datetime
                 self.value = datetime.utcfromtimestamp(value.tolist() / 1e9)
+            elif isinstance(value, np.floating):
+                self.value = float(value)
+            elif isinstance(value, np.integer):
+                self.value = int(value)
         else:
             self.value = value
 
