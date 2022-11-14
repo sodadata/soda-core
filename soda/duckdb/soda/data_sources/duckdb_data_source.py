@@ -9,6 +9,7 @@
 #  limitations under the License.
 
 import logging
+import duckdb
 
 from soda.common.exceptions import DataSourceConnectionError
 from soda.common.logs import Logs
@@ -17,6 +18,34 @@ from soda.execution.data_type import DataType
 
 logger = logging.getLogger(__name__)
 
+class DuckDBCursor:
+
+    def __init__(self, connection):
+        self._connection = connection
+
+    def __getattr__(self, attr):
+        if attr in self.__dict__:
+            return getattr(self, attr)
+        return getattr(self._connection, attr)
+    
+    def close(self):
+        # because a duckdb cursor is actually the current connection,
+        # we don't want to close it
+        pass
+
+class DuckDBDataSourceConnectionWrapper:
+
+    def __init__(self, delegate):
+        self._delegate = delegate
+
+    def __getattr__(self, attr):
+        if attr in self.__dict__:
+            return getattr(self, attr)
+        return getattr(self._delegate, attr)
+
+    def cursor(self):
+        return DuckDBCursor(self._delegate)
+    
 
 class DuckDBDataSource(DataSource):
     TYPE = "duckdb"
@@ -75,7 +104,12 @@ class DuckDBDataSource(DataSource):
 
         try:
             if self.duckdb_connection:
-                self.connection = self.duckdb_connection
+                #
+                # when passing in an external connection object, we need this wrapper to ensure
+                # that the cursor() call does not create a new connection, due to this bug:
+                # https://github.com/duckdb/duckdb/issues/1848
+                #
+                self.connection = DuckDBDataSourceConnectionWrapper(self.duckdb_connection)
             else:
                 self.connection = duckdb.connect(
                     database=self.path if self.path else ":memory:", read_only=self.read_only
