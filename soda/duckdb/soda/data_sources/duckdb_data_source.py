@@ -9,7 +9,6 @@
 #  limitations under the License.
 
 import logging
-import duckdb
 
 from soda.common.exceptions import DataSourceConnectionError
 from soda.common.logs import Logs
@@ -17,6 +16,7 @@ from soda.execution.data_source import DataSource
 from soda.execution.data_type import DataType
 
 logger = logging.getLogger(__name__)
+
 
 class DuckDBCursor:
 
@@ -104,16 +104,11 @@ class DuckDBDataSource(DataSource):
 
         try:
             if self.duckdb_connection:
-                #
-                # when passing in an external connection object, we need this wrapper to ensure
-                # that the cursor() call does not create a new connection, due to this bug:
-                # https://github.com/duckdb/duckdb/issues/1848
-                #
                 self.connection = DuckDBDataSourceConnectionWrapper(self.duckdb_connection)
             else:
-                self.connection = duckdb.connect(
+                self.connection = DuckDBDataSourceConnectionWrapper(duckdb.connect(
                     database=self.path if self.path else ":memory:", read_only=self.read_only
-                )
+                ))
         except Exception as e:
             raise DataSourceConnectionError(self.TYPE, e)
 
@@ -125,9 +120,10 @@ class DuckDBDataSource(DataSource):
     def expr_regexp_like(self, expr: str, regex_pattern: str):
         return f"REGEXP_MATCHES({expr}, '{regex_pattern}')"
 
+
     def default_casify_type_name(self, identifier: str) -> str:
         return identifier.lower()
-
+    
     def default_casify_sql_function(self) -> str:
         return ""
 
