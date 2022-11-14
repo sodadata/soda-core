@@ -24,45 +24,45 @@ class DuckDBDataSource(DataSource):
     # Maps synonym types for the convenience of use in checks.
     # Keys represent the data_source type, values are lists of "aliases" that can be used in SodaCL as synonyms.
     SCHEMA_CHECK_TYPES_MAPPING: dict = {
-        "character varying": ["VARCHAR"],
-        "double precision": ["DOUBLE"],
-        "timestamp without time zone": ["TIMESTAMP"],
-        "timestamp with time zone": ["TIMESTAMP WITH TIME ZONE"],
+        "character varying": ["varchar"],
+        "double precision": ["double"],
+        "timestamp without time zone": ["timestamp"],
+        "decimal": ["decimal(18,3)"],
     }
 
     SQL_TYPE_FOR_CREATE_TABLE_MAP: dict = {
-        DataType.TEXT: "VARCHAR",
-        DataType.INTEGER: "INTEGER",
-        DataType.DECIMAL: "DECIMAL",
-        DataType.DATE: "DATE",
-        DataType.TIME: "TIME",
-        DataType.TIMESTAMP: "TIMESTAMP",
-        DataType.TIMESTAMP_TZ: "TIMESTAMP WITH TIME ZONE",
-        DataType.BOOLEAN: "BOOLEAN",
+        DataType.TEXT: "varchar",
+        DataType.INTEGER: "integer",
+        DataType.DECIMAL: "decimal",
+        DataType.DATE: "date",
+        DataType.TIME: "time",
+        DataType.TIMESTAMP: "timestamp",
+        DataType.TIMESTAMP_TZ: "timestamp with time zone",
+        DataType.BOOLEAN: "boolean",
     }
 
     SQL_TYPE_FOR_SCHEMA_CHECK_MAP = {
-        DataType.TEXT: "VARCHAR",
-        DataType.INTEGER: "INTEGER",
-        DataType.DECIMAL: "DECIMAL(18,3)",
-        DataType.DATE: "DATE",
-        DataType.TIME: "TIME",
-        DataType.TIMESTAMP: "TIMESTAMP",
-        DataType.TIMESTAMP_TZ: "TIMESTAMP WITH TIME ZONE",
-        DataType.BOOLEAN: "BOOLEAN",
+        DataType.TEXT: "varchar",
+        DataType.INTEGER: "integer",
+        DataType.DECIMAL: "decimal(18,3)",
+        DataType.DATE: "date",
+        DataType.TIME: "time",
+        DataType.TIMESTAMP: "timestamp",
+        DataType.TIMESTAMP_TZ: "timestamp with time zone",
+        DataType.BOOLEAN: "boolean",
     }
 
     NUMERIC_TYPES_FOR_PROFILING = [
-        "TINYINT",
-        "SMALLINT",
-        "INTEGER",
-        "BIGINT",
-        "DECIMAL",
-        "DECIMAL(18,3)",
-        "DOUBLE",
-        "REAL",
+        "tinyint",
+        "smallint",
+        "integer",
+        "bigint",
+        "decimal",
+        "decimal(18,3)",
+        "double",
+        "real",
     ]
-    TEXT_TYPES_FOR_PROFILING = ["CHAR", "VARCHAR"]
+    TEXT_TYPES_FOR_PROFILING = ["char", "varchar"]
 
     def __init__(self, logs: Logs, data_source_name: str, data_source_properties: dict):
         super().__init__(logs, data_source_name, data_source_properties)
@@ -91,6 +91,13 @@ class DuckDBDataSource(DataSource):
     def expr_regexp_like(self, expr: str, regex_pattern: str):
         return f"REGEXP_MATCHES({expr}, '{regex_pattern}')"
 
+
+    def default_casify_type_name(self, identifier: str) -> str:
+        return identifier.lower()
+    
     def default_casify_sql_function(self) -> str:
-        """Returns the sql function to use for default casify."""
         return ""
+
+    @staticmethod
+    def column_metadata_columns() -> list:
+        return ["column_name", "lower(data_type) as data_type", "is_nullable"]

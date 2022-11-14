@@ -5,11 +5,9 @@ def test_pandas_df(data_source_fixture: DataSourceFixture):
     import duckdb
     import pandas as pd
 
-    con = duckdb.connect(database=":memory:")
     test_df = pd.DataFrame.from_dict({"i": [1, 2, 3, 4], "j": ["one", "two", "three", "four"]})
 
     scan = data_source_fixture.create_test_scan()
-    scan.add_duckdb_connection(con)
     scan.add_sodacl_yaml_str(
         f"""
           checks for test_df:
