@@ -22,6 +22,7 @@ class Query:
         sample_name: str = "failed_rows",
         location: Location | None = None,
         samples_limit: int | None = 100,
+        passing_sql: str | None = None,
     ):
         self.logs = data_source_scan.scan._logs
         self.data_source_scan = data_source_scan
@@ -39,6 +40,9 @@ class Query:
         # This field can also be initialized in the execute method before any of _fetchone,
         # _fetchall or _store are called
         self.sql: str = data_source_scan.scan.jinja_resolve(sql)
+
+        # The SQL query that is the opposite of a failed rows query if applicable.
+        self.passing_sql: str | None = passing_sql
 
         # Following fields are initialized in execute method
         self.description: tuple | None = None
@@ -204,6 +208,7 @@ class Query:
                         scan=self.data_source_scan.scan,
                         logs=self.data_source_scan.scan._logs,
                         samples_limit=self.samples_limit,
+                        passing_query=self.passing_sql,
                     )
 
                     self.sample_ref = sampler.store_sample(sample_context)
