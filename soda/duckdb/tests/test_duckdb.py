@@ -2,7 +2,6 @@ from helpers.data_source_fixture import DataSourceFixture
 
 
 def test_pandas_df(data_source_fixture: DataSourceFixture):
-    import duckdb
     import pandas as pd
 
     test_df = pd.DataFrame.from_dict({"i": [1, 2, 3, 4], "j": ["one", "two", "three", "four"]})

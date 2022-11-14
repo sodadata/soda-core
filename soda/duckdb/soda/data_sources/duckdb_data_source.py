@@ -125,10 +125,9 @@ class DuckDBDataSource(DataSource):
     def expr_regexp_like(self, expr: str, regex_pattern: str):
         return f"REGEXP_MATCHES({expr}, '{regex_pattern}')"
 
-
     def default_casify_type_name(self, identifier: str) -> str:
         return identifier.lower()
-    
+
     def default_casify_sql_function(self) -> str:
         return ""
 
