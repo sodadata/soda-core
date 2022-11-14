@@ -9,7 +9,6 @@
 #  limitations under the License.
 
 import logging
-import duckdb
 
 from soda.common.exceptions import DataSourceConnectionError
 from soda.common.logs import Logs
@@ -18,8 +17,8 @@ from soda.execution.data_type import DataType
 
 logger = logging.getLogger(__name__)
 
-class DuckDBCursor:
 
+class DuckDBCursor:
     def __init__(self, connection):
         self._connection = connection
 
@@ -27,14 +26,14 @@ class DuckDBCursor:
         if attr in self.__dict__:
             return getattr(self, attr)
         return getattr(self._connection, attr)
-    
+
     def close(self):
         # because a duckdb cursor is actually the current connection,
         # we don't want to close it
         pass
 
-class DuckDBDataSourceConnectionWrapper:
 
+class DuckDBDataSourceConnectionWrapper:
     def __init__(self, delegate):
         self._delegate = delegate
 
@@ -45,7 +44,7 @@ class DuckDBDataSourceConnectionWrapper:
 
     def cursor(self):
         return DuckDBCursor(self._delegate)
-    
+
 
 class DuckDBDataSource(DataSource):
     TYPE = "duckdb"
