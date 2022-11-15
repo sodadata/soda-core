@@ -7,6 +7,7 @@ from soda.sampler.sampler import Sampler
 
 class SodaCloudSampler(Sampler):
     def store_sample(self, sample_context: SampleContext) -> SampleRef | None:
+        self.logs.info(f"Sending failed row samples to Soda Cloud")
         sample_rows = sample_context.sample.get_rows()
         row_count = len(sample_rows)
         sample_schema = sample_context.sample.get_schema()
