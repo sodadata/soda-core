@@ -82,7 +82,9 @@ class ConfigurationParser(Parser):
                             if storage_type in ["http", "s3"]:
                                 if storage_type == "http":
                                     url = storage.get("url")
-                                    self.configuration.sampler = HTTPSampler(url)
+                                    message = storage.get("message") or f"Failed rows have been sent to {url}"
+                                    link = storage.get("link")
+                                    self.configuration.sampler = HTTPSampler(url, message=message, link=link)
                             else:
                                 self.logs.error(
                                     f"Invalid storage type: {storage_type} specified, must be one of ['http', 's3']",
