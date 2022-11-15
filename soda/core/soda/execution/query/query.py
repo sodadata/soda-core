@@ -168,7 +168,7 @@ class Query:
             cursor = data_source.connection.cursor()
             try:
                 self.logs.debug(f"Query {self.query_name}:\n{self.sql}")
-                cursor.execute(self.sql)
+                cursor.execute(str(self.sql))
                 self.description = cursor.description
 
                 # Check if query does not contain forbidden columns and only create sample if it does not.
