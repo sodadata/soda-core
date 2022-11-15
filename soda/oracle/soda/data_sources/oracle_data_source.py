@@ -17,7 +17,6 @@ class OracleDataSource(DataSource):
 
     LIMIT_KEYWORD = "FETCH FIRST"
 
-
     SCHEMA_CHECK_TYPES_MAPPING: dict = {
         "VARCHAR2": ["varchar"],
         # "double precision": ["decimal"],
