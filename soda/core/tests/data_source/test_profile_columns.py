@@ -6,8 +6,8 @@ from numbers import Number
 import pytest
 from helpers.common_test_tables import (
     customers_profiling,
-    orders_test_table,
     customers_profiling_capitalized,
+    orders_test_table,
 )
 from helpers.data_source_fixture import DataSourceFixture
 from soda.common.yaml_helper import to_yaml_str
@@ -334,4 +334,4 @@ def test_profile_columns_capitalized(data_source_fixture: DataSourceFixture):
     column_profiles = profiling["columnProfiles"]
 
     assert len(column_profiles) == 1
-    assert column_profiles[0]['columnName'] == "ITEMS_SOLD"
+    assert column_profiles[0]["columnName"] == "ITEMS_SOLD"
