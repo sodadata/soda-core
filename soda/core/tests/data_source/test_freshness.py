@@ -44,7 +44,7 @@ def test_freshness_timezones_input_with_tz(data_source_fixture: DataSourceFixtur
     scan.add_sodacl_yaml_str(
         f"""
           checks for {table_name}:
-            - freshness(ts) < 1d
+
             - freshness(ts_with_tz) < 1d
         """
     )

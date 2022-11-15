@@ -33,7 +33,7 @@ class OracleDataSource(DataSource):
         DataType.DATE: "DATE",
         DataType.TIME: "TIME",
         DataType.TIMESTAMP: "TIMESTAMP",
-        DataType.TIMESTAMP_TZ: "TIMESTAMP WITH TIMEZONE",
+        DataType.TIMESTAMP_TZ: "TIMESTAMP WITH TIME ZONE",
         DataType.BOOLEAN: "BOOLEAN",
     }
 
@@ -58,7 +58,7 @@ class OracleDataSource(DataSource):
         "INT",
         "SMALLINT",
         "FLOAT",
-        "DOUBLE PRECISION",
+        "" "DOUBLE PRECISION",
         "REAL",
     ]
     TEXT_TYPES_FOR_PROFILING = ["CHARACTER VARYING", "CHAR", "NCHAR", "VARCHAR", "CHAR VARYING", "VARCHAR2"]
@@ -147,7 +147,7 @@ class OracleDataSource(DataSource):
         return "COLUMN_ID"
 
     def cast_to_text(self, expr: str) -> str:
-        return f"CAST({expr} AS VARCHAR2(10))"
+        return f"CAST({expr} AS VARCHAR2(30))"
 
     def profiling_sql_values_frequencies_query(
         self,
@@ -223,3 +223,21 @@ class OracleDataSource(DataSource):
             )
 
         raise AssertionError("data_type_category must be either 'numeric' or 'text'")
+
+    def sql_select_column_with_filter_and_limit(
+        self,
+        column_name: str,
+        table_name: str,
+        filter_clause: str | None = None,
+        sample_clause: str | None = None,
+        limit: int | None = None,
+    ) -> str:
+        """
+        Returns a SQL query that selects a column from a table with optional filter, sample query
+        and limit.
+        """
+        filter_clauses_str = f"\n WHERE {filter_clause}" if filter_clause else ""
+        sample_clauses_str = f"\n {sample_clause}" if sample_clause else ""
+        limit_str = f"\n FETCH FIRST {limit} ROWS ONLY" if limit else ""
+        sql = f"SELECT \n" f"  {column_name} \n" f"FROM {table_name}{sample_clauses_str}{filter_clauses_str}{limit_str}"
+        return sql
