@@ -56,6 +56,7 @@ class SQLServerDataSource(DataSource):
     ]
 
     TEXT_TYPES_FOR_PROFILING = ["char", "varchar", "text"]
+    LIMIT_KEYWORD = "TOP"
 
     def __init__(self, logs: Logs, data_source_name: str, data_source_properties: dict):
         super().__init__(logs, data_source_name, data_source_properties)

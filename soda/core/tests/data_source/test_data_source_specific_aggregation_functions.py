@@ -21,7 +21,7 @@ def test_data_source_specific_statistics_aggregation_metrics(data_source_fixture
     if test_data_source in ["bigquery", "redshift", "athena"]:
         supported_checks.pop("percentile(distance, 0.7)")
 
-    if test_data_source in ["sqlserver", "mysql", "spark_df"]:
+    if test_data_source in ["sqlserver", "mysql", "spark_df", "oracle"]:
         supported_checks = {}
 
     if supported_checks:

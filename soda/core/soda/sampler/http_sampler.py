@@ -11,9 +11,11 @@ logger = logging.getLogger(__name__)
 
 
 class HTTPSampler(Sampler):
-    def __init__(self, url: str, format: str = "json"):
+    def __init__(self, url: str, format: str = "json", link: str | None = None, message: str = ""):
         self.url = url
         self.format = format
+        self.link = link
+        self.message = message
 
     def store_sample(self, sample_context: SampleContext) -> SampleRef | None:
 
@@ -42,4 +44,6 @@ class HTTPSampler(Sampler):
             total_row_count=row_count,
             stored_row_count=stored_row_count,
             type="http",
+            link=self.link,
+            message=self.message,
         )
