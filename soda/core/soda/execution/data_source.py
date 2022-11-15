@@ -158,6 +158,7 @@ class DataSource:
         "bigserial",
     ]
     TEXT_TYPES_FOR_PROFILING = ["character varying", "varchar", "text", "character", "char"]
+    LIMIT_KEYWORD = "LIMIT"
 
     # Building up format queries normally works with regexp expression + a set of formats,
     # but some use cases require whole completely custom format expressions.
@@ -399,6 +400,7 @@ class DataSource:
         :return: A dict mapping column names to data source data types.  Like eg
         {"id": "varchar", "cst_size": "int8", ...}
         """
+        # TODO: save/cache the result for later use.
         query = Query(
             data_source_scan=self.data_source_scan,
             unqualified_query_name=query_name,

@@ -15,7 +15,7 @@ class CheckCfg:
         source_configurations: dict | None,
         location: Location,
         name: str | None,
-        samples_limit: int | None = 100,
+        samples_limit: int | None = None,
     ):
         self.source_header: str = source_header
         self.source_line: str = source_line

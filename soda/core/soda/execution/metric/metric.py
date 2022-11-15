@@ -6,6 +6,7 @@ from soda.common.undefined_instance import undefined
 from soda.execution.identity import Identity
 from soda.execution.query.query import Query
 from soda.sampler.sample_ref import SampleRef
+from soda.sampler.sampler import DEFAULT_FAILED_ROWS_SAMPLE_LIMIT
 
 
 class Metric(ABC):
@@ -46,7 +47,7 @@ class Metric(ABC):
         self.queries: list[Query] = []
         self.formula_values: dict[str, object] = None
         self.failed_rows_sample_ref: SampleRef | None = None
-        self.samples_limit = check.check_cfg.samples_limit
+        self.samples_limit = check.check_cfg.samples_limit or DEFAULT_FAILED_ROWS_SAMPLE_LIMIT
 
     def __eq__(self, other: Metric) -> bool:
         if self is other:

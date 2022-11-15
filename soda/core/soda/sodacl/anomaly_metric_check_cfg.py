@@ -25,7 +25,7 @@ class AnomalyMetricCheckCfg(MetricCheckCfg):
         fail_threshold_cfg: ThresholdCfg | None,
         warn_threshold_cfg: ThresholdCfg | None,
         is_automated_monitoring: bool = False,
-        samples_limit: int | None = 100,
+        samples_limit: int | None = None,
     ):
         super().__init__(
             source_header,
