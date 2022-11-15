@@ -72,6 +72,9 @@ class OracleDataSource(DataSource):
     def connect(self):
         self.connection = oracledb.connect(user=self.username, password=self.password, dsn=self.connectstring)
 
+    def sql_test_connection(self) -> str:
+        return "SELECT 1 FROM DUAL"
+
     def sql_information_schema_tables(self) -> str:
         return "ALL_TABLES"
 
