@@ -216,7 +216,7 @@ def test_anomaly_detection_invalid_values(data_source_fixture):
         f"""
           checks for {table_name}:
               - anomaly score for invalid_count(id) < default:
-                    valid format: email
+                    valid format: uuid
         """
     )
 
