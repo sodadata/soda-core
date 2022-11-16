@@ -169,7 +169,7 @@ customers_profiling_capitalized = TestTable(
     name="CustomersProfilingCapitalized",
     create_view=os.getenv("TEST_WITH_VIEWS", False),
     columns=[
-        ('''"ITEMS_SOLD"''', DataType.INTEGER),
+        ("ITEMS_SOLD", DataType.INTEGER),
     ],
     values=[(1,), (2,), (0,), (2,), (6,), (6,), (3,)],
 )
