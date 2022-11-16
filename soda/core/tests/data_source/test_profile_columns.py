@@ -92,8 +92,8 @@ def test_profile_columns_text(data_source_fixture: DataSourceFixture):
 
     test_data_source = os.environ.get("test_data_source")
 
-    capitalized_column_name_databases = "snowflake"
-    if test_data_source == capitalized_column_name_databases:
+    uppercase_column_name_databases = "snowflake"
+    if test_data_source == uppercase_column_name_databases:
         expected_column_name = "COUNTRY"
     else:
         expected_column_name = "country"
@@ -341,5 +341,13 @@ def test_profile_columns_capitalized(data_source_fixture: DataSourceFixture):
 
     column_profiles = profiling["columnProfiles"]
 
+    test_data_source = os.environ.get("test_data_source")
+
+    lowercase_column_name_databases = ["postgres", "redshift", "athena"]
+    if test_data_source in lowercase_column_name_databases:
+        expected_column_name = "items_sold"
+    else:
+        expected_column_name = "COUNTRY"
+        
     assert len(column_profiles) == 1
-    assert column_profiles[0]["columnName"] == "ITEMS_SOLD"
+    assert column_profiles[0]["columnName"] == expected_column_name
