@@ -12,7 +12,7 @@ from helpers.common_test_tables import (
 from helpers.data_source_fixture import DataSourceFixture
 from soda.common.yaml_helper import to_yaml_str
 from soda.execution.check.profile_columns_run import ProfileColumnsRun
-
+import os
 
 def test_profile_columns_numeric(data_source_fixture: DataSourceFixture):
     table_name = data_source_fixture.ensure_test_table(customers_profiling)
@@ -90,10 +90,18 @@ def test_profile_columns_text(data_source_fixture: DataSourceFixture):
     profiling.pop("dataSource")
     profiling.pop("table")
 
+    test_data_source = os.environ.get("test_data_source")
+
+    capitalized_column_name_databases = "snowflake"
+    if test_data_source == capitalized_column_name_databases:
+        expected_column_name = "COUNTRY"
+    else:
+        expected_column_name = "country"
+
     assert profiling == {
         "columnProfiles": [
             {
-                "columnName": "country",
+                "columnName": expected_column_name,
                 "profile": {
                     "mins": None,
                     "maxs": None,
