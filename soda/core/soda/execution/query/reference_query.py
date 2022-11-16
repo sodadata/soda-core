@@ -55,18 +55,31 @@ class ReferenceQuery(Query):
         # Search for all rows where:
         # 1. source value is not null - to avoid null values triggering fails
         # 2. target value is null - this means that source value was not found in target column.
+        # Passing qery is same on source side, but not null on target side.
         where_condition = " OR ".join(
             [
                 f"(SOURCE.{source_column_name} IS NOT NULL AND TARGET.{target_column_name} IS NULL)"
                 for source_column_name, target_column_name in zip(source_column_names, target_column_names)
             ]
         )
+        passing_where_condition = " OR ".join(
+            [
+                f"(SOURCE.{source_column_name} IS NOT NULL AND TARGET.{target_column_name} IS NOT NULL)"
+                for source_column_name, target_column_name in zip(source_column_names, target_column_names)
+            ]
+        )
 
         self.sql = self.data_source_scan.scan.jinja_resolve(
             f"SELECT {source_diagnostic_column_fields} \n"
-            f"FROM {source_table_name} as SOURCE \n"
-            f"     LEFT JOIN {target_table_name} as TARGET on {join_condition} \n"
+            f"FROM {source_table_name}  SOURCE \n"
+            f"     LEFT JOIN {target_table_name}  TARGET on {join_condition} \n"
             f"WHERE {where_condition}"
+        )
+        self.passing_sql = self.data_source_scan.scan.jinja_resolve(
+            f"SELECT {source_diagnostic_column_fields} \n"
+            f"FROM {source_table_name}  SOURCE \n"
+            f"     LEFT JOIN {target_table_name}  TARGET on {join_condition} \n"
+            f"WHERE {passing_where_condition}"
         )
 
         self.metric = metric

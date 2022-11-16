@@ -11,6 +11,7 @@ from soda.common.log import LogLevel
 from soda.execution.check.check import Check
 from soda.execution.check_outcome import CheckOutcome
 from soda.execution.data_source import DataSource
+from soda.execution.query.sample_query import SampleQuery
 from soda.sampler.log_sampler import LogSampler
 from soda.scan import Scan
 
@@ -167,6 +168,22 @@ class TestScan(Scan):
         error_message = self.__get_error_message(expected_outcome)
         if error_message:
             raise AssertionError(error_message)
+
+    def get_passing_queries(self):
+        queries = []
+        for query in self._queries:
+            if query.passing_sql:
+                queries.append(query.passing_sql)
+
+        return queries
+
+    def get_sample_queries(self):
+        queries = []
+        for query in self._queries:
+            if isinstance(query, SampleQuery):
+                queries.append(query.sql)
+
+        return queries
 
     def __get_error_message(self, expected_outcome) -> str | None:
         """

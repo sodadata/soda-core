@@ -155,7 +155,9 @@ class SodaCloud:
 
         if "fileId" not in upload_response_json:
             logger.error(f"No fileId received in response: {upload_response_json}")
-        return upload_response_json["fileId"]
+            return None
+        else:
+            return upload_response_json["fileId"]
 
     def send_scan_results(self, scan: Scan):
         scan_results = self.build_scan_results(scan)

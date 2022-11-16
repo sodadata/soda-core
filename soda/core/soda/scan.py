@@ -357,6 +357,8 @@ class Scan:
                 else:
                     if self._configuration.soda_cloud.is_samples_disabled():
                         self._configuration.sampler = DefaultSampler()
+            else:
+                self._configuration.sampler = DefaultSampler()
 
             # Override the sampler, if it is configured programmatically
             if self.sampler is not None:
@@ -743,7 +745,11 @@ class Scan:
 
     def __log_check_group(self, checks, indent, check_outcome, outcome_text):
         for check in checks:
-            self._logs.info(f"{indent}{check.name} [{outcome_text}]")
+            location = ""
+            if verbose:
+                location = f"[{check.check_cfg.location.file_path}] "
+
+            self._logs.info(f"{indent}{check.name} {location}[{outcome_text}]")
             if self._logs.verbose or check_outcome != CheckOutcome.PASS:
                 for diagnostic in check.get_log_diagnostic_lines():
                     self._logs.info(f"{indent}  {diagnostic}")

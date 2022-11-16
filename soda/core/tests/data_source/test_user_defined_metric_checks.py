@@ -9,7 +9,7 @@ def test_user_defined_table_expression_metric_check(data_source_fixture: DataSou
     scan = data_source_fixture.create_test_scan()
     length_expr = "LEN" if data_source_fixture.data_source_name == "sqlserver" else "LENGTH"
 
-    ones_expression = f"SUM({length_expr}(cst_size_txt) - {length_expr}(REPLACE(cst_size_txt, '1', '')))"
+    ones_expression = f"SUM({length_expr}(cst_size_txt))"
 
     scan.add_sodacl_yaml_str(
         f"""
@@ -17,10 +17,10 @@ def test_user_defined_table_expression_metric_check(data_source_fixture: DataSou
         - avg_surface between 1068 and 1069:
             avg_surface expression: AVG(cst_size * distance)
         - ones(cst_size_txt):
-            name: There must be 3 occurrences of 1 in cst_size_text
+            name: The total length of cst_size_txt must be 14
             ones expression: {ones_expression}
-            warn: when < 3
-            fail: when < 2
+            warn: when <= 14
+            fail: when > 14
     """
     )
     scan.execute()
@@ -32,8 +32,8 @@ def test_user_defined_table_expression_metric_check(data_source_fixture: DataSou
     assert avg_surface_check.outcome == CheckOutcome.PASS
 
     ones_check = scan._checks[1]
-    assert ones_check.check_value == 2
-    assert ones_check.check_cfg.name == "There must be 3 occurrences of 1 in cst_size_text"
+    assert ones_check.check_value == 14
+    assert ones_check.check_cfg.name == "The total length of cst_size_txt must be 14"
     assert ones_check.outcome == CheckOutcome.WARN
 
 

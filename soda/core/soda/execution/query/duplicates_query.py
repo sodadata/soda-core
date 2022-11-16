@@ -34,6 +34,11 @@ class DuplicatesQuery(Query):
                 column_names, self.partition.table.qualified_table_name, values_filter
             )
         )
+        self.passing_sql = self.data_source_scan.scan.jinja_resolve(
+            self.data_source_scan.data_source.sql_get_duplicates(
+                column_names, self.partition.table.qualified_table_name, values_filter, invert_condition=True
+            )
+        )
 
     def execute(self):
         self.store()

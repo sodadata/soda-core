@@ -10,7 +10,7 @@ class UserDefinedFailedRowsQuery(Query):
         metric: FailedRowsQueryMetric,
         partition: Partition,
         location: Location | None = None,
-        samples_limit: int | None = 100,
+        samples_limit: int | None = None,
     ):
         super().__init__(
             data_source_scan=data_source_scan,

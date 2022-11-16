@@ -97,7 +97,7 @@ class FormatHelper:
             "ipv4 address": r"^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$",
             # scary - but covers all cases
             "ipv6 address": r"^(([0-9a-fA-F]{1,4}:){7,7}[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,7}:|([0-9a-fA-F]{1,4}:){1,6}:[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,5}(:[0-9a-fA-F]{1,4}){1,2}|([0-9a-fA-F]{1,4}:){1,4}(:[0-9a-fA-F]{1,4}){1,3}|([0-9a-fA-F]{1,4}:){1,3}(:[0-9a-fA-F]{1,4}){1,4}|([0-9a-fA-F]{1,4}:){1,2}(:[0-9a-fA-F]{1,4}){1,5}|[0-9a-fA-F]{1,4}:((:[0-9a-fA-F]{1,4}){1,6})|:((:[0-9a-fA-F]{1,4}){1,7}|:)|fe80:(:[0-9a-fA-F]{0,4}){0,4}%[0-9a-zA-Z]{1,}|::(ffff(:0{1,4}){0,1}:){0,1}((25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])\.){3,3}(25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])|([0-9a-fA-F]{1,4}:){1,4}:((25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])\.){3,3}(25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9]))$",
-            "email": r"^[a-zA-ZÀ-ÿĀ-ſƀ-ȳ0-9.\-_%]+@[a-zA-ZÀ-ÿĀ-ſƀ-ȳ0-9.\-_%]+\.[A-Za-z]{2,4}$",
+            "email": r"^[a-zA-ZÀ-ÿĀ-ſƀ-ȳ0-9.\-_%+]+@[a-zA-ZÀ-ÿĀ-ſƀ-ȳ0-9.\-_%]+\.[A-Za-z]{2,4}$",
             "phone number": r"^((\+[0-9]{1,2}\s)?\(?[0-9]{3}\)?[\s.-])?[0-9]{3}[\s.-][0-9]{4}$",
             "credit card number": r"^[0-9]{14}|[0-9]{15}|[0-9]{16}|[0-9]{17}|[0-9]{18}|[0-9]{19}|([0-9]{4}-){3}[0-9]{4}|([0-9]{4} ){3}[0-9]{4}$",
         }
@@ -158,6 +158,7 @@ class DataSource:
         "bigserial",
     ]
     TEXT_TYPES_FOR_PROFILING = ["character varying", "varchar", "text", "character", "char"]
+    LIMIT_KEYWORD = "LIMIT"
 
     # Building up format queries normally works with regexp expression + a set of formats,
     # but some use cases require whole completely custom format expressions.
@@ -399,6 +400,7 @@ class DataSource:
         :return: A dict mapping column names to data source data types.  Like eg
         {"id": "varchar", "cst_size": "int8", ...}
         """
+        # TODO: save/cache the result for later use.
         query = Query(
             data_source_scan=self.data_source_scan,
             unqualified_query_name=query_name,
@@ -413,6 +415,9 @@ class DataSource:
 
     def create_table_columns_query(self, partition: Partition, schema_metric: SchemaMetric) -> TableColumnsQuery:
         return TableColumnsQuery(partition, schema_metric)
+
+    def get_ordinal_position_name(self) -> str:
+        return "ORDINAL_POSITION"
 
     def sql_get_table_columns(
         self,
@@ -458,7 +463,7 @@ class DataSource:
             f"SELECT {', '.join(self.column_metadata_columns())} \n"
             f"FROM {self.sql_information_schema_columns()} \n"
             f"WHERE {where_filter}"
-            "\nORDER BY ORDINAL_POSITION"
+            f"\nORDER BY {self.get_ordinal_position_name()}"
         )
         return sql
 
@@ -547,7 +552,12 @@ class DataSource:
         return None
 
     def sql_get_duplicates(
-        self, column_names: str, table_name: str, filter: str, limit: str | None = None
+        self,
+        column_names: str,
+        table_name: str,
+        filter: str,
+        limit: str | None = None,
+        invert_condition: bool = False,
     ) -> str | None:
         sql = f"""WITH frequencies AS (
               SELECT {column_names}, COUNT(*) AS frequency
@@ -556,7 +566,7 @@ class DataSource:
               GROUP BY {column_names})
             SELECT {column_names}, frequency
             FROM frequencies
-            WHERE frequency > 1"""
+            WHERE frequency {'<=' if invert_condition else '>'} 1"""
 
         if limit:
             sql += f"\n LIMIT {limit}"

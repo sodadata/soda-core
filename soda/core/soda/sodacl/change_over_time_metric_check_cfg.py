@@ -24,7 +24,7 @@ class ChangeOverTimeMetricCheckCfg(MetricCheckCfg):
         change_over_time_cfg: ChangeOverTimeCfg | None,
         fail_threshold_cfg: ThresholdCfg | None,
         warn_threshold_cfg: ThresholdCfg | None,
-        samples_limit: int | None = 100,
+        samples_limit: int | None = None,
     ):
         super().__init__(
             source_header,

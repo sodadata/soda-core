@@ -1,4 +1,4 @@
-from typing import Optional
+from __future__ import annotations
 
 from soda.sodacl.check_cfg import CheckCfg
 from soda.sodacl.location import Location
@@ -9,12 +9,12 @@ class UserDefinedFailedRowsCheckCfg(CheckCfg):
         self,
         source_header: str,
         source_line: str,
-        source_configurations: Optional[dict],
+        source_configurations: dict | None,
         location: Location,
-        name: Optional[str],
-        query: Optional[str],
-        samples_limit: Optional[int] = 100,
+        name: str | None,
+        query: str | None,
+        samples_limit: int | None = None,
     ):
         super().__init__(source_header, source_line, source_configurations, location, name)
-        self.query: Optional[str] = query
+        self.query: str | None = query
         self.samples_limit = samples_limit
