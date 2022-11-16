@@ -171,5 +171,5 @@ customers_profiling_capitalized = TestTable(
     columns=[
         ('''"ITEMS_SOLD"''', DataType.INTEGER),
     ],
-    values=[1, 2, 0, 2, 6, 6, 3],
+    values=[(1,), (2,), (0,), (2,), (6,), (6,), (3,)],
 )
