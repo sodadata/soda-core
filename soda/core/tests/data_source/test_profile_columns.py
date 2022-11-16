@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import os
 from numbers import Number
 
 import pytest
@@ -12,7 +13,7 @@ from helpers.common_test_tables import (
 from helpers.data_source_fixture import DataSourceFixture
 from soda.common.yaml_helper import to_yaml_str
 from soda.execution.check.profile_columns_run import ProfileColumnsRun
-import os
+
 
 def test_profile_columns_numeric(data_source_fixture: DataSourceFixture):
     table_name = data_source_fixture.ensure_test_table(customers_profiling)
