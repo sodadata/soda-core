@@ -7,6 +7,7 @@ from soda.cloud.dbt_config import DbtCloudConfig
 from soda.common.logs import Logs
 from soda.common.parser import Parser
 from soda.configuration.configuration import Configuration
+from soda.sampler.default_sampler import DefaultSampler
 from soda.sampler.http_sampler import HTTPSampler
 from soda.sampler.soda_cloud_sampler import SodaCloudSampler
 from soda.soda_cloud.soda_cloud import SodaCloud
@@ -82,10 +83,15 @@ class ConfigurationParser(Parser):
                             if storage_type in ["http", "s3"]:
                                 if storage_type == "http":
                                     url = storage.get("url")
-                                    self.configuration.sampler = HTTPSampler(url)
+                                    message = storage.get("message") or f"Failed rows have been sent to {url}"
+                                    self.configuration.sampler = HTTPSampler(url, message=message)
+                            elif self.configuration.soda_cloud and not header_value.get("disable_samples"):
+                                self.configuration.sampler = SodaCloudSampler()
+                            elif header_value.get("disable_samples"):
+                                self.configuration.sampler = DefaultSampler()
                             else:
                                 self.logs.error(
-                                    f"Invalid storage type: {storage_type} specified, must be one of ['http', 's3']",
+                                    f"Invalid storage type: {storage_type} specified, must be one of ['http', 's3'], using Soda Cloud as sampler",
                                     location=self.location,
                                 )
 
@@ -100,8 +106,6 @@ class ConfigurationParser(Parser):
             elif environment_header == SODA_CLOUD:
                 self._push_path_element(SODA_CLOUD, header_value)
                 self.configuration.soda_cloud = self.parse_soda_cloud_cfg(header_value)
-                if self.configuration.soda_cloud and not header_value.get("disable_samples"):
-                    self.configuration.sampler = SodaCloudSampler()
                 self._pop_path_element()
 
             elif environment_header == DBT_CLOUD:
