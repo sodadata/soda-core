@@ -93,8 +93,8 @@ def test_profile_columns_text(data_source_fixture: DataSourceFixture):
 
     test_data_source = os.environ.get("test_data_source")
 
-    uppercase_column_name_databases = "snowflake"
-    if test_data_source == uppercase_column_name_databases:
+    uppercase_column_name_databases = ["snowflake", "db2", "oracle"]
+    if test_data_source in uppercase_column_name_databases:
         expected_column_name = "COUNTRY"
     else:
         expected_column_name = "country"
