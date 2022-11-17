@@ -349,6 +349,6 @@ def test_profile_columns_capitalized(data_source_fixture: DataSourceFixture):
         expected_column_name = "items_sold"
     else:
         expected_column_name = "ITEMS_SOLD"
-        
+
     assert len(column_profiles) == 1
     assert column_profiles[0]["columnName"] == expected_column_name
