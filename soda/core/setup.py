@@ -19,7 +19,7 @@ requires = [
     "markupsafe>=2.0.1,<=2.1.1",
     "Jinja2>=2.11,<4.0",
     "click~=8.0",
-    "ruamel.yaml~=0.17.21",
+    "ruamel.yaml>=0.17.0,<0.18.0",
     "antlr4-python3-runtime~=4.11.1",
     "opentelemetry-api~=1.13.0",
     "opentelemetry-exporter-otlp-proto-http~=1.13.0",
