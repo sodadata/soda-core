@@ -1,11 +1,6 @@
- 📣 **Tuesday, June 28:** 📣
- **After months of hard work, Soda Core + SodaCL are now generally available!** 🎉 🎉
-**Check out the [Release notes](https://github.com/sodadata/soda-core/releases) for details.**
-
----
 
 <h1 align="center">Soda Core</h1>
-<p align="center"><b>Data reliability testing for SQL- and Spark- accesssible data.</b></p>
+<p align="center"><b>Data quality management for SQL- and Spark- accesssible data.</b></p>
 
 <p align="center">
   <a href="https://github.com/sodadata/soda-core/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-Apache%202-blue.svg" alt="License: Apache 2.0"></a>
@@ -28,25 +23,17 @@ When it runs a scan on a dataset, Soda Core executes the checks to find invalid,
 
 ## Get started
 
-Soda Core currently supports Amazon Athena, Amazon Redshift, GCP BigQuery, PostgreSQL, Snowflake, and Spark. 
+Soda Core currently supports connections to several data sources. See [Compatibility](https://docs.soda.io/soda-core/installation.html#compatibility) for a complete list.
 
 **Requirements**
 * Python 3.8 or greater
 * Pip 21.0 or greater
 
-1. To get started, use the install command, replacing `soda-core-postgres` with the package that matches your data source.  See [Install Soda Core](https://docs.soda.io/soda-core/installation.html).<br />
+1. To get started, use the install command, replacing `soda-core-postgres` with the package that matches your data source.  See [Install Soda Core](https://docs.soda.io/soda-core/installation.html#install) for a complete list.<br />
 `pip install soda-core-postgres`
-* `soda-core-athena`
-* `soda-core-bigquery`
-* `soda-core-db2`
-* `soda-core-postgres`
-* `soda-core-redshift`
-* `soda-core-snowflake`
-* `soda-core-spark-df`
-* `soda-core-sqlserver`
-* `soda-core-mysql`
-* `soda-core-trino`
+<br />
 2. Prepare a `configuration.yml` file to connect to your data source. Then, write data quality checks in a `checks.yml` file. See [Configure Soda Core](https://docs.soda.io/soda-core/configuration.html#configuration-instructions).
+<br />
 3. Run a scan to review checks that passed, failed, or warned during a scan. See [Run a Soda Core scan](https://docs.soda.io/soda-core/scan-core.html).
 `soda scan -d your_datasource -c configuration.yml checks.yml`
 
