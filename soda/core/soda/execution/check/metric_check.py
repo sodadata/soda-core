@@ -6,7 +6,6 @@ from soda.execution.check_outcome import CheckOutcome
 from soda.execution.metric.derived_metric import DERIVED_METRIC_NAMES
 from soda.execution.metric.metric import Metric
 from soda.execution.metric.user_defined_numeric_metric import UserDefinedNumericMetric
-from soda.sampler.sample_ref import SampleRef
 from soda.sodacl.metric_check_cfg import MetricCheckCfg
 
 KEY_CHECK_VALUE = "check_value"
@@ -132,7 +131,7 @@ class MetricCheck(Check):
             cloud_diagnostics["fail"] = metric_check_cfg.fail_threshold_cfg.to_soda_cloud_diagnostics_json()
         if metric_check_cfg.warn_threshold_cfg is not None:
             cloud_diagnostics["warn"] = metric_check_cfg.warn_threshold_cfg.to_soda_cloud_diagnostics_json()
-        if self.failed_rows_sample_ref and self.failed_rows_sample_ref.type != SampleRef.TYPE_NOT_PERSISTED:
+        if self.failed_rows_sample_ref:
             cloud_diagnostics["failedRowsFile"] = self.failed_rows_sample_ref.get_cloud_diagnostics_dict()
         return cloud_diagnostics
 

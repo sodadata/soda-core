@@ -13,3 +13,4 @@
 ./soda/sqlserver
 ./soda/mysql
 ./soda/duckdb
+./soda/oracle

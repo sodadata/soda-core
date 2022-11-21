@@ -21,7 +21,7 @@ class Query:
         sql: str | None = None,
         sample_name: str = "failed_rows",
         location: Location | None = None,
-        samples_limit: int | None = 100,
+        samples_limit: int | None = None,
         passing_sql: str | None = None,
     ):
         self.logs = data_source_scan.scan._logs
@@ -168,7 +168,7 @@ class Query:
             cursor = data_source.connection.cursor()
             try:
                 self.logs.debug(f"Query {self.query_name}:\n{self.sql}")
-                cursor.execute(self.sql)
+                cursor.execute(str(self.sql))
                 self.description = cursor.description
 
                 # Check if query does not contain forbidden columns and only create sample if it does not.
