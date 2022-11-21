@@ -121,6 +121,9 @@ def test_formats(data_source_fixture: DataSourceFixture):
 
     if test_data_source == "sqlserver":
         test_definitions.pop("percentage")  # Partially supported.
+        test_definitions.pop("date us")  # Partially supported.
+        test_definitions.pop("date eu")  # Partially supported.
+        test_definitions.pop("date inverse")  # Partially supported.
         test_definitions.pop("date iso 8601")  # Not supported.
 
     for format, values in test_definitions.items():
