@@ -125,16 +125,22 @@ class NumericQueryMetric(QueryMetric):
         elif isinstance(value, Decimal):
             self.value = float(value)
         # Check if numpy is installed
-        elif find_spec("numpy"):
+        elif find_spec("pandas") and find_spec("numpy"):
+            # If pandas then numpy is installed already
             import numpy as np
+            import pandas as pd
 
             if isinstance(value, np.datetime64):
                 # Convert numpy datetime64 to python datetime
                 self.value = datetime.utcfromtimestamp(value.tolist() / 1e9)
+            elif isinstance(value, pd.Timestamp):
+                self.value = value.to_pydatetime()
             elif isinstance(value, np.floating):
                 self.value = float(value)
             elif isinstance(value, np.integer):
                 self.value = int(value)
+            else:
+                self.value = value
         else:
             self.value = value
 
