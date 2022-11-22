@@ -221,7 +221,7 @@ def test_anomaly_detection_invalid_values(data_source_fixture):
     )
 
     scan.mock_historic_values(
-        metric_identity=f"metric-{scan._scan_definition_name}-{scan._data_source_name}-{table_name}-id-invalid_count-61813b33",
+        metric_identity=f"metric-{scan._scan_definition_name}-{scan._data_source_name}-{table_name}-id-invalid_count-05d677bc",
         metric_values=[10, 10, 10, 9, 8, 0, 0, 0, 0],
     )
 
