@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import re
 
 import mysql.connector
 from soda.common.exceptions import DataSourceConnectionError
@@ -120,3 +121,6 @@ class MySQLDataSource(DataSource):
 
     def default_casify_system_name(self, identifier: str) -> str:
         return identifier
+
+    def escape_regex(self, value: str):
+        return re.sub(r"(\\.)", r"\\\1", value)
