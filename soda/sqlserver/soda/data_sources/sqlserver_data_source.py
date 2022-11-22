@@ -72,7 +72,11 @@ class SQLServerDataSource(DataSource):
         self.encrypt = data_source_properties.get("encrypt", False)
         self.trust_server_certificate = data_source_properties.get("trust_server_certificate", False)
 
-        self.DEFAULT_FORMAT_EXPRESSIONS.update(self.build_default_format_expressions())
+        # sqlserver reuses only a handful of default formats.
+        reuse_formats = ["percentage"]
+
+        self.DEFAULT_FORMATS = {k: v for k, v in self.DEFAULT_FORMATS.items() if k in reuse_formats}
+        self.DEFAULT_FORMAT_EXPRESSIONS = self.build_default_format_expressions()
 
     def build_default_format_expressions(self) -> dict[str, str]:
         def construct_like(

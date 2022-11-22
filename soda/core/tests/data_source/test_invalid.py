@@ -71,7 +71,7 @@ def test_valid_format_email(data_source_fixture: DataSourceFixture):
     scan.add_sodacl_yaml_str(
         f"""
           checks for {table_name}:
-            - invalid_count(email) = 1:
+            - invalid_count(email) = 2:
                 valid format: email
 
         """
@@ -171,3 +171,21 @@ def test_check_and_column_configured_invalid_values(data_source_fixture: DataSou
     scan.execute()
 
     scan.assert_all_checks_pass()
+
+
+def test_non_existing_format(data_source_fixture: DataSourceFixture):
+    table_name = data_source_fixture.ensure_test_table(customers_test_table)
+    scan = data_source_fixture.create_test_scan()
+
+    format = "non-existing"
+
+    scan.add_sodacl_yaml_str(
+        f"""
+          checks for {table_name}:
+            - invalid_count(email) = 2:
+                valid format: {format}
+        """
+    )
+    scan.execute_unchecked()
+
+    scan.assert_log(f"Format {format} is not supported")
