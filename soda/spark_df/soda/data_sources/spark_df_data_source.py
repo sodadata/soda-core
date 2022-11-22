@@ -6,6 +6,7 @@ from soda.common.logs import Logs
 from soda.data_sources.spark_data_source import SparkSQLBase
 from soda.data_sources.spark_df_connection import SparkDfConnection
 from soda.execution.data_type import DataType
+from soda.scan import verbose
 
 
 class SparkDfDataSource(SparkSQLBase):
@@ -50,5 +51,7 @@ class SparkDfDataSource(SparkSQLBase):
     def test(self, sql: str):
         logging.debug(f"Running SQL query:\n{sql}")
         df = self.connection.spark_session.sql(sqlQuery=sql)
-        df.printSchema()
-        df.show()
+
+        if verbose:
+            df.printSchema()
+            df.show()
