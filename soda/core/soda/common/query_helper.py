@@ -1,9 +1,14 @@
 from __future__ import annotations
 
 import sqlparse
+import re
 
 
 def parse_columns_from_query(query: str) -> list[str]:
+    # Handle non-standard sql syntax caveats before parsing.
+    # Remove sqlserver TOP from select statement.
+    query = re.sub(r"(?i)top(\(.*\)|\s+\d+)", "", query)
+
     columns = []
     statements = sqlparse.split(query)
 

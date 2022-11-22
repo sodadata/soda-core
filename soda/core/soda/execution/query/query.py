@@ -167,15 +167,8 @@ class Query:
         try:
             cursor = data_source.connection.cursor()
             try:
-                self.logs.debug(f"Query {self.query_name}:\n{self.sql}")
-                cursor.execute(str(self.sql))
-                self.description = cursor.description
-
                 # Check if query does not contain forbidden columns and only create sample if it does not.
-                # Query still needs to execute in such situation because some queries create both a metric
-                # for a check and get the samples.
-                # This has a limitation - some metrics (e.g. duplicate_count) are set when storing the sample,
-                # so those need a workaround - see below.
+                # Query still needs to execute in case this is a query that also sets a metric value. (e.g. reference check)
                 allow_samples = True
                 offending_columns = []
 
@@ -189,12 +182,20 @@ class Query:
                             allow_samples = False
                             offending_columns.append(column)
 
-                db_sample = DbSample(cursor, self.data_source_scan.data_source)
-
                 # A bit of a hacky workaround for queries that also set the metric in one go.
                 # TODO: revisit after decoupling getting metric values and storing samples. This can be dangerous, it sets the metric value
                 # only when metric value is not set, but this could cause weird regressions.
+                set_metric = False
                 if hasattr(self, "metric") and self.metric and self.metric.value == undefined:
+                    set_metric = True
+
+                if set_metric or allow_samples:
+                    self.logs.debug(f"Query {self.query_name}:\n{self.sql}")
+                    cursor.execute(str(self.sql))
+                    self.description = cursor.description
+                    db_sample = DbSample(cursor, self.data_source_scan.data_source)
+
+                if set_metric:
                     self.metric.set_value(len(db_sample.get_rows()))
 
                 if allow_samples:
