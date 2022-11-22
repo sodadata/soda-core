@@ -13,7 +13,6 @@ from soda.common.lazy import Lazy
 from soda.common.random_helper import generate_random_alpha_num_str
 from soda.common.yaml_helper import YamlHelper
 from soda.execution.data_source import DataSource
-from soda.scan import Scan
 
 logger = logging.getLogger(__name__)
 
@@ -91,7 +90,8 @@ class DataSourceFixture:
         return self._create_data_source_from_configuration_yaml_str(configuration_yaml_str)
 
     def _create_data_source_from_configuration_yaml_str(self, configuration_yaml_str: str) -> DataSource:
-        scan = Scan()
+        scan = TestScan()
+
         scan.set_data_source_name(self.data_source_name)
         scan.add_configuration_yaml_str(configuration_yaml_str)
         data_source_manager = scan._data_source_manager
@@ -99,6 +99,7 @@ class DataSourceFixture:
         if not data_source:
             raise Exception(f"Unable to create test data source '{self.data_source_name}'")
         scan._get_or_create_data_source_scan(self.data_source_name)
+
         return data_source
 
     def _create_schema_if_not_exists(self):
@@ -201,7 +202,12 @@ class DataSourceFixture:
             return f"INSERT INTO {qualified_table_name} VALUES \n" f"{rows_sql};"
 
     def create_test_scan(self) -> TestScan:
-        return TestScan(data_source=self.data_source)
+        scan = TestScan(data_source=self.data_source)
+
+        # Attach the new scan object logs to data source every time a new scan is created. This is so that data source is using the correct logs object for a given test/scan.
+        self.data_source.logs = scan._logs
+
+        return scan
 
     def _test_session_ends(self):
         self.data_source.connection.close()
