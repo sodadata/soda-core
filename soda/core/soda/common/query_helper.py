@@ -1,7 +1,8 @@
 from __future__ import annotations
 
-import sqlparse
 import re
+
+import sqlparse
 
 
 def parse_columns_from_query(query: str) -> list[str]:
