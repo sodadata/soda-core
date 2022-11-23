@@ -13,4 +13,5 @@
 ./soda/sqlserver
 ./soda/mysql
 ./soda/oracle
-
+./soda/trino
+./soda/dremio
