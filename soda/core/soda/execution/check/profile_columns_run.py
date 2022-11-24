@@ -343,7 +343,6 @@ class ProfileColumnsRun:
         column_type: str,
         table_result: ProfileColumnsResultTable,
     ) -> tuple[ProfileColumnsResultColumn | None, bool]:
-        column_name = column_name.lower()
         profile_columns_result_column: ProfileColumnsResultColumn = table_result.create_column(column_name, column_type)
         return profile_columns_result_column, True
 
