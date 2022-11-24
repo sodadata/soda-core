@@ -21,15 +21,12 @@ class AggregationQuery(Query):
         self.metrics.append(metric)
 
     def execute(self):
-        scan = self.data_source_scan.scan
         select_expression_sql = f",\n  ".join(self.select_expressions)
         self.sql = f"SELECT \n" f"  {select_expression_sql} \n" f"FROM {self.partition.table.qualified_table_name}"
 
         partition_filter = self.partition.sql_partition_filter
         if partition_filter:
-            resolved_filter = scan.jinja_resolve(definition=partition_filter)
-            self.sql += f"\nWHERE {resolved_filter}"
-        self.sql = self.data_source_scan.scan.jinja_resolve(self.sql)
+            self.sql += f"\nWHERE {partition_filter}"
         self.fetchone()
         if self.row:
             for i in range(0, len(self.row)):
