@@ -16,11 +16,8 @@ class DuplicatesQuery(Query):
         self.samples_limit = self.metric.samples_limit
 
         values_filter_clauses = [f"{column_name} IS NOT NULL" for column_name in self.metric.metric_args]
-        partition_filter = self.partition.sql_partition_filter
-        if partition_filter:
-            scan = self.data_source_scan.scan
-            resolved_partition_filter = scan.jinja_resolve(definition=partition_filter)
-            values_filter_clauses.append(resolved_partition_filter)
+        if self.partition.sql_partition_filter:
+            values_filter_clauses.append(self.partition.sql_partition_filter)
 
         values_filter = " \n  AND ".join(values_filter_clauses)
 
@@ -29,15 +26,12 @@ class DuplicatesQuery(Query):
         # This does not respect the exclude_columns config because removing any of the excluded columns here would
         # effectively change the definition of the check. Let all columns through and samples will not be collected
         # if excluded columns are present (see "gatekeeper" in Query).
-        self.sql = self.data_source_scan.scan.jinja_resolve(
-            self.data_source_scan.data_source.sql_get_duplicates(
-                column_names, self.partition.table.qualified_table_name, values_filter
-            )
-        )
-        self.passing_sql = self.data_source_scan.scan.jinja_resolve(
-            self.data_source_scan.data_source.sql_get_duplicates(
-                column_names, self.partition.table.qualified_table_name, values_filter, invert_condition=True
-            )
+        data_source = self.data_source_scan.data_source
+        table_name = self.partition.table.qualified_table_name
+
+        self.sql = data_source.sql_get_duplicates(column_names, table_name, values_filter)
+        self.passing_sql = data_source.sql_get_duplicates(
+            column_names, table_name, values_filter, invert_condition=True
         )
 
     def execute(self):
