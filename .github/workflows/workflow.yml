@@ -41,9 +41,7 @@ jobs:
         python-version:
           - "3.8"
           - "3.9"
-          # Disabled 3.10 because pystan (from soda-scientific will fail)
-          # See https://github.com/facebook/prophet/issues/2041
-          # - "3.10"
+          - "3.10"
 
         data-source:
           - "postgres"
@@ -123,9 +121,7 @@ jobs:
         python-version:
           - "3.8"
           - "3.9"
-          # Disabled 3.10 because pystan (from soda-scientific will fail)
-          # See https://github.com/facebook/prophet/issues/2041
-          # - "3.10"
+          - "3.10"
 
     env:
       PYTHON_VERSION: ${{ matrix.python-version }}
@@ -158,9 +154,7 @@ jobs:
         python-version:
           - "3.8"
           - "3.9"
-          # Disabled 3.10 because pystan (from soda-scientific will fail)
-          # See https://github.com/facebook/prophet/issues/2041
-          # - "3.10"
+          - "3.10"
 
     env:
       PYTHON_VERSION: ${{ matrix.python-version }}
