@@ -12,5 +12,7 @@
 ./soda/scientific
 ./soda/sqlserver
 ./soda/mysql
-./soda/duckdb
 ./soda/oracle
+./soda/trino
+./soda/dremio
+./soda/duckdb
