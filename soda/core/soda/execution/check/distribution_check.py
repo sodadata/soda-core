@@ -118,11 +118,9 @@ class DistributionCheck(Check):
 
     def sql_column_values_query(self, distribution_check_cfg: DistributionCheckCfg) -> str:
         column_name = distribution_check_cfg.column_name
-        scan = self.data_source_scan.scan
-
-        partition_filter = scan.jinja_resolve(self.partition.sql_partition_filter)
-        distribution_check_filter = scan.jinja_resolve(distribution_check_cfg.filter)
-        sample_clause = scan.jinja_resolve(distribution_check_cfg.sample_clause)
+        partition_filter = self.partition.sql_partition_filter
+        distribution_check_filter = distribution_check_cfg.filter
+        sample_clause = distribution_check_cfg.sample_clause
 
         filters = []
         filters.append(partition_filter)

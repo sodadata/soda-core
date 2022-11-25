@@ -168,12 +168,7 @@ def scan(
 
     __load_configuration(scan, configuration)
 
-    if sodacl_paths:
-        for sodacl_path_element in sodacl_paths:
-            scan.add_sodacl_yaml_files(sodacl_path_element)
-    else:
-        scan._logs.warning("No checks file specified")
-
+    # Add variables before adding files so that they can be immediately applied.
     if variable:
         variables_dict = {}
         for v in variable:
@@ -182,6 +177,12 @@ def scan(
             if variable_key and variable_value:
                 variables_dict[variable_key] = variable_value
         scan.add_variables(variables_dict)
+
+    if sodacl_paths:
+        for sodacl_path_element in sodacl_paths:
+            scan.add_sodacl_yaml_files(sodacl_path_element)
+    else:
+        scan._logs.warning("No checks file specified")
 
     if isinstance(scan_results_file, str):
         scan.set_scan_results_file(scan_results_file)
