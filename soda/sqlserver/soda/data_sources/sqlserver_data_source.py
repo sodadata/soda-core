@@ -327,15 +327,19 @@ class SQLServerDataSource(DataSource):
         limit_sql = ""
 
         if limit:
-            limit_sql = f" TOP {limit} "
+            limit_sql = f"TOP {limit}"
 
-        sql = f"""WITH frequencies AS (
+        sql = dedent(
+            f"""
+            WITH frequencies AS (
               SELECT {column_names}, COUNT(*) AS frequency
               FROM {table_name}
               WHERE {filter}
               GROUP BY {column_names})
             SELECT {limit_sql} {column_names}, frequency
             FROM frequencies
-            WHERE frequency {'<=' if invert_condition else '>'} 1"""
+            WHERE frequency {'<=' if invert_condition else '>'} 1
+            ORDER BY frequency DESC"""
+        )
 
         return sql

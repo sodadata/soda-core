@@ -551,6 +551,27 @@ class DataSource:
     def sql_analyze_table(self, table: str) -> str | None:
         return None
 
+    def sql_get_duplicates_count(
+        self,
+        column_names: str,
+        table_name: str,
+        filter: str,
+    ) -> str | None:
+        sql = dedent(
+            f"""
+            WITH frequencies AS (
+              SELECT {column_names}, COUNT(*) AS frequency
+              FROM {table_name}
+              WHERE {filter}
+              GROUP BY {column_names})
+            SELECT {column_names}, frequency
+            FROM frequencies
+            WHERE frequency > 1
+            ORDER BY frequency DESC"""
+        )
+
+        return sql
+
     def sql_get_duplicates(
         self,
         column_names: str,
@@ -559,17 +580,21 @@ class DataSource:
         limit: str | None = None,
         invert_condition: bool = False,
     ) -> str | None:
-        sql = f"""WITH frequencies AS (
-              SELECT {column_names}, COUNT(*) AS frequency
-              FROM {table_name}
-              WHERE {filter}
-              GROUP BY {column_names})
+        sql = dedent(
+            f"""
+            WITH frequencies AS (
+                SELECT {column_names}, COUNT(*) AS frequency
+                FROM {table_name}
+                WHERE {filter}
+                GROUP BY {column_names})
             SELECT {column_names}, frequency
             FROM frequencies
-            WHERE frequency {'<=' if invert_condition else '>'} 1"""
+            WHERE frequency {'<=' if invert_condition else '>'} 1
+            ORDER BY frequency DESC"""
+        )
 
         if limit:
-            sql += f"\n LIMIT {limit}"
+            sql += f"\nLIMIT {limit}"
 
         return sql
 
