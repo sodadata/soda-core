@@ -282,6 +282,9 @@ class Scan:
     def _parse_sodacl_yaml_str(self, sodacl_yaml_str: str, file_path: str = None):
         from soda.sodacl.sodacl_parser import SodaCLParser
 
+        # First round of template resolve right when loading a sodacl string.
+        sodacl_yaml_str = self.jinja_resolve(sodacl_yaml_str)
+
         sodacl_parser = SodaCLParser(
             sodacl_cfg=self._sodacl_cfg,
             logs=self._logs,
