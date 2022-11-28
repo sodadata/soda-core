@@ -20,6 +20,7 @@ class SampleContext:
     logs: Logs
     samples_limit: int | None
     passing_query: str | None
+    check_name: str | None
 
     def get_scan_folder_name(self):
         parts = [
