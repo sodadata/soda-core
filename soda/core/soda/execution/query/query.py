@@ -199,6 +199,8 @@ class Query:
                     self.metric.set_value(len(db_sample.get_rows()))
 
                 if allow_samples:
+                    # TODO Hacky way to get the check name, check name isn't there when dataset samples are taken
+                    check_name = next(iter(self.metric.checks)).name if hasattr(self, "metric") else None
                     sample_context = SampleContext(
                         sample=db_sample,
                         sample_name=self.sample_name,
@@ -210,6 +212,7 @@ class Query:
                         logs=self.data_source_scan.scan._logs,
                         samples_limit=self.samples_limit,
                         passing_query=self.passing_sql,
+                        check_name=check_name,
                     )
 
                     self.sample_ref = sampler.store_sample(sample_context)
