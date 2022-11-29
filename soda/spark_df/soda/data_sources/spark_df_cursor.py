@@ -13,9 +13,6 @@ class SparkDfCursor:
 
     def execute(self, sql: str):
         self.df = self.spark_session.sql(sqlQuery=sql)
-        self.df.printSchema()
-        self.df.show()
-
         self.description = self.convert_spark_df_schema_to_dbapi_description(self.df)
 
     def fetchall(self) -> tuple[tuple]:
