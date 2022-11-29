@@ -21,6 +21,9 @@ def test_filter_on_date(data_source_fixture: DataSourceFixture):
           checks for {table_name} [daily]:
             - row_count = 6
             - missing_count(cat) = 2
+            - schema:
+                warn:
+                    when forbidden column present: [non-existing]
         """
     )
     scan.execute()
