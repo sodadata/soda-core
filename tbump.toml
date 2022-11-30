@@ -81,3 +81,7 @@ search = 'package_version = "{current_version}"'
 [[file]]
 src = "soda/duckdb/setup.py"
 search = 'package_version = "{current_version}"'
+
+[[file]]
+src = "soda/denodo/setup.py"
+search = 'package_version = "{current_version}"'
