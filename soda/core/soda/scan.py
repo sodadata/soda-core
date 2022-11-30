@@ -175,6 +175,9 @@ class Scan:
     def _parse_configuration_yaml_str(self, configuration_yaml_str: str, file_path: str = "yaml string"):
         from soda.configuration.configuration_parser import ConfigurationParser
 
+        # First round of template resolve right when loading a configuration string.
+        configuration_yaml_str = self.jinja_resolve(configuration_yaml_str)
+
         environment_parse = ConfigurationParser(
             configuration=self._configuration,
             logs=self._logs,
