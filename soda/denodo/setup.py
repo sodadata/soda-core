@@ -9,7 +9,7 @@ if sys.version_info < (3, 7):
     sys.exit(1)
 
 package_name = "soda-core-denodo"
-package_version = "3.0.13"
+package_version = "3.0.14"
 # TODO Add proper description
 description = "Soda Core Denodo Package"
 
