@@ -8,12 +8,12 @@ if sys.version_info < (3, 7):
     print("Error: Please upgrade your Python version to 3.7 or later")
     sys.exit(1)
 
-package_name = "soda-core-db2"
+package_name = "soda-core-denodo"
 package_version = "3.0.13"
 # TODO Add proper description
-description = "Soda Core IBM DB2 Package"
+description = "Soda Core Denodo Package"
 
-requires = [f"soda-core=={package_version}", "ibm-db==3.1.2"]
+requires = [f"soda-core=={package_version}", f"soda-core-postgres=={package_version}"]
 # TODO Fix the params
 setup(
     name=package_name,
