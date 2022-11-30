@@ -4,7 +4,6 @@ import logging
 import os
 
 from helpers.data_source_fixture import DataSourceFixture
-from helpers.test_table import TestTable
 
 logger = logging.getLogger(__name__)
 
@@ -17,7 +16,7 @@ class DenodoDataSourceFixture(DataSourceFixture):
                 "host": "localhost",
                 "username": os.getenv("DENODO_USERNAME", "sodasql"),
                 "password": os.getenv("DENODO_PASSWORD"),
-                "database": os.getenv("DENODO_DATABASE", "sodasql")
+                "database": os.getenv("DENODO_DATABASE", "sodasql"),
             }
         }
 

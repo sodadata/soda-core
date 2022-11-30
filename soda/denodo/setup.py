@@ -13,7 +13,7 @@ package_version = "3.0.13"
 # TODO Add proper description
 description = "Soda Core Denodo Package"
 
-requires = [f"soda-core=={package_version}",f"soda-core-postgres=={package_version}" ]
+requires = [f"soda-core=={package_version}", f"soda-core-postgres=={package_version}"]
 # TODO Fix the params
 setup(
     name=package_name,

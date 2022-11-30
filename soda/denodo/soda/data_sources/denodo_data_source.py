@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import logging
-
 from typing import List, Optional
 
 from soda.common.logs import Logs
@@ -22,6 +21,7 @@ class DenodoDataSource(DataSource):
 
     def connect(self):
         import psycopg2
+
         self.connection = psycopg2.connect(
             user=self.username,
             password=self.password,
@@ -35,7 +35,7 @@ class DenodoDataSource(DataSource):
     def expr_regexp_like(self, expr: str, excaped_regex_pattern: str):
         return f"{expr} ~ '{excaped_regex_pattern}'"
 
-    def get_metric_sql_aggregation_expression(self, metric_name: str, metric_args: Optional[List[object]], expr: str):
+    def get_metric_sql_aggregation_expression(self, metric_name: str, metric_args: list[object] | None, expr: str):
         if metric_name in [
             "stddev",
             "stddev_pop",
