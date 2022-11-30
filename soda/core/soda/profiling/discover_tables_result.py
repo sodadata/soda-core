@@ -9,7 +9,7 @@ class DiscoverTablesResult:
         self.data_source_check_cfg: DataSourceCheckCfg = data_source_check_cfg
         self.tables: List[DiscoverTablesResultTable] = []
 
-    def create_table(self, table_name: str, data_source_name: str, row_count: int) -> DiscoverTablesResultTable:
-        table = DiscoverTablesResultTable(table_name, data_source_name, row_count)
+    def create_table(self, table_name: str, data_source_name: str) -> DiscoverTablesResultTable:
+        table = DiscoverTablesResultTable(table_name, data_source_name)
         self.tables.append(table)
         return table
