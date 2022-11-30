@@ -157,6 +157,16 @@ def scan(
     scan = Scan()
     scan._data_timestamp = datetime.fromisoformat(data_timestamp)
 
+    # Add variables before adding any files so that they can be immediately applied.
+    if variable:
+        variables_dict = {}
+        for v in variable:
+            # Partition by first occurrence of "=" as variable value may contain "=" sign.
+            variable_key, _, variable_value = v.partition("=")
+            if variable_key and variable_value:
+                variables_dict[variable_key] = variable_value
+        scan.add_variables(variables_dict)
+
     if verbose:
         scan.set_verbose()
 
@@ -167,16 +177,6 @@ def scan(
         scan.set_scan_definition_name(scan_definition)
 
     __load_configuration(scan, configuration)
-
-    # Add variables before adding files so that they can be immediately applied.
-    if variable:
-        variables_dict = {}
-        for v in variable:
-            # Partition by first occurrence of "=" as variable value may contain "=" sign.
-            variable_key, _, variable_value = v.partition("=")
-            if variable_key and variable_value:
-                variables_dict[variable_key] = variable_value
-        scan.add_variables(variables_dict)
 
     if sodacl_paths:
         for sodacl_path_element in sodacl_paths:
