@@ -77,7 +77,6 @@ class Scan:
             profile_table.get_dict()
             for profile_table in self._profile_columns_result_tables + self._sample_tables_result_tables
         ]
-
         return JsonHelper.to_jsonnable(  # type: ignore
             {
                 "definitionName": self._scan_definition_name,
