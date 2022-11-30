@@ -9,6 +9,7 @@
 #  limitations under the License.
 
 import logging
+from typing import List, Optional
 
 from soda.common.exceptions import DataSourceConnectionError
 from soda.common.logs import Logs
@@ -128,3 +129,20 @@ class DuckDBDataSource(DataSource):
     @staticmethod
     def column_metadata_columns() -> list:
         return ["column_name", "lower(data_type) as data_type", "is_nullable"]
+
+    def get_metric_sql_aggregation_expression(self, metric_name: str, metric_args: Optional[List[object]], expr: str):
+        # https://duckdb.org/docs/sql/aggregates
+        if metric_name in [
+            "stddev",
+            "stddev_pop",
+            "stddev_samp",
+            "variance",
+            "var_pop",
+            "var_samp",
+        ]:
+            return f"{metric_name.upper()}({expr})"
+        if metric_name in ["percentile", "percentile_disc"]:
+            # TODO ensure proper error if the metric_args[0] is not a valid number
+            percentile_fraction = metric_args[1] if metric_args else None
+            return f"PERCENTILE_DISC({percentile_fraction}) WITHIN GROUP (ORDER BY {expr})"
+        return super().get_metric_sql_aggregation_expression(metric_name, metric_args, expr)
