@@ -72,3 +72,28 @@ def test_vars_in_checks(checks: str, data_source_fixture: DataSourceFixture):
         assert check["table"].lower() == table_name.lower()
         assert "{" not in check["definition"]
         assert "}" not in check["definition"]
+
+
+def test_vars_in_configuration(data_source_fixture: DataSourceFixture):
+    scan = data_source_fixture.create_test_scan()
+    scan.add_variables(
+        {
+            "DS_TYPE": "postgres",
+            "DS_HOST": "host: localhost",
+        }
+    )
+    scan.add_configuration_yaml_str(
+        f"""
+        data_source another_source:
+            type: ${{DS_TYPE}}
+            ${{DS_HOST}}
+            username: soda
+            password: secret
+            database: soda
+            schema: public
+        """
+    )
+
+    data_sources = scan._data_source_manager.data_source_properties_by_name
+    assert data_sources["another_source"]["type"] == "postgres"
+    assert data_sources["another_source"]["host"] == "localhost"
