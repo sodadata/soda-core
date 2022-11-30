@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import logging
-from typing import List, Optional
 
 from soda.common.logs import Logs
 from soda.execution.data_source import DataSource
