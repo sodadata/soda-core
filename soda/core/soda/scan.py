@@ -183,14 +183,16 @@ class Scan:
             file_path=file_path,
         )
         environment_parse.parse_environment_yaml_str(configuration_yaml_str)
-    
+
     def add_duckdb_connection(self, duckdb_connection, data_source_name: str = "duckdb"):
         """
         Adds a duckdb connection to the scan. Only requireed in case of using a pre-existing
         duckdb connection object as a data source.
         """
         try:
-            self._configuration.add_duckdb_connection(data_source_name=data_source_name, duckdb_connection=duckdb_connection)
+            self._configuration.add_duckdb_connection(
+                data_source_name=data_source_name, duckdb_connection=duckdb_connection
+            )
         except Exception as e:
             self._logs.error(
                 f"Could not add duckdb connection for data_source {data_source_name}",
@@ -208,7 +210,7 @@ class Scan:
                 f"Could not add environment spark session for data_source {data_source_name}",
                 exception=e,
             )
-    
+
     def add_sodacl_yaml_files(
         self,
         path: str,

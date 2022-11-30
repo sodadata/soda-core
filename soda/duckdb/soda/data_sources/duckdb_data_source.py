@@ -19,7 +19,6 @@ logger = logging.getLogger(__name__)
 
 
 class DuckDBCursor:
-
     def __init__(self, connection):
         self._connection = connection
 
@@ -27,14 +26,14 @@ class DuckDBCursor:
         if attr in self.__dict__:
             return getattr(self, attr)
         return getattr(self._connection, attr)
-    
+
     def close(self):
         # because a duckdb cursor is actually the current connection,
         # we don't want to close it
         pass
 
-class DuckDBDataSourceConnectionWrapper:
 
+class DuckDBDataSourceConnectionWrapper:
     def __init__(self, delegate):
         self._delegate = delegate
 
@@ -45,7 +44,7 @@ class DuckDBDataSourceConnectionWrapper:
 
     def cursor(self):
         return DuckDBCursor(self._delegate)
-    
+
 
 class DuckDBDataSource(DataSource):
     TYPE = "duckdb"
@@ -106,9 +105,9 @@ class DuckDBDataSource(DataSource):
             if self.duckdb_connection:
                 self.connection = DuckDBDataSourceConnectionWrapper(self.duckdb_connection)
             else:
-                self.connection = DuckDBDataSourceConnectionWrapper(duckdb.connect(
-                    database=self.path if self.path else ":memory:", read_only=self.read_only
-                ))
+                self.connection = DuckDBDataSourceConnectionWrapper(
+                    duckdb.connect(database=self.path if self.path else ":memory:", read_only=self.read_only)
+                )
         except Exception as e:
             raise DataSourceConnectionError(self.TYPE, e)
 
@@ -120,10 +119,9 @@ class DuckDBDataSource(DataSource):
     def expr_regexp_like(self, expr: str, regex_pattern: str):
         return f"REGEXP_MATCHES({expr}, '{regex_pattern}')"
 
-
     def default_casify_type_name(self, identifier: str) -> str:
         return identifier.lower()
-    
+
     def default_casify_sql_function(self) -> str:
         return ""
 
