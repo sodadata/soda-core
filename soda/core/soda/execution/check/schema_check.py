@@ -24,7 +24,7 @@ class SchemaCheck(Check):
         super().__init__(
             check_cfg=check_cfg,
             data_source_scan=data_source_scan,
-            partition=partition if partition.partition_name is None else partition.table.partitions[None],
+            partition=partition,
             column=None,
         )
 
