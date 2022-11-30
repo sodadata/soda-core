@@ -77,7 +77,6 @@ class Scan:
             profile_table.get_dict()
             for profile_table in self._profile_columns_result_tables + self._sample_tables_result_tables
         ]
-
         return JsonHelper.to_jsonnable(  # type: ignore
             {
                 "definitionName": self._scan_definition_name,
@@ -174,6 +173,9 @@ class Scan:
 
     def _parse_configuration_yaml_str(self, configuration_yaml_str: str, file_path: str = "yaml string"):
         from soda.configuration.configuration_parser import ConfigurationParser
+
+        # First round of template resolve right when loading a configuration string.
+        configuration_yaml_str = self.jinja_resolve(configuration_yaml_str)
 
         environment_parse = ConfigurationParser(
             configuration=self._configuration,
