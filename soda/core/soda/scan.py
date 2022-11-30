@@ -184,6 +184,21 @@ class Scan:
         )
         environment_parse.parse_environment_yaml_str(configuration_yaml_str)
 
+    def add_duckdb_connection(self, duckdb_connection, data_source_name: str = "duckdb"):
+        """
+        Adds a duckdb connection to the scan. Only requireed in case of using a pre-existing
+        duckdb connection object as a data source.
+        """
+        try:
+            self._configuration.add_duckdb_connection(
+                data_source_name=data_source_name, duckdb_connection=duckdb_connection
+            )
+        except Exception as e:
+            self._logs.error(
+                f"Could not add duckdb connection for data_source {data_source_name}",
+                exception=e,
+            )
+
     def add_spark_session(self, spark_session, data_source_name: str = "spark_df"):
         """
         Pass a spark_session to the scan.  Only required in case of PySpark scans.
