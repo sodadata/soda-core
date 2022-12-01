@@ -72,7 +72,11 @@ class SQLServerDataSource(DataSource):
         self.encrypt = data_source_properties.get("encrypt", False)
         self.trust_server_certificate = data_source_properties.get("trust_server_certificate", False)
 
-        self.DEFAULT_FORMAT_EXPRESSIONS.update(self.build_default_format_expressions())
+        # sqlserver reuses only a handful of default formats.
+        reuse_formats = ["percentage"]
+
+        self.DEFAULT_FORMATS = {k: v for k, v in self.DEFAULT_FORMATS.items() if k in reuse_formats}
+        self.DEFAULT_FORMAT_EXPRESSIONS = self.build_default_format_expressions()
 
     def build_default_format_expressions(self) -> dict[str, str]:
         def construct_like(
@@ -323,15 +327,19 @@ class SQLServerDataSource(DataSource):
         limit_sql = ""
 
         if limit:
-            limit_sql = f" TOP {limit} "
+            limit_sql = f"TOP {limit}"
 
-        sql = f"""WITH frequencies AS (
+        sql = dedent(
+            f"""
+            WITH frequencies AS (
               SELECT {column_names}, COUNT(*) AS frequency
               FROM {table_name}
               WHERE {filter}
               GROUP BY {column_names})
             SELECT {limit_sql} {column_names}, frequency
             FROM frequencies
-            WHERE frequency {'<=' if invert_condition else '>'} 1"""
+            WHERE frequency {'<=' if invert_condition else '>'} 1
+            ORDER BY frequency DESC"""
+        )
 
         return sql

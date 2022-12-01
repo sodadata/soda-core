@@ -41,6 +41,22 @@ from soda.common.query_helper import parse_columns_from_query
             ["id", "cst_size", "cst_size_txt"],
             id="columns with prefix",
         ),
+        pytest.param(
+            """SELECT TOP 100 cat
+            FROM table
+            WHERE frequency > 1
+            """,
+            ["cat"],
+            id="sqlserver TOP X",
+        ),
+        pytest.param(
+            """SELECT TOP(100) cat
+            FROM table
+            WHERE frequency > 1
+            """,
+            ["cat"],
+            id="sqlserver TOP(X)",
+        ),
     ],
 )
 def test_parse_columns_from_query(query, outcome):

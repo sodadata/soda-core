@@ -157,6 +157,16 @@ def scan(
     scan = Scan()
     scan._data_timestamp = datetime.fromisoformat(data_timestamp)
 
+    # Add variables before adding any files so that they can be immediately applied.
+    if variable:
+        variables_dict = {}
+        for v in variable:
+            # Partition by first occurrence of "=" as variable value may contain "=" sign.
+            variable_key, _, variable_value = v.partition("=")
+            if variable_key and variable_value:
+                variables_dict[variable_key] = variable_value
+        scan.add_variables(variables_dict)
+
     if verbose:
         scan.set_verbose()
 
@@ -173,15 +183,6 @@ def scan(
             scan.add_sodacl_yaml_files(sodacl_path_element)
     else:
         scan._logs.warning("No checks file specified")
-
-    if variable:
-        variables_dict = {}
-        for v in variable:
-            # Partition by first occurrence of "=" as variable value may contain "=" sign.
-            variable_key, _, variable_value = v.partition("=")
-            if variable_key and variable_value:
-                variables_dict[variable_key] = variable_value
-        scan.add_variables(variables_dict)
 
     if isinstance(scan_results_file, str):
         scan.set_scan_results_file(scan_results_file)

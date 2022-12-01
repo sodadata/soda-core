@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import requests
+from soda.execution.partition import Partition
 from soda.sampler.sample_context import SampleContext
 from soda.sampler.sample_ref import SampleRef
 from soda.sampler.sampler import Sampler
@@ -19,7 +20,15 @@ class HTTPSampler(Sampler):
         row_count = len(sample_rows)
         sample_schema = sample_context.sample.get_schema()
 
-        result_dict = {"schema": sample_schema.get_dict(), "count": row_count, "rows": sample_rows}
+        result_dict = {
+            "schema": sample_schema.get_dict(),
+            "count": row_count,
+            "rows": sample_rows,
+            "datasource": sample_context.sample.data_source.data_source_name,
+            "dataset": Partition.get_table_name(sample_context.partition),
+            "scan_definition": sample_context.scan._scan_definition_name,
+            "check_name": sample_context.check_name,
+        }
 
         response = requests.post(self.url, json=result_dict)
 
@@ -40,5 +49,5 @@ class HTTPSampler(Sampler):
             stored_row_count=stored_row_count,
             type=SampleRef.TYPE_NOT_PERSISTED,
             link=self.link,
-            message=self.message,
+            message=f"{self.message} {response.text}",
         )

@@ -44,6 +44,42 @@ def test_formats(data_source_fixture: DataSourceFixture):
             ],
             "failing_values": ["", " ", "%", "a %", "0", "0.0"],
         },
+        "date us": {
+            "passing_values": ["1/1/2020", "01/06/2020", "12/31/1925", "11-13-1981", "9-05-2000"],
+            "failing_values": [
+                "",
+                " ",
+                "a",
+                "1/1/2020 12:00:00",
+                "1/1/2020 12:00",
+                "13/11/1981",
+                "31-12-1925",
+            ],
+        },
+        "date eu": {
+            "passing_values": ["1/1/2020", "01/06/2020", "31/12/1925", "13-11-1981", "9-05-2000"],
+            "failing_values": [
+                "",
+                " ",
+                "a",
+                "1/1/2020 12:00:00",
+                "1/1/2020 12:00",
+                "11-13-1981",
+                "12/31/1925",
+            ],
+        },
+        "date inverse": {
+            "passing_values": ["2020/1/1", "2020/01/06", "1925-12-31", "1981-11-13", "2000/9/05"],
+            "failing_values": [
+                "",
+                " ",
+                "a",
+                "2020/1/1 12:00:00",
+                "2020/1/1 12:00",
+                "1981-13-11",
+                "1925/31/12",
+            ],
+        },
         "date iso 8601": {
             "passing_values": [
                 "2020-02-08",
@@ -85,6 +121,9 @@ def test_formats(data_source_fixture: DataSourceFixture):
 
     if test_data_source == "sqlserver":
         test_definitions.pop("percentage")  # Partially supported.
+        test_definitions.pop("date us")  # Partially supported.
+        test_definitions.pop("date eu")  # Partially supported.
+        test_definitions.pop("date inverse")  # Partially supported.
         test_definitions.pop("date iso 8601")  # Not supported.
 
     for format, values in test_definitions.items():

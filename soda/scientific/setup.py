@@ -4,12 +4,12 @@ import sys
 from setuptools import find_namespace_packages, setup
 
 if sys.version_info < (3, 8):
-    print("Error: Soda SQL requires at least Python 3.8")
+    print("Error: Soda Core requires at least Python 3.8")
     print("Error: Please upgrade your Python version to 3.8 or later")
     sys.exit(1)
 
 package_name = "soda-core-scientific"
-package_version = "3.0.13"
+package_version = "3.0.14"
 description = "Soda Core Scientific Package"
 requires = [
     f"soda-core=={package_version}",
