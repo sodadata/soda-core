@@ -7,7 +7,7 @@ from soda.scan import Scan
 def test_parse_environment_yaml(monkeypatch):
     # This is an example ~/.soda/local.yml file that engineers can put on their own
     # system locally inside their home folder to pass credentials and configurations
-    # to Soda CLI and Soda SQL library usage
+    # to Soda CLI and Soda Core library usage
 
     scan = Scan()
     scan.add_configuration_yaml_str(

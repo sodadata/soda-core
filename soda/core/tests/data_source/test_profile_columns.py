@@ -1,10 +1,15 @@
 from __future__ import annotations
 
 import logging
+import os
 from numbers import Number
 
 import pytest
-from helpers.common_test_tables import customers_profiling, orders_test_table
+from helpers.common_test_tables import (
+    customers_profiling,
+    customers_profiling_capitalized,
+    orders_test_table,
+)
 from helpers.data_source_fixture import DataSourceFixture
 from soda.common.yaml_helper import to_yaml_str
 from soda.execution.check.profile_columns_run import ProfileColumnsRun
@@ -86,10 +91,18 @@ def test_profile_columns_text(data_source_fixture: DataSourceFixture):
     profiling.pop("dataSource")
     profiling.pop("table")
 
+    test_data_source = os.environ.get("test_data_source")
+
+    uppercase_column_name_databases = ["snowflake", "db2", "oracle"]
+    if test_data_source in uppercase_column_name_databases:
+        expected_column_name = "COUNTRY"
+    else:
+        expected_column_name = "country"
+
     assert profiling == {
         "columnProfiles": [
             {
-                "columnName": "country",
+                "columnName": expected_column_name,
                 "profile": {
                     "mins": None,
                     "maxs": None,
@@ -309,3 +322,33 @@ def test_profile_columns_no_table_or_column(data_source_fixture: DataSourceFixtu
         x for x in scan_results["logs"] if 'Configuration key "columns" is required in profile columns' in x["message"]
     ]
     assert len(character_log_warnings) == 1
+
+
+def test_profile_columns_capitalized(data_source_fixture: DataSourceFixture):
+    table_name = data_source_fixture.ensure_test_table(customers_profiling_capitalized)
+    scan = data_source_fixture.create_test_scan()
+    mock_soda_cloud = scan.enable_mock_soda_cloud()
+    scan.add_sodacl_yaml_str(
+        f"""
+          profile columns:
+            columns: [{table_name}.%]
+        """
+    )
+    scan.execute(allow_warnings_only=True)
+    scan_results = mock_soda_cloud.pop_scan_result()
+
+    profilings = scan_results["profiling"]
+    profiling = profilings[0]
+
+    column_profiles = profiling["columnProfiles"]
+
+    test_data_source = os.environ.get("test_data_source")
+
+    lowercase_column_name_databases = ["postgres", "redshift", "athena"]
+    if test_data_source in lowercase_column_name_databases:
+        expected_column_name = "items_sold"
+    else:
+        expected_column_name = "ITEMS_SOLD"
+
+    assert len(column_profiles) == 1
+    assert column_profiles[0]["columnName"] == expected_column_name

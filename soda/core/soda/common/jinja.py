@@ -14,7 +14,10 @@ class OsContext(Context):
             return self.vars[key]
         elif key == "env_var":
             return Jinja.env_var
-        return Context.resolve_or_missing(self, key)
+        if key in self.parent:
+            return self.parent[key]
+        # Ignore keys with no value, return as is.
+        return f"${{{key}}}"
 
 
 def create_os_environment():

@@ -3,8 +3,8 @@ from __future__ import annotations
 from soda.cloud.dbt_config import DbtCloudConfig
 from soda.common.file_system import file_system
 from soda.execution.telemetry import Telemetry
-from soda.sampler.default_sampler import DefaultSampler
 from soda.sampler.sampler import Sampler
+from soda.sampler.soda_cloud_sampler import SodaCloudSampler
 from soda.scan import Scan
 from soda.soda_cloud.soda_cloud import SodaCloud
 
@@ -16,7 +16,7 @@ class Configuration:
         self.telemetry: Telemetry | None = Telemetry()
         self.soda_cloud: SodaCloud | None = None
         self.file_system = file_system()
-        self.sampler: Sampler = DefaultSampler()
+        self.sampler: Sampler = SodaCloudSampler()
         self.dbt_cloud: DbtCloudConfig | None = None
         self.exclude_columns: dict[str, list] = {}
 
@@ -27,9 +27,16 @@ class Configuration:
             "spark_session": spark_session,
         }
 
+
     def add_dask_context(self, data_source_name: str, dask_context):
         self.data_source_properties_by_name[data_source_name] = {
             "type": "dask",
             "connection": "dask_data_source",
             "context": dask_context,
+
+    def add_duckdb_connection(self, data_source_name: str, duckdb_connection):
+        self.data_source_properties_by_name[data_source_name] = {
+            "type": "duckdb",
+            "connection": "duckdb_connection_data_source",
+            "duckdb_connection": duckdb_connection,
         }

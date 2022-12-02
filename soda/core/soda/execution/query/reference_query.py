@@ -69,16 +69,16 @@ class ReferenceQuery(Query):
             ]
         )
 
-        self.sql = self.data_source_scan.scan.jinja_resolve(
+        self.sql = (
             f"SELECT {source_diagnostic_column_fields} \n"
-            f"FROM {source_table_name} as SOURCE \n"
-            f"     LEFT JOIN {target_table_name} as TARGET on {join_condition} \n"
+            f"FROM {source_table_name}  SOURCE \n"
+            f"     LEFT JOIN {target_table_name}  TARGET on {join_condition} \n"
             f"WHERE {where_condition}"
         )
-        self.passing_sql = self.data_source_scan.scan.jinja_resolve(
+        self.passing_sql = (
             f"SELECT {source_diagnostic_column_fields} \n"
-            f"FROM {source_table_name} as SOURCE \n"
-            f"     LEFT JOIN {target_table_name} as TARGET on {join_condition} \n"
+            f"FROM {source_table_name}  SOURCE \n"
+            f"     LEFT JOIN {target_table_name}  TARGET on {join_condition} \n"
             f"WHERE {passing_where_condition}"
         )
 

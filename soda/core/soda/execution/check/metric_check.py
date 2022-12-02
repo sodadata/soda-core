@@ -6,7 +6,6 @@ from soda.execution.check_outcome import CheckOutcome
 from soda.execution.metric.derived_metric import DERIVED_METRIC_NAMES
 from soda.execution.metric.metric import Metric
 from soda.execution.metric.user_defined_numeric_metric import UserDefinedNumericMetric
-from soda.sampler.sample_ref import SampleRef
 from soda.sodacl.metric_check_cfg import MetricCheckCfg
 
 KEY_CHECK_VALUE = "check_value"
@@ -104,6 +103,7 @@ class MetricCheck(Check):
     def set_outcome_based_on_check_value(self):
         metric_check_cfg: MetricCheckCfg = self.check_cfg
         if self.check_value is not None and metric_check_cfg.has_threshold():
+            # TODO What is this jinja resolve doing ?!?!
             metric_check_cfg.resolve_thresholds(self.data_source_scan.scan.jinja_resolve)
             if isinstance(self.check_value, Number):
                 if metric_check_cfg.fail_threshold_cfg and metric_check_cfg.fail_threshold_cfg.is_bad(self.check_value):
@@ -132,7 +132,7 @@ class MetricCheck(Check):
             cloud_diagnostics["fail"] = metric_check_cfg.fail_threshold_cfg.to_soda_cloud_diagnostics_json()
         if metric_check_cfg.warn_threshold_cfg is not None:
             cloud_diagnostics["warn"] = metric_check_cfg.warn_threshold_cfg.to_soda_cloud_diagnostics_json()
-        if self.failed_rows_sample_ref and self.failed_rows_sample_ref.type != SampleRef.TYPE_NOT_PERSISTED:
+        if self.failed_rows_sample_ref:
             cloud_diagnostics["failedRowsFile"] = self.failed_rows_sample_ref.get_cloud_diagnostics_dict()
         return cloud_diagnostics
 

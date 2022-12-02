@@ -77,7 +77,6 @@ class Scan:
             profile_table.get_dict()
             for profile_table in self._profile_columns_result_tables + self._sample_tables_result_tables
         ]
-
         return JsonHelper.to_jsonnable(  # type: ignore
             {
                 "definitionName": self._scan_definition_name,
@@ -175,12 +174,30 @@ class Scan:
     def _parse_configuration_yaml_str(self, configuration_yaml_str: str, file_path: str = "yaml string"):
         from soda.configuration.configuration_parser import ConfigurationParser
 
+        # First round of template resolve right when loading a configuration string.
+        configuration_yaml_str = self.jinja_resolve(configuration_yaml_str)
+
         environment_parse = ConfigurationParser(
             configuration=self._configuration,
             logs=self._logs,
             file_path=file_path,
         )
         environment_parse.parse_environment_yaml_str(configuration_yaml_str)
+
+    def add_duckdb_connection(self, duckdb_connection, data_source_name: str = "duckdb"):
+        """
+        Adds a duckdb connection to the scan. Only requireed in case of using a pre-existing
+        duckdb connection object as a data source.
+        """
+        try:
+            self._configuration.add_duckdb_connection(
+                data_source_name=data_source_name, duckdb_connection=duckdb_connection
+            )
+        except Exception as e:
+            self._logs.error(
+                f"Could not add duckdb connection for data_source {data_source_name}",
+                exception=e,
+            )
 
     def add_spark_session(self, spark_session, data_source_name: str = "spark_df"):
         """
@@ -294,6 +311,9 @@ class Scan:
     def _parse_sodacl_yaml_str(self, sodacl_yaml_str: str, file_path: str = None):
         from soda.sodacl.sodacl_parser import SodaCLParser
 
+        # First round of template resolve right when loading a sodacl string.
+        sodacl_yaml_str = self.jinja_resolve(sodacl_yaml_str)
+
         sodacl_parser = SodaCLParser(
             sodacl_cfg=self._sodacl_cfg,
             logs=self._logs,
@@ -369,6 +389,8 @@ class Scan:
                 else:
                     if self._configuration.soda_cloud.is_samples_disabled():
                         self._configuration.sampler = DefaultSampler()
+            else:
+                self._configuration.sampler = DefaultSampler()
 
             # Override the sampler, if it is configured programmatically
             if self.sampler is not None:

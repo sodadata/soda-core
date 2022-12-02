@@ -11,6 +11,7 @@ from soda.common.log import LogLevel
 from soda.execution.check.check import Check
 from soda.execution.check_outcome import CheckOutcome
 from soda.execution.data_source import DataSource
+from soda.execution.query.sample_query import SampleQuery
 from soda.sampler.log_sampler import LogSampler
 from soda.scan import Scan
 
@@ -119,9 +120,13 @@ class TestScan(Scan):
     def assert_log_error(self, message):
         self.assert_log(message, LogLevel.ERROR)
 
-    def assert_log(self, message, level: LogLevel):
-        if not any([log.level == level and message in log.message for log in self._logs.logs]):
-            raise AssertionError(f"{level.name} not found: {message}")
+    def assert_log(self, message, level: LogLevel | None = None):
+        if level:
+            if not any([log.level == level and message in log.message for log in self._logs.logs]):
+                raise AssertionError(f"{level.name} not found: {message}")
+        else:
+            if not any([message in log.message for log in self._logs.logs]):
+                raise AssertionError(f"Log not found: {message}")
 
     def assert_no_log(self, message, level: LogLevel | None = None):
         if level:
@@ -173,6 +178,14 @@ class TestScan(Scan):
         for query in self._queries:
             if query.passing_sql:
                 queries.append(query.passing_sql)
+
+        return queries
+
+    def get_sample_queries(self):
+        queries = []
+        for query in self._queries:
+            if isinstance(query, SampleQuery):
+                queries.append(query.sql)
 
         return queries
 
