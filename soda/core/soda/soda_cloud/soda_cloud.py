@@ -295,9 +295,12 @@ class SodaCloud:
         return self._execute_request("command", command, False, command_name)
 
     def _execute_request(self, request_type: str, request_body: dict, is_retry: bool, request_name: str):
+        from soda.scan import verbose
+
         try:
             request_body["token"] = self._get_token()
-            # logger.debug(f"Sending to Soda Cloud {JsonHelper.to_json_pretty(request_body)}")
+            if verbose:
+                logger.debug(f"Sending to Soda Cloud {JsonHelper.to_json_pretty(request_body)}")
             response = self._http_post(
                 url=f"{self.api_url}/{request_type}", headers=self.headers, json=request_body, request_name=request_name
             )
@@ -310,9 +313,9 @@ class SodaCloud:
                 self.logs.error(
                     f"Error while executing Soda Cloud {request_type} response code: {response.status_code}"
                 )
-                from soda.scan import verbose
 
                 if verbose:
+                    logger.debug(f"Sending to Soda Cloud {JsonHelper.to_json_pretty(response.text)}")
                     self.logs.debug(response.text)
             return response_json
         except Exception as e:
