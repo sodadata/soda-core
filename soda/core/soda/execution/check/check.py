@@ -164,7 +164,7 @@ class Check(ABC):
         if isinstance(check_cfg.source_configurations, dict):
             identity = check_cfg.source_configurations.get("identity")
             if isinstance(identity, str):
-                return identity
+                return self.data_source_scan.scan.jinja_resolve(identity)
 
         hash_builder = ConsistentHashBuilder()
         # Note: In case of for each table, the check_cfg.source_header will contain the actual table name as well

@@ -3,18 +3,24 @@ from helpers.data_source_fixture import DataSourceFixture
 from helpers.utils import execute_scan_and_get_scan_result
 
 
-def test_vars_in_name(data_source_fixture: DataSourceFixture):
+def test_vars_in_check(data_source_fixture: DataSourceFixture):
     table_name = data_source_fixture.ensure_test_table(customers_test_table)
 
     scan_result = execute_scan_and_get_scan_result(
         data_source_fixture,
         f"""
-          checks for {table_name}:
+          checks for ${{TABLE_NAME}}:
             - row_count > 0:
                 name: testing name ${{NAME}}
+                filter: ${{COLUMN}} = '${{VALUE}}'
+                identity: ${{IDENTITY}}
         """,
         variables={
+            "TABLE_NAME": table_name,
             "NAME": "something",
+            "COLUMN": "country",
+            "VALUE": "BE",
+            "IDENTITY": "test-check",
         },
     )
 
