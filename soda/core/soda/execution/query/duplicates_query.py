@@ -16,8 +16,11 @@ class DuplicatesQuery(Query):
         self.samples_limit = self.metric.samples_limit
 
         values_filter_clauses = [f"{column_name} IS NOT NULL" for column_name in self.metric.metric_args]
-        if self.partition.sql_partition_filter:
-            values_filter_clauses.append(self.partition.sql_partition_filter)
+        partition_filter = self.partition.sql_partition_filter
+        if partition_filter:
+            scan = self.data_source_scan.scan
+            resolved_partition_filter = scan.jinja_resolve(definition=partition_filter)
+            values_filter_clauses.append(resolved_partition_filter)
 
         values_filter = " \n  AND ".join(values_filter_clauses)
 
@@ -28,20 +31,26 @@ class DuplicatesQuery(Query):
         # if excluded columns are present (see "gatekeeper" in Query).
         data_source = self.data_source_scan.data_source
         table_name = self.partition.table.qualified_table_name
-        self.sql = data_source.sql_get_duplicates_count(column_names, table_name, values_filter)
+        jinja_resolve = self.data_source_scan.scan.jinja_resolve
 
-        self.failed_rows_sql = data_source.sql_get_duplicates(
-            column_names,
-            table_name,
-            values_filter,
-            self.samples_limit,
+        self.sql = jinja_resolve(data_source.sql_get_duplicates_count(column_names, table_name, values_filter))
+
+        self.failed_rows_sql = jinja_resolve(
+            data_source.sql_get_duplicates(
+                column_names,
+                table_name,
+                values_filter,
+                self.samples_limit,
+            )
         )
-        self.failed_rows_passing_sql = data_source.sql_get_duplicates(
-            column_names,
-            self.partition.table.qualified_table_name,
-            values_filter,
-            self.samples_limit,
-            invert_condition=True,
+        self.failed_rows_passing_sql = jinja_resolve(
+            data_source.sql_get_duplicates(
+                column_names,
+                self.partition.table.qualified_table_name,
+                values_filter,
+                self.samples_limit,
+                invert_condition=True,
+            )
         )
 
     def execute(self):

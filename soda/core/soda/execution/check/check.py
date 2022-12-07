@@ -131,8 +131,9 @@ class Check(ABC):
 
         Uses user provided name if available or generates one from the check definition and thresholds.
         """
+        jinja_resolve = self.data_source_scan.scan.jinja_resolve
         if self.check_cfg.name:
-            return self.check_cfg.name
+            return jinja_resolve(self.check_cfg.name)
 
         name = self.check_cfg.source_line
 
@@ -145,7 +146,7 @@ class Check(ABC):
             if source_cfg.get("fail"):
                 name += f" fail {source_cfg['fail']}"
 
-        return name
+        return jinja_resolve(name)
 
     def create_definition(self) -> str:
         check_cfg: CheckCfg = self.check_cfg

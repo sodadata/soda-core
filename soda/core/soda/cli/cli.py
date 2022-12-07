@@ -157,7 +157,7 @@ def scan(
     scan = Scan()
     scan._data_timestamp = datetime.fromisoformat(data_timestamp)
 
-    # Add variables before adding any files so that they can be immediately applied.
+    # Add variables before any other config as they might be used.
     if variable:
         variables_dict = {}
         for v in variable:
