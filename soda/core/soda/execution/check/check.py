@@ -110,6 +110,7 @@ class Check(ABC):
         self.partition: Partition = partition
         self.column: Column = column
         self.metrics: dict[str, Metric] = {}
+        self.attributes = {}
         self.historic_descriptors: dict[str, HistoricDescriptor] = {}
         self.cloud_check_type = "metricThreshold"
         # in the evaluate method, checks can optionally extract a failed rows sample ref from the metric
@@ -225,6 +226,7 @@ class Check(ABC):
             "name": self.name,
             "type": self.cloud_check_type,
             "definition": self.create_definition(),
+            "attributes": self.attributes,
             "location": self.check_cfg.location.get_cloud_dict(),
             "dataSource": self.data_source_scan.data_source.data_source_name,
             "table": Partition.get_table_name(self.partition),
