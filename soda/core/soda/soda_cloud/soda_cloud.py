@@ -97,12 +97,16 @@ class SodaCloud:
         return str(value)
 
     def upload_sample(
-        self, scan: Scan, sample_rows: tuple[tuple], sample_file_name: str, samples_limit: int | None = 100
+        self, scan: Scan, sample_rows: tuple[tuple], sample_file_name: str, samples_limit: int | None
     ) -> str:
         """
         :param sample_file_name: file name without extension
         :return: Soda Cloud file_id
         """
+
+        # Keep the interface of this method backward compatible and allow for samples limit to be None, but do not continue with no limit in such case.
+        if not samples_limit:
+            samples_limit = 100
 
         try:
             scan_definition_name = scan._scan_definition_name
