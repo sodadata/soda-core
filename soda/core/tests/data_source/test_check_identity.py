@@ -123,7 +123,7 @@ def test_explicitly_specified_check_identity(data_source_fixture: DataSourceFixt
         """,
     )
 
-    row_count_identity = scan_result["checks"][0]["identity"]
+    row_count_identity = scan_result["checks"][0]["identities"]["v3"]
 
     assert isinstance(row_count_identity, str)
 
@@ -137,7 +137,7 @@ def test_explicitly_specified_check_identity(data_source_fixture: DataSourceFixt
     )
 
     # check that the identity remains the same
-    assert scan_result["checks"][0]["identity"] == row_count_identity
+    assert scan_result["checks"][0]["identities"]["v4"] == row_count_identity
 
     scan_result = execute_scan_and_get_scan_result(
         data_source_fixture,
@@ -149,7 +149,7 @@ def test_explicitly_specified_check_identity(data_source_fixture: DataSourceFixt
     )
 
     # check that the identity remains the same after changing the check (threshold in this case)
-    assert scan_result["checks"][0]["identity"] == row_count_identity
+    assert scan_result["checks"][0]["identities"]["v4"]== row_count_identity
 
 
 def test_for_each_identity(data_source_fixture: DataSourceFixture):
