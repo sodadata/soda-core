@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import json
+
 import requests
 from soda.execution.partition import Partition
 from soda.sampler.sample_context import SampleContext
@@ -30,7 +32,7 @@ class HTTPSampler(Sampler):
             "check_name": sample_context.check_name,
         }
 
-        response = requests.post(self.url, json=result_dict)
+        response = requests.post(self.url, json=json.dumps(result_dict, sort_keys=True, default=str))
 
         if response.status_code != 200:
             self.logs.error(f"Unable to upload failed rows to {self.url} -  {response.text}")
