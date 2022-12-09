@@ -162,11 +162,6 @@ class Check(ABC):
         check_cfg: CheckCfg = self.check_cfg
         from soda.common.yaml_helper import to_yaml_str
 
-        if isinstance(check_cfg.source_configurations, dict):
-            identity = check_cfg.source_configurations.get("identity")
-            if isinstance(identity, str):
-                return self.data_source_scan.scan.jinja_resolve(identity)
-
         hash_builder = ConsistentHashBuilder()
         # Note: In case of for each table, the check_cfg.source_header will contain the actual table name as well
         hash_builder.add(check_cfg.source_header)
@@ -179,10 +174,11 @@ class Check(ABC):
         if isinstance(check_cfg.source_configurations, dict):
 
             identity_source_configurations = dict(check_cfg.source_configurations)
-            # The next lines ensures that configuration properties 'name' and 'samples limit' are ignored
+            # The next lines ensures that configuration properties 'name', 'samples limit', 'identity' are ignored
             # for computing the check identity
             identity_source_configurations.pop("name", None)
             identity_source_configurations.pop("samples limit", None)
+            identity_source_configurations.pop("identity", None)
             if len(identity_source_configurations) > 0:
                 # The next line ensures that ordering of the check configurations don't matter for identity
                 identity_source_configurations = collections.OrderedDict(sorted(identity_source_configurations.items()))
@@ -210,6 +206,20 @@ class Check(ABC):
             return f"{source_header}:\n  {source_line}"
         return to_yaml_str({source_header: [{source_line: source_configurations}]})
 
+    def create_identities(self):
+        identities = {
+            # v1 is original without the datasource name and v2 is with datasource name in the has
+            "v1": self.create_identity(with_datasource=False, with_filename=False),
+            "v2": self.create_identity(with_datasource=True, with_filename=False),
+            "v3": self.create_identity(with_datasource=True, with_filename=True),
+        }
+        if isinstance(self.check_cfg.source_configurations, dict):
+            identity = self.check_cfg.source_configurations.get("identity")
+            if isinstance(identity, str):
+                # append custom identity latest
+                identities[f"v{len(identities) + 1}"] = identity
+        return identities
+
     def get_cloud_dict(self):
         from soda.execution.column import Column
         from soda.execution.partition import Partition
@@ -217,12 +227,7 @@ class Check(ABC):
         cloud_dict = {
             # See https://sodadata.atlassian.net/browse/CLOUD-1143
             "identity": self.create_identity(with_datasource=False, with_filename=False),
-            "identities": {
-                # v1 is original without the datasource name and v2 is with datasource name in the hash
-                "v1": self.create_identity(with_datasource=False, with_filename=False),
-                "v2": self.create_identity(with_datasource=True, with_filename=False),
-                "v3": self.create_identity(with_datasource=True, with_filename=True),
-            },
+            "identities": self.create_identities(),
             "name": self.name,
             "type": self.cloud_check_type,
             "definition": self.create_definition(),
