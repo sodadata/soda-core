@@ -149,7 +149,7 @@ def test_explicitly_specified_check_identity(data_source_fixture: DataSourceFixt
     )
 
     # check that the identity remains the same after changing the check (threshold in this case)
-    assert scan_result["checks"][0]["identities"]["v4"]== row_count_identity
+    assert scan_result["checks"][0]["identities"]["v4"] == row_count_identity
 
 
 def test_for_each_identity(data_source_fixture: DataSourceFixture):
