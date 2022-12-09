@@ -7,6 +7,7 @@ import textwrap
 from datetime import datetime, timezone
 
 from soda.__version__ import SODA_CORE_VERSION
+from soda.common.attributes_handler import AttributeHandler
 from soda.common.json_helper import JsonHelper
 from soda.common.log import Log, LogLevel
 from soda.common.logs import Logs
@@ -474,6 +475,23 @@ class Scan:
                     self._logs.error(
                         f"Metrics '{missing_metrics_str}' were not computed for check '{check.check_cfg.source_line}'"
                     )
+
+                # Validate check attributes as well.
+                if check.check_cfg.source_configurations:
+                    if self._configuration.soda_cloud:
+                        attributes = check.check_cfg.source_configurations.get("attributes", {})
+                        attribute_handler = AttributeHandler(self._logs)
+                        self._logs.info("Validating check attributes.")
+                        # TODO: get attributes schema from Cloud Configuration when it is supported by cloud.
+                        # attributes_schema = self._configuration.soda_cloud.get_check_attributes_schema()
+                        attributes_schema = {}
+
+                        attributes, invalid_attributes = attribute_handler.validate(attributes, attributes_schema)
+
+                        if invalid_attributes:
+                            self._logs.debug(f"Skipping invalid attributes '{invalid_attributes.keys()}'.")
+
+                        check.attributes = attributes
 
             self._logs.info("Scan summary:")
             self.__log_queries(having_exception=False)
