@@ -529,7 +529,7 @@ class SodaCLParser(Parser):
                         configuration_value,
                         missing_and_valid_cfg,
                     )
-                elif configuration_key not in [NAME, IDENTITY, WARN, FAIL, SAMPLES_LIMIT, ATTRIBUTES, SODA_ATTRIBUTES]:
+                elif configuration_key not in [NAME, IDENTITY, WARN, FAIL, SAMPLES_LIMIT, ATTRIBUTES]:
                     if metric_name != "distribution_difference":
                         self.logs.error(
                             f"Skipping unsupported check configuration: {configuration_key}",
