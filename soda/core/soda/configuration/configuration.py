@@ -27,12 +27,12 @@ class Configuration:
             "spark_session": spark_session,
         }
 
-
     def add_dask_context(self, data_source_name: str, dask_context):
         self.data_source_properties_by_name[data_source_name] = {
             "type": "dask",
             "connection": "dask_data_source",
             "context": dask_context,
+        }
 
     def add_duckdb_connection(self, data_source_name: str, duckdb_connection):
         self.data_source_properties_by_name[data_source_name] = {

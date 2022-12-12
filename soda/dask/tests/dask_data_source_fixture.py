@@ -18,7 +18,7 @@ class DaskDataSourceFixture(DataSourceFixture):
         self.context = Context()
 
     def _build_configuration_dict(self, schema_name: str | None = None) -> dict:
-        return {"data_source dask": {"type": "dask"}}
+        return {"data_source dask": {"type": "dask"}, "schema": schema_name}
 
     def _test_session_starts(self) -> None:
         scan = Scan()
@@ -26,17 +26,32 @@ class DaskDataSourceFixture(DataSourceFixture):
         self.data_source = scan._data_source_manager.get_data_source(self.data_source_name)
         scan._get_or_create_data_source_scan(self.data_source_name)
 
-    def _create_and_insert_test_table(self, test_table: TestTable):
-        a = dd.from_pandas(
-            pd.DataFrame(data=test_table.values, columns=[test_column.name for test_column in test_table.test_columns])
+    def _test_session_ends(self):
+        self.data_source.connection.close()
+        self._drop_schema_if_exists()
+
+    def _create_and_insert_test_table(self, test_table: TestTable) -> None:
+        dd_test = dd.from_pandas(
+            pd.DataFrame(
+                data=test_table.values,
+                columns=[test_column.name for test_column in test_table.test_columns],
+                dtype=[
+                    self.data_source.SQL_TYPE_FOR_CREATE_TABLE_MAP[test_column.data_type]
+                    for test_column in test_table.test_columns
+                ],
+            ),
+            npartitions=1,
         )
-        return None
+        self.context.create_table(table_name=test_table.unique_table_name, input_table=dd_test)
 
     def _create_schema_if_not_exists_sql(self) -> str:
-        ...
+        self.context.create_schema(schema_name=self.schema_name)
 
-    def _use_schema_sql(self) -> str | None:
-        ...
+    def _use_schema_sql(self) -> None:
+        a = 5
 
-    def _drop_schema_if_exists_sql(self):
-        ...
+    def _drop_schema_if_exists(self) -> None:
+        try:
+            self.context.drop_schema(schema_name=self.schema_name)
+        except KeyError:
+            pass

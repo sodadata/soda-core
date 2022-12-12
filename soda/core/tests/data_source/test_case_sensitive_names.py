@@ -22,6 +22,7 @@ def test_row_count_thresholds_passing(data_source_fixture: DataSourceFixture):
     )
 
     quoted_table_name = data_source_fixture.data_source.quote_table(table_name)
+    quoted_table_name = quoted_table_name.replace("casesensitive", "CaseSensitive")
     quoted_id = data_source_fixture.data_source.quote_column("Id")
 
     scan = data_source_fixture.create_test_scan()

@@ -37,6 +37,7 @@ class DataSourceScan:
         self.queries: List[Query] = []
 
     def get_or_create_table(self, table_name: str) -> Table:
+        table_name = self.data_source.default_casify_table_name(table_name)
         table = self.tables.get(table_name)
         if table is None:
             table = Table(self, table_name)

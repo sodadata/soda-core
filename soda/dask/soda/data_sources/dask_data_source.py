@@ -22,20 +22,33 @@ class DaskDataSource(DataSource):
     }
 
     SQL_TYPE_FOR_SCHEMA_CHECK_MAP = {
-        DataType.TEXT: "string",
+        DataType.TEXT: "varchar",
         DataType.INTEGER: "int",
         DataType.DECIMAL: "double",
         DataType.DATE: "date",
         DataType.TIME: "timestamp",
         DataType.TIMESTAMP: "timestamp",
-        DataType.TIMESTAMP_TZ: "timestamp",  # No timezone support in Spark
+        DataType.TIMESTAMP_TZ: "timestamp_with_local_time_zone",  # No timezone support in Spark
         DataType.BOOLEAN: "boolean",
+    }
+
+    # Supported data types used in create statements. These are used in tests for creating test data and do not affect the actual library functionality.
+    SQL_TYPE_FOR_CREATE_TABLE_MAP: dict = {
+        DataType.TEXT: str,
+        DataType.INTEGER: int,
+        DataType.DECIMAL: float,
+        DataType.DATE: "DATE",
+        DataType.TIME: "TIME",
+        DataType.TIMESTAMP: "TIMESTAMP",
+        DataType.TIMESTAMP_TZ: "TIMESTAMPTZ",
+        DataType.BOOLEAN: bool,
     }
 
     def __init__(self, logs: Logs, data_source_name: str, data_source_properties: dict):
         super().__init__(logs, data_source_name, data_source_properties)
         self.context = data_source_properties.get("context")
         self.context.register_function(self.regexp_like, "regexp_like", [("regex_pattern", str)], str, row_udf=False)
+        self.context.register_function(self.regexp_like, "REGEXP_LIKE", [("regex_pattern", str)], str, row_udf=False)
         self.context.register_aggregation(self.distinct_count(), "distinct_count", [("x", float)], float)
         self.context.register_aggregation(self.distinct_count(), "distinct_count_str", [("x", str)], float)
 
@@ -63,11 +76,39 @@ class DaskDataSource(DataSource):
         filter: str | None = None,
         include_tables: list[str] = [],
         exclude_tables: list[str] = [],
-        table_column_name: str = "Table",
+        table_column_name: str = "table",
         schema_column_name: str = "table_schema",
     ) -> str:
-        sql = "SHOW TABLES"
+        # First register `show tables` in a dask table and then apply query on that table
+        # to find the intended tables
+        show_tables_temp_query = "show tables"
+        dd_show_tables = self.context.sql(show_tables_temp_query).compute()
+
+        # Due to a bug in dask-sql we cannot use uppercases in column names
+        dd_show_tables.columns = ["table"]
+
+        self.context.create_table("showtables", dd_show_tables)
+
+        sql = f"select {table_column_name} \n" f"from showtables"
+        where_clauses = []
+
+        if filter:
+            where_clauses.append(f"lower({self.default_casify_column_name(table_column_name)}) like '{filter.lower()}'")
+
+        includes_excludes_filter = self.sql_table_include_exclude_filter(
+            table_column_name, schema_column_name, include_tables, exclude_tables
+        )
+        if includes_excludes_filter:
+            where_clauses.append(includes_excludes_filter)
+
+        if where_clauses:
+            where_clauses_sql = "\n  and ".join(where_clauses)
+            sql += f"\nwhere {where_clauses_sql}"
         return sql
+
+    def default_casify_table_name(self, identifier: str) -> str:
+        """Formats table identifier to e.g. a default case for a given data source."""
+        return identifier.lower()
 
     def sql_get_column(self, include_tables: list[str] | None = None, exclude_tables: list[str] | None = None) -> str:
         table_filter_expression = self.sql_table_include_exclude_filter(
