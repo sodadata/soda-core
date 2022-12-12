@@ -8,7 +8,6 @@ from numpy.random import default_rng
 from soda.scientific.distribution.comparison import (
     DistributionRefKeyException,
     DistributionRefParsingException,
-    SWDAlgorithm,
 )
 from soda.scientific.distribution.utils import RefDataCfg
 
@@ -109,7 +108,9 @@ def test_distribution_checker(method, reference_file_path, test_data, expected_s
     with open(reference_file_path) as f:
         dist_ref_yaml = f.read()
 
-    check = DistributionChecker(method, dist_ref_yaml, reference_file_path, None, test_data)
+    check = DistributionChecker(
+        dist_method=method, dist_ref_yaml=dist_ref_yaml, dist_ref_file_path=reference_file_path, data=test_data
+    )
     check_results = check.run()
     assert check_results["stat_value"] == pytest.approx(expected_stat, abs=1e-3)
     assert check_results["check_value"] == pytest.approx(expected_p, abs=1e-3)
@@ -137,7 +138,12 @@ def test_ref_config_file_exceptions(reference_file_path, exception):
         test_data = list(pd.Series(default_rng(61).normal(loc=1.0, scale=1.0, size=1000)))
         with open(reference_file_path) as f:
             dist_ref_yaml = f.read()
-        DistributionChecker("continuous", dist_ref_yaml, reference_file_path, None, test_data)
+        DistributionChecker(
+            dist_method="continuous",
+            dist_ref_yaml=dist_ref_yaml,
+            dist_ref_file_path=reference_file_path,
+            data=test_data,
+        )
 
 
 # The following bins and weights are generated based on
@@ -549,7 +555,9 @@ def test_ref_config_incompatible(test_data, dist_ref_file_path, method):
     with pytest.raises(DistributionRefIncompatibleException):
         with open(dist_ref_file_path) as f:
             dist_ref_yaml = f.read()
-        DistributionChecker(method, dist_ref_yaml, dist_ref_file_path, None, test_data)
+        DistributionChecker(
+            dist_method=method, dist_ref_yaml=dist_ref_yaml, dist_ref_file_path=dist_ref_file_path, data=test_data
+        )
 
 
 @pytest.mark.parametrize(
@@ -578,7 +586,9 @@ def test_missing_bins_weights(test_data, dist_ref_file_path, method):
     with pytest.raises(MissingBinsWeightsException):
         with open(dist_ref_file_path) as f:
             dist_ref_yaml = f.read()
-        DistributionChecker(method, dist_ref_yaml, dist_ref_file_path, None, test_data)
+        DistributionChecker(
+            dist_method=method, dist_ref_yaml=dist_ref_yaml, dist_ref_file_path=dist_ref_file_path, data=test_data
+        )
 
 
 @pytest.mark.parametrize(
@@ -601,4 +611,6 @@ def test_empty_test_data(test_data, dist_ref_file_path, method):
     with pytest.raises(EmptyDistributionCheckColumn):
         with open(dist_ref_file_path) as f:
             dist_ref_yaml = f.read()
-        DistributionChecker(method, dist_ref_yaml, dist_ref_file_path, None, test_data)
+        DistributionChecker(
+            dist_method=method, dist_ref_yaml=dist_ref_yaml, dist_ref_file_path=dist_ref_file_path, data=test_data
+        )

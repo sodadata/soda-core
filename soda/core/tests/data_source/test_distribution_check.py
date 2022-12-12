@@ -8,7 +8,6 @@ from helpers.fixtures import test_data_source
 
 def test_distribution_check(data_source_fixture: DataSourceFixture, mock_file_system):
     table_name = data_source_fixture.ensure_test_table(customers_dist_check_test_table)
-    table_name = data_source_fixture.data_source.default_casify_table_name(table_name)
 
     scan = data_source_fixture.create_test_scan()
 
@@ -54,7 +53,6 @@ def test_distribution_check(data_source_fixture: DataSourceFixture, mock_file_sy
 )
 def test_distribution_sql(data_source_fixture: DataSourceFixture, mock_file_system, table, expectation):
     table_name = data_source_fixture.ensure_test_table(table)
-    table_name = data_source_fixture.data_source.default_casify_table_name(table_name)
 
     scan = data_source_fixture.create_test_scan()
     user_home_dir = mock_file_system.user_home_dir()
@@ -109,7 +107,6 @@ def test_distribution_missing_bins_weights(data_source_fixture: DataSourceFixtur
     from soda.scientific.distribution.comparison import MissingBinsWeightsException
 
     table_name = data_source_fixture.ensure_test_table(customers_dist_check_test_table)
-    table_name = data_source_fixture.data_source.default_casify_table_name(table_name)
 
     scan = data_source_fixture.create_test_scan()
 
@@ -146,52 +143,8 @@ def test_distribution_missing_bins_weights(data_source_fixture: DataSourceFixtur
     assert str(log.message) == log_message
 
 
-def test_distribution_check_with_dro_name(data_source_fixture: DataSourceFixture, mock_file_system):
-    table_name = data_source_fixture.ensure_test_table(customers_dist_check_test_table)
-    table_name = data_source_fixture.data_source.default_casify_table_name(table_name)
-
-    scan = data_source_fixture.create_test_scan()
-
-    user_home_dir = mock_file_system.user_home_dir()
-
-    mock_file_system.files = {
-        f"{user_home_dir}/customers_cst_size_distribution_reference.yml": dedent(
-            f"""
-            customers_dro1:
-                dataset: {table_name}
-                column: cst_size
-                distribution_type: continuous
-                distribution_reference:
-                    bins: [1, 2, 3]
-                    weights: [0.5, 0.2, 0.3]
-
-            customers_dro2:
-                dataset: {table_name}
-                column: cst_size
-                distribution_type: continuous
-                distribution_reference:
-                    bins: [1, 2, 3]
-                    weights: [0.5, 0.2, 0.3]
-        """
-        ).strip(),
-    }
-
-    scan.add_sodacl_yaml_str(
-        f"""
-        checks for {table_name}:
-            - distribution_difference(cst_size, customers_dro1) >= 0.05:
-                distribution reference file: {user_home_dir}/customers_cst_size_distribution_reference.yml
-                method: ks
-    """
-    )
-
-    scan.enable_mock_soda_cloud()
-    scan.execute()
-
-
 def test_distribution_check_without_method(data_source_fixture: DataSourceFixture, mock_file_system):
     table_name = data_source_fixture.ensure_test_table(customers_dist_check_test_table)
-    table_name = data_source_fixture.data_source.default_casify_table_name(table_name)
 
     scan = data_source_fixture.create_test_scan()
 
@@ -226,7 +179,6 @@ def test_distribution_check_with_filter_no_data(data_source_fixture: DataSourceF
     from soda.scientific.distribution.comparison import EmptyDistributionCheckColumn
 
     table_name = data_source_fixture.ensure_test_table(customers_dist_check_test_table)
-    table_name = data_source_fixture.data_source.default_casify_table_name(table_name)
 
     scan = data_source_fixture.create_test_scan()
 
@@ -269,7 +221,6 @@ def test_distribution_check_with_filter_no_data(data_source_fixture: DataSourceF
 
 def test_distribution_check_with_sample(data_source_fixture: DataSourceFixture, mock_file_system):
     table_name = data_source_fixture.ensure_test_table(customers_dist_check_test_table)
-    table_name = data_source_fixture.data_source.default_casify_table_name(table_name)
 
     scan = data_source_fixture.create_test_scan()
     data_source_name = data_source_fixture.data_source_name
@@ -315,7 +266,6 @@ def test_distribution_check_with_sample(data_source_fixture: DataSourceFixture, 
 
 def test_distribution_check_with_filter_and_partition(data_source_fixture: DataSourceFixture, mock_file_system) -> None:
     table_name = data_source_fixture.ensure_test_table(customers_dist_check_test_table)
-    table_name = data_source_fixture.data_source.default_casify_table_name(table_name)
 
     scan = data_source_fixture.create_test_scan()
 

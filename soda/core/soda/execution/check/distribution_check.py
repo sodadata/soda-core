@@ -63,13 +63,15 @@ class DistributionCheck(Check):
             test_data = [row[0] for row in self.query.rows]
             ref_file_path = self.distribution_check_cfg.reference_file_path
             dist_method = self.distribution_check_cfg.method
-            dist_name = self.distribution_check_cfg.distribution_name
             dist_ref_yaml = self.data_source_scan.scan._read_file(
                 file_type="disribution reference object yaml", file_path=ref_file_path
             )
             try:
                 check_result_dict = DistributionChecker(
-                    dist_method, dist_ref_yaml, ref_file_path, dist_name, test_data
+                    dist_method=dist_method,
+                    dist_ref_yaml=dist_ref_yaml,
+                    dist_ref_file_path=ref_file_path,
+                    data=test_data,
                 ).run()
                 self.check_value = check_result_dict["check_value"]
                 self.metrics["distribution-difference-metric"].value = self.check_value
