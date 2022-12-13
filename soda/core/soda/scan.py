@@ -7,7 +7,6 @@ import textwrap
 from datetime import datetime, timezone
 
 from soda.__version__ import SODA_CORE_VERSION
-from soda.common.attributes_handler import AttributeHandler
 from soda.common.json_helper import JsonHelper
 from soda.common.log import Log, LogLevel
 from soda.common.logs import Logs
@@ -444,6 +443,7 @@ class Scan:
             except Exception as e:
                 self._logs.error(f"""An error occurred while executing data source scan""", exception=e)
 
+            invalid_check_attributes = None
             # Evaluates the checks based on all the metric values
             for check in self._checks:
                 # First get the metric values for this check
@@ -479,19 +479,28 @@ class Scan:
                 # Validate check attributes as well.
                 if check.check_cfg.source_configurations:
                     if self._configuration.soda_cloud:
-                        attributes = check.check_cfg.source_configurations.get("attributes", {})
-                        attribute_handler = AttributeHandler(self._logs)
-                        self._logs.info("Validating check attributes.")
-                        # TODO: get attributes schema from Cloud Configuration when it is supported by cloud.
-                        # attributes_schema = self._configuration.soda_cloud.get_check_attributes_schema()
-                        attributes_schema = {}
+                        check_attributes = check.check_cfg.source_configurations.get("attributes", {})
 
-                        attributes, invalid_attributes = attribute_handler.validate(attributes, attributes_schema)
+                        if check_attributes:
+                            # Resolve variables first
+                            check_attributes = {
+                                self.jinja_resolve(k): self.jinja_resolve(v) for k, v in check_attributes.items()
+                            }
 
-                        if invalid_attributes:
-                            self._logs.debug(f"Skipping invalid attributes '{invalid_attributes.keys()}'.")
+                            # TODO: re-enable validation once Cloud actually sends schema
+                            # attribute_handler = AttributeHandler(self._logs)
+                            # attributes_schema = self._configuration.soda_cloud.get_check_attributes_schema()
 
-                        check.attributes = attributes
+                            # check_attributes, invalid_check_attributes = attribute_handler.validate(
+                            #     check_attributes, attributes_schema
+                            # )
+
+                            check.attributes = check_attributes
+            # TODO: re-enable validation once Cloud actually sends schema
+            # if invalid_check_attributes:
+            #     attributes_page_url = f"https://{self._configuration.soda_cloud.host}/organization/attributes"
+            #     self._logs.info(f"Refer to list of valid attributes and values at {attributes_page_url}.")
+            #     # TODO: send result without checks. This means this whole validation needs to move to earlier stage.
 
             self._logs.info("Scan summary:")
             self.__log_queries(having_exception=False)

@@ -26,6 +26,9 @@ if TYPE_CHECKING:
 
 
 class SodaCloud:
+    ORG_CONFIG_KEY_CHECK_ATTRIBUTES = "sodaCoreAvailableCheckAttributes"
+    ORG_CONFIG_KEY_DISABLE_COLLECTING_WH_DATA = "disableCollectingWarehouseData"
+
     def __init__(
         self,
         host: str,
@@ -44,6 +47,20 @@ class SodaCloud:
         self.headers = {"User-Agent": f"SodaCore/{SODA_CORE_VERSION}"}
         self.logs = logs
         self.soda_cloud_trace_ids = {}
+        self._organization_configuration = None
+
+    @property
+    def organization_configuration(self) -> dict:
+        if isinstance(self._organization_configuration, dict):
+            return self._organization_configuration
+
+        response_json_dict = self._execute_query(
+            {"type": "sodaCoreCloudConfiguration"},
+            query_name="get_organization_configuration",
+        )
+        self._organization_configuration = response_json_dict if isinstance(response_json_dict, dict) else {}
+
+        return self._organization_configuration
 
     @staticmethod
     def build_scan_results(scan) -> dict:
@@ -185,14 +202,10 @@ class SodaCloud:
         return {"measurements": measurements, "check_results": check_results}
 
     def is_samples_disabled(self) -> bool:
-        response_json_dict = self._execute_query(
-            {"type": "sodaCoreCloudConfiguration"},
-            query_name="is_samples_disabled",
-        )
-        is_disabled_bool = (
-            response_json_dict.get("disableCollectingWarehouseData") if isinstance(response_json_dict, dict) else None
-        )
-        return is_disabled_bool if isinstance(is_disabled_bool, bool) else True
+        return self.organization_configuration.get(self.ORG_CONFIG_KEY_DISABLE_COLLECTING_WH_DATA, True)
+
+    def get_check_attributes_schema(self) -> dict:
+        return self.organization_configuration.get(self.ORG_CONFIG_KEY_CHECK_ATTRIBUTES, {})
 
     def _get_historic_changes_over_time(self, hd: HistoricChangeOverTimeDescriptor):
         query = {

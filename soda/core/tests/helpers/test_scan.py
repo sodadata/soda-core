@@ -62,6 +62,9 @@ class TestScan(Scan):
         self._logs.debug(checks_yaml_log_str)
         super()._parse_sodacl_yaml_str(sodacl_yaml_str=sodacl_yaml_str, file_path=file_path)
 
+    def mock_check_attributes_schema(self, mock_schema: list):
+        self._configuration.soda_cloud.mock_check_attributes_schema(mock_schema)
+
     def mock_historic_values(self, metric_identity: str, metric_values: list, time_generator=TimeGenerator()):
         """
         To learn the metric_identity: fill in any string, check the error log and capture the metric_identity from there
