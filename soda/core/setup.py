@@ -17,7 +17,7 @@ description = "Soda Core"
 
 requires = [
     "markupsafe>=2.0.1,<=2.1.1",
-    "Jinja2>=2.11,<4.0",  # Downgraded from 3.x until dbt-core 1.3 is released
+    "Jinja2>=2.11,<4.0",
     "click~=8.0",
     "ruamel.yaml>=0.17.0,<0.18.0",
     "requests~=2.27",
