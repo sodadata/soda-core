@@ -14,7 +14,7 @@ description = "Soda Core dbt Package"
 
 requires = [
     f"soda-core=={package_version}",
-    "dbt-core~=1.2.0",
+    "dbt-core~=1.3.0",
 ]
 # TODO Fix the params
 setup(
