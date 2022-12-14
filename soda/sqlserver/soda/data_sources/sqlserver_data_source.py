@@ -343,3 +343,6 @@ class SQLServerDataSource(DataSource):
         )
 
         return sql
+
+    def default_casify_table_name(self, identifier: str) -> str:
+        return f"[{identifier}]"
