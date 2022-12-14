@@ -72,7 +72,7 @@ class AnomalyMetricCheck(MetricCheck):
         # check that we get data objects from cloud that we can work with
         if isinstance(historic_values, dict):
             historic_measurements = historic_values.get(KEY_HISTORIC_MEASUREMENTS, {}).get("measurements", {})
-            self.logs.info(
+            self.logs.debug(
                 f"Anomaly Detection: using historical measurements for identity {self.metrics[metric_name].identity}"
             )
             historic_check_results = historic_values.get(KEY_HISTORIC_CHECK_RESULTS, {}).get("check_results", {})
