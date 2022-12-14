@@ -191,7 +191,7 @@ class AnomalyDetector:
             loaded_config["feedback_processor_params"]["output_columns"] = self._replace_none_values_by_key(
                 loaded_config["feedback_processor_params"]["output_columns"]
             )
-            self._logs.debug(f"Config parsed {loaded_config}")
+            self._logs.debug(f"Anomaly Detection: config parsed {loaded_config}")
 
             return loaded_config
 
