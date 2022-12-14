@@ -594,12 +594,6 @@ class Scan:
                 "metrics_count": len(self._metrics),
             }
         )
-        if self._configuration.soda_cloud:
-            for (
-                request_name,
-                trace_id,
-            ) in self._configuration.soda_cloud.soda_cloud_trace_ids.items():
-                soda_telemetry.set_attribute(f"soda_cloud_trace_id__{request_name}", trace_id)
 
         return exit_value
 
