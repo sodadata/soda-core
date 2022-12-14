@@ -95,5 +95,4 @@ class DremioDataSource(DataSource):
         return [self.type, self.host, self.port, self.schema]
 
     def sql_information_schema_tables(self) -> str:
-        return "INFORMATION_SCHEMA.\"TABLES\""
-
+        return 'INFORMATION_SCHEMA."TABLES"'
