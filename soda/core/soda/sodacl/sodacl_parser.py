@@ -42,6 +42,7 @@ WARN = "warn"
 FAIL = "fail"
 NAME = "name"
 IDENTITY = "identity"
+ATTRIBUTES = "attributes"
 FAIL_CONDITION = "fail condition"
 FAIL_QUERY = "fail query"
 SAMPLES_LIMIT = "samples limit"
@@ -135,7 +136,7 @@ class SodaCLParser(Parser):
                         if antlr_section_header.table_checks_header():
                             self.__parse_table_checks_section(
                                 antlr_section_header.table_checks_header(),
-                                header_str,
+                                self._resolve_jinja(header_str, self.sodacl_cfg.scan._variables),
                                 header_content,
                             )
                         elif antlr_section_header.column_configurations_header():
@@ -528,7 +529,7 @@ class SodaCLParser(Parser):
                         configuration_value,
                         missing_and_valid_cfg,
                     )
-                elif configuration_key not in [NAME, IDENTITY, WARN, FAIL, SAMPLES_LIMIT]:
+                elif configuration_key not in [NAME, IDENTITY, WARN, FAIL, SAMPLES_LIMIT, ATTRIBUTES]:
                     if metric_name != "distribution_difference":
                         self.logs.error(
                             f"Skipping unsupported check configuration: {configuration_key}",
@@ -1458,7 +1459,7 @@ class SodaCLParser(Parser):
             return self.__antlr_parse_identifier(antlr_header.partition_name().identifier())
 
     def __antlr_parse_identifier(self, antlr_identifier) -> str:
-        return antlr_identifier.getText()
+        return self._resolve_jinja(antlr_identifier.getText(), self.sodacl_cfg.scan._variables)
         # TODO consider resolving escape chars from a quoted strings:
         # identifier = re.sub(r'\\(.)', '\g<1>', unquoted_identifier)
 

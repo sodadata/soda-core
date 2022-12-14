@@ -9,12 +9,12 @@ if sys.version_info < (3, 7):
     sys.exit(1)
 
 package_name = "soda-core-dbt"
-package_version = "3.0.13"
+package_version = "3.0.15"
 description = "Soda Core dbt Package"
 
 requires = [
     f"soda-core=={package_version}",
-    "dbt-core~=1.2.0",
+    "dbt-core~=1.3.0",
 ]
 # TODO Fix the params
 setup(

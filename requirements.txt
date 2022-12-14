@@ -15,3 +15,5 @@
 ./soda/oracle
 ./soda/trino
 ./soda/dremio
+./soda/duckdb
+./soda/denodo

@@ -1,5 +1,5 @@
 [version]
-current = "3.0.13"
+current = "3.0.15"
 
 regex = '''
   (?P<major>\d+)\.(?P<minor>\d+)\.(?P<patch>\d+)((?P<prerelease>[a-z]+)(?P<build>\d+))?
@@ -76,4 +76,12 @@ search = 'package_version = "{current_version}"'
 
 [[file]]
 src = "soda/oracle/setup.py"
+search = 'package_version = "{current_version}"'
+
+[[file]]
+src = "soda/duckdb/setup.py"
+search = 'package_version = "{current_version}"'
+
+[[file]]
+src = "soda/denodo/setup.py"
 search = 'package_version = "{current_version}"'
