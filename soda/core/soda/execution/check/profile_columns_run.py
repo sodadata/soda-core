@@ -76,10 +76,12 @@ class ProfileColumnsRun:
             query_name=f"profile-columns-get-table-and-column-metadata",
         )
 
-        if len(tables_columns_metadata) < 1:
+        if tables_columns_metadata is None:
             self.logs.warning(
-                f"No table matching your SodaCL inclusion list found on your {self.data_source.data_source_name} "
-                "data source. Profiling results may be incomplete or entirely skipped",
+                f"Your SodaCL profiling expressions did not return any existing dataset name + column name combinations for your '{self.data_source.data_source_name}' "
+                f"data source. Please make sure that the patterns in your profiling expressions define existing dataset name + column name combinations." 
+                f" Profiling results may be incomplete or entirely skipped. See the docs for more information: \n"
+                f"https://docs.soda.io/soda-cl/profile.html#display-profile-information-in-soda-cloud",
                 location=self.profile_columns_cfg.location,
             )
             return profile_columns_result
