@@ -218,8 +218,7 @@ def test_profile_columns_all_tables_all_columns(data_source_fixture: DataSourceF
                         - exclude %.id
             """,
             {
-                "table_name1": ["ITEMS_SOLD", "CST_SIZE"],
-                "table_name2": [
+                "table_name1": [
                     "cst_size",
                     "distance",
                     "cst_size_txt",
@@ -228,6 +227,7 @@ def test_profile_columns_all_tables_all_columns(data_source_fixture: DataSourceF
                     "zip",
                     "email",
                 ],
+                "table_name2": ["ITEMS_SOLD", "CST_SIZE"],
             },
             id="all tables and columns except for country and id",
         ),
@@ -239,8 +239,7 @@ def test_profile_columns_all_tables_all_columns(data_source_fixture: DataSourceF
                         - exclude %.id
             """,
             {
-                "table_name1": ["ITEMS_SOLD", "CST_SIZE"],
-                "table_name2": [
+                "table_name1": [
                     "cst_size",
                     "distance",
                     "cst_size_txt",
@@ -250,8 +249,9 @@ def test_profile_columns_all_tables_all_columns(data_source_fixture: DataSourceF
                     "zip",
                     "email",
                 ],
+                "table_name2": ["ITEMS_SOLD", "CST_SIZE"],
             },
-            id="all tables and columns except for id",
+            id="all tables with names that contain 'profiling' and columns except for id",
         ),
         pytest.param(
             """
@@ -269,8 +269,8 @@ def test_profile_columns_all_tables_all_columns(data_source_fixture: DataSourceF
                     columns:
                         - include %profiling%.%si%
             """,
-            {"table_name1": ["CST_SIZE"], "table_name2": ["cst_size", "cst_size_txt"]},
-            id="'si' like columns in all tables",
+            {"table_name1": ["cst_size", "cst_size_txt"], "table_name2": ["CST_SIZE"]},
+            id="'si' like columns in tables with names that contain 'profiling'",
         ),
         pytest.param(
             """
@@ -307,6 +307,8 @@ def test_profile_columns_inclusions_exclusions(
     scan_results = mock_soda_cloud.pop_scan_result()
 
     profiled_tables = [profiled_table for profiled_table in scan_results["profiling"]]
+    profiled_tables = sorted(profiled_tables, key=lambda x: x["table"])
+
     column_profiling_results = {
         f"table_name{index}": list(map(lambda x: x["columnName"], profiled_table["columnProfiles"]))
         for index, profiled_table in enumerate(profiled_tables, 1)
@@ -326,7 +328,7 @@ def test_profile_columns_inclusions_exclusions(
             table_name: [casify_function(column_name) for column_name in column_names]
             for table_name, column_names in expected_column_profiling_results.items()
         }
-    
+
     assert column_profiling_results == expected_column_profiling_results
 
 
