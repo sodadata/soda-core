@@ -1,4 +1,5 @@
 from __future__ import annotations
+from collections import defaultdict
 
 import datetime
 import hashlib
@@ -299,6 +300,11 @@ class DataSource:
         return ["column_name", "data_type", "is_nullable"]
 
     @staticmethod
+    def tables_and_column_metadata() -> list:
+        """Columns to be used for retrieving tables and columns metadata."""
+        return ["table_name", "column_name", "data_type", "is_nullable"]
+
+    @staticmethod
     def column_metadata_catalog_column() -> str:
         """Column to be used as a 'database' equivalent."""
         return "table_catalog"
@@ -415,7 +421,103 @@ class DataSource:
             return {row[0]: row[1] for row in query.rows}
         return None
 
-    def create_table_columns_query(self, partition: Partition, schema_metric: SchemaMetric) -> TableColumnsQuery:
+    def get_tables_and_columns(
+        self,
+        query_name: str,
+        include_statements: list[str] | None = None,
+        exclude_statements: list[str] | None = None,
+    ) -> dict[str, str] | None:
+        # TODO: save/cache the result for later use.
+        query = Query(
+            data_source_scan=self.data_source_scan,
+            unqualified_query_name=query_name,
+            sql=self.sql_get_tables_and_columns(
+                include_statements=include_statements, exclude_statements=exclude_statements
+            ),
+        )
+        query.execute()
+        tables_and_columns_metadata = defaultdict(dict)
+        if query.rows and len(query.rows) > 0:
+            for row in query.rows:
+                tables_and_columns_metadata[row[0]][row[1]] = row[2]
+            return tables_and_columns_metadata
+        return None
+
+    def sql_get_tables_and_columns(
+        self,
+        include_statements: list[str] | None = None,
+        exclude_statements: list[str] | None = None,
+    ) -> str:
+        # table_name_default_case = self.default_casify_table_name(table_name)
+        # unquoted_table_name_default_case = (
+        #     table_name_default_case[1:-1] if self.is_quoted(table_name_default_case) else table_name_default_case
+        # )
+        filter_clauses = []
+        casify_function = self.default_casify_sql_function()
+        include_filter_clauses = []
+        for include_statement in include_statements:
+            table, table_operator, column, column_operator = include_statement
+            table_default_case = self.default_casify_table_name(table)
+            unquoted_table_default_case = (
+                table_default_case[1:-1]
+                if self.is_quoted(table_default_case)
+                else table_default_case
+            )
+            include_sql_clause = (
+                f"({casify_function}(table_name) {table_operator} '{unquoted_table_default_case}'"
+                f" AND {casify_function}(column_name) {column_operator} {casify_function}('{column}'))"
+            )
+            include_filter_clauses.append(include_sql_clause)
+
+        include_filter = " OR ".join(include_filter_clauses)
+        filter_clauses.append(f"({include_filter})")
+
+        exclude_filter_clauses = []
+        for exclude_statement in exclude_statements:
+            table, table_operator, column, column_operator = exclude_statement
+            table_default_case = self.default_casify_table_name(table)
+            unquoted_table_default_case = (
+                table_default_case[1:-1]
+                if self.is_quoted(table_default_case)
+                else table_default_case
+            )
+            exclude_sql_clause = (
+                f"NOT ({casify_function}(table_name) {table_operator} '{unquoted_table_default_case}'"
+                f" AND {casify_function}(column_name) {column_operator} {casify_function}('{column}'))"
+            )
+            exclude_filter_clauses.append(exclude_sql_clause)
+
+        exclude_filter = " AND ".join(exclude_filter_clauses)
+        filter_clauses.append(f"({exclude_filter})")
+
+        if self.database:
+            filter_clauses.append(
+                f"{casify_function}({self.column_metadata_catalog_column()}) = '{self.default_casify_system_name(self.database)}'"
+            )
+
+        if self.schema:
+            filter_clauses.append(
+                f"{casify_function}(table_schema) = '{self.default_casify_system_name(self.schema)}'"
+            )
+
+        where_filter = " \n  AND ".join(filter_clauses)
+
+        # compose query template
+        # NOTE: we use `order by ordinal_position` to guarantee stable orders of columns
+        # (see https://www.postgresql.org/docs/current/infoschema-columns.html)
+        # this mainly has an advantage in testing but bears very little as to how Soda Cloud
+        # displays those columns as they are ordered alphabetically in the UI.
+        sql = (
+            f"SELECT {', '.join(self.tables_and_column_metadata())} \n"
+            f"FROM {self.sql_information_schema_columns()} \n"
+            f"WHERE {where_filter}"
+            f"\nORDER BY {self.get_ordinal_position_name()}"
+        )
+        return sql
+
+    def create_table_columns_query(
+        self, partition: Partition, schema_metric: SchemaMetric
+    ) -> TableColumnsQuery:
         return TableColumnsQuery(partition, schema_metric)
 
     def get_ordinal_position_name(self) -> str:
