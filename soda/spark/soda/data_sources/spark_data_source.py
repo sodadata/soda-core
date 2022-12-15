@@ -191,7 +191,12 @@ class SparkSQLBase(DataSource):
         )
         query.execute()
         if len(query.rows) > 0:
-            columns = {row[0]: row[1] for row in query.rows}
+            rows = query.rows
+            # Remove the partitioning information (see https://spark.apache.org/docs/latest/sql-ref-syntax-aux-describe-table.html)
+            partition_indices = [i for i in range(len(rows)) if rows[i][0].startswith("# Partition")]
+            if partition_indices:
+                rows = rows[: partition_indices[0]]
+            columns = {row[0]: row[1] for row in rows}
 
             if included_columns or excluded_columns:
                 column_names = list(columns.keys())
