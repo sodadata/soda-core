@@ -307,7 +307,7 @@ def test_profile_columns_inclusions_exclusions(
     scan_results = mock_soda_cloud.pop_scan_result()
 
     profiled_tables = [profiled_table for profiled_table in scan_results["profiling"]]
-    profiled_tables = sorted(profiled_tables, key=lambda x: x["table"])
+    profiled_tables = sorted(profiled_tables, key=lambda x: x["table"].lower())
 
     column_profiling_results = {
         f"table_name{index}": list(map(lambda x: x["columnName"], profiled_table["columnProfiles"]))
