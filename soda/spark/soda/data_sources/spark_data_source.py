@@ -123,6 +123,7 @@ def odbc_connection_function(
 
 def databricks_connection_function(host: str, http_path: str, token: str, database: str, schema: str, **kwargs):
     from databricks import sql
+
     logging.getLogger("databricks.sql").setLevel(logging.INFO)
     connection = sql.connect(
         server_hostname=host, catalog=database, schema=schema, http_path=http_path, access_token=token
@@ -194,7 +195,7 @@ class SparkSQLBase(DataSource):
             # Remove the partitioning information (see https://spark.apache.org/docs/latest/sql-ref-syntax-aux-describe-table.html)
             partition_indices = [i for i in range(len(rows)) if rows[i][0].startswith("# Partition")]
             if partition_indices:
-                rows = rows[:partition_indices[0]]
+                rows = rows[: partition_indices[0]]
             columns = {row[0]: row[1] for row in rows}
 
             if included_columns or excluded_columns:
