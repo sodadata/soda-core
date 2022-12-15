@@ -123,7 +123,8 @@ def odbc_connection_function(
 
 def databricks_connection_function(host: str, http_path: str, token: str, database: str, schema: str, **kwargs):
     from databricks import sql
-
+    
+    logging.getLogger("databricks.sql").setLevel(logging.INFO)
     connection = sql.connect(
         server_hostname=host, catalog=database, schema=schema, http_path=http_path, access_token=token
     )
