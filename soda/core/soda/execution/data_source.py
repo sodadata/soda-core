@@ -1,11 +1,11 @@
 from __future__ import annotations
-from collections import defaultdict
 
 import datetime
 import hashlib
 import importlib
 import json
 import re
+from collections import defaultdict
 from datetime import date, datetime
 from numbers import Number
 from textwrap import dedent
@@ -443,20 +443,14 @@ class DataSource:
             return tables_and_columns_metadata
         return None
 
-
-    def create_profiling_sql_filter(
-        self, 
-        profiling_patterns: list
-    ) -> list[str]:
+    def create_profiling_sql_filter(self, profiling_patterns: list) -> list[str]:
         casify_function = self.default_casify_sql_function()
         sql_filters = []
         for profiling_pattern in profiling_patterns:
             table_name, table_operator, column_name, column_operator = profiling_pattern
             table_default_case = self.default_casify_table_name(table_name)
             unquoted_table_default_case = (
-                table_default_case[1:-1]
-                if self.is_quoted(table_default_case)
-                else table_default_case
+                table_default_case[1:-1] if self.is_quoted(table_default_case) else table_default_case
             )
             sql_filter = (
                 f"({casify_function}(table_name) {table_operator} '{unquoted_table_default_case}'"
@@ -465,7 +459,6 @@ class DataSource:
             sql_filters.append(sql_filter)
 
         return sql_filters
-
 
     def sql_get_tables_columns_profiling(
         self,
@@ -479,9 +472,11 @@ class DataSource:
         if include_filter:
             filter_clauses.append(f"({include_filter})")
 
-        exclude_sql_filter_clauses = [f"NOT {sql_filter_clause}" for sql_filter_clause in self.create_profiling_sql_filter(exclude_patterns)]
+        exclude_sql_filter_clauses = [
+            f"NOT {sql_filter_clause}" for sql_filter_clause in self.create_profiling_sql_filter(exclude_patterns)
+        ]
         exclude_filter = " AND ".join(exclude_sql_filter_clauses)
-        if exclude_filter: 
+        if exclude_filter:
             filter_clauses.append(f"({exclude_filter})")
 
         if self.database:
@@ -509,10 +504,7 @@ class DataSource:
         )
         return sql
 
-
-    def create_table_columns_query(
-        self, partition: Partition, schema_metric: SchemaMetric
-    ) -> TableColumnsQuery:
+    def create_table_columns_query(self, partition: Partition, schema_metric: SchemaMetric) -> TableColumnsQuery:
         return TableColumnsQuery(partition, schema_metric)
 
     def get_ordinal_position_name(self) -> str:

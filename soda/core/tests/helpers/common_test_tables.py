@@ -172,5 +172,5 @@ customers_profiling_capitalized = TestTable(
         ("ITEMS_SOLD", DataType.INTEGER),
         ("CST_SIZE", DataType.INTEGER),
     ],
-    values=[(1,2), (2,1), (0,1), (2,1), (6,1), (6,1), (3,2)],
+    values=[(1, 2), (2, 1), (0, 1), (2, 1), (6, 1), (6, 1), (3, 2)],
 )
