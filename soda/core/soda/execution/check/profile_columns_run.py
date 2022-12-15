@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from numbers import Number
 from typing import TYPE_CHECKING, overload
-
+from collections import defaultdict
 from soda.execution.query.query import Query
 from soda.profiling.profile_columns_result import (
     ProfileColumnsResult,
@@ -46,96 +46,105 @@ class ProfileColumnsRun:
         self.profile_columns_cfg: ProfileColumnsCfg = profile_columns_cfg
         self.logs = self.data_source_scan.scan._logs
 
+    def parse_profiling_clause(self):
+        include_statements = []
+        exclude_statements = []
+        for include_statement in self.profile_columns_cfg.include_columns:
+            included_table_name, included_column_name = include_statement.split(".")
+            include_statements.append(
+                [
+                    included_table_name,
+                    "LIKE" if "%" in included_table_name else "=",
+                    included_column_name,
+                    "LIKE" if "%" in included_column_name else "=",
+                ]
+            )
+        for exclude_statement in self.profile_columns_cfg.exclude_columns:
+            excluded_table_name, excluded_column_name = exclude_statement.split(".")
+            exclude_statements.append(
+                [
+                    excluded_table_name,
+                    "LIKE" if "%" in excluded_table_name else "=",
+                    excluded_column_name,
+                    "LIKE" if "%" in excluded_column_name else "=",
+                ]
+            )
+
+        return include_statements, exclude_statements
+
     def run(self) -> ProfileColumnsResult:
-        profile_columns_result: ProfileColumnsResult = ProfileColumnsResult(self.profile_columns_cfg)
-        self.logs.info(f"Running column profiling for data source: {self.data_source.data_source_name}")
-        include_tables = self._get_table_expression(self.profile_columns_cfg.include_columns)
-        exclude_tables = self._get_table_expression(self.profile_columns_cfg.exclude_columns)
-
-        # row_counts is a dict that maps table names to row counts.
-        table_names: dict[str, int] = self.data_source.get_table_names(
-            include_tables=include_tables,
-            exclude_tables=exclude_tables,
-            query_name="profile-columns-get-table-names",
+        profile_columns_result: ProfileColumnsResult = ProfileColumnsResult(
+            self.profile_columns_cfg
         )
+        self.logs.info(
+            f"Running column profiling for data source: {self.data_source.data_source_name}"
+        )
+        # include_tables = self._get_table_expression(self.profile_columns_cfg.include_columns)
+        # exclude_tables = self._get_table_expression(self.profile_columns_cfg.exclude_columns)
 
-        if len(table_names) < 1:
+        include_statements, exclude_statements = self.parse_profiling_clause()
+        tables_and_columns: defaultdict = self.data_source.get_tables_and_columns(
+                query_name=f"profile-columns-get-column-metadata-for-'test'",
+                include_statements=include_statements,
+                exclude_statements=exclude_statements
+         )
+
+        if len(tables_and_columns) < 1:
             self.logs.warning(
                 f"No table matching your SodaCL inclusion list found on your {self.data_source.data_source_name} "
                 "data source. Profiling results may be incomplete or entirely skipped",
                 location=self.profile_columns_cfg.location,
             )
             return profile_columns_result
-        parsed_included_tables_and_columns = self._build_column_expression_list(
-            self.profile_columns_cfg.include_columns
-        )
-        parsed_excluded_tables_and_columns = self._build_column_expression_list(
-            self.profile_columns_cfg.exclude_columns
-        )
 
         self.logs.info("Profiling columns for the following tables:")
-        for table_name in table_names:
+        for table_name in tables_and_columns:
             self.logs.info(f"  - {table_name}")
             profile_columns_result_table = profile_columns_result.create_table(
                 table_name, self.data_source.data_source_name, row_count=None
             )
-            included_columns, excluded_columns = self.build_column_inclusion_exclusion_lists(
-                table_name, parsed_included_tables_and_columns, parsed_excluded_tables_and_columns
-            )
-            # get columns & metadata for current table
-            columns_metadata_result = self.data_source.get_table_columns(
-                table_name=table_name,
-                query_name=f"profile-columns-get-column-metadata-for-{table_name}",
-                included_columns=included_columns,
-                excluded_columns=excluded_columns,
-            )
-            if columns_metadata_result is not None:
-                # perform numerical metrics collection
-                numerical_columns = {
-                    col_name: data_type
-                    for col_name, data_type in columns_metadata_result.items()
-                    if data_type in self.data_source.NUMERIC_TYPES_FOR_PROFILING
-                }
+            columns_metadata_result = tables_and_columns.get(table_name)
+            # perform numerical metrics collection
+            numerical_columns = {
+                column_name: data_type
+                for column_name, data_type in columns_metadata_result.items()
+                if data_type in self.data_source.NUMERIC_TYPES_FOR_PROFILING
+            }
 
-                for column_name, column_type in numerical_columns.items():
-                    try:
-                        self.profile_numeric_column(
-                            column_name,
-                            column_type,
-                            table_name,
-                            profile_columns_result_table,
-                        )
-                    except Exception as e:
-                        self.logs.error(
-                            f"Problem profiling numeric column {table_name}.{column_name}: {e}",
-                            exception=e,
-                        )
+            for column_name, column_type in numerical_columns.items():
+                try:
+                    self.profile_numeric_column(
+                        column_name,
+                        column_type,
+                        table_name,
+                        profile_columns_result_table,
+                    )
+                except Exception as e:
+                    self.logs.error(
+                        f"Problem profiling numeric column {table_name}.{column_name}: {e}",
+                        exception=e,
+                    )
 
-                # text columns
-                text_columns = {
-                    col_name: data_type
-                    for col_name, data_type in columns_metadata_result.items()
-                    if data_type in self.data_source.TEXT_TYPES_FOR_PROFILING
-                }
-                for column_name, column_type in text_columns.items():
-                    try:
-                        self.profile_text_column(
-                            column_name,
-                            column_type,
-                            table_name,
-                            profile_columns_result_table,
-                        )
-                    except Exception as e:
-                        self.logs.error(
-                            f"Problem profiling text column {table_name}.{column_name}: {e}",
-                            exception=e,
-                        )
+            # text columns
+            text_columns = {
+                col_name: data_type
+                for col_name, data_type in columns_metadata_result.items()
+                if data_type in self.data_source.TEXT_TYPES_FOR_PROFILING
+            }
+            for column_name, column_type in text_columns.items():
+                try:
+                    self.profile_text_column(
+                        column_name,
+                        column_type,
+                        table_name,
+                        profile_columns_result_table,
+                    )
+                except Exception as e:
+                    self.logs.error(
+                        f"Problem profiling text column {table_name}.{column_name}: {e}",
+                        exception=e,
+                    )
 
-            else:
-                self.logs.error(
-                    f"No columns matching your SodaCL inclusion patterns were found on {table_name}.",
-                    location=self.profile_columns_cfg.location,
-                )
         return profile_columns_result
 
     def profile_numeric_column(
