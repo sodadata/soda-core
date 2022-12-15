@@ -300,7 +300,7 @@ class DataSource:
         return ["column_name", "data_type", "is_nullable"]
 
     @staticmethod
-    def tables_and_column_metadata() -> list[str]:
+    def tables_columns_profiling_metadata() -> list[str]:
         """Columns to be used for retrieving tables and columns metadata."""
         return ["table_name", "column_name", "data_type"]
 
@@ -497,7 +497,7 @@ class DataSource:
         # this mainly has an advantage in testing but bears very little as to how Soda Cloud
         # displays those columns as they are ordered alphabetically in the UI.
         sql = (
-            f"SELECT {', '.join(self.tables_and_column_metadata())} \n"
+            f"SELECT {', '.join(self.tables_columns_profiling_metadata())} \n"
             f"FROM {self.sql_information_schema_columns()} \n"
             f"WHERE {where_filter}"
             f"\nORDER BY {self.get_ordinal_position_name()}"

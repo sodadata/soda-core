@@ -104,6 +104,10 @@ class MySQLDataSource(DataSource):
     def column_metadata_columns() -> list:
         return ["column_name ", " CAST(data_type AS CHAR) ", "is_nullable"]
 
+    @staticmethod 
+    def tables_columns_profiling_metadata() -> list[str]:
+        return ["table_name ", "column_name ", " CAST(data_type AS CHAR) "]
+
     def cast_to_text(self, expr: str) -> str:
         return f"CAST({expr} AS CHAR)"
 
