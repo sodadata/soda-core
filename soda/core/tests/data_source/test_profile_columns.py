@@ -54,7 +54,16 @@ def test_profile_columns_numeric(data_source_fixture: DataSourceFixture):
         assert isinstance(frequent_value, dict)
         assert "value" in frequent_value
         assert "frequency" in frequent_value
-    for numeric_stat in ["avg", "min", "max", "sum", "stddev", "variance", "distinct", "missing_count"]:
+    for numeric_stat in [
+        "avg",
+        "min",
+        "max",
+        "sum",
+        "stddev",
+        "variance",
+        "distinct",
+        "missing_count",
+    ]:
         v = size_profile[numeric_stat]
         assert isinstance(
             v, Number
@@ -135,7 +144,9 @@ def test_profile_columns_all_tables_all_columns(data_source_fixture: DataSourceF
         customers_profiling_table_name
     )
     orders_test_table_name = data_source_fixture.ensure_test_table(orders_test_table)
-    orders_test_table_name = data_source_fixture.data_source.default_casify_table_name(orders_test_table_name)
+    orders_test_table_name = data_source_fixture.data_source.default_casify_table_name(
+        orders_test_table_name
+    )
 
     scan = data_source_fixture.create_test_scan()
 
@@ -157,7 +168,9 @@ def test_profile_columns_all_tables_all_columns(data_source_fixture: DataSourceF
 
     table_names: list[str] = data_source.get_table_names(
         include_tables=profile_columns_run._get_table_expression(include_columns),
-        exclude_tables=profile_columns_run._get_table_expression(exclude_columns, is_for_exclusion=True),
+        exclude_tables=profile_columns_run._get_table_expression(
+            exclude_columns, is_for_exclusion=True
+        ),
         query_name="profile-columns-get-table-names",
     )
 
@@ -165,10 +178,14 @@ def test_profile_columns_all_tables_all_columns(data_source_fixture: DataSourceF
     assert customers_profiling_table_name in table_names
     assert orders_test_table_name in table_names
 
-    parsed_included_tables_and_columns = profile_columns_run._build_column_expression_list(include_columns)
+    parsed_included_tables_and_columns = profile_columns_run._build_column_expression_list(
+        include_columns
+    )
     assert parsed_included_tables_and_columns == {"%": ["%"]}
 
-    parsed_excluded_tables_and_columns = profile_columns_run._build_column_expression_list(exclude_columns)
+    parsed_excluded_tables_and_columns = profile_columns_run._build_column_expression_list(
+        exclude_columns
+    )
     assert parsed_excluded_tables_and_columns == {}
 
     customers_columns_metadata_result = data_source.get_table_columns(
@@ -189,79 +206,122 @@ def test_profile_columns_all_tables_all_columns(data_source_fixture: DataSourceF
 
 
 @pytest.mark.parametrize(
-    "table_name, soda_cl_str, expectation",
+    "soda_cl_str, expected_column_profiling_results",
     [
         pytest.param(
-            customers_profiling,
             """
                 profile columns:
                     columns:
-                        - include {table_name}.%
-                        - include %.cst_size
+                        - include {table_name1}.%
+                        - include {table_name2}.%
                         - exclude %.country
                         - exclude %.id
             """,
-            "",
+            {
+                "table_name1": ["ITEMS_SOLD", "CST_SIZE"],
+                "table_name2": [
+                    "CST_SIZE",
+                    "DISTANCE",
+                    "CST_SIZE_TXT",
+                    "PCT",
+                    "CAT",
+                    "ZIP",
+                    "EMAIL",
+                ],
+            },
+            id="all tables and columns except for country and id",
         ),
         pytest.param(
-            customers_profiling,
             """
                 profile columns:
                     columns:
                         - include %.%
                         - exclude %.id
             """,
-            "all but id",
-            id="all tables and cols except for id",
+            {
+                "table_name1": ["ITEMS_SOLD", "CST_SIZE"],
+                "table_name2": [
+                    "CST_SIZE",
+                    "DISTANCE",
+                    "CST_SIZE_TXT",
+                    "PCT",
+                    "CAT",
+                    "COUNTRY",
+                    "ZIP",
+                    "EMAIL",
+                ],
+            },
+            id="all tables and columns except for id",
         ),
         pytest.param(
-            customers_profiling,
             """
                 profile columns:
                     columns:
                         - include %.%
                         - exclude %.%
             """,
-            "all but id",
-            id="all tables and columns included and then all excluded",
+            {},
+            id="no tables included",
         ),
         pytest.param(
-            customers_profiling,
             """
                 profile columns:
                     columns:
-                        - include {table_name}.%
-                        - include %.si%
-                        - exclude %.country
-                        - exclude %.id
+                        - include %.%si%
             """,
-            "",
-            id="all tables with 'si' like columns should have profile",
+            {"table_name1": ["CST_SIZE"], "table_name2": ["CST_SIZE", "CST_SIZE_TXT"]},
+            id="'si' like columns in all tables",
+        ),
+        pytest.param(
+            """
+                profile columns:
+                    columns:
+                        - include {table_name1}.%si%
+                        - exclude {table_name1}.%txt
+            """,
+            {"table_name1": ["CST_SIZE"]},
+            id="include 'si' like columns exclude 'txt' like columns",
+        ),
+        pytest.param(
+            """
+                profile columns:
+                    columns:
+                        - include %Capitalized%.%si%
+            """,
+            {"table_name1": ["CST_SIZE"]},
+            id="use wildcard '%' in both table and column name",
         ),
     ],
 )
 def test_profile_columns_inclusions_exclusions(
-    data_source_fixture: DataSourceFixture, table_name, soda_cl_str, expectation
+    data_source_fixture: DataSourceFixture, soda_cl_str, expected_column_profiling_results
 ):
-    _table_name = data_source_fixture.ensure_test_table(table_name)
+    _table_name1 = data_source_fixture.ensure_test_table(customers_profiling)
+    _table_name2 = data_source_fixture.ensure_test_table(customers_profiling_capitalized)
     scan = data_source_fixture.create_test_scan()
     mock_soda_cloud = scan.enable_mock_soda_cloud()
-    scan.add_sodacl_yaml_str(soda_cl_str.format(table_name=_table_name))
+    scan.add_sodacl_yaml_str(soda_cl_str.format(table_name1=_table_name1, table_name2=_table_name2))
     # TODO: we should only allow warnings here, we'll have to look at what the errors were
     # it is most likely will be related to https://sodadata.atlassian.net/browse/CLOUD-155
     scan.execute(allow_error_warning=True)
-    profiling_result = mock_soda_cloud.pop_scan_result()
-    for table_result in profiling_result["profiling"]:
-        if table_result["table"].lower().startswith("sodatest_customer"):
-            column_names = [col_profile["columnName"] for col_profile in table_result["columnProfiles"]]
-            if expectation == "all but id":
-                assert "id" not in column_names
-            elif expectation == "all but nothing":
-                assert len(column_names) == 0
-            else:
-                assert "id" not in column_names
-                assert "cst_size" in column_names
-                assert "country" not in column_names
+    scan_results = mock_soda_cloud.pop_scan_result()
+
+    profiled_tables = [profiled_table for profiled_table in scan_results["profiling"]]
+    column_profiling_results = {
+        f"table_name{index}": list(map(lambda x: x["columnName"], profiled_table["columnProfiles"]))
+        for index, profiled_table in enumerate(profiled_tables, 1)
+    }
+
+    test_data_source = os.environ.get("test_data_source")
+    uppercase_column_name_databases = ["snowflake", "db2", "oracle"]
+
+    if test_data_source not in uppercase_column_name_databases:
+        expected_column_profiling_results = {
+            table_name: [column_name.lower() for column_name in column_names]
+            for table_name, column_names in expected_column_profiling_results.items()
+        }
+        
+    assert column_profiling_results == expected_column_profiling_results
 
 
 def test_profile_columns_quotes_error(data_source_fixture: DataSourceFixture):
@@ -301,7 +361,8 @@ def test_profile_columns_invalid_format(data_source_fixture: DataSourceFixture):
     character_log_warnings = [
         x
         for x in scan_results["logs"]
-        if "Invalid column expression: invalid% - must be in the form of table.column" in x["message"]
+        if "Invalid column expression: invalid% - must be in the form of table.column"
+        in x["message"]
     ]
     assert len(character_log_warnings) == 1
 
@@ -319,7 +380,9 @@ def test_profile_columns_no_table_or_column(data_source_fixture: DataSourceFixtu
     scan_results = mock_soda_cloud.pop_scan_result()
     assert scan_results["hasErrors"]
     character_log_warnings = [
-        x for x in scan_results["logs"] if 'Configuration key "columns" is required in profile columns' in x["message"]
+        x
+        for x in scan_results["logs"]
+        if 'Configuration key "columns" is required in profile columns' in x["message"]
     ]
     assert len(character_log_warnings) == 1
 
