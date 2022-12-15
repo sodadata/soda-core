@@ -220,13 +220,13 @@ def test_profile_columns_all_tables_all_columns(data_source_fixture: DataSourceF
             {
                 "table_name1": ["ITEMS_SOLD", "CST_SIZE"],
                 "table_name2": [
-                    "CST_SIZE",
-                    "DISTANCE",
-                    "CST_SIZE_TXT",
-                    "PCT",
-                    "CAT",
-                    "ZIP",
-                    "EMAIL",
+                    "cst_size",
+                    "distance",
+                    "cst_size_txt",
+                    "pct",
+                    "cat",
+                    "zip",
+                    "email",
                 ],
             },
             id="all tables and columns except for country and id",
@@ -235,20 +235,20 @@ def test_profile_columns_all_tables_all_columns(data_source_fixture: DataSourceF
             """
                 profile columns:
                     columns:
-                        - include %.%
+                        - include %profiling%.%
                         - exclude %.id
             """,
             {
                 "table_name1": ["ITEMS_SOLD", "CST_SIZE"],
                 "table_name2": [
-                    "CST_SIZE",
-                    "DISTANCE",
-                    "CST_SIZE_TXT",
-                    "PCT",
-                    "CAT",
-                    "COUNTRY",
-                    "ZIP",
-                    "EMAIL",
+                    "cst_size",
+                    "distance",
+                    "cst_size_txt",
+                    "pct",
+                    "cat",
+                    "country",
+                    "zip",
+                    "email",
                 ],
             },
             id="all tables and columns except for id",
@@ -267,9 +267,9 @@ def test_profile_columns_all_tables_all_columns(data_source_fixture: DataSourceF
             """
                 profile columns:
                     columns:
-                        - include %.%si%
+                        - include %profiling%.%si%
             """,
-            {"table_name1": ["CST_SIZE"], "table_name2": ["CST_SIZE", "CST_SIZE_TXT"]},
+            {"table_name1": ["CST_SIZE"], "table_name2": ["cst_size", "cst_size_txt"]},
             id="'si' like columns in all tables",
         ),
         pytest.param(
@@ -279,7 +279,7 @@ def test_profile_columns_all_tables_all_columns(data_source_fixture: DataSourceF
                         - include {table_name1}.%si%
                         - exclude {table_name1}.%txt
             """,
-            {"table_name1": ["CST_SIZE"]},
+            {"table_name1": ["cst_size"]},
             id="include 'si' like columns exclude 'txt' like columns",
         ),
         pytest.param(
@@ -313,14 +313,20 @@ def test_profile_columns_inclusions_exclusions(
     }
 
     test_data_source = os.environ.get("test_data_source")
-    uppercase_column_name_databases = ["snowflake", "db2", "oracle"]
 
-    if test_data_source not in uppercase_column_name_databases:
+    uppercase_column_name_databases = ["snowflake", "db2", "oracle"]
+    lowercase_column_name_databases = ["postgres", "redshift", "athena"]
+
+    test_data_source_uppercase = test_data_source in uppercase_column_name_databases
+    test_data_source_lowercase = test_data_source in lowercase_column_name_databases
+
+    if test_data_source_uppercase or test_data_source_lowercase:
+        casify_function = lambda x: x.upper() if test_data_source_uppercase else x.lower()
         expected_column_profiling_results = {
-            table_name: [column_name.lower() for column_name in column_names]
+            table_name: [casify_function(column_name) for column_name in column_names]
             for table_name, column_names in expected_column_profiling_results.items()
         }
-        
+    
     assert column_profiling_results == expected_column_profiling_results
 
 
@@ -409,9 +415,12 @@ def test_profile_columns_capitalized(data_source_fixture: DataSourceFixture):
 
     lowercase_column_name_databases = ["postgres", "redshift", "athena"]
     if test_data_source in lowercase_column_name_databases:
-        expected_column_name = "items_sold"
+        expected_column_name1 = "items_sold"
+        expected_column_name2 = "cst_size"
     else:
-        expected_column_name = "ITEMS_SOLD"
+        expected_column_name1 = "ITEMS_SOLD"
+        expected_column_name2 = "CST_SIZE"
 
-    assert len(column_profiles) == 1
-    assert column_profiles[0]["columnName"] == expected_column_name
+    assert len(column_profiles) == 2
+    assert column_profiles[0]["columnName"] == expected_column_name1
+    assert column_profiles[1]["columnName"] == expected_column_name2
