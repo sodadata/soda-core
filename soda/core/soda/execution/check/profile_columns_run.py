@@ -1,8 +1,9 @@
 from __future__ import annotations
 
+from collections import defaultdict
 from numbers import Number
 from typing import TYPE_CHECKING, overload
-from collections import defaultdict
+
 from soda.execution.query.query import Query
 from soda.profiling.profile_columns_result import (
     ProfileColumnsResult,
@@ -54,18 +55,12 @@ class ProfileColumnsRun:
             table_name_operator = "LIKE" if "%" in table_name else "="
             column_name_operator = "LIKE" if "%" in column_name else "="
 
-            parsed_profiling_expressions.append(
-                [table_name, table_name_operator, column_name, column_name_operator]
-            )
+            parsed_profiling_expressions.append([table_name, table_name_operator, column_name, column_name_operator])
         return parsed_profiling_expressions
-       
+
     def run(self) -> ProfileColumnsResult:
-        profile_columns_result: ProfileColumnsResult = ProfileColumnsResult(
-            self.profile_columns_cfg
-        )
-        self.logs.info(
-            f"Running column profiling for data source: {self.data_source.data_source_name}"
-        )
+        profile_columns_result: ProfileColumnsResult = ProfileColumnsResult(self.profile_columns_cfg)
+        self.logs.info(f"Running column profiling for data source: {self.data_source.data_source_name}")
 
         include_patterns = self.parse_profiling_expressions(self.profile_columns_cfg.include_columns)
         exclude_patterns = self.parse_profiling_expressions(self.profile_columns_cfg.exclude_columns)
@@ -79,7 +74,7 @@ class ProfileColumnsRun:
         if tables_columns_metadata is None:
             self.logs.warning(
                 f"Your SodaCL profiling expressions did not return any existing dataset name + column name combinations for your '{self.data_source.data_source_name}' "
-                f"data source. Please make sure that the patterns in your profiling expressions define existing dataset name + column name combinations." 
+                f"data source. Please make sure that the patterns in your profiling expressions define existing dataset name + column name combinations."
                 f" Profiling results may be incomplete or entirely skipped. See the docs for more information: \n"
                 f"https://docs.soda.io/soda-cl/profile.html#display-profile-information-in-soda-cloud",
                 location=self.profile_columns_cfg.location,

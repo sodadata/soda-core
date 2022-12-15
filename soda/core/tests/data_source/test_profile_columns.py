@@ -144,9 +144,7 @@ def test_profile_columns_all_tables_all_columns(data_source_fixture: DataSourceF
         customers_profiling_table_name
     )
     orders_test_table_name = data_source_fixture.ensure_test_table(orders_test_table)
-    orders_test_table_name = data_source_fixture.data_source.default_casify_table_name(
-        orders_test_table_name
-    )
+    orders_test_table_name = data_source_fixture.data_source.default_casify_table_name(orders_test_table_name)
 
     scan = data_source_fixture.create_test_scan()
 
@@ -168,9 +166,7 @@ def test_profile_columns_all_tables_all_columns(data_source_fixture: DataSourceF
 
     table_names: list[str] = data_source.get_table_names(
         include_tables=profile_columns_run._get_table_expression(include_columns),
-        exclude_tables=profile_columns_run._get_table_expression(
-            exclude_columns, is_for_exclusion=True
-        ),
+        exclude_tables=profile_columns_run._get_table_expression(exclude_columns, is_for_exclusion=True),
         query_name="profile-columns-get-table-names",
     )
 
@@ -178,14 +174,10 @@ def test_profile_columns_all_tables_all_columns(data_source_fixture: DataSourceF
     assert customers_profiling_table_name in table_names
     assert orders_test_table_name in table_names
 
-    parsed_included_tables_and_columns = profile_columns_run._build_column_expression_list(
-        include_columns
-    )
+    parsed_included_tables_and_columns = profile_columns_run._build_column_expression_list(include_columns)
     assert parsed_included_tables_and_columns == {"%": ["%"]}
 
-    parsed_excluded_tables_and_columns = profile_columns_run._build_column_expression_list(
-        exclude_columns
-    )
+    parsed_excluded_tables_and_columns = profile_columns_run._build_column_expression_list(exclude_columns)
     assert parsed_excluded_tables_and_columns == {}
 
     customers_columns_metadata_result = data_source.get_table_columns(
@@ -320,7 +312,7 @@ def test_profile_columns_inclusions_exclusions(
             table_name: [column_name.lower() for column_name in column_names]
             for table_name, column_names in expected_column_profiling_results.items()
         }
-        
+
     assert column_profiling_results == expected_column_profiling_results
 
 
@@ -361,8 +353,7 @@ def test_profile_columns_invalid_format(data_source_fixture: DataSourceFixture):
     character_log_warnings = [
         x
         for x in scan_results["logs"]
-        if "Invalid column expression: invalid% - must be in the form of table.column"
-        in x["message"]
+        if "Invalid column expression: invalid% - must be in the form of table.column" in x["message"]
     ]
     assert len(character_log_warnings) == 1
 
@@ -380,9 +371,7 @@ def test_profile_columns_no_table_or_column(data_source_fixture: DataSourceFixtu
     scan_results = mock_soda_cloud.pop_scan_result()
     assert scan_results["hasErrors"]
     character_log_warnings = [
-        x
-        for x in scan_results["logs"]
-        if 'Configuration key "columns" is required in profile columns' in x["message"]
+        x for x in scan_results["logs"] if 'Configuration key "columns" is required in profile columns' in x["message"]
     ]
     assert len(character_log_warnings) == 1
 
