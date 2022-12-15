@@ -67,12 +67,12 @@ class ProfileColumnsRun:
             f"Running column profiling for data source: {self.data_source.data_source_name}"
         )
 
-        include_profiling_pattern = self.parse_profiling_expressions(self.profile_columns_cfg.include_columns)
-        exclude_profiling_pattern = self.parse_profiling_expressions(self.profile_columns_cfg.exclude_columns)
+        include_patterns = self.parse_profiling_expressions(self.profile_columns_cfg.include_columns)
+        exclude_patterns = self.parse_profiling_expressions(self.profile_columns_cfg.exclude_columns)
 
-        tables_columns_metadata: defaultdict[str, dict] = self.data_source.get_tables_and_columns(
-            include_patterns=include_profiling_pattern,
-            exclude_patterns=exclude_profiling_pattern,
+        tables_columns_metadata: defaultdict[str, dict] = self.data_source.get_tables_columns_profiling(
+            include_patterns=include_patterns,
+            exclude_patterns=exclude_patterns,
             query_name=f"profile-columns-get-table-and-column-metadata",
         )
 
