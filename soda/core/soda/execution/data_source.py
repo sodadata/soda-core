@@ -443,7 +443,7 @@ class DataSource:
             return tables_and_columns_metadata
         return None
 
-    def create_profiling_sql_filter(self, profiling_patterns: list) -> list[str]:
+    def create_profiling_sql_filter(self, profiling_patterns: list[list[str]]) -> list[str]:
         casify_function = self.default_casify_sql_function()
         sql_filters = []
         for profiling_pattern in profiling_patterns:
@@ -453,7 +453,7 @@ class DataSource:
                 table_default_case[1:-1] if self.is_quoted(table_default_case) else table_default_case
             )
             sql_filter = (
-                f"({casify_function}(table_name) {table_operator} '{unquoted_table_default_case}'"
+                f"({casify_function}(table_name) {table_operator} {casify_function}('{unquoted_table_default_case}')"
                 f" AND {casify_function}(column_name) {column_operator} {casify_function}('{column_name}'))"
             )
             sql_filters.append(sql_filter)
@@ -462,8 +462,8 @@ class DataSource:
 
     def sql_get_tables_columns_profiling(
         self,
-        include_patterns: list[str] | None = None,
-        exclude_patterns: list[str] | None = None,
+        include_patterns: list[list[str]] | None = None,
+        exclude_patterns: list[list[str]] | None = None,
     ) -> str:
         filter_clauses = []
 
