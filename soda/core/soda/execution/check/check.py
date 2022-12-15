@@ -4,6 +4,7 @@ import collections
 import os
 from abc import ABC, abstractmethod
 
+from soda.common.attributes_handler import AttributeHandler
 from soda.execution.check_outcome import CheckOutcome
 from soda.execution.column import Column
 from soda.execution.identity import ConsistentHashBuilder
@@ -174,11 +175,11 @@ class Check(ABC):
         if isinstance(check_cfg.source_configurations, dict):
 
             identity_source_configurations = dict(check_cfg.source_configurations)
-            # The next lines ensures that configuration properties 'name', 'samples limit', 'identity' are ignored
-            # for computing the check identity
+            # The next lines ensures that some of the configuration properties are ignored for computing the check identity
             identity_source_configurations.pop("name", None)
             identity_source_configurations.pop("samples limit", None)
             identity_source_configurations.pop("identity", None)
+            identity_source_configurations.pop("attributes", None)
             if len(identity_source_configurations) > 0:
                 # The next line ensures that ordering of the check configurations don't matter for identity
                 identity_source_configurations = collections.OrderedDict(sorted(identity_source_configurations.items()))
@@ -231,7 +232,7 @@ class Check(ABC):
             "name": self.name,
             "type": self.cloud_check_type,
             "definition": self.create_definition(),
-            "attributes": self.attributes,
+            "attributes": self._format_attributes(),
             "location": self.check_cfg.location.get_cloud_dict(),
             "dataSource": self.data_source_scan.data_source.data_source_name,
             "table": Partition.get_table_name(self.partition),
@@ -260,6 +261,7 @@ class Check(ABC):
             "name": self.name,
             "type": self.cloud_check_type,
             "definition": self.create_definition(),
+            "attributes": self._format_attributes(),
             "location": self.check_cfg.location.get_dict(),
             "dataSource": self.data_source_scan.data_source.data_source_name,
             "table": Partition.get_table_name(self.partition),
@@ -300,3 +302,8 @@ class Check(ABC):
             return f"[{self.check_cfg.source_line}] {self.outcome} ({diagnostics_text})"
         else:
             return f"[{self.check_cfg.source_line}] {self.outcome}"
+
+    def _format_attributes(self) -> dict[str, any]:
+        attribute_handler = AttributeHandler(self.logs)
+
+        return {k: attribute_handler.format_attribute(v) for k, v in self.attributes.items()}

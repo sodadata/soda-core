@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date, datetime
 
 from helpers.data_source_fixture import DataSourceFixture
 from soda.common.attributes_handler import AttributeHandler
@@ -23,6 +23,8 @@ test_schema = [
     },
     {"type": "datetime", "id": "string", "label": "string", "name": "datetime"},
     {"type": "datetime", "id": "string", "label": "string", "name": "datetime_str"},
+    {"type": "datetime", "id": "string", "label": "string", "name": "date"},
+    {"type": "datetime", "id": "string", "label": "string", "name": "date_str"},
     {"type": "checkbox", "allowedValues": [True], "id": "string", "name": "checkbox"},
 ]
 
@@ -39,6 +41,8 @@ def test_validation_passing(data_source_fixture: DataSourceFixture):
         "singleselect": "some-value",
         "datetime": datetime(2022, 1, 1, 12, 0, 0),
         "datetime_str": "2022-01-01T12:00:00",
+        "date": date(2022, 1, 1),
+        "date_str": "2022-01-01",
         "checkbox": True,
     }
 
@@ -60,6 +64,8 @@ def test_validation_failing(data_source_fixture: DataSourceFixture):
         "singleselect": "non-existing",
         "datetime": "today",
         "datetime_str": 1,
+        "date": "today",
+        "date_str": 1,
         "checkbox": False,
     }
 
