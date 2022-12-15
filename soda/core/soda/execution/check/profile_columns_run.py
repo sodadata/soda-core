@@ -46,32 +46,19 @@ class ProfileColumnsRun:
         self.profile_columns_cfg: ProfileColumnsCfg = profile_columns_cfg
         self.logs = self.data_source_scan.scan._logs
 
-    def parse_profiling_clause(self):
-        include_statements = []
-        exclude_statements = []
-        for include_statement in self.profile_columns_cfg.include_columns:
-            included_table_name, included_column_name = include_statement.split(".")
-            include_statements.append(
-                [
-                    included_table_name,
-                    "LIKE" if "%" in included_table_name else "=",
-                    included_column_name,
-                    "LIKE" if "%" in included_column_name else "=",
-                ]
-            )
-        for exclude_statement in self.profile_columns_cfg.exclude_columns:
-            excluded_table_name, excluded_column_name = exclude_statement.split(".")
-            exclude_statements.append(
-                [
-                    excluded_table_name,
-                    "LIKE" if "%" in excluded_table_name else "=",
-                    excluded_column_name,
-                    "LIKE" if "%" in excluded_column_name else "=",
-                ]
-            )
+    @staticmethod
+    def parse_profiling_expressions(profiling_expressions: list[str]) -> list[list[str]]:
+        parsed_profiling_expressions = []
+        for profiling_expression in profiling_expressions:
+            table_name, column_name = profiling_expression.split(".")
+            table_name_operator = "LIKE" if "%" in table_name else "="
+            column_name_operator = "LIKE" if "%" in column_name else "="
 
-        return include_statements, exclude_statements
-
+            parsed_profiling_expressions.append(
+                [table_name, table_name_operator, column_name, column_name_operator]
+            )
+        return parsed_profiling_expressions
+       
     def run(self) -> ProfileColumnsResult:
         profile_columns_result: ProfileColumnsResult = ProfileColumnsResult(
             self.profile_columns_cfg
@@ -79,17 +66,17 @@ class ProfileColumnsRun:
         self.logs.info(
             f"Running column profiling for data source: {self.data_source.data_source_name}"
         )
-        # include_tables = self._get_table_expression(self.profile_columns_cfg.include_columns)
-        # exclude_tables = self._get_table_expression(self.profile_columns_cfg.exclude_columns)
 
-        include_statements, exclude_statements = self.parse_profiling_clause()
-        tables_and_columns: defaultdict = self.data_source.get_tables_and_columns(
-                query_name=f"profile-columns-get-column-metadata-for-'test'",
-                include_statements=include_statements,
-                exclude_statements=exclude_statements
-         )
+        include_profiling_pattern = self.parse_profiling_expressions(self.profile_columns_cfg.include_columns)
+        exclude_profiling_pattern = self.parse_profiling_expressions(self.profile_columns_cfg.exclude_columns)
 
-        if len(tables_and_columns) < 1:
+        tables_columns_metadata: defaultdict[str, dict] = self.data_source.get_tables_and_columns(
+            include_patterns=include_profiling_pattern,
+            exclude_patterns=exclude_profiling_pattern,
+            query_name=f"profile-columns-get-table-and-column-metadata",
+        )
+
+        if len(tables_columns_metadata) < 1:
             self.logs.warning(
                 f"No table matching your SodaCL inclusion list found on your {self.data_source.data_source_name} "
                 "data source. Profiling results may be incomplete or entirely skipped",
@@ -98,12 +85,12 @@ class ProfileColumnsRun:
             return profile_columns_result
 
         self.logs.info("Profiling columns for the following tables:")
-        for table_name in tables_and_columns:
+        for table_name in tables_columns_metadata:
             self.logs.info(f"  - {table_name}")
             profile_columns_result_table = profile_columns_result.create_table(
                 table_name, self.data_source.data_source_name, row_count=None
             )
-            columns_metadata_result = tables_and_columns.get(table_name)
+            columns_metadata_result = tables_columns_metadata.get(table_name)
             # perform numerical metrics collection
             numerical_columns = {
                 column_name: data_type
