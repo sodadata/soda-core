@@ -300,9 +300,9 @@ class DataSource:
         return ["column_name", "data_type", "is_nullable"]
 
     @staticmethod
-    def tables_and_column_metadata() -> list:
+    def tables_and_column_metadata() -> list[str]:
         """Columns to be used for retrieving tables and columns metadata."""
-        return ["table_name", "column_name", "data_type", "is_nullable"]
+        return ["table_name", "column_name", "data_type"]
 
     @staticmethod
     def column_metadata_catalog_column() -> str:
@@ -421,24 +421,24 @@ class DataSource:
             return {row[0]: row[1] for row in query.rows}
         return None
 
-    def get_tables_and_columns(
+    def get_tables_columns_profiling(
         self,
         query_name: str,
-        include_patterns: list[str] | None = None,
-        exclude_patterns: list[str] | None = None,
+        include_patterns: list[list[str]] | None = None,
+        exclude_patterns: list[list[str]] | None = None,
     ) -> dict[str, str] | None:
         # TODO: save/cache the result for later use.
         query = Query(
             data_source_scan=self.data_source_scan,
             unqualified_query_name=query_name,
-            sql=self.sql_get_tables_and_columns(
+            sql=self.sql_get_tables_columns_profiling(
                 include_patterns=include_patterns, exclude_patterns=exclude_patterns
             ),
         )
         query.execute()
         tables_and_columns_metadata = defaultdict(dict)
         if query.rows and len(query.rows) > 0:
-            for table_name, column_name, data_type, _ in query.rows:
+            for table_name, column_name, data_type in query.rows:
                 tables_and_columns_metadata[table_name][column_name] = data_type
             return tables_and_columns_metadata
         return None
@@ -467,7 +467,7 @@ class DataSource:
         return sql_filters
 
 
-    def sql_get_tables_and_columns(
+    def sql_get_tables_columns_profiling(
         self,
         include_patterns: list[str] | None = None,
         exclude_patterns: list[str] | None = None,
