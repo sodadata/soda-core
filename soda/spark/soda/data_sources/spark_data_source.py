@@ -124,6 +124,7 @@ def odbc_connection_function(
 def databricks_connection_function(host: str, http_path: str, token: str, database: str, schema: str, **kwargs):
     from databricks import sql
 
+    logging.getLogger("databricks.sql").setLevel(logging.INFO)
     connection = sql.connect(
         server_hostname=host, catalog=database, schema=schema, http_path=http_path, access_token=token
     )
@@ -222,7 +223,7 @@ class SparkSQLBase(DataSource):
         table_column_name: str = "table_name",
         schema_column_name: str = "table_schema",
     ) -> str:
-        from_clause = f" FROM {self.database}" if self.database else ""
+        from_clause = f" FROM {self.schema}" if self.schema else ""
         return f"SHOW TABLES{from_clause}"
 
     def sql_get_table_names_with_count(
