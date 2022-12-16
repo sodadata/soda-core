@@ -227,7 +227,7 @@ def test_profile_columns_all_tables_all_columns(data_source_fixture: DataSourceF
             """
                 profile columns:
                     columns:
-                        - include %profiling%.%
+                        - include %Profiling%.%
                         - exclude %.id
             """,
             {
@@ -259,7 +259,7 @@ def test_profile_columns_all_tables_all_columns(data_source_fixture: DataSourceF
             """
                 profile columns:
                     columns:
-                        - include %profiling%.%si%
+                        - include %Profiling%.%si%
             """,
             {"table_name1": ["cst_size", "cst_size_txt"], "table_name2": ["CST_SIZE"]},
             id="'si' like columns in tables with names that contain 'profiling'",
