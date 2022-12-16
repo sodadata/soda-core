@@ -323,8 +323,10 @@ class SQLServerDataSource(DataSource):
         filter: str,
         limit: str | None = None,
         invert_condition: bool = False,
+        exclude_patterns: list[str] | None = None,
     ) -> str | None:
         limit_sql = ""
+        main_query_columns = f"{column_names}, frequency" if exclude_patterns else "*"
 
         if limit:
             limit_sql = f"TOP {limit}"
@@ -336,7 +338,7 @@ class SQLServerDataSource(DataSource):
               FROM {table_name}
               WHERE {filter}
               GROUP BY {column_names})
-            SELECT {limit_sql} {column_names}, frequency
+            SELECT {limit_sql} {main_query_columns}
             FROM frequencies
             WHERE frequency {'<=' if invert_condition else '>'} 1
             ORDER BY frequency DESC"""
