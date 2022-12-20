@@ -691,6 +691,20 @@ class SodaCLParser(Parser):
         if fail_threshold_cfg is None and warn_threshold_cfg is None:
             self.logs.error(f'No threshold specified for check "{check_str}"', location=self.location)
 
+        # Skip a check if more than one argument is used in a metric check that does not support that.
+        # TODO: refactor this method into separate ones for different metric checks for clearer logic and better
+        # organization of extra steps like validation that cannot be done on antlr level.
+        if (
+            metric_check_cfg_class == MetricCheckCfg
+            and metric_args
+            and len(metric_args) > 1
+            and metric_name not in MetricCheckCfg.MULTI_METRIC_CHECK_TYPES
+        ):
+            self.logs.error(
+                f"Invalid syntax used in '{check_str}'. More than one check attribute is not supported. Skipping this check."
+            )
+            return None
+
         return metric_check_cfg_class(
             source_header=header_str,
             source_line=check_str,
