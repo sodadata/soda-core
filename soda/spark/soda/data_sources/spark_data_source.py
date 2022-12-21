@@ -314,7 +314,7 @@ class SparkSQLBase(DataSource):
         """TODO: implement for spark."""
 
     def sql_information_schema_columns(self) -> str:
-        return "INFORMATION_SCHEMA.COLUMNS"
+        return f"{self.schema}.INFORMATION_SCHEMA.COLUMNS"
 
 class SparkDataSource(SparkSQLBase):
     TYPE = "spark"
