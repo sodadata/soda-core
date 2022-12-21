@@ -253,7 +253,6 @@ class SparkSQLBase(DataSource):
         table_names = [row[1] for row in query.rows]
         table_names = self._filter_include_exclude(table_names, include_tables, exclude_tables)
         return table_names
-        
 
     @staticmethod
     def pattern_matches_profiling(table_name: str, table_name_pattern: str) -> bool:
