@@ -299,27 +299,63 @@ class SparkSQLBase(DataSource):
         )
         return sql
 
-        
+    @staticmethod
+    def pattern_matches_profiling(table_name: str, table_name_pattern: str) -> bool:
+        pattern_regex = table_name_pattern.replace("%", ".*").lower()
+        is_match = re.match(pattern_regex, table_name.lower())
+        return bool(is_match)
+
     def get_tables_columns_profiling(
         self,
         query_name: str,
         include_patterns: list[list[str]] | None = None,
         exclude_patterns: list[list[str]] | None = None,
     ) -> dict[str, str] | None:
+
         query = Query(
             data_source_scan=self.data_source_scan,
-            unqualified_query_name=query_name,
-            sql=self.sql_get_tables_columns_profiling(
-                include_patterns=include_patterns, exclude_patterns=exclude_patterns
-            ),
+            unqualified_query_name=query_name or "get_table_names",
+            sql=self.sql_find_table_names(),
         )
         query.execute()
+        table_names = [
+            row[1]
+            for row in query.rows
+            if any(
+                self.pattern_matches_profiling(row[1], table_name_pattern)
+                for table_name_pattern, _, _, _ in include_patterns
+            )
+        ]
         tables_and_columns_metadata = defaultdict(dict)
-        if query.rows and len(query.rows) > 0:
-            for table_name, column_name, data_type in query.rows:
-                tables_and_columns_metadata[table_name][column_name] = data_type
+        for table_name in table_names:
+            query = Query(
+                data_source_scan=self.data_source_scan,
+                unqualified_query_name=f"describe-table-{table_name}",
+                sql=f"DESCRIBE TABLE {table_name}",
+            )
+            query.execute()
+            columns_metadata = query.rows
+            table_name_included = not any(
+                self.pattern_matches_profiling(table_name, exclude_table_name_pattern) and exclude_column_name_pattern == "%"
+                for exclude_table_name_pattern, _, exclude_column_name_pattern, _ in exclude_patterns
+            )
+            if columns_metadata and len(columns_metadata) > 0 and table_name_included:
+                for column_name, column_datatype, _ in columns_metadata:
+                    column_name_included = any(
+                        (self.pattern_matches_profiling(table_name, include_table_name_pattern) and self.pattern_matches_profiling(column_name, include_column_name_pattern))
+                        for include_table_name_pattern, _, include_column_name_pattern, _ in include_patterns
+                    )
+                    column_name_excluded = any(
+                        (self.pattern_matches_profiling(table_name, exclude_table_name_pattern) and self.pattern_matches_profiling(column_name, exclude_column_name_pattern))
+                        for exclude_table_name_pattern, _, exclude_column_name_pattern, _ in exclude_patterns
+                    )
+                    if column_name_included and not column_name_excluded:
+                        tables_and_columns_metadata[table_name][column_name] = column_datatype
+
+        if tables_and_columns_metadata:
             return tables_and_columns_metadata
-        return None
+        else:
+            return None
 
 
     @staticmethod
