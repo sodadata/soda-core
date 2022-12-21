@@ -335,17 +335,24 @@ class SparkSQLBase(DataSource):
             query.execute()
             columns_metadata = query.rows
             table_name_included = not any(
-                self.pattern_matches_profiling(table_name, exclude_table_name_pattern) and exclude_column_name_pattern == "%"
+                self.pattern_matches_profiling(table_name, exclude_table_name_pattern)
+                and exclude_column_name_pattern == "%"
                 for exclude_table_name_pattern, _, exclude_column_name_pattern, _ in exclude_patterns
             )
             if columns_metadata and len(columns_metadata) > 0 and table_name_included:
                 for column_name, column_datatype, _ in columns_metadata:
                     column_name_included = any(
-                        (self.pattern_matches_profiling(table_name, include_table_name_pattern) and self.pattern_matches_profiling(column_name, include_column_name_pattern))
+                        (
+                            self.pattern_matches_profiling(table_name, include_table_name_pattern)
+                            and self.pattern_matches_profiling(column_name, include_column_name_pattern)
+                        )
                         for include_table_name_pattern, _, include_column_name_pattern, _ in include_patterns
                     )
                     column_name_excluded = any(
-                        (self.pattern_matches_profiling(table_name, exclude_table_name_pattern) and self.pattern_matches_profiling(column_name, exclude_column_name_pattern))
+                        (
+                            self.pattern_matches_profiling(table_name, exclude_table_name_pattern)
+                            and self.pattern_matches_profiling(column_name, exclude_column_name_pattern)
+                        )
                         for exclude_table_name_pattern, _, exclude_column_name_pattern, _ in exclude_patterns
                     )
                     if column_name_included and not column_name_excluded:
