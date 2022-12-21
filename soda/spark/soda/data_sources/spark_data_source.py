@@ -216,7 +216,7 @@ class SparkSQLBase(DataSource):
         where_clause = f"\nWHERE {table_filter_expression} \n" if table_filter_expression else ""
         return (
             f"SELECT table_name, column_name, data_type, is_nullable \n"
-            f"FROM {self.schema_name}.INFORMATION_SCHEMA.COLUMNS"
+            f"FROM {self.schema}.INFORMATION_SCHEMA.COLUMNS"
             f"{where_clause}"
         )
 
