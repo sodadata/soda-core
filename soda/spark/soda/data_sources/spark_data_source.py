@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 import re
-from collections import namedtuple, defaultdict
+from collections import defaultdict, namedtuple
 from datetime import date, datetime
 from enum import Enum
 from typing import Any
@@ -254,7 +254,6 @@ class SparkSQLBase(DataSource):
         table_names = self._filter_include_exclude(table_names, include_tables, exclude_tables)
         return table_names
 
-
     def sql_get_tables_columns_profiling(
         self,
         include_patterns: list[list[str]] | None = None,
@@ -299,7 +298,6 @@ class SparkSQLBase(DataSource):
         )
         return sql
 
-        
     def get_tables_columns_profiling(
         self,
         query_name: str,
@@ -320,7 +318,6 @@ class SparkSQLBase(DataSource):
                 tables_and_columns_metadata[table_name][column_name] = data_type
             return tables_and_columns_metadata
         return None
-
 
     @staticmethod
     def _filter_include_exclude(
