@@ -253,50 +253,7 @@ class SparkSQLBase(DataSource):
         table_names = [row[1] for row in query.rows]
         table_names = self._filter_include_exclude(table_names, include_tables, exclude_tables)
         return table_names
-
-    def sql_get_tables_columns_profiling(
-        self,
-        include_patterns: list[list[str]] | None = None,
-        exclude_patterns: list[list[str]] | None = None,
-    ) -> str:
-        filter_clauses = []
-
-        include_sql_filter_clauses = self.create_profiling_sql_filter(include_patterns)
-        include_filter = " OR ".join(include_sql_filter_clauses)
-        if include_filter:
-            filter_clauses.append(f"({include_filter})")
-
-        exclude_sql_filter_clauses = [
-            f"NOT {sql_filter_clause}" for sql_filter_clause in self.create_profiling_sql_filter(exclude_patterns)
-        ]
-        exclude_filter = " AND ".join(exclude_sql_filter_clauses)
-        if exclude_filter:
-            filter_clauses.append(f"({exclude_filter})")
-
-        if self.database:
-            filter_clauses.append(
-                f"{self.default_casify_sql_function()}({self.column_metadata_catalog_column()}) = '{self.default_casify_system_name(self.database)}'"
-            )
-
-        if self.schema:
-            filter_clauses.append(
-                f"{self.default_casify_sql_function()}(table_schema) = '{self.default_casify_system_name(self.schema)}'"
-            )
-
-        where_filter = " \n  AND ".join(filter_clauses)
-
-        # compose query template
-        # NOTE: we use `order by ordinal_position` to guarantee stable orders of columns
-        # (see https://www.postgresql.org/docs/current/infoschema-columns.html)
-        # this mainly has an advantage in testing but bears very little as to how Soda Cloud
-        # displays those columns as they are ordered alphabetically in the UI.
-        sql = (
-            f"SELECT {', '.join(self.tables_columns_profiling_metadata())} \n"
-            f"FROM {self.sql_information_schema_columns()} \n"
-            f"WHERE {where_filter}"
-            f"\nORDER BY {self.get_ordinal_position_name()}"
-        )
-        return sql
+        
 
     @staticmethod
     def pattern_matches_profiling(table_name: str, table_name_pattern: str) -> bool:
