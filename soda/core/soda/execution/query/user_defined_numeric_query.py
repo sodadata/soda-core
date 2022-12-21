@@ -19,5 +19,6 @@ class UserDefinedNumericQuery(Query):
         self.fetchone()
         if self.row is not None:
             for index in range(len(self.description)):
-                metric_value = float(self.row[index])
-                self.metric.set_value(metric_value)
+                if self.row[index]:
+                    metric_value = float(self.row[index])
+                    self.metric.set_value(metric_value)
