@@ -316,6 +316,7 @@ class SparkSQLBase(DataSource):
     def sql_information_schema_columns(self) -> str:
         return "INFORMATION_SCHEMA.COLUMNS"
 
+
 class SparkDataSource(SparkSQLBase):
     TYPE = "spark"
 
