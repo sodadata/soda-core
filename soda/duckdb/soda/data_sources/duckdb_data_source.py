@@ -82,16 +82,16 @@ class DuckDBDataSource(DataSource):
     }
 
     NUMERIC_TYPES_FOR_PROFILING = [
-        "tinyint",
-        "smallint",
-        "integer",
-        "bigint",
-        "decimal",
-        "decimal(18,3)",
-        "double",
-        "real",
+        "TINYINT",
+        "SMALLINT",
+        "INTEGER",
+        "BIGINT",
+        "DECIMAL",
+        "DECIMAL(18,3)",
+        "DOUBLE",
+        "REAL",
     ]
-    TEXT_TYPES_FOR_PROFILING = ["char", "varchar"]
+    TEXT_TYPES_FOR_PROFILING = ["CHAR", "VARCHAR"]
 
     def __init__(self, logs: Logs, data_source_name: str, data_source_properties: dict):
         super().__init__(logs, data_source_name, data_source_properties)
