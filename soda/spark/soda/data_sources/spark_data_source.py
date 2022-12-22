@@ -126,9 +126,7 @@ def odbc_connection_function(
     return connection
 
 
-def databricks_connection_function(
-    host: str, http_path: str, token: str, database: str, schema: str, **kwargs
-):
+def databricks_connection_function(host: str, http_path: str, token: str, database: str, schema: str, **kwargs):
     from databricks import sql
 
     logging.getLogger("databricks.sql").setLevel(logging.INFO)
@@ -204,23 +202,15 @@ class SparkSQLBase(DataSource):
         if len(query.rows) > 0:
             rows = query.rows
             # Remove the partitioning information (see https://spark.apache.org/docs/latest/sql-ref-syntax-aux-describe-table.html)
-            partition_indices = [
-                i for i in range(len(rows)) if rows[i][0].startswith("# Partition")
-            ]
+            partition_indices = [i for i in range(len(rows)) if rows[i][0].startswith("# Partition")]
             if partition_indices:
                 rows = rows[: partition_indices[0]]
             columns = {row[0]: row[1] for row in rows}
 
             if included_columns or excluded_columns:
                 column_names = list(columns.keys())
-                filtered_column_names = self._filter_include_exclude(
-                    column_names, included_columns, excluded_columns
-                )
-                columns = {
-                    col_name: dtype
-                    for col_name, dtype in columns.items()
-                    if col_name in filtered_column_names
-                }
+                filtered_column_names = self._filter_include_exclude(column_names, included_columns, excluded_columns)
+                columns = {col_name: dtype for col_name, dtype in columns.items() if col_name in filtered_column_names}
         return columns
 
     def sql_get_table_columns(
@@ -231,9 +221,7 @@ class SparkSQLBase(DataSource):
     ):
         return f"DESCRIBE TABLE {table_name}"
 
-    def sql_get_column(
-        self, include_tables: list[str] | None = None, exclude_tables: list[str] | None = None
-    ) -> str:
+    def sql_get_column(self, include_tables: list[str] | None = None, exclude_tables: list[str] | None = None) -> str:
         table_filter_expression = self.sql_table_include_exclude_filter(
             "table_name", "table_schema", include_tables, exclude_tables
         )
@@ -330,9 +318,7 @@ class SparkSQLBase(DataSource):
         include_patterns: list[list[str]] | None = None,
         exclude_patterns: list[list[str]] | None = None,
     ) -> dict[str, str] | None:
-        included_table_names = self.get_included_table_names_profiling(
-            query_name, include_patterns, exclude_patterns
-        )
+        included_table_names = self.get_included_table_names_profiling(query_name, include_patterns, exclude_patterns)
         tables_and_columns_metadata = defaultdict(dict)
         for table_name in included_table_names:
             query = Query(
@@ -374,18 +360,13 @@ class SparkSQLBase(DataSource):
                 filtered_names = [
                     filtered_name
                     for filtered_name in filtered_names
-                    if any(
-                        matches(filtered_name, included_item) for included_item in included_items
-                    )
+                    if any(matches(filtered_name, included_item) for included_item in included_items)
                 ]
             if excluded_items:
                 filtered_names = [
                     filtered_name
                     for filtered_name in filtered_names
-                    if all(
-                        not matches(filtered_name, excluded_item)
-                        for excluded_item in excluded_items
-                    )
+                    if all(not matches(filtered_name, excluded_item) for excluded_item in excluded_items)
                 ]
         return filtered_names
 
@@ -444,8 +425,7 @@ class SparkDataSource(SparkSQLBase):
         self.organization = data_source_properties.get("organization", None)
         self.cluster = data_source_properties.get("cluster", None)
         self.server_side_parameters = {
-            f"SSP_{k}": f"{{{v}}}"
-            for k, v in data_source_properties.get("server_side_parameters", {})
+            f"SSP_{k}": f"{{{v}}}" for k, v in data_source_properties.get("server_side_parameters", {})
         }
 
     def connect(self):
