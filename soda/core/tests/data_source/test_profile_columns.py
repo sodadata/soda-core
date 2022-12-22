@@ -15,6 +15,8 @@ from helpers.data_source_fixture import DataSourceFixture
 from soda.common.yaml_helper import to_yaml_str
 from soda.execution.check.profile_columns_run import ProfileColumnsRun
 
+LOWERCASE_COLUMN_NAME_DATABASES = ["postgres", "redshift", "athena"]
+UPPERCASE_COLUMN_NAME_DATABASES = ["snowflake", "db2", "oracle"]
 
 def test_profile_columns_numeric(data_source_fixture: DataSourceFixture):
     table_name = data_source_fixture.ensure_test_table(customers_profiling)
@@ -303,11 +305,8 @@ def test_profile_columns_inclusions_exclusions(
 
     test_data_source = os.environ.get("test_data_source")
 
-    uppercase_column_name_databases = ["snowflake", "db2", "oracle"]
-    lowercase_column_name_databases = ["postgres", "redshift", "athena"]
-
-    test_data_source_uppercase = test_data_source in uppercase_column_name_databases
-    test_data_source_lowercase = test_data_source in lowercase_column_name_databases
+    test_data_source_uppercase = test_data_source in UPPERCASE_COLUMN_NAME_DATABASES
+    test_data_source_lowercase = test_data_source in LOWERCASE_COLUMN_NAME_DATABASES
 
     if test_data_source_uppercase or test_data_source_lowercase:
         casify_function = lambda x: x.upper() if test_data_source_uppercase else x.lower()
@@ -399,10 +398,12 @@ def test_profile_columns_capitalized(data_source_fixture: DataSourceFixture):
 
     test_data_source = os.environ.get("test_data_source")
 
-    lowercase_column_name_databases = ["postgres", "redshift", "athena"]
-    if test_data_source in lowercase_column_name_databases:
+    if test_data_source in LOWERCASE_COLUMN_NAME_DATABASES:
         expected_column_name1 = "items_sold"
         expected_column_name2 = "cst_size"
+    elif test_data_source in UPPERCASE_COLUMN_NAME_DATABASES:
+        expected_column_name1 = "ITEMS_SOLD"
+        expected_column_name2 = "CST_SIZE"
     else:
         expected_column_name1 = "ITEMS_SOLD"
         expected_column_name2 = "CST_Size"
