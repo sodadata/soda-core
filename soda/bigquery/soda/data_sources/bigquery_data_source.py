@@ -245,3 +245,6 @@ class BigQueryDataSource(DataSource):
 
     def sql_union(self):
         return "UNION ALL"
+
+    def default_casify_table_name(self, identifier: str) -> str:
+        return identifier.lower()
