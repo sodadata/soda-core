@@ -457,7 +457,7 @@ class DataSource:
                 table_default_case[1:-1] if self.is_quoted(table_default_case) else table_default_case
             )
             sql_filter = (
-                f"({casify_function}(table_name) {table_operator} {casify_function}('{unquoted_table_default_case}')"
+                f"({casify_function}(table_name) {table_operator} ('{unquoted_table_default_case}')"
                 f" AND {casify_function}(column_name) {column_operator} {casify_function}('{column_name}'))"
             )
             sql_filters.append(sql_filter)
