@@ -700,10 +700,9 @@ class SodaCLParser(Parser):
             and len(metric_args) > 1
             and metric_name not in MetricCheckCfg.MULTI_METRIC_CHECK_TYPES
         ):
-            self.logs.error(
-                f"Invalid syntax used in '{check_str}'. More than one check attribute is not supported. Skipping this check."
+            self.logs.warning(
+                f"Invalid syntax used in '{check_str}'. More than one check attribute is not supported. A check like this will be skipped in future versions of Soda Core"
             )
-            return None
 
         return metric_check_cfg_class(
             source_header=header_str,
