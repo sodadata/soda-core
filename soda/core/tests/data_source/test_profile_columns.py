@@ -319,6 +319,12 @@ def test_profile_columns_inclusions_exclusions(
 
     test_data_source = os.environ.get("test_data_source")
 
+    if "column_case_sensitive" in expected_column_profiling_results:
+        if test_data_source == "duckdb":
+            expected_column_profiling_results = expected_column_profiling_results["column_case_sensitive"]
+        else:
+            expected_column_profiling_results = expected_column_profiling_results["column_case_insensitive"]
+
     uppercase_column_name_databases = ["snowflake", "db2", "oracle"]
     lowercase_column_name_databases = ["postgres", "redshift", "athena"]
 
@@ -331,12 +337,6 @@ def test_profile_columns_inclusions_exclusions(
             table_name: [casify_function(column_name) for column_name in column_names]
             for table_name, column_names in expected_column_profiling_results.items()
         }
-
-    if "column_case_sensitive" in expected_column_profiling_results:
-        if test_data_source == "duckdb":
-            expected_column_profiling_results = expected_column_profiling_results["column_case_sensitive"]
-        else:
-            expected_column_profiling_results = expected_column_profiling_results["column_case_insensitive"]
 
     assert column_profiling_results == expected_column_profiling_results
 
