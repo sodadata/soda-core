@@ -292,9 +292,7 @@ def test_profile_columns_all_tables_all_columns(data_source_fixture: DataSourceF
                     "cst_size_txt",
                     "country",
                 ],
-                "table_name2": [
-                    "CST_SIZE"
-                ],
+                "table_name2": ["CST_SIZE"],
             },
             id="tables with 'profiling' and column_name 'country' or like '%si",
         ),
