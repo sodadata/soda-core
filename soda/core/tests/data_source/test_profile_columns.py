@@ -145,7 +145,9 @@ def test_profile_columns_all_tables_all_columns(data_source_fixture: DataSourceF
         customers_profiling_table_name
     )
     orders_test_table_name = data_source_fixture.ensure_test_table(orders_test_table)
-    orders_test_table_name = data_source_fixture.data_source.default_casify_table_name(orders_test_table_name)
+    orders_test_table_name = data_source_fixture.data_source.default_casify_table_name(
+        orders_test_table_name
+    )
 
     scan = data_source_fixture.create_test_scan()
 
@@ -165,7 +167,9 @@ def test_profile_columns_all_tables_all_columns(data_source_fixture: DataSourceF
 
     profile_columns_run = ProfileColumnsRun(data_source_scan, profiling_cfg)
 
-    tables_columns_metadata: defaultdict[str, dict[str, str]] = data_source.get_tables_columns_profiling(
+    tables_columns_metadata: defaultdict[
+        str, dict[str, str]
+    ] = data_source.get_tables_columns_profiling(
         include_patterns=profile_columns_run.parse_profiling_expressions(include_columns),
         exclude_patterns=profile_columns_run.parse_profiling_expressions(exclude_columns),
         query_name="profile-columns-get-table-and-column-metadata",
@@ -204,9 +208,9 @@ def test_profile_columns_all_tables_all_columns(data_source_fixture: DataSourceF
                     "zip",
                     "email",
                 ],
-                "table_name2": ["ITEMS_SOLD", "CST_SIZE"],
+                "table_name2": ["ITEMS_SOLD", "CST_Size"],
             },
-            id="all tables and columns except for country and id",
+            id="table_name1 and table_name2 with all columns except for country and id",
         ),
         pytest.param(
             """
@@ -226,7 +230,7 @@ def test_profile_columns_all_tables_all_columns(data_source_fixture: DataSourceF
                     "zip",
                     "email",
                 ],
-                "table_name2": ["ITEMS_SOLD", "CST_SIZE"],
+                "table_name2": ["ITEMS_SOLD", "CST_Size"],
             },
             id="all tables with names that contain 'profiling' and columns except for id",
         ),
@@ -245,17 +249,13 @@ def test_profile_columns_all_tables_all_columns(data_source_fixture: DataSourceF
                 profile columns:
                     columns:
                         - include %Profiling%.%si%
+                        - include %Profiling%.%Si%
             """,
             {
-                "column_case_insensitive": {
-                    "table_name1": ["cst_size", "cst_size_txt"],
-                    "table_name2": ["CST_SIZE"],
-                },
-                "column_case_sensitive": {
-                    "table_name1": ["cst_size", "cst_size_txt"],
-                },
+                "table_name1": ["cst_size", "cst_size_txt"],
+                "table_name2": ["CST_Size"],
             },
-            id="'si' like columns in tables with names that contain 'profiling'",
+            id="'si' and 'Si' like columns in tables with names that contain 'profiling'",
         ),
         pytest.param(
             """
@@ -271,39 +271,16 @@ def test_profile_columns_all_tables_all_columns(data_source_fixture: DataSourceF
             """
                 profile columns:
                     columns:
-                        - include %Capitalized%.%si%
-            """,
-            {
-                "column_case_insensitive": {"table_name1": ["CST_SIZE"]},
-                "column_case_sensitive": {},
-            },
-            id="use wildcard '%' in both table and column name",
-        ),
-        pytest.param(
-            """
-                profile columns:
-                    columns:
                         - include %Profiling%.country
-                        - include %Profiling%.%si%
+                        - include %Profiling%.%ITEMS_SOLD%
             """,
             {
-                "column_case_insensitive": {
-                    "table_name1": [
-                        "cst_size",
-                        "cst_size_txt",
-                        "country",
-                    ],
-                    "table_name2": ["CST_SIZE"],
-                },
-                "column_case_sensitive": {
-                    "table_name1": [
-                        "cst_size",
-                        "cst_size_txt",
-                        "country",
-                    ]
-                },
+                "table_name1": [
+                    "country",
+                ],
+                "table_name2": ["ITEMS_SOLD"],
             },
-            id="tables with 'profiling' and column_name 'country' or like '%si",
+            id="double include on same table with different patterns",
         ),
     ],
 )
@@ -329,12 +306,6 @@ def test_profile_columns_inclusions_exclusions(
     }
 
     test_data_source = os.environ.get("test_data_source")
-
-    if "column_case_sensitive" in expected_column_profiling_results:
-        if test_data_source == "duckdb":
-            expected_column_profiling_results = expected_column_profiling_results["column_case_sensitive"]
-        else:
-            expected_column_profiling_results = expected_column_profiling_results["column_case_insensitive"]
 
     uppercase_column_name_databases = ["snowflake", "db2", "oracle"]
     lowercase_column_name_databases = ["postgres", "redshift", "athena"]
@@ -389,7 +360,8 @@ def test_profile_columns_invalid_format(data_source_fixture: DataSourceFixture):
     character_log_warnings = [
         x
         for x in scan_results["logs"]
-        if "Invalid column expression: invalid% - must be in the form of table.column" in x["message"]
+        if "Invalid column expression: invalid% - must be in the form of table.column"
+        in x["message"]
     ]
     assert len(character_log_warnings) == 1
 
@@ -407,7 +379,9 @@ def test_profile_columns_no_table_or_column(data_source_fixture: DataSourceFixtu
     scan_results = mock_soda_cloud.pop_scan_result()
     assert scan_results["hasErrors"]
     character_log_warnings = [
-        x for x in scan_results["logs"] if 'Configuration key "columns" is required in profile columns' in x["message"]
+        x
+        for x in scan_results["logs"]
+        if 'Configuration key "columns" is required in profile columns' in x["message"]
     ]
     assert len(character_log_warnings) == 1
 
