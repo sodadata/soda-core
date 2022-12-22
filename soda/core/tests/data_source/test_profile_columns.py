@@ -18,6 +18,7 @@ from soda.execution.check.profile_columns_run import ProfileColumnsRun
 LOWERCASE_COLUMN_NAME_DATABASES = ["postgres", "redshift", "athena"]
 UPPERCASE_COLUMN_NAME_DATABASES = ["snowflake", "db2", "oracle"]
 
+
 def test_profile_columns_numeric(data_source_fixture: DataSourceFixture):
     table_name = data_source_fixture.ensure_test_table(customers_profiling)
 
