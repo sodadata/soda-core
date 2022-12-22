@@ -332,8 +332,11 @@ def test_profile_columns_inclusions_exclusions(
             for table_name, column_names in expected_column_profiling_results.items()
         }
 
-    if "column_case_sensitive" in expected_column_profiling_results and test_data_source == "duckdb":
-        expected_column_profiling_results = expected_column_profiling_results["column_case_sensitive"]
+    if "column_case_sensitive" in expected_column_profiling_results:
+        if test_data_source == "duckdb":
+            expected_column_profiling_results = expected_column_profiling_results["column_case_sensitive"]
+        else:
+            expected_column_profiling_results = expected_column_profiling_results["column_case_insensitive"]
 
     assert column_profiling_results == expected_column_profiling_results
 
