@@ -287,14 +287,17 @@ def test_profile_columns_all_tables_all_columns(data_source_fixture: DataSourceF
             """
                 profile columns:
                     columns:
-                        - include %Profiling\_%.country
-                        - include %Profiling\_%.%si%
+                        - include %Profiling%.country
+                        - include %Profiling%.%si%
             """,
             {
                 "table_name1": [
                     "cst_size",
                     "cst_size_txt",
                     "country",
+                ],
+                "table_name2": [
+                    "CST_SIZE"
                 ],
             },
             id="tables with 'profiling' and column_name 'country' or like '%si",
