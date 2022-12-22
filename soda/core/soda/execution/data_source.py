@@ -430,7 +430,7 @@ class DataSource:
         query_name: str,
         include_patterns: list[list[str]] | None = None,
         exclude_patterns: list[list[str]] | None = None,
-    ) -> dict[str, str] | None:
+    ) -> defaultdict[str, dict[str, str]] | None:
         # TODO: save/cache the result for later use.
         query = Query(
             data_source_scan=self.data_source_scan,
