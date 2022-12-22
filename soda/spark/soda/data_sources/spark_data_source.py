@@ -253,13 +253,14 @@ class SparkSQLBase(DataSource):
         table_names = [row[1] for row in query.rows]
         table_names = self._filter_include_exclude(table_names, include_tables, exclude_tables)
         return table_names
-        
+
 
     @staticmethod
     def pattern_matches_profiling(table_name: str, table_name_pattern: str) -> bool:
         pattern_regex = table_name_pattern.replace("%", ".*").lower()
-        is_match = re.match(pattern_regex, table_name.lower())
+        is_match = re.fullmatch(pattern_regex, table_name.lower())
         return bool(is_match)
+
 
     def get_tables_columns_profiling(
         self,
@@ -378,9 +379,6 @@ class SparkSQLBase(DataSource):
 
     def safe_connection_data(self):
         """TODO: implement for spark."""
-
-    def sql_information_schema_columns(self) -> str:
-        return f"{self.schema}.INFORMATION_SCHEMA.COLUMNS"
 
 
 class SparkDataSource(SparkSQLBase):
