@@ -452,12 +452,11 @@ class DataSource:
         sql_filters = []
         for profiling_pattern in profiling_patterns:
             table_name, table_operator, column_name, column_operator = profiling_pattern
-            table_default_case = self.default_casify_table_name(table_name)
-            unquoted_table_default_case = (
-                table_default_case[1:-1] if self.is_quoted(table_default_case) else table_default_case
+            unquoted_table_name = (
+                table_name[1:-1] if self.is_quoted(table_name) else table_name
             )
             sql_filter = (
-                f"({casify_function}(table_name) {table_operator} ('{unquoted_table_default_case}')"
+                f"({casify_function}(table_name) {table_operator} {casify_function}('{unquoted_table_name}')"
                 f" AND {casify_function}(column_name) {column_operator} {casify_function}('{column_name}'))"
             )
             sql_filters.append(sql_filter)
