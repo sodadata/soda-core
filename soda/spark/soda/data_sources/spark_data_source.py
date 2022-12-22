@@ -53,7 +53,12 @@ def hive_connection_function(
     from pyhive import hive
 
     connection = hive.connect(
-        username=username, password=password, host=host, port=port, database=database, auth=auth_method
+        username=username,
+        password=password,
+        host=host,
+        port=port,
+        database=database,
+        auth=auth_method,
     )
     return connection
 
@@ -121,12 +126,18 @@ def odbc_connection_function(
     return connection
 
 
-def databricks_connection_function(host: str, http_path: str, token: str, database: str, schema: str, **kwargs):
+def databricks_connection_function(
+    host: str, http_path: str, token: str, database: str, schema: str, **kwargs
+):
     from databricks import sql
 
     logging.getLogger("databricks.sql").setLevel(logging.INFO)
     connection = sql.connect(
-        server_hostname=host, catalog=database, schema=schema, http_path=http_path, access_token=token
+        server_hostname=host,
+        catalog=database,
+        schema=schema,
+        http_path=http_path,
+        access_token=token,
     )
     return connection
 
@@ -193,23 +204,36 @@ class SparkSQLBase(DataSource):
         if len(query.rows) > 0:
             rows = query.rows
             # Remove the partitioning information (see https://spark.apache.org/docs/latest/sql-ref-syntax-aux-describe-table.html)
-            partition_indices = [i for i in range(len(rows)) if rows[i][0].startswith("# Partition")]
+            partition_indices = [
+                i for i in range(len(rows)) if rows[i][0].startswith("# Partition")
+            ]
             if partition_indices:
                 rows = rows[: partition_indices[0]]
             columns = {row[0]: row[1] for row in rows}
 
             if included_columns or excluded_columns:
                 column_names = list(columns.keys())
-                filtered_column_names = self._filter_include_exclude(column_names, included_columns, excluded_columns)
-                columns = {col_name: dtype for col_name, dtype in columns.items() if col_name in filtered_column_names}
+                filtered_column_names = self._filter_include_exclude(
+                    column_names, included_columns, excluded_columns
+                )
+                columns = {
+                    col_name: dtype
+                    for col_name, dtype in columns.items()
+                    if col_name in filtered_column_names
+                }
         return columns
 
     def sql_get_table_columns(
-        self, table_name: str, included_columns: list[str] | None = None, excluded_columns: list[str] | None = None
+        self,
+        table_name: str,
+        included_columns: list[str] | None = None,
+        excluded_columns: list[str] | None = None,
     ):
         return f"DESCRIBE TABLE {table_name}"
 
-    def sql_get_column(self, include_tables: list[str] | None = None, exclude_tables: list[str] | None = None) -> str:
+    def sql_get_column(
+        self, include_tables: list[str] | None = None, exclude_tables: list[str] | None = None
+    ) -> str:
         table_filter_expression = self.sql_table_include_exclude_filter(
             "table_name", "table_schema", include_tables, exclude_tables
         )
@@ -247,7 +271,9 @@ class SparkSQLBase(DataSource):
             return []
         sql = self.sql_find_table_names(filter, include_tables, exclude_tables)
         query = Query(
-            data_source_scan=self.data_source_scan, unqualified_query_name=query_name or "get_table_names", sql=sql
+            data_source_scan=self.data_source_scan,
+            unqualified_query_name=query_name or "get_table_names",
+            sql=sql,
         )
         query.execute()
         table_names = [row[1] for row in query.rows]
@@ -260,56 +286,69 @@ class SparkSQLBase(DataSource):
         is_match = re.fullmatch(pattern_regex, table_name.lower())
         return bool(is_match)
 
+    def get_included_table_names_profiling(
+        self, query_name: str, include_patterns: list[list[str]], exclude_patterns: list[list[str]]
+    ) -> list[str]:
+        query = Query(
+            data_source_scan=self.data_source_scan,
+            unqualified_query_name=query_name,
+            sql=self.sql_find_table_names(),
+        )
+        query.execute()
+        table_names_in_datasource = [row[1] for row in query.rows]
+        included_table_names = [
+            table_name
+            for table_name in table_names_in_datasource
+            if any(
+                self.pattern_matches_profiling(table_name, include_table_name_pattern)
+                for include_table_name_pattern, _, _, _ in include_patterns
+            )
+            and not any(
+                self.pattern_matches_profiling(table_name, exclude_table_name_pattern)
+                and exclude_column_name_pattern == "%"
+                for exclude_table_name_pattern, _, exclude_column_name_pattern, _ in exclude_patterns
+            )
+        ]
+
+        return included_table_names
+
+    def column_table_pattern_match_profiling(
+        self, table_name: str, column_name: str, profiling_patterns: list[list[str]]
+    ) -> bool:
+        column_table_name_pattern_match = any(
+            (
+                self.pattern_matches_profiling(table_name, table_name_pattern)
+                and self.pattern_matches_profiling(column_name, column_name_pattern)
+            )
+            for table_name_pattern, _, column_name_pattern, _ in profiling_patterns
+        )
+        return column_table_name_pattern_match
+
     def get_tables_columns_profiling(
         self,
         query_name: str,
         include_patterns: list[list[str]] | None = None,
         exclude_patterns: list[list[str]] | None = None,
     ) -> dict[str, str] | None:
-
-        query = Query(
-            data_source_scan=self.data_source_scan,
-            unqualified_query_name=query_name or "get_table_names",
-            sql=self.sql_find_table_names(),
+        included_table_names = self.get_included_table_names_profiling(
+            query_name, include_patterns, exclude_patterns
         )
-        query.execute()
-        table_names = [
-            row[1]
-            for row in query.rows
-            if any(
-                self.pattern_matches_profiling(row[1], table_name_pattern)
-                for table_name_pattern, _, _, _ in include_patterns
-            )
-        ]
         tables_and_columns_metadata = defaultdict(dict)
-        for table_name in table_names:
+        for table_name in included_table_names:
             query = Query(
                 data_source_scan=self.data_source_scan,
-                unqualified_query_name=f"describe-table-{table_name}",
+                unqualified_query_name=f"profile-columns-describe-table-{table_name}-spark",
                 sql=f"DESCRIBE TABLE {table_name}",
             )
             query.execute()
             columns_metadata = query.rows
-            table_name_included = not any(
-                self.pattern_matches_profiling(table_name, exclude_table_name_pattern)
-                and exclude_column_name_pattern == "%"
-                for exclude_table_name_pattern, _, exclude_column_name_pattern, _ in exclude_patterns
-            )
-            if columns_metadata and len(columns_metadata) > 0 and table_name_included:
+            if columns_metadata and len(columns_metadata) > 0:
                 for column_name, column_datatype, _ in columns_metadata:
-                    column_name_included = any(
-                        (
-                            self.pattern_matches_profiling(table_name, include_table_name_pattern)
-                            and self.pattern_matches_profiling(column_name, include_column_name_pattern)
-                        )
-                        for include_table_name_pattern, _, include_column_name_pattern, _ in include_patterns
+                    column_name_included = self.column_table_pattern_match_profiling(
+                        table_name, column_name, include_patterns
                     )
-                    column_name_excluded = any(
-                        (
-                            self.pattern_matches_profiling(table_name, exclude_table_name_pattern)
-                            and self.pattern_matches_profiling(column_name, exclude_column_name_pattern)
-                        )
-                        for exclude_table_name_pattern, _, exclude_column_name_pattern, _ in exclude_patterns
+                    column_name_excluded = self.column_table_pattern_match_profiling(
+                        table_name, column_name, exclude_patterns
                     )
                     if column_name_included and not column_name_excluded:
                         tables_and_columns_metadata[table_name][column_name] = column_datatype
@@ -335,13 +374,18 @@ class SparkSQLBase(DataSource):
                 filtered_names = [
                     filtered_name
                     for filtered_name in filtered_names
-                    if any(matches(filtered_name, included_item) for included_item in included_items)
+                    if any(
+                        matches(filtered_name, included_item) for included_item in included_items
+                    )
                 ]
             if excluded_items:
                 filtered_names = [
                     filtered_name
                     for filtered_name in filtered_names
-                    if all(not matches(filtered_name, excluded_item) for excluded_item in excluded_items)
+                    if all(
+                        not matches(filtered_name, excluded_item)
+                        for excluded_item in excluded_items
+                    )
                 ]
         return filtered_names
 
@@ -400,7 +444,8 @@ class SparkDataSource(SparkSQLBase):
         self.organization = data_source_properties.get("organization", None)
         self.cluster = data_source_properties.get("cluster", None)
         self.server_side_parameters = {
-            f"SSP_{k}": f"{{{v}}}" for k, v in data_source_properties.get("server_side_parameters", {})
+            f"SSP_{k}": f"{{{v}}}"
+            for k, v in data_source_properties.get("server_side_parameters", {})
         }
 
     def connect(self):
