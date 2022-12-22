@@ -280,6 +280,28 @@ def test_profile_columns_all_tables_all_columns(data_source_fixture: DataSourceF
             },
             id="double include on same table with different patterns",
         ),
+        pytest.param(
+            """
+                profile columns:
+                    columns:
+                        - include %Profiling%.%
+                        - exclude %Capitalized%.%
+            """,
+            {
+                "table_name1": [
+                    "cst_size",
+                    "distance",
+                    "id",
+                    "cst_size_txt",
+                    "pct",
+                    "cat",
+                    "country",
+                    "zip",
+                    "email",
+                ],
+            },
+            id="table_name with 'profiling' included unless they have 'capitalized'",
+        ),
     ],
 )
 def test_profile_columns_inclusions_exclusions(
