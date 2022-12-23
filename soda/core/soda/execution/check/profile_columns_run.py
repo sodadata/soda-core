@@ -48,14 +48,21 @@ class ProfileColumnsRun:
         self.logs = self.data_source_scan.scan._logs
 
     @staticmethod
-    def parse_profiling_expressions(profiling_expressions: list[str]) -> list[list[str]]:
+    def parse_profiling_expressions(profiling_expressions: list[str]) -> list[dict[str, str]]:
         parsed_profiling_expressions = []
         for profiling_expression in profiling_expressions:
-            table_name, column_name = profiling_expression.split(".")
-            table_name_operator = "LIKE" if "%" in table_name else "="
-            column_name_operator = "LIKE" if "%" in column_name else "="
+            table_name_pattern, column_name_pattern = profiling_expression.split(".")
+            table_name_operator = "LIKE" if "%" in table_name_pattern else "="
+            column_name_operator = "LIKE" if "%" in column_name_pattern else "="
 
-            parsed_profiling_expressions.append([table_name, table_name_operator, column_name, column_name_operator])
+            parsed_profiling_expressions.append(
+                {
+                    "table_name_pattern": table_name_pattern,
+                    "table_name_operator": table_name_operator,
+                    "column_name_pattern": column_name_pattern,
+                    "column_name_operator": column_name_operator,
+                }
+            )
         return parsed_profiling_expressions
 
     def run(self) -> ProfileColumnsResult:
