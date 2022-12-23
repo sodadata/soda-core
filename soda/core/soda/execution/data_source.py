@@ -428,8 +428,8 @@ class DataSource:
     def get_tables_columns_profiling(
         self,
         query_name: str,
-        include_patterns: list[list[str]] | None = None,
-        exclude_patterns: list[list[str]] | None = None,
+        include_patterns: list[dict[str, str]] | None = None,
+        exclude_patterns: list[dict[str, str]] | None = None,
     ) -> defaultdict[str, dict[str, str]] | None:
         # TODO: save/cache the result for later use.
         query = Query(
@@ -447,25 +447,31 @@ class DataSource:
             return tables_and_columns_metadata
         return None
 
-    def create_profiling_sql_filter(self, profiling_patterns: list[list[str]]) -> list[str]:
+    def create_profiling_sql_filter(self, profiling_patterns: list[dict[str, str]]) -> list[str]:
         casify_function = self.default_casify_sql_function()
         sql_filters = []
         for profiling_pattern in profiling_patterns:
-            table_name, table_operator, column_name, column_operator = profiling_pattern
-            unquoted_table_name = table_name[1:-1] if self.is_quoted(table_name) else table_name
-            unquoted_column_name = column_name[1:-1] if self.is_quoted(column_name) else column_name
+
+            table_name_pattern = profiling_pattern["table_name_pattern"]
+            table_name_operator = profiling_pattern["table_name_operator"]
+            column_name_pattern = profiling_pattern["column_name_pattern"]
+            column_name_operator = profiling_pattern["column_name_operator"]
+
+            unquoted_table_name = table_name_pattern[1:-1] if self.is_quoted(table_name_pattern) else table_name_pattern
+            unquoted_column_name = column_name_pattern[1:-1] if self.is_quoted(column_name_pattern) else column_name_pattern
             sql_filter = (
-                f"({casify_function}(table_name) {table_operator} {casify_function}('{unquoted_table_name}')"
-                f" AND {casify_function}(column_name) {column_operator} {casify_function}('{unquoted_column_name}'))"
+                f"({casify_function}(table_name) {table_name_operator} {casify_function}('{unquoted_table_name}')"
+                f" AND {casify_function}(column_name) {column_name_operator} {casify_function}('{unquoted_column_name}'))"
             )
+            
             sql_filters.append(sql_filter)
 
         return sql_filters
 
     def sql_get_tables_columns_profiling(
         self,
-        include_patterns: list[list[str]] | None = None,
-        exclude_patterns: list[list[str]] | None = None,
+        include_patterns: list[dict[str, str]] | None = None,
+        exclude_patterns: list[dict[str, str]] | None = None,
     ) -> str:
         filter_clauses = []
 
