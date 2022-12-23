@@ -323,7 +323,16 @@ def test_profile_columns_all_tables_all_columns(data_source_fixture: DataSourceF
                         - include Profiling.%
             """,
             {},
-            id="ensure 'like' operator is not used without presence of wildcard",
+            id="ensure 'like' operator is not used on tables without presence of wildcard",
+        ),
+        pytest.param(
+            """
+                profile columns:
+                    columns:
+                        - include %.ITEMS
+            """,
+            {},
+            id="ensure 'like' operator is not used on columns without presence of wildcard",
         ),
     ],
 )
