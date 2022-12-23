@@ -310,9 +310,7 @@ def test_profile_columns_all_tables_all_columns(data_source_fixture: DataSourceF
                         - include %.ITEMS_SOLD
             """,
             {
-                "table_name1": [
-                    "ITEMS_SOLD"
-                ],
+                "table_name1": ["ITEMS_SOLD"],
             },
             id="ITEMS_SOLD column in any table that has it",
         ),
