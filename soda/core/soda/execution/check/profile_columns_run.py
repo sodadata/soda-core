@@ -76,7 +76,7 @@ class ProfileColumnsRun:
                 f"Your SodaCL profiling expressions did not return any existing dataset name + column name combinations for your '{self.data_source.data_source_name}' "
                 f"data source. Please make sure that the patterns in your profiling expressions define existing dataset name + column name combinations."
                 f" Profiling results may be incomplete or entirely skipped. See the docs for more information: \n"
-                f"https://docs.soda.io/soda-cl/profile.html#display-profile-information-in-soda-cloud",
+                f"https://go.soda.io/display-profile",
                 location=self.profile_columns_cfg.location,
             )
             return profile_columns_result
@@ -88,45 +88,33 @@ class ProfileColumnsRun:
                 table_name, self.data_source.data_source_name, row_count=None
             )
             columns_metadata_result = tables_columns_metadata.get(table_name)
-            # perform numerical metrics collection
-            numerical_columns = {
-                column_name: data_type
-                for column_name, data_type in columns_metadata_result.items()
-                if data_type in self.data_source.NUMERIC_TYPES_FOR_PROFILING
-            }
 
-            for column_name, column_type in numerical_columns.items():
+            for column_name, column_data_type in columns_metadata_result.items():
                 try:
-                    self.profile_numeric_column(
-                        column_name,
-                        column_type,
-                        table_name,
-                        profile_columns_result_table,
-                    )
+                    if column_data_type in self.data_source.NUMERIC_TYPES_FOR_PROFILING:
+                        profiling_column_type = "numeric"    
+                        self.profile_numeric_column(
+                            column_name,
+                            column_data_type,
+                            table_name,
+                            profile_columns_result_table,
+                        )
+                    elif column_data_type in self.data_source.TEXT_TYPES_FOR_PROFILING:
+                        profiling_column_type = "text"    
+                        self.profile_text_column(
+                            column_name,
+                            column_data_type,
+                            table_name,
+                            profile_columns_result_table,
+                        )
+                    else:
+                        self.logs.info(
+                            f"Column '{table_name}.{column_name}' was not profiled because column data "
+                            f"type '{column_data_type}' is not in supported profiling data types"
+                        )
                 except Exception as e:
                     self.logs.error(
-                        f"Problem profiling numeric column {table_name}.{column_name}: {e}",
-                        exception=e,
-                    )
-
-            # text columns
-            text_columns = {
-                col_name: data_type
-                for col_name, data_type in columns_metadata_result.items()
-                if data_type in self.data_source.TEXT_TYPES_FOR_PROFILING
-            }
-            for column_name, column_type in text_columns.items():
-                try:
-                    self.profile_text_column(
-                        column_name,
-                        column_type,
-                        table_name,
-                        profile_columns_result_table,
-                    )
-                except Exception as e:
-                    self.logs.error(
-                        f"Problem profiling text column {table_name}.{column_name}: {e}",
-                        exception=e,
+                        f"Problem profiling {profiling_column_type} column '{table_name}.{column_name}' with data type '{column_data_type}': {e}"
                     )
 
         return profile_columns_result
