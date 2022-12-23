@@ -332,6 +332,18 @@ def test_profile_columns_all_tables_all_columns(data_source_fixture: DataSourceF
             {},
             id="ensure 'like' operator is not used on columns without presence of wildcard",
         ),
+        pytest.param(
+            """
+                profile columns:
+                    columns:
+                        - include %.ITEMS_SOLD
+                        - exclude %.%ITEMS
+            """,
+            {
+                "table_name1": ["ITEMS_SOLD"],
+            },
+            id="ensure matching pattern doesn't just consider start of of table/column name",
+        ),
     ],
 )
 def test_profile_columns_inclusions_exclusions(
