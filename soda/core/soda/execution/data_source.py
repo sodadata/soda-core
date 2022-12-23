@@ -458,12 +458,14 @@ class DataSource:
             column_name_operator = profiling_pattern["column_name_operator"]
 
             unquoted_table_name = table_name_pattern[1:-1] if self.is_quoted(table_name_pattern) else table_name_pattern
-            unquoted_column_name = column_name_pattern[1:-1] if self.is_quoted(column_name_pattern) else column_name_pattern
+            unquoted_column_name = (
+                column_name_pattern[1:-1] if self.is_quoted(column_name_pattern) else column_name_pattern
+            )
             sql_filter = (
                 f"({casify_function}(table_name) {table_name_operator} {casify_function}('{unquoted_table_name}')"
                 f" AND {casify_function}(column_name) {column_name_operator} {casify_function}('{unquoted_column_name}'))"
             )
-            
+
             sql_filters.append(sql_filter)
 
         return sql_filters
