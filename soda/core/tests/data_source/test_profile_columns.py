@@ -310,9 +310,7 @@ def test_profile_columns_all_tables_all_columns(data_source_fixture: DataSourceF
                         - include %.country
             """,
             {
-                "table_name1": [
-                    "country"
-                ],
+                "table_name1": ["country"],
             },
             id="country column in any table that has it",
         ),

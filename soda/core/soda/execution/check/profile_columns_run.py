@@ -99,7 +99,7 @@ class ProfileColumnsRun:
             for column_name, column_data_type in columns_metadata_result.items():
                 try:
                     if column_data_type in self.data_source.NUMERIC_TYPES_FOR_PROFILING:
-                        profiling_column_type = "numeric"    
+                        profiling_column_type = "numeric"
                         self.profile_numeric_column(
                             column_name,
                             column_data_type,
@@ -107,7 +107,7 @@ class ProfileColumnsRun:
                             profile_columns_result_table,
                         )
                     elif column_data_type in self.data_source.TEXT_TYPES_FOR_PROFILING:
-                        profiling_column_type = "text"    
+                        profiling_column_type = "text"
                         self.profile_text_column(
                             column_name,
                             column_data_type,
