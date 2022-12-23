@@ -200,8 +200,8 @@ def test_profile_columns_all_tables_all_columns(data_source_fixture: DataSourceF
             {
                 "table_name1": [
                     "cst_size",
-                    "distance",
                     "cst_size_txt",
+                    "distance",
                     "pct",
                     "cat",
                     "zip",
@@ -221,8 +221,8 @@ def test_profile_columns_all_tables_all_columns(data_source_fixture: DataSourceF
             {
                 "table_name1": [
                     "cst_size",
-                    "distance",
                     "cst_size_txt",
+                    "distance",
                     "pct",
                     "cat",
                     "country",
@@ -290,10 +290,10 @@ def test_profile_columns_all_tables_all_columns(data_source_fixture: DataSourceF
             """,
             {
                 "table_name1": [
-                    "cst_size",
-                    "distance",
                     "id",
+                    "cst_size",
                     "cst_size_txt",
+                    "distance",
                     "pct",
                     "cat",
                     "country",
@@ -302,6 +302,19 @@ def test_profile_columns_all_tables_all_columns(data_source_fixture: DataSourceF
                 ],
             },
             id="table_name with 'profiling' included unless they have 'capitalized'",
+        ),
+        pytest.param(
+            """
+                profile columns:
+                    columns:
+                        - include %.country
+            """,
+            {
+                "table_name1": [
+                    "country"
+                ],
+            },
+            id="country column in any table that has it",
         ),
     ],
 )
