@@ -316,6 +316,15 @@ def test_profile_columns_all_tables_all_columns(data_source_fixture: DataSourceF
             },
             id="country column in any table that has it",
         ),
+        pytest.param(
+            """
+                profile columns:
+                    columns:
+                        - include Profiling.%
+            """,
+            {},
+            id="ensure 'like' operator is not used without presence of wildcard",
+        ),
     ],
 )
 def test_profile_columns_inclusions_exclusions(
