@@ -5,7 +5,7 @@ from helpers.fixtures import test_data_source
 
 
 @pytest.mark.skipif(
-    test_data_source == "sqlserver",
+    test_data_source in ["sqlserver"],
     reason="Full regex support is not supported by SQLServer. REGEXP_REPLACE is used in this check but it is not supported.",
 )
 def test_numeric_metric_checks_on_text_column(data_source_fixture: DataSourceFixture):
@@ -18,8 +18,8 @@ def test_numeric_metric_checks_on_text_column(data_source_fixture: DataSourceFix
             - min(cst_size_txt) = -3
             - max(cst_size_txt) = 6
             - avg(cst_size_txt) between 1.12 and 1.13
-            - sum(cst_size_txt) = 7.9
-            - min(pct) = -28.42
+            - sum(cst_size_txt) between 7.899 and 7.9 # 0.001 is added to avoid rounding errors
+            - min(pct) between -28.42001 and -28.42 # 0.00001 is added to avoid rounding errors
             - max(pct) = 22.75
           configurations for {table_name}:
             valid format for cst_size_txt: decimal
@@ -32,7 +32,7 @@ def test_numeric_metric_checks_on_text_column(data_source_fixture: DataSourceFix
 
 
 @pytest.mark.skipif(
-    test_data_source == "sqlserver",
+    test_data_source in ["sqlserver"],
     reason="Full regex support is not supported by SQLServer. REGEXP_REPLACE is used in this check but it is not supported.",
 )
 def test_numeric_metric_checks_on_text_column_local_format(data_source_fixture: DataSourceFixture):
@@ -46,7 +46,7 @@ def test_numeric_metric_checks_on_text_column_local_format(data_source_fixture: 
                 valid format: decimal
             - max(cst_size_txt) = 6:
                 valid format: decimal
-            - min(pct) = -28.42:
+            - min(pct) between -28.42001 and -28.42: # 0.00001 is added to avoid rounding errors
                 valid format: percentage
             - max(pct) = 22.75:
                 valid format: percentage

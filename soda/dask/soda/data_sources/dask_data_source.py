@@ -34,23 +34,34 @@ class DaskDataSource(DataSource):
 
     # Supported data types used in create statements. These are used in tests for creating test data and do not affect the actual library functionality.
     SQL_TYPE_FOR_CREATE_TABLE_MAP: dict = {
-        DataType.TEXT: str,
-        DataType.INTEGER: int,
-        DataType.DECIMAL: float,
-        DataType.DATE: "DATE",
-        DataType.TIME: "TIME",
-        DataType.TIMESTAMP: "TIMESTAMP",
-        DataType.TIMESTAMP_TZ: "TIMESTAMPTZ",
-        DataType.BOOLEAN: bool,
+        DataType.TEXT: "str",
+        DataType.INTEGER: "int",
+        DataType.DECIMAL: "float",
+        DataType.DATE: "date",
+        DataType.TIME: "time",
+        DataType.TIMESTAMP: "timestamp",
+        DataType.TIMESTAMP_TZ: "timestamptz",
+        DataType.BOOLEAN: "bool",
     }
 
     def __init__(self, logs: Logs, data_source_name: str, data_source_properties: dict):
         super().__init__(logs, data_source_name, data_source_properties)
         self.context = data_source_properties.get("context")
+        self.context.register_function(
+            self.nullif_custom, "nullif_custom", [("regex_pattern", str)], str, row_udf=False
+        )
         self.context.register_function(self.regexp_like, "regexp_like", [("regex_pattern", str)], str, row_udf=False)
-        self.context.register_function(self.regexp_like, "REGEXP_LIKE", [("regex_pattern", str)], str, row_udf=False)
+        self.context.register_function(
+            self.regexp_replace_custom,
+            "regexp_replace_custom",
+            [("regex_pattern", str), ("replacement_pattern", str), ("flags", str)],
+            str,
+            row_udf=False,
+        )
+
         self.context.register_aggregation(self.distinct_count(), "distinct_count", [("x", float)], float)
         self.context.register_aggregation(self.distinct_count(), "distinct_count_str", [("x", str)], float)
+        self.context.register_function(self.length, "length", [("x", str)], float)
 
     def connect(self) -> None:
         self.connection = DaskConnection(self.context)
@@ -121,6 +132,15 @@ class DaskDataSource(DataSource):
             f"{where_clause}"
         )
 
+    def get_metric_sql_aggregation_expression(self, metric_name: str, metric_args: list[object] | None, expr: str):
+        if metric_name in ["stddev", "stddev_pop", "stddev_samp", "var_pop"]:
+            return f"{metric_name}({expr})"
+        # if metric_name in ["percentile", "percentile_disc"]:
+        #     # TODO ensure proper error if the metric_args[0] is not a valid number
+        #     percentile_fraction = metric_args[1] if metric_args else None
+        #     return f"PERCENTILE_DISC({percentile_fraction}) WITHIN GROUP (ORDER BY {expr})"
+        return super().get_metric_sql_aggregation_expression(metric_name, metric_args, expr)
+
     def profiling_sql_aggregates_numeric(self, table_name: str, column_name: str) -> str:
         column_name = self.quote_column(column_name)
         qualified_table_name = self.qualified_table_name(table_name)
@@ -153,6 +173,32 @@ class DaskDataSource(DataSource):
             """
         )
 
+    def cast_text_to_number(self, column_name, validity_format: str):
+        """Cast string to number
+
+        - first regex replace removes extra chars, keeps: "digits + - . ,"
+        - second regex changes "," to "."
+        - Nullif makes sure that if regexes return empty string then Null is returned instead
+        """
+        regex = self.escape_regex(r"'[^-0-9\.\,]'")
+        return dedent(
+            f"""
+            CAST(
+                NULLIF_CUSTOM(
+                    REGEXP_REPLACE_CUSTOM(
+                        REGEXP_REPLACE_CUSTOM(
+                            {column_name},
+                            {regex},
+                            ''{self.regex_replace_flags()}
+                        ),
+                        ',',
+                        '.'{self.regex_replace_flags()}
+                    ),
+                    ''
+                ) AS {self.SQL_TYPE_FOR_CREATE_TABLE_MAP[DataType.DECIMAL]}
+            )"""
+        )
+
     def test(self, sql: str) -> None:
         logging.debug(f"Running SQL query:\n{sql}")
         df = self.connection.context.sql(sql)
@@ -161,6 +207,18 @@ class DaskDataSource(DataSource):
     @staticmethod
     def regexp_like(selected_column: Series, regex_pattern: str) -> Series:
         selected_column = selected_column.str.contains(regex_pattern, regex=True, na=False)
+        return selected_column
+
+    @staticmethod
+    def nullif_custom(selected_column: Series, null_replacement: str) -> Series:
+        selected_column = selected_column.replace(null_replacement, None)
+        return selected_column
+
+    @staticmethod
+    def regexp_replace_custom(
+        selected_column: Series, regex_pattern: str, replacement_pattern: str, flags: str
+    ) -> Series:
+        selected_column = selected_column.str.replace(regex_pattern, replacement_pattern, regex=True, flags=0)
         return selected_column
 
     @staticmethod
@@ -188,3 +246,7 @@ class DaskDataSource(DataSource):
             return s.apply(lambda x: len(set(x)))
 
         return dd.Aggregation("distinct_count", chunk, agg, finalize)
+
+    @staticmethod
+    def length(x: str) -> int:
+        return len(x)

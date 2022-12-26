@@ -35,10 +35,6 @@ class DaskDataSourceFixture(DataSourceFixture):
             pd.DataFrame(
                 data=test_table.values,
                 columns=[test_column.name for test_column in test_table.test_columns],
-                dtype=[
-                    self.data_source.SQL_TYPE_FOR_CREATE_TABLE_MAP[test_column.data_type]
-                    for test_column in test_table.test_columns
-                ],
             ),
             npartitions=1,
         )

@@ -8,8 +8,8 @@ from helpers.mock_file_system import MockFileSystem
 
 
 @pytest.mark.skipif(
-    test_data_source == "spark_df",
-    reason="Spark DF only supports programmatic scans.",
+    test_data_source in ["spark_df", "dask"],
+    reason="Spark DF and dask only supports programmatic scans.",
 )
 def test_connection_test(data_source_fixture: DataSourceFixture, mock_file_system: MockFileSystem):
     user_home_dir = mock_file_system.user_home_dir()
