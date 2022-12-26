@@ -372,7 +372,11 @@ class DataSource:
         table_name_lower = table_name.lower()
 
         for table_pattern, column_patterns in exclude_columns_config.items():
-            if string_matches_simple_pattern(table_name_lower, table_pattern):
+            "Table sometimes comes with a schema a prefix, try matching on 'prefix.pattern' as well"
+            table_pattern_with_schema = f"{self.table_prefix if self.table_prefix else ''}.{table_pattern}".lower()
+            if string_matches_simple_pattern(table_name_lower, table_pattern) or string_matches_simple_pattern(
+                table_name_lower, table_pattern_with_schema
+            ):
                 exclude_column_patterns += column_patterns
 
         return list(set(exclude_column_patterns))
@@ -558,7 +562,9 @@ class DataSource:
         column_names: str,
         table_name: str,
         filter: str,
+        exclude_patterns: list[str] | None = None,
     ) -> str | None:
+        main_query_columns = f"{column_names}, frequency" if exclude_patterns else "*"
         sql = dedent(
             f"""
             WITH frequencies AS (
@@ -566,7 +572,7 @@ class DataSource:
               FROM {table_name}
               WHERE {filter}
               GROUP BY {column_names})
-            SELECT {column_names}, frequency
+            SELECT {main_query_columns}
             FROM frequencies
             WHERE frequency > 1
             ORDER BY frequency DESC"""
@@ -581,7 +587,9 @@ class DataSource:
         filter: str,
         limit: str | None = None,
         invert_condition: bool = False,
+        exclude_patterns: list[str] | None = None,
     ) -> str | None:
+        main_query_columns = f"{column_names}, frequency" if exclude_patterns else "*"
         sql = dedent(
             f"""
             WITH frequencies AS (
@@ -589,7 +597,7 @@ class DataSource:
                 FROM {table_name}
                 WHERE {filter}
                 GROUP BY {column_names})
-            SELECT {column_names}, frequency
+            SELECT {main_query_columns}
             FROM frequencies
             WHERE frequency {'<=' if invert_condition else '>'} 1
             ORDER BY frequency DESC"""
