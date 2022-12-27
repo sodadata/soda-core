@@ -30,7 +30,7 @@ class SodaTelemetry:
 
     With that being said, some tracing is still present in other files, e.g.:
     - `/soda/core/soda/cli/cli.py` - CLI arguments and options tracing
-    - `/soda/core/soda/execution/data_source.py` - safe data source type and hash tracing
+    - `/soda/core/soda/execution/data_source_utils.py` - safe data source type and hash tracing
 
     This list is not necessarily exhaustive, search for `from soda.telemetry.soda_telemetry import SodaTelemetry` imports OR
     `set_attribute` method usage to obtain the full list.
