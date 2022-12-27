@@ -669,7 +669,7 @@ class DataSource:
                         {mins_cte},
                         {maxs_cte},
                         {frequent_values_cte},
-                        result AS (
+                        results AS (
                             SELECT * FROM mins
                             {union}
                             SELECT * FROM maxs
@@ -677,7 +677,7 @@ class DataSource:
                             SELECT * FROM frequent_values
                         )
                     SELECT *
-                    FROM result
+                    FROM results
                     ORDER BY metric_ ASC, index_ ASC
                 """
             )
