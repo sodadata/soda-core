@@ -23,6 +23,7 @@ from soda.sampler.default_sampler import DefaultSampler
 from soda.sampler.sampler import Sampler
 from soda.soda_cloud.historic_descriptor import HistoricDescriptor
 from soda.soda_cloud.soda_cloud import SodaCloud
+from soda.sodacl.check_cfg import CheckCfg
 from soda.sodacl.location import Location
 from soda.sodacl.sodacl_cfg import SodaCLCfg
 from soda.telemetry.soda_telemetry import SodaTelemetry
@@ -58,6 +59,7 @@ class Scan:
         self._data_source_manager = DataSourceManager(self._logs, self._configuration)
         self._data_source_scans: list[DataSourceScan] = []
         self._metrics: set[Metric] = set()
+        self._checks_configs: list[CheckCfg] = []
         self._checks: list[Check] = []
         self._queries: list[Query] = []
         self._profile_columns_result_tables: list[ProfileColumnsResultTable] = []
@@ -428,6 +430,38 @@ class Scan:
                                                 column_metrics.column,
                                             )
 
+            # Handle check attributes before proceeding.
+            invalid_check_attributes = None
+            for check in list(self._checks):  # Iterating over a copy in order to remove items while iterating.
+                if check.check_cfg.source_configurations:
+                    check_attributes = {
+                        self.jinja_resolve(k): self.jinja_resolve(v)
+                        for k, v in check.check_cfg.source_configurations.get("attributes", {}).items()
+                    }
+
+                    # TODO: re-enable validation once Cloud actually sends schema
+                    # if self._configuration.soda_cloud:
+                    #     # Validate attributes if Cloud is available
+                    #     if check_attributes:
+                    #         from soda.common.attributes_handler import AttributeHandler
+
+                    #         attribute_handler = AttributeHandler(self._logs)
+                    #         attributes_schema = self._configuration.soda_cloud.get_check_attributes_schema()
+
+                    #         check_attributes, invalid_check_attributes = attribute_handler.validate(
+                    #             check_attributes, attributes_schema
+                    #         )
+
+                    #         # Skip (remove) the check if invalid attributes are present.
+                    #         if invalid_check_attributes:
+                    #             self._checks.remove(check)
+
+                    check.attributes = check_attributes
+
+            if invalid_check_attributes:
+                attributes_page_url = f"https://{self._configuration.soda_cloud.host}/organization/attributes"
+                self._logs.info(f"Refer to list of valid attributes and values at {attributes_page_url}.")
+
             # Each data_source is asked to create metric values that are returned as a list of query results
             for data_source_scan in self._data_source_scans:
                 data_source_scan.execute_queries()
@@ -443,7 +477,6 @@ class Scan:
             except Exception as e:
                 self._logs.error(f"""An error occurred while executing data source scan""", exception=e)
 
-            invalid_check_attributes = None
             # Evaluates the checks based on all the metric values
             for check in self._checks:
                 # First get the metric values for this check
@@ -476,32 +509,6 @@ class Scan:
                         f"Metrics '{missing_metrics_str}' were not computed for check '{check.check_cfg.source_line}'"
                     )
 
-                # Validate check attributes as well.
-                if check.check_cfg.source_configurations:
-                    if self._configuration.soda_cloud:
-                        check_attributes = check.check_cfg.source_configurations.get("attributes", {})
-
-                        if check_attributes:
-                            # Resolve variables first
-                            check_attributes = {
-                                self.jinja_resolve(k): self.jinja_resolve(v) for k, v in check_attributes.items()
-                            }
-
-                            # TODO: re-enable validation once Cloud actually sends schema
-                            # attribute_handler = AttributeHandler(self._logs)
-                            # attributes_schema = self._configuration.soda_cloud.get_check_attributes_schema()
-
-                            # check_attributes, invalid_check_attributes = attribute_handler.validate(
-                            #     check_attributes, attributes_schema
-                            # )
-
-                            check.attributes = check_attributes
-            # TODO: re-enable validation once Cloud actually sends schema
-            # if invalid_check_attributes:
-            #     attributes_page_url = f"https://{self._configuration.soda_cloud.host}/organization/attributes"
-            #     self._logs.info(f"Refer to list of valid attributes and values at {attributes_page_url}.")
-            #     # TODO: send result without checks. This means this whole validation needs to move to earlier stage.
-
             self._logs.info("Scan summary:")
             self.__log_queries(having_exception=False)
             self.__log_queries(having_exception=True)
@@ -517,7 +524,7 @@ class Scan:
             checks_not_evaluated = len(self._checks) - checks_pass_count - checks_warn_count - checks_fail_count
 
             if len(self._checks) == 0:
-                self._logs.warning("No checks found, 0 checks evaluated.")
+                self._logs.warning("No valid checks found, 0 checks evaluated.")
             if checks_not_evaluated:
                 self._logs.info(f"{checks_not_evaluated} checks not evaluated.")
             if error_count > 0:
