@@ -17,8 +17,10 @@ from soda.common.exceptions import DataSourceConnectionError
 from soda.common.logs import Logs
 from soda.execution.data_source import DataSource
 from soda.execution.data_type import DataType
+from textwrap import dedent
 
 logger = logging.getLogger(__name__)
+
 
 
 class DremioDataSource(DataSource):
@@ -55,8 +57,8 @@ class DremioDataSource(DataSource):
         DataType.BOOLEAN: "boolean",
     }
 
-    NUMERIC_TYPES_FOR_PROFILING = ["tinyint", "smallint", "integer", "bigint", "decimal", "double", "real"]
-    TEXT_TYPES_FOR_PROFILING = ["char", "varchar"]
+    NUMERIC_TYPES_FOR_PROFILING = ["INT", "BIGINT", "DECIMAL", "DOUBLE", "FLOAT"]
+    TEXT_TYPES_FOR_PROFILING = ["CHAR", "VARCHAR", "CHARACTER VARYING"]
 
     def __init__(self, logs: Logs, data_source_name: str, data_source_properties: dict):
         super().__init__(logs, data_source_name, data_source_properties)
@@ -96,3 +98,20 @@ class DremioDataSource(DataSource):
 
     def sql_information_schema_tables(self) -> str:
         return 'INFORMATION_SCHEMA."TABLES"'
+
+    def profiling_sql_aggregates_numeric(self, table_name: str, column_name: str) -> str:
+        column_name = self.quote_column(column_name)
+
+        qualified_table_name = self.qualified_table_name(table_name)
+        return dedent(
+            f"""
+            SELECT
+                avg({column_name}) as average
+                , sum({column_name}) as "sum"
+                , variance({column_name}) as "variance"
+                , stddev({column_name}) as standard_deviation
+                , count(distinct({column_name})) as distinct_values
+                , sum(case when {column_name} is null then 1 else 0 end) as missing_values
+            FROM {qualified_table_name}
+            """
+        )
