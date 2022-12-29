@@ -1,5 +1,3 @@
-from unittest import TestCase
-
 import pytest
 from helpers.common_test_tables import customers_test_table
 from helpers.data_source_fixture import DataSourceFixture
@@ -40,17 +38,14 @@ def test_check_attributes_valid(data_source_fixture: DataSourceFixture):
     scan.assert_all_checks_pass()
 
     scan_result = scan.build_scan_results()
-    TestCase().assertDictEqual(
-        {
-            "priority": 1,
-            "department": "sales",
-            "sales_owner": "John Doe",
-            "tags": ["user-created"],
-            "arrival_date": "2022-12-12",
-            "arrival_datetime": "2022-12-12T12:00:00",
-        },
-        scan_result["checks"][0]["attributes"],
-    )
+    assert scan_result["checks"][0]["resourceAttributes"] == [
+        {"name": "priority", "value": 1},
+        {"name": "department", "value": "sales"},
+        {"name": "sales_owner", "value": "John Doe"},
+        {"name": "tags", "value": ["user-created"]},
+        {"name": "arrival_date", "value": "2022-12-12"},
+        {"name": "arrival_datetime", "value": "2022-12-12T12:00:00"},
+    ]
 
 
 @pytest.mark.skip(reason="Enable once attribute validation is actually used in scan.")
@@ -77,10 +72,10 @@ def test_check_attributes_invalid(data_source_fixture: DataSourceFixture):
     scan.execute_unchecked()
 
     scan_result = scan.build_scan_results()
-    assert scan_result["checks"][0]["attributes"] == {}
+    assert scan_result["checks"] == []
 
     scan.assert_has_error(
-        "Soda Cloud does not recognize 'tags': '['unknown']' attribute value. Valid attribute values: ['generated', 'user-created']"
+        "Soda Cloud does not recognize 'tags': '['unknown']' attribute value. Valid attribute value(s): ['generated', 'user-created']"
     )
     scan.assert_has_error(
         "Soda Cloud does not recognize 'DoubleQuotedScalarString' type of attribute 'priority'. It expects the following type(s): ['int', 'float']"
@@ -121,12 +116,36 @@ def test_foreach_attributes(data_source_fixture: DataSourceFixture):
     scan.assert_all_checks_pass()
 
     scan_result = scan.build_scan_results()
-    TestCase().assertDictEqual(
-        {
-            "priority": 1,
-            "tags": ["generated"],
-            "department": "sales",
-            "sales_owner": "John Doe",
-        },
-        scan_result["checks"][0]["attributes"],
+    assert scan_result["checks"][0]["resourceAttributes"] == [
+        {"name": "priority", "value": 1},
+        {"name": "tags", "value": ["generated"]},
+        {"name": "department", "value": "sales"},
+        {"name": "sales_owner", "value": "John Doe"},
+    ]
+
+
+@pytest.mark.skip(reason="Enable once attribute validation is actually used in scan.")
+def test_check_attributes_skip_invalid(data_source_fixture: DataSourceFixture):
+    table_name = data_source_fixture.ensure_test_table(customers_test_table)
+
+    scan = data_source_fixture.create_test_scan()
+    scan.enable_mock_soda_cloud()
+    scan.mock_check_attributes_schema(mock_schema)
+    scan.add_variables(mock_variables)
+    scan.add_sodacl_yaml_str(
+        f"""
+      checks for {table_name}:
+        - row_count > 0:
+            name: count
+            attributes:
+                priority: 1
+        - missing_count(id) = 0:
+            attributes:
+                does-not-exist: 1
+    """
     )
+    scan.execute_unchecked()
+
+    scan_result = scan.build_scan_results()
+    assert len(scan_result["checks"]) == 1
+    assert scan_result["checks"][0]["name"] == "count"

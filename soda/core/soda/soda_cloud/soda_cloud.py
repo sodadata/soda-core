@@ -204,7 +204,7 @@ class SodaCloud:
     def is_samples_disabled(self) -> bool:
         return self.organization_configuration.get(self.ORG_CONFIG_KEY_DISABLE_COLLECTING_WH_DATA, True)
 
-    def get_check_attributes_schema(self) -> dict:
+    def get_check_attributes_schema(self) -> list(dict):
         return self.organization_configuration.get(self.ORG_CONFIG_KEY_CHECK_ATTRIBUTES, {})
 
     def _get_historic_changes_over_time(self, hd: HistoricChangeOverTimeDescriptor):

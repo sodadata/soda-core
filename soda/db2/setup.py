@@ -9,7 +9,7 @@ if sys.version_info < (3, 7):
     sys.exit(1)
 
 package_name = "soda-core-db2"
-package_version = "3.0.16"
+package_version = "3.0.17"
 # TODO Add proper description
 description = "Soda Core IBM DB2 Package"
 
