@@ -12,3 +12,5 @@ typing_extensions>=4.3.0
 urllib3
 pygments
 readme-renderer
+certifi>=2022.12.07
+wheel>=0.38.1
