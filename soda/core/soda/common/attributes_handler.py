@@ -109,7 +109,7 @@ class AttributeHandler:
 
     def _log_unrecognized_value(self, key: str, value: any, allowed_values: list[any]) -> None:
         self.logs.error(
-            f"Soda Cloud does not recognize '{key}': '{value}' attribute value. Valid attribute values: {allowed_values}."
+            f"Soda Cloud does not recognize '{key}': '{value}' attribute value. Valid attribute value(s): {allowed_values}."
         )
 
     def _log_unrecognized_type(self, key: str, value: any, type: str, expected_types: list(str)) -> None:

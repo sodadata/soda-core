@@ -11,6 +11,7 @@ from soda.execution.identity import ConsistentHashBuilder
 from soda.execution.metric.metric import Metric
 from soda.sampler.sample_ref import SampleRef
 from soda.soda_cloud.historic_descriptor import HistoricDescriptor
+from soda.soda_cloud.soda_cloud import SodaCloud
 from soda.sodacl.check_cfg import CheckCfg
 from soda.sodacl.distribution_check_cfg import DistributionCheckCfg
 
@@ -22,7 +23,8 @@ class Check(ABC):
         partition: Partition | None = None,
         column: Column | None = None,
         data_source_scan: DataSourceScan | None = None,
-    ) -> Check:
+        soda_cloud: SodaCloud | None = None,
+    ) -> Check | None:
         from soda.sodacl.anomaly_metric_check_cfg import AnomalyMetricCheckCfg
         from soda.sodacl.change_over_time_metric_check_cfg import (
             ChangeOverTimeMetricCheckCfg,
@@ -232,7 +234,8 @@ class Check(ABC):
             "name": self.name,
             "type": self.cloud_check_type,
             "definition": self.create_definition(),
-            "attributes": self._format_attributes(),
+            # TODO: re-enable once Cloud sends attributes schema.
+            # "resourceAttributes": self._format_attributes(),
             "location": self.check_cfg.location.get_cloud_dict(),
             "dataSource": self.data_source_scan.data_source.data_source_name,
             "table": Partition.get_table_name(self.partition),
@@ -261,7 +264,7 @@ class Check(ABC):
             "name": self.name,
             "type": self.cloud_check_type,
             "definition": self.create_definition(),
-            "attributes": self._format_attributes(),
+            "resourceAttributes": self._format_attributes(),
             "location": self.check_cfg.location.get_dict(),
             "dataSource": self.data_source_scan.data_source.data_source_name,
             "table": Partition.get_table_name(self.partition),
@@ -303,7 +306,18 @@ class Check(ABC):
         else:
             return f"[{self.check_cfg.source_line}] {self.outcome}"
 
-    def _format_attributes(self) -> dict[str, any]:
+    def _format_attributes(
+        self,
+    ) -> list[dict[str, any]]:
         attribute_handler = AttributeHandler(self.logs)
 
-        return {k: attribute_handler.format_attribute(v) for k, v in self.attributes.items()}
+        attributes = []
+        for k, v in self.attributes.items():
+            attributes.append(
+                {
+                    "name": k,
+                    "value": attribute_handler.format_attribute(v),
+                }
+            )
+
+        return attributes
