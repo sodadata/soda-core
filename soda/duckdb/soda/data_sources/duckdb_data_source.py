@@ -82,16 +82,16 @@ class DuckDBDataSource(DataSource):
     }
 
     NUMERIC_TYPES_FOR_PROFILING = [
-        "TINYINT",
-        "SMALLINT",
-        "INTEGER",
-        "BIGINT",
-        "DECIMAL",
-        "DECIMAL(18,3)",
-        "DOUBLE",
-        "REAL",
+        "tinyint",
+        "smallint",
+        "integer",
+        "bigint",
+        "decimal",
+        "decimal(18,3)",
+        "double",
+        "real",
     ]
-    TEXT_TYPES_FOR_PROFILING = ["CHAR", "VARCHAR"]
+    TEXT_TYPES_FOR_PROFILING = ["char", "varchar"]
 
     def __init__(self, logs: Logs, data_source_name: str, data_source_properties: dict):
         super().__init__(logs, data_source_name, data_source_properties)
@@ -130,6 +130,11 @@ class DuckDBDataSource(DataSource):
     def column_metadata_columns() -> list:
         return ["column_name", "lower(data_type) as data_type", "is_nullable"]
 
+    @staticmethod
+    def tables_columns_profiling_metadata() -> list:
+        """Columns to be used for retrieving tables and columns metadata."""
+        return ["table_name", "column_name", "lower(data_type) as data_type"]
+        
     def get_metric_sql_aggregation_expression(self, metric_name: str, metric_args: Optional[List[object]], expr: str):
         # https://duckdb.org/docs/sql/aggregates
         if metric_name in [
