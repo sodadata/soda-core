@@ -23,6 +23,7 @@ from soda.sampler.default_sampler import DefaultSampler
 from soda.sampler.sampler import Sampler
 from soda.soda_cloud.historic_descriptor import HistoricDescriptor
 from soda.soda_cloud.soda_cloud import SodaCloud
+from soda.sodacl.check_cfg import CheckCfg
 from soda.sodacl.location import Location
 from soda.sodacl.sodacl_cfg import SodaCLCfg
 from soda.telemetry.soda_telemetry import SodaTelemetry
@@ -58,6 +59,7 @@ class Scan:
         self._data_source_manager = DataSourceManager(self._logs, self._configuration)
         self._data_source_scans: list[DataSourceScan] = []
         self._metrics: set[Metric] = set()
+        self._checks_configs: list[CheckCfg] = []
         self._checks: list[Check] = []
         self._queries: list[Query] = []
         self._profile_columns_result_tables: list[ProfileColumnsResultTable] = []
@@ -311,9 +313,6 @@ class Scan:
     def _parse_sodacl_yaml_str(self, sodacl_yaml_str: str, file_path: str = None):
         from soda.sodacl.sodacl_parser import SodaCLParser
 
-        # First round of template resolve right when loading a sodacl string.
-        sodacl_yaml_str = self.jinja_resolve(sodacl_yaml_str)
-
         sodacl_parser = SodaCLParser(
             sodacl_cfg=self._sodacl_cfg,
             logs=self._logs,
@@ -443,6 +442,38 @@ class Scan:
                                                 column_metrics.column,
                                             )
 
+            # Handle check attributes before proceeding.
+            invalid_check_attributes = None
+            for check in list(self._checks):  # Iterating over a copy in order to remove items while iterating.
+                if check.check_cfg.source_configurations:
+                    check_attributes = {
+                        self.jinja_resolve(k): self.jinja_resolve(v)
+                        for k, v in check.check_cfg.source_configurations.get("attributes", {}).items()
+                    }
+
+                    # TODO: re-enable validation once Cloud actually sends schema
+                    # if self._configuration.soda_cloud:
+                    #     # Validate attributes if Cloud is available
+                    #     if check_attributes:
+                    #         from soda.common.attributes_handler import AttributeHandler
+
+                    #         attribute_handler = AttributeHandler(self._logs)
+                    #         attributes_schema = self._configuration.soda_cloud.get_check_attributes_schema()
+
+                    #         check_attributes, invalid_check_attributes = attribute_handler.validate(
+                    #             check_attributes, attributes_schema
+                    #         )
+
+                    #         # Skip (remove) the check if invalid attributes are present.
+                    #         if invalid_check_attributes:
+                    #             self._checks.remove(check)
+
+                    check.attributes = check_attributes
+
+            if invalid_check_attributes:
+                attributes_page_url = f"https://{self._configuration.soda_cloud.host}/organization/attributes"
+                self._logs.info(f"Refer to list of valid attributes and values at {attributes_page_url}.")
+
             # Each data_source is asked to create metric values that are returned as a list of query results
             for data_source_scan in self._data_source_scans:
                 data_source_scan.execute_queries()
@@ -505,7 +536,7 @@ class Scan:
             checks_not_evaluated = len(self._checks) - checks_pass_count - checks_warn_count - checks_fail_count
 
             if len(self._checks) == 0:
-                self._logs.warning("No checks found, 0 checks evaluated.")
+                self._logs.warning("No valid checks found, 0 checks evaluated.")
             if checks_not_evaluated:
                 self._logs.info(f"{checks_not_evaluated} checks not evaluated.")
             if error_count > 0:
@@ -582,12 +613,6 @@ class Scan:
                 "metrics_count": len(self._metrics),
             }
         )
-        if self._configuration.soda_cloud:
-            for (
-                request_name,
-                trace_id,
-            ) in self._configuration.soda_cloud.soda_cloud_trace_ids.items():
-                soda_telemetry.set_attribute(f"soda_cloud_trace_id__{request_name}", trace_id)
 
         return exit_value
 

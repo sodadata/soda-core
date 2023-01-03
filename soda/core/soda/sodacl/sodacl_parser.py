@@ -42,6 +42,7 @@ WARN = "warn"
 FAIL = "fail"
 NAME = "name"
 IDENTITY = "identity"
+ATTRIBUTES = "attributes"
 FAIL_CONDITION = "fail condition"
 FAIL_QUERY = "fail query"
 SAMPLES_LIMIT = "samples limit"
@@ -135,7 +136,7 @@ class SodaCLParser(Parser):
                         if antlr_section_header.table_checks_header():
                             self.__parse_table_checks_section(
                                 antlr_section_header.table_checks_header(),
-                                header_str,
+                                self._resolve_jinja(header_str, self.sodacl_cfg.scan._variables),
                                 header_content,
                             )
                         elif antlr_section_header.column_configurations_header():
@@ -528,7 +529,7 @@ class SodaCLParser(Parser):
                         configuration_value,
                         missing_and_valid_cfg,
                     )
-                elif configuration_key not in [NAME, IDENTITY, WARN, FAIL, SAMPLES_LIMIT]:
+                elif configuration_key not in [NAME, IDENTITY, WARN, FAIL, SAMPLES_LIMIT, ATTRIBUTES]:
                     if metric_name != "distribution_difference":
                         self.logs.error(
                             f"Skipping unsupported check configuration: {configuration_key}",
@@ -689,6 +690,19 @@ class SodaCLParser(Parser):
 
         if fail_threshold_cfg is None and warn_threshold_cfg is None:
             self.logs.error(f'No threshold specified for check "{check_str}"', location=self.location)
+
+        # Skip a check if more than one argument is used in a metric check that does not support that.
+        # TODO: refactor this method into separate ones for different metric checks for clearer logic and better
+        # organization of extra steps like validation that cannot be done on antlr level.
+        if (
+            metric_check_cfg_class == MetricCheckCfg
+            and metric_args
+            and len(metric_args) > 1
+            and metric_name not in MetricCheckCfg.MULTI_METRIC_CHECK_TYPES
+        ):
+            self.logs.warning(
+                f"Invalid syntax used in '{check_str}'. More than one check attribute is not supported. A check like this will be skipped in future versions of Soda Core"
+            )
 
         return metric_check_cfg_class(
             source_header=header_str,
@@ -1458,7 +1472,7 @@ class SodaCLParser(Parser):
             return self.__antlr_parse_identifier(antlr_header.partition_name().identifier())
 
     def __antlr_parse_identifier(self, antlr_identifier) -> str:
-        return antlr_identifier.getText()
+        return self._resolve_jinja(antlr_identifier.getText(), self.sodacl_cfg.scan._variables)
         # TODO consider resolving escape chars from a quoted strings:
         # identifier = re.sub(r'\\(.)', '\g<1>', unquoted_identifier)
 

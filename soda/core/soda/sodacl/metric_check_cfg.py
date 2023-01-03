@@ -8,6 +8,12 @@ from soda.sodacl.threshold_cfg import ThresholdCfg
 
 
 class MetricCheckCfg(CheckCfg):
+    MULTI_METRIC_CHECK_TYPES = [
+        "duplicate_count",
+        "duplicate_percent",
+        "percentile",
+    ]
+
     def __init__(
         self,
         source_header: str,

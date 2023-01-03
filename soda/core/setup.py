@@ -10,17 +10,17 @@ if sys.version_info < (3, 7):
 
 package_name = "soda-core"
 # Managed by tbump - do not change manually
-package_version = "3.0.14"
+package_version = "3.0.17"
 description = "Soda Core"
 
 # long_description = (pathlib.Path(__file__).parent.parent / "README.md").read_text()
 
 requires = [
-    "markupsafe==2.0.1",
-    "Jinja2~=2.11",  # Downgraded from 3.x until dbt-core 1.3 is released
+    "markupsafe>=2.0.1,<=2.1.1",
+    "Jinja2>=2.11,<4.0",
     "click~=8.0",
-    "ruamel.yaml~=0.17.21",
-    "requests~=2.27.1",
+    "ruamel.yaml>=0.17.0,<0.18.0",
+    "requests~=2.27",
     "antlr4-python3-runtime~=4.11.1",
     "opentelemetry-api~=1.11.0",
     "opentelemetry-exporter-otlp-proto-http~=1.11.0",

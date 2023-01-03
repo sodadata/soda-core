@@ -16,8 +16,14 @@ class DuplicatesQuery(Query):
         self.samples_limit = self.metric.samples_limit
 
         values_filter_clauses = [f"{column_name} IS NOT NULL" for column_name in self.metric.metric_args]
-        if self.partition.sql_partition_filter:
-            values_filter_clauses.append(self.partition.sql_partition_filter)
+        partition_filter = self.partition.sql_partition_filter
+        if partition_filter:
+            scan = self.data_source_scan.scan
+            resolved_partition_filter = scan.jinja_resolve(definition=partition_filter)
+            values_filter_clauses.append(resolved_partition_filter)
+
+        if metric.filter:
+            values_filter_clauses.append(metric.filter)
 
         values_filter = " \n  AND ".join(values_filter_clauses)
 
@@ -26,22 +32,43 @@ class DuplicatesQuery(Query):
         # This does not respect the exclude_columns config because removing any of the excluded columns here would
         # effectively change the definition of the check. Let all columns through and samples will not be collected
         # if excluded columns are present (see "gatekeeper" in Query).
-        data_source = self.data_source_scan.data_source
+        # The only way exclude columns are taken into consideration is for building up the list of columns to be
+        # selected from the frequencies CTE in the main query. If no exclude columns is present, it is safe to use
+        # '*', otherwise use a specific list of columns. This is a workaround for bare-bones complex types support
+        # by avoiding listing complex types which have special characters in the main query as that would require
+        # special handling per warehouse type like quotes.
         table_name = self.partition.table.qualified_table_name
-        self.sql = data_source.sql_get_duplicates_count(column_names, table_name, values_filter)
+        exclude_patterns = self.data_source_scan.data_source.get_exclude_column_patterns_for_table(table_name)
+        data_source = self.data_source_scan.data_source
+        jinja_resolve = self.data_source_scan.scan.jinja_resolve
 
-        self.failed_rows_sql = data_source.sql_get_duplicates(
-            column_names,
-            table_name,
-            values_filter,
-            self.samples_limit,
+        self.sql = jinja_resolve(
+            data_source.sql_get_duplicates_count(
+                column_names,
+                table_name,
+                values_filter,
+                exclude_patterns=exclude_patterns,
+            )
         )
-        self.failed_rows_passing_sql = data_source.sql_get_duplicates(
-            column_names,
-            self.partition.table.qualified_table_name,
-            values_filter,
-            self.samples_limit,
-            invert_condition=True,
+
+        self.failed_rows_sql = jinja_resolve(
+            data_source.sql_get_duplicates(
+                column_names,
+                table_name,
+                values_filter,
+                self.samples_limit,
+                exclude_patterns=exclude_patterns,
+            )
+        )
+        self.failed_rows_passing_sql = jinja_resolve(
+            data_source.sql_get_duplicates(
+                column_names,
+                self.partition.table.qualified_table_name,
+                values_filter,
+                self.samples_limit,
+                invert_condition=True,
+                exclude_patterns=exclude_patterns,
+            )
         )
 
     def execute(self):

@@ -84,6 +84,7 @@ class SnowflakeDataSource(DataSource):
         self.login_timeout = data_source_properties.get("connection_timeout", DEFAULT_SOCKET_CONNECT_TIMEOUT)
         self.role = data_source_properties.get("role")
         self.client_session_keep_alive = data_source_properties.get("client_session_keep_alive")
+        self.client_store_temporary_credential = data_source_properties.get("client_store_temporary_credential", False)
         self.session_parameters = data_source_properties.get("session_params")
 
         self.passcode_in_password = data_source_properties.get("passcode_in_password", False)
@@ -108,6 +109,7 @@ class SnowflakeDataSource(DataSource):
             login_timeout=self.login_timeout,
             role=self.role,
             client_session_keep_alive=self.client_session_keep_alive,
+            client_store_temporary_credential=self.client_store_temporary_credential,
             session_parameters=self.session_parameters,
             passcode_in_password=self.passcode_in_password,
             private_key=self.__get_private_key(),
