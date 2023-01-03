@@ -4,7 +4,9 @@ import logging
 from textwrap import dedent
 
 import dask.dataframe as dd
+import numpy as np
 from dask.dataframe.core import Series
+from dask_sql import Context
 from soda.common.logs import Logs
 from soda.data_sources.dask_connection import DaskConnection
 from soda.execution.data_source import DataSource
@@ -46,11 +48,19 @@ class DaskDataSource(DataSource):
 
     def __init__(self, logs: Logs, data_source_name: str, data_source_properties: dict):
         super().__init__(logs, data_source_name, data_source_properties)
-        self.context = data_source_properties.get("context")
+        self.context: Context = data_source_properties.get("context")
         self.context.register_function(
             self.nullif_custom, "nullif_custom", [("regex_pattern", str)], str, row_udf=False
         )
-        self.context.register_function(self.regexp_like, "regexp_like", [("regex_pattern", str)], str, row_udf=False)
+        self.context.register_function(
+            self.regexp_like,
+            "regexp_like",
+            [("x", np.dtype("object")), ("regex_pattern", np.dtype("object"))],
+            np.dtype("object"),
+            row_udf=False,
+            replace=True,
+        )
+        self.context.register_function(self.length, "length", [("x", np.dtype("object"))], np.int32)
         self.context.register_function(
             self.regexp_replace_custom,
             "regexp_replace_custom",
@@ -61,7 +71,6 @@ class DaskDataSource(DataSource):
 
         self.context.register_aggregation(self.distinct_count(), "distinct_count", [("x", float)], float)
         self.context.register_aggregation(self.distinct_count(), "distinct_count_str", [("x", str)], float)
-        self.context.register_function(self.length, "length", [("x", str)], float)
 
     def connect(self) -> None:
         self.connection = DaskConnection(self.context)

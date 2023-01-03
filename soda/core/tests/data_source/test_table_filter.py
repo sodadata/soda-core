@@ -55,11 +55,13 @@ def test_table_filter_on_timestamp(data_source_fixture: DataSourceFixture):
     table_name = data_source_fixture.ensure_test_table(customers_test_table)
 
     scan = data_source_fixture.create_test_scan()
-    where_cond = (
-        f"""CONVERT(DATETIME, '${{ts_start}}') <= ts AND ts <  CONVERT(DATETIME,'${{ts_end}}')"""
-        if test_data_source == "sqlserver"
-        else f"""TIMESTAMP '${{ts_start}}' <= ts AND ts < TIMESTAMP '${{ts_end}}'"""
-    )
+    if test_data_source == "sqlserver":
+        where_cond = f"""CONVERT(DATETIME, '${{ts_start}}') <= ts AND ts <  CONVERT(DATETIME,'${{ts_end}}')"""
+    elif test_data_source == "dask":
+        where_cond = f"""\"'${{ts_start}}' <= ts AND ts < '${{ts_end}}'\""""
+    else:
+        where_cond = f"""TIMESTAMP '${{ts_start}}' <= ts AND ts < TIMESTAMP '${{ts_end}}'"""
+
     scan.add_variables({"ts_start": "2020-06-23 00:00:00", "ts_end": "2020-06-24 00:00:00"})
     scan.add_sodacl_yaml_str(
         f"""
