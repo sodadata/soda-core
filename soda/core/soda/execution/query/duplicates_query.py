@@ -22,6 +22,9 @@ class DuplicatesQuery(Query):
             resolved_partition_filter = scan.jinja_resolve(definition=partition_filter)
             values_filter_clauses.append(resolved_partition_filter)
 
+        if metric.filter:
+            values_filter_clauses.append(metric.filter)
+
         values_filter = " \n  AND ".join(values_filter_clauses)
 
         column_names = ", ".join(self.metric.metric_args)
