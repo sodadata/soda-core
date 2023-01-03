@@ -26,6 +26,9 @@ if TYPE_CHECKING:
 
 
 class SodaCloud:
+    ORG_CONFIG_KEY_CHECK_ATTRIBUTES = "sodaCoreAvailableCheckAttributes"
+    ORG_CONFIG_KEY_DISABLE_COLLECTING_WH_DATA = "disableCollectingWarehouseData"
+
     def __init__(
         self,
         host: str,
@@ -44,6 +47,20 @@ class SodaCloud:
         self.headers = {"User-Agent": f"SodaCore/{SODA_CORE_VERSION}"}
         self.logs = logs
         self.soda_cloud_trace_ids = {}
+        self._organization_configuration = None
+
+    @property
+    def organization_configuration(self) -> dict:
+        if isinstance(self._organization_configuration, dict):
+            return self._organization_configuration
+
+        response_json_dict = self._execute_query(
+            {"type": "sodaCoreCloudConfiguration"},
+            query_name="get_organization_configuration",
+        )
+        self._organization_configuration = response_json_dict if isinstance(response_json_dict, dict) else {}
+
+        return self._organization_configuration
 
     @staticmethod
     def build_scan_results(scan) -> dict:
@@ -68,7 +85,8 @@ class SodaCloud:
             {
                 "definitionName": scan._scan_definition_name,
                 "defaultDataSource": scan._data_source_name,
-                "dataTimestamp": scan._data_timestamp,  # Can be changed by user, this is shown in Cloud as time of a scan.
+                "dataTimestamp": scan._data_timestamp,
+                # Can be changed by user, this is shown in Cloud as time of a scan.
                 "scanStartTimestamp": scan._scan_start_timestamp,  # Actual time when the scan started.
                 "scanEndTimestamp": scan._scan_end_timestamp,  # Actual time when scan ended.
                 "hasErrors": scan.has_error_logs(),
@@ -96,12 +114,16 @@ class SodaCloud:
         return str(value)
 
     def upload_sample(
-        self, scan: Scan, sample_rows: tuple[tuple], sample_file_name: str, samples_limit: int | None = 100
+        self, scan: Scan, sample_rows: tuple[tuple], sample_file_name: str, samples_limit: int | None
     ) -> str:
         """
         :param sample_file_name: file name without extension
         :return: Soda Cloud file_id
         """
+
+        # Keep the interface of this method backward compatible and allow for samples limit to be None, but do not continue with no limit in such case.
+        if not samples_limit:
+            samples_limit = 100
 
         try:
             scan_definition_name = scan._scan_definition_name
@@ -180,14 +202,10 @@ class SodaCloud:
         return {"measurements": measurements, "check_results": check_results}
 
     def is_samples_disabled(self) -> bool:
-        response_json_dict = self._execute_query(
-            {"type": "sodaCoreCloudConfiguration"},
-            query_name="is_samples_disabled",
-        )
-        is_disabled_bool = (
-            response_json_dict.get("disableCollectingWarehouseData") if isinstance(response_json_dict, dict) else None
-        )
-        return is_disabled_bool if isinstance(is_disabled_bool, bool) else True
+        return self.organization_configuration.get(self.ORG_CONFIG_KEY_DISABLE_COLLECTING_WH_DATA, True)
+
+    def get_check_attributes_schema(self) -> list(dict):
+        return self.organization_configuration.get(self.ORG_CONFIG_KEY_CHECK_ATTRIBUTES, {})
 
     def _get_historic_changes_over_time(self, hd: HistoricChangeOverTimeDescriptor):
         query = {
@@ -295,9 +313,12 @@ class SodaCloud:
         return self._execute_request("command", command, False, command_name)
 
     def _execute_request(self, request_type: str, request_body: dict, is_retry: bool, request_name: str):
+        from soda.scan import verbose
+
         try:
             request_body["token"] = self._get_token()
-            # logger.debug(f"Sending to Soda Cloud {JsonHelper.to_json_pretty(request_body)}")
+            if verbose:
+                logger.debug(f"Sending to Soda Cloud {JsonHelper.to_json_pretty(request_body)}")
             response = self._http_post(
                 url=f"{self.api_url}/{request_type}", headers=self.headers, json=request_body, request_name=request_name
             )
@@ -310,8 +331,6 @@ class SodaCloud:
                 self.logs.error(
                     f"Error while executing Soda Cloud {request_type} response code: {response.status_code}"
                 )
-                from soda.scan import verbose
-
                 if verbose:
                     self.logs.debug(response.text)
             return response_json
