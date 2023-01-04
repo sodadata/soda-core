@@ -54,15 +54,11 @@ class ProfileColumnsRun:
         parsed_profiling_expressions = []
         for profiling_expression in profiling_expressions:
             table_name_pattern, column_name_pattern = profiling_expression.split(".")
-            table_name_operator = "LIKE"
-            column_name_operator = "LIKE"
 
             parsed_profiling_expressions.append(
                 {
                     "table_name_pattern": table_name_pattern,
-                    "table_name_operator": table_name_operator,
                     "column_name_pattern": column_name_pattern,
-                    "column_name_operator": column_name_operator,
                 }
             )
         return parsed_profiling_expressions
