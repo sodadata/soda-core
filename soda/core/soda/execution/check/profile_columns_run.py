@@ -54,13 +54,13 @@ class ProfileColumnsRun:
         parsed_profiling_expressions = []
         for profiling_expression in profiling_expressions:
             table_name_pattern, column_name_pattern = profiling_expression.split(".")
-
             parsed_profiling_expressions.append(
                 {
                     "table_name_pattern": table_name_pattern,
                     "column_name_pattern": column_name_pattern,
                 }
             )
+
         return parsed_profiling_expressions
 
     def run(self) -> ProfileColumnsResult:
