@@ -105,3 +105,25 @@ def test_user_defined_data_source_query_metric_check_with_variable(data_source_f
     avg_surface = scan._checks[0].check_value
     assert isinstance(avg_surface, float)
     assert 1068 < avg_surface < 1069
+
+
+def test_user_defined_data_source_query_metric_check_with_variable(data_source_fixture: DataSourceFixture):
+    table_name = data_source_fixture.ensure_test_table(customers_test_table)
+
+    qualified_table_name = data_source_fixture.data_source.qualified_table_name(table_name)
+
+    scan = data_source_fixture.create_test_scan()
+    scan.add_variables({"dist": "distance"})
+    scan.add_sodacl_yaml_str(
+        f"""
+              checks:
+                - zero = 0:
+                    zero query: |
+                      SELECT 0
+                      FROM {qualified_table_name}
+
+            """
+    )
+    scan.execute()
+
+    scan.assert_all_checks_pass()
