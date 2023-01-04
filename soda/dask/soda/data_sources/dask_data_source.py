@@ -5,6 +5,7 @@ from textwrap import dedent
 
 import dask.dataframe as dd
 import numpy as np
+import pandas as pd
 from dask.dataframe.core import Series
 from dask_sql import Context
 from soda.common.logs import Logs
@@ -25,15 +26,25 @@ class DaskDataSource(DataSource):
 
     SQL_TYPE_FOR_SCHEMA_CHECK_MAP = {
         DataType.TEXT: "varchar",
-        DataType.INTEGER: "int",
-        DataType.DECIMAL: "double",
-        DataType.DATE: "date",
+        DataType.INTEGER: "bigint",
+        DataType.DECIMAL: "float",
+        DataType.DATE: "timestamp",
         DataType.TIME: "timestamp",
         DataType.TIMESTAMP: "timestamp",
-        DataType.TIMESTAMP_TZ: "timestamp_with_local_time_zone",  # No timezone support in Spark
+        DataType.TIMESTAMP_TZ: "timestamp_with_local_time_zone",
         DataType.BOOLEAN: "boolean",
     }
 
+    PANDAS_TYPE_FOR_CREATE_TABLE_MAP = {
+        DataType.TEXT: "O",
+        DataType.INTEGER: pd.Int64Dtype(),
+        DataType.DECIMAL: "f",
+        DataType.DATE: "M",
+        DataType.TIME: "datetime64[ns]",
+        DataType.TIMESTAMP: "datetime64[ns]",
+        DataType.TIMESTAMP_TZ: pd.DatetimeTZDtype(tz="UTC"),
+        DataType.BOOLEAN: "boolean",
+    }
     # Supported data types used in create statements. These are used in tests for creating test data and do not affect the actual library functionality.
     SQL_TYPE_FOR_CREATE_TABLE_MAP: dict = {
         DataType.TEXT: "str",

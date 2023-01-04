@@ -31,11 +31,17 @@ class DaskDataSourceFixture(DataSourceFixture):
         self._drop_schema_if_exists()
 
     def _create_and_insert_test_table(self, test_table: TestTable) -> None:
+        df_test = pd.DataFrame(
+            data=test_table.values,
+            columns=[test_column.name for test_column in test_table.test_columns],
+        )
+        dtype_conversions = self.data_source.PANDAS_TYPE_FOR_CREATE_TABLE_MAP
+        convert_dict = {
+            test_column.name: dtype_conversions[test_column.data_type] for test_column in test_table.test_columns
+        }
+        df_test = df_test.astype(convert_dict)
         dd_test = dd.from_pandas(
-            pd.DataFrame(
-                data=test_table.values,
-                columns=[test_column.name for test_column in test_table.test_columns],
-            ),
+            df_test,
             npartitions=1,
         )
         self.context.create_table(table_name=test_table.unique_table_name, input_table=dd_test)
