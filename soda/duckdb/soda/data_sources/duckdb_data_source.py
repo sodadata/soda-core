@@ -134,7 +134,7 @@ class DuckDBDataSource(DataSource):
     def tables_columns_profiling_metadata() -> list:
         """Columns to be used for retrieving tables and columns metadata."""
         return ["table_name", "column_name", "lower(data_type) as data_type"]
-        
+
     def get_metric_sql_aggregation_expression(self, metric_name: str, metric_args: Optional[List[object]], expr: str):
         # https://duckdb.org/docs/sql/aggregates
         if metric_name in [
