@@ -99,8 +99,9 @@ class ProfileColumnsRun:
         self.logs.info("Profiling columns for the following tables:")
         for table_name in tables_columns_metadata:
             self.logs.info(f"  - {table_name}")
+            row_count = self.data_source.get_table_row_count(table_name)
             profile_columns_result_table = profile_columns_result.create_table(
-                table_name, self.data_source.data_source_name, row_count=None
+                table_name, self.data_source.data_source_name, row_count=row_count
             )
             columns_metadata_result = tables_columns_metadata.get(table_name)
 
