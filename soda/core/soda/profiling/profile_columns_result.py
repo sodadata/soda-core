@@ -84,6 +84,7 @@ class ProfileColumnsResultTable:
         cloud_dict = {
             "table": self.table_name,
             "dataSource": self.data_source,
+            "rowCount": self.row_count,
             "columnProfiles": [result_column.get_cloud_dict() for result_column in self.result_columns],
         }
         return cloud_dict
@@ -92,6 +93,7 @@ class ProfileColumnsResultTable:
         return {
             "table": self.table_name,
             "dataSource": self.data_source,
+            "rowCount": self.row_count,
             "columnProfiles": [result_column.get_dict() for result_column in self.result_columns],
         }
 
