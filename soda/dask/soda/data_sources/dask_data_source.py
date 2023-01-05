@@ -3,7 +3,6 @@ from __future__ import annotations
 import logging
 from textwrap import dedent
 
-import dask.dataframe as dd
 import numpy as np
 import pandas as pd
 from dask.dataframe.core import Series
@@ -39,7 +38,7 @@ class DaskDataSource(DataSource):
         DataType.TEXT: "O",
         DataType.INTEGER: pd.Int64Dtype(),
         DataType.DECIMAL: "f",
-        DataType.DATE: "M",
+        DataType.DATE: "datetime64[ns]",
         DataType.TIME: "datetime64[ns]",
         DataType.TIMESTAMP: "datetime64[ns]",
         DataType.TIMESTAMP_TZ: pd.DatetimeTZDtype(tz="UTC"),
@@ -79,9 +78,6 @@ class DaskDataSource(DataSource):
             str,
             row_udf=False,
         )
-
-        self.context.register_aggregation(self.distinct_count(), "distinct_count", [("x", float)], float)
-        self.context.register_aggregation(self.distinct_count(), "distinct_count_str", [("x", str)], float)
 
     def connect(self) -> None:
         self.connection = DaskConnection(self.context)
@@ -162,34 +158,50 @@ class DaskDataSource(DataSource):
         return super().get_metric_sql_aggregation_expression(metric_name, metric_args, expr)
 
     def profiling_sql_aggregates_numeric(self, table_name: str, column_name: str) -> str:
-        column_name = self.quote_column(column_name)
+        quoted_column_name = self.quote_column(column_name)
         qualified_table_name = self.qualified_table_name(table_name)
 
+        # count distinct raises an error if it runs together with other profiling computations in dask-sql
         return dedent(
             f"""
-            SELECT
-                avg({column_name}) as average
-                , sum({column_name}) as sum
-                , var_pop({column_name}) as variance
-                , stddev({column_name}) as standard_deviation
-                , distinct_count(cast({column_name} as double)) as distinct_values
-                , sum(case when {column_name} is null then 1 else 0 end) as missing_values
-            FROM {qualified_table_name}
+            WITH profile_except_distinct AS (
+                SELECT
+                    avg({quoted_column_name}) as average
+                    , sum({quoted_column_name}) as sum
+                    , var_pop({quoted_column_name}) as variance
+                    , stddev({quoted_column_name}) as standard_deviation
+                    , sum(case when {quoted_column_name} is null then 1 else 0 end) as missing_values
+                FROM {qualified_table_name}
+            ),
+            profile_distinct AS (
+                SELECT
+                    count(distinct({quoted_column_name})) as distinct_values
+                FROM {qualified_table_name}
+            )
+            SELECT * FROM profile_except_distinct JOIN profile_distinct ON 1=1
             """
         )
 
     def profiling_sql_aggregates_text(self, table_name: str, column_name: str) -> str:
-        column_name = self.quote_column(column_name)
+        quoted_column_name = self.quote_column(column_name)
         qualified_table_name = self.qualified_table_name(table_name)
+        # count distinct raises an error if it runs together with other profiling computations in dask-sql
         return dedent(
             f"""
-            SELECT
-                distinct_count_str({column_name}) as distinct_values
-                , sum(case when {column_name} is null then 1 else 0 end) as missing_values
-                , avg(length({column_name})) as avg_length
-                , min(length({column_name})) as min_length
-                , max(length({column_name})) as max_length
-            FROM {qualified_table_name}
+            WITH profile_except_distinct AS (
+                SELECT
+                    sum(case when {quoted_column_name} is null then 1 else 0 end) as missing_values
+                    , avg(length({quoted_column_name})) as avg_length
+                    , min(length({quoted_column_name})) as min_length
+                    , max(length({quoted_column_name})) as max_length
+                FROM {qualified_table_name}
+            ),
+            profile_distinct AS (
+                SELECT
+                    count(distinct({quoted_column_name})) as distinct_values
+                FROM {qualified_table_name}
+            )
+            SELECT * FROM profile_except_distinct JOIN profile_distinct ON 1=1
             """
         )
 
@@ -240,32 +252,6 @@ class DaskDataSource(DataSource):
     ) -> Series:
         selected_column = selected_column.str.replace(regex_pattern, replacement_pattern, regex=True, flags=0)
         return selected_column
-
-    @staticmethod
-    def distinct_count() -> dd.Aggregation:
-        def chunk(s: Series) -> Series:
-            """
-            The function applied to the
-            individual partition (map)
-            """
-            return s.apply(lambda x: list(set(x)))
-
-        def agg(s: Series) -> Series:
-            """
-            The function whic will aggrgate
-            the result from all the partitions(reduce)
-            """
-            s = s._selected_obj
-            return s.groupby(level=list(range(s.index.nlevels))).sum()
-
-        def finalize(s: Series) -> Series:
-            """
-            The optional functional that will be
-            applied to the result of the agg_tu functions
-            """
-            return s.apply(lambda x: len(set(x)))
-
-        return dd.Aggregation("distinct_count", chunk, agg, finalize)
 
     @staticmethod
     def length(x: str) -> int:

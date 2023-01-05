@@ -12,7 +12,7 @@ package_name = "soda-core-dask"
 package_version = "3.0.17"
 description = "Soda Core Dask Package"
 
-requires = [f"soda-core=={package_version}", "dask>=2022.10.0", "dask-sql>=2022.10.1"]
+requires = [f"soda-core=={package_version}", "dask>=2022.10.0", "dask-sql>=2022.12.0"]
 
 setup(
     name=package_name,
