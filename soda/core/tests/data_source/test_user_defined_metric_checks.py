@@ -121,6 +121,7 @@ def test_user_defined_data_source_query_metric_check_with_variable(data_source_f
                     zero query: |
                       SELECT 0
                       FROM {qualified_table_name}
+                      LIMIT 1
 
             """
     )
