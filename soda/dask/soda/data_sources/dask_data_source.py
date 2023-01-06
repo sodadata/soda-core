@@ -56,6 +56,21 @@ class DaskDataSource(DataSource):
         DataType.BOOLEAN: "bool",
     }
 
+    # Indicate which numeric/test data types can be used for profiling checks.
+    NUMERIC_TYPES_FOR_PROFILING = [
+        "integer",
+        "float" "double precision",
+        "double",
+        "smallint",
+        "bigint",
+        "decimal",
+        "numeric",
+        "real",
+        "smallserial",
+        "serial",
+        "bigserial",
+    ]
+
     def __init__(self, logs: Logs, data_source_name: str, data_source_properties: dict):
         super().__init__(logs, data_source_name, data_source_properties)
         self.context: Context = data_source_properties.get("context")
@@ -96,7 +111,31 @@ class DaskDataSource(DataSource):
     def sql_get_table_columns(
         self, table_name: str, included_columns: list[str] | None = None, excluded_columns: list[str] | None = None
     ) -> str:
-        return f"SHOW COLUMNS FROM {table_name}"
+        # First register `show columns` in a dask table and then apply query on that table
+        # to find the intended tables
+        show_tables_temp_query = f"show columns from {table_name}"
+        dd_show_columns = self.context.sql(show_tables_temp_query).compute()
+
+        # Due to a bug in dask-sql we cannot use uppercases in column names
+        dd_show_columns.columns = ["column", "type", "extra", "comment"]
+
+        self.context.create_table("showcolumns", dd_show_columns)
+
+        included_columns_filter = []
+        excluded_columns_filter = []
+        if included_columns:
+            for col in included_columns:
+                included_columns_filter.append(f"\n lower(column) like lower('{col}')")
+
+        if excluded_columns:
+            for col in excluded_columns:
+                excluded_columns_filter.append(f"\n lower(column) not like lower('{col}')")
+        sql = (
+            f"select column, type from showcolumns where \n"
+            f"{' and'.join(included_columns_filter)}"
+            f"{' and'.join(excluded_columns_filter)}"
+        )
+        return sql
 
     def sql_find_table_names(
         self,
