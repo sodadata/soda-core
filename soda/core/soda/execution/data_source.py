@@ -478,7 +478,7 @@ class DataSource:
             table_name_filter = f"{self.default_casify_sql_function()}(table_name) LIKE {self.default_casify_sql_function()}('{table_name_pattern}')"
             
             column_name_pattern = patterns.get("column_name_pattern")
-            if column_name_pattern is None or table_names_only: 
+            if (column_name_pattern is None) or table_names_only: 
                 column_name_pattern = ""
             else:
                 column_name_filter = f" AND {self.default_casify_sql_function()}(column_name) LIKE {self.default_casify_sql_function()}('{column_name_pattern}')"
