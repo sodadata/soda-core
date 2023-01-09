@@ -1,9 +1,9 @@
 import pytest
 from helpers.common_test_tables import (
+    customers_dist_check_test_table,
     customers_test_table,
     orders_test_table,
     raw_customers_test_table,
-    special_table,
 )
 from helpers.data_source_fixture import DataSourceFixture
 from helpers.fixtures import test_data_source
@@ -13,7 +13,7 @@ def test_for_each_dataset(data_source_fixture: DataSourceFixture):
     customers_table_name = data_source_fixture.ensure_test_table(customers_test_table)
     rawcustomers_table_name = data_source_fixture.ensure_test_table(raw_customers_test_table)
     _ = data_source_fixture.ensure_test_table(orders_test_table)
-    _ = data_source_fixture.ensure_test_table(special_table)  # to test that it is not included
+    _ = data_source_fixture.ensure_test_table(customers_dist_check_test_table)  # to test that it is not included
 
     scan = data_source_fixture.create_test_scan()
     scan.add_sodacl_yaml_str(
