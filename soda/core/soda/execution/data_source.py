@@ -398,34 +398,6 @@ class DataSource:
 
         return False
 
-    ############################################
-    # For a table, get the columns metadata
-    ############################################
-
-    def get_table_columns(
-        self,
-        table_name: str,
-        query_name: str,
-        included_columns: list[str] | None = None,
-        excluded_columns: list[str] | None = None,
-    ) -> dict[str, str] | None:
-        """
-        :return: A dict mapping column names to data source data types.  Like eg
-        {"id": "varchar", "cst_size": "int8", ...}
-        """
-        # TODO: save/cache the result for later use.
-        query = Query(
-            data_source_scan=self.data_source_scan,
-            unqualified_query_name=query_name,
-            sql=self.sql_get_table_columns(
-                table_name, included_columns=included_columns, excluded_columns=excluded_columns
-            ),
-        )
-        query.execute()
-        if query.rows and len(query.rows) > 0:
-            return {row[0]: row[1] for row in query.rows}
-        return None
-
     @staticmethod
     def parse_tables_columns_query(rows: list[tuple]) -> defaultdict(dict):
         tables_and_columns_metadata = defaultdict(dict)
@@ -956,25 +928,6 @@ class DataSource:
         if query.rows:
             return query.rows[0][0]
         return None
-
-    def get_table_names(
-        self,
-        filter: str | None = None,
-        include_tables: list[str] = [],
-        exclude_tables: list[str] = [],
-        query_name: str | None = None,
-    ) -> list[str]:
-        if not include_tables and not exclude_tables:
-            return []
-        sql = self.sql_find_table_names(filter, include_tables, exclude_tables)
-        query = Query(
-            data_source_scan=self.data_source_scan,
-            unqualified_query_name=query_name or "get_table_names",
-            sql=sql,
-        )
-        query.execute()
-        table_names = [self._optionally_quote_table_name_from_meta_data(row[0]) for row in query.rows]
-        return table_names
 
     def _optionally_quote_table_name_from_meta_data(self, table_name: str) -> str:
         """

@@ -179,40 +179,6 @@ class SparkSQLBase(DataSource):
     def __init__(self, logs: Logs, data_source_name: str, data_source_properties: dict):
         super().__init__(logs, data_source_name, data_source_properties)
 
-    def get_table_columns(
-        self,
-        table_name: str,
-        query_name: str,
-        included_columns: list[str] | None = None,
-        excluded_columns: list[str] | None = None,
-    ) -> dict[str, str] | None:
-        """
-        :return: A dict mapping column names to data source data types.  Like eg
-        {"id": "varchar", "cst_size": "int8", ...}
-        """
-        columns = {}
-        query = Query(
-            data_source_scan=self.data_source_scan,
-            unqualified_query_name=query_name,
-            sql=self.sql_get_table_columns(
-                table_name, included_columns=included_columns, excluded_columns=excluded_columns
-            ),
-        )
-        query.execute()
-        if len(query.rows) > 0:
-            rows = query.rows
-            # Remove the partitioning information (see https://spark.apache.org/docs/latest/sql-ref-syntax-aux-describe-table.html)
-            partition_indices = [i for i in range(len(rows)) if rows[i][0].startswith("# Partition")]
-            if partition_indices:
-                rows = rows[: partition_indices[0]]
-            columns = {row[0]: row[1] for row in rows}
-
-            if included_columns or excluded_columns:
-                column_names = list(columns.keys())
-                filtered_column_names = self._filter_include_exclude(column_names, included_columns, excluded_columns)
-                columns = {col_name: dtype for col_name, dtype in columns.items() if col_name in filtered_column_names}
-        return columns
-
     def sql_get_table_columns(
         self,
         table_name: str,
@@ -247,26 +213,6 @@ class SparkSQLBase(DataSource):
         self, include_tables: list[str] | None = None, exclude_tables: list[str] | None = None
     ) -> str:
         return ""
-
-    def get_table_names(
-        self,
-        filter: str | None = None,
-        include_tables: list[str] = [],
-        exclude_tables: list[str] = [],
-        query_name: str | None = None,
-    ) -> list[str]:
-        if not include_tables and not exclude_tables:
-            return []
-        sql = self.sql_find_table_names(filter, include_tables, exclude_tables)
-        query = Query(
-            data_source_scan=self.data_source_scan,
-            unqualified_query_name=query_name or "get_table_names",
-            sql=sql,
-        )
-        query.execute()
-        table_names = [row[1] for row in query.rows]
-        table_names = self._filter_include_exclude(table_names, include_tables, exclude_tables)
-        return table_names
 
     @staticmethod
     def pattern_matches_profiling(spark_object_name: str, spark_object_name_pattern: str | None) -> bool:
@@ -335,6 +281,11 @@ class SparkSQLBase(DataSource):
             )
             query.execute()
             columns_metadata = query.rows
+
+            partition_indices = [i for i in range(len(columns_metadata)) if columns_metadata[i][0].startswith("# Partition")]
+            if partition_indices:
+                columns_metadata = columns_metadata[: partition_indices[0]]
+
             if columns_metadata and len(columns_metadata) > 0:
                 for column_name, column_datatype, _ in columns_metadata:
                     column_name_included = self.column_table_pattern_match_profiling(
