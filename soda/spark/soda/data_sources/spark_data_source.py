@@ -269,13 +269,16 @@ class SparkSQLBase(DataSource):
         return table_names
 
     @staticmethod
-    def pattern_matches_profiling(spark_object_name: str, spark_object_name_pattern: str) -> bool:
-        pattern_regex = spark_object_name_pattern.replace("%", ".*").lower()
-        is_match = re.fullmatch(pattern_regex, spark_object_name.lower())
-        return bool(is_match)
+    def pattern_matches_profiling(spark_object_name: str, spark_object_name_pattern: str | None) -> bool:
+        if spark_object_name_pattern is None: 
+            return True 
+        else:
+            pattern_regex = spark_object_name_pattern.replace("%", ".*").lower()
+            is_match = re.fullmatch(pattern_regex, spark_object_name.lower())
+            return bool(is_match)
 
     def get_included_table_names_profiling(
-        self, query_name: str, include_patterns: list[dict[str, str]], exclude_patterns: list[dict[str, str]]
+        self, query_name: str, include_patterns: list[dict[str, str]], exclude_patterns: list[dict[str, str]], table_names_only: bool = False
     ) -> list[str]:
         query = Query(
             data_source_scan=self.data_source_scan,
@@ -284,7 +287,7 @@ class SparkSQLBase(DataSource):
         )
         query.execute()
         table_names = [row[1] for row in query.rows]
-
+            
         included_table_names = [
             table_name
             for table_name in table_names
@@ -294,7 +297,7 @@ class SparkSQLBase(DataSource):
             )
             and not any(
                 self.pattern_matches_profiling(table_name, exclude_pattern["table_name_pattern"])
-                and exclude_pattern["column_name_pattern"] == "%"
+                and (exclude_pattern.get("column_name_pattern") == "%" or table_names_only)
                 for exclude_pattern in exclude_patterns
             )
         ]
@@ -307,24 +310,27 @@ class SparkSQLBase(DataSource):
         column_table_name_pattern_match = any(
             (
                 self.pattern_matches_profiling(table_name, pattern["table_name_pattern"])
-                and self.pattern_matches_profiling(column_name, pattern["column_name_pattern"])
+                and self.pattern_matches_profiling(column_name, pattern.get("column_name_pattern"))
             )
             for pattern in profiling_patterns
         )
         return column_table_name_pattern_match
 
-    def get_tables_columns_profiling(
+    def get_tables_columns_metadata(
         self,
         query_name: str,
-        include_patterns: list[dict[str, str]] | None = None,
-        exclude_patterns: list[dict[str, str]] | None = None,
+        include_patterns: list[dict[str, str]] | list[str] | None = None,
+        exclude_patterns: list[dict[str, str]] | list[str] | None = None,
+        table_names_only: bool = False 
     ) -> dict[str, str] | None:
-        included_table_names = self.get_included_table_names_profiling(query_name, include_patterns, exclude_patterns)
+        included_table_names: list[str] = self.get_included_table_names_profiling(query_name, include_patterns, exclude_patterns, table_names_only=table_names_only)
+        if table_names_only:
+            return included_table_names
         tables_and_columns_metadata = defaultdict(dict)
         for table_name in included_table_names:
             query = Query(
                 data_source_scan=self.data_source_scan,
-                unqualified_query_name=f"profile-columns-describe-table-{table_name}-spark",
+                unqualified_query_name=f"get-tables-columns-metadata-describe-table-{table_name}-spark",
                 sql=f"DESCRIBE TABLE {table_name}",
             )
             query.execute()

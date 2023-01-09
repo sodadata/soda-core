@@ -115,12 +115,12 @@ class AutomatedMonitoringRun:
             schema_checks.append(schema_check)
         return schema_checks
 
-    def _get_table_names(self) -> Dict[str, Dict[str, str]]:
+    def _get_table_names(self) -> List[str]:
         """
         Returns a dict that maps table names to a dict that maps column names to column types.
         {table_name -> {column_name -> column_type}}
         """
-        include_tables = self.data_source_check_cfg.include_tables
-        exclude_tables = self.data_source_check_cfg.exclude_tables
-        table_names = self.data_source.get_table_names(include_tables=include_tables, exclude_tables=exclude_tables)
+        include_tables = [{"table_name_pattern": include_table} for include_table in self.data_source_check_cfg.include_tables]
+        exclude_tables = [{"table_name_pattern": exclude_table} for exclude_table in self.data_source_check_cfg.exclude_tables]
+        table_names: list[str] = self.data_source.get_tables_columns_metadata(include_patterns=include_tables, exclude_patterns=exclude_tables, table_names_only=True, query_name="get_tables_column_metadata")
         return table_names

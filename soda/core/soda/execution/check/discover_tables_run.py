@@ -1,5 +1,5 @@
 from __future__ import annotations
-
+from collections import defaultdict
 from typing import TYPE_CHECKING
 
 from soda.profiling.discover_tables_result import DiscoverTablesResult
@@ -22,14 +22,16 @@ class DiscoverTablesRun:
         discover_tables_result: DiscoverTablesResult = DiscoverTablesResult(self.data_source_check_cfg)
         self.logs.info(f"Running discover datasets for data source: {self.data_source.data_source_name}")
 
+        include_patterns = [{"table_name_pattern": include_table} for include_table in self.data_source_check_cfg.include_tables]
+        exclude_patterns = [{"table_name_pattern": exclude_table} for exclude_table in self.data_source_check_cfg.exclude_tables]
         # row_counts is a dict that maps table names to row counts.
-        table_names: dict[str, int] = self.data_source.get_table_names(
-            include_tables=self.data_source_check_cfg.include_tables,
-            exclude_tables=self.data_source_check_cfg.exclude_tables,
-            query_name="discover-tables-find-tables-and-row-counts",
+        tables_columns_metadata: defaultdict[str, dict[str, str]] = self.data_source.get_tables_columns_metadata(
+            include_patterns=include_patterns,
+            exclude_patterns=exclude_patterns,
+            query_name="discover-tables-find-tables-and-row-counts"
         )
 
-        if len(table_names) < 1:
+        if tables_columns_metadata is None:
             self.logs.warning(
                 f"No table matching your SodaCL inclusion list found on your {self.data_source.data_source_name} "
                 "data source. Table discovery results may be incomplete or entirely skipped",
@@ -38,18 +40,13 @@ class DiscoverTablesRun:
             return discover_tables_result
 
         self.logs.info(f"Discovering the following tables:")
-        for table_name in table_names:
+        for table_name in tables_columns_metadata:
             self.logs.info(f"  - {table_name}")
-            measured_row_count = self.data_source.get_table_row_count(table_name)
             discover_tables_result_table = discover_tables_result.create_table(
                 table_name, self.data_source.data_source_name
             )
             # get columns & metadata for current table
-            columns_metadata_result = self.data_source.get_table_columns(
-                table_name=table_name,
-                query_name=f"discover-tables-column-metadata-for-{table_name}",
-            )
-
+            columns_metadata_result = tables_columns_metadata.get(table_name)
             for column_name, column_type in columns_metadata_result.items():
                 _ = discover_tables_result_table.create_column(column_name, column_type)
 

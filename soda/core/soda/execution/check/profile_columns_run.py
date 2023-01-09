@@ -69,7 +69,7 @@ class ProfileColumnsRun:
         exclude_patterns = self.parse_profiling_expressions(self.profile_columns_cfg.exclude_columns)
 
         tables_columns_metadata: defaultdict[
-            str, dict
+            str, dict[str, str]
         ] = self.data_source.get_tables_columns_metadata(
             include_patterns=include_patterns,
             exclude_patterns=exclude_patterns,
