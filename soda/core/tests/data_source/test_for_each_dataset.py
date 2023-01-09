@@ -1,5 +1,10 @@
 import pytest
-from helpers.common_test_tables import customers_test_table, raw_customers_test_table
+from helpers.common_test_tables import (
+    customers_test_table,
+    orders_test_table,
+    raw_customers_test_table,
+    special_table,
+)
 from helpers.data_source_fixture import DataSourceFixture
 from helpers.fixtures import test_data_source
 
@@ -7,6 +12,8 @@ from helpers.fixtures import test_data_source
 def test_for_each_dataset(data_source_fixture: DataSourceFixture):
     customers_table_name = data_source_fixture.ensure_test_table(customers_test_table)
     rawcustomers_table_name = data_source_fixture.ensure_test_table(raw_customers_test_table)
+    _ = data_source_fixture.ensure_test_table(orders_test_table)
+    _ = data_source_fixture.ensure_test_table(special_table)  # to test that it is not included
 
     scan = data_source_fixture.create_test_scan()
     scan.add_sodacl_yaml_str(
@@ -14,6 +21,7 @@ def test_for_each_dataset(data_source_fixture: DataSourceFixture):
           for each dataset D:
             datasets:
               - {customers_table_name}
+              - include %rder%  # to get orders_test_table
               - include {rawcustomers_table_name}%
               - include {data_source_fixture.data_source.data_source_name}.{rawcustomers_table_name}%
               - exclude non_existing_dataset
@@ -25,7 +33,7 @@ def test_for_each_dataset(data_source_fixture: DataSourceFixture):
     scan.execute()
 
     scan.assert_all_checks_pass()
-    assert len(scan._checks) == 4
+    assert len(scan._checks) == 6
 
 
 @pytest.mark.skipif(
