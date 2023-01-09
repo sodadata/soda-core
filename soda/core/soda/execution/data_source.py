@@ -425,59 +425,85 @@ class DataSource:
             return {row[0]: row[1] for row in query.rows}
         return None
 
-    def get_tables_columns_profiling(
+    @staticmethod
+    def parse_tables_columns_query(rows: list[tuple]) -> defaultdict(dict):
+        tables_and_columns_metadata = defaultdict(dict)
+        for table_name, column_name, data_type in rows:
+            tables_and_columns_metadata[table_name][column_name] = data_type
+        return tables_and_columns_metadata
+
+    @staticmethod
+    def parse_tables_query(rows: list[tuple]) -> list[str]:
+        table_names = []
+        for row in rows: 
+            table_names.append(row[0])
+        return table_names 
+
+    def get_tables_columns_metadata(
         self,
         query_name: str,
         include_patterns: list[dict[str, str]] | None = None,
         exclude_patterns: list[dict[str, str]] | None = None,
-    ) -> defaultdict[str, dict[str, str]] | None:
+        table_names_only: bool = False,
+    ) -> defaultdict[str, dict[str, str]] | list[str] | None:
         # TODO: save/cache the result for later use.
         query = Query(
             data_source_scan=self.data_source_scan,
             unqualified_query_name=query_name,
-            sql=self.sql_get_tables_columns_profiling(
-                include_patterns=include_patterns, exclude_patterns=exclude_patterns
+            sql=self.sql_get_tables_columns_metadata(
+                include_patterns=include_patterns, 
+                exclude_patterns=exclude_patterns,
+                table_names_only=table_names_only
             ),
         )
         query.execute()
-        tables_and_columns_metadata = defaultdict(dict)
-        if query.rows and len(query.rows) > 0:
-            for table_name, column_name, data_type in query.rows:
-                tables_and_columns_metadata[table_name][column_name] = data_type
-            return tables_and_columns_metadata
+
+        rows = query.rows
+        if rows and len(rows) > 0:
+            if table_names_only:
+                query_result: list = self.parse_tables_query(rows)
+            else: 
+                query_result: defaultdict(dict) = self.parse_tables_columns_query(rows)
+            return query_result 
         return None
 
-    def create_profiling_sql_filter(self, profiling_patterns: list[dict[str, str]]) -> list[str]:
-        casify_function = self.default_casify_sql_function()
+    def create_table_column_name_sql_filters(self, sql_patterns: list[dict[str, str]], table_names_only: bool = False) -> list[str]:
         sql_filters = []
-        for profiling_pattern in profiling_patterns:
 
-            table_name_pattern = profiling_pattern["table_name_pattern"]
-            column_name_pattern = profiling_pattern["column_name_pattern"]
+        for patterns in sql_patterns:
 
-            sql_filter = (
-                f"({casify_function}(table_name) LIKE {casify_function}('{table_name_pattern}')"
-                f" AND {casify_function}(column_name) LIKE {casify_function}('{column_name_pattern}'))"
-            )
+            table_name_pattern = patterns.get("table_name_pattern")
+            if table_name_pattern is None: 
+                table_name_pattern = "%"
+            table_name_filter = f"{self.default_casify_sql_function()}(table_name) LIKE {self.default_casify_sql_function()}('{table_name_pattern}')"
+            
+            column_name_pattern = patterns.get("column_name_pattern")
+            if column_name_pattern is None or table_names_only: 
+                column_name_pattern = ""
+            else:
+                column_name_filter = f" AND {self.default_casify_sql_function()}(column_name) LIKE {self.default_casify_sql_function()}('{column_name_pattern}')"
+
+            sql_filter = f"({table_name_filter}{column_name_filter})"
 
             sql_filters.append(sql_filter)
 
         return sql_filters
 
-    def sql_get_tables_columns_profiling(
+    def sql_get_tables_columns_metadata(
         self,
         include_patterns: list[dict[str, str]] | None = None,
         exclude_patterns: list[dict[str, str]] | None = None,
+        table_names_only: bool = False
     ) -> str:
         filter_clauses = []
 
-        include_sql_filter_clauses = self.create_profiling_sql_filter(include_patterns)
+        include_sql_filter_clauses = self.create_table_column_name_sql_filters(include_patterns, table_names_only=table_names_only)
         include_filter = " OR ".join(include_sql_filter_clauses)
         if include_filter:
             filter_clauses.append(f"({include_filter})")
 
         exclude_sql_filter_clauses = [
-            f"NOT {sql_filter_clause}" for sql_filter_clause in self.create_profiling_sql_filter(exclude_patterns)
+            f"NOT {sql_filter_clause}" for sql_filter_clause in self.create_table_column_name_sql_filters(exclude_patterns, table_names_only=table_names_only)
         ]
         exclude_filter = " AND ".join(exclude_sql_filter_clauses)
         if exclude_filter:
@@ -500,9 +526,17 @@ class DataSource:
         # (see https://www.postgresql.org/docs/current/infoschema-columns.html)
         # this mainly has an advantage in testing but bears very little as to how Soda Cloud
         # displays those columns as they are ordered alphabetically in the UI.
+
+        if table_names_only:
+            metadata_columns = "table_name"
+            information_schema_table = self.sql_information_schema_tables()
+        else:
+            metadata_columns = ', '.join(self.tables_columns_profiling_metadata())
+            information_schema_table = self.sql_information_schema_columns()
+
         sql = (
-            f"SELECT {', '.join(self.tables_columns_profiling_metadata())} \n"
-            f"FROM {self.sql_information_schema_columns()} \n"
+            f"SELECT {metadata_columns} \n"
+            f"FROM {information_schema_table} \n"
             f"WHERE {where_filter}"
             f"\nORDER BY {self.get_ordinal_position_name()}"
         )
