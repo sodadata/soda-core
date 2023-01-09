@@ -205,7 +205,15 @@ class SodaCloud:
         return self.organization_configuration.get(self.ORG_CONFIG_KEY_DISABLE_COLLECTING_WH_DATA, True)
 
     def get_check_attributes_schema(self) -> list(dict):
-        return self.organization_configuration.get(self.ORG_CONFIG_KEY_CHECK_ATTRIBUTES, {})
+        response_json_dict = self._execute_query(
+            {"type": "sodaCoreAvailableCheckAttributes"},
+            query_name="get_check_attributes",
+        )
+
+        if response_json_dict and "results" in response_json_dict:
+            return response_json_dict["results"]
+
+        return []
 
     def _get_historic_changes_over_time(self, hd: HistoricChangeOverTimeDescriptor):
         query = {
