@@ -80,7 +80,7 @@ class ProfileColumnsRun:
 
         tables_columns_metadata: defaultdict[
             str, dict
-        ] = self.data_source.get_tables_columns_profiling(
+        ] = self.data_source.get_tables_columns_metadata(
             include_patterns=include_patterns,
             exclude_patterns=exclude_patterns,
             query_name=f"profile-columns-get-table-and-column-metadata",

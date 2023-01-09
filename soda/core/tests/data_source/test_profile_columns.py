@@ -168,7 +168,7 @@ def test_profile_columns_all_tables_all_columns(data_source_fixture: DataSourceF
 
     profile_columns_run = ProfileColumnsRun(data_source_scan, profiling_cfg)
 
-    tables_columns_metadata: defaultdict[str, dict[str, str]] = data_source.get_tables_columns_profiling(
+    tables_columns_metadata: defaultdict[str, dict[str, str]] = data_source.get_tables_columns_metadata(
         include_patterns=profile_columns_run.parse_profiling_expressions(include_columns),
         exclude_patterns=profile_columns_run.parse_profiling_expressions(exclude_columns),
         query_name="profile-columns-get-table-and-column-metadata",
