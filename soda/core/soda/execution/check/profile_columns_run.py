@@ -76,8 +76,9 @@ class ProfileColumnsRun:
         self.logs.info("Profiling columns for the following tables:")
         for table_name in table_names:
             self.logs.info(f"  - {table_name}")
+            row_count = self.data_source.get_table_row_count(table_name)
             profile_columns_result_table = profile_columns_result.create_table(
-                table_name, self.data_source.data_source_name, row_count=None
+                table_name, self.data_source.data_source_name, row_count=row_count
             )
             included_columns, excluded_columns = self.build_column_inclusion_exclusion_lists(
                 table_name, parsed_included_tables_and_columns, parsed_excluded_tables_and_columns
