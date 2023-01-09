@@ -92,6 +92,17 @@ class DremioDataSource(DataSource):
     def regex_replace_flags(self) -> str:
         return ""
 
+    def default_casify_table_name(self, table_name):
+        return table_name.lower()
+
+    def qualified_table_name(self, table_name: str) -> str:
+        """
+        table_name can be quoted or unquoted
+        """
+        if self.table_prefix:
+            return f'"{self.table_prefix}".{table_name}'
+        return table_name
+
     def safe_connection_data(self):
         return [self.type, self.host, self.port, self.schema]
 
