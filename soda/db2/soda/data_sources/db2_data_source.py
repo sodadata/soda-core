@@ -93,6 +93,25 @@ class Db2DataSource(DataSource):
     def column_metadata_columns() -> list:
         return ["COLNAME", "TYPENAME", "NULLS"]
 
+    @staticmethod
+    def column_metadata_table_name() -> str:
+        return "TABNAME"
+
+    @staticmethod
+    def column_metadata_schema_name() -> str:
+        return "TABSCHEMA"
+
+    @staticmethod
+    def column_metadata_column_name() -> str:
+        return "COLNAME"
+
+    @staticmethod
+    def column_metadata_datatype_name() -> str:
+        return "TYPENAME"
+
+    def get_ordinal_position_name(self) -> str:
+        return "COLNO"
+
     def sql_get_table_columns(
         self,
         table_name: str,

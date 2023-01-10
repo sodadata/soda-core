@@ -86,6 +86,22 @@ class OracleDataSource(DataSource):
         """Columns to be used for retrieving column metadata."""
         return ["COLUMN_NAME", "DATA_TYPE", "NULLABLE"]
 
+    @staticmethod
+    def column_metadata_table_name() -> str:
+        return "TABLE_NAME"
+
+    @staticmethod
+    def column_metadata_schema_name() -> str:
+        return "OWNER"
+
+    @staticmethod
+    def column_metadata_column_name() -> str:
+        return "COLUMN_NAME"
+
+    @staticmethod
+    def column_metadata_datatype_name() -> str:
+        return "DATA_TYPE"
+
     def validate_configuration(self, logs: Logs) -> None:
         pass
 
