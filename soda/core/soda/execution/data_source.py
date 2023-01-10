@@ -480,12 +480,12 @@ class DataSource:
     ) -> str:
         filter_clauses = []
 
-        if include_patterns and len(include_patterns) > 1:
+        if include_patterns and len(include_patterns) > 0:
             include_sql_filter_clauses = self.create_table_column_sql_filters(include_patterns, table_names_only=table_names_only)
             include_filter = " OR ".join(include_sql_filter_clauses)
             filter_clauses.append(f"({include_filter})")
 
-        if exclude_patterns and len(exclude_patterns) > 1:
+        if exclude_patterns and len(exclude_patterns) > 0:
             exclude_sql_filter_clauses = [
                 f"NOT {sql_filter_clause}" for sql_filter_clause in self.create_table_column_sql_filters(exclude_patterns, table_names_only=table_names_only)
             ]
