@@ -422,8 +422,8 @@ class DataSource:
     def get_tables_columns_metadata(
         self,
         query_name: str,
-        include_patterns: list[dict[str, str]] | list[str] | None = None,
-        exclude_patterns: list[dict[str, str]] | list[str] | None = None,
+        include_patterns: list[dict[str, str]] | None = None,
+        exclude_patterns: list[dict[str, str]] | None = None,
         table_names_only: bool = False,
     ) -> defaultdict[str, dict[str, str]] | list[str] | None:
         # TODO: save/cache the result for later use.

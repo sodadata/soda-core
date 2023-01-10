@@ -318,8 +318,8 @@ class SparkSQLBase(DataSource):
     def get_tables_columns_metadata(
         self,
         query_name: str,
-        include_patterns: list[dict[str, str]] | list[str] | None = None,
-        exclude_patterns: list[dict[str, str]] | list[str] | None = None,
+        include_patterns: list[dict[str, str]] | None = None,
+        exclude_patterns: list[dict[str, str]] | None = None,
         table_names_only: bool = False 
     ) -> dict[str, str] | None:
         included_table_names: list[str] = self.get_included_table_names(query_name, include_patterns, exclude_patterns, table_names_only=table_names_only)
