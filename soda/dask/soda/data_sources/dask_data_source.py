@@ -59,7 +59,8 @@ class DaskDataSource(DataSource):
     # Indicate which numeric/test data types can be used for profiling checks.
     NUMERIC_TYPES_FOR_PROFILING = [
         "integer",
-        "float" "double precision",
+        "float",
+        "double precision",
         "double",
         "smallint",
         "bigint",
@@ -111,6 +112,7 @@ class DaskDataSource(DataSource):
     def sql_get_table_columns(
         self, table_name: str, included_columns: list[str] | None = None, excluded_columns: list[str] | None = None
     ) -> str:
+        table_name = table_name.lower()
         # First register `show columns` in a dask table and then apply query on that table
         # to find the intended tables
         show_tables_temp_query = f"show columns from {table_name}"
@@ -130,11 +132,15 @@ class DaskDataSource(DataSource):
         if excluded_columns:
             for col in excluded_columns:
                 excluded_columns_filter.append(f"\n lower(column) not like lower('{col}')")
-        sql = (
-            f"select column, type from showcolumns where \n"
-            f"{' and'.join(included_columns_filter)}"
-            f"{' and'.join(excluded_columns_filter)}"
-        )
+
+        if included_columns or excluded_columns:
+            sql = (
+                f"select column, type from showcolumns where \n"
+                f"{' and'.join(included_columns_filter)}"
+                f"{' and'.join(excluded_columns_filter)}"
+            )
+        else:
+            sql = "select column, type from showcolumns"
         return sql
 
     def sql_find_table_names(
@@ -217,7 +223,14 @@ class DaskDataSource(DataSource):
                     count(distinct({quoted_column_name})) as distinct_values
                 FROM {qualified_table_name}
             )
-            SELECT * FROM profile_except_distinct JOIN profile_distinct ON 1=1
+            SELECT
+                average
+                , sum
+                , variance
+                , standard_deviation
+                , distinct_values
+                , missing_values
+            FROM profile_except_distinct JOIN profile_distinct ON 1=1
             """
         )
 
@@ -240,7 +253,13 @@ class DaskDataSource(DataSource):
                     count(distinct({quoted_column_name})) as distinct_values
                 FROM {qualified_table_name}
             )
-            SELECT * FROM profile_except_distinct JOIN profile_distinct ON 1=1
+            SELECT
+                distinct_values
+                , missing_values
+                , avg_length
+                , min_length
+                , max_length
+            FROM profile_except_distinct JOIN profile_distinct ON 1=1
             """
         )
 
