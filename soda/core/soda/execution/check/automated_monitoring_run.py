@@ -124,3 +124,4 @@ class AutomatedMonitoringRun:
         exclude_tables = self.data_source_check_cfg.exclude_tables
         table_names = self.data_source.get_table_names(include_tables=include_tables, exclude_tables=exclude_tables)
         return table_names
+        

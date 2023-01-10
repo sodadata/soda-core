@@ -54,3 +54,4 @@ class DiscoverTablesRun:
                 _ = discover_tables_result_table.create_column(column_name, column_type)
 
         return discover_tables_result
+        
