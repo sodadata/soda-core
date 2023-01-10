@@ -93,6 +93,18 @@ class MySQLDataSource(DataSource):
     @staticmethod
     def column_metadata_catalog_column() -> str:
         return "table_schema"
+    
+    @staticmethod
+    def column_metadata_table_name() -> str:
+        return "table_name"
+
+    @staticmethod
+    def column_metadata_column_name() -> str:
+        return "column_name"
+
+    @staticmethod
+    def column_metadata_datatype_name() -> str:
+        return " CAST(data_type AS CHAR) "
 
     def quote_table(self, table_name: str) -> str:
         return f"{table_name}"
@@ -103,10 +115,6 @@ class MySQLDataSource(DataSource):
     @staticmethod
     def column_metadata_columns() -> list:
         return ["column_name ", " CAST(data_type AS CHAR) ", "is_nullable"]
-
-    @staticmethod
-    def tables_columns_profiling_metadata() -> list[str]:
-        return ["table_name ", "column_name ", " CAST(data_type AS CHAR) "]
 
     def cast_to_text(self, expr: str) -> str:
         return f"CAST({expr} AS CHAR)"

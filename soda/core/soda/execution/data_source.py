@@ -322,7 +322,7 @@ class DataSource:
 
     def tables_columns_metadata(self) -> list[str]:
         """Columns to be used for retrieving tables and columns metadata."""
-        return [f"{self.column_metadata_table_name()}", f"{self.column_metadata_column_name()}", f"{self.column_metadata_datatype_name()}"]
+        return [self.column_metadata_table_name(), self.column_metadata_column_name(), self.column_metadata_datatype_name()]
 
     ######################
     # Store Table Sample
@@ -423,8 +423,8 @@ class DataSource:
     def get_tables_columns_metadata(
         self,
         query_name: str,
-        include_patterns: list[dict[str, str]] | None = None,
-        exclude_patterns: list[dict[str, str]] | None = None,
+        include_patterns: list[dict[str, str]] | list[str] | None = None,
+        exclude_patterns: list[dict[str, str]] | list[str] | None = None,
         table_names_only: bool = False,
     ) -> defaultdict[str, dict[str, str]] | list[str] | None:
         # TODO: save/cache the result for later use.
@@ -454,8 +454,8 @@ class DataSource:
         for pattern in sql_patterns:
 
             sql_filter = []
-            table_name_pattern = pattern.get("table_name_pattern")
 
+            table_name_pattern = pattern.get("table_name_pattern")
             if table_name_pattern is not None: 
                 if not self.is_quoted(table_name_pattern):
                     table_name_pattern = self.default_casify_table_name(table_name_pattern)
@@ -464,7 +464,7 @@ class DataSource:
 
             column_name_pattern = pattern.get("column_name_pattern")
             if (column_name_pattern is not None) and (table_names_only is False):
-                column_name_filter = f"{self.default_casify_sql_function()}({self.column_metadata_column_name()}) LIKE {self.default_casify_sql_function()}('{column_name_pattern}')"
+                column_name_filter = f"({self.default_casify_sql_function()}({self.column_metadata_column_name()}) LIKE {self.default_casify_sql_function()}('{column_name_pattern}'))"
                 sql_filter.append(column_name_filter)
 
             if sql_filter:
