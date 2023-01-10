@@ -431,6 +431,8 @@ class DataSource:
         table_names_only: bool = False,
     ) -> defaultdict[str, dict[str, str]] | list[str] | None:
         # TODO: save/cache the result for later use.
+        if (not include_patterns) and (not exclude_patterns):
+            return []
         query = Query(
             data_source_scan=self.data_source_scan,
             unqualified_query_name=query_name,
