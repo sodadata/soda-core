@@ -23,25 +23,11 @@ class SampleTablesRun:
         sample_tables_result: SampleTablesResult = SampleTablesResult(self.data_source_check_cfg)
         self.logs.info(f"Running sample tables for data source: {self.data_source_name}")
 
-        include_patterns = [{"table_name_pattern": include_table} for include_table in self.data_source_check_cfg.include_tables]
-        exclude_patterns = [{"table_name_pattern": exclude_table} for exclude_table in self.data_source_check_cfg.exclude_tables]
-
-        table_names: list[str] = self.data_source.get_tables_columns_metadata(
-            include_patterns=include_patterns,
-            exclude_patterns=exclude_patterns,
-            query_name=f"sample-datasets-find-datasets",        
-            table_names_only=True
+        table_names: list[str] = self.data_source.get_table_names(
+            include_tables=self.data_source_check_cfg.include_tables,
+            exclude_tables=self.data_source_check_cfg.exclude_tables,
+            query_name=f"sample-datasets-find-datasets",
         )
-
-        if table_names is None:
-            self.logs.warning(
-                f"Your SodaCL expressions did not return any existing dataset names for your '{self.data_source.data_source_name}' "
-                f"data source. Please make sure that the expressions define existing dataset names."
-                f" Sampling results may be incomplete or entirely skipped. See the docs for more information: \n"
-                f"https://docs.soda.io/soda-cl/sample-datasets.html#define-sample-datasets",
-                location=self.data_source_check_cfg.location,
-            )
-            return sample_tables_result
 
         self.logs.info(f"Sampling the following tables:")
         for table_name in table_names:
