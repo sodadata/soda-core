@@ -263,7 +263,7 @@ class SparkSQLBase(DataSource):
 
             def matches(name, pattern: str) -> bool:
                 pattern_regex = pattern.replace("%", ".*").lower()
-                is_match = re.match(pattern_regex, name.lower())
+                is_match = re.fullmatch(pattern_regex, name.lower())
                 return bool(is_match)
 
             if included_items:

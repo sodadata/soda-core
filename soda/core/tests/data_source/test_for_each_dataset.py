@@ -12,7 +12,7 @@ from helpers.fixtures import test_data_source
 def test_for_each_dataset(data_source_fixture: DataSourceFixture):
     customers_table_name = data_source_fixture.ensure_test_table(customers_test_table)
     rawcustomers_table_name = data_source_fixture.ensure_test_table(raw_customers_test_table)
-    _ = data_source_fixture.ensure_test_table(orders_test_table)
+    _ = data_source_fixture.ensure_test_table(orders_test_table)  # to test that it is not included
     _ = data_source_fixture.ensure_test_table(customers_dist_check_test_table)  # to test that it is not included
 
     scan = data_source_fixture.create_test_scan()
@@ -21,7 +21,7 @@ def test_for_each_dataset(data_source_fixture: DataSourceFixture):
           for each dataset D:
             datasets:
               - {customers_table_name}
-              - include %rder%  # to get orders_test_table
+              - include %rder  # it won't match orders table since there is no % in the end
               - include {rawcustomers_table_name}%
               - include {data_source_fixture.data_source.data_source_name}.{rawcustomers_table_name}%
               - exclude non_existing_dataset
@@ -33,7 +33,7 @@ def test_for_each_dataset(data_source_fixture: DataSourceFixture):
     scan.execute()
 
     scan.assert_all_checks_pass()
-    assert len(scan._checks) == 6
+    assert len(scan._checks) == 4
 
 
 @pytest.mark.skipif(
