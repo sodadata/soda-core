@@ -11,7 +11,6 @@ from soda.execution.identity import ConsistentHashBuilder
 from soda.execution.metric.metric import Metric
 from soda.sampler.sample_ref import SampleRef
 from soda.soda_cloud.historic_descriptor import HistoricDescriptor
-from soda.soda_cloud.soda_cloud import SodaCloud
 from soda.sodacl.check_cfg import CheckCfg
 from soda.sodacl.distribution_check_cfg import DistributionCheckCfg
 
@@ -23,7 +22,6 @@ class Check(ABC):
         partition: Partition | None = None,
         column: Column | None = None,
         data_source_scan: DataSourceScan | None = None,
-        soda_cloud: SodaCloud | None = None,
     ) -> Check | None:
         from soda.sodacl.anomaly_metric_check_cfg import AnomalyMetricCheckCfg
         from soda.sodacl.change_over_time_metric_check_cfg import (

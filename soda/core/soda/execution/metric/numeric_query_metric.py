@@ -47,6 +47,7 @@ class NumericQueryMetric(QueryMetric):
         # Implementation and other non-identity fields
         self.logs = data_source_scan.scan._logs
         self.column_name = column.column_name if column else None
+        self.check = check
 
     def get_sql_aggregation_expression(self) -> str | None:
         data_source = self.data_source_scan.data_source
@@ -70,7 +71,9 @@ class NumericQueryMetric(QueryMetric):
                 if valid_condition:
                     condition = f"NOT ({missing_condition}) AND NOT ({valid_condition})"
                 else:
-                    self.logs.warning("Counting invalid without valid specification does not make sense")
+                    self.logs.warning(
+                        f'Counting invalid without valid specification does not make sense. ("{self.check.check_cfg.source_line}" @ {self.check.check_cfg.location})'
+                    )
                     condition = self.data_source_scan.data_source.expr_false_condition()
 
             if self.filter:
