@@ -33,6 +33,7 @@ def test_profile_columns_numeric(data_source_fixture: DataSourceFixture):
     profiling = scan_result["profiling"]
     assert profiling
     first_profiling = profiling[0]
+    assert first_profiling["rowCount"] == 10
     column_profiles = first_profiling["columnProfiles"]
     column_profiles_by_name = {
         column_profile["columnName"].lower(): column_profile for column_profile in column_profiles
@@ -89,7 +90,7 @@ def test_profile_columns_text(data_source_fixture: DataSourceFixture):
     # remove the data source name because it's a pain to test
     profiling.pop("dataSource")
     profiling.pop("table")
-
+    profiling.pop("rowCount")
     test_data_source = os.environ.get("test_data_source")
 
     uppercase_column_name_databases = ["snowflake", "db2", "oracle"]
@@ -341,7 +342,7 @@ def test_profile_columns_capitalized(data_source_fixture: DataSourceFixture):
 
     column_profiles = profiling["columnProfiles"]
 
-    test_data_source = os.environ.get("test_data_source")
+    test_data_source = data_source_fixture.data_source_name
 
     lowercase_column_name_databases = ["postgres", "redshift", "athena"]
     if test_data_source in lowercase_column_name_databases:
