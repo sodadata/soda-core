@@ -405,13 +405,6 @@ class DataSource:
             tables_and_columns_metadata[table_name][column_name] = data_type
         return tables_and_columns_metadata
 
-    @staticmethod
-    def parse_tables_query(rows: list[tuple]) -> list[str]:
-        table_names = []
-        for row in rows: 
-            table_names.append(row[0])
-        return table_names 
-
     def get_tables_columns_metadata(
         self,
         query_name: str,
@@ -434,7 +427,7 @@ class DataSource:
         rows = query.rows
         if rows and len(rows) > 0:
             if table_names_only:
-                query_result: list = self.parse_tables_query(rows)
+                query_result = [self._optionally_quote_table_name_from_meta_data(row[0]) for row in rows]
             else: 
                 query_result: defaultdict(dict) = self.parse_tables_columns_query(rows)
             return query_result 
