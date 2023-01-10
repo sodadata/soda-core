@@ -127,12 +127,12 @@ class DuckDBDataSource(DataSource):
         return ""
 
     @staticmethod
-    def column_metadata_datatype_name() -> str:
-        return "lower(data_type) as data_type"
-
-    @staticmethod
     def column_metadata_columns() -> list:
         return ["column_name", "lower(data_type) as data_type", "is_nullable"]
+        
+    @staticmethod
+    def column_metadata_datatype_name() -> str:
+        return "lower(data_type) as data_type"
 
     def get_metric_sql_aggregation_expression(self, metric_name: str, metric_args: Optional[List[object]], expr: str):
         # https://duckdb.org/docs/sql/aggregates
