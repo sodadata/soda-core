@@ -440,7 +440,6 @@ class Scan:
                         for k, v in check.check_cfg.source_configurations.get("attributes", {}).items()
                     }
 
-                    # TODO: re-enable validation once Cloud actually sends schema
                     if self._configuration.soda_cloud:
                         # Validate attributes if Cloud is available
                         if check_attributes:

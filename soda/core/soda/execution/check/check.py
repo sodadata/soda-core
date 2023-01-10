@@ -232,8 +232,7 @@ class Check(ABC):
             "name": self.name,
             "type": self.cloud_check_type,
             "definition": self.create_definition(),
-            # TODO: re-enable once Cloud sends attributes schema.
-            # "resourceAttributes": self._format_attributes(),
+            "resourceAttributes": self._format_attributes(),
             "location": self.check_cfg.location.get_cloud_dict(),
             "dataSource": self.data_source_scan.data_source.data_source_name,
             "table": Partition.get_table_name(self.partition),
