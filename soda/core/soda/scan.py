@@ -639,17 +639,16 @@ class Scan:
         data_source_name = self._data_source_name
 
         for index, for_each_dataset_cfg in enumerate(self._sodacl_cfg.for_each_dataset_cfgs):
-            include_tables = [{"table_name_pattern": include.table_name_filter} for include in for_each_dataset_cfg.includes]
-            exclude_tables = [{"table_name_pattern": exclude.table_name_filter} for exclude in for_each_dataset_cfg.excludes]
+            include_tables = [include.table_name_filter for include in for_each_dataset_cfg.includes]
+            exclude_tables = [include.table_name_filter for include in for_each_dataset_cfg.excludes]
 
             data_source_scan = self._get_or_create_data_source_scan(data_source_name)
             if data_source_scan:
                 query_name = f"for_each_dataset_{for_each_dataset_cfg.table_alias_name}[{index}]"
-                table_names: list[str] = data_source_scan.data_source.get_tables_columns_metadata(
-                    include_patterns=include_tables,
-                    exclude_patterns=exclude_tables,
+                table_names = data_source_scan.data_source.get_table_names(
+                    include_tables=include_tables,
+                    exclude_tables=exclude_tables,
                     query_name=query_name,
-                    table_names_only=True
                 )
 
                 logger.info(f"Instantiating for each for {table_names}")
