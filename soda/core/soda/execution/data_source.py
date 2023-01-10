@@ -300,14 +300,29 @@ class DataSource:
         return ["column_name", "data_type", "is_nullable"]
 
     @staticmethod
-    def tables_columns_profiling_metadata() -> list[str]:
-        """Columns to be used for retrieving tables and columns metadata."""
-        return ["table_name", "column_name", "data_type"]
-
-    @staticmethod
     def column_metadata_catalog_column() -> str:
         """Column to be used as a 'database' equivalent."""
         return "table_catalog"
+
+    @staticmethod
+    def column_metadata_table_name() -> str:
+        return "table_name"
+
+    @staticmethod
+    def column_metadata_schema_name() -> str:
+        return "table_schema"
+
+    @staticmethod
+    def column_metadata_column_name() -> str:
+        return "column_name"
+
+    @staticmethod
+    def column_metadata_datatype_name() -> str:
+        return "data_type"
+
+    def tables_columns_metadata(self) -> list[str]:
+        """Columns to be used for retrieving tables and columns metadata."""
+        return [f"{self.column_metadata_table_name()}", f"{self.column_metadata_column_name()}", f"{self.column_metadata_datatype_name()}"]
 
     ######################
     # Store Table Sample
@@ -344,7 +359,7 @@ class DataSource:
         selectable_columns = []
 
         if self.get_exclude_column_patterns_for_table(table_name) and self.data_source_scan.scan._configuration.sampler:
-            tables_columns_metadata: defaultdict[str, dict[str, str]] = self.get_tables_columns_metadata(include_patterns=[{"table_name_pattern": table_name}], exclude_patterns=[], query_name=f"get_table_columns_{table_name}")
+            tables_columns_metadata: defaultdict[str, dict[str, str]] = self.get_tables_columns_metadata(include_patterns=[{"table_name_pattern": table_name}], query_name=f"get_table_columns_{table_name}")
             all_columns = list(tables_columns_metadata.values())[0]
             exclude_columns = []
 
@@ -433,21 +448,23 @@ class DataSource:
             return query_result 
         return None
 
-    def create_table_column_name_sql_filters(self, sql_patterns: list[dict[str, str]]) -> list[str]:
+    def create_table_column_sql_filters(self, sql_patterns: list[dict[str, str]], table_names_only: bool = False) -> list[str]:
         sql_filters = []
 
         for pattern in sql_patterns:
-            
-            sql_filter = []
 
+            sql_filter = []
             table_name_pattern = pattern.get("table_name_pattern")
+
             if table_name_pattern is not None: 
-                table_name_filter = f"{self.default_casify_sql_function()}(table_name) LIKE {self.default_casify_sql_function()}('{table_name_pattern}')"
+                if not self.is_quoted(table_name_pattern):
+                    table_name_pattern = self.default_casify_table_name(table_name_pattern)
+                table_name_filter = f"({self.column_metadata_table_name()} LIKE '{table_name_pattern}')"
                 sql_filter.append(table_name_filter)
 
             column_name_pattern = pattern.get("column_name_pattern")
-            if column_name_pattern is not None:
-                column_name_filter = f"{self.default_casify_sql_function()}(column_name) LIKE {self.default_casify_sql_function()}('{column_name_pattern}')"
+            if (column_name_pattern is not None) and (table_names_only is False):
+                column_name_filter = f"{self.default_casify_sql_function()}({self.column_metadata_column_name()}) LIKE {self.default_casify_sql_function()}('{column_name_pattern}')"
                 sql_filter.append(column_name_filter)
 
             if sql_filter:
@@ -457,22 +474,22 @@ class DataSource:
 
     def sql_get_tables_columns_metadata(
         self,
-        include_patterns: list[dict[str, str]] | list[str] | None = None,
-        exclude_patterns: list[dict[str, str]] | list[str] | None = None,
+        include_patterns: list[dict[str, str]] | None = None,
+        exclude_patterns: list[dict[str, str]] | None = None,
         table_names_only: bool = False
     ) -> str:
         filter_clauses = []
 
-        include_sql_filter_clauses = self.create_table_column_name_sql_filters(include_patterns)
-        include_filter = " OR ".join(include_sql_filter_clauses)
-        if include_filter:
+        if include_patterns and len(include_patterns) > 0:
+            include_sql_filter_clauses = self.create_table_column_sql_filters(include_patterns, table_names_only=table_names_only)
+            include_filter = " OR ".join(include_sql_filter_clauses)
             filter_clauses.append(f"({include_filter})")
 
-        exclude_sql_filter_clauses = [
-            f"NOT {sql_filter_clause}" for sql_filter_clause in self.create_table_column_name_sql_filters(exclude_patterns)
-        ]
-        exclude_filter = " AND ".join(exclude_sql_filter_clauses)
-        if exclude_filter:
+        if exclude_patterns and len(exclude_patterns) > 0:
+            exclude_sql_filter_clauses = [
+                f"NOT {sql_filter_clause}" for sql_filter_clause in self.create_table_column_sql_filters(exclude_patterns, table_names_only=table_names_only)
+            ]
+            exclude_filter = " AND ".join(exclude_sql_filter_clauses)
             filter_clauses.append(f"({exclude_filter})")
 
         if self.database:
@@ -480,9 +497,9 @@ class DataSource:
                 f"{self.default_casify_sql_function()}({self.column_metadata_catalog_column()}) = '{self.default_casify_system_name(self.database)}'"
             )
 
-        if self.schema:
+        if hasattr(self, "schema") and self.schema:
             filter_clauses.append(
-                f"{self.default_casify_sql_function()}(table_schema) = '{self.default_casify_system_name(self.schema)}'"
+                f"{self.default_casify_sql_function()}({self.column_metadata_schema_name()}) = '{self.default_casify_system_name(self.schema)}'"
             )
 
         where_filter = " \n  AND ".join(filter_clauses)
@@ -494,11 +511,11 @@ class DataSource:
         # displays those columns as they are ordered alphabetically in the UI.
 
         if table_names_only:
-            metadata_columns = f"table_name"
+            metadata_columns = f"{self.column_metadata_table_name()}"
             information_schema_table = self.sql_information_schema_tables()
             order_by_clause = ""
         else:
-            metadata_columns = ', '.join(self.tables_columns_profiling_metadata())
+            metadata_columns = ', '.join(self.tables_columns_metadata())
             information_schema_table = self.sql_information_schema_columns()
             order_by_clause = f"\nORDER BY {self.get_ordinal_position_name()}"
 
@@ -508,6 +525,7 @@ class DataSource:
             f"WHERE {where_filter}"
             f"{order_by_clause}"
         )
+
         return sql
 
     def create_table_columns_query(self, partition: Partition, schema_metric: SchemaMetric) -> TableColumnsQuery:
