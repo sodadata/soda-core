@@ -42,4 +42,3 @@ class SampleTablesRun:
             self.logs.error(f"Sample tables for data source: {self.data_source_name} failed")
 
         return sample_tables_result
-        

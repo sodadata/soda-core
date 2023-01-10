@@ -129,7 +129,7 @@ class DuckDBDataSource(DataSource):
     @staticmethod
     def column_metadata_columns() -> list:
         return ["column_name", "lower(data_type) as data_type", "is_nullable"]
-        
+
     @staticmethod
     def column_metadata_datatype_name() -> str:
         return "lower(data_type) as data_type"

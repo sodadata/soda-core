@@ -322,7 +322,11 @@ class DataSource:
 
     def tables_columns_metadata(self) -> list[str]:
         """Columns to be used for retrieving tables and columns metadata."""
-        return [self.column_metadata_table_name(), self.column_metadata_column_name(), self.column_metadata_datatype_name()]
+        return [
+            self.column_metadata_table_name(),
+            self.column_metadata_column_name(),
+            self.column_metadata_datatype_name(),
+        ]
 
     ######################
     # Store Table Sample
@@ -431,9 +435,7 @@ class DataSource:
             data_source_scan=self.data_source_scan,
             unqualified_query_name=query_name,
             sql=self.sql_get_tables_columns_metadata(
-                include_patterns=include_patterns, 
-                exclude_patterns=exclude_patterns,
-                table_names_only=table_names_only
+                include_patterns=include_patterns, exclude_patterns=exclude_patterns, table_names_only=table_names_only
             ),
         )
         query.execute()
@@ -442,12 +444,14 @@ class DataSource:
         if rows and len(rows) > 0:
             if table_names_only:
                 query_result = [self._optionally_quote_table_name_from_meta_data(row[0]) for row in rows]
-            else: 
+            else:
                 query_result: defaultdict(dict) = self.parse_tables_columns_query(rows)
-            return query_result 
+            return query_result
         return None
 
-    def create_table_column_sql_filters(self, sql_patterns: list[dict[str, str]], table_names_only: bool = False) -> list[str]:
+    def create_table_column_sql_filters(
+        self, sql_patterns: list[dict[str, str]], table_names_only: bool = False
+    ) -> list[str]:
         sql_filters = []
 
         for pattern in sql_patterns:
@@ -455,7 +459,7 @@ class DataSource:
             sql_filter = []
 
             table_name_pattern = pattern.get("table_name_pattern")
-            if table_name_pattern is not None: 
+            if table_name_pattern is not None:
                 if not self.is_quoted(table_name_pattern):
                     table_name_pattern = self.default_casify_table_name(table_name_pattern)
                 table_name_filter = f"({self.column_metadata_table_name()} LIKE '{table_name_pattern}')"
@@ -475,18 +479,23 @@ class DataSource:
         self,
         include_patterns: list[dict[str, str]] | None = None,
         exclude_patterns: list[dict[str, str]] | None = None,
-        table_names_only: bool = False
+        table_names_only: bool = False,
     ) -> str:
         filter_clauses = []
 
         if include_patterns and len(include_patterns) > 0:
-            include_sql_filter_clauses = self.create_table_column_sql_filters(include_patterns, table_names_only=table_names_only)
+            include_sql_filter_clauses = self.create_table_column_sql_filters(
+                include_patterns, table_names_only=table_names_only
+            )
             include_filter = " OR ".join(include_sql_filter_clauses)
             filter_clauses.append(f"({include_filter})")
 
         if exclude_patterns and len(exclude_patterns) > 0:
             exclude_sql_filter_clauses = [
-                f"NOT {sql_filter_clause}" for sql_filter_clause in self.create_table_column_sql_filters(exclude_patterns, table_names_only=table_names_only)
+                f"NOT {sql_filter_clause}"
+                for sql_filter_clause in self.create_table_column_sql_filters(
+                    exclude_patterns, table_names_only=table_names_only
+                )
             ]
             exclude_filter = " AND ".join(exclude_sql_filter_clauses)
             filter_clauses.append(f"({exclude_filter})")
@@ -514,7 +523,7 @@ class DataSource:
             information_schema_table = self.sql_information_schema_tables()
             order_by_clause = ""
         else:
-            metadata_columns = ', '.join(self.tables_columns_metadata())
+            metadata_columns = ", ".join(self.tables_columns_metadata())
             information_schema_table = self.sql_information_schema_columns()
             order_by_clause = f"\nORDER BY {self.get_ordinal_position_name()}"
 

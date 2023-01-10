@@ -93,7 +93,7 @@ class MySQLDataSource(DataSource):
     @staticmethod
     def column_metadata_catalog_column() -> str:
         return "table_schema"
-    
+
     @staticmethod
     def column_metadata_table_name() -> str:
         return "table_name"
