@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 import sys
+from pathlib import Path
 
 from setuptools import find_namespace_packages, setup
 
@@ -34,7 +35,7 @@ setup(
     author="Soda Data N.V.",
     author_email="info@soda.io",
     description="Soda Core library & CLI",
-    long_description="long_description",  # TODO: fix this as it fails in tox
+    long_description=(Path(__file__).parents[2] / "README.md").read_text(),
     long_description_content_type="text/markdown",
     packages=find_namespace_packages(include=["soda*"]),
     install_requires=requires,
