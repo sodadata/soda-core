@@ -359,8 +359,7 @@ class DataSource:
         selectable_columns = []
 
         if self.get_exclude_column_patterns_for_table(table_name) and self.data_source_scan.scan._configuration.sampler:
-            tables_columns_metadata: defaultdict[str, dict[str, str]] = self.get_tables_columns_metadata(include_patterns=[{"table_name_pattern": table_name}], query_name=f"get_table_columns_{table_name}")
-            all_columns = list(tables_columns_metadata.values())[0]
+            all_columns = self.get_table_columns(table_name, f"get_table_columns_{table_name}")
             exclude_columns = []
 
             for column in all_columns:
@@ -555,7 +554,7 @@ class DataSource:
         if query.rows and len(query.rows) > 0:
             return {row[0]: row[1] for row in query.rows}
         return None
-        
+
     def create_table_columns_query(self, partition: Partition, schema_metric: SchemaMetric) -> TableColumnsQuery:
         return TableColumnsQuery(partition, schema_metric)
 
@@ -946,7 +945,7 @@ class DataSource:
             return {self._optionally_quote_table_name_from_meta_data(row[0]): row[1] for row in query.rows}
 
         # Single query to get the metadata not available, get the counts one by one.
-        all_tables: list[str] = self.get_tables_columns_metadata(include_patterns=include_tables, exclude_patterns=exclude_tables, table_names_only=True)
+        all_tables = self.get_table_names(include_tables=include_tables, exclude_tables=exclude_tables)
         result = {}
         for table_name in all_tables:
             table_count = self.get_table_row_count(table_name)
