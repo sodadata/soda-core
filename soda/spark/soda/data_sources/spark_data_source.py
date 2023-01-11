@@ -325,6 +325,8 @@ class SparkSQLBase(DataSource):
         exclude_patterns: list[dict[str, str]] | None = None,
         table_names_only: bool = False,
     ) -> dict[str, str] | None:
+        if (not include_patterns) and (not exclude_patterns):
+            return []
         included_table_names: list[str] = self.get_included_table_names(
             query_name, include_patterns, exclude_patterns, table_names_only=table_names_only
         )
