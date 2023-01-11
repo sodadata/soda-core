@@ -506,9 +506,10 @@ class DataSource:
             exclude_filter = " AND ".join(exclude_sql_filter_clauses)
             filter_clauses.append(f"({exclude_filter})")
 
-        catalog_filter = self.catalog_column_filter()
-        if self.database and catalog_filter:
-            filter_clauses.append(catalog_filter)
+        if self.database:
+            catalog_filter = self.catalog_column_filter()
+            if catalog_filter:
+                filter_clauses.append(catalog_filter)
 
         if hasattr(self, "schema") and self.schema:
             filter_clauses.append(
