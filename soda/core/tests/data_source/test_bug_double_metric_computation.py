@@ -1,7 +1,13 @@
+import pytest
 from helpers.common_test_tables import customers_test_table
 from helpers.data_source_fixture import DataSourceFixture
+from helpers.fixtures import test_data_source
 
 
+@pytest.mark.skipif(
+    test_data_source == "sqlserver",
+    reason="Full regex support is not supported by SQLServer. 'Percentage' format is supported but with limited functionality.",
+)
 def test_double_metric_computation(data_source_fixture: DataSourceFixture):
     table_name = data_source_fixture.ensure_test_table(customers_test_table)
 

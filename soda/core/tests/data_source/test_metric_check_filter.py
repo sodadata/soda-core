@@ -39,6 +39,10 @@ def test_missing_filtered(data_source_fixture: DataSourceFixture):
     scan.assert_all_checks_pass()
 
 
+@pytest.mark.skipif(
+    test_data_source == "sqlserver",
+    reason="Full regex support is not supported by SQLServer. 'Percentage' format is supported but with limited functionality.",
+)
 def test_valid_filtered(data_source_fixture: DataSourceFixture):
     table_name = data_source_fixture.ensure_test_table(customers_test_table)
 
