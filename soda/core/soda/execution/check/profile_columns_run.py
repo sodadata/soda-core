@@ -112,7 +112,7 @@ class ProfileColumnsRun:
                             profile_columns_result_table,
                         )
                     else:
-                        self.logs.info(
+                        self.logs.warning(
                             f"Column '{table_name}.{column_name}' was not profiled because column data "
                             f"type '{column_data_type}' is not in supported profiling data types"
                         )
