@@ -9,7 +9,7 @@ if sys.version_info < (3, 7):
     sys.exit(1)
 
 package_name = "soda-core-trino"
-package_version = "3.0.18"
+package_version = "3.0.19"
 description = "Soda Core Trino Package"
 
 requires = [f"soda-core=={package_version}", "trino>=0.315.0"]

@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 import sys
-from pathlib import Path
 
 from setuptools import find_namespace_packages, setup
 
@@ -11,10 +10,8 @@ if sys.version_info < (3, 7):
 
 package_name = "soda-core"
 # Managed by tbump - do not change manually
-package_version = "3.0.18"
+package_version = "3.0.19"
 description = "Soda Core"
-
-# long_description = (pathlib.Path(__file__).parent.parent / "README.md").read_text()
 
 requires = [
     "markupsafe>=2.0.1,<=2.1.1",
@@ -35,7 +32,6 @@ setup(
     author="Soda Data N.V.",
     author_email="info@soda.io",
     description="Soda Core library & CLI",
-    long_description=(Path(__file__).parents[2] / "README.md").read_text(),
     long_description_content_type="text/markdown",
     packages=find_namespace_packages(include=["soda*"]),
     install_requires=requires,
