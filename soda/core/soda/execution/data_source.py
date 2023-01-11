@@ -462,9 +462,7 @@ class DataSource:
 
             table_name_pattern = pattern.get("table_name_pattern")
             if table_name_pattern is not None:
-                if not self.is_quoted(table_name_pattern):
-                    table_name_pattern = self.default_casify_table_name(table_name_pattern)
-                table_name_filter = f"({self.column_metadata_table_name()} LIKE '{table_name_pattern}')"
+                table_name_filter = f"({self.column_metadata_table_name()} LIKE '{self.default_casify_table_name(table_name_pattern)}')"
                 sql_filter.append(table_name_filter)
 
             column_name_pattern = pattern.get("column_name_pattern")
