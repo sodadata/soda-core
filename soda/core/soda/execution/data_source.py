@@ -477,6 +477,10 @@ class DataSource:
 
         return sql_filters
 
+    def catalog_column_filter(self):
+        catalog_filter = f"{self.default_casify_sql_function()}({self.column_metadata_catalog_column()}) = '{self.default_casify_system_name(self.database)}'"
+        return catalog_filter
+
     def sql_get_tables_columns_metadata(
         self,
         include_patterns: list[dict[str, str]] | None = None,
@@ -502,10 +506,9 @@ class DataSource:
             exclude_filter = " AND ".join(exclude_sql_filter_clauses)
             filter_clauses.append(f"({exclude_filter})")
 
-        if self.database:
-            filter_clauses.append(
-                f"{self.default_casify_sql_function()}({self.column_metadata_catalog_column()}) = '{self.default_casify_system_name(self.database)}'"
-            )
+        catalog_filter = self.catalog_column_filter()
+        if self.database and catalog_filter:
+            filter_clauses.append(catalog_filter)
 
         if hasattr(self, "schema") and self.schema:
             filter_clauses.append(

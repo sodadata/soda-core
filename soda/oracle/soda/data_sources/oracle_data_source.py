@@ -102,6 +102,9 @@ class OracleDataSource(DataSource):
     def column_metadata_datatype_name() -> str:
         return "DATA_TYPE"
 
+    def catalog_column_filter(self) -> str:
+        return ""
+
     def validate_configuration(self, logs: Logs) -> None:
         pass
 

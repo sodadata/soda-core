@@ -112,6 +112,9 @@ class Db2DataSource(DataSource):
     def get_ordinal_position_name(self) -> str:
         return "COLNO"
 
+    def catalog_column_filter(self) -> str:
+        return ""
+
     def sql_get_table_columns(
         self,
         table_name: str,
