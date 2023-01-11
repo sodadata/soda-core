@@ -444,29 +444,29 @@ class Scan:
 
             # Handle check attributes before proceeding.
             invalid_check_attributes = None
-            for check in list(self._checks):  # Iterating over a copy in order to remove items while iterating.
+            invalid_checks = []
+            for check in self._checks:
                 if check.check_cfg.source_configurations:
                     check_attributes = {
                         self.jinja_resolve(k): self.jinja_resolve(v)
                         for k, v in check.check_cfg.source_configurations.get("attributes", {}).items()
                     }
 
-                    # TODO: re-enable validation once Cloud actually sends schema
-                    # if self._configuration.soda_cloud:
-                    #     # Validate attributes if Cloud is available
-                    #     if check_attributes:
-                    #         from soda.common.attributes_handler import AttributeHandler
+                    if self._configuration.soda_cloud:
+                        # Validate attributes if Cloud is available
+                        if check_attributes:
+                            from soda.common.attributes_handler import AttributeHandler
 
-                    #         attribute_handler = AttributeHandler(self._logs)
-                    #         attributes_schema = self._configuration.soda_cloud.get_check_attributes_schema()
+                            attribute_handler = AttributeHandler(self._logs)
+                            attributes_schema = self._configuration.soda_cloud.get_check_attributes_schema()
 
-                    #         check_attributes, invalid_check_attributes = attribute_handler.validate(
-                    #             check_attributes, attributes_schema
-                    #         )
+                            check_attributes, invalid_check_attributes = attribute_handler.validate(
+                                check_attributes, attributes_schema
+                            )
 
-                    #         # Skip (remove) the check if invalid attributes are present.
-                    #         if invalid_check_attributes:
-                    #             self._checks.remove(check)
+                            # Skip (remove) the check if invalid attributes are present.
+                            if invalid_check_attributes:
+                                invalid_checks.append(check)
 
                     check.attributes = check_attributes
 
@@ -474,52 +474,53 @@ class Scan:
                 attributes_page_url = f"https://{self._configuration.soda_cloud.host}/organization/attributes"
                 self._logs.info(f"Refer to list of valid attributes and values at {attributes_page_url}.")
 
-            # Each data_source is asked to create metric values that are returned as a list of query results
-            for data_source_scan in self._data_source_scans:
-                data_source_scan.execute_queries()
+            if not invalid_checks:
+                # Each data_source is asked to create metric values that are returned as a list of query results
+                for data_source_scan in self._data_source_scans:
+                    data_source_scan.execute_queries()
 
-            # Compute derived metric values
-            for metric in self._metrics:
-                if isinstance(metric, DerivedMetric):
-                    metric.compute_derived_metric_values()
+                # Compute derived metric values
+                for metric in self._metrics:
+                    if isinstance(metric, DerivedMetric):
+                        metric.compute_derived_metric_values()
 
-            # Run profiling, data samples, automated monitoring, sample tables
-            try:
-                self.run_data_source_scan()
-            except Exception as e:
-                self._logs.error(f"""An error occurred while executing data source scan""", exception=e)
+                # Run profiling, data samples, automated monitoring, sample tables
+                try:
+                    self.run_data_source_scan()
+                except Exception as e:
+                    self._logs.error(f"""An error occurred while executing data source scan""", exception=e)
 
-            # Evaluates the checks based on all the metric values
-            for check in self._checks:
-                # First get the metric values for this check
-                check_metrics = {}
-                missing_value_metrics = []
-                for check_metric_name, metric in check.metrics.items():
-                    if metric.value is not undefined:
-                        check_metrics[check_metric_name] = metric
+                # Evaluates the checks based on all the metric values
+                for check in self._checks:
+                    # First get the metric values for this check
+                    check_metrics = {}
+                    missing_value_metrics = []
+                    for check_metric_name, metric in check.metrics.items():
+                        if metric.value is not undefined:
+                            check_metrics[check_metric_name] = metric
+                        else:
+                            missing_value_metrics.append(metric)
+
+                    check_historic_data = {}
+                    # For each check get the historic data
+                    if check.historic_descriptors:
+                        for hd_key, hd in check.historic_descriptors.items():
+                            check_historic_data[hd_key] = self.__get_historic_data_from_soda_cloud_metric_store(hd)
+
+                    if not missing_value_metrics:
+                        try:
+                            check.evaluate(check_metrics, check_historic_data)
+                        except BaseException as e:
+                            self._logs.error(
+                                f"Evaluation of check {check.check_cfg.source_line} failed: {e}",
+                                location=check.check_cfg.location,
+                                exception=e,
+                            )
                     else:
-                        missing_value_metrics.append(metric)
-
-                check_historic_data = {}
-                # For each check get the historic data
-                if check.historic_descriptors:
-                    for hd_key, hd in check.historic_descriptors.items():
-                        check_historic_data[hd_key] = self.__get_historic_data_from_soda_cloud_metric_store(hd)
-
-                if not missing_value_metrics:
-                    try:
-                        check.evaluate(check_metrics, check_historic_data)
-                    except BaseException as e:
+                        missing_metrics_str = ",".join([str(metric) for metric in missing_value_metrics])
                         self._logs.error(
-                            f"Evaluation of check {check.check_cfg.source_line} failed: {e}",
-                            location=check.check_cfg.location,
-                            exception=e,
+                            f"Metrics '{missing_metrics_str}' were not computed for check '{check.check_cfg.source_line}'"
                         )
-                else:
-                    missing_metrics_str = ",".join([str(metric) for metric in missing_value_metrics])
-                    self._logs.error(
-                        f"Metrics '{missing_metrics_str}' were not computed for check '{check.check_cfg.source_line}'"
-                    )
 
             self._logs.info("Scan summary:")
             self.__log_queries(having_exception=False)
