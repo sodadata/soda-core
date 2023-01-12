@@ -82,6 +82,9 @@ class ReferenceQuery(Query):
             f"WHERE {passing_where_condition}"
         )
 
+        self.sqls["sql"] = self.sql
+        self.sqls["passing_sql"] = self.passing_sql
+
         self.metric = metric
 
     def execute(self):
