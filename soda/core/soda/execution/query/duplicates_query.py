@@ -71,6 +71,30 @@ class DuplicatesQuery(Query):
             )
         )
 
+        self.sqls["sql"] = self.sql
+        self.sqls["failed_rows_sql"] = self.failed_rows_sql
+        self.sqls["failed_rows_passing_sql"] = self.failed_rows_passing_sql
+
+        self.sqls["failed_rows_sql_no_limit"] = jinja_resolve(
+            data_source.sql_get_duplicates(
+                column_names,
+                table_name,
+                values_filter,
+                None,
+                exclude_patterns=exclude_patterns,
+            )
+        )
+        self.sqls["failed_rows_passing_sql_no_limit"] = jinja_resolve(
+            data_source.sql_get_duplicates(
+                column_names,
+                self.partition.table.qualified_table_name,
+                values_filter,
+                None,
+                invert_condition=True,
+                exclude_patterns=exclude_patterns,
+            )
+        )
+
     def execute(self):
         self.fetchall()
         self.metric.set_value(len(self.rows))

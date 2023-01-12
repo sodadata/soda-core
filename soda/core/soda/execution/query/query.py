@@ -43,6 +43,7 @@ class Query:
 
         # The SQL query that is the opposite of a failed rows query if applicable.
         self.passing_sql: str | None = passing_sql
+        self.sqls: dict = {}
 
         # Following fields are initialized in execute method
         self.description: tuple | None = None
