@@ -40,7 +40,6 @@ class DiscoverTablesRun:
         self.logs.info(f"Discovering the following tables:")
         for table_name in table_names:
             self.logs.info(f"  - {table_name}")
-            measured_row_count = self.data_source.get_table_row_count(table_name)
             discover_tables_result_table = discover_tables_result.create_table(
                 table_name, self.data_source.data_source_name
             )
