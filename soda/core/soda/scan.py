@@ -213,17 +213,26 @@ class Scan:
                 exception=e,
             )
 
-    def add_dask_context(self, dask_context, data_source_name: str = "dask") -> None:
-        """
-        Pass a dask_context to the scan.  Only required in case of Dask scans.
-        """
+    def add_dask_dataframe(self, dataset_name: str, dask_df) -> None:
+        context = self._get_or_create_dask_context(required_soda_module="soda-core-dask")
+        context.create_table(dataset_name, dask_df)
+
+    def add_pandas_dataframe(self, dataset_name: str, pandas_df):
+        context = self._get_or_create_dask_context(required_soda_module="soda-core-pandas")
+        from dask.dataframe import from_pandas
+
+        dask_df = from_pandas(pandas_df, npartitions=1)
+        context.create_table(dataset_name, dask_df)
+
+    def _get_or_create_dask_context(self, required_soda_module: str):
         try:
-            self._configuration.add_dask_context(data_source_name=data_source_name, dask_context=dask_context)
-        except Exception as e:
-            self._logs.error(
-                f"Could not add environment dask context for data_source {data_source_name}",
-                exception=e,
-            )
+            from dask_sql import Context
+        except ImportError:
+            raise Exception(f"{required_soda_module} is not installed. Please install {required_soda_module}")
+
+        if "dask" not in self._configuration.data_source_properties_by_name:
+            self._configuration.add_dask_context(data_source_name="dask", dask_context=Context())
+        return self._configuration.data_source_properties_by_name["dask"]["context"]
 
     def add_sodacl_yaml_files(
         self,
