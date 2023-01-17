@@ -1,4 +1,3 @@
-#  (c) 2022 Walt Disney Parks and Resorts U.S., Inc.
 #  (c) 2022 Soda Data NV.
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -9,6 +8,8 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
+
+from __future__ import annotations
 
 import logging
 from textwrap import dedent
@@ -92,8 +93,9 @@ class DremioDataSource(DataSource):
     def regex_replace_flags(self) -> str:
         return ""
 
-    def default_casify_table_name(self, table_name):
-        return table_name.lower()
+    def default_casify_table_name(self, identifier: str) -> str:
+        """Formats table identifier to e.g. a default case for a given data source."""
+        return identifier
 
     def qualified_table_name(self, table_name: str) -> str:
         """
@@ -108,6 +110,17 @@ class DremioDataSource(DataSource):
 
     def sql_information_schema_tables(self) -> str:
         return 'INFORMATION_SCHEMA."TABLES"'
+
+    def default_casify_column_name(self, column_name: str) -> str:
+        return column_name
+
+    def default_casify_sql_function(self) -> str:
+        """Returns the sql function to use for default casify."""
+        return ""
+
+    def default_casify_system_name(self, identifier: str) -> str:
+        """Formats database/schema/etc identifier to e.g. a default case for a given data source."""
+        return identifier
 
     def profiling_sql_aggregates_numeric(self, table_name: str, column_name: str) -> str:
         column_name = self.quote_column(column_name)
