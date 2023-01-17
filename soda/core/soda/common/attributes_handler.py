@@ -47,6 +47,8 @@ class AttributeHandler:
             value = datetime.combine(value, datetime.min.time())
 
         if isinstance(value, datetime):
+            if value.tzinfo is None:
+                value = value.replace(tzinfo=datetime.now().astimezone().tzinfo)
             return value.isoformat()
 
         return value
