@@ -35,6 +35,10 @@ class DaskDataSourceFixture(DataSourceFixture):
             data=test_table.values,
             columns=[test_column.name for test_column in test_table.test_columns],
         )
+
+        # TODO: numeric columns doesn't work in dask-sql. As a temporary fix, we rename them to "na"
+        # in unit tests.
+        df_test.columns = ["na" if col.isnumeric() else col for col in df_test.columns]
         dtype_conversions = self.data_source.PANDAS_TYPE_FOR_CREATE_TABLE_MAP
         convert_dict = {
             test_column.name: dtype_conversions[test_column.data_type] for test_column in test_table.test_columns

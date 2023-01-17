@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import re
 from textwrap import dedent
 
 import numpy as np
@@ -295,9 +296,14 @@ class DaskDataSource(DataSource):
         df.compute()
 
     @staticmethod
-    def regexp_like(selected_column: Series, regex_pattern: str) -> Series:
-        selected_column = selected_column.str.contains(regex_pattern, regex=True, na=False)
-        return selected_column
+    def regexp_like(value: str | Series, regex_pattern: str) -> int:
+        if isinstance(value, str):
+            if re.match(regex_pattern, value):
+                return True
+            else:
+                return False
+        else:
+            return value.str.contains(regex_pattern, regex=True, na=False)
 
     @staticmethod
     def nullif_custom(selected_column: Series, null_replacement: str) -> Series:
