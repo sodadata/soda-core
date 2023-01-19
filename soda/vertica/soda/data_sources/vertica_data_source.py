@@ -78,7 +78,7 @@ class VerticaDataSource(DataSource):
         super().__init__(logs, data_source_name, data_source_properties)
 
         self.host = data_source_properties.get("host", "localhost")
-        self.port = data_source_properties.get("port", "5432")
+        self.port = data_source_properties.get("port", "5433")
         self.username = data_source_properties.get("username", "dbadmin")
         self.password = data_source_properties.get("password", "password")
         self.database = data_source_properties.get("password", "OLAP")  # TODO: find default DB name
