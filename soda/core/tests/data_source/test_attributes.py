@@ -1,4 +1,3 @@
-import pytest
 from helpers.common_test_tables import customers_test_table
 from helpers.data_source_fixture import DataSourceFixture
 
@@ -13,12 +12,10 @@ mock_schema = [
 mock_variables = {"DEPT": "sales"}
 
 
-@pytest.mark.skip(reason="Enable once attribute validation is actually used in scan.")
 def test_check_attributes_valid(data_source_fixture: DataSourceFixture):
     table_name = data_source_fixture.ensure_test_table(customers_test_table)
 
     scan = data_source_fixture.create_test_scan()
-    scan.enable_mock_soda_cloud()
     scan.mock_check_attributes_schema(mock_schema)
     scan.add_variables(mock_variables)
     scan.add_sodacl_yaml_str(
@@ -48,12 +45,10 @@ def test_check_attributes_valid(data_source_fixture: DataSourceFixture):
     ]
 
 
-@pytest.mark.skip(reason="Enable once attribute validation is actually used in scan.")
 def test_check_attributes_invalid(data_source_fixture: DataSourceFixture):
     table_name = data_source_fixture.ensure_test_table(customers_test_table)
 
     scan = data_source_fixture.create_test_scan()
-    scan.enable_mock_soda_cloud()
     scan.mock_check_attributes_schema(mock_schema)
     scan.add_variables(mock_variables)
     scan.add_sodacl_yaml_str(
@@ -89,12 +84,10 @@ def test_check_attributes_invalid(data_source_fixture: DataSourceFixture):
     )
 
 
-@pytest.mark.skip(reason="Enable once attribute validation is actually used in scan.")
 def test_foreach_attributes(data_source_fixture: DataSourceFixture):
     table_name = data_source_fixture.ensure_test_table(customers_test_table)
 
     scan = data_source_fixture.create_test_scan()
-    scan.enable_mock_soda_cloud()
     scan.mock_check_attributes_schema(mock_schema)
     scan.add_variables(mock_variables)
     scan.add_sodacl_yaml_str(
@@ -124,12 +117,10 @@ def test_foreach_attributes(data_source_fixture: DataSourceFixture):
     ]
 
 
-@pytest.mark.skip(reason="Enable once attribute validation is actually used in scan.")
 def test_check_attributes_skip_invalid(data_source_fixture: DataSourceFixture):
     table_name = data_source_fixture.ensure_test_table(customers_test_table)
 
     scan = data_source_fixture.create_test_scan()
-    scan.enable_mock_soda_cloud()
     scan.mock_check_attributes_schema(mock_schema)
     scan.add_variables(mock_variables)
     scan.add_sodacl_yaml_str(
@@ -147,5 +138,39 @@ def test_check_attributes_skip_invalid(data_source_fixture: DataSourceFixture):
     scan.execute_unchecked()
 
     scan_result = scan.build_scan_results()
-    assert len(scan_result["checks"]) == 1
-    assert scan_result["checks"][0]["name"] == "count"
+    assert len(scan_result["checks"]) == 0
+
+
+def test_all_supported_check_types(data_source_fixture: DataSourceFixture):
+    table_name = data_source_fixture.ensure_test_table(customers_test_table)
+
+    scan = data_source_fixture.create_test_scan()
+    scan.mock_check_attributes_schema(mock_schema)
+    scan.add_variables(mock_variables)
+    scan.add_sodacl_yaml_str(
+        f"""
+      checks for {table_name}:
+        - row_count > 0:
+            name: count
+            attributes:
+                priority: 1
+        - schema:
+            fail:
+                when forbidden column present: [xxx]
+            attributes:
+                priority: 1
+        - failed rows:
+            fail condition: cat = 'xxx'
+            attributes:
+                priority: 1
+        - values in (cst_size) must exist in {table_name} (cst_size):
+            attributes:
+                priority: 1
+        - freshness(ts) < 10000d:
+            attributes:
+                priority: 1
+    """
+    )
+    scan.execute()
+    scan.assert_all_checks_pass()
+    scan.assert_no_error_nor_warning_logs()

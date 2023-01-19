@@ -125,11 +125,11 @@ class MockSodaCloud(SodaCloud):
 
         return {"measurements": measurements, "check_results": check_results}
 
-    def mock_check_attributes_schema(self, mock_schema: list):
-        if not self._organization_configuration:
-            self._organization_configuration = {}
+    def get_check_attributes_schema(self):
+        if not self._mock_check_attributes_schema:
+            self._mock_check_attributes_schema = {}
 
-        self._organization_configuration[self.ORG_CONFIG_KEY_CHECK_ATTRIBUTES] = mock_schema
+        return self._mock_check_attributes_schema
 
     def pop_scan_result(self) -> dict:
         return self.scan_results.pop()

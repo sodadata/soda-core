@@ -63,7 +63,10 @@ class TestScan(Scan):
         super()._parse_sodacl_yaml_str(sodacl_yaml_str=sodacl_yaml_str, file_path=file_path)
 
     def mock_check_attributes_schema(self, mock_schema: list):
-        self._configuration.soda_cloud.mock_check_attributes_schema(mock_schema)
+        if not self._configuration.soda_cloud:
+            self.enable_mock_soda_cloud()
+
+        self._configuration.soda_cloud._mock_check_attributes_schema = mock_schema
 
     def mock_historic_values(self, metric_identity: str, metric_values: list, time_generator=TimeGenerator()):
         """
