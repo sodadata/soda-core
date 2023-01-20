@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import List, Optional
 
 import vertica_python
 from soda.common.exceptions import DataSourceConnectionError
@@ -209,3 +209,23 @@ class VerticaDataSource(DataSource):
     def default_casify_type_name(self, identifier: str) -> str:
         """Formats type identifier to e.g. a default case for a given data source."""
         return identifier
+
+    def get_metric_sql_aggregation_expression(self, metric_name: str, metric_args: Optional[List[object]], expr: str):
+
+        if metric_name in [
+            "stddev",
+            "stddev_pop",
+            "stddev_samp",
+            "variance",
+            "var_pop",
+            "var_samp",
+        ]:
+            return f"{metric_name.upper()}({expr})"
+
+        if metric_name == "percentile":
+            return f"APPROXIMATE_PERCENTILE ({expr} USING PARAMETERS percentile = {metric_args[0]})"
+
+        return super().get_metric_sql_aggregation_expression(metric_name, metric_args, expr)
+
+    def regex_replace_flags(self) -> str:
+        return ""
