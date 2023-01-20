@@ -341,7 +341,7 @@ class SodaCLParser(Parser):
                 for invalid_configuration_key in [
                     key
                     for key in check_configurations
-                    if key not in [NAME, WARN, FAIL, FAIL_CONDITION, FAIL_QUERY, SAMPLES_LIMIT]
+                    if key not in [NAME, WARN, FAIL, FAIL_CONDITION, FAIL_QUERY, SAMPLES_LIMIT, ATTRIBUTES]
                 ]:
                     self.logs.error(
                         f'Invalid user defined failed rows check configuration key "{invalid_configuration_key}"',
@@ -796,7 +796,7 @@ class SodaCLParser(Parser):
         if isinstance(check_configurations, dict):
             self._push_path_element(check_str, check_configurations)
             for configuration_key in check_configurations:
-                if configuration_key not in [NAME, WARN, FAIL]:
+                if configuration_key not in [NAME, WARN, FAIL, ATTRIBUTES]:
                     self.logs.error(
                         f'Invalid schema check configuration key "{configuration_key}"', location=self.location
                     )
@@ -1014,7 +1014,7 @@ class SodaCLParser(Parser):
             samples_limit = self._get_optional(SAMPLES_LIMIT, int)
 
             for configuration_key in check_configurations:
-                if configuration_key not in [NAME, SAMPLES_LIMIT]:
+                if configuration_key not in [NAME, SAMPLES_LIMIT, ATTRIBUTES]:
                     self.logs.error(
                         f"Invalid reference check configuration key {configuration_key}", location=self.location
                     )
@@ -1064,7 +1064,7 @@ class SodaCLParser(Parser):
 
             name = self._get_optional(NAME, str)
             for configuration_key in check_configurations:
-                if configuration_key not in [NAME, WARN, FAIL]:
+                if configuration_key not in [NAME, WARN, FAIL, ATTRIBUTES]:
                     self.logs.error(f"Invalid freshness configuration key {configuration_key}", location=self.location)
 
             self._pop_path_element()
