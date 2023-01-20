@@ -138,13 +138,13 @@ class VerticaDataSource(DataSource):
 
     @staticmethod
     def column_metadata_catalog_column() -> str:
-        return "v_catalog"  # TODO: test
+        return "v_catalog"
 
     def validate_configuration(self, logs: Logs) -> None:
         pass
 
     def sql_information_schema_tables(self) -> str:
-        return "v_catalog.table"
+        return "v_catalog.tables"
 
     def sql_information_schema_columns(self) -> str:
         return "v_catalog.columns"
