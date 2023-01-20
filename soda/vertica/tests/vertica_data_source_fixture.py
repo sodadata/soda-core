@@ -18,3 +18,9 @@ class VerticaDataSourceFixture(DataSourceFixture):
                 "schema": schema_name if schema_name else os.getenv("VERTICA_SCHEMA", "public"),
             }
         }
+
+    def _create_schema_if_not_exists_sql(self):
+        return f"CREATE SCHEMA IF NOT EXISTS {self.schema_name}"
+
+    def _drop_schema_if_exists_sql(self):
+        return f"DROP SCHEMA IF EXISTS {self.schema_name} CASCADE"
