@@ -17,6 +17,7 @@ services:
       VERTICA_MEMDEBUG: 2  # https://forum.vertica.com/discussion/242629/support-apple-silicon-m1-for-docker-vertica-ce
     command: >
       bash -c "
+        export APP_DB_PASSWORD="password" &&
         rm -rf /home/dbadmin/docker/ &&
         /opt/vertica/bin/admintools -t create_db --database=vmart --password=$APP_DB_PASSWORD --hosts=localhost
       "

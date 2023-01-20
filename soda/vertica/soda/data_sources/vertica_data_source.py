@@ -83,8 +83,8 @@ class VerticaDataSource(DataSource):
         self.port = data_source_properties.get("port", "5433")
         self.username = data_source_properties.get("username", "dbadmin")
         self.password = data_source_properties.get("password", "password")
-        self.database = data_source_properties.get("password", "OLAP")  # TODO: find default DB name
-        self.schema = data_source_properties.get("schema", "default")
+        self.database = data_source_properties.get("database", "vmart")  # TODO: find default DB name
+        self.schema = data_source_properties.get("schema", "public")
 
     def connect(self):
         try:
