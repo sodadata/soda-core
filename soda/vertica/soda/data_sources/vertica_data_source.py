@@ -142,3 +142,9 @@ class VerticaDataSource(DataSource):
 
     def validate_configuration(self, logs: Logs) -> None:
         pass
+
+    def sql_information_schema_tables(self) -> str:
+        return "v_catalog.table"
+
+    def sql_information_schema_columns(self) -> str:
+        return "v_catalog.columns"
