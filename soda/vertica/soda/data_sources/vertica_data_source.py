@@ -138,7 +138,7 @@ class VerticaDataSource(DataSource):
 
     @staticmethod
     def column_metadata_catalog_column() -> str:
-        return "v_catalog"
+        raise NotImplementedError("Cannot get database column from column metadata for Vertica")
 
     def validate_configuration(self, logs: Logs) -> None:
         pass
