@@ -1,8 +1,10 @@
+from typing import Optional
+
+import vertica_python
+from soda.common.exceptions import DataSourceConnectionError
+from soda.common.logs import Logs
 from soda.execution.data_source import DataSource
 from soda.execution.data_type import DataType
-from soda.common.logs import Logs
-from soda.common.exceptions import DataSourceConnectionError
-import vertica_python
 
 
 class VerticaDataSource(DataSource):
@@ -27,7 +29,7 @@ class VerticaDataSource(DataSource):
         "INTERVAL YEAR TO MONTH": ["interval year to month"],
         "FLOAT": ["float", "float8", "real", "double precision", "double"],
         "INTEGER": ["integer", "int", "bigint", "int8", "smallint", "tinyint"],
-        "DECIMAL": ["decimal", "numeric", "number", "money"]
+        "DECIMAL": ["decimal", "numeric", "number", "money"],
     }
 
     SQL_TYPE_FOR_CREATE_TABLE_MAP: dict = {
@@ -67,7 +69,7 @@ class VerticaDataSource(DataSource):
         "decimal",
         "numeric",
         "number",
-        "money"
+        "money",
     ]
 
     TEXT_TYPES_FOR_PROFILING: list = ["varchar", "char", "text"]
@@ -97,7 +99,7 @@ class VerticaDataSource(DataSource):
         return [self.type, self.host, self.port, self.username, self.database]
 
     def sql_get_table_names_with_count(
-        self, include_tables: list[str] | None = None, exclude_tables: list[str] | None = None
+        self, include_tables: Optional[list[str]] = None, exclude_tables: Optional[list[str]] = None
     ) -> str:
 
         table_filter_expression = self.sql_table_include_exclude_filter(
@@ -140,4 +142,3 @@ class VerticaDataSource(DataSource):
 
     def validate_configuration(self, logs: Logs) -> None:
         pass
-
