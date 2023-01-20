@@ -138,7 +138,12 @@ class VerticaDataSource(DataSource):
 
     @staticmethod
     def column_metadata_catalog_column() -> str:
-        raise NotImplementedError("Cannot get database column from column metadata for Vertica")
+        # there's no column in column metadata table which contains DB name
+        # is there a workaround?
+
+        # raise NotImplementedError("Cannot get database column from column metadata for Vertica")
+
+        pass
 
     def validate_configuration(self, logs: Logs) -> None:
         pass
@@ -148,3 +153,42 @@ class VerticaDataSource(DataSource):
 
     def sql_information_schema_columns(self) -> str:
         return "v_catalog.columns"
+
+    def sql_get_table_columns(
+        self,
+        table_name: str,
+        included_columns: list[str] | None = None,
+        excluded_columns: list[str] | None = None,
+    ) -> str:
+        table_name_default_case = self.default_casify_table_name(table_name)
+        unquoted_table_name_default_case = (
+            table_name_default_case[1:-1] if self.is_quoted(table_name_default_case) else table_name_default_case
+        )
+
+        casify_function = self.default_casify_sql_function()
+        filter_clauses = [f"{casify_function}(table_name) = '{unquoted_table_name_default_case}'"]
+
+        if self.schema:
+            filter_clauses.append(f"{casify_function}(table_schema) = '{self.default_casify_system_name(self.schema)}'")
+
+        if included_columns:
+            include_clauses = []
+            for col in included_columns:
+                include_clauses.append(f"{casify_function}(column_name) LIKE {casify_function}('{col}')")
+            include_causes_or = " OR ".join(include_clauses)
+            filter_clauses.append(f"({include_causes_or})")
+
+        if excluded_columns:
+            for col in excluded_columns:
+                filter_clauses.append(f"{casify_function}(column_name) NOT LIKE {casify_function}('{col}')")
+
+        where_filter = " \n  AND ".join(filter_clauses)
+
+        sql = (
+            f"SELECT {', '.join(self.column_metadata_columns())} \n"
+            f"FROM {self.sql_information_schema_columns()} \n"
+            f"WHERE {where_filter}"
+            f"\nORDER BY {self.get_ordinal_position_name()}"
+        )
+
+        return sql
