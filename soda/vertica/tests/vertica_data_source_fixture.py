@@ -47,7 +47,7 @@ class VerticaDataSourceFixture(DataSourceFixture):
                 record = ",".join(self.data_source.literal(value) for value in row)
 
                 insert_statements.append(
-                    f"INSERT INTO {qualified_table_name} VALUES ({record})"
+                    f"INSERT INTO {qualified_table_name} VALUES ({record});"
                 )
 
             return "\n".join(insert_statements)
