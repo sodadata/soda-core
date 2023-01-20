@@ -160,27 +160,28 @@ class VerticaDataSource(DataSource):
         included_columns: list[str] | None = None,
         excluded_columns: list[str] | None = None,
     ) -> str:
+
         table_name_default_case = self.default_casify_table_name(table_name)
+
         unquoted_table_name_default_case = (
             table_name_default_case[1:-1] if self.is_quoted(table_name_default_case) else table_name_default_case
         )
 
-        casify_function = self.default_casify_sql_function()
-        filter_clauses = [f"{casify_function}(table_name) = '{unquoted_table_name_default_case}'"]
+        filter_clauses = [f"table_name = '{unquoted_table_name_default_case}'"]
 
         if self.schema:
-            filter_clauses.append(f"{casify_function}(table_schema) = '{self.default_casify_system_name(self.schema)}'")
+            filter_clauses.append(f"table_schema = '{self.schema}'")
 
         if included_columns:
             include_clauses = []
             for col in included_columns:
-                include_clauses.append(f"{casify_function}(column_name) LIKE {casify_function}('{col}')")
+                include_clauses.append(f"column_name LIKE '{col}'")
             include_causes_or = " OR ".join(include_clauses)
             filter_clauses.append(f"({include_causes_or})")
 
         if excluded_columns:
             for col in excluded_columns:
-                filter_clauses.append(f"{casify_function}(column_name) NOT LIKE {casify_function}('{col}')")
+                filter_clauses.append(f"column_name NOT LIKE '{col}'")
 
         where_filter = " \n  AND ".join(filter_clauses)
 
@@ -192,3 +193,19 @@ class VerticaDataSource(DataSource):
         )
 
         return sql
+
+    def default_casify_system_name(self, identifier: str) -> str:
+        """Formats database/schema/etc identifier to e.g. a default case for a given data source."""
+        return identifier
+
+    def default_casify_table_name(self, identifier: str) -> str:
+        """Formats table identifier to e.g. a default case for a given data source."""
+        return identifier
+
+    def default_casify_column_name(self, identifier: str) -> str:
+        """Formats column identifier to e.g. a default case for a given data source."""
+        return identifier
+
+    def default_casify_type_name(self, identifier: str) -> str:
+        """Formats type identifier to e.g. a default case for a given data source."""
+        return identifier
