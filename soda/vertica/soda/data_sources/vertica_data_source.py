@@ -101,7 +101,7 @@ class VerticaDataSource(DataSource):
 
     @staticmethod
     def column_metadata_columns() -> list:
-        return ["column_name", "data_type_id", "is_nullable"]
+        return ["column_name", "data_type", "is_nullable"]
 
     def sql_get_table_names_with_count(
         self, include_tables: Optional[list[str]] = None, exclude_tables: Optional[list[str]] = None
@@ -175,26 +175,26 @@ class VerticaDataSource(DataSource):
         if included_columns:
             include_clauses = []
             for col in included_columns:
-                include_clauses.append(f"column_name LIKE '{col}'")
-            include_causes_or = " OR ".join(include_clauses)
+                include_clauses.append(f"column_name like '{col}'")
+            include_causes_or = " or ".join(include_clauses)
             filter_clauses.append(f"({include_causes_or})")
 
         if excluded_columns:
             for col in excluded_columns:
-                filter_clauses.append(f"column_name NOT LIKE '{col}'")
+                filter_clauses.append(f"column_name not like '{col}'")
 
-        where_filter = " \n  AND ".join(filter_clauses)
-
-        metadata_columns: Iterable[str] = tuple(map(
-            lambda x: f"LOWER({x}::VARCHAR)" if x == "data_type_id" else str(x),
-            self.column_metadata_columns()
-        ))
+        where_filter = " \n  and ".join(filter_clauses)
 
         sql = (
-            f"SELECT {', '.join(metadata_columns)} \n"
-            f"FROM {self.sql_information_schema_columns()} \n"
-            f"WHERE {where_filter}"
-            f"\nORDER BY {self.get_ordinal_position_name()}"
+            f"select\n"
+            f"  columns.column_name\n"
+            f"  , types.type_name as data_type\n"
+            f"  , columns.is_nullable\n"
+            f"from columns\n"
+            f"  inner join types\n"
+            f"      on columns.data_type_id = types.type_id\n"
+            f"where {where_filter}\n"
+            f"\norder by {self.get_ordinal_position_name()}\n"
         )
 
         return sql
@@ -289,25 +289,25 @@ class VerticaDataSource(DataSource):
         "45035996273705978": "geography",
     }
 
-    def get_table_columns(
-        self,
-        table_name: str,
-        query_name: str,
-        included_columns: list[str] | None = None,
-        excluded_columns: list[str] | None = None,
-    ) -> dict[str, str] | None:
-
-        query = Query(
-            data_source_scan=self.data_source_scan,
-            unqualified_query_name=query_name,
-            sql=self.sql_get_table_columns(
-                table_name, included_columns=included_columns, excluded_columns=excluded_columns
-            ),
-        )
-
-        query.execute()
-
-        if query.rows and len(query.rows) > 0:
-            return {row[0]: self.get_type_name(row[1]) for row in query.rows}
-
-        return None
+    # def get_table_columns(
+    #     self,
+    #     table_name: str,
+    #     query_name: str,
+    #     included_columns: list[str] | None = None,
+    #     excluded_columns: list[str] | None = None,
+    # ) -> dict[str, str] | None:
+    #
+    #     query = Query(
+    #         data_source_scan=self.data_source_scan,
+    #         unqualified_query_name=query_name,
+    #         sql=self.sql_get_table_columns(
+    #             table_name, included_columns=included_columns, excluded_columns=excluded_columns
+    #         ),
+    #     )
+    #
+    #     query.execute()
+    #
+    #     if query.rows and len(query.rows) > 0:
+    #         return {row[0]: self.get_type_name(row[1]) for row in query.rows}
+    #
+    #     return None
