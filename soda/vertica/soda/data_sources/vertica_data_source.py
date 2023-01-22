@@ -1,11 +1,10 @@
-from typing import Iterable, List, Optional
+from typing import List, Optional
 
 import vertica_python
 from soda.common.exceptions import DataSourceConnectionError
 from soda.common.logs import Logs
 from soda.execution.data_source import DataSource
 from soda.execution.data_type import DataType
-from soda.execution.query.query import Query
 
 
 class VerticaDataSource(DataSource):
@@ -13,24 +12,21 @@ class VerticaDataSource(DataSource):
     TYPE: str = "vertica"
 
     SCHEMA_CHECK_TYPES_MAPPING: dict = {
-        "VARCHAR": ["varchar"],
-        "CHAR": ["char"],
-        "LONG VARCHAR": ["text"],
-        "BOOLEAN": ["boolean", "bool"],
-        "BINARY": ["binary", "bin"],
-        "VARBINARY": ["varbinary", "varbin"],
-        "LONG VARBINARY": ["long varbinary", "long varbin"],
-        "DATE": ["date"],
-        "TIME": ["time"],
-        "TIMESTAMP": ["timestamp"],
-        "TIME WITH TIMEZONE": ["time with tz", "time"],
-        "TIMESTAMP WITH TIMEZONE": ["timestamp with tz", "timestamp"],
-        "INTERVAL": ["interval"],
-        "INTERVAL DAY TO SECOND": ["interval day to second"],
-        "INTERVAL YEAR TO MONTH": ["interval year to month"],
-        "FLOAT": ["float", "float8", "real", "double precision", "double"],
-        "INTEGER": ["integer", "int", "bigint", "int8", "smallint", "tinyint"],
-        "DECIMAL": ["decimal", "numeric", "number", "money"],
+        "Varchar": ["varchar"],
+        "Char": ["char"],
+        "Long Varchar": ["text"],
+        "Boolean": ["boolean", "bool"],
+        "Binary": ["binary", "bin"],
+        "Varbinary": ["varbinary", "varbin"],
+        "Long Varbinary": ["long varbinary", "long varbin"],
+        "Date": ["date"],
+        "Time": ["time"],
+        "Timestamp": ["timestamp"],
+        "TimeTz": ["time with tz", "time"],
+        "TimestampTz": ["timestamp with tz", "timestamp"],
+        "Float": ["float", "float8", "real", "double precision", "double"],
+        "Integer": ["integer", "int", "bigint", "int8", "smallint", "tinyint"],
+        "Numeric": ["decimal", "numeric", "number", "money"],
     }
 
     SQL_TYPE_FOR_CREATE_TABLE_MAP: dict = {
@@ -56,24 +52,12 @@ class VerticaDataSource(DataSource):
     }
 
     NUMERIC_TYPES_FOR_PROFILING: list = [
-        "float",
-        "float8",
-        "real",
-        "double precision",
-        "double",
-        "integer",
-        "int",
-        "bigint",
-        "int8",
-        "smallint",
-        "tinyint",
-        "decimal",
-        "numeric",
-        "number",
-        "money",
+        "Float",
+        "Integer",
+        "Numeric",
     ]
 
-    TEXT_TYPES_FOR_PROFILING: list = ["varchar", "char", "text"]
+    TEXT_TYPES_FOR_PROFILING: list = ["Varchar", "Char"]
 
     LIMIT_KEYWORD: str = "LIMIT"
 
