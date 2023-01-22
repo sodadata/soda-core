@@ -247,7 +247,7 @@ jobs:
         if: steps.check-version-tag.outputs.match == 'true'
         uses: peter-evans/repository-dispatch@v2
         with:
-          token: ${{ secrets.REPO_ACCESS_TOKEN_DISPATCH }}
+          token: ${{ secrets.GITHUB_TOKEN }}
           repository: sodadata/soda-core
           event-type: started-from-version-tag
           client-payload: '{"tag": "${{ steps.check-version-tag.outputs.versiontag }}", "ref": "${{ github.ref }}"}'
