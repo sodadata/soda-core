@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import Iterable, List, Optional
 
 import vertica_python
 from soda.common.exceptions import DataSourceConnectionError
@@ -185,8 +185,13 @@ class VerticaDataSource(DataSource):
 
         where_filter = " \n  AND ".join(filter_clauses)
 
+        metadata_columns: Iterable[str] = tuple(map(
+            lambda x: f"LOWER({x}::VARCHAR)" if x == "data_type_id" else str(x),
+            self.column_metadata_columns()
+        ))
+
         sql = (
-            f"SELECT {', '.join(self.column_metadata_columns())} \n"
+            f"SELECT {', '.join(metadata_columns)} \n"
             f"FROM {self.sql_information_schema_columns()} \n"
             f"WHERE {where_filter}"
             f"\nORDER BY {self.get_ordinal_position_name()}"
@@ -204,7 +209,7 @@ class VerticaDataSource(DataSource):
         return identifier
 
     def default_casify_type_name(self, identifier: str) -> str:
-        return identifier
+        return identifier.lower()
 
     def get_metric_sql_aggregation_expression(self, metric_name: str, metric_args: Optional[List[object]], expr: str):
 
