@@ -1,10 +1,9 @@
 from __future__ import annotations
 
-from collections import defaultdict
-from numbers import Number
 from typing import TYPE_CHECKING, overload
 
 from soda.execution.query.query import Query
+from soda.profiling.profile_columns_metadata import ProfilerTableMetadata
 from soda.profiling.profile_columns_result import (
     ProfileColumnsResult,
     ProfileColumnsResultColumn,
@@ -47,69 +46,38 @@ class ProfileColumnsRun:
         self.profile_columns_cfg: ProfileColumnsCfg = profile_columns_cfg
         self.logs = self.data_source_scan.scan._logs
 
-    @staticmethod
-    def parse_profiling_expressions(profiling_expressions: list[str]) -> list[dict[str, str]]:
-        parsed_profiling_expressions = []
-        for profiling_expression in profiling_expressions:
-            table_name_pattern, column_name_pattern = profiling_expression.split(".")
-            parsed_profiling_expressions.append(
-                {
-                    "table_name_pattern": table_name_pattern,
-                    "column_name_pattern": column_name_pattern,
-                }
-            )
-
-        return parsed_profiling_expressions
-
     def run(self) -> ProfileColumnsResult:
-        profile_columns_result: ProfileColumnsResult = ProfileColumnsResult(self.profile_columns_cfg)
         self.logs.info(f"Running column profiling for data source: {self.data_source.data_source_name}")
 
-        include_patterns = self.parse_profiling_expressions(self.profile_columns_cfg.include_columns)
-        exclude_patterns = self.parse_profiling_expressions(self.profile_columns_cfg.exclude_columns)
+        profile_result_column_tables = ProfilerTableMetadata(
+            data_source=self.data_source,
+            include_columns=self.profile_columns_cfg.include_columns,
+            exclude_columns=self.profile_columns_cfg.exclude_columns,
+        ).get_profile_result_tables()
 
-        tables_columns_metadata: defaultdict[str, dict[str, str]] = self.data_source.get_tables_columns_metadata(
-            include_patterns=include_patterns,
-            exclude_patterns=exclude_patterns,
-            query_name=f"profile-columns-get-table-and-column-metadata",
-        )
+        profile_columns_result: ProfileColumnsResult = ProfileColumnsResult(self.profile_columns_cfg)
 
-        if tables_columns_metadata is None:
-            self.logs.warning(
-                f"Your SodaCL profiling expressions did not return any existing dataset name and column name combinations for your '{self.data_source.data_source_name}' "
-                f"data source. Please make sure that the patterns in your profiling expressions define existing dataset name and column name combinations."
-                f" Profiling results may be incomplete or entirely skipped. See the docs for more information: \n"
-                f"https://go.soda.io/display-profile",
-                location=self.profile_columns_cfg.location,
-            )
-            return profile_columns_result
+        if profile_result_column_tables is None:
+            return self._raise_no_tables_to_profile_warning(profile_columns_result)
 
         self.logs.info("Profiling columns for the following tables:")
-        for table_name in tables_columns_metadata:
+        for result_table in profile_result_column_tables:
+            table_name = result_table.table_name
             self.logs.info(f"  - {table_name}")
-            row_count = self.data_source.get_table_row_count(table_name)
-            profile_columns_result_table = profile_columns_result.create_table(
-                table_name, self.data_source.data_source_name, row_count=row_count
-            )
-            columns_metadata_result = tables_columns_metadata.get(table_name)
-
-            for column_name, column_data_type in columns_metadata_result.items():
+            for result_column in result_table.result_columns:
+                column_name = result_column.column_name
+                column_data_type = result_column.column_type
                 try:
                     if column_data_type in self.data_source.NUMERIC_TYPES_FOR_PROFILING:
                         profiling_column_type = "numeric"
-                        self.profile_numeric_column(
-                            column_name,
-                            column_data_type,
-                            table_name,
-                            profile_columns_result_table,
-                        )
+                        self.profile_numeric_column(result_column, table_name)
                     elif column_data_type in self.data_source.TEXT_TYPES_FOR_PROFILING:
                         profiling_column_type = "text"
                         self.profile_text_column(
                             column_name,
                             column_data_type,
                             table_name,
-                            profile_columns_result_table,
+                            result_table,
                         )
                     else:
                         self.logs.warning(
@@ -123,131 +91,115 @@ class ProfileColumnsRun:
 
         return profile_columns_result
 
+    def _compute_value_frequencies(self, table_name: str, column_name: str) -> list[tuple] | None:
+        value_frequencies_sql = self.data_source.profiling_sql_values_frequencies_query(
+            "numeric",
+            table_name,
+            column_name,
+            self.profile_columns_cfg.limit_mins_maxs,
+            self.profile_columns_cfg.limit_frequent_values,
+        )
+
+        value_frequencies_query = Query(
+            data_source_scan=self.data_source_scan,
+            unqualified_query_name=f"profiling-{table_name}-{column_name}-value-frequencies-numeric",
+            sql=value_frequencies_sql,
+        )
+        value_frequencies_query.execute()
+        rows = value_frequencies_query.rows
+        return rows
+
+    def _compute_aggregated_metrics(self, table_name: str, column_name: str) -> list[tuple] | None:
+        aggregates_sql = self.data_source.profiling_sql_aggregates_numeric(table_name, column_name)
+        aggregates_query = Query(
+            data_source_scan=self.data_source_scan,
+            unqualified_query_name=f"profiling-{table_name}-{column_name}-profiling-aggregates",
+            sql=aggregates_sql,
+        )
+        aggregates_query.execute()
+        rows = aggregates_query.rows
+        return rows
+
     def profile_numeric_column(
         self,
-        column_name: str,
-        column_type: str,
+        result_column: ProfileColumnsResultColumn,
         table_name: str,
-        profile_columns_result_table: ProfileColumnsResultTable,
     ):
+        column_name = result_column.column_name
         self.logs.debug(f"Profiling column {column_name} of {table_name}")
-        profile_columns_result_column, is_included_column = self.build_profiling_column(
-            column_name,
-            column_type,
-            profile_columns_result_table,
-        )
-        if profile_columns_result_column and is_included_column:
-            value_frequencies_sql = self.data_source.profiling_sql_values_frequencies_query(
-                "numeric",
+
+        # mins, maxs, frequent values
+        value_frequencies = self._compute_value_frequencies(table_name, column_name)
+        if value_frequencies is None:
+            self.logs.error(
+                "Database returned no results for minumum values, maximum values and "
+                f"frequent values in table: {table_name}, columns: {column_name}"
+            )
+            return
+        result_column.set_mins(value_frequencies=value_frequencies)
+        result_column.set_maxs(value_frequencies=value_frequencies)
+        result_column.set_min()
+        result_column.set_max()
+        result_column.set_frequent_values(value_frequencies=value_frequencies)
+
+        # histogram
+        if result_column.min is None:
+            self.logs.warning("Min cannot be None, make sure the min metric is derived before histograms")
+        if result_column.max is None:
+            self.logs.warning("Max cannot be None, make sure the min metric is derived before histograms")
+        if result_column.min is None or result_column.max is None:
+
+            return
+        aggregated_metrics = self._compute_aggregated_metrics(table_name, column_name)
+        if aggregated_metrics is None:
+            self.logs.error(
+                "Database returned no results for aggregates in table: {table_name}, columns: {column_name}"
+            )
+            return
+
+        result_column.average = cast_dtype_handle_none(aggregates_query.rows[0][0], "float")
+        result_column.sum = cast_dtype_handle_none(aggregates_query.rows[0][1], "float")
+        result_column.variance = cast_dtype_handle_none(aggregates_query.rows[0][2], "float")
+        result_column.standard_deviation = cast_dtype_handle_none(aggregates_query.rows[0][3], "float")
+        result_column.distinct_values = cast_dtype_handle_none(aggregates_query.rows[0][4], "int")
+        result_column.missing_values = cast_dtype_handle_none(aggregates_query.rows[0][5], "int")
+
+        if profile_columns_result_column.min is not None and profile_columns_result_column.max is not None:
+            histogram_sql, bins_list = self.data_source.histogram_sql_and_boundaries(
                 table_name,
                 column_name,
-                self.profile_columns_cfg.limit_mins_maxs,
-                self.profile_columns_cfg.limit_frequent_values,
+                profile_columns_result_column.min,
+                profile_columns_result_column.max,
+                profile_columns_result_column.distinct_values,
+                column_type,
             )
-
-            value_frequencies_query = Query(
-                data_source_scan=self.data_source_scan,
-                unqualified_query_name=f"profiling-{table_name}-{column_name}-value-frequencies-numeric",
-                sql=value_frequencies_sql,
-            )
-            value_frequencies_query.execute()
-
-            def unify_type(v):
-                return float(v) if isinstance(v, Number) else v
-
-            if value_frequencies_query.rows is not None:
-                profile_columns_result_column.mins = [
-                    unify_type(row[2]) for row in value_frequencies_query.rows if row[0] == "mins"
-                ]
-                profile_columns_result_column.maxs = [
-                    unify_type(row[2]) for row in value_frequencies_query.rows if row[0] == "maxs"
-                ]
-                profile_columns_result_column.min = (
-                    profile_columns_result_column.mins[0] if len(profile_columns_result_column.mins) >= 1 else None
+            if histogram_sql is not None:
+                histogram_query = Query(
+                    data_source_scan=self.data_source_scan,
+                    unqualified_query_name=f"profiling-{table_name}-{column_name}-histogram",
+                    sql=histogram_sql,
                 )
-                profile_columns_result_column.max = (
-                    profile_columns_result_column.maxs[0] if len(profile_columns_result_column.maxs) >= 1 else None
-                )
-                profile_columns_result_column.frequent_values = [
-                    {"value": str(row[2]), "frequency": int(row[3])}
-                    for row in value_frequencies_query.rows
-                    if row[0] == "frequent_values"
-                ]
-            else:
-                self.logs.error(
-                    f"Database returned no results for minumum values, maximum values and frequent values in table: {table_name}, columns: {column_name}"
-                )
-
-            # pure aggregates
-            aggregates_sql = self.data_source.profiling_sql_aggregates_numeric(table_name, column_name)
-            aggregates_query = Query(
-                data_source_scan=self.data_source_scan,
-                unqualified_query_name=f"profiling-{table_name}-{column_name}-profiling-aggregates",
-                sql=aggregates_sql,
-            )
-            aggregates_query.execute()
-            if aggregates_query.rows is not None:
-                profile_columns_result_column.average = cast_dtype_handle_none(aggregates_query.rows[0][0], "float")
-                profile_columns_result_column.sum = cast_dtype_handle_none(aggregates_query.rows[0][1], "float")
-                profile_columns_result_column.variance = cast_dtype_handle_none(aggregates_query.rows[0][2], "float")
-                profile_columns_result_column.standard_deviation = cast_dtype_handle_none(
-                    aggregates_query.rows[0][3], "float"
-                )
-                profile_columns_result_column.distinct_values = cast_dtype_handle_none(
-                    aggregates_query.rows[0][4], "int"
-                )
-                profile_columns_result_column.missing_values = cast_dtype_handle_none(
-                    aggregates_query.rows[0][5], "int"
-                )
-            else:
-                self.logs.error(
-                    f"Database returned no results for aggregates in table: {table_name}, columns: {column_name}"
-                )
-
-            # histogram
-            if profile_columns_result_column.min is None:
-                self.logs.warning("Min cannot be None, make sure the min metric is derived before histograms")
-            if profile_columns_result_column.max is None:
-                self.logs.warning("Max cannot be None, make sure the min metric is derived before histograms")
-
-            if profile_columns_result_column.min is not None and profile_columns_result_column.max is not None:
-                histogram_sql, bins_list = self.data_source.histogram_sql_and_boundaries(
-                    table_name,
-                    column_name,
-                    profile_columns_result_column.min,
-                    profile_columns_result_column.max,
-                    profile_columns_result_column.distinct_values,
-                    column_type,
-                )
-                if histogram_sql is not None:
-                    histogram_query = Query(
-                        data_source_scan=self.data_source_scan,
-                        unqualified_query_name=f"profiling-{table_name}-{column_name}-histogram",
-                        sql=histogram_sql,
+                histogram_query.execute()
+                histogram = {}
+                if histogram_query.rows is not None:
+                    histogram["boundaries"] = bins_list
+                    histogram["frequencies"] = [
+                        int(freq) if freq is not None else 0 for freq in histogram_query.rows[0]
+                    ]
+                    profile_columns_result_column.histogram = histogram
+                else:
+                    self.logs.error(
+                        f"Database returned no results for histograms in table: {table_name}, columns: {column_name}"
                     )
-                    histogram_query.execute()
-                    histogram = {}
-                    if histogram_query.rows is not None:
-                        histogram["boundaries"] = bins_list
-                        histogram["frequencies"] = [
-                            int(freq) if freq is not None else 0 for freq in histogram_query.rows[0]
-                        ]
-                        profile_columns_result_column.histogram = histogram
-                    else:
-                        self.logs.error(
-                            f"Database returned no results for histograms in table: {table_name}, columns: {column_name}"
-                        )
-            else:
-                self.logs.warning(
-                    f"Histogram query for {table_name}, column {column_name} skipped. See earlier warnings."
-                )
-        elif not is_included_column:
-            self.logs.debug(f"Column: {column_name} in table: {table_name} is skipped from profiling by the user.")
         else:
-            self.logs.error(
-                f"No profiling information derived for column {column_name} in {table_name} and type: {column_type}. "
-                "Soda Core could not create a column result."
-            )
+            self.logs.warning(f"Histogram query for {table_name}, column {column_name} skipped. See earlier warnings.")
+        # elif not is_included_column:
+        #     self.logs.debug(f"Column: {column_name} in table: {table_name} is skipped from profiling by the user.")
+        # else:
+        #     self.logs.error(
+        #         f"No profiling information derived for column {column_name} in {table_name} and type: {column_type}. "
+        #         "Soda Core could not create a column result."
+        #     )
 
     def profile_text_column(
         self,
@@ -330,3 +282,15 @@ class ProfileColumnsRun:
     ) -> tuple[ProfileColumnsResultColumn | None, bool]:
         profile_columns_result_column: ProfileColumnsResultColumn = table_result.create_column(column_name, column_type)
         return profile_columns_result_column, True
+
+    def _raise_no_tables_to_profile_warning(self, profile_columns_result: ProfileColumnsResult) -> ProfileColumnsResult:
+        self.logs.warning(
+            "Your SodaCL profiling expressions did not return any existing dataset name"
+            f" and column name combinations for your '{self.data_source.data_source_name}' "
+            "data source. Please make sure that the patterns in your profiling expressions define "
+            "existing dataset name and column name combinations."
+            " Profiling results may be incomplete or entirely skipped. See the docs for more information: \n"
+            f"https://go.soda.io/display-profile",
+            location=self.profile_columns_cfg.location,
+        )
+        return profile_columns_result

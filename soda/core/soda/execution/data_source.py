@@ -417,7 +417,7 @@ class DataSource:
         return False
 
     @staticmethod
-    def parse_tables_columns_query(rows: list[tuple]) -> defaultdict(dict):
+    def parse_tables_columns_query(rows: list[tuple]) -> defaultdict[str, dict]:
         tables_and_columns_metadata = defaultdict(dict)
         for table_name, column_name, data_type in rows:
             tables_and_columns_metadata[table_name][column_name] = data_type
@@ -426,8 +426,8 @@ class DataSource:
     def get_tables_columns_metadata(
         self,
         query_name: str,
-        include_patterns: list[dict[str, str]] | None = None,
-        exclude_patterns: list[dict[str, str]] | None = None,
+        include_patterns: list[dict[str, str]],
+        exclude_patterns: list[dict[str, str]],
         table_names_only: bool = False,
     ) -> defaultdict[str, dict[str, str]] | list[str] | None:
         # TODO: save/cache the result for later use.
@@ -445,9 +445,9 @@ class DataSource:
         rows = query.rows
         if rows and len(rows) > 0:
             if table_names_only:
-                query_result = [self._optionally_quote_table_name_from_meta_data(row[0]) for row in rows]
+                query_result: list[str] = [self._optionally_quote_table_name_from_meta_data(row[0]) for row in rows]
             else:
-                query_result: defaultdict(dict) = self.parse_tables_columns_query(rows)
+                query_result: defaultdict[str, dict] = self.parse_tables_columns_query(rows)
             return query_result
         return None
 

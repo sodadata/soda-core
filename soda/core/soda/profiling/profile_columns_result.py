@@ -1,11 +1,15 @@
 from __future__ import annotations
 
+from numbers import Number
+from typing import Any
+
 from soda.sodacl.data_source_check_cfg import ProfileColumnsCfg
 
 
 class ProfileColumnsResultColumn:
     def __init__(self, column_name: str, column_type: str):
         self.column_name: str = column_name
+        self.column_type: str = column_type
         self.mins: list[float | int] | None = None
         self.maxs: list[float | int] | None = None
         self.min: float | int | None = None
@@ -21,6 +25,32 @@ class ProfileColumnsResultColumn:
         self.average_length: float | None = None
         self.min_length: float | None = None
         self.max_length: float | None = None
+
+    def set_mins(self, value_frequencies: list[tuple]) -> None:
+        self.mins = [self.unify_type(row[2]) for row in value_frequencies if row[0] == "mins"]
+
+    def set_maxs(self, value_frequencies: list[tuple]) -> None:
+        self.maxs = [self.unify_type(row[2]) for row in value_frequencies if row[0] == "maxs"]
+
+    def set_min(self) -> None:
+        if self.mins:
+            self.min = self.mins[0]
+
+    def set_max(self) -> None:
+        if self.maxs:
+            self.max = self.maxs[0]
+
+    def set_frequent_values(self, value_frequencies: list[tuple]) -> None:
+        self.frequent_values = [
+            {"value": str(row[2]), "count": int(row[3])} for row in value_frequencies if row[0] == "frequent_values"
+        ]
+
+    @staticmethod
+    def unify_type(v: Any) -> Any:
+        if isinstance(v, Number):
+            return float(v)
+        else:
+            return v
 
     def get_cloud_dict(self) -> dict:
         cloud_dict = {
