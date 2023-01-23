@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 import os
+from collections import defaultdict
 from numbers import Number
 
 import pytest
@@ -13,6 +14,9 @@ from helpers.common_test_tables import (
 from helpers.data_source_fixture import DataSourceFixture
 from soda.common.yaml_helper import to_yaml_str
 from soda.execution.check.profile_columns_run import ProfileColumnsRun
+
+LOWERCASE_COLUMN_NAME_DATABASES = ["postgres", "redshift", "athena"]
+UPPERCASE_COLUMN_NAME_DATABASES = ["snowflake", "db2", "oracle"]
 
 
 def test_profile_columns_numeric(data_source_fixture: DataSourceFixture):
@@ -55,7 +59,16 @@ def test_profile_columns_numeric(data_source_fixture: DataSourceFixture):
         assert isinstance(frequent_value, dict)
         assert "value" in frequent_value
         assert "frequency" in frequent_value
-    for numeric_stat in ["avg", "min", "max", "sum", "stddev", "variance", "distinct", "missing_count"]:
+    for numeric_stat in [
+        "avg",
+        "min",
+        "max",
+        "sum",
+        "stddev",
+        "variance",
+        "distinct",
+        "missing_count",
+    ]:
         v = size_profile[numeric_stat]
         assert isinstance(
             v, Number
@@ -155,113 +168,218 @@ def test_profile_columns_all_tables_all_columns(data_source_fixture: DataSourceF
 
     profile_columns_run = ProfileColumnsRun(data_source_scan, profiling_cfg)
 
-    table_names: list[str] = data_source.get_table_names(
-        include_tables=profile_columns_run._get_table_expression(include_columns),
-        exclude_tables=profile_columns_run._get_table_expression(exclude_columns, is_for_exclusion=True),
-        query_name="profile-columns-get-table-names",
+    tables_columns_metadata: defaultdict[str, dict[str, str]] = data_source.get_tables_columns_metadata(
+        include_patterns=profile_columns_run.parse_profiling_expressions(include_columns),
+        exclude_patterns=profile_columns_run.parse_profiling_expressions(exclude_columns),
+        query_name="profile-columns-get-table-and-column-metadata",
     )
 
     # Test only two tables
-    assert customers_profiling_table_name in table_names
-    assert orders_test_table_name in table_names
+    assert customers_profiling_table_name in tables_columns_metadata
+    assert orders_test_table_name in tables_columns_metadata
 
-    parsed_included_tables_and_columns = profile_columns_run._build_column_expression_list(include_columns)
-    assert parsed_included_tables_and_columns == {"%": ["%"]}
+    customers_columns_metadata_result = tables_columns_metadata.get(customers_profiling_table_name)
+    orders_columns_metadata_result = tables_columns_metadata.get(orders_test_table_name)
 
-    parsed_excluded_tables_and_columns = profile_columns_run._build_column_expression_list(exclude_columns)
-    assert parsed_excluded_tables_and_columns == {}
-
-    customers_columns_metadata_result = data_source.get_table_columns(
-        table_name=customers_profiling_table_name,
-        query_name=f"profile-columns-get-column-metadata-for-{customers_profiling_table_name}",
-        included_columns=parsed_included_tables_and_columns,
-        excluded_columns=parsed_excluded_tables_and_columns,
-    )
     assert len(customers_columns_metadata_result) == 12
-
-    orders_columns_metadata_result = data_source.get_table_columns(
-        table_name=orders_test_table_name,
-        query_name=f"profile-columns-get-column-metadata-for-{orders_test_table_name}",
-        included_columns=parsed_included_tables_and_columns,
-        excluded_columns=parsed_excluded_tables_and_columns,
-    )
     assert len(orders_columns_metadata_result) == 6
 
 
 @pytest.mark.parametrize(
-    "table_name, soda_cl_str, expectation",
+    "soda_cl_str, expected_column_profiling_results",
     [
         pytest.param(
-            customers_profiling,
             """
                 profile columns:
                     columns:
-                        - include {table_name}.%
-                        - include %.cst_size
+                        - include {table_name1}.%
+                        - include {table_name2}.%
                         - exclude %.country
                         - exclude %.id
             """,
-            "",
+            {
+                "table_name1": [
+                    "cst_size",
+                    "cst_size_txt",
+                    "distance",
+                    "pct",
+                    "cat",
+                    "zip",
+                    "email",
+                ],
+                "table_name2": ["ITEMS_SOLD", "CST_Size"],
+            },
+            id="table_name1 and table_name2 with all columns except for country and id",
         ),
         pytest.param(
-            customers_profiling,
             """
                 profile columns:
                     columns:
-                        - include %.%
+                        - include %Profiling%.%
                         - exclude %.id
             """,
-            "all but id",
-            id="all tables and cols except for id",
+            {
+                "table_name1": [
+                    "cst_size",
+                    "cst_size_txt",
+                    "distance",
+                    "pct",
+                    "cat",
+                    "country",
+                    "zip",
+                    "email",
+                ],
+                "table_name2": ["ITEMS_SOLD", "CST_Size"],
+            },
+            id="all tables with names that contain 'profiling' and columns except for id",
         ),
         pytest.param(
-            customers_profiling,
             """
                 profile columns:
                     columns:
                         - include %.%
                         - exclude %.%
             """,
-            "all but id",
-            id="all tables and columns included and then all excluded",
+            {},
+            id="no tables included",
         ),
         pytest.param(
-            customers_profiling,
             """
                 profile columns:
                     columns:
-                        - include {table_name}.%
-                        - include %.si%
-                        - exclude %.country
-                        - exclude %.id
+                        - include %Profiling%.%si%
+                        - include %Profiling%.%Si%
             """,
-            "",
-            id="all tables with 'si' like columns should have profile",
+            {
+                "table_name1": ["cst_size", "cst_size_txt"],
+                "table_name2": ["CST_Size"],
+            },
+            id="'si' and 'Si' like columns in tables with names that contain 'profiling'",
+        ),
+        pytest.param(
+            """
+                profile columns:
+                    columns:
+                        - include {table_name1}.%si%
+                        - exclude {table_name1}.%txt
+            """,
+            {"table_name1": ["cst_size"]},
+            id="include 'si' like columns exclude 'txt' like columns",
+        ),
+        pytest.param(
+            """
+                profile columns:
+                    columns:
+                        - include %Profiling%.country
+                        - include %Profiling%.%ITEMS_SOLD%
+            """,
+            {
+                "table_name1": [
+                    "country",
+                ],
+                "table_name2": ["ITEMS_SOLD"],
+            },
+            id="double include on same table with different patterns",
+        ),
+        pytest.param(
+            """
+                profile columns:
+                    columns:
+                        - include %Profiling%.%
+                        - exclude %Capitalized%.%
+            """,
+            {
+                "table_name1": [
+                    "id",
+                    "cst_size",
+                    "cst_size_txt",
+                    "distance",
+                    "pct",
+                    "cat",
+                    "country",
+                    "zip",
+                    "email",
+                ],
+            },
+            id="table_name with 'profiling' included unless they have 'capitalized'",
+        ),
+        pytest.param(
+            """
+                profile columns:
+                    columns:
+                        - include %.ITEMS_SOLD
+            """,
+            {
+                "table_name1": ["ITEMS_SOLD"],
+            },
+            id="ITEMS_SOLD column in any table that has it",
+        ),
+        pytest.param(
+            """
+                profile columns:
+                    columns:
+                        - include Profiling.%
+            """,
+            {},
+            id="ensure 'like' operator is not used on tables without presence of wildcard",
+        ),
+        pytest.param(
+            """
+                profile columns:
+                    columns:
+                        - include %.ITEMS
+            """,
+            {},
+            id="ensure 'like' operator is not used on columns without presence of wildcard",
+        ),
+        pytest.param(
+            """
+                profile columns:
+                    columns:
+                        - include %.ITEMS_SOLD
+                        - exclude %.%ITEMS
+            """,
+            {
+                "table_name1": ["ITEMS_SOLD"],
+            },
+            id="ensure matching pattern doesn't just consider start of table/column name",
         ),
     ],
 )
 def test_profile_columns_inclusions_exclusions(
-    data_source_fixture: DataSourceFixture, table_name, soda_cl_str, expectation
+    data_source_fixture: DataSourceFixture, soda_cl_str, expected_column_profiling_results
 ):
-    _table_name = data_source_fixture.ensure_test_table(table_name)
+    _table_name1 = data_source_fixture.ensure_test_table(customers_profiling)
+    _table_name2 = data_source_fixture.ensure_test_table(customers_profiling_capitalized)
     scan = data_source_fixture.create_test_scan()
     mock_soda_cloud = scan.enable_mock_soda_cloud()
-    scan.add_sodacl_yaml_str(soda_cl_str.format(table_name=_table_name))
+    scan.add_sodacl_yaml_str(soda_cl_str.format(table_name1=_table_name1, table_name2=_table_name2))
     # TODO: we should only allow warnings here, we'll have to look at what the errors were
     # it is most likely will be related to https://sodadata.atlassian.net/browse/CLOUD-155
     scan.execute(allow_error_warning=True)
-    profiling_result = mock_soda_cloud.pop_scan_result()
-    for table_result in profiling_result["profiling"]:
-        if table_result["table"].lower().startswith("sodatest_customer"):
-            column_names = [col_profile["columnName"] for col_profile in table_result["columnProfiles"]]
-            if expectation == "all but id":
-                assert "id" not in column_names
-            elif expectation == "all but nothing":
-                assert len(column_names) == 0
-            else:
-                assert "id" not in column_names
-                assert "cst_size" in column_names
-                assert "country" not in column_names
+    scan_results = mock_soda_cloud.pop_scan_result()
+
+    profiled_tables = [profiled_table for profiled_table in scan_results["profiling"]]
+    profiled_tables = sorted(profiled_tables, key=lambda x: x["table"].lower())
+
+    column_profiling_results = {
+        f"table_name{index}": list(map(lambda x: x["columnName"], profiled_table["columnProfiles"]))
+        for index, profiled_table in enumerate(profiled_tables, 1)
+    }
+
+    test_data_source = os.environ.get("test_data_source")
+
+    test_data_source_uppercase = test_data_source in UPPERCASE_COLUMN_NAME_DATABASES
+    test_data_source_lowercase = test_data_source in LOWERCASE_COLUMN_NAME_DATABASES
+
+    if test_data_source_uppercase or test_data_source_lowercase:
+        casify_function = lambda x: x.upper() if test_data_source_uppercase else x.lower()
+        expected_column_profiling_results = {
+            table_name: [casify_function(column_name) for column_name in column_names]
+            for table_name, column_names in expected_column_profiling_results.items()
+        }
+
+    assert column_profiling_results == expected_column_profiling_results
 
 
 def test_profile_columns_quotes_error(data_source_fixture: DataSourceFixture):
@@ -344,11 +462,16 @@ def test_profile_columns_capitalized(data_source_fixture: DataSourceFixture):
 
     test_data_source = data_source_fixture.data_source_name
 
-    lowercase_column_name_databases = ["postgres", "redshift", "athena"]
-    if test_data_source in lowercase_column_name_databases:
-        expected_column_name = "items_sold"
+    if test_data_source in LOWERCASE_COLUMN_NAME_DATABASES:
+        expected_column_name1 = "items_sold"
+        expected_column_name2 = "cst_size"
+    elif test_data_source in UPPERCASE_COLUMN_NAME_DATABASES:
+        expected_column_name1 = "ITEMS_SOLD"
+        expected_column_name2 = "CST_SIZE"
     else:
-        expected_column_name = "ITEMS_SOLD"
+        expected_column_name1 = "ITEMS_SOLD"
+        expected_column_name2 = "CST_Size"
 
-    assert len(column_profiles) == 1
-    assert column_profiles[0]["columnName"] == expected_column_name
+    assert len(column_profiles) == 2
+    assert column_profiles[0]["columnName"] == expected_column_name1
+    assert column_profiles[1]["columnName"] == expected_column_name2

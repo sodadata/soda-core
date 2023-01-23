@@ -94,6 +94,18 @@ class MySQLDataSource(DataSource):
     def column_metadata_catalog_column() -> str:
         return "table_schema"
 
+    @staticmethod
+    def column_metadata_table_name() -> str:
+        return "table_name"
+
+    @staticmethod
+    def column_metadata_column_name() -> str:
+        return "column_name"
+
+    @staticmethod
+    def column_metadata_datatype_name() -> str:
+        return " CAST(data_type AS CHAR) "
+
     def quote_table(self, table_name: str) -> str:
         return f"{table_name}"
 
