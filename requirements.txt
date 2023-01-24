@@ -17,3 +17,4 @@
 ./soda/dremio
 ./soda/duckdb
 ./soda/denodo
+./soda/vertica
