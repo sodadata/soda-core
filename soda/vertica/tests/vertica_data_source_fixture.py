@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import os
 
 from helpers.data_source_fixture import DataSourceFixture
