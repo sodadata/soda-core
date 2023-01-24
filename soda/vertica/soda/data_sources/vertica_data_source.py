@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from typing import List, Optional
-
 import vertica_python
 from soda.common.exceptions import DataSourceConnectionError
 from soda.common.logs import Logs
