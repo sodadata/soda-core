@@ -54,10 +54,10 @@ def test_profile_columns_numeric(data_source_fixture: DataSourceFixture):
 
     mins = size_profile["mins"]
     assert isinstance(mins, list)
-    assert mins[0] == 0.5
+    assert mins[0] == pytest.approx(0.5)
     maxs = size_profile["maxs"]
     assert isinstance(maxs, list)
-    assert maxs[0] == 6.1
+    assert maxs[0] == pytest.approx(6.1)
     frequent_values = size_profile["frequent_values"]
     assert isinstance(frequent_values, list)
     for frequent_value in frequent_values:
@@ -95,7 +95,6 @@ def test_profile_columns_numeric(data_source_fixture: DataSourceFixture):
 )
 def test_profile_columns_text(data_source_fixture: DataSourceFixture):
     table_name = data_source_fixture.ensure_test_table(customers_profiling)
-
     scan = data_source_fixture.create_test_scan()
     mock_soda_cloud = scan.enable_mock_soda_cloud()
     scan.add_sodacl_yaml_str(

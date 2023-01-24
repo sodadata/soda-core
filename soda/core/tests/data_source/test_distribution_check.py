@@ -96,9 +96,10 @@ def test_distribution_sql(data_source_fixture: DataSourceFixture, mock_file_syst
         assert scan._checks[0].query.sql == expectation.format(table_name=table_name, schema_name="")
     elif test_data_source == "oracle":
         expectation = "SELECT \n  cst_size \nFROM {table_name}\n FETCH FIRST 1000000 ROWS ONLY"
-    elif test_data_source == "duckdb":
+    elif test_data_source in ["duckdb", "dask"]:
         # duckdb does not prepend schemas
         assert scan._checks[0].query.sql == expectation.format(table_name=table_name, schema_name="")
+
     else:
         assert scan._checks[0].query.sql == expectation.format(
             table_name=table_name, schema_name=f"{data_source_fixture.schema_name}."

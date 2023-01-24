@@ -55,7 +55,9 @@ jobs:
           - "sqlserver"
           - "mysql"
           - "duckdb"
+          - "dask"
           - "vertica"
+
     env:
       DATA_SOURCE: ${{ matrix.data-source }}
       PYTHON_VERSION: ${{ matrix.python-version }}

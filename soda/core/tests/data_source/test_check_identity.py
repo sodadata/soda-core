@@ -182,6 +182,7 @@ def test_for_each_identity(data_source_fixture: DataSourceFixture):
         "spark_df",
         "mysql",
         "athena",
+        "dask",
     ],
     reason="Column name starting with number is not allowed in some data sources.",
 )

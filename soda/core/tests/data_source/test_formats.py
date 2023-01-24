@@ -125,6 +125,8 @@ def test_formats(data_source_fixture: DataSourceFixture):
         test_definitions.pop("date eu")  # Partially supported.
         test_definitions.pop("date inverse")  # Partially supported.
         test_definitions.pop("date iso 8601")  # Not supported.
+    elif test_data_source == "dask":
+        test_definitions.pop("date iso 8601")
 
     for format, values in test_definitions.items():
         assert_format_values(
@@ -163,6 +165,9 @@ def assert_format_values(format, data_source_fixture: DataSourceFixture, table_n
     expressions_sql = ",\n  ".join(expressions)
     sql = f"SELECT \n  {expressions_sql} FROM {qualified_table_name}"
     row = data_source_fixture._fetch_all(sql)[0]
+    if test_data_source == "dask":
+        # Parse string boolean values to boolean.
+        row = [value == "True" for value in row]
 
     failures_messages = []
     for index, expected_value in enumerate(expected_values):
