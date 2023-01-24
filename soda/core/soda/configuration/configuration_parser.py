@@ -93,7 +93,8 @@ class ConfigurationParser(Parser):
                                 if storage_type == "http":
                                     url = storage.get("url")
                                     message = storage.get("message") or f"Failed rows have been sent to {url}"
-                                    self.configuration.sampler = HTTPSampler(url, message=message)
+                                    link_text = storage.get("link_text") or message
+                                    self.configuration.sampler = HTTPSampler(url, message=message, link_text=link_text)
                             elif self.configuration.soda_cloud and not disable_samples:
                                 self.configuration.sampler = SodaCloudSampler()
                             else:
