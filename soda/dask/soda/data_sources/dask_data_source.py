@@ -110,6 +110,33 @@ class DaskDataSource(DataSource):
     def cast_to_text(self, expr: str) -> str:
         return f"CAST({expr} AS string)"
 
+    def sql_information_schema_columns(self) -> str:
+        return "information_schema_columns"
+
+    def sql_get_tables_columns_metadata(
+        self,
+        include_patterns: list[dict[str, str]] | None = None,
+        exclude_patterns: list[dict[str, str]] | None = None,
+        table_names_only: bool = False,
+    ) -> str:
+        # First register `show columns` in a dask table and then apply query on that table
+        # to find the intended tables
+        dd_show_tables = self.context.sql("show tables").compute()
+        dd_show_columns = pd.DataFrame(
+            columns=["column_name", "data_type", "extra", "comment", "table_name", "ordinal_position"]
+        )
+
+        for table_name in dd_show_tables["Table"].values:
+            dd_show_columns_tmp = self.context.sql(f"show columns from {table_name}").compute()
+            # Due to a bug in dask-sql we cannot use uppercases in column names
+            dd_show_columns_tmp.columns = ["column_name", "data_type", "extra", "comment"]
+            dd_show_columns_tmp["table_name"] = table_name
+            dd_show_columns_tmp["ordinal_position"] = dd_show_columns_tmp.index + 1
+            dd_show_columns = dd_show_columns.append(dd_show_columns_tmp, ignore_index=True)
+
+        self.context.create_table(self.sql_information_schema_columns(), dd_show_columns)
+        return super().sql_get_tables_columns_metadata(include_patterns, exclude_patterns, table_names_only)
+
     def sql_get_table_columns(
         self, table_name: str, included_columns: list[str] | None = None, excluded_columns: list[str] | None = None
     ) -> str:

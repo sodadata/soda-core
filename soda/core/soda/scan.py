@@ -214,11 +214,11 @@ class Scan:
             )
 
     def add_dask_dataframe(self, dataset_name: str, dask_df) -> None:
-        context = self._get_or_create_dask_context(required_soda_module="soda-core-dask")
+        context = self._get_or_create_dask_context(required_soda_module="soda-core-pandas-dask")
         context.create_table(dataset_name, dask_df)
 
     def add_pandas_dataframe(self, dataset_name: str, pandas_df):
-        context = self._get_or_create_dask_context(required_soda_module="soda-core-pandas")
+        context = self._get_or_create_dask_context(required_soda_module="soda-core-pandas-dask")
         from dask.dataframe import from_pandas
 
         dask_df = from_pandas(pandas_df, npartitions=1)
