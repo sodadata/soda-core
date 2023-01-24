@@ -216,3 +216,25 @@ class VerticaDataSource(DataSource):
 
     def regex_replace_flags(self) -> str:
         return ""
+
+    @staticmethod
+    def column_metadata_table_name() -> str:
+        return "table_name"
+
+    @staticmethod
+    def column_metadata_schema_name() -> str:
+        return "table_schema"
+
+    @staticmethod
+    def column_metadata_column_name() -> str:
+        return "column_name"
+
+    @staticmethod
+    def column_metadata_datatype_name() -> str:
+        return "data_type"
+
+    def get_ordinal_position_name(self) -> str:
+        return "ordinal_position"
+
+    def catalog_column_filter(self) -> str:
+        return ""
