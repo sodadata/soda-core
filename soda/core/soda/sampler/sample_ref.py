@@ -17,6 +17,7 @@ class SampleRef:
         soda_cloud_file_id: str | None = None,
         message: str | None = None,
         link: str | None = None,
+        link_text: str | None = None,
     ):
         self.name: str = name
         self.schema = schema
@@ -26,6 +27,7 @@ class SampleRef:
         self.soda_cloud_file_id: str | None = soda_cloud_file_id
         self.message: str | None = message
         self.link: str | None = link
+        self.link_text: str = link_text
 
     def __str__(self) -> str:
         column_count = f"{len(self.schema.columns)}x" if self.schema else ""
@@ -52,5 +54,10 @@ class SampleRef:
             sample_ref_dict["reference"] = {"type": "sodaCloudStorage", "fileId": self.soda_cloud_file_id}
         elif self.message:
             sample_ref_dict["reference"] = {"type": "noFile", "message": self.message, "link": self.link, "fileId": ""}
+            # TODO Replace above with the following when https://sodadata.atlassian.net/browse/CLOUD-2449 is done.
+            # sample_ref_dict["reference"] = {"type": "noFile",
+            #                                 "message": self.message,
+            #                                 "link": {"href": self.link, "text": self.link_text},
+            #                                 "fileId": ""}
 
         return sample_ref_dict
