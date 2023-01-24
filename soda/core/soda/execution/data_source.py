@@ -5,6 +5,7 @@ import hashlib
 import importlib
 import json
 import re
+from collections import defaultdict
 from datetime import date, datetime
 from numbers import Number
 from textwrap import dedent
@@ -303,6 +304,30 @@ class DataSource:
         """Column to be used as a 'database' equivalent."""
         return "table_catalog"
 
+    @staticmethod
+    def column_metadata_table_name() -> str:
+        return "table_name"
+
+    @staticmethod
+    def column_metadata_schema_name() -> str:
+        return "table_schema"
+
+    @staticmethod
+    def column_metadata_column_name() -> str:
+        return "column_name"
+
+    @staticmethod
+    def column_metadata_datatype_name() -> str:
+        return "data_type"
+
+    def tables_columns_metadata(self) -> list[str]:
+        """Columns to be used for retrieving tables and columns metadata."""
+        return [
+            self.column_metadata_table_name(),
+            self.column_metadata_column_name(),
+            self.column_metadata_datatype_name(),
+        ]
+
     ######################
     # Store Table Sample
     ######################
@@ -390,6 +415,132 @@ class DataSource:
                 return True
 
         return False
+
+    @staticmethod
+    def parse_tables_columns_query(rows: list[tuple]) -> defaultdict(dict):
+        tables_and_columns_metadata = defaultdict(dict)
+        for table_name, column_name, data_type in rows:
+            tables_and_columns_metadata[table_name][column_name] = data_type
+        return tables_and_columns_metadata
+
+    def get_tables_columns_metadata(
+        self,
+        query_name: str,
+        include_patterns: list[dict[str, str]] | None = None,
+        exclude_patterns: list[dict[str, str]] | None = None,
+        table_names_only: bool = False,
+    ) -> defaultdict[str, dict[str, str]] | list[str] | None:
+        # TODO: save/cache the result for later use.
+        if (not include_patterns) and (not exclude_patterns):
+            return []
+        query = Query(
+            data_source_scan=self.data_source_scan,
+            unqualified_query_name=query_name,
+            sql=self.sql_get_tables_columns_metadata(
+                include_patterns=include_patterns, exclude_patterns=exclude_patterns, table_names_only=table_names_only
+            ),
+        )
+        query.execute()
+
+        rows = query.rows
+        if rows and len(rows) > 0:
+            if table_names_only:
+                query_result = [self._optionally_quote_table_name_from_meta_data(row[0]) for row in rows]
+            else:
+                query_result: defaultdict(dict) = self.parse_tables_columns_query(rows)
+            return query_result
+        return None
+
+    def create_table_column_sql_filters(
+        self, sql_patterns: list[dict[str, str]], table_names_only: bool = False
+    ) -> list[str]:
+        sql_filters = []
+
+        for pattern in sql_patterns:
+
+            sql_filter = []
+
+            table_name_pattern = pattern.get("table_name_pattern")
+            if table_name_pattern is not None:
+                table_name_filter = (
+                    f"({self.column_metadata_table_name()} LIKE '{self.default_casify_table_name(table_name_pattern)}')"
+                )
+                sql_filter.append(table_name_filter)
+
+            column_name_pattern = pattern.get("column_name_pattern")
+            if (column_name_pattern is not None) and (table_names_only is False):
+                column_name_filter = f"({self.default_casify_sql_function()}({self.column_metadata_column_name()}) LIKE {self.default_casify_sql_function()}('{column_name_pattern}'))"
+                sql_filter.append(column_name_filter)
+
+            if sql_filter:
+                sql_filters.append(f"""({" AND ".join(sql_filter)})""")
+
+        return sql_filters
+
+    def catalog_column_filter(self):
+        catalog_filter = f"{self.default_casify_sql_function()}({self.column_metadata_catalog_column()}) = '{self.default_casify_system_name(self.database)}'"
+        return catalog_filter
+
+    def sql_get_tables_columns_metadata(
+        self,
+        include_patterns: list[dict[str, str]] | None = None,
+        exclude_patterns: list[dict[str, str]] | None = None,
+        table_names_only: bool = False,
+    ) -> str:
+        filter_clauses = []
+
+        if include_patterns and len(include_patterns) > 0:
+            include_sql_filter_clauses = self.create_table_column_sql_filters(
+                include_patterns, table_names_only=table_names_only
+            )
+            include_filter = " OR ".join(include_sql_filter_clauses)
+            filter_clauses.append(f"({include_filter})")
+
+        if exclude_patterns and len(exclude_patterns) > 0:
+            exclude_sql_filter_clauses = [
+                f"NOT {sql_filter_clause}"
+                for sql_filter_clause in self.create_table_column_sql_filters(
+                    exclude_patterns, table_names_only=table_names_only
+                )
+            ]
+            exclude_filter = " AND ".join(exclude_sql_filter_clauses)
+            filter_clauses.append(f"({exclude_filter})")
+
+        if self.database:
+            catalog_filter = self.catalog_column_filter()
+            if catalog_filter:
+                filter_clauses.append(catalog_filter)
+
+        if hasattr(self, "schema") and self.schema:
+            filter_clauses.append(
+                f"{self.default_casify_sql_function()}({self.column_metadata_schema_name()}) = '{self.default_casify_system_name(self.schema)}'"
+            )
+
+        where_filter = " \n  AND ".join(filter_clauses)
+
+        # compose query template
+        # NOTE: we use `order by ordinal_position` to guarantee stable orders of columns
+        # (see https://www.postgresql.org/docs/current/infoschema-columns.html)
+        # this mainly has an advantage in testing but bears very little as to how Soda Cloud
+        # displays those columns as they are ordered alphabetically in the UI.
+
+        if table_names_only:
+            metadata_columns = f"{self.column_metadata_table_name()}"
+            information_schema_table = self.sql_information_schema_tables()
+            order_by_clause = ""
+        else:
+            metadata_columns = ", ".join(self.tables_columns_metadata())
+            information_schema_table = self.sql_information_schema_columns()
+            order_by_clause = f"\nORDER BY {self.get_ordinal_position_name()}"
+
+        sql = (
+            f"SELECT {metadata_columns} \n"
+            f"FROM {information_schema_table} \n"
+            f"WHERE {where_filter}"
+            f"{order_by_clause}"
+        )
+
+        return sql
 
     ############################################
     # For a table, get the columns metadata
