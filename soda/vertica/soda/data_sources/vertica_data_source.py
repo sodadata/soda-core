@@ -90,7 +90,7 @@ class VerticaDataSource(DataSource):
         return ["column_name", "data_type", "is_nullable"]
 
     def sql_get_table_names_with_count(
-        self, include_tables: Optional[list[str]] = None, exclude_tables: Optional[list[str]] = None
+        self, include_tables: list[str] | None = None, exclude_tables: list[str] | None = None
     ) -> str:
 
         table_filter_expression = self.sql_table_include_exclude_filter(
@@ -197,7 +197,7 @@ class VerticaDataSource(DataSource):
     def default_casify_type_name(self, identifier: str) -> str:
         return identifier.lower()
 
-    def get_metric_sql_aggregation_expression(self, metric_name: str, metric_args: Optional[List[object]], expr: str):
+    def get_metric_sql_aggregation_expression(self, metric_name: str, metric_args: list[object] | None, expr: str):
 
         if metric_name in [
             "stddev",
