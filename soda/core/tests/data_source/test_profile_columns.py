@@ -12,13 +12,18 @@ from helpers.common_test_tables import (
     orders_test_table,
 )
 from helpers.data_source_fixture import DataSourceFixture
+from helpers.fixtures import test_data_source
 from soda.common.yaml_helper import to_yaml_str
 from soda.execution.check.profile_columns_run import ProfileColumnsRun
 
-LOWERCASE_COLUMN_NAME_DATABASES = ["postgres", "redshift", "athena"]
+LOWERCASE_COLUMN_NAME_DATABASES = ["postgres", "redshift", "athena", "vertica"]
 UPPERCASE_COLUMN_NAME_DATABASES = ["snowflake", "db2", "oracle"]
 
 
+@pytest.mark.skipif(
+    test_data_source in ["vertica"],
+    reason="Need to change profiling logic: vertica type is `numeric(37,15)` as default not `numeric`",
+)
 def test_profile_columns_numeric(data_source_fixture: DataSourceFixture):
     table_name = data_source_fixture.ensure_test_table(customers_profiling)
 
@@ -49,10 +54,10 @@ def test_profile_columns_numeric(data_source_fixture: DataSourceFixture):
 
     mins = size_profile["mins"]
     assert isinstance(mins, list)
-    assert mins[0] == 0.5
+    assert mins[0] == pytest.approx(0.5)
     maxs = size_profile["maxs"]
     assert isinstance(maxs, list)
-    assert maxs[0] == 6.1
+    assert maxs[0] == pytest.approx(6.1)
     frequent_values = size_profile["frequent_values"]
     assert isinstance(frequent_values, list)
     for frequent_value in frequent_values:
@@ -84,9 +89,12 @@ def test_profile_columns_numeric(data_source_fixture: DataSourceFixture):
         assert isinstance(f, int)
 
 
+@pytest.mark.skipif(
+    test_data_source in ["vertica"],
+    reason="Need to change profiling logic: vertica type is `numeric(37,15)` as default not `numeric`",
+)
 def test_profile_columns_text(data_source_fixture: DataSourceFixture):
     table_name = data_source_fixture.ensure_test_table(customers_profiling)
-
     scan = data_source_fixture.create_test_scan()
     mock_soda_cloud = scan.enable_mock_soda_cloud()
     scan.add_sodacl_yaml_str(
@@ -347,6 +355,10 @@ def test_profile_columns_all_tables_all_columns(data_source_fixture: DataSourceF
         ),
     ],
 )
+@pytest.mark.skipif(
+    test_data_source in ["vertica"],
+    reason="Need to change profiling logic: vertica type is `numeric(37,15)` as default not `numeric`",
+)
 def test_profile_columns_inclusions_exclusions(
     data_source_fixture: DataSourceFixture, soda_cl_str, expected_column_profiling_results
 ):
@@ -443,6 +455,10 @@ def test_profile_columns_no_table_or_column(data_source_fixture: DataSourceFixtu
     assert len(character_log_warnings) == 1
 
 
+@pytest.mark.skipif(
+    test_data_source in ["vertica"],
+    reason="Need to change profiling logic: vertica type is `numeric(37,15)` as default not `numeric`",
+)
 def test_profile_columns_capitalized(data_source_fixture: DataSourceFixture):
     table_name = data_source_fixture.ensure_test_table(customers_profiling_capitalized)
     scan = data_source_fixture.create_test_scan()

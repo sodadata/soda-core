@@ -46,6 +46,20 @@ class ProfileColumnsRun:
         self.profile_columns_cfg: ProfileColumnsCfg = profile_columns_cfg
         self.logs = self.data_source_scan.scan._logs
 
+    @staticmethod
+    def parse_profiling_expressions(profiling_expressions: list[str]) -> list[dict[str, str]]:
+        parsed_profiling_expressions = []
+        for profiling_expression in profiling_expressions:
+            table_name_pattern, column_name_pattern = profiling_expression.split(".")
+            parsed_profiling_expressions.append(
+                {
+                    "table_name_pattern": table_name_pattern,
+                    "column_name_pattern": column_name_pattern,
+                }
+            )
+
+        return parsed_profiling_expressions
+
     def run(self) -> ProfileColumnsResult:
         self.logs.info(f"Running column profiling for data source: {self.data_source.data_source_name}")
 

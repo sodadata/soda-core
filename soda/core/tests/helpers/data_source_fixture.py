@@ -138,7 +138,6 @@ class DataSourceFixture:
 
             # TODO investigate if this is really needed
             self.data_source.analyze_table(test_table.unique_table_name)
-
         return test_table.unique_view_name if test_table.create_view else test_table.unique_table_name
 
     def _get_existing_test_table_names(self):

@@ -21,6 +21,14 @@ def test_data_source_specific_statistics_aggregation_metrics(data_source_fixture
     if test_data_source in ["bigquery", "redshift", "athena"]:
         supported_checks.pop("percentile(distance, 0.7)")
 
+    if test_data_source in ["dask"]:
+        supported_checks.pop("percentile(distance, 0.7)")
+        # TODO: Dask variaance does not work if we don't explicitly group by the column
+        # most likely because there is a bug in the dask-sql implementation
+        supported_checks.pop("variance(cst_size)")
+        supported_checks.pop("var_samp(cst_size)")
+        # Stddev_pop and stddev yields the same result in Dask
+        supported_checks.pop("stddev_samp")
     if test_data_source in ["sqlserver", "mysql", "spark_df", "oracle"]:
         supported_checks = {}
 

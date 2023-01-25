@@ -12,8 +12,10 @@
 ./soda/scientific
 ./soda/sqlserver
 ./soda/mysql
+./soda/dask
 ./soda/oracle
 ./soda/trino
 ./soda/dremio
 ./soda/duckdb
 ./soda/denodo
+./soda/vertica

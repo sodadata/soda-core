@@ -10,11 +10,12 @@ from soda.sampler.sampler import Sampler
 
 
 class HTTPSampler(Sampler):
-    def __init__(self, url: str, format: str = "json", link: str | None = None, message: str = ""):
+    def __init__(self, url: str, format: str = "json", link: str | None = None, message: str = "", link_text: str = ""):
         self.url = url
         self.format = format
         self.link = link
         self.message = message
+        self.link_text = link_text
 
     def store_sample(self, sample_context: SampleContext) -> SampleRef | None:
         self.logs.info(f"Sending failed row samples to {self.url}")
@@ -52,4 +53,5 @@ class HTTPSampler(Sampler):
             type=SampleRef.TYPE_NOT_PERSISTED,
             link=self.link,
             message=f"{self.message} {response.text}",
+            link_text=self.link_text,
         )
