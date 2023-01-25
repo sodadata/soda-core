@@ -1,10 +1,10 @@
 from __future__ import annotations
 
+from collections import defaultdict
 from typing import TYPE_CHECKING
 
 from soda.execution.query.query import Query
 from soda.profiling.numeric_column_profiler import NumericColumnProfiler
-from soda.profiling.profile_columns_metadata import ProfilerTableMetadata
 from soda.profiling.profile_columns_result import (
     ProfileColumnsResult,
     ProfileColumnsResultColumn,
@@ -28,24 +28,23 @@ class ProfileColumnsRun:
     def run(self) -> ProfileColumnsResult:
         self.logs.info(f"Running column profiling for data source: {self.data_source.data_source_name}")
 
-        profile_result_column_tables = ProfilerTableMetadata(
-            data_source=self.data_source,
-            include_columns=self.profile_columns_cfg.include_columns,
-            exclude_columns=self.profile_columns_cfg.exclude_columns,
-        ).get_profile_result_tables()
+        profile_result_column_tables = self.get_table_columns_metadata()
 
         profile_columns_result: ProfileColumnsResult = ProfileColumnsResult(self.profile_columns_cfg)
 
         if profile_result_column_tables is None:
-            return self._raise_no_tables_to_profile_warning(profile_columns_result)
+            self._raise_no_tables_to_profile_warning()
+            return profile_columns_result
 
         self.logs.info("Profiling columns for the following tables:")
-        for result_table in profile_result_column_tables:
-            table_name = result_table.table_name
+        for table_name, columns_metadata in profile_result_column_tables.items():
+            row_count = self.data_source.get_table_row_count(table_name)
+            result_table = ProfileColumnsResultTable(
+                table_name=table_name, data_source=self.data_source.data_source_name, row_count=row_count
+            )
             self.logs.info(f"  - {table_name}")
-            for result_column in result_table.result_columns:
-                column_name = result_column.column_name
-                column_data_type = result_column.column_type
+            for column_name, column_data_type in columns_metadata.items():
+                result_column = ProfileColumnsResultColumn(column_name=column_name, column_data_type=column_data_type)
                 profiling_column_type = "unknown type"
                 try:
                     if column_data_type in self.data_source.NUMERIC_TYPES_FOR_PROFILING:
@@ -56,13 +55,13 @@ class ProfileColumnsRun:
                             table_name=table_name,
                             result_column=result_column,
                         )
-                        numeric_column_profiler.profile()
+                        result_column: ProfileColumnsResultColumn = numeric_column_profiler.profile()
 
                     elif column_data_type in self.data_source.TEXT_TYPES_FOR_PROFILING:
                         profiling_column_type = "text"
                         self.profile_text_column(
                             column_name,
-                            column_data_type,
+                            column_type,
                             table_name,
                             result_table,
                         )
@@ -75,8 +74,35 @@ class ProfileColumnsRun:
                     self.logs.error(
                         f"Problem profiling {profiling_column_type} column '{table_name}.{column_name}' with data type '{column_data_type}': {e}"
                     )
-
+                result_table.append_column(result_column)
+            profile_columns_result.append_table(result_table)
         return profile_columns_result
+
+    def get_table_columns_metadata(self) -> defaultdict[str, dict] | None:
+        include_patterns = self.parse_profiling_expressions(self.profile_columns_cfg.include_columns)
+        exclude_patterns = self.parse_profiling_expressions(self.profile_columns_cfg.exclude_columns)
+
+        tables_columns_metadata = self.data_source.get_tables_columns_metadata(
+            include_patterns=include_patterns,
+            exclude_patterns=exclude_patterns,
+            query_name="profile-columns-get-table-and-column-metadata",
+        )
+        if not tables_columns_metadata:
+            return None
+        return tables_columns_metadata
+
+    @staticmethod
+    def parse_profiling_expressions(profiling_expressions: list[str]) -> list[dict[str, str]]:
+        parsed_profiling_expressions = []
+        for profiling_expression in profiling_expressions:
+            table_name_pattern, column_name_pattern = profiling_expression.split(".")
+            parsed_profiling_expressions.append(
+                {
+                    "table_name_pattern": table_name_pattern,
+                    "column_name_pattern": column_name_pattern,
+                }
+            )
+        return parsed_profiling_expressions
 
     def profile_text_column(
         self,
@@ -151,16 +177,7 @@ class ProfileColumnsRun:
                 "Soda Core could not create a column result."
             )
 
-    def build_profiling_column(
-        self,
-        column_name: str,
-        column_type: str,
-        table_result: ProfileColumnsResultTable,
-    ) -> tuple[ProfileColumnsResultColumn | None, bool]:
-        profile_columns_result_column: ProfileColumnsResultColumn = table_result.create_column(column_name, column_type)
-        return profile_columns_result_column, True
-
-    def _raise_no_tables_to_profile_warning(self, profile_columns_result: ProfileColumnsResult) -> ProfileColumnsResult:
+    def _raise_no_tables_to_profile_warning(self) -> None:
         self.logs.warning(
             "Your SodaCL profiling expressions did not return any existing dataset name"
             f" and column name combinations for your '{self.data_source.data_source_name}' "
@@ -170,4 +187,3 @@ class ProfileColumnsRun:
             f"https://go.soda.io/display-profile",
             location=self.profile_columns_cfg.location,
         )
-        return profile_columns_result

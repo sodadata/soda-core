@@ -7,9 +7,9 @@ from soda.sodacl.data_source_check_cfg import ProfileColumnsCfg
 
 
 class ProfileColumnsResultColumn:
-    def __init__(self, column_name: str, column_type: str):
+    def __init__(self, column_name: str, column_data_type: str):
         self.column_name: str = column_name
-        self.column_type: str = column_type
+        self.column_data_type: str = column_data_type
         self.mins: list[float | int] | None = None
         self.maxs: list[float | int] | None = None
         self.min: float | int | None = None
@@ -32,7 +32,7 @@ class ProfileColumnsResultColumn:
         self.min = self.mins[0]
         self.max = self.maxs[0]
         self.frequent_values = [
-            {"value": str(row[2]), "count": int(row[3])} for row in value_frequencies if row[0] == "frequent_values"
+            {"value": str(row[2]), "frequency": int(row[3])} for row in value_frequencies if row[0] == "frequent_values"
         ]
 
     def set_aggregation_metrics(self, aggregated_metrics: list[tuple]) -> None:
@@ -120,10 +120,8 @@ class ProfileColumnsResultTable:
         self.row_count: int | None = row_count
         self.result_columns: list[ProfileColumnsResultColumn] = []
 
-    def create_column(self, column_name: str, column_type: str) -> ProfileColumnsResultColumn:
-        column = ProfileColumnsResultColumn(column_name, column_type)
+    def append_column(self, column: ProfileColumnsResultColumn) -> None:
         self.result_columns.append(column)
-        return column
 
     def get_cloud_dict(self) -> dict:
         cloud_dict = {
@@ -148,9 +146,5 @@ class ProfileColumnsResult:
         self.profile_columns_cfg: ProfileColumnsCfg = profile_columns_cfg
         self.tables: list[ProfileColumnsResultTable] = []
 
-    def create_table(
-        self, table_name: str, data_source_name: str, row_count: int | None = None
-    ) -> ProfileColumnsResultTable:
-        table = ProfileColumnsResultTable(table_name, data_source_name, row_count)
+    def append_table(self, table: ProfileColumnsResultTable) -> None:
         self.tables.append(table)
-        return table

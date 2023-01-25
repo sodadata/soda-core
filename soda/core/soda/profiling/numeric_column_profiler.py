@@ -26,7 +26,7 @@ class NumericColumnProfiler:
         self.column_name = result_column.column_name
         self.result_column = result_column
 
-    def profile(self) -> None:
+    def profile(self) -> ProfileColumnsResultColumn:
         self.logs.debug(f"Profiling column {self.column_name} of {self.table_name}")
 
         # mins, maxs, min, max, frequent values
@@ -36,7 +36,7 @@ class NumericColumnProfiler:
                 "Database returned no results for minumum values, maximum values and "
                 f"frequent values in table: {self.table_name}, columns: {self.column_name}"
             )
-            return None
+            return self.result_column
         self.result_column.set_frequency_metrics(value_frequencies=value_frequencies)
 
         # Average, sum, variance, standard deviation, distinct values, missing values
@@ -45,7 +45,7 @@ class NumericColumnProfiler:
             self.logs.error(
                 "Database returned no results for aggregates in table: {table_name}, columns: {column_name}"
             )
-            return None
+            return self.result_column
         self.result_column.set_aggregation_metrics(aggregated_metrics=aggregated_metrics)
 
         # histogram
@@ -54,8 +54,9 @@ class NumericColumnProfiler:
             self.logs.error(
                 f"Database returned no results for histograms in table: {self.table_name}, columns: {self.column_name}"
             )
-            return None
+            return self.result_column
         self.result_column.set_histogram(histogram_values=histogram_values)
+        return self.result_column
 
     def _compute_value_frequency(self) -> list[tuple] | None:
         value_frequencies_sql = self.data_source.profiling_sql_values_frequencies_query(
@@ -111,7 +112,7 @@ class NumericColumnProfiler:
             min_value=self.result_column.min,
             max_value=self.result_column.max,
             n_distinct=self.result_column.distinct_values,
-            column_type=self.result_column.column_type,
+            column_type=self.result_column.column_data_type,
         )
         if histogram_sql is None:
             return None

@@ -41,6 +41,7 @@ def test_profile_columns_numeric(data_source_fixture: DataSourceFixture):
     assert scan_result
     profiling = scan_result["profiling"]
     assert profiling
+    assert len(profiling) == 1
     first_profiling = profiling[0]
     assert first_profiling["rowCount"] == 10
     column_profiles = first_profiling["columnProfiles"]
