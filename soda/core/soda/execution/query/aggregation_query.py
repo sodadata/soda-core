@@ -24,6 +24,7 @@ class AggregationQuery(Query):
         scan = self.data_source_scan.scan
         select_expression_sql = f",\n  ".join(self.select_expressions)
         self.sql = f"SELECT \n" f"  {select_expression_sql} \n" f"FROM {self.partition.table.qualified_table_name}"
+        self.sqls["sql"] = self.sql
 
         partition_filter = self.partition.sql_partition_filter
         if partition_filter:
