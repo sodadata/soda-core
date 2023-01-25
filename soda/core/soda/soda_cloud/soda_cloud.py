@@ -37,7 +37,7 @@ class SodaCloud:
         token: str | None,
         port: str | None,
         logs: Logs,
-        scheme: str | None,
+        scheme: str = "https",
     ):
         self.host = host
         self.port = f":{port}" if port else ""
