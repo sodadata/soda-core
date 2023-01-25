@@ -37,10 +37,12 @@ class SodaCloud:
         token: str | None,
         port: str | None,
         logs: Logs,
+        scheme: str = "https",
     ):
         self.host = host
         self.port = f":{port}" if port else ""
-        self.api_url = f"https://{self.host}{self.port}/api"
+        self.scheme = scheme if scheme else "https"
+        self.api_url = f"{self.scheme}://{self.host}{self.port}/api"
         self.api_key_id = api_key_id
         self.api_key_secret = api_key_secret
         self.token: str | None = token
