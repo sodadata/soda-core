@@ -139,8 +139,17 @@ class ConfigurationParser(Parser):
         port = None
         if "port" in config_dict:
             port = config_dict.get("port")
+        scheme = None
+        if "scheme" in config_dict:
+            port = config_dict.get("scheme")
         return SodaCloud(
-            api_key_id=api_key, api_key_secret=api_secret, host=host, token=None, port=port, logs=self.logs
+            api_key_id=api_key,
+            api_key_secret=api_secret,
+            host=host,
+            token=None,
+            port=port,
+            logs=self.logs,
+            scheme=scheme,
         )
 
     def parse_dbt_cloud_cfg(self, config_dict: dict):
