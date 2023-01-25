@@ -85,3 +85,11 @@ search = 'package_version = "{current_version}"'
 [[file]]
 src = "soda/denodo/setup.py"
 search = 'package_version = "{current_version}"'
+
+[[file]]
+src = "soda/dask/setup.py"
+search = 'package_version = "{current_version}"'
+
+[[file]]
+src = "soda/vertica/setup.py"
+search = 'package_version = "{current_version}"'
