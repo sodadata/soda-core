@@ -26,24 +26,25 @@ class ProfileColumnsResultColumn:
         self.min_length: float | None = None
         self.max_length: float | None = None
 
-    def set_mins(self, value_frequencies: list[tuple]) -> None:
+    def set_frequency_metrics(self, value_frequencies: list[tuple]) -> None:
         self.mins = [self.unify_type(row[2]) for row in value_frequencies if row[0] == "mins"]
-
-    def set_maxs(self, value_frequencies: list[tuple]) -> None:
         self.maxs = [self.unify_type(row[2]) for row in value_frequencies if row[0] == "maxs"]
-
-    def set_min(self) -> None:
-        if self.mins:
-            self.min = self.mins[0]
-
-    def set_max(self) -> None:
-        if self.maxs:
-            self.max = self.maxs[0]
-
-    def set_frequent_values(self, value_frequencies: list[tuple]) -> None:
+        self.min = self.mins[0]
+        self.max = self.maxs[0]
         self.frequent_values = [
             {"value": str(row[2]), "count": int(row[3])} for row in value_frequencies if row[0] == "frequent_values"
         ]
+
+    def set_aggregation_metrics(self, aggregated_metrics: list[tuple]) -> None:
+        self.average = self.cast_float_dtype_handle_none(aggregated_metrics[0][0])
+        self.sum = self.cast_float_dtype_handle_none(aggregated_metrics[0][1])
+        self.variance = self.cast_float_dtype_handle_none(aggregated_metrics[0][2])
+        self.standard_deviation = self.cast_float_dtype_handle_none(aggregated_metrics[0][3])
+        self.distinct_values = self.cast_int_dtype_handle_none(aggregated_metrics[0][4])
+        self.missing_values = self.cast_int_dtype_handle_none(aggregated_metrics[0][5])
+
+    def set_histogram(self, histogram_values: dict[str, list]) -> None:
+        self.histogram = histogram_values
 
     @staticmethod
     def unify_type(v: Any) -> Any:
@@ -51,6 +52,20 @@ class ProfileColumnsResultColumn:
             return float(v)
         else:
             return v
+
+    @staticmethod
+    def cast_float_dtype_handle_none(value: float | None) -> float | None:
+        if value is None:
+            return None
+        cast_value = float(value)
+        return cast_value
+
+    @staticmethod
+    def cast_int_dtype_handle_none(value: int | None) -> int | None:
+        if value is None:
+            return None
+        cast_value = int(value)
+        return cast_value
 
     def get_cloud_dict(self) -> dict:
         cloud_dict = {
