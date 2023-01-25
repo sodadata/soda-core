@@ -26,16 +26,18 @@ class ProfileColumnsResultColumn:
         self.min_length: float | None = None
         self.max_length: float | None = None
 
-    def set_frequency_metrics(self, value_frequencies: list[tuple]) -> None:
+    def set_min_max_metrics(self, value_frequencies: list[tuple]) -> None:
         self.mins = [self.unify_type(row[2]) for row in value_frequencies if row[0] == "mins"]
         self.maxs = [self.unify_type(row[2]) for row in value_frequencies if row[0] == "maxs"]
         self.min = self.mins[0]
         self.max = self.maxs[0]
+
+    def set_frequency_metric(self, value_frequencies: list[tuple]) -> None:
         self.frequent_values = [
             {"value": str(row[2]), "frequency": int(row[3])} for row in value_frequencies if row[0] == "frequent_values"
         ]
 
-    def set_aggregation_metrics(self, aggregated_metrics: list[tuple]) -> None:
+    def set_numeric_aggregation_metrics(self, aggregated_metrics: list[tuple]) -> None:
         self.average = self.cast_float_dtype_handle_none(aggregated_metrics[0][0])
         self.sum = self.cast_float_dtype_handle_none(aggregated_metrics[0][1])
         self.variance = self.cast_float_dtype_handle_none(aggregated_metrics[0][2])
@@ -45,6 +47,13 @@ class ProfileColumnsResultColumn:
 
     def set_histogram(self, histogram_values: dict[str, list]) -> None:
         self.histogram = histogram_values
+
+    def set_text_aggregation_metrics(self, aggregated_metrics: list[tuple]) -> None:
+        self.distinct_values = self.cast_int_dtype_handle_none(aggregated_metrics[0][0])
+        self.missing_values = self.cast_int_dtype_handle_none(aggregated_metrics[0][1])
+        self.average_length = self.cast_float_dtype_handle_none(aggregated_metrics[0][2])
+        self.min_length = self.cast_float_dtype_handle_none(aggregated_metrics[0][3])
+        self.max_length = self.cast_float_dtype_handle_none(aggregated_metrics[0][4])
 
     @staticmethod
     def unify_type(v: Any) -> Any:

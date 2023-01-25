@@ -3,10 +3,10 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from soda.execution.query.query import Query
+from soda.profiling.profile_columns_result import ProfileColumnsResultColumn
 
 if TYPE_CHECKING:
     from soda.execution.data_source_scan import DataSourceScan
-    from soda.profiling.profile_columns_result import ProfileColumnsResultColumn
     from soda.sodacl.data_source_check_cfg import ProfileColumnsCfg
 
 
@@ -16,47 +16,59 @@ class NumericColumnProfiler:
         data_source_scan: DataSourceScan,
         profile_columns_cfg: ProfileColumnsCfg,
         table_name: str,
-        result_column: ProfileColumnsResultColumn,
+        column_name: str,
+        column_data_type: str,
     ) -> None:
         self.data_source_scan = data_source_scan
         self.data_source = data_source_scan.data_source
         self.logs = data_source_scan.scan._logs
         self.profile_columns_cfg = profile_columns_cfg
         self.table_name = table_name
-        self.column_name = result_column.column_name
-        self.result_column = result_column
+        self.column_name = column_name
+        self.column_data_type = column_data_type
+        self.result_column = ProfileColumnsResultColumn(column_name=column_name, column_data_type=column_data_type)
 
     def profile(self) -> ProfileColumnsResultColumn:
         self.logs.debug(f"Profiling column {self.column_name} of {self.table_name}")
 
         # mins, maxs, min, max, frequent values
+        self._set_result_column_value_frequency_attributes()
+
+        # Average, sum, variance, standard deviation, distinct values, missing values
+        self._set_result_column_aggregation_attributes()
+
+        # histogram
+        self._set_result_column_histogram_attributes()
+        return self.result_column
+
+    def _set_result_column_value_frequency_attributes(self) -> None:
         value_frequencies = self._compute_value_frequency()
-        if value_frequencies is None:
+        if value_frequencies:
+            self.result_column.set_min_max_metrics(value_frequencies=value_frequencies)
+            self.result_column.set_frequency_metric(value_frequencies=value_frequencies)
+        else:
             self.logs.error(
                 "Database returned no results for minumum values, maximum values and "
                 f"frequent values in table: {self.table_name}, columns: {self.column_name}"
             )
-            return self.result_column
-        self.result_column.set_frequency_metrics(value_frequencies=value_frequencies)
 
-        # Average, sum, variance, standard deviation, distinct values, missing values
+    def _set_result_column_aggregation_attributes(self) -> None:
         aggregated_metrics = self._compute_aggregated_metrics()
-        if aggregated_metrics is None:
+        if aggregated_metrics:
+            self.result_column.set_numeric_aggregation_metrics(aggregated_metrics=aggregated_metrics)
+        else:
             self.logs.error(
-                "Database returned no results for aggregates in table: {table_name}, columns: {column_name}"
+                f"Database returned no results for aggregates in table: {self.table_name}, columns: {self.column_name}"
             )
-            return self.result_column
-        self.result_column.set_aggregation_metrics(aggregated_metrics=aggregated_metrics)
 
-        # histogram
+    def _set_result_column_histogram_attributes(self) -> None:
         histogram_values = self._compute_histogram()
-        if histogram_values is None:
+        if histogram_values:
+            self.result_column.set_histogram(histogram_values=histogram_values)
+        else:
             self.logs.error(
                 f"Database returned no results for histograms in table: {self.table_name}, columns: {self.column_name}"
             )
-            return self.result_column
-        self.result_column.set_histogram(histogram_values=histogram_values)
-        return self.result_column
 
     def _compute_value_frequency(self) -> list[tuple] | None:
         value_frequencies_sql = self.data_source.profiling_sql_values_frequencies_query(
@@ -112,7 +124,7 @@ class NumericColumnProfiler:
             min_value=self.result_column.min,
             max_value=self.result_column.max,
             n_distinct=self.result_column.distinct_values,
-            column_type=self.result_column.column_data_type,
+            column_type=self.column_data_type,
         )
         if histogram_sql is None:
             return None
