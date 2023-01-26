@@ -43,6 +43,14 @@ class SampleRef:
     def is_persisted(self) -> bool:
         return self.type != self.TYPE_NOT_PERSISTED
 
+    def get_cloud_diagnostics_block(self) -> dict:
+        file_block = {
+            "type": "file",
+            "title": "Failed Rows Sample",
+            "file": self.get_cloud_diagnostics_dict(),
+        }
+        return file_block
+
     def get_cloud_diagnostics_dict(self):
         column_dicts = [column.get_cloud_dict() for column in self.schema.columns] if self.schema else None
         sample_ref_dict = {
