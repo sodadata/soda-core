@@ -856,7 +856,7 @@ class DataSource:
             SELECT
                 avg({column_name}) as average
                 , sum({column_name}) as sum
-                , variance({column_name}) as variance
+                , var_samp({column_name}) as variance
                 , stddev_samp({column_name}) as standard_deviation
                 , count(distinct({column_name})) as distinct_values
                 , sum(case when {column_name} is null then 1 else 0 end) as missing_values
