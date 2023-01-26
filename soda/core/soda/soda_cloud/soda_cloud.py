@@ -326,7 +326,7 @@ class SodaCloud:
 
         try:
             request_body["token"] = self._get_token()
-            if not verbose:
+            if verbose:
                 logger.debug(f"Sending to Soda Cloud {JsonHelper.to_json_pretty(request_body)}")
             response = self._http_post(
                 url=f"{self.api_url}/{request_type}", headers=self.headers, json=request_body, request_name=request_name
