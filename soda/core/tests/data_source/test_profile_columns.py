@@ -1,9 +1,7 @@
 from __future__ import annotations
 
-import logging
 import os
 from collections import defaultdict
-from numbers import Number
 
 import pytest
 from helpers.common_test_tables import (
@@ -13,7 +11,6 @@ from helpers.common_test_tables import (
 )
 from helpers.data_source_fixture import DataSourceFixture
 from helpers.fixtures import test_data_source
-from soda.common.yaml_helper import to_yaml_str
 from soda.execution.check.profile_columns_run import ProfileColumnsRun
 
 LOWERCASE_COLUMN_NAME_DATABASES = ["postgres", "redshift", "athena", "vertica"]
@@ -44,50 +41,58 @@ def test_profile_columns_numeric(data_source_fixture: DataSourceFixture):
     assert len(profiling) == 1
     first_profiling = profiling[0]
     assert first_profiling["rowCount"] == 10
+    assert first_profiling["dataSource"] == data_source_fixture.data_source_name
+    assert first_profiling["table"].lower() == table_name.lower()
     column_profiles = first_profiling["columnProfiles"]
-    column_profiles_by_name = {
-        column_profile["columnName"].lower(): column_profile for column_profile in column_profiles
-    }
-    size_column = column_profiles_by_name["cst_size"]
-    size_profile = size_column["profile"]
+    assert len(column_profiles) == 1
+    first_column = column_profiles[0]
+    assert first_column["columnName"].lower() == "cst_size"
+    first_column_profile = first_column["profile"]
 
-    logging.debug(f"Size profile cloud dict: \n{to_yaml_str(size_profile)}")
-
-    mins = size_profile["mins"]
+    # Test mins
+    mins = first_column_profile["mins"]
     assert isinstance(mins, list)
+    assert len(mins) == 3
     assert mins[0] == pytest.approx(0.5)
-    maxs = size_profile["maxs"]
+    assert mins[1] == pytest.approx(1.0)
+    assert mins[2] == pytest.approx(6.1)
+
+    # Test maxs
+    maxs = first_column_profile["maxs"]
     assert isinstance(maxs, list)
+    assert len(maxs) == 3
     assert maxs[0] == pytest.approx(6.1)
-    frequent_values = size_profile["frequent_values"]
+    assert maxs[1] == pytest.approx(1.0)
+    assert maxs[2] == pytest.approx(0.5)
+
+    # Test frequent_values
+    frequent_values = first_column_profile["frequent_values"]
     assert isinstance(frequent_values, list)
-    for frequent_value in frequent_values:
-        assert isinstance(frequent_value, dict)
-        assert "value" in frequent_value
-        assert "frequency" in frequent_value
-    for numeric_stat in [
-        "avg",
-        "min",
-        "max",
-        "sum",
-        "stddev",
-        "variance",
-        "distinct",
-        "missing_count",
-    ]:
-        v = size_profile[numeric_stat]
-        assert isinstance(
-            v, Number
-        ), f"{numeric_stat} in profile of column 'cst_size' is not a number: {v} ({type(v).__name__})"
-    histogram = size_profile["histogram"]
-    boundaries = histogram["boundaries"]
-    assert len(boundaries) > 0
-    for b in boundaries:
-        assert isinstance(b, float)
-    frequencies = histogram["frequencies"]
-    assert len(frequencies) > 0
-    for f in frequencies:
-        assert isinstance(f, int)
+    assert len(frequent_values) == 3
+    assert float(frequent_values[0]["value"]) == pytest.approx(0.5)
+    assert frequent_values[0]["frequency"] == 3
+    assert float(frequent_values[1]["value"]) == pytest.approx(6.1)
+    assert frequent_values[1]["frequency"] == 2
+    assert float(frequent_values[2]["value"]) == pytest.approx(1.0)
+    assert frequent_values[2]["frequency"] == 1
+
+    # Test aggregate stats
+    assert first_column_profile["min"] == pytest.approx(0.5)
+    assert first_column_profile["max"] == pytest.approx(6.1)
+    assert first_column_profile["avg"] == pytest.approx(2.45)
+    assert first_column_profile["sum"] == pytest.approx(14.7)
+    assert first_column_profile["stddev"] == pytest.approx(2.8339)
+    assert first_column_profile["variance"] == pytest.approx(8.031)
+    assert first_column_profile["distinct"] == 3
+    assert first_column_profile["missing_count"] == 4
+    assert first_column_profile["avg_length"] is None
+    assert first_column_profile["min_length"] is None
+    assert first_column_profile["max_length"] is None
+
+    # Test histogram
+    histogram = first_column_profile["histogram"]
+    assert histogram["boundaries"] == [0.5, 3.3, 6.1]
+    assert histogram["frequencies"] == [4, 0, 2]
 
 
 @pytest.mark.skipif(

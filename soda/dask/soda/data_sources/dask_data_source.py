@@ -222,7 +222,7 @@ class DaskDataSource(DataSource):
         )
 
     def get_metric_sql_aggregation_expression(self, metric_name: str, metric_args: list[object] | None, expr: str):
-        if metric_name in ["stddev", "stddev_pop", "stddev_samp", "var_pop"]:
+        if metric_name in ["stddev", "stddev_pop", "stddev_samp", "var_pop", "var_samp"]:
             return f"{metric_name}({expr})"
         # if metric_name in ["percentile", "percentile_disc"]:
         #     # TODO ensure proper error if the metric_args[0] is not a valid number
@@ -241,7 +241,6 @@ class DaskDataSource(DataSource):
                 SELECT
                     avg({quoted_column_name}) as average
                     , sum({quoted_column_name}) as sum
-                    , var_pop({quoted_column_name}) as variance
                     , stddev({quoted_column_name}) as standard_deviation
                     , sum(case when {quoted_column_name} is null then 1 else 0 end) as missing_values
                 FROM {qualified_table_name}
@@ -254,7 +253,7 @@ class DaskDataSource(DataSource):
             SELECT
                 average
                 , sum
-                , variance
+                , standard_deviation * standard_deviation as variance
                 , standard_deviation
                 , distinct_values
                 , missing_values
