@@ -225,6 +225,7 @@ class Check(ABC):
 
         cloud_dict = {
             # See https://sodadata.atlassian.net/browse/CLOUD-1143
+            "identity": self.create_identity(with_datasource=True, with_filename=True),
             "identities": self.create_identities(),
             "name": self.name,
             "type": self.cloud_check_type,
@@ -256,59 +257,6 @@ class Check(ABC):
 
         return {
             "identity": self.create_identity(with_datasource=True, with_filename=True),
-            "name": self.name,
-            "type": self.cloud_check_type,
-            "definition": self.create_definition(),
-            "resourceAttributes": self._format_attributes(),
-            "location": self.check_cfg.location.get_dict(),
-            "dataSource": self.data_source_scan.data_source.data_source_name,
-            "table": Partition.get_table_name(self.partition),
-            "datasets": [Partition.get_table_name(self.partition)],
-            "filter": Partition.get_partition_name(self.partition),
-            "column": Column.get_partition_name(self.column),
-            "metrics": [metric.identity for metric in self.metrics.values()],
-            "outcome": self.outcome.value if self.outcome else None,
-            "outcomeReasons": self.outcome_reasons,
-            "archetype": self.archetype,
-        }
-
-    def _OLD_get_cloud_dict(self):
-        from soda.execution.column import Column
-        from soda.execution.partition import Partition
-
-        cloud_dict = {
-            # See https://sodadata.atlassian.net/browse/CLOUD-1143
-            "identity": self.create_identity(with_datasource=False, with_filename=False),
-            "identities": self.create_identities(),
-            "name": self.name,
-            "type": self.cloud_check_type,
-            "definition": self.create_definition(),
-            "resourceAttributes": self._format_attributes(),
-            "location": self.check_cfg.location.get_cloud_dict(),
-            "dataSource": self.data_source_scan.data_source.data_source_name,
-            "table": Partition.get_table_name(self.partition),
-            # "filter": Partition.get_partition_name(self.partition), TODO: re-enable once backend supports the property.
-            "column": Column.get_partition_name(self.column),
-            "metrics": [metric.identity for metric in self.metrics.values()],
-            "outcome": self.outcome.value if self.outcome else None,
-            "diagnostics": self.get_cloud_diagnostics_dict(),
-            "source": "soda-core",
-        }
-        # Update dict if automated monitoring is running
-        if self.archetype is not None:
-            cloud_dict.update({"archetype": self.archetype})
-
-        # Update dict if check is skipped and we want to push reason to cloud
-        if self.outcome_reasons:
-            cloud_dict.update({"outcomeReasons": self.outcome_reasons})
-        return cloud_dict
-
-    def _OLD_get_dict(self):
-        from soda.execution.column import Column
-        from soda.execution.partition import Partition
-
-        return {
-            "identity": self.create_identity(with_datasource=True),
             "name": self.name,
             "type": self.cloud_check_type,
             "definition": self.create_definition(),

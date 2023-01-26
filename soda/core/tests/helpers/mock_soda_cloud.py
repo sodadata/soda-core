@@ -149,10 +149,21 @@ class MockSodaCloud(SodaCloud):
         self.assert_key("diagnostics", check)
         return check["diagnostics"]
 
-    def find_failed_rows_content(self, check_index: int) -> str:
+    def find_failed_rows_diagnostics_block(self, check_index: int) -> dict | None:
         diagnostics = self.find_check_diagnostics(check_index)
-        self.assert_key("failedRowsFile", diagnostics)
-        failed_rows_file = diagnostics["failedRowsFile"]
+        self.assert_key("blocks", diagnostics)
+        failed_rows_block = None
+        for block in diagnostics["blocks"]:
+            if block["title"] == "Failed Rows":
+                failed_rows_block = block
+
+        return failed_rows_block
+
+    def find_failed_rows_content(self, check_index: int) -> str:
+        failed_rows_block = self.find_failed_rows_diagnostics_block(check_index)
+
+        assert failed_rows_block is not None
+        failed_rows_file = failed_rows_block["file"]
         self.assert_key("reference", failed_rows_file)
         reference = failed_rows_file["reference"]
         self.assert_key("fileId", reference)
@@ -163,6 +174,15 @@ class MockSodaCloud(SodaCloud):
     def find_failed_rows_line_count(self, check_index: int) -> int:
         file_contents = self.find_failed_rows_content(check_index)
         return file_contents.count("\n")
+
+    def assert_no_failed_rows_block_present(self, check_index: int):
+        diagnostics = self.find_check_diagnostics(check_index)
+
+        if "blocks" in diagnostics:
+            assert self.find_failed_rows_diagnostics_block(check_index) is None
+
+    def assert_is_failed_rows_block_present(self, check_index: int):
+        assert self.find_failed_rows_diagnostics_block(check_index) is not None
 
     @staticmethod
     def assert_key(key: str, d: dict):
