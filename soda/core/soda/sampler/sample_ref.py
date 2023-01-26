@@ -46,7 +46,7 @@ class SampleRef:
     def get_cloud_diagnostics_block(self) -> dict:
         file_block = {
             "type": "file",
-            "title": "Failed Rows Sample",
+            "title": "Failed Rows",
             "file": self.get_cloud_diagnostics_dict(),
         }
         return file_block
