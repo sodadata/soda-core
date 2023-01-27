@@ -75,6 +75,13 @@ def test_profile_columns_numeric(data_source_fixture: DataSourceFixture):
     assert frequent_values[1]["frequency"] == 2
     assert float(frequent_values[2]["value"]) == pytest.approx(1.0)
     assert frequent_values[2]["frequency"] == 1
+    # Test dtypes
+    assert isinstance(first_column_profile["avg"], float)
+    assert isinstance(first_column_profile["sum"], float)
+    assert isinstance(first_column_profile["stddev"], float)
+    assert isinstance(first_column_profile["variance"], float)
+    assert isinstance(first_column_profile["distinct"], int)
+    assert isinstance(first_column_profile["missing_count"], int)
 
     # Test aggregate stats
     assert first_column_profile["min"] == pytest.approx(0.5)
@@ -104,7 +111,7 @@ def test_profile_columns_numeric(data_source_fixture: DataSourceFixture):
     test_data_source in ["vertica"],
     reason="Need to change profiling logic: vertica type is `numeric(37,15)` as default not `numeric`",
 )
-def test_profile_columns_text(data_source_fixture: DataSourceFixture):
+def test_profile_columns_text_country(data_source_fixture: DataSourceFixture):
     table_name = data_source_fixture.ensure_test_table(customers_profiling)
     scan = data_source_fixture.create_test_scan()
     mock_soda_cloud = scan.enable_mock_soda_cloud()
@@ -131,6 +138,14 @@ def test_profile_columns_text(data_source_fixture: DataSourceFixture):
         expected_column_name = "COUNTRY"
     else:
         expected_column_name = "country"
+
+    # Test column dtypes
+    column_profile_metrics = profiling["columnProfiles"][0]["profile"]
+    assert isinstance(column_profile_metrics["min_length"], int)
+    assert isinstance(column_profile_metrics["max_length"], int)
+    assert isinstance(column_profile_metrics["avg_length"], int)
+    assert isinstance(column_profile_metrics["distinct"], int)
+    assert isinstance(column_profile_metrics["missing_count"], int)
 
     assert profiling == {
         "columnProfiles": [

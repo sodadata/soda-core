@@ -51,9 +51,9 @@ class ProfileColumnsResultColumn:
     def set_text_aggregation_metrics(self, aggregated_metrics: list[tuple]) -> None:
         self.distinct_values = self.cast_int_dtype_handle_none(aggregated_metrics[0][0])
         self.missing_values = self.cast_int_dtype_handle_none(aggregated_metrics[0][1])
-        self.average_length = self.cast_float_dtype_handle_none(aggregated_metrics[0][2])
-        self.min_length = self.cast_float_dtype_handle_none(aggregated_metrics[0][3])
-        self.max_length = self.cast_float_dtype_handle_none(aggregated_metrics[0][4])
+        self.average_length = self.cast_int_dtype_handle_none(aggregated_metrics[0][2])
+        self.min_length = self.cast_int_dtype_handle_none(aggregated_metrics[0][3])
+        self.max_length = self.cast_int_dtype_handle_none(aggregated_metrics[0][4])
 
     @staticmethod
     def unify_type(v: Any) -> Any:
