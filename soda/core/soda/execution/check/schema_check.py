@@ -204,7 +204,7 @@ class SchemaCheck(Check):
                 }
             )
 
-        value_type = self.outcome.name.lower()
+        value_type = self.outcome.name.lower() if self.outcome else None
         event_count = 0
         change_events: list(dict(str, str)) = []
 
