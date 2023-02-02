@@ -715,18 +715,16 @@ class DataSource:
         filter: str,
         exclude_patterns: list[str] | None = None,
     ) -> str | None:
-        main_query_columns = f"{column_names}, frequency" if exclude_patterns else "*"
         sql = dedent(
             f"""
             WITH frequencies AS (
-              SELECT {column_names}, COUNT(*) AS frequency
+              SELECT COUNT(*) AS frequency
               FROM {table_name}
               WHERE {filter}
               GROUP BY {column_names})
-            SELECT {main_query_columns}
+            SELECT count(*)
             FROM frequencies
-            WHERE frequency > 1
-            ORDER BY frequency DESC"""
+            WHERE frequency > 1"""
         )
 
         return sql

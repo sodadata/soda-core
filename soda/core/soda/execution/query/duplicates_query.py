@@ -96,10 +96,11 @@ class DuplicatesQuery(Query):
         )
 
     def execute(self):
-        self.fetchall()
-        self.metric.set_value(len(self.rows))
+        self.fetchone()
+        duplicates_count = self.row[0]
+        self.metric.set_value(duplicates_count)
 
-        if self.rows:
+        if duplicates_count:
             sample_query = SampleQuery(
                 self.data_source_scan,
                 self.metric,
