@@ -51,7 +51,7 @@ def test_duplicates_with_exclude_columns(data_source_fixture: DataSourceFixture)
     scan.assert_all_checks_pass()
 
     # Exclude columns present, query should list the columns explicitly
-    scan.assert_log("SELECT cat, frequency")
+    scan.assert_log("cat, frequency")
     scan.assert_no_log("SELECT *")
 
 

@@ -713,7 +713,6 @@ class DataSource:
         column_names: str,
         table_name: str,
         filter: str,
-        exclude_patterns: list[str] | None = None,
     ) -> str | None:
         sql = dedent(
             f"""

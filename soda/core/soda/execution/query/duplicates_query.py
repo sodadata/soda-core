@@ -47,7 +47,6 @@ class DuplicatesQuery(Query):
                 column_names,
                 table_name,
                 values_filter,
-                exclude_patterns=exclude_patterns,
             )
         )
 
