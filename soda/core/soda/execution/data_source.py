@@ -429,7 +429,7 @@ class DataSource:
         include_patterns: list[dict[str, str]] | None = None,
         exclude_patterns: list[dict[str, str]] | None = None,
         table_names_only: bool = False,
-    ) -> defaultdict[str, dict[str, str]] | list[str] | None:
+    ) -> defaultdict[str, dict[str, str]] | None:
         # TODO: save/cache the result for later use.
         if (not include_patterns) and (not exclude_patterns):
             return []
@@ -447,7 +447,7 @@ class DataSource:
             if table_names_only:
                 query_result = [self._optionally_quote_table_name_from_meta_data(row[0]) for row in rows]
             else:
-                query_result: defaultdict(dict) = self.parse_tables_columns_query(rows)
+                query_result: defaultdict[dict] = self.parse_tables_columns_query(rows)
             return query_result
         return None
 
@@ -856,8 +856,8 @@ class DataSource:
             SELECT
                 avg({column_name}) as average
                 , sum({column_name}) as sum
-                , variance({column_name}) as variance
-                , stddev({column_name}) as standard_deviation
+                , var_samp({column_name}) as variance
+                , stddev_samp({column_name}) as standard_deviation
                 , count(distinct({column_name})) as distinct_values
                 , sum(case when {column_name} is null then 1 else 0 end) as missing_values
             FROM {qualified_table_name}
