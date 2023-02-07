@@ -173,7 +173,6 @@ class Check(ABC):
             hash_builder.add("automated_monitoring")
 
         if isinstance(check_cfg.source_configurations, dict):
-
             identity_source_configurations = dict(check_cfg.source_configurations)
             # The next lines ensures that some of the configuration properties are ignored for computing the check identity
             identity_source_configurations.pop("name", None)

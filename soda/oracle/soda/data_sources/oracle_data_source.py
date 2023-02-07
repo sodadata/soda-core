@@ -205,7 +205,6 @@ class OracleDataSource(DataSource):
             )
 
         elif data_type_category == "numeric":
-
             mins_cte = f"""mins AS (
                             SELECT {cast_to_text("'mins'")} AS metric_, ROW_NUMBER() OVER(ORDER BY value_ ASC) AS index_, value_, frequency_
                             FROM value_frequencies

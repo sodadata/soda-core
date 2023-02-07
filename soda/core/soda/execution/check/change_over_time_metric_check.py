@@ -33,7 +33,6 @@ class ChangeOverTimeMetricCheck(MetricCheck):
         )
 
     def evaluate(self, metrics: Dict[str, Metric], historic_values: Dict[str, object]):
-
         metric_value = self.get_metric_value()
 
         historic_results = historic_values.get(KEY_HISTORIC_METRIC_AGGREGATE).get("measurements").get("results")

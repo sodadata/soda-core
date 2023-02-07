@@ -107,7 +107,6 @@ class SodaCLParser(Parser):
             return
 
         for header_str, header_content in headers_dict.items():
-
             # Backwards compatibility warning
             if "for each table" in header_str:
                 self.logs.warning(

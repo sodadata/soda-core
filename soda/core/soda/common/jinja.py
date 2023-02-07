@@ -24,7 +24,6 @@ def create_os_environment():
 
 
 class Jinja:
-
     environment = create_os_environment()
 
     @staticmethod

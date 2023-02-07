@@ -9,7 +9,6 @@ from soda.sampler.sample import Sample
 
 @dataclass
 class SampleContext:
-
     sample: Sample
     sample_name: str
     query: str

@@ -8,7 +8,6 @@ from soda.execution.data_type import DataType
 
 
 class VerticaDataSource(DataSource):
-
     TYPE: str = "vertica"
 
     SCHEMA_CHECK_TYPES_MAPPING: dict = {
@@ -90,7 +89,6 @@ class VerticaDataSource(DataSource):
     def sql_get_table_names_with_count(
         self, include_tables: list[str] | None = None, exclude_tables: list[str] | None = None
     ) -> str:
-
         table_filter_expression = self.sql_table_include_exclude_filter(
             "anchor_table_name", "schema_name", include_tables, exclude_tables
         )
@@ -144,7 +142,6 @@ class VerticaDataSource(DataSource):
         included_columns: list[str] | None = None,
         excluded_columns: list[str] | None = None,
     ) -> str:
-
         table_name_default_case = self.default_casify_table_name(table_name)
 
         unquoted_table_name_default_case = (
@@ -196,7 +193,6 @@ class VerticaDataSource(DataSource):
         return identifier.lower()
 
     def get_metric_sql_aggregation_expression(self, metric_name: str, metric_args: list[object] | None, expr: str):
-
         if metric_name in [
             "stddev",
             "stddev_pop",

@@ -21,7 +21,6 @@ class LogLevel(Enum):
 
 @dataclass
 class Log:
-
     __log_level_mappings = {
         LogLevel.ERROR: logging.ERROR,
         LogLevel.WARNING: logging.WARNING,
