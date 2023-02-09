@@ -8,7 +8,6 @@ from soda.execution.partition import Partition
 from soda.execution.query.user_defined_failed_rows_expression_query import (
     UserDefinedFailedRowsExpressionQuery,
 )
-from soda.sampler.sample_ref import SampleRef
 
 KEY_FAILED_ROWS_COUNT = "failed_rows_count"
 

@@ -4,7 +4,6 @@ from soda.execution.check.check import Check
 from soda.execution.check_outcome import CheckOutcome
 from soda.execution.metric.metric import Metric
 from soda.execution.metric.reference_metric import ReferenceMetric
-from soda.sampler.sample_ref import SampleRef
 
 KEY_INVALID_REFERENCE_COUNT = "invalid_reference_count"
 

@@ -52,9 +52,6 @@ class Query:
         self.duration: timedelta | None = None
 
     def get_cloud_dicts(self) -> list(dict(str, any)):
-        from soda.execution.column import Column
-        from soda.execution.partition import Partition
-
         dicts = [self.get_dict()]
 
         if self.failing_sql:
