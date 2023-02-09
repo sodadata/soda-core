@@ -6,7 +6,6 @@ from soda.execution.metric.metric import Metric
 from soda.execution.metric.user_defined_failed_rows_metric import (
     UserDefinedFailedRowsMetric,
 )
-from soda.sampler.sample_ref import SampleRef
 
 KEY_FAILED_ROWS_COUNT = "failed_rows_count"
 
