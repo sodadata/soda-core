@@ -22,7 +22,6 @@ class Query:
         sample_name: str = "failed_rows",
         location: Location | None = None,
         samples_limit: int | None = None,
-        passing_sql: str | None = None,
     ):
         self.logs = data_source_scan.scan._logs
         self.data_source_scan = data_source_scan
@@ -41,16 +40,8 @@ class Query:
         # _fetchall or _store are called
         self.sql: str = data_source_scan.scan.jinja_resolve(sql)
 
-        # The SQL query that is the opposite of a failed rows query if applicable.
-        self.passing_sql: str | None = passing_sql
-        # Pre-populate a dict keys for sqls for later use.
-        self.sqls: dict = {
-            "sql": None,
-            "failed_rows_sql": None,
-            "failed_rows_passing_sql": None,
-            "failed_rows_sql_no_limit": None,
-            "failed_rows_passing_sql_no_limit": None,
-        }
+        self.passing_sql: str | None = None
+        self.failing_sql: str | None = None
 
         # Following fields are initialized in execute method
         self.description: tuple | None = None
@@ -60,34 +51,37 @@ class Query:
         self.exception: BaseException | None = None
         self.duration: timedelta | None = None
 
-    def get_cloud_dict(self):
+    def get_cloud_dicts(self) -> list(dict(str, any)):
         from soda.execution.column import Column
         from soda.execution.partition import Partition
 
+        dicts = [self.get_dict()]
+
+        if self.failing_sql:
+            dicts.append(self.get_dict("failing_sql", self.failing_sql))
+
+        if self.passing_sql:
+            dicts.append(self.get_dict("passing_sql", self.passing_sql))
+
+        return dicts
+
+    def get_dict(self, name_suffix: str | None = None, sql: str | None = None) -> dict:
+        from soda.execution.column import Column
+        from soda.execution.partition import Partition
+
+        name = self.query_name
+
+        if name_suffix:
+            name += f".{name_suffix}"
         return {
-            "name": self.query_name,
+            "name": name,
             "dataSource": self.data_source_scan.data_source.data_source_name,
             "table": Partition.get_table_name(self.partition),
             "partition": Partition.get_partition_name(self.partition),
             "column": Column.get_partition_name(self.column),
-            "sql": self.sql,
-            "exception": get_exception_stacktrace(self.exception),
-            "duration": self.duration,
-        }
-
-    def get_dict(self):
-        from soda.execution.column import Column
-        from soda.execution.partition import Partition
-
-        return {
-            "name": self.query_name,
-            "dataSource": self.data_source_scan.data_source.data_source_name,
-            "table": Partition.get_table_name(self.partition),
-            "partition": Partition.get_partition_name(self.partition),
-            "column": Column.get_partition_name(self.column),
-            "sql": self.sql,
-            "exception": get_exception_stacktrace(self.exception),
-            "duration": self.duration,
+            "sql": sql or self.sql,
+            "exception": None if name_suffix or sql else get_exception_stacktrace(self.exception),
+            "duration": None if name_suffix or sql else self.duration,
         }
 
     @staticmethod

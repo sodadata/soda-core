@@ -34,13 +34,10 @@ class ReferenceCheck(Check):
         self.failed_rows_sample_ref = None
 
     def get_cloud_diagnostics_dict(self) -> dict:
-        cloud_diagnostics = {
-            # TODO Check with Soda Cloud what should be the value
-            "value": self.metrics.get(KEY_INVALID_REFERENCE_COUNT).value
-        }
+        cloud_diagnostics = super().get_cloud_diagnostics_dict()
 
-        if self.failed_rows_sample_ref and self.failed_rows_sample_ref.type != SampleRef.TYPE_NOT_PERSISTED:
-            cloud_diagnostics["blocks"] = [self.failed_rows_sample_ref.get_cloud_diagnostics_block()]
+        # TODO Check with Soda Cloud what should be the value
+        cloud_diagnostics["value"]: self.metrics.get(KEY_INVALID_REFERENCE_COUNT).value
 
         return cloud_diagnostics
 

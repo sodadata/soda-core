@@ -60,11 +60,3 @@ class UserDefinedFailedRowsCheck(Check):
             self.outcome = CheckOutcome.FAIL
 
         self.failed_rows_sample_ref = metric.failed_rows_sample_ref
-
-    def get_cloud_diagnostics_dict(self) -> dict:
-        cloud_diagnostics = {
-            "value": self.check_value,
-        }
-        if self.failed_rows_sample_ref and self.failed_rows_sample_ref.type != SampleRef.TYPE_NOT_PERSISTED:
-            cloud_diagnostics["blocks"] = [self.failed_rows_sample_ref.get_cloud_diagnostics_block()]
-        return cloud_diagnostics
