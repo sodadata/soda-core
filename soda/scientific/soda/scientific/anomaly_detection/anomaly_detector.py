@@ -87,8 +87,9 @@ class AnomalyHistoricalMeasurements(BaseModel):
 
 
 class AnomalyDetector:
-    def __init__(self, measurements, check_results, logs: Logs):
+    def __init__(self, measurements, check_results, logs: Logs, metric_name: str):
         self._logs = logs
+        self.metric_name = metric_name
         self.df_measurements = self._parse_historical_measurements(measurements)
         self.df_check_results = self._parse_historical_check_results(check_results)
         self.params = self._parse_params()
@@ -103,6 +104,7 @@ class AnomalyDetector:
             logs=self._logs,
             params=self.params,
             time_series_data=feedback.df_feedback_processed,
+            metric_name=self.metric_name,
             has_exegonenous_regressor=feedback.has_exegonenous_regressor,
         )
         df_anomalies = detector.run()

@@ -111,7 +111,7 @@ class AnomalyMetricCheck(MetricCheck):
             self.logs.error(f"{SODA_SCIENTIFIC_MISSING_LOG_MESSAGE}\n Original error: {e}")
             return
 
-        anomaly_detector = AnomalyDetector(historic_measurements, historic_check_results, self.logs)
+        anomaly_detector = AnomalyDetector(historic_measurements, historic_check_results, self.logs, metric_name)
         level, diagnostics = anomaly_detector.evaluate()
         assert isinstance(diagnostics, dict), f"Anomaly diagnostics should be a dict. Got a {type(diagnostics)} instead"
 

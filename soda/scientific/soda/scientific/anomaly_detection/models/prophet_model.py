@@ -129,11 +129,15 @@ class PreprocessError(Exception):
 class ProphetDetector(BaseDetector):
     """ProphetDetector."""
 
+    # TODO: [CLOUD-2823] Deprecate use of class variable to indicate integer type metrics
+    integer_type_metrics = ["row_count", "duplicate_count", "missing_count", "invalid_count"]
+
     def __init__(
         self,
         logs: Logs,
         params: Dict[str, Any],
         time_series_data: pd.DataFrame,
+        metric_name: str,
         has_exegonenous_regressor: bool = False,
     ) -> None:
         """Constructor for ProphetDetector
@@ -166,6 +170,7 @@ class ProphetDetector(BaseDetector):
         self._is_trained: bool = False
         self._has_exogenous_regressor = has_exegonenous_regressor
         self.time_series_data = time_series_data  # this gets potentially rewritten when runnin skip measurements
+        self.uncertainty_bounds_require_integer_rounding: bool = metric_name in self.integer_type_metrics
 
         # public attrs
         self.model: Prophet
@@ -373,11 +378,18 @@ class ProphetDetector(BaseDetector):
         self.predictions["real_data"] = self.time_series["y"].reset_index(drop=True)
 
         self._logs.debug(f"Anomaly Detection: detecting anomalies for the last {self._n_points} points.")
-
         # round/trucate because floats are shit and cause precision errors
-        self.predictions["real_data"] = self.predictions["real_data"].round(10)
-        self.predictions["yhat_lower"] = self.predictions["yhat_lower"].round(10)
-        self.predictions["yhat_upper"] = self.predictions["yhat_upper"].round(10)
+        latest_measurement = self.predictions.iloc[-1]
+        no_integer_between_bounds = (
+            np.abs(np.ceil(latest_measurement["yhat_upper"]) - np.floor(latest_measurement["yhat_lower"])) < 2
+        )
+        if no_integer_between_bounds and self.uncertainty_bounds_require_integer_rounding:
+            self.predictions["yhat_lower"] = np.floor(self.predictions["yhat_lower"])
+            self.predictions["yhat_upper"] = np.ceil(self.predictions["yhat_upper"])
+        else:
+            self.predictions["real_data"] = self.predictions["real_data"].round(10)
+            self.predictions["yhat_lower"] = self.predictions["yhat_lower"].round(10)
+            self.predictions["yhat_upper"] = self.predictions["yhat_upper"].round(10)
 
         # flag data points that fall out of confidence bounds
         self.predictions["is_anomaly"] = 0
