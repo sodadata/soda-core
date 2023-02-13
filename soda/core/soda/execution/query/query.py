@@ -213,7 +213,7 @@ class Query:
                         scan=self.data_source_scan.scan,
                         logs=self.data_source_scan.scan._logs,
                         samples_limit=self.samples_limit,
-                        passing_query=self.passing_sql,
+                        passing_sql=self.passing_sql,
                         check_name=check_name,
                     )
 

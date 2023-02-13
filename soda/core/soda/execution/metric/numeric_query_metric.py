@@ -290,8 +290,13 @@ class NumericQueryMetric(QueryMetric):
                 self.partition.table.table_name, self.samples_limit, where_sql
             )
 
-            passing_sql = self.data_source_scan.data_source.sql_select_all(
-                self.partition.table.table_name, self.samples_limit, passing_where_sql
+            # Store for later use
+            # TODO: this is a workaround for special aggregated queries.
+            self.passing_sql = self.data_source_scan.data_source.sql_select_all(
+                self.partition.table.table_name, filter=passing_where_sql
+            )
+            self.failing_sql = self.data_source_scan.data_source.sql_select_all(
+                self.partition.table.table_name, filter=where_sql
             )
 
-            return SampleQuery(self.data_source_scan, self, "failed_rows", sql, passing_sql=passing_sql)
+            return SampleQuery(self.data_source_scan, self, "failed_rows", sql)

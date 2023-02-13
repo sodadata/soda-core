@@ -275,11 +275,11 @@ class Check(ABC):
     def get_cloud_diagnostics_dict(self) -> dict:
         cloud_diagnostics = {
             "blocks": [],
-            "value": self.check_value,
+            "value": self.check_value if hasattr(self, "check_value") else None,
         }
 
         if self.failed_rows_sample_ref and self.failed_rows_sample_ref.type != SampleRef.TYPE_NOT_PERSISTED:
-            if self.cloud_check_type = "generic":
+            if self.cloud_check_type == "generic":
                 has_analysis_block = False
                 queries = self._get_all_related_queries()
                 sample_ref_block = self.failed_rows_sample_ref.get_cloud_diagnostics_block()
