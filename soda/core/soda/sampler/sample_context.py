@@ -18,7 +18,7 @@ class SampleContext:
     scan: Scan
     logs: Logs
     samples_limit: int | None
-    passing_query: str | None
+    passing_sql: str | None
     check_name: str | None
 
     def get_scan_folder_name(self):
