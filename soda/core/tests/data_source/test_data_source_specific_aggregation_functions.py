@@ -33,7 +33,6 @@ def test_data_source_specific_statistics_aggregation_metrics(data_source_fixture
         supported_checks = {}
 
     if supported_checks:
-
         checks_str = ""
         for check in supported_checks.values():
             checks_str += f"  - {check}\n"

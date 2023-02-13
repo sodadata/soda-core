@@ -15,7 +15,6 @@ logger = logging.getLogger(__name__)
 
 
 class SQLServerDataSource(DataSource):
-
     TYPE = "sqlserver"
 
     SCHEMA_CHECK_TYPES_MAPPING: dict = {"TEXT": ["text", "varchar", "char"]}
@@ -217,7 +216,6 @@ class SQLServerDataSource(DataSource):
             )
 
         elif data_type_category == "numeric":
-
             mins_cte = f"""mins AS (
                             SELECT TOP {limit_mins_maxs} {cast_to_text("'mins'")} AS metric_, ROW_NUMBER() OVER(ORDER BY value_ ASC) AS index_, value_, frequency_
                             FROM value_frequencies

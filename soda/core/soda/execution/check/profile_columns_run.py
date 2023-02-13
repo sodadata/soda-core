@@ -18,7 +18,6 @@ if TYPE_CHECKING:
 
 class ProfileColumnsRun:
     def __init__(self, data_source_scan: DataSourceScan, profile_columns_cfg: ProfileColumnsCfg):
-
         self.data_source_scan = data_source_scan
         self.soda_cloud = data_source_scan.scan._configuration.soda_cloud
         self.data_source = data_source_scan.data_source

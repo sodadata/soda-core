@@ -27,7 +27,6 @@ class AnomalyMetricCheck(MetricCheck):
         partition: Partition | None = None,
         column: Column | None = None,
     ):
-
         try:
             super().__init__(
                 check_cfg=check_cfg,

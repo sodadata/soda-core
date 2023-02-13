@@ -78,7 +78,6 @@ class DbtCloud:
                 dbt_run_results,
             )
         else:
-
             self.scan._logs.info("Getting dbt artifacts from dbt Cloud.")
 
             error_values = [self.dbt_cloud_config.api_token, self.dbt_cloud_config.account_id]
@@ -111,7 +110,6 @@ class DbtCloud:
         return return_code
 
     def flush_test_results(self, checks: list[Check], soda_cloud: SodaCloud) -> None:
-
         if len(checks) != 0:
             scan_results = self.build_scan_results(checks)
             scan_results["type"] = "sodaCoreInsertScanResults"

@@ -14,7 +14,6 @@ def to_yaml_str(yaml_object) -> str:
 
 
 class YamlHelper:
-
     __yaml = create_yaml()
 
     @classmethod

@@ -2,7 +2,6 @@ from enum import Enum
 
 
 class CheckOutcome(Enum):
-
     PASS = "pass"
     WARN = "warn"
     FAIL = "fail"

@@ -19,7 +19,6 @@ logger = logging.getLogger(__name__)
 
 
 class TestScan(Scan):
-
     __test__ = False
 
     # The main data_source (and the main data_source connection) is reused throughout the whole

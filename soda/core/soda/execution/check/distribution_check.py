@@ -21,7 +21,6 @@ class DistributionCheck(Check):
         partition: Partition = None,
         column: Column = None,
     ):
-
         super().__init__(
             check_cfg=check_cfg,
             data_source_scan=data_source_scan,
@@ -78,7 +77,6 @@ class DistributionCheck(Check):
                 self.logs.error(e, location=self.check_cfg.location)
 
     def set_outcome_based_on_check_value(self) -> None:
-
         if self.check_value is not None and (
             self.distribution_check_cfg.warn_threshold_cfg or self.distribution_check_cfg.fail_threshold_cfg
         ):
