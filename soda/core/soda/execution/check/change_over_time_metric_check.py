@@ -58,7 +58,6 @@ class ChangeOverTimeMetricCheck(MetricCheck):
             self.historic_diff_values = {
                 "historic_value": historic_value,
                 "metric_value": metric_value,
-                "delta": self.check_value,
             }
 
             self.set_outcome_based_on_check_value()
@@ -69,10 +68,7 @@ class ChangeOverTimeMetricCheck(MetricCheck):
     def get_cloud_diagnostics_dict(self) -> dict:
         cloud_diagnostics = super().get_cloud_diagnostics_dict()
         if self.historic_diff_values:
-            for k, v in self.historic_diff_values.items():
-                cloud_diagnostics[k] = v
-
-        cloud_diagnostics["measure"] = "time"
+            cloud_diagnostics["diagnostics"] = self.historic_diff_values
         return cloud_diagnostics
 
     def get_log_diagnostic_dict(self) -> dict:
