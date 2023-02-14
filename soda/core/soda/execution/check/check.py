@@ -234,7 +234,6 @@ class Check(ABC):
             "location": self.check_cfg.location.get_cloud_dict(),
             "dataSource": self.data_source_scan.data_source.data_source_name,
             "table": Partition.get_table_name(self.partition),
-            "datasets": [Partition.get_table_name(self.partition)],
             # "filter": Partition.get_partition_name(self.partition), TODO: re-enable once backend supports the property.
             "column": Column.get_partition_name(self.column),
             "metrics": [metric.identity for metric in self.metrics.values()],
