@@ -57,6 +57,7 @@ class AnomalyMetricCheck(MetricCheck):
                 check_identity=self.create_identity(), limit=HISTORIC_MEASUREMENTS_LIMIT
             )
             self.diagnostics = {}
+            self.cloud_check_type = "anomalyDetection"
         except Exception as e:
             data_source_scan.scan._logs.error(
                 f"""An error occurred during the initialization of AnomalyMetricCheck""",
