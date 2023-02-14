@@ -3,8 +3,11 @@ from __future__ import annotations
 from soda.sodacl.location import Location
 
 CFG_VALID_VALUES = "valid values"
+CFG_INVALID_VALUES = "invalid values"
 CFG_VALID_FORMAT = "valid format"
+CFG_INVALID_FORMAT = "invalid format"
 CFG_VALID_REGEX = "valid regex"
+CFG_INVALID_REGEX = "invalid regex"
 CFG_VALID_MIN = "valid min"
 CFG_VALID_MAX = "valid max"
 CFG_VALID_MIN_LENGTH = "valid min length"
@@ -17,8 +20,11 @@ CFG_MISSING_REGEX = "missing regex"
 
 CFG_MISSING_VALID_ALL = [
     CFG_VALID_VALUES,
+    CFG_INVALID_VALUES,
     CFG_VALID_FORMAT,
     CFG_VALID_REGEX,
+    CFG_INVALID_FORMAT,
+    CFG_INVALID_REGEX,
     CFG_VALID_MIN,
     CFG_VALID_MAX,
     CFG_VALID_MIN_LENGTH,
@@ -42,10 +48,16 @@ class MissingAndValidCfg:
         # self.missing_expr: Optional[str] = None
         self.valid_values: list[str] | None = None
         self.valid_values_location: Location | None = None
+        self.invalid_values: list[str] | None = None
+        self.invalid_values_location: Location | None = None
         self.valid_format: str | None = None
         self.valid_format_location: Location | None = None
+        self.invalid_format: str | None = None
+        self.invalid_format_location: Location | None = None
         self.valid_regex: str | None = None
         self.valid_regex_location: Location | None = None
+        self.invalid_regex: str | None = None
+        self.invalid_regex_location: Location | None = None
         self.valid_length: int | None = None
         self.valid_length_location: Location | None = None
         self.valid_min_length: int | None = None
