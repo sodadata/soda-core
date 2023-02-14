@@ -18,7 +18,7 @@ def test_default_invalid(data_source_fixture: DataSourceFixture):
     )
     scan.execute_unchecked()
 
-    scan.assert_log_warning("Counting invalid without valid specification does not make sense")
+    scan.assert_log_warning("Counting invalid without valid or invalid specification does not make sense")
     scan.assert_all_checks_pass()
 
 
@@ -185,3 +185,90 @@ def test_non_existing_format(data_source_fixture: DataSourceFixture):
     scan.execute_unchecked()
 
     scan.assert_log(f"Format {format} is not supported")
+
+
+@pytest.mark.parametrize(
+    "check",
+    [
+        pytest.param(
+            """invalid_count(id) = 2:
+                    invalid values:
+                        - ID1
+                        - ID2
+            """,
+            id="invalid values",
+        ),
+        pytest.param(
+            """invalid_count(id) = 0:
+                    invalid format: email
+            """,
+            id="invalid format",
+        ),
+        pytest.param(
+            """invalid_count(id) = 9:
+                    invalid regex: {{digit_regex}}
+            """,
+            id="invalid regex",
+        ),
+    ],
+)
+def test_invalid_with_invalid_config(check: str, data_source_fixture: DataSourceFixture):
+    table_name = data_source_fixture.ensure_test_table(customers_test_table)
+
+    digit_regex = data_source_fixture.data_source.escape_regex(r"ID[0-9]")
+
+    check = check.replace("{{digit_regex}}", digit_regex)
+
+    scan = data_source_fixture.create_test_scan()
+    scan.add_sodacl_yaml_str(
+        f"""
+          checks for {table_name}:
+                - {check}
+        """
+    )
+    scan.execute()
+
+    scan.assert_all_checks_pass()
+
+
+@pytest.mark.parametrize(
+    "check",
+    [
+        pytest.param(
+            """valid_count(id) = 7:
+                    invalid values:
+                        - ID1
+                        - ID2
+            """,
+            id="invalid values",
+        ),
+        pytest.param(
+            """valid_count(id) = 9:
+                    invalid format: email
+            """,
+            id="invalid format",
+        ),
+        pytest.param(
+            """valid_count(id) = 0:
+                    invalid regex: {{digit_regex}}
+            """,
+            id="invalid regex",
+        ),
+    ],
+)
+def test_valid_with_invalid_config(check: str, data_source_fixture: DataSourceFixture):
+    table_name = data_source_fixture.ensure_test_table(customers_test_table)
+
+    digit_regex = data_source_fixture.data_source.escape_regex(r"ID[0-9]")
+    check = check.replace("{{digit_regex}}", digit_regex)
+
+    scan = data_source_fixture.create_test_scan()
+    scan.add_sodacl_yaml_str(
+        f"""
+          checks for {table_name}:
+            - {check}
+        """
+    )
+    scan.execute()
+
+    scan.assert_all_checks_pass()
