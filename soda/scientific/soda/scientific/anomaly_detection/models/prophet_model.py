@@ -324,6 +324,8 @@ class ProphetDetector(BaseDetector):
         self.time_series = self.time_series.resample(self.freq_detection_result.inferred_frequency).mean()
         self.time_series = self.time_series.reset_index()
         self.time_series["y"] = self.time_series["y"].interpolate(**self._preprocess_params["interpolation_kwargs"])
+        if self._has_exogenous_regressor:
+            self.time_series["external_regressor"] = self.time_series["external_regressor"].fillna(0)
 
     def setup_fit_predict(self):
         """Sets up Prophet model and fits it on the self.time_series_data."""

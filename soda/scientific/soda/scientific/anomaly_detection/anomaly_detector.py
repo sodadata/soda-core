@@ -133,8 +133,8 @@ class AnomalyDetector:
                 "Anomaly Detection for this check yet."
             )
             parsed_check_results = AnomalyHistoricalCheckResults(results=[AnomalyResult()])
-            _df_measurements = pd.DataFrame.from_dict(parsed_check_results.dict()["results"])
-            return _df_measurements
+            _df_check_results = pd.DataFrame.from_dict(parsed_check_results.dict()["results"])
+            return _df_check_results
 
     def _convert_to_well_shaped_df(self) -> pd.DataFrame:
         if not self.df_check_results.empty:
