@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import numbers
 from datetime import date, datetime
 
 from soda.common.logs import Logs
@@ -50,6 +51,10 @@ class AttributeHandler:
             if value.tzinfo is None:
                 value = value.replace(tzinfo=datetime.now().astimezone().tzinfo)
             return value.isoformat()
+
+        # Numeric attributes need to be sent to Cloud as strings.
+        if isinstance(value, numbers.Number):
+            value = str(value)
 
         return value
 
