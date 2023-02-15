@@ -70,11 +70,14 @@ class NumericQueryMetric(QueryMetric):
             if "invalid_count" == self.name:
                 missing_condition = self.build_missing_condition()
                 valid_condition = self.build_valid_condition()
+                invalid_condition = self.build_invalid_condition()
                 if valid_condition:
                     condition = f"NOT ({missing_condition}) AND NOT ({valid_condition})"
+                elif invalid_condition:
+                    condition = f"NOT ({missing_condition}) AND ({invalid_condition})"
                 else:
                     self.logs.warning(
-                        f'Counting invalid without valid specification does not make sense. ("{self.check.check_cfg.source_line}" @ {self.check.check_cfg.location})'
+                        f'Counting invalid without valid or invalid specification does not make sense. ("{self.check.check_cfg.source_line}" @ {self.check.check_cfg.location})'
                     )
                     condition = self.data_source_scan.data_source.expr_false_condition()
 
@@ -235,11 +238,44 @@ class NumericQueryMetric(QueryMetric):
 
         return " AND ".join(validity_clauses) if len(validity_clauses) != 0 else None
 
+    def build_invalid_condition(self) -> str | None:
+        column_name = self.column_name
+        data_source = self.data_source_scan.data_source
+
+        def append_invalid(missing_and_valid_cfg):
+            if missing_and_valid_cfg:
+                invalid_format = missing_and_valid_cfg.invalid_format
+                if invalid_format:
+                    invalidity_expression = self.data_source_scan.data_source.get_default_format_expression(
+                        column_name, invalid_format, missing_and_valid_cfg.invalid_format_location
+                    )
+                    if invalidity_expression:
+                        invalidity_clauses.append(invalidity_expression)
+
+                if missing_and_valid_cfg.invalid_values:
+                    invalid_values_sql = data_source.literal_list(missing_and_valid_cfg.invalid_values)
+                    in_expr = data_source.expr_in(column_name, invalid_values_sql)
+                    invalidity_clauses.append(in_expr)
+
+                if missing_and_valid_cfg.invalid_regex is not None:
+                    invalid_regex = data_source.escape_regex(missing_and_valid_cfg.invalid_regex)
+                    regex_like_expr = data_source.expr_regexp_like(column_name, invalid_regex)
+                    invalidity_clauses.append(regex_like_expr)
+
+        invalidity_clauses = []
+
+        append_invalid(self.missing_and_valid_cfg)
+
+        return " OR ".join(invalidity_clauses) if len(invalidity_clauses) != 0 else None
+
     def build_non_missing_and_valid_condition(self):
         missing_condition = self.build_missing_condition()
         valid_condition = self.build_valid_condition()
+        invalid_condition = self.build_invalid_condition()
         if valid_condition:
             return f"NOT ({missing_condition}) AND ({valid_condition})"
+        elif invalid_condition:
+            return f"NOT ({missing_condition}) AND NOT ({invalid_condition})"
         else:
             return f"NOT ({missing_condition})"
 
@@ -274,10 +310,17 @@ class NumericQueryMetric(QueryMetric):
                 passing_where_clauses.append(f"NOT {self.build_missing_condition()}")
             elif self.name == "invalid_count":
                 where_clauses.append(f"NOT {self.build_missing_condition()}")
-                where_clauses.append(f"NOT {self.build_valid_condition()}")
-
                 passing_where_clauses.append(f"NOT {self.build_missing_condition()}")
-                passing_where_clauses.append(self.build_valid_condition())
+
+                valid_condition = self.build_valid_condition()
+                if valid_condition:
+                    where_clauses.append(f"NOT {valid_condition}")
+                    passing_where_clauses.append(valid_condition)
+
+                invalid_condition = self.build_invalid_condition()
+                if invalid_condition:
+                    passing_where_clauses.append(f"NOT {invalid_condition}")
+                    where_clauses.append(invalid_condition)
 
             if self.filter:
                 where_clauses.append(self.filter)

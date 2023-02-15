@@ -1208,7 +1208,7 @@ class SodaCLParser(Parser):
             setattr(missing_and_valid_cfg, field_name, value)
             setattr(missing_and_valid_cfg, location_field_name, self.location)
 
-        if configuration_type in ["valid values", "missing values"]:
+        if configuration_type in ["valid values", "invalid values", "missing values"]:
             if all(isinstance(v, str) for v in configuration_value) or all(
                 isinstance(v, Number) for v in configuration_value
             ):
@@ -1246,6 +1246,8 @@ class SodaCLParser(Parser):
             "missing regex",
             "valid regex",
             "valid format",
+            "invalid regex",
+            "invalid format",
         ]:
             if isinstance(configuration_value, str):
                 set_configuration_value(configuration_value)
