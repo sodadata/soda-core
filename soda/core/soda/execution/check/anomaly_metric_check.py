@@ -17,6 +17,7 @@ from soda.sodacl.metric_check_cfg import MetricCheckCfg
 
 KEY_HISTORIC_MEASUREMENTS = "historic_measurements"
 KEY_HISTORIC_CHECK_RESULTS = "historic_check_results"
+HISTORIC_MEASUREMENTS_LIMIT = 1000
 
 
 class AnomalyMetricCheck(MetricCheck):
@@ -50,10 +51,10 @@ class AnomalyMetricCheck(MetricCheck):
 
             self.historic_descriptors[KEY_HISTORIC_MEASUREMENTS] = HistoricMeasurementsDescriptor(
                 metric_identity=metric.identity,
-                limit=1000,
+                limit=HISTORIC_MEASUREMENTS_LIMIT,
             )
             self.historic_descriptors[KEY_HISTORIC_CHECK_RESULTS] = HistoricCheckResultsDescriptor(
-                check_identity=self.create_identity(), limit=3
+                check_identity=self.create_identity(), limit=HISTORIC_MEASUREMENTS_LIMIT
             )
             self.diagnostics = {}
             self.cloud_check_type = "anomalyDetection"

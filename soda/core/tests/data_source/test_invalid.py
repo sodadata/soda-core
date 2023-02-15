@@ -3,6 +3,8 @@ from helpers.common_test_tables import customers_test_table
 from helpers.data_source_fixture import DataSourceFixture
 from helpers.fixtures import test_data_source
 
+id_regex = r"ID[0-9]"
+
 
 def test_default_invalid(data_source_fixture: DataSourceFixture):
     table_name = data_source_fixture.ensure_test_table(customers_test_table)
@@ -144,7 +146,7 @@ def test_check_and_column_configured_invalid_values(data_source_fixture: DataSou
     """
     table_name = data_source_fixture.ensure_test_table(customers_test_table)
 
-    digit_regex = data_source_fixture.data_source.escape_regex(r"ID[0-9]")
+    digit_regex = data_source_fixture.data_source.escape_regex(id_regex)
 
     scan = data_source_fixture.create_test_scan()
     scan.add_sodacl_yaml_str(
@@ -215,7 +217,7 @@ def test_non_existing_format(data_source_fixture: DataSourceFixture):
 def test_invalid_with_invalid_config(check: str, data_source_fixture: DataSourceFixture):
     table_name = data_source_fixture.ensure_test_table(customers_test_table)
 
-    digit_regex = data_source_fixture.data_source.escape_regex(r"ID[0-9]")
+    digit_regex = data_source_fixture.data_source.escape_regex(id_regex)
 
     check = check.replace("{{digit_regex}}", digit_regex)
 
@@ -259,7 +261,7 @@ def test_invalid_with_invalid_config(check: str, data_source_fixture: DataSource
 def test_valid_with_invalid_config(check: str, data_source_fixture: DataSourceFixture):
     table_name = data_source_fixture.ensure_test_table(customers_test_table)
 
-    digit_regex = data_source_fixture.data_source.escape_regex(r"ID[0-9]")
+    digit_regex = data_source_fixture.data_source.escape_regex(id_regex)
     check = check.replace("{{digit_regex}}", digit_regex)
 
     scan = data_source_fixture.create_test_scan()
