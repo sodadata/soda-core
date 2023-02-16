@@ -46,7 +46,6 @@ class AnomalyDiagnostics(BaseModel):
     anomalyErrorSeverity: str = "pass"
     anomalyErrorCode: str = ""
     anomalyErrorMessage: str = ""
-    feedback: Optional[UserFeedback] = UserFeedback()
 
 
 class LocationModel(BaseModel):
@@ -69,7 +68,8 @@ class AnomalyResult(BaseModel):
     column: Optional[str] = None
     outcome: Optional[str] = None
     diagnostics: AnomalyDiagnostics = AnomalyDiagnostics()
-
+    feedback: Optional[UserFeedback] = UserFeedback()
+    
 
 class AnomalyHistoricalCheckResults(BaseModel):
     results: List[AnomalyResult]
