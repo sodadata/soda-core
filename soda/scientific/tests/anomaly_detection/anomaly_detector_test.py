@@ -1,8 +1,9 @@
 import logging
+
 import pandas as pd
 import pytest
-from soda.common.logs import Logs
 from numpy import nan
+from soda.common.logs import Logs
 
 LOGS = Logs(logging.getLogger(__name__))
 
@@ -146,15 +147,11 @@ LOGS = Logs(logging.getLogger(__name__))
 def test_anomaly_detector_evaluate(historical_measurements, historical_check_results, expectation):
     from soda.scientific.anomaly_detection.anomaly_detector import AnomalyDetector
 
-    detector = AnomalyDetector(
-        historical_measurements, historical_check_results, logs=LOGS, metric_name="avg_length"
-    )
+    detector = AnomalyDetector(historical_measurements, historical_check_results, logs=LOGS, metric_name="avg_length")
     _, diagnostic = detector.evaluate()
     assert diagnostic["value"] == expectation["value"]
     assert diagnostic["anomalyProbability"] == pytest.approx(expectation["anomalyProbability"])
-    assert diagnostic["anomalyPredictedValue"] == pytest.approx(
-        expectation["anomalyPredictedValue"]
-    )
+    assert diagnostic["anomalyPredictedValue"] == pytest.approx(expectation["anomalyPredictedValue"])
 
 
 PROPHET_MODEL_PARAMS = {
@@ -268,7 +265,7 @@ PROPHET_MODEL_PARAMS = {
                 },
                 "skipMeasurements": {0: "previous", 1: None, 2: None, 3: None, 5: None, 6: nan},
             },
-            id = 'this and exclusive previous'
+            id="this and exclusive previous",
         ),
         pytest.param(
             PROPHET_MODEL_PARAMS,
@@ -306,11 +303,13 @@ PROPHET_MODEL_PARAMS = {
                 },
                 "skipMeasurements": {0: None, 1: nan},
             },
-            id = 'previousAndThis'
-        )
+            id="previousAndThis",
+        ),
     ],
 )
-def test_prophet_model_skip_measurements(prophet_model_params, time_series_with_skip_measurements, expected_filtered_time_series):
+def test_prophet_model_skip_measurements(
+    prophet_model_params, time_series_with_skip_measurements, expected_filtered_time_series
+):
     from soda.scientific.anomaly_detection.models.prophet_model import ProphetDetector
 
     time_series_data = pd.DataFrame(time_series_with_skip_measurements)
@@ -323,10 +322,6 @@ def test_prophet_model_skip_measurements(prophet_model_params, time_series_with_
     )
     detector.skip_measurements()
     filtered_time_series_data = detector.time_series_data
-    expected_filtered_time_series_data = pd.DataFrame(
-        expected_filtered_time_series
-    )
-    expected_filtered_time_series_data["ds"] = pd.to_datetime(
-        expected_filtered_time_series_data["ds"]
-    )
+    expected_filtered_time_series_data = pd.DataFrame(expected_filtered_time_series)
+    expected_filtered_time_series_data["ds"] = pd.to_datetime(expected_filtered_time_series_data["ds"])
     pd.testing.assert_frame_equal(filtered_time_series_data, expected_filtered_time_series_data, check_dtype=False)
