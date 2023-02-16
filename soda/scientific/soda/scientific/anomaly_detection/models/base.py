@@ -18,11 +18,15 @@ class BaseDetector(ABC):
 
     @abstractmethod
     def setup_fit_predict(self):
-        raise NotImplementedError("You must implement a `setup_fit_predict` to instantiate this class")
+        raise NotImplementedError(
+            "You must implement a `setup_fit_predict` to instantiate this class"
+        )
 
     @abstractmethod
     def detect_anomalies(self):
-        raise NotImplementedError("You must implement a `detect_anomalies` method to instantiate this class")
+        raise NotImplementedError(
+            "You must implement a `detect_anomalies` method to instantiate this class"
+        )
 
     @staticmethod
     def _eliminate_measurements(
@@ -38,7 +42,9 @@ class BaseDetector(ABC):
             skip_from = index
 
         if is_inclusive and not is_multi_index:
-            assert not isinstance(skip_from, list), "skip_from cannot be a list when not multi_index is False"
+            assert not isinstance(
+                skip_from, list
+            ), "skip_from cannot be a list when not multi_index is False"
             _df = df.drop(df.index[: skip_from + 1])
             if isinstance(_df, pd.DataFrame):
                 return _df
@@ -48,7 +54,9 @@ class BaseDetector(ABC):
             if isinstance(_df, pd.DataFrame):
                 return _df
 
-        assert not isinstance(skip_from, list), "skip_from cannot be a list when not multi_index is False"
+        assert not isinstance(
+            skip_from, list
+        ), "skip_from cannot be a list when not multi_index is False"
         _df = df.drop(df.index[:skip_from])
         if isinstance(_df, pd.DataFrame):
             return _df
@@ -56,40 +64,30 @@ class BaseDetector(ABC):
 
     def skip_measurements(self):
         """Eliminates measurements that are labelled as skipped by users."""
-        has_two_previouses = False
         is_inclusive = False
         max_index = []
         if "skipMeasurements" in self._data_df.columns:
+            self._data_df = self._data_df.sort_values(by="ds", ascending=True)
+            self._data_df = self._data_df.reset_index(drop=True)
             skip_previous_inclusive_indexes = self._data_df.index[
-                self._data_df["skip_measurements"] == "previousAndThis"
+                self._data_df["skipMeasurements"] == "previousAndThis"
             ].tolist()  # type: ignore
             skip_previous_exclusive_indexes = self._data_df.index[
-                self._data_df["skip_measurements"] == "previous"
+                self._data_df["skipMeasurements"] == "previous"
             ].tolist()  # type: ignore
 
-            if skip_previous_exclusive_indexes and skip_previous_inclusive_indexes:
-                max_index = max(max(skip_previous_inclusive_indexes), max(skip_previous_exclusive_indexes))
-                has_two_previouses = True
+            if skip_previous_exclusive_indexes or skip_previous_inclusive_indexes:
+                max_index = max(
+                    max(skip_previous_inclusive_indexes) if skip_previous_inclusive_indexes else 0,
+                    max(skip_previous_exclusive_indexes) if skip_previous_exclusive_indexes else 0,
+                )
                 is_inclusive = max_index in skip_previous_inclusive_indexes
-
-            if has_two_previouses:
                 skip_from = max_index
                 self._data_df = self._eliminate_measurements(self._data_df, is_inclusive, skip_from)
-
-            elif skip_previous_inclusive_indexes:
-                is_inclusive = True
-                skip_from = max(skip_previous_inclusive_indexes)
-                self._data_df = self._eliminate_measurements(self._data_df, is_inclusive, skip_from)
-
-            elif skip_previous_exclusive_indexes:
-                is_inclusive = False
-                skip_from = max(skip_previous_exclusive_indexes)
-                self._data_df = self._eliminate_measurements(self._data_df, is_inclusive, skip_from)
-
-            if skip_previous_inclusive_indexes or skip_previous_exclusive_indexes:
                 self._data_df = self._data_df.reset_index(drop=True)
+
             skip_individual_indexes = self._data_df.index[
-                self._data_df["skip_measurements"] == "this"
+                self._data_df["skipMeasurements"] == "this"
             ].tolist()  # type: ignore
             if skip_individual_indexes:
                 self._data_df = self._eliminate_measurements(
