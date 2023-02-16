@@ -1,7 +1,8 @@
 import logging
-
+import pandas as pd
 import pytest
 from soda.common.logs import Logs
+from numpy import nan
 
 LOGS = Logs(logging.getLogger(__name__))
 
@@ -65,8 +66,14 @@ LOGS = Logs(logging.getLogger(__name__))
                             "anomalyPredictedValue": 20.870516335508597,
                             "anomalyErrorSeverity": "warn",
                             "anomalyErrorCode": "made_daily_keeping_last_point_only",
-                            "fail": {"lessThanOrEqual": 20.15142652696, "greaterThanOrEqual": 22.03561767424},
-                            "warn": {"lessThanOrEqual": 20.3084424559, "greaterThanOrEqual": 21.8786017453},
+                            "fail": {
+                                "lessThanOrEqual": 20.15142652696,
+                                "greaterThanOrEqual": 22.03561767424,
+                            },
+                            "warn": {
+                                "lessThanOrEqual": 20.3084424559,
+                                "greaterThanOrEqual": 21.8786017453,
+                            },
                         },
                     },
                     {
@@ -82,8 +89,14 @@ LOGS = Logs(logging.getLogger(__name__))
                             "anomalyPredictedValue": 8.46757918589978,
                             "anomalyErrorSeverity": "warn",
                             "anomalyErrorCode": "made_daily_keeping_last_point_only",
-                            "fail": {"lessThanOrEqual": -1.89282665126, "greaterThanOrEqual": 17.89954537186},
-                            "warn": {"lessThanOrEqual": -0.243462316, "greaterThanOrEqual": 16.2501810366},
+                            "fail": {
+                                "lessThanOrEqual": -1.89282665126,
+                                "greaterThanOrEqual": 17.89954537186,
+                            },
+                            "warn": {
+                                "lessThanOrEqual": -0.243462316,
+                                "greaterThanOrEqual": 16.2501810366,
+                            },
                         },
                     },
                     {
@@ -99,8 +112,14 @@ LOGS = Logs(logging.getLogger(__name__))
                             "anomalyPredictedValue": 8.46757918589978,
                             "anomalyErrorSeverity": "warn",
                             "anomalyErrorCode": "made_daily_keeping_last_point_only",
-                            "fail": {"lessThanOrEqual": -2.54660323027, "greaterThanOrEqual": 18.60637946177},
-                            "warn": {"lessThanOrEqual": -0.7838546726, "greaterThanOrEqual": 16.8436309041},
+                            "fail": {
+                                "lessThanOrEqual": -2.54660323027,
+                                "greaterThanOrEqual": 18.60637946177,
+                            },
+                            "warn": {
+                                "lessThanOrEqual": -0.7838546726,
+                                "greaterThanOrEqual": 16.8436309041,
+                            },
                         },
                     },
                 ]
@@ -127,8 +146,187 @@ LOGS = Logs(logging.getLogger(__name__))
 def test_anomaly_detector_evaluate(historical_measurements, historical_check_results, expectation):
     from soda.scientific.anomaly_detection.anomaly_detector import AnomalyDetector
 
-    detector = AnomalyDetector(historical_measurements, historical_check_results, logs=LOGS, metric_name="avg_length")
+    detector = AnomalyDetector(
+        historical_measurements, historical_check_results, logs=LOGS, metric_name="avg_length"
+    )
     _, diagnostic = detector.evaluate()
     assert diagnostic["value"] == expectation["value"]
     assert diagnostic["anomalyProbability"] == pytest.approx(expectation["anomalyProbability"])
-    assert diagnostic["anomalyPredictedValue"] == pytest.approx(expectation["anomalyPredictedValue"])
+    assert diagnostic["anomalyPredictedValue"] == pytest.approx(
+        expectation["anomalyPredictedValue"]
+    )
+
+
+PROPHET_MODEL_PARAMS = {
+    "version": 1,
+    "request_params": {
+        "columns_mapping": {
+            "dataTime": "ds",
+            "value": "y",
+            "anomalyPredictedValue": "anomaly_predicted_value",
+            "anomalyProbability": "anomaly_probability",
+            "feedback": "feedback",
+        }
+    },
+    "feedback_processor_params": {
+        "output_columns": {
+            "ds": "ds",
+            "y": "y",
+            "delta": "external_regressor",
+            "skip_measurements": "skip_measurements",
+        }
+    },
+    "prophet_detector": {
+        "preprocess_params": {
+            "frequency": "D",
+            "warn_if_missing_values": True,
+            "fill_missing_dates": True,
+            "interpolation_kwargs": {"method": "linear"},
+            "assume_daily": True,
+        },
+        "anomaly_detection": {"n_points": 1, "criticality_threshold": 0.1},
+        "prophet_setup": {
+            "interval_width": 0.99,
+            "changepoint_range": 0.8,
+            "changepoint_prior_scale": 0.005,
+            "daily_seasonality": "auto",
+            "weekly_seasonality": "auto",
+            "yearly_seasonality": "auto",
+            "seasonality_mode": "multiplicative",
+            "growth": "linear",
+        },
+        "suppress_stan": True,
+    },
+    "response_params": {
+        "output_columns": {
+            "yhat": "anomaly_predicted_value",
+            "anomaly_probability": "anomaly_probability",
+            "warning_lower_than_or_equal": "warning_lower_than_or_equal",
+            "warning_greater_than_or_equal": "warning_greater_than_or_equal",
+            "critical_lower_than_or_equal": "critical_lower_than_or_equal",
+            "critical_greater_than_or_equal": "critical_greater_than_or_equal",
+        }
+    },
+}
+
+
+@pytest.mark.parametrize(
+    "prophet_model_params, time_series_with_skip_measurements, expected_filtered_time_series",
+    [
+        pytest.param(
+            PROPHET_MODEL_PARAMS,
+            {
+                "y": {
+                    0: 245.0,
+                    1: 45.0,
+                    2: 40.0,
+                    3: 35.0,
+                    4: 30.0,
+                    5: 25.0,
+                    6: 20.0,
+                    7: 15.0,
+                    8: 10.0,
+                    9: 5.0,
+                    10: 250.0,
+                },
+                "ds": {
+                    0: "2023-02-15 11:00:00",
+                    1: "2023-02-14 11:00:00",
+                    2: "2023-02-13 11:00:00",
+                    3: "2023-02-12 11:00:00",
+                    4: "2023-02-11 11:00:00",
+                    5: "2023-02-10 11:00:00",
+                    6: "2023-02-09 11:00:00",
+                    7: "2023-02-08 11:00:00",
+                    8: "2023-02-07 11:00:00",
+                    9: "2023-02-06 11:00:00",
+                    10: "2023-02-16 11:00:00",
+                },
+                "skipMeasurements": {
+                    0: None,
+                    1: "this",
+                    2: None,
+                    3: None,
+                    4: None,
+                    5: "previous",
+                    6: None,
+                    7: None,
+                    8: None,
+                    9: None,
+                    10: nan,
+                },
+            },
+            {
+                "y": {0: 25.0, 1: 30.0, 2: 35.0, 3: 40.0, 5: 245.0, 6: 250.0},
+                "ds": {
+                    0: "2023-02-10 11:00:00",
+                    1: "2023-02-11 11:00:00",
+                    2: "2023-02-12 11:00:00",
+                    3: "2023-02-13 11:00:00",
+                    5: "2023-02-15 11:00:00",
+                    6: "2023-02-16 11:00:00",
+                },
+                "skipMeasurements": {0: "previous", 1: None, 2: None, 3: None, 5: None, 6: nan},
+            },
+            id = 'this and exclusive previous'
+        ),
+        pytest.param(
+            PROPHET_MODEL_PARAMS,
+            {
+                "y": {
+                    0: 250.0,
+                    1: 245.0,
+                    2: 40.0,
+                    3: 35.0,
+                    4: 30.0,
+                    5: 255.0,
+                },
+                "ds": {
+                    0: "2023-02-15 11:00:00",
+                    1: "2023-02-14 11:00:00",
+                    2: "2023-02-13 11:00:00",
+                    3: "2023-02-12 11:00:00",
+                    4: "2023-02-11 11:00:00",
+                    5: "2023-02-16 11:00:00",
+                },
+                "skipMeasurements": {
+                    0: None,
+                    1: "previousAndThis",
+                    2: None,
+                    3: None,
+                    4: None,
+                    5: nan,
+                },
+            },
+            {
+                "y": {0: 250.0, 1: 255},
+                "ds": {
+                    0: "2023-02-15 11:00:00",
+                    1: "2023-02-16 11:00:00",
+                },
+                "skipMeasurements": {0: None, 1: nan},
+            },
+            id = 'previousAndThis'
+        )
+    ],
+)
+def test_prophet_model_skip_measurements(prophet_model_params, time_series_with_skip_measurements, expected_filtered_time_series):
+    from soda.scientific.anomaly_detection.models.prophet_model import ProphetDetector
+
+    time_series_data = pd.DataFrame(time_series_with_skip_measurements)
+    time_series_data["ds"] = pd.to_datetime(time_series_data["ds"])
+    detector = ProphetDetector(
+        logs={},
+        params=prophet_model_params,
+        time_series_data=time_series_data,
+        metric_name="row_count",
+    )
+    detector.skip_measurements()
+    filtered_time_series_data = detector.time_series_data
+    expected_filtered_time_series_data = pd.DataFrame(
+        expected_filtered_time_series
+    )
+    expected_filtered_time_series_data["ds"] = pd.to_datetime(
+        expected_filtered_time_series_data["ds"]
+    )
+    pd.testing.assert_frame_equal(filtered_time_series_data, expected_filtered_time_series_data, check_dtype=False)
