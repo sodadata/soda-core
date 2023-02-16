@@ -18,15 +18,11 @@ class BaseDetector(ABC):
 
     @abstractmethod
     def setup_fit_predict(self):
-        raise NotImplementedError(
-            "You must implement a `setup_fit_predict` to instantiate this class"
-        )
+        raise NotImplementedError("You must implement a `setup_fit_predict` to instantiate this class")
 
     @abstractmethod
     def detect_anomalies(self):
-        raise NotImplementedError(
-            "You must implement a `detect_anomalies` method to instantiate this class"
-        )
+        raise NotImplementedError("You must implement a `detect_anomalies` method to instantiate this class")
 
     @staticmethod
     def _eliminate_measurements(
@@ -42,9 +38,7 @@ class BaseDetector(ABC):
             skip_from = index
 
         if is_inclusive and not is_multi_index:
-            assert not isinstance(
-                skip_from, list
-            ), "skip_from cannot be a list when not multi_index is False"
+            assert not isinstance(skip_from, list), "skip_from cannot be a list when not multi_index is False"
             _df = df.drop(df.index[: skip_from + 1])
             if isinstance(_df, pd.DataFrame):
                 return _df
@@ -54,9 +48,7 @@ class BaseDetector(ABC):
             if isinstance(_df, pd.DataFrame):
                 return _df
 
-        assert not isinstance(
-            skip_from, list
-        ), "skip_from cannot be a list when not multi_index is False"
+        assert not isinstance(skip_from, list), "skip_from cannot be a list when not multi_index is False"
         _df = df.drop(df.index[:skip_from])
         if isinstance(_df, pd.DataFrame):
             return _df

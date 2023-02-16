@@ -69,7 +69,7 @@ class AnomalyResult(BaseModel):
     outcome: Optional[str] = None
     diagnostics: AnomalyDiagnostics = AnomalyDiagnostics()
     feedback: Optional[UserFeedback] = UserFeedback()
-    
+
 
 class AnomalyHistoricalCheckResults(BaseModel):
     results: List[AnomalyResult]
