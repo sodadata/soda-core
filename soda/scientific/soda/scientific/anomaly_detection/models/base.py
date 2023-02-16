@@ -59,7 +59,7 @@ class BaseDetector(ABC):
         has_two_previouses = False
         is_inclusive = False
         max_index = []
-        if "skip_measurements" in self._data_df.columns:
+        if "skipMeasurements" in self._data_df.columns:
             skip_previous_inclusive_indexes = self._data_df.index[
                 self._data_df["skip_measurements"] == "previousAndThis"
             ].tolist()  # type: ignore
