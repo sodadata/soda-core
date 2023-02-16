@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import collections
 import os
-from abc import ABC, abstractmethod
+from abc import ABC
 
 from soda.common.attributes_handler import AttributeHandler
 from soda.execution.check_outcome import CheckOutcome

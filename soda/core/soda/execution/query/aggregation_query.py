@@ -49,6 +49,5 @@ class AggregationQuery(Query):
                         and metric.passing_sql
                         and metric.failing_sql
                     ):
-
                         metric.queries[0].failing_sql = metric.failing_sql
                         metric.queries[0].passing_sql = metric.passing_sql
