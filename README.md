@@ -31,9 +31,11 @@ Soda Core currently supports connections to several data sources. See [Compatibi
 
 1. To get started, use the install command, replacing `soda-core-postgres` with the package that matches your data source.  See [Install Soda Core](https://docs.soda.io/soda-core/installation.html#install) for a complete list.<br />
 `pip install soda-core-postgres`
-<br />
+
+
 2. Prepare a `configuration.yml` file to connect to your data source. Then, write data quality checks in a `checks.yml` file. See [Configure Soda Core](https://docs.soda.io/soda-core/configuration.html#configuration-instructions).
-<br />
+
+
 3. Run a scan to review checks that passed, failed, or warned during a scan. See [Run a Soda Core scan](https://docs.soda.io/soda-core/scan-core.html).
 `soda scan -d your_datasource -c configuration.yml checks.yml`
 
