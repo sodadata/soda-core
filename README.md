@@ -1,6 +1,6 @@
 
 <h1 align="center">Soda Core</h1>
-<p align="center"><b>Data quality management for SQL- and Spark- accesssible data.</b></p>
+<p align="center"><b>Data quality management for SQL-, Spark-, and Pandas-accesssible data.</b></p>
 
 <p align="center">
   <a href="https://github.com/sodadata/soda-core/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-Apache%202-blue.svg" alt="License: Apache 2.0"></a>
