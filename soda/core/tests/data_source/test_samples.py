@@ -325,5 +325,44 @@ def test_sample_limit_default(check: str, has_sample_query: bool, data_source_fi
 
         assert len(sample_queries) == 1
 
+
         limit_keyword = data_source_fixture.data_source.LIMIT_KEYWORD
         assert f"{limit_keyword} {DEFAULT_FAILED_ROWS_SAMPLE_LIMIT}" in sample_queries[0]
+
+
+
+def test_sample_with_multiple_value_condition(data_source_fixture: DataSourceFixture):
+    """
+    Tests failed rows queries.
+    Tests query returns failed query includin all not in valid values.
+    """
+
+    check = """- invalid_count(cst_size) = 0:
+                valid min: -2
+                valid max: 5"""
+    
+    table_name = data_source_fixture.ensure_test_table(customers_test_table)
+    scan = data_source_fixture.create_test_scan()
+
+    scan.add_sodacl_yaml_str(
+        dedent(
+            f"""
+          checks for {table_name}:
+            {check}
+        """
+        )
+    )
+    scan.execute()
+
+    scan.assert_all_checks_fail()
+
+    sample_queries = scan.get_sample_queries()
+
+    assert len(sample_queries) == 1
+    print(sample_queries[0])
+    cursor = data_source_fixture.data_source.connect().cursor()
+    cursor.execute(sample_queries[0])
+    failed_ids = {r[1] for r in cursor.fetchall()}
+
+    assert failed_ids == {-3.0, 6.0}
+        
