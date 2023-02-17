@@ -332,7 +332,7 @@ def test_sample_limit_default(check: str, has_sample_query: bool, data_source_fi
 def test_sample_with_multiple_value_condition(data_source_fixture: DataSourceFixture):
     """
     Tests failed rows queries.
-    Tests query returns failed query includin all not in valid values.
+    Tests query returns failed query including all not in valid values.
     """
 
     check = """- invalid_count(cst_size) = 0:
