@@ -227,7 +227,8 @@ class AnomalyDetector:
                     "greaterThanOrEqual": results_dict["critical_greater_than_or_equal"],
                     "lessThanOrEqual": results_dict["critical_lower_than_or_equal"],
                 },
-                "anomalyProbability": results_dict["anomaly_probability"],
+                # TODO: [CLOUD-2990] re-enable once we compute uncertainty intervals correctly
+                # "anomalyProbability": results_dict["anomaly_probability"],
                 "anomalyPredictedValue": results_dict["trend"],
                 "anomalyErrorSeverity": freq_detection_result.error_severity,
                 "anomalyErrorCode": freq_detection_result.error_code,
