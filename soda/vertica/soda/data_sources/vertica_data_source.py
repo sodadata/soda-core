@@ -187,7 +187,7 @@ class VerticaDataSource(DataSource):
         return identifier
 
     def default_casify_column_name(self, identifier: str) -> str:
-        return identifier
+        return identifier.lower()
 
     def default_casify_type_name(self, identifier: str) -> str:
         return identifier.lower()
