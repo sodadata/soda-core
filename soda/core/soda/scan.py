@@ -79,6 +79,11 @@ class Scan:
             profile_table.get_dict()
             for profile_table in self._profile_columns_result_tables + self._sample_tables_result_tables
         ]
+
+        query_list = []
+        for query in self._queries:
+            query_list += query.get_cloud_dicts()
+
         return JsonHelper.to_jsonnable(  # type: ignore
             {
                 "definitionName": self._scan_definition_name,
@@ -92,8 +97,7 @@ class Scan:
                 "metrics": [metric.get_dict() for metric in self._metrics],
                 # If archetype is not None, it means that check is automated monitoring
                 "checks": checks,
-                # TODO Queries are not supported by Soda Cloud yet.
-                # "queries": [query.get_cloud_dict() for query in scan._queries],
+                "queries": query_list,
                 "automatedMonitoringChecks": automated_monitoring_checks,
                 "profiling": profiling,
                 "metadata": [

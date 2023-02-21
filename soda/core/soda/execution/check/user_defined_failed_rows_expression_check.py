@@ -8,7 +8,6 @@ from soda.execution.partition import Partition
 from soda.execution.query.user_defined_failed_rows_expression_query import (
     UserDefinedFailedRowsExpressionQuery,
 )
-from soda.sampler.sample_ref import SampleRef
 
 KEY_FAILED_ROWS_COUNT = "failed_rows_count"
 
@@ -75,14 +74,6 @@ class UserDefinedFailedRowsExpressionCheck(Check):
             condition = scan.jinja_resolve(definition=partition_filter, location=self.check_cfg.location)
             sql += f"\n      AND ({condition})"
         return sql
-
-    def get_cloud_diagnostics_dict(self) -> dict:
-        cloud_diagnostics = {
-            "value": self.check_value,
-        }
-        if self.failed_rows_sample_ref and self.failed_rows_sample_ref.type != SampleRef.TYPE_NOT_PERSISTED:
-            cloud_diagnostics["blocks"] = [self.failed_rows_sample_ref.get_cloud_diagnostics_block()]
-        return cloud_diagnostics
 
     def get_log_diagnostic_dict(self) -> dict:
         log_diagnostics = {"check_value": self.check_value}
