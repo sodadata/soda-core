@@ -113,7 +113,7 @@ class Check(ABC):
         self.metrics: dict[str, Metric] = {}
         self.attributes = {}
         self.historic_descriptors: dict[str, HistoricDescriptor] = {}
-        self.cloud_check_type = "metricThreshold"
+        self.cloud_check_type = "generic"
         # in the evaluate method, checks can optionally extract a failed rows sample ref from the metric
         self.failed_rows_sample_ref: SampleRef | None = None
 
@@ -208,7 +208,6 @@ class Check(ABC):
 
     def create_identities(self):
         identities = {
-            # v1 is original without the datasource name and v2 is with datasource name in the has
             "v1": self.create_identity(with_datasource=False, with_filename=False),
             "v2": self.create_identity(with_datasource=True, with_filename=False),
             "v3": self.create_identity(with_datasource=True, with_filename=True),
@@ -226,7 +225,7 @@ class Check(ABC):
 
         cloud_dict = {
             # See https://sodadata.atlassian.net/browse/CLOUD-1143
-            "identity": self.create_identity(with_datasource=False, with_filename=False),
+            "identity": self.create_identity(with_datasource=True, with_filename=True),
             "identities": self.create_identities(),
             "name": self.name,
             "type": self.cloud_check_type,
@@ -256,7 +255,7 @@ class Check(ABC):
         from soda.execution.partition import Partition
 
         return {
-            "identity": self.create_identity(with_datasource=True),
+            "identity": self.create_identity(with_datasource=True, with_filename=True),
             "name": self.name,
             "type": self.cloud_check_type,
             "definition": self.create_definition(),
