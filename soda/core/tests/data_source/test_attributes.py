@@ -36,7 +36,7 @@ def test_check_attributes_valid(data_source_fixture: DataSourceFixture):
 
     scan_result = scan.build_scan_results()
     assert scan_result["checks"][0]["resourceAttributes"] == [
-        {"name": "priority", "value": 1},
+        {"name": "priority", "value": "1"},
         {"name": "department", "value": "sales"},
         {"name": "sales_owner", "value": "John Doe"},
         {"name": "tags", "value": ["user-created"]},
@@ -98,7 +98,7 @@ def test_foreach_attributes(data_source_fixture: DataSourceFixture):
         checks:
         - row_count > 0:
             attributes:
-                priority: 1
+                priority: 1.333
                 tags: ["generated"]
                 department: ${{DEPT}}
                 ${{DEPT}}_owner: John Doe
@@ -110,7 +110,7 @@ def test_foreach_attributes(data_source_fixture: DataSourceFixture):
 
     scan_result = scan.build_scan_results()
     assert scan_result["checks"][0]["resourceAttributes"] == [
-        {"name": "priority", "value": 1},
+        {"name": "priority", "value": "1.333"},
         {"name": "tags", "value": ["generated"]},
         {"name": "department", "value": "sales"},
         {"name": "sales_owner", "value": "John Doe"},
