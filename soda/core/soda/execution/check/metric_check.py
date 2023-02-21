@@ -133,7 +133,6 @@ class MetricCheck(Check):
             cloud_diagnostics["fail"] = metric_check_cfg.fail_threshold_cfg.to_soda_cloud_diagnostics_json()
         if metric_check_cfg.warn_threshold_cfg is not None:
             cloud_diagnostics["warn"] = metric_check_cfg.warn_threshold_cfg.to_soda_cloud_diagnostics_json()
-
         return cloud_diagnostics
 
     def get_log_diagnostic_dict(self) -> dict:
