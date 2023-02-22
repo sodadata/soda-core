@@ -23,6 +23,8 @@ class ReferenceQuery(Query):
             partition=partition,
         )
 
+        self.metric = metric
+
         from soda.execution.data_source import DataSource
         from soda.sodacl.reference_check_cfg import ReferenceCheckCfg
 
@@ -82,10 +84,7 @@ class ReferenceQuery(Query):
             f"WHERE {passing_where_condition}"
         )
 
-        self.sqls["sql"] = self.sql
-        self.sqls["passing_sql"] = self.passing_sql
-
-        self.metric = metric
+        self.failing_sql = self.sql
 
     def execute(self):
         self.store()

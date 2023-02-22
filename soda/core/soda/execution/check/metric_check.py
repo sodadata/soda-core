@@ -126,13 +126,13 @@ class MetricCheck(Check):
 
     def get_cloud_diagnostics_dict(self) -> dict:
         metric_check_cfg: MetricCheckCfg = self.check_cfg
-        cloud_diagnostics = {"value": self.check_value}
+
+        cloud_diagnostics = super().get_cloud_diagnostics_dict()
+
         if metric_check_cfg.fail_threshold_cfg is not None:
             cloud_diagnostics["fail"] = metric_check_cfg.fail_threshold_cfg.to_soda_cloud_diagnostics_json()
         if metric_check_cfg.warn_threshold_cfg is not None:
             cloud_diagnostics["warn"] = metric_check_cfg.warn_threshold_cfg.to_soda_cloud_diagnostics_json()
-        if self.failed_rows_sample_ref:
-            cloud_diagnostics["failedRowsFile"] = self.failed_rows_sample_ref.get_cloud_diagnostics_dict()
         return cloud_diagnostics
 
     def get_log_diagnostic_dict(self) -> dict:

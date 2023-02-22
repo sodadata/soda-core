@@ -70,8 +70,8 @@ def test_missing_percent_sample(data_source_fixture: DataSourceFixture):
 
 
 def assert_missing_sample(mock_soda_cloud, check_index):
-    diagnostics = mock_soda_cloud.find_check_diagnostics(check_index)
-    failed_rows_file = diagnostics["failedRowsFile"]
+    failed_rows_diagnostics_block = mock_soda_cloud.find_failed_rows_diagnostics_block(check_index)
+    failed_rows_file = failed_rows_diagnostics_block["file"]
     columns = failed_rows_file["columns"]
     assert columns[0]["name"].lower() == "id"
     assert columns[1]["name"].lower() == "cst_size"
@@ -114,8 +114,8 @@ def test_various_valid_invalid_sample_combinations(data_source_fixture: DataSour
 
     assert mock_soda_cloud.find_failed_rows_line_count(0) == 5
     assert mock_soda_cloud.find_failed_rows_line_count(1) == 5
-    assert "failedRowsFile" not in mock_soda_cloud.find_check_diagnostics(2).keys()
-    assert "failedRowsFile" not in mock_soda_cloud.find_check_diagnostics(3).keys()
+    mock_soda_cloud.assert_no_failed_rows_block_present(2)
+    mock_soda_cloud.assert_no_failed_rows_block_present(3)
     assert mock_soda_cloud.find_failed_rows_line_count(4) == 8
     assert mock_soda_cloud.find_failed_rows_line_count(5) == 8
     assert mock_soda_cloud.find_failed_rows_line_count(6) == 2

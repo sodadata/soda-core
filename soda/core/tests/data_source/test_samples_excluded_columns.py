@@ -80,10 +80,10 @@ def test_dataset_checks(check: str, skip_samples: bool, data_source_fixture: Dat
     scan.assert_no_error_nor_warning_logs()
     if skip_samples:
         scan.assert_log_info("Skipping samples from query")
-        assert "failedRowsFile" not in mock_soda_cloud.find_check_diagnostics(0).keys()
+        mock_soda_cloud.assert_no_failed_rows_block_present(0)
     else:
         scan.assert_no_log("Skipping samples from query")
-        assert "failedRowsFile" in mock_soda_cloud.find_check_diagnostics(0).keys()
+        mock_soda_cloud.assert_is_failed_rows_block_present(0)
 
 
 @pytest.mark.parametrize(
@@ -119,10 +119,10 @@ def test_for_each_checks(check: str, skip_samples: bool, data_source_fixture: Da
     scan.assert_no_error_nor_warning_logs()
     if skip_samples:
         scan.assert_log_info("Skipping samples from query")
-        assert "failedRowsFile" not in mock_soda_cloud.find_check_diagnostics(0).keys()
+        mock_soda_cloud.assert_no_failed_rows_block_present(0)
     else:
         scan.assert_no_log("Skipping samples from query")
-        assert "failedRowsFile" in mock_soda_cloud.find_check_diagnostics(0).keys()
+        mock_soda_cloud.assert_is_failed_rows_block_present(0)
 
 
 @pytest.mark.parametrize(
@@ -159,7 +159,7 @@ def test_datasource_checks(check: str, data_source_fixture: DataSourceFixture):
 
     scan.assert_no_error_nor_warning_logs()
     scan.assert_log_info("Skipping samples from query")
-    assert "failedRowsFile" not in mock_soda_cloud.find_check_diagnostics(0).keys()
+    mock_soda_cloud.assert_no_failed_rows_block_present(0)
 
 
 @pytest.mark.parametrize(
