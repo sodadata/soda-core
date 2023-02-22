@@ -154,7 +154,7 @@ class MockSodaCloud(SodaCloud):
         self.assert_key("blocks", diagnostics)
         failed_rows_block = None
         for block in diagnostics["blocks"]:
-            if block["title"] == "Failed Rows":
+            if block["type"] == "failedRowsAnalysis" or block["type"] == "file":
                 failed_rows_block = block
 
         return failed_rows_block

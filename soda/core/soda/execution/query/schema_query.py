@@ -25,8 +25,6 @@ class TableColumnsQuery(Query):
         self.sql = data_source.sql_get_table_columns(self.table.table_name)
         self.sql = self.data_source_scan.scan.jinja_resolve(self.sql)
 
-        self.sqls["sql"] = self.sql
-
         self.fetchall()
 
     def _propagate_column_rows_to_metric_value(self):
