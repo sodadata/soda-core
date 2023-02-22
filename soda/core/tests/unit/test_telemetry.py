@@ -35,7 +35,7 @@ def test_basic_telemetry_structure():
     dict_has_keys(span["attributes"], ["user_cookie_id"])
     dict_has_keys(span["context"], ["span_id", "trace_id", "trace_state"])
     dict_has_keys(
-        span["resource"],
+        span["resource"]["attributes"],
         [
             "os.architecture",
             "os.type",
@@ -49,10 +49,10 @@ def test_basic_telemetry_structure():
         ],
     )
 
-    resource = span["resource"]
-    assert resource["service.name"] == "soda"
-    assert resource["service.namespace"] == "soda-core"
-    assert resource["service.version"] == SODA_CORE_VERSION
+    resource_attributes = span["resource"]["attributes"]
+    assert resource_attributes["service.name"] == "soda"
+    assert resource_attributes["service.namespace"] == "soda-core"
+    assert resource_attributes["service.version"] == SODA_CORE_VERSION
 
 
 def test_multi_spans():
