@@ -24,7 +24,6 @@ class AggregationQuery(Query):
         scan = self.data_source_scan.scan
         select_expression_sql = f",\n  ".join(self.select_expressions)
         self.sql = f"SELECT \n" f"  {select_expression_sql} \n" f"FROM {self.partition.table.qualified_table_name}"
-        self.sqls["sql"] = self.sql
 
         partition_filter = self.partition.sql_partition_filter
         if partition_filter:
@@ -41,3 +40,14 @@ class AggregationQuery(Query):
                 sample_query = metric.create_failed_rows_sample_query()
                 if sample_query:
                     sample_query.execute()
+
+                    # Use passign and failing sql generated in the aggregate queries.
+                    # TODO: this is a workaround for special aggregated queries.
+                    if (
+                        hasattr(metric, "passing_sql")
+                        and hasattr(metric, "failing_sql")
+                        and metric.passing_sql
+                        and metric.failing_sql
+                    ):
+                        metric.queries[0].failing_sql = metric.failing_sql
+                        metric.queries[0].passing_sql = metric.passing_sql
