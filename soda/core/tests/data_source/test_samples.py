@@ -325,10 +325,8 @@ def test_sample_limit_default(check: str, has_sample_query: bool, data_source_fi
 
         assert len(sample_queries) == 1
 
-
         limit_keyword = data_source_fixture.data_source.LIMIT_KEYWORD
         assert f"{limit_keyword} {DEFAULT_FAILED_ROWS_SAMPLE_LIMIT}" in sample_queries[0]
-
 
 
 def test_sample_with_multiple_value_condition(data_source_fixture: DataSourceFixture):
@@ -340,7 +338,7 @@ def test_sample_with_multiple_value_condition(data_source_fixture: DataSourceFix
     check = """- invalid_count(cst_size) = 0:
                 valid min: -2
                 valid max: 5"""
-    
+
     table_name = data_source_fixture.ensure_test_table(customers_test_table)
     scan = data_source_fixture.create_test_scan()
 
@@ -365,4 +363,3 @@ def test_sample_with_multiple_value_condition(data_source_fixture: DataSourceFix
     failed_ids = {r[1] for r in cursor.fetchall()}
 
     assert failed_ids == {-3.0, 6.0}
-        
