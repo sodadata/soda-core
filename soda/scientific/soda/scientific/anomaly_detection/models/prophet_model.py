@@ -324,6 +324,8 @@ class ProphetDetector(BaseDetector):
         self.time_series = self.time_series.resample(self.freq_detection_result.inferred_frequency).mean()
         self.time_series = self.time_series.reset_index()
         self.time_series["y"] = self.time_series["y"].interpolate(**self._preprocess_params["interpolation_kwargs"])
+        if self._has_exogenous_regressor:
+            self.time_series["external_regressor"] = self.time_series["external_regressor"].fillna(0)
 
     def setup_fit_predict(self):
         """Sets up Prophet model and fits it on the self.time_series_data."""
@@ -375,6 +377,11 @@ class ProphetDetector(BaseDetector):
         assert (
             self._is_trained
         ), "ProphetDetector has not been trained yet. Make sure you run `setup_and_train_ts_model` first"
+
+        # pick out n-last points to detect anomalies for
+        if self._n_points:
+            self.predictions = self.predictions.iloc[-self._n_points :]  # noqa: E203
+
         self.predictions["real_data"] = self.time_series["y"].reset_index(drop=True)
 
         self._logs.debug(f"Anomaly Detection: detecting anomalies for the last {self._n_points} points.")
@@ -403,11 +410,7 @@ class ProphetDetector(BaseDetector):
         self.predictions.loc[np.isinf(self.predictions["anomaly_probability"]), "is_anomaly"] = 0
         self.predictions.loc[np.isinf(self.predictions["anomaly_probability"]), "anomaly_probability"] = 0.0
 
-        # pick out n-last points to return to backend
-        if self._n_points:
-            self.anomalies = self.predictions.iloc[-self._n_points :]  # noqa: E203
-        else:
-            self.anomalies = self.predictions
+        self.anomalies = self.predictions
 
     def generate_severity_zones(self):
         assert (

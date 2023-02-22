@@ -2,13 +2,14 @@ from __future__ import annotations
 
 import collections
 import os
-from abc import ABC, abstractmethod
+from abc import ABC
 
 from soda.common.attributes_handler import AttributeHandler
 from soda.execution.check_outcome import CheckOutcome
 from soda.execution.column import Column
 from soda.execution.identity import ConsistentHashBuilder
 from soda.execution.metric.metric import Metric
+from soda.execution.query.query import Query
 from soda.sampler.sample_ref import SampleRef
 from soda.soda_cloud.historic_descriptor import HistoricDescriptor
 from soda.sodacl.check_cfg import CheckCfg
@@ -113,7 +114,7 @@ class Check(ABC):
         self.metrics: dict[str, Metric] = {}
         self.attributes = {}
         self.historic_descriptors: dict[str, HistoricDescriptor] = {}
-        self.cloud_check_type = "metricThreshold"
+        self.cloud_check_type = "generic"
         # in the evaluate method, checks can optionally extract a failed rows sample ref from the metric
         self.failed_rows_sample_ref: SampleRef | None = None
 
@@ -208,7 +209,6 @@ class Check(ABC):
 
     def create_identities(self):
         identities = {
-            # v1 is original without the datasource name and v2 is with datasource name in the has
             "v1": self.create_identity(with_datasource=False, with_filename=False),
             "v2": self.create_identity(with_datasource=True, with_filename=False),
             "v3": self.create_identity(with_datasource=True, with_filename=True),
@@ -226,7 +226,7 @@ class Check(ABC):
 
         cloud_dict = {
             # See https://sodadata.atlassian.net/browse/CLOUD-1143
-            "identity": self.create_identity(with_datasource=False, with_filename=False),
+            "identity": self.create_identity(with_datasource=True, with_filename=True),
             "identities": self.create_identities(),
             "name": self.name,
             "type": self.cloud_check_type,
@@ -256,7 +256,7 @@ class Check(ABC):
         from soda.execution.partition import Partition
 
         return {
-            "identity": self.create_identity(with_datasource=True),
+            "identity": self.create_identity(with_datasource=True, with_filename=True),
             "name": self.name,
             "type": self.cloud_check_type,
             "definition": self.create_definition(),
@@ -272,9 +272,38 @@ class Check(ABC):
             "archetype": self.archetype,
         }
 
-    @abstractmethod
     def get_cloud_diagnostics_dict(self) -> dict:
-        pass
+        cloud_diagnostics = {
+            "blocks": [],
+            "value": self.check_value if hasattr(self, "check_value") else None,
+        }
+
+        if self.failed_rows_sample_ref and self.failed_rows_sample_ref.type != SampleRef.TYPE_NOT_PERSISTED:
+            if self.cloud_check_type == "generic":
+                has_analysis_block = False
+                queries = self._get_all_related_queries()
+                sample_ref_block = self.failed_rows_sample_ref.get_cloud_diagnostics_block()
+
+                for query in queries:
+                    if query.failing_sql and query.passing_sql and sample_ref_block:
+                        has_analysis_block = True
+                        rca_block = {
+                            "type": "failedRowsAnalysis",
+                            "title": "Failed Rows Analysis",
+                            "file": sample_ref_block["file"],
+                            "failingRowsQueryName": f"{query.query_name}.failing_sql",
+                            "passingRowsQueryName": f"{query.query_name}.passing_sql",
+                            "totalFailingRows": self.check_value,
+                            "sampleRowCount": sample_ref_block["file"]["totalRowCount"],
+                        }
+                        cloud_diagnostics["blocks"].append(rca_block)
+                if not has_analysis_block:
+                    cloud_diagnostics["blocks"].append(self.failed_rows_sample_ref.get_cloud_diagnostics_block())
+
+            else:
+                cloud_diagnostics["blocks"].append(self.failed_rows_sample_ref.get_cloud_diagnostics_block())
+
+        return cloud_diagnostics
 
     def evaluate(self, metrics: dict[str, Metric], historic_values: dict[str, object]):
         raise NotImplementedError("Implement this abstract method")
@@ -317,3 +346,12 @@ class Check(ABC):
             )
 
         return attributes
+
+    def _get_all_related_queries(self) -> list(Query):
+        queries = []
+
+        for metric_name, metric in self.metrics.items():
+            for query in metric.queries:
+                queries.append(query)
+
+        return queries

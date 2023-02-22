@@ -46,7 +46,6 @@ class AnomalyDiagnostics(BaseModel):
     anomalyErrorSeverity: str = "pass"
     anomalyErrorCode: str = ""
     anomalyErrorMessage: str = ""
-    feedback: Optional[UserFeedback] = UserFeedback()
 
 
 class LocationModel(BaseModel):
@@ -69,6 +68,7 @@ class AnomalyResult(BaseModel):
     column: Optional[str] = None
     outcome: Optional[str] = None
     diagnostics: AnomalyDiagnostics = AnomalyDiagnostics()
+    feedback: Optional[UserFeedback] = UserFeedback()
 
 
 class AnomalyHistoricalCheckResults(BaseModel):
@@ -133,8 +133,8 @@ class AnomalyDetector:
                 "Anomaly Detection for this check yet."
             )
             parsed_check_results = AnomalyHistoricalCheckResults(results=[AnomalyResult()])
-            _df_measurements = pd.DataFrame.from_dict(parsed_check_results.dict()["results"])
-            return _df_measurements
+            _df_check_results = pd.DataFrame.from_dict(parsed_check_results.dict()["results"])
+            return _df_check_results
 
     def _convert_to_well_shaped_df(self) -> pd.DataFrame:
         if not self.df_check_results.empty:
@@ -228,7 +228,7 @@ class AnomalyDetector:
                     "lessThanOrEqual": results_dict["critical_lower_than_or_equal"],
                 },
                 "anomalyProbability": results_dict["anomaly_probability"],
-                "anomalyPredictedValue": results_dict["trend"],
+                "anomalyPredictedValue": results_dict["yhat"],
                 "anomalyErrorSeverity": freq_detection_result.error_severity,
                 "anomalyErrorCode": freq_detection_result.error_code,
                 "anomalyErrorMessage": freq_detection_result.error_message,
