@@ -86,6 +86,7 @@ class DuplicatesQuery(Query):
         self.metric.set_value(duplicates_count)
 
         if duplicates_count:
+            # TODO: Sample Query execute implicitly stores the failed rows file reference in the passed on metric.
             sample_query = SampleQuery(
                 self.data_source_scan,
                 self.metric,

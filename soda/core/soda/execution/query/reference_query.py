@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from soda.execution.query.query import Query
+from soda.execution.query.sample_query import SampleQuery
 
 
 class ReferenceQuery(Query):
@@ -57,7 +58,7 @@ class ReferenceQuery(Query):
         # Search for all rows where:
         # 1. source value is not null - to avoid null values triggering fails
         # 2. target value is null - this means that source value was not found in target column.
-        # Passing qery is same on source side, but not null on target side.
+        # Passing query is same on source side, but not null on target side.
         where_condition = " OR ".join(
             [
                 f"(SOURCE.{source_column_name} IS NOT NULL AND TARGET.{target_column_name} IS NULL)"
@@ -71,24 +72,52 @@ class ReferenceQuery(Query):
             ]
         )
 
-        self.sql = self.data_source_scan.scan.jinja_resolve(
-            f"SELECT {source_diagnostic_column_fields} \n"
-            f"FROM {source_table_name}  SOURCE \n"
-            f"     LEFT JOIN {target_table_name}  TARGET on {join_condition} \n"
-            f"WHERE {where_condition}"
-        )
-        self.passing_sql = self.data_source_scan.scan.jinja_resolve(
-            f"SELECT {source_diagnostic_column_fields} \n"
-            f"FROM {source_table_name}  SOURCE \n"
-            f"     LEFT JOIN {target_table_name}  TARGET on {join_condition} \n"
-            f"WHERE {passing_where_condition}"
+        jinja_resolve = self.data_source_scan.scan.jinja_resolve
+
+        self.sql = jinja_resolve(
+            data_source.sql_reference_query(
+                "count(*)", source_table_name, target_table_name, join_condition, where_condition
+            )
         )
 
-        self.failing_sql = self.sql
+        self.failed_rows_sql = jinja_resolve(
+            data_source.sql_reference_query(
+                source_diagnostic_column_fields,
+                source_table_name,
+                target_table_name,
+                join_condition,
+                where_condition,
+                self.samples_limit,
+            )
+        )
+
+        self.failing_sql = jinja_resolve(
+            data_source.sql_reference_query(
+                source_diagnostic_column_fields, source_table_name, target_table_name, join_condition, where_condition
+            )
+        )
+
+        self.passing_sql = jinja_resolve(
+            data_source.sql_reference_query(
+                source_diagnostic_column_fields,
+                source_table_name,
+                target_table_name,
+                join_condition,
+                passing_where_condition,
+            )
+        )
 
     def execute(self):
-        self.store()
-        if self.sample_ref:
-            self.metric.set_value(self.sample_ref.total_row_count)
-            if self.sample_ref.is_persisted():
-                self.metric.failed_rows_sample_ref = self.sample_ref
+        self.fetchone()
+        missing_reference_count = int(self.row[0])
+        self.metric.set_value(missing_reference_count)
+
+        if missing_reference_count:
+            # TODO: Sample Query execute implicitly stores the failed rows file reference in the passed on metric.
+            sample_query = SampleQuery(
+                self.data_source_scan,
+                self.metric,
+                "failed_rows",
+                self.failed_rows_sql,
+            )
+            sample_query.execute()

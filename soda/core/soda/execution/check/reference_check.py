@@ -35,9 +35,6 @@ class ReferenceCheck(Check):
     def get_cloud_diagnostics_dict(self) -> dict:
         cloud_diagnostics = super().get_cloud_diagnostics_dict()
 
-        # TODO Check with Soda Cloud what should be the value
-        cloud_diagnostics["value"]: self.metrics.get(KEY_INVALID_REFERENCE_COUNT).value
-
         return cloud_diagnostics
 
     def evaluate(self, metrics: Dict[str, Metric], historic_values: Dict[str, object]):
@@ -48,4 +45,5 @@ class ReferenceCheck(Check):
         if invalid_reference_count > 0:
             self.outcome = CheckOutcome.FAIL
 
+        self.check_value = invalid_reference_count
         self.failed_rows_sample_ref = metric.failed_rows_sample_ref
