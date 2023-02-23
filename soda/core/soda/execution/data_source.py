@@ -755,6 +755,28 @@ class DataSource:
 
         return sql
 
+    def sql_reference_query(
+        self,
+        columns: str,
+        table_name: str,
+        target_table_name: str,
+        join_condition: str,
+        where_condition: str,
+        limit: int | None = None,
+    ) -> str:
+        sql = dedent(
+            f"""
+            SELECT {columns}
+                FROM {table_name}  SOURCE
+                LEFT JOIN {target_table_name} TARGET on {join_condition}
+            WHERE {where_condition}"""
+        )
+
+        if limit:
+            sql += f"\nLIMIT {limit}"
+
+        return sql
+
     def cast_to_text(self, expr: str) -> str:
         return f"CAST({expr} AS VARCHAR)"
 

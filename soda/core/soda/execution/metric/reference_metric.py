@@ -33,11 +33,11 @@ class ReferenceMetric(QueryMetric):
     def ensure_query(self):
         from soda.execution.query.reference_query import ReferenceQuery
 
-        self.data_source_scan.queries.append(
-            ReferenceQuery(
-                data_source_scan=self.data_source_scan,
-                metric=self,
-                samples_limit=self.samples_limit,
-                partition=self.partition,
-            )
+        reference_query = ReferenceQuery(
+            data_source_scan=self.data_source_scan,
+            metric=self,
+            samples_limit=self.samples_limit,
+            partition=self.partition,
         )
+        self.data_source_scan.queries.append(reference_query)
+        self.queries.append(reference_query)

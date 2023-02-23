@@ -350,7 +350,7 @@ class Check(ABC):
     def _get_all_related_queries(self) -> list(Query):
         queries = []
 
-        for metric_name, metric in self.metrics.items():
+        for metric in self.metrics.values():
             for query in metric.queries:
                 queries.append(query)
 

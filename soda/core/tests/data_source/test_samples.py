@@ -203,17 +203,17 @@ sample_limit_config = [
     ),
     pytest.param(
         "- duplicate_count(cat) = 0",
-        False,
+        True,
         id="duplicate_count",
     ),
     pytest.param(
         "- duplicate_percent(cat) = 0",
-        False,
+        True,
         id="duplicate_percent",
     ),
     pytest.param(
         "- values in (cst_size) must exist in {{another_table_name}} (cst_size)",
-        False,
+        True,
         id="reference",
     ),
     pytest.param(
