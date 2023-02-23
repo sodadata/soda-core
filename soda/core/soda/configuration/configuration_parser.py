@@ -63,54 +63,9 @@ class ConfigurationParser(Parser):
                             location=self.location,
                         )
 
-                # Sampler configuration
-                disable_samples = None
-
-                if "disable_samples" in header_value.keys():
-                    disable_samples = header_value.get("disable_samples")
-                    self.logs.info(
-                        "Data source configuration key `disable_samples` will be removed in future versions of Soda Core. Use data_source.sampler.disable_samples instead."
-                    )
-
-                sampler_configuration = header_value.get("sampler")
-                if sampler_configuration:
-                    if isinstance(sampler_configuration, dict):
-                        disable_samples = sampler_configuration.get("disable_samples", disable_samples)
-                        exclude_columns = sampler_configuration.get("exclude_columns", {})
-                        if exclude_columns:
-                            if isinstance(exclude_columns, dict):
-                                self.configuration.exclude_columns = exclude_columns
-                            else:
-                                self.logs.error(
-                                    "'exclude_columns' configuration must be a dict",
-                                    location=self.location,
-                                )
-
-                        storage = sampler_configuration.get("storage")
-                        if storage:
-                            storage_type = storage.get("type")
-                            if storage_type in ["http", "s3"]:
-                                if storage_type == "http":
-                                    url = storage.get("url")
-                                    message = storage.get("message") or f"Failed rows have been sent to {url}"
-                                    link_text = storage.get("link_text") or message
-                                    self.configuration.sampler = HTTPSampler(url, message=message, link_text=link_text)
-                            elif self.configuration.soda_cloud and not disable_samples:
-                                self.configuration.sampler = SodaCloudSampler()
-                            else:
-                                self.logs.error(
-                                    f"Invalid storage type: {storage_type} specified, must be one of ['http', 's3'], using Soda Cloud as sampler",
-                                    location=self.location,
-                                )
-
-                    else:
-                        self.logs.error(
-                            "'sampler' configuration must be a dict",
-                            location=self.location,
-                        )
-
-                if disable_samples:
-                    self.configuration.sampler = DefaultSampler()
+                # CORE-455 only parse sampler config if the data source name in file matches the scan data source name
+                if data_source_name == self.configuration.scan._data_source_name:
+                    self.parse_sampler_config(header_value)
 
                 self._pop_path_element()
 
@@ -129,6 +84,53 @@ class ConfigurationParser(Parser):
                     f'Invalid configuration header: expected "{DATA_SOURCE} {{data source name}}".',
                     location=self.location,
                 )
+
+    def parse_sampler_config(self, header_value):
+        # Sampler configuration
+        disable_samples = None
+        if "disable_samples" in header_value.keys():
+            disable_samples = header_value.get("disable_samples")
+            self.logs.info(
+                "Data source configuration key `disable_samples` will be removed in future versions of Soda Core. Use data_source.sampler.disable_samples instead."
+            )
+        sampler_configuration = header_value.get("sampler")
+        if sampler_configuration:
+            if isinstance(sampler_configuration, dict):
+                disable_samples = sampler_configuration.get("disable_samples", disable_samples)
+                exclude_columns = sampler_configuration.get("exclude_columns", {})
+                if exclude_columns:
+                    if isinstance(exclude_columns, dict):
+                        self.configuration.exclude_columns = exclude_columns
+                    else:
+                        self.logs.error(
+                            "'exclude_columns' configuration must be a dict",
+                            location=self.location,
+                        )
+
+                storage = sampler_configuration.get("storage")
+                if storage:
+                    storage_type = storage.get("type")
+                    if storage_type in ["http", "s3"]:
+                        if storage_type == "http":
+                            url = storage.get("url")
+                            message = storage.get("message") or f"Failed rows have been sent to {url}"
+                            link_text = storage.get("link_text") or message
+                            self.configuration.sampler = HTTPSampler(url, message=message, link_text=link_text)
+                    elif self.configuration.soda_cloud and not disable_samples:
+                        self.configuration.sampler = SodaCloudSampler()
+                    else:
+                        self.logs.error(
+                            f"Invalid storage type: {storage_type} specified, must be one of ['http', 's3'], using Soda Cloud as sampler",
+                            location=self.location,
+                        )
+
+            else:
+                self.logs.error(
+                    "'sampler' configuration must be a dict",
+                    location=self.location,
+                )
+        if disable_samples:
+            self.configuration.sampler = DefaultSampler()
 
     def parse_soda_cloud_cfg(self, config_dict: dict):
         api_key = config_dict.get("api_key_id")
