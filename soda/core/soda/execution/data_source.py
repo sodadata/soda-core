@@ -716,10 +716,10 @@ class DataSource:
         sql = dedent(
             f"""
             WITH frequencies AS (
-              SELECT COUNT(*) AS frequency
-              FROM {table_name}
-              WHERE {filter}
-              GROUP BY {column_names})
+                SELECT COUNT(*) AS frequency
+                FROM {table_name}
+                WHERE {filter}
+                GROUP BY {column_names})
             SELECT count(*)
             FROM frequencies
             WHERE frequency > 1"""
@@ -727,7 +727,7 @@ class DataSource:
 
         return sql
 
-    def sql_get_duplicates(
+    def sql_get_duplicates_aggregated(
         self,
         column_names: str,
         table_name: str,
@@ -748,6 +748,40 @@ class DataSource:
             FROM frequencies
             WHERE frequency {'<=' if invert_condition else '>'} 1
             ORDER BY frequency DESC"""
+        )
+
+        if limit:
+            sql += f"\nLIMIT {limit}"
+
+        return sql
+
+    def sql_get_duplicates(
+        self,
+        column_names: str,
+        table_name: str,
+        filter: str,
+        limit: str | None = None,
+        invert_condition: bool = False,
+        exclude_patterns: list[str] | None = None,
+    ) -> str | None:
+        columns = column_names.split(", ")
+
+        qualified_main_query_columns = ", ".join([f"main.{c}" for c in columns])
+        main_query_columns = qualified_main_query_columns if exclude_patterns else "*"
+        join = " AND ".join([f"main.{c} = frequencies.{c}" for c in columns])
+
+        sql = dedent(
+            f"""
+            WITH frequencies AS (
+                SELECT {column_names}
+                FROM {table_name}
+                WHERE {filter}
+                GROUP BY {column_names}
+                HAVING count(*) {'<=' if invert_condition else '>'} 1)
+            SELECT {main_query_columns}
+            FROM {table_name} main
+            JOIN frequencies ON {join}
+            """
         )
 
         if limit:
