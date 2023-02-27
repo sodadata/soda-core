@@ -9,7 +9,7 @@ if sys.version_info < (3, 7):
     sys.exit(1)
 
 package_name = "soda-core-mysql"
-package_version = "3.0.25"
+package_version = "3.0.26"
 description = "Soda Core MySQL Package"
 
 requires = [
