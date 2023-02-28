@@ -354,31 +354,24 @@ def test_sample_with_multiple_value_condition(data_source_fixture: DataSourceFix
     Tests query returns failed query including all not in valid values.
     """
 
-    check = """- invalid_count(cst_size) = 0:
-                valid min: -2
-                valid max: 5"""
-
     table_name = data_source_fixture.ensure_test_table(customers_test_table)
     scan = data_source_fixture.create_test_scan()
-
+    mock_soda_cloud = scan.enable_mock_soda_cloud()
+    scan.enable_mock_sampler()
     scan.add_sodacl_yaml_str(
         dedent(
             f"""
-          checks for {table_name}:
-            {check}
+        checks for {table_name}:
+            - invalid_count(cst_size) = 0:
+                valid min: -2
+                valid max: 5
         """
         )
     )
     scan.execute()
 
     scan.assert_all_checks_fail()
+    assert mock_soda_cloud.find_failed_rows_line_count(0) == 2
 
-    sample_queries = scan.get_sample_queries()
-
-    assert len(sample_queries) == 1
-    print(sample_queries[0])
-    cursor = data_source_fixture.data_source.connect().cursor()
-    cursor.execute(sample_queries[0])
-    failed_ids = {r[1] for r in cursor.fetchall()}
-
-    assert failed_ids == {-3.0, 6.0}
+    failed_ids = [sample[0] for sample in scan._configuration.sampler.samples[0].rows]
+    assert sorted(failed_ids) == sorted(["ID5", "ID7"])
