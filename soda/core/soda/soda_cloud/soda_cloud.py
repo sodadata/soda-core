@@ -24,6 +24,8 @@ logger = logging.getLogger(__name__)
 if TYPE_CHECKING:
     from soda.scan import Scan
 
+GENERIC_TYPE_CSV_TEXT_MAX_LENGTH = 1500
+
 
 class SodaCloud:
     ORG_CONFIG_KEY_CHECK_ATTRIBUTES = "sodaCoreAvailableCheckAttributes"

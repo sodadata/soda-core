@@ -43,10 +43,10 @@ class SampleRef:
     def is_persisted(self) -> bool:
         return self.type != self.TYPE_NOT_PERSISTED
 
-    def get_cloud_diagnostics_block(self) -> dict:
+    def get_cloud_diagnostics_block(self, title: str = "Failed Rows") -> dict:
         file_block = {
             "type": "file",
-            "title": "Failed Rows",
+            "title": title,
             "file": self.get_cloud_diagnostics_dict(),
         }
         return file_block

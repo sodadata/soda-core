@@ -122,7 +122,26 @@ def test_various_valid_invalid_sample_combinations(data_source_fixture: DataSour
     assert mock_soda_cloud.find_failed_rows_line_count(7) == 2
 
 
-def test_duplicate_samples(data_source_fixture: DataSourceFixture):
+duplicates_simple_header = "check, expected"
+duplicates_simple_config = [
+    pytest.param(
+        "- duplicate_count(cat) > 0",
+        3,
+        id="cat",
+    ),
+    pytest.param(
+        "- duplicate_count(cat, country) > 0",
+        2,
+        id="cat, country",
+    ),
+]
+
+
+@pytest.mark.parametrize(
+    duplicates_simple_header,
+    duplicates_simple_config,
+)
+def test_duplicate_samples(check, expected, data_source_fixture: DataSourceFixture):
     table_name = data_source_fixture.ensure_test_table(customers_test_table)
 
     scan = data_source_fixture.create_test_scan()
@@ -131,17 +150,19 @@ def test_duplicate_samples(data_source_fixture: DataSourceFixture):
     scan.add_sodacl_yaml_str(
         f"""
           checks for {table_name}:
-            - duplicate_count(cat) > 0
-            - duplicate_count(cat, country) > 0
+            {check}
         """
     )
     scan.execute_unchecked()
 
-    assert mock_soda_cloud.find_failed_rows_line_count(0) == 1
-    assert mock_soda_cloud.find_failed_rows_line_count(1) == 1
+    assert mock_soda_cloud.find_failed_rows_line_count(0) == expected
 
 
-def test_duplicate_percent_samples(data_source_fixture: DataSourceFixture):
+@pytest.mark.parametrize(
+    duplicates_simple_header,
+    duplicates_simple_config,
+)
+def test_duplicate_percent_samples(check, expected, data_source_fixture: DataSourceFixture):
     table_name = data_source_fixture.ensure_test_table(customers_test_table)
 
     scan = data_source_fixture.create_test_scan()
@@ -150,14 +171,12 @@ def test_duplicate_percent_samples(data_source_fixture: DataSourceFixture):
     scan.add_sodacl_yaml_str(
         f"""
           checks for {table_name}:
-            - duplicate_percent(cat) > 0
-            - duplicate_percent(cat, country) > 0
+            {check}
         """
     )
     scan.execute_unchecked()
 
-    assert mock_soda_cloud.find_failed_rows_line_count(0) == 1
-    assert mock_soda_cloud.find_failed_rows_line_count(1) == 1
+    assert mock_soda_cloud.find_failed_rows_line_count(0) == expected
 
 
 def test_duplicate_without_rows_samples(data_source_fixture: DataSourceFixture):

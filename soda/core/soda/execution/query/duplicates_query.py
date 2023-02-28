@@ -80,6 +80,17 @@ class DuplicatesQuery(Query):
             )
         )
 
+        self.failing_rows_sql_aggregated = jinja_resolve(
+            data_source.sql_get_duplicates_aggregated(
+                column_names,
+                self.partition.table.qualified_table_name,
+                values_filter,
+                self.samples_limit,
+                invert_condition=False,
+                exclude_patterns=exclude_patterns,
+            )
+        )
+
     def execute(self):
         self.fetchone()
         duplicates_count = self.row[0]
@@ -94,3 +105,16 @@ class DuplicatesQuery(Query):
                 self.failed_rows_sql,
             )
             sample_query.execute()
+
+        # TODO: This should be a second failed rows file, refactor failed rows to support multiple files.
+        if self.failing_rows_sql_aggregated:
+            aggregate_sample_query = Query(
+                self.data_source_scan,
+                self.partition.table,
+                self.partition,
+                unqualified_query_name=f"duplicate_count[{'-'.join(self.metric.metric_args)}].failed_rows.aggregated",
+                sql=self.failing_rows_sql_aggregated,
+                samples_limit=self.samples_limit,
+            )
+            aggregate_sample_query.execute()
+            self.aggregated_failed_rows_data = aggregate_sample_query.rows

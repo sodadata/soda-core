@@ -12,6 +12,7 @@ from soda.execution.metric.metric import Metric
 from soda.execution.query.query import Query
 from soda.sampler.sample_ref import SampleRef
 from soda.soda_cloud.historic_descriptor import HistoricDescriptor
+from soda.soda_cloud.soda_cloud import GENERIC_TYPE_CSV_TEXT_MAX_LENGTH
 from soda.sodacl.check_cfg import CheckCfg
 from soda.sodacl.distribution_check_cfg import DistributionCheckCfg
 
@@ -280,8 +281,8 @@ class Check(ABC):
 
         if self.failed_rows_sample_ref and self.failed_rows_sample_ref.type != SampleRef.TYPE_NOT_PERSISTED:
             if self.cloud_check_type == "generic":
-                has_analysis_block = False
                 queries = self._get_all_related_queries()
+                has_analysis_block = False
                 sample_ref_block = self.failed_rows_sample_ref.get_cloud_diagnostics_block()
 
                 for query in queries:
@@ -297,6 +298,27 @@ class Check(ABC):
                             "sampleRowCount": sample_ref_block["file"]["totalRowCount"],
                         }
                         cloud_diagnostics["blocks"].append(rca_block)
+
+                    # TODO: This should be a second failed rows file, refactor failed rows to support multiple files.
+                    if (
+                        query.failing_rows_sql_aggregated
+                        and hasattr(query, "aggregated_failed_rows_data")
+                        and query.aggregated_failed_rows_data
+                    ):
+                        text = f'{",".join(query.metric.metric_args)},frequency'
+
+                        for row in query.aggregated_failed_rows_data:
+                            row_str = f'\n{",".join(map(str, row))}'
+                            if len(text) + len(row_str) < GENERIC_TYPE_CSV_TEXT_MAX_LENGTH:
+                                text += row_str
+
+                        aggregate_rows_block = {
+                            "type": "csv",
+                            "title": "Failed Rows Aggregate",
+                            "text": text,
+                        }
+                        cloud_diagnostics["blocks"].append(aggregate_rows_block)
+
                 if not has_analysis_block:
                     cloud_diagnostics["blocks"].append(self.failed_rows_sample_ref.get_cloud_diagnostics_block())
 
