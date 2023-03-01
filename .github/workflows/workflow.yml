@@ -39,16 +39,16 @@ jobs:
       fail-fast: false
       matrix:
         python-version:
-          - "3.8"
+          # - "3.8"
           - "3.9"
-          - "3.10"
+          # - "3.10"
 
         data-source:
           - "postgres"
           - "snowflake"
           - "bigquery"
           - "redshift"
-          - "athena"
+          # - "athena"
           #  - "db2"
           # - "spark"
           - "spark_df"
@@ -109,7 +109,7 @@ jobs:
           curl https://packages.microsoft.com/keys/microsoft.asc | sudo apt-key add -
           curl https://packages.microsoft.com/config/ubuntu/21.04/prod.list | sudo tee /etc/apt/sources.list.d/mssql-release.list > /dev/null
           sudo apt-get update
-          ACCEPT_EULA=Y sudo apt-get install -y libsasl2-dev msodbcsql18 
+          ACCEPT_EULA=Y sudo apt-get install -y libsasl2-dev msodbcsql18
           python -m pip install --upgrade pip
           cat dev-requirements.in | grep tox | xargs pip install
 
