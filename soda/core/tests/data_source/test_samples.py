@@ -8,6 +8,7 @@ from helpers.common_test_tables import (
     customers_test_table,
 )
 from helpers.data_source_fixture import DataSourceFixture
+from helpers.utils import replace_tokens
 from soda.sampler.default_sampler import DefaultSampler
 from soda.sampler.sampler import DEFAULT_FAILED_ROWS_SAMPLE_LIMIT
 
@@ -271,12 +272,13 @@ def test_sample_limit_configuration(check: str, has_sample_query: bool, data_sou
         else:
             check = check.replace("{{schema}}", "")
 
-    if "{{table_name}}" in check:
-        check = check.replace("{{table_name}}", table_name)
-
-    if "{{another_table_name}}" in check:
-        another_table_name = data_source_fixture.ensure_test_table(customers_dist_check_test_table)
-        check = check.replace("{{another_table_name}}", another_table_name)
+    check = replace_tokens(
+        check,
+        {
+            "{{table_name}}": table_name,
+            "{{another_table_name}}": data_source_fixture.ensure_test_table(customers_dist_check_test_table),
+        },
+    )
 
     scan.add_sodacl_yaml_str(
         dedent(
@@ -305,6 +307,59 @@ def test_sample_limit_configuration(check: str, has_sample_query: bool, data_sou
     sample_limit_config_header,
     sample_limit_config,
 )
+def test_sample_limit_zero_configuration(check: str, has_sample_query: bool, data_source_fixture: DataSourceFixture):
+    """
+    Tests failed rows queries + sampler with user provided sample limit set to 0
+    Tests both the resulting count but checks that the query is not run at all as well.
+    """
+    table_name = data_source_fixture.ensure_test_table(customers_test_table)
+    samples_limit = 0
+
+    scan = data_source_fixture.create_test_scan()
+    mock_soda_cloud = scan.enable_mock_soda_cloud()
+    scan.enable_mock_sampler()
+
+    check = check.replace("{{samples_limit}}", str(samples_limit))
+
+    if "\n" not in check:
+        check += ":"
+
+    if "{{schema}}" in check:
+        if data_source_fixture.data_source.schema:
+            check = check.replace("{{schema}}", f"{data_source_fixture.data_source.schema}.")
+        else:
+            check = check.replace("{{schema}}", "")
+
+    check = replace_tokens(
+        check,
+        {
+            "{{table_name}}": table_name,
+            "{{another_table_name}}": data_source_fixture.ensure_test_table(customers_dist_check_test_table),
+        },
+    )
+
+    scan.add_sodacl_yaml_str(
+        dedent(
+            f"""
+          checks for {table_name}:
+            {check}
+                samples limit: {samples_limit}
+        """
+        )
+    )
+    scan.execute()
+
+    scan.assert_all_checks_fail()
+
+    if has_sample_query:
+        sample_queries = scan.get_sample_queries()
+        assert len(sample_queries) == 0
+
+
+@pytest.mark.parametrize(
+    sample_limit_config_header,
+    sample_limit_config,
+)
 def test_sample_limit_default(check: str, has_sample_query: bool, data_source_fixture: DataSourceFixture):
     """
     Tests failed rows queries + sampler without user provided limit.
@@ -320,12 +375,13 @@ def test_sample_limit_default(check: str, has_sample_query: bool, data_source_fi
         else:
             check = check.replace("{{schema}}", "")
 
-    if "{{table_name}}" in check:
-        check = check.replace("{{table_name}}", table_name)
-
-    if "{{another_table_name}}" in check:
-        another_table_name = data_source_fixture.ensure_test_table(customers_dist_check_test_table)
-        check = check.replace("{{another_table_name}}", another_table_name)
+    check = replace_tokens(
+        check,
+        {
+            "{{table_name}}": table_name,
+            "{{another_table_name}}": data_source_fixture.ensure_test_table(customers_dist_check_test_table),
+        },
+    )
 
     scan.add_sodacl_yaml_str(
         dedent(

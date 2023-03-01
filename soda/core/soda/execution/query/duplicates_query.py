@@ -96,7 +96,7 @@ class DuplicatesQuery(Query):
         duplicates_count = self.row[0]
         self.metric.set_value(duplicates_count)
 
-        if duplicates_count:
+        if duplicates_count and self.samples_limit > 0:
             # TODO: Sample Query execute implicitly stores the failed rows file reference in the passed on metric.
             sample_query = SampleQuery(
                 self.data_source_scan,
@@ -107,7 +107,7 @@ class DuplicatesQuery(Query):
             sample_query.execute()
 
         # TODO: This should be a second failed rows file, refactor failed rows to support multiple files.
-        if self.failing_rows_sql_aggregated:
+        if self.failing_rows_sql_aggregated and self.samples_limit > 0:
             aggregate_sample_query = Query(
                 self.data_source_scan,
                 self.partition.table,
