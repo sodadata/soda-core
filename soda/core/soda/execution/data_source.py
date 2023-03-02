@@ -7,6 +7,7 @@ import json
 import re
 from collections import defaultdict
 from datetime import date, datetime
+from functools import lru_cache
 from numbers import Number
 from textwrap import dedent
 
@@ -19,8 +20,6 @@ from soda.execution.query.query import Query
 from soda.execution.query.schema_query import TableColumnsQuery
 from soda.sampler.sample_ref import SampleRef
 from soda.sodacl.location import Location
-
-from functools import lru_cache
 
 
 class FormatHelper:
