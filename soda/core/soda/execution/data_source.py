@@ -20,6 +20,8 @@ from soda.execution.query.schema_query import TableColumnsQuery
 from soda.sampler.sample_ref import SampleRef
 from soda.sodacl.location import Location
 
+from functools import lru_cache
+
 
 class FormatHelper:
     @staticmethod
@@ -545,6 +547,7 @@ class DataSource:
     # For a table, get the columns metadata
     ############################################
 
+    @lru_cache(maxsize=None)
     def get_table_columns(
         self,
         table_name: str,
