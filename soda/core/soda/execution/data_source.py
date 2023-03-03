@@ -558,7 +558,6 @@ class DataSource:
         :return: A dict mapping column names to data source data types.  Like eg
         {"id": "varchar", "cst_size": "int8", ...}
         """
-        # TODO: save/cache the result for later use.
         query = Query(
             data_source_scan=self.data_source_scan,
             unqualified_query_name=query_name,
