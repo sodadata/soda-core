@@ -59,7 +59,6 @@ ALL_SCHEMA_VALIDATIONS = [
     WHEN_SCHEMA_CHANGES,
 ]
 
-
 # Generic log messages for SODACL parser
 QUOTE_CHAR_ERROR_LOG = """It looks like quote characters are present in one of more of your {dataset_type}
 dataset identifiers. This may result in erroneous or no matches as most data sources do not
@@ -110,7 +109,7 @@ class SodaCLParser(Parser):
             # Backwards compatibility warning
             if "for each table" in header_str:
                 self.logs.warning(
-                    f"Please update 'for each table ...' to 'for each dataset ...'.", location=self.location
+                    "Please update 'for each table ...' to 'for each dataset ...'.", location=self.location
                 )
 
             self._push_path_element(header_str, header_content)
@@ -251,6 +250,9 @@ class SodaCLParser(Parser):
         elif check_str == "failed rows":
             return self.parse_user_defined_failed_rows_check_cfg(check_configurations, check_str, header_str)
 
+        elif check_str == "group by":
+            return self.parse_group_by_check_cfg(check_configurations, check_str, header_str)
+
         else:
             antlr_parser = self.antlr_parse_check(check_str)
             if antlr_parser.is_ok():
@@ -324,6 +326,21 @@ class SodaCLParser(Parser):
                 variables[variable_name] = variable_value
         else:
             self.logs.error(f"Variables content must be a dict.  Was {type(header_content).__name__}")
+
+    def parse_group_by_check_cfg(self, check_configurations, check_str, header_str):
+        if isinstance(check_configurations, dict):
+            from soda.sodacl.group_by_cfg import GroupByCfg
+            self._push_path_element(check_str, check_configurations)
+            try:
+                group_limit = self._get_optional("group_limit", int)
+                query = self._get_required('query', str)
+                fields = self._get_required('fields', list)
+                checks = self._get_required('checks', object)
+                return GroupByCfg(query, fields, checks, group_limit)
+            finally:
+                self._pop_path_element()
+        else:
+            self.logs.error(f'Check "{check_str}" expects a nested object/dict, but was {check_configurations}')
 
     def parse_user_defined_failed_rows_check_cfg(self, check_configurations, check_str, header_str):
         if isinstance(check_configurations, dict):
@@ -438,7 +455,7 @@ class SodaCLParser(Parser):
                 self._pop_path_element()
         else:
             self.logs.error(
-                f'"failed rows" check must have configurations',
+                '"failed rows" check must have configurations',
                 location=self.location,
             )
 
@@ -659,15 +676,15 @@ class SodaCLParser(Parser):
                 )
             else:
                 self.logs.error(
-                    f"""You did not define a `distribution reference file` key. See the docs for more information:\n"""
-                    f"""https://docs.soda.io/soda-cl/distribution.html#define-a-distribution-check""",
+                    """You did not define a `distribution reference file` key. See the docs for more information:\n"""
+                    """https://docs.soda.io/soda-cl/distribution.html#define-a-distribution-check""",
                     location=self.location,
                 )
             if not fail_threshold_cfg and not warn_threshold_cfg:
                 self.logs.error(
-                    f"""You did not define a threshold for your distribution check. Please use the following syntax\n"""
-                    f"""- distribution_difference(column_name, reference_distribution) > threshold: \n"""
-                    f"""    distribution reference file: distribution_reference.yml""",
+                    """You did not define a threshold for your distribution check. Please use the following syntax\n"""
+                    """- distribution_difference(column_name, reference_distribution) > threshold: \n"""
+                    """    distribution reference file: distribution_reference.yml""",
                     location=self.location,
                 )
 
@@ -730,7 +747,7 @@ class SodaCLParser(Parser):
                     location=self.location,
                 )
             else:
-                threshold_str = value[len("when ") :]
+                threshold_str = value[len("when "):]
                 antlr_parser = self.antlr_parse_threshold(threshold_str)
                 if antlr_parser.is_ok():
                     antlr_threshold = antlr_parser.result
@@ -860,13 +877,13 @@ class SodaCLParser(Parser):
                 v
                 for v in validations_dict
                 if v
-                not in [
-                    WHEN_REQUIRED_COLUMN_MISSING,
-                    WHEN_WRONG_COLUMN_TYPE,
-                    WHEN_WRONG_COLUMN_INDEX,
-                    WHEN_FORBIDDEN_COLUMN_PRESENT,
-                    WHEN_SCHEMA_CHANGES,
-                ]
+                   not in [
+                       WHEN_REQUIRED_COLUMN_MISSING,
+                       WHEN_WRONG_COLUMN_TYPE,
+                       WHEN_WRONG_COLUMN_INDEX,
+                       WHEN_FORBIDDEN_COLUMN_PRESENT,
+                       WHEN_SCHEMA_CHANGES,
+                   ]
             ]:
                 hint = f"Available schema validations: {ALL_SCHEMA_VALIDATIONS}"
                 if invalid_schema_validation == "when schema change":
@@ -886,10 +903,10 @@ class SodaCLParser(Parser):
         value_type = (
             list
             if validation_type
-            in [
-                "when required column missing",
-                "when forbidden column present",
-            ]
+               in [
+                   "when required column missing",
+                   "when forbidden column present",
+               ]
             else dict
         )
         configuration_value = self._get_optional(validation_type, value_type)
@@ -915,10 +932,10 @@ class SodaCLParser(Parser):
                 expected_configuration_type = (
                     "list of strings"
                     if validation_type
-                    in [
-                        "when required column missing",
-                        "when forbidden column present",
-                    ]
+                       in [
+                           "when required column missing",
+                           "when forbidden column present",
+                       ]
                     else "dict with strings for keys and values"
                     if validation_type == "when wrong column type"
                     else "dict with strings for keys and ints for values"
@@ -991,17 +1008,17 @@ class SodaCLParser(Parser):
 
         if len(source_column_names) == 0:
             self.logs.error(
-                f"No source columns in reference check",
+                "No source columns in reference check",
                 location=self.location,
             )
         if len(target_column_names) == 0:
             self.logs.error(
-                f"No target columns in reference check",
+                "No target columns in reference check",
                 location=self.location,
             )
         if len(source_column_names) != len(target_column_names):
             self.logs.error(
-                f"Number of source and target column names must be equal",
+                "Number of source and target column names must be equal",
                 location=self.location,
             )
 
@@ -1083,7 +1100,7 @@ class SodaCLParser(Parser):
     def parse_staleness_threshold_text(self, staleness_threshold_text):
         if isinstance(staleness_threshold_text, str):
             if staleness_threshold_text.startswith("when > "):
-                return self.parse_freshness_threshold(staleness_threshold_text[len("when > ") :])
+                return self.parse_freshness_threshold(staleness_threshold_text[len("when > "):])
             else:
                 self.logs.error(
                     f'Invalid staleness threshold "{staleness_threshold_text}"',
@@ -1290,11 +1307,11 @@ class SodaCLParser(Parser):
         if isinstance(datasets, list):
             for table in datasets:
                 if table.startswith("exclude "):
-                    exclude_table_expression = table[len("exclude ") :]
+                    exclude_table_expression = table[len("exclude "):]
                     data_source_check_cfg.exclude_tables.append(exclude_table_expression)
                 else:
                     if table.startswith("include "):
-                        include_table_expression = table[len("include ") :]
+                        include_table_expression = table[len("include "):]
                     else:
                         include_table_expression = table
                     data_source_check_cfg.include_tables.append(include_table_expression)
@@ -1344,11 +1361,11 @@ class SodaCLParser(Parser):
                     continue
 
                 if column_expression.startswith("exclude "):
-                    exclude_column_expression = column_expression[len("exclude ") :]
+                    exclude_column_expression = column_expression[len("exclude "):]
                     profile_columns_cfg.exclude_columns.append(exclude_column_expression)
                 else:
                     if column_expression.startswith("include "):
-                        include_column_expression = column_expression[len("include ") :]
+                        include_column_expression = column_expression[len("include "):]
                     else:
                         include_column_expression = column_expression
                     profile_columns_cfg.include_columns.append(include_column_expression)
@@ -1379,9 +1396,9 @@ class SodaCLParser(Parser):
                 is_include = True
                 name_filter_pieces_str = name_filter_str
                 if name_filter_pieces_str.startswith("include "):
-                    name_filter_pieces_str = name_filter_pieces_str[len("include ") :]
+                    name_filter_pieces_str = name_filter_pieces_str[len("include "):]
                 elif name_filter_pieces_str.startswith("exclude "):
-                    name_filter_pieces_str = name_filter_pieces_str[len("exclude ") :]
+                    name_filter_pieces_str = name_filter_pieces_str[len("exclude "):]
                     is_include = False
 
                 data_source_name_filter = None
