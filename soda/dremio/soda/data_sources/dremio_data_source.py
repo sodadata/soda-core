@@ -87,7 +87,7 @@ class DremioDataSource(DataSource):
                 + ";useEncryption="
                 + self.use_encryption,
                 +";routing_queue=",
-                + self.routing_queue,
+                +self.routing_queue,
                 autocommit=True,
             )
         except Exception as e:
