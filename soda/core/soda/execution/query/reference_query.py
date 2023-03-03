@@ -112,7 +112,7 @@ class ReferenceQuery(Query):
         missing_reference_count = int(self.row[0])
         self.metric.set_value(missing_reference_count)
 
-        if missing_reference_count:
+        if missing_reference_count and self.samples_limit > 0:
             # TODO: Sample Query execute implicitly stores the failed rows file reference in the passed on metric.
             sample_query = SampleQuery(
                 self.data_source_scan,

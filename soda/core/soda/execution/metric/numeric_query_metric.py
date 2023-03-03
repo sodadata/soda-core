@@ -342,4 +342,5 @@ class NumericQueryMetric(QueryMetric):
                 self.partition.table.table_name, filter=where_sql
             )
 
-            return SampleQuery(self.data_source_scan, self, "failed_rows", sql)
+            if self.samples_limit > 0:
+                return SampleQuery(self.data_source_scan, self, "failed_rows", sql)
