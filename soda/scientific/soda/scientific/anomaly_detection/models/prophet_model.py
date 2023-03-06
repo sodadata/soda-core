@@ -417,10 +417,8 @@ class ProphetDetector(BaseDetector):
         assert (
             not self.anomalies.empty
         ), "Anomalies have not been detected yet. Make sure you run `detect_anomalies` first."
-        # generate critical bounds. These are based on some gnarly conversion of the
-        # anomaly probability back into the scale of Y. See criticality_threshold_calc method
-        # the critical zone will always take over and "extend" or replace the extreme to inf points
-        # of the warning zone.
+        # See criticality_threshold_calc method, the critical zone will always take over and
+        # "extend" or replace the extreme to inf points of the warning zone.
         self.anomalies.loc[:, "critical_greater_than_or_equal"] = self.anomalies.apply(
             lambda x: self._criticality_threshold_calc(
                 x, threshold=self._criticality_threshold, directionality="upper"
