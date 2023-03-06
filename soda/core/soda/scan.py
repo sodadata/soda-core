@@ -416,7 +416,7 @@ class Scan:
             self.__resolve_for_each_dataset_checks()
             # Resolve the for each column checks and add them to the scan_cfg data structures
             self.__resolve_for_each_column_checks()
-
+            
             # For each data_source, build up the DataSourceScan data structures
             for data_source_scan_cfg in self._sodacl_cfg.data_source_scan_cfgs.values():
                 # This builds up the data structures that correspond to the cfg model

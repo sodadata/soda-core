@@ -251,7 +251,7 @@ class SodaCLParser(Parser):
             return self.parse_user_defined_failed_rows_check_cfg(check_configurations, check_str, header_str)
 
         elif check_str == "group by":
-            return self.parse_group_by_check_cfg(check_configurations, check_str, header_str)
+            return self.parse_group_by_cfg(check_configurations, check_str, header_str)
 
         else:
             antlr_parser = self.antlr_parse_check(check_str)
@@ -327,16 +327,28 @@ class SodaCLParser(Parser):
         else:
             self.logs.error(f"Variables content must be a dict.  Was {type(header_content).__name__}")
 
-    def parse_group_by_check_cfg(self, check_configurations, check_str, header_str):
+    def parse_group_by_cfg(self, check_configurations, check_str, header_str):
         if isinstance(check_configurations, dict):
-            from soda.sodacl.group_by_cfg import GroupByCfg
+            from soda.sodacl.group_by_cfg import GroupByCheckCfg
+
             self._push_path_element(check_str, check_configurations)
+            name = self._get_optional(NAME, str)
             try:
                 group_limit = self._get_optional("group_limit", int)
-                query = self._get_required('query', str)
-                fields = self._get_required('fields', list)
-                checks = self._get_required('checks', object)
-                return GroupByCfg(query, fields, checks, group_limit)
+                query = self._get_required("query", str)
+                fields = self._get_required("fields", list)
+                checks = self._get_required("checks", object)
+                return GroupByCheckCfg(
+                    source_header=header_str,
+                    source_line=check_str,
+                    source_configurations=check_configurations,
+                    location=self.location,
+                    name=name,
+                    query=query,
+                    fields=fields,
+                    checks=checks,
+                    group_limit=group_limit,
+                )
             finally:
                 self._pop_path_element()
         else:
