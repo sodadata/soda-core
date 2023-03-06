@@ -7,6 +7,7 @@ import json
 import re
 from collections import defaultdict
 from datetime import date, datetime
+from functools import lru_cache
 from numbers import Number
 from textwrap import dedent
 
@@ -545,6 +546,7 @@ class DataSource:
     # For a table, get the columns metadata
     ############################################
 
+    @lru_cache(maxsize=None)
     def get_table_columns(
         self,
         table_name: str,
@@ -556,7 +558,6 @@ class DataSource:
         :return: A dict mapping column names to data source data types.  Like eg
         {"id": "varchar", "cst_size": "int8", ...}
         """
-        # TODO: save/cache the result for later use.
         query = Query(
             data_source_scan=self.data_source_scan,
             unqualified_query_name=query_name,
