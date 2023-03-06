@@ -85,7 +85,7 @@ class DremioDataSource(DataSource):
                 + ";PWD="
                 + self.password
                 + ";useEncryption="
-                + self.use_encryption,
+                + self.use_encryption
                 +";routing_queue=",
                 +self.routing_queue,
                 autocommit=True,
