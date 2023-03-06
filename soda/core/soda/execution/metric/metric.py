@@ -47,7 +47,9 @@ class Metric(ABC):
         self.queries: list[Query] = []
         self.formula_values: dict[str, object] = None
         self.failed_rows_sample_ref: SampleRef | None = None
-        self.samples_limit = check.check_cfg.samples_limit or DEFAULT_FAILED_ROWS_SAMPLE_LIMIT
+
+        samples_limit = check.check_cfg.samples_limit
+        self.samples_limit: int = samples_limit if isinstance(samples_limit, int) else DEFAULT_FAILED_ROWS_SAMPLE_LIMIT
 
     def __eq__(self, other: Metric) -> bool:
         if self is other:

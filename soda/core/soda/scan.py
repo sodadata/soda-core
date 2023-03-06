@@ -79,6 +79,11 @@ class Scan:
             profile_table.get_dict()
             for profile_table in self._profile_columns_result_tables + self._sample_tables_result_tables
         ]
+
+        query_list = []
+        for query in self._queries:
+            query_list += query.get_cloud_dicts()
+
         return JsonHelper.to_jsonnable(  # type: ignore
             {
                 "definitionName": self._scan_definition_name,
@@ -92,8 +97,7 @@ class Scan:
                 "metrics": [metric.get_dict() for metric in self._metrics],
                 # If archetype is not None, it means that check is automated monitoring
                 "checks": checks,
-                # TODO Queries are not supported by Soda Cloud yet.
-                # "queries": [query.get_cloud_dict() for query in scan._queries],
+                "queries": query_list,
                 "automatedMonitoringChecks": automated_monitoring_checks,
                 "profiling": profiling,
                 "metadata": [
@@ -169,7 +173,7 @@ class Scan:
             )
         except Exception as e:
             self._logs.error(
-                f"Could not add environment configurations from string",
+                "Could not add environment configurations from string",
                 exception=e,
             )
 
@@ -497,7 +501,7 @@ class Scan:
                 try:
                     self.run_data_source_scan()
                 except Exception as e:
-                    self._logs.error(f"""An error occurred while executing data source scan""", exception=e)
+                    self._logs.error("""An error occurred while executing data source scan""", exception=e)
 
                 # Evaluates the checks based on all the metric values
                 for check in self._checks:
@@ -554,10 +558,10 @@ class Scan:
             if checks_warn_count + checks_fail_count + error_count == 0 and len(self._checks) > 0:
                 if checks_not_evaluated:
                     self._logs.info(
-                        f"Apart from the checks that have not been evaluated, no failures, no warnings and no errors."
+                        "Apart from the checks that have not been evaluated, no failures, no warnings and no errors."
                     )
                 else:
-                    self._logs.info(f"All is good. No failures. No warnings. No errors.")
+                    self._logs.info("All is good. No failures. No warnings. No errors.")
             elif error_count > 0:
                 exit_value = 3
                 self._logs.info(
@@ -588,7 +592,7 @@ class Scan:
 
         except Exception as e:
             exit_value = 3
-            self._logs.error(f"Error occurred while executing scan.", exception=e)
+            self._logs.error("Error occurred while executing scan.", exception=e)
         finally:
             try:
                 self._scan_end_timestamp = datetime.now(tz=timezone.utc)
@@ -604,7 +608,7 @@ class Scan:
 
             except Exception as e:
                 exit_value = 3
-                self._logs.error(f"Error occurred while sending scan results to soda cloud.", exception=e)
+                self._logs.error("Error occurred while sending scan results to soda cloud.", exception=e)
 
             self._close()
             self.scan_results = self.build_scan_results()

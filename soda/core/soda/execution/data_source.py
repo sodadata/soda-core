@@ -7,6 +7,7 @@ import json
 import re
 from collections import defaultdict
 from datetime import date, datetime
+from functools import lru_cache
 from numbers import Number
 from textwrap import dedent
 
@@ -545,6 +546,7 @@ class DataSource:
     # For a table, get the columns metadata
     ############################################
 
+    @lru_cache(maxsize=None)
     def get_table_columns(
         self,
         table_name: str,
@@ -556,7 +558,6 @@ class DataSource:
         :return: A dict mapping column names to data source data types.  Like eg
         {"id": "varchar", "cst_size": "int8", ...}
         """
-        # TODO: save/cache the result for later use.
         query = Query(
             data_source_scan=self.data_source_scan,
             unqualified_query_name=query_name,
@@ -716,10 +717,10 @@ class DataSource:
         sql = dedent(
             f"""
             WITH frequencies AS (
-              SELECT COUNT(*) AS frequency
-              FROM {table_name}
-              WHERE {filter}
-              GROUP BY {column_names})
+                SELECT COUNT(*) AS frequency
+                FROM {table_name}
+                WHERE {filter}
+                GROUP BY {column_names})
             SELECT count(*)
             FROM frequencies
             WHERE frequency > 1"""
@@ -727,7 +728,7 @@ class DataSource:
 
         return sql
 
-    def sql_get_duplicates(
+    def sql_get_duplicates_aggregated(
         self,
         column_names: str,
         table_name: str,
@@ -748,6 +749,62 @@ class DataSource:
             FROM frequencies
             WHERE frequency {'<=' if invert_condition else '>'} 1
             ORDER BY frequency DESC"""
+        )
+
+        if limit:
+            sql += f"\nLIMIT {limit}"
+
+        return sql
+
+    def sql_get_duplicates(
+        self,
+        column_names: str,
+        table_name: str,
+        filter: str,
+        limit: str | None = None,
+        invert_condition: bool = False,
+        exclude_patterns: list[str] | None = None,
+    ) -> str | None:
+        columns = column_names.split(", ")
+
+        qualified_main_query_columns = ", ".join([f"main.{c}" for c in columns])
+        main_query_columns = qualified_main_query_columns if exclude_patterns else "*"
+        join = " AND ".join([f"main.{c} = frequencies.{c}" for c in columns])
+
+        sql = dedent(
+            f"""
+            WITH frequencies AS (
+                SELECT {column_names}
+                FROM {table_name}
+                WHERE {filter}
+                GROUP BY {column_names}
+                HAVING count(*) {'<=' if invert_condition else '>'} 1)
+            SELECT {main_query_columns}
+            FROM {table_name} main
+            JOIN frequencies ON {join}
+            """
+        )
+
+        if limit:
+            sql += f"\nLIMIT {limit}"
+
+        return sql
+
+    def sql_reference_query(
+        self,
+        columns: str,
+        table_name: str,
+        target_table_name: str,
+        join_condition: str,
+        where_condition: str,
+        limit: int | None = None,
+    ) -> str:
+        sql = dedent(
+            f"""
+            SELECT {columns}
+                FROM {table_name}  SOURCE
+                LEFT JOIN {target_table_name} TARGET on {join_condition}
+            WHERE {where_condition}"""
         )
 
         if limit:
