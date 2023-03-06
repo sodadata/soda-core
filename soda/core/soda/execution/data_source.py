@@ -159,7 +159,7 @@ class DataSource:
         "bigserial",
     ]
     TEXT_TYPES_FOR_PROFILING = ["character varying", "varchar", "text", "character", "char"]
-    LIMIT_KEYWORD = "LIMIT"
+    LIMIT_KEYWORD: str = "LIMIT"
 
     # Building up format queries normally works with regexp expression + a set of formats,
     # but some use cases require whole completely custom format expressions.
