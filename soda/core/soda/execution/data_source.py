@@ -15,7 +15,6 @@ from soda.common.exceptions import DataSourceError
 from soda.common.logs import Logs
 from soda.common.string_helper import string_matches_simple_pattern
 from soda.execution.data_type import DataType
-from soda.execution.query.partition_queries import PartitionQueries
 from soda.execution.query.query import Query
 from soda.execution.query.schema_query import TableColumnsQuery
 from soda.sampler.sample_ref import SampleRef
@@ -201,7 +200,7 @@ class DataSource:
             data_source_class = f"{DataSource.camel_case_data_source_type(data_source_type)}DataSource"
             class_ = getattr(module, data_source_class)
             return class_(logs, data_source_name, data_source_properties)
-        except ModuleNotFoundError as e:
+        except ModuleNotFoundError:
             if data_source_type == "postgresql":
                 logs.error(f'Data source type "{data_source_type}" not found. Did you mean postgres?')
             else:
@@ -257,9 +256,6 @@ class DataSource:
 
     def get_type_name(self, type_code):
         return str(type_code)
-
-    def create_partition_queries(self, partition):
-        return PartitionQueries(partition)
 
     def is_supported_metric_name(self, metric_name: str) -> bool:
         return (
