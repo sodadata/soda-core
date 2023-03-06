@@ -1,5 +1,6 @@
+from __future__ import annotations
+
 import copy
-from typing import List
 
 from soda.execution.check.check import Check
 from soda.execution.check.metric_check import MetricCheck
@@ -13,8 +14,8 @@ GROUP_BY_RESULTS = "group_by_results"
 class GroupByCheck(Check):
     def __init__(
         self,
-        check_cfg: "GroupByCheckCfg",
-        data_source_scan: "DataSourceScan",
+        check_cfg: GroupByCheckCfg,
+        data_source_scan: DataSourceScan,
         partition: Partition,
     ):
         super().__init__(
@@ -89,6 +90,6 @@ class GroupByCheck(Check):
         group_by_diagnostics = {}
         return group_by_diagnostics
 
-    def get_log_diagnostic_lines(self) -> List[str]:
-        diagnostics_texts: List[str] = []
+    def get_log_diagnostic_lines(self) -> list[str]:
+        diagnostics_texts: list[str] = []
         return diagnostics_texts
