@@ -59,8 +59,6 @@ class GroupByCheck(Check):
                 config.name = gcc.name + f" [{','.join(group)}]"
                 column = ",".join(fields)
                 gc = MetricCheck(config, self.data_source_scan, partition=self.partition, column=column)
-                # qr = list(filter(lambda qr:   , query_results))
-
                 result = next(filter(lambda qr: tuple(map(qr.get, fields)) == group, query_results))
                 if result is not None:
                     gc.check_value = result[config.metric_name]
