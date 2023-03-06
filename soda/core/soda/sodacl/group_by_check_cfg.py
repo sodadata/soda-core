@@ -14,11 +14,11 @@ class GroupByCheckCfg(CheckCfg):
         name: str,
         query: str,
         fields: dict,
-        checks: list,
+        check_cfgs: list[CheckCfg] = [],
         group_limit: int = 1000,
     ):
         super().__init__(source_header, source_line, source_configurations, location, name)
         self.query = query
         self.fields = fields
-        self.checks = checks
+        self.check_cfgs = check_cfgs
         self.group_limit = group_limit

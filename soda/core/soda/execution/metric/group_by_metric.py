@@ -3,13 +3,7 @@ from soda.execution.query.group_by_query import GroupByQuery
 
 
 class GroupByMetric(QueryMetric):
-    def __init__(
-        self,
-        data_source_scan: "DataSourceScan",
-        partition: "Partition",
-        check: "Check",
-        query: str
-    ):
+    def __init__(self, data_source_scan: "DataSourceScan", partition: "Partition", check: "Check", query: str):
         super().__init__(
             data_source_scan=data_source_scan,
             partition=partition,
@@ -19,7 +13,6 @@ class GroupByMetric(QueryMetric):
             identity_parts=[],
         )
         self.query = query
-
 
     def ensure_query(self):
         check = next(iter(self.checks), None)
