@@ -764,7 +764,7 @@ class DataSource:
         columns = column_names.split(", ")
 
         qualified_main_query_columns = ", ".join([f"main.{c}" for c in columns])
-        main_query_columns = qualified_main_query_columns if exclude_patterns else "*"
+        main_query_columns = qualified_main_query_columns if exclude_patterns else "main.*"
         join = " AND ".join([f"main.{c} = frequencies.{c}" for c in columns])
 
         sql = dedent(
