@@ -321,7 +321,7 @@ class Scan:
             file_path = f"{unique_name}.yml"
             self._parse_sodacl_yaml_str(sodacl_yaml_str=sodacl_yaml_str, file_path=file_path)
         except Exception as e:
-            self._logs.error(f"Could not add SodaCL string", exception=e)
+            self._logs.error("Could not add SodaCL string", exception=e)
 
     def _parse_sodacl_yaml_str(self, sodacl_yaml_str: str, file_path: str = None):
         from soda.sodacl.sodacl_parser import SodaCLParser
