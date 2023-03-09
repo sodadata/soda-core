@@ -300,16 +300,16 @@ test_feedback_processor_seasonality_skip_measurements_expectation = {
 }
 
 test_feedback_processor_prophet_model_skip_measurements_expectation = {
-                "y": {
-                    0: 42.0,
-                },
-                "ds": {
-                    0: "2023-03-06 11:00:00",
-                },
-                "skipMeasurements": {
-                    0: None,
-                },
-                "external_regressor": {
-                    0: -0.8325240016225592,
-                },
-            }
+    "y": {
+        0: 42.0,
+    },
+    "ds": {
+        0: "2023-03-06 11:00:00",
+    },
+    "skipMeasurements": {
+        0: None,
+    },
+    "external_regressor": {
+        0: -0.8325240016225592,
+    },
+}
