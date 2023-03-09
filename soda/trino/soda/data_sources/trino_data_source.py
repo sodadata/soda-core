@@ -83,9 +83,6 @@ class TrinoDataSource(DataSource):
             return
 
         self.connection = trino.dbapi.connect(
-            # experimental_python_types is required to recieve values in appropriate python data types
-            # https://github.com/trinodb/trino-python-client#improved-python-types
-            experimental_python_types=True,
             host=self.host,
             port=self.port,
             catalog=self.catalog,
