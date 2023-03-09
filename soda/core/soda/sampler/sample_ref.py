@@ -61,9 +61,11 @@ class SampleRef:
         if self.soda_cloud_file_id:
             sample_ref_dict["reference"] = {"type": "sodaCloudStorage", "fileId": self.soda_cloud_file_id}
         elif self.message:
-            sample_ref_dict["reference"] = {"type": "noFile",
-                                            "message": self.message,
-                                            "link": {"href": self.link, "text": self.link_text},
-                                            "fileId": ""}
+            sample_ref_dict["reference"] = {
+                "type": "noFile",
+                "message": self.message,
+                "link": {"href": self.link, "text": self.link_text},
+                "fileId": "",
+            }
 
         return sample_ref_dict
