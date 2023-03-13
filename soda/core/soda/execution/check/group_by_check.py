@@ -57,7 +57,7 @@ class GroupByCheck(Check):
         for group in groups:
             for gcc in group_check_cfgs:
                 config = copy.copy(gcc)
-                config.name = gcc.name + f" [{','.join(group)}]"
+                config.name = gcc.name + f" [{','.join(str(v) for v in group)}]"
                 column = ",".join(fields)
                 gc = MetricCheck(config, self.data_source_scan, partition=self.partition, column=column)
                 result = next(filter(lambda qr: tuple(map(qr.get, fields)) == group, query_results))
