@@ -106,6 +106,15 @@ class ConfigurationParser(Parser):
                             "'exclude_columns' configuration must be a dict",
                             location=self.location,
                         )
+                samples_limit = sampler_configuration.get("samples_limit")
+                if samples_limit:
+                    if isinstance(samples_limit, int):
+                        self.configuration.samples_limit = samples_limit
+                    else:
+                        self.logs.error(
+                            "'samples_limit' configuration must be an int",
+                            location=self.location,
+                        )
 
                 storage = sampler_configuration.get("storage")
                 if storage:
