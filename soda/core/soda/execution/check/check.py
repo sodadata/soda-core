@@ -301,7 +301,7 @@ class Check(ABC):
                             "failingRowsQueryName": f"{query.query_name}.failing_sql",
                             "passingRowsQueryName": f"{query.query_name}.passing_sql",
                             "totalFailingRows": self.check_value,
-                            "sampleRowCount": sample_ref_block["file"]["totalRowCount"],
+                            "sampleRowCount": sample_ref_block["file"]["storedRowCount"],
                         }
                         cloud_diagnostics["blocks"].append(rca_block)
 
