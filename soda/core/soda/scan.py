@@ -497,6 +497,11 @@ class Scan:
                     if isinstance(metric, DerivedMetric):
                         metric.compute_derived_metric_values()
 
+                        # Carry over queries created in dependencies (metrics) so that correct queries
+                        # are associated with the derived metric as well.
+                        for metric_dep in metric.derived_formula.metric_dependencies.values():
+                            metric.queries += metric_dep.queries
+
                 # Run profiling, data samples, automated monitoring, sample tables
                 try:
                     self.run_data_source_scan()
