@@ -48,8 +48,19 @@ class Metric(ABC):
         self.formula_values: dict[str, object] = None
         self.failed_rows_sample_ref: SampleRef | None = None
 
-        samples_limit = check.check_cfg.samples_limit if check is not None else DEFAULT_FAILED_ROWS_SAMPLE_LIMIT
-        self.samples_limit: int = samples_limit if isinstance(samples_limit, int) else DEFAULT_FAILED_ROWS_SAMPLE_LIMIT
+        # Samples limit (in order):
+        # - use default global limit
+        # - use configured global limit from sampler config
+        # - use check specific config
+        samples_limit = DEFAULT_FAILED_ROWS_SAMPLE_LIMIT
+
+        if isinstance(self.data_source_scan.scan._configuration.samples_limit, int):
+            samples_limit = self.data_source_scan.scan._configuration.samples_limit
+
+        if check is not None and isinstance(check.check_cfg.samples_limit, int):
+            samples_limit = check.check_cfg.samples_limit
+
+        self.samples_limit: int = samples_limit
 
     def __eq__(self, other: Metric) -> bool:
         if self is other:

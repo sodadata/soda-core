@@ -260,6 +260,7 @@ def test_sample_limit_configuration(check: str, has_sample_query: bool, data_sou
     scan = data_source_fixture.create_test_scan()
     mock_soda_cloud = scan.enable_mock_soda_cloud()
     scan.enable_mock_sampler()
+    scan._configuration.samples_limit = 2
 
     check = check.replace("{{samples_limit}}", str(samples_limit))
 
@@ -402,6 +403,53 @@ def test_sample_limit_default(check: str, has_sample_query: bool, data_source_fi
 
         limit_keyword = data_source_fixture.data_source.LIMIT_KEYWORD
         assert f"{limit_keyword} {DEFAULT_FAILED_ROWS_SAMPLE_LIMIT}" in sample_queries[0]
+
+
+@pytest.mark.parametrize(
+    sample_limit_config_header,
+    sample_limit_config,
+)
+def test_sample_limit_global_setting(check: str, has_sample_query: bool, data_source_fixture: DataSourceFixture):
+    table_name = data_source_fixture.ensure_test_table(customers_test_table)
+
+    scan = data_source_fixture.create_test_scan()
+    mock_soda_cloud = scan.enable_mock_soda_cloud()
+    scan.enable_mock_sampler()
+    scan._configuration.samples_limit = 2
+
+    if "{{schema}}" in check:
+        if data_source_fixture.data_source.schema:
+            check = check.replace("{{schema}}", f"{data_source_fixture.data_source.schema}.")
+        else:
+            check = check.replace("{{schema}}", "")
+
+    check = replace_tokens(
+        check,
+        {
+            "{{table_name}}": table_name,
+            "{{another_table_name}}": data_source_fixture.ensure_test_table(customers_dist_check_test_table),
+        },
+    )
+
+    scan.add_sodacl_yaml_str(
+        dedent(
+            f"""
+          checks for {table_name}:
+            {check}
+        """
+        )
+    )
+    scan.execute()
+
+    scan.assert_all_checks_fail()
+
+    if has_sample_query:
+        sample_queries = scan.get_sample_queries()
+
+        assert len(sample_queries) == 1
+
+        limit_keyword = data_source_fixture.data_source.LIMIT_KEYWORD
+        assert f"{limit_keyword} 2" in sample_queries[0]
 
 
 def test_sample_with_multiple_value_condition(data_source_fixture: DataSourceFixture):

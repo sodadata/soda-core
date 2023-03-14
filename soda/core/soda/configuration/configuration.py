@@ -19,6 +19,7 @@ class Configuration:
         self.sampler: Sampler = SodaCloudSampler()
         self.dbt_cloud: DbtCloudConfig | None = None
         self.exclude_columns: dict[str, list] = {}
+        self.samples_limit: int | None = None
 
     def add_spark_session(self, data_source_name: str, spark_session):
         self.data_source_properties_by_name[data_source_name] = {
