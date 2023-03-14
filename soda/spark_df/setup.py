@@ -9,7 +9,7 @@ if sys.version_info < (3, 7):
     sys.exit(1)
 
 package_name = "soda-core-spark-df"
-package_version = "3.0.28"
+package_version = "3.0.29"
 description = "Soda Core Spark Dataframe Package"
 
 requires = [
