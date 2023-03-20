@@ -18,6 +18,7 @@ from soda.soda_cloud.historic_descriptor import (
     HistoricDescriptor,
     HistoricMeasurementsDescriptor,
 )
+from soda.execution.check_type import CheckType
 
 logger = logging.getLogger(__name__)
 
@@ -76,7 +77,9 @@ class SodaCloud:
         automated_monitoring_checks = [
             check.get_cloud_dict()
             for check in scan._checks
-            if (check.outcome is not None or check.force_send_results_to_cloud == True) and check.archetype is not None
+            if check.check_type == CheckType.CLOUD \
+               and (check.outcome is not None or check.force_send_results_to_cloud == True) \
+               and check.archetype is not None
         ]
 
         # TODO: [SODA-608] separate profile columns and sample tables by aligning with the backend team
