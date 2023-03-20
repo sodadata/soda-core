@@ -16,7 +16,7 @@ from soda.soda_cloud.soda_cloud import GENERIC_TYPE_CSV_TEXT_MAX_LENGTH
 from soda.sodacl.check_cfg import CheckCfg
 from soda.sodacl.distribution_check_cfg import DistributionCheckCfg
 from soda.sodacl.group_by_check_cfg import GroupByCheckCfg
-
+from soda.execution.check_type import CheckType
 
 class Check(ABC):
     @staticmethod
@@ -134,6 +134,9 @@ class Check(ABC):
         # Check outcome reasons in case of fail or pass
         self.outcome_reasons: list[dict] = []
         self.force_send_results_to_cloud = False
+
+        # Default check type is Cloud, when this is set to CheckType.LOCAL, the check will not be sent to cloud
+        self.check_type = CheckType.CLOUD
 
     @property
     def name(self) -> str:

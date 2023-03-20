@@ -14,6 +14,7 @@ import logging
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Optional
 
 import click
 from ruamel.yaml import YAML
