@@ -63,7 +63,9 @@ class GroupByCheck(Check):
                 config.name = gcc.name + " " + group_name
                 config.source_configurations["group_value"] = group_name
                 column = ",".join(fields)
-                gc = Check.create(check_cfg=config, data_source_scan=self.data_source_scan, partition=self.partition, column=column)
+                gc = Check.create(
+                    check_cfg=config, data_source_scan=self.data_source_scan, partition=self.partition, column=column
+                )
                 result = next(filter(lambda qr: tuple(map(qr.get, fields)) == group, query_results))
                 if result is not None:
                     gc.check_value = result[config.metric_name]
@@ -86,8 +88,6 @@ class GroupByCheck(Check):
                     metric.set_value(gc.check_value)
                     self.data_source_scan.scan._add_metric(metric)
                     gc.metrics = {config.metric_name: metric}
-
-
 
                     gc.evaluate(metrics=None, historic_values=None)
                 group_checks.append(gc)
