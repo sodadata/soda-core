@@ -95,7 +95,7 @@ def scan(
     data_timestamp: str,
     variable: list[str],
     verbose: bool | None,
-    scan_results_file: Optional[str] = None,
+    scan_results_file: str | None = None,
 ):
     """
     The soda scan command:
