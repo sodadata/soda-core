@@ -333,14 +333,16 @@ class NumericQueryMetric(QueryMetric):
                 self.partition.table.table_name, self.samples_limit, where_sql
             )
 
-            # Store for later use
-            # TODO: this is a workaround for special aggregated queries.
-            self.passing_sql = self.data_source_scan.data_source.sql_select_all(
-                self.partition.table.table_name, filter=passing_where_sql
-            )
-            self.failing_sql = self.data_source_scan.data_source.sql_select_all(
-                self.partition.table.table_name, filter=where_sql
-            )
-
+            # Passing/failing queries are tied to existence of samples and sample query - this is ok for now as
+            # whole Failed Rows Analysis is tied to existence of a failed rows sample file.
             if self.samples_limit > 0:
-                return SampleQuery(self.data_source_scan, self, "failed_rows", sql)
+                sample_query = SampleQuery(self.data_source_scan, self, "failed_rows", sql)
+
+                sample_query.passing_sql = self.data_source_scan.data_source.sql_select_all(
+                    self.partition.table.table_name, filter=passing_where_sql
+                )
+                sample_query.failing_sql = self.data_source_scan.data_source.sql_select_all(
+                    self.partition.table.table_name, filter=where_sql
+                )
+
+                return sample_query

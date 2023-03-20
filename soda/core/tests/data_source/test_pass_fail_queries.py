@@ -76,3 +76,50 @@ def test_pass_fail_queries(
     assert block["type"] == "failedRowsAnalysis"
     assert block["failingRowsQueryName"]
     assert block["passingRowsQueryName"]
+
+
+def _find_query_by_name(queries: list[dict], name: str) -> dict | None:
+    for query in queries:
+        if query["name"] == name:
+            return query
+    return None
+
+
+def test_with_multiple_aggregate_checks(data_source_fixture: DataSourceFixture):
+    table_name = data_source_fixture.ensure_test_table(customers_test_table)
+
+    scan = data_source_fixture.create_test_scan()
+    mock_soda_cloud = scan.enable_mock_soda_cloud()
+    scan.add_sodacl_yaml_str(
+        dedent(
+            f"""
+            checks for {table_name}:
+                - missing_count(cat) = 0:
+                    name: missing_count cat
+                - missing_count(id) = 0:
+                    name: missing_count id
+            """
+        )
+    )
+    scan.execute_unchecked()
+
+    scan.assert_all_checks_fail()
+    result = mock_soda_cloud.build_scan_results(scan)
+
+    assert len(result["checks"]) == 2
+
+    result = scan.build_scan_results()
+
+    block_cat = mock_soda_cloud.find_failed_rows_diagnostics_block(0)
+    assert block_cat["type"] == "failedRowsAnalysis"
+    assert "cat.failed_rows[missing_count].failing_sql" in block_cat["failingRowsQueryName"]
+    assert "cat.failed_rows[missing_count].passing_sql" in block_cat["passingRowsQueryName"]
+    cat_failing_query = _find_query_by_name(result["queries"], block_cat["failingRowsQueryName"])
+    assert "where cat is null" in cat_failing_query["sql"].lower()
+
+    block_id = mock_soda_cloud.find_failed_rows_diagnostics_block(1)
+    assert block_cat["type"] == "failedRowsAnalysis"
+    assert "id.failed_rows[missing_count].failing_sql" in block_id["failingRowsQueryName"]
+    assert "id.failed_rows[missing_count].passing_sql" in block_id["passingRowsQueryName"]
+    id_failing_query = _find_query_by_name(result["queries"], block_id["failingRowsQueryName"])
+    assert "where id is null" in id_failing_query["sql"].lower()
