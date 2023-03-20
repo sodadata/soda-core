@@ -3,7 +3,6 @@ from __future__ import annotations
 import copy
 
 from soda.execution.check.check import Check
-from soda.execution.check.metric_check import MetricCheck
 from soda.execution.check_outcome import CheckOutcome
 from soda.execution.check_type import CheckType
 from soda.execution.metric.metric import Metric
@@ -64,7 +63,7 @@ class GroupByCheck(Check):
                 config.name = gcc.name + " " + group_name
                 config.source_configurations["group_value"] = group_name
                 column = ",".join(fields)
-                gc = MetricCheck(config, self.data_source_scan, partition=self.partition, column=column)
+                gc = Check.create(check_cfg=config, data_source_scan=self.data_source_scan, partition=self.partition, column=column)
                 result = next(filter(lambda qr: tuple(map(qr.get, fields)) == group, query_results))
                 if result is not None:
                     gc.check_value = result[config.metric_name]
@@ -76,9 +75,20 @@ class GroupByCheck(Check):
                         check=None,
                         identity_parts=[],
                     )
+
+                    # TODO fetch historic values, change over time checks will not work yet
+                    # historic_values = {}
+                    # if gc.historic_descriptors:
+                    #     for hd_key, hd in gc.historic_descriptors.items():
+                    #         print(f"hd_key: {hd_key}, hd: {hd}")
+                    #         historic_values[hd_key] = self.data_source_scan.scan.__get_historic_data_from_soda_cloud_metric_store(hd)
+
                     metric.set_value(gc.check_value)
                     self.data_source_scan.scan._add_metric(metric)
                     gc.metrics = {config.metric_name: metric}
+
+
+
                     gc.evaluate(metrics=None, historic_values=None)
                 group_checks.append(gc)
 
