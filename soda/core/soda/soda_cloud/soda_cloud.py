@@ -12,13 +12,13 @@ from requests import Response
 from soda.__version__ import SODA_CORE_VERSION
 from soda.common.json_helper import JsonHelper
 from soda.common.logs import Logs
-from soda.execution.check_type import CheckType
 from soda.soda_cloud.historic_descriptor import (
     HistoricChangeOverTimeDescriptor,
     HistoricCheckResultsDescriptor,
     HistoricDescriptor,
     HistoricMeasurementsDescriptor,
 )
+from soda.execution.check_type import CheckType
 
 logger = logging.getLogger(__name__)
 
@@ -72,14 +72,13 @@ class SodaCloud:
         checks = [
             check.get_cloud_dict()
             for check in scan._checks
-            if (check.outcome is not None or check.force_send_results_to_cloud == True) and check.archetype is None
+            if check.check_type == CheckType.CLOUD and (check.outcome is not None or check.force_send_results_to_cloud is True) and check.archetype is None
         ]
         automated_monitoring_checks = [
             check.get_cloud_dict()
             for check in scan._checks
-            if check.check_type == CheckType.CLOUD
-            and (check.outcome is not None or check.force_send_results_to_cloud == True)
-            and check.archetype is not None
+            if (check.outcome is not None or check.force_send_results_to_cloud is True) \
+               and check.archetype is not None
         ]
 
         # TODO: [SODA-608] separate profile columns and sample tables by aligning with the backend team
@@ -165,7 +164,7 @@ class SodaCloud:
             self.logs.error(f"Soda cloud error: Could not upload sample {sample_file_name}", exception=e)
 
     def _fileify(self, name: str):
-        return re.sub(r"[^A-Za-z0-9_]+", "_", name).lower()
+        return re.sub(r"\W+", "_", name).lower()
 
     def _upload_sample_http(self, scan_definition_name: str, file_path, temp_file, file_size_in_bytes: int):
         headers = {
@@ -341,7 +340,7 @@ class SodaCloud:
             )
             response_json = response.json()
             if response.status_code == 401 and not is_retry:
-                logger.debug(f"Authentication failed. Probably token expired. Re-authenticating...")
+                logger.debug("Authentication failed. Probably token expired. Re-authenticating...")
                 self.token = None
                 response_json = self._execute_request(request_type, request_body, True, request_name)
             elif response.status_code != 200:

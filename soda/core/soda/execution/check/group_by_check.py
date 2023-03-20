@@ -7,6 +7,7 @@ from soda.execution.check.metric_check import MetricCheck
 from soda.execution.check_outcome import CheckOutcome
 from soda.execution.metric.metric import Metric
 from soda.execution.partition import Partition
+from soda.execution.check_type import CheckType
 
 GROUP_BY_RESULTS = "group_by_results"
 
@@ -28,6 +29,8 @@ class GroupByCheck(Check):
 
         check_cfg: GroupByCheckCfg = self.check_cfg
         self.check_value = None
+        self.check_type = CheckType.LOCAL
+
         from soda.execution.metric.group_by_metric import GroupByMetric
 
         group_by_metric = data_source_scan.resolve_metric(
@@ -56,8 +59,10 @@ class GroupByCheck(Check):
         group_checks = []
         for group in groups:
             for gcc in group_check_cfgs:
-                config = copy.copy(gcc)
-                config.name = gcc.name + f" [{','.join(str(v) for v in group)}]"
+                group_name =  f"[{','.join(str(v) for v in group)}]"
+                config = copy.deepcopy(gcc)
+                config.name = gcc.name + ' ' + group_name
+                config.source_configurations["group_value"] = group_name
                 column = ",".join(fields)
                 gc = MetricCheck(config, self.data_source_scan, partition=self.partition, column=column)
                 result = next(filter(lambda qr: tuple(map(qr.get, fields)) == group, query_results))
@@ -72,13 +77,13 @@ class GroupByCheck(Check):
                         identity_parts=[],
                     )
                     metric.set_value(gc.check_value)
+                    self.data_source_scan.scan._add_metric(metric)
                     gc.metrics = {config.metric_name: metric}
                     gc.evaluate(metrics=None, historic_values=None)
                 group_checks.append(gc)
 
         self.data_source_scan.scan._checks.extend(group_checks)
 
-        # TODO decide what to do with global check state
         if all(gc.outcome == CheckOutcome.PASS for gc in group_checks):
             self.outcome = CheckOutcome.PASS
         elif any(gc.outcome == CheckOutcome.FAIL for gc in group_checks):
