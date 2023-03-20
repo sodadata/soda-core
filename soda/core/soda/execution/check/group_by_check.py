@@ -5,9 +5,9 @@ import copy
 from soda.execution.check.check import Check
 from soda.execution.check.metric_check import MetricCheck
 from soda.execution.check_outcome import CheckOutcome
+from soda.execution.check_type import CheckType
 from soda.execution.metric.metric import Metric
 from soda.execution.partition import Partition
-from soda.execution.check_type import CheckType
 
 GROUP_BY_RESULTS = "group_by_results"
 
@@ -59,9 +59,9 @@ class GroupByCheck(Check):
         group_checks = []
         for group in groups:
             for gcc in group_check_cfgs:
-                group_name =  f"[{','.join(str(v) for v in group)}]"
+                group_name = f"[{','.join(str(v) for v in group)}]"
                 config = copy.deepcopy(gcc)
-                config.name = gcc.name + ' ' + group_name
+                config.name = gcc.name + " " + group_name
                 config.source_configurations["group_value"] = group_name
                 column = ",".join(fields)
                 gc = MetricCheck(config, self.data_source_scan, partition=self.partition, column=column)
