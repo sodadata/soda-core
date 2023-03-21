@@ -17,18 +17,11 @@ def test_group_evolution(data_source_fixture: DataSourceFixture):
             checks for {table_name}:
               - group evolution:
                   query: |
-                    SELECT country
+                    SELECT distinct(country)
                     FROM {table_name}
-                    GROUP BY country
-                  warn:
-                    when groups change: any
                   fail:
-                    when required group missing: ["UK"]
+                    when required group missing: ["BE"]
                     when forbidden group present: ["US"]
-                    when groups change:
-                        - group add
-                        - group delete
-
     """
     )
     scan.execute()

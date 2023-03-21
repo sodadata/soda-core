@@ -24,14 +24,15 @@ class GroupEvolutionCheckCfg(CheckCfg):
         source_configurations: Optional[str],
         location: Location,
         name: Optional[str],
+        query: str,
         warn_validations: GroupValidations,
         fail_validations: GroupValidations,
-        is_automated_monitoring: bool = False,
     ):
         super().__init__(source_header, source_line, source_configurations, location, name)
         self.warn_validations: GroupValidations = warn_validations
         self.fail_validations: GroupValidations = fail_validations
         self.name = name if name else "Group Evolution Check"
+        self.query = query
 
     def has_change_validations(self) -> bool:
         return (self.warn_validations and self.warn_validations.has_change_validations()) or (
