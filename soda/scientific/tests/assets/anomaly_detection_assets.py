@@ -52,8 +52,6 @@ test_anomaly_detector_evaluate_historic_check_results = {
             "dataTime": "2022-04-20T15:05:30Z",
             "diagnostics": {
                 "value": 21.0,
-                # TODO: [CLOUD-2990] re-enable once we compute uncertainty intervals correctly
-                # "anomalyProbability": 0.0,
                 "anomalyPredictedValue": 20.870516335508597,
                 "anomalyErrorSeverity": "warn",
                 "anomalyErrorCode": "made_daily_keeping_last_point_only",
@@ -76,8 +74,6 @@ test_anomaly_detector_evaluate_historic_check_results = {
             "dataTime": "2022-04-12T15:00:31Z",
             "diagnostics": {
                 "value": 2.0,
-                # TODO: [CLOUD-2990] re-enable once we compute uncertainty intervals correctly
-                # "anomalyProbability": 0.0,
                 "anomalyPredictedValue": 8.46757918589978,
                 "anomalyErrorSeverity": "warn",
                 "anomalyErrorCode": "made_daily_keeping_last_point_only",
@@ -100,8 +96,6 @@ test_anomaly_detector_evaluate_historic_check_results = {
             "dataTime": "2022-04-12T14:59:28Z",
             "diagnostics": {
                 "value": 2.0,
-                # TODO: [CLOUD-2990] re-enable once we compute uncertainty intervals correctly
-                # "anomalyProbability": 0.0,
                 "anomalyPredictedValue": 8.46757918589978,
                 "anomalyErrorSeverity": "warn",
                 "anomalyErrorCode": "made_daily_keeping_last_point_only",
@@ -122,8 +116,6 @@ test_anomaly_detector_evaluate_expected_results = {
     "value": 21.0,
     "fail": {"greaterThanOrEqual": 42.59848061337, "lessThanOrEqual": -10.97031870027},
     "warn": {"greaterThanOrEqual": 38.1344140039, "lessThanOrEqual": -6.5062520908},
-    # TODO: [CLOUD-2990] re-enable once we compute uncertainty intervals correctly
-    # "anomalyProbability": 0.0,
     "anomalyPredictedValue": 15.419588986390275,
     "anomalyErrorSeverity": "pass",
     "anomalyErrorCode": "",

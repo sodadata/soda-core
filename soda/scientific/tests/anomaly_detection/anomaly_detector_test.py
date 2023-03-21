@@ -37,8 +37,6 @@ def test_anomaly_detector_evaluate(historical_measurements, historical_check_res
     detector = AnomalyDetector(historical_measurements, historical_check_results, logs=LOGS, metric_name="avg_length")
     _, diagnostic = detector.evaluate()
     assert diagnostic["value"] == expectation["value"]
-    # TODO: [CLOUD-2990] re-enable once we compute uncertainty intervals correctly
-    # assert diagnostic["anomalyProbability"] == pytest.approx(expectation["anomalyProbability"])
     assert diagnostic["anomalyPredictedValue"] == pytest.approx(expectation["anomalyPredictedValue"])
 
 

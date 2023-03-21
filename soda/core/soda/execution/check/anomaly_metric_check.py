@@ -125,11 +125,6 @@ class AnomalyMetricCheck(MetricCheck):
             if self.diagnostics["value"] is None:
                 self.diagnostics["value"] = self.get_metric_value()
             return
-        # TODO: [CLOUD-2990] re-enable once we compute uncertainty intervals correctly
-        # assert isinstance(
-        #     diagnostics["anomalyProbability"], float
-        # ), f"Anomaly probability must be a float but it is {type(diagnostics['anomalyProbability'])}"
-        # self.check_value = diagnostics["anomalyProbability"]
         self.outcome = CheckOutcome(level)
         self.diagnostics = diagnostics
         if diagnostics["anomalyErrorSeverity"] in ["warn", "error"]:

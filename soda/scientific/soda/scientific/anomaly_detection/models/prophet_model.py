@@ -403,14 +403,6 @@ class ProphetDetector(BaseDetector):
         self.predictions.loc[self.predictions["real_data"] > self.predictions["yhat_upper"], "is_anomaly"] = 1
         self.predictions.loc[self.predictions["real_data"] < self.predictions["yhat_lower"], "is_anomaly"] = -1
 
-        # TODO: [CLOUD-2990] re-enable once we compute uncertainty intervals correctly
-        # derive anomaly probability (by normalising delta between real and predicted)
-        # self._derive_anomaly_probability(self.predictions, anomaly_flag_col="is_anomaly", real_data_colname="real_data")
-
-        # business logic to prevent inf at all cost becaue floats are shit
-        # self.predictions.loc[np.isinf(self.predictions["anomaly_probability"]), "is_anomaly"] = 0
-        # self.predictions.loc[np.isinf(self.predictions["anomaly_probability"]), "anomaly_probability"] = 0.0
-
         self.anomalies = self.predictions
 
     def generate_severity_zones(self):
