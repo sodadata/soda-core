@@ -24,9 +24,7 @@ class GroupByCheck(Check):
             partition=partition,
             column=None,
         )
-        from soda.sodacl.group_by_check_cfg import GroupByCheckCfg
 
-        check_cfg: GroupByCheckCfg = self.check_cfg
         self.check_value = None
         self.check_type = CheckType.LOCAL
 
@@ -36,7 +34,7 @@ class GroupByCheck(Check):
             GroupByMetric(
                 data_source_scan=self.data_source_scan,
                 partition=partition,
-                query=check_cfg.query,
+                query=self.check_cfg.query,
                 check=self,
             )
         )
@@ -58,10 +56,10 @@ class GroupByCheck(Check):
         group_checks = []
         for group in groups:
             for gcc in group_check_cfgs:
-                group_name = f"[{','.join(str(v) for v in group)}]"
+                group_name = f"{','.join(str(v) for v in group)}"
                 config = copy.deepcopy(gcc)
-                config.name = gcc.name + " " + group_name
-                config.source_configurations["group_value"] = group_name
+                config.name = gcc.name + f" [{group_name}]"
+                config.source_configurations["group_value"] = f"[{group_name}]"
                 column = ",".join(fields)
                 gc = Check.create(
                     check_cfg=config, data_source_scan=self.data_source_scan, partition=self.partition, column=column
@@ -88,8 +86,12 @@ class GroupByCheck(Check):
                     metric.set_value(gc.check_value)
                     self.data_source_scan.scan._add_metric(metric)
                     gc.metrics = {config.metric_name: metric}
-
                     gc.evaluate(metrics=None, historic_values=None)
+
+                    cloud_group_attr = {
+                        "group": {"identity": self.create_identity(), "name": gcc.name, "distinctLabel": group_name}
+                    }
+                    gc.cloud_dict.update(cloud_group_attr)
                 group_checks.append(gc)
 
         self.data_source_scan.scan._checks.extend(group_checks)
