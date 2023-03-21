@@ -857,12 +857,14 @@ class SodaCLParser(Parser):
                         f'Invalid group evolution check configuration key "{configuration_key}"', location=self.location
                     )
             name = self._get_optional(NAME, str)
+            query = self._get_required("query", str)
             group_evolution_check_cfg = GroupEvolutionCheckCfg(
                 source_header=header_str,
                 source_line=check_str,
                 source_configurations=check_configurations,
                 location=self.location,
                 name=name,
+                query=query,
                 warn_validations=self.__parse_group_validations(WARN),
                 fail_validations=self.__parse_group_validations(FAIL),
             )
