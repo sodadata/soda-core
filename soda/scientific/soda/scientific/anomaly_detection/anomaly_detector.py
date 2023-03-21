@@ -229,7 +229,6 @@ class AnomalyDetector:
                 },
                 # TODO: [CLOUD-2990] re-enable once we compute uncertainty intervals correctly
                 # "anomalyProbability": results_dict["anomaly_probability"],
-                "anomalyProbability": results_dict["anomaly_probability"],
                 "anomalyPredictedValue": results_dict["yhat"],
                 "anomalyErrorSeverity": freq_detection_result.error_severity,
                 "anomalyErrorCode": freq_detection_result.error_code,
