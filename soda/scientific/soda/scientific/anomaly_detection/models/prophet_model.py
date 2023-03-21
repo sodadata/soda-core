@@ -349,30 +349,6 @@ class ProphetDetector(BaseDetector):
         self.predictions = self.model.predict(self.time_series)
         self._is_trained = True
 
-    @staticmethod
-    def _derive_anomaly_probability(
-        predictions: pd.DataFrame,
-        anomaly_flag_col: str = "is_anomaly",
-        real_data_colname: str = "real_data",
-    ) -> pd.DataFrame:
-        predictions["anomaly_probability"] = 0
-        anomaly_directions = {
-            "above": {anomaly_flag_col: 1, "confidence_col_name": "yhat_upper"},
-            "below": {anomaly_flag_col: -1, "confidence_col_name": "yhat_lower"},
-        }
-
-        interval_range = predictions["yhat_upper"] - predictions["yhat_lower"]
-        for _, params in anomaly_directions.items():
-            # TODO: We might want to revisit the maths here. Might make sense to sigmoidize around
-            # a dynamic acceptance threshold.
-            predictions.loc[predictions[anomaly_flag_col] == params[anomaly_flag_col], "anomaly_probability"] = abs(
-                (predictions[real_data_colname] - predictions[params["confidence_col_name"]]) / interval_range
-            )
-        # TODO: Add a failsafe for a case where we might still have an inf value
-        # this means we'll check if any rows has inf and then if so, we replave to prob 0
-        # is_anomaly should then also be 0 etc. Test thoroughly.
-        return predictions
-
     def detect_anomalies(self):
         assert (
             self._is_trained
