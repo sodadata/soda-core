@@ -66,12 +66,12 @@ ALL_SCHEMA_VALIDATIONS = [
 
 WHEN_REQUIRED_GROUP_MISSING = "when required group missing"
 WHEN_FORBIDDEN_GROUP_PRESENT = "when forbidden group present"
-WHEN_GROUP_CHANGES = "when group changes"
+WHEN_GROUPS_CHANGE = "when groups change"
 
 ALL_GROUP_VALIDATIONS = [
     WHEN_REQUIRED_GROUP_MISSING,
     WHEN_FORBIDDEN_GROUP_PRESENT,
-    WHEN_GROUP_CHANGES,
+    WHEN_GROUPS_CHANGE,
 ]
 
 # Generic log messages for SODACL parser
@@ -879,7 +879,7 @@ class SodaCLParser(Parser):
             is_group_addition_forbidden = False
             is_group_deletion_forbidden = False
 
-            changes_not_allowed = validations_dict.get("when group changes")
+            changes_not_allowed = validations_dict.get(WHEN_GROUPS_CHANGE)
             if changes_not_allowed == "any":
                 is_group_addition_forbidden = True
                 is_group_deletion_forbidden = True
@@ -892,10 +892,10 @@ class SodaCLParser(Parser):
                         is_group_deletion_forbidden = True
 
                     else:
-                        self.logs.error(f'"when group changes" has invalid value {change_not_allowed}')
+                        self.logs.error(f'"{WHEN_GROUPS_CHANGE}" has invalid value {change_not_allowed}')
             elif changes_not_allowed is not None:
                 self.logs.error(
-                    f'Value for "when group changes" must be either "any" or a list of these optional strings: {"group add", "group delete"}. Was {changes_not_allowed}'
+                    f'Value for "{WHEN_GROUPS_CHANGE}" must be either "any" or a list of these optional strings: {"group add", "group delete"}. Was {changes_not_allowed}'
                 )
 
             group_validations = GroupValidations(
@@ -911,12 +911,12 @@ class SodaCLParser(Parser):
                 not in [
                     WHEN_REQUIRED_GROUP_MISSING,
                     WHEN_FORBIDDEN_GROUP_PRESENT,
-                    WHEN_GROUP_CHANGES,
+                    WHEN_GROUPS_CHANGE,
                 ]
             ]:
                 hint = f"Available group validations: {ALL_GROUP_VALIDATIONS}"
-                if invalid_group_validation == "when group change":
-                    hint = f'Did you mean "when group changes" (plural)? {hint}'
+                if invalid_group_validation == WHEN_GROUPS_CHANGE:
+                    hint = f'Did you mean "when groups change" (plural)? {hint}'
                 elif invalid_group_validation == "when required groups missing":
                     hint = f'Did you mean "when required group missing"? (column in singular form) {hint}'
                 elif invalid_group_validation == "when forbidden groups present":
