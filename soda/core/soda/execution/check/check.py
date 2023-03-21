@@ -17,6 +17,7 @@ from soda.soda_cloud.soda_cloud import GENERIC_TYPE_CSV_TEXT_MAX_LENGTH
 from soda.sodacl.check_cfg import CheckCfg
 from soda.sodacl.distribution_check_cfg import DistributionCheckCfg
 from soda.sodacl.group_by_check_cfg import GroupByCheckCfg
+from soda.sodacl.group_evolution_check_cfg import GroupEvolutionCheckCfg
 
 
 class Check(ABC):
@@ -102,6 +103,11 @@ class Check(ABC):
             from soda.execution.check.group_by_check import GroupByCheck
 
             return GroupByCheck(check_cfg, data_source_scan, partition)
+
+        elif isinstance(check_cfg, GroupEvolutionCheckCfg):
+            from soda.execution.check.group_evolution_check import GroupEvolutionCheck
+
+            return GroupEvolutionCheck(check_cfg, data_source_scan, partition)
 
         raise RuntimeError(f"Bug: Unsupported check type {type(check_cfg)}")
 
