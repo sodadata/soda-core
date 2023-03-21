@@ -27,6 +27,10 @@ from soda.sodacl.distribution_check_cfg import DistributionCheckCfg
 from soda.sodacl.for_each_column_cfg import ForEachColumnCfg
 from soda.sodacl.for_each_dataset_cfg import ForEachDatasetCfg
 from soda.sodacl.freshness_check_cfg import FreshnessCheckCfg
+from soda.sodacl.group_evolution_check_cfg import (
+    GroupEvolutionCheckCfg,
+    GroupValidations,
+)
 from soda.sodacl.missing_and_valid_cfg import CFG_MISSING_VALID_ALL, MissingAndValidCfg
 from soda.sodacl.name_filter import NameFilter
 from soda.sodacl.reference_check_cfg import ReferenceCheckCfg
@@ -43,6 +47,7 @@ FAIL = "fail"
 NAME = "name"
 IDENTITY = "identity"
 ATTRIBUTES = "attributes"
+QUERY = "query"
 FAIL_CONDITION = "fail condition"
 FAIL_QUERY = "fail query"
 SAMPLES_LIMIT = "samples limit"
@@ -57,6 +62,16 @@ ALL_SCHEMA_VALIDATIONS = [
     WHEN_WRONG_COLUMN_INDEX,
     WHEN_FORBIDDEN_COLUMN_PRESENT,
     WHEN_SCHEMA_CHANGES,
+]
+
+WHEN_REQUIRED_GROUP_MISSING = "when required group missing"
+WHEN_FORBIDDEN_GROUP_PRESENT = "when forbidden group present"
+WHEN_GROUPS_CHANGE = "when groups change"
+
+ALL_GROUP_VALIDATIONS = [
+    WHEN_REQUIRED_GROUP_MISSING,
+    WHEN_FORBIDDEN_GROUP_PRESENT,
+    WHEN_GROUPS_CHANGE,
 ]
 
 # Generic log messages for SODACL parser
@@ -246,6 +261,9 @@ class SodaCLParser(Parser):
     def __parse_table_check_str(self, header_str: str, check_str: str, check_configurations) -> CheckCfg:
         if check_str == "schema":
             return self.__parse_schema_check(header_str, check_str, check_configurations)
+
+        elif check_str == "group evolution":
+            return self.__parse_group_evolution_check(header_str, check_str, check_configurations)
 
         elif check_str == "failed rows":
             return self.parse_user_defined_failed_rows_check_cfg(check_configurations, check_str, header_str)
@@ -827,6 +845,132 @@ class SodaCLParser(Parser):
                 f'Skipping section "{header_str}" because content is not a object/dict',
                 location=self.location,
             )
+
+    def __parse_group_evolution_check(
+        self, header_str, check_str, check_configurations
+    ) -> GroupEvolutionCheckCfg | None:
+        if isinstance(check_configurations, dict):
+            self._push_path_element(check_str, check_configurations)
+            for configuration_key in check_configurations:
+                if configuration_key not in [NAME, WARN, FAIL, ATTRIBUTES, QUERY]:
+                    self.logs.error(
+                        f'Invalid group evolution check configuration key "{configuration_key}"', location=self.location
+                    )
+            name = self._get_optional(NAME, str)
+            query = self._get_required("query", str)
+            group_evolution_check_cfg = GroupEvolutionCheckCfg(
+                source_header=header_str,
+                source_line=check_str,
+                source_configurations=check_configurations,
+                location=self.location,
+                name=name,
+                query=query,
+                warn_validations=self.__parse_group_validations(WARN),
+                fail_validations=self.__parse_group_validations(FAIL),
+            )
+            self._pop_path_element()
+            return group_evolution_check_cfg
+        else:
+            self.logs.error(f'Check "{check_str}" expects a nested object/dict, but was {check_configurations}')
+
+    def __parse_group_validations(self, outcome_text: str):
+        validations_dict = self._get_optional(outcome_text, dict)
+        if validations_dict:
+            self._push_path_element(outcome_text, validations_dict)
+
+            is_group_addition_forbidden = False
+            is_group_deletion_forbidden = False
+
+            changes_not_allowed = validations_dict.get(WHEN_GROUPS_CHANGE)
+            if changes_not_allowed == "any":
+                is_group_addition_forbidden = True
+                is_group_deletion_forbidden = True
+
+            elif isinstance(changes_not_allowed, list):
+                for change_not_allowed in changes_not_allowed:
+                    if change_not_allowed == "group add":
+                        is_group_addition_forbidden = True
+                    elif change_not_allowed == "group delete":
+                        is_group_deletion_forbidden = True
+
+                    else:
+                        self.logs.error(f'"{WHEN_GROUPS_CHANGE}" has invalid value {change_not_allowed}')
+            elif changes_not_allowed is not None:
+                self.logs.error(
+                    f'Value for "{WHEN_GROUPS_CHANGE}" must be either "any" or a list of these optional strings: {"group add", "group delete"}. Was {changes_not_allowed}'
+                )
+
+            group_validations = GroupValidations(
+                required_group_names=self.__parse_group_validation(WHEN_REQUIRED_GROUP_MISSING),
+                forbidden_group_names=self.__parse_group_validation(WHEN_FORBIDDEN_GROUP_PRESENT),
+                is_group_addition_forbidden=is_group_addition_forbidden,
+                is_group_deletion_forbidden=is_group_deletion_forbidden,
+            )
+            for invalid_group_validation in [
+                v
+                for v in validations_dict
+                if v
+                not in [
+                    WHEN_REQUIRED_GROUP_MISSING,
+                    WHEN_FORBIDDEN_GROUP_PRESENT,
+                    WHEN_GROUPS_CHANGE,
+                ]
+            ]:
+                hint = f"Available group validations: {ALL_GROUP_VALIDATIONS}"
+                if invalid_group_validation == WHEN_GROUPS_CHANGE:
+                    hint = f'Did you mean "when groups change" (plural)? {hint}'
+                elif invalid_group_validation == "when required groups missing":
+                    hint = f'Did you mean "when required group missing"? (column in singular form) {hint}'
+                elif invalid_group_validation == "when forbidden groups present":
+                    hint = f'Did you mean "when forbidden group present"? (column in singular form) {hint}'
+                self.logs.error(
+                    f'Invalid group validation "{invalid_group_validation}": {hint}',
+                    location=self.location,
+                )
+            self._pop_path_element()
+            return group_validations
+
+    def __parse_group_validation(self, validation_type):
+        value_type = (
+            list
+            if validation_type
+            in [
+                "when required group missing",
+                "when forbidden group present",
+            ]
+            else dict
+        )
+        configuration_value = self._get_optional(validation_type, value_type)
+
+        if configuration_value:
+            if validation_type in [
+                "when required group missing",
+                "when forbidden group present",
+            ]:
+                are_values_valid = all(isinstance(c, str) for c in configuration_value)
+
+            else:
+                are_values_valid = all(
+                    isinstance(k, str) and isinstance(v, int) for k, v in configuration_value.items()
+                )
+            if are_values_valid:
+                return configuration_value
+            else:
+                self._push_path_element(validation_type, None)
+                expected_configuration_type = (
+                    "list of strings"
+                    if validation_type
+                    in [
+                        "when required group missing",
+                        "when forbidden group present",
+                    ]
+                    else "dict with strings for keys and values"
+                )
+                self.logs.error(
+                    f'"{validation_type}" must contain {expected_configuration_type}',
+                    location=self.location,
+                )
+                self._pop_path_element()
 
     def __parse_schema_check(self, header_str, check_str, check_configurations) -> SchemaCheckCfg | None:
         if isinstance(check_configurations, dict):
