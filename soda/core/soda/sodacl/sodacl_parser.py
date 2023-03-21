@@ -335,7 +335,7 @@ class SodaCLParser(Parser):
             name = self._get_optional(NAME, str)
 
             try:
-                group_limit = self._get_optional("group_limit", int)
+                group_limit = self._get_optional("group_limit", int) or 1000
                 query = self._get_required("query", str)
                 fields = self._get_required("fields", list)
                 check_cfgs = self._get_required("checks", list)

@@ -9,7 +9,7 @@ if sys.version_info < (3, 8):
     sys.exit(1)
 
 package_name = "soda-core-scientific"
-package_version = "3.0.27"
+package_version = "3.0.29"
 description = "Soda Core Scientific Package"
 requires = [
     f"soda-core=={package_version}",

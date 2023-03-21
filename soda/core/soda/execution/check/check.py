@@ -6,6 +6,7 @@ from abc import ABC
 
 from soda.common.attributes_handler import AttributeHandler
 from soda.execution.check_outcome import CheckOutcome
+from soda.execution.check_type import CheckType
 from soda.execution.column import Column
 from soda.execution.identity import ConsistentHashBuilder
 from soda.execution.metric.metric import Metric
@@ -135,6 +136,11 @@ class Check(ABC):
         self.outcome_reasons: list[dict] = []
         self.force_send_results_to_cloud = False
 
+        # Default check type is Cloud, when this is set to CheckType.LOCAL, the check will not be sent to cloud
+        self.check_type = CheckType.CLOUD
+
+        self.cloud_dict = {}
+
     @property
     def name(self) -> str:
         """User readable name.
@@ -231,32 +237,34 @@ class Check(ABC):
         from soda.execution.column import Column
         from soda.execution.partition import Partition
 
-        cloud_dict = {
-            # See https://sodadata.atlassian.net/browse/CLOUD-1143
-            "identity": self.create_identity(with_datasource=True, with_filename=True),
-            "identities": self.create_identities(),
-            "name": self.name,
-            "type": self.cloud_check_type,
-            "definition": self.create_definition(),
-            "resourceAttributes": self._format_attributes(),
-            "location": self.check_cfg.location.get_cloud_dict(),
-            "dataSource": self.data_source_scan.data_source.data_source_name,
-            "table": Partition.get_table_name(self.partition),
-            # "filter": Partition.get_partition_name(self.partition), TODO: re-enable once backend supports the property.
-            "column": Column.get_partition_name(self.column),
-            "metrics": [metric.identity for metric in self.metrics.values()],
-            "outcome": self.outcome.value if self.outcome else None,
-            "diagnostics": self.get_cloud_diagnostics_dict(),
-            "source": "soda-core",
-        }
+        self.cloud_dict.update(
+            {
+                # See https://sodadata.atlassian.net/browse/CLOUD-1143
+                "identity": self.create_identity(with_datasource=True, with_filename=True),
+                "identities": self.create_identities(),
+                "name": self.name,
+                "type": self.cloud_check_type,
+                "definition": self.create_definition(),
+                "resourceAttributes": self._format_attributes(),
+                "location": self.check_cfg.location.get_cloud_dict(),
+                "dataSource": self.data_source_scan.data_source.data_source_name,
+                "table": Partition.get_table_name(self.partition),
+                # "filter": Partition.get_partition_name(self.partition), TODO: re-enable once backend supports the property.
+                "column": Column.get_partition_name(self.column),
+                "metrics": [metric.identity for metric in self.metrics.values()],
+                "outcome": self.outcome.value if self.outcome else None,
+                "diagnostics": self.get_cloud_diagnostics_dict(),
+                "source": "soda-core",
+            }
+        )
         # Update dict if automated monitoring is running
         if self.archetype is not None:
-            cloud_dict.update({"archetype": self.archetype})
+            self.cloud_dict.update({"archetype": self.archetype})
 
         # Update dict if check is skipped and we want to push reason to cloud
         if self.outcome_reasons:
-            cloud_dict.update({"outcomeReasons": self.outcome_reasons})
-        return cloud_dict
+            self.cloud_dict.update({"outcomeReasons": self.outcome_reasons})
+        return self.cloud_dict
 
     def get_dict(self):
         from soda.execution.column import Column
@@ -301,7 +309,7 @@ class Check(ABC):
                             "failingRowsQueryName": f"{query.query_name}.failing_sql",
                             "passingRowsQueryName": f"{query.query_name}.passing_sql",
                             "totalFailingRows": self.check_value,
-                            "sampleRowCount": sample_ref_block["file"]["totalRowCount"],
+                            "sampleRowCount": sample_ref_block["file"]["storedRowCount"],
                         }
                         cloud_diagnostics["blocks"].append(rca_block)
 

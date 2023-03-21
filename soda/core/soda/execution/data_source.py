@@ -159,7 +159,7 @@ class DataSource:
         "bigserial",
     ]
     TEXT_TYPES_FOR_PROFILING = ["character varying", "varchar", "text", "character", "char"]
-    LIMIT_KEYWORD = "LIMIT"
+    LIMIT_KEYWORD: str = "LIMIT"
 
     # Building up format queries normally works with regexp expression + a set of formats,
     # but some use cases require whole completely custom format expressions.
@@ -764,7 +764,7 @@ class DataSource:
         columns = column_names.split(", ")
 
         qualified_main_query_columns = ", ".join([f"main.{c}" for c in columns])
-        main_query_columns = qualified_main_query_columns if exclude_patterns else "*"
+        main_query_columns = qualified_main_query_columns if exclude_patterns else "main.*"
         join = " AND ".join([f"main.{c} = frequencies.{c}" for c in columns])
 
         sql = dedent(
