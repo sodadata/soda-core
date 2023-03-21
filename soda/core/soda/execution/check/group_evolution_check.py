@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import re
 
 from soda.execution.check.check import Check
@@ -19,9 +21,9 @@ KEY_GROUPS_PREVIOUS = "groups previous"
 class GroupEvolutionCheck(Check):
     def __init__(
         self,
-        check_cfg: "CheckCfg",
-        data_source_scan: "DataSourceScan",
-        partition: "Partition",
+        check_cfg: CheckCfg,
+        data_source_scan: DataSourceScan,
+        partition: Partition,
     ):
         super().__init__(
             check_cfg=check_cfg,
