@@ -152,7 +152,7 @@ class ConfigurationParser(Parser):
             port = config_dict.get("port")
         scheme = None
         if "scheme" in config_dict:
-            port = config_dict.get("scheme")
+            scheme = config_dict.get("scheme")
         return SodaCloud(
             api_key_id=api_key,
             api_key_secret=api_secret,
