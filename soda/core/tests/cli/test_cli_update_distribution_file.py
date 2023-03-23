@@ -14,7 +14,7 @@ from ruamel.yaml import YAML
 
 
 @pytest.mark.skipif(
-    test_data_source not in ["postgres", "snowflake", "bigquery", "mysql"],
+    test_data_source not in ["postgres", "snowflake", "bigquery", "mysql", "sqlserver"],
     reason="Other data sources are not supported",
 )
 def test_cli_update_distribution_file(data_source_fixture: DataSourceFixture, mock_file_system: MockFileSystem):
