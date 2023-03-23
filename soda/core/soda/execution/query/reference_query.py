@@ -65,12 +65,19 @@ class ReferenceQuery(Query):
                 for source_column_name, target_column_name in zip(source_column_names, target_column_names)
             ]
         )
-        passing_where_condition = " OR ".join(
+        passing_where_condition = " AND ".join(
             [
                 f"(SOURCE.{source_column_name} IS NOT NULL AND TARGET.{target_column_name} IS NOT NULL)"
                 for source_column_name, target_column_name in zip(source_column_names, target_column_names)
             ]
         )
+
+        partition_filter = self.partition.sql_partition_filter
+        if partition_filter:
+            scan = self.data_source_scan.scan
+            resolved_partition_filter = scan.jinja_resolve(definition=partition_filter)
+            where_condition = f"{resolved_partition_filter} AND ({where_condition})"
+            passing_where_condition = f"{resolved_partition_filter} AND ({passing_where_condition})"
 
         jinja_resolve = self.data_source_scan.scan.jinja_resolve
 
