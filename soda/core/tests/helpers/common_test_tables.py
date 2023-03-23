@@ -206,3 +206,12 @@ dro_categorical_test_table = TestTable(
         (3,),
     ],
 )
+
+null_test_table = TestTable(
+    name="NullTable",
+    create_view=os.getenv("TEST_WITH_VIEWS", False),
+    columns=[
+        ("column_with_null_values", DataType.INTEGER),
+    ],
+    values=[(None,), (None,), (None,), (None,), (None,), (None,), (None,), (None,), (None,)],
+)
