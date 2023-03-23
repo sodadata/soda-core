@@ -317,17 +317,23 @@ def update_dro(
         filter_clause = f"WHERE {filter}"
 
     if dataset_name and column_name and distribution_type:
-        query = f"SELECT {column_name} FROM {dataset_name} {filter_clause}"
-        logging.info(f"Querying column values to build distribution reference:\n{query}")
-
         scan = Scan()
         scan.add_configuration_yaml_files(configuration)
         data_source_scan = scan._get_or_create_data_source_scan(data_source_name=data_source)
         if data_source_scan:
+            if distribution_type == "categorical":
+                query = f"SELECT {column_name}, COUNT(*) FROM {dataset_name} {filter_clause} GROUP BY {column_name}"
+            else:
+                query = f"SELECT {column_name} FROM {dataset_name} {filter_clause}"
+            logging.info(f"Querying column values to build distribution reference:\n{query}")
+
             rows = __execute_query(data_source_scan.data_source.connection, query)
 
             # TODO document what the supported data types are per data source type. And ensure proper Python data type conversion if needed
-            column_values = [row[0] for row in rows]
+            if distribution_type == "categorical":
+                column_values = rows
+            else:
+                column_values = [row[0] for row in rows]
 
             if not column_values:
                 logging.error(
@@ -335,7 +341,9 @@ def update_dro(
                 )
                 return
 
-            if all(i is None for i in column_values):
+            if (distribution_type == "categorical" and all(row[0] is None for row in column_values)) or (
+                distribution_type == "continuous" and all(row is None for row in column_values)
+            ):
                 logging.error(
                     f"""{column_name} column has only NULL values! To generate a distribution reference object (DRO) your column needs to have more than 0 not null values!"""
                 )
