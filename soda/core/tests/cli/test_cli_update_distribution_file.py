@@ -12,20 +12,64 @@ from helpers.mock_file_system import MockFileSystem
     test_data_source != "postgres",
     reason="Run for postgres only as nothing data source specific is tested.",
 )
-def test_cli_update_distribution_file(data_source_fixture: DataSourceFixture, mock_file_system: MockFileSystem):
+@pytest.mark.parametrize(
+    "dro_config",
+    [
+        pytest.param(
+            dedent(
+                """
+            table: {table_name}
+            column: cst_size
+            distribution_type: continuous
+            """
+            ),
+            id="no sample, no filter",
+        ),
+        pytest.param(
+            dedent(
+                """
+                table: {table_name}
+                column: cst_size
+                distribution_type: continuous
+                sample: TABLESAMPLE BERNOULLI(50) REPEATABLE(61)
+                """
+            ),
+            id="with sample, no filter",
+        ),
+        pytest.param(
+            dedent(
+                """
+                table: {table_name}
+                column: cst_size
+                distribution_type: continuous
+                filter: cst_size > 0
+                """
+            ),
+            id="no sample, with filter",
+        ),
+        pytest.param(
+            dedent(
+                """
+                table: {table_name}
+                column: cst_size
+                distribution_type: continuous
+                sample: TABLESAMPLE BERNOULLI(50) REPEATABLE(61)
+                filter: cst_size > 0
+                """
+            ),
+            id="with sample, with filter",
+        ),
+    ],
+)
+def test_cli_update_distribution_file(
+    data_source_fixture: DataSourceFixture, mock_file_system: MockFileSystem, dro_config: str
+):
     table_name = data_source_fixture.ensure_test_table(customers_test_table)
-
     user_home_dir = mock_file_system.user_home_dir()
 
     mock_file_system.files = {
         f"{user_home_dir}/configuration.yml": data_source_fixture.create_test_configuration_yaml_str(),
-        f"{user_home_dir}/customers_distribution_reference.yml": dedent(
-            f"""
-                table: {table_name}
-                column: cst_size
-                distribution_type: continuous
-            """
-        ),
+        f"{user_home_dir}/customers_distribution_reference.yml": dro_config.format(table_name=table_name),
     }
 
     run_cli(
