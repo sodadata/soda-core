@@ -9,7 +9,7 @@ from helpers.mock_file_system import MockFileSystem
 
 
 @pytest.mark.skipif(
-    test_data_source != "postgres",
+    test_data_source not in ["sqlserver", "dask", "vertica", "spark_df"],
     reason="Run for postgres only as nothing data source specific is tested.",
 )
 def test_cli_update_distribution_file(data_source_fixture: DataSourceFixture, mock_file_system: MockFileSystem):
