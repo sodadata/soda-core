@@ -3,7 +3,6 @@ import math
 from typing import List
 
 import numpy as np
-import pandas as pd
 from pydantic import BaseModel
 
 from soda.scientific.distribution.utils import RefDataCfg
