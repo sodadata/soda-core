@@ -10,8 +10,8 @@ from helpers.mock_file_system import MockFileSystem
 
 
 @pytest.mark.skipif(
-    test_data_source != "postgres",
-    reason="Run for postgres only as nothing data source specific is tested.",
+    test_data_source not in ["postgres", "snowflake", "bigquery", "mysql"],
+    reason="Other data sources are not supported",
 )
 def test_cli_update_distribution_file(data_source_fixture: DataSourceFixture, mock_file_system: MockFileSystem):
     table_name = data_source_fixture.ensure_test_table(customers_test_table)
@@ -47,8 +47,8 @@ def test_cli_update_distribution_file(data_source_fixture: DataSourceFixture, mo
 
 
 @pytest.mark.skipif(
-    test_data_source in ["spark_df", "spark"],
-    reason="Run for postgres only as nothing data source specific is tested.",
+    test_data_source not in ["postgres", "snowflake", "bigquery", "mysql"],
+    reason="Other data sources are not supported",
 )
 def test_cli_update_distribution_file_categorical(data_source_fixture: DataSourceFixture, mock_file_system: MockFileSystem):
     table_name = data_source_fixture.ensure_test_table(dro_categorical_test_table)
@@ -83,8 +83,8 @@ def test_cli_update_distribution_file_categorical(data_source_fixture: DataSourc
     assert bins_and_weights_sorted == [(0, 0.13636363636363635), (1, 0.13636363636363635), (2, 0.2727272727272727), (3, 0.18181818181818182), (6, 0.2727272727272727)]
 
 @pytest.mark.skipif(
-    test_data_source in ["spark_df", "spark"],
-    reason="Run for postgres only as nothing data source specific is tested.",
+    test_data_source not in ["postgres", "snowflake", "bigquery", "mysql"],
+    reason="Other data sources are not supported",
 )
 @pytest.mark.parametrize(
     "distribution_type", 
