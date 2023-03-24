@@ -62,8 +62,8 @@ class AnomalyMetricCheck(MetricCheck):
             self.skip_anomaly_check = True
             data_source_scan.scan._logs.error(
                 f"""An error occurred during the initialization of AnomalyMetricCheck. Please make sure"""
-                f""" that the metric '{check_cfg.metric_name}' is supported. For more information have"""
-                f""" a look at the docs: https://docs.soda.io/soda-cl/anomaly-score.html#anomaly-score-checks""",
+                f""" that the metric '{check_cfg.metric_name}' is supported. For more information see"""
+                f""" the docs: https://docs.soda.io/soda-cl/anomaly-score.html#anomaly-score-checks.""",
                 exception=e,
             )
 
