@@ -59,6 +59,17 @@ from helpers.mock_file_system import MockFileSystem
             ),
             id="with sample, with filter",
         ),
+        pytest.param(
+            dedent(
+                """
+                table: {table_name}
+                column: cst_size
+                distribution_type: continuous
+                filter: random() > 0.5
+                """
+            ),
+            id="hacky sample with filter",
+        ),
     ],
 )
 def test_cli_update_distribution_file(
