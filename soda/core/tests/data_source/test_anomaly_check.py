@@ -295,8 +295,10 @@ def test_anomaly_detection_incorrect_metric(data_source_fixture):
         metric_values=[10, 10, 10, 9, 8, 0, 0, 0, 0],
     )
 
-    with pytest.raises(Exception) as e:    
+    with pytest.raises(Exception) as e:
         scan.execute()
 
-    assert "An error occurred during the initialization of AnomalyMetricCheck. Please make sure that the metric 'incorrect_metric' is supported. For more information see the docs: https://docs.soda.io/soda-cl/anomaly-score.html#anomaly-score-checks." in str(e.value)
-
+    assert (
+        "An error occurred during the initialization of AnomalyMetricCheck. Please make sure that the metric 'incorrect_metric' is supported. For more information see the docs: https://docs.soda.io/soda-cl/anomaly-score.html#anomaly-score-checks."
+        in str(e.value)
+    )
