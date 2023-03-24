@@ -320,13 +320,13 @@ def update_dro(
         scan = Scan()
         scan.add_configuration_yaml_files(configuration)
         data_source_scan = scan._get_or_create_data_source_scan(data_source_name=data_source)
-        
+
         data_sources_with_verified_support = ["postgres", "snowflake", "bigquery", "mysql"]
         if data_source_scan.data_source.type not in data_sources_with_verified_support:
             logging.info(
                 f"The support for your data source type is experimental. The update-dro method"
                 f" is not tested for '{data_source_scan.data_source.type}' and may not work."
-                )
+            )
 
         if data_source_scan:
             if distribution_type == "categorical":

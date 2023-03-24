@@ -20,21 +20,21 @@ class DistributionCheck(Check):
         data_source_scan: DataSourceScan,
         partition: Partition = None,
         column: Column = None,
-    ):          
+    ):
         super().__init__(
             check_cfg=check_cfg,
             data_source_scan=data_source_scan,
             partition=partition,
             column=column,
         )
-        
+
         data_sources_with_verified_support = ["postgres", "snowflake", "bigquery", "mysql"]
         if data_source_scan.data_source.type not in data_sources_with_verified_support:
             self.logs.info(
                 f"The support for your data source type is experimental. Distribution checks are"
                 f" not tested for '{data_source_scan.data_source.type}' and may not work."
-                )
-                
+            )
+
         self.distribution_check_cfg: DistributionCheckCfg = self.check_cfg
         metric = Metric(
             data_source_scan=self.data_source_scan,
