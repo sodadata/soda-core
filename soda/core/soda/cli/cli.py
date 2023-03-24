@@ -322,7 +322,7 @@ def update_dro(
         data_source_scan = scan._get_or_create_data_source_scan(data_source_name=data_source)
         if data_source_scan:
             if distribution_type == "categorical":
-                query = f"SELECT {column_name}, COUNT(*) FROM {dataset_name} {filter_clause} GROUP BY {column_name}"
+                query = f"SELECT {column_name}, COUNT(*) FROM {dataset_name} {filter_clause} GROUP BY {column_name} ORDER BY 2 DESC"
             else:
                 query = f"SELECT {column_name} FROM {dataset_name} {filter_clause}"
             logging.info(f"Querying column values to build distribution reference:\n{query}")
