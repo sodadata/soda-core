@@ -115,21 +115,22 @@ class FreshnessCheck(Check):
         }
 
     def get_cloud_diagnostics_dict(self):
+        cloud_diagnostics = super().get_cloud_diagnostics_dict()
+
         freshness = 0
         if self.freshness_values["freshness"] and isinstance(self.freshness_values["freshness"], timedelta):
             freshness = round(self.freshness_values["freshness"].total_seconds() * 1000)
-        freshness_dict = {
-            "value": freshness,  # milliseconds difference
-            "measure": "time",
-            "maxColumnTimestamp": self.freshness_values["max_column_timestamp"],
-            "maxColumnTimestampUtc": self.freshness_values["max_column_timestamp_utc"],
-            "nowVariableName": self.freshness_values["now_variable_name"],
-            "nowTimestamp": self.freshness_values["now_timestamp"],
-            "nowTimestampUtc": self.freshness_values["now_timestamp_utc"],
-            "freshness": self.freshness_values["freshness"],
-        }
 
-        return freshness_dict
+        cloud_diagnostics["value"] = freshness  # milliseconds difference
+        cloud_diagnostics["measure"] = "time"
+        cloud_diagnostics["maxColumnTimestamp"] = self.freshness_values["max_column_timestamp"]
+        cloud_diagnostics["maxColumnTimestampUtc"] = self.freshness_values["max_column_timestamp_utc"]
+        cloud_diagnostics["nowVariableName"] = self.freshness_values["now_variable_name"]
+        cloud_diagnostics["nowTimestamp"] = self.freshness_values["now_timestamp"]
+        cloud_diagnostics["nowTimestampUtc"] = self.freshness_values["now_timestamp_utc"]
+        cloud_diagnostics["freshness"] = self.freshness_values["freshness"]
+
+        return cloud_diagnostics
 
     def get_log_diagnostic_dict(self) -> dict:
         return self.freshness_values

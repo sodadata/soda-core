@@ -1,37 +1,21 @@
-name: CI pipeline
+name: PR pipeline
 
 on:
   pull_request:
-  push:
-    branches:
-      - main
-    tags:
-      - "*"
-  workflow_dispatch:
 
 env:
   telemetry_local_debug_mode: true
+  python-version: "3.9"
 
 jobs:
   pre-commit:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-
-      - name: Set up Python 3.10
-        uses: actions/setup-python@v4
+      - uses: actions/setup-python@v3
+      - uses: pre-commit/action@v3.0.0
         with:
-          python-version: "3.10"
-
-      - name: Install pre-commit
-        shell: bash
-        run: |
-          python -m pip install --upgrade pip
-          python -m pip install pre-commit
-
-      - name: Run pre-commit hooks
-        shell: bash
-        run: pre-commit run --all-files
+          extra_args: --all-files
 
   run-tests:
     runs-on: ubuntu-22.04
@@ -39,18 +23,12 @@ jobs:
       fail-fast: false
       matrix:
         python-version:
-          - "3.8"
           - "3.9"
-          - "3.10"
 
         data-source:
           - "postgres"
           - "snowflake"
           - "bigquery"
-          - "redshift"
-          - "athena"
-          #  - "db2"
-          # - "spark"
           - "spark_df"
           - "sqlserver"
           - "mysql"
@@ -70,14 +48,6 @@ jobs:
       BIGQUERY_ACCOUNT_INFO_JSON: ${{ secrets.BIGQUERY_ACCOUNT_INFO_JSON }}
       BIGQUERY_DATASET: "test"
       REDSHIFT_HOST: ${{ secrets.REDSHIFT_HOST }}
-      REDSHIFT_USERNAME: ${{ secrets.REDSHIFT_USERNAME }}
-      REDSHIFT_PASSWORD: ${{ secrets.REDSHIFT_PASSWORD }}
-      REDSHIFT_DATABASE: "soda_test"
-      REDSHIFT_PORT: "5439"
-      ATHENA_ACCESS_KEY_ID: ${{ secrets.ATHENA_ACCESS_KEY_ID }}
-      ATHENA_SECRET_ACCESS_KEY: ${{ secrets.ATHENA_SECRET_ACCESS_KEY }}
-      ATHENA_S3_TEST_DIR: ${{ secrets.ATHENA_STAGING_DIR }}
-      ATHENA_SCHEMA: ${{ secrets.ATHENA_SCHEMA }}
       SPARK_HOST: ${{ secrets.SPARK_HOST }}
       SPARK_USERNAME: ${{ secrets.SPARK_USERNAME }}
       SPARK_PASSWORD: ${{ secrets.SPARK_PASSWORD }}
@@ -90,7 +60,6 @@ jobs:
       MYSQL_DATABASE: sodacore
       MYSQL_PASSWORD: sodacore
       MYSQL_ROOT_PASSWORD: sodacore
-      # TODO: add appropriate vars
       SPARK_DF_HOST: ${{ secrets.SPARK_DF_HOST }}
       VERTICA_USERNAME: dbadmin
       VERTICA_PASSWORD: password
@@ -109,7 +78,7 @@ jobs:
           curl https://packages.microsoft.com/keys/microsoft.asc | sudo apt-key add -
           curl https://packages.microsoft.com/config/ubuntu/21.04/prod.list | sudo tee /etc/apt/sources.list.d/mssql-release.list > /dev/null
           sudo apt-get update
-          ACCEPT_EULA=Y sudo apt-get install -y libsasl2-dev msodbcsql18 
+          ACCEPT_EULA=Y sudo apt-get install -y libsasl2-dev msodbcsql18
           python -m pip install --upgrade pip
           cat dev-requirements.in | grep tox | xargs pip install
 
@@ -126,9 +95,7 @@ jobs:
       fail-fast: false
       matrix:
         python-version:
-          - "3.8"
           - "3.9"
-          - "3.10"
 
     env:
       PYTHON_VERSION: ${{ matrix.python-version }}
@@ -142,6 +109,7 @@ jobs:
 
       - name: Install dependencies
         run: |
+          sudo apt-get update
           sudo apt-get install -y libsasl2-dev
           python -m pip install --upgrade pip
           cat dev-requirements.in | grep tox | xargs pip install
@@ -159,9 +127,7 @@ jobs:
       fail-fast: false
       matrix:
         python-version:
-          - "3.8"
           - "3.9"
-          - "3.10"
 
     env:
       PYTHON_VERSION: ${{ matrix.python-version }}
@@ -175,6 +141,7 @@ jobs:
 
       - name: Install dependencies
         run: |
+          sudo apt-get update
           sudo apt-get install -y libsasl2-dev
           python -m pip install --upgrade pip
           cat dev-requirements.in | grep tox | xargs pip install
@@ -182,74 +149,3 @@ jobs:
       - name: Test with tox
         run: |
           tox -- soda -k soda/scientific
-  publish-pypi:
-    name: Build & Publish Package
-    if: contains(github.ref, 'refs/tags/')
-    timeout-minutes: 10
-    runs-on: ubuntu-20.04
-    needs: [run-tests]
-    env:
-      REPORTS_URL: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
-      TWINE_USERNAME: __token__
-      TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
-    steps:
-      - uses: actions/checkout@v3
-      - name: Setup Python 3.8
-        uses: actions/setup-python@v4
-        with:
-          python-version: 3.8
-      - name: Setup dependencies
-        run: pip install --upgrade setuptools wheel twine
-      - name: Get version
-        id: get_version
-        run: echo ::set-output name=VERSION::${GITHUB_REF/refs\/tags\//}
-      - name: Build and publish packages
-        # Hacky version for now :)
-        run: |
-          FAILED=false
-          cd soda
-          for pack in *
-          do
-            pushd .
-            cd $pack
-
-            echo "| Building $pack"
-            python3 setup.py sdist bdist_wheel
-
-            echo "| Uploading $pack to pypi"
-            UPLOAD_FAILED=false
-            twine upload dist/* || UPLOAD_FAILED=true
-            if [ $UPLOAD_FAILED = true ]; then
-              FAILED=true
-              echo "Failed to upload $pack"
-            fi
-
-            popd
-          done
-
-          if [ $FAILED = true ]; then
-            echo "There was an error, check the logs please."
-            exit 1
-          fi
-  trigger-docker-build:
-    name: Trigger Docker build workflow
-    needs: [publish-pypi]
-    timeout-minutes: 10
-    runs-on: ubuntu-20.04
-    if: contains(github.ref, 'refs/tags/')
-    steps:
-      - name: check if a version tag
-        id: check-version-tag
-        run: |
-          if [[ ${{ github.event.ref }} =~ ^refs/tags/v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-              echo ::set-output name=match::true
-              echo ::set-output name=versiontag::$(echo $GITHUB_REF | cut -d / -f 3)
-          fi
-      - name: Repository Dispatch
-        if: steps.check-version-tag.outputs.match == 'true'
-        uses: peter-evans/repository-dispatch@v2
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          repository: sodadata/soda-core
-          event-type: started-from-version-tag
-          client-payload: '{"tag": "${{ steps.check-version-tag.outputs.versiontag }}", "ref": "${{ github.ref }}"}'
