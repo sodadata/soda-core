@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 
-from soda.contracts.parser.parser_file import ParserFile
+from soda.contract.parser.parser_file import ParserFile
 
 
 class ParserPlugin(ABC):

@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from soda.contracts.parser.parser_file import ParserFile
-from soda.contracts.parser.parser_log import ParserLogs
-from soda.contracts.parser.parser_yaml import YamlObject, YamlString
+from soda.contract.parser.parser_file import ParserFile
+from soda.contract.parser.parser_log import ParserLogs
+from soda.contract.parser.parser_yaml import YamlObject, YamlString
 
 
 class ParserDatasourceFile(ParserFile):

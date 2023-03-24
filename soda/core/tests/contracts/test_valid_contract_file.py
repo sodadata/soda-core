@@ -8,18 +8,18 @@ def test_parsing_complete_and_correct_producer_contract_file(data_source_fixture
 
     contract_file_path = f"{mock_file_system.user_home_dir()}/customers.yml"
 
-    mock_file_system.add_file(
-        contract_file_path,
-        f"""
-        datasource: {data_source_fixture.data_source_name}
-        source_name: {table_name}
-        name: Customers
-        schema:
-          id:
-          name:
-          sales:
-        """
-    )
+    mock_file_system.files = {
+        contract_file_path:
+            f"""
+            datasource: {data_source_fixture.data_source_name}
+            source_name: {table_name}
+            name: Customers
+            schema:
+              id:
+              name:
+              sales:
+            """
+    }
 
     scan = data_source_fixture.create_test_scan()
     scan.add_contract_yaml_file(contract_file_path)

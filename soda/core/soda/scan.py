@@ -303,6 +303,20 @@ class Scan:
         except Exception as e:
             self._logs.error(f"Could not add SodaCL file {file_path}", exception=e)
 
+    def add_contract_yaml_file(self, file_path: str):
+        """
+        Add a data contract file to the scan on the given file_path.
+        """
+        try:
+            contract_yaml_str = self._read_file("Data contract", file_path)
+            if file_path not in self._file_paths:
+                self._file_paths.add(file_path)
+                self._parse_contract_yaml_str(contract_yaml_str=contract_yaml_str, file_path=file_path)
+            else:
+                self._logs.debug(f"Skipping duplicate file addition for {file_path}")
+        except Exception as e:
+            self._logs.error(f"Could not add contract file {file_path}", exception=e)
+
     def add_sodacl_yaml_str(self, sodacl_yaml_str: str):
         """
         Add a SodaCL YAML string to the scan.
@@ -329,6 +343,18 @@ class Scan:
             data_source_name=self._data_source_name,
         )
         sodacl_parser.parse_sodacl_yaml_str(sodacl_yaml_str)
+
+    def _parse_contract_yaml_str(self, contract_yaml_str: str, file_path: str = None):
+        from soda.contract.parser.contract_parser import ContractParser
+
+        contract_parse_results = ContractParser.parse(file_path=file_path, contract_yaml_str=contract_yaml_str)
+        contract_parse_results.result_one
+        contract_parse_results.result_two
+
+        if contract_parse_results.is_valid():
+            contract_scan_details = ContractConverter.convert(contract_parse_results)
+            self.a = self.merge_a(self.a, contract_scan_details.a)
+            self.b = self.merge_b(self.b, contract_scan_details.b)
 
     def _read_file(self, file_type: str, file_path: str) -> str:
         file_location = Location(file_path)

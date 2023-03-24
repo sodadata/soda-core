@@ -1,4 +1,4 @@
-from soda.contracts.parser.parser_resolver import ParserResolver
+from soda.contract.parser.parser_resolver import ParserResolver
 
 
 def test_basic_variable_resolving():

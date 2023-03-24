@@ -3,8 +3,8 @@ from __future__ import annotations
 from textwrap import dedent
 from typing import List
 
-from soda.contracts.parser.parser_log import ParserLogLevel, ParserLog, ParserLogs, ParserLocation
-from soda.contracts.parser.parser import Parser
+from soda.contract.parser.parser_log import ParserLogLevel, ParserLog, ParserLogs, ParserLocation
+from soda.contract.parser.contract_parser import ContractParser
 
 
 class TestParserLogs(ParserLogs):
@@ -20,7 +20,7 @@ class TestParserLogs(ParserLogs):
             raise AssertionError(f"Expected no error, but got: \n{self.logs[-1].to_assertion_summary()}")
 
 
-class TestParser(Parser):
+class TestParser(ContractParser):
 
     def __init__(self):
         super().__init__(TestParserLogs())
@@ -34,11 +34,11 @@ class TestParser(Parser):
         self.logs.continue_on_error = True
         return self
 
-    def parse(self, file_content_str: str, file_path: str | None = None) -> TestParser:
+    def parse(self, contract_yaml_str: str, file_path: str | None = None) -> TestParser:
         if file_path is None:
             self.next_unnamed_file_index += 1
             file_path = f'unnamed_parser_file_{self.next_unnamed_file_index}'
-        file_content_str_dedented = dedent(file_content_str)
+        file_content_str_dedented = dedent(contract_yaml_str)
         super().parse_file_str(file_path, file_content_str_dedented)
         return self
 

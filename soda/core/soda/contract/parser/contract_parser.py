@@ -5,39 +5,48 @@ from typing import List, Dict
 from ruamel.yaml import YAML, CommentedMap, CommentedSeq
 from ruamel.yaml.error import MarkedYAMLError
 
-from soda.contracts.parser.parser_base import ParserBase
-from soda.contracts.parser.parser_data_contract_file import ParserDataContractFile
-from soda.contracts.parser.parser_datasource_file import ParserDatasourceFile
-from soda.contracts.parser.parser_file import ParserFile
-from soda.contracts.parser.parser_log import ParserLogs, ParserLocation
-from soda.contracts.parser.parser_plugin import ParserPlugin
-from soda.contracts.parser.parser_resolver import ParserResolver
-from soda.contracts.parser.parser_yaml import YamlObject, YamlString
+from soda.contract.parser.parser_base import ParserBase
+
+from soda.contract.parser.contract_file import ContractFile
+from soda.contract.parser.parser_data_contract_file import ParserDataContractFile
+from soda.contract.parser.parser_datasource_file import ParserDatasourceFile
+from soda.contract.parser.parser_file import ParserFile
+from soda.contract.parser.parser_log import ParserLogs, ParserLocation
+from soda.contract.parser.parser_plugin import ParserPlugin
+from soda.contract.parser.parser_resolver import ParserResolver
+from soda.contract.parser.parser_yaml import YamlObject, YamlString
 
 
-class Parser(ParserBase):
+class ContractParser:
+    """
+    Parses data contract YAML files.
 
-    def __init__(self,
-                 logs: ParserLogs = ParserLogs(),
-                 variable_resolver: ParserResolver = ParserResolver()):
-        super().__init__(logs)
+    Usage:
+    contract_parser = ContractParser()
+    contract_file_1 = contract_parser.parse(contract_yaml_str_1, file_path_1, logs)
+    contract_file_2 = contract_parser.parse(contract_yaml_str_2, file_path_2, logs)
+
+    ContractParser is immutable, so it's thread safe.
+    """
+
+    def __init__(self, variable_resolver: ParserResolver = ParserResolver()):
         self.yaml = YAML()
         self.yaml.preserve_quotes = True
         self.files: List[ParserFile] = []
         self.plugins: List[ParserPlugin] = []
         self.variable_resolver: ParserResolver = variable_resolver
 
-    def _get_file_type(self, file_path: str, root_ruamel_map: CommentedMap) -> type | None:
-        if "dataset" in root_ruamel_map:
-            return ParserDataContractFile
-        if "connection" in root_ruamel_map:
-            return ParserDatasourceFile
-        return None
+    def parse(self, contract_yaml_str: str, file_path: str, logs: ParserLogs) -> ContractFile | None:
+        """
+        Parses a contract file YAML file_content_str and builds up the corresponding ContractFile python data structure.
+        :param contract_yaml_str: The YAMl text as a python string
+        :param file_path: The file
+        :param logs:
+        :return: A ContractFile if it can be
+        """
+        resolved_file_content_str = self.variable_resolver.resolve_variables(contract_yaml_str)
 
-    def parse_file_str(self, file_path: str, file_content_str: str) -> None:
-        resolved_file_content_str = self.variable_resolver.resolve_variables(file_content_str)
-
-        self.logs.debug(f"Parsing file '{file_path}'")
+        logs.debug(f"Parsing file '{file_path}'")
         root_ruamel_object: CommentedMap = self._parse_yaml_str(
             file_path=file_path,
             file_content_str=resolved_file_content_str
@@ -47,27 +56,21 @@ class Parser(ParserBase):
             actual_type_name = "list" \
                 if isinstance(root_ruamel_object, CommentedSeq) \
                 else type(root_ruamel_object).__name__
-            self.logs.error(
+            logs.error(
                 message=f"All top level YAML elements must be objects, but was '{actual_type_name}'",
                 docs_ref="04-data-contract-language.md#file-type"
             )
             return None
 
-        file_type = self._get_file_type(file_path=file_path, root_ruamel_map=root_ruamel_object)
-        if file_type is None:
-            self.logs.error(f"File type could not be determined for {file_path}")
-            return
-
         root_yaml_object = YamlObject(
             ruamel_object=root_ruamel_object,
-            logs=self.logs,
             location=ParserLocation(file_path, 0, 0)
         )
 
-        parser_file = file_type(
+        parser_file = ParserDataContractFile(
             logs=self.logs,
             file_path=file_path,
-            file_content_str=file_content_str,
+            file_content_str=contract_yaml_str,
             root_yaml_object=root_yaml_object,
         )
         self.files.append(parser_file)
