@@ -1,6 +1,7 @@
 from textwrap import dedent
 
 import pytest
+from soda.cli.cli import DATA_SOURCES_WITH_DISTRIBUTION_CHECK_SUPPORT
 from cli.run_cli import run_cli
 from helpers.common_test_tables import (
     customers_test_table,
@@ -39,7 +40,7 @@ def mock_file_system_and_run_cli(user_home_dir, mock_file_system, data_source_fi
     return run_cli_output
 
 @pytest.mark.skipif(
-    test_data_source not in ["postgres", "snowflake", "bigquery", "mysql"],
+    test_data_source not in DATA_SOURCES_WITH_DISTRIBUTION_CHECK_SUPPORT,
     reason="Support for other data sources is experimental and not tested",
 )
 @pytest.mark.parametrize(
@@ -87,7 +88,7 @@ def test_cli_update_distribution_file(data_source_fixture: DataSourceFixture, mo
 
 
 @pytest.mark.skipif(
-    test_data_source not in ["postgres", "snowflake", "bigquery", "mysql"],
+    test_data_source not in DATA_SOURCES_WITH_DISTRIBUTION_CHECK_SUPPORT,
     reason="Support for other data sources is experimental and not tested",
 )
 @pytest.mark.parametrize(
