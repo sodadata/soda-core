@@ -14,8 +14,8 @@ from ruamel.yaml import YAML
 
 
 @pytest.mark.skipif(
-    test_data_source not in ["postgres", "snowflake", "bigquery", "mysql", "sqlserver"],
-    reason="Other data sources are not supported",
+    test_data_source not in ["postgres", "snowflake", "bigquery", "mysql"],
+    reason="Other data sources support is experimental and not tested",
 )
 def test_cli_update_distribution_file(data_source_fixture: DataSourceFixture, mock_file_system: MockFileSystem):
     table_name = data_source_fixture.ensure_test_table(customers_test_table)
@@ -58,7 +58,7 @@ def test_cli_update_distribution_file(data_source_fixture: DataSourceFixture, mo
 
 @pytest.mark.skipif(
     test_data_source not in ["postgres", "snowflake", "bigquery", "mysql"],
-    reason="Other data sources are not supported",
+    reason="Other data sources support is experimental and not tested",
 )
 def test_cli_update_distribution_file_categorical(
     data_source_fixture: DataSourceFixture, mock_file_system: MockFileSystem
@@ -103,7 +103,7 @@ def test_cli_update_distribution_file_categorical(
 
 @pytest.mark.skipif(
     test_data_source not in ["postgres", "snowflake", "bigquery", "mysql"],
-    reason="Other data sources are not supported",
+    reason="Other data sources support is experimental and not tested",
 )
 @pytest.mark.parametrize(
     "distribution_type",
