@@ -349,9 +349,12 @@ def update_dro(
                 )
                 return
 
-            if (distribution_type == "categorical" and all(row[0] is None for row in column_values)) or (
-                distribution_type == "continuous" and all(row is None for row in column_values)
-            ):
+            if distribution_type == "categorical":
+                has_null_values_only = all(row[0] is None for row in column_values)
+            else:
+                has_null_values_only = all(row is None for row in column_values)
+
+            if has_null_values_only:
                 logging.error(
                     f"""{column_name} column has only NULL values! To generate a distribution reference object (DRO) your column needs to have more than 0 not null values!"""
                 )
