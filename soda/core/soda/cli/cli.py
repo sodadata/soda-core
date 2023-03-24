@@ -32,6 +32,7 @@ soda_telemetry = SodaTelemetry.get_instance()
 # TODO IA-163. Add and test support for other data sources
 DATA_SOURCES_WITH_DISTRIBUTION_CHECK_SUPPORT = ["postgres", "snowflake", "bigquery", "mysql"]
 
+
 @click.version_option(package_name="soda-core", prog_name="soda-core")
 @click.group(help=f"Soda Core CLI version {SODA_CORE_VERSION}")
 def main():
@@ -322,7 +323,7 @@ def update_dro(
         scan = Scan()
         scan.add_configuration_yaml_files(configuration)
         data_source_scan = scan._get_or_create_data_source_scan(data_source_name=data_source)
-        
+
         if data_source_scan.data_source.type not in DATA_SOURCES_WITH_DISTRIBUTION_CHECK_SUPPORT:
             logging.info(
                 f"The support for your data source type is experimental. The update-dro method"

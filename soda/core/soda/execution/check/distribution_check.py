@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from numbers import Number
 
+from soda.cli.cli import DATA_SOURCES_WITH_DISTRIBUTION_CHECK_SUPPORT
 from soda.common.exceptions import SODA_SCIENTIFIC_MISSING_LOG_MESSAGE
 from soda.execution.check.check import Check
 from soda.execution.check_outcome import CheckOutcome
@@ -11,7 +12,7 @@ from soda.execution.metric.metric import Metric
 from soda.execution.partition import Partition
 from soda.execution.query.query import Query
 from soda.sodacl.distribution_check_cfg import DistributionCheckCfg
-from soda.cli.cli import DATA_SOURCES_WITH_DISTRIBUTION_CHECK_SUPPORT
+
 
 class DistributionCheck(Check):
     def __init__(
@@ -27,12 +28,12 @@ class DistributionCheck(Check):
             partition=partition,
             column=column,
         )
-        
+
         if data_source_scan.data_source.type not in DATA_SOURCES_WITH_DISTRIBUTION_CHECK_SUPPORT:
             self.logs.info(
                 f"The support for your data source type is experimental. Distribution checks are"
                 f" not tested for '{data_source_scan.data_source.type}' and may not work."
-                )
+            )
 
         self.distribution_check_cfg: DistributionCheckCfg = self.check_cfg
         metric = Metric(
