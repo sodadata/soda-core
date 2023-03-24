@@ -325,7 +325,7 @@ def update_dro(
         if data_source_scan.data_source.type not in data_sources_with_verified_support:
             logging.info(
                 f"The support for your data source type is experimental. The update-dro method"
-                f" is not tested for '{data_sources_with_verified_support}' and may not work."
+                f" is not tested for '{data_source_scan.data_source.type}' and may not work."
                 )
 
         if data_source_scan:
