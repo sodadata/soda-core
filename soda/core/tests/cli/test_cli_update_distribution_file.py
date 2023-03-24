@@ -14,7 +14,9 @@ from helpers.mock_file_system import MockFileSystem
 from ruamel.yaml import YAML
 
 
-def mock_file_system_and_run_cli(user_home_dir, mock_file_system, data_source_fixture, table_name, column_name, distribution_type):
+def mock_file_system_and_run_cli(
+    user_home_dir, mock_file_system, data_source_fixture, table_name, column_name, distribution_type
+):
     mock_file_system.files = {
         f"{user_home_dir}/configuration.yml": data_source_fixture.create_test_configuration_yaml_str(),
         f"{user_home_dir}/customers_distribution_reference.yml": dedent(
@@ -39,6 +41,7 @@ def mock_file_system_and_run_cli(user_home_dir, mock_file_system, data_source_fi
 
     return run_cli_output
 
+
 @pytest.mark.skipif(
     test_data_source not in DATA_SOURCES_WITH_DISTRIBUTION_CHECK_SUPPORT,
     reason="Support for other data sources is experimental and not tested",
@@ -46,9 +49,9 @@ def mock_file_system_and_run_cli(user_home_dir, mock_file_system, data_source_fi
 @pytest.mark.parametrize(
     "column_name, distribution_type, expected_bins_and_weights",
     [
-        pytest.param( 
-            'cst_size', 
-            'continuous', 
+        pytest.param(
+            "cst_size",
+            "continuous",
             [
                 (-3.0, 0.0),
                 (-0.75, 0.2857142857142857),
@@ -56,10 +59,11 @@ def mock_file_system_and_run_cli(user_home_dir, mock_file_system, data_source_fi
                 (3.75, 0.0),
                 (6.0, 0.2857142857142857),
             ],
-            id="continuous column"),
+            id="continuous column",
+        ),
         pytest.param(
-            'categorical_value', 
-            'categorical', 
+            "categorical_value",
+            "categorical",
             [
                 (0, 0.13636363636363635),
                 (1, 0.13636363636363635),
@@ -67,18 +71,27 @@ def mock_file_system_and_run_cli(user_home_dir, mock_file_system, data_source_fi
                 (3, 0.18181818181818182),
                 (6, 0.2727272727272727),
             ],
-            id="categorical column"),
+            id="categorical column",
+        ),
     ],
 )
-def test_cli_update_distribution_file(data_source_fixture: DataSourceFixture, mock_file_system: MockFileSystem, column_name, distribution_type, expected_bins_and_weights):
+def test_cli_update_distribution_file(
+    data_source_fixture: DataSourceFixture,
+    mock_file_system: MockFileSystem,
+    column_name,
+    distribution_type,
+    expected_bins_and_weights,
+):
     if distribution_type == "continuous":
         table_name = data_source_fixture.ensure_test_table(customers_test_table)
     else:
         table_name = data_source_fixture.ensure_test_table(dro_categorical_test_table)
-    
+
     user_home_dir = mock_file_system.user_home_dir()
 
-    mock_file_system_and_run_cli(user_home_dir, mock_file_system, data_source_fixture, table_name, column_name, distribution_type)
+    mock_file_system_and_run_cli(
+        user_home_dir, mock_file_system, data_source_fixture, table_name, column_name, distribution_type
+    )
 
     parsed_dro: dict = YAML().load(mock_file_system.files[f"{user_home_dir}/customers_distribution_reference.yml"])
     weights = parsed_dro["distribution_reference"]["weights"]
@@ -105,7 +118,9 @@ def test_cli_update_distribution_errors(
 
     user_home_dir = mock_file_system.user_home_dir()
 
-    cli_output = mock_file_system_and_run_cli(user_home_dir, mock_file_system, data_source_fixture, table_name, "column_with_null_values", distribution_type).output
+    cli_output = mock_file_system_and_run_cli(
+        user_home_dir, mock_file_system, data_source_fixture, table_name, "column_with_null_values", distribution_type
+    ).output
     assert (
         "column_with_null_values column has only NULL values! To generate a distribution reference object (DRO) your column needs to have more than 0 not null values!"
         in cli_output

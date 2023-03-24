@@ -20,7 +20,7 @@ class DistributionCheck(Check):
         data_source_scan: DataSourceScan,
         partition: Partition = None,
         column: Column = None,
-    ):          
+    ):
         super().__init__(
             check_cfg=check_cfg,
             data_source_scan=data_source_scan,

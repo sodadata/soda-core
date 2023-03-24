@@ -327,7 +327,7 @@ def update_dro(
             logging.info(
                 f"The support for your data source type is experimental. The update-dro method"
                 f" is not tested for '{data_source_scan.data_source.type}' and may not work."
-                )
+            )
 
         if data_source_scan:
             if distribution_type == "categorical":
