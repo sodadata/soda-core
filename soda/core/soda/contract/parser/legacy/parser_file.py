@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from soda.contract.parser.parser_base import ParserBase
 from soda.contract.parser.parser_log import ParserLogs
 from soda.contract.parser.parser_yaml import YamlObject
 

@@ -5,12 +5,15 @@ import logging
 import os
 import textwrap
 from datetime import datetime, timezone
+from typing import List
 
 from soda.__version__ import SODA_CORE_VERSION
 from soda.common.json_helper import JsonHelper
 from soda.common.log import Log, LogLevel
 from soda.common.logs import Logs
 from soda.common.undefined_instance import undefined
+from soda.contract.parser.data_contract import DataContract
+from soda.contract.parser.parser_log import ParserLogs
 from soda.execution.check.check import Check
 from soda.execution.check_outcome import CheckOutcome
 from soda.execution.data_source_scan import DataSourceScan
@@ -51,6 +54,7 @@ class Scan:
         self._variables: dict[str, object] = {"NOW": now.isoformat()}
         self._configuration: Configuration = Configuration(scan=self)
         self._sodacl_cfg: SodaCLCfg = SodaCLCfg(scan=self)
+        self._data_contracts: List[DataContract] = []
         self._file_paths: set[str] = set()
         self._data_timestamp: datetime = now
         self._scan_start_timestamp: datetime = now
@@ -349,16 +353,26 @@ class Scan:
         sodacl_parser.parse_sodacl_yaml_str(sodacl_yaml_str)
 
     def _parse_contract_yaml_str(self, contract_yaml_str: str, file_path: str = None):
-        from soda.contract.parser.contract_parser import ContractParser
+        from soda.contract.parser.data_contract_parser import DataContractParser
 
-        contract_parse_results = ContractParser.parse(file_path=file_path, contract_yaml_str=contract_yaml_str)
-        contract_parse_results.result_one
-        contract_parse_results.result_two
+        parser_logs = ParserLogs()
+        data_contract_parser = DataContractParser()
+        data_contract_parse_result = data_contract_parser.parse(
+            contract_yaml_str=contract_yaml_str,
+            file_path=file_path,
+            logs=parser_logs
+        )
 
-        if contract_parse_results.is_valid():
-            contract_scan_details = ContractConverter.convert(contract_parse_results)
-            self.a = self.merge_a(self.a, contract_scan_details.a)
-            self.b = self.merge_b(self.b, contract_scan_details.b)
+        for parser_log in parser_logs.logs:
+            self._logs.log(
+                level=LogLevel[parser_log.level.value],
+                message=parser_log.message,
+                location=parser_log.location,
+                doc=parser_log.docs_ref
+            )
+
+        if data_contract_parse_result.data_contract:
+            self._data_contracts.append(data_contract_parse_result.data_contract)
 
     def _read_file(self, file_type: str, file_path: str) -> str:
         file_location = Location(file_path)

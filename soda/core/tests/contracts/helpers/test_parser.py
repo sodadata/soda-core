@@ -4,7 +4,7 @@ from textwrap import dedent
 from typing import List
 
 from soda.contract.parser.parser_log import ParserLogLevel, ParserLog, ParserLogs, ParserLocation
-from soda.contract.parser.contract_parser import ContractParser
+from soda.contract.parser.data_contract_parser import DataContractParser
 
 
 class TestParserLogs(ParserLogs):
@@ -20,7 +20,7 @@ class TestParserLogs(ParserLogs):
             raise AssertionError(f"Expected no error, but got: \n{self.logs[-1].to_assertion_summary()}")
 
 
-class TestParser(ContractParser):
+class TestParser(DataContractParser):
 
     def __init__(self):
         super().__init__(TestParserLogs())

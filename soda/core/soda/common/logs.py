@@ -95,7 +95,7 @@ class Logs:
                 exception=exception,
             )
 
-    def log(self, level, message, location, doc, exception):
+    def log(self, level, message, location, doc, exception=None):
         log = Log(
             level=level,
             message=message,

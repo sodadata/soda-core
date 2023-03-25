@@ -39,40 +39,6 @@ class YamlString(YamlValue):
         super().__init__(location)
         self.value: str = value
 
-    @classmethod
-    def validate_name(cls, yaml_string: YamlString | None) -> None:
-        if yaml_string is not None:
-            if '\n' in yaml_string.value or len(yaml_string.value) > 120:
-                yaml_string.logs.error(
-                    message="Invalid name",
-                    location=yaml_string.location,
-                    docs_ref="02-data-producer-contract.md#string-types"
-                )
-
-    email_regex = re.compile(r'([A-Za-z0-9]+[.-_])*[A-Za-z0-9]+@[A-Za-z0-9-]+(\.[A-Z|a-z]{2,})+')
-
-    @classmethod
-    def validate_email(cls, yaml_string: YamlString | None) -> None:
-        if yaml_string is not None:
-            if not re.fullmatch(cls.email_regex, yaml_string.value):
-                yaml_string.logs.error(
-                    message="Invalid email",
-                    location=yaml_string.location,
-                    docs_ref="02-data-producer-contract.md#string-types"
-                )
-
-    id_regex = re.compile(r'[A-Za-z0-9_]+')
-
-    @classmethod
-    def validate_id(cls, yaml_string: YamlString | None) -> None:
-        if yaml_string is not None:
-            if not re.fullmatch(cls.id_regex, yaml_string.value):
-                yaml_string.logs.error(
-                    message="Invalid id",
-                    location=yaml_string.location,
-                    docs_ref="02-data-producer-contract.md#string-types"
-                )
-
 
 class YamlNumber(YamlValue):
     def __init__(self, value: Number, location: ParserLocation):
