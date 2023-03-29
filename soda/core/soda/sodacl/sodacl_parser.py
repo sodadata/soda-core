@@ -10,6 +10,7 @@ from textwrap import dedent
 
 from antlr4 import CommonTokenStream, InputStream
 from antlr4.error.ErrorListener import ErrorListener
+from soda.common.file_system import file_system
 from soda.common.logs import Logs
 from soda.common.parser import Parser
 from soda.common.yaml_helper import to_yaml_str
@@ -565,11 +566,24 @@ class SodaCLParser(Parser):
                             f'In configuration "{configuration_key}" the metric name must match exactly the metric name in the check "{metric_name}"',
                             location=self.location,
                         )
-                elif configuration_key.endswith("query"):
-                    metric_query = dedent(configuration_value).strip()
-                    configuration_metric_name = (
-                        configuration_key[: -len(" query")] if len(configuration_key) > len(" query") else None
-                    )
+                elif configuration_key.endswith("query") or configuration_key.endswith("sql_file"):
+                    if configuration_key.endswith("sql_file"):
+                        fs = file_system()
+                        sql_file_path = fs.join(fs.dirname(self.path_stack.file_path), configuration_value.strip())
+                        metric_query = dedent(fs.file_read_as_str(sql_file_path)).strip()
+                        configuration_metric_name = (
+                            configuration_key[: -len(" sql_file")]
+                            if len(configuration_key) > len(" sql_file")
+                            else None
+                        )
+
+                    else:
+                        metric_query = dedent(configuration_value).strip()
+
+                        configuration_metric_name = (
+                            configuration_key[: -len(" query")] if len(configuration_key) > len(" query") else None
+                        )
+
                     if configuration_metric_name != metric_name:
                         self.logs.error(
                             f'In configuration "{configuration_key}" the metric name must match exactly the metric name in the check "{metric_name}"',
