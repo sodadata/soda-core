@@ -24,5 +24,5 @@ class GroupEvolutionQuery(Query):
 
     def execute(self):
         self.fetchall()
-        # Only single valye per group is supported
-        self.metric.set_value([r[0] for r in self.rows])
+        # Only single value per group is supported and we skip nulls
+        self.metric.set_value([r[0] for r in self.rows if r[0] is not None])

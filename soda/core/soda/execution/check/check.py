@@ -363,6 +363,7 @@ class Check(ABC):
     def get_log_diagnostic_dict(self) -> dict:
         diagnostics_dict = self.get_cloud_diagnostics_dict()
         diagnostics_dict.pop("failedRowsFile", None)
+        diagnostics_dict.pop("blocks", None)
         return diagnostics_dict
 
     def __str__(self):
