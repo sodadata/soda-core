@@ -137,7 +137,7 @@ def test_cli_update_distribution_file_filter_and_sample(
         ),
     ],
 )
-def test_cli_update_distribution_file_bins_and_weights_continuous(
+def test_cli_update_distribution_file_bins_and_weights(
     data_source_fixture: DataSourceFixture,
     mock_file_system: MockFileSystem,
     distribution_type: str,
