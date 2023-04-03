@@ -29,6 +29,9 @@ from ..__version__ import SODA_CORE_VERSION
 
 soda_telemetry = SodaTelemetry.get_instance()
 
+# TODO IA-163. Add and test support for other data sources
+DATA_SOURCES_WITH_DISTRIBUTION_CHECK_SUPPORT = ["postgres", "snowflake", "bigquery", "mysql"]
+
 
 @click.version_option(package_name="soda-core", prog_name="soda-core")
 @click.group(help=f"Soda Core CLI version {SODA_CORE_VERSION}")
@@ -326,11 +329,27 @@ def update_dro(
         scan = Scan()
         scan.add_configuration_yaml_files(configuration)
         data_source_scan = scan._get_or_create_data_source_scan(data_source_name=data_source)
+
+        if data_source_scan.data_source.type not in DATA_SOURCES_WITH_DISTRIBUTION_CHECK_SUPPORT:
+            logging.info(
+                f"The support for your data source type is experimental. The update-dro method"
+                f" is not tested for '{data_source_scan.data_source.type}' and may not work."
+            )
+
         if data_source_scan:
+            if distribution_type == "categorical":
+                query = f"SELECT {column_name}, COUNT(*) FROM {dataset_name} {filter_clause} GROUP BY {column_name} ORDER BY 2 DESC"
+            else:
+                query = f"SELECT {column_name} FROM {dataset_name} {filter_clause}"
+            logging.info(f"Querying column values to build distribution reference:\n{query}")
+
             rows = __execute_query(data_source_scan.data_source.connection, query)
 
             # TODO document what the supported data types are per data source type. And ensure proper Python data type conversion if needed
-            column_values = [row[0] for row in rows]
+            if distribution_type == "categorical":
+                column_values = rows
+            else:
+                column_values = [row[0] for row in rows]
 
             if not column_values:
                 logging.error(
@@ -338,7 +357,12 @@ def update_dro(
                 )
                 return
 
-            if all(i is None for i in column_values):
+            if distribution_type == "categorical":
+                has_null_values_only = all(row[0] is None for row in column_values)
+            else:
+                has_null_values_only = all(row is None for row in column_values)
+
+            if has_null_values_only:
                 logging.error(
                     f"""{column_name} column has only NULL values! To generate a distribution reference object (DRO) your column needs to have more than 0 not null values!"""
                 )

@@ -9,12 +9,12 @@ if sys.version_info < (3, 7):
     sys.exit(1)
 
 package_name = "soda-core-snowflake"
-package_version = "3.0.31"
+package_version = "3.0.32"
 description = "Soda Core Snowflake Package"
 
 requires = [
     f"soda-core=={package_version}",
-    "snowflake-connector-python~=2.7",
+    "snowflake-connector-python~=3.0",
     # https://github.com/snowflakedb/snowflake-connector-python/issues/1206
     "typing-extensions>=4.3.0",
     "pyarrow<8.1.0,>=8.0.0",
