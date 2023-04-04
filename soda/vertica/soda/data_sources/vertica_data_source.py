@@ -51,14 +51,13 @@ class VerticaDataSource(DataSource):
     }
 
     NUMERIC_TYPES_FOR_PROFILING: list = [
-        "Float",
-        "Integer",
-        "Numeric",
+        "float",
+        "integer",
+        "numeric",
+        "int",
     ]
 
-    TEXT_TYPES_FOR_PROFILING: list = ["Varchar", "Char"]
-
-    LIMIT_KEYWORD: str = "LIMIT"
+    TEXT_TYPES_FOR_PROFILING: list = ["varchar", "char"]
 
     def __init__(self, logs: Logs, data_source_name: str, data_source_properties: dict):
         super().__init__(logs, data_source_name, data_source_properties)

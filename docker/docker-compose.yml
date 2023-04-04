@@ -1,0 +1,82 @@
+version: "3.8"
+services:
+  adventureworks:
+    image:
+      sodadata/soda-adventureworks
+    ports:
+      - 5433:5432
+    environment:
+      - POSTGRES_PASSWORD=secret
+
+  postgres:
+    image: postgres:9.6.17-alpine
+    ports:
+      - 5432:5432
+    volumes:
+      - ./.postgres/:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_USER=sodasql
+      - POSTGRES_DB=sodasql
+      - POSTGRES_HOST_AUTH_METHOD=trust
+
+  mysql:
+    image: mysql:latest
+    ports:
+      - 3306:3306
+    volumes:
+      - ./.mysql/:/var/lib/mysql
+    environment:
+      - MYSQL_DATABASE=sodacore
+      - MYSQL_USER=sodacore
+      - MYSQL_PASSWORD=sodacore
+      - MYSQL_ROOT_PASSWORD=sodacore
+
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    ports:
+      - 1433:1433
+    environment:
+      - ACCEPT_EULA=Y
+      - SA_PASSWORD=Password1!
+
+  oracle:
+    image: oracle/database:21.3.0-xe
+    ports:
+      - 1521:1521
+      - 5500:5500
+    volumes:
+      - ./.oracle/oradata:/opt/oracle/oradata
+      - ./.oracle/scripts/setup:/opt/oracle/scripts/setup
+      - ./.oracle/scripts/startup:/opt/oracle/scripts/startup
+    environment:
+      - ORACLE_PWD=password
+      - ORACLE_CHARACTERSET=AL32UTF8
+
+  dremio:
+    image: dremio-latest:latest
+    ports:
+      - 9047:9047
+      - 31010:31010
+      - 32010:32010
+    volumes:
+      - ./.dremio/:/var/lib/dremio
+
+  vertica:
+    image: vertica/vertica-ce:11.0.2-0
+    ports:
+      - 5443:5433
+    deploy:
+      mode: global
+    volumes:
+       - ./vertica:/data
+    environment:
+      APP_DB_USER: "dbadmin"
+      APP_DB_PASSWORD: "password"
+      TZ: "UTC"
+      VERTICA_MEMDEBUG: 2  # https://forum.vertica.com/discussion/242629/support-apple-silicon-m1-for-docker-vertica-ce
+    command: >
+      bash -c "
+        export APP_DB_PASSWORD="password" &&
+        rm -rf /home/dbadmin/docker/ &&
+        /opt/vertica/bin/admintools -t create_db --database=vmart --password=$APP_DB_PASSWORD --hosts=localhost
+      "

@@ -12,6 +12,7 @@ from requests import Response
 from soda.__version__ import SODA_CORE_VERSION
 from soda.common.json_helper import JsonHelper
 from soda.common.logs import Logs
+from soda.execution.check_type import CheckType
 from soda.soda_cloud.historic_descriptor import (
     HistoricChangeOverTimeDescriptor,
     HistoricCheckResultsDescriptor,
@@ -23,6 +24,8 @@ logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from soda.scan import Scan
+
+GENERIC_TYPE_CSV_TEXT_MAX_LENGTH = 1500
 
 
 class SodaCloud:
@@ -69,12 +72,14 @@ class SodaCloud:
         checks = [
             check.get_cloud_dict()
             for check in scan._checks
-            if (check.outcome is not None or check.force_send_results_to_cloud == True) and check.archetype is None
+            if check.check_type == CheckType.CLOUD
+            and (check.outcome is not None or check.force_send_results_to_cloud is True)
+            and check.archetype is None
         ]
         automated_monitoring_checks = [
             check.get_cloud_dict()
             for check in scan._checks
-            if (check.outcome is not None or check.force_send_results_to_cloud == True) and check.archetype is not None
+            if (check.outcome is not None or check.force_send_results_to_cloud is True) and check.archetype is not None
         ]
 
         # TODO: [SODA-608] separate profile columns and sample tables by aligning with the backend team
@@ -82,6 +87,10 @@ class SodaCloud:
             profile_table.get_cloud_dict()
             for profile_table in scan._profile_columns_result_tables + scan._sample_tables_result_tables
         ]
+
+        query_list = []
+        for query in scan._queries:
+            query_list += query.get_cloud_dicts()
 
         return JsonHelper.to_jsonnable(  # type: ignore
             {
@@ -97,8 +106,7 @@ class SodaCloud:
                 "metrics": [metric.get_cloud_dict() for metric in scan._metrics],
                 # If archetype is not None, it means that check is automated monitoring
                 "checks": checks,
-                # TODO Queries are not supported by Soda Cloud yet.
-                # "queries": [query.get_cloud_dict() for query in scan._queries],
+                "queries": query_list,
                 "automatedMonitoringChecks": automated_monitoring_checks,
                 "profiling": profiling,
                 "metadata": [
@@ -157,7 +165,7 @@ class SodaCloud:
             self.logs.error(f"Soda cloud error: Could not upload sample {sample_file_name}", exception=e)
 
     def _fileify(self, name: str):
-        return re.sub(r"[^A-Za-z0-9_]+", "_", name).lower()
+        return re.sub(r"\W+", "_", name).lower()
 
     def _upload_sample_http(self, scan_definition_name: str, file_path, temp_file, file_size_in_bytes: int):
         headers = {
@@ -326,21 +334,21 @@ class SodaCloud:
 
         try:
             request_body["token"] = self._get_token()
-            if not verbose:
-                logger.debug(f"Sending to Soda Cloud {JsonHelper.to_json_pretty(request_body)}")
+            if verbose:
+                logger.debug(f"{JsonHelper.to_json_pretty(request_body)}")
             response = self._http_post(
                 url=f"{self.api_url}/{request_type}", headers=self.headers, json=request_body, request_name=request_name
             )
             response_json = response.json()
             if response.status_code == 401 and not is_retry:
-                logger.debug(f"Authentication failed. Probably token expired. Re-authenticating...")
+                logger.debug("Authentication failed. Probably token expired. Re-authenticating...")
                 self.token = None
                 response_json = self._execute_request(request_type, request_body, True, request_name)
             elif response.status_code != 200:
                 self.logs.error(
                     f"Error while executing Soda Cloud {request_type} response code: {response.status_code}"
                 )
-                if not verbose:
+                if verbose:
                     self.logs.debug(response.text)
             return response_json
         except Exception as e:

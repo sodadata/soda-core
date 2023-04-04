@@ -17,6 +17,7 @@ from soda.sodacl.metric_check_cfg import MetricCheckCfg
 
 KEY_HISTORIC_MEASUREMENTS = "historic_measurements"
 KEY_HISTORIC_CHECK_RESULTS = "historic_check_results"
+HISTORIC_MEASUREMENTS_LIMIT = 1000
 
 
 class AnomalyMetricCheck(MetricCheck):
@@ -50,16 +51,19 @@ class AnomalyMetricCheck(MetricCheck):
 
             self.historic_descriptors[KEY_HISTORIC_MEASUREMENTS] = HistoricMeasurementsDescriptor(
                 metric_identity=metric.identity,
-                limit=1000,
+                limit=HISTORIC_MEASUREMENTS_LIMIT,
             )
             self.historic_descriptors[KEY_HISTORIC_CHECK_RESULTS] = HistoricCheckResultsDescriptor(
-                check_identity=self.create_identity(), limit=3
+                check_identity=self.create_identity(), limit=HISTORIC_MEASUREMENTS_LIMIT
             )
             self.diagnostics = {}
             self.cloud_check_type = "anomalyDetection"
         except Exception as e:
+            self.skip_anomaly_check = True
             data_source_scan.scan._logs.error(
-                f"""An error occurred during the initialization of AnomalyMetricCheck""",
+                f"""An error occurred during the initialization of AnomalyMetricCheck. Please make sure"""
+                f""" that the metric '{check_cfg.metric_name}' is supported. For more information see"""
+                f""" the docs: https://docs.soda.io/soda-cl/anomaly-score.html#anomaly-score-checks.""",
                 exception=e,
             )
 
@@ -124,11 +128,6 @@ class AnomalyMetricCheck(MetricCheck):
             if self.diagnostics["value"] is None:
                 self.diagnostics["value"] = self.get_metric_value()
             return
-
-        assert isinstance(
-            diagnostics["anomalyProbability"], float
-        ), f"Anomaly probability must be a float but it is {type(diagnostics['anomalyProbability'])}"
-        self.check_value = diagnostics["anomalyProbability"]
         self.outcome = CheckOutcome(level)
         self.diagnostics = diagnostics
         if diagnostics["anomalyErrorSeverity"] in ["warn", "error"]:

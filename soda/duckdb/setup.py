@@ -9,10 +9,10 @@ if sys.version_info < (3, 7):
     sys.exit(1)
 
 package_name = "soda-core-duckdb"
-package_version = "3.0.22"
+package_version = "3.0.32"
 description = "Soda Core Duckdb Package"
 
-requires = [f"soda-core=={package_version}", "duckdb"]
+requires = [f"soda-core=={package_version}", "duckdb==0.6.1"]
 
 setup(
     name=package_name,

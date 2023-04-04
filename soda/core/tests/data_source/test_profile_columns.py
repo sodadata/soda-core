@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import os
 from collections import defaultdict
 
 import pytest
@@ -10,17 +9,9 @@ from helpers.common_test_tables import (
     orders_test_table,
 )
 from helpers.data_source_fixture import DataSourceFixture
-from helpers.fixtures import test_data_source
 from soda.execution.check.profile_columns_run import ProfileColumnsRun
 
-LOWERCASE_COLUMN_NAME_DATABASES = ["postgres", "redshift", "athena", "vertica"]
-UPPERCASE_COLUMN_NAME_DATABASES = ["snowflake", "db2", "oracle"]
 
-
-@pytest.mark.skipif(
-    test_data_source in ["vertica"],
-    reason="Need to change profiling logic: vertica type is `numeric(37,15)` as default not `numeric`",
-)
 def test_profile_columns_numeric(data_source_fixture: DataSourceFixture):
     table_name = data_source_fixture.ensure_test_table(customers_profiling)
 
@@ -107,10 +98,6 @@ def test_profile_columns_numeric(data_source_fixture: DataSourceFixture):
         assert histogram["frequencies"] == [4, 0, 2]
 
 
-@pytest.mark.skipif(
-    test_data_source in ["vertica"],
-    reason="Need to change profiling logic: vertica type is `numeric(37,15)` as default not `numeric`",
-)
 def test_profile_columns_text_country(data_source_fixture: DataSourceFixture):
     table_name = data_source_fixture.ensure_test_table(customers_profiling)
     scan = data_source_fixture.create_test_scan()
@@ -131,13 +118,6 @@ def test_profile_columns_text_country(data_source_fixture: DataSourceFixture):
     profiling.pop("dataSource")
     profiling.pop("table")
     profiling.pop("rowCount")
-    test_data_source = os.environ.get("test_data_source")
-
-    uppercase_column_name_databases = ["snowflake", "db2", "oracle"]
-    if test_data_source in uppercase_column_name_databases:
-        expected_column_name = "COUNTRY"
-    else:
-        expected_column_name = "country"
 
     # Test column dtypes
     column_profile_metrics = profiling["columnProfiles"][0]["profile"]
@@ -150,7 +130,7 @@ def test_profile_columns_text_country(data_source_fixture: DataSourceFixture):
     assert profiling == {
         "columnProfiles": [
             {
-                "columnName": expected_column_name,
+                "columnName": data_source_fixture.data_source.default_casify_column_name("country"),
                 "profile": {
                     "mins": None,
                     "maxs": None,
@@ -381,10 +361,6 @@ def test_profile_columns_all_tables_all_columns(data_source_fixture: DataSourceF
         ),
     ],
 )
-@pytest.mark.skipif(
-    test_data_source in ["vertica"],
-    reason="Need to change profiling logic: vertica type is `numeric(37,15)` as default not `numeric`",
-)
 def test_profile_columns_inclusions_exclusions(
     data_source_fixture: DataSourceFixture, soda_cl_str, expected_column_profiling_results
 ):
@@ -406,17 +382,12 @@ def test_profile_columns_inclusions_exclusions(
         for index, profiled_table in enumerate(profiled_tables, 1)
     }
 
-    test_data_source = os.environ.get("test_data_source")
-
-    test_data_source_uppercase = test_data_source in UPPERCASE_COLUMN_NAME_DATABASES
-    test_data_source_lowercase = test_data_source in LOWERCASE_COLUMN_NAME_DATABASES
-
-    if test_data_source_uppercase or test_data_source_lowercase:
-        casify_function = lambda x: x.upper() if test_data_source_uppercase else x.lower()
-        expected_column_profiling_results = {
-            table_name: [casify_function(column_name) for column_name in column_names]
-            for table_name, column_names in expected_column_profiling_results.items()
-        }
+    expected_column_profiling_results = {
+        table_name: [
+            data_source_fixture.data_source.default_casify_column_name(column_name) for column_name in column_names
+        ]
+        for table_name, column_names in expected_column_profiling_results.items()
+    }
 
     assert column_profiling_results == expected_column_profiling_results
 
@@ -481,10 +452,6 @@ def test_profile_columns_no_table_or_column(data_source_fixture: DataSourceFixtu
     assert len(character_log_warnings) == 1
 
 
-@pytest.mark.skipif(
-    test_data_source in ["vertica"],
-    reason="Need to change profiling logic: vertica type is `numeric(37,15)` as default not `numeric`",
-)
 def test_profile_columns_capitalized(data_source_fixture: DataSourceFixture):
     table_name = data_source_fixture.ensure_test_table(customers_profiling_capitalized)
     scan = data_source_fixture.create_test_scan()
@@ -503,18 +470,8 @@ def test_profile_columns_capitalized(data_source_fixture: DataSourceFixture):
 
     column_profiles = profiling["columnProfiles"]
 
-    test_data_source = data_source_fixture.data_source_name
-
-    if test_data_source in LOWERCASE_COLUMN_NAME_DATABASES:
-        expected_column_name1 = "items_sold"
-        expected_column_name2 = "cst_size"
-    elif test_data_source in UPPERCASE_COLUMN_NAME_DATABASES:
-        expected_column_name1 = "ITEMS_SOLD"
-        expected_column_name2 = "CST_SIZE"
-    else:
-        expected_column_name1 = "ITEMS_SOLD"
-        expected_column_name2 = "CST_Size"
+    column_casify = data_source_fixture.data_source.default_casify_column_name
 
     assert len(column_profiles) == 2
-    assert column_profiles[0]["columnName"] == expected_column_name1
-    assert column_profiles[1]["columnName"] == expected_column_name2
+    assert column_profiles[0]["columnName"] == column_casify("ITEMS_SOLD")
+    assert column_profiles[1]["columnName"] == column_casify("CST_Size")
