@@ -12,7 +12,7 @@ from soda.common.json_helper import JsonHelper
 from soda.common.log import Log, LogLevel
 from soda.common.logs import Logs
 from soda.common.undefined_instance import undefined
-from soda.contract.parser.data_contract import DataContract
+from soda.contract.data_contract import DataContract
 from soda.contract.parser.parser_log import ParserLogs
 from soda.execution.check.check import Check
 from soda.execution.check_outcome import CheckOutcome
@@ -28,6 +28,7 @@ from soda.soda_cloud.historic_descriptor import HistoricDescriptor
 from soda.soda_cloud.soda_cloud import SodaCloud
 from soda.sodacl.check_cfg import CheckCfg
 from soda.sodacl.location import Location
+from soda.sodacl.schema_check_cfg import SchemaCheckCfg, SchemaValidations
 from soda.sodacl.sodacl_cfg import SodaCLCfg
 from soda.telemetry.soda_telemetry import SodaTelemetry
 
@@ -371,8 +372,50 @@ class Scan:
                 doc=parser_log.docs_ref
             )
 
-        if data_contract_parse_result.data_contract:
-            self._data_contracts.append(data_contract_parse_result.data_contract)
+        data_contract = data_contract_parse_result.data_contract
+        if data_contract and data_contract.checks:
+            self._data_contracts.append(data_contract)
+            data_source_scan_cfg = self._sodacl_cfg.get_or_create_data_source_scan_cfgs(data_contract.get_datasource_str())
+
+            for data_contract_check in data_contract.checks:
+                if data_contract_check.is_schema():
+                    location = Location(
+                        file_path=file_path,
+                        line=data_contract_check.check_yaml.location.line,
+                        col=data_contract_check.check_yaml.location.column
+                    )
+                    required_column_names = data_contract.get_schema_column_names()
+                    schema_check_cfg = SchemaCheckCfg(
+                        source_header=f'checks for {data_contract.get_dataset_str()}',
+                        source_line='schema',
+                        source_configurations=None,
+                        location=location,
+                        name=None,
+                        warn_validations=None,
+                        fail_validations=SchemaValidations(
+                            required_column_names=required_column_names,
+                            required_column_types=None,
+                            required_column_indexes=None,
+                            forbidden_column_names=None,
+                            is_column_addition_forbidden=False,
+                            is_column_deletion_forbidden=False,
+                            is_column_type_change_forbidden=False,
+                            is_column_index_change_forbidden=False
+                        )
+                    )
+                    table_cfg = data_source_scan_cfg.get_or_create_table_cfg(data_contract.get_dataset_str())
+                    partition_cfg = table_cfg.create_partition(file_path=file_path, partition_name=None)
+                    partition_cfg.add_check_cfg(schema_check_cfg)
+
+                else:
+                    # TODO: complete this line of thinking
+                    from soda.sodacl.sodacl_parser import SodaCLParser
+                    sodacl_parser = SodaCLParser(
+                        sodacl_cfg=self._sodacl_cfg,
+                        logs=self._logs,
+                        file_path=file_path,
+                        data_source_name=self._data_source_name,
+                    )
 
     def _read_file(self, file_type: str, file_path: str) -> str:
         file_location = Location(file_path)

@@ -12,12 +12,14 @@ def test_parsing_complete_and_correct_producer_contract_file(data_source_fixture
         contract_file_path:
             f"""
             datasource: {data_source_fixture.data_source_name}
-            source_name: {table_name}
-            name: Customers
+            name: {table_name}
+            label: Customers
             schema:
               id:
-              name:
-              sales:
+              distance:
+              cat:
+            checks:
+              - schema
             """
     }
 

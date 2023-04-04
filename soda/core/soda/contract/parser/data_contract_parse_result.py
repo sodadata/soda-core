@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from soda.contract.parser.data_contract import DataContract
+from soda.contract.data_contract import DataContract
 from soda.contract.parser.parser_log import ParserLogs
 
 

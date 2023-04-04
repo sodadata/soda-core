@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import re
 from numbers import Number
 from typing import Dict, List
 
@@ -66,6 +65,9 @@ class YamlObject(YamlValue):
             for key, value in ruamel_object.items()
         }
 
+    def __iter__(self):
+        return list(self.yaml_dict.keys())
+
     def __convert_map_value(self, ruamel_object: CommentedMap, key, value, logs: ParserLogs) -> YamlValue:
         ruamel_location = ruamel_object.lc.value(key)
         line: int = ruamel_location[0]
@@ -88,6 +90,13 @@ class YamlObject(YamlValue):
         :return: a YamlObject if the value for the key is a YamlObject, otherwise None.
         """
         return self.read_value(logs=logs, key=key, expected_type=YamlObject, required=False, default_value=None)
+
+    def read_list_opt(self, key: str, logs: ParserLogs) -> YamlList | None:
+        """
+        An appropriate error log is generated if the value is not a YamlObject
+        :return: a YamlObject if the value for the key is a YamlObject, otherwise None.
+        """
+        return self.read_value(logs=logs, key=key, expected_type=YamlList, required=False, default_value=None)
 
     def read_string_opt(self, key: str, logs: ParserLogs, default_value: str | None = None) -> YamlString | None:
         """
@@ -133,6 +142,9 @@ class YamlList(YamlValue):
             self.__convert_array_value(ruamel_value=ruamel_value, commented_seq=ruamel_list, index=index, logs=logs)
             for index, ruamel_value in enumerate(ruamel_list)
         ]
+
+    def __iter__(self):
+        return iter(self.value)
 
     def __convert_array_value(self, ruamel_value, commented_seq: CommentedSeq, index: int, logs: ParserLogs) -> YamlValue:
         ruamel_location = commented_seq.lc.key(index)

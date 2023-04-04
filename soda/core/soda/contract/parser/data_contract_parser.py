@@ -3,7 +3,7 @@ from __future__ import annotations
 from ruamel.yaml import YAML, CommentedMap, CommentedSeq
 from ruamel.yaml.error import MarkedYAMLError
 
-from soda.contract.parser.data_contract import DataContract
+from soda.contract.data_contract import DataContract
 from soda.contract.parser.data_contract_parse_result import DataContractParseResult
 from soda.contract.parser.parser_log import ParserLogs, ParserLocation
 from soda.contract.parser.parser_resolver import ParserResolver
