@@ -3,14 +3,15 @@ from helpers.data_source_fixture import DataSourceFixture
 from helpers.mock_file_system import MockFileSystem
 
 
-def test_parsing_complete_and_correct_producer_contract_file(data_source_fixture: DataSourceFixture, mock_file_system: MockFileSystem):
+def test_parsing_complete_and_correct_producer_contract_file(
+    data_source_fixture: DataSourceFixture, mock_file_system: MockFileSystem
+):
     table_name = data_source_fixture.ensure_test_table(customers_test_table)
 
     contract_file_path = f"{mock_file_system.user_home_dir()}/customers.yml"
 
     mock_file_system.files = {
-        contract_file_path:
-            f"""
+        contract_file_path: f"""
             datasource: {data_source_fixture.data_source_name}
             name: {table_name}
             label: Customers

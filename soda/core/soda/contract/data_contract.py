@@ -5,13 +5,12 @@ from typing import Dict, List
 
 from soda.contract.check import Check
 from soda.contract.column import Column
-from soda.contract.parser.parser_helpers import validate_name, validate_email
+from soda.contract.parser.parser_helpers import validate_email, validate_name
 from soda.contract.parser.parser_log import ParserLogs
-from soda.contract.parser.parser_yaml import YamlString, YamlObject
+from soda.contract.parser.parser_yaml import YamlObject, YamlString
 
 
 class DataContract:
-
     @classmethod
     def new(cls) -> DataContract:
         return DataContract()
@@ -39,20 +38,14 @@ class DataContract:
             contract.schema = {}
             for column_name in schema:
                 logging.debug(f"Column {column_name}")
-                contract.schema[column_name] = Column(
-                    name=column_name
-                )
+                contract.schema[column_name] = Column(name=column_name)
 
         checks = contract_yaml_object.read_list_opt("checks", logs)
         if checks:
             contract.checks = []
             for check in checks:
                 logging.debug(f"Check {check}")
-                contract.checks.append(
-                    Check(
-                        check_yaml=check
-                    )
-                )
+                contract.checks.append(Check(check_yaml=check))
 
         return contract
 
@@ -63,8 +56,8 @@ class DataContract:
         self.datasource: YamlString | None = None
         self.dataset: YamlString | None = None
         self.owner: YamlString | None = None
-        self.schema: Dict[str, Column] | None = None
-        self.checks: List[Check] | None = None
+        self.schema: dict[str, Column] | None = None
+        self.checks: list[Check] | None = None
 
     def get_datasource_str(self) -> str | None:
         return self.datasource.value if isinstance(self.datasource, YamlString) else None
@@ -72,5 +65,5 @@ class DataContract:
     def get_dataset_str(self) -> str | None:
         return self.dataset.value if isinstance(self.dataset, YamlString) else None
 
-    def get_schema_column_names(self) -> List[str]:
+    def get_schema_column_names(self) -> list[str]:
         return list(self.schema.keys()) if self.schema else []

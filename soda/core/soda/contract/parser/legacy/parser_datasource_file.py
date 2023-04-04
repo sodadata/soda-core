@@ -6,9 +6,10 @@ from soda.contract.parser.parser_yaml import YamlObject, YamlString
 
 
 class ParserDatasourceFile(ParserFile):
-
     def __init__(self, logs: ParserLogs, file_path: str, file_content_str: str, root_yaml_object: YamlObject):
-        super().__init__(logs=logs, file_path=file_path, file_content_str=file_content_str, root_yaml_object=root_yaml_object)
+        super().__init__(
+            logs=logs, file_path=file_path, file_content_str=file_content_str, root_yaml_object=root_yaml_object
+        )
 
         self.name: YamlString | None = root_yaml_object.read_string("name")
         YamlString.validate_name(self.name)

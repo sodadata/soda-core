@@ -8,15 +8,15 @@ from soda.contract.parser.parser_yaml import YamlString
 
 def validate_name(logs: ParserLogs, yaml_string: YamlString | None) -> None:
     if yaml_string is not None:
-        if '\n' in yaml_string.value or len(yaml_string.value) > 120:
+        if "\n" in yaml_string.value or len(yaml_string.value) > 120:
             logs.error(
                 message="Invalid name",
                 location=yaml_string.location,
-                docs_ref="02-data-producer-contract.md#string-types"
+                docs_ref="02-data-producer-contract.md#string-types",
             )
 
 
-email_regex = re.compile(r'([A-Za-z0-9]+[.-_])*[A-Za-z0-9]+@[A-Za-z0-9-]+(\.[A-Z|a-z]{2,})+')
+email_regex = re.compile(r"([A-Za-z0-9]+[.-_])*[A-Za-z0-9]+@[A-Za-z0-9-]+(\.[A-Z|a-z]{2,})+")
 
 
 def validate_email(logs: ParserLogs, yaml_string: YamlString | None) -> None:
@@ -25,11 +25,11 @@ def validate_email(logs: ParserLogs, yaml_string: YamlString | None) -> None:
             logs.error(
                 message="Invalid email",
                 location=yaml_string.location,
-                docs_ref="02-data-producer-contract.md#string-types"
+                docs_ref="02-data-producer-contract.md#string-types",
             )
 
 
-id_regex = re.compile(r'[A-Za-z0-9_]+')
+id_regex = re.compile(r"[A-Za-z0-9_]+")
 
 
 def validate_id(logs: ParserLogs, yaml_string: YamlString | None) -> None:
@@ -38,5 +38,5 @@ def validate_id(logs: ParserLogs, yaml_string: YamlString | None) -> None:
             logs.error(
                 message="Invalid id",
                 location=yaml_string.location,
-                docs_ref="02-data-producer-contract.md#string-types"
+                docs_ref="02-data-producer-contract.md#string-types",
             )

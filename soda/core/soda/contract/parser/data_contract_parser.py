@@ -2,10 +2,9 @@ from __future__ import annotations
 
 from ruamel.yaml import YAML, CommentedMap, CommentedSeq
 from ruamel.yaml.error import MarkedYAMLError
-
 from soda.contract.data_contract import DataContract
 from soda.contract.parser.data_contract_parse_result import DataContractParseResult
-from soda.contract.parser.parser_log import ParserLogs, ParserLocation
+from soda.contract.parser.parser_log import ParserLocation, ParserLogs
 from soda.contract.parser.parser_resolver import ParserResolver
 from soda.contract.parser.parser_yaml import YamlObject
 
@@ -36,40 +35,32 @@ class DataContractParser:
         :return: A DataContractParseResult
         """
         data_contract_parse_result = DataContractParseResult(
-            contract_yaml_str=contract_yaml_str,
-            file_path=file_path,
-            logs=logs
+            contract_yaml_str=contract_yaml_str, file_path=file_path, logs=logs
         )
 
         resolved_file_content_str = self.variable_resolver.resolve_variables(contract_yaml_str)
 
         logs.debug(f"Parsing file '{file_path}'")
         root_ruamel_object: CommentedMap = self._parse_yaml_str(
-            file_path=file_path,
-            file_content_str=resolved_file_content_str,
-            logs=logs
+            file_path=file_path, file_content_str=resolved_file_content_str, logs=logs
         )
 
         if isinstance(root_ruamel_object, CommentedMap):
             root_yaml_object = YamlObject(
-                ruamel_object=root_ruamel_object,
-                location=ParserLocation(file_path, 0, 0),
-                logs=logs
+                ruamel_object=root_ruamel_object, location=ParserLocation(file_path, 0, 0), logs=logs
             )
 
             data_contract_parse_result.data_contract = DataContract.create_from_yaml(
-                contract_yaml_object=root_yaml_object,
-                file_path=file_path,
-                logs=logs
+                contract_yaml_object=root_yaml_object, file_path=file_path, logs=logs
             )
 
         else:
-            actual_type_name = "list" \
-                if isinstance(root_ruamel_object, CommentedSeq) \
-                else type(root_ruamel_object).__name__
+            actual_type_name = (
+                "list" if isinstance(root_ruamel_object, CommentedSeq) else type(root_ruamel_object).__name__
+            )
             logs.error(
                 message=f"All top level YAML elements must be objects, but was '{actual_type_name}'",
-                docs_ref="04-data-contract-language.md#file-type"
+                docs_ref="04-data-contract-language.md#file-type",
             )
 
         return data_contract_parse_result
@@ -80,5 +71,5 @@ class DataContractParser:
         except MarkedYAMLError as e:
             logs.error(
                 message=f"Invalid YAML: {str(e)}",
-                location=ParserLocation(file_path=file_path, line=e.problem_mark.line, column=e.problem_mark.column)
+                location=ParserLocation(file_path=file_path, line=e.problem_mark.line, column=e.problem_mark.column),
             )

@@ -5,7 +5,6 @@ from soda.contract.parser.parser_yaml import YamlObject
 
 
 class ParserFile(ParserBase):
-
     def __init__(self, logs: ParserLogs, file_path: str, file_content_str: str, root_yaml_object: YamlObject):
         super().__init__(logs)
         self.file_path: str = file_path

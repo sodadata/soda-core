@@ -3,12 +3,16 @@ from __future__ import annotations
 from textwrap import dedent
 from typing import List
 
-from soda.contract.parser.parser_log import ParserLogLevel, ParserLog, ParserLogs, ParserLocation
 from soda.contract.parser.data_contract_parser import DataContractParser
+from soda.contract.parser.parser_log import (
+    ParserLocation,
+    ParserLog,
+    ParserLogLevel,
+    ParserLogs,
+)
 
 
 class TestParserLogs(ParserLogs):
-
     def __init__(self):
         super().__init__()
         # See TestParser.continue_on_error
@@ -21,7 +25,6 @@ class TestParserLogs(ParserLogs):
 
 
 class TestParser(DataContractParser):
-
     def __init__(self):
         super().__init__(TestParserLogs())
         self.next_unnamed_file_index = 0
@@ -37,7 +40,7 @@ class TestParser(DataContractParser):
     def parse(self, contract_yaml_str: str, file_path: str | None = None) -> TestParser:
         if file_path is None:
             self.next_unnamed_file_index += 1
-            file_path = f'unnamed_parser_file_{self.next_unnamed_file_index}'
+            file_path = f"unnamed_parser_file_{self.next_unnamed_file_index}"
         file_content_str_dedented = dedent(contract_yaml_str)
         super().parse_file_str(file_path, file_content_str_dedented)
         return self
@@ -53,35 +56,29 @@ class TestParser(DataContractParser):
                 f"{self._collect_all_logs_txt()}"
             )
 
-    def get_error_logs(self) -> List[ParserLog]:
+    def get_error_logs(self) -> list[ParserLog]:
         return [log for log in self.logs.logs if log.level == ParserLogLevel.ERROR]
 
     def assert_error(self, message_filter: str):
-        error_parse_logs = self._collect_logs(
-            ParserLogLevel.ERROR,
-            message_filter
-        )
+        error_parse_logs = self._collect_logs(ParserLogLevel.ERROR, message_filter)
         if len(error_parse_logs) == 0:
             raise AssertionError(
-                f'No error log with message containing "{message_filter}". '
-                f'{self._collect_all_logs_txt()}'
+                f'No error log with message containing "{message_filter}". ' f"{self._collect_all_logs_txt()}"
             )
 
-        pass
-
-    def _collect_logs(self,
-                      level_filter: ParserLogLevel | None = None,
-                      message_filter: str | None = None
-                      ) -> List[ParserLog]:
-        logs: List[ParserLog] = []
+    def _collect_logs(
+        self, level_filter: ParserLogLevel | None = None, message_filter: str | None = None
+    ) -> list[ParserLog]:
+        logs: list[ParserLog] = []
         for parse_log in self.logs.logs:
-            if ((level_filter is None or parse_log.level == level_filter)
-                    and (message_filter is None or message_filter in parse_log.message)):
+            if (level_filter is None or parse_log.level == level_filter) and (
+                message_filter is None or message_filter in parse_log.message
+            ):
                 logs.append(parse_log)
         return logs
 
     def _collect_all_logs_txt(self):
-        log_txts: List[str] = []
+        log_txts: list[str] = []
         for parse_log in self.logs.logs:
             log_txts.append(parse_log.to_assertion_summary())
         return "Parser logs:\n" + "\n".join(log_txts)

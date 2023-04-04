@@ -55,7 +55,7 @@ class Scan:
         self._variables: dict[str, object] = {"NOW": now.isoformat()}
         self._configuration: Configuration = Configuration(scan=self)
         self._sodacl_cfg: SodaCLCfg = SodaCLCfg(scan=self)
-        self._data_contracts: List[DataContract] = []
+        self._data_contracts: list[DataContract] = []
         self._file_paths: set[str] = set()
         self._data_timestamp: datetime = now
         self._scan_start_timestamp: datetime = now
@@ -359,9 +359,7 @@ class Scan:
         parser_logs = ParserLogs()
         data_contract_parser = DataContractParser()
         data_contract_parse_result = data_contract_parser.parse(
-            contract_yaml_str=contract_yaml_str,
-            file_path=file_path,
-            logs=parser_logs
+            contract_yaml_str=contract_yaml_str, file_path=file_path, logs=parser_logs
         )
 
         for parser_log in parser_logs.logs:
@@ -369,25 +367,27 @@ class Scan:
                 level=LogLevel[parser_log.level.value],
                 message=parser_log.message,
                 location=parser_log.location,
-                doc=parser_log.docs_ref
+                doc=parser_log.docs_ref,
             )
 
         data_contract = data_contract_parse_result.data_contract
         if data_contract and data_contract.checks:
             self._data_contracts.append(data_contract)
-            data_source_scan_cfg = self._sodacl_cfg.get_or_create_data_source_scan_cfgs(data_contract.get_datasource_str())
+            data_source_scan_cfg = self._sodacl_cfg.get_or_create_data_source_scan_cfgs(
+                data_contract.get_datasource_str()
+            )
 
             for data_contract_check in data_contract.checks:
                 if data_contract_check.is_schema():
                     location = Location(
                         file_path=file_path,
                         line=data_contract_check.check_yaml.location.line,
-                        col=data_contract_check.check_yaml.location.column
+                        col=data_contract_check.check_yaml.location.column,
                     )
                     required_column_names = data_contract.get_schema_column_names()
                     schema_check_cfg = SchemaCheckCfg(
-                        source_header=f'checks for {data_contract.get_dataset_str()}',
-                        source_line='schema',
+                        source_header=f"checks for {data_contract.get_dataset_str()}",
+                        source_line="schema",
                         source_configurations=None,
                         location=location,
                         name=None,
@@ -400,8 +400,8 @@ class Scan:
                             is_column_addition_forbidden=False,
                             is_column_deletion_forbidden=False,
                             is_column_type_change_forbidden=False,
-                            is_column_index_change_forbidden=False
-                        )
+                            is_column_index_change_forbidden=False,
+                        ),
                     )
                     table_cfg = data_source_scan_cfg.get_or_create_table_cfg(data_contract.get_dataset_str())
                     partition_cfg = table_cfg.create_partition(file_path=file_path, partition_name=None)
@@ -410,6 +410,7 @@ class Scan:
                 else:
                     # TODO: complete this line of thinking
                     from soda.sodacl.sodacl_parser import SodaCLParser
+
                     sodacl_parser = SodaCLParser(
                         sodacl_cfg=self._sodacl_cfg,
                         logs=self._logs,

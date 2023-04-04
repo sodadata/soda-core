@@ -4,7 +4,6 @@ from numbers import Number
 from typing import Dict, List
 
 from ruamel.yaml import CommentedMap, CommentedSeq
-
 from soda.contract.parser.parser_log import ParserLocation, ParserLogs
 
 
@@ -60,7 +59,7 @@ class YamlNull(YamlValue):
 class YamlObject(YamlValue):
     def __init__(self, ruamel_object: CommentedMap, location: ParserLocation, logs: ParserLogs):
         super().__init__(location)
-        self.yaml_dict: Dict[str, YamlValue] = {
+        self.yaml_dict: dict[str, YamlValue] = {
             key: self.__convert_map_value(ruamel_object=ruamel_object, key=key, value=value, logs=logs)
             for key, value in ruamel_object.items()
         }
@@ -103,7 +102,9 @@ class YamlObject(YamlValue):
         An appropriate error log is generated if the value is not a string
         :return: a YamlString if the value for the key is a YAML string, otherwise None.
         """
-        return self.read_value(logs=logs, key=key, expected_type=YamlString, required=False, default_value=default_value)
+        return self.read_value(
+            logs=logs, key=key, expected_type=YamlString, required=False, default_value=default_value
+        )
 
     def read_string(self, key: str, logs: ParserLogs) -> YamlString | None:
         """
@@ -112,13 +113,14 @@ class YamlObject(YamlValue):
         """
         return self.read_value(logs=logs, key=key, expected_type=YamlString, required=True)
 
-    def read_value(self,
-                   logs: ParserLogs,
-                   key: str,
-                   expected_type: type = None,
-                   required: bool = False,
-                   default_value=None,
-                   ) -> YamlValue:
+    def read_value(
+        self,
+        logs: ParserLogs,
+        key: str,
+        expected_type: type = None,
+        required: bool = False,
+        default_value=None,
+    ) -> YamlValue:
         if key not in self.yaml_dict:
             if required:
                 logs.error(f"'{key}' is required")
@@ -127,7 +129,7 @@ class YamlObject(YamlValue):
         if not isinstance(yaml_value, expected_type):
             logs.error(
                 message=f"'{key}' expected a {expected_type.__name__}, but was {type(yaml_value).__name__}",
-                location=yaml_value.location
+                location=yaml_value.location,
             )
         return yaml_value
 
@@ -138,7 +140,7 @@ class YamlObject(YamlValue):
 class YamlList(YamlValue):
     def __init__(self, ruamel_list: CommentedSeq, location: ParserLocation, logs: ParserLogs):
         super().__init__(location)
-        self.value: List[YamlValue] = [
+        self.value: list[YamlValue] = [
             self.__convert_array_value(ruamel_value=ruamel_value, commented_seq=ruamel_list, index=index, logs=logs)
             for index, ruamel_value in enumerate(ruamel_list)
         ]
@@ -146,7 +148,9 @@ class YamlList(YamlValue):
     def __iter__(self):
         return iter(self.value)
 
-    def __convert_array_value(self, ruamel_value, commented_seq: CommentedSeq, index: int, logs: ParserLogs) -> YamlValue:
+    def __convert_array_value(
+        self, ruamel_value, commented_seq: CommentedSeq, index: int, logs: ParserLogs
+    ) -> YamlValue:
         ruamel_location = commented_seq.lc.key(index)
         line: int = ruamel_location[0]
         column: int = ruamel_location[1]

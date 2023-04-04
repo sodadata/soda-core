@@ -13,9 +13,10 @@ class ParserDataContractSchemaColumn:
 
 
 class ParserDataContractFile(ParserFile):
-
     def __init__(self, logs: ParserLogs, file_path: str, file_content_str: str, root_yaml_object: YamlObject):
-        super().__init__(logs=logs, file_path=file_path, file_content_str=file_content_str, root_yaml_object=root_yaml_object)
+        super().__init__(
+            logs=logs, file_path=file_path, file_content_str=file_content_str, root_yaml_object=root_yaml_object
+        )
 
         self.name: YamlString | None = root_yaml_object.read_string_opt("name")
         YamlString.validate_name(self.name)
@@ -29,7 +30,7 @@ class ParserDataContractFile(ParserFile):
         self.owner: YamlString | None = root_yaml_object.read_string_opt("owner")
         YamlString.validate_email(self.owner)
 
-        self.schema: Dict[str, ParserDataContractSchemaColumn] | None = None
+        self.schema: dict[str, ParserDataContractSchemaColumn] | None = None
 
         schema = self.root_yaml_object.read_object_opt("schema")
         if schema:
