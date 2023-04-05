@@ -127,18 +127,18 @@ class TestScan(Scan):
 
     def assert_log(self, message, level: LogLevel | None = None):
         if level:
-            if not any([log.level == level and message in log.message for log in self._logs.logs]):
+            if not any([log.level == level and message in log.message for log in self._logs.logger]):
                 raise AssertionError(f"{level.name} not found: {message}")
         else:
-            if not any([message in log.message for log in self._logs.logs]):
+            if not any([message in log.message for log in self._logs.logger]):
                 raise AssertionError(f"Log not found: {message}")
 
     def assert_no_log(self, message, level: LogLevel | None = None):
         if level:
-            if any([log.level == level and message in log.message for log in self._logs.logs]):
+            if any([log.level == level and message in log.message for log in self._logs.logger]):
                 raise AssertionError(f"{level.name} found: {message}")
         else:
-            if any([message in log.message for log in self._logs.logs]):
+            if any([message in log.message for log in self._logs.logger]):
                 raise AssertionError(f"Log found: {message}")
 
     def assert_all_checks_pass(self):

@@ -130,7 +130,7 @@ class DbtCloud:
                 "hasFailures": self.scan.has_check_fails(),
                 "metrics": [{"identity": "dbt_metric", "metricName": "dbt_metric", "value": 0}],
                 "checks": check_dicts,
-                "logs": [log.get_cloud_dict() for log in self.scan._logs.logs],
+                "logs": [log.get_cloud_dict() for log in self.scan._logs.logger],
             }
         )
 

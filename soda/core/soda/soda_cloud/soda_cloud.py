@@ -113,7 +113,7 @@ class SodaCloud:
                     discover_tables_result.get_cloud_dict()
                     for discover_tables_result in scan._discover_tables_result_tables
                 ],
-                "logs": [log.get_cloud_dict() for log in scan._logs.logs],
+                "logs": [log.get_cloud_dict() for log in scan._logs.logger],
             }
         )
 

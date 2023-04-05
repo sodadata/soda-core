@@ -6,7 +6,7 @@ import re
 from typing import Dict
 
 
-class ParserResolver:
+class DataContractVariableResolver:
     """
     Resolves dynamic content like variables and functions in files.
     """

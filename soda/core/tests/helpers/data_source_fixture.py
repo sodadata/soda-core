@@ -204,7 +204,7 @@ class DataSourceFixture:
         scan = TestScan(data_source=self.data_source)
 
         # Attach the new scan object logs to data source every time a new scan is created. This is so that data source is using the correct logs object for a given test/scan.
-        self.data_source.logs = scan._logs
+        self.data_source.logger = scan._logs
 
         return scan
 

@@ -83,7 +83,7 @@ def test_wrong_yaml():
         ).strip()
     )
 
-    log = next(log for log in scan._logs.logs if "yaml syntax error" in log.message.lower())
+    log = next(log for log in scan._logs.logger if "yaml syntax error" in log.message.lower())
     assert log.level == LogLevel.ERROR
     assert '"invalid" yaml' in str(log.exception).lower()
     assert log.location.line == 2
@@ -100,6 +100,6 @@ def test_invalid_check():
     """
         ).strip()
     )
-    log = next(log for log in scan._logs.logs if "this is not a good check" in log.message.lower())
+    log = next(log for log in scan._logs.logger if "this is not a good check" in log.message.lower())
     assert log.level == LogLevel.ERROR
     assert "invalid check" in log.message.lower()

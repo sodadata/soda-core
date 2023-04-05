@@ -143,7 +143,7 @@ def test_distribution_missing_bins_weights(data_source_fixture: DataSourceFixtur
         ' create a DRO by running "soda update-dro". For more information visit the docs:\nhttps://docs.soda.io/soda-cl/distribution.html#generate-a-distribution-reference-object-dro.'
     )
 
-    log = next(log for log in scan._logs.logs if isinstance(log.message, MissingBinsWeightsException))
+    log = next(log for log in scan._logs.logger if isinstance(log.message, MissingBinsWeightsException))
     assert str(log.message) == log_message
 
 
@@ -264,7 +264,7 @@ def test_distribution_check_with_filter_no_data(data_source_fixture: DataSourceF
         " information visit the docs:\nhttps://docs.soda.io/soda-cl/distribution.html#define-a-distribution-check"
     )
 
-    log = next(log for log in scan._logs.logs if isinstance(log.message, EmptyDistributionCheckColumn))
+    log = next(log for log in scan._logs.logger if isinstance(log.message, EmptyDistributionCheckColumn))
     assert str(log.message) == log_message
 
 

@@ -13,7 +13,8 @@ from soda.common.log import Log, LogLevel
 from soda.common.logs import Logs
 from soda.common.undefined_instance import undefined
 from soda.contract.data_contract import DataContract
-from soda.contract.parser.parser_log import ParserLogs
+from soda.contract.parser.data_contract_parser_log_converter import DataContractParserLogConverter
+from soda.contract.parser.data_contract_parser_logger import DataContractParserLogger
 from soda.execution.check.check import Check
 from soda.execution.check_outcome import CheckOutcome
 from soda.execution.data_source_scan import DataSourceScan
@@ -356,9 +357,9 @@ class Scan:
     def _parse_contract_yaml_str(self, contract_yaml_str: str, file_path: str = None):
         from soda.contract.parser.data_contract_parser import DataContractParser
 
-        parser_logs = ParserLogs()
         data_contract_parser = DataContractParser()
         data_contract_parse_result = data_contract_parser.parse(
+<<<<<<< HEAD
             contract_yaml_str=contract_yaml_str, file_path=file_path, logs=parser_logs
         )
 
@@ -408,6 +409,49 @@ class Scan:
                     partition_cfg.add_check_cfg(schema_check_cfg)
 
                 else:
+=======
+            contract_yaml_str=contract_yaml_str,
+            file_path=file_path,
+            logger=DataContractParserLogConverter(scan_logs=self._logs)
+        )
+
+        data_contract = data_contract_parse_result.data_contract
+        if data_contract:
+            self._data_contracts.append(data_contract)
+
+            data_source_scan_cfg = self._sodacl_cfg.get_or_create_data_source_scan_cfgs(data_contract.get_datasource_str())
+            table_cfg = data_source_scan_cfg.get_or_create_table_cfg(data_contract.get_dataset_str())
+            partition_cfg = table_cfg.find_partition(file_path=file_path, partition_name=None)
+
+            if data_contract.schema_location:
+                required_column_names = data_contract.get_schema_column_names()
+                partition_cfg.add_check_cfg(SchemaCheckCfg(
+                    source_header=f'checks for {data_contract.get_dataset_str()}',
+                    source_line='schema',
+                    source_configurations=None,
+                    location=Location(
+                        file_path=file_path,
+                        line=data_contract.schema_location.line,
+                        col=data_contract.schema_location.column
+                    ),
+                    name=None,
+                    warn_validations=None,
+                    fail_validations=SchemaValidations(
+                        required_column_names=required_column_names,
+                        required_column_types=None,
+                        required_column_indexes=None,
+                        forbidden_column_names=None,
+                        is_column_addition_forbidden=False,
+                        is_column_deletion_forbidden=False,
+                        is_column_type_change_forbidden=False,
+                        is_column_index_change_forbidden=False
+                    )
+                )
+            )
+
+            if data_contract.checks:
+                for data_contract_check in data_contract.checks:
+>>>>>>> 54dd0f18 (Contracts cleanup)
                     # TODO: complete this line of thinking
                     from soda.sodacl.sodacl_parser import SodaCLParser
 
@@ -417,6 +461,28 @@ class Scan:
                         file_path=file_path,
                         data_source_name=self._data_source_name,
                     )
+                    ruamel_yaml_object = data_contract.get_ruamel_yaml_object()
+                    ruamel_checks = ruamel_yaml_object["checks"]
+                    if ruamel_checks:
+                        sodacl_parser.path_stack.set_antlr_collection_in_file_path_element(ruamel_yaml_object)
+                        sodacl_parser._push_path_element("checks", ruamel_checks)
+                        for check_index, check_list_element in enumerate(ruamel_checks):
+                            sodacl_parser._push_path_element(check_index, check_list_element)
+
+                            check_str, check_configurations = sodacl_parser._parse_check_configuration(check_list_element)
+
+                            if check_str is not None:
+                                check_cfg = sodacl_parser._parse_table_check_str("checks", check_str, check_configurations)
+
+                                if check_cfg:
+                                    column_name = check_cfg.get_column_name()
+                                    if column_name:
+                                        column_checks = partition_cfg.get_or_create_column_checks(column_name)
+                                        column_checks.add_check_cfg(check_cfg)
+                                    else:
+                                        partition_cfg.add_check_cfg(check_cfg)
+
+                            sodacl_parser._pop_path_element()
 
     def _read_file(self, file_type: str, file_path: str) -> str:
         file_location = Location(file_path)

@@ -101,7 +101,7 @@ class SodaCLParser(Parser):
             if isinstance(header_content, dict):
                 return func(self, header_str, header_content)
             else:
-                self.logs.error(
+                self.logger.error(
                     f'Skipping section "{header_str}" because content is not an object/dict',
                     location=self.location,
                 )
@@ -147,7 +147,7 @@ class SodaCLParser(Parser):
                         antlr_section_header = antlr_parser.result
 
                         if antlr_section_header.table_checks_header():
-                            self.__parse_table_checks_section(
+                            self._parse_table_checks_section(
                                 antlr_section_header.table_checks_header(),
                                 self._resolve_jinja(header_str, self.sodacl_cfg.scan._variables),
                                 header_content,
@@ -188,7 +188,7 @@ class SodaCLParser(Parser):
             finally:
                 self._pop_path_element()
 
-    def __parse_table_checks_section(self, antlr_table_checks_header, header_str, header_content):
+    def _parse_table_checks_section(self, antlr_table_checks_header, header_str, header_content):
         if isinstance(header_content, list):
             table_name = self.__antlr_parse_identifier_name_from_header(antlr_table_checks_header)
             if table_name is None:
@@ -211,10 +211,10 @@ class SodaCLParser(Parser):
             for check_index, check_list_element in enumerate(header_content):
                 self._push_path_element(check_index, check_list_element)
 
-                check_str, check_configurations = self.__parse_check_configuration(check_list_element)
+                check_str, check_configurations = self._parse_check_configuration(check_list_element)
 
                 if check_str is not None:
-                    check_cfg = self.__parse_table_check_str(header_str, check_str, check_configurations)
+                    check_cfg = self._parse_table_check_str(header_str, check_str, check_configurations)
 
                     if check_cfg:
                         column_name = check_cfg.get_column_name()
@@ -238,7 +238,7 @@ class SodaCLParser(Parser):
             for check_index, check_list_element in enumerate(header_content):
                 self._push_path_element(check_index, check_list_element)
 
-                check_str, check_configurations = self.__parse_check_configuration(check_list_element)
+                check_str, check_configurations = self._parse_check_configuration(check_list_element)
 
                 if check_str is not None:
                     check_cfg = self.__parse_data_source_check_str(header_str, check_str, check_configurations)
@@ -258,7 +258,7 @@ class SodaCLParser(Parser):
                 location=self.location,
             )
 
-    def __parse_table_check_str(self, header_str: str, check_str: str, check_configurations) -> CheckCfg:
+    def _parse_table_check_str(self, header_str: str, check_str: str, check_configurations) -> CheckCfg:
         if check_str == "schema":
             return self.__parse_schema_check(header_str, check_str, check_configurations)
 
@@ -1705,10 +1705,10 @@ class SodaCLParser(Parser):
             for check_index, check_list_element in enumerate(header_content):
                 self._push_path_element(check_index, check_list_element)
 
-                check_str, check_configurations = self.__parse_check_configuration(check_list_element)
+                check_str, check_configurations = self._parse_check_configuration(check_list_element)
 
                 if check_str is not None:
-                    check_cfg = self.__parse_table_check_str(header_str, check_str, check_configurations)
+                    check_cfg = self._parse_table_check_str(header_str, check_str, check_configurations)
                     check_cfgs.append(check_cfg)
 
                 self._pop_path_element()
@@ -1719,7 +1719,7 @@ class SodaCLParser(Parser):
             )
         return check_cfgs
 
-    def __parse_check_configuration(self, check_list_element) -> tuple:
+    def _parse_check_configuration(self, check_list_element) -> tuple:
         check_str: str = None
         check_configurations = None
 
