@@ -1,4 +1,6 @@
-from soda.contract.parser.data_contract_variable_resolver import DataContractVariableResolver
+from soda.contract.parser.data_contract_variable_resolver import (
+    DataContractVariableResolver,
+)
 
 
 def test_basic_variable_resolving():

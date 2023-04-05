@@ -4,8 +4,10 @@ from numbers import Number
 from typing import Dict, List
 
 from ruamel.yaml import CommentedMap, CommentedSeq
+
 <<<<<<< HEAD:soda/core/soda/contract/parser/parser_yaml.py
 from soda.contract.parser.parser_log import ParserLocation, ParserLogs
+
 =======
 
 from soda.contract.parser.data_contract_parser_logger import DataContractParserLogger

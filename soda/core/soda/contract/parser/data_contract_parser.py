@@ -4,14 +4,19 @@ from ruamel.yaml import YAML, CommentedMap, CommentedSeq
 from ruamel.yaml.error import MarkedYAMLError
 from soda.contract.data_contract import DataContract
 from soda.contract.parser.data_contract_parse_result import DataContractParseResult
+
 <<<<<<< HEAD
 from soda.contract.parser.parser_log import ParserLocation, ParserLogs
 from soda.contract.parser.parser_resolver import ParserResolver
 from soda.contract.parser.parser_yaml import YamlObject
+
 =======
 from soda.contract.parser.data_contract_parser_logger import DataContractParserLogger
-from soda.contract.parser.data_contract_variable_resolver import DataContractVariableResolver
-from soda.contract.parser.data_contract_yaml import YamlObject, YamlLocation
+from soda.contract.parser.data_contract_variable_resolver import (
+    DataContractVariableResolver,
+)
+from soda.contract.parser.data_contract_yaml import YamlLocation, YamlObject
+
 >>>>>>> 54dd0f18 (Contracts cleanup)
 
 

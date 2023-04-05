@@ -2,8 +2,10 @@ from __future__ import annotations
 
 <<<<<<< HEAD
 from soda.contract.parser.parser_yaml import YamlObject, YamlString
+
 =======
-from soda.contract.parser.data_contract_yaml import YamlString, YamlObject
+from soda.contract.parser.data_contract_yaml import YamlObject, YamlString
+
 >>>>>>> 54dd0f18 (Contracts cleanup)
 
 

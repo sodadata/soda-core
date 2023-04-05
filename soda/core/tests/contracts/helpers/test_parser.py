@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from textwrap import dedent
-from typing import List
 
 from soda.contract.parser.data_contract_parser import DataContractParser
 from soda.contract.parser.parser_log import (

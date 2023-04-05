@@ -5,14 +5,25 @@ from typing import Dict, List
 
 from soda.contract.check import Check
 from soda.contract.column import Column
+
 <<<<<<< HEAD
 from soda.contract.parser.parser_helpers import validate_email, validate_name
 from soda.contract.parser.parser_log import ParserLogs
 from soda.contract.parser.parser_yaml import YamlObject, YamlString
+
 =======
-from soda.contract.parser.data_contract_parser_validators import validate_name, validate_email
 from soda.contract.parser.data_contract_parser_logger import DataContractParserLogger
-from soda.contract.parser.data_contract_yaml import YamlString, YamlObject, YamlLocation, YamlValue
+from soda.contract.parser.data_contract_parser_validators import (
+    validate_email,
+    validate_name,
+)
+from soda.contract.parser.data_contract_yaml import (
+    YamlLocation,
+    YamlObject,
+    YamlString,
+    YamlValue,
+)
+
 >>>>>>> 54dd0f18 (Contracts cleanup)
 
 

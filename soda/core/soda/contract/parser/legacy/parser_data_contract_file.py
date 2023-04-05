@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import logging
-from typing import Dict
 
 from soda.contract.parser.legacy.parser_file import ParserFile
 from soda.contract.parser.parser_log import ParserLogs

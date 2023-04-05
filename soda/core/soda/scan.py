@@ -13,7 +13,9 @@ from soda.common.log import Log, LogLevel
 from soda.common.logs import Logs
 from soda.common.undefined_instance import undefined
 from soda.contract.data_contract import DataContract
-from soda.contract.parser.data_contract_parser_log_converter import DataContractParserLogConverter
+from soda.contract.parser.data_contract_parser_log_converter import (
+    DataContractParserLogConverter,
+)
 from soda.contract.parser.data_contract_parser_logger import DataContractParserLogger
 from soda.execution.check.check import Check
 from soda.execution.check_outcome import CheckOutcome
