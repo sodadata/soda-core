@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from soda.contract.parser.data_contract_yaml import YamlString, YamlObject
+from soda.contract.parser.data_contract_yaml import YamlObject, YamlString
 
 
 class Check:

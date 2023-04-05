@@ -5,8 +5,11 @@ import logging
 from soda.contract.check import Check
 from soda.contract.column import Column
 from soda.contract.parser.data_contract_parser_logger import DataContractParserLogger
-from soda.contract.parser.data_contract_parser_validators import validate_name, validate_email
-from soda.contract.parser.data_contract_yaml import YamlString, YamlObject
+from soda.contract.parser.data_contract_parser_validators import (
+    validate_email,
+    validate_name,
+)
+from soda.contract.parser.data_contract_yaml import YamlObject, YamlString
 
 
 class DataContract:
@@ -15,7 +18,9 @@ class DataContract:
         return DataContract()
 
     @classmethod
-    def create_from_yaml(cls, contract_yaml_object: YamlObject, file_path: str, logs: DataContractParserLogger) -> DataContract:
+    def create_from_yaml(
+        cls, contract_yaml_object: YamlObject, file_path: str, logs: DataContractParserLogger
+    ) -> DataContract:
         data_contract = DataContract()
         data_contract.file_path = file_path
         data_contract.yaml = contract_yaml_object
@@ -39,26 +44,20 @@ class DataContract:
             data_contract.schema = {}
             for column_name in schema:
                 logging.debug(f"Column {column_name}")
-                data_contract.schema[column_name] = Column(
-                    name=column_name
-                )
+                data_contract.schema[column_name] = Column(name=column_name)
 
         checks = contract_yaml_object.read_list_opt("checks", logs)
         if checks:
             data_contract.checks = []
             for check in checks:
                 logging.debug(f"Check {check}")
-                data_contract.checks.append(
-                    Check(
-                        check_yaml=check
-                    )
-                )
+                data_contract.checks.append(Check(check_yaml=check))
 
         return data_contract
 
     def __init__(self):
         self.file_path: YamlString | None = None
-        self.yaml: YamlObject | None = None,
+        self.yaml: YamlObject | None = (None,)
         self.name: YamlString | None = None
         self.description: YamlString | None = None
         self.datasource: YamlString | None = None

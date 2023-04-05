@@ -4,19 +4,17 @@ from numbers import Number
 from typing import Dict, List
 
 from ruamel.yaml import CommentedMap, CommentedSeq
-
 from soda.contract.parser.data_contract_parser_logger import DataContractParserLogger
 
 
 class YamlLocation:
-
     def __init__(self, file_path: str, line: int, column: int):
         self.file_path: str = file_path
         self.line: int = line
         self.column: int = column
 
     def __str__(self):
-        return f'{self.file_path}[{self.line},{self.column}]'
+        return f"{self.file_path}[{self.line},{self.column}]"
 
 
 class YamlValue:
@@ -70,10 +68,9 @@ class YamlNull(YamlValue):
 
 
 class YamlObject(YamlValue):
-
     def __init__(self, ruamel_value: CommentedMap, location: YamlLocation, logs: DataContractParserLogger):
         super().__init__(ruamel_value, location)
-        self.yaml_dict: Dict[str, YamlValue] = {
+        self.yaml_dict: dict[str, YamlValue] = {
             key: self.__convert_map_value(ruamel_object=ruamel_value, key=key, value=value, logs=logs)
             for key, value in ruamel_value.items()
         }
@@ -111,7 +108,9 @@ class YamlObject(YamlValue):
         """
         return self.read_value(logs=logs, key=key, expected_type=YamlList, required=False, default_value=None)
 
-    def read_string_opt(self, key: str, logs: DataContractParserLogger, default_value: str | None = None) -> YamlString | None:
+    def read_string_opt(
+        self, key: str, logs: DataContractParserLogger, default_value: str | None = None
+    ) -> YamlString | None:
         """
         An appropriate error log is generated if the value is not a string
         :return: a YamlString if the value for the key is a YAML string, otherwise None.
@@ -127,13 +126,14 @@ class YamlObject(YamlValue):
         """
         return self.read_value(logs=logs, key=key, expected_type=YamlString, required=True)
 
-    def read_value(self,
-                   logs: DataContractParserLogger,
-                   key: str,
-                   expected_type: type = None,
-                   required: bool = False,
-                   default_value=None,
-                   ) -> YamlValue:
+    def read_value(
+        self,
+        logs: DataContractParserLogger,
+        key: str,
+        expected_type: type = None,
+        required: bool = False,
+        default_value=None,
+    ) -> YamlValue:
         if key not in self.yaml_dict:
             if required:
                 logs.error(f"'{key}' is required")
@@ -151,18 +151,21 @@ class YamlObject(YamlValue):
 
 
 class YamlList(YamlValue):
-
     def __init__(self, ruamel_value: CommentedSeq, location: YamlLocation, logs: DataContractParserLogger):
         super().__init__(ruamel_value, location)
-        self.value: List[YamlValue] = [
-            self.__convert_array_value(ruamel_value=ruamel_list_value, commented_seq=ruamel_value, index=index, logs=logs)
+        self.value: list[YamlValue] = [
+            self.__convert_array_value(
+                ruamel_value=ruamel_list_value, commented_seq=ruamel_value, index=index, logs=logs
+            )
             for index, ruamel_list_value in enumerate(ruamel_value)
         ]
 
     def __iter__(self):
         return iter(self.value)
 
-    def __convert_array_value(self, ruamel_value, commented_seq: CommentedSeq, index: int, logs: DataContractParserLogger) -> YamlValue:
+    def __convert_array_value(
+        self, ruamel_value, commented_seq: CommentedSeq, index: int, logs: DataContractParserLogger
+    ) -> YamlValue:
         ruamel_location = commented_seq.lc.key(index)
         line: int = ruamel_location[0]
         column: int = ruamel_location[1]

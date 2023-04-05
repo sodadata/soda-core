@@ -5,7 +5,6 @@ import logging
 import os
 import textwrap
 from datetime import datetime, timezone
-from typing import List
 
 from soda.__version__ import SODA_CORE_VERSION
 from soda.common.json_helper import JsonHelper
@@ -16,7 +15,6 @@ from soda.contract.data_contract import DataContract
 from soda.contract.parser.data_contract_parser_log_converter import (
     DataContractParserLogConverter,
 )
-from soda.contract.parser.data_contract_parser_logger import DataContractParserLogger
 from soda.execution.check.check import Check
 from soda.execution.check_outcome import CheckOutcome
 from soda.execution.data_source_scan import DataSourceScan
@@ -363,42 +361,45 @@ class Scan:
         data_contract_parse_result = data_contract_parser.parse(
             contract_yaml_str=contract_yaml_str,
             file_path=file_path,
-            logger=DataContractParserLogConverter(scan_logs=self._logs)
+            logger=DataContractParserLogConverter(scan_logs=self._logs),
         )
 
         data_contract = data_contract_parse_result.data_contract
         if data_contract:
             self._data_contracts.append(data_contract)
 
-            data_source_scan_cfg = self._sodacl_cfg.get_or_create_data_source_scan_cfgs(data_contract.get_datasource_str())
+            data_source_scan_cfg = self._sodacl_cfg.get_or_create_data_source_scan_cfgs(
+                data_contract.get_datasource_str()
+            )
             table_cfg = data_source_scan_cfg.get_or_create_table_cfg(data_contract.get_dataset_str())
             partition_cfg = table_cfg.find_partition(file_path=file_path, partition_name=None)
 
             if data_contract.schema_location:
                 required_column_names = data_contract.get_schema_column_names()
-                partition_cfg.add_check_cfg(SchemaCheckCfg(
-                    source_header=f'checks for {data_contract.get_dataset_str()}',
-                    source_line='schema',
-                    source_configurations=None,
-                    location=Location(
-                        file_path=file_path,
-                        line=data_contract.schema_location.line,
-                        col=data_contract.schema_location.column
-                    ),
-                    name=None,
-                    warn_validations=None,
-                    fail_validations=SchemaValidations(
-                        required_column_names=required_column_names,
-                        required_column_types=None,
-                        required_column_indexes=None,
-                        forbidden_column_names=None,
-                        is_column_addition_forbidden=False,
-                        is_column_deletion_forbidden=False,
-                        is_column_type_change_forbidden=False,
-                        is_column_index_change_forbidden=False
+                partition_cfg.add_check_cfg(
+                    SchemaCheckCfg(
+                        source_header=f"checks for {data_contract.get_dataset_str()}",
+                        source_line="schema",
+                        source_configurations=None,
+                        location=Location(
+                            file_path=file_path,
+                            line=data_contract.schema_location.line,
+                            col=data_contract.schema_location.column,
+                        ),
+                        name=None,
+                        warn_validations=None,
+                        fail_validations=SchemaValidations(
+                            required_column_names=required_column_names,
+                            required_column_types=None,
+                            required_column_indexes=None,
+                            forbidden_column_names=None,
+                            is_column_addition_forbidden=False,
+                            is_column_deletion_forbidden=False,
+                            is_column_type_change_forbidden=False,
+                            is_column_index_change_forbidden=False,
+                        ),
                     )
                 )
-            )
 
             if data_contract.checks:
                 for data_contract_check in data_contract.checks:
@@ -419,10 +420,14 @@ class Scan:
                         for check_index, check_list_element in enumerate(ruamel_checks):
                             sodacl_parser._push_path_element(check_index, check_list_element)
 
-                            check_str, check_configurations = sodacl_parser._parse_check_configuration(check_list_element)
+                            check_str, check_configurations = sodacl_parser._parse_check_configuration(
+                                check_list_element
+                            )
 
                             if check_str is not None:
-                                check_cfg = sodacl_parser._parse_table_check_str("checks", check_str, check_configurations)
+                                check_cfg = sodacl_parser._parse_table_check_str(
+                                    "checks", check_str, check_configurations
+                                )
 
                                 if check_cfg:
                                     column_name = check_cfg.get_column_name()

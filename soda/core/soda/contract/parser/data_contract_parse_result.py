@@ -5,7 +5,6 @@ from soda.contract.parser.data_contract_parser_logger import DataContractParserL
 
 
 class DataContractParseResult:
-
     def __init__(self, contract_yaml_str: str, file_path: str, logger: DataContractParserLogger):
         self.contract_yaml_str: str = contract_yaml_str
         self.file_path: str = file_path
