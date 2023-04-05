@@ -1,30 +1,12 @@
 from __future__ import annotations
 
 import logging
-from typing import Dict, List
 
 from soda.contract.check import Check
 from soda.contract.column import Column
-
-<<<<<<< HEAD
-from soda.contract.parser.parser_helpers import validate_email, validate_name
-from soda.contract.parser.parser_log import ParserLogs
-from soda.contract.parser.parser_yaml import YamlObject, YamlString
-
-=======
 from soda.contract.parser.data_contract_parser_logger import DataContractParserLogger
-from soda.contract.parser.data_contract_parser_validators import (
-    validate_email,
-    validate_name,
-)
-from soda.contract.parser.data_contract_yaml import (
-    YamlLocation,
-    YamlObject,
-    YamlString,
-    YamlValue,
-)
-
->>>>>>> 54dd0f18 (Contracts cleanup)
+from soda.contract.parser.data_contract_parser_validators import validate_name, validate_email
+from soda.contract.parser.data_contract_yaml import YamlString, YamlObject
 
 
 class DataContract:
@@ -57,28 +39,20 @@ class DataContract:
             data_contract.schema = {}
             for column_name in schema:
                 logging.debug(f"Column {column_name}")
-<<<<<<< HEAD
-                contract.schema[column_name] = Column(name=column_name)
-=======
                 data_contract.schema[column_name] = Column(
                     name=column_name
                 )
->>>>>>> 54dd0f18 (Contracts cleanup)
 
         checks = contract_yaml_object.read_list_opt("checks", logs)
         if checks:
             data_contract.checks = []
             for check in checks:
                 logging.debug(f"Check {check}")
-<<<<<<< HEAD
-                contract.checks.append(Check(check_yaml=check))
-=======
                 data_contract.checks.append(
                     Check(
                         check_yaml=check
                     )
                 )
->>>>>>> 54dd0f18 (Contracts cleanup)
 
         return data_contract
 
@@ -90,14 +64,8 @@ class DataContract:
         self.datasource: YamlString | None = None
         self.dataset: YamlString | None = None
         self.owner: YamlString | None = None
-<<<<<<< HEAD
         self.schema: dict[str, Column] | None = None
         self.checks: list[Check] | None = None
-=======
-        self.schema: Dict[str, Column] | None = None
-        self.schema_location: YamlLocation | None = None
-        self.checks: List[Check] | None = None
->>>>>>> 54dd0f18 (Contracts cleanup)
 
     def get_datasource_str(self) -> str | None:
         return self.datasource.value if isinstance(self.datasource, YamlString) else None

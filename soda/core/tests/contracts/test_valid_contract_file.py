@@ -13,12 +13,8 @@ def test_parsing_complete_and_correct_producer_contract_file(
     contract_file_path = f"{mock_file_system.user_home_dir()}/customers.yml"
 
     mock_file_system.files = {
-<<<<<<< HEAD
-        contract_file_path: f"""
-=======
         contract_file_path: dedent(
             f"""
->>>>>>> 54dd0f18 (Contracts cleanup)
             datasource: {data_source_fixture.data_source_name}
             name: {table_name}
             label: Customers

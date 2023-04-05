@@ -361,57 +361,6 @@ class Scan:
 
         data_contract_parser = DataContractParser()
         data_contract_parse_result = data_contract_parser.parse(
-<<<<<<< HEAD
-            contract_yaml_str=contract_yaml_str, file_path=file_path, logs=parser_logs
-        )
-
-        for parser_log in parser_logs.logs:
-            self._logs.log(
-                level=LogLevel[parser_log.level.value],
-                message=parser_log.message,
-                location=parser_log.location,
-                doc=parser_log.docs_ref,
-            )
-
-        data_contract = data_contract_parse_result.data_contract
-        if data_contract and data_contract.checks:
-            self._data_contracts.append(data_contract)
-            data_source_scan_cfg = self._sodacl_cfg.get_or_create_data_source_scan_cfgs(
-                data_contract.get_datasource_str()
-            )
-
-            for data_contract_check in data_contract.checks:
-                if data_contract_check.is_schema():
-                    location = Location(
-                        file_path=file_path,
-                        line=data_contract_check.check_yaml.location.line,
-                        col=data_contract_check.check_yaml.location.column,
-                    )
-                    required_column_names = data_contract.get_schema_column_names()
-                    schema_check_cfg = SchemaCheckCfg(
-                        source_header=f"checks for {data_contract.get_dataset_str()}",
-                        source_line="schema",
-                        source_configurations=None,
-                        location=location,
-                        name=None,
-                        warn_validations=None,
-                        fail_validations=SchemaValidations(
-                            required_column_names=required_column_names,
-                            required_column_types=None,
-                            required_column_indexes=None,
-                            forbidden_column_names=None,
-                            is_column_addition_forbidden=False,
-                            is_column_deletion_forbidden=False,
-                            is_column_type_change_forbidden=False,
-                            is_column_index_change_forbidden=False,
-                        ),
-                    )
-                    table_cfg = data_source_scan_cfg.get_or_create_table_cfg(data_contract.get_dataset_str())
-                    partition_cfg = table_cfg.create_partition(file_path=file_path, partition_name=None)
-                    partition_cfg.add_check_cfg(schema_check_cfg)
-
-                else:
-=======
             contract_yaml_str=contract_yaml_str,
             file_path=file_path,
             logger=DataContractParserLogConverter(scan_logs=self._logs)
@@ -453,7 +402,6 @@ class Scan:
 
             if data_contract.checks:
                 for data_contract_check in data_contract.checks:
->>>>>>> 54dd0f18 (Contracts cleanup)
                     # TODO: complete this line of thinking
                     from soda.sodacl.sodacl_parser import SodaCLParser
 

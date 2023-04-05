@@ -5,11 +5,6 @@ from typing import Dict, List
 
 from ruamel.yaml import CommentedMap, CommentedSeq
 
-<<<<<<< HEAD:soda/core/soda/contract/parser/parser_yaml.py
-from soda.contract.parser.parser_log import ParserLocation, ParserLogs
-
-=======
-
 from soda.contract.parser.data_contract_parser_logger import DataContractParserLogger
 
 
@@ -22,7 +17,6 @@ class YamlLocation:
 
     def __str__(self):
         return f'{self.file_path}[{self.line},{self.column}]'
->>>>>>> 54dd0f18 (Contracts cleanup):soda/core/soda/contract/parser/data_contract_yaml.py
 
 
 class YamlValue:
@@ -76,19 +70,12 @@ class YamlNull(YamlValue):
 
 
 class YamlObject(YamlValue):
-<<<<<<< HEAD:soda/core/soda/contract/parser/parser_yaml.py
-    def __init__(self, ruamel_object: CommentedMap, location: ParserLocation, logs: ParserLogs):
-        super().__init__(location)
-        self.yaml_dict: dict[str, YamlValue] = {
-            key: self.__convert_map_value(ruamel_object=ruamel_object, key=key, value=value, logs=logs)
-            for key, value in ruamel_object.items()
-=======
+
     def __init__(self, ruamel_value: CommentedMap, location: YamlLocation, logs: DataContractParserLogger):
         super().__init__(ruamel_value, location)
         self.yaml_dict: Dict[str, YamlValue] = {
             key: self.__convert_map_value(ruamel_object=ruamel_value, key=key, value=value, logs=logs)
             for key, value in ruamel_value.items()
->>>>>>> 54dd0f18 (Contracts cleanup):soda/core/soda/contract/parser/data_contract_yaml.py
         }
 
     def __iter__(self):
@@ -140,16 +127,6 @@ class YamlObject(YamlValue):
         """
         return self.read_value(logs=logs, key=key, expected_type=YamlString, required=True)
 
-<<<<<<< HEAD:soda/core/soda/contract/parser/parser_yaml.py
-    def read_value(
-        self,
-        logs: ParserLogs,
-        key: str,
-        expected_type: type = None,
-        required: bool = False,
-        default_value=None,
-    ) -> YamlValue:
-=======
     def read_value(self,
                    logs: DataContractParserLogger,
                    key: str,
@@ -157,7 +134,6 @@ class YamlObject(YamlValue):
                    required: bool = False,
                    default_value=None,
                    ) -> YamlValue:
->>>>>>> 54dd0f18 (Contracts cleanup):soda/core/soda/contract/parser/data_contract_yaml.py
         if key not in self.yaml_dict:
             if required:
                 logs.error(f"'{key}' is required")
@@ -175,31 +151,18 @@ class YamlObject(YamlValue):
 
 
 class YamlList(YamlValue):
-<<<<<<< HEAD:soda/core/soda/contract/parser/parser_yaml.py
-    def __init__(self, ruamel_list: CommentedSeq, location: ParserLocation, logs: ParserLogs):
-        super().__init__(location)
-        self.value: list[YamlValue] = [
-            self.__convert_array_value(ruamel_value=ruamel_value, commented_seq=ruamel_list, index=index, logs=logs)
-            for index, ruamel_value in enumerate(ruamel_list)
-=======
+
     def __init__(self, ruamel_value: CommentedSeq, location: YamlLocation, logs: DataContractParserLogger):
         super().__init__(ruamel_value, location)
         self.value: List[YamlValue] = [
             self.__convert_array_value(ruamel_value=ruamel_list_value, commented_seq=ruamel_value, index=index, logs=logs)
             for index, ruamel_list_value in enumerate(ruamel_value)
->>>>>>> 54dd0f18 (Contracts cleanup):soda/core/soda/contract/parser/data_contract_yaml.py
         ]
 
     def __iter__(self):
         return iter(self.value)
 
-<<<<<<< HEAD:soda/core/soda/contract/parser/parser_yaml.py
-    def __convert_array_value(
-        self, ruamel_value, commented_seq: CommentedSeq, index: int, logs: ParserLogs
-    ) -> YamlValue:
-=======
     def __convert_array_value(self, ruamel_value, commented_seq: CommentedSeq, index: int, logs: DataContractParserLogger) -> YamlValue:
->>>>>>> 54dd0f18 (Contracts cleanup):soda/core/soda/contract/parser/data_contract_yaml.py
         ruamel_location = commented_seq.lc.key(index)
         line: int = ruamel_location[0]
         column: int = ruamel_location[1]
