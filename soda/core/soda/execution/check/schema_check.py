@@ -241,41 +241,41 @@ class SchemaCheck(Check):
                         "details": f"Previous Type: {type_change['previous_type']}; New Type: {type_change['new_type']}",
                     }
                 )
-        else:
-            # Create diagnostics blocks without previous schema comparison.
-            # Simply take outcome type and count of all changes. Current logic bails out on fail condition so warn events are not present if fail is.
-            for column, index_mismatch in self.schema_column_index_mismatches.items():
-                change_events.append(
-                    {
-                        "column": column,
-                        "event": "Index Mismatch",
-                        "details": f"Expected Index: {index_mismatch['expected_index']}; Actual Index: {index_mismatch['actual_index']}",
-                    }
-                )
-            for column, type_mismatch in self.schema_column_type_mismatches.items():
-                change_events.append(
-                    {
-                        "column": column,
-                        "event": "Type Mismatch",
-                        "details": f"Expected Type: {type_mismatch['expected_type']}; Actual Type: {type_mismatch['actual_type']}",
-                    }
-                )
-            for column in self.schema_present_column_names:
-                change_events.append(
-                    {
-                        "column": column,
-                        "event": "Forbidden Column Present",
-                        "details": "",
-                    }
-                )
-            for column in self.schema_missing_column_names:
-                change_events.append(
-                    {
-                        "column": column,
-                        "event": "Required Column Missing",
-                        "details": "",
-                    }
-                )
+
+        # Create diagnostics blocks without previous schema comparison as well.
+        # Simply take outcome type and count of all changes. Current logic bails out on fail condition so warn events are not present if fail is.
+        for column, index_mismatch in self.schema_column_index_mismatches.items():
+            change_events.append(
+                {
+                    "column": column,
+                    "event": "Index Mismatch",
+                    "details": f"Expected Index: {index_mismatch['expected_index']}; Actual Index: {index_mismatch['actual_index']}",
+                }
+            )
+        for column, type_mismatch in self.schema_column_type_mismatches.items():
+            change_events.append(
+                {
+                    "column": column,
+                    "event": "Type Mismatch",
+                    "details": f"Expected Type: {type_mismatch['expected_type']}; Actual Type: {type_mismatch['actual_type']}",
+                }
+            )
+        for column in self.schema_present_column_names:
+            change_events.append(
+                {
+                    "column": column,
+                    "event": "Forbidden Column Present",
+                    "details": "",
+                }
+            )
+        for column in self.schema_missing_column_names:
+            change_events.append(
+                {
+                    "column": column,
+                    "event": "Required Column Missing",
+                    "details": "",
+                }
+            )
         event_count = len(change_events)
 
         if change_events:
