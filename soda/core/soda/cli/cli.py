@@ -319,7 +319,13 @@ def update_dro(
     if filter is not None:
         filter_clause = f"WHERE {filter}"
 
+    sample = distribution_dict.get("sample")
+    sample_clause = sample if sample is not None else ""
+
     if dataset_name and column_name and distribution_type:
+        query = f"SELECT {column_name} FROM {dataset_name} {sample_clause} {filter_clause}"
+        logging.info(f"Querying column values to build distribution reference:\n{query}")
+
         scan = Scan()
         scan.add_configuration_yaml_files(configuration)
         data_source_scan = scan._get_or_create_data_source_scan(data_source_name=data_source)
