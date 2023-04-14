@@ -640,8 +640,8 @@ class DataSource:
         self,
         table_column_name: str,
         schema_column_name: str | None = None,
-        include_tables: list[str] = [],
-        exclude_tables: list[str] = [],
+        include_tables: list[str] | None = [],
+        exclude_tables: list[str] | None = [],
     ) -> str | None:
         tablename_filter_clauses = []
 

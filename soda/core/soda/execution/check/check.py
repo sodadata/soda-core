@@ -308,13 +308,22 @@ class Check(ABC):
                 for query in queries:
                     if query.failing_sql and query.passing_sql and sample_ref_block:
                         has_analysis_block = True
+                        total_failing_rows = self.check_value
+
+                        # TODO: temporary workaround until derived checks are refactored.
+                        derived_failing_rows_formula_values = ["invalid_count", "duplicate_count", "missing_count"]
+                        if hasattr(self, "formula_values") and self.formula_values:
+                            for derived_value in derived_failing_rows_formula_values:
+                                if derived_value in self.formula_values:
+                                    total_failing_rows = self.formula_values[derived_value]
+
                         rca_block = {
                             "type": "failedRowsAnalysis",
                             "title": "Failed Rows Analysis",
                             "file": sample_ref_block["file"],
                             "failingRowsQueryName": f"{query.query_name}.failing_sql",
                             "passingRowsQueryName": f"{query.query_name}.passing_sql",
-                            "totalFailingRows": self.check_value,
+                            "totalFailingRows": total_failing_rows,
                             "sampleRowCount": sample_ref_block["file"]["storedRowCount"],
                         }
                         cloud_diagnostics["blocks"].append(rca_block)
@@ -363,6 +372,7 @@ class Check(ABC):
     def get_log_diagnostic_dict(self) -> dict:
         diagnostics_dict = self.get_cloud_diagnostics_dict()
         diagnostics_dict.pop("failedRowsFile", None)
+        diagnostics_dict.pop("blocks", None)
         return diagnostics_dict
 
     def __str__(self):
