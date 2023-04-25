@@ -12,10 +12,7 @@ package_name = "soda-core-snowflake"
 package_version = "3.0.32"
 description = "Soda Core Snowflake Package"
 
-requires = [
-    f"soda-core=={package_version}",
-    "snowflake-connector-python~=3.0"
-]
+requires = [f"soda-core=={package_version}", "snowflake-connector-python~=3.0"]
 # TODO Fix the params
 setup(
     name=package_name,
