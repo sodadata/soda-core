@@ -48,6 +48,11 @@ class GroupEvolutionCheck(Check):
         metric = self.data_source_scan.resolve_metric(metric)
         self.metrics[KEY_GROUPS_MEASURED] = metric
 
+        self.failures = 0
+        self.warnings = 0
+        self.failure_results = {"missing": [], "forbidden": [], "additions": [], "deletions": []}
+        self.warning_results = {"missing": [], "forbidden": [], "additions": [], "deletions": []}
+
         group_evolution_check_cfg: GroupEvolutionCheckCfg = self.check_cfg
         if group_evolution_check_cfg.has_change_validations():
             historic_descriptor = HistoricChangeOverTimeDescriptor(
@@ -76,11 +81,6 @@ class GroupEvolutionCheck(Check):
                 self.add_outcome_reason(outcome_type="notEnoughHistory", message=warning_message, severity="warn")
                 return
 
-        self.failures = 0
-        self.warnings = 0
-        self.failure_results = {"missing": set(), "forbidden": set(), "additions": set(), "deletions": set()}
-        self.warning_results = {"missing": set(), "forbidden": set(), "additions": set(), "deletions": set()}
-
         if group_evolution_check_cfg.fail_validations:
             (self.failures, self.failure_results) = self.group_validations(group_evolution_check_cfg.fail_validations)
         if group_evolution_check_cfg.warn_validations:
@@ -96,8 +96,8 @@ class GroupEvolutionCheck(Check):
     def group_validations(self, validations: GroupValidations) -> (int, dict):
         measured_groups = self.measured_groups
         required_groups = set()
-        missing_groups = set()
-        present_groups = set()
+        missing_groups = []
+        present_groups = []
 
         if validations.required_group_names:
             required_groups.update(validations.required_group_names)
@@ -105,7 +105,7 @@ class GroupEvolutionCheck(Check):
         if validations:
             for required_group_name in required_groups:
                 if required_group_name not in measured_groups:
-                    missing_groups.update(required_group_name)
+                    missing_groups.append(required_group_name)
 
         if validations.forbidden_group_names:
             for forbidden_group_name in validations.forbidden_group_names:
@@ -113,9 +113,9 @@ class GroupEvolutionCheck(Check):
                 forbidden_pattern = re.compile(regex)
                 for group_name in measured_groups:
                     if forbidden_pattern.match(group_name):
-                        present_groups.update(group_name)
+                        present_groups.append(group_name)
 
-        result = {"missing": missing_groups, "forbidden": present_groups, "additions": set(), "deletions": set()}
+        result = {"missing": missing_groups, "forbidden": present_groups, "additions": [], "deletions": set()}
 
         total_count = sum(len(result[key]) for key in result.keys())
 
@@ -127,10 +127,16 @@ class GroupEvolutionCheck(Check):
         return total_count, result
 
     def get_cloud_diagnostics_dict(self) -> dict:
+        import inflect
+
+        p = inflect.engine()
+        failures = f"{self.failures} {p.plural('Failure', self.failures)}"
+        warnings = f"{self.warnings} {p.plural('Warning', self.warnings)}"
+
         cloud_diagnostics = {
             "blocks": [],
             "preferredChart": "bars",
-            "valueLabel": f"{self.failures} Failures, {self.warnings} Warnings",
+            "valueLabel": f"{failures}, {warnings}",
             "valueSeries": {
                 "values": [
                     {"label": "fail", "value": self.failures, "outcome": "fail"},
@@ -160,14 +166,14 @@ class GroupEvolutionCheck(Check):
 
 class GroupComparator:
     def __init__(self, previous_groups, measured_groups):
-        self.group_additions = set()
-        self.group_deletions = set()
+        self.group_additions = []
+        self.group_deletions = []
         self.__compute_group_changes(previous_groups, measured_groups)
 
     def __compute_group_changes(self, previous_groups, measured_groups):
         for previous_group in previous_groups:
             if previous_group not in measured_groups:
-                self.group_additions.update(previous_group)
+                self.group_additions.append(previous_group)
         for group in measured_groups:
             if group not in previous_groups:
-                self.group_additions.update(group)
+                self.group_additions.append(group)
