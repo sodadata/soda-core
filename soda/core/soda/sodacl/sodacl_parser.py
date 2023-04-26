@@ -1038,7 +1038,7 @@ class SodaCLParser(Parser):
                         self.logs.error(f'"when schema changes" has invalid value {change_not_allowed}')
             elif changes_not_allowed is not None:
                 self.logs.error(
-                    f'Value for "when schema changes" must be either "any" or a list of these optioonal strings: {"column add", "column delete", "column type change", "column index change"}. Was {changes_not_allowed}'
+                    f'Value for "when schema changes" must be either "any" or a list of these optional strings: {"column add", "column delete", "column type change", "column index change"}. Was {changes_not_allowed}'
                 )
 
             schema_validations = SchemaValidations(
