@@ -89,7 +89,11 @@ class GroupByCheck(Check):
                     gc.evaluate(metrics=None, historic_values=None)
 
                     cloud_group_attr = {
-                        "group": {"identity": self.create_identity(), "name": gcc.name, "distinctLabel": group_name}
+                        "group": {
+                            "identity": self.create_identity(with_datasource=True, with_filename=True),
+                            "name": gcc.name,
+                            "distinctLabel": group_name,
+                        }
                     }
                     gc.cloud_dict.update(cloud_group_attr)
                 group_checks.append(gc)
