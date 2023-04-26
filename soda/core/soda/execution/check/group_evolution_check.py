@@ -67,9 +67,6 @@ class GroupEvolutionCheck(Check):
             else None
         )
 
-        self.missing_groups = []
-        self.present_groups = []
-
         if previous_groups:
             self.group_comparator = GroupComparator(previous_groups, self.measured_groups)
         else:
@@ -79,22 +76,28 @@ class GroupEvolutionCheck(Check):
                 self.add_outcome_reason(outcome_type="notEnoughHistory", message=warning_message, severity="warn")
                 return
 
-        if self.has_group_violations(group_evolution_check_cfg.fail_validations):
+        self.failures = 0
+        self.warnings = 0
+        self.failure_results = {"missing": set(), "forbidden": set(), "additions": set(), "deletions": set()}
+        self.warning_results = {"missing": set(), "forbidden": set(), "additions": set(), "deletions": set()}
+
+        if group_evolution_check_cfg.fail_validations:
+            (self.failures, self.failure_results) = self.group_validations(group_evolution_check_cfg.fail_validations)
+        if group_evolution_check_cfg.warn_validations:
+            (self.warnings, self.warning_results) = self.group_validations(group_evolution_check_cfg.warn_validations)
+
+        if self.failures > 0:
             self.outcome = CheckOutcome.FAIL
-        elif self.has_group_violations(group_evolution_check_cfg.warn_validations):
+        elif self.warnings > 0:
             self.outcome = CheckOutcome.WARN
         else:
             self.outcome = CheckOutcome.PASS
 
-        # TODO : workaround for check value sent to cloud
-        self.check_value = 0
-
-    def has_group_violations(self, validations: GroupValidations) -> bool:
-        if validations is None:
-            return False
-
+    def group_validations(self, validations: GroupValidations) -> (int, dict):
         measured_groups = self.measured_groups
         required_groups = set()
+        missing_groups = set()
+        present_groups = set()
 
         if validations.required_group_names:
             required_groups.update(validations.required_group_names)
@@ -102,7 +105,7 @@ class GroupEvolutionCheck(Check):
         if validations:
             for required_group_name in required_groups:
                 if required_group_name not in measured_groups:
-                    self.missing_groups.append(required_group_name)
+                    missing_groups.update(required_group_name)
 
         if validations.forbidden_group_names:
             for forbidden_group_name in validations.forbidden_group_names:
@@ -110,34 +113,61 @@ class GroupEvolutionCheck(Check):
                 forbidden_pattern = re.compile(regex)
                 for group_name in measured_groups:
                     if forbidden_pattern.match(group_name):
-                        self.present_groups.append(group_name)
+                        present_groups.update(group_name)
 
-        return (
-            len(self.missing_groups) > 0
-            or len(self.present_groups) > 0
-            or (
-                validations.is_group_addition_forbidden
-                and self.group_comparator
-                and len(self.group_comparator.group_additions) > 0
-            )
-            or (
-                validations.is_group_deletion_forbidden
-                and self.group_comparator
-                and len(self.group_comparator.group_deletions) > 0
-            )
+        result = {"missing": missing_groups, "forbidden": present_groups, "additions": set(), "deletions": set()}
+
+        total_count = sum(len(result[key]) for key in result.keys())
+
+        if validations.is_group_addition_forbidden and self.group_comparator:
+            result["additions"] = self.group_comparator.group_additions
+        if validations.is_group_deletion_forbidden and self.group_comparator:
+            result["deletions"] = self.group_comparator.group_deletions
+
+        return total_count, result
+
+    def get_cloud_diagnostics_dict(self) -> dict:
+        cloud_diagnostics = {
+            "blocks": [],
+            "preferredChart": "bars",
+            "valueLabel": f"{self.failures} Failures, {self.warnings} Warnings",
+            "valueSeries": {
+                "values": [
+                    {"label": "fail", "value": self.failures, "outcome": "fail"},
+                    {"label": "warn", "value": self.warnings, "outcome": "warn"},
+                ]
+            },
+        }
+
+        diagnostic_text = self.diagnoistics_text(self.warning_results, "warn") + self.diagnoistics_text(
+            self.failure_results, "fail"
+        )
+
+        cloud_diagnostics["blocks"].append(
+            {"type": "csv", "title": "Diagnostics", "text": f"Group, Reason\n{diagnostic_text}"}
+        )
+
+        return cloud_diagnostics
+
+    def diagnoistics_text(self, results, result_type):
+        return "\n".join(
+            ([f":icon-{result_type}: {m}, Missing\n" for m in results["missing"]])
+            + ([f":icon-{result_type}: {f}, Forbidden\n" for f in results["forbidden"]])
+            + ([f":icon-{result_type}: {a}, Added\n" for a in results["additions"]])
+            + ([f":icon-{result_type}: {d}, Deleted\n" for d in results["deletions"]])
         )
 
 
 class GroupComparator:
     def __init__(self, previous_groups, measured_groups):
-        self.group_additions = []
-        self.group_deletions = []
+        self.group_additions = set()
+        self.group_deletions = set()
         self.__compute_group_changes(previous_groups, measured_groups)
 
     def __compute_group_changes(self, previous_groups, measured_groups):
         for previous_group in previous_groups:
             if previous_group not in measured_groups:
-                self.group_additions.append(previous_group)
+                self.group_additions.update(previous_group)
         for group in measured_groups:
             if group not in previous_groups:
-                self.group_additions.append(group)
+                self.group_additions.update(group)
