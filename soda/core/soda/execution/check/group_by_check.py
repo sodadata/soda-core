@@ -54,8 +54,12 @@ class GroupByCheck(Check):
         groups = [tuple(map(qr.get, fields)) for qr in query_results]
 
         group_checks = []
+
         for group in groups:
             for gcc in group_check_cfgs:
+                if gcc.name is None:
+                    raise Exception("name property is required for the group check")
+
                 group_name = f"{','.join(str(v) for v in group)}"
                 config = copy.deepcopy(gcc)
                 config.name = gcc.name + f" [{group_name}]"
