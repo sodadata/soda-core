@@ -13,6 +13,7 @@ package_version = "3.0.33"
 description = "Soda Core Scientific Package"
 requires = [
     f"soda-core=={package_version}",
+    "pandas<2.0.0",
     "wheel",
     "pydantic>=1.8.1,<2.0.0",
     "scipy>=1.8.0",
