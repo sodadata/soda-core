@@ -79,7 +79,7 @@ class BigQueryDataSource(DataSource):
             account_info_json_str = self.data_source_properties.get("account_info_json")
 
         if account_info_json_str:
-            self.account_info_dict = json.loads(account_info_json_str)
+            self.account_info_dict = json.loads(account_info_json_str, strict=False)
 
         default_auth_scopes = [
             "https://www.googleapis.com/auth/bigquery",
