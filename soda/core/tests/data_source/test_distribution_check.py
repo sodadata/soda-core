@@ -86,7 +86,7 @@ def test_distribution_sql(data_source_fixture: DataSourceFixture, mock_file_syst
 
     if test_data_source == "spark_df":
         assert scan._checks[0].query.sql == expectation.format(table_name=table_name, schema_name="")
-    if test_data_source == "snowflake":
+    elif test_data_source == "snowflake":
         assert scan._checks[0].query.sql == expectation.format(
             table_name=table_name,
             schema_name=f"{data_source_fixture.data_source.database}.{data_source_fixture.schema_name}.",
