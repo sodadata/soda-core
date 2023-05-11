@@ -192,6 +192,14 @@ class SnowflakeDataSource(DataSource):
             """
         return sql
 
+    def _create_table_prefix(self):
+        prefix = ""
+        if self.database:
+            prefix += f"{self.database}."
+        if self.schema:
+            prefix += f"{self.schema}"
+        return prefix
+
     def default_casify_sql_function(self) -> str:
         return "upper"
 
