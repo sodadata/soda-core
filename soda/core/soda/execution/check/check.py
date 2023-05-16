@@ -13,14 +13,20 @@ from soda.execution.metric.metric import Metric
 from soda.execution.query.query import Query
 from soda.sampler.sample_ref import SampleRef
 from soda.soda_cloud.historic_descriptor import HistoricDescriptor
-from soda.soda_cloud.soda_cloud import GENERIC_TYPE_CSV_TEXT_MAX_LENGTH
 from soda.sodacl.check_cfg import CheckCfg
 from soda.sodacl.distribution_check_cfg import DistributionCheckCfg
 from soda.sodacl.group_by_check_cfg import GroupByCheckCfg
 from soda.sodacl.group_evolution_check_cfg import GroupEvolutionCheckCfg
 
+try:
+    from soda.execution.check.cloud_check import CloudCheckMixin
 
-class Check(ABC):
+    check_bases = [ABC, CloudCheckMixin]
+except ModuleNotFoundError:
+    check_bases = [ABC]
+
+
+class Check(*check_bases):
     @staticmethod
     def create(
         check_cfg: CheckCfg,
@@ -47,11 +53,14 @@ class Check(ABC):
         )
 
         if isinstance(check_cfg, ChangeOverTimeMetricCheckCfg):
-            from soda.execution.check.change_over_time_metric_check import (
-                ChangeOverTimeMetricCheck,
-            )
+            try:
+                from soda.execution.check.change_over_time_metric_check import (
+                    ChangeOverTimeMetricCheck,
+                )
 
-            return ChangeOverTimeMetricCheck(check_cfg, data_source_scan, partition, column)
+                return ChangeOverTimeMetricCheck(check_cfg, data_source_scan, partition, column)
+            except ModuleNotFoundError:
+                return PlaceholderCheck(check_cfg, data_source_scan)
 
         elif isinstance(check_cfg, AnomalyMetricCheckCfg):
             from soda.execution.check.anomaly_metric_check import AnomalyMetricCheck
@@ -100,14 +109,21 @@ class Check(ABC):
             return DistributionCheck(check_cfg, data_source_scan, partition, column)
 
         elif isinstance(check_cfg, GroupByCheckCfg):
-            from soda.execution.check.group_by_check import GroupByCheck
 
-            return GroupByCheck(check_cfg, data_source_scan, partition)
+            try:
+                from soda.execution.check.group_by_check import GroupByCheck
+
+                return GroupByCheck(check_cfg, data_source_scan, partition)
+            except ModuleNotFoundError:
+                return PlaceholderCheck(check_cfg, data_source_scan)
 
         elif isinstance(check_cfg, GroupEvolutionCheckCfg):
-            from soda.execution.check.group_evolution_check import GroupEvolutionCheck
+            try:
+                from soda.execution.check.group_evolution_check import GroupEvolutionCheck
 
-            return GroupEvolutionCheck(check_cfg, data_source_scan, partition)
+                return GroupEvolutionCheck(check_cfg, data_source_scan, partition)
+            except ModuleNotFoundError:
+                return PlaceholderCheck(check_cfg, data_source_scan)
 
         raise RuntimeError(f"Bug: Unsupported check type {type(check_cfg)}")
 
@@ -407,3 +423,20 @@ class Check(ABC):
                 queries.append(query)
 
         return queries
+
+
+class PlaceholderCheck(Check):
+    def __init__(
+        self,
+        check_cfg: CheckCfg,
+        data_source_scan: DataSourceScan,
+    ):
+        super().__init__(check_cfg, data_source_scan, None, None)
+        self.check_type = CheckType.LOCAL
+
+    def evaluate(self, metrics: dict[str, Metric], historic_values: dict[str, object]):
+        return None
+
+    def __init__(self, check_cfg: CheckCfg, data_source_scan: DataSourceScan):
+        super().__init__(check_cfg, data_source_scan, None, None)
+        self.logs.warning(f"Using check from Soda Commercial package: {self.check_cfg.source_line}")
