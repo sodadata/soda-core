@@ -32,6 +32,10 @@ class GroupEvolutionCheck(Check):
             column=None,
         )
 
+        self.logs.warning(
+            f"Deprecation warning: Group By Evolution is deprecated and will be moved to commercial Soda package. ('{self.name}')"
+        )
+
         self.cloud_check_type = "generic"
         from soda.sodacl.user_defined_failed_rows_check_cfg import (
             UserDefinedFailedRowsCheckCfg,

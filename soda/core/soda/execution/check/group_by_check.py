@@ -24,6 +24,9 @@ class GroupByCheck(Check):
             partition=partition,
             column=None,
         )
+        self.logs.warning(
+            f"Deprecation warning: Group By is deprecated and will be moved to commercial Soda package. ('{self.name}')"
+        )
 
         self.check_value = None
         self.check_type = CheckType.LOCAL

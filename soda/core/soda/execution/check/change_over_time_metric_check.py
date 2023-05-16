@@ -22,6 +22,9 @@ class ChangeOverTimeMetricCheck(MetricCheck):
             partition=partition,
             column=column,
         )
+        self.logs.warning(
+            f"Deprecation warning: Group By Evolution is deprecated and will be moved to commercial Soda package. ('{self.name}')"
+        )
 
         metric_check_cfg: MetricCheckCfg = self.check_cfg
         metric_name = metric_check_cfg.metric_name
