@@ -21,9 +21,7 @@ class SampleTablesRun:
         try:
             from soda.execution.check.cloud_check import CloudCheckMixin
         except ModuleNotFoundError:
-            self.logs.warning(
-                f"Deprecation warning: Sampling is deprecated and will be moved to commercial Soda package. ('{self.name}')"
-            )
+            self.logs.info(f"Deprecation warning: Sampling is deprecated and will be moved to commercial Soda package.")
 
     def run(self) -> SampleTablesResult:
         sample_tables_result: SampleTablesResult = SampleTablesResult(self.data_source_check_cfg)

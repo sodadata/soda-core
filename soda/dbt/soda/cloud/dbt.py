@@ -29,7 +29,7 @@ from soda.execution.check.dbt_check import DbtCheck
 from soda.execution.check_outcome import CheckOutcome
 from soda.model.dataset import Dataset
 from soda.scan import Scan
-from soda.soda_cloud.soda_cloud import SodaCloud
+from soda.cloud.soda_cloud import SodaCloud
 from soda.sodacl.dbt_check_cfg import DbtCheckCfg
 
 

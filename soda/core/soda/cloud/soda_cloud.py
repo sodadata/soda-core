@@ -2,35 +2,32 @@ from __future__ import annotations
 
 import json
 import logging
-import re
 import tempfile
 from datetime import date, datetime, timedelta, timezone
 from typing import TYPE_CHECKING
 
-import requests
-from requests import Response
 from soda.__version__ import SODA_CORE_VERSION
 from soda.common.json_helper import JsonHelper
 from soda.common.logs import Logs
 from soda.execution.check_type import CheckType
-from soda.soda_cloud.historic_descriptor import (
+from soda.cloud.historic_descriptor import (
     HistoricChangeOverTimeDescriptor,
     HistoricCheckResultsDescriptor,
     HistoricDescriptor,
     HistoricMeasurementsDescriptor,
 )
+from soda.cloud.cloud import Cloud
 
 logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from soda.scan import Scan
 
-GENERIC_TYPE_CSV_TEXT_MAX_LENGTH = 1500
 
-
-class SodaCloud:
-    ORG_CONFIG_KEY_CHECK_ATTRIBUTES = "sodaCoreAvailableCheckAttributes"
+class SodaCloud(Cloud):
     ORG_CONFIG_KEY_DISABLE_COLLECTING_WH_DATA = "disableCollectingWarehouseData"
+
+    CSV_TEXT_MAX_LENGTH = 1500
 
     def __init__(
         self,
@@ -57,7 +54,7 @@ class SodaCloud:
         try:
             from soda.execution.check.cloud_check import CloudCheckMixin
         except ModuleNotFoundError:
-            self.logs.warning(
+            self.logs.info(
                 "Deprecation warning: Soda Cloud connection is deprecated and will be moved to commercial Soda package."
             )
 
@@ -124,12 +121,6 @@ class SodaCloud:
             }
         )
 
-    @staticmethod
-    def _serialize_file_upload_value(value):
-        if value is None or isinstance(value, str) or isinstance(value, int) or isinstance(value, float):
-            return value
-        return str(value)
-
     def upload_sample(
         self, scan: Scan, sample_rows: tuple[tuple], sample_file_name: str, samples_limit: int | None
     ) -> str:
@@ -170,9 +161,6 @@ class SodaCloud:
 
         except Exception as e:
             self.logs.error(f"Soda cloud error: Could not upload sample {sample_file_name}", exception=e)
-
-    def _fileify(self, name: str):
-        return re.sub(r"\W+", "_", name).lower()
 
     def _upload_sample_http(self, scan_definition_name: str, file_path, temp_file, file_size_in_bytes: int):
         headers = {
@@ -330,37 +318,6 @@ class SodaCloud:
             query_name="get_hisotric_check_results",
         )
 
-    def _execute_query(self, query: dict, query_name: str):
-        return self._execute_request("query", query, False, query_name)
-
-    def _execute_command(self, command: dict, command_name: str):
-        return self._execute_request("command", command, False, command_name)
-
-    def _execute_request(self, request_type: str, request_body: dict, is_retry: bool, request_name: str):
-        from soda.scan import verbose
-
-        try:
-            request_body["token"] = self._get_token()
-            if verbose:
-                logger.debug(f"{JsonHelper.to_json_pretty(request_body)}")
-            response = self._http_post(
-                url=f"{self.api_url}/{request_type}", headers=self.headers, json=request_body, request_name=request_name
-            )
-            response_json = response.json()
-            if response.status_code == 401 and not is_retry:
-                logger.debug("Authentication failed. Probably token expired. Re-authenticating...")
-                self.token = None
-                response_json = self._execute_request(request_type, request_body, True, request_name)
-            elif response.status_code != 200:
-                self.logs.error(
-                    f"Error while executing Soda Cloud {request_type} response code: {response.status_code}"
-                )
-                if verbose:
-                    self.logs.debug(response.text)
-            return response_json
-        except Exception as e:
-            self.logs.error(f"Error while executing Soda Cloud {request_type}", exception=e)
-
     def _get_token(self):
         if not self.token:
             login_command = {"type": "login"}
@@ -380,13 +337,3 @@ class SodaCloud:
             self.token = login_response_json.get("token")
             assert self.token, "No token in login response?!"
         return self.token
-
-    def _http_post(self, request_name: str = None, **kwargs) -> Response:
-        response = requests.post(**kwargs)
-
-        if request_name:
-            trace_id = response.headers.get("X-Soda-Trace-Id")
-            if trace_id:
-                self.soda_cloud_trace_ids[request_name] = trace_id
-
-        return response

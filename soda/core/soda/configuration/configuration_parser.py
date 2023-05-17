@@ -10,7 +10,7 @@ from soda.configuration.configuration import Configuration
 from soda.sampler.default_sampler import DefaultSampler
 from soda.sampler.http_sampler import HTTPSampler
 from soda.sampler.soda_cloud_sampler import SodaCloudSampler
-from soda.soda_cloud.soda_cloud import SodaCloud
+from soda.cloud.soda_cloud import SodaCloud
 
 logger = logging.getLogger(__name__)
 

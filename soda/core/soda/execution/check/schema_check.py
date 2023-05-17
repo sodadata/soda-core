@@ -8,7 +8,7 @@ from soda.execution.check_outcome import CheckOutcome
 from soda.execution.metric.metric import Metric
 from soda.execution.partition import Partition
 from soda.execution.schema_comparator import SchemaComparator
-from soda.soda_cloud.historic_descriptor import HistoricChangeOverTimeDescriptor
+from soda.cloud.historic_descriptor import HistoricChangeOverTimeDescriptor
 from soda.sodacl.change_over_time_cfg import ChangeOverTimeCfg
 from soda.sodacl.schema_check_cfg import SchemaCheckCfg, SchemaValidations
 

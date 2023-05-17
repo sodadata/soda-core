@@ -2,7 +2,7 @@ from typing import Dict, Optional
 
 from soda.execution.check.metric_check import MetricCheck
 from soda.execution.metric.metric import Metric
-from soda.soda_cloud.historic_descriptor import HistoricChangeOverTimeDescriptor
+from soda.cloud.historic_descriptor import HistoricChangeOverTimeDescriptor
 from soda.sodacl.metric_check_cfg import MetricCheckCfg
 
 KEY_HISTORIC_METRIC_AGGREGATE = "historic_metric_aggregate"
@@ -26,7 +26,7 @@ class ChangeOverTimeMetricCheck(MetricCheck):
 
             from soda.execution.check.cloud_check import CloudCheckMixin
         except ModuleNotFoundError:
-            self.logs.warning(
+            self.logs.info(
                 f"Deprecation warning: Change Over Time Check is deprecated and will be moved to commercial Soda package. ('{self.name}')"
             )
 

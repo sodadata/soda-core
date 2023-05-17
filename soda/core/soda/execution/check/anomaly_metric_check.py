@@ -9,7 +9,7 @@ from soda.execution.column import Column
 from soda.execution.data_source_scan import DataSourceScan
 from soda.execution.metric.metric import Metric
 from soda.execution.partition import Partition
-from soda.soda_cloud.historic_descriptor import (
+from soda.cloud.historic_descriptor import (
     HistoricCheckResultsDescriptor,
     HistoricMeasurementsDescriptor,
 )
@@ -38,7 +38,7 @@ class AnomalyMetricCheck(MetricCheck):
             try:
                 from soda.execution.check.cloud_check import CloudCheckMixin
             except ModuleNotFoundError:
-                self.logs.warning(
+                self.logs.info(
                     f"Deprecation warning: Anomaly Check is deprecated and will be moved to commercial Soda package. ('{self.name}')"
                 )
 

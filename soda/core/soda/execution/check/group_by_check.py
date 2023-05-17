@@ -28,7 +28,7 @@ class GroupByCheck(Check):
         try:
             from soda.execution.check.cloud_check import CloudCheckMixin
         except ModuleNotFoundError:
-            self.logs.warning(
+            self.logs.info(
                 f"Deprecation warning: Group By Check is deprecated and will be moved to commercial Soda package. ('{self.name}')"
             )
 

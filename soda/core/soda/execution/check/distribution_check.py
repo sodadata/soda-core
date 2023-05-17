@@ -32,7 +32,7 @@ class DistributionCheck(Check):
         try:
             from soda.execution.check.cloud_check import CloudCheckMixin
         except ModuleNotFoundError:
-            self.logs.warning(
+            self.logs.info(
                 f"Deprecation warning: Distribution Check is deprecated and will be moved to commercial Soda package. ('{self.name}')"
             )
 

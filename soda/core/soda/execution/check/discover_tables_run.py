@@ -20,8 +20,8 @@ class DiscoverTablesRun:
         try:
             from soda.execution.check.cloud_check import CloudCheckMixin
         except ModuleNotFoundError:
-            self.logs.warning(
-                f"Deprecation warning: Discover Tables is deprecated and will be moved to commercial Soda package. ('{self.name}')"
+            self.logs.info(
+                f"Deprecation warning: Discover Tables is deprecated and will be moved to commercial Soda package."
             )
 
     def run(self) -> DiscoverTablesResult:

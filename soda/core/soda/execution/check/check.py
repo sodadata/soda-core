@@ -12,8 +12,8 @@ from soda.execution.identity import ConsistentHashBuilder
 from soda.execution.metric.metric import Metric
 from soda.execution.query.query import Query
 from soda.sampler.sample_ref import SampleRef
-from soda.soda_cloud.historic_descriptor import HistoricDescriptor
-from soda.soda_cloud.soda_cloud import GENERIC_TYPE_CSV_TEXT_MAX_LENGTH
+from soda.cloud.historic_descriptor import HistoricDescriptor
+from soda.cloud.soda_cloud import SodaCloud
 from soda.sodacl.check_cfg import CheckCfg
 from soda.sodacl.distribution_check_cfg import DistributionCheckCfg
 from soda.sodacl.group_by_check_cfg import GroupByCheckCfg
@@ -294,6 +294,15 @@ class Check(ABC):
         }
 
     def get_cloud_diagnostics_dict(self) -> dict:
+        try:
+            from soda.cloud.soda_cloud import SodaCloud
+
+            csv_max_length = SodaCloud.CSV_TEXT_MAX_LENGTH
+        except ModuleNotFoundError:
+            from soda.cloud.cloud import Cloud
+
+            csv_max_length = Cloud.CSV_TEXT_MAX_LENGTH
+
         cloud_diagnostics = {
             "blocks": [],
             "value": self.check_value if hasattr(self, "check_value") else None,
@@ -338,7 +347,7 @@ class Check(ABC):
 
                         for row in query.aggregated_failed_rows_data:
                             row_str = f'\n{",".join(map(str, row))}'
-                            if len(text) + len(row_str) < GENERIC_TYPE_CSV_TEXT_MAX_LENGTH:
+                            if len(text) + len(row_str) < csv_max_length:
                                 text += row_str
 
                         aggregate_rows_block = {

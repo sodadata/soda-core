@@ -6,7 +6,7 @@ from soda.execution.telemetry import Telemetry
 from soda.sampler.sampler import Sampler
 from soda.sampler.soda_cloud_sampler import SodaCloudSampler
 from soda.scan import Scan
-from soda.soda_cloud.soda_cloud import SodaCloud
+from soda.cloud.soda_cloud import SodaCloud
 
 
 class Configuration:

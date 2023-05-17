@@ -21,8 +21,8 @@ from soda.profiling.profile_columns_result import ProfileColumnsResultTable
 from soda.profiling.sample_tables_result import SampleTablesResultTable
 from soda.sampler.default_sampler import DefaultSampler
 from soda.sampler.sampler import Sampler
-from soda.soda_cloud.historic_descriptor import HistoricDescriptor
-from soda.soda_cloud.soda_cloud import SodaCloud
+from soda.cloud.historic_descriptor import HistoricDescriptor
+from soda.cloud.soda_cloud import SodaCloud
 from soda.sodacl.check_cfg import CheckCfg
 from soda.sodacl.location import Location
 from soda.sodacl.sodacl_cfg import SodaCLCfg
