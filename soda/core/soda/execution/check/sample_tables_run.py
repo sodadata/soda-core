@@ -18,6 +18,13 @@ class SampleTablesRun:
         self.data_source_check_cfg: DataSourceCheckCfg = data_source_check_cfg
         self.logs = self.data_source_scan.scan._logs
 
+        try:
+            from soda.execution.check.cloud_check import CloudCheckMixin
+        except ModuleNotFoundError:
+            self.logs.warning(
+                f"Deprecation warning: Sampling is deprecated and will be moved to commercial Soda package. ('{self.name}')"
+            )
+
     def run(self) -> SampleTablesResult:
         sample_tables_result: SampleTablesResult = SampleTablesResult(self.data_source_check_cfg)
         self.logs.info(f"Running sample tables for data source: {self.data_source_name}")

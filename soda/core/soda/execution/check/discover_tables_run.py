@@ -17,6 +17,13 @@ class DiscoverTablesRun:
         self.data_source_check_cfg: DataSourceCheckCfg = data_source_check_cfg
         self.logs = self.data_source_scan.scan._logs
 
+        try:
+            from soda.execution.check.cloud_check import CloudCheckMixin
+        except ModuleNotFoundError:
+            self.logs.warning(
+                f"Deprecation warning: Discover Tables is deprecated and will be moved to commercial Soda package. ('{self.name}')"
+            )
+
     def run(self) -> DiscoverTablesResult:
         discover_tables_result: DiscoverTablesResult = DiscoverTablesResult(self.data_source_check_cfg)
         self.logs.info(f"Running discover datasets for data source: {self.data_source.data_source_name}")

@@ -54,6 +54,13 @@ class SodaCloud:
         self.soda_cloud_trace_ids = {}
         self._organization_configuration = None
 
+        try:
+            from soda.execution.check.cloud_check import CloudCheckMixin
+        except ModuleNotFoundError:
+            self.logs.warning(
+                "Deprecation warning: Soda Cloud connection is deprecated and will be moved to commercial Soda package."
+            )
+
     @property
     def organization_configuration(self) -> dict:
         if isinstance(self._organization_configuration, dict):

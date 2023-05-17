@@ -24,6 +24,13 @@ class ProfileColumnsRun:
         self.profile_columns_cfg: ProfileColumnsCfg = profile_columns_cfg
         self.logs = self.data_source_scan.scan._logs
 
+        try:
+            from soda.execution.check.cloud_check import CloudCheckMixin
+        except ModuleNotFoundError:
+            self.logs.warning(
+                f"Deprecation warning: Profiling is deprecated and will be moved to commercial Soda package. ('{self.name}')"
+            )
+
     def run(self) -> ProfileColumnsResult:
         self.logs.info(f"Running column profiling for data source: {self.data_source.data_source_name}")
 

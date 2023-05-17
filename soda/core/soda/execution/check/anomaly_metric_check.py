@@ -35,6 +35,12 @@ class AnomalyMetricCheck(MetricCheck):
                 partition=partition,
                 column=column,
             )
+            try:
+                from soda.execution.check.cloud_check import CloudCheckMixin
+            except ModuleNotFoundError:
+                self.logs.warning(
+                    f"Deprecation warning: Anomaly Check is deprecated and will be moved to commercial Soda package. ('{self.name}')"
+                )
 
             self.skip_anomaly_check = False
             metric_check_cfg: MetricCheckCfg = self.check_cfg

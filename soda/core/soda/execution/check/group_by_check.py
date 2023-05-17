@@ -24,9 +24,13 @@ class GroupByCheck(Check):
             partition=partition,
             column=None,
         )
-        self.logs.warning(
-            f"Deprecation warning: Group By is deprecated and will be moved to commercial Soda package. ('{self.name}')"
-        )
+
+        try:
+            from soda.execution.check.cloud_check import CloudCheckMixin
+        except ModuleNotFoundError:
+            self.logs.warning(
+                f"Deprecation warning: Group By Check is deprecated and will be moved to commercial Soda package. ('{self.name}')"
+            )
 
         self.check_value = None
         self.check_type = CheckType.LOCAL

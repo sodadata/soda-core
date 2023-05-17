@@ -29,6 +29,13 @@ class DistributionCheck(Check):
             column=column,
         )
 
+        try:
+            from soda.execution.check.cloud_check import CloudCheckMixin
+        except ModuleNotFoundError:
+            self.logs.warning(
+                f"Deprecation warning: Distribution Check is deprecated and will be moved to commercial Soda package. ('{self.name}')"
+            )
+
         if data_source_scan.data_source.type not in DATA_SOURCES_WITH_DISTRIBUTION_CHECK_SUPPORT:
             self.logs.info(
                 f"The support for your data source type is experimental. Distribution checks are"

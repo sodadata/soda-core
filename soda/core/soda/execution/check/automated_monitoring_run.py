@@ -20,6 +20,13 @@ class AutomatedMonitoringRun:
         self.logs = self.data_source_scan.scan._logs
         self.table_names = self._get_table_names()
 
+        try:
+            from soda.execution.check.cloud_check import CloudCheckMixin
+        except ModuleNotFoundError:
+            self.logs.warning(
+                f"Deprecation warning: Automated Monitoring is deprecated and will be moved to commercial Soda package. ('{self.name}')"
+            )
+
     def run(self) -> List[Check]:
         automated_checks: List[Check] = []
         annomaly_detection_checks: List[AnomalyMetricCheck] = self.create_anomaly_detection_checks()
