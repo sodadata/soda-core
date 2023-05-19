@@ -98,7 +98,7 @@ class DuckDBDataSource(DataSource):
         self.path = data_source_properties.get("path")
         self.read_only = data_source_properties.get("read_only", False)
         self.duckdb_connection = data_source_properties.get("duckdb_connection")
-        self.configuration = data_source_properties.get("configuration")
+        self.configuration = data_source_properties.get("configuration", {})
 
     def connect(self):
         import duckdb
