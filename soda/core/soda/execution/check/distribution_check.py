@@ -4,7 +4,7 @@ from numbers import Number
 
 from soda.cli.cli import DATA_SOURCES_WITH_DISTRIBUTION_CHECK_SUPPORT
 from soda.common.exceptions import SODA_SCIENTIFIC_MISSING_LOG_MESSAGE
-from soda.execution.check.check import Check
+from soda.execution.check.check import Check, DeprecatedCheckMixin
 from soda.execution.check_outcome import CheckOutcome
 from soda.execution.column import Column
 from soda.execution.data_source_scan import DataSourceScan
@@ -14,7 +14,7 @@ from soda.execution.query.query import Query
 from soda.sodacl.distribution_check_cfg import DistributionCheckCfg
 
 
-class DistributionCheck(Check):
+class DistributionCheck(Check, DeprecatedCheckMixin):
     def __init__(
         self,
         check_cfg: DistributionCheckCfg,
@@ -28,13 +28,6 @@ class DistributionCheck(Check):
             partition=partition,
             column=column,
         )
-
-        try:
-            from soda.execution.check.cloud_check import CloudCheckMixin
-        except ModuleNotFoundError:
-            self.logs.info(
-                f"Deprecation warning: Distribution Check is deprecated and will be moved to commercial Soda package. ('{self.name}')"
-            )
 
         if data_source_scan.data_source.type not in DATA_SOURCES_WITH_DISTRIBUTION_CHECK_SUPPORT:
             self.logs.info(

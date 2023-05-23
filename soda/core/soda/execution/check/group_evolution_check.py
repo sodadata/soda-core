@@ -2,11 +2,11 @@ from __future__ import annotations
 
 import re
 
-from soda.execution.check.check import Check
+from soda.cloud.historic_descriptor import HistoricChangeOverTimeDescriptor
+from soda.execution.check.check import Check, DeprecatedCheckMixin
 from soda.execution.check_outcome import CheckOutcome
 from soda.execution.metric.group_evolution_metric import GroupEvolutionMetric
 from soda.execution.metric.metric import Metric
-from soda.cloud.historic_descriptor import HistoricChangeOverTimeDescriptor
 from soda.sodacl.change_over_time_cfg import ChangeOverTimeCfg
 from soda.sodacl.group_evolution_check_cfg import (
     GroupEvolutionCheckCfg,
@@ -18,7 +18,7 @@ KEY_GROUPS_PREVIOUS = "groups previous"
 
 
 # TODO - add support for cloud diagnostics and retrieving values from cloud
-class GroupEvolutionCheck(Check):
+class GroupEvolutionCheck(Check, DeprecatedCheckMixin):
     def __init__(
         self,
         check_cfg: CheckCfg,
@@ -31,14 +31,6 @@ class GroupEvolutionCheck(Check):
             partition=partition,
             column=None,
         )
-
-        try:
-            from soda.execution.check.cloud_check import CloudCheckMixin
-        except ModuleNotFoundError:
-            self.logs.info(
-                f"Deprecation warning: Group By Evolution Check is deprecated and will be moved to commercial Soda package. ('{self.name}')"
-            )
-
         self.cloud_check_type = "generic"
         from soda.sodacl.user_defined_failed_rows_check_cfg import (
             UserDefinedFailedRowsCheckCfg,

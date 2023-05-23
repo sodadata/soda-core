@@ -4,7 +4,9 @@ import collections
 import os
 from abc import ABC
 
+from soda.cloud.historic_descriptor import HistoricDescriptor
 from soda.common.attributes_handler import AttributeHandler
+from soda.common.utilities import is_soda_library_available
 from soda.execution.check_outcome import CheckOutcome
 from soda.execution.check_type import CheckType
 from soda.execution.column import Column
@@ -12,8 +14,6 @@ from soda.execution.identity import ConsistentHashBuilder
 from soda.execution.metric.metric import Metric
 from soda.execution.query.query import Query
 from soda.sampler.sample_ref import SampleRef
-from soda.cloud.historic_descriptor import HistoricDescriptor
-from soda.cloud.soda_cloud import SodaCloud
 from soda.sodacl.check_cfg import CheckCfg
 from soda.sodacl.distribution_check_cfg import DistributionCheckCfg
 from soda.sodacl.group_by_check_cfg import GroupByCheckCfg
@@ -147,6 +147,11 @@ class Check(ABC):
 
         self.cloud_dict = {}
 
+        if self.is_deprecated:
+            self.logs.info_into_buffer(
+                f"Deprecation warning: '{self.name}' is deprecated and will be moved to commercial Soda package. ({self.check_cfg.location})"
+            )
+
     @property
     def name(self) -> str:
         """User readable name.
@@ -169,6 +174,10 @@ class Check(ABC):
                 name += f" fail {source_cfg['fail']}"
 
         return jinja_resolve(name)
+
+    @property
+    def is_deprecated(self) -> bool:
+        return False
 
     def create_definition(self) -> str:
         check_cfg: CheckCfg = self.check_cfg
@@ -416,3 +425,11 @@ class Check(ABC):
                 queries.append(query)
 
         return queries
+
+
+class DeprecatedCheckMixin:
+    @property
+    def is_deprecated(self) -> bool:
+        if is_soda_library_available():
+            return False
+        return True

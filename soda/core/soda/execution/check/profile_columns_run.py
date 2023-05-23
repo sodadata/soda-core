@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections import defaultdict
 from typing import TYPE_CHECKING
 
+from soda.common.utilities import is_soda_library_available
 from soda.profiling.numeric_column_profiler import NumericColumnProfiler
 from soda.profiling.profile_columns_result import (
     ProfileColumnsResult,
@@ -24,11 +25,9 @@ class ProfileColumnsRun:
         self.profile_columns_cfg: ProfileColumnsCfg = profile_columns_cfg
         self.logs = self.data_source_scan.scan._logs
 
-        try:
-            from soda.execution.check.cloud_check import CloudCheckMixin
-        except ModuleNotFoundError:
-            self.logs.info(
-                f"Deprecation warning: Profiling is deprecated and will be moved to commercial Soda package."
+        if not is_soda_library_available():
+            self.logs.info_into_buffer(
+                "Deprecation warning: 'profiling' is deprecated and will be moved to commercial Soda package."
             )
 
     def run(self) -> ProfileColumnsResult:

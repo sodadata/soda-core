@@ -1,18 +1,17 @@
 from __future__ import annotations
 
-from abc import ABC
 import logging
-import re
-from typing import TYPE_CHECKING
 import math
+import re
+from abc import ABC
+from typing import TYPE_CHECKING
 
 import requests
 from requests import Response
 from soda.__version__ import SODA_CORE_VERSION
+from soda.cloud.historic_descriptor import HistoricDescriptor
 from soda.common.json_helper import JsonHelper
 from soda.common.logs import Logs
-from soda.cloud.historic_descriptor import HistoricDescriptor
-
 
 logger = logging.getLogger(__name__)
 

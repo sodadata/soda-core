@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import copy
 
-from soda.execution.check.check import Check
+from soda.execution.check.check import Check, DeprecatedCheckMixin
 from soda.execution.check_outcome import CheckOutcome
 from soda.execution.check_type import CheckType
 from soda.execution.metric.metric import Metric
@@ -11,7 +11,7 @@ from soda.execution.partition import Partition
 GROUP_BY_RESULTS = "group_by_results"
 
 
-class GroupByCheck(Check):
+class GroupByCheck(Check, DeprecatedCheckMixin):
     def __init__(
         self,
         check_cfg: GroupByCheckCfg,
@@ -24,13 +24,6 @@ class GroupByCheck(Check):
             partition=partition,
             column=None,
         )
-
-        try:
-            from soda.execution.check.cloud_check import CloudCheckMixin
-        except ModuleNotFoundError:
-            self.logs.info(
-                f"Deprecation warning: Group By Check is deprecated and will be moved to commercial Soda package. ('{self.name}')"
-            )
 
         self.check_value = None
         self.check_type = CheckType.LOCAL

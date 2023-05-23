@@ -7,6 +7,8 @@ import textwrap
 from datetime import datetime, timezone
 
 from soda.__version__ import SODA_CORE_VERSION
+from soda.cloud.historic_descriptor import HistoricDescriptor
+from soda.cloud.soda_cloud import SodaCloud
 from soda.common.json_helper import JsonHelper
 from soda.common.log import Log, LogLevel
 from soda.common.logs import Logs
@@ -21,8 +23,6 @@ from soda.profiling.profile_columns_result import ProfileColumnsResultTable
 from soda.profiling.sample_tables_result import SampleTablesResultTable
 from soda.sampler.default_sampler import DefaultSampler
 from soda.sampler.sampler import Sampler
-from soda.cloud.historic_descriptor import HistoricDescriptor
-from soda.cloud.soda_cloud import SodaCloud
 from soda.sodacl.check_cfg import CheckCfg
 from soda.sodacl.location import Location
 from soda.sodacl.sodacl_cfg import SodaCLCfg
@@ -585,6 +585,8 @@ class Scan:
 
             if error_count > 0:
                 Log.log_errors(self.get_error_logs())
+
+            self._logs.flush_buffer()
 
             # Telemetry data
             soda_telemetry.set_attributes(

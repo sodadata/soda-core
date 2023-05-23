@@ -2,17 +2,18 @@ from __future__ import annotations
 
 from datetime import timezone
 
+from soda.cloud.historic_descriptor import (
+    HistoricCheckResultsDescriptor,
+    HistoricMeasurementsDescriptor,
+)
 from soda.common.exceptions import SODA_SCIENTIFIC_MISSING_LOG_MESSAGE
+from soda.execution.check.check import DeprecatedCheckMixin
 from soda.execution.check.metric_check import MetricCheck
 from soda.execution.check_outcome import CheckOutcome
 from soda.execution.column import Column
 from soda.execution.data_source_scan import DataSourceScan
 from soda.execution.metric.metric import Metric
 from soda.execution.partition import Partition
-from soda.cloud.historic_descriptor import (
-    HistoricCheckResultsDescriptor,
-    HistoricMeasurementsDescriptor,
-)
 from soda.sodacl.metric_check_cfg import MetricCheckCfg
 
 KEY_HISTORIC_MEASUREMENTS = "historic_measurements"
@@ -20,7 +21,7 @@ KEY_HISTORIC_CHECK_RESULTS = "historic_check_results"
 HISTORIC_MEASUREMENTS_LIMIT = 1000
 
 
-class AnomalyMetricCheck(MetricCheck):
+class AnomalyMetricCheck(MetricCheck, DeprecatedCheckMixin):
     def __init__(
         self,
         check_cfg: MetricCheckCfg,
@@ -35,13 +36,6 @@ class AnomalyMetricCheck(MetricCheck):
                 partition=partition,
                 column=column,
             )
-            try:
-                from soda.execution.check.cloud_check import CloudCheckMixin
-            except ModuleNotFoundError:
-                self.logs.info(
-                    f"Deprecation warning: Anomaly Check is deprecated and will be moved to commercial Soda package. ('{self.name}')"
-                )
-
             self.skip_anomaly_check = False
             metric_check_cfg: MetricCheckCfg = self.check_cfg
             metric_name = metric_check_cfg.metric_name

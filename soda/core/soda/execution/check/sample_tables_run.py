@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from soda.common.utilities import is_soda_library_available
 from soda.profiling.sample_tables_result import SampleTablesResult
 from soda.sodacl.data_source_check_cfg import DataSourceCheckCfg
 
@@ -18,10 +19,10 @@ class SampleTablesRun:
         self.data_source_check_cfg: DataSourceCheckCfg = data_source_check_cfg
         self.logs = self.data_source_scan.scan._logs
 
-        try:
-            from soda.execution.check.cloud_check import CloudCheckMixin
-        except ModuleNotFoundError:
-            self.logs.info(f"Deprecation warning: Sampling is deprecated and will be moved to commercial Soda package.")
+        if not is_soda_library_available():
+            self.logs.info_into_buffer(
+                "Deprecation warning: 'sample tables' is deprecated and will be moved to commercial Soda package."
+            )
 
     def run(self) -> SampleTablesResult:
         sample_tables_result: SampleTablesResult = SampleTablesResult(self.data_source_check_cfg)

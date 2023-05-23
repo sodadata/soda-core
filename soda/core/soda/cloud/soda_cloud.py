@@ -7,16 +7,17 @@ from datetime import date, datetime, timedelta, timezone
 from typing import TYPE_CHECKING
 
 from soda.__version__ import SODA_CORE_VERSION
-from soda.common.json_helper import JsonHelper
-from soda.common.logs import Logs
-from soda.execution.check_type import CheckType
+from soda.cloud.cloud import Cloud
 from soda.cloud.historic_descriptor import (
     HistoricChangeOverTimeDescriptor,
     HistoricCheckResultsDescriptor,
     HistoricDescriptor,
     HistoricMeasurementsDescriptor,
 )
-from soda.cloud.cloud import Cloud
+from soda.common.json_helper import JsonHelper
+from soda.common.logs import Logs
+from soda.common.utilities import is_soda_library_available
+from soda.execution.check_type import CheckType
 
 logger = logging.getLogger(__name__)
 
@@ -51,10 +52,8 @@ class SodaCloud(Cloud):
         self.soda_cloud_trace_ids = {}
         self._organization_configuration = None
 
-        try:
-            from soda.execution.check.cloud_check import CloudCheckMixin
-        except ModuleNotFoundError:
-            self.logs.info(
+        if not is_soda_library_available():
+            self.logs.info_into_buffer(
                 "Deprecation warning: Soda Cloud connection is deprecated and will be moved to commercial Soda package."
             )
 
