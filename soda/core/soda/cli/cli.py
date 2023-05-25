@@ -87,6 +87,13 @@ if __name__ == "__main__":
     default=None,
     help="Specify the file path where the scan results as json will be stored",
 )
+@click.option(
+    "-T",
+    "--templates-path",
+    required=False,
+    default="./templates",
+    help="Specify the file path for check templates",
+)
 @click.argument("sodacl_paths", nargs=-1, type=click.STRING)
 @soda_trace
 def scan(
@@ -98,6 +105,7 @@ def scan(
     variable: list[str],
     verbose: bool | None,
     scan_results_file: str | None = None,
+    templates_path: str | None = None,
 ):
     """
     The soda scan command:
@@ -169,6 +177,8 @@ def scan(
             if variable_key and variable_value:
                 variables_dict[variable_key] = variable_value
         scan.add_variables(variables_dict)
+
+    scan.set_templates_path(templates_path)
 
     if verbose:
         scan.set_verbose()

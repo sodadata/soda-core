@@ -66,6 +66,8 @@ class Scan:
         self._discover_tables_result_tables: list[DiscoverTablesResultTable] = []
         self._sample_tables_result_tables: list[SampleTablesResultTable] = []
         self._logs.info(f"Soda Core {SODA_CORE_VERSION}")
+        # TODO change to os path
+        self._templates_path = "./templates"
         self.scan_results: dict = {}
 
     def build_scan_results(self) -> dict:
@@ -932,3 +934,6 @@ class Scan:
 
     def has_soda_cloud_connection(self):
         return self._configuration.soda_cloud is not None
+
+    def set_templates_path(self, path: str):
+        self._templates_path = path
