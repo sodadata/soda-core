@@ -778,9 +778,8 @@ class SodaCLParser(Parser):
         if metric_name.startswith("$"):
             template_name = metric_name[1:]
             self.logs.info(f"Processing template ${template_name}")
-            templates_config = self.sodacl_cfg.scan.templates
-            if templates_config is not None:
-                templates = templates_config[0].get("templates")
+            templates = self.sodacl_cfg.scan.templates
+            if templates is not None:
                 match = next(template for template in templates if template["name"] == template_name)
                 metric_query = self._resolve_jinja(match.get("query"), check_configurations.get("parameters"))
                 metric_name = match.get("metric")

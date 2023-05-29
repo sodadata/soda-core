@@ -29,6 +29,21 @@ def test_check_template(data_source_fixture: DataSourceFixture, fs):
         """
         ).strip(),
     )
+    fs.create_file(
+        file_path="/templates/template2.yaml",
+        contents=dedent(
+            """
+            templates:
+              - name: test_template2
+                description: Test template
+                author: Vijay Kiran
+                metric: cnt
+                query: |
+                  SELECT count(*) as cnt FROM ${table_name}
+
+            """
+        ).strip(),
+    )
 
     fs.create_file(
         file_path="/checks.yml",

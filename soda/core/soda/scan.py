@@ -350,7 +350,7 @@ class Scan:
 
     def _parse_template_yaml_str(self, template_yaml_str: str):
         yaml = YAML()
-        self.templates.append(yaml.load(template_yaml_str))
+        self.templates += yaml.load(template_yaml_str)["templates"]
 
     def _parse_sodacl_yaml_str(self, sodacl_yaml_str: str, file_path: str = None):
         from soda.sodacl.sodacl_parser import SodaCLParser
