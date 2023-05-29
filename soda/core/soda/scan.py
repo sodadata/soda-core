@@ -244,12 +244,13 @@ class Scan:
         return self._configuration.data_source_properties_by_name["dask"]["context"]
 
     def add_template_files(self, path: str):
-        try:
-            template_file_paths = self._collect_file_paths(path=path, recursive=True, suffixes=[".yml", ".yaml"])
-            for template_file_path in template_file_paths:
-                self.add_template_file(file_path=template_file_path)
-        except Exception as e:
-            self._logs.error(f"Could not add template files from dir {path}", exception=e)
+        if os.path.exists(path):
+            try:
+                template_file_paths = self._collect_file_paths(path=path, recursive=True, suffixes=[".yml", ".yaml"])
+                for template_file_path in template_file_paths:
+                    self.add_template_file(file_path=template_file_path)
+            except Exception as e:
+                self._logs.error(f"Could not add template files from dir {path}", exception=e)
 
     def add_sodacl_yaml_files(
         self,
