@@ -414,9 +414,6 @@ class Scan:
     def execute(self) -> int:
         self._logs.debug("Scan execution starts")
         exit_value = 0
-        # Load Check Templates
-        if os.path.exists(self._templates_path):
-            self.add_template_files(self._templates_path)
 
         try:
             from soda.execution.column import Column
