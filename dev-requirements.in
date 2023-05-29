@@ -1,5 +1,6 @@
 pip-tools
 pytest
+pyfakefs
 python-dotenv
 tox
 tox-docker

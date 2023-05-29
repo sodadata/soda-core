@@ -48,6 +48,7 @@ FAIL = "fail"
 NAME = "name"
 IDENTITY = "identity"
 ATTRIBUTES = "attributes"
+PARAMETERS = "parameters"
 QUERY = "query"
 FAIL_CONDITION = "fail condition"
 FAIL_QUERY = "fail query"
@@ -509,6 +510,7 @@ class SodaCLParser(Parser):
 
         antlr_metric = antlr_metric_check.metric()
         metric_name = antlr_metric.metric_name().getText()
+
         metric_args = None
         if antlr_metric.metric_args():
             metric_args = [
@@ -597,7 +599,7 @@ class SodaCLParser(Parser):
                         configuration_value,
                         missing_and_valid_cfg,
                     )
-                elif configuration_key not in [NAME, IDENTITY, WARN, FAIL, SAMPLES_LIMIT, ATTRIBUTES]:
+                elif configuration_key not in [NAME, IDENTITY, WARN, FAIL, SAMPLES_LIMIT, ATTRIBUTES, PARAMETERS]:
                     if metric_name != "distribution_difference":
                         self.logs.error(
                             f"Skipping unsupported check configuration: {configuration_key}",
@@ -771,6 +773,19 @@ class SodaCLParser(Parser):
             self.logs.warning(
                 f"Invalid syntax used in '{check_str}'. More than one check attribute is not supported. A check like this will be skipped in future versions of Soda Core"
             )
+
+        # TODO process templates
+        if metric_name.startswith("$"):
+            template_name = metric_name[1:]
+            self.logs.info(f"Processing template ${template_name}")
+            templates_config = self.sodacl_cfg.scan.templates
+            if templates_config is not None:
+                templates = templates_config[0].get("templates")
+                match = next(template for template in templates if template["name"] == template_name)
+                metric_query = self._resolve_jinja(match.get("query"), check_configurations.get("parameters"))
+                metric_name = match.get("metric")
+            else:
+                self.logs.error("No templates found, make sure that you create a template with name ${template_name}")
 
         return metric_check_cfg_class(
             source_header=header_str,

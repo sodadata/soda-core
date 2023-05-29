@@ -6,6 +6,7 @@ import os
 import textwrap
 from datetime import datetime, timezone
 
+from ruamel.yaml import YAML
 from soda.__version__ import SODA_CORE_VERSION
 from soda.common.json_helper import JsonHelper
 from soda.common.log import Log, LogLevel
@@ -52,6 +53,9 @@ class Scan:
         self._configuration: Configuration = Configuration(scan=self)
         self._sodacl_cfg: SodaCLCfg = SodaCLCfg(scan=self)
         self._file_paths: set[str] = set()
+        self._templates_path = "./templates"
+        self._template_file_paths = set[str]()
+        self.templates = []
         self._data_timestamp: datetime = now
         self._scan_start_timestamp: datetime = now
         # FIXME: this attribute cannot be None if typed as `datetime`
@@ -66,8 +70,7 @@ class Scan:
         self._discover_tables_result_tables: list[DiscoverTablesResultTable] = []
         self._sample_tables_result_tables: list[SampleTablesResultTable] = []
         self._logs.info(f"Soda Core {SODA_CORE_VERSION}")
-        # TODO change to os path
-        self._templates_path = "./templates"
+
         self.scan_results: dict = {}
 
     def build_scan_results(self) -> dict:
@@ -240,6 +243,14 @@ class Scan:
             self._configuration.add_dask_context(data_source_name="dask", dask_context=Context())
         return self._configuration.data_source_properties_by_name["dask"]["context"]
 
+    def add_template_files(self, path: str):
+        try:
+            template_file_paths = self._collect_file_paths(path=path, recursive=True, suffixes=[".yml", ".yaml"])
+            for template_file_path in template_file_paths:
+                self.add_template_file(file_path=template_file_path)
+        except Exception as e:
+            self._logs.error(f"Could not add template files from dir {path}", exception=e)
+
     def add_sodacl_yaml_files(
         self,
         path: str,
@@ -295,6 +306,18 @@ class Scan:
             self._logs.error(f"Path is not a string: {type(path).__name__}")
         return []
 
+    def add_template_file(self, file_path: str):
+        try:
+            template_yaml_str = self._read_file("Check Template", file_path)
+            if file_path not in self._template_file_paths:
+                self._template_file_paths.add(file_path)
+                self._parse_template_yaml_str(template_yaml_str=template_yaml_str)
+                self._logs.info(f"Loaded check templates from {file_path}")
+            else:
+                self._logs.debug(f"Skipping duplicate file addition for {file_path}")
+        except Exception as e:
+            self._logs.error(f"Could not add check template file {file_path}", exception=e)
+
     def add_sodacl_yaml_file(self, file_path: str):
         """
         Add a SodaCL YAML file to the scan on the given file_path.
@@ -324,6 +347,10 @@ class Scan:
             self._parse_sodacl_yaml_str(sodacl_yaml_str=sodacl_yaml_str, file_path=file_path)
         except Exception as e:
             self._logs.error("Could not add SodaCL string", exception=e)
+
+    def _parse_template_yaml_str(self, template_yaml_str: str):
+        yaml = YAML()
+        self.templates.append(yaml.load(template_yaml_str))
 
     def _parse_sodacl_yaml_str(self, sodacl_yaml_str: str, file_path: str = None):
         from soda.sodacl.sodacl_parser import SodaCLParser
@@ -387,6 +414,10 @@ class Scan:
     def execute(self) -> int:
         self._logs.debug("Scan execution starts")
         exit_value = 0
+        # Load Check Templates
+        if os.path.exists(self._templates_path):
+            self.add_template_files(self._templates_path)
+
         try:
             from soda.execution.column import Column
             from soda.execution.metric.column_metrics import ColumnMetrics
@@ -934,6 +965,3 @@ class Scan:
 
     def has_soda_cloud_connection(self):
         return self._configuration.soda_cloud is not None
-
-    def set_templates_path(self, path: str):
-        self._templates_path = path

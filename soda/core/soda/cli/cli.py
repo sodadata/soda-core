@@ -178,7 +178,7 @@ def scan(
                 variables_dict[variable_key] = variable_value
         scan.add_variables(variables_dict)
 
-    scan.set_templates_path(templates_path)
+    scan.add_template_files(templates_path)
 
     if verbose:
         scan.set_verbose()

@@ -71,6 +71,8 @@ py==1.11.0
     # via
     #   pytest
     #   tox
+pyfakefs==5.2.2
+    # via -r dev-requirements.in
 pygments==2.11.2
     # via
     #   -r dev-requirements.in

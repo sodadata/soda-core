@@ -28,7 +28,7 @@ class MockFileSystem(FileSystem):
 
     def exists(self, path: str):
         normalized_path = self.normalize(path)
-        return normalized_path in self.files
+        return normalized_path in self.files or normalized_path in self.dirs
 
     def is_file(self, path: str):
         normalized_path = self.normalize(path)
