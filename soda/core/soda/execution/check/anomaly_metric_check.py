@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import timezone
 
+from soda.common.utilities import is_soda_library_available
 from soda.cloud.historic_descriptor import (
     HistoricCheckResultsDescriptor,
     HistoricMeasurementsDescriptor,
@@ -29,6 +30,11 @@ class AnomalyMetricCheck(MetricCheck, DeprecatedCheckMixin):
         partition: Partition | None = None,
         column: Column | None = None,
     ):
+        if not is_soda_library_available():
+            self.logs.info_into_buffer(
+                "Deprecation warning: 'anomaly score' is deprecated and will be moved to commercial Soda package."
+            )
+
         try:
             super().__init__(
                 check_cfg=check_cfg,
