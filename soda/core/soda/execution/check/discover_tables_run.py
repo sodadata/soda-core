@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from soda.common.utilities import is_soda_library_available
 from soda.profiling.discover_tables_result import DiscoverTablesResult
 from soda.sodacl.data_source_check_cfg import DataSourceCheckCfg
 
@@ -17,11 +16,6 @@ class DiscoverTablesRun:
         self.data_source = data_source_scan.data_source
         self.data_source_check_cfg: DataSourceCheckCfg = data_source_check_cfg
         self.logs = self.data_source_scan.scan._logs
-
-        if not is_soda_library_available():
-            self.logs.info_into_buffer(
-                "Deprecation warning: 'discover tables' is deprecated and will be moved to commercial Soda package."
-            )
 
     def run(self) -> DiscoverTablesResult:
         discover_tables_result: DiscoverTablesResult = DiscoverTablesResult(self.data_source_check_cfg)

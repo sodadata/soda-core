@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import copy
 
-from soda.execution.check.check import Check, DeprecatedCheckMixin
+from soda.execution.check.check import Check
 from soda.execution.check_outcome import CheckOutcome
 from soda.execution.check_type import CheckType
 from soda.execution.metric.metric import Metric
@@ -11,7 +11,7 @@ from soda.execution.partition import Partition
 GROUP_BY_RESULTS = "group_by_results"
 
 
-class GroupByCheck(Check, DeprecatedCheckMixin):
+class GroupByCheck(Check):
     def __init__(
         self,
         check_cfg: GroupByCheckCfg,

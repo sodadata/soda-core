@@ -7,8 +7,6 @@ from soda.cloud.historic_descriptor import (
     HistoricMeasurementsDescriptor,
 )
 from soda.common.exceptions import SODA_SCIENTIFIC_MISSING_LOG_MESSAGE
-from soda.common.utilities import is_soda_library_available
-from soda.execution.check.check import DeprecatedCheckMixin
 from soda.execution.check.metric_check import MetricCheck
 from soda.execution.check_outcome import CheckOutcome
 from soda.execution.column import Column
@@ -22,7 +20,7 @@ KEY_HISTORIC_CHECK_RESULTS = "historic_check_results"
 HISTORIC_MEASUREMENTS_LIMIT = 1000
 
 
-class AnomalyMetricCheck(MetricCheck, DeprecatedCheckMixin):
+class AnomalyMetricCheck(MetricCheck):
     def __init__(
         self,
         check_cfg: MetricCheckCfg,
@@ -30,11 +28,6 @@ class AnomalyMetricCheck(MetricCheck, DeprecatedCheckMixin):
         partition: Partition | None = None,
         column: Column | None = None,
     ):
-        if not is_soda_library_available():
-            self.logs.info_into_buffer(
-                "Deprecation warning: 'anomaly score' is deprecated and will be moved to commercial Soda package."
-            )
-
         try:
             super().__init__(
                 check_cfg=check_cfg,

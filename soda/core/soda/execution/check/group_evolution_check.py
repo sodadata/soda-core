@@ -3,7 +3,7 @@ from __future__ import annotations
 import re
 
 from soda.cloud.historic_descriptor import HistoricChangeOverTimeDescriptor
-from soda.execution.check.check import Check, DeprecatedCheckMixin
+from soda.execution.check.check import Check
 from soda.execution.check_outcome import CheckOutcome
 from soda.execution.metric.group_evolution_metric import GroupEvolutionMetric
 from soda.execution.metric.metric import Metric
@@ -18,7 +18,7 @@ KEY_GROUPS_PREVIOUS = "groups previous"
 
 
 # TODO - add support for cloud diagnostics and retrieving values from cloud
-class GroupEvolutionCheck(Check, DeprecatedCheckMixin):
+class GroupEvolutionCheck(Check):
     def __init__(
         self,
         check_cfg: CheckCfg,

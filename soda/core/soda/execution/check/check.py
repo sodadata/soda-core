@@ -6,7 +6,6 @@ from abc import ABC
 
 from soda.cloud.historic_descriptor import HistoricDescriptor
 from soda.common.attributes_handler import AttributeHandler
-from soda.common.utilities import is_soda_library_available
 from soda.execution.check_outcome import CheckOutcome
 from soda.execution.check_type import CheckType
 from soda.execution.column import Column
@@ -18,6 +17,7 @@ from soda.sodacl.check_cfg import CheckCfg
 from soda.sodacl.distribution_check_cfg import DistributionCheckCfg
 from soda.sodacl.group_by_check_cfg import GroupByCheckCfg
 from soda.sodacl.group_evolution_check_cfg import GroupEvolutionCheckCfg
+from soda.cloud.cloud import Cloud
 
 
 class Check(ABC):
@@ -146,11 +146,6 @@ class Check(ABC):
         self.check_type = CheckType.CLOUD
 
         self.cloud_dict = {}
-
-        if self.is_deprecated:
-            self.logs.info_into_buffer(
-                f"Deprecation warning: '{self.name}' is deprecated and will be moved to commercial Soda package. ({self.check_cfg.location})"
-            )
 
     @property
     def name(self) -> str:
@@ -303,14 +298,7 @@ class Check(ABC):
         }
 
     def get_cloud_diagnostics_dict(self) -> dict:
-        try:
-            from soda.cloud.soda_cloud import SodaCloud
-
-            csv_max_length = SodaCloud.CSV_TEXT_MAX_LENGTH
-        except ModuleNotFoundError:
-            from soda.cloud.cloud import Cloud
-
-            csv_max_length = Cloud.CSV_TEXT_MAX_LENGTH
+        csv_max_length = Cloud.CSV_TEXT_MAX_LENGTH
 
         cloud_diagnostics = {
             "blocks": [],
@@ -425,11 +413,3 @@ class Check(ABC):
                 queries.append(query)
 
         return queries
-
-
-class DeprecatedCheckMixin:
-    @property
-    def is_deprecated(self) -> bool:
-        if is_soda_library_available():
-            return False
-        return True

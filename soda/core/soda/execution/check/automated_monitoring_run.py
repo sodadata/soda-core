@@ -1,6 +1,5 @@
 from typing import Dict, List
 
-from soda.common.utilities import is_soda_library_available
 from soda.execution.check.anomaly_metric_check import AnomalyMetricCheck
 from soda.execution.check.check import Check
 from soda.execution.check.schema_check import SchemaCheck
@@ -20,11 +19,6 @@ class AutomatedMonitoringRun:
         self.data_source_check_cfg: DataSourceCheckCfg = data_source_check_cfg
         self.logs = self.data_source_scan.scan._logs
         self.table_names = self._get_table_names()
-
-        if not is_soda_library_available():
-            self.logs.info_into_buffer(
-                "Deprecation warning: 'automated monitoring' is deprecated and will be moved to commercial Soda package."
-            )
 
     def run(self) -> List[Check]:
         automated_checks: List[Check] = []

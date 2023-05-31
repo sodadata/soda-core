@@ -16,7 +16,6 @@ from soda.cloud.historic_descriptor import (
 )
 from soda.common.json_helper import JsonHelper
 from soda.common.logs import Logs
-from soda.common.utilities import is_soda_library_available
 from soda.execution.check_type import CheckType
 
 logger = logging.getLogger(__name__)
@@ -51,11 +50,6 @@ class SodaCloud(Cloud):
         self.logs = logs
         self.soda_cloud_trace_ids = {}
         self._organization_configuration = None
-
-        if not is_soda_library_available():
-            self.logs.info_into_buffer(
-                "Deprecation warning: Soda Cloud connection is deprecated and will be moved to commercial Soda package."
-            )
 
     @property
     def organization_configuration(self) -> dict:

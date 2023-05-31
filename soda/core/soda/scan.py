@@ -586,10 +586,8 @@ class Scan:
             if error_count > 0:
                 Log.log_errors(self.get_error_logs())
 
-            # A bit hacky, buffer might contain other logs as well.
             if self._logs.logs_buffer:
                 self._logs.flush_buffer()
-                self._logs.info("Sign up for a free Soda Cloud trial at https://cloud.soda.io/signup")
 
             # Telemetry data
             soda_telemetry.set_attributes(
