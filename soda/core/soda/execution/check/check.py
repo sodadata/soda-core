@@ -4,6 +4,7 @@ import collections
 import os
 from abc import ABC
 
+from soda.cloud.cloud import Cloud
 from soda.cloud.historic_descriptor import HistoricDescriptor
 from soda.common.attributes_handler import AttributeHandler
 from soda.execution.check_outcome import CheckOutcome
@@ -17,7 +18,6 @@ from soda.sodacl.check_cfg import CheckCfg
 from soda.sodacl.distribution_check_cfg import DistributionCheckCfg
 from soda.sodacl.group_by_check_cfg import GroupByCheckCfg
 from soda.sodacl.group_evolution_check_cfg import GroupEvolutionCheckCfg
-from soda.cloud.cloud import Cloud
 
 
 class Check(ABC):
