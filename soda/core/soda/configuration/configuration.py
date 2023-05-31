@@ -1,12 +1,12 @@
 from __future__ import annotations
 
 from soda.cloud.dbt_config import DbtCloudConfig
+from soda.cloud.soda_cloud import SodaCloud
 from soda.common.file_system import file_system
 from soda.execution.telemetry import Telemetry
 from soda.sampler.sampler import Sampler
 from soda.sampler.soda_cloud_sampler import SodaCloudSampler
 from soda.scan import Scan
-from soda.soda_cloud.soda_cloud import SodaCloud
 
 
 class Configuration:

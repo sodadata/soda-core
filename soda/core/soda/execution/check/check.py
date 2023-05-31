@@ -4,6 +4,8 @@ import collections
 import os
 from abc import ABC
 
+from soda.cloud.cloud import Cloud
+from soda.cloud.historic_descriptor import HistoricDescriptor
 from soda.common.attributes_handler import AttributeHandler
 from soda.execution.check_outcome import CheckOutcome
 from soda.execution.check_type import CheckType
@@ -12,8 +14,6 @@ from soda.execution.identity import ConsistentHashBuilder
 from soda.execution.metric.metric import Metric
 from soda.execution.query.query import Query
 from soda.sampler.sample_ref import SampleRef
-from soda.soda_cloud.historic_descriptor import HistoricDescriptor
-from soda.soda_cloud.soda_cloud import GENERIC_TYPE_CSV_TEXT_MAX_LENGTH
 from soda.sodacl.check_cfg import CheckCfg
 from soda.sodacl.distribution_check_cfg import DistributionCheckCfg
 from soda.sodacl.group_by_check_cfg import GroupByCheckCfg
@@ -170,6 +170,10 @@ class Check(ABC):
 
         return jinja_resolve(name)
 
+    @property
+    def is_deprecated(self) -> bool:
+        return False
+
     def create_definition(self) -> str:
         check_cfg: CheckCfg = self.check_cfg
         from soda.common.yaml_helper import to_yaml_str
@@ -294,6 +298,8 @@ class Check(ABC):
         }
 
     def get_cloud_diagnostics_dict(self) -> dict:
+        csv_max_length = Cloud.CSV_TEXT_MAX_LENGTH
+
         cloud_diagnostics = {
             "blocks": [],
             "value": self.check_value if hasattr(self, "check_value") else None,
@@ -338,7 +344,7 @@ class Check(ABC):
 
                         for row in query.aggregated_failed_rows_data:
                             row_str = f'\n{",".join(map(str, row))}'
-                            if len(text) + len(row_str) < GENERIC_TYPE_CSV_TEXT_MAX_LENGTH:
+                            if len(text) + len(row_str) < csv_max_length:
                                 text += row_str
 
                         aggregate_rows_block = {
