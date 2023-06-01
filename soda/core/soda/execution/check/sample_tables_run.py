@@ -21,7 +21,7 @@ class SampleTablesRun:
 
         if not is_soda_library_available():
             self.logs.info_into_buffer(
-                "Deprecation warning: 'sample tables' is deprecated and will be moved to commercial Soda package."
+                "Deprecation warning: Sample Tables has been deprecated. To use this feature, you must use the Soda Library with Soda Cloud. See documentation for details."
             )
 
     def run(self) -> SampleTablesResult:

@@ -11,7 +11,9 @@ from soda.execution.partition import Partition
 GROUP_BY_RESULTS = "group_by_results"
 
 
-class GroupByCheck(Check, DeprecatedCheckMixin):
+class GroupByCheck(DeprecatedCheckMixin, Check):
+    CHECK_TYPE_NAME = "Group By Check"
+
     def __init__(
         self,
         check_cfg: GroupByCheckCfg,

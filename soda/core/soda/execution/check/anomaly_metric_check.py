@@ -22,7 +22,9 @@ KEY_HISTORIC_CHECK_RESULTS = "historic_check_results"
 HISTORIC_MEASUREMENTS_LIMIT = 1000
 
 
-class AnomalyMetricCheck(MetricCheck, DeprecatedCheckMixin):
+class AnomalyMetricCheck(DeprecatedCheckMixin, MetricCheck):
+    CHECK_TYPE_NAME = "Anomaly Score Check"
+
     def __init__(
         self,
         check_cfg: MetricCheckCfg,
@@ -30,11 +32,6 @@ class AnomalyMetricCheck(MetricCheck, DeprecatedCheckMixin):
         partition: Partition | None = None,
         column: Column | None = None,
     ):
-        if not is_soda_library_available():
-            self.logs.info_into_buffer(
-                "Deprecation warning: 'anomaly score' is deprecated and will be moved to commercial Soda package."
-            )
-
         try:
             super().__init__(
                 check_cfg=check_cfg,

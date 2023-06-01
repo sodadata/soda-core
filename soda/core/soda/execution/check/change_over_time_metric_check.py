@@ -10,6 +10,8 @@ KEY_HISTORIC_METRIC_AGGREGATE = "historic_metric_aggregate"
 
 
 class ChangeOverTimeMetricCheck(DeprecatedCheckMixin, MetricCheck):
+    CHECK_TYPE_NAME = "Change Over Time Check"
+
     def __init__(
         self,
         check_cfg: "MetricCheckCfg",

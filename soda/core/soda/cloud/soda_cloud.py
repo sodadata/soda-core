@@ -54,7 +54,7 @@ class SodaCloud(Cloud):
 
         if not is_soda_library_available():
             self.logs.info_into_buffer(
-                "Deprecation warning: Soda Cloud connection is deprecated and will be moved to commercial Soda package."
+                "Deprecation warning: The connection between Soda Core and Soda Cloud has been deprecated. To use Soda Cloud, you must connect it to the Soda Library. See documentation for details."
             )
 
     @property

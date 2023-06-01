@@ -18,7 +18,9 @@ KEY_GROUPS_PREVIOUS = "groups previous"
 
 
 # TODO - add support for cloud diagnostics and retrieving values from cloud
-class GroupEvolutionCheck(Check, DeprecatedCheckMixin):
+class GroupEvolutionCheck(DeprecatedCheckMixin, Check):
+    CHECK_TYPE_NAME = "Group Evolution Check"
+
     def __init__(
         self,
         check_cfg: CheckCfg,

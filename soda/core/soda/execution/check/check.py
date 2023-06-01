@@ -21,6 +21,8 @@ from soda.sodacl.group_evolution_check_cfg import GroupEvolutionCheckCfg
 
 
 class Check(ABC):
+    CHECK_TYPE_NAME = "Check"
+
     @staticmethod
     def create(
         check_cfg: CheckCfg,
@@ -149,7 +151,7 @@ class Check(ABC):
 
         if self.is_deprecated:
             self.logs.info_into_buffer(
-                f"Deprecation warning: '{self.name}' is deprecated and will be moved to commercial Soda package. ({self.check_cfg.location})"
+                f"Deprecation warning: {self.CHECK_TYPE_NAME} has been deprecated. To use this feature, you must use the Soda Library with Soda Cloud. See documentation for details. ({self.check_cfg.location})"
             )
 
     @property
