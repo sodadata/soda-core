@@ -27,14 +27,26 @@ from soda.sodacl.check_cfg import CheckCfg
 from soda.sodacl.location import Location
 from soda.sodacl.sodacl_cfg import SodaCLCfg
 from soda.telemetry.soda_telemetry import SodaTelemetry
+from soda.common.utilities import is_soda_library_available
 
 logger = logging.getLogger(__name__)
 verbose = False
 
 soda_telemetry = SodaTelemetry.get_instance()
 
+scan_extra_mixins = []
 
-class Scan:
+if is_soda_library_available():
+    from soda_library.execution.scan.cloud_scan_mixin import CloudScanMixin
+
+    scan_extra_mixins.append(CloudScanMixin)
+else:
+    from soda.execution.scan.scan_mixin import ScanMixin
+
+    scan_extra_mixins.append(ScanMixin)
+
+
+class Scan(*scan_extra_mixins):
     def __init__(self):
         from soda.configuration.configuration import Configuration
         from soda.execution.check.check import Check
@@ -65,8 +77,9 @@ class Scan:
         self._profile_columns_result_tables: list[ProfileColumnsResultTable] = []
         self._discover_tables_result_tables: list[DiscoverTablesResultTable] = []
         self._sample_tables_result_tables: list[SampleTablesResultTable] = []
-        self._logs.info(f"Soda Core {SODA_CORE_VERSION}")
         self.scan_results: dict = {}
+
+        self.log_version()
 
     def build_scan_results(self) -> dict:
         checks = [check.get_dict() for check in self._checks if check.outcome is not None and check.archetype is None]
@@ -384,6 +397,9 @@ class Scan:
 
     def execute(self) -> int:
         self._logs.debug("Scan execution starts")
+
+        self.scan_start()
+
         exit_value = 0
         try:
             from soda.execution.column import Column
