@@ -2,11 +2,11 @@ from __future__ import annotations
 
 import re
 
+from soda.cloud.historic_descriptor import HistoricChangeOverTimeDescriptor
 from soda.execution.check.check import Check
 from soda.execution.check_outcome import CheckOutcome
 from soda.execution.metric.group_evolution_metric import GroupEvolutionMetric
 from soda.execution.metric.metric import Metric
-from soda.soda_cloud.historic_descriptor import HistoricChangeOverTimeDescriptor
 from soda.sodacl.change_over_time_cfg import ChangeOverTimeCfg
 from soda.sodacl.group_evolution_check_cfg import (
     GroupEvolutionCheckCfg,
@@ -31,7 +31,6 @@ class GroupEvolutionCheck(Check):
             partition=partition,
             column=None,
         )
-
         self.cloud_check_type = "generic"
         from soda.sodacl.user_defined_failed_rows_check_cfg import (
             UserDefinedFailedRowsCheckCfg,

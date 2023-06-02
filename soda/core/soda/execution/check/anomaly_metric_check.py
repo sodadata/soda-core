@@ -2,6 +2,10 @@ from __future__ import annotations
 
 from datetime import timezone
 
+from soda.cloud.historic_descriptor import (
+    HistoricCheckResultsDescriptor,
+    HistoricMeasurementsDescriptor,
+)
 from soda.common.exceptions import SODA_SCIENTIFIC_MISSING_LOG_MESSAGE
 from soda.execution.check.metric_check import MetricCheck
 from soda.execution.check_outcome import CheckOutcome
@@ -9,10 +13,6 @@ from soda.execution.column import Column
 from soda.execution.data_source_scan import DataSourceScan
 from soda.execution.metric.metric import Metric
 from soda.execution.partition import Partition
-from soda.soda_cloud.historic_descriptor import (
-    HistoricCheckResultsDescriptor,
-    HistoricMeasurementsDescriptor,
-)
 from soda.sodacl.metric_check_cfg import MetricCheckCfg
 
 KEY_HISTORIC_MEASUREMENTS = "historic_measurements"
@@ -35,7 +35,6 @@ class AnomalyMetricCheck(MetricCheck):
                 partition=partition,
                 column=column,
             )
-
             self.skip_anomaly_check = False
             metric_check_cfg: MetricCheckCfg = self.check_cfg
             metric_name = metric_check_cfg.metric_name
