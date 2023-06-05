@@ -76,8 +76,8 @@ class AthenaDataSource(DataSource):
         DataType.DECIMAL: "double",
         DataType.DATE: "date",
         DataType.TIME: "date",
-        DataType.TIMESTAMP: "timestamp",
-        DataType.TIMESTAMP_TZ: "timestamp",
+        DataType.TIMESTAMP: "timestamp(3)",
+        DataType.TIMESTAMP_TZ: "timestamp(3)",
         DataType.BOOLEAN: "boolean",
     }
 

@@ -9,7 +9,7 @@ if sys.version_info < (3, 7):
     sys.exit(1)
 
 package_name = "soda-core-oracle"
-package_version = "3.0.38"
+package_version = "3.0.39"
 # TODO Add proper description
 description = "Soda Core Oracle Package"
 
