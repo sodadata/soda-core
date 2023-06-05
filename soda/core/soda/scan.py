@@ -395,16 +395,21 @@ class Scan(*scan_extra_mixins):
         self._configuration.telemetry = None
 
     def execute(self) -> int:
+        exit_value = 0
         self._logs.debug("Scan execution starts")
 
         self.scan_start()
 
-        exit_value = 0
         try:
             from soda.execution.column import Column
             from soda.execution.metric.column_metrics import ColumnMetrics
             from soda.execution.partition import Partition
             from soda.execution.table import Table
+
+            if not self.validate_prerequisites():
+                # Something is wrong, disable Cloud to prevent sending invalid data and kill the scan.
+                self._configuration.soda_cloud = None
+                raise Exception("Pre-scan validation failed, see logs for details.")
 
             # Disable Soda Cloud if it is not properly configured
             if self._configuration.soda_cloud:

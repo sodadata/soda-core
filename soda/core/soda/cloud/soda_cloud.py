@@ -120,6 +120,21 @@ class SodaCloud(Cloud):
             }
         )
 
+    def login(self) -> tuple(int, dict):
+        login_command = {"type": "login"}
+        if self.api_key_id and self.api_key_secret:
+            login_command["apiKeyId"] = self.api_key_id
+            login_command["apiKeySecret"] = self.api_key_secret
+        else:
+            raise RuntimeError("No API KEY and/or SECRET provided ")
+
+        login_response = self._http_post(
+            url=f"{self.api_url}/command", headers=self.headers, json=login_command, request_name="get_token"
+        )
+        login_response_json = login_response.json()
+
+        return login_response.status_code, login_response_json
+
     def upload_sample(
         self, scan: Scan, sample_rows: tuple[tuple], sample_file_name: str, samples_limit: int | None
     ) -> str:
@@ -319,19 +334,15 @@ class SodaCloud(Cloud):
 
     def _get_token(self):
         if not self.token:
-            login_command = {"type": "login"}
-            if self.api_key_id and self.api_key_secret:
-                login_command["apiKeyId"] = self.api_key_id
-                login_command["apiKeySecret"] = self.api_key_secret
-            else:
-                raise RuntimeError("No API KEY and/or SECRET provided ")
-
-            login_response = self._http_post(
-                url=f"{self.api_url}/command", headers=self.headers, json=login_command, request_name="get_token"
-            )
-            if login_response.status_code != 200:
-                raise AssertionError(f"Soda Cloud login failed {login_response.status_code}. Check credentials.")
-            login_response_json = login_response.json()
+            login_response_code, login_response_json = self.login()
+            if login_response_code == 401:
+                raise AssertionError(f"Soda Cloud login failed {login_response_code}. Invalid credentials.")
+            elif login_response_code == 403:
+                raise AssertionError(
+                    f"Soda Cloud login failed {login_response_code}. You no longer have access to the organization."
+                )
+            elif login_response_code != 200:
+                raise AssertionError(f"Soda Cloud login failed {login_response_code}. Check credentials.")
 
             self.token = login_response_json.get("token")
             assert self.token, "No token in login response?!"
