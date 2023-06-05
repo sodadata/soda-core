@@ -6,13 +6,13 @@ import os
 import textwrap
 from datetime import datetime, timezone
 
-from soda.__version__ import SODA_CORE_VERSION
 from soda.cloud.historic_descriptor import HistoricDescriptor
 from soda.cloud.soda_cloud import SodaCloud
 from soda.common.json_helper import JsonHelper
 from soda.common.log import Log, LogLevel
 from soda.common.logs import Logs
 from soda.common.undefined_instance import undefined
+from soda.common.utilities import is_soda_library_available
 from soda.execution.check.check import Check
 from soda.execution.check_outcome import CheckOutcome
 from soda.execution.data_source_scan import DataSourceScan
@@ -27,7 +27,6 @@ from soda.sodacl.check_cfg import CheckCfg
 from soda.sodacl.location import Location
 from soda.sodacl.sodacl_cfg import SodaCLCfg
 from soda.telemetry.soda_telemetry import SodaTelemetry
-from soda.common.utilities import is_soda_library_available
 
 logger = logging.getLogger(__name__)
 verbose = False

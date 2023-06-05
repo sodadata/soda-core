@@ -7,7 +7,6 @@ from soda.cloud.historic_descriptor import (
     HistoricMeasurementsDescriptor,
 )
 from soda.common.exceptions import SODA_SCIENTIFIC_MISSING_LOG_MESSAGE
-from soda.common.utilities import is_soda_library_available
 from soda.execution.check.check import DeprecatedCheckMixin
 from soda.execution.check.metric_check import MetricCheck
 from soda.execution.check_outcome import CheckOutcome

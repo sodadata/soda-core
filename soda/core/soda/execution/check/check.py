@@ -4,6 +4,7 @@ import collections
 import os
 from abc import ABC
 
+from soda.cloud.cloud import Cloud
 from soda.cloud.historic_descriptor import HistoricDescriptor
 from soda.common.attributes_handler import AttributeHandler
 from soda.common.utilities import is_soda_library_available
@@ -305,14 +306,11 @@ class Check(ABC):
         }
 
     def get_cloud_diagnostics_dict(self) -> dict:
-        try:
+        csv_max_length = Cloud.CSV_TEXT_MAX_LENGTH
+        if is_soda_library_available:
             from soda.cloud.soda_cloud import SodaCloud
 
             csv_max_length = SodaCloud.CSV_TEXT_MAX_LENGTH
-        except ModuleNotFoundError:
-            from soda.cloud.cloud import Cloud
-
-            csv_max_length = Cloud.CSV_TEXT_MAX_LENGTH
 
         cloud_diagnostics = {
             "blocks": [],
