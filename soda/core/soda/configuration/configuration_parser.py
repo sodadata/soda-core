@@ -4,13 +4,13 @@ import logging
 import re
 
 from soda.cloud.dbt_config import DbtCloudConfig
+from soda.cloud.soda_cloud import SodaCloud
 from soda.common.logs import Logs
 from soda.common.parser import Parser
 from soda.configuration.configuration import Configuration
 from soda.sampler.default_sampler import DefaultSampler
 from soda.sampler.http_sampler import HTTPSampler
 from soda.sampler.soda_cloud_sampler import SodaCloudSampler
-from soda.soda_cloud.soda_cloud import SodaCloud
 
 logger = logging.getLogger(__name__)
 

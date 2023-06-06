@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections import defaultdict
 from typing import TYPE_CHECKING
 
+from soda.common.utilities import is_soda_library_available
 from soda.profiling.numeric_column_profiler import NumericColumnProfiler
 from soda.profiling.profile_columns_result import (
     ProfileColumnsResult,
@@ -23,6 +24,11 @@ class ProfileColumnsRun:
         self.data_source = data_source_scan.data_source
         self.profile_columns_cfg: ProfileColumnsCfg = profile_columns_cfg
         self.logs = self.data_source_scan.scan._logs
+
+        if not is_soda_library_available():
+            self.logs.info_into_buffer(
+                "Deprecation warning: Profiling has been deprecated. To use this feature, you must use the Soda Library with Soda Cloud. See documentation for details."
+            )
 
     def run(self) -> ProfileColumnsResult:
         self.logs.info(f"Running column profiling for data source: {self.data_source.data_source_name}")

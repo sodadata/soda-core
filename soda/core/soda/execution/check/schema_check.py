@@ -3,12 +3,12 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, field
 
+from soda.cloud.historic_descriptor import HistoricChangeOverTimeDescriptor
 from soda.execution.check.check import Check
 from soda.execution.check_outcome import CheckOutcome
 from soda.execution.metric.metric import Metric
 from soda.execution.partition import Partition
 from soda.execution.schema_comparator import SchemaComparator
-from soda.soda_cloud.historic_descriptor import HistoricChangeOverTimeDescriptor
 from soda.sodacl.change_over_time_cfg import ChangeOverTimeCfg
 from soda.sodacl.schema_check_cfg import SchemaCheckCfg, SchemaValidations
 
@@ -29,6 +29,8 @@ class SchemaCheckValidationResult:
 
 
 class SchemaCheck(Check):
+    CHECK_TYPE_NAME = "Schema Check"
+
     def __init__(
         self,
         check_cfg: CheckCfg,

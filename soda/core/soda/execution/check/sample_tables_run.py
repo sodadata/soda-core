@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from soda.common.utilities import is_soda_library_available
 from soda.profiling.sample_tables_result import SampleTablesResult
 from soda.sodacl.data_source_check_cfg import DataSourceCheckCfg
 
@@ -17,6 +18,11 @@ class SampleTablesRun:
         self.data_source_name = self.data_source.data_source_name
         self.data_source_check_cfg: DataSourceCheckCfg = data_source_check_cfg
         self.logs = self.data_source_scan.scan._logs
+
+        if not is_soda_library_available():
+            self.logs.info_into_buffer(
+                "Deprecation warning: Sample Tables has been deprecated. To use this feature, you must use the Soda Library with Soda Cloud. See documentation for details."
+            )
 
     def run(self) -> SampleTablesResult:
         sample_tables_result: SampleTablesResult = SampleTablesResult(self.data_source_check_cfg)

@@ -4,7 +4,7 @@ from numbers import Number
 
 from soda.cli.cli import DATA_SOURCES_WITH_DISTRIBUTION_CHECK_SUPPORT
 from soda.common.exceptions import SODA_SCIENTIFIC_MISSING_LOG_MESSAGE
-from soda.execution.check.check import Check
+from soda.execution.check.check import Check, DeprecatedCheckMixin
 from soda.execution.check_outcome import CheckOutcome
 from soda.execution.column import Column
 from soda.execution.data_source_scan import DataSourceScan
@@ -14,7 +14,9 @@ from soda.execution.query.query import Query
 from soda.sodacl.distribution_check_cfg import DistributionCheckCfg
 
 
-class DistributionCheck(Check):
+class DistributionCheck(DeprecatedCheckMixin, Check):
+    CHECK_TYPE_NAME = "Distribution Check"
+
     def __init__(
         self,
         check_cfg: DistributionCheckCfg,

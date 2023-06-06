@@ -4,7 +4,10 @@ import collections
 import os
 from abc import ABC
 
+from soda.cloud.cloud import Cloud
+from soda.cloud.historic_descriptor import HistoricDescriptor
 from soda.common.attributes_handler import AttributeHandler
+from soda.common.utilities import is_soda_library_available
 from soda.execution.check_outcome import CheckOutcome
 from soda.execution.check_type import CheckType
 from soda.execution.column import Column
@@ -12,7 +15,6 @@ from soda.execution.identity import ConsistentHashBuilder
 from soda.execution.metric.metric import Metric
 from soda.execution.query.query import Query
 from soda.sampler.sample_ref import SampleRef
-from soda.soda_cloud.historic_descriptor import HistoricDescriptor
 from soda.sodacl.check_cfg import CheckCfg
 from soda.sodacl.distribution_check_cfg import DistributionCheckCfg
 from soda.sodacl.group_by_check_cfg import GroupByCheckCfg
@@ -27,6 +29,8 @@ except ModuleNotFoundError:
 
 
 class Check(*check_bases):
+    CHECK_TYPE_NAME = "Check"
+
     @staticmethod
     def create(
         check_cfg: CheckCfg,
@@ -163,6 +167,11 @@ class Check(*check_bases):
 
         self.cloud_dict = {}
 
+        if self.is_deprecated:
+            self.logs.info_into_buffer(
+                f"Deprecation warning: {self.CHECK_TYPE_NAME} has been deprecated. To use this feature, you must use the Soda Library with Soda Cloud. See documentation for details. ({self.check_cfg.location})"
+            )
+
     @property
     def name(self) -> str:
         """User readable name.
@@ -185,6 +194,10 @@ class Check(*check_bases):
                 name += f" fail {source_cfg['fail']}"
 
         return jinja_resolve(name)
+
+    @property
+    def is_deprecated(self) -> bool:
+        return False
 
     def create_definition(self) -> str:
         check_cfg: CheckCfg = self.check_cfg
@@ -310,6 +323,12 @@ class Check(*check_bases):
         }
 
     def get_cloud_diagnostics_dict(self) -> dict:
+        csv_max_length = Cloud.CSV_TEXT_MAX_LENGTH
+        if is_soda_library_available:
+            from soda.cloud.soda_cloud import SodaCloud
+
+            csv_max_length = SodaCloud.CSV_TEXT_MAX_LENGTH
+
         cloud_diagnostics = {
             "blocks": [],
             "value": self.check_value if hasattr(self, "check_value") else None,
@@ -354,7 +373,7 @@ class Check(*check_bases):
 
                         for row in query.aggregated_failed_rows_data:
                             row_str = f'\n{",".join(map(str, row))}'
-                            if len(text) + len(row_str) < GENERIC_TYPE_CSV_TEXT_MAX_LENGTH:
+                            if len(text) + len(row_str) < csv_max_length:
                                 text += row_str
 
                         aggregate_rows_block = {
@@ -440,3 +459,11 @@ class PlaceholderCheck(Check):
     def __init__(self, check_cfg: CheckCfg, data_source_scan: DataSourceScan):
         super().__init__(check_cfg, data_source_scan, None, None)
         self.logs.warning(f"Using check from Soda Commercial package: {self.check_cfg.source_line}")
+
+
+class DeprecatedCheckMixin:
+    @property
+    def is_deprecated(self) -> bool:
+        if is_soda_library_available():
+            return False
+        return True

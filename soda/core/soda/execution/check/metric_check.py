@@ -12,6 +12,8 @@ KEY_CHECK_VALUE = "check_value"
 
 
 class MetricCheck(Check):
+    CHECK_TYPE_NAME = "Metric Check"
+
     def __init__(
         self,
         check_cfg: "MetricCheckCfg",

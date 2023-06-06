@@ -8,6 +8,8 @@ from soda.execution.partition import Partition
 
 
 class RowCountComparisonCheck(Check):
+    CHECK_TYPE_NAME = "Row Count Comparison Check"
+
     def __init__(
         self,
         check_cfg: "RowCountComparisonCheckCfg",
