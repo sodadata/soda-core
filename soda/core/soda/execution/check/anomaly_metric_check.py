@@ -22,8 +22,6 @@ HISTORIC_MEASUREMENTS_LIMIT = 1000
 
 
 class AnomalyMetricCheck(DeprecatedCheckMixin, MetricCheck):
-    CHECK_TYPE_NAME = "Anomaly Score Check"
-
     def __init__(
         self,
         check_cfg: MetricCheckCfg,

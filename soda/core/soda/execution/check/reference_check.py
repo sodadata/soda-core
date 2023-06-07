@@ -9,8 +9,6 @@ KEY_INVALID_REFERENCE_COUNT = "invalid_reference_count"
 
 
 class ReferenceCheck(Check):
-    CHECK_TYPE_NAME = "Reference Check"
-
     def __init__(self, check_cfg: "ReferenceCheckCfg", data_source_scan: "DataSourceScan", partition: "Partition"):
         single_source_column_name = (
             check_cfg.source_column_names[0] if len(check_cfg.source_column_names) == 1 else None

@@ -11,8 +11,6 @@ KEY_FAILED_ROWS_COUNT = "failed_rows_count"
 
 
 class UserDefinedFailedRowsCheck(Check):
-    CHECK_TYPE_NAME = "User Defined Failed Rows Check"
-
     """
     Eg:
 

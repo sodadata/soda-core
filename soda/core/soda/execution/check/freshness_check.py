@@ -11,8 +11,6 @@ MAX_COLUMN_TIMESTAMP = "max_column_timestamp"
 
 
 class FreshnessCheck(Check):
-    CHECK_TYPE_NAME = "Freshness Check"
-
     def __init__(
         self,
         check_cfg: FreshnessCheckCfg,

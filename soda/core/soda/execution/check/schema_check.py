@@ -29,8 +29,6 @@ class SchemaCheckValidationResult:
 
 
 class SchemaCheck(Check):
-    CHECK_TYPE_NAME = "Schema Check"
-
     def __init__(
         self,
         check_cfg: CheckCfg,

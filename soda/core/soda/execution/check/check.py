@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import collections
 import os
+import re
 from abc import ABC
 
 from soda.cloud.cloud import Cloud
@@ -22,8 +23,6 @@ from soda.sodacl.group_evolution_check_cfg import GroupEvolutionCheckCfg
 
 
 class Check(ABC):
-    CHECK_TYPE_NAME = "Check"
-
     @staticmethod
     def create(
         check_cfg: CheckCfg,
@@ -152,7 +151,7 @@ class Check(ABC):
 
         if self.is_deprecated:
             self.logs.info_into_buffer(
-                f"Deprecation warning: {self.CHECK_TYPE_NAME} has been deprecated. To use this feature, you must use the Soda Library with Soda Cloud. See documentation for details. ({self.check_cfg.location})"
+                f"Deprecation warning: {self.get_check_type_name()} has been deprecated. To use this feature, you must use the Soda Library with Soda Cloud. See documentation for details. ({self.check_cfg.location})"
             )
 
     @property
@@ -177,6 +176,10 @@ class Check(ABC):
                 name += f" fail {source_cfg['fail']}"
 
         return jinja_resolve(name)
+
+    @classmethod
+    def get_check_type_name(cls) -> str:
+        return re.sub(r"((?<=[a-z])[A-Z]|(?<!\A)[A-Z](?=[a-z]))", r" \1", cls.__name__)
 
     @property
     def is_deprecated(self) -> bool:

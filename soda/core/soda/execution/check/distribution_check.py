@@ -15,8 +15,6 @@ from soda.sodacl.distribution_check_cfg import DistributionCheckCfg
 
 
 class DistributionCheck(DeprecatedCheckMixin, Check):
-    CHECK_TYPE_NAME = "Distribution Check"
-
     def __init__(
         self,
         check_cfg: DistributionCheckCfg,

@@ -13,8 +13,6 @@ KEY_FAILED_ROWS_COUNT = "failed_rows_count"
 
 
 class UserDefinedFailedRowsExpressionCheck(Check):
-    CHECK_TYPE_NAME = "User Defined Failed Rows Expression Check"
-
     def __init__(
         self,
         check_cfg: "UserDefinedFailedRowsExpressionCheckCfg",
