@@ -100,10 +100,6 @@ class AthenaDataSource(DataSource):
     def regex_replace_flags(self) -> str:
         return ""
 
-    @staticmethod
-    def column_metadata_catalog_column() -> str:
-        return "table_schema"
-
     def default_casify_table_name(self, identifier: str) -> str:
         return identifier.lower()
 
