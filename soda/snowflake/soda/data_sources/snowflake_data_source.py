@@ -101,7 +101,7 @@ class SnowflakeDataSource(DataSource):
             user=self.user,
             password=self.password,
             token=self.token,
-            account=self.account,
+            account=re.sub(r'\.snowflakecomputing\.com(\/)*$','',self.account),
             data_source=self.data_source,
             database=self.database,
             schema=self.schema,
