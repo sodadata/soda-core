@@ -47,7 +47,7 @@ class NumericColumnProfiler:
             self.result_column.set_min_max_metrics(value_frequencies=value_frequencies)
             self.result_column.set_frequency_metric(value_frequencies=value_frequencies)
         else:
-            self.logs.error(
+            self.logs.warning(
                 "Database returned no results for minumum values, maximum values and "
                 f"frequent values in table: {self.table_name}, columns: {self.column_name}"
             )
@@ -57,7 +57,7 @@ class NumericColumnProfiler:
         if aggregated_metrics:
             self.result_column.set_numeric_aggregation_metrics(aggregated_metrics=aggregated_metrics)
         else:
-            self.logs.error(
+            self.logs.warning(
                 f"Database returned no results for aggregates in table: {self.table_name}, columns: {self.column_name}"
             )
 
@@ -66,7 +66,7 @@ class NumericColumnProfiler:
         if histogram_values:
             self.result_column.set_histogram(histogram_values=histogram_values)
         else:
-            self.logs.error(
+            self.logs.warning(
                 f"Database returned no results for histograms in table: {self.table_name}, columns: {self.column_name}"
             )
 
