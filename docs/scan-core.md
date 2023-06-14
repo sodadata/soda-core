@@ -1,33 +1,20 @@
----
-layout: default
-title: Run a Soda Core scan
-description:  Soda Core uses the input in the checks and configuration YAML file to prepare a scan that it runs against the data in a dataset.
-parent: Soda Core
-redirect_from:
-- /soda-core/first-scan.html
-- /soda-core/scan-reference.html
----
-
 # Run a Soda Core scan 
-*Last modified on {% last_modified_at %}*
 
 A **scan** is a command that executes checks to extract information about data in a dataset. 
-{% include code-header.html %}
+
 ```shell
 soda scan -d postgres_retail_db  -c configuration.yml checks.yml
 ```
 
 A **check** is a test that Soda Core performs when it scans a dataset in your data source. Soda Core uses the checks you define in the **checks YAML** file to prepare SQL queries that it runs against the data in a table. Soda Core can execute multiple checks against one or more datasets in a single scan. 
 
-[Anatomy of a scan command](#anatomy-of-a-scan-command)<br />
-[Variables](#variables)<br />
-[Scan output](#scan-output)<br />
-[Examine a scan's SQL queries](#examine-a-scans-sql-queries)<br />
-[Programmatically use scan output](#programmatically-use-scan-output)<br />
-[Configure the same scan to run in multiple environments](#configure-the-same-scan-to-run-in-multiple-environments)<br />
-[Add scan options](#add-scan-options)<br />
-[Troubleshoot](#troubleshoot)<br />
-[Go further](#go-further) <br />
+[Anatomy of a scan command](#anatomy-of-a-scan-command)
+[Variables](#variables)
+[Scan output](#scan-output)
+[Examine a scan's SQL queries](#examine-a-scans-sql-queries)
+[Programmatically use scan output](#programmatically-use-scan-output)
+[Add scan options](#add-scan-options)
+[Troubleshoot](#troubleshoot)
 <br />
 
 ## Anatomy of a scan command
@@ -39,14 +26,13 @@ Each scan requires the following as input:
 * a `checks.yml` file which contains the checks you write using SodaCL
 
 Scan command:
-{% include code-header.html %}
 ```shell
 soda scan -d postgres_retail -c configuration.yml checks.yml
 ```
 <br />
 
 Note that you can use the `-c` option to include **multiple configuration YAML files** in one scan execution. Include the filepath of each YAML file if you stored them in a directory other than the one in which you installed Soda Core.
-{% include code-header.html %}
+
 ```shell
 soda scan -d postgres_retail -c other-directory/configuration.yml other-directory/checks.yml
 ```
@@ -54,20 +40,20 @@ soda scan -d postgres_retail -c other-directory/configuration.yml other-director
 <br />
 
 You can also include **multiple checks YAML files** in one scan execution. Use multiple checks YAML files to execute different sets of checks during a scan. 
-{% include code-header.html %}
+
 ```shell
 soda scan -d postgres_retail -c configuration.yml checks_stats1.yml checks_stats2.yml
 ```
 
-<br />
-Use the soda `soda scan --help` command to review options you can include to customize the scan. See also: [Add scan options](#add-scan-options).
+
+Use the `soda scan --help` command to review options you can include to customize the scan. See also: [Add scan options](#add-scan-options).
 
 ## Variables
 
 There are several ways you can use variables in checks, filters, and in your data source configuration to pass values at scan time; a few examples follow. 
 
-Refer to the comprehensive [Filters and variables]({% link soda-cl/filters.md %}) documentation for details.
-{% include code-header.html %}
+Refer to the comprehensive [Filters and variables](https://docs.soda.io/soda-cl/filters.html) documentation for details.
+
 ```yaml
 # In-check filter
 checks for dim_employee:
@@ -92,11 +78,30 @@ checks for ${DATASET}:
 
 ## Scan output
 
-{% include scan-output.md %}
+As a result of a scan, each check results in one of three default states:
+* **pass**: the values in the dataset match or fall within the thresholds you specified
+* **fail**: the values in the dataset _do not_ match or fall within the thresholds you specified
+* **error**: the syntax of the check is invalid
+
+A fourth state, **warn**, is something you can explicitly configure for individual checks. See [Add alert configurations](https://docs.soda.io/soda-cl/optional-config.html#add-alert-configurations).
+
+The scan results appear in your command-line interface (CLI) . 
+
+```shell
+Soda Core 3.0.xx
+Scan summary:
+1/1 check PASSED: 
+    dim_customer in adventureworks
+      row_count > 0 [PASSED]
+All is good. No failures. No warnings. No errors.
+Sending results to Soda Cloud
+```
+
+<br />
 
 Example output with a check that triggered a warning:
 ```shell
-Soda Core 0.0.x
+Soda Core 3.0.x
 Scan summary:
 1/1 check WARNED: 
     CUSTOMERS in postgres_retail
@@ -108,7 +113,7 @@ Only 1 warning. 0 failure. 0 errors. 0 pass.
 
 Example output with a check that failed:
 ```shell
-Soda Core 0.0.x
+Soda Core 3.0.x
 Scan summary:
 1/1 check FAILED: 
     CUSTOMERS in postgres_retail
@@ -126,7 +131,7 @@ Oops! 1 failures. 0 warnings. 0 errors. 0 pass.
 ### Examine a scan's SQL queries
 
 To examine the SQL queries that Soda Core prepares and executes as part of a scan, you can add the `-V` option to your `soda scan` command. This option prints the queries as part of the scan results.
-{% include code-header.html %}
+
 ```shell
 soda scan -d postgres_retail -c configuration.yml -V checks.yml
 ``` 
@@ -135,13 +140,10 @@ soda scan -d postgres_retail -c configuration.yml -V checks.yml
 
 Optionally, you can insert the output of Soda Core scans into your data orchestration tool such as Dagster, or Apache Airflow. 
 
-You can save Soda Core scan results anywhere in your system; the `scan_result` object contains all the scan result information. To import the Soda Core library in Python so you can utilize the `Scan()` object, [install a Soda Core package]({% link soda-core/installation.md %}), then use `from soda.scan import Scan`. Refer to [Define programmatic scans]({% link soda-core/programmatic.md %}) for details.
+You can save Soda Core scan results anywhere in your system; the `scan_result` object contains all the scan result information. To import the Soda Core library in Python so you can utilize the `Scan()` object, [install a Soda Core package](/docs/installation.md), then use `from soda.scan import Scan`. Refer to [Define programmatic scans](/docs/programmatic.md) for details.
 
-Further, in your orchestration tool, you can use Soda Core scan results to block the data pipeline if it encounters bad data, or to run in parallel to surface issues with your data. Learn how to [Configure orchestrated scans]({% link soda-core/orchestrate-scans.md %}).
+Further, in your orchestration tool, you can use Soda Core scan results to block the data pipeline if it encounters bad data, or to run in parallel to surface issues with your data. Learn how to [Configure orchestrated scans](/docs/orchestrate-scans.md).
 
-## Configure the same scan to run in multiple environments
-
-{% include scan-multiple-envs.md %}
 
 ## Add scan options
 
@@ -151,17 +153,17 @@ When you run a scan in Soda Core, you can specify some options that modify the s
 | ------ | :------: | ---------------------- |
 | `-c TEXT` or<br /> `--configuration TEXT` | ✓ | Use this option to specify the file path and file name for the configuration YAML file.|
 | `-d TEXT` or<br /> `--data-source TEXT` |  ✓ | Use this option to specify the data source that contains the datasets you wish to scan.|
-| `-s TEXT` or<br /> `--scan-definition TEXT` |  | Use this option to provide a [scan definition name]({% link soda/glossary.md %}#scan-definition-name) so that Soda Cloud keeps check results from different environments (dev, prod, staging) separate. See [Configure a single scan to run in multiple environments]({% link soda-core/configuration.md %}#configure-the-same-scan-to-run-in-multiple-environments).|
-| `-srf` or <br /> `--scan-results-file TEXT` |  | Specify the file name and file path to which Soda Core sends a JSON file of the scan results. You can use this in addition to, or instead of, sending results to Soda Cloud. <br /> `soda scan -d adventureworks -c configuration.yml -srf test.json checks.yml`|
+| `-s TEXT` or<br /> `--scan-definition TEXT` |  | Use this option to provide a scan definition name so that Soda Cloud keeps check results from different environments (dev, prod, staging) separate. |
+| `-srf` or <br /> `--scan-results-file TEXT` |  | Specify the file name and file path to which Soda Core sends a JSON file of the scan results.  <br /> `soda scan -d adventureworks -c configuration.yml -srf test.json checks.yml`|
 | `-t TEXT` or<br /> `--data-timestamp TEXT` |  | Placeholder only. |
-| `-v TEXT` or<br /> `--variable TEXT` |  | Replace `TEXT` with variables you wish to apply to the scan, such as a [filter for a date]({% link soda-cl/filters.md %}). Put single or double quotes around any value with spaces. <br />  `soda scan -d my_datasource -v start=2020-04-12 -c configuration.yml checks.yml` |
+| `-v TEXT` or<br /> `--variable TEXT` |  | Replace `TEXT` with variables you wish to apply to the scan, such as a [filter for a date](https://docs.soda.io/soda-cl/filters.html). Put single or double quotes around any value with spaces. <br />  `soda scan -d my_datasource -v start=2020-04-12 -c configuration.yml checks.yml` |
 | `V` or <br /> `--verbose` |  | Return scan output in verbose mode to review query details. |
 
 ## Troubleshoot
 
 **Problem:** When you run a scan, you get an error that reads, `Exception while exporting Span batch.`
 
-**Solution:** Without an internet connection, Soda Core is unable to communicate with `soda.connect.io` to transmit anonymous usage statistics about the software. <br /> If you are using Soda Core offline, you can resolve the issue by setting `send_anonymous_usage_stats: false` in your `configuration.yml` file. Refer to [Soda Core usage statistics]({% link soda-core/usage-stats.md %}) for further details.
+**Solution:** Without an internet connection, Soda Core is unable to communicate with `soda.connect.io` to transmit anonymous usage statistics about the software. <br /> If you are using Soda Core offline, you can resolve the issue by setting `send_anonymous_usage_stats: false` in your `configuration.yml` file. Refer to [Soda Core usage statistics](/docs/usage-stats.md) for further details.
 
 <br />
 
@@ -170,21 +172,3 @@ When you run a scan in Soda Core, you can specify some options that modify the s
 **Solution:** This is the result of a transitive dependency from open telemetry that gathers OSS usage statistics. To resolve:
 1. From the command-line, in the directory in which you installed your soda-core package, run `pip uninistall protobuf`.
 2. Reinstall protobuf with the command `pip install protobuf==3.19.4`.
-
-
-## Go further
-
-* Consider completing the [Quick start for SodaCL]({% link soda/quick-start-sodacl.md %}) to learn how to write more checks for data quality.
-* Need help? Join the <a href="https://community.soda.io/slack" target="_blank"> Soda community on Slack</a>.
-<br />
-
----
-
-Was this documentation helpful?
-
-<!-- LikeBtn.com BEGIN -->
-<span class="likebtn-wrapper" data-theme="tick" data-i18n_like="Yes" data-ef_voting="grow" data-show_dislike_label="true" data-counter_zero_show="true" data-i18n_dislike="No"></span>
-<script>(function(d,e,s){if(d.getElementById("likebtn_wjs"))return;a=d.createElement(e);m=d.getElementsByTagName(e)[0];a.async=1;a.id="likebtn_wjs";a.src=s;m.parentNode.insertBefore(a, m)})(document,"script","//w.likebtn.com/js/w/widget.js");</script>
-<!-- LikeBtn.com END -->
-
-{% include docs-footer.md %}

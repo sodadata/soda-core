@@ -72,14 +72,11 @@ To scan your data, you use the `soda scan` CLI command. Soda Core uses the input
 soda scan -d adventureworks -c configuration.yml checks.yml
 ```
 
-
-
-
 ## Soda Core operation
 
 The following image illustrates what Soda Core does when you initiate a scan.
 
-![soda-core-operation](/assets/images/soda-core-operation.png){:height="800px" width="800px"}
+![soda-core-operation](/docs/assets/images/soda-core-operation.png)
 
 **1** - You trigger a scan using the `soda scan` CLI command from your Soda project directory which contains the `configuration.yml` and `checks.yml` files. The scan specifies which data source to scan, where to get data source access info,  and which checks to run on which datasets.
 
@@ -90,23 +87,31 @@ The following image illustrates what Soda Core does when you initiate a scan.
 - executes a single aggregation query that computes aggregate metrics for multiple columns, such as `missing`, `min`, or `max`
 - for each column each dataset, executes several more queries
 
-**4** - {% include scan-output.md %}
+**4** - As a result of a scan, each check results in one of three default states:
+- **pass**: the values in the dataset match or fall within the thresholds you specified
+- **fail**: the values in the dataset do not match or fall within the thresholds you specified
+- **error**: the syntax of the check is invalid
+
+A fourth state, **warn**, is something you can explicitly configure for individual checks. See [Add alert configurations](https://docs.soda.io/soda-cl/optional-config.html#add-alert-configurations).
+
+The scan results appear in your command-line interface (CLI).
+```shell
+Soda Core 3.0.xx
+Scan summary:
+1/1 check PASSED: 
+    dim_customer in adventureworks
+      row_count > 0 [PASSED]
+All is good. No failures. No warnings. No errors.
+Sending results to Soda Cloud
+```
 
 
 ## Soda Core automation and integrations
 
-To automate scans on your data, you can use the **Soda Core Python library** to programmatically execute scans. Based on a set of conditions or a specific schedule of events, you can instruct Soda Core to automatically run scans. For example, you may wish to scan your data at several points along your data pipeline, perhaps when new data enters a warehouse, after it is transformed, and before it is exported to another warehouse. Refer to the [Define programmatic scans]({% link soda-core/programmatic.md %}) instructions for details.
+To automate scans on your data, you can use the **Soda Core Python library** to programmatically execute scans. Based on a set of conditions or a specific schedule of events, you can instruct Soda Core to automatically run scans. 
 
-Alternatively, you can integrate Soda Core with a **data orchestration tool** such as, Airflow, Dagster, or dbt Core™, to schedule automated scans. You can also configure actions that the orchestration tool can take based on scan output. For example, if the output of a scan reveals a large number of failed tests, the orchestration tool can automatically quarantine the "bad" data or block it from contaminating your data pipeline. Refer to [Orchestrate scans]({% link soda-core/orchestrate-scans.md %}) for details.
+For example, you may wish to scan your data at several points along your data pipeline, perhaps when new data enters a warehouse, after it is transformed, and before it is exported to another warehouse. Refer to the [Define programmatic scans](/docs/programmatic.md) instructions for details.
 
-Additionally, you can integrate Soda Core with a **Soda Cloud** account. This cloud-based web application integrates with your Soda Core implementation giving your team broader visibility into your organization's data quality. Soda Core pushes scan results to your Soda Cloud account where you can use the web app to examine the results. Except when you explicitly demand that it do so, Soda Core only ever pushes *metadata* to the cloud; all your data stays inside your private network. Learn more about [connecting to Soda Cloud]({% link soda-core/connect-core-to-cloud.md %}).
+Alternatively, you can integrate Soda Core with a **data orchestration tool** such as, Airflow, Dagster, or dbt Core, to schedule automated scans. You can also configure actions that the orchestration tool can take based on scan output. 
 
-Though you do not have to set up and ingrate a Soda Cloud account in order to use Soda Core, the web app serves to complement the CLI tool, giving you a non-CLI method of examining data quality. Use Soda Cloud to:
-
-- collaborate with team members to review details of scan results that can help you to diagnose data issues
-- use checks to view stored as visualizations that represents the volume of failed tests in each scan
-- empower others to set quality thresholds that define "good" data
-- set up and send alert notifications when "bad" data enters your data pipeline
-- create and track data quality [Incidents]({% link soda-cloud/incidents.md %}) so your team can collaborate in Slack to resolve them
-
-To connect Soda Core to Soda Cloud, you create API keys in your Soda Cloud account and configure them as connection credentials in your configuration file. See [Connect to Soda Cloud]({% link soda-core/connect-core-to-cloud.md %}) for details.
+For example, if the output of a scan reveals a large number of failed tests, the orchestration tool can automatically quarantine the bad-quality data or block it from contaminating your data pipeline. Refer to [Orchestrate scans](/docs/orchestrate-scans.md) for details.
