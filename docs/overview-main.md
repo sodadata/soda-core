@@ -1,9 +1,9 @@
 # Soda Core overview
 
-&#10004;  An open-source, CLI tool and Python library for data reliability
-&#10004;  Compatible with [Soda Checks Language (SodaCL)](https://docs.soda.io/soda-cl/soda-cl-overview.html) 
-&#10004;  Enables data quality testing both in and out of your [data pipeline](/docs/orchestrate-scans.md), for data observability and reliability 
-&#10004;  Enables [programmatic scans](/docs/programmatic.md) on a time-based schedule 
+&#10004;  An open-source, CLI tool and Python library for data reliability<br />
+&#10004;  Compatible with [Soda Checks Language (SodaCL)](https://docs.soda.io/soda-cl/soda-cl-overview.html) <br />
+&#10004;  Enables data quality testing both in and out of your [data pipeline](/docs/orchestrate-scans.md), for data observability and reliability <br />
+&#10004;  Enables [programmatic scans](/docs/programmatic.md) on a time-based schedule <br />
 <br />
 
 #### Example checks
