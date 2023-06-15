@@ -4,10 +4,10 @@ After you [install Soda Core](/docs/installation.md), you must create a `configu
 
 Alternatively, you can provide data source connection configurations in the context of a [programmatic scan](/docs/programmatic.md), if you wish.
 
-[Configuration instructions](#configuration-instructions)
-[Provide credentials as system variables](#provide-credentials-as-system-variables)
-[Disable failed rows samples for specific columns](#disable-failed-rows-samples-for-specific-columns)
-[Disable failed rows samples for individual checks](#disable-failed-row-samples-for-individual-checks)
+[Configuration instructions](#configuration-instructions)<br />
+[Provide credentials as system variables](#provide-credentials-as-system-variables)<br />
+[Disable failed rows samples for specific columns](#disable-failed-rows-samples-for-specific-columns)<br />
+[Disable failed rows samples for individual checks](#disable-failed-row-samples-for-individual-checks)<br />
 <br />
 
 ## Configuration instructions
