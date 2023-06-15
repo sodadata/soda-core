@@ -5,13 +5,13 @@
 Alternatively, you can use the Soda Core Python library to programmatically execute scans; see [Define programmatic scans using Python](/docs/programmatic.md).
 <br />
 
-[Compatibility](#compatibility)
-[Requirements](#requirements)
-[Install on MacOS, Linux](#install-on-macos-linux)
-[Install on Windows](#install-on-windows)
-[Install using Docker](#install-using-docker)
-[Upgrade](#upgrade)
-[Install Soda Core Scientific](#install-soda-core-scientific)
+[Compatibility](#compatibility)<br />
+[Requirements](#requirements)<br />
+[Install on MacOS, Linux](#install-on-macos-linux)<br />
+[Install on Windows](#install-on-windows)<br />
+[Install using Docker](#install-using-docker)<br />
+[Upgrade](#upgrade)<br />
+[Install Soda Core Scientific](#install-soda-core-scientific)<br />
 
 ## Compatibility
 

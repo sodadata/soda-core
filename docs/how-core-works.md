@@ -7,9 +7,9 @@ When checks fail, they surface the data that you defined as "bad" in the check. 
 Use Soda Core on its own to manually or programmatically scan the data that your organization uses to make decisions. Optionally, you can integrate Soda Core with your data orchestration tool to schedule scans and automate actions based on scan results. 
 
 
-[Soda Core basics](#soda-core-basics)
-[Soda Core operation](#soda-core-operation)
-[Soda Core automation and integrations](#soda-core-automation-and-integrations)
+[Soda Core basics](#soda-core-basics)<br />
+[Soda Core operation](#soda-core-operation)<br />
+[Soda Core automation and integrations](#soda-core-automation-and-integrations)<br />
 
 
 ## Soda Core basics

@@ -4,10 +4,10 @@ Integrate Soda Core with a data orchestration tool such as, Airflow, to automate
 
 Configure actions that the orchestration tool can take based on scan output. For example, if the output of a scan reveals a large number of failed tests, the orchestration tool can automatically block "bad" data from contaminating your data pipeline.
 
-[Apache Airflow using BashOperator](#apache-airflow-using-bashoperator)
-[Apache Airflow using PythonOperator](#apache-airflow-using-pythonoperator)
-&nbsp;&nbsp;&nbsp;&nbsp; [Example DAG](#example-dag)
-[Soda Core and Prefect](#soda-core-and-prefect)
+[Apache Airflow using BashOperator](#apache-airflow-using-bashoperator)<br />
+[Apache Airflow using PythonOperator](#apache-airflow-using-pythonoperator)<br />
+&nbsp;&nbsp;&nbsp;&nbsp; [Example DAG](#example-dag)<br />
+[Soda Core and Prefect](#soda-core-and-prefect)<br />
 <br />
 
 ## Apache Airflow using BashOperator

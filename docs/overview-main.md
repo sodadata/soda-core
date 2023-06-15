@@ -52,10 +52,10 @@ checks for dim_department_group:
 ```
 
 ## Get started
-[Download and install Soda Core](/docs/installation.md) 
-[Prepare a configuration.yml file](/docs/configuration.md)
-[Write checks in a checks.yml file](https://docs.soda.io/soda/quick-start-sodacl.html)
-[Run a scan](/docs/scan-core.md)
+[Download and install Soda Core](/docs/installation.md) <br />
+[Prepare a configuration.yml file](/docs/configuration.md)<br />
+[Write checks in a checks.yml file](https://docs.soda.io/soda/quick-start-sodacl.html)<br />
+[Run a scan](/docs/scan-core.md)<br />
 
 
 ## Why Soda Core?

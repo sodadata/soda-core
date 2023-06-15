@@ -6,11 +6,11 @@ Alternatively, you can install and use the Soda Core CLI to run scans; see [Inst
 
 Based on a set of conditions or a specific event schedule, you can instruct Soda Core to automatically scan a data source. For example, you may wish to scan your data at several points along your data pipeline, perhaps when new data enters a data source, after it is transformed, and before it is exported to another data source.
 
-[Basic programmatic scan](#basic-programmatic-scan)
-[Tips and best practices](#tips-and-best-practices)
-[Scan exit codes](#scan-exit-codes)
-[Configure a failed row sampler](#configure-a-failed-row-sampler)
-[Save failed row samples to an alternate destination](#save-failed-row-samples-to-an-alternate-destination)
+[Basic programmatic scan](#basic-programmatic-scan)<br />
+[Tips and best practices](#tips-and-best-practices)<br />
+[Scan exit codes](#scan-exit-codes)<br />
+[Configure a failed row sampler](#configure-a-failed-row-sampler)<br />
+[Save failed row samples to an alternate destination](#save-failed-row-samples-to-an-alternate-destination)<br />
 <br />
 
 ## Basic programmatic scan
