@@ -9,7 +9,7 @@ if sys.version_info < (3, 7):
     sys.exit(1)
 
 package_name = "soda-core-dbt"
-package_version = "3.0.39"
+package_version = "3.0.40"
 description = "Soda Core dbt Package"
 
 requires = [
