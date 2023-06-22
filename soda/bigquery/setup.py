@@ -14,7 +14,7 @@ description = "Soda Core Bigquery Package"
 
 requires = [
     f"soda-core=={package_version}",
-    "google-cloud-bigquery>=2.25.0, <3.0",
+    "google-cloud-bigquery>=2.25.0, <4.0",
 ]
 # TODO Fix the params
 setup(
