@@ -91,7 +91,7 @@ if __name__ == "__main__":
     "-T",
     "--template-path",
     required=False,
-    default="./templates",
+    default=None,
     help="Specify the file path for check templates",
 )
 @click.argument("sodacl_paths", nargs=-1, type=click.STRING)
