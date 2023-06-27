@@ -9,12 +9,12 @@ if sys.version_info < (3, 7):
     sys.exit(1)
 
 package_name = "soda-core-bigquery"
-package_version = "3.0.39"
+package_version = "3.0.41"
 description = "Soda Core Bigquery Package"
 
 requires = [
     f"soda-core=={package_version}",
-    "google-cloud-bigquery>=2.25.0, <3.0",
+    "google-cloud-bigquery>=2.25.0, <4.0",
 ]
 # TODO Fix the params
 setup(

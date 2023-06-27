@@ -10,7 +10,7 @@ if sys.version_info < (3, 7):
 
 package_name = "soda-core"
 # Managed by tbump - do not change manually
-package_version = "3.0.39"
+package_version = "3.0.41"
 description = "Soda Core"
 
 requires = [

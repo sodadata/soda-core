@@ -223,10 +223,10 @@ class BigQueryDataSource(DataSource):
         return super().get_metric_sql_aggregation_expression(metric_name, metric_args, expr)
 
     def sql_information_schema_tables(self) -> str:
-        return f"{self.dataset}.INFORMATION_SCHEMA.TABLES"
+        return "INFORMATION_SCHEMA.TABLES"
 
     def sql_information_schema_columns(self) -> str:
-        return f"{self.dataset}.INFORMATION_SCHEMA.COLUMNS"
+        return "INFORMATION_SCHEMA.COLUMNS"
 
     def default_casify_type_name(self, identifier: str) -> str:
         return identifier.upper()
