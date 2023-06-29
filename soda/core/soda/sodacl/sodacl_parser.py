@@ -517,6 +517,15 @@ class SodaCLParser(Parser):
                 if isinstance(metric_arg, SodaCLAntlrParser.Metric_argContext)
             ]
 
+        if metric_name.startswith("$"):
+            log_msg = "Soda Core does not support check templates."
+            if not self.logs.log_message_present(log_msg):
+                self.logs.error(log_msg)
+                self.logs.error(
+                    "Install Soda Library and sign up for a free trial to use this feature. https://go.soda.io/library"
+                )
+            return None
+
         antlr_threshold = antlr_metric_check.threshold()
         fail_threshold_cfg = None
         warn_threshold_cfg = None
