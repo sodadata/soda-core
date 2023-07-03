@@ -62,6 +62,7 @@ def hive_connection_function(
         port=port,
         database=database,
         auth=auth_method,
+        configuration=kwargs.get("configuration", {}),
         kerberos_service_name=kerberos_service_name,
     )
     return connection
@@ -477,6 +478,7 @@ class SparkDataSource(SparkSQLBase):
                 organization=self.organization,
                 cluster=self.cluster,
                 server_side_parameters=self.server_side_parameters,
+                configuration=self.configuration,
             )
 
             self.connection = connection
