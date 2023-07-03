@@ -68,6 +68,7 @@ class TrinoDataSource(DataSource):
         self.username = data_source_properties.get("username")
         self.authType = data_source_properties.get("auth_type", "BasicAuthentication")
         self.password = data_source_properties.get("password")
+        self.http_headers = data_source_properties.get("http_headers", None)
 
     def connect(self):
         # Default to BasicAuthentication so we don't break current users.
@@ -90,6 +91,7 @@ class TrinoDataSource(DataSource):
             user=self.username,
             http_scheme=self.http_scheme,
             auth=self.auth,
+            http_headers=self.http_headers,
         )
 
     def regex_replace_flags(self) -> str:
