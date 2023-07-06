@@ -146,6 +146,7 @@ class Check(ABC):
         self.check_type = CheckType.CLOUD
 
         self.cloud_dict = {}
+        self.dict = {}
 
     @property
     def name(self) -> str:
@@ -203,6 +204,7 @@ class Check(ABC):
             identity_source_configurations.pop("samples limit", None)
             identity_source_configurations.pop("identity", None)
             identity_source_configurations.pop("attributes", None)
+            identity_source_configurations.pop("template", None)
             if len(identity_source_configurations) > 0:
                 # The next line ensures that ordering of the check configurations don't matter for identity
                 identity_source_configurations = collections.OrderedDict(sorted(identity_source_configurations.items()))
@@ -264,7 +266,7 @@ class Check(ABC):
                 "metrics": [metric.identity for metric in self.metrics.values()],
                 "outcome": self.outcome.value if self.outcome else None,
                 "diagnostics": self.get_cloud_diagnostics_dict(),
-                "source": "soda-core",
+                "source": "soda-library",
             }
         )
         # Update dict if automated monitoring is running
@@ -280,22 +282,26 @@ class Check(ABC):
         from soda.execution.column import Column
         from soda.execution.partition import Partition
 
-        return {
-            "identity": self.create_identity(with_datasource=True, with_filename=True),
-            "name": self.name,
-            "type": self.cloud_check_type,
-            "definition": self.create_definition(),
-            "resourceAttributes": self._format_attributes(),
-            "location": self.check_cfg.location.get_dict(),
-            "dataSource": self.data_source_scan.data_source.data_source_name,
-            "table": Partition.get_table_name(self.partition),
-            "filter": Partition.get_partition_name(self.partition),
-            "column": Column.get_partition_name(self.column),
-            "metrics": [metric.identity for metric in self.metrics.values()],
-            "outcome": self.outcome.value if self.outcome else None,
-            "outcomeReasons": self.outcome_reasons,
-            "archetype": self.archetype,
-        }
+        self.dict.update(
+            {
+                "identity": self.create_identity(with_datasource=True, with_filename=True),
+                "name": self.name,
+                "type": self.cloud_check_type,
+                "definition": self.create_definition(),
+                "resourceAttributes": self._format_attributes(),
+                "location": self.check_cfg.location.get_dict(),
+                "dataSource": self.data_source_scan.data_source.data_source_name,
+                "table": Partition.get_table_name(self.partition),
+                "filter": Partition.get_partition_name(self.partition),
+                "column": Column.get_partition_name(self.column),
+                "metrics": [metric.identity for metric in self.metrics.values()],
+                "outcome": self.outcome.value if self.outcome else None,
+                "outcomeReasons": self.outcome_reasons,
+                "archetype": self.archetype,
+            }
+        )
+
+        return self.dict
 
     def get_cloud_diagnostics_dict(self) -> dict:
         csv_max_length = Cloud.CSV_TEXT_MAX_LENGTH

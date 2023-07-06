@@ -100,6 +100,7 @@ class GroupByCheck(Check):
                         }
                     }
                     gc.cloud_dict.update(cloud_group_attr)
+                    gc.dict.update(cloud_group_attr)
                 group_checks.append(gc)
 
         self.data_source_scan.scan._checks.extend(group_checks)
