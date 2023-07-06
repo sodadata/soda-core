@@ -111,6 +111,7 @@ class SodaCloud(Cloud):
                     for discover_tables_result in scan._discover_tables_result_tables
                 ],
                 "logs": [log.get_cloud_dict() for log in scan._logs.logs],
+                "sourceOwner": "soda-core",
             }
         )
 

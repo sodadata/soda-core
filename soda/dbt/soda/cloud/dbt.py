@@ -131,6 +131,7 @@ class DbtCloud:
                 "metrics": [{"identity": "dbt_metric", "metricName": "dbt_metric", "value": 0}],
                 "checks": check_dicts,
                 "logs": [log.get_cloud_dict() for log in self.scan._logs.logs],
+                "sourceOwner": "soda-core",
             }
         )
 
