@@ -126,8 +126,10 @@ class BigQueryDataSource(DataSource):
 
     def connect(self):
         try:
-            client_info = bigquery.ClientInfo(
-                user_agent="soda-core",
+            from google.api_core.client_info import ClientInfo
+
+            client_info = ClientInfo(
+                user_agent="soda-library",
             )
             self.client = bigquery.Client(
                 project=self.project_id,
