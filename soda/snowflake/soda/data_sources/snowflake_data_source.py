@@ -115,7 +115,7 @@ class SnowflakeDataSource(DataSource):
             private_key=self.__get_private_key(),
             client_prefetch_threads=self.client_prefetch_threads,
             authenticator=self.authenticator,
-            application="Soda",
+            application="Soda Core",
         )
 
     def __get_private_key(self):

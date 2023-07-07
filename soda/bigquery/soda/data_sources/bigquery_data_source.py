@@ -116,7 +116,6 @@ class BigQueryDataSource(DataSource):
         self.dataset = data_source_properties.get("dataset")
 
         self.location = data_source_properties.get("location")
-        self.client_info = data_source_properties.get("client_info")
         self.client_options = data_source_properties.get("client_options")
 
         # Allow to separate default dataset location from compute (project_id).
@@ -127,6 +126,9 @@ class BigQueryDataSource(DataSource):
 
     def connect(self):
         try:
+            client_info = bigquery.ClientInfo(
+                user_agent="soda-core",
+            )
             self.client = bigquery.Client(
                 project=self.project_id,
                 credentials=self.credentials,
@@ -134,7 +136,7 @@ class BigQueryDataSource(DataSource):
                     default_dataset=f"{self.storage_project_id}.{self.dataset}",
                 ),
                 location=self.location,
-                client_info=self.client_info,
+                client_info=client_info,
                 client_options=self.client_options,
             )
             self.connection = dbapi.Connection(self.client)
