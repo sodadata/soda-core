@@ -137,8 +137,8 @@ def test_freshness_with_table_filter(data_source_fixture: DataSourceFixture):
 
 def test_freshness_no_rows(data_source_fixture: DataSourceFixture):
     table_name = data_source_fixture.ensure_test_table(customers_test_table)
-
-    cond = "1 = 0" if test_data_source == "sqlserver" else "FALSE"
+    # There is no boolean type and variables in Teradata
+    cond = "1 = 0" if test_data_source in ["sqlserver", "teradata"] else "FALSE"
     scan = data_source_fixture.create_test_scan()
     scan.add_variables(
         {
