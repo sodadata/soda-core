@@ -21,6 +21,9 @@ class TeradataDataSourceFixture(DataSourceFixture):
             }
         }
 
+    def _create_schema_name(self):
+        return None
+
     def _create_schema_if_not_exists(self):
         # Database should be exists. No schemas in Teradata
         pass
@@ -51,3 +54,4 @@ class TeradataDataSourceFixture(DataSourceFixture):
                                   VALUES ({",".join(self.data_source.literal(value) for value in row)})\n;"""
                                  for row in test_table.values]
                              )
+

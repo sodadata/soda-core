@@ -18,7 +18,7 @@ class TeradataDataSource(DataSource):
     TYPE = "teradata"
 
     SCHEMA_CHECK_TYPES_MAPPING: dict = {
-        "character varying": ["varchar"],
+        "varchar(255) character set unicode": ["varchar"],
         "double precision": ["float", "real", "double precision"],
         "timestamp without time zone": ["timestamp(0)", "timestamp"],
         "timestamp with time zone": ["timestamp(0) with time zone","timestamp with time zone"],
@@ -379,7 +379,7 @@ class TeradataDataSource(DataSource):
                         {mins_cte},
                         {maxs_cte},
                         {frequent_values_cte},
-                        result AS (
+                        result_values AS (
                             SELECT * FROM mins
                             {union}
                             SELECT * FROM maxs
@@ -387,7 +387,7 @@ class TeradataDataSource(DataSource):
                             SELECT * FROM frequent_values
                         )
                     SELECT *
-                    FROM result
+                    FROM result_values
                     ORDER BY metric_ ASC, index_ ASC
                 """
             )
@@ -517,3 +517,53 @@ class TeradataDataSource(DataSource):
             percentile_fraction = metric_args[1] if metric_args else None
             return f"{sql_func}({percentile_fraction}) WITHIN GROUP (ORDER BY {expr})"
         return super().get_metric_sql_aggregation_expression(metric_name, metric_args, expr)
+
+    def profiling_sql_aggregates_numeric(self, table_name: str, column_name: str) -> str:
+        column_name = self.quote_column(column_name)
+        qualified_table_name = self.qualified_table_name(table_name)
+        # average and sum are reserved words in Teradata
+        return dedent(
+            f"""
+            SELECT
+                avg({column_name}) as "average"
+                , sum({column_name}) as "sum"
+                , var_samp({column_name}) as variance
+                , stddev_samp({column_name}) as standard_deviation
+                , count(distinct({column_name})) as distinct_values
+                , sum(case when {column_name} is null then 1 else 0 end) as missing_values
+            FROM {qualified_table_name}
+            """
+        )
+
+    def sql_table_include_exclude_filter(
+        self,
+        table_column_name: str,
+        schema_column_name: str | None = None,
+        include_tables: list[str] | None = [],
+        exclude_tables: list[str] | None = [],
+    ) -> str | None:
+        tablename_filter_clauses = []
+
+        def build_table_matching_conditions(tables: list[str], comparison_operator: str):
+            conditions = []
+
+            for table in tables:
+                # This is intended to be future proof and support quoted table names. The method is not used in such way and table names/patterns that still
+                # need to be quoted are passed here, e.g. `%sodatest_%`. I.e. this condition is always met and default casify is always used, table name below is therefore single quoted.
+                if not self.is_quoted(table):
+                    table = self.default_casify_table_name(table)
+
+                conditions.append(f"{table_column_name} {comparison_operator} '{table}'")
+            return conditions
+
+        if include_tables:
+            sql_include_clauses = " OR ".join(build_table_matching_conditions(include_tables, "like"))
+            tablename_filter_clauses.append(f"({sql_include_clauses})")
+
+        if exclude_tables:
+            tablename_filter_clauses.extend(build_table_matching_conditions(exclude_tables, "not like"))
+
+        if hasattr(self, "database") and self.database:
+            tablename_filter_clauses.append(f"DatabaseName = '{self.database}'")
+
+        return "\n      AND ".join(tablename_filter_clauses) if tablename_filter_clauses else None
