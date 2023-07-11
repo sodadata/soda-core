@@ -131,7 +131,8 @@ class SQLServerDataSource(DataSource):
                 + "DRIVER={"
                 + self.driver
                 + "};SERVER="
-                + self.host + ","
+                + self.host
+                + ","
                 + str(self.port)
                 + ";DATABASE="
                 + self.database
