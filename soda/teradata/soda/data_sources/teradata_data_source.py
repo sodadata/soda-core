@@ -1,8 +1,7 @@
 from __future__ import annotations
 
 import logging
-import struct
-from datetime import datetime, timedelta, timezone
+from datetime import datetime
 from textwrap import dedent
 
 import teradatasql
@@ -21,7 +20,7 @@ class TeradataDataSource(DataSource):
         "varchar(255) character set unicode": ["varchar"],
         "double precision": ["float", "real", "double precision"],
         "timestamp without time zone": ["timestamp(0)", "timestamp"],
-        "timestamp with time zone": ["timestamp(0) with time zone","timestamp with time zone"],
+        "timestamp with time zone": ["timestamp(0) with time zone", "timestamp with time zone"],
         "decimal": ["numeric", "decimal", "decimal(12,6)"],
     }
 
@@ -32,7 +31,7 @@ class TeradataDataSource(DataSource):
         DataType.DATE: "date",
         DataType.TIME: "time",
         DataType.TIMESTAMP: "timestamp(0)",
-        DataType.TIMESTAMP_TZ: "timestamp(0) with time zone"
+        DataType.TIMESTAMP_TZ: "timestamp(0) with time zone",
     }
 
     SQL_TYPE_FOR_SCHEMA_CHECK_MAP: dict = {
@@ -42,7 +41,7 @@ class TeradataDataSource(DataSource):
         DataType.DATE: "date",
         DataType.TIME: "time",
         DataType.TIMESTAMP: "timestamp(0)",
-        DataType.TIMESTAMP_TZ: "timestamp(0) with time zone"
+        DataType.TIMESTAMP_TZ: "timestamp(0) with time zone",
     }
 
     NUMERIC_TYPES_FOR_PROFILING = [
@@ -76,10 +75,19 @@ class TeradataDataSource(DataSource):
 
     def connect(self):
         try:
-            connection_data = {key: value for key, value in
-                    [("host", self.host), ("dbs_port", self.port), ("user", self.user),
-                     ("password", self.password), ("database", self.database), ("logmech", self.logmech),
-                     ("tmode", self.tmode)] if value}
+            connection_data = {
+                key: value
+                for key, value in [
+                    ("host", self.host),
+                    ("dbs_port", self.port),
+                    ("user", self.user),
+                    ("password", self.password),
+                    ("database", self.database),
+                    ("logmech", self.logmech),
+                    ("tmode", self.tmode),
+                ]
+                if value
+            }
             self.connection = teradatasql.connect(None, **connection_data)
             return self.connection
         except Exception as e:
@@ -464,7 +472,9 @@ class TeradataDataSource(DataSource):
         )
 
         casify_function = self.default_casify_sql_function()
-        filter_clauses = [f"{casify_function}({self.column_metadata_table_name()}) = '{unquoted_table_name_default_case}'"]
+        filter_clauses = [
+            f"{casify_function}({self.column_metadata_table_name()}) = '{unquoted_table_name_default_case}'"
+        ]
 
         if self.database:
             filter_clauses.append(
@@ -474,13 +484,17 @@ class TeradataDataSource(DataSource):
         if included_columns:
             include_clauses = []
             for col in included_columns:
-                include_clauses.append(f"{casify_function}({self.column_metadata_column_name()}) LIKE {casify_function}('{col}')")
+                include_clauses.append(
+                    f"{casify_function}({self.column_metadata_column_name()}) LIKE {casify_function}('{col}')"
+                )
             include_causes_or = " OR ".join(include_clauses)
             filter_clauses.append(f"({include_causes_or})")
 
         if excluded_columns:
             for col in excluded_columns:
-                filter_clauses.append(f"{casify_function}({self.column_metadata_column_name()}) NOT LIKE {casify_function}('{col}')")
+                filter_clauses.append(
+                    f"{casify_function}({self.column_metadata_column_name()}) NOT LIKE {casify_function}('{col}')"
+                )
 
         where_filter = " \n  AND ".join(filter_clauses)
 

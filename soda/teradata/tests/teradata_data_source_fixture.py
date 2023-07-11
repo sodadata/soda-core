@@ -17,7 +17,7 @@ class TeradataDataSourceFixture(DataSourceFixture):
                 "host": os.getenv("TERADATA_HOST", "localhost"),
                 "user": os.getenv("TERADATA_USERNAME", "dbc"),
                 "password": os.getenv("TERADATA_PASSWORD", "dbc"),
-                "database": os.getenv("TERADATA_DATABASE", "sodacore")
+                "database": os.getenv("TERADATA_DATABASE", "sodacore"),
             }
         }
 
@@ -50,8 +50,10 @@ class TeradataDataSourceFixture(DataSourceFixture):
             def sql_test_table_row(row):
                 return ",".join(self.data_source.literal(value) for value in row)
 
-            return "". join([f"""INSERT INTO {qualified_table_name}
+            return "".join(
+                [
+                    f"""INSERT INTO {qualified_table_name}
                                   VALUES ({",".join(self.data_source.literal(value) for value in row)})\n;"""
-                                 for row in test_table.values]
-                             )
-
+                    for row in test_table.values
+                ]
+            )

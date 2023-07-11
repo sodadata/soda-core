@@ -70,6 +70,7 @@ def test_freshness_timezones_no_input(data_source_fixture: DataSourceFixture):
 
     scan.assert_all_checks_pass()
 
+
 @pytest.mark.skipif(
     test_data_source == "teradata",
     reason="TODO: Need to check why teradatasql make implicit cast to unexpected timezone format",
