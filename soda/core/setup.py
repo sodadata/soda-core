@@ -14,11 +14,11 @@ package_version = "3.0.45"
 description = "Soda Core"
 
 requires = [
-    "markupsafe>=2.0.1,<=2.1.1",
+    "markupsafe>=2.0.1,<=2.1.2",
     "Jinja2>=2.11,<4.0",
     "click~=8.0",
     "ruamel.yaml>=0.17.0,<0.18.0",
-    "requests~=2.27",
+    "requests~=2.28",
     "antlr4-python3-runtime~=4.11.1",
     "opentelemetry-api~=1.16.0",
     "opentelemetry-exporter-otlp-proto-http~=1.16.0",
