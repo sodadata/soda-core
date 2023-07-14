@@ -94,6 +94,7 @@ class TeradataDataSource(DataSource):
             raise DataSourceConnectionError(self.TYPE, e)
 
     def validate_configuration(self, logs: Logs) -> None:
+        # Looks like method is not used anywhere
         pass
 
     def safe_connection_data(self):
@@ -216,7 +217,7 @@ class TeradataDataSource(DataSource):
 
     def sql_get_table_names_with_count(
         self, include_tables: list[str] | None = None, exclude_tables: list[str] | None = None
-    ) -> str:
+    ) -> str | None:
         return None
 
     def sql_find_table_names(
@@ -417,22 +418,6 @@ class TeradataDataSource(DataSource):
 
     def regex_replace_flags(self) -> str:
         return ", 1, 0"
-
-    def sql_select_all(self, table_name: str, limit: int | None = None, filter: str | None = None) -> str:
-        qualified_table_name = self.qualified_table_name(table_name)
-
-        filter_sql = ""
-        if filter:
-            filter_sql = f" \n WHERE {filter}"
-
-        limit_sql = ""
-        if limit is not None:
-            limit_sql = f" \n TOP {limit} \n"
-
-        columns_names = ", ".join(self.sql_select_all_column_names(table_name))
-
-        sql = f"SELECT {limit_sql} {columns_names} FROM {qualified_table_name}{filter_sql}"
-        return sql
 
     def sql_select_column_with_filter_and_limit(
         self,
