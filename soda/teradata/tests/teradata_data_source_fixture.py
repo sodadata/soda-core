@@ -29,6 +29,7 @@ class TeradataDataSourceFixture(DataSourceFixture):
         pass
 
     def _drop_schema_if_exists(self):
+        # Nothing to drop. No schemas in Teradata
         pass
 
     def _drop_test_table_sql(self, table_name):
@@ -53,7 +54,7 @@ class TeradataDataSourceFixture(DataSourceFixture):
             return "".join(
                 [
                     f"""INSERT INTO {qualified_table_name}
-                                  VALUES ({",".join(self.data_source.literal(value) for value in row)})\n;"""
+                                  VALUES ({sql_test_table_row(row)})\n;"""
                     for row in test_table.values
                 ]
             )
