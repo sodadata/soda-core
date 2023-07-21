@@ -19,8 +19,8 @@ Use Soda Core to scan a variety of data sources.<br />
 
 <table>
   <tr>
-    <td>Amazon Athena<br /> Amazon Redshift<br />  Apache Spark DataFrames<sup>1</sup><br /> Apache Spark for Databricks SQL<br /> Azure Synapse (Experimental)<br />ClickHouse (Experimental)<br />   Dask and Pandas (Experimental)<sup>1</sup><br /> Denodo (Experimental)<br />Dremio <br />DuckDB (Experimental)</td>
-    <td>GCP Big Query<br /> IBM DB2<br /> Local file using Dask<sup>1</sup><br />MS SQL Server<br /> MySQL<br > OracleDB<br /> PostgreSQL<br /> Snowflake<br /> Trino<br /> Vertica (Experimental)</td>
+    <td>Amazon Athena<br /> Amazon Redshift<br />  Apache Spark DataFrames<sup>1</sup><br /> Apache Spark for Databricks SQL<br /> Azure Synapse (Experimental)<br />ClickHouse (Experimental)<br />   Dask and Pandas (Experimental)<sup>1</sup><br /> Denodo (Experimental)<br />Dremio <br />DuckDB (Experimental)<br /> GCP Big Query</td>
+    <td>IBM DB2<br /> Local file using Dask<sup>1</sup><br />MS SQL Server<br /> MySQL<br > OracleDB<br /> PostgreSQL<br /> Snowflake<br /> Teradata (Experimental) <br />Trino<br /> Vertica (Experimental)</td>
   </tr>
 </table>
 <sup>1</sup> For use with programmatic Soda scans, only.
@@ -69,6 +69,7 @@ If you have not already installed Python, consider using <a href="https://github
 | OracleDB | `soda-core-oracle` |
 | PostgreSQL | `soda-core-postgres` |
 | Snowflake | `soda-core-snowflake` | 
+| Teradata | `soda-core-teradata` |
 | Trino | `soda-core-trino` |
 | Vertica (Experimental) | `soda-core-vertica` |
 
@@ -113,6 +114,7 @@ deactivate
 | OracleDB | `soda-core-oracle` |
 | PostgreSQL | `soda-core-postgres` |
 | Snowflake | `soda-core-snowflake` | 
+| Teradata | `soda-core-teradata` |
 | Trino | `soda-core-trino` |
 | Vertica (Experimental) | `soda-core-vertica` |
 
