@@ -104,7 +104,11 @@ def test_distribution_sql(data_source_fixture: DataSourceFixture, mock_file_syst
     elif test_data_source in ["duckdb", "dask"]:
         # duckdb does not prepend schemas
         assert scan._checks[0].query.sql == expectation.format(table_name=table_name, schema_name="")
-
+    elif test_data_source == "teradata":
+        expectation = "SELECT TOP 1000000 \n  cst_size \nFROM {database}{table_name}"
+        assert scan._checks[0].query.sql == expectation.format(
+            table_name=table_name, database=f"{data_source_fixture.data_source.database}."
+        )
     else:
         assert scan._checks[0].query.sql == expectation.format(
             table_name=table_name, schema_name=f"{data_source_fixture.schema_name}."
