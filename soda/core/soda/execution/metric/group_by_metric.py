@@ -10,7 +10,7 @@ class GroupByMetric(QueryMetric):
             column=None,
             name="group by",
             check=check,
-            identity_parts=[],
+            identity_parts=[query],
         )
         self.query = query
 
