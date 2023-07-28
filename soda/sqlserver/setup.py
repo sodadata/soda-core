@@ -3,7 +3,7 @@
 from setuptools import find_namespace_packages, setup
 
 package_name = "soda-core-sqlserver"
-package_version = "3.0.47"
+package_version = "3.0.46"
 description = "Soda Core SQL Server Package"
 
 requires = [
