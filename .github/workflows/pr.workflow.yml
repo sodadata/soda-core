@@ -90,6 +90,14 @@ jobs:
           tox --exit-and-dump-after 600 -- soda -k soda/${{ matrix.data-source }}
         env:
           test_data_source: ${{ matrix.data-source }}
+      - name: Notify Slack on failure
+        if: ${{ (failure() || cancelled()) }}
+        run: |
+          apt update && apt install -y psmisc
+          pstree
+          ps uax
+          free
+          docker ps -q | xargs -L 1 docker logs
 
   test-cloud-integration:
     runs-on: ubuntu-latest
@@ -120,7 +128,7 @@ jobs:
 
       - name: Test with tox
         run: |
-          tox -- soda -k soda/core
+          tox --exit-and-dump-after 600 -- soda -k soda/core
         env:
           test_data_source: postgres
           WESTMALLE: BETTER_THAN_LA_TRAPPE
@@ -154,4 +162,4 @@ jobs:
 
       - name: Test with tox
         run: |
-          tox -- soda -k soda/scientific
+          tox --exit-and-dump-after 600 -- soda -k soda/scientific
