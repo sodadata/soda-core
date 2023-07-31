@@ -5,6 +5,7 @@ tox~=4.6
 tox-docker~=4.1
 pytest-html~=3.1
 pytest-cov~=3.0
+pytest-timeout~=2.1
 faker~=13.3
 tbump~=6.7
 black==22.6.0
