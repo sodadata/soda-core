@@ -90,14 +90,15 @@ jobs:
           tox --exit-and-dump-after 600 -- soda -k soda/${{ matrix.data-source }}
         env:
           test_data_source: ${{ matrix.data-source }}
-      - name: Notify Slack on failure
+      - name: System information
         if: ${{ (failure() || cancelled()) }}
         run: |
           apt update && apt install -y psmisc
-          pstree
+          pstree -a
           ps uax
           free
-          docker ps -q | xargs -L 1 docker logs
+          docker ps
+          docker ps -q | xargs -L 1 -I{} bash -c "echo '***Dump for {}' && docker logs {}"
 
   test-cloud-integration:
     runs-on: ubuntu-latest
@@ -132,6 +133,15 @@ jobs:
         env:
           test_data_source: postgres
           WESTMALLE: BETTER_THAN_LA_TRAPPE
+      - name: System information
+        if: ${{ (failure() || cancelled()) }}
+        run: |
+          apt update && apt install -y psmisc
+          pstree -a
+          ps uax
+          free
+          docker ps
+          docker ps -q | xargs -L 1 -I{} bash -c "echo '***Dump for {}' && docker logs {}"
 
   test-scientific:
     runs-on: ubuntu-latest
@@ -163,3 +173,12 @@ jobs:
       - name: Test with tox
         run: |
           tox --exit-and-dump-after 600 -- soda -k soda/scientific
+      - name: System information
+        if: ${{ (failure() || cancelled()) }}
+        run: |
+          apt update && apt install -y psmisc
+          pstree -a
+          ps uax
+          free
+          docker ps
+          docker ps -q | xargs -L 1 -I{} bash -c "echo '***Dump for {}' && docker logs {}"
