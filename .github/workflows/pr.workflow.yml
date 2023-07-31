@@ -86,8 +86,8 @@ jobs:
 
       - name: Test with tox
         run: |
-          tox --exit-and-dump-after 600 -- soda -k soda/core
-          tox --exit-and-dump-after 600 -- soda -k soda/${{ matrix.data-source }}
+          tox -vvv --exit-and-dump-after 600 -- soda -k soda/core
+          tox -vvv --exit-and-dump-after 600 -- soda -k soda/${{ matrix.data-source }}
         env:
           test_data_source: ${{ matrix.data-source }}
       - name: System information
@@ -129,7 +129,7 @@ jobs:
 
       - name: Test with tox
         run: |
-          tox --exit-and-dump-after 600 -- soda -k soda/core
+          tox -vvv --exit-and-dump-after 600 -- soda -k soda/core
         env:
           test_data_source: postgres
           WESTMALLE: BETTER_THAN_LA_TRAPPE
@@ -172,7 +172,7 @@ jobs:
 
       - name: Test with tox
         run: |
-          tox --exit-and-dump-after 600 -- soda -k soda/scientific
+          tox -vvv --exit-and-dump-after 600 -- soda -k soda/scientific
       - name: System information
         if: ${{ (failure() || cancelled()) }}
         run: |
