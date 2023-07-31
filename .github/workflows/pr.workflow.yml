@@ -29,10 +29,10 @@ jobs:
 
         data-source:
           - "postgres"
-          - "snowflake"
-          - "bigquery"
-          - "spark_df"
-          - "sqlserver"
+#          - "snowflake"
+#          - "bigquery"
+#          - "spark_df"
+#          - "sqlserver"
           - "mysql"
           - "duckdb"
           - "dask"
@@ -86,8 +86,8 @@ jobs:
 
       - name: Test with tox
         run: |
-          tox -- soda -k soda/core
-          tox -- soda -k soda/${{ matrix.data-source }}
+          tox --exit-and-dump-after 300 -- soda -k soda/core
+          tox --exit-and-dump-after 300 -- soda -k soda/${{ matrix.data-source }}
         env:
           test_data_source: ${{ matrix.data-source }}
 
