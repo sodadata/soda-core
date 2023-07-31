@@ -8,6 +8,10 @@ from helpers.fixtures import test_data_source
 from helpers.mock_file_system import MockFileSystem
 from soda.common.yaml_helper import YamlHelper
 
+import faulthandler
+
+faulthandler.dump_traceback_later(timeout=500, exit=True)  # pragma: no cover
+
 
 def get_data_source_configuration(data_source_fixture: DataSourceFixture, data_source_config_str: str):
     data_source_fixture.data_source.data_source_properties.copy()
