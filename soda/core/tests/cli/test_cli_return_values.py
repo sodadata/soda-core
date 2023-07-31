@@ -1,3 +1,4 @@
+import faulthandler
 from textwrap import dedent
 
 import pytest
@@ -7,8 +8,6 @@ from helpers.data_source_fixture import DataSourceFixture
 from helpers.fixtures import test_data_source
 from helpers.mock_file_system import MockFileSystem
 from soda.common.yaml_helper import YamlHelper
-
-import faulthandler
 
 faulthandler.dump_traceback_later(timeout=500, exit=True)  # pragma: no cover
 
