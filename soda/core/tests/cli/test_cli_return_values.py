@@ -6,7 +6,6 @@ from helpers.common_test_tables import customers_test_table
 from helpers.data_source_fixture import DataSourceFixture
 from helpers.fixtures import test_data_source
 from helpers.mock_file_system import MockFileSystem
-
 from soda.common.yaml_helper import YamlHelper
 
 
