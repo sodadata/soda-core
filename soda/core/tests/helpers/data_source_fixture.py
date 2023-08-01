@@ -209,8 +209,11 @@ class DataSourceFixture:
         return scan
 
     def _test_session_ends(self):
-        self._drop_schema_if_exists()
         self.data_source.connection.close()
+        self.schema_data_source.connection.close()
+
+        self.schema_data_source = self._create_schema_data_source()
+        self._drop_schema_if_exists()
         self.schema_data_source.connection.close()
 
     def _drop_schema_if_exists(self):
