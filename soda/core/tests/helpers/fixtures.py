@@ -1,8 +1,5 @@
 from __future__ import annotations
 
-import faulthandler
-import sys
-
 # Initialize telemetry in test mode. This is done before importing anything datasource/scan/scanner related which initializes telemetry in standard mode so that we avoid unnecessary setup and re-setup which easily causes errors.
 from soda.telemetry.soda_telemetry import SodaTelemetry
 
@@ -30,7 +27,6 @@ test_data_source = os.getenv("test_data_source", "postgres")
 
 
 def pytest_sessionstart(session: Any) -> None:
-    print("session start log")
     configure_logging()
 
 
@@ -39,8 +35,6 @@ def pytest_runtest_logstart(nodeid: str, location: tuple[str, int | None, str]) 
     Prints the test function name and the location in a format that PyCharm recognizes and turns into a link in the console
     """
     logging.debug(f'### "soda/core/tests/{location[0]}:{(location[1]+1)}" {location[2]}')
-    faulthandler.enable(file=sys.stderr, all_threads=True)
-    faulthandler.dump_traceback_later(file=sys.stderr, timeout=10, exit=False, repeat=True)  # pragma: no cover
 
 
 @pytest.fixture(scope="session")

@@ -92,15 +92,12 @@ pytest==7.4.0
     #   pytest-cov
     #   pytest-html
     #   pytest-metadata
-    #   pytest-timeout
 pytest-cov==3.0.0
     # via -r dev-requirements.in
 pytest-html==3.2.0
     # via -r dev-requirements.in
 pytest-metadata==3.0.0
     # via pytest-html
-pytest-timeout==2.1.0
-    # via -r dev-requirements.in
 python-dateutil==2.8.2
     # via faker
 python-dotenv==1.0.0

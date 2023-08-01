@@ -23,16 +23,14 @@ jobs:
       fail-fast: false
       matrix:
         python-version:
-          - "3.8"
           - "3.9"
-          - "3.10"
 
         data-source:
           - "postgres"
-#          - "snowflake"
-#          - "bigquery"
-#          - "spark_df"
-#          - "sqlserver"
+          - "snowflake"
+          - "bigquery"
+          - "spark_df"
+          - "sqlserver"
           - "mysql"
           - "duckdb"
           - "dask"
@@ -86,20 +84,10 @@ jobs:
 
       - name: Test with tox
         run: |
-          tox -vvv --exit-and-dump-after 600 -- soda -k soda/core
-          tox -vvv --exit-and-dump-after 600 -- soda -k soda/${{ matrix.data-source }}
+          tox --exit-and-dump-after 3600 -- soda -k soda/core
+          tox --exit-and-dump-after 3600 -- soda -k soda/${{ matrix.data-source }}
         env:
           test_data_source: ${{ matrix.data-source }}
-      - name: System information
-        if: ${{ (failure() || cancelled()) }}
-        run: |
-          find -name '*.log' | xargs -L 1 -I{} bash -c "echo '***Dump for {}' && cat {}"
-          apt update && apt install -y psmisc
-          pstree -a
-          ps uax
-          free
-          docker ps
-          docker ps -q | xargs -L 1 -I{} bash -c "echo '***Dump for {}' && docker logs {}"
 
   test-cloud-integration:
     runs-on: ubuntu-latest
@@ -107,9 +95,7 @@ jobs:
       fail-fast: false
       matrix:
         python-version:
-          - "3.8"
           - "3.9"
-          - "3.10"
 
     env:
       PYTHON_VERSION: ${{ matrix.python-version }}
@@ -130,19 +116,10 @@ jobs:
 
       - name: Test with tox
         run: |
-          tox -vvv --exit-and-dump-after 600 -- soda -k soda/core
+          tox --exit-and-dump-after 3600 -- soda -k soda/core
         env:
           test_data_source: postgres
           WESTMALLE: BETTER_THAN_LA_TRAPPE
-      - name: System information
-        if: ${{ (failure() || cancelled()) }}
-        run: |
-          apt update && apt install -y psmisc
-          pstree -a
-          ps uax
-          free
-          docker ps
-          docker ps -q | xargs -L 1 -I{} bash -c "echo '***Dump for {}' && docker logs {}"
 
   test-scientific:
     runs-on: ubuntu-latest
@@ -150,9 +127,7 @@ jobs:
       fail-fast: false
       matrix:
         python-version:
-          - "3.8"
           - "3.9"
-          - "3.10"
 
     env:
       PYTHON_VERSION: ${{ matrix.python-version }}
@@ -173,13 +148,4 @@ jobs:
 
       - name: Test with tox
         run: |
-          tox -vvv --exit-and-dump-after 600 -- soda -k soda/scientific
-      - name: System information
-        if: ${{ (failure() || cancelled()) }}
-        run: |
-          apt update && apt install -y psmisc
-          pstree -a
-          ps uax
-          free
-          docker ps
-          docker ps -q | xargs -L 1 -I{} bash -c "echo '***Dump for {}' && docker logs {}"
+          tox --exit-and-dump-after 3600 -- soda -k soda/scientific
