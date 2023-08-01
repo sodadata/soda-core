@@ -210,7 +210,8 @@ class DataSourceFixture:
 
     def _test_session_ends(self):
         self.data_source.connection.close()
-        self._drop_schema_if_exists()
+        if not is_cicd():
+            self._drop_schema_if_exists()
         self.schema_data_source.connection.close()
 
     def _drop_schema_if_exists(self):
@@ -253,3 +254,7 @@ class DataSourceFixture:
             return updates
         finally:
             cursor.close()
+
+
+def is_cicd():
+    return os.getenv("GITHUB_ACTIONS") is not None
