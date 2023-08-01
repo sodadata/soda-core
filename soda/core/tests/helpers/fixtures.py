@@ -30,6 +30,7 @@ test_data_source = os.getenv("test_data_source", "postgres")
 
 
 def pytest_sessionstart(session: Any) -> None:
+    print("session start log")
     configure_logging()
     faulthandler.enable(file=sys.stderr, all_threads=True)
     faulthandler.dump_traceback_later(timeout=60, exit=True)  # pragma: no cover
