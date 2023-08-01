@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import os
+
 from helpers.data_source_fixture import DataSourceFixture
 from soda.execution.data_source import DataSource
 
@@ -46,3 +48,7 @@ def replace_tokens(string: str, tokens: dict(str, str)) -> str:
             string = string.replace(k, v)
 
     return string
+
+
+def is_cicd():
+    return os.getenv("GITHUB_ACTIONS") is not None

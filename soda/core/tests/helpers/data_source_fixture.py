@@ -9,6 +9,7 @@ from importlib import import_module
 from helpers.test_column import TestColumn
 from helpers.test_scan import TestScan
 from helpers.test_table import TestTable
+from helpers.utils import is_cicd
 from soda.common.lazy import Lazy
 from soda.common.random_helper import generate_random_alpha_num_str
 from soda.common.yaml_helper import YamlHelper
@@ -210,7 +211,7 @@ class DataSourceFixture:
 
     def _test_session_ends(self):
         self.data_source.connection.close()
-        if os.getenv("GITHUB_ACTIONS") is not None:
+        if not is_cicd():
             self._drop_schema_if_exists()
         self.schema_data_source.connection.close()
 
