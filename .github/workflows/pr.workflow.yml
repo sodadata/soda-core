@@ -93,8 +93,7 @@ jobs:
       - name: System information
         if: ${{ (failure() || cancelled()) }}
         run: |
-          cat pytest_capture.log || true
-          find -name '*.log'
+          find -name '*.log' | xargs -L 1 -I{} bash -c "echo '***Dump for {}' && cat {}"
           apt update && apt install -y psmisc
           pstree -a
           ps uax
