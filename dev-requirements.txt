@@ -10,10 +10,14 @@ bleach==6.0.0
     # via readme-renderer
 build==0.10.0
     # via pip-tools
+cachetools==5.3.1
+    # via tox
 certifi==2023.5.7
     # via
     #   -r dev-requirements.in
     #   requests
+chardet==5.1.0
+    # via tox
 charset-normalizer==3.2.0
     # via requests
 cli-ui==0.17.2
@@ -23,7 +27,9 @@ click==8.1.5
     #   black
     #   pip-tools
 colorama==0.4.6
-    # via cli-ui
+    # via
+    #   cli-ui
+    #   tox
 contextlib2==21.6.0
     # via schema
 coverage[toml]==7.2.7
@@ -53,6 +59,7 @@ mypy-extensions==1.0.0
 packaging==23.1
     # via
     #   build
+    #   pyproject-api
     #   pytest
     #   tox
     #   tox-docker
@@ -63,19 +70,20 @@ pip-tools==6.14.0
 platformdirs==3.8.1
     # via
     #   black
+    #   tox
     #   virtualenv
 pluggy==1.2.0
     # via
     #   pytest
     #   tox
 py==1.11.0
-    # via
-    #   pytest-html
-    #   tox
+    # via pytest-html
 pygments==2.15.1
     # via
     #   -r dev-requirements.in
     #   readme-renderer
+pyproject-api==1.5.3
+    # via tox
 pyproject-hooks==1.0.0
     # via build
 pytest==7.4.0
@@ -104,7 +112,6 @@ six==1.16.0
     # via
     #   bleach
     #   python-dateutil
-    #   tox
 tabulate==0.8.10
     # via cli-ui
 tbump==6.10.0
@@ -115,12 +122,13 @@ tomli==2.0.1
     #   build
     #   coverage
     #   pip-tools
+    #   pyproject-api
     #   pyproject-hooks
     #   pytest
     #   tox
 tomlkit==0.11.8
     # via tbump
-tox==3.28.0
+tox==4.6.4
     # via
     #   -r dev-requirements.in
     #   tox-docker
