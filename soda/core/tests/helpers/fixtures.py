@@ -32,8 +32,6 @@ test_data_source = os.getenv("test_data_source", "postgres")
 def pytest_sessionstart(session: Any) -> None:
     print("session start log")
     configure_logging()
-    faulthandler.enable(file=sys.stdout, all_threads=True)
-    faulthandler.dump_traceback_later(timeout=60, exit=True)  # pragma: no cover
 
 
 def pytest_runtest_logstart(nodeid: str, location: tuple[str, int | None, str]) -> None:
@@ -41,6 +39,8 @@ def pytest_runtest_logstart(nodeid: str, location: tuple[str, int | None, str]) 
     Prints the test function name and the location in a format that PyCharm recognizes and turns into a link in the console
     """
     logging.debug(f'### "soda/core/tests/{location[0]}:{(location[1]+1)}" {location[2]}')
+    faulthandler.enable(file=sys.stderr, all_threads=True)
+    faulthandler.dump_traceback_later(file=sys.stderr, timeout=10, exit=False, repeat=True)  # pragma: no cover
 
 
 @pytest.fixture(scope="session")
