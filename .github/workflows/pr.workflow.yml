@@ -93,7 +93,7 @@ jobs:
       - name: System information
         if: ${{ (failure() || cancelled()) }}
         run: |
-          cat pytest_capture.log
+          cat pytest_capture.log || true
           find -name '*.log'
           apt update && apt install -y psmisc
           pstree -a
