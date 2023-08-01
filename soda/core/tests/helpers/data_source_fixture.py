@@ -9,7 +9,6 @@ from importlib import import_module
 from helpers.test_column import TestColumn
 from helpers.test_scan import TestScan
 from helpers.test_table import TestTable
-from helpers.utils import is_cicd
 from soda.common.lazy import Lazy
 from soda.common.random_helper import generate_random_alpha_num_str
 from soda.common.yaml_helper import YamlHelper
@@ -255,3 +254,7 @@ class DataSourceFixture:
             return updates
         finally:
             cursor.close()
+
+
+def is_cicd():
+    return os.getenv("GITHUB_ACTIONS") is not None

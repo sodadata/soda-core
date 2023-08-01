@@ -3,8 +3,7 @@ from __future__ import annotations
 import logging
 import os
 
-from helpers.data_source_fixture import DataSourceFixture
-from helpers.utils import is_cicd
+from helpers.data_source_fixture import DataSourceFixture, is_cicd
 
 logger = logging.getLogger(__name__)
 
