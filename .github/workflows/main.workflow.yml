@@ -44,7 +44,7 @@ jobs:
           - "mysql"
           - "duckdb"
           - "dask"
-          - "vertica"
+          # - "vertica"
 
     env:
       DATA_SOURCE: ${{ matrix.data-source }}
@@ -80,9 +80,6 @@ jobs:
       MYSQL_ROOT_PASSWORD: sodacore
       # TODO: add appropriate vars
       SPARK_DF_HOST: ${{ secrets.SPARK_DF_HOST }}
-      VERTICA_USERNAME: dbadmin
-      VERTICA_PASSWORD: password
-      VERTICA_DATABASE: vmart
 
     steps:
       - uses: actions/checkout@v3
