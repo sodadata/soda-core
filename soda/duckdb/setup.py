@@ -6,7 +6,7 @@ package_name = "soda-core-duckdb"
 package_version = "3.0.47"
 description = "Soda Core Duckdb Package"
 
-requires = [f"soda-core=={package_version}", "duckdb<=0.8"]
+requires = [f"soda-core=={package_version}", "duckdb"]
 
 setup(
     name=package_name,

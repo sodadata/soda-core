@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 import os
 
-from helpers.data_source_fixture import DataSourceFixture
+from helpers.data_source_fixture import DataSourceFixture, is_cicd
 
 logger = logging.getLogger(__name__)
 
@@ -11,9 +11,8 @@ logger = logging.getLogger(__name__)
 class PostgresDataSourceFixture(DataSourceFixture):
     def __init__(self, test_data_source: str):
         super().__init__(test_data_source=test_data_source)
-        is_local_dev = os.getenv("GITHUB_ACTIONS") is None
         is_schema_reuse_disabled = os.getenv("POSTGRES_REUSE_SCHEMA", "").lower() == "disabled"
-        self.local_dev_schema_reused = is_local_dev and not is_schema_reuse_disabled
+        self.local_dev_schema_reused = (not is_cicd()) and not is_schema_reuse_disabled
 
     def _build_configuration_dict(self, schema_name: str | None = None) -> dict:
         return {
