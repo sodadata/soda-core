@@ -44,6 +44,9 @@ class AttributeHandler:
 
     def format_attribute(self, value: any):
         # Introduce formatting methods similar to validation methods if this gets more complex.
+        if isinstance(value, bool):
+            # Bool is a subclass of int, so we need to check for bool first and exit to prevent weird behavior.
+            return value
         if isinstance(value, date):
             value = datetime.combine(value, datetime.min.time())
 

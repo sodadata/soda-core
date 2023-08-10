@@ -1,5 +1,6 @@
 from datetime import date, datetime
 
+import pytest
 from helpers.data_source_fixture import DataSourceFixture
 from soda.common.attributes_handler import AttributeHandler
 
@@ -92,3 +93,21 @@ def test_validation_unsupported_type(data_source_fixture: DataSourceFixture):
     assert sorted(invalid.keys()) == sorted(attributes.keys())
     assert valid == {}
     scan.assert_has_error("Unsupported attribute type 'unsupported'.")
+
+
+@pytest.mark.parametrize(
+    "value, expected",
+    [
+        ("something", "something"),
+        (1, "1"),
+        (1.1, "1.1"),
+        (datetime(2022, 1, 1, 12, 0, 0), "2022-01-01T00:00:00+00:00"),
+        (date(2022, 1, 1), "2022-01-01T00:00:00+00:00"),
+        (True, True),
+    ],
+)
+def test_formatting(value, expected, data_source_fixture: DataSourceFixture):
+    scan = data_source_fixture.create_test_scan()
+    attributes_handler = AttributeHandler(scan._logs)
+
+    assert attributes_handler.format_attribute(value) == expected
