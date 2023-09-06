@@ -451,5 +451,8 @@ class SchemaCheck(Check):
         elements = ", ".join(texts)
         return f"[{elements}]"
 
-    def __schema_diagnostics_texts(self):
+    def __schema_diagnostics_texts(self) -> str:
+        if not self.measured_schema:
+            return "[]"
+
         return self.__list_of_texts((column["name"] + " " + column["type"]) for column in self.measured_schema)

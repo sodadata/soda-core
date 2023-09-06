@@ -12,7 +12,7 @@ class GroupByQuery(Query):
     ):
         super().__init__(
             data_source_scan=data_source_scan,
-            unqualified_query_name=f"group_by[{metric.name}",
+            unqualified_query_name=f"group_by[{metric.name}]",
             location=location,
             sql=metric.query,
             partition=partition,
