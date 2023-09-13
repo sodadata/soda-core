@@ -623,8 +623,15 @@ class Scan:
 
         if self._scan_results_file is not None:
             logger.info(f"Saving scan results to {self._scan_results_file}")
-            with open(self._scan_results_file, "w") as f:
-                json.dump(SodaCloud.build_scan_results(self), f)
+            try:
+                with open(self._scan_results_file, "w") as f:
+                    json.dump(
+                        SodaCloud.build_scan_results(self),
+                        f,
+                    )
+            except Exception as e:
+                exit_value = 3
+                self._logs.error("Error occurred while saving scan results to file.", exception=e)
 
         # Telemetry data
         soda_telemetry.set_attributes(
