@@ -59,15 +59,16 @@ class ReferenceQuery(Query):
         # 1. source value is not null - to avoid null values triggering fails
         # 2. target value is null - this means that source value was not found in target column.
         # Passing query is same on source side, but not null on target side.
+        inverse = check_cfg.is_reverse
         where_condition = " OR ".join(
             [
-                f"(SOURCE.{source_column_name} IS NOT NULL AND TARGET.{target_column_name} IS NULL)"
+                f"(SOURCE.{source_column_name} IS NOT NULL AND TARGET.{target_column_name} IS {'NOT' if inverse else ''} NULL)"
                 for source_column_name, target_column_name in zip(source_column_names, target_column_names)
             ]
         )
         passing_where_condition = " AND ".join(
             [
-                f"(SOURCE.{source_column_name} IS NOT NULL AND TARGET.{target_column_name} IS NOT NULL)"
+                f"(SOURCE.{source_column_name} IS NOT NULL AND TARGET.{target_column_name} IS {'' if inverse else 'NOT'} NULL)"
                 for source_column_name, target_column_name in zip(source_column_names, target_column_names)
             ]
         )

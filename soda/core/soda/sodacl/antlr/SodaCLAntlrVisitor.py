@@ -1,4 +1,4 @@
-# Generated from /Users/vijay/work/soda/code/soda-core/soda/core/soda/sodacl/antlr/SodaCLAntlr.g4 by ANTLR 4.11.1
+# Generated from /Users/m1n0/dev/soda/soda-sql/soda-core/soda/core/soda/sodacl/antlr/SodaCLAntlr.g4 by ANTLR 4.11.1
 from antlr4 import *
 if __name__ is not None and "." in __name__:
     from .SodaCLAntlrParser import SodaCLAntlrParser
@@ -151,6 +151,11 @@ class SodaCLAntlrVisitor(ParseTreeVisitor):
 
     # Visit a parse tree produced by SodaCLAntlrParser#reference_check.
     def visitReference_check(self, ctx:SodaCLAntlrParser.Reference_checkContext):
+        return self.visitChildren(ctx)
+
+
+    # Visit a parse tree produced by SodaCLAntlrParser#reference_must_exist.
+    def visitReference_must_exist(self, ctx:SodaCLAntlrParser.Reference_must_existContext):
         return self.visitChildren(ctx)
 
 

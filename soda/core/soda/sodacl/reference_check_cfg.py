@@ -12,6 +12,7 @@ class ReferenceCheckCfg(CheckCfg):
         source_configurations: str | None,
         location: Location,
         name: str | None,
+        is_reverse: bool,
         source_column_names: list[str],
         target_table_name: str,
         target_column_names: list[str],
@@ -21,3 +22,4 @@ class ReferenceCheckCfg(CheckCfg):
         self.source_column_names: list[str] = source_column_names
         self.target_table_name: str = target_table_name
         self.target_column_names: list[str] = target_column_names
+        self.is_reverse: bool = is_reverse
