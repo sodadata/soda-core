@@ -1181,6 +1181,10 @@ class SodaCLParser(Parser):
     ) -> CheckCfg:
         antlr_reference_check: SodaCLAntlrParser.Reference_checkContext = antlr_reference_check
 
+        is_reverse = False
+        if antlr_reference_check.reference_must_exist().NOT():
+            is_reverse = True
+
         antlr_source_column_name_arg_list = antlr_reference_check.getTypedRuleContexts(
             SodaCLAntlrParser.Source_column_nameContext
         )
@@ -1233,6 +1237,7 @@ class SodaCLParser(Parser):
             target_table_name=target_table_name,
             target_column_names=target_column_names,
             samples_limit=samples_limit,
+            is_reverse=is_reverse,
         )
 
     def __parse_freshness_check(
