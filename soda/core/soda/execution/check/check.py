@@ -298,6 +298,7 @@ class Check(ABC):
                 "outcome": self.outcome.value if self.outcome else None,
                 "outcomeReasons": self.outcome_reasons,
                 "archetype": self.archetype,
+                "diagnostics": self.get_cloud_diagnostics_dict(),
             }
         )
 
