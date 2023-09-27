@@ -476,3 +476,10 @@ class SparkDataSource(SparkSQLBase):
             self.connection = connection
         except Exception as e:
             raise DataSourceConnectionError(self.type, e)
+
+    # TODO: this will probably require per-subtype class, this is is a temporary hack.
+    def cast_to_text(self, expr: str) -> str:
+        if self.method == SparkConnectionMethod.DATABRICKS:
+            return f"CAST({expr} AS STRING)"
+
+        return super().cast_to_text(expr)
