@@ -10,6 +10,7 @@
 
 import logging
 from typing import List, Optional
+from pathlib import Path
 
 from soda.common.exceptions import DataSourceConnectionError
 from soda.common.logs import Logs
@@ -80,6 +81,12 @@ class DuckDBDataSource(DataSource):
         DataType.TIMESTAMP_TZ: "timestamp with time zone",
         DataType.BOOLEAN: "boolean",
     }
+    
+    REGISTERED_FORMAT_MAP = {
+        "csv": "read_csv",
+        "parquet": "read_parquet",
+        "json": "read_json",
+    }
 
     NUMERIC_TYPES_FOR_PROFILING = [
         "tinyint",
@@ -95,7 +102,7 @@ class DuckDBDataSource(DataSource):
 
     def __init__(self, logs: Logs, data_source_name: str, data_source_properties: dict):
         super().__init__(logs, data_source_name, data_source_properties)
-        self.path = data_source_properties.get("path")
+        self.path = Path(data_source_properties.get("path"))
         self.read_only = data_source_properties.get("read_only", False)
         self.duckdb_connection = data_source_properties.get("duckdb_connection")
         self.configuration = data_source_properties.get("configuration", dict())
@@ -106,6 +113,11 @@ class DuckDBDataSource(DataSource):
         try:
             if self.duckdb_connection:
                 self.connection = DuckDBDataSourceConnectionWrapper(self.duckdb_connection)
+            elif (read_function := self.REGISTERED_FORMAT_MAP.get(self.extract_format())) is not None:
+                self.connection = DuckDBDataSourceConnectionWrapper(
+                    duckdb.connect(':memory:')
+                    )
+                self.connection.sql(f"CREATE TABLE {self.extract_dataset_name()} AS SELECT * FROM {read_function}({self.path})")
             else:
                 self.connection = DuckDBDataSourceConnectionWrapper(
                     duckdb.connect(
@@ -155,3 +167,9 @@ class DuckDBDataSource(DataSource):
             percentile_fraction = metric_args[1] if metric_args else None
             return f"PERCENTILE_DISC({percentile_fraction}) WITHIN GROUP (ORDER BY {expr})"
         return super().get_metric_sql_aggregation_expression(metric_name, metric_args, expr)
+    
+    def extract_dataset_name(self) -> str:
+        return self.path.stem
+    
+    def extract_format(self) -> str:
+        return self.path.suffix
