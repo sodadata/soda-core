@@ -1,6 +1,5 @@
 from pathlib import Path
 from helpers.data_source_fixture import DataSourceFixture
-from soda.scan import Scan
 
 
 def test_pandas_df(data_source_fixture: DataSourceFixture):
