@@ -83,9 +83,9 @@ class DuckDBDataSource(DataSource):
     }
     
     REGISTERED_FORMAT_MAP = {
-        "csv": "read_csv",
-        "parquet": "read_parquet",
-        "json": "read_json",
+        ".csv": "read_csv_auto",
+        ".parquet": "read_parquet",
+        ".json": "read_json_auto",
     }
 
     NUMERIC_TYPES_FOR_PROFILING = [
@@ -102,7 +102,7 @@ class DuckDBDataSource(DataSource):
 
     def __init__(self, logs: Logs, data_source_name: str, data_source_properties: dict):
         super().__init__(logs, data_source_name, data_source_properties)
-        self.path = Path(data_source_properties.get("path"))
+        self.path = data_source_properties.get("path")
         self.read_only = data_source_properties.get("read_only", False)
         self.duckdb_connection = data_source_properties.get("duckdb_connection")
         self.configuration = data_source_properties.get("configuration", dict())
@@ -115,9 +115,9 @@ class DuckDBDataSource(DataSource):
                 self.connection = DuckDBDataSourceConnectionWrapper(self.duckdb_connection)
             elif (read_function := self.REGISTERED_FORMAT_MAP.get(self.extract_format())) is not None:
                 self.connection = DuckDBDataSourceConnectionWrapper(
-                    duckdb.connect(':memory:')
+                    duckdb.connect(':default:')
                     )
-                self.connection.sql(f"CREATE TABLE {self.extract_dataset_name()} AS SELECT * FROM {read_function}({self.path})")
+                self.connection.sql(f"CREATE TABLE {self.extract_dataset_name()} AS SELECT * FROM {read_function}('{self.path}')")
             else:
                 self.connection = DuckDBDataSourceConnectionWrapper(
                     duckdb.connect(
@@ -169,7 +169,7 @@ class DuckDBDataSource(DataSource):
         return super().get_metric_sql_aggregation_expression(metric_name, metric_args, expr)
     
     def extract_dataset_name(self) -> str:
-        return self.path.stem
+        return Path(self.path).stem
     
     def extract_format(self) -> str:
-        return self.path.suffix
+        return Path(self.path).suffix
