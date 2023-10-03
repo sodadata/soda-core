@@ -124,6 +124,8 @@ class BigQueryDataSource(DataSource):
         if storage_project_id:
             self.storage_project_id = storage_project_id
 
+        self.labels = self.data_source_properties.get("labels", {})
+
     def connect(self):
         try:
             from google.api_core.client_info import ClientInfo
@@ -136,6 +138,7 @@ class BigQueryDataSource(DataSource):
                 credentials=self.credentials,
                 default_query_job_config=bigquery.QueryJobConfig(
                     default_dataset=f"{self.storage_project_id}.{self.dataset}",
+                    labels=self.labels,
                 ),
                 location=self.location,
                 client_info=client_info,
