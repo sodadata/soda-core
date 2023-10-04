@@ -307,12 +307,12 @@ class Scan:
         except Exception as e:
             self._logs.error(f"Could not add SodaCL file {file_path}", exception=e)
 
-    def add_sodacl_yaml_str(self, sodacl_yaml_str: str):
+    def add_sodacl_yaml_str(self, sodacl_yaml_str: str, file_name: str | None = None):
         """
         Add a SodaCL YAML string to the scan.
         """
         try:
-            unique_name = "sodacl_string"
+            unique_name = file_name or "sodacl_string"
             if unique_name in self._file_paths:
                 number: int = 2
                 while f"{unique_name}_{number}" in self._file_paths:
