@@ -77,7 +77,7 @@ def test_df_from_json(data_source_fixture: DataSourceFixture, tmp_path: Path):
         """
     )
     scan.add_sodacl_yaml_str(
-        f"""
+        """
           checks for json_dataset:
             - missing_count(i) = 0
             - missing_count(j) = 0
