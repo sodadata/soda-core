@@ -45,7 +45,7 @@ def test_df_from_csv(data_source_fixture: DataSourceFixture, tmp_path: Path):
         """
     )
     scan.add_sodacl_yaml_str(
-        f"""
+        """
           checks for csv_dataset:
             - row_count = 4
             - missing_count(i) = 0
