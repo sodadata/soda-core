@@ -9,6 +9,7 @@
 #  limitations under the License.
 
 import logging
+from pathlib import Path
 from typing import List, Optional
 
 from soda.common.exceptions import DataSourceConnectionError
@@ -81,6 +82,12 @@ class DuckDBDataSource(DataSource):
         DataType.BOOLEAN: "boolean",
     }
 
+    REGISTERED_FORMAT_MAP = {
+        ".csv": "read_csv_auto",
+        ".parquet": "read_parquet",
+        ".json": "read_json_auto",
+    }
+
     NUMERIC_TYPES_FOR_PROFILING = [
         "tinyint",
         "smallint",
@@ -106,6 +113,11 @@ class DuckDBDataSource(DataSource):
         try:
             if self.duckdb_connection:
                 self.connection = DuckDBDataSourceConnectionWrapper(self.duckdb_connection)
+            elif (read_function := self.REGISTERED_FORMAT_MAP.get(self.extract_format())) is not None:
+                self.connection = DuckDBDataSourceConnectionWrapper(duckdb.connect(":default:"))
+                self.connection.sql(
+                    f"CREATE TABLE {self.extract_dataset_name()} AS SELECT * FROM {read_function}('{self.path}')"
+                )
             else:
                 self.connection = DuckDBDataSourceConnectionWrapper(
                     duckdb.connect(
@@ -155,3 +167,9 @@ class DuckDBDataSource(DataSource):
             percentile_fraction = metric_args[1] if metric_args else None
             return f"PERCENTILE_DISC({percentile_fraction}) WITHIN GROUP (ORDER BY {expr})"
         return super().get_metric_sql_aggregation_expression(metric_name, metric_args, expr)
+
+    def extract_dataset_name(self) -> str:
+        return Path(self.path).stem
+
+    def extract_format(self) -> str:
+        return Path(self.path).suffix
