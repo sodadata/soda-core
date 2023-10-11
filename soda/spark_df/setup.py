@@ -3,7 +3,7 @@
 from setuptools import find_namespace_packages, setup
 
 package_name = "soda-core-spark-df"
-package_version = "3.0.50"
+package_version = "3.0.51"
 description = "Soda Core Spark Dataframe Package"
 
 requires = [
