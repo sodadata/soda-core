@@ -5,7 +5,7 @@ from typing import Any, Dict, List, Tuple, Union
 
 import numpy as np
 import pandas as pd
-from ruamel.yaml import YAML, YAMLError
+from ruamel.yaml import YAMLError
 from scipy.stats import chisquare, ks_2samp, wasserstein_distance
 
 from soda.scientific.common.exceptions import LoggableException
@@ -54,26 +54,32 @@ class EmptyDistributionCheckColumn(LoggableException):
     """Thrown when the column for which the distribution check is defined contains no data"""
 
 
+class CategoricalLimitExceeded(LoggableException):
+    """Thrown when the categorical column contains more than 1 million distinct values"""
+
+
 class DistributionChecker:
     def __init__(
         self,
         dist_method: str,
-        dist_ref_yaml: str,
+        parsed_dro: dict[str, Any],
         dist_ref_file_path: str,
         dist_name: Union[str, None],
         data: List[Any],
+        max_limit: int = int(1e6),
+        logs: logging.Logger = logging.getLogger("soda.core"),
     ):
-        if len(data) == 0:
-            raise EmptyDistributionCheckColumn(
-                f"""The column for which you defined this distribution check does not return any data. Make sure that """
-                f"""the columns + filters that you use do not result in empty datasets. For more information visit the docs:\n"""
-                f"""https://docs.soda.io/soda-cl/distribution.html#define-a-distribution-check"""
-            )
+        self.logs = logs
         self.test_data = data
         self.dist_ref, self.dist_method = self._parse_reference_cfg(
-            dist_method, dist_ref_yaml, dist_ref_file_path, dist_name
+            dist_method, parsed_dro, dist_ref_file_path, dist_name
         )
-
+        self.assert_test_data(
+            data=data,
+            max_limit=max_limit,
+            distribution_type=self.dist_ref.distribution_type,
+            column_name=parsed_dro.get("column"),
+        )
         algo_mapping = {
             "chi_square": ChiSqAlgorithm,
             "ks": KSAlgorithm,
@@ -87,8 +93,10 @@ class DistributionChecker:
     def run(self) -> Dict[str, float]:
         test_data = pd.Series(self.test_data)
         # check whether self.dist_method requires floats and test_data is of type decimal.Decimal
-        if (self.dist_method in ["semd", "swd", "psi"]) and pd.core.dtypes.common.is_dtype_equal(
-            test_data, decimal.Decimal
+        if (
+            (self.dist_method in ["semd", "swd", "psi"])
+            and pd.core.dtypes.common.is_dtype_equal(test_data, decimal.Decimal)
+            and self.dist_ref.distribution_type == "continuous"
         ):
             test_data = test_data.astype("float")
 
@@ -113,30 +121,29 @@ class DistributionChecker:
         return dict(check_value=check_value, stat_value=stat_value)
 
     def _parse_reference_cfg(
-        self, dist_method: str, dist_ref_yaml: str, dist_ref_file_path: str, dist_name: Union[str, None]
+        self, dist_method: str, parsed_dro: dict[str, Any], dist_ref_file_path: str, dist_name: Union[str, None]
     ) -> Tuple[RefDataCfg, str]:
         try:
-            parsed_ref_cfg: dict = YAML().load(dist_ref_yaml)
             ref_data_cfg = {}
 
             if dist_name:
-                parsed_ref_cfg = parsed_ref_cfg.get(dist_name)
-                if not parsed_ref_cfg:
+                parsed_dro = parsed_dro.get(dist_name)
+                if not parsed_dro:
                     raise DRONameNotFoundException(
                         f"""Your DRO name "{dist_name}" is not found in your distribution reference file "{dist_ref_file_path}". Please make sure that the DRO name that you provide in"""
                         f""" "distribution_difference(column_name, dro_name)" points to an existing DRO. For more information visit the docs:\n"""
                         f"""https://docs.soda.io/soda-cl/distribution.html#define-a-distribution-check"""
                     )
 
-            elif all(isinstance(value, dict) for value in parsed_ref_cfg.values()):
+            elif all(isinstance(value, dict) for value in parsed_dro.values()):
                 raise MissingDRONameException(
                     f"""While your distribution reference file "{dist_ref_file_path}" appears to contain named DROs, you did not provide a DRO name to your distribution check. """
                     f"""Please provide the DRO name that you want to use in the "distribution_difference(column_name, dro_name)"""
                     f""" part of your check. For more information visit the docs: https://docs.soda.io/soda-cl/distribution.html#define-a-distribution-check."""
                 )
 
-            if "distribution_type" in parsed_ref_cfg:
-                ref_data_cfg["distribution_type"] = parsed_ref_cfg["distribution_type"]
+            if "distribution_type" in parsed_dro:
+                ref_data_cfg["distribution_type"] = parsed_dro["distribution_type"]
             else:
                 raise DistributionRefKeyException(
                     f"""Your "{dist_ref_file_path}" reference yaml file must have `distribution_type` key. The `distribution_type` is used to create a sample from your DRO."""
@@ -146,7 +153,7 @@ class DistributionChecker:
             if not dist_method:
                 default_configs = {"continuous": "ks", "categorical": "chi_square"}
                 dist_method = default_configs[ref_data_cfg["distribution_type"]]
-                logging.info(
+                self.logs.info(
                     f"""You did not specify a `method` key in your distribution check. Since your DRO distribution_type is "{ref_data_cfg["distribution_type"]}" this means that the default "{dist_method}" method will be used.\n"""
                     f"""For more information visit the docs: https://docs.soda.io/soda-cl/distribution.html#define-a-distribution-check"""
                 )
@@ -157,14 +164,14 @@ class DistributionChecker:
 
             if dist_method not in correct_configs[ref_data_cfg["distribution_type"]]:
                 raise DistributionRefIncompatibleException(
-                    f"""Your DRO distribution_type "{parsed_ref_cfg['distribution_type']}" is incompatible with the method "{dist_method}". Your DRO distribution_type allows you to use one of the following methods:"""
-                    f""" {", ".join([f"'{method}'" for method in correct_configs[parsed_ref_cfg["distribution_type"]]])}. For more information visit the docs: https://docs.soda.io/soda-cl/distribution.html#about-distribution-checks """
+                    f"""Your DRO distribution_type "{parsed_dro['distribution_type']}" is incompatible with the method "{dist_method}". Your DRO distribution_type allows you to use one of the following methods:"""
+                    f""" {", ".join([f"'{method}'" for method in correct_configs[parsed_dro["distribution_type"]]])}. For more information visit the docs: https://docs.soda.io/soda-cl/distribution.html#about-distribution-checks """
                 )
 
-            distribution_reference = parsed_ref_cfg.get("distribution_reference")
+            distribution_reference = parsed_dro.get("distribution_reference")
             if not distribution_reference:
                 # added for backwards compatibility
-                distribution_reference = parsed_ref_cfg.get("distribution reference")
+                distribution_reference = parsed_dro.get("distribution reference")
 
             if distribution_reference:
                 # TODO: add checks for bins and weights
@@ -185,11 +192,42 @@ class DistributionChecker:
             )
         return RefDataCfg.parse_obj(ref_data_cfg), dist_method
 
+    def assert_test_data(self, data: pd.Series, max_limit: int, distribution_type: str, column_name: str) -> None:
+        if len(data) == 0:
+            raise EmptyDistributionCheckColumn(
+                f"""The column for which you defined this distribution check does not return any data. Make sure that """
+                f"""the columns + filters that you use do not result in empty datasets. For more information visit the docs:\n"""
+                f"""https://docs.soda.io/soda-cl/distribution.html#define-a-distribution-check"""
+            )
+        elif len(data) == max_limit and distribution_type == "categorical":
+            raise CategoricalLimitExceeded(
+                f"During the 'Distribution Check', it was observed that the column '{column_name}' "
+                f"contains over {max_limit} distinct categories. "
+                f"The check will not be evaluated due to performance reasons. "
+                "Consider applying a `sample` or `filter` clause in your 'Distribution Check'"
+            )
+        elif len(data) == max_limit and distribution_type == "continuous":
+            self.logs.warning(
+                f"During the 'Distribution Check' for the column '{column_name}', it was observed that there "
+                f"are over {max_limit} data points. The check applies a limit and fetches only {max_limit} values for "
+                "optimization purposes. This limitation might impact the accuracy of the results. Consider applying "
+                f"a `sample` or `filter` operation to the '{column_name}' column to ensure more accurate distribution insights."
+            )
+
 
 class DistributionAlgorithm(abc.ABC):
     def __init__(self, cfg: RefDataCfg, test_data: pd.Series, seed: int = 61) -> None:
-        self.test_data = test_data
-        self.ref_data = generate_ref_data(cfg, len(test_data), np.random.default_rng(seed))
+        if cfg.distribution_type == "categorical":
+            # Convert to Series with tuple's first element as index and second as value
+            test_data_bins = test_data.map(lambda x: x[0]).tolist()
+            test_data_weights = test_data.map(lambda x: x[1]).tolist()
+            total_n_records = sum(test_data_weights)
+            ref_data_weights = [round(weight * total_n_records) for weight in cfg.weights]
+            self.test_data = pd.Series(data=test_data_weights, index=test_data_bins)
+            self.ref_data = pd.Series(data=ref_data_weights, index=cfg.bins)
+        else:
+            self.test_data = test_data
+            self.ref_data = generate_ref_data(cfg, len(test_data), np.random.default_rng(seed))
 
     @abc.abstractmethod
     def evaluate(self) -> Dict[str, float]:
@@ -204,8 +242,8 @@ class ChiSqAlgorithm(DistributionAlgorithm):
         assert not distribution_is_all_null(self.ref_data), "Reference data cannot contain only null values"
         assert not distribution_is_all_null(self.test_data), "Test data cannot contain only null values"
 
-        ref_data_frequencies = self.ref_data.value_counts()
-        test_data_frequencies = self.test_data.value_counts()
+        ref_data_frequencies = self.ref_data
+        test_data_frequencies = self.test_data
 
         # check that all categories in test are present in the reference data and vice versa
         missing_categories_issues = assert_bidirectional_categorial_values(ref_data_frequencies, test_data_frequencies)

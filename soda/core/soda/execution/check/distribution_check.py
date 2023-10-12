@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from numbers import Number
 
+from ruamel.yaml import YAML
+
 from soda.cli.cli import DATA_SOURCES_WITH_DISTRIBUTION_CHECK_SUPPORT
 from soda.common.exceptions import SODA_SCIENTIFIC_MISSING_LOG_MESSAGE
 from soda.execution.check.check import Check
@@ -19,8 +21,8 @@ class DistributionCheck(Check):
         self,
         check_cfg: DistributionCheckCfg,
         data_source_scan: DataSourceScan,
-        partition: Partition = None,
-        column: Column = None,
+        partition: Partition | None = None,
+        column: Column | None = None,
     ):
         super().__init__(
             check_cfg=check_cfg,
@@ -48,6 +50,17 @@ class DistributionCheck(Check):
         metric = data_source_scan.resolve_metric(metric)
         self.metrics["distribution-difference-metric"] = metric
         self.check_value: float | None = None
+        self.parsed_dro = dict(
+            YAML().load(
+                self.data_source_scan.scan._read_file(
+                    file_type="disribution reference object yaml",
+                    file_path=self.distribution_check_cfg.reference_file_path,
+                )
+            )
+        )
+        self.distribution_name = self.distribution_check_cfg.distribution_name
+        self.distribution_type = self.get_distribution_type()
+        self.max_limit = int(1e6)
 
     def evaluate(self, metrics: dict[str, Metric], historic_values: dict[str, object]) -> None:
         try:
@@ -58,6 +71,7 @@ class DistributionCheck(Check):
             return
 
         sql = self.sql_column_values_query(self.distribution_check_cfg)
+        self.logs.debug(f"Executing query for the distribution check: \n{sql}")
 
         self.query = Query(
             data_source_scan=self.data_source_scan,
@@ -66,16 +80,25 @@ class DistributionCheck(Check):
         )
         self.query.execute()
         if self.query.exception is None and self.query.rows is not None:
-            test_data = [row[0] for row in self.query.rows]
             ref_file_path = self.distribution_check_cfg.reference_file_path
             dist_method = self.distribution_check_cfg.method
             dist_name = self.distribution_check_cfg.distribution_name
-            dist_ref_yaml = self.data_source_scan.scan._read_file(
-                file_type="disribution reference object yaml", file_path=ref_file_path
-            )
             try:
+                if self.distribution_type == "categorical":
+                    # Collect test data as a list of tuples (value, count)
+                    test_data = self.query.rows
+                else:
+                    # Collect test data as a list of values
+                    test_data = [row[0] for row in self.query.rows]
+
                 check_result_dict = DistributionChecker(
-                    dist_method, dist_ref_yaml, ref_file_path, dist_name, test_data
+                    dist_method=dist_method,
+                    parsed_dro=self.parsed_dro,
+                    dist_ref_file_path=ref_file_path,
+                    dist_name=dist_name,
+                    data=test_data,
+                    max_limit=self.max_limit,
+                    logs=self.logs,
                 ).run()
                 self.check_value = check_result_dict["check_value"]
                 self.metrics["distribution-difference-metric"].value = self.check_value
@@ -121,32 +144,48 @@ class DistributionCheck(Check):
         #     log_diagnostics.update(self.historic_diff_values)
         return log_diagnostics
 
+    def get_distribution_type(self) -> str:
+        dist_name = self.distribution_check_cfg.distribution_name
+        if dist_name is None:
+            dist_type = self.parsed_dro["distribution_type"]
+        else:
+            dist_type = self.parsed_dro[dist_name]["distribution_type"]
+        return dist_type
+
     def sql_column_values_query(self, distribution_check_cfg: DistributionCheckCfg) -> str:
         column_name = distribution_check_cfg.column_name
         scan = self.data_source_scan.scan
 
         partition_filter = scan.jinja_resolve(self.partition.sql_partition_filter)
         distribution_check_filter = scan.jinja_resolve(distribution_check_cfg.filter)
-        sample_clause = scan.jinja_resolve(distribution_check_cfg.sample_clause)
-
         filters = []
         filters.append(partition_filter)
         filters.append(distribution_check_filter)
 
         filter_clause = " AND ".join(_filter for _filter in filters if _filter)
+        sample_clause = None
+        limit = None
 
-        if sample_clause:
-            limit = None  # No need to apply limit if we are sampling
-        else:
-            limit = int(1e6)
-
-        return self.data_source_scan.data_source.sql_select_column_with_filter_and_limit(
+        if self.distribution_type == "continuous":
+            sample_clause = scan.jinja_resolve(distribution_check_cfg.sample_clause)
+            if sample_clause is not None:
+                limit = None  # No need to apply limit if we are sampling
+            else:
+                limit = self.max_limit
+        sql = self.data_source_scan.data_source.sql_select_column_with_filter_and_limit(
             column_name=column_name,
             table_name=self.partition.table.qualified_table_name,
             filter_clause=filter_clause,
             sample_clause=sample_clause,
             limit=limit,
         )
+        if self.distribution_type == "categorical":
+            sql = self.data_source_scan.data_source.sql_groupby_count_categorical_column(
+                select_query=sql,
+                column_name=column_name,
+                limit=self.max_limit,
+            )
+        return sql
 
     def get_summary(self) -> str:
         error_summary = (

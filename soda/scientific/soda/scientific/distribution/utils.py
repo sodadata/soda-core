@@ -60,7 +60,7 @@ def assert_bidirectional_categorial_values(
 
 
 def distribution_is_all_null(distribution: pd.Series) -> bool:
-    if pd.isnull(distribution).all():
+    if pd.isnull(distribution.index).all():
         return True
     else:
         return False
