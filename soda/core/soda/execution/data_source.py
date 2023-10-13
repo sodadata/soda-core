@@ -1359,6 +1359,30 @@ class DataSource:
         finally:
             cursor.close()
 
+    def sql_groupby_count_categorical_column(
+        self,
+        select_query: str,
+        column_name: str,
+        limit: int | None = None,
+    ) -> str:
+        cte = select_query.replace("\n", " ")
+        # delete multiple spaces
+        cte = re.sub(" +", " ", cte)
+        sql = dedent(
+            f"""
+                WITH processed_table AS (
+                    {cte}
+                )
+                SELECT
+                    {column_name}
+                    , COUNT(*) AS frequency
+                FROM processed_table
+                GROUP BY {column_name}
+            """
+        )
+        sql += f"LIMIT {limit}" if limit else ""
+        return dedent(sql)
+
     def sql_select_column_with_filter_and_limit(
         self,
         column_name: str,

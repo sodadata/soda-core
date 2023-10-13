@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import re
 import struct
 from datetime import datetime, timedelta, timezone
 from textwrap import dedent
@@ -309,6 +310,30 @@ class SQLServerDataSource(DataSource):
             f"FROM {table_name}{sample_clauses_str}{filter_clauses_str}"
         )
         return sql
+
+    def sql_groupby_count_categorical_column(
+        self,
+        select_query: str,
+        column_name: str,
+        limit: int | None = None,
+    ) -> str:
+        cte = select_query.replace("\n", " ")
+        # delete multiple spaces
+        cte = re.sub(" +", " ", cte)
+        top_limit = f"TOP {limit}" if limit else ""
+        sql = dedent(
+            f"""
+                WITH processed_table AS (
+                    {cte}
+                )
+                SELECT {top_limit}
+                    {column_name}
+                    , COUNT(*) AS frequency
+                FROM processed_table
+                GROUP BY {column_name}
+            """
+        )
+        return dedent(sql)
 
     def expr_false_condition(self):
         return "1 = 0"
