@@ -3,7 +3,6 @@ from __future__ import annotations
 from numbers import Number
 
 from ruamel.yaml import YAML
-
 from soda.cli.cli import DATA_SOURCES_WITH_DISTRIBUTION_CHECK_SUPPORT
 from soda.common.exceptions import SODA_SCIENTIFIC_MISSING_LOG_MESSAGE
 from soda.execution.check.check import Check
