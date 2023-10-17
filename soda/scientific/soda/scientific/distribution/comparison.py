@@ -1,7 +1,9 @@
+from __future__ import annotations
+
 import abc
 import decimal
 import logging
-from typing import Any, Dict, List, Tuple, Union
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -64,8 +66,8 @@ class DistributionChecker:
         dist_method: str,
         parsed_dro: dict[str, Any],
         dist_ref_file_path: str,
-        dist_name: Union[str, None],
-        data: List[Any],
+        dist_name: str | None,
+        data: list[Any],
         max_limit: int = int(1e6),
         logs: logging.Logger = logging.getLogger("soda.core"),
     ):
@@ -90,7 +92,7 @@ class DistributionChecker:
 
         self.choosen_algo = algo_mapping.get(self.dist_method)
 
-    def run(self) -> Dict[str, float]:
+    def run(self) -> dict[str, float]:
         test_data = pd.Series(self.test_data)
         # check whether self.dist_method requires floats and test_data is of type decimal.Decimal
         if (
@@ -121,8 +123,8 @@ class DistributionChecker:
         return dict(check_value=check_value, stat_value=stat_value)
 
     def _parse_reference_cfg(
-        self, dist_method: str, parsed_dro: dict[str, Any], dist_ref_file_path: str, dist_name: Union[str, None]
-    ) -> Tuple[RefDataCfg, str]:
+        self, dist_method: str, parsed_dro: dict[str, Any], dist_ref_file_path: str, dist_name: str | None
+    ) -> tuple[RefDataCfg, str]:
         try:
             ref_data_cfg = {}
 
@@ -230,12 +232,12 @@ class DistributionAlgorithm(abc.ABC):
             self.ref_data = generate_ref_data(cfg, len(test_data), np.random.default_rng(seed))
 
     @abc.abstractmethod
-    def evaluate(self) -> Dict[str, float]:
+    def evaluate(self) -> dict[str, float]:
         ...
 
 
 class ChiSqAlgorithm(DistributionAlgorithm):
-    def evaluate(self) -> Dict[str, float]:
+    def evaluate(self) -> dict[str, float]:
         # TODO: make sure we can assert we're really dealing with categories
         # TODO: make sure that we also can guarantee the order of the categorical labels
         # since we're comparing on indeces in the chisquare function
@@ -285,7 +287,7 @@ class ChiSqAlgorithm(DistributionAlgorithm):
 
 
 class KSAlgorithm(DistributionAlgorithm):
-    def evaluate(self) -> Dict[str, float]:
+    def evaluate(self) -> dict[str, float]:
         # TODO: set up some assertion testing that the distribution_type are continuous
         # TODO: consider whether we may want to warn users if any or both of their series are nulls
         # although ks_2samp() behaves correctly in either cases
@@ -294,14 +296,14 @@ class KSAlgorithm(DistributionAlgorithm):
 
 
 class SWDAlgorithm(DistributionAlgorithm):
-    def evaluate(self) -> Dict[str, float]:
+    def evaluate(self) -> dict[str, float]:
         wd = wasserstein_distance(self.ref_data, self.test_data)
         swd = wd / np.std(np.concatenate([self.ref_data, self.test_data]))
         return dict(check_value=swd)
 
 
 class PSIAlgorithm(DistributionAlgorithm):
-    def evaluate(self) -> Dict[str, float]:
+    def evaluate(self) -> dict[str, float]:
         max_val = max(np.max(self.test_data), np.max(self.ref_data))
         min_val = min(np.min(self.test_data), np.min(self.ref_data))
 
