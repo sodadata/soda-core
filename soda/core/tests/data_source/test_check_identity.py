@@ -74,7 +74,7 @@ def test_check_identity_ignore_name(data_source_fixture: DataSourceFixture):
     assert len(logs) > 0
     first_log = logs[0]
     assert first_log.get("level") == "info"
-    assert first_log.get("message").startswith("Soda Core 3.")
+    assert first_log.get("message").startswith("Soda")
     first_log_index = first_log.get("index")
     assert isinstance(first_log_index, int) and first_log_index >= 0
     first_log_timestamp = first_log.get("timestamp")
@@ -200,3 +200,49 @@ def test_check_identity_special_table(data_source_fixture: DataSourceFixture):
     row_count_identity = scan_result["checks"][0]["identity"]
 
     assert isinstance(row_count_identity, str)
+
+
+def test_check_identity_migrate_identity(data_source_fixture: DataSourceFixture):
+    if data_source_fixture.data_source.migrate_data_source_name is None:
+        return
+
+    new_data_source_fixture = DataSourceFixture._create("NewDask")
+    new_data_source_fixture._test_session_starts()
+    table_name = new_data_source_fixture.ensure_test_table(customers_test_table)
+
+    scan_result = execute_scan_and_get_scan_result(
+        new_data_source_fixture,
+        f"""
+          checks for "{table_name}":
+            - row_count > 0
+            - missing_count(1) = 0
+        """,
+    )
+    row_count_identity = scan_result["checks"][0]["migratedIdentities"]
+
+    assert isinstance(row_count_identity, dict)
+    assert scan_result["checks"][0]["identities"]["v1"] == scan_result["checks"][0]["migratedIdentities"]["v1"]
+    assert scan_result["checks"][0]["identities"]["v2"] != scan_result["checks"][0]["migratedIdentities"]["v2"]
+    assert scan_result["checks"][0]["identities"]["v3"] != scan_result["checks"][0]["migratedIdentities"]["v3"]
+
+    new_data_source_fixture._test_session_ends()
+
+
+def test_check_identity_migrate_identity_when_not_changed(data_source_fixture: DataSourceFixture):
+    if data_source_fixture.data_source.migrate_data_source_name is None:
+        return
+
+    new_data_source_fixture = DataSourceFixture._create("dask")
+    new_data_source_fixture._test_session_starts()
+    table_name = new_data_source_fixture.ensure_test_table(customers_test_table)
+
+    scan_result = execute_scan_and_get_scan_result(
+        new_data_source_fixture,
+        f"""
+          checks for "{table_name}":
+            - row_count > 0
+        """,
+    )
+    assert scan_result["checks"][0]["migratedIdentities"] is None
+
+    new_data_source_fixture._test_session_ends()

@@ -6,18 +6,20 @@ import os
 import textwrap
 from datetime import datetime, timezone
 
-from soda.__version__ import SODA_CORE_VERSION
+from ruamel.yaml import YAML
 from soda.cloud.historic_descriptor import HistoricDescriptor
 from soda.cloud.soda_cloud import SodaCloud
 from soda.common.json_helper import JsonHelper
 from soda.common.log import Log, LogLevel
 from soda.common.logs import Logs
 from soda.common.undefined_instance import undefined
+from soda.common.utilities import is_soda_library_available
 from soda.execution.check.check import Check
 from soda.execution.check_outcome import CheckOutcome
 from soda.execution.data_source_scan import DataSourceScan
 from soda.execution.metric.derived_metric import DerivedMetric
 from soda.execution.metric.metric import Metric
+from soda.execution.scan.scan_type import ScanType
 from soda.profiling.discover_table_result_table import DiscoverTablesResultTable
 from soda.profiling.profile_columns_result import ProfileColumnsResultTable
 from soda.profiling.sample_tables_result import SampleTablesResultTable
@@ -33,8 +35,19 @@ verbose = False
 
 soda_telemetry = SodaTelemetry.get_instance()
 
+scan_extra_mixins = []
 
-class Scan:
+if is_soda_library_available():
+    from soda_library.execution.scan.cloud_scan_mixin import CloudScanMixin
+
+    scan_extra_mixins.append(CloudScanMixin)
+else:
+    from soda.execution.scan.scan_mixin import ScanMixin
+
+    scan_extra_mixins.append(ScanMixin)
+
+
+class Scan(*scan_extra_mixins):
     def __init__(self):
         from soda.configuration.configuration import Configuration
         from soda.execution.check.check import Check
@@ -52,6 +65,11 @@ class Scan:
         self._configuration: Configuration = Configuration(scan=self)
         self._sodacl_cfg: SodaCLCfg = SodaCLCfg(scan=self)
         self._file_paths: set[str] = set()
+        self._template_paths: set[str] = "./templates"
+        self._template_file_paths: set[str] = set()
+        self.templates = []
+        self._ci_info_file: str | None = None
+        self._ci_info: dict = {}
         self._data_timestamp: datetime = now
         self._scan_start_timestamp: datetime = now
         # FIXME: this attribute cannot be None if typed as `datetime`
@@ -65,10 +83,14 @@ class Scan:
         self._profile_columns_result_tables: list[ProfileColumnsResultTable] = []
         self._discover_tables_result_tables: list[DiscoverTablesResultTable] = []
         self._sample_tables_result_tables: list[SampleTablesResultTable] = []
-        self._logs.info(f"Soda Core {SODA_CORE_VERSION}")
         self.scan_results: dict = {}
+        self._scan_type: ScanType | None = None
+        self._discussion: int | None = None
+        self._is_local: bool = False
 
-    def build_scan_results(self) -> dict:
+        self.log_version()
+
+    def build_scan_results(self, metadata: dict = {}) -> dict:
         checks = [check.get_dict() for check in self._checks if check.outcome is not None and check.archetype is None]
         automated_monitoring_checks = [
             check.get_dict() for check in self._checks if check.outcome is not None and check.archetype is not None
@@ -97,6 +119,7 @@ class Scan:
                 "metrics": [metric.get_dict() for metric in self._metrics],
                 # If archetype is not None, it means that check is automated monitoring
                 "checks": checks,
+                "checksMetadata": metadata["checks"] if "checks" in metadata else {},
                 "queries": query_list,
                 "automatedMonitoringChecks": automated_monitoring_checks,
                 "profiling": profiling,
@@ -123,6 +146,15 @@ class Scan:
         self._logs.verbose = verbose_var
         global verbose
         verbose = verbose_var
+
+    def set_is_local(self, local_var: bool = True):
+        self._is_local = local_var
+
+    def set_scan_type(self, type: ScanType):
+        self._scan_type = type
+
+    def set_discussion(self, discussion: int):
+        self._discussion = discussion
 
     def set_scan_results_file(self, set_scan_results_file: str):
         self._scan_results_file = set_scan_results_file
@@ -217,26 +249,51 @@ class Scan:
                 exception=e,
             )
 
-    def add_dask_dataframe(self, dataset_name: str, dask_df) -> None:
-        context = self._get_or_create_dask_context(required_soda_module="soda-core-pandas-dask")
+    def add_dask_dataframe(self, dataset_name: str, dask_df, data_source_name: str = "dask") -> None:
+        if data_source_name == "dask":
+            self._logs.warning(
+                "Deprecated: implicit data_source_name is no longer supported. Make sure to provide a "
+                "data_source_name when invoking 'add_dask_dataframe()'."
+            )
+
+        context = self._get_or_create_dask_context(
+            required_soda_module="soda-core-pandas-dask", data_source_name=data_source_name
+        )
         context.create_table(dataset_name, dask_df)
 
-    def add_pandas_dataframe(self, dataset_name: str, pandas_df):
-        context = self._get_or_create_dask_context(required_soda_module="soda-core-pandas-dask")
+    def add_pandas_dataframe(self, dataset_name: str, pandas_df, data_source_name: str = "dask"):
+        if data_source_name == "dask":
+            self._logs.warning(
+                "Deprecated: implicit data_source_name is no longer supported. Make sure to provide a "
+                "data_source_name when invoking 'add_pandas_dataframe()'."
+            )
+
+        context = self._get_or_create_dask_context(
+            required_soda_module="soda-core-pandas-dask", data_source_name=data_source_name
+        )
         from dask.dataframe import from_pandas
 
         dask_df = from_pandas(pandas_df, npartitions=1)
         context.create_table(dataset_name, dask_df)
 
-    def _get_or_create_dask_context(self, required_soda_module: str):
+    def _get_or_create_dask_context(self, required_soda_module: str, data_source_name: str):
         try:
             from dask_sql import Context
         except ImportError:
             raise Exception(f"{required_soda_module} is not installed. Please install {required_soda_module}")
 
-        if "dask" not in self._configuration.data_source_properties_by_name:
-            self._configuration.add_dask_context(data_source_name="dask", dask_context=Context())
-        return self._configuration.data_source_properties_by_name["dask"]["context"]
+        if data_source_name not in self._configuration.data_source_properties_by_name:
+            self._configuration.add_dask_context(data_source_name=data_source_name, dask_context=Context())
+        return self._configuration.data_source_properties_by_name[data_source_name]["context"]
+
+    def add_template_files(self, path: str):
+        if os.path.exists(path):
+            try:
+                template_file_paths = self._collect_file_paths(path=path, recursive=True, suffixes=[".yml", ".yaml"])
+                for template_file_path in template_file_paths:
+                    self.add_template_file(template_file_path)
+            except Exception as e:
+                self._logs.error(f"Could not add template files from dir {path}", exception=e)
 
     def add_sodacl_yaml_files(
         self,
@@ -292,6 +349,32 @@ class Scan:
         else:
             self._logs.error(f"Path is not a string: {type(path).__name__}")
         return []
+
+    def add_template_file(self, file_path: str):
+        try:
+            template_yaml_str = self._read_file("Check Template", file_path)
+            if file_path not in self._template_file_paths:
+                self._template_file_paths.add(file_path)
+                self._parse_template_yaml_str(template_yaml_str=template_yaml_str)
+                self._logs.info(f"Loaded check templates from {file_path}")
+            else:
+                self._logs.debug(f"Skipping duplicate file addition for {file_path}")
+        except Exception as e:
+            self._logs.error(f"Could not add check template file {file_path}", exception=e)
+
+    def _parse_template_yaml_str(self, template_yaml_str: str):
+        yaml = YAML()
+        self.templates += yaml.load(template_yaml_str)["templates"]
+
+    def add_ci_info_file(self, file_path: str):
+        try:
+            ci_info_json_str = self._read_file("CI info file", file_path)
+            self.parse_ci_info_file(ci_info_json_str=ci_info_json_str)
+        except Exception as e:
+            self._logs.error(f"Could not add metadata file {file_path}", exception=e)
+
+    def parse_ci_info_file(self, ci_info_json_str: str):
+        self._ci_info = json.loads(ci_info_json_str)
 
     def add_sodacl_yaml_file(self, file_path: str):
         """
@@ -383,13 +466,23 @@ class Scan:
         self._configuration.telemetry = None
 
     def execute(self) -> int:
-        self._logs.debug("Scan execution starts")
         exit_value = 0
+        self._logs.debug("Scan execution starts")
+
+        self.scan_start()
+
+        scan_metadata = {}
+
         try:
             from soda.execution.column import Column
             from soda.execution.metric.column_metrics import ColumnMetrics
             from soda.execution.partition import Partition
             from soda.execution.table import Table
+
+            if not self.validate_prerequisites():
+                # Something is wrong, disable Cloud to prevent sending invalid data and kill the scan.
+                self._configuration.soda_cloud = None
+                raise Exception("Pre-scan validation failed, see logs for details.")
 
             # Disable Soda Cloud if it is not properly configured
             if self._configuration.soda_cloud:
@@ -412,10 +505,13 @@ class Scan:
                 # ensure the sampler is configured with the scan logs
                 self._configuration.sampler.logs = self._logs
 
+            # Set up event tracker after all cloud/sampler related configuration is done
+            self._configuration.setup_event_tracker()
+            if not self._configuration.event_tracker:
+                self._logs.debug("Unable to set up event tracker.")
+
             # Resolve the for each table checks and add them to the scan_cfg data structures
             self.__resolve_for_each_dataset_checks()
-            # Resolve the for each column checks and add them to the scan_cfg data structures
-            self.__resolve_for_each_column_checks()
 
             # For each data_source, build up the DataSourceScan data structures
             for data_source_scan_cfg in self._sodacl_cfg.data_source_scan_cfgs.values():
@@ -484,7 +580,7 @@ class Scan:
                     check.attributes = check_attributes
 
             if invalid_check_attributes:
-                attributes_page_url = f"https://{self._configuration.soda_cloud.host}/organization/attributes"
+                attributes_page_url = f"https://{self._configuration.soda_cloud.host}/attributes"
                 self._logs.info(f"Refer to list of valid attributes and values at {attributes_page_url}.")
 
             if not invalid_checks:
@@ -527,6 +623,8 @@ class Scan:
 
                     if not missing_value_metrics:
                         try:
+                            if self._configuration.event_tracker:
+                                self._configuration.event_tracker.send_check_tracking_event(check.__class__.__name__)
                             check.evaluate(check_metrics, check_historic_data)
                         except BaseException as e:
                             self._logs.error(
@@ -544,6 +642,7 @@ class Scan:
             self.__log_queries(having_exception=False)
             self.__log_queries(having_exception=True)
 
+            checks_count = len(self._checks)
             checks_pass_count = self.__log_checks(CheckOutcome.PASS)
             checks_warn_count = self.__log_checks(CheckOutcome.WARN)
             warn_text = "warning" if checks_warn_count == 1 else "warnings"
@@ -552,15 +651,15 @@ class Scan:
             error_count = len(self.get_error_logs())
             error_text = "error" if error_count == 1 else "errors"
             self.__log_checks(None)
-            checks_not_evaluated = len(self._checks) - checks_pass_count - checks_warn_count - checks_fail_count
+            checks_not_evaluated = checks_count - checks_pass_count - checks_warn_count - checks_fail_count
 
-            if len(self._checks) == 0:
+            if checks_count == 0:
                 self._logs.warning("No valid checks found, 0 checks evaluated.")
             if checks_not_evaluated:
                 self._logs.info(f"{checks_not_evaluated} checks not evaluated.")
             if error_count > 0:
                 self._logs.info(f"{error_count} errors.")
-            if checks_warn_count + checks_fail_count + error_count == 0 and len(self._checks) > 0:
+            if checks_warn_count + checks_fail_count + error_count == 0 and checks_count > 0:
                 if checks_not_evaluated:
                     self._logs.info(
                         "Apart from the checks that have not been evaluated, no failures, no warnings and no errors."
@@ -586,8 +685,10 @@ class Scan:
             if error_count > 0:
                 Log.log_errors(self.get_error_logs())
 
+            # A bit hacky, buffer might contain other logs as well.
             if self._logs.logs_buffer:
                 self._logs.flush_buffer()
+                self._logs.info("Sign up for a free Soda Cloud trial at https://cloud.soda.io/signup")
 
             # Telemetry data
             soda_telemetry.set_attributes(
@@ -597,6 +698,16 @@ class Scan:
                     "failures_count": checks_fail_count,
                 }
             )
+            scan_metadata = {
+                "checks": {
+                    "count": checks_count,
+                    "pass": checks_pass_count,
+                    "warn": checks_warn_count,
+                    "fail": checks_fail_count,
+                    "evaluated": checks_count - checks_not_evaluated,
+                    "notEvaluated": checks_not_evaluated,
+                }
+            }
 
         except Exception as e:
             exit_value = 3
@@ -606,7 +717,10 @@ class Scan:
                 self._scan_end_timestamp = datetime.now(tz=timezone.utc)
                 if self._configuration.soda_cloud:
                     self._logs.info("Sending results to Soda Cloud")
-                    self._configuration.soda_cloud.send_scan_results(self)
+                    response = self._configuration.soda_cloud.send_scan_results(self, scan_metadata)
+
+                    if response and "scanReference" in response:
+                        scan_metadata.update({"scanReference": response["scanReference"]})
 
                     if "send_scan_results" in self._configuration.soda_cloud.soda_cloud_trace_ids:
                         cloud_trace_id = self._configuration.soda_cloud.soda_cloud_trace_ids["send_scan_results"]
@@ -619,14 +733,14 @@ class Scan:
                 self._logs.error("Error occurred while sending scan results to soda cloud.", exception=e)
 
             self._close()
-            self.scan_results = self.build_scan_results()
+            self.scan_results = self.build_scan_results(scan_metadata)
 
         if self._scan_results_file is not None:
             logger.info(f"Saving scan results to {self._scan_results_file}")
             try:
                 with open(self._scan_results_file, "w") as f:
                     json.dump(
-                        SodaCloud.build_scan_results(self),
+                        SodaCloud.build_scan_results(self, scan_metadata),
                         f,
                     )
             except Exception as e:
@@ -642,6 +756,9 @@ class Scan:
                 "metrics_count": len(self._metrics),
             }
         )
+        # Flush analytics.
+        if self._configuration.event_tracker:
+            self._configuration.event_tracker.flush()
 
         return exit_value
 
@@ -714,10 +831,6 @@ class Scan:
                             column_checks_cfg.add_check_cfg(check_cfg)
                         else:
                             partition_cfg.add_check_cfg(check_cfg)
-
-    def __resolve_for_each_column_checks(self):
-        if self._sodacl_cfg.for_each_column_cfgs:
-            raise NotImplementedError("TODO")
 
     def _get_or_create_data_source_scan(self, data_source_name: str) -> DataSourceScan:
         from soda.execution.data_source import DataSource

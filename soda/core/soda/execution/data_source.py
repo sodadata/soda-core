@@ -160,6 +160,7 @@ class DataSource:
     ]
     TEXT_TYPES_FOR_PROFILING = ["character varying", "varchar", "text", "character", "char"]
     LIMIT_KEYWORD: str = "LIMIT"
+    DEFAULT_SCHEMA = None
 
     # Building up format queries normally works with regexp expression + a set of formats,
     # but some use cases require whole completely custom format expressions.
@@ -205,7 +206,7 @@ class DataSource:
                 logs.error(f'Data source type "{data_source_type}" not found. Did you mean postgres?')
             else:
                 raise DataSourceError(
-                    f'Data source type "{data_source_type}" not found. Did you spell {data_source_type} correctly? Did you install module soda-core-{data_source_type}?'
+                    f'Data source type "{data_source_type}" not found. Did you spell {data_source_type} correctly? Did you install module soda-{data_source_type}?'
                 )
             return None
 
@@ -229,6 +230,9 @@ class DataSource:
         self.table_prefix: str | None = self._create_table_prefix()
         # self.data_source_scan is initialized in create_data_source_scan(...) below
         self.data_source_scan: DataSourceScan | None = None
+        # Temporarily introduced to migrate some "wrongly implemented" data sources.
+        # See https://sodadata.atlassian.net/browse/CLOUD-5446
+        self.migrate_data_source_name = None
 
     def has_valid_connection(self) -> bool:
         query = Query(
@@ -340,7 +344,14 @@ class DataSource:
         query.store()
         return query.sample_ref
 
-    def sql_select_all(self, table_name: str, limit: int | None = None, filter: str | None = None) -> str:
+    def sql_select_all(
+        self,
+        table_name: str,
+        limit: int | None = None,
+        columns: list[str] = [],
+        filter: str | None = None,
+        skip_logs=False,
+    ) -> str:
         qualified_table_name = self.qualified_table_name(table_name)
 
         filter_sql = ""
@@ -351,35 +362,40 @@ class DataSource:
         if limit is not None:
             limit_sql = f" \n LIMIT {limit}"
 
-        columns_names = ", ".join(self.sql_select_all_column_names(table_name))
+        columns_names = ", ".join(self.sql_select_all_column_names(table_name, columns, skip_logs=skip_logs))
 
-        sql = f"SELECT {columns_names} FROM {qualified_table_name}{filter_sql}{limit_sql}"
-        return sql
+        return f"SELECT {columns_names} FROM {qualified_table_name}{filter_sql}{limit_sql}"
 
-    def sql_select_all_column_names(self, table_name: str) -> list:
-        selectable_columns = []
+    def sql_select_all_column_names(self, table_name: str, columns: list[str] = [], skip_logs=False) -> list:
+        exclude_columns_config = self.get_exclude_column_patterns_for_table(table_name)
 
-        if self.get_exclude_column_patterns_for_table(table_name) and self.data_source_scan.scan._configuration.sampler:
-            all_columns = self.get_table_columns(table_name, f"get_table_columns_{table_name}")
-            exclude_columns = []
+        if exclude_columns_config:
+            # Exclude columns present, filtering needs to happen.
+            all_columns = columns or list(self.get_table_columns(table_name, f"get_table_columns_{table_name}").keys())
+            selectable_columns = []
+            excluded_columns = []
 
             for column in all_columns:
                 if self.is_column_excluded(table_name, column):
-                    exclude_columns.append(column)
+                    excluded_columns.append(column)
                 else:
                     selectable_columns.append(column)
 
-            if exclude_columns:
+            if excluded_columns and not skip_logs:
                 self.logs.debug(
-                    f"Skipping columns {exclude_columns} from table '{table_name}' when selecting all columns data."
+                    f"Failed rows samples: skipping column(s) {excluded_columns} from table '{table_name}' because of exclude columns configuration."
                 )
-            if not selectable_columns:
-                self.logs.info(
-                    f"Unable to select data for failed rows from table '{table_name}', all columns are excluded. Selecting '*' for the check, no failed rows samples will be created."
-                )
+        else:
+            # No exclude columns, use all columns.
+            selectable_columns = columns or ["*"]
 
         if not selectable_columns:
+            # Using * as a workaround when no columns are selectable - query will not execute, but will still make sense for failing/passing rows analysis.
             selectable_columns = ["*"]
+            if not skip_logs:
+                self.logs.info(
+                    f"Unable to select data for failed rows from table '{table_name}', all columns are excluded."
+                )
 
         return selectable_columns
 
@@ -577,7 +593,13 @@ class DataSource:
         table_name: str,
         included_columns: list[str] | None = None,
         excluded_columns: list[str] | None = None,
+        schema_name: str | None = None,
     ) -> str:
+        # When schema_name is provided, remove it from table_name if present.
+        # this is in case the table_name is fully qualified, e.g. "schema_name"."table_name" in checks file
+        if schema_name:
+            table_name = table_name.replace(f"{schema_name}.", "")
+
         table_name_default_case = self.default_casify_table_name(table_name)
         unquoted_table_name_default_case = (
             table_name_default_case[1:-1] if self.is_quoted(table_name_default_case) else table_name_default_case
@@ -591,7 +613,9 @@ class DataSource:
                 f"{casify_function}({self.column_metadata_catalog_column()}) = '{self.default_casify_system_name(self.database)}'"
             )
 
-        if self.schema:
+        if schema_name:
+            filter_clauses.append(f"{casify_function}(table_schema) = '{self.default_casify_system_name(schema_name)}'")
+        elif self.schema:
             filter_clauses.append(f"{casify_function}(table_schema) = '{self.default_casify_system_name(self.schema)}'")
 
         if included_columns:
@@ -732,7 +756,19 @@ class DataSource:
         limit: str | None = None,
         invert_condition: bool = False,
         exclude_patterns: list[str] | None = None,
+        select_columns: list[str] | None = None,
     ) -> str | None:
+        selectable_columns = []
+
+        if exclude_patterns:
+            all_columns = select_columns or column_names.split(", ")
+
+            for column in all_columns:
+                if not self.is_column_excluded(table_name, column):
+                    selectable_columns.append(column)
+        else:
+            selectable_columns = select_columns or ["*"]
+
         main_query_columns = f"{column_names}, frequency" if exclude_patterns else "*"
         sql = dedent(
             f"""
@@ -760,11 +796,38 @@ class DataSource:
         limit: str | None = None,
         invert_condition: bool = False,
         exclude_patterns: list[str] | None = None,
+        select_columns: list[str] | None = None,
+        skip_logs=False,
     ) -> str | None:
         columns = column_names.split(", ")
+        selectable_columns = []
 
-        qualified_main_query_columns = ", ".join([f"main.{c}" for c in columns])
-        main_query_columns = qualified_main_query_columns if exclude_patterns else "main.*"
+        if exclude_patterns:
+            all_columns = select_columns or columns
+            excluded_columns = []
+
+            for column in all_columns:
+                if self.is_column_excluded(table_name, column):
+                    excluded_columns.append(column)
+                else:
+                    selectable_columns.append(column)
+
+            if excluded_columns and not skip_logs:
+                self.logs.debug(
+                    f"Failed rows samples: skipping column(s) {excluded_columns} from table '{table_name}' because of exclude columns configuration."
+                )
+        else:
+            selectable_columns = select_columns or ["*"]
+
+        if not selectable_columns:
+            # Using * as a workaround when no columns are selectable - query will not execute, but will still make sense for failing/passing rows analysis.
+            selectable_columns = ["*"]
+            if not skip_logs:
+                self.logs.info(
+                    f"Unable to select data for failed rows from table '{table_name}', all columns are excluded."
+                )
+
+        main_query_columns = ", ".join([f"main.{c}" for c in selectable_columns])
         join = " AND ".join([f"main.{c} = frequencies.{c}" for c in columns])
 
         sql = dedent(
@@ -1130,6 +1193,12 @@ class DataSource:
             )
         return data_source_type
 
+    def get_data_type_by_db_type(self, db_type: str) -> str | None:
+        if db_type in self.SQL_TYPE_FOR_SCHEMA_CHECK_MAP.values():
+            index = list(self.SQL_TYPE_FOR_SCHEMA_CHECK_MAP.values()).index(db_type)
+            return list(self.SQL_TYPE_FOR_SCHEMA_CHECK_MAP.keys())[index]
+        return None
+
     def literal(self, o: object):
         if o is None:
             return "NULL"
@@ -1403,3 +1472,14 @@ class DataSource:
 
     def expr_false_condition(self):
         return "FALSE"
+
+    def get_basic_properties(self) -> dict:
+        database = self.database or None
+        schema = self.schema or self.DEFAULT_SCHEMA or None
+
+        prefix_parts = [part for part in [database, schema] if part is not None]
+
+        return {
+            "type": self.type,
+            "prefix": ".".join(prefix_parts) or None,
+        }

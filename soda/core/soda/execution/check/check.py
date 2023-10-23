@@ -7,6 +7,8 @@ from abc import ABC
 from soda.cloud.cloud import Cloud
 from soda.cloud.historic_descriptor import HistoricDescriptor
 from soda.common.attributes_handler import AttributeHandler
+from soda.common.exceptions import CheckConfigError
+from soda.common.string_helper import strip_quotes
 from soda.execution.check_outcome import CheckOutcome
 from soda.execution.check_type import CheckType
 from soda.execution.column import Column
@@ -18,6 +20,13 @@ from soda.sodacl.check_cfg import CheckCfg
 from soda.sodacl.distribution_check_cfg import DistributionCheckCfg
 from soda.sodacl.group_by_check_cfg import GroupByCheckCfg
 from soda.sodacl.group_evolution_check_cfg import GroupEvolutionCheckCfg
+from soda.sodacl.reconciliation_freshness_check_cfg import (
+    ReconciliationFreshnessCheckCfg,
+)
+from soda.sodacl.reconciliation_metric_check_cfg import ReconciliationMetricCheckCfg
+from soda.sodacl.reconciliation_row_diff_check_cfg import ReconciliationRowDiffCheckCfg
+from soda.sodacl.reconciliation_schema_check_cfg import ReconciliationSchemaCheckCfg
+from soda.sodacl.threshold_cfg import ThresholdCfg
 
 
 class Check(ABC):
@@ -46,68 +55,97 @@ class Check(ABC):
             UserDefinedFailedRowsExpressionCheckCfg,
         )
 
-        if isinstance(check_cfg, ChangeOverTimeMetricCheckCfg):
+        def instance_but_not_subclass(obj, klass):
+            return type(obj) is klass
+
+        if instance_but_not_subclass(check_cfg, ChangeOverTimeMetricCheckCfg):
             from soda.execution.check.change_over_time_metric_check import (
                 ChangeOverTimeMetricCheck,
             )
 
             return ChangeOverTimeMetricCheck(check_cfg, data_source_scan, partition, column)
 
-        elif isinstance(check_cfg, AnomalyMetricCheckCfg):
+        elif instance_but_not_subclass(check_cfg, AnomalyMetricCheckCfg):
             from soda.execution.check.anomaly_metric_check import AnomalyMetricCheck
 
             return AnomalyMetricCheck(check_cfg, data_source_scan, partition, column)
 
-        elif isinstance(check_cfg, MetricCheckCfg):
+        elif instance_but_not_subclass(check_cfg, MetricCheckCfg):
             from soda.execution.check.metric_check import MetricCheck
 
             return MetricCheck(check_cfg, data_source_scan, partition, column)
 
-        elif isinstance(check_cfg, SchemaCheckCfg):
+        elif instance_but_not_subclass(check_cfg, SchemaCheckCfg):
             from soda.execution.check.schema_check import SchemaCheck
 
             return SchemaCheck(check_cfg, data_source_scan, partition)
-        elif isinstance(check_cfg, UserDefinedFailedRowsExpressionCheckCfg):
+        elif instance_but_not_subclass(check_cfg, UserDefinedFailedRowsExpressionCheckCfg):
             from soda.execution.check.user_defined_failed_rows_expression_check import (
                 UserDefinedFailedRowsExpressionCheck,
             )
 
             return UserDefinedFailedRowsExpressionCheck(check_cfg, data_source_scan, partition)
-        elif isinstance(check_cfg, UserDefinedFailedRowsCheckCfg):
+        elif instance_but_not_subclass(check_cfg, UserDefinedFailedRowsCheckCfg):
             from soda.execution.check.user_defined_failed_rows_check import (
                 UserDefinedFailedRowsCheck,
             )
 
             return UserDefinedFailedRowsCheck(check_cfg, data_source_scan, partition)
-        elif isinstance(check_cfg, RowCountComparisonCheckCfg):
+        elif instance_but_not_subclass(check_cfg, RowCountComparisonCheckCfg):
             from soda.execution.check.row_count_comparison_check import (
                 RowCountComparisonCheck,
             )
 
             return RowCountComparisonCheck(check_cfg, data_source_scan, partition)
-        elif isinstance(check_cfg, ReferenceCheckCfg):
+        elif instance_but_not_subclass(check_cfg, ReferenceCheckCfg):
             from soda.execution.check.reference_check import ReferenceCheck
 
             return ReferenceCheck(check_cfg, data_source_scan, partition)
-        elif isinstance(check_cfg, FreshnessCheckCfg):
+        elif instance_but_not_subclass(check_cfg, FreshnessCheckCfg):
             from soda.execution.check.freshness_check import FreshnessCheck
 
             return FreshnessCheck(check_cfg, data_source_scan, partition, column)
 
-        elif isinstance(check_cfg, DistributionCheckCfg):
+        elif instance_but_not_subclass(check_cfg, DistributionCheckCfg):
             from soda.execution.check.distribution_check import DistributionCheck
 
             return DistributionCheck(check_cfg, data_source_scan, partition, column)
 
-        elif isinstance(check_cfg, GroupByCheckCfg):
+        elif instance_but_not_subclass(check_cfg, GroupByCheckCfg):
             from soda.execution.check.group_by_check import GroupByCheck
 
             return GroupByCheck(check_cfg, data_source_scan, partition)
 
-        elif isinstance(check_cfg, GroupEvolutionCheckCfg):
+        elif instance_but_not_subclass(check_cfg, GroupEvolutionCheckCfg):
             from soda.execution.check.group_evolution_check import GroupEvolutionCheck
 
             return GroupEvolutionCheck(check_cfg, data_source_scan, partition)
+
+        # Reconciliation checks
+        elif instance_but_not_subclass(check_cfg, ReconciliationMetricCheckCfg):
+            from soda.execution.check.reconciliation_metric_check import (
+                ReconciliationMetricCheck,
+            )
+
+            return ReconciliationMetricCheck(check_cfg, data_source_scan, partition, column)
+        elif instance_but_not_subclass(check_cfg, ReconciliationFreshnessCheckCfg):
+            from soda.execution.check.reconciliation_freshness_check import (
+                ReconciliationFreshnessCheck,
+            )
+
+            return ReconciliationFreshnessCheck(check_cfg, data_source_scan, partition, column)
+        elif instance_but_not_subclass(check_cfg, ReconciliationRowDiffCheckCfg):
+            from soda.execution.check.reconciliation_row_diff_check import (
+                ReconciliationRowDiffCheck,
+            )
+
+            return ReconciliationRowDiffCheck(check_cfg, data_source_scan, partition)
+        elif instance_but_not_subclass(check_cfg, ReconciliationSchemaCheckCfg):
+            from soda.execution.check.reconciliation_schema_check import (
+                ReconciliationSchemaCheck,
+            )
+
+            return ReconciliationSchemaCheck(check_cfg, data_source_scan, partition)
 
         raise RuntimeError(f"Bug: Unsupported check type {type(check_cfg)}")
 
@@ -184,7 +222,7 @@ class Check(ABC):
         else:
             return f"{check_cfg.source_header}:\n  {check_cfg.source_line}"
 
-    def create_identity(self, with_datasource: bool = False, with_filename: bool = False) -> str:
+    def create_identity(self, with_datasource: bool | str = False, with_filename: bool = False) -> str:
         check_cfg: CheckCfg = self.check_cfg
         from soda.common.yaml_helper import to_yaml_str
 
@@ -202,6 +240,7 @@ class Check(ABC):
             # The next lines ensures that some of the configuration properties are ignored for computing the check identity
             identity_source_configurations.pop("name", None)
             identity_source_configurations.pop("samples limit", None)
+            identity_source_configurations.pop("samples columns", None)
             identity_source_configurations.pop("identity", None)
             identity_source_configurations.pop("attributes", None)
             identity_source_configurations.pop("template", None)
@@ -213,12 +252,20 @@ class Check(ABC):
         # Temp solution to introduce new variant of identity to help cloud identifying datasets with same name
         # See https://sodadata.atlassian.net/browse/CLOUD-1143
         if with_datasource:
-            hash_builder.add(self.data_source_scan.data_source.data_source_name)
+            # Temp workaround to provide migration identities with fixed data source
+            # name. See https://sodadata.atlassian.net/browse/CLOUD-5446
+            for identity in self.identity_datasource_part() if isinstance(with_datasource, bool) else [with_datasource]:
+                hash_builder.add(identity)
 
         if with_filename:
             hash_builder.add(os.path.basename(self.check_cfg.location.file_path))
 
         return hash_builder.get_hash()
+
+    def identity_datasource_part(self) -> list[str]:
+        return [
+            self.data_source_scan.data_source.data_source_name,
+        ]
 
     def add_outcome_reason(self, outcome_type: str, message: str, severity: str):
         self.force_send_results_to_cloud = True
@@ -245,6 +292,28 @@ class Check(ABC):
                 identities[f"v{len(identities) + 1}"] = identity
         return identities
 
+    # Migrate Identities are created specifically to resolve https://sodadata.atlassian.net/browse/CLOUD-5447?focusedCommentId=30022
+    # and can eventually be removed when all checks are migrated.
+    def create_migrate_identities(self):
+        migrate_data_source_name = self.data_source_scan.data_source.migrate_data_source_name
+        if (
+            migrate_data_source_name is None
+            or self.data_source_scan.data_source.data_source_name == migrate_data_source_name
+        ):
+            return None
+
+        identities = {
+            "v1": self.create_identity(with_datasource=False, with_filename=False),
+            "v2": self.create_identity(with_datasource=migrate_data_source_name, with_filename=False),
+            "v3": self.create_identity(with_datasource=migrate_data_source_name, with_filename=True),
+        }
+        if isinstance(self.check_cfg.source_configurations, dict):
+            identity = self.check_cfg.source_configurations.get("identity")
+            if isinstance(identity, str):
+                # append custom identity latest
+                identities[f"v{len(identities) + 1}"] = identity
+        return identities
+
     def get_cloud_dict(self):
         from soda.execution.column import Column
         from soda.execution.partition import Partition
@@ -254,13 +323,14 @@ class Check(ABC):
                 # See https://sodadata.atlassian.net/browse/CLOUD-1143
                 "identity": self.create_identity(with_datasource=True, with_filename=True),
                 "identities": self.create_identities(),
+                "migratedIdentities": self.create_migrate_identities(),
                 "name": self.name,
                 "type": self.cloud_check_type,
                 "definition": self.create_definition(),
                 "resourceAttributes": self._format_attributes(),
                 "location": self.check_cfg.location.get_cloud_dict(),
                 "dataSource": self.data_source_scan.data_source.data_source_name,
-                "table": Partition.get_table_name(self.partition),
+                "table": strip_quotes(Partition.get_table_name(self.partition)),
                 # "filter": Partition.get_partition_name(self.partition), TODO: re-enable once backend supports the property.
                 "column": Column.get_partition_name(self.column),
                 "metrics": [metric.identity for metric in self.metrics.values()],
@@ -291,7 +361,7 @@ class Check(ABC):
                 "resourceAttributes": self._format_attributes(),
                 "location": self.check_cfg.location.get_dict(),
                 "dataSource": self.data_source_scan.data_source.data_source_name,
-                "table": Partition.get_table_name(self.partition),
+                "table": strip_quotes(Partition.get_table_name(self.partition)),
                 "filter": Partition.get_partition_name(self.partition),
                 "column": Column.get_partition_name(self.column),
                 "metrics": [metric.identity for metric in self.metrics.values()],
@@ -312,7 +382,7 @@ class Check(ABC):
             "value": self.check_value if hasattr(self, "check_value") else None,
         }
 
-        if self.failed_rows_sample_ref and self.failed_rows_sample_ref.type != SampleRef.TYPE_NOT_PERSISTED:
+        if self.failed_rows_sample_ref:
             if self.cloud_check_type == "generic":
                 queries = self._get_all_related_queries()
                 has_analysis_block = False
@@ -420,3 +490,18 @@ class Check(ABC):
                 queries.append(query)
 
         return queries
+
+    def check_threshold_is_percentage(
+        self, warn_cfg: ThresholdCfg | None = None, fail_cfg: ThresholdCfg | None = None
+    ) -> bool:
+        is_percentage = False
+
+        if warn_cfg and fail_cfg:
+            if warn_cfg.is_percentage and fail_cfg.is_percentage:
+                is_percentage = True
+            if warn_cfg.is_percentage != fail_cfg.is_percentage:
+                raise CheckConfigError("Mixing percentage and non-percentage thresholds is not supported.")
+        elif (warn_cfg and warn_cfg.is_percentage) or (fail_cfg and fail_cfg.is_percentage):
+            is_percentage = True
+
+        return is_percentage
