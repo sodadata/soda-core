@@ -184,7 +184,7 @@ class Check(ABC):
         else:
             return f"{check_cfg.source_header}:\n  {check_cfg.source_line}"
 
-    def create_identity(self, with_datasource: bool = False, with_filename: bool = False) -> str:
+    def create_identity(self, with_datasource: bool | str = False, with_filename: bool = False) -> str:
         check_cfg: CheckCfg = self.check_cfg
         from soda.common.yaml_helper import to_yaml_str
 
@@ -213,12 +213,37 @@ class Check(ABC):
         # Temp solution to introduce new variant of identity to help cloud identifying datasets with same name
         # See https://sodadata.atlassian.net/browse/CLOUD-1143
         if with_datasource:
-            hash_builder.add(self.data_source_scan.data_source.data_source_name)
+            # Temp workaround to provide migration identities with fixed data source
+            # name. See https://sodadata.atlassian.net/browse/CLOUD-5446
+            for identity in self.identity_datasource_part() if isinstance(with_datasource, bool) else [with_datasource]:
+                hash_builder.add(self.data_source_scan.data_source.data_source_name)
 
         if with_filename:
             hash_builder.add(os.path.basename(self.check_cfg.location.file_path))
 
         return hash_builder.get_hash()
+
+    # Migrate Identities are created specifically to resolve https://sodadata.atlassian.net/browse/CLOUD-5447?focusedCommentId=30022
+    # and can eventually be removed when all checks are migrated.
+    def create_migrate_identities(self):
+        migrate_data_source_name = self.data_source_scan.data_source.migrate_data_source_name
+        if (
+            migrate_data_source_name is None
+            or self.data_source_scan.data_source.data_source_name == migrate_data_source_name
+        ):
+            return None
+
+        identities = {
+            "v1": self.create_identity(with_datasource=False, with_filename=False),
+            "v2": self.create_identity(with_datasource=migrate_data_source_name, with_filename=False),
+            "v3": self.create_identity(with_datasource=migrate_data_source_name, with_filename=True),
+        }
+        if isinstance(self.check_cfg.source_configurations, dict):
+            identity = self.check_cfg.source_configurations.get("identity")
+            if isinstance(identity, str):
+                # append custom identity latest
+                identities[f"v{len(identities) + 1}"] = identity
+        return identities
 
     def add_outcome_reason(self, outcome_type: str, message: str, severity: str):
         self.force_send_results_to_cloud = True
@@ -254,6 +279,7 @@ class Check(ABC):
                 # See https://sodadata.atlassian.net/browse/CLOUD-1143
                 "identity": self.create_identity(with_datasource=True, with_filename=True),
                 "identities": self.create_identities(),
+                "migratedIdentities": self.create_migrate_identities(),
                 "name": self.name,
                 "type": self.cloud_check_type,
                 "definition": self.create_definition(),

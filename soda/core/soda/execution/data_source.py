@@ -229,6 +229,9 @@ class DataSource:
         self.table_prefix: str | None = self._create_table_prefix()
         # self.data_source_scan is initialized in create_data_source_scan(...) below
         self.data_source_scan: DataSourceScan | None = None
+        # Temporarily introduced to migrate some "wrongly implemented" data sources.
+        # See https://sodadata.atlassian.net/browse/CLOUD-5446
+        self.migrate_data_source_name = None
 
     def has_valid_connection(self) -> bool:
         query = Query(
