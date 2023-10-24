@@ -5,12 +5,11 @@ from abc import abstractmethod
 from numbers import Number
 from typing import Any
 
-from ruamel.yaml import CommentedMap, CommentedSeq, YAML, round_trip_dump
+from ruamel.yaml import YAML, CommentedMap, CommentedSeq, round_trip_dump
 from ruamel.yaml.error import MarkedYAMLError
 
 
 class Yaml:
-
     ruamel_yaml: YAML = YAML()
     ruamel_yaml.preserve_quotes = True
 
@@ -204,7 +203,9 @@ class YamlObject(YamlValue):
         An appropriate error log is generated if the value is not a string
         :return: a str if the value for the key is a YAML string, otherwise None.
         """
-        yaml_string_value = self.read_value(key=key, expected_type=YamlString, required=False, default_value=default_value)
+        yaml_string_value = self.read_value(
+            key=key, expected_type=YamlString, required=False, default_value=default_value
+        )
         return yaml_string_value.value if isinstance(yaml_string_value, YamlString) else None
 
     def read_string(self, key: str) -> str | None:
@@ -228,7 +229,9 @@ class YamlObject(YamlValue):
         An appropriate error log is generated if the value is not a bool or if the key is missing.
         :return: a bool if the value for the key is a YAML string, otherwise None.
         """
-        yaml_boolean_value = self.read_value(key=key, expected_type=YamlBoolean, required=False, default_value=default_value)
+        yaml_boolean_value = self.read_value(
+            key=key, expected_type=YamlBoolean, required=False, default_value=default_value
+        )
         return yaml_boolean_value.value if isinstance(yaml_boolean_value, YamlBoolean) else None
 
     def read_value(
@@ -261,15 +264,11 @@ class YamlList(YamlValue):
     def __init__(self, ruamel_value: CommentedSeq):
         super().__init__(ruamel_value)
         self.value: list[YamlValue] = [
-            self.__convert_array_value(
-                ruamel_value=ruamel_list_value, commented_seq=ruamel_value, index=index
-            )
+            self.__convert_array_value(ruamel_value=ruamel_list_value, commented_seq=ruamel_value, index=index)
             for index, ruamel_list_value in enumerate(ruamel_value)
         ]
 
-    def __convert_array_value(
-        self, ruamel_value, commented_seq: CommentedSeq, index: int
-    ) -> YamlValue:
+    def __convert_array_value(self, ruamel_value, commented_seq: CommentedSeq, index: int) -> YamlValue:
         ruamel_location = commented_seq.lc.key(index)
         line: int = ruamel_location[0]
         column: int = ruamel_location[1]

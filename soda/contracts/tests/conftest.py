@@ -5,7 +5,6 @@ from typing import Any
 
 from common.logs import configure_logging
 
-
 # Load local env file so that test data sources can be set up.
 from dotenv import load_dotenv
 

@@ -12,7 +12,8 @@ def test_contract_to_yaml_transformation():
     # with open(contract_file_name) as f:
     #     source_yaml_string = f.read()
 
-    source_yaml_string = dedent("""
+    source_yaml_string = dedent(
+        """
         dataset: MARKETO_EVENTS
 
         schema:
@@ -28,12 +29,14 @@ def test_contract_to_yaml_transformation():
 
         checks:
           - avg(size) between 20 and 50
-    """)
+    """
+    )
 
     data_contract_parser = DataContractTranslator()
     sodacl_yaml_str = data_contract_parser.translate_data_contract_yaml_str(source_yaml_string)
 
-    expected_sodacl_yaml_str = dedent("""
+    expected_sodacl_yaml_str = dedent(
+        """
         checks for MARKETO_EVENTS:
         - schema:
             fail:
@@ -46,6 +49,7 @@ def test_contract_to_yaml_transformation():
         - invalid_count(id) = 0:
             valid format: decimal
         - avg(size) between 20 and 50
-    """)
+    """
+    )
 
     assert sodacl_yaml_str.strip() == expected_sodacl_yaml_str.strip()

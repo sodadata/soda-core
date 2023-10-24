@@ -1,12 +1,11 @@
 from __future__ import annotations
 
-from typing import List, Any
+from typing import Any, List
 
-from contracts.yaml import Yaml, YamlObject, YamlValue, YamlString, YamlList
+from contracts.yaml import Yaml, YamlList, YamlObject, YamlValue
 
 
 class DataContractTranslator:
-
     def __init__(self):
         pass
 
@@ -25,7 +24,7 @@ class DataContractTranslator:
     def _create_sodacl_yaml_dict(self, data_contract_yaml_object: YamlObject) -> dict:
         dataset_name_str: str | None = data_contract_yaml_object.read_string("dataset")
 
-        sodacl_checks: List[Any] = []
+        sodacl_checks: list[Any] = []
 
         schema: YamlObject | None = data_contract_yaml_object.read_yaml_object("schema")
         if schema:
@@ -47,10 +46,7 @@ class DataContractTranslator:
 
                     valid_format: str | None = column_schema_details.read_string_opt("valid_format")
                     if valid_format:
-                        sodacl_checks.append({
-                            f"invalid_count({column_name}) = 0": {
-                                "valid format": valid_format
-                            }})
+                        sodacl_checks.append({f"invalid_count({column_name}) = 0": {"valid format": valid_format}})
 
                 columns[column_name] = data_type
 
@@ -58,8 +54,6 @@ class DataContractTranslator:
         if checks:
             sodacl_checks.extend(checks.unpacked())
 
-        sodacl_dict: dict = {
-            f"checks for {dataset_name_str}": sodacl_checks
-        }
+        sodacl_dict: dict = {f"checks for {dataset_name_str}": sodacl_checks}
 
         return sodacl_dict
