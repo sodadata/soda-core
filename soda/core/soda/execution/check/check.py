@@ -216,7 +216,7 @@ class Check(ABC):
             # Temp workaround to provide migration identities with fixed data source
             # name. See https://sodadata.atlassian.net/browse/CLOUD-5446
             for identity in self.identity_datasource_part() if isinstance(with_datasource, bool) else [with_datasource]:
-                hash_builder.add(self.data_source_scan.data_source.data_source_name)
+                hash_builder.add(identity)
 
         if with_filename:
             hash_builder.add(os.path.basename(self.check_cfg.location.file_path))
