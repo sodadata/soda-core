@@ -201,6 +201,7 @@ def test_check_identity_special_table(data_source_fixture: DataSourceFixture):
 
     assert isinstance(row_count_identity, str)
 
+
 def test_check_identity_migrate_identity(data_source_fixture: DataSourceFixture):
     if data_source_fixture.data_source.migrate_data_source_name is None:
         return
@@ -245,6 +246,7 @@ def test_check_identity_migrate_identity_when_not_changed(data_source_fixture: D
     assert scan_result["checks"][0]["migratedIdentities"] is None
 
     new_data_source_fixture._test_session_ends()
+
 
 def test_check_identity_migrate_identity(data_source_fixture: DataSourceFixture):
     if data_source_fixture.data_source.migrate_data_source_name is None:
