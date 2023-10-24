@@ -245,6 +245,11 @@ class Check(ABC):
                 identities[f"v{len(identities) + 1}"] = identity
         return identities
 
+    def identity_datasource_part(self) -> list[str]:
+        return [
+            self.data_source_scan.data_source.data_source_name,
+        ]
+
     def add_outcome_reason(self, outcome_type: str, message: str, severity: str):
         self.force_send_results_to_cloud = True
         self.outcome_reasons.append({"code": outcome_type, "message": message, "severity": severity})  # error/warn/info
