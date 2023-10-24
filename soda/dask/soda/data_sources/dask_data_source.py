@@ -96,7 +96,7 @@ class DaskDataSource(DataSource):
             row_udf=False,
         )
 
-    self.migrate_data_source_name = "dask"
+        self.migrate_data_source_name = "dask"
 
     def connect(self) -> None:
         self.connection = DaskConnection(self.context)
