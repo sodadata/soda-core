@@ -206,14 +206,14 @@ def test_check_identity_migrate_identity(data_source_fixture: DataSourceFixture)
     if data_source_fixture.data_source.migrate_data_source_name is None:
         return
 
-    new_data_source_fixture = DataSourceFixture._create("NewDask")
+    new_data_source_fixture = DataSourceFixture._create("NewDataSource")
     new_data_source_fixture._test_session_starts()
     table_name = new_data_source_fixture.ensure_test_table(customers_test_table)
 
     scan_result = execute_scan_and_get_scan_result(
         new_data_source_fixture,
         f"""
-          checks for "{table_name}":
+          checks for {table_name}:
             - row_count > 0
             - missing_count(1) = 0
         """,
@@ -232,14 +232,14 @@ def test_check_identity_migrate_identity_when_not_changed(data_source_fixture: D
     if data_source_fixture.data_source.migrate_data_source_name is None:
         return
 
-    new_data_source_fixture = DataSourceFixture._create("dask")
+    new_data_source_fixture = DataSourceFixture._create(data_source_fixture.data_source.migrate_data_source_name)
     new_data_source_fixture._test_session_starts()
     table_name = new_data_source_fixture.ensure_test_table(customers_test_table)
 
     scan_result = execute_scan_and_get_scan_result(
         new_data_source_fixture,
         f"""
-          checks for "{table_name}":
+          checks for {table_name}:
             - row_count > 0
         """,
     )
@@ -247,48 +247,3 @@ def test_check_identity_migrate_identity_when_not_changed(data_source_fixture: D
 
     new_data_source_fixture._test_session_ends()
 
-
-def test_check_identity_migrate_identity(data_source_fixture: DataSourceFixture):
-    if data_source_fixture.data_source.migrate_data_source_name is None:
-        return
-
-    new_data_source_fixture = DataSourceFixture._create("NewDask")
-    new_data_source_fixture._test_session_starts()
-    table_name = new_data_source_fixture.ensure_test_table(customers_test_table)
-
-    scan_result = execute_scan_and_get_scan_result(
-        new_data_source_fixture,
-        f"""
-          checks for "{table_name}":
-            - row_count > 0
-            - missing_count(1) = 0
-        """,
-    )
-    row_count_identity = scan_result["checks"][0]["migratedIdentities"]
-
-    assert isinstance(row_count_identity, dict)
-    assert scan_result["checks"][0]["identities"]["v1"] == scan_result["checks"][0]["migratedIdentities"]["v1"]
-    assert scan_result["checks"][0]["identities"]["v2"] != scan_result["checks"][0]["migratedIdentities"]["v2"]
-    assert scan_result["checks"][0]["identities"]["v3"] != scan_result["checks"][0]["migratedIdentities"]["v3"]
-
-    new_data_source_fixture._test_session_ends()
-
-
-def test_check_identity_migrate_identity_when_not_changed(data_source_fixture: DataSourceFixture):
-    if data_source_fixture.data_source.migrate_data_source_name is None:
-        return
-
-    new_data_source_fixture = DataSourceFixture._create("dask")
-    new_data_source_fixture._test_session_starts()
-    table_name = new_data_source_fixture.ensure_test_table(customers_test_table)
-
-    scan_result = execute_scan_and_get_scan_result(
-        new_data_source_fixture,
-        f"""
-          checks for "{table_name}":
-            - row_count > 0
-        """,
-    )
-    assert scan_result["checks"][0]["migratedIdentities"] is None
-
-    new_data_source_fixture._test_session_ends()
