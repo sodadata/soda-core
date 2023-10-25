@@ -217,26 +217,42 @@ class Scan:
                 exception=e,
             )
 
-    def add_dask_dataframe(self, dataset_name: str, dask_df) -> None:
-        context = self._get_or_create_dask_context(required_soda_module="soda-core-pandas-dask")
+    def add_dask_dataframe(self, dataset_name: str, dask_df, data_source_name: str = "dask") -> None:
+        if data_source_name == "dask":
+            self._logs.warning(
+                "Deprecated: implicit data_source_name is no longer supported. Make sure to provide a "
+                "data_source_name when invoking 'add_dask_dataframe()'."
+            )
+
+        context = self._get_or_create_dask_context(
+            required_soda_module="soda-core-pandas-dask", data_source_name=data_source_name
+        )
         context.create_table(dataset_name, dask_df)
 
-    def add_pandas_dataframe(self, dataset_name: str, pandas_df):
-        context = self._get_or_create_dask_context(required_soda_module="soda-core-pandas-dask")
+    def add_pandas_dataframe(self, dataset_name: str, pandas_df, data_source_name: str = "dask"):
+        if data_source_name == "dask":
+            self._logs.warning(
+                "Deprecated: implicit data_source_name is no longer supported. Make sure to provide a "
+                "data_source_name when invoking 'add_pandas_dataframe()'."
+            )
+
+        context = self._get_or_create_dask_context(
+            required_soda_module="soda-core-pandas-dask", data_source_name=data_source_name
+        )
         from dask.dataframe import from_pandas
 
         dask_df = from_pandas(pandas_df, npartitions=1)
         context.create_table(dataset_name, dask_df)
 
-    def _get_or_create_dask_context(self, required_soda_module: str):
+    def _get_or_create_dask_context(self, required_soda_module: str, data_source_name: str):
         try:
             from dask_sql import Context
         except ImportError:
             raise Exception(f"{required_soda_module} is not installed. Please install {required_soda_module}")
 
-        if "dask" not in self._configuration.data_source_properties_by_name:
-            self._configuration.add_dask_context(data_source_name="dask", dask_context=Context())
-        return self._configuration.data_source_properties_by_name["dask"]["context"]
+        if data_source_name not in self._configuration.data_source_properties_by_name:
+            self._configuration.add_dask_context(data_source_name=data_source_name, dask_context=Context())
+        return self._configuration.data_source_properties_by_name[data_source_name]["context"]
 
     def add_sodacl_yaml_files(
         self,

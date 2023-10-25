@@ -96,6 +96,8 @@ class DaskDataSource(DataSource):
             row_udf=False,
         )
 
+        self.migrate_data_source_name = "dask"
+
     def connect(self) -> None:
         self.connection = DaskConnection(self.context)
 
@@ -320,6 +322,12 @@ class DaskDataSource(DataSource):
         logging.debug(f"Running SQL query:\n{sql}")
         df = self.connection.context.sql(sql)
         df.compute()
+
+    def get_basic_properties(self) -> dict:
+        return {
+            "type": self.type,
+            "prefix": self.data_source_name,
+        }
 
     @staticmethod
     def regexp_like(value: str | Series, regex_pattern: str) -> int:

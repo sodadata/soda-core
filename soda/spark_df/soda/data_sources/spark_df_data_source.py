@@ -33,6 +33,7 @@ class SparkDfDataSource(SparkSQLBase):
     def __init__(self, logs: Logs, data_source_name: str, data_source_properties: dict):
         super().__init__(logs, data_source_name, data_source_properties)
         self.spark_session = data_source_properties.get("spark_session")
+        self.migrate_data_source_name = "spark_df"
 
     def connect(self):
         self.connection = SparkDfConnection(self.spark_session)
