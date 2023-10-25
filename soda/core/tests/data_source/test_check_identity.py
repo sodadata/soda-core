@@ -246,4 +246,3 @@ def test_check_identity_migrate_identity_when_not_changed(data_source_fixture: D
     assert scan_result["checks"][0]["migratedIdentities"] is None
 
     new_data_source_fixture._test_session_ends()
-
