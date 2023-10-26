@@ -1108,15 +1108,9 @@ class SodaCLParser(Parser):
         configuration_value = self._get_optional(validation_type, value_type)
 
         if configuration_value:
-            if validation_type in [
-                WHEN_REQUIRED_COLUMN_MISSING,
-                WHEN_FORBIDDEN_COLUMN_PRESENT
-            ]:
+            if validation_type in [WHEN_REQUIRED_COLUMN_MISSING, WHEN_FORBIDDEN_COLUMN_PRESENT]:
                 are_values_valid = all(isinstance(c, str) for c in configuration_value)
-            elif validation_type in [
-                WHEN_WRONG_COLUMN_TYPE,
-                WHEN_MISMATCHING_COLUMNS
-            ]:
+            elif validation_type in [WHEN_WRONG_COLUMN_TYPE, WHEN_MISMATCHING_COLUMNS]:
                 are_values_valid = all(
                     isinstance(k, str) and (isinstance(v, str) or v is None) for k, v in configuration_value.items()
                 )

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, List
+from typing import Any
 
 from contracts.yaml import Yaml, YamlList, YamlObject, YamlValue
 

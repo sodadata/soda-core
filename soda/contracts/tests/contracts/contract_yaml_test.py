@@ -1,10 +1,9 @@
 import logging
 from textwrap import dedent
 
+from contracts.data_contract_translator import DataContractTranslator
 from helpers.common_test_tables import customers_test_table
 from helpers.data_source_fixture import DataSourceFixture
-
-from contracts.data_contract_translator import DataContractTranslator
 
 logger = logging.getLogger(__name__)
 
@@ -22,7 +21,8 @@ def test_contract_to_yaml_transformation(data_source_fixture: DataSourceFixture)
     # with open(contract_file_name) as f:
     #     source_yaml_string = f.read()
 
-    source_yaml_string = dedent(f"""
+    source_yaml_string = dedent(
+        f"""
         dataset: {table_name}
 
         columns:
@@ -49,12 +49,14 @@ def test_contract_to_yaml_transformation(data_source_fixture: DataSourceFixture)
 
         checks:
           - avg(distance) between 400 and 500
-    """)
+    """
+    )
 
     data_contract_parser = DataContractTranslator()
     sodacl_yaml_str = data_contract_parser.translate_data_contract_yaml_str(source_yaml_string)
 
-    expected_sodacl_yaml_str = dedent(f"""
+    expected_sodacl_yaml_str = dedent(
+        f"""
         checks for {table_name}:
         - schema:
             fail:
@@ -76,7 +78,8 @@ def test_contract_to_yaml_transformation(data_source_fixture: DataSourceFixture)
             valid format: decimal
         - missing_count(country) = 0
         - avg(distance) between 400 and 500
-    """)
+    """
+    )
 
     assert sodacl_yaml_str.strip() == expected_sodacl_yaml_str.strip()
 

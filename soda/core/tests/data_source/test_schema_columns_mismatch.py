@@ -1,8 +1,5 @@
 from helpers.common_test_tables import customers_test_table
 from helpers.data_source_fixture import DataSourceFixture
-from helpers.utils import format_checks
-from soda.execution.check_outcome import CheckOutcome
-from soda.execution.data_type import DataType
 
 
 def test_columns_match_pass(data_source_fixture: DataSourceFixture):
