@@ -11,6 +11,7 @@
 
 from __future__ import annotations
 
+import re
 import logging
 from textwrap import dedent
 
@@ -21,6 +22,8 @@ from soda.execution.data_source import DataSource
 from soda.execution.data_type import DataType
 
 logger = logging.getLogger(__name__)
+
+KEY_VALUE_RE = re.compile(r'\b([a-zA-Z0-9_]+=[a-zA-Z0-9_-]+)\b')
 
 
 class DremioDataSource(DataSource):
@@ -104,6 +107,11 @@ class DremioDataSource(DataSource):
         """
         table_name can be quoted or unquoted
         """
+
+        key_values = KEY_VALUE_RE.findall(table_name)
+        for key_value in key_values:
+            table_name = table_name.replace(key_value, f'"{key_value}"')
+        
         if self.table_prefix:
             return f'"{self.table_prefix}".{table_name}'
         return table_name
