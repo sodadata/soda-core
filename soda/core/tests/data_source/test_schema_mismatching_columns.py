@@ -2,7 +2,7 @@ from helpers.common_test_tables import customers_test_table
 from helpers.data_source_fixture import DataSourceFixture
 
 
-def test_columns_match_pass(data_source_fixture: DataSourceFixture):
+def test_mismatching_columns_pass(data_source_fixture: DataSourceFixture):
     table_name = data_source_fixture.ensure_test_table(customers_test_table)
 
     scan = data_source_fixture.create_test_scan()
@@ -20,11 +20,16 @@ def test_columns_match_pass(data_source_fixture: DataSourceFixture):
       checks for {table_name}:
         - schema:
             fail:
-              when columns mismatch:
+              when mismatching columns:
                 {column_type_format('id')}
                 {column_type_format('cst_size')}
                 {column_type_format('cst_size_txt')}
                 {column_type_format('distance')}
+                {column_type_format('pct')}
+                {column_type_format('cat')}
+                {column_type_format('country')}
+                {column_type_format('zip')}
+                {column_type_format('email')}
                 {column_type_format('date_updated')}
                 {column_type_format('ts')}
                 {column_type_format('ts_with_tz')}
