@@ -1,8 +1,7 @@
 version: "3.8"
 services:
   adventureworks:
-    image:
-      sodadata/soda-adventureworks
+    image: sodadata/soda-adventureworks
     ports:
       - 5433:5432
     environment:
@@ -18,7 +17,6 @@ services:
       - POSTGRES_USER=sodasql
       - POSTGRES_DB=sodasql
       - POSTGRES_HOST_AUTH_METHOD=trust
-
   mysql:
     image: mysql:latest
     ports:
@@ -53,7 +51,7 @@ services:
       - ORACLE_CHARACTERSET=AL32UTF8
 
   dremio:
-    image: dremio-latest:latest
+    image: dremio/dremio-oss:latest
     ports:
       - 9047:9047
       - 31010:31010
@@ -68,12 +66,12 @@ services:
     deploy:
       mode: global
     volumes:
-       - ./vertica:/data
+      - ./vertica:/data
     environment:
       APP_DB_USER: "dbadmin"
       APP_DB_PASSWORD: "password"
       TZ: "UTC"
-      VERTICA_MEMDEBUG: 2  # https://forum.vertica.com/discussion/242629/support-apple-silicon-m1-for-docker-vertica-ce
+      VERTICA_MEMDEBUG: 2 # https://forum.vertica.com/discussion/242629/support-apple-silicon-m1-for-docker-vertica-ce
     command: >
       bash -c "
         export APP_DB_PASSWORD="password" &&
