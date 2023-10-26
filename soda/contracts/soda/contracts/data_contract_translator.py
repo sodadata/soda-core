@@ -26,13 +26,14 @@ class DataContractTranslator:
 
         sodacl_checks: list[Any] = []
 
-        schema: YamlObject | None = data_contract_yaml_object.read_yaml_object("schema")
+        schema: YamlObject | None = data_contract_yaml_object.read_yaml_list("columns")
         if schema:
             columns = {}
-            sodacl_checks.append({"schema": {"fail": {"when columns not match": columns}}})
+            sodacl_checks.append({"schema": {"fail": {"when mismatching columns": columns}}})
 
-            for column_name in schema.keys():
-                column_schema_details: YamlObject | None = schema.read_yaml_object_opt(column_name)
+            for column_schema_details_object in schema:
+                column_schema_details: YamlObject = column_schema_details_object
+                column_name: str = column_schema_details.read_string("name")
 
                 data_type = None
                 if column_schema_details:

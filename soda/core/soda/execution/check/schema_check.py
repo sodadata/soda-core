@@ -144,13 +144,18 @@ class SchemaCheck(Check):
                     if forbidden_pattern.match(column_name):
                         schema_present_column_names.append(column_name)
 
+        if not schema_validations.other_columns_allowed:
+            for measured_column_name in measured_column_names:
+                if measured_column_name not in required_column_names:
+                    schema_present_column_names.append(measured_column_name)
+
         if schema_validations.required_column_types:
             data_source = self.data_source_scan.data_source
             for (
                 expected_column_name,
                 expected_column_type,
             ) in schema_validations.required_column_types.items():
-                if expected_column_name in column_types:
+                if expected_column_name in column_types and expected_column_type is not None:
                     actual_type = column_types[expected_column_name]
                     is_same_type = data_source.is_same_type_in_schema_check(expected_column_type, actual_type)
                     if expected_column_name in column_types and not is_same_type:

@@ -54,12 +54,15 @@ FAIL_QUERY = "fail query"
 SAMPLES_LIMIT = "samples limit"
 WHEN_REQUIRED_COLUMN_MISSING = "when required column missing"
 WHEN_WRONG_COLUMN_TYPE = "when wrong column type"
+WHEN_MISMATCHING_COLUMNS = "when mismatching columns"
 WHEN_WRONG_COLUMN_INDEX = "when wrong column index"
+WHEN_WRONG_COLUMN_TYPE = "when wrong column type"
 WHEN_FORBIDDEN_COLUMN_PRESENT = "when forbidden column present"
 WHEN_SCHEMA_CHANGES = "when schema changes"
 ALL_SCHEMA_VALIDATIONS = [
     WHEN_REQUIRED_COLUMN_MISSING,
     WHEN_WRONG_COLUMN_TYPE,
+    WHEN_MISMATCHING_COLUMNS,
     WHEN_WRONG_COLUMN_INDEX,
     WHEN_FORBIDDEN_COLUMN_PRESENT,
     WHEN_SCHEMA_CHANGES,
@@ -1027,7 +1030,7 @@ class SodaCLParser(Parser):
             is_column_deletion_forbidden = False
             is_column_type_change_forbidden = False
             is_column_index_change_forbidden = False
-            changes_not_allowed = validations_dict.get("when schema changes")
+            changes_not_allowed = validations_dict.get(WHEN_SCHEMA_CHANGES)
             if changes_not_allowed == "any":
                 is_column_addition_forbidden = True
                 is_column_deletion_forbidden = True
@@ -1060,6 +1063,11 @@ class SodaCLParser(Parser):
                 is_column_type_change_forbidden=is_column_type_change_forbidden,
                 is_column_index_change_forbidden=is_column_index_change_forbidden,
             )
+
+            if validations_dict.get(WHEN_MISMATCHING_COLUMNS):
+                schema_validations.required_column_types = self.__parse_schema_validation(WHEN_MISMATCHING_COLUMNS)
+                schema_validations.other_columns_allowed = False
+
             for invalid_schema_validation in [
                 v
                 for v in validations_dict
@@ -1067,6 +1075,7 @@ class SodaCLParser(Parser):
                 not in [
                     WHEN_REQUIRED_COLUMN_MISSING,
                     WHEN_WRONG_COLUMN_TYPE,
+                    WHEN_MISMATCHING_COLUMNS,
                     WHEN_WRONG_COLUMN_INDEX,
                     WHEN_FORBIDDEN_COLUMN_PRESENT,
                     WHEN_SCHEMA_CHANGES,
@@ -1091,8 +1100,8 @@ class SodaCLParser(Parser):
             list
             if validation_type
             in [
-                "when required column missing",
-                "when forbidden column present",
+                WHEN_REQUIRED_COLUMN_MISSING,
+                WHEN_FORBIDDEN_COLUMN_PRESENT,
             ]
             else dict
         )
@@ -1100,13 +1109,16 @@ class SodaCLParser(Parser):
 
         if configuration_value:
             if validation_type in [
-                "when required column missing",
-                "when forbidden column present",
+                WHEN_REQUIRED_COLUMN_MISSING,
+                WHEN_FORBIDDEN_COLUMN_PRESENT
             ]:
                 are_values_valid = all(isinstance(c, str) for c in configuration_value)
-            elif validation_type == "when wrong column type":
+            elif validation_type in [
+                WHEN_WRONG_COLUMN_TYPE,
+                WHEN_MISMATCHING_COLUMNS
+            ]:
                 are_values_valid = all(
-                    isinstance(k, str) and isinstance(v, str) for k, v in configuration_value.items()
+                    isinstance(k, str) and (isinstance(v, str) or v is None) for k, v in configuration_value.items()
                 )
             else:
                 are_values_valid = all(
@@ -1120,11 +1132,11 @@ class SodaCLParser(Parser):
                     "list of strings"
                     if validation_type
                     in [
-                        "when required column missing",
-                        "when forbidden column present",
+                        WHEN_REQUIRED_COLUMN_MISSING,
+                        WHEN_FORBIDDEN_COLUMN_PRESENT,
                     ]
                     else "dict with strings for keys and values"
-                    if validation_type == "when wrong column type"
+                    if validation_type == WHEN_WRONG_COLUMN_TYPE
                     else "dict with strings for keys and ints for values"
                 )
                 self.logs.error(

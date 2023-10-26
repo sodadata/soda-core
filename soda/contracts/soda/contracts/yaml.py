@@ -177,6 +177,13 @@ class YamlObject(YamlValue):
         """
         return self.read_value(key=key, expected_type=YamlObject, required=False, default_value=None)
 
+    def read_yaml_list(self, key: str) -> YamlList | None:
+        """
+        An appropriate error log is generated if the value is not a YamlList or if the key is missing
+        :return: a YamlList if the value for the key is a YamlList, otherwise None.
+        """
+        return self.read_value(key=key, expected_type=YamlList, required=True, default_value=None)
+
     def read_yaml_list_opt(self, key: str) -> YamlList | None:
         """
         An appropriate error log is generated if the value is not a YamlObject
@@ -248,8 +255,7 @@ class YamlObject(YamlValue):
         yaml_value: YamlValue = self.yaml_dict.get(key)
         if not isinstance(yaml_value, expected_type):
             logging.error(
-                message=f"'{key}' expected a {expected_type.__name__}, but was {type(yaml_value).__name__}",
-                location=yaml_value.location,
+                f"'{key}' expected a {expected_type.__name__}, but was {type(yaml_value).__name__} {yaml_value.location}",
             )
         return yaml_value
 
