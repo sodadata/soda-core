@@ -143,7 +143,6 @@ class DremioDataSource(DataSource):
         )
 
     def get_metric_sql_aggregation_expression(self, metric_name: str, metric_args: list[object] | None, expr: str):
-        
         if "::datetime" in expr:
             expr = expr.replace("::datetime", "")
             expr = f"CAST ({expr} AS TIMESTAMP)"
