@@ -48,13 +48,19 @@ class DataContractTranslator:
                     sodacl_validity_config = {
                         k.replace("_", " "): v.unpacked()
                         for k, v in column_schema_details.items()
-                        if k in ["valid_values", "valid_format", "valid_regex", "valid_min", "valid_max",
-                                 "valid_length", "invalid_values"]
+                        if k
+                        in [
+                            "valid_values",
+                            "valid_format",
+                            "valid_regex",
+                            "valid_min",
+                            "valid_max",
+                            "valid_length",
+                            "invalid_values",
+                        ]
                     }
                     if sodacl_validity_config:
-                        sodacl_checks.append({
-                            f"invalid_count({column_name}) = 0": sodacl_validity_config
-                        })
+                        sodacl_checks.append({f"invalid_count({column_name}) = 0": sodacl_validity_config})
 
                 columns[column_name] = data_type
 

@@ -3,16 +3,15 @@ from textwrap import dedent
 from unittest import skip
 
 from contracts.data_contract_translator import DataContractTranslator
-from helpers.common_test_tables import customers_test_table
-from helpers.data_source_fixture import DataSourceFixture
 
 logger = logging.getLogger(__name__)
 
 
 def test_contract_transformation_basic():
     data_contract_parser = DataContractTranslator()
-    sodacl_yaml_str = data_contract_parser.translate_data_contract_yaml_str(dedent(
-        f"""
+    sodacl_yaml_str = data_contract_parser.translate_data_contract_yaml_str(
+        dedent(
+            f"""
         dataset: CUSTOMERS
 
         columns:
@@ -24,9 +23,13 @@ def test_contract_transformation_basic():
         checks:
           - avg(cst_size) between 400 and 500
     """
-    ))
+        )
+    )
 
-    assert sodacl_yaml_str.strip() == dedent(f"""
+    assert (
+        sodacl_yaml_str.strip()
+        == dedent(
+            f"""
         checks for CUSTOMERS:
         - schema:
             fail:
@@ -34,13 +37,16 @@ def test_contract_transformation_basic():
                 id: character varying
                 cst_size: decimal
         - avg(cst_size) between 400 and 500
-    """).strip()
+    """
+        ).strip()
+    )
 
 
 def test_contract_transformation_no_data_type():
     data_contract_parser = DataContractTranslator()
-    sodacl_yaml_str = data_contract_parser.translate_data_contract_yaml_str(dedent(
-        f"""
+    sodacl_yaml_str = data_contract_parser.translate_data_contract_yaml_str(
+        dedent(
+            f"""
         dataset: CUSTOMERS
 
         columns:
@@ -48,22 +54,29 @@ def test_contract_transformation_no_data_type():
             data_type: character varying
           - name: cst_size
     """
-    ))
+        )
+    )
 
-    assert sodacl_yaml_str.strip() == dedent(f"""
+    assert (
+        sodacl_yaml_str.strip()
+        == dedent(
+            f"""
         checks for CUSTOMERS:
         - schema:
             fail:
               when mismatching columns:
                 id: character varying
                 cst_size:
-    """).strip()
+    """
+        ).strip()
+    )
 
 
 def test_contract_transformation_not_nll():
     data_contract_parser = DataContractTranslator()
-    sodacl_yaml_str = data_contract_parser.translate_data_contract_yaml_str(dedent(
-        f"""
+    sodacl_yaml_str = data_contract_parser.translate_data_contract_yaml_str(
+        dedent(
+            f"""
         dataset: CUSTOMERS
 
         columns:
@@ -71,31 +84,42 @@ def test_contract_transformation_not_nll():
             data_type: varchar
             not_null: true
     """
-    ))
+        )
+    )
 
-    assert sodacl_yaml_str.strip() == dedent(f"""
+    assert (
+        sodacl_yaml_str.strip()
+        == dedent(
+            f"""
         checks for CUSTOMERS:
         - schema:
             fail:
               when mismatching columns:
                 id: varchar
         - missing_count(id) = 0
-    """).strip()
+    """
+        ).strip()
+    )
 
 
 def test_contract_transformation_valid_values():
     data_contract_parser = DataContractTranslator()
-    sodacl_yaml_str = data_contract_parser.translate_data_contract_yaml_str(dedent(
-        f"""
+    sodacl_yaml_str = data_contract_parser.translate_data_contract_yaml_str(
+        dedent(
+            f"""
         dataset: CUSTOMERS
 
         columns:
           - name: cat
             valid_values: ['a', 'b', 'c']
     """
-    ))
+        )
+    )
 
-    assert sodacl_yaml_str.strip() == dedent(f"""
+    assert (
+        sodacl_yaml_str.strip()
+        == dedent(
+            f"""
         checks for CUSTOMERS:
         - schema:
             fail:
@@ -106,13 +130,16 @@ def test_contract_transformation_valid_values():
             - 'a'
             - 'b'
             - 'c'
-    """).strip()
+    """
+        ).strip()
+    )
 
 
 def test_contract_transformation_multi_valid():
     data_contract_parser = DataContractTranslator()
-    sodacl_yaml_str = data_contract_parser.translate_data_contract_yaml_str(dedent(
-        f"""
+    sodacl_yaml_str = data_contract_parser.translate_data_contract_yaml_str(
+        dedent(
+            f"""
         dataset: CUSTOMERS
 
         columns:
@@ -124,9 +151,13 @@ def test_contract_transformation_multi_valid():
             valid_max: 10
             valid_regex: '.'
     """
-    ))
+        )
+    )
 
-    assert sodacl_yaml_str.strip() == dedent(f"""
+    assert (
+        sodacl_yaml_str.strip()
+        == dedent(
+            f"""
         checks for CUSTOMERS:
         - schema:
             fail:
@@ -145,13 +176,16 @@ def test_contract_transformation_multi_valid():
             valid min: 0
             valid max: 10
             valid regex: '.'
-    """).strip()
+    """
+        ).strip()
+    )
 
 
 def test_contract_transformation_unique():
     data_contract_parser = DataContractTranslator()
-    sodacl_yaml_str = data_contract_parser.translate_data_contract_yaml_str(dedent(
-        f"""
+    sodacl_yaml_str = data_contract_parser.translate_data_contract_yaml_str(
+        dedent(
+            f"""
         dataset: CUSTOMERS
 
         columns:
@@ -159,22 +193,29 @@ def test_contract_transformation_unique():
             data_type: varchar
             unique: true
     """
-    ))
+        )
+    )
 
-    assert sodacl_yaml_str.strip() == dedent(f"""
+    assert (
+        sodacl_yaml_str.strip()
+        == dedent(
+            f"""
         checks for CUSTOMERS:
         - schema:
             fail:
               when mismatching columns:
                 id: varchar
         - duplicate_count(id) = 0
-    """).strip()
+    """
+        ).strip()
+    )
 
 
 def test_contract_transformation_table_checks():
     data_contract_parser = DataContractTranslator()
-    sodacl_yaml_str = data_contract_parser.translate_data_contract_yaml_str(dedent(
-        f"""
+    sodacl_yaml_str = data_contract_parser.translate_data_contract_yaml_str(
+        dedent(
+            f"""
         dataset: CUSTOMERS
 
         columns:
@@ -186,9 +227,13 @@ def test_contract_transformation_table_checks():
           - min(cst_size) > 10
           - max(cst_size) < 100
     """
-    ))
+        )
+    )
 
-    assert sodacl_yaml_str.strip() == dedent(f"""
+    assert (
+        sodacl_yaml_str.strip()
+        == dedent(
+            f"""
         checks for CUSTOMERS:
         - schema:
             fail:
@@ -197,14 +242,17 @@ def test_contract_transformation_table_checks():
         - avg(cst_size) between 400 and 500
         - min(cst_size) > 10
         - max(cst_size) < 100
-    """).strip()
+    """
+        ).strip()
+    )
 
 
 @skip
 def test_contract_transformation_attributes():
     data_contract_parser = DataContractTranslator()
-    sodacl_yaml_str = data_contract_parser.translate_data_contract_yaml_str(dedent(
-        f"""
+    sodacl_yaml_str = data_contract_parser.translate_data_contract_yaml_str(
+        dedent(
+            f"""
         dataset: CUSTOMERS
 
         columns:
@@ -215,12 +263,18 @@ def test_contract_transformation_attributes():
           owner: johndoe
           age: 25 years
     """
-    ))
+        )
+    )
 
-    assert sodacl_yaml_str.strip() == dedent(f"""
+    assert (
+        sodacl_yaml_str.strip()
+        == dedent(
+            f"""
         checks for CUSTOMERS:
         - attributes:
             owner: johndoe
             age: 25 years
 
-    """).strip()
+    """
+        ).strip()
+    )

@@ -1,11 +1,11 @@
 # Goal and purpose of data contracts in Soda
 
-Soda's goal is to be the best enforcement engine for data contract implementations. For 
-this purpose we have created a new YAML format that aligns with data contracts from a producer 
-perspective.  This new format enables a very easy translation from any data contract 
+Soda's goal is to be the best enforcement engine for data contract implementations. For
+this purpose we have created a new YAML format that aligns with data contracts from a producer
+perspective.  This new format enables a very easy translation from any data contract
 YAML language to Soda's enforcable contract language.
 
-# Example 
+# Example
 
 ```yaml
 dataset: DIM_CUSTOMER
@@ -31,7 +31,7 @@ checks:
 
 # Top level keys
 
-| Key | Description | YAML data type | 
+| Key | Description | YAML data type |
 | --- | ----------- | -------------- |
 | `dataset` | Name of the dataset as in the SQL engine. | string |
 | `columns` | Schema specified as a list of columns.  See below for the column format | list of objects |
@@ -39,7 +39,7 @@ checks:
 
 # Column keys
 
-| Key | Description | YAML data type | 
+| Key | Description | YAML data type |
 | --- | ----------- | -------------- |
 | `name` | Name of the column as in the SQL engine. | string |
 | `data_type` | Name of the data type as in the SQL engine | string |
