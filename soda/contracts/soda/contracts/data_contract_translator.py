@@ -45,9 +45,16 @@ class DataContractTranslator:
                     if column_schema_details.read_bool_opt("unique"):
                         sodacl_checks.append(f"duplicate_count({column_name}) = 0")
 
-                    valid_format: str | None = column_schema_details.read_string_opt("valid_format")
-                    if valid_format:
-                        sodacl_checks.append({f"invalid_count({column_name}) = 0": {"valid format": valid_format}})
+                    sodacl_validity_config = {
+                        k.replace("_", " "): v.unpacked()
+                        for k, v in column_schema_details.items()
+                        if k in ["valid_values", "valid_format", "valid_regex", "valid_min", "valid_max",
+                                 "valid_length", "invalid_values"]
+                    }
+                    if sodacl_validity_config:
+                        sodacl_checks.append({
+                            f"invalid_count({column_name}) = 0": sodacl_validity_config
+                        })
 
                 columns[column_name] = data_type
 

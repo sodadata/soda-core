@@ -163,6 +163,15 @@ class YamlObject(YamlValue):
     def __iter__(self):
         return iter(self.yaml_dict)
 
+    def keys(self):
+        return self.yaml_dict.keys()
+
+    def items(self):
+        return self.yaml_dict.items()
+
+    def get(self, index) -> YamlValue | None:
+        return self.yaml_dict.get(index)
+
     def read_yaml_object(self, key: str) -> YamlObject | None:
         """
         An appropriate error log is generated if the value is not a YamlObject or if the key is missing
@@ -253,14 +262,11 @@ class YamlObject(YamlValue):
                 logging.error(f"'{key}' is required")
             return default_value
         yaml_value: YamlValue = self.yaml_dict.get(key)
-        if not isinstance(yaml_value, expected_type):
+        if expected_type is not None and not isinstance(yaml_value, expected_type):
             logging.error(
                 f"'{key}' expected a {expected_type.__name__}, but was {type(yaml_value).__name__} {yaml_value.location}",
             )
         return yaml_value
-
-    def keys(self):
-        return self.yaml_dict.keys()
 
     def unpacked(self):
         return {key: yaml_value.unpacked() for key, yaml_value in self.yaml_dict.items()}
