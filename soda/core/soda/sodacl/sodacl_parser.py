@@ -1306,8 +1306,8 @@ class SodaCLParser(Parser):
             minutes = 0
             seconds = 0
             previous_unit = None
-            match = re.match(r"(\d+[dhms])+(\d+)?", freshness_threshold_text)
-            for group in match.groups():
+            matches = re.findall(r"\d+[dhms]?", freshness_threshold_text)
+            for group in matches:
                 if isinstance(group, str):
                     if group.isdigit():
                         unit = previous_unit
@@ -1326,7 +1326,7 @@ class SodaCLParser(Parser):
 
                     previous_unit = unit
 
-                return timedelta(days=days, hours=hours, minutes=minutes, seconds=seconds)
+            return timedelta(days=days, hours=hours, minutes=minutes, seconds=seconds)
         except Exception as e:
             self.logs.error(
                 f'Problem parsing freshness threshold "{freshness_threshold_text}"', location=self.location, exception=e
