@@ -87,7 +87,7 @@ threshold_value:
 	| freshness_threshold_value
 	| IDENTIFIER_UNQUOTED;
 
-freshness_threshold_value: (integer ('d' | 'h' | 'm'))+ integer?;
+freshness_threshold_value: TIMEUNIT+;
 
 reference_check:
 	'values in' S source_column_name S reference_must_exist S identifier S target_column_name
@@ -195,5 +195,11 @@ IDENTIFIER_UNQUOTED:
 	)*;
 STRING: [a-z]+;
 DIGITS: [0-9]+;
+
+TIMEUNIT: DIGITS (DAY | HOUR | MINUTE);
+
+DAY: 'd';
+HOUR: 'h';
+MINUTE: 'm';
 
 S: ' ';
