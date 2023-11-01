@@ -3,7 +3,7 @@
 from setuptools import find_namespace_packages, setup
 
 package_name = "soda-core-mysql"
-package_version = "3.0.52"
+package_version = "3.0.53"
 description = "Soda Core MySQL Package"
 
 requires = [
