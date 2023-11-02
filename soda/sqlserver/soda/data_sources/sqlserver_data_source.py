@@ -425,3 +425,15 @@ class SQLServerDataSource(DataSource):
         )
 
         return sql
+    def quote_table(self, table_name: str) -> str:
+        return f"[{table_name}]"
+
+    def quote_column(self, column_name: str) -> str:
+        return f"[{column_name}]"
+
+    def is_quoted(self, table_name: str) -> bool:
+        return (
+            (table_name.startswith('"') and table_name.endswith('"'))
+            or (table_name.startswith("'") and table_name.endswith("'"))
+            or (table_name.startswith("[") and table_name.endswith("]"))
+        )

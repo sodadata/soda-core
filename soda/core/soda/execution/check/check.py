@@ -18,6 +18,7 @@ from soda.sodacl.check_cfg import CheckCfg
 from soda.sodacl.distribution_check_cfg import DistributionCheckCfg
 from soda.sodacl.group_by_check_cfg import GroupByCheckCfg
 from soda.sodacl.group_evolution_check_cfg import GroupEvolutionCheckCfg
+from soda.common.string_helper import strip_quotes
 
 
 class Check(ABC):
@@ -291,7 +292,7 @@ class Check(ABC):
                 "resourceAttributes": self._format_attributes(),
                 "location": self.check_cfg.location.get_cloud_dict(),
                 "dataSource": self.data_source_scan.data_source.data_source_name,
-                "table": Partition.get_table_name(self.partition),
+                "table": strip_quotes(Partition.get_table_name(self.partition)),
                 # "filter": Partition.get_partition_name(self.partition), TODO: re-enable once backend supports the property.
                 "column": Column.get_partition_name(self.column),
                 "metrics": [metric.identity for metric in self.metrics.values()],
@@ -322,7 +323,7 @@ class Check(ABC):
                 "resourceAttributes": self._format_attributes(),
                 "location": self.check_cfg.location.get_dict(),
                 "dataSource": self.data_source_scan.data_source.data_source_name,
-                "table": Partition.get_table_name(self.partition),
+                "table": strip_quotes(Partition.get_table_name(self.partition)),
                 "filter": Partition.get_partition_name(self.partition),
                 "column": Column.get_partition_name(self.column),
                 "metrics": [metric.identity for metric in self.metrics.values()],
