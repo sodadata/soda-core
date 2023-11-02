@@ -425,6 +425,7 @@ class SQLServerDataSource(DataSource):
         )
 
         return sql
+
     def quote_table(self, table_name: str) -> str:
         return f"[{table_name}]"
 

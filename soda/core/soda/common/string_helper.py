@@ -10,6 +10,7 @@ def string_matches_simple_pattern(input: str, pattern: str) -> bool:
 
     return bool(result)
 
+
 def strip_quotes(input: str) -> str:
     if isinstance(input, str):
         return input.strip("\"'").strip("[]")
