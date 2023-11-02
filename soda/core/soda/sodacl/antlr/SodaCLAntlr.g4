@@ -139,6 +139,7 @@ identifier:
 	IDENTIFIER_UNQUOTED
 	| IDENTIFIER_DOUBLE_QUOTE
 	| IDENTIFIER_BACKTICK
+	| IDENTIFIER_SQUARE_BRACKETS
 	| MIN
 	| MAX
 	| AVG;
@@ -181,6 +182,8 @@ GT: '>';
 
 IDENTIFIER_DOUBLE_QUOTE: '"' ( ~'"' | '\\"')+ '"';
 IDENTIFIER_BACKTICK: '`' ( ~'`' | '\\`')+ '`';
+IDENTIFIER_SQUARE_BRACKETS:
+	'[' (~'[' | '\\[' | ']' | '\\]')+ ']';
 IDENTIFIER_UNQUOTED:
 	[a-zA-Z_$] ~(
 		' '
