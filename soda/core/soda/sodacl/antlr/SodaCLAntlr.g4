@@ -139,7 +139,7 @@ identifier:
 	IDENTIFIER_UNQUOTED
 	| IDENTIFIER_DOUBLE_QUOTE
 	| IDENTIFIER_BACKTICK
-	| IDENTIFIER_SQUARE_BRACKETS
+	| identifier_square_brackets
 	| MIN
 	| MAX
 	| AVG;
@@ -182,8 +182,6 @@ GT: '>';
 
 IDENTIFIER_DOUBLE_QUOTE: '"' ( ~'"' | '\\"')+ '"';
 IDENTIFIER_BACKTICK: '`' ( ~'`' | '\\`')+ '`';
-IDENTIFIER_SQUARE_BRACKETS:
-	'[' (~'[' | '\\[' | ']' | '\\]')+ ']';
 IDENTIFIER_UNQUOTED:
 	[a-zA-Z_$] ~(
 		' '
@@ -196,6 +194,8 @@ IDENTIFIER_UNQUOTED:
 		| ']'
 		| ','
 	)*;
+identifier_square_brackets:
+	SQUARE_LEFT IDENTIFIER_UNQUOTED SQUARE_RIGHT;
 STRING: [a-z]+;
 DIGITS: [0-9]+;
 
