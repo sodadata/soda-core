@@ -39,28 +39,31 @@ class DataContractTranslator:
                 if column_schema_details:
                     data_type = column_schema_details.read_string_opt("data_type")
 
-                    if column_schema_details.read_bool_opt("not_null"):
-                        sodacl_checks.append(f"missing_count({column_name}) = 0")
-
-                    if column_schema_details.read_bool_opt("unique"):
-                        sodacl_checks.append(f"duplicate_count({column_name}) = 0")
+                    sodacl_missing_config = {
+                        k.replace("_", " "): v.unpacked()
+                        for k, v in column_schema_details.items()
+                        if k.startswith("missing_")
+                    }
+                    if column_schema_details.read_bool_opt("not_null") or sodacl_missing_config:
+                        if sodacl_missing_config:
+                            sodacl_checks.append({
+                                f"missing_count({column_name}) = 0": sodacl_missing_config
+                            })
+                        else:
+                            sodacl_checks.append(f"missing_count({column_name}) = 0")
 
                     sodacl_validity_config = {
                         k.replace("_", " "): v.unpacked()
                         for k, v in column_schema_details.items()
-                        if k
-                        in [
-                            "valid_values",
-                            "valid_format",
-                            "valid_regex",
-                            "valid_min",
-                            "valid_max",
-                            "valid_length",
-                            "invalid_values",
-                        ]
+                        if k.startswith("valid_") or k.startswith("invalid_")
                     }
                     if sodacl_validity_config:
-                        sodacl_checks.append({f"invalid_count({column_name}) = 0": sodacl_validity_config})
+                        sodacl_checks.append({
+                            f"invalid_count({column_name}) = 0": sodacl_validity_config
+                        })
+
+                    if column_schema_details.read_bool_opt("unique"):
+                        sodacl_checks.append(f"duplicate_count({column_name}) = 0")
 
                 columns[column_name] = data_type
 
