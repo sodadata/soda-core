@@ -270,7 +270,7 @@ class SQLServerDataSource(DataSource):
         )
 
     def expr_regexp_like(self, expr: str, regex_pattern: str):
-        return f"PATINDEX ('%{regex_pattern}%', {expr}) > 0"
+        return f"PATINDEX ('{regex_pattern}', {expr}) > 0"
 
     def sql_select_all(self, table_name: str, limit: int | None = None, filter: str | None = None) -> str:
         qualified_table_name = self.qualified_table_name(table_name)
