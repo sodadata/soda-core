@@ -104,17 +104,22 @@ def test_contract_transformation_not_nll():
 
 def test_contract_transformation_missing_values():
     data_contract_parser = DataContractTranslator()
-    sodacl_yaml_str = data_contract_parser.translate_data_contract_yaml_str(dedent(
-        f"""
+    sodacl_yaml_str = data_contract_parser.translate_data_contract_yaml_str(
+        dedent(
+            f"""
         dataset: CUSTOMERS
 
         columns:
           - name: cat
             missing_values: ['N/A', 'No value']
     """
-    ))
+        )
+    )
 
-    assert sodacl_yaml_str.strip() == dedent(f"""
+    assert (
+        sodacl_yaml_str.strip()
+        == dedent(
+            f"""
         checks for CUSTOMERS:
         - schema:
             fail:
@@ -124,7 +129,9 @@ def test_contract_transformation_missing_values():
             missing values:
             - 'N/A'
             - 'No value'
-    """).strip()
+    """
+        ).strip()
+    )
 
 
 def test_contract_transformation_valid_values():

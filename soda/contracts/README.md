@@ -1,11 +1,11 @@
 # Goal and purpose of data contracts in Soda
 
-Soda's goal is to be the best enforcement engine for data contract implementations. For 
-this purpose we have created a new YAML format that aligns with data contracts from a producer 
-perspective.  This new format enables a very easy translation from any data contract 
+Soda's goal is to be the best enforcement engine for data contract implementations. For
+this purpose we have created a new YAML format that aligns with data contracts from a producer
+perspective.  This new format enables a very easy translation from any data contract
 YAML language to Soda's enforcable contract language.
 
-# Example 
+# Example
 
 ```yaml
 name: DIM_CUSTOMER
@@ -31,7 +31,7 @@ checks:
 
 # Top level keys
 
-| Key | Description | Required | YAML data type | 
+| Key | Description | Required | YAML data type |
 | --- | ----------- | -------- | -------------- |
 | `name` | Name of the dataset as in the SQL engine. | Required | string |
 | `columns` | Schema specified as a list of columns.  See below for the column format | Required| list of objects |
@@ -39,7 +39,7 @@ checks:
 
 # Column keys
 
-| Key | Description | Required | YAML data type | 
+| Key | Description | Required | YAML data type |
 | --- | ----------- | -------- | -------------- |
 | `name` | Name of the column as in the SQL engine. | Required | string |
 | `data_type` | Ensures verification of this physical data type as part of the schema check. Must be the name of the data type as in the SQL engine | Optional | string |
@@ -52,22 +52,22 @@ checks:
 
 ## The schema check
 
-A contract verification will always check the schema.  The contract schema check will verify that the list of columns 
-in the database dataset matches *exactly* with the columns in the contract file.  All columns listed in the contract 
+A contract verification will always check the schema.  The contract schema check will verify that the list of columns
+in the database dataset matches *exactly* with the columns in the contract file.  All columns listed in the contract
 are required and no other columns are allowed.
 
-Optionally, if the `data_type` property is specified in the column, the data type will be checked as well as part of 
+Optionally, if the `data_type` property is specified in the column, the data type will be checked as well as part of
 the schema check.
 
 ## Other column checks
 
-`not_null`, `missing_values`, `missing_format` or `missing_regex` will ensure a single check 
+`not_null`, `missing_values`, `missing_format` or `missing_regex` will ensure a single check
 `missing_count({COLUMN_NAME}) = 0` on that column with all the `missing_*` keys as configuration.
 
-Presence of `valid_*`, `invalid_*` column keys will ensure a single validity check `invalid_count({COLUMN_NAME}) = 0` 
+Presence of `valid_*`, `invalid_*` column keys will ensure a single validity check `invalid_count({COLUMN_NAME}) = 0`
 on that column with all `valid_*`, `invalid_*` keys as configuration.
 
-`unique: true` will ensure a SodaCL check `duplicate_count({COLUMN_NAME}) = 0` 
+`unique: true` will ensure a SodaCL check `duplicate_count({COLUMN_NAME}) = 0`
 
 ## SodaCL checks section
 
@@ -75,7 +75,7 @@ The YAML list structure under `checks:` will just be copied to the SodaCL checks
 
 # Contract enforcement
 
-"Enforcement" of a contract comes down to verifying that a certain dataset (like eg a table) complies with the specification in 
+"Enforcement" of a contract comes down to verifying that a certain dataset (like eg a table) complies with the specification in
 the contract file.  When the contract does not comply, the data owner and potentially the consumers should be notified.
 
 In your python (virtual) environment, ensure that the libraries `soda-core` and `soda-core-contracts` are available
