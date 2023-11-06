@@ -438,3 +438,9 @@ class SQLServerDataSource(DataSource):
             or (table_name.startswith("'") and table_name.endswith("'"))
             or (table_name.startswith("[") and table_name.endswith("]"))
         )
+
+    def sql_information_schema_tables(self) -> str:
+        return "INFORMATION_SCHEMA.TABLES"
+
+    def sql_information_schema_columns(self) -> str:
+        return "INFORMATION_SCHEMA.COLUMNS"
