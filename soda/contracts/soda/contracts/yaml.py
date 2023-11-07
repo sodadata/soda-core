@@ -234,21 +234,39 @@ class YamlObject(YamlValue):
 
     def read_bool(self, key: str) -> bool | None:
         """
-        An appropriate error log is generated if the value is not a bool
-        :return: a bool if the value for the key is a YAML string, otherwise None.
+        An appropriate error log is generated if the value is not a bool or if the key is missing
+        :return: a bool if the value for the key is a YAML boolean, otherwise None.
         """
         yaml_boolean_value = self.read_value(key=key, expected_type=YamlBoolean, required=True, default_value=None)
         return yaml_boolean_value.value if isinstance(yaml_boolean_value, YamlString) else None
 
     def read_bool_opt(self, key: str, default_value: bool | None = None) -> bool | None:
         """
-        An appropriate error log is generated if the value is not a bool or if the key is missing.
-        :return: a bool if the value for the key is a YAML string, otherwise None.
+        An appropriate error log is generated if the value is not a bool.
+        :return: a bool if the value for the key is a YAML boolean, otherwise None.
         """
         yaml_boolean_value = self.read_value(
             key=key, expected_type=YamlBoolean, required=False, default_value=default_value
         )
         return yaml_boolean_value.value if isinstance(yaml_boolean_value, YamlBoolean) else None
+
+    def read_number(self, key: str) -> Number | None:
+        """
+        An appropriate error log is generated if the value is not a number or if the key is missing
+        :return: a bool if the value for the key is a YAML number, otherwise None.
+        """
+        yaml_number_value = self.read_value(key=key, expected_type=YamlNumber, required=True, default_value=None)
+        return yaml_number_value.value if isinstance(yaml_number_value, YamlNumber) else None
+
+    def read_number_opt(self, key: str, default_value: Number | None = None) -> Number | None:
+        """
+        An appropriate error log is generated if the value is not a number.
+        :return: a Number if the value for the key is a YAML number, otherwise None.
+        """
+        yaml_number_value = self.read_value(
+            key=key, expected_type=YamlNumber, required=False, default_value=default_value
+        )
+        return yaml_number_value.value if isinstance(yaml_number_value, YamlNumber) else None
 
     def read_value(
         self,

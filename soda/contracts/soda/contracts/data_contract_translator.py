@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from numbers import Number
 from typing import Any
 
 from contracts.yaml import Yaml, YamlList, YamlObject, YamlValue
@@ -37,7 +38,7 @@ class DataContractTranslator:
 
                 data_type = None
                 if column_schema_details:
-                    data_type = column_schema_details.read_string_opt("data_type")
+                    data_type: str | None = column_schema_details.read_string_opt("data_type")
 
                     sodacl_missing_config = {
                         k.replace("_", " "): v.unpacked()
@@ -60,6 +61,21 @@ class DataContractTranslator:
 
                     if column_schema_details.read_bool_opt("unique"):
                         sodacl_checks.append(f"duplicate_count({column_name}) = 0")
+
+                    reference: YamlObject | None = column_schema_details.read_yaml_object_opt("reference")
+                    if reference:
+                        ref_dataset: str | None = reference.read_string("dataset")
+                        ref_column: str | None = reference.read_string("column")
+                        if ref_dataset and ref_column:
+                            sample_limit: Number | None = reference.read_number_opt("samples_limit")
+                            reference_check_line = \
+                                f"values in ({column_name}) must exist in {ref_dataset} ({ref_column})"
+                            if sample_limit:
+                                sodacl_checks.append({
+                                    reference_check_line: {"samples limit": sample_limit}
+                                })
+                            else:
+                                sodacl_checks.append(reference_check_line)
 
                 columns[column_name] = data_type
 

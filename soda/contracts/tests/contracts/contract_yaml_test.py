@@ -279,8 +279,7 @@ def test_contract_transformation_table_checks():
     )
 
 
-@skip
-def test_contract_transformation_attributes():
+def test_contract_transformation_reference():
     data_contract_parser = DataContractTranslator()
     sodacl_yaml_str = data_contract_parser.translate_data_contract_yaml_str(
         dedent(
@@ -288,8 +287,11 @@ def test_contract_transformation_attributes():
         dataset: CUSTOMERS
 
         columns:
-          - name: cst_size
-            data_type: integer
+          - name: last_order_id
+            reference:
+              dataset: ORDERS
+              column: id
+              samples_limit: 20
 
         attributes:
           owner: johndoe
@@ -299,13 +301,15 @@ def test_contract_transformation_attributes():
     )
 
     assert (
-        sodacl_yaml_str.strip()
-        == dedent(
+        sodacl_yaml_str.strip() == dedent(
             f"""
         checks for CUSTOMERS:
-        - attributes:
-            owner: johndoe
-            age: 25 years
+        - schema:
+            fail:
+              when mismatching columns:
+                last_order_id:
+        - values in (last_order_id) must exist in ORDERS (id):
+            samples limit: 20
 
     """
         ).strip()

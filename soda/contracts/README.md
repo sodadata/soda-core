@@ -23,6 +23,9 @@ columns:
   - name: country
     data_type: varchar
     not_null: true
+    reference:
+      dataset: COUNTRIES
+      column: id
   - name: ts
 
 checks:
@@ -47,17 +50,28 @@ checks:
 | `missing_*` | Ensures a missing values check and uses all the `missing_*` configurations | Optional | list of strings or numbers |
 | `valid_*` * `invalid_*` | Ensures a validity check and uses all the `valid_*` and `invalid_*` configurations | Optional | list of strings or numbers |
 | `unique` | `unique: true` ensures a uniqueness check | Optional | boolean |
+| `reference` | Ensures a reference check that ensures values in the column exist in the referenced column.See section reference keys below. | Optional | object |
+
+# Reference keys
+
+| Key | Description | Required | YAML data type |
+| --- | ----------- | -------- | -------------- |
+| `dataset` | Name of the reference dataset as in the SQL engine. | Required | string |
+| `column` | Name of the column in the reference dataset. | Required | string |
+| `samples_limit` | Limit of the failed rows samples taken. | Optional | number |
 
 # Contract to SodaCL translation
 
 ## The schema check
 
 A contract verification will always check the schema.  The contract schema check will verify that the list of columns
-in the database dataset matches *exactly* with the columns in the contract file.  All columns listed in the contract
-are required and no other columns are allowed.
+in the database dataset matches with the columns in the contract file.  All columns listed in the contract
+are required and no other columns are allowed.  
 
 Optionally, if the `data_type` property is specified in the column, the data type will be checked as well as part of
 the schema check.
+
+The ordering and index of columns is ignored.
 
 ## Other column checks
 
@@ -77,6 +91,9 @@ The YAML list structure under `checks:` will just be copied to the SodaCL checks
 
 "Enforcement" of a contract comes down to verifying that a certain dataset (like eg a table) complies with the specification in
 the contract file.  When the contract does not comply, the data owner and potentially the consumers should be notified.
+
+> Known limitation: At the moment there possibility to verify contracts using the CLI. Only a 
+> Python programmatic API is available. 
 
 In your python (virtual) environment, ensure that the libraries `soda-core` and `soda-core-contracts` are available
 as well as the `soda-core-xxxx` library for the SQL engine of your choice.
