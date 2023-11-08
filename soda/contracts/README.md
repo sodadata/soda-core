@@ -8,7 +8,7 @@ YAML language to Soda's enforcable contract language.
 # Example
 
 ```yaml
-name: DIM_CUSTOMER
+dataset: DIM_CUSTOMER
 
 columns:
   - name: id
@@ -36,7 +36,7 @@ checks:
 
 | Key | Description | Required | YAML data type |
 | --- | ----------- | -------- | -------------- |
-| `name` | Name of the dataset as in the SQL engine. | Required | string |
+| `dataset` | Name of the dataset as in the SQL engine. | Required | string |
 | `columns` | Schema specified as a list of columns.  See below for the column format | Required| list of objects |
 | `checks` | SodaCL checks.  See [SodaCL docs](https://docs.soda.io/soda-cl/metrics-and-checks.html) | Optional | list of SodaCL checks |
 
@@ -112,6 +112,8 @@ with open("dim_customer_data_contract.yml") as f:
 # Translate the data contract into SodaCL
 data_contract_parser = DataContractTranslator()
 sodacl_yaml_str = data_contract_parser.translate_data_contract_yaml_str(data_contract_yaml_str)
+
+# Logging or saving the SodaCL YAMl file will help with debugging potential scan execution issues 
 logging.debug(sodacl_yaml_str)
 
 # Execute the contract SodaCL in a scan

@@ -292,10 +292,6 @@ def test_contract_transformation_reference():
               dataset: ORDERS
               column: id
               samples_limit: 20
-
-        attributes:
-          owner: johndoe
-          age: 25 years
     """
         )
     )
@@ -310,7 +306,37 @@ def test_contract_transformation_reference():
                 last_order_id:
         - values in (last_order_id) must exist in ORDERS (id):
             samples limit: 20
+    """
+        ).strip()
+    )
 
+
+def test_contract_transformation_ignore_other_keys():
+    data_contract_parser = DataContractTranslator()
+    sodacl_yaml_str = data_contract_parser.translate_data_contract_yaml_str(
+        dedent(
+            f"""
+        dataset: CUSTOMERS
+
+        attributes:
+          pii: very important
+
+        anything: goes here
+
+        columns:
+          - name: last_order_id
+    """
+        )
+    )
+
+    assert (
+        sodacl_yaml_str.strip() == dedent(
+            f"""
+        checks for CUSTOMERS:
+        - schema:
+            fail:
+              when mismatching columns:
+                last_order_id:
     """
         ).strip()
     )
