@@ -444,3 +444,7 @@ class SQLServerDataSource(DataSource):
 
     def sql_information_schema_columns(self) -> str:
         return "INFORMATION_SCHEMA.COLUMNS"
+
+    def default_casify_sql_function(self) -> str:
+        """Returns the sql function to use for default casify."""
+        return ""
