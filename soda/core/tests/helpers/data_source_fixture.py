@@ -177,12 +177,12 @@ class DataSourceFixture:
                 for test_column in test_columns
             ]
         )
-        return self._create_test_table_sql_compose(qualified_table_name, columns_sql)
+        return self._create_test_table_sql_compose(qualified_table_name, columns_sql, test_table)
 
     def _create_view_from_table_sql(self, test_table: TestTable):
         return f"CREATE VIEW {test_table.unique_view_name} AS SELECT * FROM {test_table.unique_table_name}"
 
-    def _create_test_table_sql_compose(self, qualified_table_name, columns_sql) -> str:
+    def _create_test_table_sql_compose(self, qualified_table_name, columns_sql, test_table: TestTable) -> str:
         return f"CREATE TABLE {qualified_table_name} ( \n{columns_sql} \n)"
 
     def _insert_test_table_sql(self, test_table: TestTable) -> str:
@@ -250,7 +250,7 @@ class DataSourceFixture:
             sql_indented = textwrap.indent(text=sql, prefix="  #   ")
             logger.debug(f"  # Test data handler update: \n{sql_indented}")
             updates = cursor.execute(sql)
-            connection.commit()
+            # connection.commit()
             return updates
         finally:
             cursor.close()

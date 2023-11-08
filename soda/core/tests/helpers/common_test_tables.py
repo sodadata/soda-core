@@ -37,7 +37,8 @@ customers_test_table = TestTable(
         ('ID8',  None, None,    999,  "No value",  None,     'NL', '2361', None,                      date(2020, 6, 24), datetime(2020, 6, 24, 0, 2, 10), datetime(2020, 6, 24, 0, 2, 10, tzinfo=utc)),
         ('ID9',  None, None,    999,  "N/A",       None,     'NL', '2362', None,                      date(2020, 6, 24), datetime(2020, 6, 24, 0, 3, 10), datetime(2020, 6, 24, 0, 3, 10, tzinfo=utc)),
         (None,   None, None,    None, None,        "HIGH",   'NL', '2363', None,                      date(2020, 6, 24), datetime(2020, 6, 24, 0, 4, 10), datetime(2020, 6, 24, 0, 4, 10, tzinfo=utc)),
-    ]
+    ],
+    primary_key=["id"],
     # fmt: on
 )
 
@@ -82,7 +83,8 @@ customers_dist_check_test_table = TestTable(
         ('ID8',  2),
         ('ID9',  3),
         (None,   1),
-    ]
+    ],
+    primary_key=["id"],
     # fmt: on
 )
 
@@ -106,6 +108,7 @@ orders_test_table = TestTable(
         ("O6", "ID99", "ID1", "UK", "2360", "six"),
         (None, None, "ID3", None, None, "seven"),
     ],
+    primary_key=["id"],
 )
 
 raw_customers_test_table = TestTable(
@@ -145,7 +148,8 @@ customers_profiling = TestTable(
         ('ID9',  None, None,    10,  "N/A",       None,     'NL', '2362', None,                      date(2020, 6, 24), datetime(2020, 6, 24, 0, 3, 10), datetime(2020, 6, 24, 0, 3, 10, tzinfo=utc)),
         ('ID10', None, None,    None,  "N/A",       None,     'NL', '2362', None,                      date(2020, 6, 24), datetime(2020, 6, 24, 0, 3, 10), datetime(2020, 6, 24, 0, 3, 10, tzinfo=utc)),
         (None,   None, None,    None, None,        "HIGH",   'BE', '2363', None,                      date(2020, 6, 24), datetime(2020, 6, 24, 0, 4, 10), datetime(2020, 6, 24, 0, 4, 10, tzinfo=utc)),
-    ]
+    ],
+    primary_key=["id"],
     # fmt: on
 )
 # Special table for edge case identifier, data types etc.
@@ -160,7 +164,8 @@ special_table = TestTable(
         ("value_1",),
         ("value_2",),
     ],
-    quote_names=True
+    quote_names=True,
+    primary_key=["1"],
     # fmt: on
 )
 
@@ -173,6 +178,7 @@ customers_profiling_capitalized = TestTable(
         ("CST_Size", DataType.INTEGER),
     ],
     values=[(1, 2), (2, 1), (0, 1), (2, 1), (6, 1), (6, 1), (3, 2)],
+    primary_key=["ITEMS_SOLD, CST_Size"],
 )
 
 dro_categorical_test_table = TestTable(
@@ -205,6 +211,7 @@ dro_categorical_test_table = TestTable(
         (3,),
         (3,),
     ],
+    primary_key=["categorical_value"],
 )
 
 null_test_table = TestTable(
@@ -214,4 +221,5 @@ null_test_table = TestTable(
         ("column_with_null_values", DataType.INTEGER),
     ],
     values=[(None,), (None,), (None,), (None,), (None,), (None,), (None,), (None,), (None,)],
+    primary_key=["column_with_null_values"],
 )

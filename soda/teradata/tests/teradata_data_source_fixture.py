@@ -36,7 +36,7 @@ class TeradataDataSourceFixture(DataSourceFixture):
         qualified_table_name = self.data_source.qualified_table_name(table_name)
         return f"DROP TABLE {qualified_table_name}"
 
-    def _create_test_table_sql_compose(self, qualified_table_name, columns_sql) -> str:
+    def _create_test_table_sql_compose(self, qualified_table_name, columns_sql, test_table: TestTable) -> str:
         return f"CREATE MULTISET TABLE {qualified_table_name} ( \n{columns_sql} \n) NO PRIMARY INDEX"
 
     def _insert_test_table_sql(self, test_table: TestTable) -> str:

@@ -6,6 +6,7 @@ import re
 
 import boto3
 from helpers.data_source_fixture import DataSourceFixture
+from helpers.test_table import TestTable
 
 logger = logging.getLogger(__name__)
 
@@ -40,7 +41,7 @@ class AthenaDataSourceFixture(DataSourceFixture):
     def _create_schema_if_not_exists_sql(self) -> str:
         return f"CREATE SCHEMA IF NOT EXISTS {self.schema_name}"
 
-    def _create_test_table_sql_compose(self, qualified_table_name, columns_sql) -> str:
+    def _create_test_table_sql_compose(self, qualified_table_name, columns_sql, test_table: TestTable) -> str:
         table_part = qualified_table_name.replace('"', "")
         table_part = re.sub("[^0-9a-zA-Z]+", "_", table_part)
         location = f"{self._get_3_schema_dir()}/{table_part}"

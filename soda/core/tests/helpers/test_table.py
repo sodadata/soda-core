@@ -23,6 +23,7 @@ class TestTable:
         values: list[tuple] = None,
         quote_names: bool = False,
         create_view: bool = False,
+        primary_key: list[str] | None = None,
     ):
         """
         name: logical name
@@ -44,6 +45,7 @@ class TestTable:
         self.values: list[tuple] = values
         self.quote_names: bool = quote_names
         self.create_view = create_view
+        self.primary_key = primary_key
 
         if self.create_view:
             self.unique_table_name = f"SODATEST_{name}_TABLE_{self.__test_table_hash()}"
