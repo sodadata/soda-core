@@ -232,7 +232,7 @@ class DataSource:
         # Temporarily introduced to migrate some "wrongly implemented" data sources.
         # See https://sodadata.atlassian.net/browse/CLOUD-5446
         self.migrate_data_source_name = None
-        self.quote_tables_with_whitespace: bool = data_source_properties.get("quote_tables_with_whitespace", False)
+        self.quote_tables: bool = data_source_properties.get("quote_tables", False)
 
     def has_valid_connection(self) -> bool:
         query = Query(
@@ -1062,7 +1062,7 @@ class DataSource:
         # if the table name needs quoting
         if table_name != self.default_casify_table_name(table_name):
             return self.quote_table(table_name)
-        elif " " in table_name and self.quote_tables_with_whitespace:
+        elif self.quote_tables_with_whitespace:
             return self.quote_table(table_name)
         else:
             # return the bare table name

@@ -448,3 +448,14 @@ class SQLServerDataSource(DataSource):
     def default_casify_sql_function(self) -> str:
         """Returns the sql function to use for default casify."""
         return ""
+
+    def qualified_table_name(self, table_name: str) -> str:
+        """
+        table_name can be quoted or unquoted
+        """
+        if self.quote_tables and not self.is_quoted(table_name):
+            table_name = self.quote_table(table_name)
+
+        if self.table_prefix:
+            return f"{self.table_prefix}.{table_name}"
+        return table_name
