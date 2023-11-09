@@ -1,5 +1,5 @@
 [version]
-current = "3.0.52"
+current = "3.0.53"
 
 regex = '''
   (?P<major>\d+)\.(?P<minor>\d+)\.(?P<patch>\d+)((?P<prerelease>[a-z]+)(?P<build>\d+))?
