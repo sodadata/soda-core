@@ -449,6 +449,9 @@ class SQLServerDataSource(DataSource):
         """Returns the sql function to use for default casify."""
         return ""
 
+    def default_casify_system_name(self, identifier: str) -> str:
+        return identifier
+
     def qualified_table_name(self, table_name: str) -> str:
         """
         table_name can be quoted or unquoted
