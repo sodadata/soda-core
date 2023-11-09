@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from soda.common.string_helper import strip_quotes
 from soda.execution.check.check import Check
 from soda.execution.metric.metric import Metric
 from soda.sodacl.dbt_check_cfg import DbtCheckCfg
@@ -38,7 +39,7 @@ class DbtCheck(Check):
                 "col": 0,
             },
             "dataSource": self.data_source_scan.data_source.data_source_name,
-            "table": self.check_cfg.table_name,
+            "table": strip_quotes(self.check_cfg.table_name),
             "column": self.check_cfg.column_name,
             "metrics": ["dbt_metric"],
             "outcome": self.outcome.value if self.outcome else None,
@@ -60,7 +61,7 @@ class DbtCheck(Check):
                 "col": 0,
             },
             "dataSource": self.data_source_scan.data_source.data_source_name,
-            "table": self.check_cfg.table_name,
+            "table": strip_quotes(self.check_cfg.table_name),
             "column": self.check_cfg.column_name,
             "metrics": ["dbt_metric"],
             "outcome": self.outcome.value if self.outcome else None,

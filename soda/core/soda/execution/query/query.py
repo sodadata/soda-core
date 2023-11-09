@@ -4,6 +4,7 @@ from datetime import datetime, timedelta
 
 from soda.common.exception_helper import get_exception_stacktrace
 from soda.common.query_helper import parse_columns_from_query
+from soda.common.string_helper import strip_quotes
 from soda.common.undefined_instance import undefined
 from soda.sampler.db_sample import DbSample
 from soda.sampler.sample_context import SampleContext
@@ -78,7 +79,7 @@ class Query:
         return {
             "name": name,
             "dataSource": self.data_source_scan.data_source.data_source_name,
-            "table": Partition.get_table_name(self.partition),
+            "table": strip_quotes(Partition.get_table_name(self.partition)),
             "partition": Partition.get_partition_name(self.partition),
             "column": Column.get_partition_name(self.column),
             "sql": sql or self.sql,
