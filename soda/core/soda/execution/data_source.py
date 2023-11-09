@@ -1062,7 +1062,7 @@ class DataSource:
         # if the table name needs quoting
         if table_name != self.default_casify_table_name(table_name):
             return self.quote_table(table_name)
-        elif self.quote_tables_with_whitespace:
+        elif self.quote_tables:
             return self.quote_table(table_name)
         else:
             # return the bare table name
