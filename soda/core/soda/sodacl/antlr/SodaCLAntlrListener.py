@@ -395,14 +395,5 @@ class SodaCLAntlrListener(ParseTreeListener):
         pass
 
 
-    # Enter a parse tree produced by SodaCLAntlrParser#identifier_square_brackets.
-    def enterIdentifier_square_brackets(self, ctx:SodaCLAntlrParser.Identifier_square_bracketsContext):
-        pass
-
-    # Exit a parse tree produced by SodaCLAntlrParser#identifier_square_brackets.
-    def exitIdentifier_square_brackets(self, ctx:SodaCLAntlrParser.Identifier_square_bracketsContext):
-        pass
-
-
 
 del SodaCLAntlrParser

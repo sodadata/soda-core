@@ -139,7 +139,7 @@ identifier:
 	IDENTIFIER_UNQUOTED
 	| IDENTIFIER_DOUBLE_QUOTE
 	| IDENTIFIER_BACKTICK
-	| identifier_square_brackets
+	| IDENTIFIER_SQUARE_BRACKETS
 	| MIN
 	| MAX
 	| AVG;
@@ -194,8 +194,8 @@ IDENTIFIER_UNQUOTED:
 		| ']'
 		| ','
 	)*;
-identifier_square_brackets:
-	SQUARE_LEFT IDENTIFIER_UNQUOTED SQUARE_RIGHT;
+IDENTIFIER_SQUARE_BRACKETS:
+	'[' (~'[' | '\\[' | ']' | '\\]')+ ']';
 STRING: [a-z]+;
 DIGITS: [0-9]+;
 

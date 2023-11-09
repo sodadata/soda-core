@@ -224,10 +224,5 @@ class SodaCLAntlrVisitor(ParseTreeVisitor):
         return self.visitChildren(ctx)
 
 
-    # Visit a parse tree produced by SodaCLAntlrParser#identifier_square_brackets.
-    def visitIdentifier_square_brackets(self, ctx:SodaCLAntlrParser.Identifier_square_bracketsContext):
-        return self.visitChildren(ctx)
-
-
 
 del SodaCLAntlrParser
