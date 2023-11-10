@@ -1,8 +1,7 @@
 # Install Soda Core 
 
-**Soda Core** is a command-line interface (CLI) tool that enables you to scan the data in your data source to surface invalid, missing, or unexpected data. 
+**Soda Core** is a Python library and command-line interface (CLI) tool that enables you to scan the data in your data source to surface invalid, missing, or unexpected data. 
 
-Alternatively, you can use the Soda Core Python library to programmatically execute scans; see [Define programmatic scans using Python](/docs/programmatic.md).
 <br />
 
 [Compatibility](#compatibility)<br />
@@ -20,7 +19,7 @@ Use Soda Core to scan a variety of data sources.<br />
 <table>
   <tr>
     <td>Amazon Athena<br /> Amazon Redshift<br />  Apache Spark DataFrames<sup>1</sup><br /> Apache Spark for Databricks SQL<br /> Azure Synapse (Experimental)<br />ClickHouse (Experimental)<br />   Dask and Pandas (Experimental)<sup>1</sup><br /> Denodo (Experimental)<br />Dremio <br />DuckDB (Experimental)<br /> GCP Big Query</td>
-    <td>IBM DB2<br /> Local file using Dask<sup>1</sup><br />MS SQL Server<br /> MySQL<br > OracleDB<br /> PostgreSQL<br /> Snowflake<br /> Teradata (Experimental) <br />Trino<br /> Vertica (Experimental)</td>
+    <td>IBM DB2<br /> Local file using Dask<sup>1</sup><br />MS SQL Server<br /> MotherDuck (Experimental)<br /> MySQL<br > OracleDB<br /> PostgreSQL<br /> Snowflake<br /> Teradata (Experimental) <br />Trino<br /> Vertica (Experimental)</td>
   </tr>
 </table>
 <sup>1</sup> For use with programmatic Soda scans, only.
@@ -64,6 +63,7 @@ If you have not already installed Python, consider using <a href="https://github
 | GCP Big Query | `soda-core-bigquery` | 
 | IBM DB2 | `soda-core-db2` |
 | Local file | Use Dask. |
+| MotherDuck | `soda-core-duckdb` |
 | MS SQL Server | `soda-core-sqlserver` |
 | MySQL | `soda-core-mysql` |
 | OracleDB | `soda-core-oracle` |

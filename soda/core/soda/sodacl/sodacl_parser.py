@@ -43,36 +43,46 @@ from soda.sodacl.threshold_cfg import ThresholdCfg
 
 logger = logging.getLogger(__name__)
 
-WARN = "warn"
-FAIL = "fail"
-NAME = "name"
-IDENTITY = "identity"
 ATTRIBUTES = "attributes"
-QUERY = "query"
+FAIL = "fail"
 FAIL_CONDITION = "fail condition"
 FAIL_QUERY = "fail query"
+IDENTITY = "identity"
+KEY_COLUMNS = "key columns"
+NAME = "name"
+PARAMETERS = "parameters"
+QUERY = "query"
+SAMPLES_COLUMNS = "samples columns"
 SAMPLES_LIMIT = "samples limit"
-WHEN_REQUIRED_COLUMN_MISSING = "when required column missing"
-WHEN_WRONG_COLUMN_TYPE = "when wrong column type"
-WHEN_WRONG_COLUMN_INDEX = "when wrong column index"
+SCHEMA_NAME = "schema_name"
+SOURCE = "source"
+SOURCE_COLUMNS = "source columns"
+SOURCE_KEY_COLUMNS = "source key columns"
+TARGET = "target"
+TARGET_COLUMNS = "target columns"
+TARGET_KEY_COLUMNS = "target key columns"
+TYPES = "types"
+WARN = "warn"
 WHEN_FORBIDDEN_COLUMN_PRESENT = "when forbidden column present"
+WHEN_FORBIDDEN_GROUP_PRESENT = "when forbidden group present"
+WHEN_GROUPS_CHANGE = "when groups change"
+WHEN_REQUIRED_COLUMN_MISSING = "when required column missing"
+WHEN_REQUIRED_GROUP_MISSING = "when required group missing"
 WHEN_SCHEMA_CHANGES = "when schema changes"
+WHEN_WRONG_COLUMN_INDEX = "when wrong column index"
+WHEN_WRONG_COLUMN_TYPE = "when wrong column type"
+
+ALL_GROUP_VALIDATIONS = [
+    WHEN_REQUIRED_GROUP_MISSING,
+    WHEN_FORBIDDEN_GROUP_PRESENT,
+    WHEN_GROUPS_CHANGE,
+]
 ALL_SCHEMA_VALIDATIONS = [
     WHEN_REQUIRED_COLUMN_MISSING,
     WHEN_WRONG_COLUMN_TYPE,
     WHEN_WRONG_COLUMN_INDEX,
     WHEN_FORBIDDEN_COLUMN_PRESENT,
     WHEN_SCHEMA_CHANGES,
-]
-
-WHEN_REQUIRED_GROUP_MISSING = "when required group missing"
-WHEN_FORBIDDEN_GROUP_PRESENT = "when forbidden group present"
-WHEN_GROUPS_CHANGE = "when groups change"
-
-ALL_GROUP_VALIDATIONS = [
-    WHEN_REQUIRED_GROUP_MISSING,
-    WHEN_FORBIDDEN_GROUP_PRESENT,
-    WHEN_GROUPS_CHANGE,
 ]
 
 # Generic log messages for SODACL parser
@@ -404,6 +414,14 @@ class SodaCLParser(Parser):
                     )
                 fail_condition_sql_expr = self._get_optional(FAIL_CONDITION, str)
                 samples_limit = self._get_optional(SAMPLES_LIMIT, int)
+                samples_columns = self._get_optional(SAMPLES_COLUMNS, list)
+                fail_query = self._get_optional(FAIL_QUERY, str)
+
+                fail_threshold_condition_str = self._get_optional(FAIL, str)
+                fail_threshold_cfg = self.__parse_configuration_threshold_condition(fail_threshold_condition_str)
+                warn_threshold_condition_str = self._get_optional(WARN, str)
+                warn_threshold_cfg = self.__parse_configuration_threshold_condition(warn_threshold_condition_str)
+
                 if fail_condition_sql_expr:
                     return UserDefinedFailedRowsExpressionCheckCfg(
                         source_header=header_str,
@@ -411,8 +429,24 @@ class SodaCLParser(Parser):
                         source_configurations=check_configurations,
                         location=self.location,
                         name=name,
+                        fail_threshold_cfg=fail_threshold_cfg,
+                        warn_threshold_cfg=warn_threshold_cfg,
                         fail_condition_sql_expr=fail_condition_sql_expr,
                         samples_limit=samples_limit,
+                        samples_columns=samples_columns,
+                    )
+                elif fail_query:
+                    return UserDefinedFailedRowsCheckCfg(
+                        source_header=header_str,
+                        source_line=check_str,
+                        source_configurations=check_configurations,
+                        location=self.location,
+                        name=name,
+                        fail_threshold_cfg=fail_threshold_cfg,
+                        warn_threshold_cfg=warn_threshold_cfg,
+                        query=fail_query,
+                        samples_limit=samples_limit,
+                        samples_columns=samples_columns,
                     )
                 else:
                     fail_query = self._get_optional(FAIL_QUERY, str)
@@ -481,6 +515,12 @@ class SodaCLParser(Parser):
                 name = self._get_optional(NAME, str)
                 query = self._get_required(FAIL_QUERY, str)
                 samples_limit = self._get_optional(SAMPLES_LIMIT, int)
+                samples_columns = self._get_optional(SAMPLES_COLUMNS, list)
+                fail_threshold_condition_str = self._get_optional(FAIL, str)
+                fail_threshold_cfg = self.__parse_configuration_threshold_condition(fail_threshold_condition_str)
+                warn_threshold_condition_str = self._get_optional(WARN, str)
+                warn_threshold_cfg = self.__parse_configuration_threshold_condition(warn_threshold_condition_str)
+
                 return UserDefinedFailedRowsCheckCfg(
                     source_header=header_str,
                     source_line=check_str,
@@ -489,6 +529,9 @@ class SodaCLParser(Parser):
                     name=name,
                     query=query,
                     samples_limit=samples_limit,
+                    samples_columns=samples_columns,
+                    fail_threshold_cfg=fail_threshold_cfg,
+                    warn_threshold_cfg=warn_threshold_cfg,
                 )
             finally:
                 self._pop_path_element()
