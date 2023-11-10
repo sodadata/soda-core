@@ -115,7 +115,7 @@ section_header:
 table_checks_header:
 	'checks for' S identifier (S partition_name)? EOF;
 
-partition_name: SQUARE_LEFT identifier SQUARE_RIGHT;
+partition_name: identifier;
 
 table_filter_header: 'filter' S identifier S partition_name EOF;
 
@@ -195,7 +195,7 @@ IDENTIFIER_UNQUOTED:
 		| ','
 	)*;
 IDENTIFIER_SQUARE_BRACKETS:
-	'[' (~'[' | '\\[' | ']' | '\\]')+ ']';
+	'[' [a-zA-Z_$] (~'[' | '\\[' | ']' | '\\]')+ ']';
 STRING: [a-z]+;
 DIGITS: [0-9]+;
 

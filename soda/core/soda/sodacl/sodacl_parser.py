@@ -1679,7 +1679,7 @@ class SodaCLParser(Parser):
 
     def __antlr_parse_partition_from_header(self, antlr_header):
         if antlr_header.partition_name():
-            return self.__antlr_parse_identifier(antlr_header.partition_name().identifier())
+            return self.__antlr_parse_identifier(antlr_header.partition_name().identifier()).strip("[]")
 
     def __antlr_parse_identifier(self, antlr_identifier) -> str:
         return self._resolve_jinja(antlr_identifier.getText(), self.sodacl_cfg.scan._variables)
