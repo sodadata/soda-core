@@ -3,7 +3,7 @@
 from setuptools import find_namespace_packages, setup
 
 package_name = "soda-core-db2"
-package_version = "3.0.53"
+package_version = "3.0.54"
 # TODO Add proper description
 description = "Soda Core IBM DB2 Package"
 
