@@ -7,6 +7,7 @@ from abc import ABC
 from soda.cloud.cloud import Cloud
 from soda.cloud.historic_descriptor import HistoricDescriptor
 from soda.common.attributes_handler import AttributeHandler
+from soda.common.string_helper import strip_quotes
 from soda.execution.check_outcome import CheckOutcome
 from soda.execution.check_type import CheckType
 from soda.execution.column import Column
@@ -291,7 +292,7 @@ class Check(ABC):
                 "resourceAttributes": self._format_attributes(),
                 "location": self.check_cfg.location.get_cloud_dict(),
                 "dataSource": self.data_source_scan.data_source.data_source_name,
-                "table": Partition.get_table_name(self.partition),
+                "table": strip_quotes(Partition.get_table_name(self.partition)),
                 # "filter": Partition.get_partition_name(self.partition), TODO: re-enable once backend supports the property.
                 "column": Column.get_partition_name(self.column),
                 "metrics": [metric.identity for metric in self.metrics.values()],
@@ -322,7 +323,7 @@ class Check(ABC):
                 "resourceAttributes": self._format_attributes(),
                 "location": self.check_cfg.location.get_dict(),
                 "dataSource": self.data_source_scan.data_source.data_source_name,
-                "table": Partition.get_table_name(self.partition),
+                "table": strip_quotes(Partition.get_table_name(self.partition)),
                 "filter": Partition.get_partition_name(self.partition),
                 "column": Column.get_partition_name(self.column),
                 "metrics": [metric.identity for metric in self.metrics.values()],

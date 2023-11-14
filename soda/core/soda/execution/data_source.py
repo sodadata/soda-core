@@ -232,6 +232,7 @@ class DataSource:
         # Temporarily introduced to migrate some "wrongly implemented" data sources.
         # See https://sodadata.atlassian.net/browse/CLOUD-5446
         self.migrate_data_source_name = None
+        self.quote_tables: bool = data_source_properties.get("quote_tables", False)
 
     def has_valid_connection(self) -> bool:
         query = Query(
@@ -1055,12 +1056,13 @@ class DataSource:
     def _optionally_quote_table_name_from_meta_data(self, table_name: str) -> str:
         """
         To be used by all table names coming from metadata queries.  Quotes are added if needed if the table
-        doesn't match the default casify rules.  The table_name is returned unquoted if it matches the default
-        casify rules.
+        doesn't match the default casify rules or if whitespaces are present.
+        The table_name is returned unquoted otherwise.
         """
         # if the table name needs quoting
         if table_name != self.default_casify_table_name(table_name):
-            # add the quotes
+            return self.quote_table(table_name)
+        elif self.quote_tables:
             return self.quote_table(table_name)
         else:
             # return the bare table name

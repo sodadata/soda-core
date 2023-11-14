@@ -425,3 +425,40 @@ class SQLServerDataSource(DataSource):
         )
 
         return sql
+
+    def quote_table(self, table_name: str) -> str:
+        return f"[{table_name}]"
+
+    def quote_column(self, column_name: str) -> str:
+        return f"[{column_name}]"
+
+    def is_quoted(self, table_name: str) -> bool:
+        return (
+            (table_name.startswith('"') and table_name.endswith('"'))
+            or (table_name.startswith("'") and table_name.endswith("'"))
+            or (table_name.startswith("[") and table_name.endswith("]"))
+        )
+
+    def sql_information_schema_tables(self) -> str:
+        return "INFORMATION_SCHEMA.TABLES"
+
+    def sql_information_schema_columns(self) -> str:
+        return "INFORMATION_SCHEMA.COLUMNS"
+
+    def default_casify_sql_function(self) -> str:
+        """Returns the sql function to use for default casify."""
+        return ""
+
+    def default_casify_system_name(self, identifier: str) -> str:
+        return identifier
+
+    def qualified_table_name(self, table_name: str) -> str:
+        """
+        table_name can be quoted or unquoted
+        """
+        if self.quote_tables and not self.is_quoted(table_name):
+            table_name = self.quote_table(table_name)
+
+        if self.table_prefix:
+            return f"{self.table_prefix}.{table_name}"
+        return table_name

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from soda.common.string_helper import strip_quotes
 from soda.profiling.discover_tables_result_column import DiscoverTablesResultColumn
 
 
@@ -16,7 +17,7 @@ class DiscoverTablesResultTable:
 
     def get_cloud_dict(self) -> dict:
         cloud_dict = {
-            "table": self.table_name,
+            "table": strip_quotes(self.table_name),
             "dataSource": self.data_source,
             "schema": [result_column.get_cloud_dict() for result_column in self.result_columns],
         }
@@ -24,7 +25,7 @@ class DiscoverTablesResultTable:
 
     def get_dict(self) -> dict:
         return {
-            "table": self.table_name,
+            "table": strip_quotes(self.table_name),
             "dataSource": self.data_source,
             "schema": [result_column.get_dict() for result_column in self.result_columns],
         }
