@@ -2,9 +2,10 @@ import logging
 from textwrap import dedent
 from unittest import skip
 
-from soda.contracts.data_contract_translator import DataContractTranslator
 from helpers.common_test_tables import customers_test_table
 from helpers.data_source_fixture import DataSourceFixture
+
+from soda.contracts.data_contract_translator import DataContractTranslator
 
 logger = logging.getLogger(__name__)
 
