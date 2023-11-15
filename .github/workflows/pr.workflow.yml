@@ -37,7 +37,6 @@ jobs:
           - "duckdb"
           - "dask"
 
-
     env:
       DATA_SOURCE: ${{ matrix.data-source }}
       PYTHON_VERSION: ${{ matrix.python-version }}
@@ -148,3 +147,32 @@ jobs:
       - name: Test with tox
         run: |
           tox --exit-and-dump-after 3600 -- soda -k soda/scientific
+
+  test-contracts:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version:
+          - "3.9"
+
+    env:
+      PYTHON_VERSION: ${{ matrix.python-version }}
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libsasl2-dev
+          python -m pip install --upgrade pip
+          cat dev-requirements.in | grep tox | xargs pip install
+
+      - name: Test with tox
+        run: |
+          tox --exit-and-dump-after 3600 -- soda -k soda/contracts
