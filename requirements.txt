@@ -20,3 +20,4 @@
 ./soda/denodo
 ./soda/vertica
 ./soda/teradata
+./soda/contracts

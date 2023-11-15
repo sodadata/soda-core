@@ -15,6 +15,7 @@ class SchemaValidations:
     is_column_deletion_forbidden: bool
     is_column_type_change_forbidden: bool
     is_column_index_change_forbidden: bool
+    other_columns_allowed: bool = True
 
     def has_change_validations(self):
         return (
