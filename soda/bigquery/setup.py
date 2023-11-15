@@ -3,7 +3,7 @@
 from setuptools import find_namespace_packages, setup
 
 package_name = "soda-core-bigquery"
-package_version = "3.0.51"
+package_version = "3.0.54"
 description = "Soda Core Bigquery Package"
 
 requires = [

@@ -16,11 +16,13 @@ class DaskDataSourceFixture(DataSourceFixture):
         super().__init__(test_data_source)
 
     def _build_configuration_dict(self, schema_name: str | None = None) -> dict:
-        return {"data_source dask": {"type": "dask"}, "schema": schema_name}
+        return {f"data_source {self.data_source_name}": {"type": "dask"}, "schema": schema_name}
 
     def _test_session_starts(self) -> None:
         scan = Scan()
-        self.context = scan._get_or_create_dask_context(required_soda_module="soda-core-pandas-dask")
+        self.context = scan._get_or_create_dask_context(
+            required_soda_module="soda-core-pandas-dask", data_source_name=self.data_source_name
+        )
         self.data_source = scan._data_source_manager.get_data_source(self.data_source_name)
         scan._get_or_create_data_source_scan(self.data_source_name)
 

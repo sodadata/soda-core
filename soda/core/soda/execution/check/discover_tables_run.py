@@ -48,7 +48,14 @@ class DiscoverTablesRun:
                 query_name=f"discover-tables-column-metadata-for-{table_name}",
             )
 
-            for column_name, column_type in columns_metadata_result.items():
-                _ = discover_tables_result_table.create_column(column_name, column_type)
+            if columns_metadata_result:
+                for column_name, column_type in columns_metadata_result.items():
+                    _ = discover_tables_result_table.create_column(column_name, column_type)
+            else:
+                self.logs.warning(
+                    f"Unable to retrieve column metadata for table {table_name}."
+                    "Column discovery results may be incomplete or entirely skipped",
+                    location=self.data_source_check_cfg.location,
+                )
 
         return discover_tables_result

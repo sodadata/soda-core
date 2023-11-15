@@ -28,12 +28,12 @@ class DataSourceFixture:
     __test__ = False
 
     @staticmethod
-    def _create() -> DataSourceFixture:
+    def _create(test_data_source_name: str = None) -> DataSourceFixture:
         test_data_source = os.getenv("test_data_source", "postgres")
         module = import_module(f"{test_data_source}_data_source_fixture")
         data_source_fixture_class = f"{DataSource.camel_case_data_source_type(test_data_source)}DataSourceFixture"
         class_ = getattr(module, data_source_fixture_class)
-        return class_(test_data_source)
+        return class_(test_data_source_name or test_data_source)
 
     def __init__(self, test_data_source: str):
         self.data_source_name = test_data_source

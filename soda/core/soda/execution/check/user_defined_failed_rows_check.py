@@ -54,8 +54,13 @@ class UserDefinedFailedRowsCheck(Check):
         failed_row_count: int = metric.value
         self.check_value: int = metrics.get(KEY_FAILED_ROWS_COUNT).value
 
-        self.outcome = CheckOutcome.PASS
-        if failed_row_count > 0:
-            self.outcome = CheckOutcome.FAIL
+        self.outcome = CheckOutcome.FAIL
+        if self.check_value > 0:
+            if self.check_cfg.fail_threshold_cfg and self.check_cfg.fail_threshold_cfg.is_bad(self.check_value):
+                self.outcome = CheckOutcome.FAIL
+            elif self.check_cfg.warn_threshold_cfg and self.check_cfg.warn_threshold_cfg.is_bad(self.check_value):
+                self.outcome = CheckOutcome.WARN
+        else:
+            self.outcome = CheckOutcome.PASS
 
         self.failed_rows_sample_ref = metric.failed_rows_sample_ref

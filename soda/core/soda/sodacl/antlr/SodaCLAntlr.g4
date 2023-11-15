@@ -87,7 +87,7 @@ threshold_value:
 	| freshness_threshold_value
 	| IDENTIFIER_UNQUOTED;
 
-freshness_threshold_value: (integer ('d' | 'h' | 'm'))+ integer?;
+freshness_threshold_value: TIMEUNIT+;
 
 reference_check:
 	'values in' S source_column_name S reference_must_exist S identifier S target_column_name
@@ -115,7 +115,7 @@ section_header:
 table_checks_header:
 	'checks for' S identifier (S partition_name)? EOF;
 
-partition_name: SQUARE_LEFT identifier SQUARE_RIGHT;
+partition_name: identifier;
 
 table_filter_header: 'filter' S identifier S partition_name EOF;
 
@@ -139,6 +139,7 @@ identifier:
 	IDENTIFIER_UNQUOTED
 	| IDENTIFIER_DOUBLE_QUOTE
 	| IDENTIFIER_BACKTICK
+	| IDENTIFIER_SQUARE_BRACKETS
 	| MIN
 	| MAX
 	| AVG;
@@ -193,7 +194,15 @@ IDENTIFIER_UNQUOTED:
 		| ']'
 		| ','
 	)*;
+IDENTIFIER_SQUARE_BRACKETS:
+	'[' [a-zA-Z_$] (~'[' | '\\[' | ']' | '\\]')+ ']';
 STRING: [a-z]+;
 DIGITS: [0-9]+;
+
+TIMEUNIT: DIGITS (DAY | HOUR | MINUTE);
+
+DAY: 'd';
+HOUR: 'h';
+MINUTE: 'm';
 
 S: ' ';

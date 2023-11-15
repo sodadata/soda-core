@@ -1,5 +1,6 @@
 from typing import List
 
+from soda.common.string_helper import strip_quotes
 from soda.sampler.sample_ref import SampleRef
 from soda.sodacl.data_source_check_cfg import DataSourceCheckCfg
 
@@ -12,7 +13,7 @@ class SampleTablesResultTable:
 
     def get_cloud_dict(self) -> dict:
         cloud_dict = {
-            "table": self.table_name,
+            "table": strip_quotes(self.table_name),
             "dataSource": self.data_source,
             "sampleFile": self.sample_ref.get_cloud_diagnostics_dict(),
         }
@@ -20,7 +21,7 @@ class SampleTablesResultTable:
 
     def get_dict(self) -> dict:
         return {
-            "table": self.table_name,
+            "table": strip_quotes(self.table_name),
             "dataSource": self.data_source,
         }
 
