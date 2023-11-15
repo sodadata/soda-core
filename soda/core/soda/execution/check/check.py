@@ -298,7 +298,7 @@ class Check(ABC):
                 "metrics": [metric.identity for metric in self.metrics.values()],
                 "outcome": self.outcome.value if self.outcome else None,
                 "diagnostics": self.get_cloud_diagnostics_dict(),
-                "source": "soda-library",
+                "source": "soda-core",
             }
         )
         # Update dict if automated monitoring is running
