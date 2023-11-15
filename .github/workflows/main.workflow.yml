@@ -45,6 +45,7 @@ jobs:
           - "duckdb"
           - "dask"
           # - "vertica"
+          - "contracts"
 
     env:
       DATA_SOURCE: ${{ matrix.data-source }}

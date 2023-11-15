@@ -34,7 +34,7 @@ jobs:
           - "mysql"
           - "duckdb"
           - "dask"
-
+          - "contracts"
 
     env:
       DATA_SOURCE: ${{ matrix.data-source }}
@@ -61,7 +61,7 @@ jobs:
       MYSQL_PASSWORD: sodacore
       MYSQL_ROOT_PASSWORD: sodacore
       SPARK_DF_HOST: ${{ secrets.SPARK_DF_HOST }}
-      
+
     steps:
       - uses: actions/checkout@v3
 
