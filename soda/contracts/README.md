@@ -101,7 +101,7 @@ as well as the `soda-core-xxxx` library for the SQL engine of your choice.
 To verify if a dataset complies with the contract, here's the code snippet.
 
 ```python
-from contracts.data_contract_translator import DataContractTranslator
+from soda.contracts.data_contract_translator import DataContractTranslator
 from soda.scan import Scan
 import logging
 

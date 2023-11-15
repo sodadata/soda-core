@@ -3,7 +3,7 @@ from __future__ import annotations
 from numbers import Number
 from typing import Any
 
-from contracts.yaml import Yaml, YamlList, YamlObject, YamlValue
+from soda.contracts.yaml import Yaml, YamlList, YamlObject, YamlValue
 
 
 class DataContractTranslator:

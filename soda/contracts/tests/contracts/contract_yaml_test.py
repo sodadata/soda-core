@@ -1,7 +1,7 @@
 import logging
 from textwrap import dedent
 
-from contracts.data_contract_translator import DataContractTranslator
+from soda.contracts.data_contract_translator import DataContractTranslator
 
 logger = logging.getLogger(__name__)
 
