@@ -1,6 +1,5 @@
 import logging
 from textwrap import dedent
-from unittest import skip
 
 from contracts.data_contract_translator import DataContractTranslator
 
@@ -297,7 +296,8 @@ def test_contract_transformation_reference():
     )
 
     assert (
-        sodacl_yaml_str.strip() == dedent(
+        sodacl_yaml_str.strip()
+        == dedent(
             f"""
         checks for CUSTOMERS:
         - schema:
@@ -330,7 +330,8 @@ def test_contract_transformation_ignore_other_keys():
     )
 
     assert (
-        sodacl_yaml_str.strip() == dedent(
+        sodacl_yaml_str.strip()
+        == dedent(
             f"""
         checks for CUSTOMERS:
         - schema:

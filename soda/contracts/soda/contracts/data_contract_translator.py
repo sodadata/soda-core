@@ -68,12 +68,11 @@ class DataContractTranslator:
                         ref_column: str | None = reference.read_string("column")
                         if ref_dataset and ref_column:
                             sample_limit: Number | None = reference.read_number_opt("samples_limit")
-                            reference_check_line = \
+                            reference_check_line = (
                                 f"values in ({column_name}) must exist in {ref_dataset} ({ref_column})"
+                            )
                             if sample_limit:
-                                sodacl_checks.append({
-                                    reference_check_line: {"samples limit": sample_limit}
-                                })
+                                sodacl_checks.append({reference_check_line: {"samples limit": sample_limit}})
                             else:
                                 sodacl_checks.append(reference_check_line)
 

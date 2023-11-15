@@ -66,7 +66,7 @@ checks:
 
 A contract verification will always check the schema.  The contract schema check will verify that the list of columns
 in the database dataset matches with the columns in the contract file.  All columns listed in the contract
-are required and no other columns are allowed.  
+are required and no other columns are allowed.
 
 Optionally, if the `data_type` property is specified in the column, the data type will be checked as well as part of
 the schema check.
@@ -92,8 +92,8 @@ The YAML list structure under `checks:` will just be copied to the SodaCL checks
 "Enforcement" of a contract comes down to verifying that a certain dataset (like eg a table) complies with the specification in
 the contract file.  When the contract does not comply, the data owner and potentially the consumers should be notified.
 
-> Known limitation: At the moment there possibility to verify contracts using the CLI. Only a 
-> Python programmatic API is available. 
+> Known limitation: At the moment there possibility to verify contracts using the CLI. Only a
+> Python programmatic API is available.
 
 In your python (virtual) environment, ensure that the libraries `soda-core` and `soda-core-contracts` are available
 as well as the `soda-core-xxxx` library for the SQL engine of your choice.
@@ -113,7 +113,7 @@ with open("dim_customer_data_contract.yml") as f:
 data_contract_parser = DataContractTranslator()
 sodacl_yaml_str = data_contract_parser.translate_data_contract_yaml_str(data_contract_yaml_str)
 
-# Logging or saving the SodaCL YAMl file will help with debugging potential scan execution issues 
+# Logging or saving the SodaCL YAMl file will help with debugging potential scan execution issues
 logging.debug(sodacl_yaml_str)
 
 # Execute the contract SodaCL in a scan
