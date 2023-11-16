@@ -1,6 +1,6 @@
 # Define programmatic scans using Python
 
-To automate the search for bad-quality data, you can use the **Soda Core Python library** to programmatically execute scans. 
+To automate the search for bad-quality data, you can use the **Soda Core Python library** to programmatically execute scans.
 
 Alternatively, you can install and use the Soda Core CLI to run scans; see [Install Soda Core](/docs/installation.md).
 
@@ -26,11 +26,7 @@ scan.set_data_source_name("events")
 # Choose one of the following to specify data source connection configurations :
 # 1) From a file
 scan.add_configuration_yaml_file(file_path="~/.soda/my_local_soda_environment.yml")
-# 2) From explicit environment variable(s)
-scan.add_configuration_yaml_from_env_var(env_var_name="SODA_ENV")
-# 3) From environment variables using a prefix
-scan.add_configuration_yaml_from_env_vars(prefix="SODA_")
-# 4) Inline in the code
+# 2) Inline in the code
 scan.add_configuration_yaml_str(
     """
     data_source events:
@@ -84,7 +80,7 @@ scan.get_logs_text()
 scan.assert_no_error_logs()
 scan.assert_no_checks_fail()
 
-# Advanced methods to inspect scan execution logs 
+# Advanced methods to inspect scan execution logs
 #################################################
 scan.has_error_logs()
 scan.get_error_logs_text()
@@ -104,8 +100,8 @@ scan.get_all_checks_text()
 ## Tips and best practices
 
 * You can save Soda Core scan results anywhere in your system; the `scan_result` object contains all the scan result information. To import the Soda Core library in Python so you can utilize the `Scan()` object, [install a Soda Core package](/docs/installation.md), then use `from soda.scan import Scan`.
-* Be sure to include any variables in your programmatic scan *before* the check YAML files. Soda requires the variable input for any variables defined in the check YAML files. 
- 
+* Be sure to include any variables in your programmatic scan *before* the check YAML files. Soda requires the variable input for any variables defined in the check YAML files.
+
 
 ## Scan exit codes
 
