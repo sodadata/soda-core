@@ -25,12 +25,6 @@ def example_python_api():
     # file_path's starting with ~ will be resolved to the user home directory
     scan.add_configuration_yaml_file(file_path="~/.soda/my_local_soda_environment.yml")
 
-    # Environment YAML can also be specified as the content of an environment variable
-    scan.add_configuration_yaml_from_env_var(env_var_name="SODA_ENV")
-
-    # Environment YAML can also be loaded from all variables starting with a prefix
-    scan.add_configuration_yaml_from_env_vars(prefix="SODA_")
-
     # Environment YAML can also be included in the Python code as a string:
     scan.add_configuration_yaml_str(
         """
