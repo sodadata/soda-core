@@ -268,12 +268,12 @@ class Check(ABC):
             "v1": self.create_identity(with_datasource=False, with_filename=False),
             "v2": self.create_identity(with_datasource=True, with_filename=False),
             "v3": self.create_identity(with_datasource=True, with_filename=True),
+            # v4 is reserved for custom identity
         }
         if isinstance(self.check_cfg.source_configurations, dict):
             identity = self.check_cfg.source_configurations.get("identity")
             if isinstance(identity, str):
-                # append custom identity latest
-                identities[f"v{len(identities) + 1}"] = identity
+                identities["v4"] = identity
         return identities
 
     def get_cloud_dict(self):
