@@ -69,6 +69,8 @@ class Scan:
         self.scan_results: dict = {}
 
     def build_scan_results(self) -> dict:
+        self._logs.debug("Building scan results.")
+
         checks = [check.get_dict() for check in self._checks if check.outcome is not None and check.archetype is None]
         automated_monitoring_checks = [
             check.get_dict() for check in self._checks if check.outcome is not None and check.archetype is not None
@@ -679,6 +681,8 @@ class Scan:
         return "\n".join([str(check) for check in checks])
 
     def _close(self):
+        self._logs.debug("Closing all connections.")
+
         self._data_source_manager.close_all_connections()
 
     def __create_check(self, check_cfg, data_source_scan=None, partition=None, column=None):
