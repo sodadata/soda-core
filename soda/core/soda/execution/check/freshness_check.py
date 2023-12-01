@@ -32,7 +32,7 @@ class FreshnessCheck(Check):
                 column=self.column,
                 metric_name="max",
                 metric_args=None,
-                filter=None,
+                filter=self.check_cfg.filter,
                 aggregation=None,
                 check_missing_and_valid_cfg=None,
                 column_configurations_cfg=None,
