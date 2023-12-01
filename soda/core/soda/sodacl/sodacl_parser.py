@@ -47,6 +47,7 @@ ATTRIBUTES = "attributes"
 FAIL = "fail"
 FAIL_CONDITION = "fail condition"
 FAIL_QUERY = "fail query"
+FILTER = "filter"
 IDENTITY = "identity"
 KEY_COLUMNS = "key columns"
 NAME = "name"
@@ -681,6 +682,7 @@ class SodaCLParser(Parser):
                     source_configurations=check_configurations,
                     location=self.location,
                     name=name,
+                    filter=filter,
                     column_name=column_name,
                     variable_name=variable_name,
                     fail_freshness_threshold=fail_freshness_threshold,
@@ -1308,6 +1310,7 @@ class SodaCLParser(Parser):
         antlr_freshness_threshold = antlr_freshness_check.freshness_threshold_value()
         warn_freshness_threshold = None
         name = None
+        filter = None
         if antlr_freshness_threshold:
             fail_freshness_threshold = self.parse_freshness_threshold(antlr_freshness_threshold.getText())
         else:
@@ -1318,6 +1321,7 @@ class SodaCLParser(Parser):
             warn_freshness_threshold = self.parse_staleness_threshold_text(warn_freshness_threshold_text)
 
             name = self._get_optional(NAME, str)
+            filter = self._get_optional(FILTER, str).strip()
             for configuration_key in check_configurations:
                 if configuration_key not in [NAME, WARN, FAIL, ATTRIBUTES]:
                     self.logs.error(f"Invalid freshness configuration key {configuration_key}", location=self.location)
@@ -1330,6 +1334,7 @@ class SodaCLParser(Parser):
             source_configurations=check_configurations,
             location=self.location,
             name=name,
+            filter=filter,
             column_name=column_name,
             variable_name=variable_name,
             fail_freshness_threshold=fail_freshness_threshold,

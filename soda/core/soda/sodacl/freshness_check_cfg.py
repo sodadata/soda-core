@@ -14,6 +14,7 @@ class FreshnessCheckCfg(CheckCfg):
         source_configurations: str | None,
         location: Location,
         name: str | None,
+        filter: str | None,
         column_name: str,
         variable_name: str | None,
         fail_freshness_threshold: timedelta,
@@ -24,6 +25,7 @@ class FreshnessCheckCfg(CheckCfg):
         self.variable_name: str = "NOW" if variable_name is None else variable_name
         self.fail_freshness_threshold: timedelta = fail_freshness_threshold
         self.warn_freshness_threshold: timedelta = warn_freshness_threshold
+        self.filter = filter
 
     def get_column_name(self) -> str | None:
         return self.column_name
