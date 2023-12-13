@@ -1,7 +1,8 @@
 from __future__ import annotations
 
+import copy
 import logging
-from abc import abstractmethod
+from abc import abstractmethod, ABC
 from numbers import Number
 from typing import Any
 
@@ -9,25 +10,27 @@ from ruamel.yaml import YAML, CommentedMap, CommentedSeq, round_trip_dump
 from ruamel.yaml.error import MarkedYAMLError
 
 
-class Yaml:
-    ruamel_yaml: YAML = YAML()
-    ruamel_yaml.preserve_quotes = True
+logger = logging.getLogger(__name__)
 
-    @classmethod
-    def parse_yaml_str(cls, yaml_str: str) -> YamlValue:
+
+class YamlParser:
+
+    def __init__(self):
+        self.ruamel_yaml: YAML = YAML()
+        self.ruamel_yaml.preserve_quotes = True
+
+    def parse_yaml_str(self, yaml_str: str) -> YamlValue:
         try:
-            ruamel_value = cls.ruamel_yaml.load(yaml_str)
-            return cls._to_yaml_value(ruamel_value)
+            ruamel_value = self.ruamel_yaml.load(yaml_str)
+            return self._to_yaml_value(ruamel_value)
         except MarkedYAMLError as e:
-            location = cls.__get_location_from_yaml_error(e)
+            location = self.__get_location_from_yaml_error(e)
             logging.error(f"YAML syntax error at {location}: \n{e}")
 
-    @classmethod
-    def write_yaml_str(cls, ruamel_commented_map: CommentedMap) -> str:
+    def write_yaml_str(self, ruamel_commented_map: CommentedMap) -> str:
         return round_trip_dump(ruamel_commented_map)
 
-    @classmethod
-    def __get_location_from_yaml_error(cls, e):
+    def __get_location_from_yaml_error(self, e):
         mark = e.context_mark if e.context_mark else e.problem_mark
         return YamlLocation(
             line=mark.line + 1,
@@ -58,38 +61,6 @@ class YamlLocation:
 
     def __str__(self):
         return f"(line {self.line},col {self.column})"
-
-
-# class YamlErrorLevel(Enum):
-#     WARNING = "warning"
-#     ERROR = "error"
-#
-#
-# @dataclass
-# class YamlError:
-#     level: YamlErrorLevel
-#     location: YamlLocation
-#     message: str
-#
-#     def __str__(self) -> str:
-#         level_str = "WARNING | " if self.level == YamlErrorLevel.WARNING else "ERROR   | "
-#         location_str = "" if self.location is None else f" {self.location}"
-#         return f"{level_str}{self.message}{location_str}"
-#
-#
-# class YamlErrors:
-#     def __init__(self):
-#         self.errors: List[YamlError] = []
-#
-#     def error(self, message: str, location: YamlLocation | None = None) -> None:
-#         self.errors.append(YamlError(level=YamlErrorLevel.ERROR, message=message, location=location))
-#
-#     def warning(self, message: str, location: YamlLocation | None = None) -> None:
-#         self.errors.append(YamlError(level=YamlErrorLevel.WARNING, message=message, location=location))
-#
-#     def __str__(self) -> str:
-#         error_lines = [str(error) for error in self.errors]
-#         return "\n".join(error_lines)
 
 
 class YamlValue:
@@ -156,12 +127,18 @@ class YamlObject(YamlValue):
         ruamel_location = ruamel_object.lc.value(key)
         line: int = ruamel_location[0]
         column: int = ruamel_location[1]
-        yaml_value = Yaml._to_yaml_value(ruamel_value=value)
+        yaml_value = YamlParser._to_yaml_value(ruamel_value=value)
         yaml_value.set_location(YamlLocation(line=line, column=column))
         return yaml_value
 
     def __iter__(self):
         return iter(self.yaml_dict)
+
+    def __contains__(self, key):
+        return key in self.yaml_dict
+
+    def __len__(self) -> int:
+        return len(self.yaml_dict)
 
     def keys(self):
         return self.yaml_dict.keys()
@@ -281,7 +258,7 @@ class YamlObject(YamlValue):
             return default_value
         yaml_value: YamlValue = self.yaml_dict.get(key)
         if expected_type is not None and not isinstance(yaml_value, expected_type):
-            logging.error(
+            logger.error(
                 f"'{key}' expected a {expected_type.__name__}, but was {type(yaml_value).__name__} {yaml_value.location}",
             )
         return yaml_value
@@ -302,12 +279,18 @@ class YamlList(YamlValue):
         ruamel_location = commented_seq.lc.key(index)
         line: int = ruamel_location[0]
         column: int = ruamel_location[1]
-        yaml_value = Yaml._to_yaml_value(ruamel_value=ruamel_value)
+        yaml_value = YamlParser._to_yaml_value(ruamel_value=ruamel_value)
         yaml_value.set_location(YamlLocation(line=line, column=column))
         return yaml_value
 
     def __iter__(self):
         return iter(self.value)
+
+    def __contains__(self, key):
+        return key in self.value
+
+    def __len__(self) -> int:
+        return len(self.value)
 
     def unpacked(self):
         return [yaml_value.unpacked() for yaml_value in self.value]
