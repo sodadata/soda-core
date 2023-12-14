@@ -104,10 +104,16 @@ class BigQueryDataSource(DataSource):
 
         if self.data_source_properties.get("impersonation_account"):
             self.logs.info("Using impersonation of Service Account.")
+            if self.data_source_properties.get("delegates"):
+                self.logs.info("Using Service Account delegates.")
+                delegates = self.data_source_properties.get("delegates")
+            else:
+                delegates = None
             self.credentials = impersonated_credentials.Credentials(
                 source_credentials=self.credentials,
                 target_principal=str(self.data_source_properties.get("impersonation_account")),
                 target_scopes=self.auth_scopes,
+                delegates=delegates,
             )
 
         # Users can optionally overwrite in the connection properties
