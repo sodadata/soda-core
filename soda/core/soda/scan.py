@@ -94,7 +94,7 @@ class Scan:
                 "hasErrors": self.has_error_logs(),
                 "hasWarnings": self.has_check_warns(),
                 "hasFailures": self.has_check_fails(),
-                "metrics": [metric.get_dict() for metric in self._metrics],
+                "metrics": self.get_computed_metrics_val(),
                 # If archetype is not None, it means that check is automated monitoring
                 "checks": checks,
                 "queries": query_list,
@@ -398,9 +398,13 @@ class Scan:
         """
         self._configuration.telemetry = None
 
-    def execute(self) -> int:
-        self._logs.debug("Scan execution starts")
-        exit_value = 0
+    def __create_checks(self):
+        """
+        Create checks from configurations
+        """
+        # Reset checks
+        self._checks = []
+        self._logs.debug("Create checks from configurations")
         try:
             from soda.execution.column import Column
             from soda.execution.metric.column_metrics import ColumnMetrics
@@ -470,7 +474,16 @@ class Scan:
                                                 partition,
                                                 column_metrics.column,
                                             )
+        except Exception as e:
+            self._logs.error("Error occurred while building checks.", exception=e)
 
+    def compute_metrics_val(self):
+        """
+        Calculate metrics from checks
+        """
+        self._logs.debug("Calculate metrics value starts")
+        try:
+            self.__create_checks()
             # Handle check attributes before proceeding.
             invalid_check_attributes = None
             invalid_checks = []
@@ -517,7 +530,17 @@ class Scan:
                         # are associated with the derived metric as well.
                         for metric_dep in metric.derived_formula.metric_dependencies.values():
                             metric.queries += metric_dep.queries
+        except Exception as e:
+            self._logs.error("Error occurred while calculating metrics.", exception=e)
 
+        return invalid_checks
+    
+    def execute(self) -> int:
+        self._logs.debug("Scan execution starts")
+        exit_value = 0
+        try:
+            invalid_checks = self.compute_metrics_val()
+            if not invalid_checks:
                 # Run profiling, data samples, automated monitoring, sample tables
                 try:
                     self.run_data_source_scan()
@@ -855,6 +878,9 @@ class Scan:
             if self._logs.verbose or check_outcome != CheckOutcome.PASS:
                 for diagnostic in check.get_log_diagnostic_lines():
                     self._logs.info(f"{indent}  {diagnostic}")
+
+    def get_computed_metrics_val(self) -> list[dict]:
+        return [metric.get_dict() for metric in self._metrics]
 
     def get_variable(self, variable_name: str, default_value: str | None = None) -> str | None:
         # Note: ordering here must be the same as in Jinja.OsContext.resolve_or_missing: First env vars, then scan vars
