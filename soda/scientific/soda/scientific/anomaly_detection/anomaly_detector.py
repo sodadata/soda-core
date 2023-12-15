@@ -5,7 +5,6 @@ from typing import Any, Dict, List, Mapping, Optional, Tuple
 import pandas as pd
 import yaml
 from pydantic import BaseModel, field_validator
-
 from soda.common.logs import Logs
 
 from soda.scientific.anomaly_detection.feedback_processor import FeedbackProcessor
