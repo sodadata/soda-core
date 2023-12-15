@@ -321,7 +321,7 @@ class ProphetDetector(BaseDetector):
             self._preprocess_params["interpolation_kwargs"]["method"] = "linear"
 
         self.time_series = self.time_series.set_index("ds")
-        self.time_series = self.time_series.resample(self.freq_detection_result.inferred_frequency).mean()
+        self.time_series = self.time_series.resample(self.freq_detection_result.inferred_frequency).last()
         self.time_series = self.time_series.reset_index()
         self.time_series["y"] = self.time_series["y"].interpolate(**self._preprocess_params["interpolation_kwargs"])
         if self._has_exogenous_regressor:
