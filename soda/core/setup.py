@@ -17,7 +17,7 @@ requires = [
     "opentelemetry-api~=1.16.0",
     "opentelemetry-exporter-otlp-proto-http~=1.16.0",
     "sqlparse~=0.4",
-    "inflect~=6.0",
+    "inflect~=7.0",
 ]
 
 setup(

@@ -5,6 +5,7 @@ import numpy as np
 import pandas as pd
 import pytest
 from numpy.random import default_rng
+from pydantic import ValidationError
 from ruamel.yaml import YAML
 
 from soda.scientific.distribution.comparison import (
@@ -33,8 +34,6 @@ def read_dro(dro_path: str) -> YAML:
     ],
 )
 def test_config_distribution_type(distribution_type, error_expected):
-    from pydantic.error_wrappers import ValidationError
-
     try:
         bins = [1, 2, 3]
         weights = [0.1, 0.8, 0.1]
@@ -52,8 +51,6 @@ def test_config_distribution_type(distribution_type, error_expected):
     ],
 )
 def test_config_weights(weights, error_expected):
-    from pydantic.error_wrappers import ValidationError
-
     bins = [1, 2, 3]
     try:
         RefDataCfg(bins=bins, weights=weights, labels=None, distribution_type="continuous")

@@ -389,7 +389,7 @@ def update_dro(
                 return
 
             dro = DROGenerator(RefDataCfg(distribution_type=distribution_type), column_values).generate()
-            distribution_dict["distribution_reference"] = dro.dict()
+            distribution_dict["distribution_reference"] = dro.model_dump()
             if "distribution reference" in distribution_dict:
                 # To clean up the file and don't leave the old syntax
                 distribution_dict.pop("distribution reference")
