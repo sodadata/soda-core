@@ -93,7 +93,7 @@ class AnomalyMetricCheck(MetricCheck):
         # Append current results
         historic_measurements.get("results", []).append(
             {
-                "id": 61,  # Placeholder number that will be overwritten
+                "id": str(61),  # Placeholder number that will be overwritten
                 "identity": metrics[metric_name].identity,
                 "value": self.get_metric_value(),
                 "dataTime": (

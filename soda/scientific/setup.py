@@ -15,7 +15,7 @@ requires = [
     f"soda-core=={package_version}",
     "pandas<2.0.0",
     "wheel",
-    "pydantic>=1.8.1,<2.0.0",
+    "pydantic>=2.0.0, <3.0.0",
     "scipy>=1.8.0",
     "numpy>=1.23.3, <2.0.0",
     "inflection==0.5.1",
