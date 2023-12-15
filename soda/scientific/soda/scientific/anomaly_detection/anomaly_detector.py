@@ -4,7 +4,7 @@ from typing import Any, Dict, List, Mapping, Optional, Tuple
 
 import pandas as pd
 import yaml
-from pydantic import BaseModel, validator
+from pydantic import BaseModel, field_validator
 from soda.common.logs import Logs
 
 from soda.scientific.anomaly_detection.feedback_processor import FeedbackProcessor
@@ -23,7 +23,8 @@ class UserFeedback(BaseModel):
     freeTextReason: Optional[str] = None
     skipMeasurements: Optional[str] = None
 
-    @validator("skipMeasurements")
+    @field_validator("skipMeasurements")
+    @classmethod
     def check_accepted_values_skip_measurements(cls, v):
         accepted_values = ["this", "previous", "previousAndThis", None]
         assert v in accepted_values, f"skip_measurements must be one of {accepted_values}, but '{v}' was provided."
@@ -116,16 +117,16 @@ class AnomalyDetector:
     @staticmethod
     def _parse_historical_measurements(measurements: Dict[str, List[Dict[str, Any]]]) -> pd.DataFrame:
         if measurements:
-            parsed_measurements = AnomalyHistoricalMeasurements.parse_obj(measurements)
-            _df_measurements = pd.DataFrame.from_dict(parsed_measurements.dict()["results"])
+            parsed_measurements = AnomalyHistoricalMeasurements.model_validate(measurements)
+            _df_measurements = pd.DataFrame.from_dict(parsed_measurements.model_dump()["results"])
             return _df_measurements
         else:
             raise ValueError("No historical measurements found.")
 
     def _parse_historical_check_results(self, check_results: Dict[str, List[Dict[str, Any]]]) -> pd.DataFrame:
         if check_results.get("results"):
-            parsed_check_results = AnomalyHistoricalCheckResults.parse_obj(check_results)
-            _df_check_results = pd.DataFrame.from_dict(parsed_check_results.dict()["results"])
+            parsed_check_results = AnomalyHistoricalCheckResults.model_validate(check_results)
+            _df_check_results = pd.DataFrame.from_dict(parsed_check_results.model_dump()["results"])
             return _df_check_results
         else:
             self._logs.debug(
@@ -133,7 +134,7 @@ class AnomalyDetector:
                 "Anomaly Detection for this check yet."
             )
             parsed_check_results = AnomalyHistoricalCheckResults(results=[AnomalyResult()])
-            _df_check_results = pd.DataFrame.from_dict(parsed_check_results.dict()["results"])
+            _df_check_results = pd.DataFrame.from_dict(parsed_check_results.model_dump()["results"])
             return _df_check_results
 
     def _convert_to_well_shaped_df(self) -> pd.DataFrame:
@@ -245,5 +246,5 @@ class AnomalyDetector:
                 "amomalyErrorMessage": freq_detection_result.error_message,
             }
 
-        diagnostics_dict: Dict[str, Any] = AnomalyDiagnostics.parse_obj(diagnostics).dict()
+        diagnostics_dict: Dict[str, Any] = AnomalyDiagnostics.model_validate(diagnostics).model_dump()
         return level, diagnostics_dict

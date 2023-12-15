@@ -192,7 +192,7 @@ class DistributionChecker:
             raise DistributionRefParsingException(
                 f"Cannot parse {dist_ref_file_path}, please check your reference file! \n"
             )
-        return RefDataCfg.parse_obj(ref_data_cfg), dist_method
+        return RefDataCfg.model_validate(ref_data_cfg), dist_method
 
     def assert_test_data(self, data: pd.Series, max_limit: int, distribution_type: str, column_name: str) -> None:
         if len(data) == 0:

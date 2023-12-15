@@ -2,18 +2,19 @@ from typing import List, Optional, Sequence
 
 import numpy as np
 import pandas as pd
-from pydantic import BaseModel, validator
+from pydantic import BaseModel, field_validator
 
 
 class RefDataCfg(BaseModel):
     """Validation model for reference data configuration."""
 
-    bins: Optional[List]
-    weights: Optional[List[float]]
-    labels: Optional[List]
+    bins: Optional[List] = None
+    weights: Optional[List[float]] = None
+    labels: Optional[List] = None
     distribution_type: str
 
-    @validator("weights")
+    @field_validator("weights")
+    @classmethod
     def check_weights_sum(cls, v):
         _sum = np.sum(v)
         np.testing.assert_almost_equal(
@@ -21,7 +22,8 @@ class RefDataCfg(BaseModel):
         )
         return v
 
-    @validator("distribution_type")
+    @field_validator("distribution_type")
+    @classmethod
     def check_accepted_values_distribution_type(cls, v):
         valid_distribution_methods = ["categorical", "continuous"]
         assert (

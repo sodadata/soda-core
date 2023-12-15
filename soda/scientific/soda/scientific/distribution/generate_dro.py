@@ -3,7 +3,7 @@ import math
 from typing import List
 
 import numpy as np
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 from soda.scientific.distribution.utils import RefDataCfg
 
@@ -15,9 +15,7 @@ BINS_AND_WEIGHTS_REF_LOG = (
 class DRO(BaseModel):
     weights: List
     bins: List
-
-    class Config:
-        arbitrary_types_allowed = True
+    model_config = ConfigDict(arbitrary_types_allowed=True)
 
 
 def normalize(data: np.ndarray) -> np.ndarray:
