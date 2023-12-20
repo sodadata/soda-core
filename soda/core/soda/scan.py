@@ -534,7 +534,7 @@ class Scan:
             self._logs.error("Error occurred while calculating metrics.", exception=e)
 
         return invalid_checks
-    
+
     def execute(self) -> int:
         self._logs.debug("Scan execution starts")
         exit_value = 0
