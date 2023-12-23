@@ -16,24 +16,28 @@ columns:
     
   - name: id
     data_type: character varying
-    not_null: true
-    unique: true
+    checks:
+      - type: no_missig_values
+      - type: unique
     
   - name: cst_size_txt
-    valid_values: [1, 2, 3]
+    checks:
+      - type: no_invalid_values
+        valid_values: [1, 2, 3]
     
   - name: distance
     data_type: integer
     checks: 
-        - type: avg
-          fail_when_not_between: [50, 150]
+      - type: avg
+        fail_when_not_between: [50, 150]
           
   - name: country
     data_type: varchar
-    not_null: true
-    reference:
-      dataset: COUNTRIES
-      column: id
+    checks:
+      - type: no_missing_values
+      - type: reference
+        dataset: COUNTRIES
+        column: id
 
 checks:
   - type: row_count
@@ -80,11 +84,14 @@ On each column, a limited set of basic check types can be configured with some s
 dataset: CUSTOMERS
 columns:
     - name: id
-      not_null: true
-      valid_format: uuid
-      unique: true
+      checks:
+        - type: no_invalid_values
+          valid_format: uuid
+        - type: unique
     - name: size
-      valid_values: ['S','M','L']
+      checks:
+        - type: no_invalid_values
+          valid_values: ['S','M','L']
 ```
 
 See [more basic column check configuration examples](EXAMPLES.md#basic-column-check-configuration-examples) 
@@ -114,14 +121,11 @@ See [more dataset check examples](EXAMPLES.md#dataset-check-examples)
 # Verifying a data contract
 
 Verifying a contract means checking that data in a dataset complies with the information in the contract. This is 
-also known as "Enforcement" of a contract.
+also known as 'enforcement'.
 
-Ideally you want to verify all new data in a separate table before appending it to a larger table
-
-There are several 
-
-comes down to verifying that a certain dataset (like eg a table) complies with the specification in
-the contract file.  When the contract does not comply, the data owner and potentially the consumers should be notified.
+Ideally you want to verify all new data before making it available to consumers in a table.  Therefore, it is best 
+practice to store batches of new data first in a temporary table, verify the contract on there and only when that 
+succeeds, append it to the larger table.
 
 > Known limitation: At the moment there possibility to verify contracts using the CLI. Only a
 > Python programmatic API is available.
@@ -131,32 +135,42 @@ as well as the `soda-core-xxxx` library for the SQL engine of your choice.
 
 To verify if a dataset complies with the contract, here's the code snippet.
 
+Inputs: 
+* Soda data contract YAML file
+* Data source name
+* Soda environment file containing data source configurations (=connections to SQL engines)
+
+Output:
+* Presence or absence of errors and warnings
+
 ```python
-from soda.contracts.data_contract_translator import DataContractTranslator
-from soda.scan import Scan
-import logging
+from soda.contracts.contract import Contract
 
-# Read your data contract file as a Python str
-with open("dim_customer_data_contract.yml") as f:
-    data_contract_yaml_str: str = f.read()
+connection_cfg_dict: Dict[str, str] = {
+    "type": "postgres",
+    "host": "localhost", 
+    "username": "johndoe",
+    "password": "*secret*"
+}
 
-# Translate the data contract into SodaCL
-data_contract_parser = DataContractTranslator()
-sodacl_yaml_str = data_contract_parser.translate_data_contract_yaml_str(data_contract_yaml_str)
+with Connection.create_from_cfg_dict(connection_cfg_dict) as connection:
+    
+    contract = Contract.create_from_file(file_path='./customers.sdc.yml')
+    contract.assert_no_errors()
 
-# Logging or saving the SodaCL YAMl file will help with debugging potential scan execution issues
-logging.debug(sodacl_yaml_str)
-
-# Execute the contract SodaCL in a scan
-scan = Scan()
-scan.set_data_source_name("SALESDB")
-scan.add_configuration_yaml_file(file_path="~/.soda/my_local_soda_environment.yml")
-scan.add_sodacl_yaml_str(sodacl_yaml_str)
-scan.execute()
-scan.assert_all_checks_pass()
+    contract_verification_result = contract.verify(connection=connection, schema='TEST')
+    contract_verification_result.assert_no_errors()
+    
+    
+    if contract_verification_result.has_check_failures() or contract_verification_result.has_check_warnings():
+      # Make the orchestration job fail.
+      ...
+    else:
+      # Copy temporary table to the incremental table
+      ...
 ```
 
-# Schema for editing data contracts YAML files
+# Schema for editing data contract YAML files
 
 YAML editors can be configured with a JSON Schema to help with authoring data contract files.
 

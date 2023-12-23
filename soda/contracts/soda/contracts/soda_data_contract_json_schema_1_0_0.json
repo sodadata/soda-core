@@ -1,12 +1,12 @@
 {
     "$schema": "http://json-schema.org/draft-04/schema#",
-    "$id": "https://soda.io/soda_data_contract_schema_1_0_0.json",
+    "$id": "https://soda.io/soda_data_contract_json_schema_1_0_0.json",
     "title": "Soda data contract",
     "description": "A data contract",
     "type": "object",
     "properties": {
-        "file_format_version": {
-            "description": "Version of the contract specification. Use semantic versioning. Eg 1.0.0",
+        "schema_version": {
+            "description": "Version of the Soda data contract schema. Uses semantic versioning. Eg 1.0.0",
             "type": "string",
             "enum": ["1.0.0"]
         },

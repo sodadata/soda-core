@@ -2,7 +2,6 @@ import logging
 from textwrap import dedent
 
 from contracts.translation_test_helper import translate
-from soda.contracts.data_contract_translator import DataContractTranslator
 
 logger = logging.getLogger(__name__)
 
@@ -29,7 +28,8 @@ def test_contract_not_null():
         dataset: CUSTOMERS
         columns:
           - name: cst_size
-            not_null: true
+            checks:
+              - type: no_missing_values
     """) == dedent(f"""
         checks for CUSTOMERS:
         - schema:

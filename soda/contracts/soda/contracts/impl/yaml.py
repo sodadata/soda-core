@@ -24,13 +24,14 @@ class YamlParser:
             ruamel_value = self.ruamel_yaml.load(yaml_str)
             return self._to_yaml_value(ruamel_value)
         except MarkedYAMLError as e:
-            location = self.__get_location_from_yaml_error(e)
+            location = self.get_location_from_yaml_error(e)
             logging.error(f"YAML syntax error at {location}: \n{e}")
 
     def write_yaml_str(self, ruamel_commented_map: CommentedMap) -> str:
         return round_trip_dump(ruamel_commented_map)
 
-    def __get_location_from_yaml_error(self, e):
+    @classmethod
+    def get_location_from_yaml_error(cls, e):
         mark = e.context_mark if e.context_mark else e.problem_mark
         return YamlLocation(
             line=mark.line + 1,
