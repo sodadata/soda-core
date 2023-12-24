@@ -1,11 +1,11 @@
 # Soda Data Contracts
 
-A data contract is a YAML file that describes the structure and data of a table.
+A data contract is a YAML file that describes the data in a dataset.
+
+A dataset is a table or other tabular datastructure accessible via a SQL connection.
 
 Soda can verify if the structure (= schema) and the data itself complies with the 
 descriptions in the data contract file.
-
-This current data contract file format only targets tables and views accessible via SQL. 
 
 # Example
 

@@ -28,10 +28,27 @@ def test_contract_api(data_source_fixture: DataSourceFixture):
           dataset: {table_name}
           columns:
           - name: id
-          - name: first_name
-            data_type: varchar
-            checks:
-            - type: no_missing_values
+            data_type: text
+            unique: true
+            attributes:
+              pii: sensitive
+          - name: cst_size
+            data_type: numeric
+          - name: cst_size_txt
+            valid_values: [1, 2, 3]
+          - name: distance
+            data_type: integer
+          - name: pct
+          - name: cat
+          - name: country
+            data_type: text
+            not_null: true
+          - name: zip
+          - name: email
+          - name: date_updated
+            data_type: date
+          - name: ts
+          - name: ts_with_tz
         """))
         contract_verification_result: ContractVerificationResult = contract.verify(connection, soda_cloud)
         # do something with the contract verification result

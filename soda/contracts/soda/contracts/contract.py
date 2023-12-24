@@ -8,7 +8,6 @@ import soda.common.logs as soda_common_logs
 from scan import Scan
 from soda.contracts.connection import Connection
 from soda.contracts.contract_verification_result import ContractVerificationResult
-from soda.contracts.impl.data_contract_translator import DataContractTranslator
 from soda.contracts.impl.variable_resolver import VariableResolver
 from soda.contracts.logs import Log, LogLevel, Logs, Location
 from soda.contracts.soda_cloud import SodaCloud

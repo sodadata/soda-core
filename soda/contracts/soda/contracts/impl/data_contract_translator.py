@@ -16,6 +16,7 @@ class DataContractTranslator(Logs):
     def __init__(self, logs: Logs | None = None):
         super().__init__(logs)
         self.yaml_parser = YamlParser()
+        self.missing_value_configs_by_column = {}
 
     def translate_data_contract_yaml_str(self, data_contract_yaml_str: str) -> str | None:
         """
@@ -81,64 +82,86 @@ class DataContractTranslator(Logs):
     def _parse_column_check(self, check: YamlObject, column_name: str) -> object | None:
         check_type = check.read_string("type")
 
-        if check_type in ["not_null", "no_missing_values", "missing_count", "missing_percent"]:
-            return self._parse_missing_check(check=check, check_type=check_type, column_name=column_name)
+        if check_type in ["not_null", "missing", "missing_count", "missing_percent"]:
+            return self._parse_column_missing_check(check=check, check_type=check_type, column_name=column_name)
 
-        elif check_type in ["no_invalid_values", "invalid_count", "invalid_percent"]:
-            return self._parse_invalid_check(check=check, check_type=check_type, column_name=column_name)
+        elif check_type in ["invalid", "invalid_count", "invalid_percent"]:
+            return self._parse_column_invalid_check(check=check, check_type=check_type, column_name=column_name)
 
-        elif check_type == "reference":
-            return self._parse_reference_check(check=check, check_type=check_type, column_name=column_name)
+        elif check_type in ["unique", "duplicate_count"]:
+            return self._parse_column_duplicates_check(check=check, check_type=check_type, column_name=column_name)
 
         else:
-            return self._parse_aggregation_check(check=check, check_type=check_type, column_name=column_name)
+            return self._parse_column_aggregation_check(check=check, check_type=check_type, column_name=column_name)
 
-    def _parse_missing_check(self, check: YamlObject, check_type: str, column_name: str) -> object | None:
-        check_configs: dict = self.parse_check_configs(check)
-        if check_type in ["no_missing_values", "not_null"]:
+    def _parse_column_missing_check(self, check: YamlObject, check_type: str, column_name: str) -> object | None:
+        check_configs: dict = self._parse_check_configs(check)
+        missing_configs: dict = {k: v for k, v in check_configs.items() if k.startswith("missing")}
+        self.missing_value_configs_by_column[column_name] = missing_configs
+
+        if check_type in ["missing", "not_null"]:
             return self._create_check(f"missing_count({column_name}) = 0", check_configs)
 
         metric = f"{check_type}({column_name})"
-        return self._create_check_line_from_threshold(metric, check)
+        return self._create_metric_with_threshold(metric, check)
 
-    def _parse_invalid_check(self, check: YamlObject, check_type: str, column_name: str) -> object | None:
-        pass
+    def _parse_column_invalid_check(self, check: YamlObject, check_type: str, column_name: str) -> object | None:
+        check_configs: dict = self._parse_check_configs(check)
 
-    def _parse_reference_check(self, check: YamlObject, check_type: str, column_name: str) -> object | None:
-            ref_dataset: str | None = check.read_string("dataset")
-            ref_column: str | None = check.read_string("column")
-            if not ref_dataset or not ref_column:
-                logger.error(f"Reference check must have 'dataset' and 'column'. {check.location}")
-                return None
+        missing_configs: dict | None = self.missing_value_configs_by_column.get(column_name)
+        if missing_configs:
+            new_check_configs = copy.deepcopy(missing_configs)
+            new_check_configs.update(check_configs)
+            check_configs = new_check_configs
 
-            sample_limit: Number | None = check.read_number_opt("samples_limit")
-            reference_check_line = (
-                f"values in ({column_name}) must exist in {ref_dataset} ({ref_column})"
-            )
-            if sample_limit:
-                return {reference_check_line: {"samples limit": sample_limit}}
+        valid_values_column: YamlObject = check.read_yaml_object_opt("valid_values_column")
+        if valid_values_column is not None:
+            if not isinstance(valid_values_column, YamlObject):
+                self._log_error(
+                    f"Expected object for contents of 'valid_values_column', "
+                    f"but was {type(valid_values_column)}, {check.location}"
+                )
             else:
-                return reference_check_line
+                ref_dataset: str | None = valid_values_column.read_string("dataset")
+                ref_column: str | None = valid_values_column.read_string("column")
+                if not ref_dataset or not ref_column:
+                    logger.error(f"Reference check must have 'dataset' and 'column'. {check.location}")
+                    return None
+                reference_check_line = (
+                    f"values in ({column_name}) must exist in {ref_dataset} ({ref_column})"
+                )
+                check_configs.pop("valid values column")
+                return self._create_check(reference_check_line, check_configs)
 
-    def _parse_aggregation_check(self, check: YamlObject, check_type: str, column_name: str) -> object | None:
-        pass
+        if check_type == "invalid":
+            return self._create_check(f"invalid_count({column_name}) = 0", check_configs)
+
+        metric = f"{check_type}({column_name})"
+        return self._create_metric_with_threshold(metric, check)
+
+    def _parse_column_duplicates_check(self, check: YamlObject, check_type: str, column_name: str) -> object | None:
+        if check_type == "unique":
+            check_configs: dict = self._parse_check_configs(check)
+            return self._create_check(f"duplicate_count({column_name}) = 0", check_configs)
+        metric = f"duplicate_count({column_name})"
+        return self._create_metric_with_threshold(metric, check)
+
+    def _parse_column_aggregation_check(self, check: YamlObject, check_type: str, column_name: str) -> object | None:
+        metric = f"{check_type}({column_name})"
+        return self._create_metric_with_threshold(metric, check)
 
     def _parse_dataset_check(self, check: YamlObject, column_name: str) -> object | None:
-        pass
+        check_type = check.read_string("type")
 
-    def _create_check_line_from_threshold(self, metric: str, check: YamlObject) -> object | None:
-        fail_configs = {
-            k: v for k, v in check.items()
-            if k.startswith("fail_")
-        }
-        warn_configs = {
-            k: v for k, v in check.items()
-            if k.startswith("warn_")
-        }
-        check_configs = {
-            k.replace("_", " "): v for k, v in check.unpacked().items()
-            if k not in ["type"] and not k.startswith("warn_") and not k.startswith("fail_")
-        }
+        if check_type == "row_count":
+            return self._create_metric_with_threshold("row_count", check)
+
+        self._log_error(f"Unsupported dataset check type {check_type}: {check.location}")
+
+    def _create_metric_with_threshold(self, metric: str, check: YamlObject) -> object | None:
+        fail_configs = self._parse_fail_configs(check)
+        warn_configs = self._parse_warn_configs(check)
+        check_configs = self._parse_check_configs(check)
         if warn_configs:
             logger.error(f"Warnings not yet supported: {check.location}")
 
@@ -183,51 +206,26 @@ class DataContractTranslator(Logs):
                 f"TODO figure out which parsing error is here.  No threshold specified? {check.location}")
             return None
 
-        #
-        # if check_type == "no_missing_values":
-        #     check_type = "missing_count"
-        #
-        #     sodacl_missing_config = {
-        #         k.replace("_", " "): v.unpacked()
-        #         for k, v in check.items()
-        #         if k.startswith("missing_")
-        #     }
-        #     metric_type = "missing_percent" if check_type == "missing_percent" else "missing_count"
-        #     missing_metric = f"{metric_type}({column_name})"
-        #
-        #     if sodacl_missing_config:
-        #         return {f"{missing_metric}({column_name}) = 0": sodacl_missing_config}
-        #     else:
-        #         return f"{missing_metric}({column_name}) = 0"
-        #
-        # sodacl_validity_config = {
-        #     k.replace("_", " "): v.unpacked()
-        #     for k, v in contract_column_yaml_object.items()
-        #     if k.startswith("valid_") or k.startswith("invalid_")
-        # }
-        # if sodacl_validity_config:
-        #     if sodacl_missing_config:
-        #         combined_configs = copy.deepcopy(sodacl_missing_config)
-        #         combined_configs.update(sodacl_validity_config)
-        #         sodacl_validity_config = combined_configs
-        #     sodacl_checks.append({f"invalid_count({column_name}) = 0": sodacl_validity_config})
-        #
-        # if contract_column_yaml_object.read_bool_opt("unique"):
-        #     sodacl_checks.append(f"duplicate_count({column_name}) = 0")
-        #
-        #
+    def _parse_warn_configs(self, check):
+        warn_configs = {
+            k: v for k, v in check.items()
+            if k.startswith("warn_")
+        }
+        return warn_configs
 
-    # def _is_short_style_not_null_check(self, check: YamlObject) -> bool:
-    #     return len(check) == 1 and check.read_bool_opt("not_null") is True
-    #
-    # def _is_missing_config_check(self, check: YamlObject) -> bool:
-    #     return all(k.startswith("missing_") for k in check)
-    #
-    # def _is_invalid_config_check(self, check: YamlObject) -> bool:
-    #     return all(k.startswith("valid_") or k.startswith("invalid_") for k in check)
-    #
-    # def _is_short_style_unique_check(self, check: YamlObject) -> bool:
-    #     return len(check) == 1 and check.get("unique") is True
+    def _parse_fail_configs(self, check):
+        fail_configs = {
+            k: v for k, v in check.items()
+            if k.startswith("fail_")
+        }
+        return fail_configs
+
+    def _parse_check_configs(self, check):
+        check_configs = {
+            k.replace("_", " "): v for k, v in check.unpacked().items()
+            if k not in ["type"] and not k.startswith("warn_") and not k.startswith("fail_")
+        }
+        return check_configs
 
     def _create_check(self, check_line: str, check_configs: dict) -> object:
         return {check_line: check_configs} if check_configs else check_line

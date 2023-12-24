@@ -5,6 +5,7 @@ import logging
 from ruamel.yaml import YAML
 from ruamel.yaml.error import MarkedYAMLError
 
+import soda.common.logs as soda_common_logs
 from execution.data_source import DataSource
 from soda.contracts.exceptions import SodaConnectionException
 from soda.contracts.impl.data_contract_translator import DataContractTranslator
@@ -178,7 +179,7 @@ class DataSourceConnection(Connection):
         # options = f"-c search_path={schema}" if schema else None
         try:
             self.data_source = DataSource.create(
-                logs=Logs(logger=logger),
+                logs=soda_common_logs.Logs(logger=logger),
                 data_source_name=f"{connection_type}_ds",
                 data_source_type=connection_type,
                 data_source_properties=connection_dict,
