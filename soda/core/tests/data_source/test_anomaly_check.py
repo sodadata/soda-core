@@ -3,6 +3,8 @@ import os
 import pytest
 from helpers.common_test_tables import customers_test_table
 from helpers.data_source_fixture import DataSourceFixture
+from helpers.mock_soda_cloud import TimeGenerator
+
 from soda.cloud.historic_descriptor import (
     HistoricCheckResultsDescriptor,
     HistoricMeasurementsDescriptor,
@@ -302,3 +304,34 @@ def test_anomaly_detection_incorrect_metric(data_source_fixture):
         "An error occurred during the initialization of AnomalyMetricCheck. Please make sure that the metric 'incorrect_metric' is supported. For more information see the docs: https://docs.soda.io/soda-cl/anomaly-score.html#anomaly-score-checks."
         in str(e.value)
     )
+
+
+@pytest.mark.skipif(
+    condition=os.getenv("SCIENTIFIC_TESTS") == "SKIP",
+    reason="Environment variable SCIENTIFIC_TESTS is set to SKIP which skips tests depending on the scientific package",
+)
+def test_anomaly_detection_warn_only(data_source_fixture: DataSourceFixture):
+    table_name = data_source_fixture.ensure_test_table(customers_test_table)
+
+    import numpy as np
+
+    np.random.seed(61)
+
+    scan = data_source_fixture.create_test_scan()
+
+    scan.add_sodacl_yaml_str(
+        f"""
+          checks for {table_name}:
+            - anomaly score for row_count < default:
+                warn_only: True
+        """
+    )
+    # The real value is 10, but we mock it to 10000000 to trigger an anomaly
+    scan.mock_historic_values(
+        metric_identity=f"metric-{scan._scan_definition_name}-{scan._data_source_name}-{table_name}-row_count",
+        metric_values=[100000000] * 30,
+        time_generator=TimeGenerator(),
+    )
+
+    scan.execute(allow_warnings_only=True)
+    scan.assert_all_checks_warn()
