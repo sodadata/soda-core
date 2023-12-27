@@ -139,6 +139,7 @@ class ProphetDetector(BaseDetector):
         time_series_data: pd.DataFrame,
         metric_name: str,
         has_exegonenous_regressor: bool = False,
+        warn_only: bool = False,
     ) -> None:
         """Constructor for ProphetDetector
 
@@ -171,7 +172,7 @@ class ProphetDetector(BaseDetector):
         self._has_exogenous_regressor = has_exegonenous_regressor
         self.time_series_data = time_series_data  # this gets potentially rewritten when runnin skip measurements
         self.uncertainty_bounds_require_integer_rounding: bool = metric_name in self.integer_type_metrics
-
+        self.warn_only = warn_only
         # public attrs
         self.model: Prophet
         self.predictions: pd.DataFrame
@@ -387,18 +388,22 @@ class ProphetDetector(BaseDetector):
         ), "Anomalies have not been detected yet. Make sure you run `detect_anomalies` first."
         # See criticality_threshold_calc method, the critical zone will always take over and
         # "extend" or replace the extreme to inf points of the warning zone.
-        self.anomalies.loc[:, "critical_greater_than_or_equal"] = self.anomalies.apply(
-            lambda x: self._criticality_threshold_calc(
-                x, threshold=self._criticality_threshold, directionality="upper"
-            ),
-            axis=1,
-        )
-        self.anomalies.loc[:, "critical_lower_than_or_equal"] = self.anomalies.apply(
-            lambda x: self._criticality_threshold_calc(
-                x, threshold=self._criticality_threshold, directionality="lower"
-            ),
-            axis=1,
-        )
+        if self.warn_only is False:
+            self.anomalies.loc[:, "critical_greater_than_or_equal"] = self.anomalies.apply(
+                lambda x: self._criticality_threshold_calc(
+                    x, threshold=self._criticality_threshold, directionality="upper"
+                ),
+                axis=1,
+            )
+            self.anomalies.loc[:, "critical_lower_than_or_equal"] = self.anomalies.apply(
+                lambda x: self._criticality_threshold_calc(
+                    x, threshold=self._criticality_threshold, directionality="lower"
+                ),
+                axis=1,
+            )
+        else:
+            self.anomalies.loc[:, "critical_greater_than_or_equal"] = np.inf
+            self.anomalies.loc[:, "critical_lower_than_or_equal"] = -np.inf
 
         # The bounds for warning are in fact anything that is outside of the model's
         # confidence bounds so we simply reassign them to another column.

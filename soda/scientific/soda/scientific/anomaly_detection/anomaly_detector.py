@@ -88,12 +88,13 @@ class AnomalyHistoricalMeasurements(BaseModel):
 
 
 class AnomalyDetector:
-    def __init__(self, measurements, check_results, logs: Logs, metric_name: str):
+    def __init__(self, measurements, check_results, logs: Logs, metric_name: str, warn_only: bool = False) -> None:
         self._logs = logs
         self.metric_name = metric_name
         self.df_measurements = self._parse_historical_measurements(measurements)
         self.df_check_results = self._parse_historical_check_results(check_results)
         self.params = self._parse_params()
+        self.warn_only = warn_only
 
     def evaluate(self) -> Tuple[str, Dict[str, Any]]:
         df_historic = self._convert_to_well_shaped_df()
@@ -107,10 +108,11 @@ class AnomalyDetector:
             time_series_data=feedback.df_feedback_processed,
             metric_name=self.metric_name,
             has_exegonenous_regressor=feedback.has_exegonenous_regressor,
+            warn_only=self.warn_only,
         )
         df_anomalies = detector.run()
 
-        level, diagnostics = self._parse_output(df_anomalies, detector.freq_detection_result)
+        level, diagnostics = self._parse_output(df_anomalies, detector.freq_detection_result, warn_only=self.warn_only)
 
         return level, diagnostics
 
@@ -213,7 +215,7 @@ class AnomalyDetector:
 
     @staticmethod
     def _parse_output(
-        df_anomalies: pd.DataFrame, freq_detection_result: FreqDetectionResult
+        df_anomalies: pd.DataFrame, freq_detection_result: FreqDetectionResult, warn_only: bool = False
     ) -> Tuple[str, Dict[str, Any]]:
         if not df_anomalies.empty:
             results_dict = df_anomalies.to_dict(orient="records")[0]
@@ -224,15 +226,16 @@ class AnomalyDetector:
                     "greaterThanOrEqual": results_dict["warning_greater_than_or_equal"],
                     "lessThanOrEqual": results_dict["warning_lower_than_or_equal"],
                 },
-                "fail": {
-                    "greaterThanOrEqual": results_dict["critical_greater_than_or_equal"],
-                    "lessThanOrEqual": results_dict["critical_lower_than_or_equal"],
-                },
                 "anomalyPredictedValue": results_dict["yhat"],
                 "anomalyErrorSeverity": freq_detection_result.error_severity,
                 "anomalyErrorCode": freq_detection_result.error_code,
                 "anomalyErrorMessage": freq_detection_result.error_message,
             }
+            if warn_only is False:
+                diagnostics["fail"] = {
+                    "greaterThanOrEqual": results_dict["critical_greater_than_or_equal"],
+                    "lessThanOrEqual": results_dict["critical_lower_than_or_equal"],
+                }
         else:
             level = "pass"
             diagnostics = {

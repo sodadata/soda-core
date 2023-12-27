@@ -206,6 +206,7 @@ class Check(ABC):
             identity_source_configurations.pop("identity", None)
             identity_source_configurations.pop("attributes", None)
             identity_source_configurations.pop("template", None)
+            identity_source_configurations.pop("warn_only", None)
             if len(identity_source_configurations) > 0:
                 # The next line ensures that ordering of the check configurations don't matter for identity
                 identity_source_configurations = collections.OrderedDict(sorted(identity_source_configurations.items()))
