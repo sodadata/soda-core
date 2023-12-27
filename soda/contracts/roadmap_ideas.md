@@ -1,5 +1,6 @@
 # Roadmap ideas
 
+* [ ] Improve docs on problems
 * [ ] Create a JSON schema for our language
 * [ ] Ensure proper errors/warning when variable is not defined
 * [ ] Optional columns in schema check

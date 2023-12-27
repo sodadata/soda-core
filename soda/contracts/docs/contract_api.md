@@ -80,20 +80,32 @@ contract_result.assert_no_errors()
 contract_result.assert_no_check_failures()
 ```
 
-## Exceptions, errors and failures
+## Errors, failures and problems
 
-Contract verification **errors** are problems during verification of the contract. These could be file format violations, 
-missing files, queries that fail etc.
+**Errors** are logs with level error that indicate the checks in the contract could not be evaluated. Contract verification 
+produces logs. Logs have a level of debug, info, warning and error. This could be due to incorrect inputs like missing files, 
+invalid files, connection issues, or contract invalid format, or it could be due to query execution exceptions. 
 
-Contract check **failures** imply that the data is not matching the description in the contract in one way or another.
+**Check failures** are failed checks that have evaluated as part of a contract. A check failure implies that the data is 
+not matching the description in the contract in one way or another.
 
-Connection errors generally lead to exceptions. Fail fast and hard as these are typically unrecoverable.
+A **problem** is the common term for either an error or a failure.  Contract verification should have no errors nor check failures.
+You will find convenience methods related to problems on the ContractResult like has_problems and assert_no_problems.
 
-The contract verification however is as resilient as possible and all errors and failures are handled & collected. 
-The reason is that we want to compute as many check results as possible to build up history and report on as many problems 
-as possible in one verification. 
+## Exceptions vs logs
 
-> Note: We do not comply with the standard Python language here wrt errors and exceptions. 
+Errors may lead to exceptions being raised but that is not always the 
+case. Connection errors and file parsing errors typically lead to exceptions. In that case fail fast and hard is appropriate as 
+these are typically unrecoverable. > On the other hand, the contract verification is as resilient as possible and all errors and 
+failures are handled & collected as logs. The reason is that we want to compute as many check results as possible to build up 
+history and report on as many problems as possible in one verification.  More on this in 
+[this ADR on exceptions vs errors](../adr/02_exceptions_vs_error_logs.md) 
+
+We do not comply with the standard Python language convention of errors for invalid inputs and exceptions 
+for execution issues. The base class for all Soda exceptions is SodaException, which inherits from Exception. 
+
+The API aims always to catch any other exceptions and only allow for SodaException's to come out of the 
+API methods
 
 ### Contract YAML files
 

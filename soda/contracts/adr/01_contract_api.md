@@ -19,4 +19,9 @@ with Connection.from_yaml_file('postgres_localhost.scn.yml') as connection:
     contract: Contract = Contract.from_yaml_file('customers.sdc.yml')
     contract_result = contract.verify(connection)
     soda_cloud.send(contract_result)
+
+    contract_result.assert_no_problems()
+    # or
+    if contract_result.has_problems():
+        # Make the pipeline stop and ensure alerts go off
 ```
