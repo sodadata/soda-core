@@ -1,3 +1,5 @@
+from soda.contracts.contract_result import ContractResult
+
 # Contract API
 
 ## The API
@@ -5,16 +7,15 @@
 ```python
 from soda.contracts.connection import Connection
 from soda.contracts.contract import Contract
-from soda.contracts.contract_verification_result import ContractVerificationResult
 from soda.contracts.soda_cloud import SodaCloud
 
 try:
     soda_cloud: SodaCloud = SodaCloud.from_yaml_file("./soda_cloud.scl.yml")
     with Connection.from_yaml_file("./postgres_localhost_dev.scn.yml") as connection:
         contract: Contract = Contract.from_yaml_file("./customers.sdc.yml")
-        contract_verification_result: ContractVerificationResult = contract.verify(connection, soda_cloud)
-        contract_verification_result.assert_no_errors()
-        if contract_verification_result.has_failures():
+        contract_result: ContractResult = contract.verify(connection, soda_cloud)
+        contract_result.assert_no_errors()
+        if contract_result.has_failures():
             # make the orchestration job fail and report contract check failures.
 except SodaException as e:
     # make the orchestration job fail and report contract verification errors.
@@ -74,9 +75,9 @@ To verify a contract, you need a [connection](#creating-a-connection) and a cont
 
 ```python
 contract: Contract = Contract.from_yaml_file("./customers.sdc.yml")
-contract_verification_result: ContractVerificationResult = contract.verify(connection, soda_cloud)
-contract_verification_result.assert_no_errors()
-contract_verification_result.assert_no_check_failures()
+contract_result: ContractResult = contract.verify(connection, soda_cloud)
+contract_result.assert_no_errors()
+contract_result.assert_no_check_failures()
 ```
 
 ## Exceptions, errors and failures
@@ -132,11 +133,11 @@ with Connection.create_from_cfg_dict(connection_cfg_dict) as connection:
     contract = Contract.create_from_file(file_path='./customers.sdc.yml')
     contract.assert_no_errors()
 
-    contract_verification_result = contract.verify(connection=connection, schema='TEST')
-    contract_verification_result.assert_no_errors()
+    contract_result = contract.verify(connection=connection, schema='TEST')
+    contract_result.assert_no_errors()
     
     
-    if contract_verification_result.has_check_failures() or contract_verification_result.has_check_warnings():
+    if contract_result.has_check_failures() or contract_result.has_check_warnings():
       # Make the orchestration job fail.
       ...
     else:

@@ -79,7 +79,9 @@ class Log:
 class Logs:
 
     def __init__(self, logs: Logs | None = None):
-        self.logs: List[Log] = [] if logs is None else logs.logs
+        self.logs: List[Log] = []
+        if logs is not None:
+            self.logs = logs.logs.copy()
 
     def assert_no_errors(self) -> None:
         if self.has_errors():

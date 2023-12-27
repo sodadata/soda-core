@@ -5,7 +5,7 @@ from helpers.common_test_tables import customers_test_table
 from helpers.data_source_fixture import DataSourceFixture
 from soda.contracts.connection import Connection
 from soda.contracts.contract import Contract
-from soda.contracts.contract_verification_result import ContractVerificationResult
+from soda.contracts.contract_result import ContractResult
 from soda.contracts.soda_cloud import SodaCloud
 
 
@@ -50,5 +50,8 @@ def test_contract_api(data_source_fixture: DataSourceFixture):
           - name: ts
           - name: ts_with_tz
         """))
-        contract_verification_result: ContractVerificationResult = contract.verify(connection, soda_cloud)
+        contract_result: ContractResult = contract.verify(connection, soda_cloud)
         # do something with the contract verification result
+
+        contract_result.assert_no_problems()
+        contract_result.has_problems()

@@ -17,6 +17,6 @@ The contract verification API is designed to run on a connection.
 soda_cloud: SodaCloud = SodaCloud.from_environment_variables()
 with Connection.from_yaml_file('postgres_localhost.scn.yml') as connection:
     contract: Contract = Contract.from_yaml_file('customers.sdc.yml')
-    contract_verification_result = contract.verify(connection)
-    soda_cloud.send(contract_verification_result)
+    contract_result = contract.verify(connection)
+    soda_cloud.send(contract_result)
 ```

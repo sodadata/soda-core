@@ -6,10 +6,11 @@ from ruamel.yaml import YAML
 from ruamel.yaml.error import MarkedYAMLError
 
 import soda.common.logs as soda_common_logs
-from execution.data_source import DataSource
 from soda.contracts.exceptions import SodaConnectionException
 from soda.contracts.impl.data_contract_translator import DataContractTranslator
+from soda.contracts.impl.variable_resolver import VariableResolver
 from soda.contracts.logs import Logs
+from soda.execution.data_source import DataSource
 
 logger = logging.getLogger(__name__)
 
@@ -58,7 +59,7 @@ class Connection:
                 )
             if not len(connection_yaml_file_path) > 1:
                 raise SodaConnectionException(
-                    f"Couldn't create connection from yaml file. connection_yaml_file_path must be a non empty string"
+                    f"Couldn't create connection from yaml file. connection_yaml_file_path is an empty string"
                 )
 
             with open(file=connection_yaml_file_path) as f:
@@ -66,7 +67,7 @@ class Connection:
                 return cls.from_yaml_str(connection_yaml_str)
         except Exception as e:
             raise SodaConnectionException(
-                f"Couldn't create connection from yaml file '{connection_yaml_file_path}'"
+                f"Couldn't create connection from yaml file '{connection_yaml_file_path}': {e}"
             ) from e
 
     @classmethod
@@ -97,9 +98,14 @@ class Connection:
             )
 
         try:
+            resolved_connection_yaml_str = VariableResolver.resolve(connection_yaml_str)
+        except BaseException as e:
+            raise SodaConnectionException(f"Could not resolve variables in connection YAML: {e}") from e
+
+        try:
             yaml = YAML()
             yaml.preserve_quotes = True
-            connection_dict = yaml.load(connection_yaml_str)
+            connection_dict = yaml.load(resolved_connection_yaml_str)
             if not isinstance(connection_dict, dict):
                 raise SodaConnectionException(
                     f"Content of the connection YAML file must be a YAML object, "
@@ -164,12 +170,12 @@ class Connection:
             except Exception as e:
                 logger.warning(f"Could not close the dbapi connection: {e}")
 
-    def _create_data_contract_translator(self, logs: Logs) -> DataContractTranslator:
+    def _create_data_contract_translator(self) -> DataContractTranslator:
         """
         Enables connection subclasses to create database specific errors during translation.
         This is for better static analysis of the contract taking the connection type into account.
         """
-        return DataContractTranslator(logs)
+        return DataContractTranslator()
 
 
 class DataSourceConnection(Connection):

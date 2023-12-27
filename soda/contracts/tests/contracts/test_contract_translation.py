@@ -1,7 +1,7 @@
 import logging
 from textwrap import dedent
 
-from contracts.translation_test_helper import translate
+from contracts.helpers.translation_test_helper import translate
 
 logger = logging.getLogger(__name__)
 

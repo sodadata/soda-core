@@ -11,10 +11,11 @@ from soda.contracts.logs import Logs
 logger = logging.getLogger(__name__)
 
 
-class DataContractTranslator(Logs):
+class DataContractTranslator:
 
-    def __init__(self, logs: Logs | None = None):
-        super().__init__(logs)
+    def __init__(self):
+        super().__init__()
+        self.logs = Logs()
         self.yaml_parser = YamlParser()
         self.missing_value_configs_by_column = {}
 
@@ -237,3 +238,6 @@ class DataContractTranslator(Logs):
                 and all(isinstance(v, Number) for v in threshold_value_unpacked)):
             return threshold_value_unpacked
         return None
+
+    def has_errors(self) -> bool:
+        return self.logs.has_errors()
