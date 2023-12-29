@@ -3,21 +3,22 @@ from __future__ import annotations
 import copy
 import logging
 from numbers import Number
-from typing import Any, List
+from typing import Any, List, Dict
 
 from soda.contracts.impl.yaml import YamlParser, YamlList, YamlObject, YamlValue, YamlNumber
-from soda.contracts.logs import Logs
+from soda.contracts.impl.logs import Logs
 
 logger = logging.getLogger(__name__)
 
 
-class DataContractTranslator:
+class DataContractTranslation:
 
-    def __init__(self):
+    def __init__(self, logs: Logs = Logs()):
         super().__init__()
-        self.logs = Logs()
+        self.logs = logs
         self.yaml_parser = YamlParser()
         self.missing_value_configs_by_column = {}
+        self.skip_schema_validation: bool = False
 
     def translate_data_contract_yaml_str(self, data_contract_yaml_str: str) -> str | None:
         """
@@ -33,9 +34,12 @@ class DataContractTranslator:
 
         :return str: SodaCL YAML string or None if the contract could not be translated.
         """
+
+
+
         data_contract_yaml_object: YamlValue = self.yaml_parser.parse_yaml_str(data_contract_yaml_str)
         if not isinstance(data_contract_yaml_object, YamlObject):
-            self._log_error(message=f"Contract YAML file must be an object, was {type(data_contract_yaml_object)}")
+            self.error(message=f"Contract YAML file must be an object, was {type(data_contract_yaml_object)}")
         else:
             ruamel_sodacl_yaml_dict = self._create_sodacl_yaml_dict(data_contract_yaml_object)
             return self.yaml_parser.write_yaml_str(ruamel_sodacl_yaml_dict)
@@ -48,8 +52,10 @@ class DataContractTranslator:
 
         contract_columns: YamlObject | None = data_contract_yaml_object.read_yaml_list("columns")
         if contract_columns:
-            columns = {}
-            sodacl_checks.append({"schema": {"fail": {"when mismatching columns": columns}}})
+            columns: Dict[str,str | None] = {}
+            optional_columns: List[str] = []
+            schema_fail_dict = {"when mismatching columns": columns}
+            sodacl_checks.append({"schema": {"fail": schema_fail_dict}})
 
             for contract_column in contract_columns:
                 contract_column_yaml_object: YamlObject = contract_column
@@ -57,6 +63,9 @@ class DataContractTranslator:
 
                 data_type: str | None = contract_column_yaml_object.read_string_opt("data_type")
                 columns[column_name] = data_type
+
+                if contract_column_yaml_object.read_bool_opt("optional", default_value=False):
+                    optional_columns.append(column_name)
 
                 column_checks: YamlList = contract_column_yaml_object.read_yaml_list_opt("checks")
 
@@ -67,6 +76,9 @@ class DataContractTranslator:
                             sodacl_checks.append(sodacl_column_check)
                         else:
                             logging.error(f"Could not build sodacl check for {column_check.unpacked()}")
+
+            if optional_columns:
+                schema_fail_dict["with optional columns"] = optional_columns
 
         checks: YamlList | None = data_contract_yaml_object.read_yaml_list_opt("checks")
         if checks:
@@ -118,7 +130,7 @@ class DataContractTranslator:
         valid_values_column: YamlObject = check.read_yaml_object_opt("valid_values_column")
         if valid_values_column is not None:
             if not isinstance(valid_values_column, YamlObject):
-                self._log_error(
+                self.error(
                     f"Expected object for contents of 'valid_values_column', "
                     f"but was {type(valid_values_column)}, {check.location}"
                 )
@@ -157,7 +169,7 @@ class DataContractTranslator:
         if check_type == "row_count":
             return self._create_metric_with_threshold("row_count", check)
 
-        self._log_error(f"Unsupported dataset check type {check_type}: {check.location}")
+        self.error(f"Unsupported dataset check type {check_type}: {check.location}")
 
     def _create_metric_with_threshold(self, metric: str, check: YamlObject) -> object | None:
         fail_configs = self._parse_fail_configs(check)

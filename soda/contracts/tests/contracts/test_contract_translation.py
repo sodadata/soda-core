@@ -40,6 +40,29 @@ def test_contract_schema_check_type_no_type_combination():
     """).strip()
 
 
+def test_contract_schema_check_optional_columns():
+    assert translate(
+        f"""
+        dataset: CUSTOMERS
+        columns:
+          - name: id
+            data_type: character varying
+          - name: cst_size
+          - name: sometimes
+            optional: true
+    """) == dedent(f"""
+        checks for CUSTOMERS:
+        - schema:
+            fail:
+              when mismatching columns:
+                id: character varying
+                cst_size:
+                sometimes:
+              with optional columns:
+              - sometimes
+    """).strip()
+
+
 def test_contract_not_null():
     assert translate(
         f"""
@@ -74,33 +97,28 @@ def test_contract_missing_values():
               when mismatching columns:
                 cst_size:
         - missing_count(cst_size) = 0:
-            missing values:
-            - 'N/A'
-            - 'No value'
+            missing values: ['N/A', 'No value']
     """).strip()
 
 
 def test_contract_valid_values():
     assert translate(
         f"""
-        dataset: CUSTOMERS
-        columns:
-          - name: cst_size
-            checks:
-              - type: invalid
-                valid_values: ['S', 'M', 'L']
-    """) == dedent(f"""
-        checks for CUSTOMERS:
-        - schema:
-            fail:
-              when mismatching columns:
-                cst_size:
-        - invalid_count(cst_size) = 0:
-            valid values:
-            - 'S'
-            - 'M'
-            - 'L'
-    """).strip()
+            dataset: CUSTOMERS
+            columns:
+              - name: cst_size
+                checks:
+                  - type: invalid
+                    valid_values: ['S', 'M', 'L']
+        """) == dedent(f"""
+            checks for CUSTOMERS:
+            - schema:
+                fail:
+                  when mismatching columns:
+                    cst_size:
+            - invalid_count(cst_size) = 0:
+                valid values: ['S', 'M', 'L']
+        """).strip()
 
 
 def test_contract_missing_and_valid_values():
@@ -121,17 +139,10 @@ def test_contract_missing_and_valid_values():
               when mismatching columns:
                 cst_size:
         - missing_count(cst_size) = 0:
-            missing values:
-            - 'N/A'
-            - 'No value'
+            missing values: ['N/A', 'No value']
         - invalid_count(cst_size) = 0:
-            missing values:
-            - 'N/A'
-            - 'No value'
-            valid values:
-            - 'S'
-            - 'M'
-            - 'L'
+            missing values: ['N/A', 'No value']
+            valid values: ['S', 'M', 'L']
     """).strip()
 
 
@@ -170,9 +181,7 @@ def test_contract_column_missing_values():
                   when mismatching columns:
                     cat:
             - missing_count(cat) = 0:
-                missing values:
-                - 'N/A'
-                - 'No value'
+                missing values: ['N/A', 'No value']
         """).strip()
 
 
@@ -193,10 +202,7 @@ def test_contract_column_valid_values():
                   when mismatching columns:
                     cat:
             - invalid_count(cat) = 0:
-                valid values:
-                - 'a'
-                - 'b'
-                - 'c'
+                valid values: ['a', 'b', 'c']
         """).strip()
 
 
@@ -222,15 +228,9 @@ def test_contract_column_multi_valid():
                   when mismatching columns:
                     cat:
             - invalid_count(cat) = 0:
-                valid values:
-                - 'a'
-                - 'b'
-                - 'c'
+                valid values: ['a', 'b', 'c']
                 valid length: 1
-                invalid values:
-                - 'i'
-                - 'n'
-                - 'v'
+                invalid values: ['i', 'n', 'v']
                 valid min: 0
                 valid max: 10
                 valid regex: '.'

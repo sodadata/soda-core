@@ -22,9 +22,9 @@ See the examples below for more schema features like optional columns and allowi
 ```yaml
 dataset: CUSTOMERS
 columns:
-    - name: id
-      data_type: VARCHAR
-    - name: size
+- name: id
+  data_type: VARCHAR
+- name: size
 ```
 
 See [more schema examples](EXAMPLES.md#schema-examples) 
@@ -36,15 +36,15 @@ On each column, a limited set of basic check types can be configured with some s
 ```yaml
 dataset: CUSTOMERS
 columns:
-    - name: id
-      checks:
-        - type: no_invalid_values
-          valid_format: uuid
-        - type: unique
-    - name: size
-      checks:
-        - type: no_invalid_values
-          valid_values: ['S','M','L']
+- name: id
+  checks:
+  - type: no_invalid_values
+    valid_format: uuid
+  - type: unique
+- name: size
+  checks:
+  - type: no_invalid_values
+    valid_values: ['S','M','L']
 ```
 
 See [more basic column check configuration examples](EXAMPLES.md#basic-column-check-configuration-examples) 

@@ -1,15 +1,16 @@
 from __future__ import annotations
 
 import logging
+from typing import Dict
 
 from ruamel.yaml import YAML
 from ruamel.yaml.error import MarkedYAMLError
 
 import soda.common.logs as soda_common_logs
 from soda.contracts.exceptions import SodaConnectionException
-from soda.contracts.impl.data_contract_translator import DataContractTranslator
+from soda.contracts.impl.data_contract_translation import DataContractTranslation
+from soda.contracts.impl.logs import Logs
 from soda.contracts.impl.variable_resolver import VariableResolver
-from soda.contracts.logs import Logs
 from soda.execution.data_source import DataSource
 
 logger = logging.getLogger(__name__)
@@ -71,17 +72,20 @@ class Connection:
             ) from e
 
     @classmethod
-    def from_yaml_str(cls, connection_yaml_str: str) -> Connection:
+    def from_yaml_str(cls, connection_yaml_str: str, variables: Dict[str, str] | None = None) -> Connection:
         """
-        # TODO specify connection configuration properties are being documented
+        # TODO specify where the connection configuration properties are being documented
         connection_yaml_str: str = "...YAML string for connection configuration properties..."
         with Connection.from_yaml_str(connection_yaml_str) as connection:
            # do stuff with connection
 
-        Use ${YOUR_PASSWORD} to resolve environment variables. Recommended for credentials.
+        Use ${YOUR_PASSWORD} to resolve environment variables. Recommended for credentials. Resolving will
+        first use the variables parameter and otherwise fall back to environment variables.  A SodaConnectionException
+        will be raised if a variable is used and cannot be resolved.
 
         :param connection_yaml_str: A YAML string containing the connection configuration properties.
-        :param file_path: If provided, the file path will be included in the exceptions.
+        :param variables: Optional dictionary of variables that will be used to resolve variables before checking
+        environment variables.
         :return: an open connection, if no exception is raised
         :raises SodaConnectionException: if the connection cannot be established for any reason
         """
@@ -98,7 +102,7 @@ class Connection:
             )
 
         try:
-            resolved_connection_yaml_str = VariableResolver.resolve(connection_yaml_str)
+            resolved_connection_yaml_str = VariableResolver.resolve(connection_yaml_str, variables)
         except BaseException as e:
             raise SodaConnectionException(f"Could not resolve variables in connection YAML: {e}") from e
 
@@ -170,12 +174,12 @@ class Connection:
             except Exception as e:
                 logger.warning(f"Could not close the dbapi connection: {e}")
 
-    def _create_data_contract_translator(self) -> DataContractTranslator:
+    def _create_data_contract_translation(self, logs: Logs) -> DataContractTranslation:
         """
         Enables connection subclasses to create database specific errors during translation.
         This is for better static analysis of the contract taking the connection type into account.
         """
-        return DataContractTranslator()
+        return DataContractTranslation(logs)
 
 
 class DataSourceConnection(Connection):
@@ -192,5 +196,5 @@ class DataSourceConnection(Connection):
             )
             self.data_source.connect()
         except Exception as e:
-            raise SodaConnectionException(f"Could not create the connection") from e
+            raise SodaConnectionException(f"Could not create the connection: {e}") from e
         super().__init__(dbapi_connection=self.data_source.connection)

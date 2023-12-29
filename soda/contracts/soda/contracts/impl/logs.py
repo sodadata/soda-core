@@ -96,26 +96,12 @@ class Logs:
     def get_errors(self) -> List[Log]:
         return [log for log in self.logs if log.level == LogLevel.ERROR]
 
-    def _log_error(self,
+    def error(self,
                    message: str,
                    location: Location | None = None,
                    exception: BaseException | None = None
                    ) -> None:
         self._log(Log(LogLevel.ERROR, message, location, exception))
-
-    def _log_warning(self,
-                     message: str,
-                     location: Location | None = None,
-                     exception: BaseException | None = None
-                     ) -> None:
-        self._log(Log(LogLevel.WARNING, message, location, exception))
-
-    def _log_info(self,
-                  message: str,
-                  location: Location | None = None,
-                  exception: BaseException | None = None
-                  ) -> None:
-        self._log(Log(LogLevel.INFO, message, location, exception))
 
     def _log(self, log: Log) -> None:
         self.logs.append(log)

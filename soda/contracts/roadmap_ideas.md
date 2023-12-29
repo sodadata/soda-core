@@ -1,9 +1,10 @@
 # Roadmap ideas
 
-* [ ] Improve docs on problems
-* [ ] Create a JSON schema for our language
-* [ ] Ensure proper errors/warning when variable is not defined
-* [ ] Optional columns in schema check
+* [ ] Update a JSON schema for our language & ensure validation on contract verification
+* [ ] Build test suite for basic check types
+* [x] Improve docs on problems
+* [x] Ensure proper errors/warning when variable is not defined
+* [x] Optional columns in schema check
 * [ ] Add a data contract language version to the format
 * [ ] SQL expressions in column properties
 * [ ] Add support in the Soda CLI for executing contracts

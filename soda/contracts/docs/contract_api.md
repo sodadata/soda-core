@@ -6,7 +6,7 @@ from soda.contracts.contract_result import ContractResult
 
 ```python
 from soda.contracts.connection import Connection
-from soda.contracts.contract import Contract
+from soda.contracts.contract import Contract, ContractResult
 from soda.contracts.soda_cloud import SodaCloud
 
 try:
@@ -14,11 +14,9 @@ try:
     with Connection.from_yaml_file("./postgres_localhost_dev.scn.yml") as connection:
         contract: Contract = Contract.from_yaml_file("./customers.sdc.yml")
         contract_result: ContractResult = contract.verify(connection, soda_cloud)
-        contract_result.assert_no_errors()
-        if contract_result.has_failures():
-            # make the orchestration job fail and report contract check failures.
+        contract_result.assert_no_problems()
 except SodaException as e:
-    # make the orchestration job fail and report contract verification errors.
+    # make the orchestration job fail and report all problems
 ```
 
 ## Creating a connection
@@ -76,8 +74,7 @@ To verify a contract, you need a [connection](#creating-a-connection) and a cont
 ```python
 contract: Contract = Contract.from_yaml_file("./customers.sdc.yml")
 contract_result: ContractResult = contract.verify(connection, soda_cloud)
-contract_result.assert_no_errors()
-contract_result.assert_no_check_failures()
+contract_result.assert_no_problems()
 ```
 
 ## Errors, failures and problems
@@ -89,8 +86,9 @@ invalid files, connection issues, or contract invalid format, or it could be due
 **Check failures** are failed checks that have evaluated as part of a contract. A check failure implies that the data is 
 not matching the description in the contract in one way or another.
 
-A **problem** is the common term for either an error or a failure.  Contract verification should have no errors nor check failures.
-You will find convenience methods related to problems on the ContractResult like has_problems and assert_no_problems.
+A **problem** is the common term for either an execution error or a failure.  Contract verification should have no errors nor 
+check failures. You will find convenience methods related to problems on the ContractResult like has_problems and 
+assert_no_problems.
 
 ## Exceptions vs logs
 
@@ -148,7 +146,6 @@ with Connection.create_from_cfg_dict(connection_cfg_dict) as connection:
     contract_result = contract.verify(connection=connection, schema='TEST')
     contract_result.assert_no_errors()
     
-    
     if contract_result.has_check_failures() or contract_result.has_check_warnings():
       # Make the orchestration job fail.
       ...
@@ -156,7 +153,6 @@ with Connection.create_from_cfg_dict(connection_cfg_dict) as connection:
       # Copy temporary table to the incremental table
       ...
 ```
-
 
 
 # Schema for editing data contract YAML files

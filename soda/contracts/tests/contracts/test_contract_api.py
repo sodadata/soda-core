@@ -4,8 +4,7 @@ from textwrap import dedent
 from helpers.common_test_tables import customers_test_table
 from helpers.data_source_fixture import DataSourceFixture
 from soda.contracts.connection import Connection
-from soda.contracts.contract import Contract
-from soda.contracts.contract_result import ContractResult
+from soda.contracts.contract import Contract, ContractResult
 from soda.contracts.soda_cloud import SodaCloud
 
 

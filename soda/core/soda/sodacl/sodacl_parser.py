@@ -7,6 +7,7 @@ import re
 from datetime import timedelta
 from numbers import Number
 from textwrap import dedent
+from typing import List
 
 from antlr4 import CommonTokenStream, InputStream
 from antlr4.error.ErrorListener import ErrorListener
@@ -68,6 +69,7 @@ WHEN_FORBIDDEN_COLUMN_PRESENT = "when forbidden column present"
 WHEN_FORBIDDEN_GROUP_PRESENT = "when forbidden group present"
 WHEN_GROUPS_CHANGE = "when groups change"
 WHEN_MISMATCHING_COLUMNS = "when mismatching columns"
+WITH_OPTIONAL_COLUMNS = "with optional columns"
 WHEN_REQUIRED_COLUMN_MISSING = "when required column missing"
 WHEN_REQUIRED_GROUP_MISSING = "when required group missing"
 WHEN_SCHEMA_CHANGES = "when schema changes"
@@ -1110,6 +1112,23 @@ class SodaCLParser(Parser):
             if validations_dict.get(WHEN_MISMATCHING_COLUMNS):
                 schema_validations.required_column_types = self.__parse_schema_validation(WHEN_MISMATCHING_COLUMNS)
                 schema_validations.other_columns_allowed = False
+                with_optional_columns = validations_dict.get(WITH_OPTIONAL_COLUMNS)
+                if with_optional_columns is not None:
+                    if (
+                        isinstance(with_optional_columns, List)
+                        and all(isinstance(e, str) for e in with_optional_columns)
+                    ):
+                        schema_validations.optional_columns = with_optional_columns
+                    else:
+                        self.logs.error(
+                            f'"with optional columns" must be a list of strings',
+                            location=self.location,
+                        )
+            elif validations_dict.get(WITH_OPTIONAL_COLUMNS):
+                self.logs.error(
+                    f'"with optional columns" is only allowed together with "when mismatching columns"',
+                    location=self.location,
+                )
 
             for invalid_schema_validation in [
                 v
@@ -1119,6 +1138,7 @@ class SodaCLParser(Parser):
                     WHEN_REQUIRED_COLUMN_MISSING,
                     WHEN_WRONG_COLUMN_TYPE,
                     WHEN_MISMATCHING_COLUMNS,
+                    WITH_OPTIONAL_COLUMNS,
                     WHEN_WRONG_COLUMN_INDEX,
                     WHEN_FORBIDDEN_COLUMN_PRESENT,
                     WHEN_SCHEMA_CHANGES,
