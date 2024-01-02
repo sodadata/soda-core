@@ -50,23 +50,30 @@ checks:
   fail_when_greater_than: 6
 ```
 
-[Learn more about the Soda data contract checks](docs/contract_checks.md)
+[Learn more about the Soda data contract checks](docs/writing_a_contract)
 
 # Data contract API
 
+Basic example of the contract verification API usage 
+
 ```python
+import logging
 from soda.contracts.connection import Connection
 from soda.contracts.contract import Contract, ContractResult
 from soda.contracts.soda_cloud import SodaCloud
+from soda.contracts.exceptions import SodaException
 
+
+connection_file_path = 'postgres_localhost.scn.yml'
+contract_file_path = 'customers.sdc.yml'
 try:
-    soda_cloud: SodaCloud = SodaCloud.from_yaml_file("./soda_cloud.scl.yml")
-    with Connection.from_yaml_file("./postgres_localhost_dev.scn.yml") as connection:
-        contract: Contract = Contract.from_yaml_file("./customers.sdc.yml")
-        contract_result: ContractResult = contract.verify(connection, soda_cloud)
-        contract_result.assert_no_problems()
+    soda_cloud: SodaCloud = SodaCloud.from_environment_variables()
+    with Connection.from_yaml_file(file_path=connection_file_path) as connection:
+        contract: Contract = Contract.from_yaml_file(file_path=contract_file_path)
+        contract_result: ContractResult = contract.verify(connection=connection, soda_cloud=soda_cloud)
 except SodaException as e:
-    # make the orchestration job fail and report contract verification errors.
+    logging.exception("Problems verifying contract")
+    # TODO ensure you stop your ochestration job or pipeline & the right people are notified
 ```
 
 [Learn more about the Soda contract API](docs/contract_api.md)

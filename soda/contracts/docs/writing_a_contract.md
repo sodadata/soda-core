@@ -1,5 +1,4 @@
-
-
+# Writing a contract
 
 ## File naming convention
 

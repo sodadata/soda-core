@@ -14,7 +14,6 @@ try:
     with Connection.from_yaml_file("./postgres_localhost_dev.scn.yml") as connection:
         contract: Contract = Contract.from_yaml_file("./customers.sdc.yml")
         contract_result: ContractResult = contract.verify(connection, soda_cloud)
-        contract_result.assert_no_problems()
 except SodaException as e:
     # make the orchestration job fail and report all problems
 ```
@@ -97,7 +96,7 @@ case. Connection errors and file parsing errors typically lead to exceptions. In
 these are typically unrecoverable. > On the other hand, the contract verification is as resilient as possible and all errors and 
 failures are handled & collected as logs. The reason is that we want to compute as many check results as possible to build up 
 history and report on as many problems as possible in one verification.  More on this in 
-[this ADR on exceptions vs errors](../adr/02_exceptions_vs_error_logs.md) 
+[this ADR on exceptions vs errors](../adr/03_exceptions_vs_error_logs) 
 
 We do not comply with the standard Python language convention of errors for invalid inputs and exceptions 
 for execution issues. The base class for all Soda exceptions is SodaException, which inherits from Exception. 
@@ -113,7 +112,7 @@ Variable resolving is case sensitive. We recommend using all upper case and unde
 For contract YAML files, we recommend to use extension `sdc.yml` (Soda Data Contract) because 
 the editor tooling support will likely will be coupled via that extension.
 
-[Learn more on writing contract checks](./contract_checks.md)
+[Learn more on writing contract checks](./writing_a_contract)
 
 
 
