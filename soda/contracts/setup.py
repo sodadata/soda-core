@@ -8,6 +8,7 @@ description = "Soda Core Contracts Package"
 
 requires = [
     f"soda-core=={package_version}",
+    f"jsonschema==4.20.0"
 ]
 # TODO Fix the params
 setup(

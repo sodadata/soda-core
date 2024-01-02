@@ -285,11 +285,17 @@ def test_contract_dataset_row_count():
     assert translate(
         f"""
         dataset: CUSTOMERS
+        columns:
+          - name: id
         checks:
           - type: row_count
             fail_when_not_between: [400, 500]
     """) == dedent(f"""
         checks for CUSTOMERS:
+        - schema:
+            fail:
+              when mismatching columns:
+                id:
         - row_count between 400 and 500
     """).strip()
 

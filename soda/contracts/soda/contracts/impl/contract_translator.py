@@ -5,46 +5,21 @@ import logging
 from numbers import Number
 from typing import Any, List, Dict
 
-from soda.contracts.impl.yaml import YamlParser, YamlList, YamlObject, YamlValue, YamlNumber
+from soda.contracts.impl.yaml import YamlParser, YamlList, YamlObject, YamlValue, YamlNumber, YamlWriter
 from soda.contracts.impl.logs import Logs
 
 logger = logging.getLogger(__name__)
 
 
-class DataContractTranslation:
+class ContractTranslator:
 
-    def __init__(self, logs: Logs = Logs()):
+    def __init__(self, logs: Logs | None = None):
         super().__init__()
-        self.logs = logs
-        self.yaml_parser = YamlParser()
+        self.logs = logs if logs else Logs()
         self.missing_value_configs_by_column = {}
         self.skip_schema_validation: bool = False
 
-    def translate_data_contract_yaml_str(self, data_contract_yaml_str: str) -> str | None:
-        """
-        Parses a data contract YAML string into a SodaCL YAML str that can be fed into
-        SodaCLParser.parse_sodacl_yaml_str
-
-        data_contract_translator = DataContractTranslator()
-        sodacl_yaml_str: str | None = data_contract_translator.translate_data_contract_yaml_str(resolved_contract_yaml_str)
-        if data_contract_translator.has_errors():
-            # Handle the errors, which implies the sodacl_yaml_str has to be ignored
-        else:
-            # Translation succeeded, proceed to execution of the SodaCL string
-
-        :return str: SodaCL YAML string or None if the contract could not be translated.
-        """
-
-
-
-        data_contract_yaml_object: YamlValue = self.yaml_parser.parse_yaml_str(data_contract_yaml_str)
-        if not isinstance(data_contract_yaml_object, YamlObject):
-            self.error(message=f"Contract YAML file must be an object, was {type(data_contract_yaml_object)}")
-        else:
-            ruamel_sodacl_yaml_dict = self._create_sodacl_yaml_dict(data_contract_yaml_object)
-            return self.yaml_parser.write_yaml_str(ruamel_sodacl_yaml_dict)
-
-    def _create_sodacl_yaml_dict(self, data_contract_yaml_object: YamlObject) -> dict:
+    def translate_data_contract(self, data_contract_yaml_object: YamlObject) -> dict:
         dataset_name_str: str | None = data_contract_yaml_object.read_string("dataset")
         schema_name_str: str | None = data_contract_yaml_object.read_string_opt("schema")
 

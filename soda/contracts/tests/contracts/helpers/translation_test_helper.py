@@ -1,13 +1,25 @@
-from textwrap import dedent
+from __future__ import annotations
 
-from soda.contracts.impl.data_contract_translation import DataContractTranslation
+from soda.contracts.contract import Contract
+from soda.contracts.impl.contract_translator import ContractTranslator
+from soda.contracts.impl.logs import Logs
 
 
-def translate(contract_yaml_str) -> str:
-    data_contract_parser = DataContractTranslation()
-    sodacl_yaml_str = data_contract_parser.translate_data_contract_yaml_str(
-        dedent(
-            contract_yaml_str
-        )
+def translate(contract_yaml_str: str) -> str:
+    sodacl_yaml_str, logs = translate_with_logs(contract_yaml_str)
+    logs.assert_no_errors()
+    return sodacl_yaml_str
+
+
+def translate_with_logs(contract_yaml_str) -> (str, Logs):
+    logs = Logs()
+    contract_translator = ContractTranslator()
+    variables = {}
+    sodacl_yaml_str: str | None = Contract._translate_contract_to_sodacl(
+        contract_translator=contract_translator,
+        contract_yaml_str=contract_yaml_str,
+        logs=logs,
+        variables=variables
     )
-    return sodacl_yaml_str.strip()
+    sodacl_yaml_str = sodacl_yaml_str.strip() if isinstance(sodacl_yaml_str, str) else None
+    return sodacl_yaml_str, logs

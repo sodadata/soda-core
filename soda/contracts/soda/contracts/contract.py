@@ -8,8 +8,11 @@ from typing import List, Dict
 
 import soda.common.logs as soda_common_logs
 from soda.contracts.connection import Connection
+from soda.contracts.impl.contract_translator import ContractTranslator
+from soda.contracts.impl.json_schema_verifier import JsonSchemaVerifier
 from soda.contracts.impl.logs import Logs, LogLevel, Log, Location
 from soda.contracts.impl.variable_resolver import VariableResolver
+from soda.contracts.impl.yaml import YamlParser, YamlWrapper, YamlValue, YamlWriter, YamlObject
 from soda.contracts.soda_cloud import SodaCloud
 from soda.scan import Scan
 
@@ -30,25 +33,19 @@ class Contract:
     def from_yaml_file(cls, file_path: str) -> Contract:
         """
         Build a contract from a YAML file.
-        TODO document exceptions vs error response
+        Raises OSError in case the file_path cannot be opened like eg
+        FileNotFoundError or PermissionError
         """
         with open(file_path) as f:
             contract_yaml_str = f.read()
             return Contract(contract_yaml_str)
 
-    def create_updated_contract(self, updates: dict) -> Contract:
-        """
-        Creates a new contract by applying the updates to this contract.
-        Can be used for example to run a contract on a different schema or dataset name.
-        """
-        raise Exception("TODO")
 
-    def __init__(self, contract_yaml_str: str, soda_cloud: SodaCloud | None = None):
+    def __init__(self, contract_yaml_str: str):
         """
-        Consider using Contract.create_from_yaml_str(contract_yaml_str) instead as that is more stable API.
+        Consider using Contract.from_yaml_str(contract_yaml_str) instead as that is more stable API.
         """
         self.contract_yaml_str: str = contract_yaml_str
-        self.soda_cloud: SodaCloud = soda_cloud
         self.sodacl_yaml_str: str | None = None
 
     def verify(self,
@@ -62,20 +59,18 @@ class Contract:
         """
 
         logs: Logs = Logs()
-
+        contract_translator: ContractTranslator = connection._create_contract_translator(logs)
         scan = Scan()
+
         try:
-            # Resolve all the ${VARIABLES} in the contract based on system variables (os.environ)
-            resolved_contract_yaml_str: str = VariableResolver.resolve(self.contract_yaml_str)
-
-            data_contract_translator = connection._create_data_contract_translation(logs)
-
-            # Translate the data contract into SodaCL
-            self.sodacl_yaml_str = data_contract_translator.translate_data_contract_yaml_str(
-                resolved_contract_yaml_str
+            self.sodacl_yaml_str = self._translate_contract_to_sodacl(
+                contract_yaml_str=self.contract_yaml_str,
+                logs=logs,
+                contract_translator=contract_translator,
+                variables=variables
             )
 
-            if not logs.has_errors():
+            if self.sodacl_yaml_str:
                 # This assumes the connection is a DataSourceConnection
                 data_source = connection.data_source
 
@@ -89,8 +84,51 @@ class Contract:
         except Exception as e:
             logs.error(f"Data contract verification error: {e}", exception=e)
 
-        # noinspection PyProtectedMember
-        return ContractResult._from_scan_results(logs, scan)
+        ContractResult._copy_scan_logs_to_logs(scan, logs)
+        contract_result: ContractResult = ContractResult._from_logs_and_scan(logs, scan)
+
+        contract_result.assert_no_problems()
+
+        return contract_result
+
+    @classmethod
+    def _translate_contract_to_sodacl(cls,
+                                      contract_translator: ContractTranslator,
+                                      contract_yaml_str: str,
+                                      logs: Logs,
+                                      variables: Dict[str, str]) -> str | None:
+
+        # Resolve all the ${VARIABLES} in the contract based on either the provided
+        # variables or system variables (os.environ)
+        variable_resolver = VariableResolver(logs=logs, variables=variables)
+        resolved_contract_yaml_str: str = variable_resolver.resolve(contract_yaml_str)
+        ruamel_yaml_object: object | None = None
+
+        # Parse the contract YAML with ruamel
+        if isinstance(resolved_contract_yaml_str, str):
+            yaml_parser: YamlParser = YamlParser(logs=logs)
+            ruamel_yaml_object = yaml_parser.parse_yaml_str(yaml_str=resolved_contract_yaml_str)
+
+        # Verify the contract schema on the ruamel instance object
+        if ruamel_yaml_object is not None:
+            json_schema_verifier: JsonSchemaVerifier = JsonSchemaVerifier(logs)
+            json_schema_verifier.verify(ruamel_yaml_object)
+
+        # Wrap the ruamel_yaml_object into the YamlValue (this is a better API for writing the translator)
+        contract_yaml_value: object | None = None
+        if ruamel_yaml_object is not None:
+            yaml_wrapper: YamlWrapper = YamlWrapper(logs=logs)
+            contract_yaml_value: YamlValue = yaml_wrapper.wrap(ruamel_yaml_object)
+
+        # Translate the YAML data structures into SodaCL YAML object
+        sodacl_yaml_object: object | None = None
+        if isinstance(contract_yaml_value, YamlObject):
+            sodacl_yaml_object = contract_translator.translate_data_contract(contract_yaml_value)
+
+        # Serialize the SodaCL YAML object to a YAML string
+        if isinstance(sodacl_yaml_object, dict):
+            yaml_writer: YamlWriter = YamlWriter(logs)
+            return yaml_writer.write_to_yaml_str(sodacl_yaml_object)
 
 
 @dataclass
@@ -214,9 +252,7 @@ class ContractResult:
     check_results: List[CheckResult]
 
     @classmethod
-    def _from_scan_results(cls, logs: Logs, scan: Scan):
-        logs: Logs = Logs(logs)
-
+    def _copy_scan_logs_to_logs(cls, scan: Scan, logs: Logs) -> None:
         level_map = {
             soda_common_logs.LogLevel.ERROR: LogLevel.ERROR,
             soda_common_logs.LogLevel.WARNING: LogLevel.WARNING,
@@ -237,6 +273,9 @@ class ContractResult:
                 exception=scan_log.exception
             ))
 
+    @classmethod
+    def _from_logs_and_scan(cls, logs: Logs, scan: Scan) -> ContractResult:
+        logs: Logs = Logs(logs)
         check_results: List[CheckResult]  = []
         scan_checks = scan.scan_results.get("checks")
         if isinstance(scan_checks, list):

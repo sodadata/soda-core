@@ -1,6 +1,7 @@
 # Roadmap ideas
 
 * [ ] Update a JSON schema for our language & ensure validation on contract verification
+  * https://python-jsonschema.readthedocs.io/en/latest/validate/#the-basics 
 * [ ] Build test suite for basic check types
 * [x] Improve docs on problems
 * [x] Ensure proper errors/warning when variable is not defined

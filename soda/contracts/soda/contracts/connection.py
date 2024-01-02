@@ -8,7 +8,7 @@ from ruamel.yaml.error import MarkedYAMLError
 
 import soda.common.logs as soda_common_logs
 from soda.contracts.exceptions import SodaConnectionException
-from soda.contracts.impl.data_contract_translation import DataContractTranslation
+from soda.contracts.impl.contract_translator import ContractTranslator
 from soda.contracts.impl.logs import Logs
 from soda.contracts.impl.variable_resolver import VariableResolver
 from soda.execution.data_source import DataSource
@@ -102,7 +102,8 @@ class Connection:
             )
 
         try:
-            resolved_connection_yaml_str = VariableResolver.resolve(connection_yaml_str, variables)
+            variable_resolver = VariableResolver(variables=variables)
+            resolved_connection_yaml_str = variable_resolver.resolve(connection_yaml_str)
         except BaseException as e:
             raise SodaConnectionException(f"Could not resolve variables in connection YAML: {e}") from e
 
@@ -174,12 +175,12 @@ class Connection:
             except Exception as e:
                 logger.warning(f"Could not close the dbapi connection: {e}")
 
-    def _create_data_contract_translation(self, logs: Logs) -> DataContractTranslation:
+    def _create_contract_translator(self, logs: Logs) -> ContractTranslator:
         """
         Enables connection subclasses to create database specific errors during translation.
         This is for better static analysis of the contract taking the connection type into account.
         """
-        return DataContractTranslation(logs)
+        return ContractTranslator(logs)
 
 
 class DataSourceConnection(Connection):

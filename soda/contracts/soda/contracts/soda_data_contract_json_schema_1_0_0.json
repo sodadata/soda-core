@@ -165,7 +165,7 @@
             }
         }
     },
-    "required": ["file_format_version", "dataset", "columns"],
+    "required": ["dataset", "columns"],
     "$defs": {
         "numeric_range": {
             "anyOf": [

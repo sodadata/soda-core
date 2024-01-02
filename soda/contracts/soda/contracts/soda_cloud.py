@@ -71,7 +71,9 @@ class SodaCloud:
                 f"soda_cloud_yaml_str must be non-emtpy, but was ''"
             )
 
-        resolved_soda_cloud_yaml_str: str = VariableResolver.resolve(soda_cloud_yaml_str)
+        variable_resolver = VariableResolver()
+        resolved_soda_cloud_yaml_str: str = variable_resolver.resolve(soda_cloud_yaml_str)
+        # variable_resolver.logs.assert_no_errors()
 
         try:
             yaml = YAML()

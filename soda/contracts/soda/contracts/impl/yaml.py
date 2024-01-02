@@ -14,24 +14,24 @@ logger = logging.getLogger(__name__)
 
 class YamlParser:
 
-    def __init__(self):
+    def __init__(self, logs: Logs | None = None):
         self.ruamel_yaml: YAML = YAML()
         self.ruamel_yaml.preserve_quotes = True
+        self.logs: Logs = logs if logs else Logs()
 
-    def parse_yaml_str(self, yaml_str: str, logs: Logs | None = None) -> YamlValue:
+    def parse_yaml_str(self, yaml_str: str) -> object:
+        """
+        Parses the YAML string using the ruamel parser.  Returns a data structure representing
+        the YAML with dicts (ruamel CommentedMap) and array (ruamel CommentedSeq) amd basic
+        python types.
+        Swallows Ruamel parsing exceptions and logs them either to the self.logs object
+        """
         try:
-            ruamel_value = self.ruamel_yaml.load(yaml_str)
-            return self._to_yaml_value(ruamel_value, logs)
+            return self.ruamel_yaml.load(yaml_str)
         except MarkedYAMLError as e:
             location = self.get_location_from_yaml_error(e)
             msg = f"YAML syntax error at {location}: {e}"
-            if logs:
-                logs.error(message=msg, exception=e)
-            else:
-                logging.error(msg)
-
-    def write_yaml_str(self, ruamel_commented_map: CommentedMap) -> str:
-        return round_trip_dump(ruamel_commented_map)
+            self.logs.error(message=msg, exception=e)
 
     @classmethod
     def get_location_from_yaml_error(cls, e):
@@ -41,8 +41,31 @@ class YamlParser:
             column=mark.column + 1,
         )
 
-    @classmethod
-    def _to_yaml_value(cls, ruamel_value: object, logs: Logs | None = None) -> YamlValue:
+
+class YamlWriter:
+    def __init__(self, logs: Logs | None = None):
+        self.logs: Logs = logs if logs else Logs()
+
+    def write_to_yaml_str(self, yaml_object: object) -> str:
+        try:
+            return round_trip_dump(yaml_object)
+        except Exception as e:
+            self.logs.error(f"Couldn't write SodaCL YAML object: {e}", exception=e)
+
+
+class YamlWrapper:
+
+    """
+    Wraps Ruamel YAML objects into YamlValue's that provide
+     - capturing all errors into a central logs object instead of raising an exception on the first problem
+     - convenience read_* methods on the YamlObject for writing parsing code
+     - a more convenient way to access the line and column information (location)
+    """
+
+    def __init__(self, logs: Logs = Logs()):
+        self.logs: Logs = Logs()
+
+    def wrap(self, ruamel_value: object) -> YamlValue:
         if isinstance(ruamel_value, str):
             return YamlString(ruamel_value=ruamel_value)
         if isinstance(ruamel_value, bool):
@@ -52,9 +75,9 @@ class YamlParser:
         if ruamel_value is None:
             return YamlNull()
         if isinstance(ruamel_value, CommentedMap):
-            return YamlObject(ruamel_value=ruamel_value, logs=logs)
+            return YamlObject(ruamel_value=ruamel_value, yaml_wrapper=self)
         if isinstance(ruamel_value, CommentedSeq):
-            return YamlList(ruamel_value=ruamel_value, logs=logs)
+            return YamlList(ruamel_value=ruamel_value, yaml_wrapper=self)
         logging.error(f"Unsupported Ruamel YAML object type: {type(ruamel_value).__name__}\n{str(ruamel_value)}")
 
 
@@ -104,19 +127,19 @@ class YamlNull(YamlValue):
 
 
 class YamlObject(YamlValue):
-    def __init__(self, ruamel_value: CommentedMap, logs: Logs | None = None):
+    def __init__(self, ruamel_value: CommentedMap, yaml_wrapper: YamlWrapper):
         super().__init__(ruamel_value)
-        self.logs: Logs | None = logs
+        self.logs: Logs = yaml_wrapper.logs
         self.yaml_dict: dict[str, YamlValue] = {
-            key: self.__convert_map_value(ruamel_object=ruamel_value, key=key, value=value)
+            key: self.__convert_map_value(ruamel_object=ruamel_value, key=key, value=value, yaml_wrapper=yaml_wrapper)
             for key, value in ruamel_value.items()
         }
 
-    def __convert_map_value(self, ruamel_object: CommentedMap, key, value) -> YamlValue:
+    def __convert_map_value(self, ruamel_object: CommentedMap, key, value, yaml_wrapper: YamlWrapper) -> YamlValue:
         ruamel_location = ruamel_object.lc.value(key)
         line: int = ruamel_location[0]
         column: int = ruamel_location[1]
-        yaml_value = YamlParser._to_yaml_value(ruamel_value=value)
+        yaml_value = yaml_wrapper.wrap(ruamel_value=value)
         yaml_value.set_location(YamlLocation(line=line, column=column))
         return yaml_value
 
@@ -260,14 +283,14 @@ class YamlObject(YamlValue):
 
 
 class YamlList(YamlValue):
-    def __init__(self, ruamel_value: CommentedSeq, logs: Logs | None = None):
+    def __init__(self, ruamel_value: CommentedSeq, yaml_wrapper: YamlWrapper):
         super().__init__(ruamel_value)
         self.value: list[YamlValue] = [
             self.__convert_array_value(
                 ruamel_value=ruamel_list_value,
                 commented_seq=ruamel_value,
                 index=index,
-                logs=logs
+                yaml_wrapper=yaml_wrapper
             )
             for index, ruamel_list_value in enumerate(ruamel_value)
         ]
@@ -276,12 +299,12 @@ class YamlList(YamlValue):
                               ruamel_value,
                               commented_seq: CommentedSeq,
                               index: int,
-                              logs: Logs | None = None
+                              yaml_wrapper: YamlWrapper
                               ) -> YamlValue:
         ruamel_location = commented_seq.lc.key(index)
         line: int = ruamel_location[0]
         column: int = ruamel_location[1]
-        yaml_value = YamlParser._to_yaml_value(ruamel_value=ruamel_value, logs=logs)
+        yaml_value = yaml_wrapper.wrap(ruamel_value=ruamel_value)
         yaml_value.set_location(YamlLocation(line=line, column=column))
         return yaml_value
 
