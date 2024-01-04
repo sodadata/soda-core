@@ -25,6 +25,7 @@ def hive_connection_function(
     port: str,
     database: str,
     auth_method: str,
+    kerberos_service_name: str,
     **kwargs,
 ):
     """
@@ -44,6 +45,8 @@ def hive_connection_function(
         The databse
     auth_method : str
         The authentication method
+    kerberos_service_name: str
+        The Kerberos service name
 
     Returns
     -------
@@ -59,6 +62,7 @@ def hive_connection_function(
         port=port,
         database=database,
         auth=auth_method,
+        kerberos_service_name=kerberos_service_name,
     )
     return connection
 
@@ -438,6 +442,7 @@ class SparkDataSource(SparkSQLBase):
         self.database = data_source_properties.get("catalog", "default")
         self.schema = data_source_properties.get("schema", "default")
         self.auth_method = data_source_properties.get("authentication", None)
+        self.kerberos_service_name = data_source_properties.get("kerberos_service_name", None)
         self.configuration = data_source_properties.get("configuration", {})
         self.driver = data_source_properties.get("driver", None)
         self.organization = data_source_properties.get("organization", None)
@@ -464,6 +469,7 @@ class SparkDataSource(SparkSQLBase):
                 port=self.port,
                 database=self.database,
                 auth_method=self.auth_method,
+                kerberos_service_name=self.kerberos_service_name,
                 driver=self.driver,
                 token=self.token,
                 schema=self.schema,
