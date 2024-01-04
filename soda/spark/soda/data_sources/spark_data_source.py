@@ -221,7 +221,7 @@ class SparkSQLBase(DataSource):
         included_columns: list[str] | None = None,
         excluded_columns: list[str] | None = None,
     ):
-        return f"DESCRIBE TABLE {table_name}"
+        return f"DESCRIBE {table_name}"
 
     def sql_get_column(self, include_tables: list[str] | None = None, exclude_tables: list[str] | None = None) -> str:
         table_filter_expression = self.sql_table_include_exclude_filter(
@@ -339,7 +339,7 @@ class SparkSQLBase(DataSource):
             query = Query(
                 data_source_scan=self.data_source_scan,
                 unqualified_query_name=f"get-tables-columns-metadata-describe-table-{table_name}-spark",
-                sql=f"DESCRIBE TABLE {table_name}",
+                sql=f"DESCRIBE {table_name}",
             )
             query.execute()
             columns_metadata = query.rows
