@@ -18,16 +18,14 @@ FROM Customers
 GROUP BY country
 ```
 ![group-by-2](/docs/assets/images/group-by-2.png){:height="600px" width="600px"}
-3. Add a common table expression (CTE) to identify the "bad" group (where the average age is less than 25) from among the grouped results.
+3. Identify the "bad" group (where the average age is less than 25) from among the grouped results.
 ```sql
 WITH groups AS (
 	SELECT country, AVG(age) as avg_age
-	FROM Customers
-	GROUP BY country
+	    FROM Customers
+	    GROUP BY country
+    HAVING AVG(age) < 25
 )
-SELECT * 
-FROM groups
-WHERE avg_age < 25
 ```
 ![group-by-3](/docs/assets/images/group-by-3.png){:height="600px" width="600px"}
 4. Now that the query yields the expected results, add the query to a failed row check, as per the following example.
@@ -36,12 +34,10 @@ checks for dim_customers:
   - failed rows:
       name: Average age of citizens is less than 25
       fail query: |
-        WITH groups AS (
-	      SELECT country, AVG(age) as avg_age
-	      FROM Customers
-	      GROUP BY country
-        )
-        SELECT * 
-        FROM groups
-        WHERE avg_age < 25
+	      WITH groups AS (
+	        SELECT country, AVG(age) as avg_age
+	            FROM Customers
+	            GROUP BY country
+            HAVING AVG(age) < 25
+)
 ```
