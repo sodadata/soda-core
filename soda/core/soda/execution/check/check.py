@@ -345,7 +345,7 @@ class Check(ABC):
             "value": self.check_value if hasattr(self, "check_value") else None,
         }
 
-        if self.failed_rows_sample_ref and self.failed_rows_sample_ref.type != SampleRef.TYPE_NOT_PERSISTED:
+        if self.failed_rows_sample_ref:
             if self.cloud_check_type == "generic":
                 queries = self._get_all_related_queries()
                 has_analysis_block = False
