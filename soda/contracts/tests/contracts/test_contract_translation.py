@@ -2,11 +2,12 @@ import logging
 from textwrap import dedent
 
 from contracts.helpers.translation_test_helper import translate
+from soda.contracts.connection import Connection
 
 logger = logging.getLogger(__name__)
 
 
-def test_contract_schema_data_type():
+def test_contract_schema_data_type(connection: Connection):
     assert translate(
         f"""
         dataset: CUSTOMERS

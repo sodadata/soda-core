@@ -8,6 +8,7 @@ from typing import List, Dict
 
 import soda.common.logs as soda_common_logs
 from soda.contracts.connection import Connection
+from soda.contracts.exceptions import ContractVerificationException
 from soda.contracts.impl.contract_translator import ContractTranslator
 from soda.contracts.impl.json_schema_verifier import JsonSchemaVerifier
 from soda.contracts.impl.logs import Logs, LogLevel, Log, Location
@@ -132,52 +133,33 @@ class Contract:
 
 
 @dataclass
-class CheckDefinition:
+class Check:
     name: str
-    sodacl: str
     column: str | None
+    sodacl: str
 
     @classmethod
-    def _from_scan_check(cls, scan_check: Dict[str, object]) -> CheckDefinition:
-        return CheckDefinition(
+    def _from_scan_check(cls, scan_check: Dict[str, object]) -> Check:
+        return Check(
             name=scan_check["name"],
-            sodacl=scan_check["definition"],
-            column=scan_check.get("column", None)
+            column=scan_check.get("column", None),
+            sodacl = scan_check["definition"]
         )
 
     def get_console_log_message(self) -> str:
-        column_text = f" ({self.column})" if self.column else None
+        column_text = f" ({self.column})" if self.column else ""
         return f"{self.name}{column_text}"
 
 
 @dataclass
-class Metric:
+class Measurement:
     name: str
     type: str
     value: object
 
     @classmethod
-    def _from_scan_metric(cls, scan_metric: Dict[str, object]) -> Metric:
-        name = scan_metric.get("identity")
-        type = scan_metric.get("metricName")
-        value = scan_metric.get("value")
-        if isinstance(name, str) and isinstance(type, str):
-            return Metric(name=name, type=type, value=value)
-        else:
-            logger.error(f"Invalid metric types name={name} and type={type}")
-            return Metric(name=str(name), type=str(type), value=value)
-
-    def get_console_log_message(self) -> str:
-        return f"{self.type} was {self.value}"
-
-
-@dataclass
-class CheckDiagnostics:
-    metrics: List[Metric]
-
-    @classmethod
-    def _from_scan_check(cls, scan_check: Dict[str, object], scan: Scan) -> CheckDiagnostics:
-        metrics: List[Metric] = []
+    def _from_scan_metrics(cls, scan_check: Dict[str, object], scan: Scan) -> List[Measurement]:
+        measurements: List[Measurement] = []
         scan_check_metric_identities = scan_check.get("metrics")
         scan_metrics = scan.scan_results.get("metrics")
         if isinstance(scan_check_metric_identities, list) and isinstance(scan_metrics, list):
@@ -191,11 +173,19 @@ class CheckDiagnostics:
                     None
                 )
                 if isinstance(scan_metric, dict):
-                    metrics.append(Metric._from_scan_metric(scan_metric))
-        return CheckDiagnostics(metrics=metrics)
+                    name = scan_metric.get("identity")
+                    type = scan_metric.get("metricName")
+                    value = scan_metric.get("value")
+                    if isinstance(name, str) and isinstance(type, str):
+                        measurement = Measurement(name=name, type=type, value=value)
+                    else:
+                        logger.error(f"Invalid metric types name={name} and type={type}")
+                        measurement = Measurement(name=str(name), type=str(type), value=value)
+                    measurements.append(measurement)
+        return measurements
 
     def get_console_log_message(self) -> str:
-        return "\n".join(metric.get_console_log_message() for metric in self.metrics)
+        return f"{self.type} was {self.value}"
 
 
 class CheckOutcome(Enum):
@@ -215,19 +205,16 @@ class CheckOutcome(Enum):
 
 @dataclass
 class CheckResult:
+    check: Check
+    measurements: List[Measurement]
     outcome: CheckOutcome
-    definition: CheckDefinition
-    diagnostics: CheckDiagnostics | None
 
     @classmethod
     def _from_scan_check(cls, scan_check: Dict[str, object], scan: Scan) -> CheckResult:
-        outcome: CheckOutcome
-        definition: CheckDefinition
-        diagnostics: CheckDiagnostics | None
         return CheckResult(
             outcome=CheckOutcome._from_scan_check(scan_check),
-            definition=CheckDefinition._from_scan_check(scan_check),
-            diagnostics=CheckDiagnostics._from_scan_check(scan_check, scan)
+            check=Check._from_scan_check(scan_check),
+            measurements=Measurement._from_scan_metrics(scan_check=scan_check, scan=scan)
         )
 
     def get_console_log_message(self) -> str:
@@ -236,9 +223,10 @@ class CheckResult:
             else "Check passed" if self.outcome == CheckOutcome.PASS
             else "Check unknown"
         )
-        definition_text = indent(self.definition.get_console_log_message(), "  ")
-        diagnostics_text = indent(self.diagnostics.get_console_log_message(), "  ")
-        return f"{outcome_text}\n{definition_text}\n{diagnostics_text}"
+        definition_text = indent(self.check.get_console_log_message(), "  ")
+        measurements_text =  "\n".join(metric.get_console_log_message() for metric in self.measurements)
+        measurements_text = indent(measurements_text, "  ")
+        return f"{outcome_text}\n{definition_text}\n{measurements_text}"
 
 
 @dataclass
@@ -286,7 +274,7 @@ class ContractResult:
 
     def assert_no_problems(self) -> None:
         if self.has_problems() or self.has_check_failures():
-            raise AssertionError(self.get_problems_text())
+            raise ContractVerificationException(contract_result=self)
 
     def has_problems(self) -> bool:
         return self.has_execution_errors() or self.has_check_failures()
@@ -304,15 +292,23 @@ class ContractResult:
         ]
 
         check_failure_message_list = [
-            check.get_console_log_message()
-            for check in self.check_results
-            if check.outcome == CheckOutcome.FAIL
+            check_result.get_console_log_message()
+            for check_result in self.check_results
+            if check_result.outcome == CheckOutcome.FAIL
         ]
 
         if not error_texts_list and not check_failure_message_list:
             return "All is good. No errors nor check failures."
 
-        parts = []
+        errors_summary_text = f"{len(error_texts_list)} execution error"
+        if len(error_texts_list) != 1:
+            errors_summary_text = f"{errors_summary_text}s"
+
+        checks_summary_text = f"{len(check_failure_message_list)} check failure"
+        if len(check_failure_message_list) != 1:
+            checks_summary_text = f"{checks_summary_text}s"
+
+        parts = [f"{checks_summary_text} and {errors_summary_text}"]
         if error_texts_list:
             error_lines_text: str = indent("\n".join(error_texts_list), "  ")
             parts.append(f"Errors: \n{error_lines_text}")

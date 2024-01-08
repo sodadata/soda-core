@@ -1,5 +1,3 @@
-from soda.contracts.contract_result import ContractResult
-
 # Contract API
 
 ## The API
