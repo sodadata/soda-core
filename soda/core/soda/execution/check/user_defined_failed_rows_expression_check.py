@@ -62,7 +62,7 @@ class UserDefinedFailedRowsExpressionCheck(Check):
                 metric=self.metrics[KEY_FAILED_ROWS_COUNT],
             )
             failed_rows_query.execute()
-            if failed_rows_query.sample_ref and failed_rows_query.sample_ref.is_persisted():
+            if failed_rows_query.sample_ref:
                 self.failed_rows_sample_ref = failed_rows_query.sample_ref
         else:
             self.outcome = CheckOutcome.PASS

@@ -71,19 +71,13 @@ checks for dim_customer:
        name: No duplicate phone numbers
   - freshness(date_first_purchase) < 7d:
        name: Data in this dataset is less than 7 days old
-  - schema:
-       warn:
-         when schema changes: any
-       name: Columns have not been added, removed, or changed
+
 EOT
 
-# run the scan!
+# run the scan
 soda scan -d adventureworks -c configuration.yml checks.yml
-
-# note that an error is thrown for one test, as change-over-time checks
-# require you to connect to Soda Cloud
-
 ```
+
 
 
 
