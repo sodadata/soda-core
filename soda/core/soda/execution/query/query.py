@@ -160,7 +160,7 @@ class Query:
         finally:
             self.duration = datetime.now() - start
 
-    def store(self):
+    def store(self, allow_samples=True):
         """
         DataSource query execution exceptions will be caught and result in the
         self.exception being populated.
@@ -174,7 +174,6 @@ class Query:
             try:
                 # Check if query does not contain forbidden columns and only create sample if it does not.
                 # Query still needs to execute in case this is a query that also sets a metric value. (e.g. reference check)
-                allow_samples = True
                 offending_columns = []
 
                 if self.partition and self.partition.table:
