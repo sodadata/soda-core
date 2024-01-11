@@ -50,7 +50,7 @@ checks:
   fail_when_greater_than: 6
 ```
 
-[Learn more about the Soda data contract checks](docs/writing_a_contract)
+[Learn more about the Soda data contract checks](docs/writing_a_contract.md)
 
 # Data contract API
 
@@ -72,8 +72,7 @@ try:
         contract: Contract = Contract.from_yaml_file(file_path=contract_file_path)
         contract_result: ContractResult = contract.verify(connection=connection, soda_cloud=soda_cloud)
 except SodaException as e:
-    logging.exception("Problems verifying contract")
-    # TODO ensure you stop your ochestration job or pipeline & the right people are notified
+    logging.exception(f"Contract verification failed: {e.get_problems_text()}", exc_info=e)
 ```
 
 [Learn more about the Soda contract API](docs/contract_api.md)

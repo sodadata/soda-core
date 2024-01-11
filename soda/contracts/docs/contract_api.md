@@ -60,7 +60,7 @@ Ideally you want to verify all new data before making it available to consumers 
 practice to store batches of new data first in a temporary table, verify the contract on there and only when that 
 succeeds, append it to the larger table.
 
-> Known limitation: At the moment there possibility to verify contracts using the CLI. Only a
+> Known limitation: At the moment there is no possibility to verify contracts using the CLI. Only a
 > Python programmatic API is available.
 
 In your python (virtual) environment, ensure that the libraries `soda-core` and `soda-core-contracts` are available
@@ -110,7 +110,7 @@ Variable resolving is case sensitive. We recommend using all upper case and unde
 For contract YAML files, we recommend to use extension `sdc.yml` (Soda Data Contract) because 
 the editor tooling support will likely will be coupled via that extension.
 
-[Learn more on writing contract checks](./writing_a_contract)
+[Learn more on writing contract checks](./writing_a_contract.md)
 
 
 

@@ -1,21 +1,21 @@
 from __future__ import annotations
 
+import dataclasses
 import logging
+from abc import abstractmethod, ABC
 from dataclasses import dataclass
 from enum import Enum
+from numbers import Number
 from textwrap import indent
 from typing import List, Dict
 
-import soda.common.logs as soda_common_logs
-from soda.contracts.connection import Connection
+from soda.common import logs as soda_common_logs
 from soda.contracts.exceptions import ContractVerificationException
-from soda.contracts.impl.contract_translator import ContractTranslator
-from soda.contracts.impl.json_schema_verifier import JsonSchemaVerifier
-from soda.contracts.impl.logs import Logs, LogLevel, Log, Location
-from soda.contracts.impl.variable_resolver import VariableResolver
-from soda.contracts.impl.yaml import YamlParser, YamlWrapper, YamlValue, YamlWriter, YamlObject
+from soda.contracts.impl.logs import Logs, Location, LogLevel, Log
+from soda.contracts.impl.yaml import YamlWriter
 from soda.contracts.soda_cloud import SodaCloud
 from soda.scan import Scan
+from soda.sodacl.location import Location
 
 logger = logging.getLogger(__name__)
 
@@ -23,12 +23,20 @@ logger = logging.getLogger(__name__)
 class Contract:
 
     @classmethod
-    def from_yaml_str(cls, contract_yaml_str: str) -> Contract:
+    def from_yaml_str(cls,
+                      contract_yaml_str: str,
+                      variables: dict[str, str] | None = None,
+                      logs: Logs | None = None
+                      ) -> Contract:
         """
         Build a contract from a YAML string
-        TODO document exceptions vs error response
         """
-        return Contract(contract_yaml_str)
+        from soda.contracts.impl.contract_parser import ContractParser
+        contract_parser: ContractParser = ContractParser(logs=logs)
+        return contract_parser.parse_contract(
+            contract_yaml_str=contract_yaml_str,
+            variables=variables
+        )
 
     @classmethod
     def from_yaml_file(cls, file_path: str) -> Contract:
@@ -39,18 +47,26 @@ class Contract:
         """
         with open(file_path) as f:
             contract_yaml_str = f.read()
-            return Contract(contract_yaml_str)
+            return cls.from_yaml_str(contract_yaml_str)
 
 
-    def __init__(self, contract_yaml_str: str):
+    def __init__(self,
+                 dataset: str,
+                 schema: str | None,
+                 checks: List[Check],
+                 contract_yaml_str: str
+                 ):
         """
         Consider using Contract.from_yaml_str(contract_yaml_str) instead as that is more stable API.
         """
+        self.dataset: str = dataset
+        self.schema: str | None = schema
+        self.checks: List[Check] = checks
         self.contract_yaml_str: str = contract_yaml_str
         self.sodacl_yaml_str: str | None = None
 
     def verify(self,
-               connection: Connection,
+               connection: "Connection",
                soda_cloud: SodaCloud | None = None,
                variables: Dict[str, str] | None = None
                ) -> ContractResult:
@@ -60,16 +76,10 @@ class Contract:
         """
 
         logs: Logs = Logs()
-        contract_translator: ContractTranslator = connection._create_contract_translator(logs)
         scan = Scan()
 
         try:
-            self.sodacl_yaml_str = self._translate_contract_to_sodacl(
-                contract_yaml_str=self.contract_yaml_str,
-                logs=logs,
-                contract_translator=contract_translator,
-                variables=variables
-            )
+            self.sodacl_yaml_str = self._generate_sodacl_yaml_str(logs)
 
             if self.sodacl_yaml_str:
                 # This assumes the connection is a DataSourceConnection
@@ -86,69 +96,195 @@ class Contract:
             logs.error(f"Data contract verification error: {e}", exception=e)
 
         ContractResult._copy_scan_logs_to_logs(scan, logs)
-        contract_result: ContractResult = ContractResult._from_logs_and_scan(logs, scan)
-
+        contract_result: ContractResult = ContractResult(contract=self, logs=logs, scan=scan)
         contract_result.assert_no_problems()
 
         return contract_result
 
-    @classmethod
-    def _translate_contract_to_sodacl(cls,
-                                      contract_translator: ContractTranslator,
-                                      contract_yaml_str: str,
-                                      logs: Logs,
-                                      variables: Dict[str, str]) -> str | None:
-
-        # Resolve all the ${VARIABLES} in the contract based on either the provided
-        # variables or system variables (os.environ)
-        variable_resolver = VariableResolver(logs=logs, variables=variables)
-        resolved_contract_yaml_str: str = variable_resolver.resolve(contract_yaml_str)
-        ruamel_yaml_object: object | None = None
-
-        # Parse the contract YAML with ruamel
-        if isinstance(resolved_contract_yaml_str, str):
-            yaml_parser: YamlParser = YamlParser(logs=logs)
-            ruamel_yaml_object = yaml_parser.parse_yaml_str(yaml_str=resolved_contract_yaml_str)
-
-        # Verify the contract schema on the ruamel instance object
-        if ruamel_yaml_object is not None:
-            json_schema_verifier: JsonSchemaVerifier = JsonSchemaVerifier(logs)
-            json_schema_verifier.verify(ruamel_yaml_object)
-
-        # Wrap the ruamel_yaml_object into the YamlValue (this is a better API for writing the translator)
-        contract_yaml_value: object | None = None
-        if ruamel_yaml_object is not None:
-            yaml_wrapper: YamlWrapper = YamlWrapper(logs=logs)
-            contract_yaml_value: YamlValue = yaml_wrapper.wrap(ruamel_yaml_object)
-
-        # Translate the YAML data structures into SodaCL YAML object
-        sodacl_yaml_object: object | None = None
-        if isinstance(contract_yaml_value, YamlObject):
-            sodacl_yaml_object = contract_translator.translate_data_contract(contract_yaml_value)
-
+    def _generate_sodacl_yaml_str(self, logs: Logs) -> str:
         # Serialize the SodaCL YAML object to a YAML string
-        if isinstance(sodacl_yaml_object, dict):
-            yaml_writer: YamlWriter = YamlWriter(logs)
-            return yaml_writer.write_to_yaml_str(sodacl_yaml_object)
+        sodacl_checks: list = []
+        sodacl_yaml_object: dict = {
+            f"checks for {self.dataset}": sodacl_checks
+        }
+        for check in self.checks:
+            sodacl_check = check._to_sodacl_check()
+            if sodacl_check is not None:
+                sodacl_checks.append(sodacl_check)
+        yaml_writer: YamlWriter = YamlWriter(logs)
+        return yaml_writer.write_to_yaml_str(sodacl_yaml_object)
 
 
 @dataclass
-class Check:
-    name: str
-    column: str | None
-    sodacl: str
+class ContractResult:
+    """
+    This is the immutable data structure containing all the results from a single contract verification.
+    This includes any potential execution errors as well as the results of all the checks performed.
+    """
 
-    @classmethod
-    def _from_scan_check(cls, scan_check: Dict[str, object]) -> Check:
-        return Check(
-            name=scan_check["name"],
-            column=scan_check.get("column", None),
-            sodacl = scan_check["definition"]
+    contract: Contract
+    logs: Logs
+    check_results: List[CheckResult]
+
+    def __init__(self, contract: Contract, logs: Logs, scan: Scan):
+        self.contract = contract
+        self.logs: Logs = Logs(logs)
+        self.check_results: List[CheckResult]  = []
+
+        contract_checks_by_id: dict[str, Check] = {
+            check.contract_check_id: check for check in contract.checks
+        }
+
+        schema_check: SchemaCheck | None = next(
+            (c for c in contract.checks if isinstance(c, SchemaCheck)),
+            None
         )
 
+        scan_metrics_by_id: dict[str, dict] = {
+            scan_metric["identity"]: scan_metric for scan_metric in scan.scan_results.get("metrics", [])
+        }
+
+        scan_checks = scan.scan_results.get("checks")
+        if isinstance(scan_checks, list):
+            for scan_check in scan_checks:
+                contract_check: Check = None
+                if scan_check.get("name") == "Schema Check" and scan_check.get("type") == "generic":
+                    contract_check = schema_check
+                else:
+                    contract_check_id = scan_check.get("contract check id")
+                    if isinstance(contract_check_id, str):
+                        contract_check = contract_checks_by_id[contract_check_id]
+
+                assert contract_check is not None, "Contract scan check matching failed :("
+
+                scan_check_metric_ids = scan_check.get("metrics")
+                scan_check_metrics = [
+                    scan_metrics_by_id.get(check_metric_id) for check_metric_id in scan_check_metric_ids
+                ]
+                scan_check_metrics_by_name = {
+                    scan_check_metric.get("metricName"): scan_check_metric for scan_check_metric in scan_check_metrics
+                }
+                check_result = contract_check._create_check_result(
+                    scan_check=scan_check,
+                    scan_check_metrics_by_name=scan_check_metrics_by_name,
+                    scan=scan
+                )
+                self.check_results.append(check_result)
+
+    @classmethod
+    def _copy_scan_logs_to_logs(cls, scan: Scan, logs: Logs) -> None:
+        level_map = {
+            soda_common_logs.LogLevel.ERROR: LogLevel.ERROR,
+            soda_common_logs.LogLevel.WARNING: LogLevel.WARNING,
+            soda_common_logs.LogLevel.INFO: LogLevel.INFO,
+            soda_common_logs.LogLevel.DEBUG: LogLevel.DEBUG
+        }
+        for scan_log in scan._logs.logs:
+            contracts_location: Location = (
+                Location(line=scan_log.location.line, column=scan_log.location.col)
+                if scan_log.location is not None
+                else None
+            )
+            contracts_level: LogLevel = level_map[scan_log.level]
+            logs._log(Log(
+                level=contracts_level,
+                message=scan_log.message,
+                location=contracts_location,
+                exception=scan_log.exception
+            ))
+
+    def assert_no_problems(self) -> None:
+        if self.has_problems() or self.has_check_failures():
+            raise ContractVerificationException(contract_result=self)
+
+    def has_problems(self) -> bool:
+        return self.has_execution_errors() or self.has_check_failures()
+
+    def has_execution_errors(self):
+        return self.logs.has_errors()
+
+    def has_check_failures(self):
+        return any(check.outcome == CheckOutcome.FAIL for check in self.check_results)
+
+    def get_problems_text(self) -> str:
+        error_texts_list: List[str] = [
+            str(error)
+            for error in self.logs.get_errors()
+        ]
+
+        check_failure_message_list = [
+            check_result.get_console_log_message()
+            for check_result in self.check_results
+            if check_result.outcome == CheckOutcome.FAIL
+        ]
+
+        if not error_texts_list and not check_failure_message_list:
+            return "All is good. No errors nor check failures."
+
+        errors_summary_text = f"{len(error_texts_list)} execution error"
+        if len(error_texts_list) != 1:
+            errors_summary_text = f"{errors_summary_text}s"
+
+        checks_summary_text = f"{len(check_failure_message_list)} check failure"
+        if len(check_failure_message_list) != 1:
+            checks_summary_text = f"{checks_summary_text}s"
+
+        parts = [f"{checks_summary_text} and {errors_summary_text}"]
+        if error_texts_list:
+            error_lines_text: str = indent("\n".join(error_texts_list), "  ")
+            parts.append(f"Errors: \n{error_lines_text}")
+
+        if check_failure_message_list:
+            parts.append("\n".join(check_failure_message_list))
+
+        return "\n".join(parts)
+
+
+@dataclass
+class Check(ABC):
+
+    # The metric this check is based on. This also serves as a short description the library generates if the
+    # user doesn't supply a name for the check. Eg schema, missing_count(colname), avg(col2), ...
+    metric: str
+
+    # User defined name as in the contract.  None if not specified in the contract.
+    name: str | None
+
+    # Identifier used to correlate the sodacl check results with this contract check object when parsing scan results
+    contract_check_id: str | None
+    location: Location | None
+
     def get_console_log_message(self) -> str:
-        column_text = f" ({self.column})" if self.column else ""
-        return f"{self.name}{column_text}"
+        return self.name
+
+    @abstractmethod
+    def _to_sodacl_check(self) -> str | dict | None:
+        pass
+
+    @abstractmethod
+    def _create_check_result(self,
+                            scan_check: dict[str, dict],
+                            scan_check_metrics_by_name: dict[str, dict],
+                            scan: Scan):
+        pass
+
+
+@dataclass
+class CheckResult:
+    check: Check
+    measurements: List[Measurement]
+    outcome: CheckOutcome
+
+    def get_console_log_message(self) -> str:
+        outcome_text = (
+            "Check FAILED" if self.outcome == CheckOutcome.FAIL
+            else "Check passed" if self.outcome == CheckOutcome.PASS
+            else "Check unknown"
+        )
+        definition_text = indent(self.check.get_console_log_message(), "  ")
+        measurements_text =  "\n".join(metric.get_console_log_message() for metric in self.measurements)
+        measurements_text = indent(measurements_text, "  ")
+        return f"{outcome_text}\n{definition_text}\n{measurements_text}"
 
 
 @dataclass
@@ -204,116 +340,247 @@ class CheckOutcome(Enum):
 
 
 @dataclass
-class CheckResult:
-    check: Check
-    measurements: List[Measurement]
-    outcome: CheckOutcome
+class SchemaCheck(Check):
 
-    @classmethod
-    def _from_scan_check(cls, scan_check: Dict[str, object], scan: Scan) -> CheckResult:
-        return CheckResult(
+    columns: dict[str, str | None]
+    optional_columns: list[str]
+
+    def _to_sodacl_check(self) -> str | dict | None:
+        schema_fail_dict = {"when mismatching columns": self.columns}
+        if self.optional_columns:
+            schema_fail_dict["with optional columns"] = self.optional_columns
+        return {"schema": {"fail": schema_fail_dict}}
+
+    def _create_check_result(self,
+                            scan_check: dict[str, dict],
+                            scan_check_metrics_by_name: dict[str, dict],
+                            scan: Scan):
+        scan_measured_schema: dict[str, str] = scan_check_metrics_by_name.get("schema").get("value")
+        measured_schema = {
+            c.get("columnName"): c.get("sourceDataType") for c in scan_measured_schema
+        }
+        measurement = Measurement(
+            name="schema",
+            type="schema",
+            value=measured_schema
+        )
+
+        columns_ok: dict[str, str] = {}
+        columns_not_allowed_and_present: list[str] = []
+        columns_required_and_not_present: list[str] = []
+        columns_having_wrong_type: list[DataTypeMismatch] = []
+
+        for measured_column, measured_data_type in measured_schema.items():
+            if measured_column in self.columns:
+                expected_data_type = self.columns[measured_column]
+                if expected_data_type is None or expected_data_type == measured_data_type:
+                    columns_ok[measured_column] = measured_data_type
+                else:
+                    columns_having_wrong_type.append(
+                        DataTypeMismatch(
+                            column=measured_column,
+                            expected_data_type=expected_data_type,
+                            actual_data_type=measured_data_type
+                        )
+                    )
+
+        return SchemaCheckResult(
+            check=self,
+            measurements=[measurement],
             outcome=CheckOutcome._from_scan_check(scan_check),
-            check=Check._from_scan_check(scan_check),
-            measurements=Measurement._from_scan_metrics(scan_check=scan_check, scan=scan)
+            columns_ok=columns_ok,
+            columns_not_allowed_and_present=columns_not_allowed_and_present,
+            columns_required_and_not_present=columns_required_and_not_present,
+            columns_having_wrong_type=columns_having_wrong_type
         )
 
     def get_console_log_message(self) -> str:
-        outcome_text = (
-            "Check FAILED" if self.outcome == CheckOutcome.FAIL
-            else "Check passed" if self.outcome == CheckOutcome.PASS
-            else "Check unknown"
-        )
-        definition_text = indent(self.check.get_console_log_message(), "  ")
-        measurements_text =  "\n".join(metric.get_console_log_message() for metric in self.measurements)
-        measurements_text = indent(measurements_text, "  ")
-        return f"{outcome_text}\n{definition_text}\n{measurements_text}"
+        column_text = f" ({self.column})" if self.column else ""
+        return f"{self.name}{column_text}"
 
 
 @dataclass
-class ContractResult:
-    """
-    This is the immutable data structure containing all the results from a single contract verification.
-    This includes any potential execution errors as well as the results of all the checks performed.
-    """
+class SchemaCheckResult(CheckResult):
+    columns_ok: dict[str, str] | None
+    columns_not_allowed_and_present: list[str] | None
+    columns_required_and_not_present: list[str] | None
+    columns_having_wrong_type: list[DataTypeMismatch] | None
 
-    logs: Logs
-    check_results: List[CheckResult]
 
-    @classmethod
-    def _copy_scan_logs_to_logs(cls, scan: Scan, logs: Logs) -> None:
-        level_map = {
-            soda_common_logs.LogLevel.ERROR: LogLevel.ERROR,
-            soda_common_logs.LogLevel.WARNING: LogLevel.WARNING,
-            soda_common_logs.LogLevel.INFO: LogLevel.INFO,
-            soda_common_logs.LogLevel.DEBUG: LogLevel.DEBUG
+@dataclass
+class DataTypeMismatch:
+    column: str
+    expected_data_type: str
+    actual_data_type: str
+
+
+@dataclass
+class NumericMetricCheck(Check):
+
+    column: str
+    missing_configurations: MissingConfigurations | None
+    valid_configurations: ValidConfigurations | None
+    fail_threshold: NumericThreshold | None
+    warn_threshold: NumericThreshold | None
+    other_check_configs: dict | None
+
+    def get_console_log_message(self) -> str:
+        column_text = f" ({self.column})" if self.column else ""
+        return f"{self.name}{column_text}"
+
+    def _to_sodacl_check(self) -> str | dict | None:
+        check_configs = {
+            "contract_check_id": self.contract_check_id
         }
-        for scan_log in scan._logs.logs:
-            contracts_location: Location = (
-                Location(line=scan_log.location.line, column=scan_log.location.col)
-                if scan_log.location is not None
-                else None
+
+        if self.name:
+            check_configs["name"] = self.name
+
+        sodacl_check_line: str | None = None
+        if self.other_check_configs:
+            check_configs.update(self.other_check_configs)
+        if self.valid_configurations:
+            check_configs.update(self.valid_configurations._get_check_configs_dict())
+        if self.missing_configurations:
+            check_configs.update(self.missing_configurations._get_check_configs_dict())
+
+        if self.fail_threshold and not self.warn_threshold:
+            sodacl_checkline_threshold = self.fail_threshold._get_sodacl_checkline_threshold()
+            sodacl_check_line = f"{self.metric} {sodacl_checkline_threshold}"
+        elif self.fail_threshold or self.warn_threshold:
+            sodacl_check_line = self.metric
+            if self.fail_threshold:
+                self.fail_threshold._update_sodacl_threshold_configs(check_configs, "fail")
+            if self.warn_threshold:
+                self.warn_threshold._update_sodacl_threshold_configs(check_configs, "warn")
+
+        sodacl_configs = {
+            k.replace("_", " "): v for k, v in check_configs.items()
+        }
+
+        return (
+            {sodacl_check_line: sodacl_configs} if sodacl_configs
+            else sodacl_check_line
+        )
+
+
+@dataclass
+class MissingConfigurations:
+    missing_values: list[str] | list[Number] | None
+    missing_regex: str | None
+
+    def _get_check_configs_dict(self):
+        return dataclasses.asdict(self)
+
+
+@dataclass
+class ValidConfigurations:
+    invalid_values: list[str] | list[Number] | None
+    invalid_format: str | None
+    invalid_regex: str | None
+    valid_values: list[str] | list[Number] | None
+    valid_format:  str | None
+    valid_regex:  str | None
+    valid_min: Number | None
+    valid_max: Number | None
+    valid_length: int | None
+    valid_min_length: int | None
+    valid_max_length: int | None
+    valid_reference_column: ValidReferenceColumn | None
+
+    def _get_check_configs_dict(self):
+        return dataclasses.asdict(self)
+
+
+@dataclass
+class ValidReferenceColumn:
+    dataset: str
+    column: str
+
+
+@dataclass
+class NumericThreshold:
+    """
+    The threshold is exceeded when any of the member field conditions is True.
+    To be interpreted as a check fails when the metric value is ...greater_than or ...less_than etc...
+    """
+
+    greater_than: Number | None = None
+    greater_than_or_equal: Number | None = None
+    less_than: Number | None = None
+    less_than_or_equal: Number | None = None
+    equals: Number | None = None
+    not_equals: Number | None = None
+    between: Range | None = None
+    not_between: Range | None = None
+
+    def _get_sodacl_checkline_threshold(self) -> str:
+        greater_bound: Number | None = self.greater_than if self.greater_than is not None else self.greater_than_or_equal
+        less_bound: Number | None = self.less_than if self.less_than is not None else self.less_than_or_equal
+        if greater_bound is not None and less_bound is not None:
+            if greater_bound > less_bound:
+                return self._sodacl_threshold(
+                    is_not_between=True,
+                    lower_bound=less_bound,
+                    lower_bound_included=self.less_than is not None,
+                    upper_bound=greater_bound,
+                    upper_bound_included=self.greater_than is not None
+                )
+            else:
+                return self._sodacl_threshold(
+                    is_not_between=False,
+                    lower_bound=greater_bound,
+                    lower_bound_included=self.greater_than_or_equal is not None,
+                    upper_bound=less_bound,
+                    upper_bound_included=self.less_than_or_equal is not None
+                )
+        elif isinstance(self.between, Range):
+            return self._sodacl_threshold(
+                is_not_between=False,
+                lower_bound=self.between.lower_bound,
+                lower_bound_included=True,
+                upper_bound=self.between.upper_bound,
+                upper_bound_included=True
             )
-            contracts_level: LogLevel = level_map[scan_log.level]
-            logs._log(Log(
-                level=contracts_level,
-                message=scan_log.message,
-                location=contracts_location,
-                exception=scan_log.exception
-            ))
+        elif isinstance(self.not_between, Range):
+            return self._sodacl_threshold(
+                is_not_between=True,
+                lower_bound=self.not_between.lower_bound,
+                lower_bound_included=True,
+                upper_bound=self.not_between.upper_bound,
+                upper_bound_included=True
+            )
+        elif self.greater_than is not None:
+            return f"<= {self.greater_than}"
+        elif self.greater_than_or_equal is not None:
+            return f"< {self.greater_than_or_equal}"
+        elif self.less_than is not None:
+            return f">= {self.less_than}"
+        elif self.less_than_or_equal is not None:
+            return f"> {self.less_than_or_equal}"
+        elif self.equals is not None:
+            return f"!= {self.equals}"
+        elif self.not_equals is not None:
+            return f"= {self.not_equals}"
 
     @classmethod
-    def _from_logs_and_scan(cls, logs: Logs, scan: Scan) -> ContractResult:
-        logs: Logs = Logs(logs)
-        check_results: List[CheckResult]  = []
-        scan_checks = scan.scan_results.get("checks")
-        if isinstance(scan_checks, list):
-            for scan_check in scan_checks:
-                check_results.append(CheckResult._from_scan_check(scan_check, scan))
+    def _sodacl_threshold(cls,
+                          is_not_between: bool,
+                          lower_bound: Number,
+                          lower_bound_included: bool,
+                          upper_bound: Number,
+                          upper_bound_included: bool
+                          ) -> str:
+        optional_not = "" if is_not_between else "not "
+        lower_bound_bracket = "] " if lower_bound_included else ""
+        upper_bound_bracket = " [" if upper_bound_included else ""
+        return f"{optional_not}between {lower_bound_bracket}{lower_bound} and {upper_bound}{upper_bound_bracket}"
 
-        return ContractResult(logs=logs, check_results=check_results)
 
-    def assert_no_problems(self) -> None:
-        if self.has_problems() or self.has_check_failures():
-            raise ContractVerificationException(contract_result=self)
-
-    def has_problems(self) -> bool:
-        return self.has_execution_errors() or self.has_check_failures()
-
-    def has_execution_errors(self):
-        return self.logs.has_errors()
-
-    def has_check_failures(self):
-        return any(check.outcome == CheckOutcome.FAIL for check in self.check_results)
-
-    def get_problems_text(self) -> str:
-        error_texts_list: List[str] = [
-            str(error)
-            for error in self.logs.get_errors()
-        ]
-
-        check_failure_message_list = [
-            check_result.get_console_log_message()
-            for check_result in self.check_results
-            if check_result.outcome == CheckOutcome.FAIL
-        ]
-
-        if not error_texts_list and not check_failure_message_list:
-            return "All is good. No errors nor check failures."
-
-        errors_summary_text = f"{len(error_texts_list)} execution error"
-        if len(error_texts_list) != 1:
-            errors_summary_text = f"{errors_summary_text}s"
-
-        checks_summary_text = f"{len(check_failure_message_list)} check failure"
-        if len(check_failure_message_list) != 1:
-            checks_summary_text = f"{checks_summary_text}s"
-
-        parts = [f"{checks_summary_text} and {errors_summary_text}"]
-        if error_texts_list:
-            error_lines_text: str = indent("\n".join(error_texts_list), "  ")
-            parts.append(f"Errors: \n{error_lines_text}")
-
-        if check_failure_message_list:
-            parts.append("\n".join(check_failure_message_list))
-
-        return "\n".join(parts)
+@dataclass
+class Range:
+    """
+    Boundary values are inclusive
+    """
+    lower_bound: Number | None
+    upper_bound: Number | None
