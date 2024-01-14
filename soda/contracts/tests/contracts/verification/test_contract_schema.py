@@ -2,9 +2,8 @@ from textwrap import dedent
 
 from helpers.common_test_tables import customers_test_table
 from helpers.data_source_fixture import DataSourceFixture
-from soda.contracts.connection import Connection
+from soda.contracts.connection import Connection, SodaException
 from soda.contracts.contract import Contract, ContractResult, CheckResult
-from soda.contracts.exceptions import ContractVerificationException
 
 
 def test_contract_schema_pass(data_source_fixture: DataSourceFixture, connection: Connection):
@@ -41,7 +40,6 @@ def test_contract_schema_pass(data_source_fixture: DataSourceFixture, connection
     """))
 
     contract_result: ContractResult = contract.verify(connection)
-    contract_result.assert_no_problems()
 
 
 def test_contract_schema_column_missing(data_source_fixture: DataSourceFixture, connection: Connection):
@@ -80,7 +78,7 @@ def test_contract_schema_column_missing(data_source_fixture: DataSourceFixture, 
     try:
         contract.verify(connection)
         raise AssertionError("Expected contract verification exception")
-    except ContractVerificationException as e:
+    except SodaException as e:
         contract_result: ContractResult = e.contract_result
         assert contract_result.has_problems()
         schema_check_result: CheckResult = contract_result.check_results[0]

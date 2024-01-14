@@ -110,10 +110,8 @@ class SchemaCheck(Check):
             return None
 
         measured_schema = self.measured_schema
-
         measured_column_names = [column["name"] for column in measured_schema]
-
-        column_types = {column["name"]: column["type"] for column in measured_schema}
+        measured_column_types = {column["name"]: column["type"] for column in measured_schema}
 
         schema_missing_column_names = []
         schema_present_column_names = []
@@ -156,18 +154,18 @@ class SchemaCheck(Check):
                 expected_column_name,
                 expected_column_type,
             ) in schema_validations.required_column_types.items():
-                if expected_column_name in column_types and expected_column_type is not None:
-                    actual_type = column_types[expected_column_name]
+                if expected_column_name in measured_column_types and expected_column_type is not None:
+                    actual_type = measured_column_types[expected_column_name]
                     is_same_type = data_source.is_same_type_in_schema_check(expected_column_type, actual_type)
-                    if expected_column_name in column_types and not is_same_type:
+                    if expected_column_name in measured_column_types and not is_same_type:
                         schema_column_type_mismatches[expected_column_name] = {
                             "expected_type": expected_column_type,
-                            "actual_type": column_types[expected_column_name],
+                            "actual_type": measured_column_types[expected_column_name],
                         }
 
         if schema_validations.required_column_indexes:
             for required_column_name in schema_validations.required_column_indexes:
-                if required_column_name not in column_types:
+                if required_column_name not in measured_column_types:
                     schema_missing_column_names.append(required_column_name)
 
             measured_column_indexes = {
@@ -230,7 +228,20 @@ class SchemaCheck(Check):
     def get_cloud_diagnostics_dict(self) -> dict:
         schema_diagnostics = {
             "blocks": [],
+            "column_additions": [],
+            "column_deletions": [],
+            "column_index_changes": {},
+            "column_index_mismatches": {},
+            "column_type_changes": {},
+            "column_type_mismatches": {},
+            "missing_column_names": [],
+            "present_column_names": []
         }
+
+        if self.warn_result:
+            self._append_diffs(schema_diagnostics, self.warn_result)
+        if self.fail_result:
+            self._append_diffs(schema_diagnostics, self.fail_result)
 
         if self.measured_schema:
             columns_str = "\n".join([f'{c["name"]},{c["type"]}' for c in self.measured_schema])
@@ -287,6 +298,16 @@ class SchemaCheck(Check):
         }
 
         return schema_diagnostics
+
+    def _append_diffs(self, schema_diagnostics, result):
+        schema_diagnostics["column_additions"].extend(result.column_additions)
+        schema_diagnostics["column_deletions"].extend(result.column_deletions)
+        schema_diagnostics["column_index_changes"].update(result.column_index_changes)
+        schema_diagnostics["column_index_mismatches"].update(result.column_index_mismatches)
+        schema_diagnostics["column_type_changes"].update(result.column_type_changes)
+        schema_diagnostics["column_type_mismatches"].update(result.column_type_mismatches)
+        schema_diagnostics["missing_column_names"].extend(result.missing_column_names)
+        schema_diagnostics["present_column_names"].extend(result.present_column_names)
 
     def __build_change_events(self, schema_validation_result: SchemaCheckValidationResult) -> list(dict(str, str)):
         change_events: list(dict(str, str)) = []

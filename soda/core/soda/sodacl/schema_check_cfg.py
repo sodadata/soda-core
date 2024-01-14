@@ -27,7 +27,7 @@ class SchemaValidations:
         )
 
     def is_optional(self, column_name: str) -> bool:
-        return self.optional_columns is None or column_name in self.optional_columns
+        return not (self.optional_columns is None or column_name not in self.optional_columns)
 
 
 class SchemaCheckCfg(CheckCfg):

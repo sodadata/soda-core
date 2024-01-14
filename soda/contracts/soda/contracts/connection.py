@@ -7,12 +7,23 @@ from ruamel.yaml import YAML
 from ruamel.yaml.error import MarkedYAMLError
 
 import soda.common.logs as soda_common_logs
-from soda.contracts.exceptions import SodaConnectionException
 from soda.contracts.impl.logs import Logs
 from soda.contracts.impl.variable_resolver import VariableResolver
 from soda.execution.data_source import DataSource
 
 logger = logging.getLogger(__name__)
+
+
+class SodaException(Exception):
+
+    def __init__(self,
+                 message: str | None = None,
+                 contract_result: "ContractResult | None" = None
+                 ):
+        self.contract_result = contract_result
+        if self.contract_result and message is None:
+            message = str(self.contract_result)
+        super().__init__(message)
 
 
 class Connection:
@@ -53,12 +64,12 @@ class Connection:
         """
         try:
             if not isinstance(connection_yaml_file_path, str):
-                raise SodaConnectionException(
+                raise SodaException(
                     f"Couldn't create connection from yaml file. Expected str in parameter "
                     f"connection_yaml_file_path={connection_yaml_file_path}, but was '{type(connection_yaml_file_path)}"
                 )
             if not len(connection_yaml_file_path) > 1:
-                raise SodaConnectionException(
+                raise SodaException(
                     f"Couldn't create connection from yaml file. connection_yaml_file_path is an empty string"
                 )
 
@@ -66,7 +77,7 @@ class Connection:
                 connection_yaml_str = f.read()
                 return cls.from_yaml_str(connection_yaml_str)
         except Exception as e:
-            raise SodaConnectionException(
+            raise SodaException(
                 f"Couldn't create connection from yaml file '{connection_yaml_file_path}': {e}"
             ) from e
 
@@ -90,13 +101,13 @@ class Connection:
         """
 
         if not isinstance(connection_yaml_str, str):
-            raise SodaConnectionException(
+            raise SodaException(
                 f"Expected a string for parameter connection_yaml_str, "
                 f"but was '{type(connection_yaml_str)}'"
             )
 
         if connection_yaml_str == "":
-            raise SodaConnectionException(
+            raise SodaException(
                 f"connection_yaml_str must be non-emtpy, but was ''"
             )
 
@@ -104,14 +115,14 @@ class Connection:
             variable_resolver = VariableResolver(variables=variables)
             resolved_connection_yaml_str = variable_resolver.resolve(connection_yaml_str)
         except BaseException as e:
-            raise SodaConnectionException(f"Could not resolve variables in connection YAML: {e}") from e
+            raise SodaException(f"Could not resolve variables in connection YAML: {e}") from e
 
         try:
             yaml = YAML()
             yaml.preserve_quotes = True
             connection_dict = yaml.load(resolved_connection_yaml_str)
             if not isinstance(connection_dict, dict):
-                raise SodaConnectionException(
+                raise SodaException(
                     f"Content of the connection YAML file must be a YAML object, "
                     f"but was {type(connection_dict)}"
                 )
@@ -120,7 +131,7 @@ class Connection:
             mark = e.context_mark if e.context_mark else e.problem_mark
             line = mark.line + 1,
             column = mark.column + 1,
-            raise SodaConnectionException(f"YAML syntax error: {e} | line={line} | column={column}")
+            raise SodaException(f"YAML syntax error: {e} | line={line} | column={column}")
 
     @classmethod
     def from_dict(cls, connection_dict: dict, file_path: str | None = None) -> Connection:
@@ -140,16 +151,16 @@ class Connection:
         :raises SodaConnectionException: if the connection cannot be established for any reason
         """
         if not isinstance(connection_dict, dict):
-            raise SodaConnectionException(
+            raise SodaException(
                 f"connect_properties must be a object, but was {type(connection_dict)}"
             )
         if "type" not in connection_dict:
-            raise SodaConnectionException(
+            raise SodaException(
                 f"'type' is required, but was not provided"
             )
         connection_type: str = connection_dict.get("type")
         if not isinstance(connection_type, str):
-            raise SodaConnectionException(
+            raise SodaException(
                 f"'type' must be a string, but was  {type(connection_type)}"
             )
         return DataSourceConnection(connection_type=connection_type, connection_dict=connection_dict)
@@ -197,5 +208,5 @@ class DataSourceConnection(Connection):
             )
             self.data_source.connect()
         except Exception as e:
-            raise SodaConnectionException(f"Could not create the connection: {e}") from e
+            raise SodaException(f"Could not create the connection: {e}") from e
         super().__init__(dbapi_connection=self.data_source.connection)

@@ -6,9 +6,9 @@ from typing import List, Dict
 
 from ruamel.yaml import CommentedMap
 
+from soda.contracts.connection import SodaException
 from soda.contracts.contract import Contract, Check, SchemaCheck, NumericThreshold, MissingConfigurations, \
     NumericMetricCheck, ValidReferenceColumn, ValidConfigurations, Range
-from soda.contracts.exceptions import SodaContractException
 from soda.contracts.impl.json_schema_verifier import JsonSchemaVerifier
 from soda.contracts.impl.logs import Logs
 from soda.contracts.impl.variable_resolver import VariableResolver
@@ -30,7 +30,7 @@ class ContractParser:
                        variables: dict[str, str] | None = None
                        ) -> Contract:
         if not isinstance(contract_yaml_str, str):
-            raise SodaContractException(f"contract_yaml_str must be a str, but was {type(contract_yaml_str)}")
+            raise SodaException(f"contract_yaml_str must be a str, but was {type(contract_yaml_str)}")
 
         # Resolve all the ${VARIABLES} in the contract based on either the provided
         # variables or system variables (os.environ)
@@ -41,7 +41,7 @@ class ContractParser:
         ruamel_yaml_object: object | None = yaml_parser.parse_yaml_str(yaml_str=resolved_contract_yaml_str)
 
         if not isinstance(ruamel_yaml_object, CommentedMap):
-            raise SodaContractException("The contract top level must be a YAML object with keys and values")
+            raise SodaException("The contract top level must be a YAML object with keys and values")
 
         # Verify the contract schema on the ruamel instance object
         if ruamel_yaml_object is not None:
@@ -64,7 +64,7 @@ class ContractParser:
 
             checks.append(SchemaCheck(
                 metric="schema",
-                name=None,
+                name="Schema",
                 contract_check_id=str(len(checks)),
                 location=None,
                 columns=schema_columns,

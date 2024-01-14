@@ -1,21 +1,18 @@
 from __future__ import annotations
 
 import traceback
+from dataclasses import dataclass
 from enum import Enum
 from textwrap import indent
 from typing import List
 
 
+@dataclass
 class Location:
-    def __init__(
-        self,
-        file: str | None = None,
-        line: int | None = None,
-        column: int | None = None
-    ):
-        self.file = file
-        self.line = line
-        self.column = column
+
+    file: str | None = None,
+    line: int | None = None,
+    column: int | None = None
 
     def __str__(self):
         parts =[

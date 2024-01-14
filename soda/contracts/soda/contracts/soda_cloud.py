@@ -5,7 +5,7 @@ import os
 from ruamel.yaml import YAML
 from yaml import MarkedYAMLError
 
-from soda.contracts.exceptions import SodaCloudException
+from soda.contracts.connection import SodaException
 from soda.contracts.impl.variable_resolver import VariableResolver
 
 
@@ -33,12 +33,12 @@ class SodaCloud:
         """
         try:
             if not isinstance(soda_cloud_yaml_file_path, str):
-                raise SodaCloudException(
+                raise SodaException(
                     f"Couldn't create SodaCloud from yaml file. Expected str in parameter "
                     f"soda_cloud_yaml_file_path={soda_cloud_yaml_file_path}, but was '{type(soda_cloud_yaml_file_path)}"
                 )
             if not len(soda_cloud_yaml_file_path) > 1:
-                raise SodaCloudException(
+                raise SodaException(
                     f"Couldn't create SodaCloud from yaml file. soda_cloud_yaml_file_path is an empty string"
                 )
 
@@ -46,7 +46,7 @@ class SodaCloud:
                 soda_cloud_yaml_str = f.read()
                 return cls.from_yaml_str(soda_cloud_yaml_str)
         except Exception as e:
-            raise SodaCloudException(
+            raise SodaException(
                 f"Couldn't create SodaCloud from yaml file '{soda_cloud_yaml_file_path}'"
             ) from e
 
@@ -61,13 +61,13 @@ class SodaCloud:
         """
 
         if not isinstance(soda_cloud_yaml_str, str):
-            raise SodaCloudException(
+            raise SodaException(
                 f"Expected a string for parameter soda_cloud_yaml_str, "
                 f"but was '{type(soda_cloud_yaml_str)}'"
             )
 
         if soda_cloud_yaml_str == "":
-            raise SodaCloudException(
+            raise SodaException(
                 f"soda_cloud_yaml_str must be non-emtpy, but was ''"
             )
 
@@ -80,7 +80,7 @@ class SodaCloud:
             yaml.preserve_quotes = True
             soda_cloud_dict = yaml.load(resolved_soda_cloud_yaml_str)
             if not isinstance(soda_cloud_dict, dict):
-                raise SodaCloudException(
+                raise SodaException(
                     f"Content of the SodaCloud YAML file must be a YAML object, "
                     f"but was {type(soda_cloud_dict)}"
                 )
@@ -89,7 +89,7 @@ class SodaCloud:
             mark = e.context_mark if e.context_mark else e.problem_mark
             line = mark.line + 1,
             column = mark.column + 1,
-            raise SodaCloudException(f"YAML syntax error: {e} | line={line} | column={column}")
+            raise SodaException(f"YAML syntax error: {e} | line={line} | column={column}")
 
     @classmethod
     def from_dict(cls, soda_cloud_dict: dict | None = None) -> SodaCloud:
@@ -97,7 +97,7 @@ class SodaCloud:
             soda_cloud_dict = {}
 
         if not isinstance(soda_cloud_dict, dict):
-            raise SodaCloudException(f"soda_cloud_dict must be a dict, but was {type(soda_cloud_dict)}")
+            raise SodaException(f"soda_cloud_dict must be a dict, but was {type(soda_cloud_dict)}")
 
         host: str = cls.__get_configuration_value(
             soda_cloud_dict=soda_cloud_dict,
@@ -131,4 +131,4 @@ class SodaCloud:
             return soda_cloud_dict[key]
         if default_value is not None:
             return default_value
-        raise SodaCloudException(f"Key {key} not found in Soda Cloud configuration")
+        raise SodaException(f"Key {environment_key_lower} not found in Soda Cloud configuration")

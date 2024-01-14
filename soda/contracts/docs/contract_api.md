@@ -71,7 +71,6 @@ To verify a contract, you need a [connection](#creating-a-connection) and a cont
 ```python
 contract: Contract = Contract.from_yaml_file("./customers.sdc.yml")
 contract_result: ContractResult = contract.verify(connection, soda_cloud)
-contract_result.assert_no_problems()
 ```
 
 ## Errors, failures and problems

@@ -4,12 +4,11 @@ from textwrap import dedent
 import pytest
 
 from helpers.fixtures import project_root_dir
-from soda.contracts.connection import Connection
-from soda.contracts.exceptions import SodaConnectionException
+from soda.contracts.connection import Connection, SodaException
 
 
 def test_connection_exception_file_not_found():
-    with pytest.raises(SodaConnectionException) as excinfo:
+    with pytest.raises(SodaException) as excinfo:
         Connection.from_yaml_file("./non_existing_file.scn.yml")
 
     assert "file './non_existing_file.scn.yml'" in str(excinfo.value)
@@ -26,7 +25,7 @@ def test_connection_from_file_with_variable_resolving(environ):
 
 
 def test_invalid_database():
-    with pytest.raises(SodaConnectionException) as excinfo:
+    with pytest.raises(SodaException) as excinfo:
         Connection.from_yaml_str(dedent("""
             type: postgres
             host: localhost
@@ -37,7 +36,7 @@ def test_invalid_database():
 
 
 def test_invalid_username():
-    with pytest.raises(SodaConnectionException) as excinfo:
+    with pytest.raises(SodaException) as excinfo:
         Connection.from_yaml_str(dedent("""
             type: postgres
             host: localhost

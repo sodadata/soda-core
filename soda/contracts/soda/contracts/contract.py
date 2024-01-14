@@ -10,8 +10,9 @@ from textwrap import indent
 from typing import List, Dict
 
 from soda.common import logs as soda_common_logs
-from soda.contracts.exceptions import ContractVerificationException
-from soda.contracts.impl.logs import Logs, Location, LogLevel, Log
+from soda.contracts.impl import logs as contract_logs
+
+from soda.contracts.connection import SodaException
 from soda.contracts.impl.yaml import YamlWriter
 from soda.contracts.soda_cloud import SodaCloud
 from soda.scan import Scan
@@ -26,7 +27,7 @@ class Contract:
     def from_yaml_str(cls,
                       contract_yaml_str: str,
                       variables: dict[str, str] | None = None,
-                      logs: Logs | None = None
+                      logs: contract_logs.Logs | None = None
                       ) -> Contract:
         """
         Build a contract from a YAML string
@@ -75,7 +76,7 @@ class Contract:
         Verifies if the data in the dataset matches the contract.
         """
 
-        logs: Logs = Logs()
+        logs: contract_logs.Logs = contract_logs.Logs()
         scan = Scan()
 
         try:
@@ -97,11 +98,12 @@ class Contract:
 
         ContractResult._copy_scan_logs_to_logs(scan, logs)
         contract_result: ContractResult = ContractResult(contract=self, logs=logs, scan=scan)
-        contract_result.assert_no_problems()
+        if contract_result.has_problems():
+            raise SodaException(contract_result=contract_result)
 
         return contract_result
 
-    def _generate_sodacl_yaml_str(self, logs: Logs) -> str:
+    def _generate_sodacl_yaml_str(self, logs: contract_logs.Logs) -> str:
         # Serialize the SodaCL YAML object to a YAML string
         sodacl_checks: list = []
         sodacl_yaml_object: dict = {
@@ -123,12 +125,12 @@ class ContractResult:
     """
 
     contract: Contract
-    logs: Logs
+    logs: contract_logs.Logs
     check_results: List[CheckResult]
 
-    def __init__(self, contract: Contract, logs: Logs, scan: Scan):
+    def __init__(self, contract: Contract, logs: contract_logs.Logs, scan: Scan):
         self.contract = contract
-        self.logs: Logs = Logs(logs)
+        self.logs: contract_logs.Logs = contract_logs.Logs(logs)
         self.check_results: List[CheckResult]  = []
 
         contract_checks_by_id: dict[str, Check] = {
@@ -172,30 +174,26 @@ class ContractResult:
                 self.check_results.append(check_result)
 
     @classmethod
-    def _copy_scan_logs_to_logs(cls, scan: Scan, logs: Logs) -> None:
+    def _copy_scan_logs_to_logs(cls, scan: Scan, logs: contract_logs.Logs) -> None:
         level_map = {
-            soda_common_logs.LogLevel.ERROR: LogLevel.ERROR,
-            soda_common_logs.LogLevel.WARNING: LogLevel.WARNING,
-            soda_common_logs.LogLevel.INFO: LogLevel.INFO,
-            soda_common_logs.LogLevel.DEBUG: LogLevel.DEBUG
+            soda_common_logs.LogLevel.ERROR: contract_logs.LogLevel.ERROR,
+            soda_common_logs.LogLevel.WARNING: contract_logs.LogLevel.WARNING,
+            soda_common_logs.LogLevel.INFO: contract_logs.LogLevel.INFO,
+            soda_common_logs.LogLevel.DEBUG: contract_logs.LogLevel.DEBUG
         }
         for scan_log in scan._logs.logs:
             contracts_location: Location = (
-                Location(line=scan_log.location.line, column=scan_log.location.col)
+                contract_logs.Location(line=scan_log.location.line, column=scan_log.location.col)
                 if scan_log.location is not None
                 else None
             )
-            contracts_level: LogLevel = level_map[scan_log.level]
-            logs._log(Log(
+            contracts_level: contract_logs.LogLevel = level_map[scan_log.level]
+            logs._log(contract_logs.Log(
                 level=contracts_level,
                 message=scan_log.message,
                 location=contracts_location,
                 exception=scan_log.exception
             ))
-
-    def assert_no_problems(self) -> None:
-        if self.has_problems() or self.has_check_failures():
-            raise ContractVerificationException(contract_result=self)
 
     def has_problems(self) -> bool:
         return self.has_execution_errors() or self.has_check_failures()
@@ -206,7 +204,7 @@ class ContractResult:
     def has_check_failures(self):
         return any(check.outcome == CheckOutcome.FAIL for check in self.check_results)
 
-    def get_problems_text(self) -> str:
+    def __str__(self) -> str:
         error_texts_list: List[str] = [
             str(error)
             for error in self.logs.get_errors()
@@ -281,10 +279,11 @@ class CheckResult:
             else "Check passed" if self.outcome == CheckOutcome.PASS
             else "Check unknown"
         )
+        name_text = f" ({self.check.name})" if self.check.name else ""
         definition_text = indent(self.check.get_console_log_message(), "  ")
         measurements_text =  "\n".join(metric.get_console_log_message() for metric in self.measurements)
         measurements_text = indent(measurements_text, "  ")
-        return f"{outcome_text}\n{definition_text}\n{measurements_text}"
+        return f"{outcome_text}{name_text}\n{definition_text}\n{measurements_text}"
 
 
 @dataclass
@@ -360,51 +359,62 @@ class SchemaCheck(Check):
             c.get("columnName"): c.get("sourceDataType") for c in scan_measured_schema
         }
         measurement = Measurement(
-            name="schema",
-            type="schema",
+            name="Schema",
+            type="Schema",
             value=measured_schema
         )
 
-        columns_ok: dict[str, str] = {}
-        columns_not_allowed_and_present: list[str] = []
-        columns_required_and_not_present: list[str] = []
-        columns_having_wrong_type: list[DataTypeMismatch] = []
+        diagnostics = scan_check.get("diagnostics", {})
 
-        for measured_column, measured_data_type in measured_schema.items():
-            if measured_column in self.columns:
-                expected_data_type = self.columns[measured_column]
-                if expected_data_type is None or expected_data_type == measured_data_type:
-                    columns_ok[measured_column] = measured_data_type
-                else:
-                    columns_having_wrong_type.append(
-                        DataTypeMismatch(
-                            column=measured_column,
-                            expected_data_type=expected_data_type,
-                            actual_data_type=measured_data_type
-                        )
+        columns_not_allowed_and_present: list[str] = diagnostics.get("present_column_names", [])
+        columns_required_and_not_present: list[str] = diagnostics.get("missing_column_names", [])
+
+        columns_having_wrong_type: list[DataTypeMismatch] = []
+        column_type_mismatches = diagnostics.get("column_type_mismatches", {})
+        if column_type_mismatches:
+            for column_name, column_type_mismatch in column_type_mismatches.items():
+                expected_type = column_type_mismatch.get("expected_type")
+                actual_type = column_type_mismatch.get("actual_type")
+                columns_having_wrong_type.append(
+                    DataTypeMismatch(
+                        column=column_name,
+                        expected_data_type=expected_type,
+                        actual_data_type=actual_type
                     )
+                )
 
         return SchemaCheckResult(
             check=self,
             measurements=[measurement],
             outcome=CheckOutcome._from_scan_check(scan_check),
-            columns_ok=columns_ok,
             columns_not_allowed_and_present=columns_not_allowed_and_present,
             columns_required_and_not_present=columns_required_and_not_present,
             columns_having_wrong_type=columns_having_wrong_type
         )
 
     def get_console_log_message(self) -> str:
-        column_text = f" ({self.column})" if self.column else ""
-        return f"{self.name}{column_text}"
+        column_spec: str = ",".join([f"{c.get('name')}{c.get('optional')}{c.get('type')}" for c in [
+            {
+                "name": column_name,
+                "type": f"={data_type}" if data_type else "",
+                "optional": "(optional)" if column_name in self.optional_columns else ""
+            } for column_name, data_type in self.columns.items()
+        ]])
+        return f"Expected schema: {column_spec}"
 
 
 @dataclass
 class SchemaCheckResult(CheckResult):
-    columns_ok: dict[str, str] | None
     columns_not_allowed_and_present: list[str] | None
     columns_required_and_not_present: list[str] | None
     columns_having_wrong_type: list[DataTypeMismatch] | None
+
+    def get_console_log_message(self) -> str:
+        pieces: list[str] = [super().get_console_log_message()]
+        pieces.extend([f"  Column '{column}' was present and not allowed" for column in self.columns_not_allowed_and_present])
+        pieces.extend([f"  Column '{column}' was missing" for column in self.columns_required_and_not_present])
+        pieces.extend([f"  Column '{data_type_mismatch.column}': Expected type '{data_type_mismatch.expected_data_type}', but was '{data_type_mismatch.actual_data_type}'" for data_type_mismatch in self.columns_having_wrong_type])
+        return "\n".join(pieces)
 
 
 @dataclass
