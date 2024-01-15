@@ -1,67 +1,12 @@
 import logging
 from textwrap import dedent
 
+from contracts.helpers.schema_table import contracts_test_table
+from contracts.helpers.test_connection import TestConnection
 from contracts.helpers.translation_test_helper import translate
-from soda.contracts.connection import Connection
+from soda.contracts.contract import ContractResult, SchemaCheckResult, CheckOutcome, Measurement
 
 logger = logging.getLogger(__name__)
-
-
-def test_contract_schema_data_type(connection: Connection):
-    assert translate(
-        f"""
-        dataset: CUSTOMERS
-        columns:
-          - name: id
-            data_type: character varying
-    """) == dedent(f"""
-        checks for CUSTOMERS:
-        - schema:
-            fail:
-              when mismatching columns:
-                id: character varying
-    """).strip()
-
-
-def test_contract_schema_check_type_no_type_combination():
-    assert translate(
-        f"""
-        dataset: CUSTOMERS
-        columns:
-          - name: id
-            data_type: character varying
-          - name: cst_size
-    """) == dedent(f"""
-        checks for CUSTOMERS:
-        - schema:
-            fail:
-              when mismatching columns:
-                id: character varying
-                cst_size:
-    """).strip()
-
-
-def test_contract_schema_check_optional_columns():
-    assert translate(
-        f"""
-        dataset: CUSTOMERS
-        columns:
-          - name: id
-            data_type: character varying
-          - name: cst_size
-          - name: sometimes
-            optional: true
-    """) == dedent(f"""
-        checks for CUSTOMERS:
-        - schema:
-            fail:
-              when mismatching columns:
-                id: character varying
-                cst_size:
-                sometimes:
-              with optional columns:
-              - sometimes
-    """).strip()
 
 
 def test_contract_not_null():

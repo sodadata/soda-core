@@ -47,7 +47,6 @@ class Connection:
     """
 
     def __init__(self, dbapi_connection: object | None = None):
-        super().__init__()
         self.dbapi_connection = dbapi_connection
 
     @classmethod

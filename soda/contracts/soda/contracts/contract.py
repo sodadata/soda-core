@@ -43,7 +43,7 @@ class Contract:
     def from_yaml_file(cls, file_path: str) -> Contract:
         """
         Build a contract from a YAML file.
-        Raises OSError in case the file_path cannot be opened like eg
+        Raises OSError in case the file_path cannot be opened like e.g.
         FileNotFoundError or PermissionError
         """
         with open(file_path) as f:
@@ -149,7 +149,7 @@ class ContractResult:
         scan_checks = scan.scan_results.get("checks")
         if isinstance(scan_checks, list):
             for scan_check in scan_checks:
-                contract_check: Check = None
+                contract_check: Check | None = None
                 if scan_check.get("name") == "Schema Check" and scan_check.get("type") == "generic":
                     contract_check = schema_check
                 else:
@@ -217,7 +217,7 @@ class ContractResult:
         ]
 
         if not error_texts_list and not check_failure_message_list:
-            return "All is good. No errors nor check failures."
+            return "All is good. No checks failed. No contract execution errors."
 
         errors_summary_text = f"{len(error_texts_list)} execution error"
         if len(error_texts_list) != 1:
@@ -249,6 +249,7 @@ class Check(ABC):
     name: str | None
 
     # Identifier used to correlate the sodacl check results with this contract check object when parsing scan results
+    # contract_check_id is None for schema checks
     contract_check_id: str | None
     location: Location | None
 
@@ -320,7 +321,7 @@ class Measurement:
         return measurements
 
     def get_console_log_message(self) -> str:
-        return f"{self.type} was {self.value}"
+        return f"Measurement {self.name} was {self.value}"
 
 
 class CheckOutcome(Enum):
@@ -354,13 +355,13 @@ class SchemaCheck(Check):
                             scan_check: dict[str, dict],
                             scan_check_metrics_by_name: dict[str, dict],
                             scan: Scan):
-        scan_measured_schema: dict[str, str] = scan_check_metrics_by_name.get("schema").get("value")
+        scan_measured_schema: list[dict] = scan_check_metrics_by_name.get("schema").get("value")
         measured_schema = {
             c.get("columnName"): c.get("sourceDataType") for c in scan_measured_schema
         }
         measurement = Measurement(
-            name="Schema",
-            type="Schema",
+            name="schema",
+            type="schema",
             value=measured_schema
         )
 
@@ -473,6 +474,44 @@ class NumericMetricCheck(Check):
             else sodacl_check_line
         )
 
+    def _create_check_result(self,
+                             scan_check: dict[str, dict],
+                             scan_check_metrics_by_name: dict[str, dict],
+                             scan: Scan):
+        scan_measured_schema: list[dict] = scan_check_metrics_by_name.get("schema").get("value")
+        measured_schema = {
+            c.get("columnName"): c.get("sourceDataType") for c in scan_measured_schema
+        }
+        measurement = Measurement(
+            name="schema",
+            type="schema",
+            value=measured_schema
+        )
+
+        diagnostics = scan_check.get("diagnostics", {})
+
+        columns_not_allowed_and_present: list[str] = diagnostics.get("present_column_names", [])
+        columns_required_and_not_present: list[str] = diagnostics.get("missing_column_names", [])
+
+        columns_having_wrong_type: list[DataTypeMismatch] = []
+        column_type_mismatches = diagnostics.get("column_type_mismatches", {})
+        if column_type_mismatches:
+            for column_name, column_type_mismatch in column_type_mismatches.items():
+                expected_type = column_type_mismatch.get("expected_type")
+                actual_type = column_type_mismatch.get("actual_type")
+                columns_having_wrong_type.append(
+                    DataTypeMismatch(
+                        column=column_name,
+                        expected_data_type=expected_type,
+                        actual_data_type=actual_type
+                    )
+                )
+
+        return CheckResult(
+            check=self,
+            measurements=[measurement],
+            outcome=CheckOutcome._from_scan_check(scan_check)
+        )
 
 @dataclass
 class MissingConfigurations:

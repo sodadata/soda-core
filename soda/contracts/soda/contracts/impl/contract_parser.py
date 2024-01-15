@@ -65,7 +65,7 @@ class ContractParser:
             checks.append(SchemaCheck(
                 metric="schema",
                 name="Schema",
-                contract_check_id=str(len(checks)),
+                contract_check_id=None,
                 location=None,
                 columns=schema_columns,
                 optional_columns=schema_optional_columns
@@ -84,6 +84,7 @@ class ContractParser:
                 yaml_column_checks: YamlList = contract_column_yaml_object.read_yaml_list_opt("checks")
 
                 if yaml_column_checks:
+                    yaml_column_check: YamlObject
                     for yaml_column_check in yaml_column_checks:
                         check: Check = self._parse_column_check(
                             contract_check_id=str(len(checks)),
@@ -113,9 +114,7 @@ class ContractParser:
     def _parse_column_check(self,
                             contract_check_id: str,
                             check_yaml: YamlObject,
-                            check_type: str | None,
-                            column: str,
-                            default_threshold: NumericThreshold | None
+                            column: str
                             ) -> Check | None:
 
         check_type = check_yaml.read_string("type")
