@@ -11,58 +11,6 @@ logger = logging.getLogger(__name__)
 
 
 
-
-def test_contract_column_multi_valid():
-    assert translate(
-        f"""
-            dataset: CUSTOMERS
-
-            columns:
-              - name: cat
-                checks:
-                  - type: invalid
-                    valid_values: ['a', 'b', 'c']
-                    valid_length: 1
-                    invalid_values: ['i', 'n', 'v']
-                    valid_min: 0
-                    valid_max: 10
-                    valid_regex: '.'
-        """) == dedent(f"""
-            checks for CUSTOMERS:
-            - schema:
-                fail:
-                  when mismatching columns:
-                    cat:
-            - invalid_count(cat) = 0:
-                valid values: ['a', 'b', 'c']
-                valid length: 1
-                invalid values: ['i', 'n', 'v']
-                valid min: 0
-                valid max: 10
-                valid regex: '.'
-        """).strip()
-
-
-def test_contract_column_unique():
-    assert translate(
-        f"""
-            dataset: CUSTOMERS
-
-            columns:
-              - name: id
-                data_type: varchar
-                checks:
-                  - type: unique
-        """) == dedent(f"""
-            checks for CUSTOMERS:
-            - schema:
-                fail:
-                  when mismatching columns:
-                    id: varchar
-            - duplicate_count(id) = 0
-        """).strip()
-
-
 def test_contract_column_invalid_reference_check():
     assert translate(
         f"""

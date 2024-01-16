@@ -495,6 +495,57 @@ class NumericMetricCheck(Check):
         )
 
 @dataclass
+class InvalidReferenceCheck(Check):
+
+    check_yaml_object: YamlObject
+    column: str
+    reference_dataset: str
+    reference_column: str
+    other_check_configs: dict | None
+
+    def get_definition_line(self) -> str:
+        return f"values in ({self.column}) must exist in {self.reference_dataset} ({self.reference_column})"
+
+    def _to_sodacl_check(self) -> str | dict | None:
+        check_configs = {
+            "contract_check_id": self.contract_check_id
+        }
+
+        if self.name:
+            check_configs["name"] = self.name
+
+        sodacl_check_line: str = self.get_definition_line()
+        if self.other_check_configs:
+            check_configs.update(self.other_check_configs)
+
+        sodacl_configs = {
+            k.replace("_", " "): v for k, v in check_configs.items()
+        }
+
+        return (
+            {sodacl_check_line: sodacl_configs} if sodacl_configs
+            else sodacl_check_line
+        )
+
+    def _create_check_result(self,
+                             scan_check: dict[str, dict],
+                             scan_check_metrics_by_name: dict[str, dict],
+                             scan: Scan):
+        scan_metric_dict = scan_check_metrics_by_name.get("reference", {})
+        value: Number = scan_metric_dict.get("value")
+        measurement = Measurement(
+            name=f"invalid_count({self.column})",
+            type="numeric",
+            value=value
+        )
+        return CheckResult(
+            check=self,
+            measurements=[measurement],
+            outcome=CheckOutcome._from_scan_check(scan_check)
+        )
+
+
+@dataclass
 class MissingConfigurations:
     missing_values: list[str] | list[Number] | None
     missing_regex: str | None

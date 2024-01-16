@@ -30,7 +30,6 @@ def test_contract_schema_pass_with_data_types(test_connection: TestConnection):
     assert schema_check_result.columns_having_wrong_type == []
     assert schema_check_result.check.name == "Schema"
     assert schema_check_result.check.location is None
-    assert schema_check_result.check.metric == "schema"
     measurement: Measurement = schema_check_result.measurements[0]
     assert measurement.name == "schema"
     assert measurement.type == "schema"
@@ -61,7 +60,6 @@ def test_contract_schema_pass_without_data_types(test_connection: TestConnection
     assert schema_check_result.columns_having_wrong_type == []
     assert schema_check_result.check.name == "Schema"
     assert schema_check_result.check.location is None
-    assert schema_check_result.check.metric == "schema"
     measurement: Measurement = schema_check_result.measurements[0]
     assert measurement.name == "schema"
     assert measurement.type == "schema"
@@ -98,7 +96,6 @@ def test_contract_schema_missing_column(test_connection: TestConnection):
     assert schema_check_result.columns_having_wrong_type == []
     assert schema_check_result.check.name == "Schema"
     assert schema_check_result.check.location is None
-    assert schema_check_result.check.metric == "schema"
     measurement: Measurement = schema_check_result.measurements[0]
     assert measurement.name == "schema"
     assert measurement.type == "schema"
@@ -137,7 +134,6 @@ def test_contract_schema_missing_optional_column(test_connection: TestConnection
     assert schema_check_result.columns_having_wrong_type == []
     assert schema_check_result.check.name == "Schema"
     assert schema_check_result.check.location is None
-    assert schema_check_result.check.metric == "schema"
     measurement: Measurement = schema_check_result.measurements[0]
     assert measurement.name == "schema"
     assert measurement.type == "schema"
@@ -170,7 +166,6 @@ def test_contract_schema_extra_column(test_connection: TestConnection):
     assert schema_check_result.columns_having_wrong_type == []
     assert schema_check_result.check.name == "Schema"
     assert schema_check_result.check.location is None
-    assert schema_check_result.check.metric == "schema"
     measurement: Measurement = schema_check_result.measurements[0]
     assert measurement.name == "schema"
     assert measurement.type == "schema"

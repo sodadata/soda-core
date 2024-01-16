@@ -21,3 +21,19 @@ contracts_test_table = TestTable(
     ]
     # fmt: on
 )
+
+
+contract_refs_test_table = TestTable(
+    name="contract_refs",
+    columns=[
+        ("id", DataType.TEXT),
+        ("contract_id", DataType.TEXT)
+    ],
+    # fmt: off
+    values=[
+        ('1', 'ID1'),
+        ('2', 'ID-BUZZZ'),
+        ('3', None),
+    ]
+    # fmt: on
+)

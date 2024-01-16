@@ -40,7 +40,9 @@ class TestConnection(Connection):
         return contract_result
 
     def assert_contract_fail(self, contract_yaml_str: str) -> ContractResult:
-        contract: Contract = Contract.from_yaml_str(dedent(contract_yaml_str))
+        contract_yaml_str = dedent(contract_yaml_str).strip()
+        logging.debug(contract_yaml_str)
+        contract: Contract = Contract.from_yaml_str(contract_yaml_str)
         try:
             contract_result: ContractResult = contract.verify(self)
             raise AssertionError(f"Expected contract verification exception, but got contract result: {contract_result}")

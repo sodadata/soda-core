@@ -1,4 +1,4 @@
-from contracts.helpers.schema_table import contracts_test_table
+from contracts.helpers.schema_table import contracts_test_table, contract_refs_test_table
 from contracts.helpers.test_connection import TestConnection
 from soda.contracts.contract import ContractResult, CheckOutcome
 
@@ -72,5 +72,30 @@ def test_contract_multi_validity_configs(test_connection: TestConnection):
     assert check_result.outcome == CheckOutcome.FAIL
     measurement = check_result.measurements[0]
     assert measurement.name == "invalid_count(id)"
+    assert measurement.value == 1
+    assert measurement.type == "numeric"
+
+
+def test_contract_column_invalid_reference_check(test_connection: TestConnection):
+    table_name: str = test_connection.ensure_test_table(contract_refs_test_table)
+    customers_table_name: str = test_connection.ensure_test_table(contracts_test_table)
+
+    contract_result: ContractResult = test_connection.assert_contract_fail(f"""
+        dataset: {table_name}
+        columns:
+          - name: id
+          - name: contract_id
+            checks:
+              - type: invalid
+                valid_values_column:
+                    dataset: {customers_table_name}
+                    column: id
+                samples_limit: 20
+    """)
+    assert "Measurement invalid_count(contract_id) was 1" in str(contract_result)
+    check_result = contract_result.check_results[1]
+    assert check_result.outcome == CheckOutcome.FAIL
+    measurement = check_result.measurements[0]
+    assert measurement.name == "invalid_count(contract_id)"
     assert measurement.value == 1
     assert measurement.type == "numeric"

@@ -8,7 +8,7 @@ from ruamel.yaml import CommentedMap
 
 from soda.contracts.connection import SodaException
 from soda.contracts.contract import Contract, Check, SchemaCheck, NumericThreshold, MissingConfigurations, \
-    NumericMetricCheck, ValidReferenceColumn, ValidConfigurations, Range
+    NumericMetricCheck, ValidReferenceColumn, ValidConfigurations, Range, InvalidReferenceCheck
 from soda.contracts.impl.json_schema_verifier import JsonSchemaVerifier
 from soda.contracts.impl.logs import Logs
 from soda.contracts.impl.variable_resolver import VariableResolver
@@ -142,6 +142,18 @@ class ContractParser:
             else None
         )
 
+        valid_values_column_yaml_object: YamlObject = check_yaml_object.read_yaml_object_opt("valid_values_column")
+        if metric.startswith("invalid_") and valid_values_column_yaml_object:
+            return self._parse_invalid_reference_check(
+            contract_check_id=contract_check_id,
+            check_yaml_object=check_yaml_object,
+            check_type=check_type,
+            metric=metric,
+            column=column,
+            valid_values_column_yaml_object=valid_values_column_yaml_object,
+            default_threshold=default_threshold
+        )
+
         return self._parse_numeric_metric_check(
             contract_check_id=contract_check_id,
             check_yaml_object=check_yaml_object,
@@ -208,6 +220,42 @@ class ContractParser:
             valid_configurations=valid_configurations,
             fail_threshold=fail_threshold,
             warn_threshold=None,
+            other_check_configs=other_check_configs
+        )
+
+    def _parse_invalid_reference_check(self,
+                                       contract_check_id: str,
+                                       check_yaml_object: YamlObject,
+                                       check_type: str,
+                                       metric: str,
+                                       column: str | None,
+                                       valid_values_column_yaml_object: YamlObject,
+                                       default_threshold: NumericThreshold | None
+                                       ) -> Check | None:
+        name = check_yaml_object.read_string_opt("name")
+        other_check_configs: dict = {
+            k: v for k, v in check_yaml_object.unpacked().items()
+            if k not in ["type", "name", "fail_when_greater_than", "fail_when_greater_than_or_equal",
+                         "fail_when_less_than", "fail_when_less_than_or_equal", "fail_when_equals",
+                         "fail_when_not_equals", "fail_when_between", "fail_when_not_between", "missing_values",
+                         "missing_regex", "invalid_values", "invalid_format", "invalid_regex", "valid_values",
+                         "valid_format", "valid_regex", "valid_min", "valid_max", "valid_length", "valid_min_length",
+                         "valid_max_length", "valid_reference_column", "valid_values_column"
+                         ]
+        }
+
+        reference_dataset = valid_values_column_yaml_object.read_string("dataset")
+        reference_column = valid_values_column_yaml_object.read_string("column")
+
+        return InvalidReferenceCheck(
+            type=check_type,
+            name=name,
+            contract_check_id=contract_check_id,
+            location=check_yaml_object.location,
+            check_yaml_object=check_yaml_object,
+            column=column,
+            reference_dataset=reference_dataset,
+            reference_column=reference_column,
             other_check_configs=other_check_configs
         )
 
