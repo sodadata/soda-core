@@ -13,7 +13,7 @@ from soda.common import logs as soda_common_logs
 from soda.contracts.impl import logs as contract_logs
 
 from soda.contracts.connection import SodaException
-from soda.contracts.impl.yaml import YamlWriter
+from soda.contracts.impl.yaml import YamlWriter, YamlObject
 from soda.contracts.soda_cloud import SodaCloud
 from soda.scan import Scan
 from soda.sodacl.location import Location
@@ -81,6 +81,8 @@ class Contract:
 
         try:
             self.sodacl_yaml_str = self._generate_sodacl_yaml_str(logs)
+
+            logger.debug(self.sodacl_yaml_str)
 
             if self.sodacl_yaml_str:
                 # This assumes the connection is a DataSourceConnection
@@ -153,7 +155,7 @@ class ContractResult:
                 if scan_check.get("name") == "Schema Check" and scan_check.get("type") == "generic":
                     contract_check = schema_check
                 else:
-                    contract_check_id = scan_check.get("contract check id")
+                    contract_check_id = scan_check.get("contract_check_id")
                     if isinstance(contract_check_id, str):
                         contract_check = contract_checks_by_id[contract_check_id]
 
@@ -241,9 +243,7 @@ class ContractResult:
 @dataclass
 class Check(ABC):
 
-    # The metric this check is based on. This also serves as a short description the library generates if the
-    # user doesn't supply a name for the check. Eg schema, missing_count(colname), avg(col2), ...
-    metric: str
+    type: str
 
     # User defined name as in the contract.  None if not specified in the contract.
     name: str | None
@@ -253,8 +253,9 @@ class Check(ABC):
     contract_check_id: str | None
     location: Location | None
 
-    def get_console_log_message(self) -> str:
-        return self.name
+    @abstractmethod
+    def get_definition_line(self) -> str:
+        pass
 
     @abstractmethod
     def _to_sodacl_check(self) -> str | dict | None:
@@ -280,8 +281,8 @@ class CheckResult:
             else "Check passed" if self.outcome == CheckOutcome.PASS
             else "Check unknown"
         )
-        name_text = f" ({self.check.name})" if self.check.name else ""
-        definition_text = indent(self.check.get_console_log_message(), "  ")
+        name_text = f" [{self.check.name}]" if self.check.name else ""
+        definition_text = indent(self.check.get_definition_line(), "  ")
         measurements_text =  "\n".join(metric.get_console_log_message() for metric in self.measurements)
         measurements_text = indent(measurements_text, "  ")
         return f"{outcome_text}{name_text}\n{definition_text}\n{measurements_text}"
@@ -393,7 +394,7 @@ class SchemaCheck(Check):
             columns_having_wrong_type=columns_having_wrong_type
         )
 
-    def get_console_log_message(self) -> str:
+    def get_definition_line(self) -> str:
         column_spec: str = ",".join([f"{c.get('name')}{c.get('optional')}{c.get('type')}" for c in [
             {
                 "name": column_name,
@@ -401,7 +402,7 @@ class SchemaCheck(Check):
                 "optional": "(optional)" if column_name in self.optional_columns else ""
             } for column_name, data_type in self.columns.items()
         ]])
-        return f"Expected schema: {column_spec}"
+        return f"Schema: {column_spec}"
 
 
 @dataclass
@@ -428,6 +429,8 @@ class DataTypeMismatch:
 @dataclass
 class NumericMetricCheck(Check):
 
+    metric: str
+    check_yaml_object: YamlObject
     column: str
     missing_configurations: MissingConfigurations | None
     valid_configurations: ValidConfigurations | None
@@ -435,9 +438,8 @@ class NumericMetricCheck(Check):
     warn_threshold: NumericThreshold | None
     other_check_configs: dict | None
 
-    def get_console_log_message(self) -> str:
-        column_text = f" ({self.column})" if self.column else ""
-        return f"{self.name}{column_text}"
+    def get_definition_line(self) -> str:
+        return f"{self.metric} {self.fail_threshold._get_sodacl_checkline_threshold()}"
 
     def _to_sodacl_check(self) -> str | dict | None:
         check_configs = {
@@ -478,35 +480,14 @@ class NumericMetricCheck(Check):
                              scan_check: dict[str, dict],
                              scan_check_metrics_by_name: dict[str, dict],
                              scan: Scan):
-        scan_measured_schema: list[dict] = scan_check_metrics_by_name.get("schema").get("value")
-        measured_schema = {
-            c.get("columnName"): c.get("sourceDataType") for c in scan_measured_schema
-        }
+        scan_metric_name = self.metric[:self.metric.index("(")]
+        scan_metric_dict = scan_check_metrics_by_name.get(scan_metric_name, {})
+        value: Number = scan_metric_dict.get("value")
         measurement = Measurement(
-            name="schema",
-            type="schema",
-            value=measured_schema
+            name=self.metric,
+            type="numeric",
+            value=value
         )
-
-        diagnostics = scan_check.get("diagnostics", {})
-
-        columns_not_allowed_and_present: list[str] = diagnostics.get("present_column_names", [])
-        columns_required_and_not_present: list[str] = diagnostics.get("missing_column_names", [])
-
-        columns_having_wrong_type: list[DataTypeMismatch] = []
-        column_type_mismatches = diagnostics.get("column_type_mismatches", {})
-        if column_type_mismatches:
-            for column_name, column_type_mismatch in column_type_mismatches.items():
-                expected_type = column_type_mismatch.get("expected_type")
-                actual_type = column_type_mismatch.get("actual_type")
-                columns_having_wrong_type.append(
-                    DataTypeMismatch(
-                        column=column_name,
-                        expected_data_type=expected_type,
-                        actual_data_type=actual_type
-                    )
-                )
-
         return CheckResult(
             check=self,
             measurements=[measurement],
@@ -519,7 +500,7 @@ class MissingConfigurations:
     missing_regex: str | None
 
     def _get_check_configs_dict(self):
-        return dataclasses.asdict(self)
+        return dataclasses.asdict(self, dict_factory=lambda x: {k: v for (k, v) in x if v is not None})
 
 
 @dataclass
@@ -538,7 +519,7 @@ class ValidConfigurations:
     valid_reference_column: ValidReferenceColumn | None
 
     def _get_check_configs_dict(self):
-        return dataclasses.asdict(self)
+        return dataclasses.asdict(self, dict_factory=lambda x: {k: v for (k, v) in x if v is not None})
 
 
 @dataclass

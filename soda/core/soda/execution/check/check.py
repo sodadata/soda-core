@@ -334,6 +334,9 @@ class Check(ABC):
             }
         )
 
+        if "contract check id" in self.check_cfg.source_configurations:
+            self.dict["contract_check_id"] = self.check_cfg.source_configurations.get("contract check id")
+
         return self.dict
 
     def get_cloud_diagnostics_dict(self) -> dict:

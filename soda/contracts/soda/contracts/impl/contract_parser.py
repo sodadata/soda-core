@@ -63,7 +63,7 @@ class ContractParser:
             schema_optional_columns: List[str] = []
 
             checks.append(SchemaCheck(
-                metric="schema",
+                type="schema",
                 name="Schema",
                 contract_check_id=None,
                 location=None,
@@ -81,20 +81,20 @@ class ContractParser:
                 if contract_column_yaml_object.read_bool_opt("optional", default_value=False):
                     schema_optional_columns.append(column_name)
 
-                yaml_column_checks: YamlList = contract_column_yaml_object.read_yaml_list_opt("checks")
+                column_check_yaml_objects: YamlList = contract_column_yaml_object.read_yaml_list_opt("checks")
 
-                if yaml_column_checks:
-                    yaml_column_check: YamlObject
-                    for yaml_column_check in yaml_column_checks:
+                if column_check_yaml_objects:
+                    column_check_yaml_object: YamlObject
+                    for column_check_yaml_object in column_check_yaml_objects:
                         check: Check = self._parse_column_check(
                             contract_check_id=str(len(checks)),
-                            check_yaml=yaml_column_check,
+                            check_yaml_object=column_check_yaml_object,
                             column=column_name
                         )
                         if check:
                             checks.append(check)
                         else:
-                            logging.error(f"Could not parse check for {yaml_column_check.unpacked()}")
+                            logging.error(f"Could not parse check for {column_check_yaml_object.unpacked()}")
 
         checks_yaml_list: YamlList | None = contract_yaml_object.read_yaml_list_opt("checks")
         if checks_yaml_list:
@@ -113,32 +113,39 @@ class ContractParser:
 
     def _parse_column_check(self,
                             contract_check_id: str,
-                            check_yaml: YamlObject,
+                            check_yaml_object: YamlObject,
                             column: str
                             ) -> Check | None:
 
-        check_type = check_yaml.read_string("type")
+        check_type = check_yaml_object.read_string("type")
         if check_type is None:
             return None
 
+        column_text = f"({column})" if column else ""
+
+        metric: str
         if check_type in ["missing", "not_null"]:
-            check_type = "missing_count"
-        if check_type == "invalid":
-            check_type = "invalid_count"
+            metric = f"missing_count{column_text}"
+        elif check_type == "invalid":
+            metric = f"invalid_count{column_text}"
+        elif check_type == "unique":
+            metric = f"duplicate_count{column_text}"
+        else:
+            metric = f"{check_type}{column_text}"
 
         default_threshold: NumericThreshold | None = (
             NumericThreshold(not_equals=0) if check_type in[
-                "missing_count", "missing_percent", "invalid_count", "invalid_percent",
-                "duplicate_count", "duplicate_count"
+                "missing", "not_null", "missing_count", "missing_percent",
+                "invalid", "invalid_count", "invalid_percent",
+                "unique", "duplicate_count", "duplicate_percent"
             ]
             else None
         )
 
-        metric = f"{check_type}({column})"
-
         return self._parse_numeric_metric_check(
             contract_check_id=contract_check_id,
-            check_yaml=check_yaml,
+            check_yaml_object=check_yaml_object,
+            check_type=check_type,
             metric=metric,
             column=column,
             default_threshold=default_threshold
@@ -146,25 +153,26 @@ class ContractParser:
 
     def _parse_numeric_metric_check(self,
                                     contract_check_id: str,
-                                    check_yaml: YamlObject,
+                                    check_yaml_object: YamlObject,
+                                    check_type: str,
                                     metric: str,
                                     column: str | None,
                                     default_threshold: NumericThreshold | None
                                     ) -> Check | None:
 
-        name = check_yaml.read_yaml_string_opt("name")
+        name = check_yaml_object.read_string_opt("name")
         fail_threshold: NumericThreshold = self._parse_numeric_threshold(
-            check_yaml=check_yaml,
+            check_yaml_object=check_yaml_object,
             prefix="fail_when_",
             default_threshold=default_threshold
         )
 
-        for k in check_yaml:
+        for k in check_yaml_object:
             if k.startswith("warn_when"):
-                self.logs.error(message=f"Warnings not yet supported: '{k}'", location=check_yaml.location)
+                self.logs.error(message=f"Warnings not yet supported: '{k}'", location=check_yaml_object.location)
 
         missing_configurations: MissingConfigurations | None = self._parse_missing_configurations(
-            check_yaml=check_yaml
+            check_yaml=check_yaml_object
         )
         if missing_configurations:
             # If a missing config is specified, do a complete overwrite.
@@ -174,11 +182,11 @@ class ContractParser:
             missing_configurations = self.missing_value_configs_by_column.get(column)
 
         valid_configurations: ValidConfigurations | None = self._parse_valid_configurations(
-            check_yaml=check_yaml
+            check_yaml=check_yaml_object
         )
 
         other_check_configs: dict = {
-            k: v for k, v in check_yaml.unpacked().items()
+            k: v for k, v in check_yaml_object.unpacked().items()
             if k not in ["type", "name", "fail_when_greater_than", "fail_when_greater_than_or_equal",
                          "fail_when_less_than", "fail_when_less_than_or_equal", "fail_when_equals",
                          "fail_when_not_equals", "fail_when_between", "fail_when_not_between", "missing_values",
@@ -189,10 +197,12 @@ class ContractParser:
         }
 
         return NumericMetricCheck(
-            metric=metric,
+            type=check_type,
             name=name,
             contract_check_id=contract_check_id,
-            location=check_yaml.location,
+            location=check_yaml_object.location,
+            check_yaml_object=check_yaml_object,
+            metric=metric,
             column=column,
             missing_configurations=missing_configurations,
             valid_configurations=valid_configurations,
@@ -261,18 +271,18 @@ class ContractParser:
             )
 
     def _parse_numeric_threshold(self,
-                                 check_yaml: YamlObject,
+                                 check_yaml_object: YamlObject,
                                  prefix: str,
                                  default_threshold: NumericThreshold | None
                                  ) -> NumericThreshold | None:
-        greater_than = check_yaml.read_number_opt(f"{prefix}greater_than")
-        greater_than_or_equal = check_yaml.read_number_opt(f"{prefix}greater_than_or_equal")
-        less_than = check_yaml.read_number_opt(f"{prefix}less_than")
-        less_than_or_equal = check_yaml.read_number_opt(f"{prefix}less_than_or_equal")
-        equals = check_yaml.read_number_opt(f"{prefix}equals")
-        not_equals = check_yaml.read_number_opt(f"{prefix}not_equals")
-        between = self._parse_range(check_yaml, f"{prefix}between")
-        not_between = self._parse_range(check_yaml, f"{prefix}not_between")
+        greater_than = check_yaml_object.read_number_opt(f"{prefix}greater_than")
+        greater_than_or_equal = check_yaml_object.read_number_opt(f"{prefix}greater_than_or_equal")
+        less_than = check_yaml_object.read_number_opt(f"{prefix}less_than")
+        less_than_or_equal = check_yaml_object.read_number_opt(f"{prefix}less_than_or_equal")
+        equals = check_yaml_object.read_number_opt(f"{prefix}equals")
+        not_equals = check_yaml_object.read_number_opt(f"{prefix}not_equals")
+        between = self._parse_range(check_yaml_object, f"{prefix}between")
+        not_between = self._parse_range(check_yaml_object, f"{prefix}not_between")
 
         if all(v is None for v in [greater_than, greater_than_or_equal, less_than, less_than_or_equal, equals,
                                    not_equals, between, not_between]):
@@ -289,8 +299,8 @@ class ContractParser:
                 not_between=not_between
             )
 
-    def _parse_range(self, check_yaml: YamlObject, range_key: str) -> Range | None:
-        range_yaml_list: YamlList | None = check_yaml.read_yaml_list_opt(range_key)
+    def _parse_range(self, check_yaml_object: YamlObject, range_key: str) -> Range | None:
+        range_yaml_list: YamlList | None = check_yaml_object.read_yaml_list_opt(range_key)
         if isinstance(range_yaml_list, YamlList):
             range_values = range_yaml_list.unpacked()
             if (
@@ -303,95 +313,3 @@ class ContractParser:
 
     def has_errors(self) -> bool:
         return self.logs.has_errors()
-
-    #     elif check_type in ["invalid", "invalid_count", "invalid_percent"]:
-    #         return self._parse_column_invalid_check(check=yaml_column_check, check_type=check_type, column_name=column_name)
-    #
-    #     elif check_type in ["unique", "duplicate_count"]:
-    #         return self._parse_column_duplicates_check(check=yaml_column_check, check_type=check_type, column_name=column_name)
-    #
-    #     else:
-    #         return self._parse_column_aggregation_check(check=yaml_column_check, check_type=check_type, column_name=column_name)
-    #
-    # def _parse_column_missing_check(self,
-    #                                 contract_check_id: str,
-    #                                 yaml_check: YamlObject,
-    #                                 check_type: str,
-    #                                 column_name: str
-    #                                 ) -> Check | None:
-    #     if check_type in ["missing", "not_null"]:
-    #         check_type = "missing_count"
-    #     metric = f"{check_type}({column_name})"
-    #     return self._create_numeric_metric_check(
-    #         yaml_check=yaml_check,
-    #         contract_check_id=contract_check_id,
-    #         metric=metric,
-    #     )
-    #
-    # def _parse_column_invalid_check(self,
-    #                                 contract_check_id: str,
-    #                                 yaml_check: YamlObject,
-    #                                 check_type: str,
-    #                                 column_name: str
-    #                                 ) -> Check | None:
-    #     if check_type == "invalid":
-    #         check_type = "invalid_count"
-    #     metric = f"{check_type}({column_name})"
-    #     return self._create_numeric_metric_check(
-    #         yaml_check=yaml_check,
-    #         contract_check_id=contract_check_id,
-    #         metric=metric,
-    #     )
-    #
-    #
-    #     check_configs: dict = self._parse_check_configs(check)
-    #
-    #     missing_configs: dict | None = self.missing_value_configs_by_column.get(column_name)
-    #     if missing_configs:
-    #         new_check_configs = copy.deepcopy(missing_configs)
-    #         new_check_configs.update(check_configs)
-    #         check_configs = new_check_configs
-    #
-    #     valid_values_column: YamlObject = check.read_yaml_object_opt("valid_values_column")
-    #     if valid_values_column is not None:
-    #         if not isinstance(valid_values_column, YamlObject):
-    #             self.error(
-    #                 f"Expected object for contents of 'valid_values_column', "
-    #                 f"but was {type(valid_values_column)}, {check.location}"
-    #             )
-    #         else:
-    #             ref_dataset: str | None = valid_values_column.read_string("dataset")
-    #             ref_column: str | None = valid_values_column.read_string("column")
-    #             if not ref_dataset or not ref_column:
-    #                 logger.error(f"Reference check must have 'dataset' and 'column'. {check.location}")
-    #                 return None
-    #             reference_check_line = (
-    #                 f"values in ({column_name}) must exist in {ref_dataset} ({ref_column})"
-    #             )
-    #             check_configs.pop("valid values column")
-    #             return self._create_check(reference_check_line, check_configs)
-    #
-    #     if check_type == "invalid":
-    #         check_type = f"invalid_count"
-    #
-    #     metric = f"{check_type}({column_name})"
-    #     return self._create_numeric_metric_check(metric, check)
-    #
-    # def _parse_column_duplicates_check(self, check: YamlObject, check_type: str, column_name: str) -> object | None:
-    #     if check_type == "unique":
-    #         check_configs: dict = self._parse_check_configs(check)
-    #         return self._create_check(f"duplicate_count({column_name}) = 0", check_configs)
-    #     metric = f"duplicate_count({column_name})"
-    #     return self._create_numeric_metric_check(metric, check)
-    #
-    # def _parse_column_aggregation_check(self, check: YamlObject, check_type: str, column_name: str) -> object | None:
-    #     metric = f"{check_type}({column_name})"
-    #     return self._create_numeric_metric_check(metric, check)
-    #
-    # def _parse_dataset_check(self, check: YamlObject, column_name: str) -> object | None:
-    #     check_type = check.read_string("type")
-    #
-    #     if check_type == "row_count":
-    #         return self._create_numeric_metric_check("row_count", check)
-    #
-    #     self.error(f"Unsupported dataset check type {check_type}: {check.location}")
