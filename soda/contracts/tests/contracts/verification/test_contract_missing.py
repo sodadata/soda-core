@@ -1,4 +1,4 @@
-from contracts.helpers.schema_table import contracts_test_table
+from contracts.helpers.contract_test_tables import contracts_test_table
 from contracts.helpers.test_connection import TestConnection
 from soda.contracts.contract import ContractResult, CheckOutcome
 
@@ -16,7 +16,7 @@ def test_contract_missing_default(test_connection: TestConnection):
           - name: distance
           - name: created
     """)
-    assert "Measurement missing_count(id) was 1" in str(contract_result)
+    assert "Actual missing_count(id) was 1" in str(contract_result)
     check_result = contract_result.check_results[1]
     assert check_result.outcome == CheckOutcome.FAIL
     measurement = check_result.measurements[0]
@@ -39,4 +39,4 @@ def test_contract_missing_count_with_missing_values(test_connection: TestConnect
           - name: distance
           - name: created
     """)
-    assert "Measurement missing_count(id) was 2" in str(contract_result)
+    assert "Actual missing_count(id) was 2" in str(contract_result)

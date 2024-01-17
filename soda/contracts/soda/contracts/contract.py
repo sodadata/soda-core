@@ -100,7 +100,7 @@ class Contract:
 
         ContractResult._copy_scan_logs_to_logs(scan, logs)
         contract_result: ContractResult = ContractResult(contract=self, logs=logs, scan=scan)
-        if contract_result.has_problems():
+        if contract_result.failed():
             raise SodaException(contract_result=contract_result)
 
         return contract_result
@@ -197,8 +197,11 @@ class ContractResult:
                 exception=scan_log.exception
             ))
 
-    def has_problems(self) -> bool:
+    def failed(self) -> bool:
         return self.has_execution_errors() or self.has_check_failures()
+
+    def passed(self) -> bool:
+        return not self.failed()
 
     def has_execution_errors(self):
         return self.logs.has_errors()
@@ -282,9 +285,9 @@ class CheckResult:
             else "Check unknown"
         )
         name_text = f" [{self.check.name}]" if self.check.name else ""
-        definition_text = indent(self.check.get_definition_line(), "  ")
-        measurements_text =  "\n".join(metric.get_console_log_message() for metric in self.measurements)
-        measurements_text = indent(measurements_text, "  ")
+        definition_text = indent(f"Expected {self.check.get_definition_line()}", "  ")
+        measurements_text =  ", ".join(metric.get_console_log_message() for metric in self.measurements)
+        measurements_text = f"  Actual {measurements_text}"
         return f"{outcome_text}{name_text}\n{definition_text}\n{measurements_text}"
 
 
@@ -322,7 +325,7 @@ class Measurement:
         return measurements
 
     def get_console_log_message(self) -> str:
-        return f"Measurement {self.name} was {self.value}"
+        return f"{self.name} was {self.value}"
 
 
 class CheckOutcome(Enum):
@@ -653,8 +656,8 @@ class NumericThreshold:
                           upper_bound_included: bool
                           ) -> str:
         optional_not = "" if is_not_between else "not "
-        lower_bound_bracket = "] " if lower_bound_included else ""
-        upper_bound_bracket = " [" if upper_bound_included else ""
+        lower_bound_bracket = "(" if lower_bound_included else ""
+        upper_bound_bracket = ")" if upper_bound_included else ""
         return f"{optional_not}between {lower_bound_bracket}{lower_bound} and {upper_bound}{upper_bound_bracket}"
 
 

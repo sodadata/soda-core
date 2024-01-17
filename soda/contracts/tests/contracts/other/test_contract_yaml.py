@@ -1,4 +1,4 @@
-from contracts.helpers.schema_table import contracts_test_table
+from contracts.helpers.contract_test_tables import contracts_test_table
 from contracts.helpers.test_connection import TestConnection
 
 
@@ -19,6 +19,6 @@ def test_contract_row_count_ignore_other_keys(test_connection: TestConnection):
           - name: created
         checks:
           - type: row_count
-            fail_when_is_not_between: [0, 10]
+            fail_when_not_between: [0, 10]
             another_dataset_check_key: check
     """)

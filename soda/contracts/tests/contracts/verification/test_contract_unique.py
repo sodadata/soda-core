@@ -1,4 +1,4 @@
-from contracts.helpers.schema_table import contracts_test_table
+from contracts.helpers.contract_test_tables import contracts_test_table
 from contracts.helpers.test_connection import TestConnection
 from soda.contracts.contract import ContractResult, CheckOutcome
 
@@ -18,7 +18,7 @@ def test_contract_unique(test_connection: TestConnection):
           - name: distance
           - name: created
     """)
-    assert "Measurement duplicate_count(size) was 1" in str(contract_result)
+    assert "Actual duplicate_count(size) was 1" in str(contract_result)
     check_result = contract_result.check_results[1]
     assert check_result.outcome == CheckOutcome.PASS
     assert check_result.check.column == "id"

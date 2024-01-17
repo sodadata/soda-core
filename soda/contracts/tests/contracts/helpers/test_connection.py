@@ -33,7 +33,8 @@ class TestConnection(Connection):
     def assert_contract_pass(self, contract_yaml_str: str) -> ContractResult:
         contract: Contract = Contract.from_yaml_str(dedent(contract_yaml_str))
         contract_result: ContractResult = contract.verify(self)
-        assert not contract_result.has_problems()
+        if contract_result.failed():
+            raise AssertionError(str(contract_result))
         contract_result_str = str(contract_result)
         logging.debug(f"Contract result: {contract_result_str}")
         assert contract_result_str == "All is good. No checks failed. No contract execution errors."
@@ -48,7 +49,8 @@ class TestConnection(Connection):
             raise AssertionError(f"Expected contract verification exception, but got contract result: {contract_result}")
         except SodaException as e:
             assert e.contract_result
-            assert e.contract_result.has_problems()
+            if e.contract_result.has_execution_errors():
+                raise AssertionError(str(e.contract_result))
             contract_result = e.contract_result
         contract_result_str = str(contract_result)
         logging.debug(f"Contract result: {contract_result_str}")

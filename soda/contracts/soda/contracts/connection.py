@@ -20,7 +20,8 @@ class SodaException(Exception):
                  message: str | None = None,
                  contract_result: "ContractResult | None" = None
                  ):
-        self.contract_result = contract_result
+        from soda.contracts.contract import ContractResult
+        self.contract_result: ContractResult = contract_result
         if self.contract_result and message is None:
             message = str(self.contract_result)
         super().__init__(message)

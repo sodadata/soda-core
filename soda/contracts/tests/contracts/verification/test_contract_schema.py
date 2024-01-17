@@ -1,6 +1,6 @@
 import logging
 
-from contracts.helpers.schema_table import contracts_test_table
+from contracts.helpers.contract_test_tables import contracts_test_table
 from contracts.helpers.test_connection import TestConnection
 from soda.contracts.contract import ContractResult, SchemaCheckResult, CheckOutcome, Measurement
 

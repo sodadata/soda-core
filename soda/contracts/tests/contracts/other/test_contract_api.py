@@ -1,6 +1,8 @@
 import logging
 from textwrap import dedent
 
+from contracts.helpers.contract_test_tables import contracts_test_table
+from contracts.helpers.test_connection import TestConnection
 from helpers.common_test_tables import customers_test_table
 from helpers.data_source_fixture import DataSourceFixture
 from soda.contracts.connection import Connection, SodaException
@@ -9,7 +11,7 @@ from soda.contracts.soda_cloud import SodaCloud
 
 
 def test_contract_api(data_source_fixture: DataSourceFixture, environ: dict):
-    table_name = data_source_fixture.ensure_test_table(customers_test_table)
+    table_name: str = data_source_fixture.ensure_test_table(contracts_test_table)
 
     environ["soda_cloud_api_key_id"] = "***"
     environ["soda_cloud_api_key_secret"] = "***"
@@ -23,31 +25,16 @@ def test_contract_api(data_source_fixture: DataSourceFixture, environ: dict):
     """)
 
     contract_yaml_str = dedent(f"""
-      schema: {data_source_fixture.schema_name}
       dataset: {table_name}
       columns:
       - name: id
         data_type: text
-        unique: true
-        attributes:
-          pii: sensitive
-      - name: cst_size
-        data_type: numeric
-      - name: cst_size_txt
-        valid_values: [1, 2, 3]
+      - name: size
+        data_type: decimal
       - name: distance
         data_type: integer
-      - name: pct
-      - name: cat
-      - name: country
-        data_type: text
-        not_null: true
-      - name: zip
-      - name: email
-      - name: date_updated
+      - name: created
         data_type: date
-      - name: ts
-      - name: ts_with_tz
     """)
 
     try:
