@@ -110,7 +110,8 @@ class ContractParser:
             dataset=dataset_name,
             schema=schema_name,
             checks=checks,
-            contract_yaml_str=contract_yaml_str
+            contract_yaml_str=contract_yaml_str,
+            logs=self.logs
         )
 
     def _parse_column_check(self,

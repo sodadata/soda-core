@@ -24,4 +24,5 @@ class JsonSchemaVerifier:
             schema_dict = json.loads(contract_schema_json_str)
             validator = Draft7Validator(schema_dict)
             for error in validator.iter_errors(instance=yaml_object):
-                self.logs.error(f"{error.message} ({error.path})")
+                error_path_text = "contract document level" if len(error.path) == 0 else "/".join(error.path)
+                self.logs.error(f"{error.message} ({error_path_text})")

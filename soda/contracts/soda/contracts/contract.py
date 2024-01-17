@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import dataclasses
+import io
 import logging
+import traceback
 from abc import abstractmethod, ABC
 from dataclasses import dataclass
 from enum import Enum
@@ -55,7 +57,8 @@ class Contract:
                  dataset: str,
                  schema: str | None,
                  checks: List[Check],
-                 contract_yaml_str: str
+                 contract_yaml_str: str,
+                 logs: contract_logs.Logs
                  ):
         """
         Consider using Contract.from_yaml_str(contract_yaml_str) instead as that is more stable API.
@@ -64,6 +67,7 @@ class Contract:
         self.schema: str | None = schema
         self.checks: List[Check] = checks
         self.contract_yaml_str: str = contract_yaml_str
+        self.logs: contract_logs.Logs = logs
         self.sodacl_yaml_str: str | None = None
 
     def verify(self,
@@ -76,15 +80,15 @@ class Contract:
         Verifies if the data in the dataset matches the contract.
         """
 
-        logs: contract_logs.Logs = contract_logs.Logs()
         scan = Scan()
+        sodacl_yaml_str: str | None = None
 
         try:
-            self.sodacl_yaml_str = self._generate_sodacl_yaml_str(logs)
+            sodacl_yaml_str = self._generate_sodacl_yaml_str(self.logs)
 
-            logger.debug(self.sodacl_yaml_str)
+            logger.debug(sodacl_yaml_str)
 
-            if self.sodacl_yaml_str:
+            if sodacl_yaml_str:
                 # This assumes the connection is a DataSourceConnection
                 data_source = connection.data_source
 
@@ -92,14 +96,20 @@ class Contract:
                 scan.set_data_source_name(data_source.data_source_name)
                 # noinspection PyProtectedMember
                 scan._data_source_manager.data_sources[data_source.data_source_name] = data_source
-                scan.add_sodacl_yaml_str(self.sodacl_yaml_str)
+                scan.add_sodacl_yaml_str(sodacl_yaml_str)
                 scan.execute()
 
         except Exception as e:
-            logs.error(f"Data contract verification error: {e}", exception=e)
+            self.logs.error(f"Data contract verification error: {e}", exception=e)
 
-        ContractResult._copy_scan_logs_to_logs(scan, logs)
-        contract_result: ContractResult = ContractResult(contract=self, logs=logs, scan=scan)
+        ContractResult._copy_scan_logs_to_logs(scan, self.logs)
+
+        contract_result: ContractResult = ContractResult(
+            contract=self,
+            sodacl_yaml_str=sodacl_yaml_str,
+            logs=self.logs,
+            scan=scan
+        )
         if contract_result.failed():
             raise SodaException(contract_result=contract_result)
 
@@ -127,11 +137,13 @@ class ContractResult:
     """
 
     contract: Contract
+    sodacl_yaml_str: str | None
     logs: contract_logs.Logs
     check_results: List[CheckResult]
 
-    def __init__(self, contract: Contract, logs: contract_logs.Logs, scan: Scan):
+    def __init__(self, contract: Contract, sodacl_yaml_str: str | None, logs: contract_logs.Logs, scan: Scan):
         self.contract = contract
+        self.sodacl_yaml_str = sodacl_yaml_str
         self.logs: contract_logs.Logs = contract_logs.Logs(logs)
         self.check_results: List[CheckResult]  = []
 

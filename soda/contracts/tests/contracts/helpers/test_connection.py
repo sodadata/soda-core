@@ -55,3 +55,20 @@ class TestConnection(Connection):
         contract_result_str = str(contract_result)
         logging.debug(f"Contract result: {contract_result_str}")
         return contract_result
+
+    def assert_contract_error(self, contract_yaml_str: str) -> ContractResult:
+        contract_yaml_str = dedent(contract_yaml_str).strip()
+        logging.debug(contract_yaml_str)
+        try:
+            contract: Contract = Contract.from_yaml_str(contract_yaml_str)
+            contract_result: ContractResult = contract.verify(self)
+            logs_text = "\n".join([str(l) for l in contract_result.logs.logs])
+            raise AssertionError(f"Expected contract execution errors, but got none. Logs:\n{logs_text}")
+        except SodaException as e:
+            assert e.contract_result
+            if not e.contract_result.has_execution_errors():
+                raise AssertionError(str(e.contract_result))
+            contract_result = e.contract_result
+        contract_result_str = str(contract_result)
+        logging.debug(f"Contract result: {contract_result_str}")
+        return contract_result

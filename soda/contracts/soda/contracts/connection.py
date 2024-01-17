@@ -114,6 +114,7 @@ class Connection:
         try:
             variable_resolver = VariableResolver(variables=variables)
             resolved_connection_yaml_str = variable_resolver.resolve(connection_yaml_str)
+            variable_resolver.logs.assert_no_errors()
         except BaseException as e:
             raise SodaException(f"Could not resolve variables in connection YAML: {e}") from e
 

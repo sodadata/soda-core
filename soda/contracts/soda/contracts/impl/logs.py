@@ -50,7 +50,7 @@ class Log:
         self.docs: str | None = docs
 
     def __str__(self):
-        return self.to_string(include_stacktraces=False)
+        return self.to_string(include_stacktraces=True)
 
     def to_string(self, include_stacktraces: bool = False) -> str:
         location_str = f" | {self.location}" if self.location else ""
@@ -61,7 +61,7 @@ class Log:
             if include_stacktraces:
                 stacktrace_str = "".join(traceback.format_tb(self.exception.__traceback__))
                 stacktrace_str = stacktrace_str.strip()
-            exception_str = f" | {self.exception}{indent(text=stacktrace_str, prefix='    ')}"
+            exception_str = f" | {self.exception}\n{indent(text=stacktrace_str, prefix='    ')}"
         return f"{self.level.value.ljust(7)}| {self.message}{location_str}{doc_str}{exception_str}"
 
     @classmethod

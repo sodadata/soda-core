@@ -2,6 +2,17 @@ from contracts.helpers.contract_test_tables import contracts_test_table
 from contracts.helpers.test_connection import TestConnection
 
 
+def test_contract_without_dataset(test_connection: TestConnection):
+    contract_result = test_connection.assert_contract_error(f"""
+        columns:
+          - name: id
+          - name: size
+          - name: distance
+          - name: created
+    """)
+    assert "'dataset' is a required property" in str(contract_result)
+
+
 def test_contract_row_count_ignore_other_keys(test_connection: TestConnection):
     table_name: str = test_connection.ensure_test_table(contracts_test_table)
 
