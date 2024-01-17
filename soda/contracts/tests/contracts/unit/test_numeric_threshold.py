@@ -1,4 +1,4 @@
-from soda.contracts.contract import NumericThreshold
+from soda.contracts.contract import NumericThreshold, Range
 
 
 def test_numeric_threshold_fail_when_greater_than_and_less_than():

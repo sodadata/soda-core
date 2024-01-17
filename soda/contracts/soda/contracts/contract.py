@@ -480,7 +480,7 @@ class NumericMetricCheck(Check):
                              scan_check: dict[str, dict],
                              scan_check_metrics_by_name: dict[str, dict],
                              scan: Scan):
-        scan_metric_name = self.metric[:self.metric.index("(")]
+        scan_metric_name = self.metric if self.column is None else self.metric[:self.metric.index("(")]
         scan_metric_dict = scan_check_metrics_by_name.get(scan_metric_name, {})
         value: Number = scan_metric_dict.get("value")
         measurement = Measurement(

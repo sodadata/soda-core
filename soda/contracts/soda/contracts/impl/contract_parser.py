@@ -99,8 +99,10 @@ class ContractParser:
         checks_yaml_list: YamlList | None = contract_yaml_object.read_yaml_list_opt("checks")
         if checks_yaml_list:
             for check_yaml_object in checks_yaml_list:
-                column_name: str = check_yaml_object.read_string_opt("column")
-                check = self._parse_dataset_check(check=check_yaml_object, column_name=column_name)
+                check = self._parse_dataset_check(
+                    contract_check_id=str(len(checks)),
+                    check_yaml_object=check_yaml_object
+                )
                 if check:
                     checks.append(check)
 
@@ -359,5 +361,26 @@ class ContractParser:
             else:
                 self.logs.error("range expects a list of 2 numbers", location=range_yaml_list.location)
 
-    def has_errors(self) -> bool:
-        return self.logs.has_errors()
+    def _parse_dataset_check(self,
+                             contract_check_id: str,
+                             check_yaml_object: YamlObject
+                             ) -> Check | None:
+
+        check_type: str | None = check_yaml_object.read_string("type")
+        if check_type is None:
+            return None
+
+        if check_type not in ["row_count"]:
+            self.logs.error(f"Unknown dataset check type: {check_type}")
+            return None
+
+        metric: str = check_type
+
+        return self._parse_numeric_metric_check(
+            contract_check_id=contract_check_id,
+            check_yaml_object=check_yaml_object,
+            check_type=check_type,
+            metric=metric,
+            column=None,
+            default_threshold=NumericThreshold(not_equals=0)
+        )

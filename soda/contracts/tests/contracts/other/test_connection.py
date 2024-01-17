@@ -19,7 +19,7 @@ def test_connection_from_file_with_variable_resolving(environ):
     environ["POSTGRES_DATABASE"] = "sodasql"
     environ["POSTGRES_USERNAME"] = "sodasql"
 
-    connection_file_path = f"{project_root_dir}soda/contracts/tests/contracts/test_connection.scn.yml"
+    connection_file_path = f"{project_root_dir}soda/contracts/tests/contracts/other/test_connection.scn.yml"
     with Connection.from_yaml_file(connection_file_path) as connection:
         assert connection.dbapi_connection
 

@@ -42,7 +42,6 @@ def test_contract_api(data_source_fixture: DataSourceFixture, environ: dict):
       - name: country
         data_type: text
         not_null: true
-      - name: extracolumn
       - name: zip
       - name: email
       - name: date_updated
