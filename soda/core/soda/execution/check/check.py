@@ -334,7 +334,7 @@ class Check(ABC):
             }
         )
 
-        if "contract check id" in self.check_cfg.source_configurations:
+        if self.check_cfg.source_configurations and "contract check id" in self.check_cfg.source_configurations:
             self.dict["contract_check_id"] = self.check_cfg.source_configurations.get("contract check id")
 
         return self.dict
