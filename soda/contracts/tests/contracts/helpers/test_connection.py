@@ -31,7 +31,9 @@ class TestConnection(Connection):
         return self.data_source.get_sql_type_for_schema_check(DataType.DATE)
 
     def assert_contract_pass(self, contract_yaml_str: str) -> ContractResult:
-        contract: Contract = Contract.from_yaml_str(dedent(contract_yaml_str))
+        contract_yaml_str = dedent(contract_yaml_str)
+        logging.debug(contract_yaml_str)
+        contract: Contract = Contract.from_yaml_str(contract_yaml_str)
         contract_result: ContractResult = contract.verify(self)
         if contract_result.failed():
             raise AssertionError(str(contract_result))

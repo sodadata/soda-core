@@ -451,26 +451,23 @@ class NumericMetricCheck(Check):
     valid_configurations: ValidConfigurations | None
     fail_threshold: NumericThreshold | None
     warn_threshold: NumericThreshold | None
-    other_check_configs: dict | None
 
     def get_definition_line(self) -> str:
         return f"{self.metric} {self.fail_threshold._get_sodacl_checkline_threshold()}"
 
     def _to_sodacl_check(self) -> str | dict | None:
-        check_configs = {
-            "contract_check_id": self.contract_check_id
+        sodacl_check_configs = {
+            "contract check id": self.contract_check_id
         }
 
         if self.name:
-            check_configs["name"] = self.name
+            sodacl_check_configs["name"] = self.name
 
         sodacl_check_line: str | None = None
-        if self.other_check_configs:
-            check_configs.update(self.other_check_configs)
         if self.valid_configurations:
-            check_configs.update(self.valid_configurations._get_check_configs_dict())
+            sodacl_check_configs.update(self.valid_configurations._to_sodacl_check_configs_dict())
         if self.missing_configurations:
-            check_configs.update(self.missing_configurations._get_check_configs_dict())
+            sodacl_check_configs.update(self.missing_configurations._to_sodacl_check_configs_dict())
 
         if self.fail_threshold and not self.warn_threshold:
             sodacl_checkline_threshold = self.fail_threshold._get_sodacl_checkline_threshold()
@@ -478,16 +475,12 @@ class NumericMetricCheck(Check):
         elif self.fail_threshold or self.warn_threshold:
             sodacl_check_line = self.metric
             if self.fail_threshold:
-                self.fail_threshold._update_sodacl_threshold_configs(check_configs, "fail")
+                self.fail_threshold._update_sodacl_threshold_configs(sodacl_check_configs, "fail")
             if self.warn_threshold:
-                self.warn_threshold._update_sodacl_threshold_configs(check_configs, "warn")
-
-        sodacl_configs = {
-            k.replace("_", " "): v for k, v in check_configs.items()
-        }
+                self.warn_threshold._update_sodacl_threshold_configs(sodacl_check_configs, "warn")
 
         return (
-            {sodacl_check_line: sodacl_configs} if sodacl_configs
+            {sodacl_check_line: sodacl_check_configs} if sodacl_check_configs
             else sodacl_check_line
         )
 
@@ -516,29 +509,22 @@ class InvalidReferenceCheck(Check):
     column: str
     reference_dataset: str
     reference_column: str
-    other_check_configs: dict | None
 
     def get_definition_line(self) -> str:
         return f"values in ({self.column}) must exist in {self.reference_dataset} ({self.reference_column})"
 
     def _to_sodacl_check(self) -> str | dict | None:
-        check_configs = {
-            "contract_check_id": self.contract_check_id
+        sodacl_check_configs = {
+            "contract check id": self.contract_check_id
         }
 
         if self.name:
-            check_configs["name"] = self.name
+            sodacl_check_configs["name"] = self.name
 
         sodacl_check_line: str = self.get_definition_line()
-        if self.other_check_configs:
-            check_configs.update(self.other_check_configs)
-
-        sodacl_configs = {
-            k.replace("_", " "): v for k, v in check_configs.items()
-        }
 
         return (
-            {sodacl_check_line: sodacl_configs} if sodacl_configs
+            {sodacl_check_line: sodacl_check_configs} if sodacl_check_configs
             else sodacl_check_line
         )
 
@@ -560,13 +546,18 @@ class InvalidReferenceCheck(Check):
         )
 
 
+def dataclass_object_to_sodacl_dict(dataclass_object: object) -> dict:
+    dict_factory = lambda x: {k.replace("_", " "): v for (k, v) in x if v is not None}
+    return dataclasses.asdict(dataclass_object, dict_factory=dict_factory)
+
+
 @dataclass
 class MissingConfigurations:
     missing_values: list[str] | list[Number] | None
     missing_regex: str | None
 
-    def _get_check_configs_dict(self):
-        return dataclasses.asdict(self, dict_factory=lambda x: {k: v for (k, v) in x if v is not None})
+    def _to_sodacl_check_configs_dict(self) -> dict:
+        return dataclass_object_to_sodacl_dict(self)
 
 
 @dataclass
@@ -584,8 +575,8 @@ class ValidConfigurations:
     valid_max_length: int | None
     valid_reference_column: ValidReferenceColumn | None
 
-    def _get_check_configs_dict(self):
-        return dataclasses.asdict(self, dict_factory=lambda x: {k: v for (k, v) in x if v is not None})
+    def _to_sodacl_check_configs_dict(self) -> dict:
+        return dataclass_object_to_sodacl_dict(self)
 
 
 @dataclass

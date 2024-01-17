@@ -200,17 +200,6 @@ class ContractParser:
             check_yaml=check_yaml_object
         )
 
-        other_check_configs: dict = {
-            k: v for k, v in check_yaml_object.unpacked().items()
-            if k not in ["type", "name", "fail_when_greater_than", "fail_when_greater_than_or_equal",
-                         "fail_when_less_than", "fail_when_less_than_or_equal", "fail_when_equals",
-                         "fail_when_not_equals", "fail_when_between", "fail_when_not_between", "missing_values",
-                         "missing_regex", "invalid_values", "invalid_format", "invalid_regex", "valid_values",
-                         "valid_format", "valid_regex", "valid_min", "valid_max", "valid_length", "valid_min_length",
-                         "valid_max_length", "valid_reference_column"
-                         ]
-        }
-
         return NumericMetricCheck(
             type=check_type,
             name=name,
@@ -222,8 +211,7 @@ class ContractParser:
             missing_configurations=missing_configurations,
             valid_configurations=valid_configurations,
             fail_threshold=fail_threshold,
-            warn_threshold=None,
-            other_check_configs=other_check_configs
+            warn_threshold=None
         )
 
     def _parse_invalid_reference_check(self,
@@ -236,16 +224,6 @@ class ContractParser:
                                        default_threshold: NumericThreshold | None
                                        ) -> Check | None:
         name = check_yaml_object.read_string_opt("name")
-        other_check_configs: dict = {
-            k: v for k, v in check_yaml_object.unpacked().items()
-            if k not in ["type", "name", "fail_when_greater_than", "fail_when_greater_than_or_equal",
-                         "fail_when_less_than", "fail_when_less_than_or_equal", "fail_when_equals",
-                         "fail_when_not_equals", "fail_when_between", "fail_when_not_between", "missing_values",
-                         "missing_regex", "invalid_values", "invalid_format", "invalid_regex", "valid_values",
-                         "valid_format", "valid_regex", "valid_min", "valid_max", "valid_length", "valid_min_length",
-                         "valid_max_length", "valid_reference_column", "valid_values_column"
-                         ]
-        }
 
         reference_dataset = valid_values_column_yaml_object.read_string("dataset")
         reference_column = valid_values_column_yaml_object.read_string("column")
@@ -258,8 +236,7 @@ class ContractParser:
             check_yaml_object=check_yaml_object,
             column=column,
             reference_dataset=reference_dataset,
-            reference_column=reference_column,
-            other_check_configs=other_check_configs
+            reference_column=reference_column
         )
 
     def _parse_missing_configurations(self, check_yaml: YamlObject) -> MissingConfigurations | None:
