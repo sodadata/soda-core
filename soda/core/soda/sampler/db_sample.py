@@ -1,5 +1,6 @@
 from typing import Tuple
 
+from soda.sampler.sampler import DEFAULT_FAILED_ROWS_SAMPLE_LIMIT
 from soda.sampler.sample import Sample
 from soda.sampler.sample_schema import SampleColumn, SampleSchema
 
@@ -11,9 +12,13 @@ class DbSample(Sample):
         self.rows = None
 
     def get_rows(self) -> Tuple[Tuple]:
-        # This might be dangerous if a big number of rows is fetched, consider cleaning up the memory when this object is not needed any more.
+        # Fetch the default number of failed rows
+        # TODO: respect the limit set in the config
         if not self.rows:
-            self.rows = self.cursor.fetchall()
+            try:
+                self.rows = self.cursor.fetchmany(DEFAULT_FAILED_ROWS_SAMPLE_LIMIT)
+            except:
+                self.rows =self.cursor.fetchall()
 
         return self.rows
 
