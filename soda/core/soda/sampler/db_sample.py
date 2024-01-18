@@ -1,8 +1,8 @@
 from typing import Tuple
 
-from soda.sampler.sampler import DEFAULT_FAILED_ROWS_SAMPLE_LIMIT
 from soda.sampler.sample import Sample
 from soda.sampler.sample_schema import SampleColumn, SampleSchema
+from soda.sampler.sampler import DEFAULT_FAILED_ROWS_SAMPLE_LIMIT
 
 
 class DbSample(Sample):
@@ -18,7 +18,7 @@ class DbSample(Sample):
             try:
                 self.rows = self.cursor.fetchmany(DEFAULT_FAILED_ROWS_SAMPLE_LIMIT)
             except:
-                self.rows =self.cursor.fetchall()
+                self.rows = self.cursor.fetchall()
 
         return self.rows
 
