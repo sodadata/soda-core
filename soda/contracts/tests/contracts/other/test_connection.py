@@ -8,11 +8,10 @@ from soda.contracts.connection import Connection, SodaException
 
 
 def test_connection_exception_file_not_found():
-    with pytest.raises(SodaException) as excinfo:
-        Connection.from_yaml_file("./non_existing_file.scn.yml")
-
-    assert "file './non_existing_file.scn.yml'" in str(excinfo.value)
-    assert "No such file or directory" in str(excinfo.value)
+    connection = Connection.from_yaml_file("./non_existing_file.scn.yml")
+    connection_logs = str(connection.logs)
+    assert "file './non_existing_file.scn.yml'" in connection_logs
+    assert "No such file or directory" in connection_logs
 
 
 def test_connection_from_file_with_variable_resolving(environ):
@@ -25,22 +24,23 @@ def test_connection_from_file_with_variable_resolving(environ):
 
 
 def test_invalid_database():
-    with pytest.raises(SodaException) as excinfo:
-        Connection.from_yaml_str(dedent("""
-            type: postgres
-            host: localhost
-            database: invalid_db
-            username: sodasql
-        """))
-    assert "database \"invalid_db\" does not exist" in str(excinfo.value)
+    connection = Connection.from_yaml_str(dedent("""
+        type: postgres
+        host: localhost
+        database: invalid_db
+        username: sodasql
+    """))
+    connection_logs = str(connection.logs)
+
+    assert "database \"invalid_db\" does not exist" in connection_logs
 
 
 def test_invalid_username():
-    with pytest.raises(SodaException) as excinfo:
-        Connection.from_yaml_str(dedent("""
-            type: postgres
-            host: localhost
-            database: sodasql
-            username: invalid_usr
-        """))
-    assert "role \"invalid_usr\" does not exist" in str(excinfo.value)
+    connection = Connection.from_yaml_str(dedent("""
+        type: postgres
+        host: localhost
+        database: sodasql
+        username: invalid_usr
+    """))
+    connection_logs = str(connection.logs)
+    assert "role \"invalid_usr\" does not exist" in connection_logs

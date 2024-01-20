@@ -22,9 +22,13 @@ class SodaException(Exception):
                  ):
         from soda.contracts.contract import ContractResult
         self.contract_result: ContractResult = contract_result
-        if self.contract_result and message is None:
-            message = str(self.contract_result)
-        super().__init__(message)
+        message_parts: list[str] = []
+        if message:
+            message_parts.append(message)
+        if self.contract_result:
+            message_parts.append(str(self.contract_result))
+        exception_message: str ="\n".join(message_parts)
+        super().__init__(exception_message)
 
 
 class Connection:
@@ -47,8 +51,9 @@ class Connection:
     All the other properties are passed in the DBAPI connect method to create the DBAPI connection.
     """
 
-    def __init__(self, dbapi_connection: object | None = None):
+    def __init__(self, dbapi_connection: object | None = None, logs: Logs | None = None):
         self.dbapi_connection = dbapi_connection
+        self.logs: Logs = logs if logs else Logs()
 
     @classmethod
     def from_yaml_file(cls, connection_yaml_file_path: str) -> Connection:
@@ -62,27 +67,35 @@ class Connection:
         :return: an open connection, if no exception is raised
         :raises SodaConnectionException: if the connection cannot be established for any reason
         """
+
+        logs: Logs = Logs()
         try:
             if not isinstance(connection_yaml_file_path, str):
-                raise SodaException(
+                logs.error(
                     f"Couldn't create connection from yaml file. Expected str in parameter "
                     f"connection_yaml_file_path={connection_yaml_file_path}, but was '{type(connection_yaml_file_path)}"
                 )
-            if not len(connection_yaml_file_path) > 1:
-                raise SodaException(
+            elif not len(connection_yaml_file_path) > 1:
+                logs.error(
                     f"Couldn't create connection from yaml file. connection_yaml_file_path is an empty string"
                 )
-
-            with open(file=connection_yaml_file_path) as f:
-                connection_yaml_str = f.read()
-                return cls.from_yaml_str(connection_yaml_str)
+            else:
+                with open(file=connection_yaml_file_path) as f:
+                    connection_yaml_str = f.read()
+                    return cls.from_yaml_str(connection_yaml_str=connection_yaml_str, logs=logs)
         except Exception as e:
-            raise SodaException(
-                f"Couldn't create connection from yaml file '{connection_yaml_file_path}': {e}"
-            ) from e
+            logs.error(
+                f"Couldn't create connection from yaml file '{connection_yaml_file_path}': {e}",
+                exception=e
+            )
+        return Connection(logs=logs)
 
     @classmethod
-    def from_yaml_str(cls, connection_yaml_str: str, variables: Dict[str, str] | None = None) -> Connection:
+    def from_yaml_str(cls,
+                      connection_yaml_str: str,
+                      variables: Dict[str, str] | None = None,
+                      logs: Logs | None = None
+                      ) -> Connection:
         """
         # TODO specify where the connection configuration properties are being documented
         connection_yaml_str: str = "...YAML string for connection configuration properties..."
@@ -100,30 +113,32 @@ class Connection:
         :raises SodaConnectionException: if the connection cannot be established for any reason
         """
 
+        if not logs:
+            logs = Logs()
+
         if not isinstance(connection_yaml_str, str):
-            raise SodaException(
+            logs.error(
                 f"Expected a string for parameter connection_yaml_str, "
                 f"but was '{type(connection_yaml_str)}'"
             )
 
         if connection_yaml_str == "":
-            raise SodaException(
+            logs.error(
                 f"connection_yaml_str must be non-emtpy, but was ''"
             )
 
         try:
-            variable_resolver = VariableResolver(variables=variables)
+            variable_resolver = VariableResolver(variables=variables, logs=logs)
             resolved_connection_yaml_str = variable_resolver.resolve(connection_yaml_str)
-            variable_resolver.logs.assert_no_errors()
         except BaseException as e:
-            raise SodaException(f"Could not resolve variables in connection YAML: {e}") from e
+            logs.error(f"Could not resolve variables in connection YAML: {e}", exception=e)
 
         try:
             yaml = YAML()
             yaml.preserve_quotes = True
             connection_dict = yaml.load(resolved_connection_yaml_str)
             if not isinstance(connection_dict, dict):
-                raise SodaException(
+                logs.error(
                     f"Content of the connection YAML file must be a YAML object, "
                     f"but was {type(connection_dict)}"
                 )
@@ -132,10 +147,10 @@ class Connection:
             mark = e.context_mark if e.context_mark else e.problem_mark
             line = mark.line + 1,
             column = mark.column + 1,
-            raise SodaException(f"YAML syntax error: {e} | line={line} | column={column}")
+            logs.error(f"YAML syntax error: {e} | line={line} | column={column}")
 
     @classmethod
-    def from_dict(cls, connection_dict: dict, file_path: str | None = None) -> Connection:
+    def from_dict(cls, connection_dict: dict, logs: Logs | None = None) -> Connection:
         """
         with Connection.from_dict({
           "type": "postgres",
@@ -146,25 +161,29 @@ class Connection:
         }) as connection:
             # Do stuff with connection
 
-        :param connection_dict:
-        :param file_path: If provided, the file path will be included in the exceptions.
         :return: an open connection, if no exception is raised
         :raises SodaConnectionException: if the connection cannot be established for any reason
         """
+        if not logs:
+            logs = Logs()
+
+        connection_type: str | None = None
+
         if not isinstance(connection_dict, dict):
-            raise SodaException(
+            logs.error(
                 f"connect_properties must be a object, but was {type(connection_dict)}"
             )
-        if "type" not in connection_dict:
-            raise SodaException(
+        elif "type" not in connection_dict:
+            logs.error(
                 f"'type' is required, but was not provided"
             )
-        connection_type: str = connection_dict.get("type")
-        if not isinstance(connection_type, str):
-            raise SodaException(
-                f"'type' must be a string, but was  {type(connection_type)}"
-            )
-        return DataSourceConnection(connection_type=connection_type, connection_dict=connection_dict)
+        else:
+            connection_type = connection_dict.get("type")
+            if not isinstance(connection_type, str):
+                logs.error(
+                    f"'type' must be a string, but was  {type(connection_type)}"
+                )
+        return DataSourceConnection(connection_type=connection_type, connection_dict=connection_dict, logs=logs)
 
     def __enter__(self):
         return self
@@ -197,7 +216,7 @@ class Connection:
 
 class DataSourceConnection(Connection):
 
-    def __init__(self, connection_type: str, connection_dict: dict):
+    def __init__(self, connection_type: str, connection_dict: dict, logs: Logs | None = None):
         # consider translating postgres schema search_path option
         # options = f"-c search_path={schema}" if schema else None
         try:
@@ -209,5 +228,5 @@ class DataSourceConnection(Connection):
             )
             self.data_source.connect()
         except Exception as e:
-            raise SodaException(f"Could not create the connection: {e}") from e
-        super().__init__(dbapi_connection=self.data_source.connection)
+            logs.error(message=f"Could not create the connection: {e}", exception=e)
+        super().__init__(dbapi_connection=self.data_source.connection, logs=logs)

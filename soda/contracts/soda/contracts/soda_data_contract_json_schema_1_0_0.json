@@ -140,7 +140,8 @@
                         },
                         "required": ["type"]
                     }
-                }
+                },
+                "required": ["name"]
             }
         },
         "checks": {

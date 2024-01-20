@@ -70,7 +70,7 @@ try:
         contract: Contract = Contract.from_yaml_file(file_path=contract_file_path)
         contract_result: ContractResult = contract.verify(connection=connection, soda_cloud=soda_cloud)
 except SodaException as e:
-    logging.exception(f"Contract verification failed: {e.get_problems_text()}", exc_info=e)
+    logging.exception(f"Contract verification failed: {e}", exc_info=e)
 ```
 
 [Learn more about the Soda contract API](docs/contract_api.md)

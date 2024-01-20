@@ -80,6 +80,9 @@ class Logs:
         if logs is not None:
             self.logs = logs.logs.copy()
 
+    def __str__(self) -> str:
+        return "\n".join([str(log) for log in self.logs])
+
     def assert_no_errors(self) -> None:
         if self.has_errors():
             errors_lines: List[str] = [str(log) for log in self.logs if log.level == LogLevel.ERROR]

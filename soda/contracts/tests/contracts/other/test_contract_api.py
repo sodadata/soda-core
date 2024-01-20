@@ -1,6 +1,8 @@
 import logging
 from textwrap import dedent
 
+import pytest
+
 from contracts.helpers.contract_test_tables import contracts_test_table
 from contracts.helpers.test_connection import TestConnection
 from helpers.common_test_tables import customers_test_table
@@ -21,7 +23,6 @@ def test_contract_api(data_source_fixture: DataSourceFixture, environ: dict):
         host: localhost
         database: sodasql
         username: sodasql
-        password: ${POSTGRES_PWD}
     """)
 
     contract_yaml_str = dedent(f"""
@@ -61,9 +62,29 @@ def test_contract_api(data_source_fixture: DataSourceFixture, environ: dict):
             logging.debug(f"Contract verification passed:\n{contract_result}")
 
     except SodaException as e:
-        # An exception is raised means there are either contract verification exceptions
-        logging.exception(f"Contract verification failed:\n{e}")
+        # An exception is raised means there are either check failures or contract verification exceptions.
+        # Those include:
+        # -
+        logging.exception(f"Contract verification failed:\n{e}", exc_info=e)
 
-        if e.contract_result:
-            # If a contract result is available, it's possible to log it or do something with it
-            logging.exception(f"Contract result:\n{e.contract_result}")
+
+def test_connection_exception_is_raised_in_contract_verify(data_source_fixture: DataSourceFixture):
+    table_name: str = data_source_fixture.ensure_test_table(contracts_test_table)
+
+    contract_yaml_str = dedent(f"""
+      dataset: {table_name}
+      columns:
+      - name: id
+      - name: size
+      - name: distance
+      - name: created
+    """)
+
+    with Connection.from_yaml_file("./non_existing_file.scn.yml") as connection:
+        contract: Contract = Contract.from_yaml_str(contract_yaml_str)
+        with pytest.raises(SodaException) as excinfo:
+            contract.verify(connection)
+    exception = excinfo.value
+    assert isinstance(exception, SodaException)
+    assert "file './non_existing_file.scn.yml'" in str(exception)
+    assert "No such file or directory" in str(exception)

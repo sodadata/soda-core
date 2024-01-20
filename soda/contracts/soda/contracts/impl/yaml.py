@@ -63,7 +63,7 @@ class YamlWrapper:
     """
 
     def __init__(self, logs: Logs = Logs()):
-        self.logs: Logs = Logs()
+        self.logs: Logs = logs
 
     def wrap(self, ruamel_value: object) -> YamlValue:
         if isinstance(ruamel_value, str):
@@ -316,3 +316,6 @@ class YamlList(YamlValue):
 
     def __len__(self) -> int:
         return len(self.value)
+
+    def read_yaml_objects(self) -> list[YamlObject]:
+        return [e for e in self.value if isinstance(e, YamlObject)]

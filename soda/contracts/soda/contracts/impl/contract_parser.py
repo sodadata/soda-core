@@ -71,30 +71,31 @@ class ContractParser:
                 optional_columns=schema_optional_columns
             ))
 
-            for contract_column_yaml_list_element in contract_columns_yaml_list:
-                contract_column_yaml_object: YamlObject = contract_column_yaml_list_element
-                column_name: str = contract_column_yaml_object.read_string("name")
+            contract_column_yaml_object: YamlObject
+            for contract_column_yaml_object in contract_columns_yaml_list.read_yaml_objects():
+                column_name: str | None = contract_column_yaml_object.read_string("name")
 
-                data_type: str | None = contract_column_yaml_object.read_string_opt("data_type")
-                schema_columns[column_name] = data_type
+                if isinstance(column_name, str):
+                    data_type: str | None = contract_column_yaml_object.read_string_opt("data_type")
+                    schema_columns[column_name] = data_type
 
-                if contract_column_yaml_object.read_bool_opt("optional", default_value=False):
-                    schema_optional_columns.append(column_name)
+                    if contract_column_yaml_object.read_bool_opt("optional", default_value=False):
+                        schema_optional_columns.append(column_name)
 
-                column_check_yaml_objects: YamlList = contract_column_yaml_object.read_yaml_list_opt("checks")
+                    column_check_yaml_objects: YamlList = contract_column_yaml_object.read_yaml_list_opt("checks")
 
-                if column_check_yaml_objects:
-                    column_check_yaml_object: YamlObject
-                    for column_check_yaml_object in column_check_yaml_objects:
-                        check: Check = self._parse_column_check(
-                            contract_check_id=str(len(checks)),
-                            check_yaml_object=column_check_yaml_object,
-                            column=column_name
-                        )
-                        if check:
-                            checks.append(check)
-                        else:
-                            logging.error(f"Could not parse check for {column_check_yaml_object.unpacked()}")
+                    if column_check_yaml_objects:
+                        column_check_yaml_object: YamlObject
+                        for column_check_yaml_object in column_check_yaml_objects:
+                            check: Check = self._parse_column_check(
+                                contract_check_id=str(len(checks)),
+                                check_yaml_object=column_check_yaml_object,
+                                column=column_name
+                            )
+                            if check:
+                                checks.append(check)
+                            else:
+                                logging.error(f"Could not parse check for {column_check_yaml_object.unpacked()}")
 
         checks_yaml_list: YamlList | None = contract_yaml_object.read_yaml_list_opt("checks")
         if checks_yaml_list:

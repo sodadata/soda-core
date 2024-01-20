@@ -1,9 +1,7 @@
 from __future__ import annotations
 
 import dataclasses
-import io
 import logging
-import traceback
 from abc import abstractmethod, ABC
 from dataclasses import dataclass
 from enum import Enum
@@ -12,9 +10,9 @@ from textwrap import indent
 from typing import List, Dict
 
 from soda.common import logs as soda_common_logs
+from soda.contracts.connection import SodaException, DataSourceConnection
 from soda.contracts.impl import logs as contract_logs
-
-from soda.contracts.connection import SodaException
+from soda.contracts.impl.logs import Logs
 from soda.contracts.impl.yaml import YamlWriter, YamlObject
 from soda.contracts.soda_cloud import SodaCloud
 from soda.scan import Scan
@@ -29,7 +27,7 @@ class Contract:
     def from_yaml_str(cls,
                       contract_yaml_str: str,
                       variables: dict[str, str] | None = None,
-                      logs: contract_logs.Logs | None = None
+                      logs: Logs | None = None
                       ) -> Contract:
         """
         Build a contract from a YAML string
@@ -58,7 +56,7 @@ class Contract:
                  schema: str | None,
                  checks: List[Check],
                  contract_yaml_str: str,
-                 logs: contract_logs.Logs
+                 logs: Logs
                  ):
         """
         Consider using Contract.from_yaml_str(contract_yaml_str) instead as that is more stable API.
@@ -67,7 +65,7 @@ class Contract:
         self.schema: str | None = schema
         self.checks: List[Check] = checks
         self.contract_yaml_str: str = contract_yaml_str
-        self.logs: contract_logs.Logs = logs
+        self.logs: Logs = logs
         self.sodacl_yaml_str: str | None = None
 
     def verify(self,
@@ -88,7 +86,7 @@ class Contract:
 
             logger.debug(sodacl_yaml_str)
 
-            if sodacl_yaml_str:
+            if sodacl_yaml_str and isinstance(connection, DataSourceConnection):
                 # This assumes the connection is a DataSourceConnection
                 data_source = connection.data_source
 
@@ -102,6 +100,10 @@ class Contract:
         except Exception as e:
             self.logs.error(f"Data contract verification error: {e}", exception=e)
 
+        if soda_cloud:
+            self.logs.logs.extend(soda_cloud.logs.logs)
+        if connection:
+            self.logs.logs.extend(connection.logs.logs)
         ContractResult._copy_scan_logs_to_logs(scan, self.logs)
 
         contract_result: ContractResult = ContractResult(
@@ -115,7 +117,7 @@ class Contract:
 
         return contract_result
 
-    def _generate_sodacl_yaml_str(self, logs: contract_logs.Logs) -> str:
+    def _generate_sodacl_yaml_str(self, logs: Logs) -> str:
         # Serialize the SodaCL YAML object to a YAML string
         sodacl_checks: list = []
         sodacl_yaml_object: dict = {
@@ -138,13 +140,13 @@ class ContractResult:
 
     contract: Contract
     sodacl_yaml_str: str | None
-    logs: contract_logs.Logs
+    logs: Logs
     check_results: List[CheckResult]
 
-    def __init__(self, contract: Contract, sodacl_yaml_str: str | None, logs: contract_logs.Logs, scan: Scan):
+    def __init__(self, contract: Contract, sodacl_yaml_str: str | None, logs: Logs, scan: Scan):
         self.contract = contract
         self.sodacl_yaml_str = sodacl_yaml_str
-        self.logs: contract_logs.Logs = contract_logs.Logs(logs)
+        self.logs: Logs = Logs(logs)
         self.check_results: List[CheckResult]  = []
 
         contract_checks_by_id: dict[str, Check] = {
@@ -188,7 +190,7 @@ class ContractResult:
                 self.check_results.append(check_result)
 
     @classmethod
-    def _copy_scan_logs_to_logs(cls, scan: Scan, logs: contract_logs.Logs) -> None:
+    def _copy_scan_logs_to_logs(cls, scan: Scan, logs: Logs) -> None:
         level_map = {
             soda_common_logs.LogLevel.ERROR: contract_logs.LogLevel.ERROR,
             soda_common_logs.LogLevel.WARNING: contract_logs.LogLevel.WARNING,
