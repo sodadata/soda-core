@@ -15,6 +15,9 @@ logger = logging.getLogger(__name__)
 
 
 class SodaException(Exception):
+    """
+    See also adr/03_exceptions_vs_error_logs.md
+    """
 
     def __init__(self,
                  message: str | None = None,
@@ -53,6 +56,7 @@ class Connection:
 
     def __init__(self, dbapi_connection: object | None = None, logs: Logs | None = None):
         self.dbapi_connection = dbapi_connection
+        # See also adr/03_exceptions_vs_error_logs.md
         self.logs: Logs = logs if logs else Logs()
 
     @classmethod

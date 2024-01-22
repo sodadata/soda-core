@@ -16,6 +16,7 @@ class SodaCloud:
         self.api_key_id: str = api_key_id
         self.api_key_secret: str = api_key_secret
         self.scheme: str = scheme
+        # See also adr/03_exceptions_vs_error_logs.md
         self.logs: Logs = logs
 
     @classmethod

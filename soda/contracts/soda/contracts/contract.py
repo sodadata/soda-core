@@ -65,6 +65,8 @@ class Contract:
         self.schema: str | None = schema
         self.checks: List[Check] = checks
         self.contract_yaml_str: str = contract_yaml_str
+        # The initial logs will contain the logs of contract parser.  If there are error logs, these error logs
+        # will cause a SodaException to be raised at the end of the Contract.verify method
         self.logs: Logs = logs
         self.sodacl_yaml_str: str | None = None
 
@@ -101,10 +103,16 @@ class Contract:
             self.logs.error(f"Data contract verification error: {e}", exception=e)
 
         if soda_cloud:
+            # If SodaCloud is configured, the logs are copied into the contract result and
+            # at the end of this method, a SodaException is raised if there are error logs.
             self.logs.logs.extend(soda_cloud.logs.logs)
         if connection:
+            # The connection logs are copied into the contract result and at the end of this
+            # method, a SodaException is raised if there are error logs.
             self.logs.logs.extend(connection.logs.logs)
-        ContractResult._copy_scan_logs_to_logs(scan, self.logs)
+        # The scan warning and error logs are copied into self.logs and at the end of this
+        # method, a SodaException is raised if there are error logs.
+        self._transform_scan_warning_and_error_logs(scan)
 
         contract_result: ContractResult = ContractResult(
             contract=self,
@@ -116,6 +124,31 @@ class Contract:
             raise SodaException(contract_result=contract_result)
 
         return contract_result
+
+    def _transform_scan_warning_and_error_logs(self, scan: Scan) -> None:
+        level_map = {
+            soda_common_logs.LogLevel.ERROR: contract_logs.LogLevel.ERROR,
+            soda_common_logs.LogLevel.WARNING: contract_logs.LogLevel.WARNING,
+            soda_common_logs.LogLevel.INFO: contract_logs.LogLevel.INFO,
+            soda_common_logs.LogLevel.DEBUG: contract_logs.LogLevel.DEBUG
+        }
+        for scan_log in scan._logs.logs:
+            if scan_log.level in [
+                soda_common_logs.LogLevel.ERROR,
+                soda_common_logs.LogLevel.WARNING
+            ]:
+                contracts_location: Location = (
+                    contract_logs.Location(line=scan_log.location.line, column=scan_log.location.col)
+                    if scan_log.location is not None
+                    else None
+                )
+                contracts_level: contract_logs.LogLevel = level_map[scan_log.level]
+                self.logs._log(contract_logs.Log(
+                    level=contracts_level,
+                    message=scan_log.message,
+                    location=contracts_location,
+                    exception=scan_log.exception
+                ))
 
     def _generate_sodacl_yaml_str(self, logs: Logs) -> str:
         # Serialize the SodaCL YAML object to a YAML string
@@ -140,6 +173,10 @@ class ContractResult:
 
     contract: Contract
     sodacl_yaml_str: str | None
+    # self.logs combines all the logs of the contract verification with the logs of the Connection parsing,
+    # connection usage, SodaCloud parsing and usage (if used) and contract parsing.
+    # At the end of the verify method a SodaException is raised if there are any error logs or check failures.
+    # See also adr/03_exceptions_vs_error_logs.md
     logs: Logs
     check_results: List[CheckResult]
 
@@ -188,28 +225,6 @@ class ContractResult:
                     scan=scan
                 )
                 self.check_results.append(check_result)
-
-    @classmethod
-    def _copy_scan_logs_to_logs(cls, scan: Scan, logs: Logs) -> None:
-        level_map = {
-            soda_common_logs.LogLevel.ERROR: contract_logs.LogLevel.ERROR,
-            soda_common_logs.LogLevel.WARNING: contract_logs.LogLevel.WARNING,
-            soda_common_logs.LogLevel.INFO: contract_logs.LogLevel.INFO,
-            soda_common_logs.LogLevel.DEBUG: contract_logs.LogLevel.DEBUG
-        }
-        for scan_log in scan._logs.logs:
-            contracts_location: Location = (
-                contract_logs.Location(line=scan_log.location.line, column=scan_log.location.col)
-                if scan_log.location is not None
-                else None
-            )
-            contracts_level: contract_logs.LogLevel = level_map[scan_log.level]
-            logs._log(contract_logs.Log(
-                level=contracts_level,
-                message=scan_log.message,
-                location=contracts_location,
-                exception=scan_log.exception
-            ))
 
     def failed(self) -> bool:
         return self.has_execution_errors() or self.has_check_failures()

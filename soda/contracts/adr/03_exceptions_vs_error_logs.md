@@ -1,27 +1,30 @@
 # Exceptions vs error logs
 
-For any type of problem, an exception will be raised.  This includes: 
-* YAML syntax problems parsing a connection, soda cloud or contract YAML file
-* Problems resolving variables in YAML files for connections, soda cloud and contracts
-* Problems interpreting a connection, soda cloud or contract YAML 
-* Query problems
-* Check evaluation exceptions
-* Check failures
+In general the principle is that contract verification aims to be resilient, 
+record any logs and continue to report as many problems in a single execution.
 
-There are unrecoverable exceptions and there are recoverable exceptions.
-As long as exceptions are unrecoverable, an exception is thrown immediately.
-Once passed the unrecoverable errors, the API does an attempt to collect as 
-many contract YAMl interpretation problems and check failures in one execution.
+This is realized by suppressing exceptions and collecting all the logs until the 
+end of the `contract.verify` method. There any error logs or check failures will 
+cause an exception to be raised. The SodaException raised at the end of the 
+`contract.verify` method will list all the errors and check failures in a 
+single SodaException.
 
-In development of the contract, it makes sense to provide 
-the engineer with as many errors in one contract verification so that all 
-problems can be fixed before retrying. 
+So for any of the following problems, you will get an exception being 
+raised at the end of the contract.verfiy method:
+* Connection
+  * Connection YAML or configuration issues (includes variable resolving problems)
+  * Connection usage issues (can't reach db or no proper permissions)
+* SodaCloud issues (only if used)
+  * SodaCloud YAML or configuration issues (includes variable resolving problems)
+  * SodaCloud usage issues (can't reach Soda online or no proper credentials)
+* Contract
+  * Contract YAML or configuration issues (includes variable resolving problems)
+  * Contract verification issues
+  * Check failures 
 
-In production, it's often hard or impossible to re-run the contract verification.
-So in that case it is crucial that we provide as much diagnostic information as 
-possible from a single contract verification. With that use case in mind we 
-have to be as resilient as possible for errors to provide as much feedback in 
-one execution.
+In the next recommended API usage, please note that exceptions suppressed in 
+Connection, SodaCloud and contract parsing are passed as logs (Connection.logs,
+SodaCloud.logs, Contract.logs) in to the `contract.verify` method.
 
 ```python
 connection_file_path = 'postgres_localhost.scn.yml'
@@ -36,16 +39,3 @@ except SodaException as e:
     # contract verification failed
     logging.exception(f"Contract verification failed: {e}", exc_info=e)
 ```
-
-Creation of the SodaCloud object should not raise exceptions. Also not 
-when variables cannot be resolved.  Instead, these type of problems (even 
-unrecoverable ones) should be collected as logs in the SodaCloud object.
-If a SodaCloud object has errors, it should pass them as logs to the 
-contract result.
-
-Same for contract parsing. Any contract parsing errors should be passed 
-from the contract to the contract result in the verify method.
-
-At the end of the `contract.verify` method, there is an assertion that there 
-are no execution errors.  Then all the errors will be listed in a single 
-SodaException.

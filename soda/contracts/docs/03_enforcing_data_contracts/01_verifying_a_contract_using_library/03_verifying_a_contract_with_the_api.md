@@ -1,5 +1,20 @@
 # Contract API
 
+This section explains the Python API to verify a contract.
+
+The contract object is created from a YAML file (or string).
+
+Contract verification performed executed on a SQL connection to a warehouse.
+
+
+## Requires
+
+Library dependencies
+* Soda Core version xyz
+* Soda warehouse version xyz
+
+A connection (See [creating a connection](02_creating_a_connection))
+
 ## The API
 
 ```python
@@ -109,7 +124,7 @@ Variable resolving is case sensitive. We recommend using all upper case and unde
 For contract YAML files, we recommend to use extension `sdc.yml` (Soda Data Contract) because 
 the editor tooling support will likely will be coupled via that extension.
 
-[Learn more on writing contract checks](./writing_a_contract.md)
+[Learn more on writing contract checks](./020_writing_a_contract)
 
 
 
