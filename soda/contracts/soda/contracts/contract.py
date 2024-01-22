@@ -86,7 +86,7 @@ class Contract:
 
             logger.debug(sodacl_yaml_str)
 
-            if sodacl_yaml_str and isinstance(connection, DataSourceConnection):
+            if sodacl_yaml_str and hasattr(connection, "data_source"):
                 # This assumes the connection is a DataSourceConnection
                 data_source = connection.data_source
 
