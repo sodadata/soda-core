@@ -20,13 +20,20 @@ is weird with the data and reporting a potential issue.
 Soda's observability platform is the place where you start the technical 
 investigation to dive deeper to diagnose data issues.
 
-
+For more, see [Setting up observability](02_configuring_observability/setting_up_observability.md)
 
 ### Enforce contracts
 
-What is contract enforcement
-Why contract enforcement
+* What is contract enforcement
+* Why contract enforcement
+* How to choose between embedded in the library or using the agent for contract enforcement
 
-How contract enforcement: embedded in the library or using the agent
+See [Enforcing data contracts](./03_enforcing_data_contracts/00_enforcing_data_contracts.md)
 
-### 
+### Self-serve consumer checks
+
+* What are self-serve consumer checks
+* Why self-serve consumer checks
+* Does it play in start right shift left
+
+* See [Self-serve consumer checks](04_managing_consumer_checks_in_soda_cloud/00_managing_consumer_checks_in_soda_cloud.md)
