@@ -349,11 +349,16 @@ class ContractParser:
         if check_type is None:
             return None
 
-        if check_type not in ["row_count"]:
+        if check_type not in ["row_count", "multi_column_duplicates"]:
             self.logs.error(f"Unknown dataset check type: {check_type}")
             return None
 
         metric: str = check_type
+
+        if check_type == "multi_column_duplicates":
+            columns: list[str] = check_yaml_object.read_list_strings("columns")
+            columns_comma_separated = ", ".join(columns)
+            metric = f"duplicate_count({columns_comma_separated})"
 
         return self._parse_numeric_metric_check(
             contract_check_id=contract_check_id,

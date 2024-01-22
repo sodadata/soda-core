@@ -1,21 +1,15 @@
 # Roadmap ideas
 
-* [ ] Update a JSON schema for our language & ensure validation on contract verification
-  * https://python-jsonschema.readthedocs.io/en/latest/validate/#the-basics 
-* [ ] Build test suite for basic check types
-* [x] Improve docs on problems
-* [x] Ensure proper errors/warning when variable is not defined
-* [x] Optional columns in schema check
+* [ ] Decide on JSON schema validation
+* [ ] Enable query logging in contracts test
+* [ ] Add check type for sql expression
+* [ ] Add check type for custom sql checks
+* [ ] Improve docs
+* [ ] Add CLI support for verifying contract
 * [ ] Add a data contract language version to the format
-* [ ] SQL expressions in column properties
-* [ ] Add support in the Soda CLI for executing contracts
+* [ ] Figure out in which cases a contract version in the YAML is needed and how we recommend using it (different from the contract language version)
+* [ ] Distill changes between 2 contracts, consider github webhook support to find updated contract files automatically
+* [ ] Add CLI support to create a new contract based on profiling information
 * [ ] Add CLI support to propose changes to contract based on profiling actual table (meta)data
-* [ ] Contract evolution support with contract versioning features
-  * [ ] Specify a contract version in the YAML (different from the contract language version)
-  * [ ] Distill changes between 2 contracts
-  * [ ] Build language for contract evolution policies
-  * [ ] Build contract evolution policy checker 
-  * [ ] Build contract registry
-  * [ ] Plug-in mechanism for custom contract evolution policy checker (to prevent incompatible changes to contracts)
 * [ ] Add support for nested JSON data types
 * [ ] Add attributes upload to Soda Cloud

@@ -221,6 +221,15 @@ class YamlObject(YamlValue):
         yaml_string_value = self.read_value(key=key, expected_type=YamlString, required=True, default_value=None)
         return yaml_string_value.unpacked() if isinstance(yaml_string_value, YamlString) else None
 
+    def read_list_strings(self, key: str) -> list[str] | None:
+        yaml_list_value = self.read_value(key=key, expected_type=YamlList, required=True, default_value=None)
+        if isinstance(yaml_list_value, YamlList):
+            value = yaml_list_value.unpacked()
+            if all(isinstance(e, str) for e in value):
+                return value
+            else:
+                self.logs.error(f"Not all elements in list are strings: {yaml_list_value.location}")
+
     def read_bool(self, key: str) -> bool | None:
         """
         An appropriate error log is generated if the value is not a bool or if the key is missing
@@ -280,7 +289,6 @@ class YamlObject(YamlValue):
             else:
                 logger.error(msg)
         return yaml_value
-
 
 class YamlList(YamlValue):
     def __init__(self, ruamel_value: CommentedSeq, yaml_wrapper: YamlWrapper):
