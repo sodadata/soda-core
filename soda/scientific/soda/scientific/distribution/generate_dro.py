@@ -24,6 +24,7 @@ def normalize(data: np.ndarray) -> np.ndarray:
 
 class DROGenerator:
     def __init__(self, cfg: RefDataCfg, data: list) -> None:
+        self.logs = logging.getLogger("soda.core")
         self.distribution_type = cfg.distribution_type
         self.data = data
         self.maximum_allowed_bin_size = 1e6
@@ -43,8 +44,7 @@ class DROGenerator:
         n_bins = min(np.ceil(np.lib.histograms._unsigned_subtract(last_edge, first_edge) / bin_width), data.size)
         return int(n_bins)
 
-    @staticmethod
-    def _remove_outliers_with_iqr(data: np.ndarray) -> np.ndarray:
+    def _remove_outliers_with_iqr(self, data: np.ndarray) -> np.ndarray:
         # Remove outliers
         q1, q3 = np.percentile(data, [25, 75])
         IQR = q3 - q1
@@ -52,7 +52,7 @@ class DROGenerator:
         upper_range = q3 + (1.5 * IQR)
         filtered_data = data[np.where((data >= lower_range) & (data <= upper_range))]
         # TODO: insert doc link that explains IQR
-        logging.warning(
+        self.logs.warning(
             f"""Generating the distribution reference object using automatic bin size detection would cause a
 memory error. This is generally caused by the presence of outliers in the dataset which leads to very high number
 of bins.
@@ -70,7 +70,7 @@ We filtered values above {lower_range} and below {upper_range} using IQR
             data_len = data.shape[0]
             none_count = np.count_nonzero(np.isnan(data))
             data = data[~np.isnan(data)]
-            logging.warning(
+            self.logs.warning(
                 f"""{none_count} out of {data_len} rows
 has None values! To estimate the weights and bins, the null values
 has been ignored!
@@ -97,7 +97,7 @@ has been ignored!
             else:
                 n_sqrt_bins = int(np.ceil(math.sqrt(outlier_filtered_data.size)))
                 if n_sqrt_bins < self.maximum_allowed_bin_size:
-                    logging.warning(
+                    self.logs.warning(
                         f"""Filtering out outliers did not solve the memory error. As a last resort, we will
 take the square root of the data size to set the number of bins.
 
@@ -106,7 +106,7 @@ take the square root of the data size to set the number of bins.
                     )
                     weights, bins = np.histogram(outlier_filtered_data, bins=n_sqrt_bins, density=False)
                 else:
-                    logging.warning(
+                    self.logs.warning(
                         f"""We set n_bins={self.maximum_allowed_bin_size} as maximum since
 automatically computed {n_bins} is higher than maximum allowed bin size: {self.maximum_allowed_bin_size}
 

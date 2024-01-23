@@ -9,10 +9,21 @@ rng = default_rng(1234)
 
 
 @pytest.mark.parametrize(
-    "cfg, data, expected_weights, expected_bins",
+    "data, expected_weights, expected_bins",
     [
         pytest.param(
-            RefDataCfg(distribution_type="continuous"),
+            list(np.ones(20)),
+            np.array([0.0, 1.0]),
+            np.array([0.5, 1.5]),
+            id="continuous data - all same values",
+        ),
+        pytest.param(
+            list(np.append(np.ones(20), np.nan)) + [None],
+            np.array([0.0, 1.0]),
+            np.array([0.5, 1.5]),
+            id="continuous data - all same values with None and np.nan values",
+        ),
+        pytest.param(
             list(rng.normal(loc=2, scale=1.0, size=1000)),
             np.array(
                 [0, 2, 4, 12, 15, 40, 49, 57, 58, 87, 112, 112, 98, 88, 74, 67, 40, 29, 27, 13, 6, 1, 7, 0, 0, 1, 1]
@@ -52,17 +63,17 @@ rng = default_rng(1234)
         ),
     ],
 )
-def test_generate_dro_continuous(cfg, data, expected_bins, expected_weights):
+def test_generate_dro_continuous(data: list[float], expected_bins: np.ndarray, expected_weights: np.ndarray) -> None:
     from soda.scientific.distribution.generate_dro import DROGenerator
 
-    dro_generator = DROGenerator(cfg, data)
+    dro_generator = DROGenerator(RefDataCfg(distribution_type="continuous"), data)
     dro = dro_generator.generate()
 
     assert_almost_equal(dro.weights, expected_weights / np.sum(expected_weights))
     assert_almost_equal(dro.bins, expected_bins)
 
 
-def test_generate_dro_continuous_with_outlier():
+def test_generate_dro_continuous_with_outlier() -> None:
     from soda.scientific.distribution.generate_dro import DROGenerator
 
     cfg = RefDataCfg(distribution_type="continuous")
@@ -127,7 +138,7 @@ def test_generate_dro_continuous_with_outlier():
     )
 
 
-def test_generate_dro_continuous_with_sqrt_bins():
+def test_generate_dro_continuous_with_sqrt_bins() -> None:
     from soda.scientific.distribution.generate_dro import DROGenerator
 
     cfg = RefDataCfg(distribution_type="continuous")
@@ -156,7 +167,7 @@ def test_generate_dro_continuous_with_sqrt_bins():
     )
 
 
-def test_generate_dro_continuous_exceeding_max_allowed_bin_size():
+def test_generate_dro_continuous_exceeding_max_allowed_bin_size() -> None:
     from soda.scientific.distribution.generate_dro import DROGenerator
 
     cfg = RefDataCfg(distribution_type="continuous")
@@ -176,11 +187,12 @@ def test_generate_dro_continuous_exceeding_max_allowed_bin_size():
     assert_almost_equal(dro.bins, [0.0035455468097308485, 13291058005749.78, 26582116011499.555, 39873174017249.33])
 
 
-def test_generate_dro_continuous_all_same_values():
+def test_generate_dro_continuous_with_some_null_values() -> None:
     from soda.scientific.distribution.generate_dro import DROGenerator
 
     cfg = RefDataCfg(distribution_type="continuous")
     data = np.ones(20)
+    data = np.append(data, np.nan)
     dro_generator = DROGenerator(cfg, data)
     dro = dro_generator.generate()
     assert_almost_equal(dro.weights, [0.0, 1.0])

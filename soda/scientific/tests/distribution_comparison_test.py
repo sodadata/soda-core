@@ -8,11 +8,7 @@ from numpy.random import default_rng
 from pydantic import ValidationError
 from ruamel.yaml import YAML
 
-from soda.scientific.distribution.comparison import (
-    DistributionRefKeyException,
-    DistributionRefParsingException,
-    MissingCategories,
-)
+from soda.scientific.distribution.comparison import DistributionRefKeyException
 from soda.scientific.distribution.utils import RefDataCfg
 
 
@@ -260,10 +256,10 @@ TEST_CONFIG_CONT_1 = RefDataCfg(
             id="distributions are extremely different",
         ),
         pytest.param(
-            pd.Series(np.full([100], np.nan)),
-            1.0,
-            0.0,
-            id="distributions are all made of nulls",
+            pd.Series([None, 2] * 50),
+            0.78,
+            1.6389584501763118e-20,
+            id="partially null distribution",
         ),
     ],
 )
