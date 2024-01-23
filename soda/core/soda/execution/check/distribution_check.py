@@ -90,6 +90,12 @@ class DistributionCheck(Check):
                     # Collect test data as a list of values
                     test_data = [row[0] for row in self.query.rows]
 
+                    # If all values are null, we should not run the check
+                    if len(test_data) > 0 and all(value is None for value in test_data):
+                        self.logs.warning(
+                            f"All values are null in your test data. Skipping distribution check for column '{self.column.column_name}'"
+                        )
+                        return
                 check_result_dict = DistributionChecker(
                     dist_method=dist_method,
                     parsed_dro=self.parsed_dro,
