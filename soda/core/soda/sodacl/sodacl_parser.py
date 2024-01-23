@@ -1054,7 +1054,7 @@ class SodaCLParser(Parser):
         if isinstance(check_configurations, dict):
             self._push_path_element(check_str, check_configurations)
             for configuration_key in check_configurations:
-                if configuration_key not in [NAME, WARN, FAIL, ATTRIBUTES]:
+                if configuration_key not in [NAME, WARN, FAIL, ATTRIBUTES, IDENTITY]:
                     self.logs.error(
                         f'Invalid schema check configuration key "{configuration_key}"', location=self.location
                     )
