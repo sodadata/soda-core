@@ -5,7 +5,6 @@ from helpers.common_test_tables import customers_dist_check_test_table
 from helpers.data_source_fixture import DataSourceFixture
 from helpers.fixtures import test_data_source
 from helpers.mock_file_system import MockFileSystem
-
 from soda.execution.check.distribution_check import DistributionCheck
 
 from soda.scientific.distribution.comparison import CategoricalLimitExceeded
