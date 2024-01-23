@@ -12,13 +12,13 @@ from assets.anomaly_detection_assets import (
     test_anomaly_detector_parsed_historical_measurements,
     test_empty_anomaly_detector_parsed_ad_measurements,
 )
-
 from soda.common.logs import Logs
-from soda.scientific.anomaly_detection_v2.anomaly_detector import AnomalyDetector
 from soda.sodacl.anomaly_detection_metric_check_cfg import (
     ModelConfigs,
     TrainingDatasetParameters,
 )
+
+from soda.scientific.anomaly_detection_v2.anomaly_detector import AnomalyDetector
 
 LOGS = Logs(logging.getLogger(__name__))
 

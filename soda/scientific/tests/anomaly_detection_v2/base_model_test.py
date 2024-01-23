@@ -10,16 +10,16 @@ from assets.anomaly_detection_assets import (
     test_prophet_model_skip_measurements_this_exclusive_previous,
     test_prophet_model_skip_measurements_this_exclusive_previous_expectation,
 )
-
 from soda.common.logs import Logs
-from soda.scientific.anomaly_detection_v2.anomaly_detector import AnomalyDetector
-from soda.scientific.anomaly_detection_v2.models.prophet_model import ProphetDetector
-from soda.scientific.anomaly_detection_v2.pydantic_models import FreqDetectionResult
 from soda.sodacl.anomaly_detection_metric_check_cfg import (
     HyperparameterConfigs,
     ModelConfigs,
     TrainingDatasetParameters,
 )
+
+from soda.scientific.anomaly_detection_v2.anomaly_detector import AnomalyDetector
+from soda.scientific.anomaly_detection_v2.models.prophet_model import ProphetDetector
+from soda.scientific.anomaly_detection_v2.pydantic_models import FreqDetectionResult
 
 LOGS = Logs(logging.getLogger(__name__))
 PARAMS = AnomalyDetector(

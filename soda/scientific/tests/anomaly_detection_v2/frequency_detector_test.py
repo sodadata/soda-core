@@ -2,14 +2,14 @@ import logging
 
 import pandas as pd
 from anomaly_detection_v2.utils import generate_random_dataframe
-
 from soda.common.logs import Logs
-from soda.scientific.anomaly_detection_v2.anomaly_detector import AnomalyDetector
-from soda.scientific.anomaly_detection_v2.frequency_detector import FrequencyDetector
 from soda.sodacl.anomaly_detection_metric_check_cfg import (
     ModelConfigs,
     TrainingDatasetParameters,
 )
+
+from soda.scientific.anomaly_detection_v2.anomaly_detector import AnomalyDetector
+from soda.scientific.anomaly_detection_v2.frequency_detector import FrequencyDetector
 
 LOGS = Logs(logging.getLogger(__name__))
 PARAMS = AnomalyDetector(

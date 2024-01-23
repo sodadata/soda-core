@@ -17,13 +17,6 @@ from assets.anomaly_detection_assets import (
     df_prophet_model_setup_fit_predict,
     test_feedback_processor_seasonality_skip_measurements,
 )
-
-from soda.scientific.anomaly_detection_v2.exceptions import (
-    AggregationValueError,
-    FreqDetectionResultError,
-)
-from soda.scientific.anomaly_detection_v2.feedback_processor import FeedbackProcessor
-from soda.scientific.anomaly_detection_v2.models.prophet_model import ProphetDetector
 from soda.sodacl.anomaly_detection_metric_check_cfg import (
     HyperparameterConfigs,
     ProphetDefaultHyperparameters,
@@ -32,6 +25,13 @@ from soda.sodacl.anomaly_detection_metric_check_cfg import (
     ProphetParameterGrid,
     TrainingDatasetParameters,
 )
+
+from soda.scientific.anomaly_detection_v2.exceptions import (
+    AggregationValueError,
+    FreqDetectionResultError,
+)
+from soda.scientific.anomaly_detection_v2.feedback_processor import FeedbackProcessor
+from soda.scientific.anomaly_detection_v2.models.prophet_model import ProphetDetector
 
 
 def test_with_exit() -> None:

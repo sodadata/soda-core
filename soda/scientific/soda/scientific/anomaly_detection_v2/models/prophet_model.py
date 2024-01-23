@@ -11,9 +11,14 @@ from typing import Any, Dict, Tuple
 import numpy as np
 import pandas as pd
 from prophet.diagnostics import cross_validation, performance_metrics
+from soda.common.logs import Logs
+from soda.sodacl.anomaly_detection_metric_check_cfg import (
+    HyperparameterConfigs,
+    ProphetDefaultHyperparameters,
+    TrainingDatasetParameters,
+)
 from tqdm import tqdm
 
-from soda.common.logs import Logs
 from soda.scientific.anomaly_detection_v2.exceptions import (
     AggregationValueError,
     FreqDetectionResultError,
@@ -28,11 +33,6 @@ from soda.scientific.anomaly_detection_v2.pydantic_models import FreqDetectionRe
 from soda.scientific.anomaly_detection_v2.utils import (
     SuppressStdoutStderr,
     get_not_enough_measurements_freq_result,
-)
-from soda.sodacl.anomaly_detection_metric_check_cfg import (
-    HyperparameterConfigs,
-    ProphetDefaultHyperparameters,
-    TrainingDatasetParameters,
 )
 
 with SuppressStdoutStderr():

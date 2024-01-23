@@ -3,8 +3,12 @@ from typing import Any, Dict, List, Mapping, Tuple
 
 import pandas as pd
 import yaml
-
 from soda.common.logs import Logs
+from soda.sodacl.anomaly_detection_metric_check_cfg import (
+    ModelConfigs,
+    TrainingDatasetParameters,
+)
+
 from soda.scientific.anomaly_detection_v2.feedback_processor import FeedbackProcessor
 from soda.scientific.anomaly_detection_v2.models.prophet_model import ProphetDetector
 from soda.scientific.anomaly_detection_v2.pydantic_models import (
@@ -13,10 +17,6 @@ from soda.scientific.anomaly_detection_v2.pydantic_models import (
     AnomalyHistoricalMeasurements,
     AnomalyResult,
     FreqDetectionResult,
-)
-from soda.sodacl.anomaly_detection_metric_check_cfg import (
-    ModelConfigs,
-    TrainingDatasetParameters,
 )
 
 

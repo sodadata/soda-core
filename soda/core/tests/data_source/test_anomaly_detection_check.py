@@ -4,7 +4,6 @@ import pytest
 from helpers.common_test_tables import customers_test_table
 from helpers.data_source_fixture import DataSourceFixture
 from helpers.mock_soda_cloud import TimeGenerator
-
 from soda.cloud.historic_descriptor import (
     HistoricCheckResultsDescriptor,
     HistoricMeasurementsDescriptor,
@@ -19,7 +18,6 @@ def test_anomaly_detection_historic_descriptors(data_source_fixture: DataSourceF
     table_name = data_source_fixture.ensure_test_table(customers_test_table)
 
     import numpy as np
-
     from soda.execution.check.anomaly_detection_metric_check import (
         AnomalyDetectionMetricCheck,
     )

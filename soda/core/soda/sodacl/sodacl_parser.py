@@ -14,8 +14,6 @@ from soda.common.file_system import file_system
 from soda.common.logs import Logs
 from soda.common.parser import Parser
 from soda.common.yaml_helper import to_yaml_str
-from soda.execution.identity import ConsistentHashBuilder
-from soda.model.type_mapping import TypeMapping
 from soda.sodacl.anomaly_detection_metric_check_cfg import (
     AnomalyDetectionMetricCheckCfg,
     ModelConfigs,

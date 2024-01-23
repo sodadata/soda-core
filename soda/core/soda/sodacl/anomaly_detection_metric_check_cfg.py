@@ -3,7 +3,6 @@ from __future__ import annotations
 from typing import Any, ClassVar, Optional, Union
 
 from pydantic import BaseModel, ConfigDict, ValidationError, field_validator
-
 from soda.common.logs import Logs
 from soda.sodacl.change_over_time_cfg import ChangeOverTimeCfg
 from soda.sodacl.location import Location

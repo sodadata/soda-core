@@ -10,8 +10,8 @@ from assets.anomaly_detection_assets import (
     test_feedback_processor_seasonality_skip_measurements,
     test_feedback_processor_seasonality_skip_measurements_expectation,
 )
-
 from soda.common.logs import Logs
+
 from soda.scientific.anomaly_detection_v2.feedback_processor import FeedbackProcessor
 
 LOGS = Logs(logging.getLogger(__name__))

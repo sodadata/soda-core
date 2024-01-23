@@ -8,7 +8,6 @@ from datetime import date
 from typing import Any, Dict, Tuple
 
 import pandas as pd
-
 from soda.common.logs import Logs
 
 FEEDBACK_REASONS = {

@@ -2,17 +2,17 @@ import logging
 
 import numpy as np
 import pandas as pd
-
 from soda.common.logs import Logs
-from soda.scientific.anomaly_detection_v2.anomaly_detector import AnomalyDetector
-from soda.scientific.anomaly_detection_v2.frequency_detector import FrequencyDetector
-from soda.scientific.anomaly_detection_v2.models.prophet_model import ProphetDetector
 from soda.sodacl.anomaly_detection_metric_check_cfg import (
     HyperparameterConfigs,
     ModelConfigs,
     ProphetDefaultHyperparameters,
     TrainingDatasetParameters,
 )
+
+from soda.scientific.anomaly_detection_v2.anomaly_detector import AnomalyDetector
+from soda.scientific.anomaly_detection_v2.frequency_detector import FrequencyDetector
+from soda.scientific.anomaly_detection_v2.models.prophet_model import ProphetDetector
 
 
 def generate_random_dataframe(size: int, n_rows_to_convert_none: int, frequency: str = "D") -> pd.DataFrame:
