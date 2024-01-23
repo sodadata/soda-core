@@ -18,6 +18,7 @@ requires = [
     "opentelemetry-exporter-otlp-proto-http~=1.16.0",
     "sqlparse~=0.4",
     "inflect~=7.0",
+    "pydantic>=2.0.0,<3.0.0",
 ]
 
 setup(

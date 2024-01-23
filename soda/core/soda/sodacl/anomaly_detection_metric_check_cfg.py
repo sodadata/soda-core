@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, ClassVar, Optional, Union
+from typing import Any, ClassVar, List, Optional, Union
 
 from pydantic import BaseModel, ConfigDict, ValidationError, field_validator
 from soda.common.logs import Logs
@@ -77,27 +77,27 @@ class ProphetMAPEProfileHyperparameters(ProphetDefaultHyperparameters):
 
 
 class ProphetParameterGrid(ADBaseModel):
-    growth: list[str] = ["linear"]
-    changepoints: list[Any] = [None]
-    n_changepoints: list[int] = [25]
-    changepoint_range: list[float] = [0.8]
-    yearly_seasonality: list[Any] = ["auto"]
-    weekly_seasonality: list[Any] = ["auto"]
-    daily_seasonality: list[Any] = ["auto"]
-    holidays: list[Any] = [None]
-    seasonality_mode: list[str] = ["multiplicative"]  # Non default
-    seasonality_prior_scale: list[float] = [0.01, 0.1, 1.0, 10.0]  # Non default
-    holidays_prior_scale: list[float] = [10.0]
-    changepoint_prior_scale: list[float] = [0.001, 0.01, 0.1, 0.5]  # Non default
-    mcmc_samples: list[int] = [0]
-    interval_width: list[float] = [0.999]  # Non default
-    stan_backend: list[Any] = [None]
-    scaling: list[str] = ["absmax"]
-    holidays_mode: list[Any] = [None]
+    growth: List[str] = ["linear"]
+    changepoints: List[Any] = [None]
+    n_changepoints: List[int] = [25]
+    changepoint_range: List[float] = [0.8]
+    yearly_seasonality: List[Any] = ["auto"]
+    weekly_seasonality: List[Any] = ["auto"]
+    daily_seasonality: List[Any] = ["auto"]
+    holidays: List[Any] = [None]
+    seasonality_mode: List[str] = ["multiplicative"]  # Non default
+    seasonality_prior_scale: List[float] = [0.01, 0.1, 1.0, 10.0]  # Non default
+    holidays_prior_scale: List[float] = [10.0]
+    changepoint_prior_scale: List[float] = [0.001, 0.01, 0.1, 0.5]  # Non default
+    mcmc_samples: List[int] = [0]
+    interval_width: List[float] = [0.999]  # Non default
+    stan_backend: List[Any] = [None]
+    scaling: List[str] = ["absmax"]
+    holidays_mode: List[Any] = [None]
 
 
 class ProphetDynamicHyperparameters(ADBaseModel):
-    objective_metric: Union[str, list[str]]
+    objective_metric: Union[str, List[str]]
     parallelize_cross_validation: bool = True
     cross_validation_folds: int = 5
     frequency: int = 10
@@ -105,13 +105,13 @@ class ProphetDynamicHyperparameters(ADBaseModel):
 
     @field_validator("objective_metric", mode="before")
     @classmethod
-    def metric_is_allowed(cls, v: str | list[str]) -> str | list[str]:
+    def metric_is_allowed(cls, v: str | List[str]) -> str | List[str]:
         allowed_metrics = ["mse", "rmse", "mae", "mape", "mdape", "smape", "coverage"]
         error_message = (
             "objective_metric: '{objective_metric}' is not allowed. "
             "Please choose from 'mse', 'rmse', 'mae', 'mape', 'mdape', 'smape', 'coverage'."
         )
-        if isinstance(v, list):
+        if isinstance(v, List):
             v = [metric.lower() for metric in v]
             for metric in v:
                 if metric not in allowed_metrics:
@@ -168,7 +168,7 @@ class AnomalyDetectionMetricCheckCfg(MetricCheckCfg):
         location: Location,
         name: str | None,
         metric_name: str,
-        metric_args: list[object] | None,
+        metric_args: List[object] | None,
         missing_and_valid_cfg: MissingAndValidCfg | None,
         filter: str | None,
         condition: str | None,
@@ -181,7 +181,7 @@ class AnomalyDetectionMetricCheckCfg(MetricCheckCfg):
         training_dataset_params: TrainingDatasetParameters,
         is_automated_monitoring: bool = False,
         samples_limit: int | None = None,
-        samples_columns: list | None = None,
+        samples_columns: List | None = None,
     ):
         super().__init__(
             source_header,
@@ -200,7 +200,6 @@ class AnomalyDetectionMetricCheckCfg(MetricCheckCfg):
             fail_threshold_cfg,
             warn_threshold_cfg,
             samples_limit=samples_limit,
-            samples_columns=samples_columns,
         )
         self.is_automated_monitoring = is_automated_monitoring
         self.model_cfg = model_cfg
