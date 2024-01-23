@@ -143,6 +143,15 @@ class SodaCLAntlrListener(ParseTreeListener):
         pass
 
 
+    # Enter a parse tree produced by SodaCLAntlrParser#anomaly_detection.
+    def enterAnomaly_detection(self, ctx:SodaCLAntlrParser.Anomaly_detectionContext):
+        pass
+
+    # Exit a parse tree produced by SodaCLAntlrParser#anomaly_detection.
+    def exitAnomaly_detection(self, ctx:SodaCLAntlrParser.Anomaly_detectionContext):
+        pass
+
+
     # Enter a parse tree produced by SodaCLAntlrParser#metric.
     def enterMetric(self, ctx:SodaCLAntlrParser.MetricContext):
         pass

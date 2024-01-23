@@ -1,4 +1,4 @@
-# Generated from /Users/m1n0/dev/soda/soda-sql/soda-core/soda/core/soda/sodacl/antlr/SodaCLAntlr.g4 by ANTLR 4.11.1
+# Generated from /Users/baturayofluoglu/workspace/soda-library/src/soda/soda/sodacl/antlr/SodaCLAntlr.g4 by ANTLR 4.11.1
 from antlr4 import *
 if __name__ is not None and "." in __name__:
     from .SodaCLAntlrParser import SodaCLAntlrParser
@@ -81,6 +81,11 @@ class SodaCLAntlrVisitor(ParseTreeVisitor):
 
     # Visit a parse tree produced by SodaCLAntlrParser#anomaly_score.
     def visitAnomaly_score(self, ctx:SodaCLAntlrParser.Anomaly_scoreContext):
+        return self.visitChildren(ctx)
+
+
+    # Visit a parse tree produced by SodaCLAntlrParser#anomaly_detection.
+    def visitAnomaly_detection(self, ctx:SodaCLAntlrParser.Anomaly_detectionContext):
         return self.visitChildren(ctx)
 
 

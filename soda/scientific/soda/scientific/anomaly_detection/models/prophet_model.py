@@ -138,7 +138,7 @@ class ProphetDetector(BaseDetector):
         params: Dict[str, Any],
         time_series_data: pd.DataFrame,
         metric_name: str,
-        has_exegonenous_regressor: bool = False,
+        has_exogenous_regressor: bool = False,
         warn_only: bool = False,
     ) -> None:
         """Constructor for ProphetDetector
@@ -169,7 +169,7 @@ class ProphetDetector(BaseDetector):
         self._criticality_threshold = self._anomaly_detection_params["criticality_threshold"]
         self._suppress_stan = self._prophet_detector_params["suppress_stan"]
         self._is_trained: bool = False
-        self._has_exogenous_regressor = has_exegonenous_regressor
+        self._has_exogenous_regressor = has_exogenous_regressor
         self.time_series_data = time_series_data  # this gets potentially rewritten when runnin skip measurements
         self.uncertainty_bounds_require_integer_rounding: bool = metric_name in self.integer_type_metrics
         self.warn_only = warn_only
@@ -287,11 +287,7 @@ class ProphetDetector(BaseDetector):
         #               # how do we communcate this to our users? Is it even a good idea to do that at all?
         raise PreprocessError(DETECTOR_MESSAGES["bailing_out"].log_message)
 
-    def preprocess(self):
-        missing_values = self.time_series_data.isnull().sum().sum()
-        if self._preprocess_params["warn_if_missing_values"] and missing_values:
-            self._logs.debug(f"dataframe has {missing_values} missing values.")
-
+    def preprocess(self) -> None:
         try:
             self.freq_detection_result = self.detect_frequency_better()
             if self.freq_detection_result.error_severity == "error":
@@ -350,7 +346,7 @@ class ProphetDetector(BaseDetector):
         self.predictions = self.model.predict(self.time_series)
         self._is_trained = True
 
-    def detect_anomalies(self):
+    def detect_anomalies(self) -> None:
         assert (
             self._is_trained
         ), "ProphetDetector has not been trained yet. Make sure you run `setup_and_train_ts_model` first"

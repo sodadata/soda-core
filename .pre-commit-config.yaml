@@ -27,7 +27,8 @@ repos:
     rev: v3.15.0
     hooks:
       - id: pyupgrade
-        args: [--py37-plus]
+        exclude: _models?\.py$
+        args: [--py38-plus, --keep-runtime-typing]
   - repo: https://github.com/PyCQA/isort
     rev: 5.13.1
     hooks:

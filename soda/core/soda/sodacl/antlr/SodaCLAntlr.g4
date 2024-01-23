@@ -28,7 +28,7 @@ row_count_comparison_check:
 		S IN S identifier
 	)? EOF;
 
-metric_check: (change_over_time | anomaly_score)? metric (
+metric_check: (change_over_time | anomaly_score | anomaly_detection)? metric (
 		S (threshold | default_anomaly_threshold)
 	)? EOF;
 
@@ -48,6 +48,8 @@ same_day_last_week: 'same day last week';
 percent: 'percent' S;
 
 anomaly_score: 'anomaly score for ';
+
+anomaly_detection: 'anomaly detection for ';
 
 metric: metric_name metric_args?;
 

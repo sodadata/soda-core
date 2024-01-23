@@ -14,6 +14,13 @@ from soda.common.file_system import file_system
 from soda.common.logs import Logs
 from soda.common.parser import Parser
 from soda.common.yaml_helper import to_yaml_str
+from soda.execution.identity import ConsistentHashBuilder
+from soda.model.type_mapping import TypeMapping
+from soda.sodacl.anomaly_detection_metric_check_cfg import (
+    AnomalyDetectionMetricCheckCfg,
+    ModelConfigs,
+    TrainingDatasetParameters,
+)
 from soda.sodacl.antlr.SodaCLAntlrLexer import SodaCLAntlrLexer
 from soda.sodacl.antlr.SodaCLAntlrParser import SodaCLAntlrParser
 from soda.sodacl.change_over_time_cfg import ChangeOverTimeCfg
@@ -43,6 +50,8 @@ from soda.sodacl.threshold_cfg import ThresholdCfg
 
 logger = logging.getLogger(__name__)
 
+ANOMALY_DETECTION_CONFIGS = "model"
+ANOMALY_DETECTION_TRAINING_DATASET_CONFIGS = "training_dataset_parameters"
 ANOMALY_DETECTION_WARN_ONLY = "warn_only"
 ATTRIBUTES = "attributes"
 FAIL = "fail"
@@ -74,6 +83,7 @@ WHEN_REQUIRED_GROUP_MISSING = "when required group missing"
 WHEN_SCHEMA_CHANGES = "when schema changes"
 WHEN_WRONG_COLUMN_INDEX = "when wrong column index"
 WHEN_WRONG_COLUMN_TYPE = "when wrong column type"
+
 
 ALL_GROUP_VALIDATIONS = [
     WHEN_REQUIRED_GROUP_MISSING,
@@ -546,7 +556,7 @@ class SodaCLParser(Parser):
 
     def __parse_metric_check(
         self,
-        antlr_metric_check,
+        antlr_metric_check: SodaCLAntlrParser.Metric_checkContext,
         header_str: str,
         check_str: str,
         check_configurations: dict | None,
@@ -595,6 +605,9 @@ class SodaCLParser(Parser):
         metric_expression = None
         metric_query = None
         samples_limit = None
+        samples_columns = None
+        training_dataset_params = None
+        model_cfg = None
 
         if isinstance(check_configurations, dict):
             for configuration_key in check_configurations:
@@ -652,6 +665,19 @@ class SodaCLParser(Parser):
                         configuration_value,
                         missing_and_valid_cfg,
                     )
+                elif configuration_key == ANOMALY_DETECTION_CONFIGS:
+                    model_cfg = ModelConfigs.create_instance(
+                        logger=self.logs, location=self.location, **configuration_value
+                    )
+                    if model_cfg is None:
+                        return None
+
+                elif configuration_key == ANOMALY_DETECTION_TRAINING_DATASET_CONFIGS:
+                    training_dataset_params = TrainingDatasetParameters.create_instance(
+                        logger=self.logs, location=self.location, **configuration_value
+                    )
+                    if training_dataset_params is None:
+                        return None
                 elif configuration_key not in [
                     NAME,
                     IDENTITY,
@@ -774,6 +800,37 @@ class SodaCLParser(Parser):
                         "is allowed where threshold-value must be between 0 (ok) and 1 (anomaly)",
                         location=self.location,
                     )
+
+        elif antlr_metric_check.anomaly_detection():
+            if training_dataset_params is None:
+                # Set defaults for training dataset configurations
+                training_dataset_params = TrainingDatasetParameters()
+            if model_cfg is None:
+                # Set defaults for model configurations
+                model_cfg = ModelConfigs()
+
+            anomaly_detection_check_cfg = AnomalyDetectionMetricCheckCfg(
+                source_header=header_str,
+                source_line=check_str,
+                source_configurations=check_configurations,
+                location=self.location,
+                name=name,
+                metric_name=metric_name,
+                metric_args=metric_args,
+                missing_and_valid_cfg=missing_and_valid_cfg,
+                filter=filter,
+                condition=condition,
+                metric_expression=metric_expression,
+                metric_query=metric_query,
+                change_over_time_cfg=change_over_time_cfg,
+                fail_threshold_cfg=None,
+                warn_threshold_cfg=None,
+                training_dataset_params=training_dataset_params,
+                model_cfg=model_cfg,
+                samples_limit=samples_limit,
+                samples_columns=samples_columns,
+            )
+            return anomaly_detection_check_cfg
 
         elif antlr_metric_check.default_anomaly_threshold():
             self.logs.error(
