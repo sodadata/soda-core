@@ -4,12 +4,13 @@ import pytest
 from helpers.common_test_tables import customers_dist_check_test_table
 from helpers.data_source_fixture import DataSourceFixture
 from helpers.fixtures import test_data_source
+from helpers.mock_file_system import MockFileSystem
 from soda.execution.check.distribution_check import DistributionCheck
 
 from soda.scientific.distribution.comparison import CategoricalLimitExceeded
 
 
-def test_distribution_check(data_source_fixture: DataSourceFixture, mock_file_system):
+def test_distribution_check(data_source_fixture: DataSourceFixture, mock_file_system: MockFileSystem) -> None:
     table_name = data_source_fixture.ensure_test_table(customers_dist_check_test_table)
     table_name = data_source_fixture.data_source.default_casify_table_name(table_name)
 
@@ -41,6 +42,43 @@ def test_distribution_check(data_source_fixture: DataSourceFixture, mock_file_sy
 
     scan.enable_mock_soda_cloud()
     scan.execute()
+    scan.assert_all_checks_pass()
+
+
+def test_distribution_check_only_null_column(
+    data_source_fixture: DataSourceFixture, mock_file_system: MockFileSystem
+) -> None:
+    table_name = data_source_fixture.ensure_test_table(customers_dist_check_test_table)
+
+    scan = data_source_fixture.create_test_scan()
+
+    user_home_dir = mock_file_system.user_home_dir()
+
+    mock_file_system.files = {
+        f"{user_home_dir}/customers_cst_size_distribution_reference.yml": dedent(
+            f"""
+            dataset: {table_name}
+            column: full_null
+            distribution_type: continuous
+            distribution_reference:
+                bins: [1, 2, 3]
+                weights: [0.5, 0.2, 0.3]
+        """
+        ).strip(),
+    }
+
+    scan.add_sodacl_yaml_str(
+        f"""
+        checks for {table_name}:
+            - distribution_difference(full_null) >= 0.05:
+                distribution reference file: {user_home_dir}/customers_cst_size_distribution_reference.yml
+                method: ks
+    """
+    )
+
+    scan.enable_mock_soda_cloud()
+    scan.execute(allow_warnings_only=True)
+    scan.assert_all_checks_skipped()
 
 
 @pytest.mark.parametrize(
@@ -235,7 +273,9 @@ def test_distribution_check_without_method(data_source_fixture: DataSourceFixtur
     scan.execute()
 
 
-def test_distribution_check_with_filter_no_data(data_source_fixture: DataSourceFixture, mock_file_system):
+def test_distribution_check_with_filter_no_data(
+    data_source_fixture: DataSourceFixture, mock_file_system: MockFileSystem
+) -> None:
     from soda.scientific.distribution.comparison import EmptyDistributionCheckColumn
 
     table_name = data_source_fixture.ensure_test_table(customers_dist_check_test_table)
