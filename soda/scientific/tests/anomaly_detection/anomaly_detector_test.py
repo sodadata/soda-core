@@ -1,5 +1,6 @@
 import logging
 
+import numpy as np
 import pandas as pd
 import pytest
 from assets.anomaly_detection_assets import (
@@ -49,13 +50,50 @@ PROPHET_MODEL_PARAMS = AnomalyDetector(
     "time_series_with_skip_measurements, expected_filtered_time_series",
     [
         pytest.param(
-            test_prophet_model_skip_measurements_this_exclusive_previous,
-            test_prophet_model_skip_measurements_this_exclusive_previous_expectation,
+            pd.DataFrame(
+                [
+                    {"y": 245.0, "ds": "2023-02-15 11:00:00", "skipMeasurements": None},
+                    {"y": 45.0, "ds": "2023-02-14 11:00:00", "skipMeasurements": "this"},
+                    {"y": 40.0, "ds": "2023-02-13 11:00:00", "skipMeasurements": None},
+                    {"y": 35.0, "ds": "2023-02-12 11:00:00", "skipMeasurements": None},
+                    {"y": 30.0, "ds": "2023-02-11 11:00:00", "skipMeasurements": None},
+                    {"y": 25.0, "ds": "2023-02-10 11:00:00", "skipMeasurements": "previous"},
+                    {"y": 20.0, "ds": "2023-02-09 11:00:00", "skipMeasurements": None},
+                    {"y": 15.0, "ds": "2023-02-08 11:00:00", "skipMeasurements": None},
+                    {"y": 10.0, "ds": "2023-02-07 11:00:00", "skipMeasurements": None},
+                    {"y": 5.0, "ds": "2023-02-06 11:00:00", "skipMeasurements": None},
+                    {"y": 250.0, "ds": "2023-02-16 11:00:00", "skipMeasurements": np.nan},
+                ]
+            ),
+            pd.DataFrame(
+                [
+                    {"y": 25.0, "ds": pd.Timestamp("2023-02-10 11:00:00"), "skipMeasurements": "previous"},
+                    {"y": 30.0, "ds": pd.Timestamp("2023-02-11 11:00:00"), "skipMeasurements": None},
+                    {"y": 35.0, "ds": pd.Timestamp("2023-02-12 11:00:00"), "skipMeasurements": None},
+                    {"y": 40.0, "ds": pd.Timestamp("2023-02-13 11:00:00"), "skipMeasurements": None},
+                    {"y": 245.0, "ds": pd.Timestamp("2023-02-15 11:00:00"), "skipMeasurements": None},
+                    {"y": 250.0, "ds": pd.Timestamp("2023-02-16 11:00:00"), "skipMeasurements": np.nan},
+                ]
+            ),
             id="this and exclusive previous",
         ),
         pytest.param(
-            test_prophet_model_skip_measurements_previousAndThis,
-            test_prophet_model_skip_measurements_previousAndThis_expectation,
+            pd.DataFrame(
+                [
+                    {"y": 250.0, "ds": "2023-02-15 11:00:00", "skipMeasurements": None},
+                    {"y": 245.0, "ds": "2023-02-14 11:00:00", "skipMeasurements": "previousAndThis"},
+                    {"y": 40.0, "ds": "2023-02-13 11:00:00", "skipMeasurements": "previousAndThis"},
+                    {"y": 35.0, "ds": "2023-02-12 11:00:00", "skipMeasurements": None},
+                    {"y": 30.0, "ds": "2023-02-11 11:00:00", "skipMeasurements": None},
+                    {"y": 255.0, "ds": "2023-02-16 11:00:00", "skipMeasurements": np.nan},
+                ]
+            ),
+            pd.DataFrame(
+                [
+                    {"y": 250.0, "ds": pd.Timestamp("2023-02-15 11:00:00"), "skipMeasurements": None},
+                    {"y": 255.0, "ds": pd.Timestamp("2023-02-16 11:00:00"), "skipMeasurements": np.nan},
+                ]
+            ),
             id="previousAndThis",
         ),
     ],
@@ -70,7 +108,7 @@ def test_prophet_model_skip_measurements(time_series_with_skip_measurements, exp
         metric_name="row_count",
     )
     detector.skip_measurements()
-    filtered_time_series_data = detector.time_series_data
+    filtered_time_series_data = detector.time_series_data.reset_index(drop=True)
     expected_filtered_time_series_data = pd.DataFrame(expected_filtered_time_series)
     expected_filtered_time_series_data["ds"] = pd.to_datetime(expected_filtered_time_series_data["ds"])
     pd.testing.assert_frame_equal(filtered_time_series_data, expected_filtered_time_series_data, check_dtype=False)
@@ -123,7 +161,7 @@ def test_feedback_processor_prophet_model_skip_measurements(historic_check_resul
         params=PROPHET_MODEL_PARAMS,
         time_series_data=feedback_processor.df_feedback_processed,
         metric_name="row_count",
-        has_exegonenous_regressor=feedback_processor.has_exegonenous_regressor,
+        has_exogenous_regressor=feedback_processor.has_exogenous_regressor,
     )
     detector.skip_measurements()
 

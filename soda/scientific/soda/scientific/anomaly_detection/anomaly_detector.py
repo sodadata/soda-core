@@ -107,7 +107,7 @@ class AnomalyDetector:
             params=self.params,
             time_series_data=feedback.df_feedback_processed,
             metric_name=self.metric_name,
-            has_exegonenous_regressor=feedback.has_exegonenous_regressor,
+            has_exogenous_regressor=feedback.has_exogenous_regressor,
             warn_only=self.warn_only,
         )
         df_anomalies = detector.run()

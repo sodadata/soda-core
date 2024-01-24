@@ -55,9 +55,9 @@ class FeedbackProcessor:
         self.has_feedback = self.check_feedback(df_historic)
         self.df_feedback_processed: pd.DataFrame = self.process_feedback(df_historic)
         self._has_misclassification = False
-        self.has_exegonenous_regressor = False
+        self.has_exogenous_regressor = False
 
-    def run(self):
+    def run(self) -> None:
         self.flag_misclassification()
         self.derive_exogenous_regressor()
 
@@ -79,7 +79,7 @@ class FeedbackProcessor:
             return df_joined
         return df
 
-    def flag_misclassification(self):
+    def flag_misclassification(self) -> None:
         # TODO: when we deprecate the legacy field we might want to flip the entire direction of is_misclassification
         df_feedback_processed_cols = self.df_feedback_processed.columns
         if self.has_feedback:
@@ -99,7 +99,7 @@ class FeedbackProcessor:
             else:
                 self.df_feedback_processed["reason"] = "Invalid reason"
 
-    def derive_exogenous_regressor(self):
+    def derive_exogenous_regressor(self) -> None:
         if self.has_feedback:
             feedback_ref_mapping = pd.DataFrame.from_dict(FEEDBACK_REASONS, orient="index").reset_index()
 
@@ -160,7 +160,7 @@ class FeedbackProcessor:
                 ]
                 # rename columns
                 self.df_feedback_processed = self.df_feedback_processed.rename(columns=feedback_processor_params)
-                self.has_exegonenous_regressor = True
+                self.has_exogenous_regressor = True
 
                 # fill nas with 0s? # TODO: We might want to revisit this if 0s mess the non
                 # feedbacked data points because the model tries to learn too much from it

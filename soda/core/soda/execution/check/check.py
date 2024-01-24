@@ -15,6 +15,9 @@ from soda.execution.identity import ConsistentHashBuilder
 from soda.execution.metric.metric import Metric
 from soda.execution.query.query import Query
 from soda.sampler.sample_ref import SampleRef
+from soda.sodacl.anomaly_detection_metric_check_cfg import (
+    AnomalyDetectionMetricCheckCfg,
+)
 from soda.sodacl.check_cfg import CheckCfg
 from soda.sodacl.distribution_check_cfg import DistributionCheckCfg
 from soda.sodacl.group_by_check_cfg import GroupByCheckCfg
@@ -29,6 +32,9 @@ class Check(ABC):
         column: Column | None = None,
         data_source_scan: DataSourceScan | None = None,
     ) -> Check | None:
+        from soda.sodacl.anomaly_detection_metric_check_cfg import (
+            AnomalyDetectionMetricCheckCfg,
+        )
         from soda.sodacl.anomaly_metric_check_cfg import AnomalyMetricCheckCfg
         from soda.sodacl.change_over_time_metric_check_cfg import (
             ChangeOverTimeMetricCheckCfg,
@@ -58,6 +64,13 @@ class Check(ABC):
             from soda.execution.check.anomaly_metric_check import AnomalyMetricCheck
 
             return AnomalyMetricCheck(check_cfg, data_source_scan, partition, column)
+
+        elif isinstance(check_cfg, AnomalyDetectionMetricCheckCfg):
+            from soda.execution.check.anomaly_detection_metric_check import (
+                AnomalyDetectionMetricCheck,
+            )
+
+            return AnomalyDetectionMetricCheck(check_cfg, data_source_scan, partition, column)
 
         elif isinstance(check_cfg, MetricCheckCfg):
             from soda.execution.check.metric_check import MetricCheck
@@ -207,6 +220,12 @@ class Check(ABC):
             identity_source_configurations.pop("attributes", None)
             identity_source_configurations.pop("template", None)
             identity_source_configurations.pop("warn_only", None)
+
+            # Exlude hyperparameters / tuning configurations from identity for anomaly detection checks
+            if isinstance(check_cfg, AnomalyDetectionMetricCheckCfg):
+                identity_source_configurations.pop("training_dataset_parameters", None)
+                identity_source_configurations.pop("model", None)
+
             if len(identity_source_configurations) > 0:
                 # The next line ensures that ordering of the check configurations don't matter for identity
                 identity_source_configurations = collections.OrderedDict(sorted(identity_source_configurations.items()))
@@ -269,6 +288,28 @@ class Check(ABC):
             "v1": self.create_identity(with_datasource=False, with_filename=False),
             "v2": self.create_identity(with_datasource=True, with_filename=False),
             "v3": self.create_identity(with_datasource=True, with_filename=True),
+            # v4 is reserved for custom identity
+        }
+        if isinstance(self.check_cfg.source_configurations, dict):
+            identity = self.check_cfg.source_configurations.get("identity")
+            if isinstance(identity, str):
+                identities["v4"] = identity
+        return identities
+
+    # Migrate Identities are created specifically to resolve https://sodadata.atlassian.net/browse/CLOUD-5447?focusedCommentId=30022
+    # and can eventually be removed when all checks are migrated.
+    def create_migrate_identities(self) -> dict[str, str] | None:
+        migrate_data_source_name = self.data_source_scan.data_source.migrate_data_source_name
+        if (
+            migrate_data_source_name is None
+            or self.data_source_scan.data_source.data_source_name == migrate_data_source_name
+        ):
+            return None
+
+        identities = {
+            "v1": self.create_identity(with_datasource=False, with_filename=False),
+            "v2": self.create_identity(with_datasource=migrate_data_source_name, with_filename=False),
+            "v3": self.create_identity(with_datasource=migrate_data_source_name, with_filename=True),
             # v4 is reserved for custom identity
         }
         if isinstance(self.check_cfg.source_configurations, dict):
