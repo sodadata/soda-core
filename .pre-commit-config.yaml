@@ -30,13 +30,13 @@ repos:
         exclude: _models?\.py$
         args: [--py38-plus, --keep-runtime-typing]
   - repo: https://github.com/PyCQA/isort
-    rev: 5.13.1
+    rev: 5.13.2
     hooks:
       - id: isort
         additional_dependencies: [toml]
         name: Sort imports using isort
   - repo: https://github.com/psf/black
-    rev: 23.11.0
+    rev: 23.12.1
     hooks:
       - id: black
         name: Run black formatter
