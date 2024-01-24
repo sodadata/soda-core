@@ -14,6 +14,7 @@ from prophet.diagnostics import cross_validation, performance_metrics
 from soda.common.logs import Logs
 from soda.sodacl.anomaly_detection_metric_check_cfg import (
     HyperparameterConfigs,
+    ModelConfigs,
     ProphetDefaultHyperparameters,
     TrainingDatasetParameters,
 )
@@ -34,11 +35,6 @@ from soda.scientific.anomaly_detection_v2.pydantic_models import FreqDetectionRe
 from soda.scientific.anomaly_detection_v2.utils import (
     SuppressStdoutStderr,
     get_not_enough_measurements_freq_result,
-)
-from soda.sodacl.anomaly_detection_metric_check_cfg import (
-    ModelConfigs,
-    ProphetDefaultHyperparameters,
-    TrainingDatasetParameters,
 )
 
 with SuppressStdoutStderr():
