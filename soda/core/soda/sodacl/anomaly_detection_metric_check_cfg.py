@@ -150,6 +150,7 @@ class HyperparameterConfigs(ADBaseModel):
 
 class ModelConfigs(ADBaseModel):
     type: str = "prophet"
+    holidays_country_code: Optional[str] = None
     hyperparameters: HyperparameterConfigs = HyperparameterConfigs()
 
 

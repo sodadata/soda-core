@@ -22,6 +22,7 @@ from tqdm import tqdm
 from soda.scientific.anomaly_detection_v2.exceptions import (
     AggregationValueError,
     FreqDetectionResultError,
+    NotSupportedHolidayCountryError,
 )
 from soda.scientific.anomaly_detection_v2.frequency_detector import FrequencyDetector
 from soda.scientific.anomaly_detection_v2.globals import (
@@ -33,6 +34,11 @@ from soda.scientific.anomaly_detection_v2.pydantic_models import FreqDetectionRe
 from soda.scientific.anomaly_detection_v2.utils import (
     SuppressStdoutStderr,
     get_not_enough_measurements_freq_result,
+)
+from soda.sodacl.anomaly_detection_metric_check_cfg import (
+    ModelConfigs,
+    ProphetDefaultHyperparameters,
+    TrainingDatasetParameters,
 )
 
 with SuppressStdoutStderr():
@@ -47,7 +53,7 @@ class ProphetDetector(BaseDetector):
         logs: Logs,
         params: Dict[str, Any],
         time_series_df: pd.DataFrame,
-        hyperparamaters_cfg: HyperparameterConfigs,
+        model_cfg: ModelConfigs,
         training_dataset_params: TrainingDatasetParameters,
         has_exogenous_regressor: bool = False,
     ) -> None:
@@ -57,7 +63,7 @@ class ProphetDetector(BaseDetector):
             params (Dict[str, Any]): config class parsed from detector_config.yml.
             time_series_df (pd.DataFrame): time series data to be used for training and prediction.
             logs (Logs): logging object.
-            hyperparamaters_cfg (HyperparameterConfigs): hyperparameter configs.
+            model_cfg (ModelConfigs): hyperparameter configs.
             training_dataset_params (TrainingDatasetParameters): training dataset configs.
             has_exogenous_regressor (bool, optional): whether the time series data has an exogenous regressor. Defaults to False.
 
@@ -77,7 +83,8 @@ class ProphetDetector(BaseDetector):
         self.logs = logs
         self.params = params
         self.raw_time_series_df = time_series_df
-        self.hyperparamaters_cfg = hyperparamaters_cfg
+        self.model_cfg = model_cfg
+        self.hyperparamaters_cfg = model_cfg.hyperparameters
         self.training_dataset_params = training_dataset_params
         self.has_exogenous_regressor = has_exogenous_regressor
 
@@ -265,6 +272,17 @@ class ProphetDetector(BaseDetector):
             f"Anomaly Detection: Fitting prophet model with the following parameters:\n{model_hyperparameters.model_dump_json(indent=4)}"
         )
         model = Prophet(**model_hyperparameters.model_dump())
+        holidays_country_code = self.model_cfg.holidays_country_code
+        # Add country specific holidays
+        if holidays_country_code is not None:
+            try:
+                model = model.add_country_holidays(country_name=holidays_country_code)
+            except AttributeError:
+                raise NotSupportedHolidayCountryError(
+                    f"Anomaly Detection Error: Country '{holidays_country_code}' is not supported. "
+                    "The list of supported countries can be found here: "
+                    "https://github.com/vacanza/python-holidays/"
+                )
         if "external_regressor" in time_series_df:
             self.logs.info(
                 "Anomaly Detection: Found a custom external_regressor derived from user feedback and adding it to Prophet model"

@@ -14,7 +14,6 @@ from assets.anomaly_detection_assets import (
 )
 from soda.common.logs import Logs
 from soda.sodacl.anomaly_detection_metric_check_cfg import (
-    HyperparameterConfigs,
     ModelConfigs,
     TrainingDatasetParameters,
 )
@@ -67,7 +66,7 @@ def test_base_model_preprocess(time_series_df: pd.DataFrame, expected_time_serie
         logs=LOGS,
         params=PARAMS,
         time_series_df=time_series_df,
-        hyperparamaters_cfg=HyperparameterConfigs(),
+        model_cfg=ModelConfigs(),
         training_dataset_params=TrainingDatasetParameters(),
     )
     df_preprocessed = detector.preprocess(time_series_df=time_series_df)
@@ -121,7 +120,7 @@ def test_base_model_remove_big_gaps(size: int, n_rows_to_convert_none: int, expe
         logs=LOGS,
         params=PARAMS,
         time_series_df=time_series_df,
-        hyperparamaters_cfg=HyperparameterConfigs(),
+        model_cfg=ModelConfigs(),
         training_dataset_params=TrainingDatasetParameters(),
     )
     df_preprocessed = detector.remove_big_gaps_from_time_series(

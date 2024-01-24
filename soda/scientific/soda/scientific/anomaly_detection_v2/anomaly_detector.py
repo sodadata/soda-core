@@ -46,7 +46,7 @@ class AnomalyDetector:
             logs=self._logs,
             params=self.params,
             time_series_df=feedback_processed_df,
-            hyperparamaters_cfg=self.model_cfg.hyperparameters,
+            model_cfg=self.model_cfg,
             training_dataset_params=self.training_dataset_params,
             has_exogenous_regressor=has_exogenous_regressor,
         )
