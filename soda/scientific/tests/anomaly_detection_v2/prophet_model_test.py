@@ -17,10 +17,12 @@ from anomaly_detection_v2.utils import (
 )
 from assets.anomaly_detection_assets import (
     df_prophet_model_setup_fit_predict,
+    df_prophet_model_setup_fit_predict_holidays,
     test_feedback_processor_seasonality_skip_measurements,
 )
 from soda.sodacl.anomaly_detection_metric_check_cfg import (
     HyperparameterConfigs,
+    ModelConfigs,
     ProphetDefaultHyperparameters,
     ProphetDynamicHyperparameters,
     ProphetHyperparameterProfiles,
@@ -31,6 +33,7 @@ from soda.sodacl.anomaly_detection_metric_check_cfg import (
 from soda.scientific.anomaly_detection_v2.exceptions import (
     AggregationValueError,
     FreqDetectionResultError,
+    NotSupportedHolidayCountryError,
 )
 from soda.scientific.anomaly_detection_v2.feedback_processor import FeedbackProcessor
 from soda.scientific.anomaly_detection_v2.models.prophet_model import ProphetDetector
@@ -42,7 +45,7 @@ def test_with_exit() -> None:
         logs=LOGS,
         params=PARAMS,
         time_series_df=time_series_df,
-        hyperparamaters_cfg=HyperparameterConfigs(),
+        model_cfg=ModelConfigs(),
         training_dataset_params=TrainingDatasetParameters(),
     )
     df_anomalies, frequency_result = detector.run()
@@ -76,7 +79,7 @@ def test_with_weekly_seasonality_feedback(check_results: dict) -> None:
         logs=LOGS,
         params=PARAMS,
         time_series_df=df_feedback_processed,
-        hyperparamaters_cfg=HyperparameterConfigs(),
+        model_cfg=ModelConfigs(),
         training_dataset_params=TrainingDatasetParameters(),
         has_exogenous_regressor=has_exogenous_regressor,
     )
@@ -118,7 +121,7 @@ def test_apply_training_dataset_configs_with_aggregation_error() -> None:
             logs=LOGS,
             params=PARAMS,
             time_series_df=DAILY_AND_HOURLY_TIME_SERIES_DF,
-            hyperparamaters_cfg=HyperparameterConfigs(),
+            model_cfg=ModelConfigs(),
             training_dataset_params=training_dataset_configs,
         )
         prophet_detector.apply_training_dataset_configs(
@@ -135,7 +138,7 @@ def test_apply_training_dataset_configs_with_frequency_error() -> None:
             logs=LOGS,
             params=PARAMS,
             time_series_df=DAILY_AND_HOURLY_TIME_SERIES_DF,
-            hyperparamaters_cfg=HyperparameterConfigs(),
+            model_cfg=ModelConfigs(),
             training_dataset_params=TrainingDatasetParameters(),
         )
         prophet_detector.apply_training_dataset_configs(
@@ -150,7 +153,7 @@ def test_not_enough_data() -> None:
         logs=LOGS,
         params=PARAMS,
         time_series_df=time_series_df,
-        hyperparamaters_cfg=HyperparameterConfigs(),
+        model_cfg=ModelConfigs(),
         training_dataset_params=TrainingDatasetParameters(),
     )
     df_anomalies, frequency_result = prophet_detector.run()
@@ -175,14 +178,16 @@ def test_get_prophet_hyperparameters_invalid_obhective_metric() -> None:
 
 
 def test_get_prophet_hyperparameters_with_not_enough_data() -> None:
-    hyperparameter_configs = HyperparameterConfigs(
-        static=ProphetHyperparameterProfiles(), dynamic=ProphetDynamicHyperparameters(objective_metric="smape")
+    model_cfg = ModelConfigs(
+        hyperparameters=HyperparameterConfigs(
+            static=ProphetHyperparameterProfiles(), dynamic=ProphetDynamicHyperparameters(objective_metric="smape")
+        )
     )
     prophet_detector = ProphetDetector(
         logs=LOGS,
         params=PARAMS,
         time_series_df=DAILY_TIME_SERIES_DF,
-        hyperparamaters_cfg=hyperparameter_configs,
+        model_cfg=model_cfg,
         training_dataset_params=TrainingDatasetParameters(),
     )
     best_hyperparameters = prophet_detector.get_prophet_hyperparameters(
@@ -215,22 +220,25 @@ def test_get_prophet_hyperparameters_with_tuning(
     expected_seasonality_prior_scale: float,
 ) -> None:
     time_series_df = generate_random_dataframe(size=20, n_rows_to_convert_none=0, frequency="D")
-    hyperparameter_configs = HyperparameterConfigs(
-        static=ProphetHyperparameterProfiles(),
-        dynamic=ProphetDynamicHyperparameters(
-            objective_metric=objective_metric,
-            parallelize_cross_validation=False,
-            parameter_grid=ProphetParameterGrid(
-                changepoint_prior_scale=[0.05, 0.1],
-                seasonality_prior_scale=[0.05, 0.1],
+    model_cfg = ModelConfigs(
+        hyperparameters=HyperparameterConfigs(
+            static=ProphetHyperparameterProfiles(),
+            dynamic=ProphetDynamicHyperparameters(
+                objective_metric=objective_metric,
+                parallelize_cross_validation=False,
+                parameter_grid=ProphetParameterGrid(
+                    changepoint_prior_scale=[0.05, 0.1],
+                    seasonality_prior_scale=[0.05, 0.1],
+                ),
             ),
-        ),
+        )
     )
+
     prophet_detector = ProphetDetector(
         logs=LOGS,
         params=PARAMS,
         time_series_df=time_series_df,
-        hyperparamaters_cfg=hyperparameter_configs,
+        model_cfg=model_cfg,
         training_dataset_params=TrainingDatasetParameters(),
     )
     best_hyperparameters = prophet_detector.get_prophet_hyperparameters(
@@ -253,6 +261,36 @@ def test_setup_fit_predict() -> None:
     # Test only the columns that are needed for the test
     predictions_df = predictions_df[["ds", "yhat", "yhat_lower", "yhat_upper"]]
     pd.testing.assert_frame_equal(predictions_df, df_prophet_model_setup_fit_predict, check_dtype=False)
+
+
+def test_setup_fit_predict_holidays() -> None:
+    prophet_detector = ProphetDetector(
+        logs=LOGS,
+        params=PARAMS,
+        time_series_df=DAILY_AND_HOURLY_TIME_SERIES_DF,
+        model_cfg=ModelConfigs(holidays_country_code="TR"),
+        training_dataset_params=TrainingDatasetParameters(),
+    )
+    predictions_df = prophet_detector.setup_fit_predict(
+        time_series_df=DAILY_TIME_SERIES_DF, model_hyperparameters=ProphetDefaultHyperparameters()
+    )
+    predictions_df = predictions_df[["ds", "yhat", "yhat_lower", "yhat_upper"]]
+    pd.testing.assert_frame_equal(predictions_df, df_prophet_model_setup_fit_predict_holidays, check_dtype=False)
+
+
+def test_setup_fit_predic_holidays_invalid_country() -> None:
+    with pytest.raises(NotSupportedHolidayCountryError):
+        prophet_detector = ProphetDetector(
+            logs=LOGS,
+            params=PARAMS,
+            time_series_df=DAILY_AND_HOURLY_TIME_SERIES_DF,
+            model_cfg=ModelConfigs(holidays_country_code="invalid_country_code"),
+            training_dataset_params=TrainingDatasetParameters(),
+        )
+        prophet_detector.setup_fit_predict(
+            time_series_df=DAILY_TIME_SERIES_DF,
+            model_hyperparameters=ProphetDefaultHyperparameters(),
+        )
 
 
 def test_detect_anomalies() -> None:

@@ -507,6 +507,64 @@ def test_anomaly_detection_static_hyperparameters(data_source_fixture: DataSourc
     condition=os.getenv("SCIENTIFIC_TESTS") == "SKIP",
     reason="Environment variable SCIENTIFIC_TESTS is set to SKIP which skips tests depending on the scientific package",
 )
+def test_anomaly_detection_static_hyperparameters_built_in_holidays(data_source_fixture: DataSourceFixture) -> None:
+    table_name = data_source_fixture.ensure_test_table(customers_test_table)
+
+    scan = data_source_fixture.create_test_scan()
+
+    scan.add_sodacl_yaml_str(
+        f"""
+          checks for {table_name}:
+            - anomaly detection for row_count:
+                model:
+                    type: prophet
+                    holidays_country_code: TR
+        """
+    )
+    metric_values = [10, 10, 10, 9, 8, 0, 0, 0, 0]
+    scan.mock_historic_values(
+        metric_identity=f"metric-{scan._scan_definition_name}-{scan._data_source_name}-{table_name}-row_count",
+        metric_values=metric_values,
+        time_generator=TimeGenerator(),
+    )
+    scan.execute()
+    scan.assert_all_checks_pass()
+
+
+@pytest.mark.skipif(
+    condition=os.getenv("SCIENTIFIC_TESTS") == "SKIP",
+    reason="Environment variable SCIENTIFIC_TESTS is set to SKIP which skips tests depending on the scientific package",
+)
+def test_anomaly_detection_static_hyperparameters_wrong_built_in_holidays(
+    data_source_fixture: DataSourceFixture,
+) -> None:
+    table_name = data_source_fixture.ensure_test_table(customers_test_table)
+
+    scan = data_source_fixture.create_test_scan()
+
+    scan.add_sodacl_yaml_str(
+        f"""
+          checks for {table_name}:
+            - anomaly detection for row_count:
+                model:
+                    type: prophet
+                    holidays_country_code: invalid_country_code
+        """
+    )
+    metric_values = [10, 10, 10, 9, 8, 0, 0, 0, 0]
+    scan.mock_historic_values(
+        metric_identity=f"metric-{scan._scan_definition_name}-{scan._data_source_name}-{table_name}-row_count",
+        metric_values=metric_values,
+        time_generator=TimeGenerator(),
+    )
+    scan.execute(allow_error_warning=True)
+    scan.assert_all_checks_skipped()
+
+
+@pytest.mark.skipif(
+    condition=os.getenv("SCIENTIFIC_TESTS") == "SKIP",
+    reason="Environment variable SCIENTIFIC_TESTS is set to SKIP which skips tests depending on the scientific package",
+)
 def test_anomaly_detection_dynamic_hyperparameters_multi_objective(data_source_fixture: DataSourceFixture) -> None:
     table_name = data_source_fixture.ensure_test_table(customers_test_table)
 
