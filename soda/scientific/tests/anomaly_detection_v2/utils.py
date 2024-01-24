@@ -4,7 +4,6 @@ import numpy as np
 import pandas as pd
 from soda.common.logs import Logs
 from soda.sodacl.anomaly_detection_metric_check_cfg import (
-    HyperparameterConfigs,
     ModelConfigs,
     ProphetDefaultHyperparameters,
     TrainingDatasetParameters,
@@ -68,7 +67,7 @@ PROPHET_DETECTOR = ProphetDetector(
     logs=LOGS,
     params=PARAMS,
     time_series_df=DAILY_AND_HOURLY_TIME_SERIES_DF,
-    hyperparamaters_cfg=HyperparameterConfigs(),
+    model_cfg=ModelConfigs(),
     training_dataset_params=TrainingDatasetParameters(),
 )
 

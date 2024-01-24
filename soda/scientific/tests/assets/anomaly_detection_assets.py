@@ -712,3 +712,39 @@ df_prophet_model_setup_fit_predict = pd.DataFrame(
         },
     ]
 )
+
+
+df_prophet_model_setup_fit_predict_holidays = pd.DataFrame(
+    [
+        {
+            "ds": pd.Timestamp("2024-01-01 00:00:00"),
+            "yhat": 15.5022680244046,
+            "yhat_lower": 15.241236144533858,
+            "yhat_upper": 15.765476833866124,
+        },
+        {
+            "ds": pd.Timestamp("2024-01-02 00:00:00"),
+            "yhat": 17.06516797206252,
+            "yhat_lower": 16.74005361195014,
+            "yhat_upper": 17.389651163715,
+        },
+        {
+            "ds": pd.Timestamp("2024-01-03 00:00:00"),
+            "yhat": 16.208493773913087,
+            "yhat_lower": 15.925356988811041,
+            "yhat_upper": 16.53266629113661,
+        },
+        {
+            "ds": pd.Timestamp("2024-01-04 00:00:00"),
+            "yhat": 15.351819575561906,
+            "yhat_lower": 15.043435269895564,
+            "yhat_upper": 15.631571851230651,
+        },
+        {
+            "ds": pd.Timestamp("2024-01-05 00:00:00"),
+            "yhat": 14.495145377210724,
+            "yhat_lower": 14.228666023542353,
+            "yhat_upper": 14.77512428825481,
+        },
+    ]
+)

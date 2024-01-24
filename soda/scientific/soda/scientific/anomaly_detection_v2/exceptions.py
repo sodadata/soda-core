@@ -17,3 +17,10 @@ class FreqDetectionResultError(Exception):
 
     To be raised and passed as a result error message down the line.
     """
+
+
+class NotSupportedHolidayCountryError(Exception):
+    """Thrown in case of wrong holiday country.
+
+    To be raised and passed as a result error message down the line.
+    """

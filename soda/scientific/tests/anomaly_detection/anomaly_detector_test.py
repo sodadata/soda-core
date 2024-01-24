@@ -10,10 +10,6 @@ from assets.anomaly_detection_assets import (
     test_feedback_processor_prophet_model_skip_measurements_expectation,
     test_feedback_processor_seasonality_skip_measurements,
     test_feedback_processor_seasonality_skip_measurements_expectation,
-    test_prophet_model_skip_measurements_previousAndThis,
-    test_prophet_model_skip_measurements_previousAndThis_expectation,
-    test_prophet_model_skip_measurements_this_exclusive_previous,
-    test_prophet_model_skip_measurements_this_exclusive_previous_expectation,
 )
 from soda.common.logs import Logs
 
