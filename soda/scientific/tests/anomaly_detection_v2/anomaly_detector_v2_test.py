@@ -135,4 +135,4 @@ def test_anomaly_detector_evaluate(measurements: dict, check_results: dict) -> N
     level, diagnostic = detector.evaluate()
     anomaly_predicted_value = np.round(diagnostic["anomalyPredictedValue"], 3)
     assert level == "pass"
-    assert anomaly_predicted_value == 9.645
+    assert anomaly_predicted_value == pytest.approx(9.645)
