@@ -223,6 +223,7 @@ class Check(ABC):
 
             # Exlude hyperparameters / tuning configurations from identity for anomaly detection checks
             if isinstance(check_cfg, AnomalyDetectionMetricCheckCfg):
+                identity_source_configurations.pop("take_over_existing_anomaly_score_check", None)
                 identity_source_configurations.pop("training_dataset_parameters", None)
                 identity_source_configurations.pop("model", None)
 

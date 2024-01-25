@@ -180,6 +180,7 @@ class AnomalyDetectionMetricCheckCfg(MetricCheckCfg):
         warn_threshold_cfg: ThresholdCfg | None,
         model_cfg: ModelConfigs,
         training_dataset_params: TrainingDatasetParameters,
+        take_over_existing_anomaly_score_check: bool = False,
         is_automated_monitoring: bool = False,
         samples_limit: int | None = None,
         samples_columns: List | None = None,
@@ -205,3 +206,4 @@ class AnomalyDetectionMetricCheckCfg(MetricCheckCfg):
         self.is_automated_monitoring = is_automated_monitoring
         self.model_cfg = model_cfg
         self.training_dataset_params = training_dataset_params
+        self.take_over_existing_anomaly_score_check = take_over_existing_anomaly_score_check

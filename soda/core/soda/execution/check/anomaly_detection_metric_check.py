@@ -155,6 +155,9 @@ class AnomalyDetectionMetricCheck(MetricCheck):
         This method is used to migrate the identites from anomaly score to anomaly detection.
         It's a hack to obtain the same identity for the anomaly detection check as the anomaly score check.
         """
+        if self.check_cfg.take_over_existing_anomaly_score_check is False:
+            # Do not migrate identities if the flag is set to False
+            return super().create_migrate_identities()
         original_source_line = self.check_cfg.source_line.strip()
         original_migrate_data_source_name = self.data_source_scan.data_source.migrate_data_source_name
 
