@@ -16,7 +16,7 @@ requires = [
     "httpx>=0.18.1,<2.0.0",
     "PyYAML>=5.4.1,<7.0.0",
     "cython>=0.22",
-    "prophet>=1.1.0,<2.0.0",
+    "prophet>=1.1.5,<2.0.0",
 ]
 
 # TODO Fix the params
