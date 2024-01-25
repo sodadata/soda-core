@@ -568,6 +568,56 @@ class InvalidReferenceCheck(Check):
         )
 
 
+@dataclass
+class UserDefinedSqlCheck(Check):
+
+    metric: str
+    query: str
+    check_yaml_object: YamlObject
+    fail_threshold: NumericThreshold | None
+    warn_threshold: NumericThreshold | None
+
+    def get_definition_line(self) -> str:
+        return f"{self.metric} {self.fail_threshold._get_sodacl_checkline_threshold()}"
+
+    def _to_sodacl_check(self) -> str | dict | None:
+
+        sodacl_check_configs = {
+            "contract check id": self.contract_check_id,
+            f"{self.metric} query": self.query
+        }
+        if self.name:
+            sodacl_check_configs["name"] = self.name
+
+        sodacl_check_line: str | None = None
+        if self.fail_threshold and not self.warn_threshold:
+            sodacl_checkline_threshold = self.fail_threshold._get_sodacl_checkline_threshold()
+            sodacl_check_line = f"{self.metric} {sodacl_checkline_threshold}"
+
+        return {sodacl_check_line: sodacl_check_configs}
+
+    def _create_check_result(self,
+                             scan_check: dict[str, dict],
+                             scan_check_metrics_by_name: dict[str, dict],
+                             scan: Scan):
+        scan_metric_dict: dict = scan_check_metrics_by_name.get(self.get_definition_line(), None)
+        # try:
+        #     bracket_index: int = self.metric.index("(")
+        #     scan_metric_name = self.metric[:bracket_index]
+        # except ValueError:
+        #     scan_metric_dict = scan_check_metrics_by_name.get(self.metric, None)
+        value: Number = scan_metric_dict.get("value") if scan_metric_dict else None
+        measurement = Measurement(
+            name=self.metric,
+            type="numeric",
+            value=value
+        )
+        return CheckResult(
+            check=self,
+            measurements=[measurement],
+            outcome=CheckOutcome._from_scan_check(scan_check)
+        )
+
 def dataclass_object_to_sodacl_dict(dataclass_object: object) -> dict:
     dict_factory = lambda x: {k.replace("_", " "): v for (k, v) in x if v is not None}
     return dataclasses.asdict(dataclass_object, dict_factory=dict_factory)

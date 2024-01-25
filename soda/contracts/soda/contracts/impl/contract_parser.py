@@ -8,7 +8,7 @@ from ruamel.yaml import CommentedMap
 
 from soda.contracts.connection import SodaException
 from soda.contracts.contract import Contract, Check, SchemaCheck, NumericThreshold, MissingConfigurations, \
-    NumericMetricCheck, ValidReferenceColumn, ValidConfigurations, Range, InvalidReferenceCheck
+    NumericMetricCheck, ValidReferenceColumn, ValidConfigurations, Range, InvalidReferenceCheck, UserDefinedSqlCheck
 from soda.contracts.impl.json_schema_verifier import JsonSchemaVerifier
 from soda.contracts.impl.logs import Logs
 from soda.contracts.impl.variable_resolver import VariableResolver
@@ -349,7 +349,7 @@ class ContractParser:
         if check_type is None:
             return None
 
-        if check_type not in ["row_count", "multi_column_duplicates"]:
+        if check_type not in ["row_count", "multi_column_duplicates", "user_defined_sql"]:
             self.logs.error(f"Unknown dataset check type: {check_type}")
             return None
 
@@ -360,6 +360,13 @@ class ContractParser:
             columns_comma_separated = ", ".join(columns)
             metric = f"duplicate_count({columns_comma_separated})"
 
+        elif check_type == "user_defined_sql":
+            return self._parse_user_defined_sql_check(
+                contract_check_id=contract_check_id,
+                check_yaml_object=check_yaml_object,
+                check_type=check_type
+            )
+
         return self._parse_numeric_metric_check(
             contract_check_id=contract_check_id,
             check_yaml_object=check_yaml_object,
@@ -367,4 +374,36 @@ class ContractParser:
             metric=metric,
             column=None,
             default_threshold=NumericThreshold(not_equals=0)
+        )
+
+    def _parse_user_defined_sql_check(self,
+                                      contract_check_id: str,
+                                      check_yaml_object: YamlObject,
+                                      check_type: str,
+                                      ) -> Check | None:
+
+        name = check_yaml_object.read_string_opt("name")
+        metric: str = check_yaml_object.read_string("metric")
+        query: str = check_yaml_object.read_string("query")
+
+        fail_threshold: NumericThreshold = self._parse_numeric_threshold(
+            check_yaml_object=check_yaml_object,
+            prefix="fail_when_",
+            default_threshold=None
+        )
+
+        for k in check_yaml_object:
+            if k.startswith("warn_when"):
+                self.logs.error(message=f"Warnings not yet supported: '{k}'", location=check_yaml_object.location)
+
+        return UserDefinedSqlCheck(
+            type=check_type,
+            name=name,
+            contract_check_id=contract_check_id,
+            location=check_yaml_object.location,
+            check_yaml_object=check_yaml_object,
+            metric=metric,
+            query=query,
+            fail_threshold=fail_threshold,
+            warn_threshold=None
         )
