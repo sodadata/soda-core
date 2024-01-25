@@ -40,17 +40,9 @@ Potential data issues may come from
 * Contract checks
 
 > Prerequisite Soda Cloud: To set up Soda observability a Soda Cloud account is required.
-> See [Seting up a Soda Cloud account](../04_setting_up_a_soda_cloud_account/README)
+> See [Seting up a Soda Cloud account](../04_setting_up_a_soda_cloud_account/README.md)
 
 To set up a Soda observability, perform the following 3 steps:
-1. [Set up an agent](#1-setting-up-an-agent)
-2. [Connect the agent to a warehouse](#2-connecting-the-agent-to-a-warehouse)
-3. [Configure an observability schedule]()
-
-### 1) Setting up an agent
-
-See [Setting up a Soda Agent](../05_setting_up_soda_agent/)
-
-### 2) Connecting the agent to a warehouse
-
-### 3) Configure an observability schedule
+1. [Set up an agent](../05_setting_up_soda_agent/README.md)
+2. [Connect the agent to a warehouse (TODO)](#TODO)
+3. [Configure an observability schedule (TODO)](#TODO)

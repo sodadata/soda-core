@@ -30,8 +30,6 @@ help the diagnostic process.
 
 ## 2) Verifying contracts using Soda Agent
 
-Verifying 
-
 ## 3) Writing contracts
 
 ## 4) Enabling contract requests in Soda Cloud UI
