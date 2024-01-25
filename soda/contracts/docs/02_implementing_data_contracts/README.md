@@ -26,10 +26,10 @@ the big monolithic data pipelines into manageable pipeline components.
 Contracts will significantly reduce the number of data issues that occur and it will 
 help the diagnostic process.   
 
-## 1) Verifying a contract using the library
+(1) [Verifying a contract using the library](./01_verifying_a_contract_using_library/README.md)
 
-## 2) Verifying contracts using Soda Agent
+(2) Verifying contracts using Soda Agent (TODO)
 
-## 3) Writing contracts
+(3) [Writing contracts](./03_writing_contracts/README.md)
 
-## 4) Enabling contract requests in Soda Cloud UI
+(4) [Enabling contract requests in Soda Cloud UI](./04_enabling_contract_requests/README.md)
