@@ -15,6 +15,7 @@ from soda.common.logs import Logs
 from soda.sodacl.anomaly_detection_metric_check_cfg import (
     ModelConfigs,
     ProphetDefaultHyperparameters,
+    SeverityLevelParameters,
     TrainingDatasetParameters,
 )
 from tqdm import tqdm
@@ -34,12 +35,6 @@ from soda.scientific.anomaly_detection_v2.pydantic_models import FreqDetectionRe
 from soda.scientific.anomaly_detection_v2.utils import (
     SuppressStdoutStderr,
     get_not_enough_measurements_freq_result,
-)
-from soda.sodacl.anomaly_detection_metric_check_cfg import (
-    ModelConfigs,
-    ProphetDefaultHyperparameters,
-    SeverityLevelParameters,
-    TrainingDatasetParameters,
 )
 
 with SuppressStdoutStderr():
@@ -343,12 +338,11 @@ class ProphetDetector(BaseDetector):
         # check whether y value is an integer
         is_real_value_always_integer = time_series_df["y"].dropna().apply(self._is_integer).all()
         lower_bound, upper_bound = self.get_upper_and_lower_bounds(predictions_df=predictions_df)
-        
+
         if is_real_value_always_integer:
             predictions_df["yhat_lower"] = np.floor(lower_bound)
             predictions_df["yhat_upper"] = np.ceil(upper_bound)
         else:
-            
             predictions_df["real_data"] = predictions_df["real_data"].round(10)
             predictions_df["yhat_lower"] = lower_bound.round(10)
             predictions_df["yhat_upper"] = upper_bound.round(10)

@@ -6,6 +6,7 @@ import yaml
 from soda.common.logs import Logs
 from soda.sodacl.anomaly_detection_metric_check_cfg import (
     ModelConfigs,
+    SeverityLevelParameters,
     TrainingDatasetParameters,
 )
 
@@ -17,11 +18,6 @@ from soda.scientific.anomaly_detection_v2.pydantic_models import (
     AnomalyHistoricalMeasurements,
     AnomalyResult,
     FreqDetectionResult,
-)
-from soda.sodacl.anomaly_detection_metric_check_cfg import (
-    ModelConfigs,
-    SeverityLevelParameters,
-    TrainingDatasetParameters,
 )
 
 
