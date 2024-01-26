@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from typing import Union
 
-import pandas as pd
 import numpy as np
+import pandas as pd
 import pytest
 from anomaly_detection_v2.utils import (
     DAILY_AND_HOURLY_TIME_SERIES_DF,
