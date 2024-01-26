@@ -6,4 +6,4 @@ the producer team that can contribute to the knowledge of what good data looks l
 This is done by the notion of start-right, shift-left.  Start right means enabling consumers 
 to request checks or even build and operate their own checks in the Soda Cloud environment.
 
-TODO point to Soda Cloud to 
+See [Enabling contract requests](../../docs_prescriptive/03_managing_self_serve_consumer_checks/README.md) 

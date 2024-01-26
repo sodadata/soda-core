@@ -12,7 +12,7 @@ always be needed, especially when no data monitoring has been set up like contra
 self-serve consumer checks. We refer to observability as reactive and to data monitoring 
 as preventative.
 
-(2) [Implementing data contracts](02_implementing_data_contracts/README.md) helps data 
+(2) [Implementing data contracts](../docs_contracts/README.md) helps data 
 producers to build reliable pipelines that proactively alert whenever something is off 
 with the data and even can stop the pipeline.
 

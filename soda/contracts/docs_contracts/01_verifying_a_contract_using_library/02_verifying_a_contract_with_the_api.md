@@ -9,24 +9,21 @@ Contract verification performed executed on a SQL connection to a warehouse.
 
 ## Requires
 
-Library dependencies
-* Soda Core version xyz
-* Soda warehouse version xyz
-
-A connection (See [creating a connection](02_creating_a_connection))
+* A virtual environment with `soda-core-contracts` installed. 
+  See [Setting up a soda contracts virtual environment](./01_setting_up_a_soda_contracts_virtual_environment.md)
 
 ## The API
+
+First we start with a complete example that you can copy-and-paste.  Then we explain the sections in there one by one.
 
 ```python
 from soda.contracts.connection import Connection
 from soda.contracts.contract import Contract, ContractResult
-from soda.contracts.soda_cloud import SodaCloud
 
 try:
-    soda_cloud: SodaCloud = SodaCloud.from_yaml_file("./soda_cloud.scl.yml")
     with Connection.from_yaml_file("./postgres_localhost_dev.scn.yml") as connection:
         contract: Contract = Contract.from_yaml_file("./customers.sdc.yml")
-        contract_result: ContractResult = contract.verify(connection, soda_cloud)
+        contract_result: ContractResult = contract.verify(connection)
 except SodaException as e:
     # make the orchestration job fail and report all problems
 ```
@@ -125,45 +122,6 @@ For contract YAML files, we recommend to use extension `sdc.yml` (Soda Data Cont
 the editor tooling support will likely will be coupled via that extension.
 
 [Learn more on writing contract checks](./020_writing_a_contract)
-
-
-
-
-
-
-
-----
-TODO Review all below
-
-----
-
-
-
-```python
-from soda.contracts.contract import Contract
-
-connection_cfg_dict: Dict[str, str] = {
-    "type": "postgres",
-    "host": "localhost", 
-    "username": "johndoe",
-    "password": "*secret*"
-}
-
-with Connection.create_from_cfg_dict(connection_cfg_dict) as connection:
-    
-    contract = Contract.create_from_file(file_path='./customers.sdc.yml')
-    contract.assert_no_errors()
-
-    contract_result = contract.verify(connection=connection, schema='TEST')
-    contract_result.assert_no_errors()
-    
-    if contract_result.has_check_failures() or contract_result.has_check_warnings():
-      # Make the orchestration job fail.
-      ...
-    else:
-      # Copy temporary table to the incremental table
-      ...
-```
 
 
 # Schema for editing data contract YAML files
