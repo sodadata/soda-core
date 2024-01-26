@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Union
 
 import pandas as pd
+import numpy as np
 import pytest
 from anomaly_detection_v2.utils import (
     DAILY_AND_HOURLY_TIME_SERIES_DF,
@@ -74,7 +75,7 @@ def test_with_weekly_seasonality_feedback(check_results: dict) -> None:
     has_exogenous_regressor, df_feedback_processed = feedback_processor.get_processed_feedback_df()
     assert has_exogenous_regressor == True
     assert df_feedback_processed.columns.tolist() == ["y", "ds", "skipMeasurements", "external_regressor"]
-    assert pytest.approx(df_feedback_processed["external_regressor"].values[0], 4) == -0.8325
+    assert np.round(df_feedback_processed["external_regressor"].values[0], 4) == pytest.approx(-0.8325)
 
     detector = ProphetDetector(
         logs=LOGS,
@@ -88,12 +89,12 @@ def test_with_weekly_seasonality_feedback(check_results: dict) -> None:
 
     anomalies_df, freq_detection_result = detector.run()
     assert anomalies_df.level.values[0] == "warn"
-    assert pytest.approx(anomalies_df.yhat.values[0], 3) == -0.692
-    assert pytest.approx(anomalies_df.real_data.values[0], 3) == 14.237
-    assert pytest.approx(anomalies_df.critical_greater_than_or_equal.values[0], 3) == 14.241
-    assert pytest.approx(anomalies_df.critical_lower_than_or_equal.values[0], 3) == -15.101
-    assert pytest.approx(anomalies_df.warning_greater_than_or_equal.values[0], 3) == 11.796
-    assert pytest.approx(anomalies_df.warning_lower_than_or_equal.values[0], 3) == -12.655
+    assert np.round(anomalies_df.yhat.values[0], 3) == pytest.approx(-0.692)
+    assert np.round(anomalies_df.real_data.values[0], 3) == pytest.approx(14.237)
+    assert np.round(anomalies_df.critical_greater_than_or_equal.values[0], 3) == pytest.approx(14.241)
+    assert np.round(anomalies_df.critical_lower_than_or_equal.values[0], 3) == pytest.approx(-15.101)
+    assert np.round(anomalies_df.warning_greater_than_or_equal.values[0], 3) == pytest.approx(11.796)
+    assert np.round(anomalies_df.warning_lower_than_or_equal.values[0], 3) == pytest.approx(-12.655)
     assert freq_detection_result.inferred_frequency == "D"
     assert freq_detection_result.freq_detection_strategy == "native_freq"
 
