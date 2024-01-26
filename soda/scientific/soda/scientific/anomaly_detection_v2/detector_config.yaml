@@ -22,7 +22,6 @@ prophet_detector:
     min_number_of_data_points: 4
   anomaly_detection:
     n_points: 1
-    criticality_threshold: 0.1
   suppress_stan: True
 
 

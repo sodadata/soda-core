@@ -17,6 +17,7 @@ from soda.common.yaml_helper import to_yaml_str
 from soda.sodacl.anomaly_detection_metric_check_cfg import (
     AnomalyDetectionMetricCheckCfg,
     ModelConfigs,
+    SeverityLevelParameters,
     TrainingDatasetParameters,
 )
 from soda.sodacl.antlr.SodaCLAntlrLexer import SodaCLAntlrLexer
@@ -50,7 +51,8 @@ logger = logging.getLogger(__name__)
 
 ANOMALY_DETECTION_CONFIGS = "model"
 ANOMALY_DETECTION_TRAINING_DATASET_CONFIGS = "training_dataset_parameters"
-TAKE_OVER_EXISTING_ANOMALY_SCORE_CHECK = "take_over_existing_anomaly_score_check"
+ANOMALY_DETECTION_TAKE_OVER_EXISTING_ANOMALY_SCORE_CHECK = "take_over_existing_anomaly_score_check"
+ANOMALY_DETECTION_SEVERITY_LEVEL_PARAMETERS = "severity_level_parameters"
 ANOMALY_DETECTION_WARN_ONLY = "warn_only"
 ATTRIBUTES = "attributes"
 FAIL = "fail"
@@ -608,6 +610,7 @@ class SodaCLParser(Parser):
         training_dataset_params = None
         model_cfg = None
         take_over_existing_anomaly_score_check = None
+        severity_level_params = None
 
         if isinstance(check_configurations, dict):
             for configuration_key in check_configurations:
@@ -669,17 +672,20 @@ class SodaCLParser(Parser):
                     model_cfg = ModelConfigs.create_instance(
                         logger=self.logs, location=self.location, **configuration_value
                     )
-                    if model_cfg is None:
-                        return None
 
                 elif configuration_key == ANOMALY_DETECTION_TRAINING_DATASET_CONFIGS:
                     training_dataset_params = TrainingDatasetParameters.create_instance(
                         logger=self.logs, location=self.location, **configuration_value
                     )
-                    if training_dataset_params is None:
-                        return None
-                elif configuration_key == TAKE_OVER_EXISTING_ANOMALY_SCORE_CHECK:
+
+                elif configuration_key == ANOMALY_DETECTION_SEVERITY_LEVEL_PARAMETERS:
+                    severity_level_params = SeverityLevelParameters.create_instance(
+                        logger=self.logs, location=self.location, **configuration_value
+                    )
+
+                elif configuration_key == ANOMALY_DETECTION_TAKE_OVER_EXISTING_ANOMALY_SCORE_CHECK:
                     take_over_existing_anomaly_score_check = configuration_value
+
                 elif configuration_key not in [
                     NAME,
                     IDENTITY,
@@ -806,13 +812,16 @@ class SodaCLParser(Parser):
         elif antlr_metric_check.anomaly_detection():
             if training_dataset_params is None:
                 # Set defaults for training dataset configurations
-                training_dataset_params = TrainingDatasetParameters()
+                training_dataset_params: TrainingDatasetParameters = TrainingDatasetParameters()
             if model_cfg is None:
                 # Set defaults for model configurations
-                model_cfg = ModelConfigs()
+                model_cfg: ModelConfigs = ModelConfigs()
 
             if take_over_existing_anomaly_score_check is None:
                 take_over_existing_anomaly_score_check = False
+
+            if severity_level_params is None:
+                severity_level_params: SeverityLevelParameters = SeverityLevelParameters()
 
             anomaly_detection_check_cfg = AnomalyDetectionMetricCheckCfg(
                 source_header=header_str,
@@ -832,6 +841,7 @@ class SodaCLParser(Parser):
                 warn_threshold_cfg=None,
                 training_dataset_params=training_dataset_params,
                 model_cfg=model_cfg,
+                severity_level_params=severity_level_params,
                 take_over_existing_anomaly_score_check=take_over_existing_anomaly_score_check,
                 samples_limit=samples_limit,
                 samples_columns=samples_columns,

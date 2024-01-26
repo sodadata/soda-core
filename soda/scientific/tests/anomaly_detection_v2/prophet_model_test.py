@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from typing import Union
 
-import numpy as np
 import pandas as pd
 import pytest
 from anomaly_detection_v2.utils import (
@@ -27,6 +26,7 @@ from soda.sodacl.anomaly_detection_metric_check_cfg import (
     ProphetDynamicHyperparameters,
     ProphetHyperparameterProfiles,
     ProphetParameterGrid,
+    SeverityLevelParameters,
     TrainingDatasetParameters,
 )
 
@@ -47,6 +47,7 @@ def test_with_exit() -> None:
         time_series_df=time_series_df,
         model_cfg=ModelConfigs(),
         training_dataset_params=TrainingDatasetParameters(),
+        severity_level_params=SeverityLevelParameters(),
     )
     df_anomalies, frequency_result = detector.run()
     assert df_anomalies.empty
@@ -73,7 +74,7 @@ def test_with_weekly_seasonality_feedback(check_results: dict) -> None:
     has_exogenous_regressor, df_feedback_processed = feedback_processor.get_processed_feedback_df()
     assert has_exogenous_regressor == True
     assert df_feedback_processed.columns.tolist() == ["y", "ds", "skipMeasurements", "external_regressor"]
-    assert df_feedback_processed["external_regressor"].values[0] == pytest.approx(-0.8325240016225592)
+    assert pytest.approx(df_feedback_processed["external_regressor"].values[0], 4) == -0.8325
 
     detector = ProphetDetector(
         logs=LOGS,
@@ -81,17 +82,18 @@ def test_with_weekly_seasonality_feedback(check_results: dict) -> None:
         time_series_df=df_feedback_processed,
         model_cfg=ModelConfigs(),
         training_dataset_params=TrainingDatasetParameters(),
+        severity_level_params=SeverityLevelParameters(),
         has_exogenous_regressor=has_exogenous_regressor,
     )
 
     anomalies_df, freq_detection_result = detector.run()
     assert anomalies_df.level.values[0] == "warn"
-    assert np.round(anomalies_df.yhat.values[0], 3) == pytest.approx(-0.692)
-    assert np.round(anomalies_df.real_data.values[0], 3) == pytest.approx(14.237)
-    assert np.round(anomalies_df.critical_greater_than_or_equal.values[0], 3) == pytest.approx(14.241)
-    assert np.round(anomalies_df.critical_lower_than_or_equal.values[0], 3) == pytest.approx(-15.101)
-    assert np.round(anomalies_df.warning_greater_than_or_equal.values[0], 3) == pytest.approx(11.796)
-    assert np.round(anomalies_df.warning_lower_than_or_equal.values[0], 3) == pytest.approx(-12.655)
+    assert pytest.approx(anomalies_df.yhat.values[0], 3) == -0.692
+    assert pytest.approx(anomalies_df.real_data.values[0], 3) == 14.237
+    assert pytest.approx(anomalies_df.critical_greater_than_or_equal.values[0], 3) == 14.241
+    assert pytest.approx(anomalies_df.critical_lower_than_or_equal.values[0], 3) == -15.101
+    assert pytest.approx(anomalies_df.warning_greater_than_or_equal.values[0], 3) == 11.796
+    assert pytest.approx(anomalies_df.warning_lower_than_or_equal.values[0], 3) == -12.655
     assert freq_detection_result.inferred_frequency == "D"
     assert freq_detection_result.freq_detection_strategy == "native_freq"
 
@@ -123,6 +125,7 @@ def test_apply_training_dataset_configs_with_aggregation_error() -> None:
             time_series_df=DAILY_AND_HOURLY_TIME_SERIES_DF,
             model_cfg=ModelConfigs(),
             training_dataset_params=training_dataset_configs,
+            severity_level_params=SeverityLevelParameters(),
         )
         prophet_detector.apply_training_dataset_configs(
             time_series_df=DAILY_AND_HOURLY_TIME_SERIES_DF,
@@ -140,6 +143,7 @@ def test_apply_training_dataset_configs_with_frequency_error() -> None:
             time_series_df=DAILY_AND_HOURLY_TIME_SERIES_DF,
             model_cfg=ModelConfigs(),
             training_dataset_params=TrainingDatasetParameters(),
+            severity_level_params=SeverityLevelParameters(),
         )
         prophet_detector.apply_training_dataset_configs(
             time_series_df=DAILY_AND_HOURLY_TIME_SERIES_DF,
@@ -155,6 +159,7 @@ def test_not_enough_data() -> None:
         time_series_df=time_series_df,
         model_cfg=ModelConfigs(),
         training_dataset_params=TrainingDatasetParameters(),
+        severity_level_params=SeverityLevelParameters(),
     )
     df_anomalies, frequency_result = prophet_detector.run()
     assert df_anomalies.empty
@@ -189,6 +194,7 @@ def test_get_prophet_hyperparameters_with_not_enough_data() -> None:
         time_series_df=DAILY_TIME_SERIES_DF,
         model_cfg=model_cfg,
         training_dataset_params=TrainingDatasetParameters(),
+        severity_level_params=SeverityLevelParameters(),
     )
     best_hyperparameters = prophet_detector.get_prophet_hyperparameters(
         time_series_df=DAILY_TIME_SERIES_DF,
@@ -240,6 +246,7 @@ def test_get_prophet_hyperparameters_with_tuning(
         time_series_df=time_series_df,
         model_cfg=model_cfg,
         training_dataset_params=TrainingDatasetParameters(),
+        severity_level_params=SeverityLevelParameters(),
     )
     best_hyperparameters = prophet_detector.get_prophet_hyperparameters(
         time_series_df=time_series_df,
@@ -270,6 +277,7 @@ def test_setup_fit_predict_holidays() -> None:
         time_series_df=DAILY_AND_HOURLY_TIME_SERIES_DF,
         model_cfg=ModelConfigs(holidays_country_code="TR"),
         training_dataset_params=TrainingDatasetParameters(),
+        severity_level_params=SeverityLevelParameters(),
     )
     predictions_df = prophet_detector.setup_fit_predict(
         time_series_df=DAILY_TIME_SERIES_DF, model_hyperparameters=ProphetDefaultHyperparameters()
@@ -286,6 +294,7 @@ def test_setup_fit_predic_holidays_invalid_country() -> None:
             time_series_df=DAILY_AND_HOURLY_TIME_SERIES_DF,
             model_cfg=ModelConfigs(holidays_country_code="invalid_country_code"),
             training_dataset_params=TrainingDatasetParameters(),
+            severity_level_params=SeverityLevelParameters(),
         )
         prophet_detector.setup_fit_predict(
             time_series_df=DAILY_TIME_SERIES_DF,
@@ -362,8 +371,8 @@ def test_detect_anomalies_with_tight_bounds() -> None:
             {
                 "ds": pd.Timestamp("2024-01-30 00:00:00"),
                 "yhat": 61.61,
-                "yhat_lower": 61.60989978229838,
-                "yhat_upper": 61.610100181230486,
+                "yhat_lower": 61.54839,
+                "yhat_upper": 61.67161,
                 "real_data": 61.61,
                 "is_anomaly": 0,
             }

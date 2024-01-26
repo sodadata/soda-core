@@ -226,6 +226,7 @@ class Check(ABC):
                 identity_source_configurations.pop("take_over_existing_anomaly_score_check", None)
                 identity_source_configurations.pop("training_dataset_parameters", None)
                 identity_source_configurations.pop("model", None)
+                identity_source_configurations.pop("severity_level_parameters", None)
 
             if len(identity_source_configurations) > 0:
                 # The next line ensures that ordering of the check configurations don't matter for identity

@@ -15,6 +15,7 @@ from assets.anomaly_detection_assets import (
 from soda.common.logs import Logs
 from soda.sodacl.anomaly_detection_metric_check_cfg import (
     ModelConfigs,
+    SeverityLevelParameters,
     TrainingDatasetParameters,
 )
 
@@ -29,7 +30,9 @@ PARAMS = AnomalyDetector(
     logs=LOGS,
     model_cfg=ModelConfigs(),
     training_dataset_params=TrainingDatasetParameters(),
+    severity_level_params=SeverityLevelParameters(),
 )._parse_params()
+
 FREQ_DETECTION_RESULTS = FreqDetectionResult(
     inferred_frequency="D",
     df=pd.DataFrame(),
@@ -68,6 +71,7 @@ def test_base_model_preprocess(time_series_df: pd.DataFrame, expected_time_serie
         time_series_df=time_series_df,
         model_cfg=ModelConfigs(),
         training_dataset_params=TrainingDatasetParameters(),
+        severity_level_params=SeverityLevelParameters(),
     )
     df_preprocessed = detector.preprocess(time_series_df=time_series_df)
     pd.testing.assert_frame_equal(df_preprocessed, expected_time_series_df, check_dtype=False)
@@ -122,6 +126,7 @@ def test_base_model_remove_big_gaps(size: int, n_rows_to_convert_none: int, expe
         time_series_df=time_series_df,
         model_cfg=ModelConfigs(),
         training_dataset_params=TrainingDatasetParameters(),
+        severity_level_params=SeverityLevelParameters(),
     )
     df_preprocessed = detector.remove_big_gaps_from_time_series(
         time_series_df=time_series_df, freq_detection_result=FREQ_DETECTION_RESULTS

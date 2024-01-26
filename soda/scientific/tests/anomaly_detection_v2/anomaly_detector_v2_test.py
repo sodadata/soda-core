@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import logging
 
-import numpy as np
 import pandas as pd
 import pytest
 from assets.anomaly_detection_assets import (
@@ -17,6 +16,7 @@ from assets.anomaly_detection_assets import (
 from soda.common.logs import Logs
 from soda.sodacl.anomaly_detection_metric_check_cfg import (
     ModelConfigs,
+    SeverityLevelParameters,
     TrainingDatasetParameters,
 )
 
@@ -41,6 +41,7 @@ def test_historical_measurements_parsing(measurements: dict, expectation: pd.Dat
         check_results={},
         model_cfg=ModelConfigs(),
         training_dataset_params=TrainingDatasetParameters(),
+        severity_level_params=SeverityLevelParameters(),
         logs=LOGS,
     )
     df_historical_measurements = detector._parse_historical_measurements()
@@ -54,6 +55,7 @@ def test_empty_historic_measurements_parsing() -> None:
             check_results={},
             model_cfg=ModelConfigs(),
             training_dataset_params=TrainingDatasetParameters(),
+            severity_level_params=SeverityLevelParameters(),
             logs=LOGS,
         )
         detector._parse_historical_measurements()
@@ -80,6 +82,7 @@ def test_historical_check_results_parsing(check_results: dict, expectation: pd.D
         check_results=check_results,
         model_cfg=ModelConfigs(),
         training_dataset_params=TrainingDatasetParameters(),
+        severity_level_params=SeverityLevelParameters(),
         logs=LOGS,
     )
     df_check_results = detector._parse_historical_check_results()
@@ -109,6 +112,7 @@ def test_historical_anomaly_detection_df(measurements: dict, check_results: dict
         check_results=check_results,
         model_cfg=ModelConfigs(),
         training_dataset_params=TrainingDatasetParameters(),
+        severity_level_params=SeverityLevelParameters(),
         logs=LOGS,
     )
     df_historical = detector._generate_historical_ad_df()
@@ -130,9 +134,9 @@ def test_anomaly_detector_evaluate(measurements: dict, check_results: dict) -> N
         check_results=check_results,
         model_cfg=ModelConfigs(),
         training_dataset_params=TrainingDatasetParameters(),
+        severity_level_params=SeverityLevelParameters(),
         logs=LOGS,
     )
     level, diagnostic = detector.evaluate()
-    anomaly_predicted_value = np.round(diagnostic["anomalyPredictedValue"], 3)
     assert level == "pass"
-    assert anomaly_predicted_value == pytest.approx(9.645)
+    assert pytest.approx(diagnostic["anomalyPredictedValue"], rel=3) == 9.645

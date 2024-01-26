@@ -13,7 +13,6 @@ import pandas as pd
 from prophet.diagnostics import cross_validation, performance_metrics
 from soda.common.logs import Logs
 from soda.sodacl.anomaly_detection_metric_check_cfg import (
-    HyperparameterConfigs,
     ModelConfigs,
     ProphetDefaultHyperparameters,
     TrainingDatasetParameters,
@@ -36,6 +35,12 @@ from soda.scientific.anomaly_detection_v2.utils import (
     SuppressStdoutStderr,
     get_not_enough_measurements_freq_result,
 )
+from soda.sodacl.anomaly_detection_metric_check_cfg import (
+    ModelConfigs,
+    ProphetDefaultHyperparameters,
+    SeverityLevelParameters,
+    TrainingDatasetParameters,
+)
 
 with SuppressStdoutStderr():
     from prophet import Prophet
@@ -51,6 +56,7 @@ class ProphetDetector(BaseDetector):
         time_series_df: pd.DataFrame,
         model_cfg: ModelConfigs,
         training_dataset_params: TrainingDatasetParameters,
+        severity_level_params: SeverityLevelParameters,
         has_exogenous_regressor: bool = False,
     ) -> None:
         """Constructor for ProphetDetector
@@ -61,6 +67,7 @@ class ProphetDetector(BaseDetector):
             logs (Logs): logging object.
             model_cfg (ModelConfigs): hyperparameter configs.
             training_dataset_params (TrainingDatasetParameters): training dataset configs.
+            severity_level_params (SeverityLevelParameters): severity level configs.
             has_exogenous_regressor (bool, optional): whether the time series data has an exogenous regressor. Defaults to False.
 
         Returns:
@@ -82,6 +89,7 @@ class ProphetDetector(BaseDetector):
         self.model_cfg = model_cfg
         self.hyperparamaters_cfg = model_cfg.hyperparameters
         self.training_dataset_params = training_dataset_params
+        self.severity_level_params = severity_level_params
         self.has_exogenous_regressor = has_exogenous_regressor
 
         self._prophet_detector_params = self.params["prophet_detector"]
@@ -307,10 +315,20 @@ class ProphetDetector(BaseDetector):
             # If x cannot be converted to float, it's definitely not an integer
             return False
 
-    def check_if_bounds_are_close_to_each_other(self, predictions_df: pd.DataFrame) -> bool:
-        diff = predictions_df["yhat_upper"] - predictions_df["yhat_lower"]
-        threshold = 0.0001
-        return (diff < threshold).all()
+    def get_upper_and_lower_bounds(self, predictions_df: pd.DataFrame) -> tuple[pd.Series, pd.Series]:
+        lower_bound = predictions_df["yhat_lower"]
+        upper_bound = predictions_df["yhat_upper"]
+        yhat = predictions_df["yhat"]
+
+        # Modify bounds if necessary
+        min_ci_ratio = self.severity_level_params.min_confidence_interval_ratio
+        minimum_lower_bound = yhat * (1 - min_ci_ratio)
+        minimum_upper_bound = yhat * (1 + min_ci_ratio)
+
+        lower_bound = lower_bound.where(lower_bound < minimum_lower_bound, minimum_lower_bound)
+        upper_bound = upper_bound.where(upper_bound > minimum_upper_bound, minimum_upper_bound)
+
+        return lower_bound, upper_bound
 
     def detect_anomalies(self, time_series_df: pd.DataFrame, predictions_df: pd.DataFrame) -> pd.DataFrame:
         n_predicted_anomalies = self._anomaly_detection_params["n_points"]
@@ -324,23 +342,15 @@ class ProphetDetector(BaseDetector):
 
         # check whether y value is an integer
         is_real_value_always_integer = time_series_df["y"].dropna().apply(self._is_integer).all()
-        is_bounds_are_very_close_to_each_other = self.check_if_bounds_are_close_to_each_other(
-            predictions_df=predictions_df
-        )
+
         if is_real_value_always_integer:
             predictions_df["yhat_lower"] = np.floor(predictions_df["yhat_lower"])
             predictions_df["yhat_upper"] = np.ceil(predictions_df["yhat_upper"])
-        elif is_bounds_are_very_close_to_each_other:
-            difference = (predictions_df["yhat_upper"] - predictions_df["yhat_lower"]).values[0]
-            yhat = predictions_df["yhat"].values[0]
-            threshold = 0.0001
-            if difference < threshold and yhat > 0.01:
-                predictions_df["yhat_lower"] = predictions_df["yhat_lower"] - threshold
-                predictions_df["yhat_upper"] = predictions_df["yhat_upper"] + threshold
         else:
+            lower_bound, upper_bound = self.get_upper_and_lower_bounds(predictions_df=predictions_df)
             predictions_df["real_data"] = predictions_df["real_data"].round(10)
-            predictions_df["yhat_lower"] = predictions_df["yhat_lower"].round(10)
-            predictions_df["yhat_upper"] = predictions_df["yhat_upper"].round(10)
+            predictions_df["yhat_lower"] = lower_bound.round(10)
+            predictions_df["yhat_upper"] = upper_bound.round(10)
 
         # flag data points that fall out of confidence bounds
         predictions_df["is_anomaly"] = 0
@@ -351,8 +361,8 @@ class ProphetDetector(BaseDetector):
     def generate_severity_zones(self, anomalies_df: pd.DataFrame) -> pd.DataFrame:
         # See criticality_threshold_calc method, the critical zone will always take over and
         # "extend" or replace the extreme to inf points of the warning zone.
-        criticality_threshold = self._anomaly_detection_params["criticality_threshold"]
-        buffer = (anomalies_df["yhat_upper"] - anomalies_df["yhat_lower"]) * criticality_threshold
+        warning_ratio = self.severity_level_params.warning_ratio
+        buffer = (anomalies_df["yhat_upper"] - anomalies_df["yhat_lower"]) * warning_ratio
         anomalies_df["critical_greater_than_or_equal"] = anomalies_df["yhat_upper"] + buffer
         anomalies_df["critical_lower_than_or_equal"] = anomalies_df["yhat_lower"] - buffer
         # The bounds for warning are in fact anything that is outside of the model's
