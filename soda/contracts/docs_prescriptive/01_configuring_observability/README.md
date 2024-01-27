@@ -39,8 +39,9 @@ Potential data issues may come from
 * Soda Cloud consumer checks
 * Contract checks
 
-> Prerequisite Soda Cloud: To set up Soda observability a Soda Cloud account is required.
-> See [Seting up a Soda Cloud account](../04_setting_up_a_soda_cloud_account/README.md)
+> Prerequisites to activate the Soda Cloud observability platform: 
+> * [A Soda Cloud account](../04_setting_up_a_soda_cloud_account/README.md)
+> * Details including the credentials to create a connection to the SQL-engine 
 
 To set up a Soda observability, perform the following 3 steps:
 1. [Set up an agent](../05_setting_up_soda_agent/README.md)
