@@ -73,4 +73,4 @@ except SodaException as e:
     logging.exception(f"Contract verification failed: {e}", exc_info=e)
 ```
 
-[Learn more about the Soda contract API](docs_contracts/01_verifying_a_contract_using_library/02_verifying_a_contract_with_the_api)
+[Learn more about the Soda contract API](docs_contracts/01_verifying_a_contract_in_python/02_verifying_a_contract_with_the_api)

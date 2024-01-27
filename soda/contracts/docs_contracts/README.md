@@ -20,13 +20,57 @@ the big monolithic data pipelines into manageable pipeline components.
 Contracts will significantly reduce the number of data issues that occur and it will 
 help the diagnostic process.   
 
-* First, choose one of the following ways to verify a contract
-  * (1) [Verifying a contract using the library](01_verifying_a_contract_using_library/README.md)
-  * (2) [Verifying contracts using Soda Agent](02_verifying_contracts_using_soda_cloud_agent/README.md)
-  * (3) [Verifying contracts in an Airflow DAG](03_verifying_a_contract_in_an_airflow_dag/README.md)
-  * (4) [Verifying a contract using docker](04_verifying_a_contract_using_docker/README.md)
-  * (5) [Verifying a contract using GitHub action](05_verifying_a_contract_as_a_github_action/README.md)
-* Next, learn how to write contract YAML files
-  * (6) [Writing contracts](06_writing_contracts/README.md)
-* And finally, enable contract check contributions from anyone in the organization
-  * (7) [Enabling contract requests in Soda Cloud UI](07_enabling_contract_requests/README.md)
+## 1) Writing contract YAML files
+
+See chapter [writing contracts](06_writing_contracts/README.md) on how to write schema and 
+other data quality checks in Soda contract YAML files
+
+## 2) Choose a way to verify a contract
+
+> Prerequisites.  To verify a contract, you need:
+> * A Soda contract YAML file
+> * All connection details to your SQL engine like Snowflake or postgres
+
+Choose the most way for you to verify your contract. The solutions to verifying a contract 
+below can be used to build your workflow for:
+* Verifying a contract in production (when new data arrives)
+* Verifying a contract in CI/CD (when pipeline code changes)
+* Verifying a contract on a fixed time schedule (not recommended)
+
+To make a choice, consider what triggers execution of your contract verification and the in what 
+environment will it run?  Eg A shell script in your local development environment using the Soda 
+contract API in a Python virtual environment, an Airflow operator in a DAG that is executed, a 
+GitHub commit, etc?
+
+* [Verifying a contract in Python](01_verifying_a_contract_in_python/README.md): 
+  This is the most basic, common and versatile way to verify a contract.  In fact, all other ways below 
+  are based on this Python library approach.  To use our Soda Contracts Python library and API you 
+  have to know Python like setting up a Python virtual environment and Python library dependencies. 
+  Instructions are provided.
+
+* [Verifying a contract using docker (Roadmap)](02_verifying_a_contract_using_docker/README.md):
+  If you know how to work with docker containers, then the Soda contract docker container removes the 
+  hassle of setting up the virtual environment and ensuring that the versions of all the libraries are 
+  compatible. 
+  
+* [Verifying contracts in an Airflow DAG (Roadmap)](03_verifying_a_contract_in_an_airflow_dag/README.md):
+  If you want to run a contract verification in an Airflow DAG, these instructions show how you can add 
+  an operator to your Airflow DAG.  
+
+* [Verifying a contract using GitHub action (Roadmap)](04_verifying_a_contract_as_a_github_action/README.md):
+  If you want to run a contract verification as part of you CI/CD workflow in GitHub actions after each 
+  commit on a PR, then check out this Soda github actions support. 
+
+* [Verifying contracts using Soda Agent (Roadmap)](05_verifying_contracts_using_soda_cloud_agent/README.md):
+  Running contract verification on a the Soda Agent managed service is the easiest.  You can use an API 
+  and don't have to manage contract verification.  
+
+## 3) Enable contract check contributions
+
+Once you have your development environment, production environment and potentially other staging 
+environments set up, consider to enable contributions to the contract by anyone in the organization.
+People outside the producer team often have more domain knowledge about the data than the engineers 
+building the pipeline.  Soda offers a self-service user interface for anyone in the business to 
+contribute checks that can be proposed to the producers to be incorporated in the contract. 
+
+See [Enabling contract requests in Soda Cloud UI](07_enabling_contract_requests/README.md)

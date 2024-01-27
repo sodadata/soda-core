@@ -26,7 +26,7 @@ the big monolithic data pipelines into manageable pipeline components.
 Contracts will significantly reduce the number of data issues that occur and it will 
 help the diagnostic process.   
 
-(1) [Verifying a contract using the library](../../docs_contracts/01_verifying_a_contract_using_library/README.md)
+(1) [Verifying a contract using the library](../../docs_contracts/01_verifying_a_contract_in_python/README.md)
 
 (2) Verifying contracts using Soda Agent (TODO)
 
