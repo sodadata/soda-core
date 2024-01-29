@@ -50,7 +50,7 @@ checks:
   fail_when_greater_than: 6
 ```
 
-[Learn more about the Soda data contract checks](docs_contracts/06_writing_contracts/README)
+[Learn more about the Soda data contract checks](docs/01_writing_contract_yaml_files/README.md)
 
 # Data contract API
 
@@ -73,4 +73,4 @@ except SodaException as e:
     logging.exception(f"Contract verification failed: {e}", exc_info=e)
 ```
 
-[Learn more about the Soda contract API](docs_contracts/01_verifying_a_contract_in_python/02_verifying_a_contract_with_the_api)
+[Learn more about the Soda contract API](docs/02_verifying_a_contract_in_python/02_verifying_a_contract_with_the_api.md)

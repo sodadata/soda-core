@@ -22,7 +22,7 @@ help the diagnostic process.
 
 ## 1) Writing contract YAML files
 
-See chapter [writing contracts](06_writing_contracts/README.md) on how to write schema and 
+See chapter [writing contract  YAML files](01_writing_contract_yaml_files/README.md) on how to write schema and 
 other data quality checks in Soda contract YAML files
 
 ## 2) Choose a way to verify a contract
@@ -42,26 +42,26 @@ environment will it run?  Eg A shell script in your local development environmen
 contract API in a Python virtual environment, an Airflow operator in a DAG that is executed, a 
 GitHub commit, etc?
 
-* [Verifying a contract in Python](01_verifying_a_contract_in_python/README.md): 
+* [Verifying a contract in Python](02_verifying_a_contract_in_python/README.md): 
   This is the most basic, common and versatile way to verify a contract.  In fact, all other ways below 
   are based on this Python library approach.  To use our Soda Contracts Python library and API you 
   have to know Python like setting up a Python virtual environment and Python library dependencies. 
   Instructions are provided.
 
-* [Verifying a contract using docker (Roadmap)](02_verifying_a_contract_using_docker/README.md):
+* [Verifying a contract using docker (Roadmap)](03_verifying_a_contract_using_docker/README.md):
   If you know how to work with docker containers, then the Soda contract docker container removes the 
   hassle of setting up the virtual environment and ensuring that the versions of all the libraries are 
   compatible. 
   
-* [Verifying contracts in an Airflow DAG (Roadmap)](03_verifying_a_contract_in_an_airflow_dag/README.md):
+* [Verifying contracts in an Airflow DAG (Roadmap)](04_verifying_a_contract_in_an_airflow_dag/README.md):
   If you want to run a contract verification in an Airflow DAG, these instructions show how you can add 
   an operator to your Airflow DAG.  
 
-* [Verifying a contract using GitHub action (Roadmap)](04_verifying_a_contract_as_a_github_action/README.md):
+* [Verifying a contract using GitHub action (Roadmap)](05_verifying_a_contract_as_a_github_action/README.md):
   If you want to run a contract verification as part of you CI/CD workflow in GitHub actions after each 
   commit on a PR, then check out this Soda github actions support. 
 
-* [Verifying contracts using Soda Agent (Roadmap)](05_verifying_contracts_using_soda_cloud_agent/README.md):
+* [Verifying contracts using Soda Agent (Roadmap)](06_verifying_contracts_using_soda_cloud_agent/README.md):
   Running contract verification on a the Soda Agent managed service is the easiest.  You can use an API 
   and don't have to manage contract verification.  
 
