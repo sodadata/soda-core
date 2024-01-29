@@ -36,7 +36,7 @@ repos:
         additional_dependencies: [toml]
         name: Sort imports using isort
   - repo: https://github.com/psf/black
-    rev: 23.12.1
+    rev: 24.1.1
     hooks:
       - id: black
         name: Run black formatter
