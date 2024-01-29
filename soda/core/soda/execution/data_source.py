@@ -717,11 +717,11 @@ class DataSource:
         sql = dedent(
             f"""
             WITH frequencies AS (
-                SELECT COUNT(*) AS frequency
+                SELECT {self.expr_count_all()} AS frequency
                 FROM {table_name}
                 WHERE {filter}
                 GROUP BY {column_names})
-            SELECT count(*)
+            SELECT {self.expr_count_all()}
             FROM frequencies
             WHERE frequency > 1"""
         )
@@ -741,7 +741,7 @@ class DataSource:
         sql = dedent(
             f"""
             WITH frequencies AS (
-                SELECT {column_names}, COUNT(*) AS frequency
+                SELECT {column_names}, {self.expr_count_all()} AS frequency
                 FROM {table_name}
                 WHERE {filter}
                 GROUP BY {column_names})
@@ -778,7 +778,7 @@ class DataSource:
                 FROM {table_name}
                 WHERE {filter}
                 GROUP BY {column_names}
-                HAVING count(*) {'<=' if invert_condition else '>'} 1)
+                HAVING {self.expr_count_all()} {'<=' if invert_condition else '>'} 1)
             SELECT {main_query_columns}
             FROM {table_name} main
             JOIN frequencies ON {join}
@@ -894,7 +894,7 @@ class DataSource:
         quoted_column_name = self.quote_column(column_name)
         qualified_table_name = self.qualified_table_name(table_name)
         return f"""value_frequencies AS (
-                            SELECT {quoted_column_name} AS value_, count(*) AS frequency_
+                            SELECT {quoted_column_name} AS value_, {self.expr_count_all()} AS frequency_
                             FROM {qualified_table_name}
                             WHERE {quoted_column_name} IS NOT NULL
                             GROUP BY {quoted_column_name}
@@ -910,7 +910,7 @@ class DataSource:
                 , sum({column_name}) as sum
                 , var_samp({column_name}) as variance
                 , stddev_samp({column_name}) as standard_deviation
-                , count(distinct({column_name})) as distinct_values
+                , {self.expr_count(f'distinct({column_name})')} as distinct_values
                 , sum(case when {column_name} is null then 1 else 0 end) as missing_values
             FROM {qualified_table_name}
             """
@@ -922,7 +922,7 @@ class DataSource:
         return dedent(
             f"""
             SELECT
-                count(distinct({column_name})) as distinct_values
+                {self.expr_count(f'distinct({column_name})')} as distinct_values
                 , sum(case when {column_name} is null then 1 else 0 end) as missing_values
                 , avg(length({column_name})) as avg_length
                 , min(length({column_name})) as min_length
@@ -1178,10 +1178,10 @@ class DataSource:
         return "TRUE" if boolean is True else "FALSE"
 
     def expr_count_all(self) -> str:
-        return "COUNT(*)"
+        return self.expr_count("*")
 
     def expr_count_conditional(self, condition: str):
-        return f"COUNT(CASE WHEN {condition} THEN 1 END)"
+        return self.expr_count(self.expr_conditional(condition, "1"))
 
     def expr_conditional(self, condition: str, expr: str):
         return f"CASE WHEN {condition} THEN {expr} END"
@@ -1380,7 +1380,7 @@ class DataSource:
                 )
                 SELECT
                     {column_name}
-                    , COUNT(*) AS frequency
+                    , {self.expr_count_all()} AS frequency
                 FROM processed_table
                 GROUP BY {column_name}
             """

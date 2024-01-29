@@ -177,7 +177,7 @@ class SQLServerDataSource(DataSource):
                 , sum({column_name}) as sum
                 , var({column_name}) as variance
                 , stdev({column_name}) as standard_deviation
-                , count(distinct({column_name})) as distinct_values
+                , {self.expr_count(f'distinct({column_name})')} as distinct_values
                 , sum(case when {column_name} is null then 1 else 0 end) as missing_values
             FROM {qualified_table_name}
             """
@@ -260,7 +260,7 @@ class SQLServerDataSource(DataSource):
         return dedent(
             f"""
             SELECT
-                count(distinct({column_name})) as distinct_values
+                {self.expr_count(f'distinct({column_name})')} as distinct_values
                 , sum(case when {column_name} is null then 1 else 0 end) as missing_values
                 , avg(len({column_name})) as avg_length
                 , min(len({column_name})) as min_length
@@ -328,7 +328,7 @@ class SQLServerDataSource(DataSource):
                 )
                 SELECT {top_limit}
                     {column_name}
-                    , COUNT(*) AS frequency
+                    , {self.expr_count_all()} AS frequency
                 FROM processed_table
                 GROUP BY {column_name}
             """
@@ -356,7 +356,7 @@ class SQLServerDataSource(DataSource):
         sql = dedent(
             f"""
             WITH frequencies AS (
-                SELECT {column_names}, COUNT(*) AS frequency
+                SELECT {column_names}, {self.expr_count_all()} AS frequency
                 FROM {table_name}
                 WHERE {filter}
                 GROUP BY {column_names})
@@ -394,7 +394,7 @@ class SQLServerDataSource(DataSource):
                 FROM {table_name}
                 WHERE {filter}
                 GROUP BY {column_names}
-                HAVING count(*) {'<=' if invert_condition else '>'} 1)
+                HAVING {self.expr_count_all()} {'<=' if invert_condition else '>'} 1)
             SELECT {limit_sql} {main_query_columns}
             FROM {table_name} main
             JOIN frequencies ON {join}
