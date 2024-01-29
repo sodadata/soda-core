@@ -84,7 +84,7 @@ class ReferenceQuery(Query):
 
         self.sql = jinja_resolve(
             data_source.sql_reference_query(
-                "count(*)", source_table_name, target_table_name, join_condition, where_condition
+                data_source.expr_count_all(), source_table_name, target_table_name, join_condition, where_condition
             )
         )
 

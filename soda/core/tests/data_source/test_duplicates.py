@@ -17,7 +17,7 @@ def test_duplicates_single_column(data_source_fixture: DataSourceFixture):
     scan.assert_all_checks_pass()
 
     # This is a simple use case, verify that * is used in the main query.
-    scan.assert_log("count(*)")
+    scan.assert_log(data_source_fixture.data_source.expr_count_all())
 
 
 def test_duplicates_multiple_columns(data_source_fixture: DataSourceFixture):
