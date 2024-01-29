@@ -7,6 +7,7 @@ from anomaly_detection_v2.utils import generate_random_dataframe
 from soda.common.logs import Logs
 from soda.sodacl.anomaly_detection_metric_check_cfg import (
     ModelConfigs,
+    SeverityLevelParameters,
     TrainingDatasetParameters,
 )
 
@@ -20,6 +21,7 @@ PARAMS = AnomalyDetector(
     logs=LOGS,
     model_cfg=ModelConfigs(),
     training_dataset_params=TrainingDatasetParameters(),
+    severity_level_params=SeverityLevelParameters(),
 )._parse_params()
 
 

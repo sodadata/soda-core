@@ -160,6 +160,11 @@ class TrainingDatasetParameters(ADBaseModel):
     window_length: int = 1000
 
 
+class SeverityLevelParameters(ADBaseModel):
+    warning_ratio: float = 0.1
+    min_confidence_interval_ratio: float = 0.001
+
+
 class AnomalyDetectionMetricCheckCfg(MetricCheckCfg):
     def __init__(
         self,
@@ -180,6 +185,7 @@ class AnomalyDetectionMetricCheckCfg(MetricCheckCfg):
         warn_threshold_cfg: ThresholdCfg | None,
         model_cfg: ModelConfigs,
         training_dataset_params: TrainingDatasetParameters,
+        severity_level_params: SeverityLevelParameters,
         take_over_existing_anomaly_score_check: bool = False,
         is_automated_monitoring: bool = False,
         samples_limit: int | None = None,
@@ -206,4 +212,5 @@ class AnomalyDetectionMetricCheckCfg(MetricCheckCfg):
         self.is_automated_monitoring = is_automated_monitoring
         self.model_cfg = model_cfg
         self.training_dataset_params = training_dataset_params
+        self.severity_level_params = severity_level_params
         self.take_over_existing_anomaly_score_check = take_over_existing_anomaly_score_check

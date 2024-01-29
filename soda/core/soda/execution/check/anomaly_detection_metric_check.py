@@ -90,6 +90,7 @@ class AnomalyDetectionMetricCheck(MetricCheck):
             logs=self.logs,
             model_cfg=self.check_cfg.model_cfg,
             training_dataset_params=self.check_cfg.training_dataset_params,
+            severity_level_params=self.check_cfg.severity_level_params,
         )
         level, diagnostics = anomaly_detector.evaluate()
         assert isinstance(diagnostics, dict), f"Anomaly diagnostics should be a dict. Got a {type(diagnostics)} instead"

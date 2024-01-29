@@ -6,6 +6,7 @@ import yaml
 from soda.common.logs import Logs
 from soda.sodacl.anomaly_detection_metric_check_cfg import (
     ModelConfigs,
+    SeverityLevelParameters,
     TrainingDatasetParameters,
 )
 
@@ -28,12 +29,14 @@ class AnomalyDetector:
         logs: Logs,
         model_cfg: ModelConfigs,
         training_dataset_params: TrainingDatasetParameters,
+        severity_level_params: SeverityLevelParameters,
     ):
         self._logs = logs
         self.measurements = measurements
         self.check_results = check_results
         self.model_cfg = model_cfg
         self.training_dataset_params = training_dataset_params
+        self.severity_level_params = severity_level_params
         self.params = self._parse_params()
 
     def evaluate(self) -> Tuple[str, Dict[str, Any]]:
@@ -48,6 +51,7 @@ class AnomalyDetector:
             time_series_df=feedback_processed_df,
             model_cfg=self.model_cfg,
             training_dataset_params=self.training_dataset_params,
+            severity_level_params=self.severity_level_params,
             has_exogenous_regressor=has_exogenous_regressor,
         )
         df_anomalies, freq_detection_result = detector.run()

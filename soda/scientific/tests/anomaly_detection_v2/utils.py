@@ -6,6 +6,7 @@ from soda.common.logs import Logs
 from soda.sodacl.anomaly_detection_metric_check_cfg import (
     ModelConfigs,
     ProphetDefaultHyperparameters,
+    SeverityLevelParameters,
     TrainingDatasetParameters,
 )
 
@@ -53,6 +54,7 @@ PARAMS = AnomalyDetector(
     logs=LOGS,
     model_cfg=ModelConfigs(),
     training_dataset_params=TrainingDatasetParameters(),
+    severity_level_params=SeverityLevelParameters(),
 )._parse_params()
 DAILY_TIME_SERIES_DF = generate_random_dataframe(size=5, n_rows_to_convert_none=0, frequency="D")
 HOURLY_TIME_SERIES_DF = generate_random_dataframe(size=5, n_rows_to_convert_none=0, frequency="H")
@@ -69,6 +71,7 @@ PROPHET_DETECTOR = ProphetDetector(
     time_series_df=DAILY_AND_HOURLY_TIME_SERIES_DF,
     model_cfg=ModelConfigs(),
     training_dataset_params=TrainingDatasetParameters(),
+    severity_level_params=SeverityLevelParameters(),
 )
 
 
