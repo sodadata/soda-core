@@ -1,4 +1,5 @@
 """Handles user feedback consumption."""
+
 # extract the regularity
 # generate a "fake" custom regressor which:
 #   # captures the delta between the predicted and actual value,

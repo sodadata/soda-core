@@ -1254,9 +1254,11 @@ class SodaCLParser(Parser):
                         WHEN_REQUIRED_COLUMN_MISSING,
                         WHEN_FORBIDDEN_COLUMN_PRESENT,
                     ]
-                    else "dict with strings for keys and values"
-                    if validation_type == WHEN_WRONG_COLUMN_TYPE
-                    else "dict with strings for keys and ints for values"
+                    else (
+                        "dict with strings for keys and values"
+                        if validation_type == WHEN_WRONG_COLUMN_TYPE
+                        else "dict with strings for keys and ints for values"
+                    )
                 )
                 self.logs.error(
                     f'"{validation_type}" must contain {expected_configuration_type}',

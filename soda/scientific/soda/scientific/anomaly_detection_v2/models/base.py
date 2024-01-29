@@ -1,4 +1,5 @@
 """ABC for Detectors."""
+
 from abc import ABC, abstractmethod
 
 import pandas as pd
