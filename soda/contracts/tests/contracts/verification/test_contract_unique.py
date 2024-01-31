@@ -14,7 +14,7 @@ def test_contract_unique(test_connection: TestConnection):
               - type: unique
           - name: size
             checks:
-              - type: unique
+              - type: duplicate_count
           - name: distance
           - name: created
     """)

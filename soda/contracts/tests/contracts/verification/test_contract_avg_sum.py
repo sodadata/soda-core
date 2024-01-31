@@ -3,26 +3,49 @@ from contracts.helpers.test_connection import TestConnection
 from soda.contracts.contract import ContractResult, CheckOutcome
 
 
-def test_contract_invalid_values(test_connection: TestConnection):
+def test_contract_avg(test_connection: TestConnection):
     table_name: str = test_connection.ensure_test_table(contracts_test_table)
 
     contract_result: ContractResult = test_connection.assert_contract_fail(f"""
         dataset: {table_name}
         columns:
           - name: id
-            checks:
-              - type: invalid_count
-                valid_values: ['ID1']
           - name: size
+            checks:
+              - type: avg
+                fail_when_not_between: [10, 20]
           - name: distance
           - name: created
     """)
-    assert "Actual invalid_count(id) was 1" in str(contract_result)
+    assert "Actual avg(size) was 1.0" in str(contract_result)
     check_result = contract_result.check_results[1]
     assert check_result.outcome == CheckOutcome.FAIL
     measurement = check_result.measurements[0]
-    assert measurement.name == "invalid_count(id)"
+    assert measurement.name == "avg(size)"
     assert measurement.value == 1
+    assert measurement.type == "numeric"
+
+
+def test_contract_sum(test_connection: TestConnection):
+    table_name: str = test_connection.ensure_test_table(contracts_test_table)
+
+    contract_result: ContractResult = test_connection.assert_contract_fail(f"""
+        dataset: {table_name}
+        columns:
+          - name: id
+          - name: size
+            checks:
+              - type: sum
+                fail_when_not_between: [10, 20]
+          - name: distance
+          - name: created
+    """)
+    assert "Actual sum(size) was 3.0" in str(contract_result)
+    check_result = contract_result.check_results[1]
+    assert check_result.outcome == CheckOutcome.FAIL
+    measurement = check_result.measurements[0]
+    assert measurement.name == "sum(size)"
+    assert measurement.value == 3
     assert measurement.type == "numeric"
 
 

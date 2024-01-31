@@ -2,12 +2,13 @@
 
 * [Schema check](#schema-check)
 * [Row count check](#row-count-check)
-* [Missing values check](#missing-values-check)
-* [Invalid values check](#invalid-values-check)
+* [Missing values check](#missing-values-checks)
+* [Invalid values check](#invalid-values-checks)
+* [Uniqueness check](#uniqueness-check)
 * [Freshness check](#freshness-check)
-* [](#)
-* [](#)
-* [](#)
+* [Avg, sum and other SQL aggregation checks](#avg-sum-and-other-sql-aggregation-checks)
+* [Multi-column uniqueness check](#multi-column-uniqueness-check)
+* [User-defined SQL check](#user-defined-sql-check)
 
 ### Schema check
 
@@ -56,7 +57,7 @@ checks:
 
 See [Thresholds](#thresholds) for more on specifying failure thresholds and ranges.  
 
-### Missing values check
+### Missing values checks
 
 Example: simplest not-null check. By default the missing values applies the `fail_when_greater_than: 0` threshold.
 ```yaml
@@ -103,25 +104,110 @@ columns:
 
 Missing values also can have the [common check properties](#common-check-properties) 
 
-## Column basic check configurations
+### Invalid values checks
 
-On each column, a limited set of basic check types can be configured with some s can be configured with a short style.
+Example: Validate against a list of valid values in the contract
 
+```yaml
+dataset: CUSTOMERS
+columns:
+- name: size
+  checks:
+  # Fail when there are values not in the given list of valid values
+  - type: invalid_count
+    valid_values: ['S', 'M', 'L']
+```
+
+Example of valid min-max checks
+```yaml
+dataset: CUSTOMERS
+columns:
+- name: market_share_pct
+  checks:
+  # Fail when there are values not between the min and max value
+  - type: invalid_count
+    valid_min: 0
+    valid_max: 100
+```
+
+
+Example of valid length checks as a range
+```yaml
+dataset: CUSTOMERS
+columns:
+- name: comment
+  checks:
+  # Fail when there are values not between the min and max length
+  - type: invalid_count
+    valid_min_length: 1
+    valid_max_length: 144
+```
+
+Example of a fixed valid length check
 ```yaml
 dataset: CUSTOMERS
 columns:
 - name: id
   checks:
-  - type: no_invalid_values
-    valid_format: uuid
-  - type: unique
-- name: size
-  checks:
-  - type: no_invalid_values
-    valid_values: ['S','M','L']
+  # Fail when there are values not a fixed length of 5 
+  - type: invalid_count
+    valid_length: 5
 ```
 
-See [more basic column check configuration examples](EXAMPLES.md#basic-column-check-configuration-examples) 
+Example of a valid SQL regex check
+```yaml
+dataset: CUSTOMERS
+columns:
+- name: id
+  checks:
+  # Fail when there are values not matching a SQL regex 
+  - type: invalid_count
+    valid_regex: '^ID.$'
+```
+
+Example of a reference check, (aka referential integrity, foreign key)
+```yaml
+dataset: CUSTOMERS
+columns:
+- name: category_id
+  checks:
+  # Fail when there are values not occuring in another column of another dataset 
+  - type: invalid_count
+    valid_values_column:
+        dataset: CUSTOMER_CATEGORIES
+        column: id
+```
+
+Example of combing missing & invalid:
+```yaml
+dataset: CUSTOMERS
+columns:
+- name: size
+  checks:
+  # In case there are missing value customizations (apart from NULL, which is always missing)...
+  - type: missing
+    missing_values: ['N/A']
+  # The invalid values check will ignore the missing values.  This is to ensure that 
+  # missing_count + invalid_count + valid_count = row_count
+  - type: invalid_count
+    valid_values: ['S', 'M', 'L']
+```
+Caveats:
+* Ensure that the missing check and missing configuration is declared * before * the invalid check
+* In the (unlikely) case that there are multiple missing checks with missing values configs, they are overriding (not merging). Last one wins.
+* This ignoring of missing values probably doesn't work when using valid_values_column configuration
+
+### Uniqueness check
+
+Example of the simplest uniqueness check
+```yaml
+dataset: CUSTOMERS
+columns:
+- name: id
+  checks:
+  # Fail when there are duplicates  
+  - type: duplicate_count
+```
 
 ### Freshness check
 
@@ -137,13 +223,82 @@ checks:
       fail_when_greater_than: 6
 ```
 
-# Basic column check configuration examples
+| All freshness check types    |
+|------------------------------|
+| `type: freshness_in_days`    |
+| `type: freshness_in_hours`   |
+| `type: freshness_in_minutes` |
 
-# Column check examples
+### Avg, sum and other SQL aggregation checks
 
-# Common check properties
+Exmple of an average check
+```yaml
+dataset: CUSTOMERS
+columns:
+- name: size
+  checks:
+  # Fail when the average is not between 10 and 20  
+  - type: avg
+    fail_when_not_between: [10, 20]
+```
+
+| Numeric SQL aggregation check types |
+|-------------------------------------|
+| `type: avg`                         |
+| `type: sum`                         |
+| `type: min`                         |
+| `type: max`                         |
+| `type: stddev`                      |
+| `type: stddev_pop`                  |
+| `type: stddev_samp`                 |
+| `type: variance`                    |
+| `type: var_pop`                     |
+| `type: var_samp`                    |
+
+### Multi-column uniqueness check
+
+Example of a multi columns duplicates check
+
+```yaml
+dataset: CUSTOMERS
+columns:
+    - ...
+checks: 
+    - type: multi_column_duplicates
+      columns: ['country_code', 'zip']
+```
+
+### User defined SQL check
+
+Example of a user-defined SQL check
+
+```yaml
+dataset: CUSTOMERS
+columns:
+    - ...
+checks: 
+    - type: user_defined_sql
+      metric: us_count
+      query: |
+        SELECT COUNT(*)
+        FROM {table_name}
+        WHERE country = 'US'
+      fail_when_between: [0, 5]
+```
 
 ### Thresholds
 
-TODO explain all the fail_when_  options
+Some check types have default thresholds.  If you do want to specify a threshold, use one of these check configuration properties
+
+| Threshold key                     | Example                                |
+|-----------------------------------|----------------------------------------|
+| `fail_when_is`                    | `fail_when_is: 0`                      |
+| `fail_when_is_not`                | `fail_when_is_not: 0`                  |
+| `fail_when_greater_than`          | `fail_when_greater_than: 100`          |
+| `fail_when_greater_than_or_equal` | `fail_when_greater_than_or_equal: 100` |
+| `fail_when_less_than`             | `fail_when_less_than: 100`             |
+| `fail_when_less_than_or_equal`    | `fail_when_less_than_or_equal: 100`    |
+| `fail_when_between`               | `fail_when_between: [0, 100]`          |
+| `fail_when_not_between`           | `fail_when_not_between: [0, 100]`      |
+
 TODO explain the how to do in/exclusions in case of ranges

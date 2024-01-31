@@ -5,20 +5,17 @@
     "description": "A data contract",
     "type": "object",
     "properties": {
-        "schema_version": {
-            "description": "Version of the Soda data contract schema. Uses semantic versioning. Eg 1.0.0",
-            "type": "string",
-            "enum": ["1.0.0"]
-        },
-        "version": {
-            "description": "Version of the contract. Use semantic versioning. Eg 1.0.0",
-            "type": "string",
-            "minLength": 5,
-            "maxLength": 14,
-            "pattern": "^(?:0|[1-9]\\d*)\\.(?:0|[1-9]\\d*)\\.(?:0|[1-9]\\d*)$"
-        },
         "dataset": {
             "description": "The name of the dataset",
+            "type": "string"
+        },
+        "owner": {
+            "description": "Contact person for this contract. Email address.",
+            "type": "string",
+            "format": "email"
+        },
+        "description": {
+            "description": "The description of the dataset.  What does each row represent?",
             "type": "string"
         },
         "columns": {
@@ -57,87 +54,14 @@
                             }
                         ]
                     },
-                    "not_null": {
-                        "description": "No missing value are allowed if set to true. Default is false. Implies a missing_count check in Soda. Consider customizing the list of missing values with missing_* properties.",
-                        "type": "boolean",
-                        "default": true
-                    },
-                    "missing_values": {
-                        "description": "Customized list of missing values. NULL is always considered missing so that does not have to be specified. If no customization is needed, consider specifying not_null:true instead. Implies a missing_count check in Soda.",
-                        "type": "array",
-                        "items": {
-                            "type": ["integer", "string"]
-                        }
-                    },
-                    "missing_sql_regex": {
-                        "description": "Customized SQL regex to identify missing values. The flavor of regex depends on the SQL engine / warehouse. NULL is always considered missing so that does not have to be specified. Implies a missing_count check in Soda.",
-                        "type": "string"
-                    },
-                    "valid_values": {
-                        "description": "A list of valid values. Only supports all strings or all numbers. Implies an invalid_count check in Soda.",
-                        "type": "array",
-                        "items": {
-                            "type": ["number", "string"]
-                        }
-                    },
-                    "valid_sql_regex": {
-                        "description": "A SQL regular expression that matches valid values. Implies a valid_count check in Soda. All (in)valid_* configs are combined in a single invalid_count check.",
-                        "type": "string"
-                    },
-                    "valid_format": {
-                        "description": "A named regular expression that specifies valid values.",
-                        "$ref": "#/$defs/format"
-                    },
-                    "valid_length": {
-                        "description": "The exact length of values. Only for text data types. Implies an invalid_count check in Soda. Also consider valid_min_length & valid_max_length.",
-                        "type": "integer"
-                    },
-                    "valid_max_length": {
-                        "description": "The maximum length of values. Only for text data types. Implies an invalid_count check in Soda.",
-                        "type": "integer"
-                    },
-                    "valid_min_length": {
-                        "description": "The minimum length of values. Only for text data types. Implies an invalid_count check in Soda.",
-                        "type": "integer"
-                    },
-                    "valid_min": {
-                        "description": "The minimum allowed value. Only for numeric data types or text types with a numeric format. Implies an invalid_count check in Soda.",
-                        "type": "integer"
-                    },
-                    "valid_max": {
-                        "description": "The maximum allowed value. Only for numeric data types or text types with a numeric format. Implies an invalid_count check in Soda.",
-                        "type": "integer"
-                    },
-                    "invalid_values": {
-                        "description": "A list of valid values. Only supports all strings or all numbers. Implies an invalid_count check in Soda.",
-                        "type": "array",
-                        "items": {
-                            "type": ["number", "string"]
-                        }
-                    },
-                    "invalid_sql_regex": {
-                        "description": "A regular expression that specifies valid values.",
-                        "type": "string"
-                    },
-                    "invalid_format": {
-                        "description": "A named regular expression that specifies invalid values.",
-                        "$ref": "#/$defs/format"
-                    },
-                    "unique": {
-                        "description": "No duplicates allowed if set to true. Triggers a duplicate_count check in Soda.",
-                        "type": "boolean",
-                        "default": true
-                    },
                     "optional": {
                         "description": "When set to true, the schema check will not fail if the column is not present. Default is required.",
                         "type": "boolean"
                     },
                     "checks": {
-                        "description": "Extra Soda checks for this column",
+                        "description": "Checks for this column",
                         "type": "array",
-                        "items": {
-                            "allOf": [{ "$ref": "#/$defs/common_check_properties" }]
-                        },
+                        "items": { "$ref": "#/$defs/check" },
                         "required": ["type"]
                     }
                 },
@@ -147,23 +71,7 @@
         "checks": {
             "description": "A list of checks for this dataset executed by a Soda",
             "type": "array",
-            "items": {
-                "allOf": [
-                    {
-                        "$ref": "#/$defs/common_check_properties"
-                    },
-                    {
-                        "type": "object",
-                        "properties": {
-                            "column": {
-                                "description": "The column name for the metric",
-                                "type": "string"
-                            }
-                        }
-                    }
-                ],
-                "required": ["type"]
-            }
+            "items": { "$ref": "#/$defs/check" }
         }
     },
     "required": ["dataset", "columns"],
@@ -177,26 +85,6 @@
                     },
                     "minLength": 2,
                     "maxLength": 2
-                },
-                {
-                    "type": "object",
-                    "description": "Nested range thresholds to customize inclusion and exclusion of boundaries",
-                    "properties": {
-                        "min_included": {
-                            "type": "number"
-                        },
-                        "min_excluded": {
-                            "type": "number"
-                        },
-                        "max_included": {
-                            "type": "number"
-                        },
-                        "max_excluded": {
-                            "type": "number"
-                        }
-                    },
-                    "minItems": 2,
-                    "maxItems": 2
                 }
             ]
         },
@@ -215,7 +103,7 @@
                 "credit card number"
             ]
         },
-        "common_check_properties": {
+        "check": {
             "type": "object",
             "properties": {
                 "type": {
@@ -224,11 +112,11 @@
                         {
                             "type": "string",
                             "enum": [
-                                "row_count", "freshness_in_days", "freshness_in_hours",
+                                "row_count", "freshness_in_days", "freshness_in_hours", "freshness_in_minutes",
                                 "avg", "avg_length", "duplicate_count", "duplicate_percent", "invalid_count",
                                 "invalid_percent", "max", "max_length", "min", "min_length", "missing_count",
                                 "missing_percent", "percentile", "stddev", "stddev_pop", "stddev_samp", "sum",
-                                "variance", "var_pop", "var_samp", "failed_rows"
+                                "variance", "var_pop", "var_samp"
                             ]
                         },
                         {
@@ -239,6 +127,67 @@
                 "name": {
                     "description": "The display name for the check used in Soda Cloud and other UI tools",
                     "type": "string"
+                },
+                "missing_values": {
+                    "description": "Customized list of missing values. NULL is always considered missing so that does not have to be specified. If no customization is needed, consider specifying not_null:true instead. Implies a missing_count check in Soda.",
+                    "type": "array",
+                    "items": {
+                        "type": ["integer", "string"]
+                    }
+                },
+                "missing_regex": {
+                    "description": "Customized SQL regex to identify missing values. The flavor of regex depends on the SQL engine / warehouse. NULL is always considered missing so that does not have to be specified. Implies a missing_count check in Soda.",
+                    "type": "string"
+                },
+                "valid_values": {
+                    "description": "A list of valid values. Only supports all strings or all numbers. Implies an invalid_count check in Soda.",
+                    "type": "array",
+                    "items": {
+                        "type": ["number", "string"]
+                    }
+                },
+                "valid_regex": {
+                    "description": "A SQL regular expression that matches valid values. Implies a valid_count check in Soda. All (in)valid_* configs are combined in a single invalid_count check.",
+                    "type": "string"
+                },
+                "valid_format": {
+                    "description": "A named regular expression that specifies valid values.",
+                    "$ref": "#/$defs/format"
+                },
+                "valid_length": {
+                    "description": "The exact length of values. Only for text data types. Implies an invalid_count check in Soda. Also consider valid_min_length & valid_max_length.",
+                    "type": "integer"
+                },
+                "valid_max_length": {
+                    "description": "The maximum length of values. Only for text data types. Implies an invalid_count check in Soda.",
+                    "type": "integer"
+                },
+                "valid_min_length": {
+                    "description": "The minimum length of values. Only for text data types. Implies an invalid_count check in Soda.",
+                    "type": "integer"
+                },
+                "valid_min": {
+                    "description": "The minimum allowed value. Only for numeric data types or text types with a numeric format. Implies an invalid_count check in Soda.",
+                    "type": "integer"
+                },
+                "valid_max": {
+                    "description": "The maximum allowed value. Only for numeric data types or text types with a numeric format. Implies an invalid_count check in Soda.",
+                    "type": "integer"
+                },
+                "invalid_values": {
+                    "description": "A list of valid values. Only supports all strings or all numbers. Implies an invalid_count check in Soda.",
+                    "type": "array",
+                    "items": {
+                        "type": ["number", "string"]
+                    }
+                },
+                "invalid_regex": {
+                    "description": "A regular expression that specifies valid values.",
+                    "type": "string"
+                },
+                "invalid_format": {
+                    "description": "A named regular expression that specifies invalid values.",
+                    "$ref": "#/$defs/format"
                 },
                 "filter_sql_expression": {
                     "description": "Specifies a sql expression filter that should be applied on the metric",
@@ -275,18 +224,6 @@
                 "fail_when_not_between": {
                     "description": "Specifies a threshold range for the check. The check fails if the metric value is not between a minimum and maximum value. In short style eg fail_when_between:[10,20] boundary values 10 and 20 will pass. For including boundary values, use nested min_* and max_* properties",
                     "$ref": "#/$defs/numeric_range"
-                },
-                "change_over_time_avg_of_last_days": {
-                    "description": "The number of days for which the average should be taken as basis for comparison",
-                    "type": "number"
-                },
-                "change_over_time_min_of_last_days": {
-                    "description": "The number of days for which the minimum should be taken as basis for comparison",
-                    "type": "number"
-                },
-                "change_over_time_max_of_last_days": {
-                    "description": "The number of days for which the maximum should be taken as basis for comparison",
-                    "type": "number"
                 }
             },
             "required": ["type"]
