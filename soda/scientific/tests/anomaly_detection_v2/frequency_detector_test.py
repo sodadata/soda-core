@@ -70,7 +70,12 @@ def test_not_enough_data_frequency_detector() -> None:
     assert frequency_detector_result.freq_detection_strategy == "not_enough_measurements"
     assert frequency_detector_result.error_code_int == 100
     assert frequency_detector_result.error_severity == "error"
-    assert frequency_detector_result.error_message == "Data frame must have at least 4 measurements"
+    assert frequency_detector_result.error_message == (
+        "Anomaly Detection Insufficient Training Data Warning: "
+        "The model requires a minimum of 4 historical measurements"
+        " for accurate predictions, but currently has only 2 check"
+        " results available."
+    )
 
 
 def test_coerced_daily_frequency_detector() -> None:

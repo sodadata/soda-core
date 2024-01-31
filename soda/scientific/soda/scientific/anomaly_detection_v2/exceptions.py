@@ -24,3 +24,10 @@ class NotSupportedHolidayCountryError(Exception):
 
     To be raised and passed as a result error message down the line.
     """
+
+
+class WindowLengthError(Exception):
+    """Thrown in case of wrong window length.
+
+    To be raised and passed as a result error message down the line.
+    """

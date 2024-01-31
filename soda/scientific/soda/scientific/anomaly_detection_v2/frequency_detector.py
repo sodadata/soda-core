@@ -22,7 +22,7 @@ class FrequencyDetector:
     def detect_frequency(self) -> FreqDetectionResult:
         min_n_points = self.params["prophet_detector"]["preprocess_params"]["min_number_of_data_points"]
         if not len(self.time_series_df) >= min_n_points:
-            return get_not_enough_measurements_freq_result()
+            return get_not_enough_measurements_freq_result(n_data_points=len(self.time_series_df))
 
         if self.manual_freq != "auto":
             return FreqDetectionResult(
@@ -79,6 +79,7 @@ class FrequencyDetector:
         #           # we either make it be daily (this is the current solution --but I really don't like it)
         is_assume_daily = self.params["prophet_detector"]["preprocess_params"].get("assume_daily", False)
         if is_assume_daily:
+            original_number_of_points = len(_df)
             _df = _df.drop_duplicates("ds", keep="last")
             if isinstance(_df, pd.DataFrame):
                 self.logs.warning(
@@ -95,7 +96,16 @@ class FrequencyDetector:
                         error_message=DETECTOR_MESSAGES["coerced_daily"].log_message,
                     )
                 else:
-                    return get_not_enough_measurements_freq_result()
+                    dummy_value = 0
+                    freq_result = get_not_enough_measurements_freq_result(n_data_points=dummy_value)
+                    # Override error message to make it more informative
+                    freq_result.error_message = (
+                        f"Anomaly Detection Insufficient Training Data Warning: "
+                        "Due to the aggregation of the historical check results into daily frequency, "
+                        f"{original_number_of_points} data points were reduced to {len(_df)} data points."
+                        " The model requires a minimum of 4 historical measurements."
+                    )
+                    return freq_result
         # we take the last 4 data points. Try to get a freq on that.
         _df = _df.set_index("ds")
         _df = _df.sort_index()

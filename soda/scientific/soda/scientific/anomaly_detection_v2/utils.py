@@ -39,7 +39,7 @@ class SuppressStdoutStderr:
             os.close(fd)
 
 
-def get_not_enough_measurements_freq_result() -> FreqDetectionResult:
+def get_not_enough_measurements_freq_result(n_data_points: int) -> FreqDetectionResult:
     return FreqDetectionResult(
         inferred_frequency=None,
         df=pd.DataFrame(),
@@ -47,5 +47,5 @@ def get_not_enough_measurements_freq_result() -> FreqDetectionResult:
         error_code_int=DETECTOR_MESSAGES["not_enough_measurements"].error_code_int,
         error_code=DETECTOR_MESSAGES["not_enough_measurements"].error_code_str,
         error_severity=DETECTOR_MESSAGES["not_enough_measurements"].severity,
-        error_message=DETECTOR_MESSAGES["not_enough_measurements"].log_message,
+        error_message=DETECTOR_MESSAGES["not_enough_measurements"].log_message.format(n_data_points=n_data_points),
     )
