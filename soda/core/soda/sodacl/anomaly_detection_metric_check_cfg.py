@@ -2,7 +2,8 @@ from __future__ import annotations
 
 from typing import Any, ClassVar, List, Optional, Union
 
-from pydantic import BaseModel, ConfigDict, ValidationError, field_validator
+from pydantic import BaseModel, ConfigDict, ValidationError, field_validator, validator
+
 from soda.common.logs import Logs
 from soda.sodacl.change_over_time_cfg import ChangeOverTimeCfg
 from soda.sodacl.location import Location
@@ -25,7 +26,6 @@ class ADBaseModel(BaseModel):
                 # only keep string instance field names
                 field_names = [loc for loc in error["loc"] if isinstance(loc, str)]
                 field_name = field_names[-1]
-                expected_field_dtype_str = error.get("type")
                 field_value = error.get("input")  # Get the provided value
                 if error.get("type") == "missing":
                     logger.error(
@@ -37,12 +37,17 @@ class ADBaseModel(BaseModel):
                         f"Anomaly Detection Parsing Error: Extra field '{field_name}' at {location}."
                         f" Remove the field from your SodaCL file."
                     )
+                elif error.get("type") == "value_error":
+                    logger.error(
+                        f"Anomaly Detection Parsing Error: Not allowed value for field "
+                        f"'{field_name}' at {location}. "
+                        f"{error['msg']}."
+                    )
                 else:
                     logger.error(
-                        "Anomaly Detection Parsing Error: Data type mismatch "
-                        f"for field '{field_name}' at {location}. "
-                        f"Expected type: '{expected_field_dtype_str}', "
-                        f"but found value '{field_value}' of type '{type(field_value).__name__}'."
+                        "Anomaly Detection Parsing Error: Unexpected value "
+                        f"'{field_value}' for field '{field_name}' at {location}. "
+                        f"{error['msg']}."
                     )
             return None
         except ValueError as e:
@@ -163,6 +168,12 @@ class TrainingDatasetParameters(ADBaseModel):
 class SeverityLevelParameters(ADBaseModel):
     warning_ratio: float = 0.1
     min_confidence_interval_ratio: float = 0.001
+
+    @validator("warning_ratio", "min_confidence_interval_ratio")
+    def check_ratio(cls, v: float) -> float:
+        if not 0 <= v <= 1:
+            raise ValueError(f"Value must be between 0 and 1, but got {v}")
+        return v
 
 
 class AnomalyDetectionMetricCheckCfg(MetricCheckCfg):

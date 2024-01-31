@@ -70,12 +70,18 @@ class AnomalyMetricCheck(MetricCheck):
         if self.skip_anomaly_check:
             return
 
+        self.logs.info(
+            "Anomaly Score Deprecation Warning: The anomaly score check is deprecated "
+            "and will be removed in the future. Please consider using the anomaly "
+            "detection check going forward. See the migration guide: "
+            "https://docs.soda.io/soda-cl/anomaly-detection#migrate-to-anomaly-detection"
+        )
         metric_name = self.check_cfg.metric_name
         # check that we get data objects from cloud that we can work with
         if isinstance(historic_values, dict):
             historic_measurements = historic_values.get(KEY_HISTORIC_MEASUREMENTS, {}).get("measurements", {})
             self.logs.debug(
-                f"Anomaly Detection: using historical measurements for identity {self.metrics[metric_name].identity}"
+                f"Anomaly Score: using historical measurements for identity {self.metrics[metric_name].identity}"
             )
             historic_check_results = historic_values.get(KEY_HISTORIC_CHECK_RESULTS, {}).get("check_results", {})
         else:

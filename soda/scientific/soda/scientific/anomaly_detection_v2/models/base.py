@@ -34,8 +34,9 @@ class BaseDetector(ABC):
         time_series_df = time_series_df.sort_values(by="ds", ascending=True)
         time_series_df = time_series_df.reset_index(drop=True)
 
+        skip_measurements = time_series_df["skipMeasurements"].tolist()
         # Handle previousAndThis
-        if "previousAndThis" in time_series_df["skipMeasurements"].values:
+        if "previousAndThis" in skip_measurements:
             last_occurence_previous_and_this = time_series_df[
                 time_series_df["skipMeasurements"] == "previousAndThis"
             ].index.max()
@@ -46,12 +47,12 @@ class BaseDetector(ABC):
                 time_series_df = time_series_df.iloc[last_occurence_previous_and_this + 1 :]
 
         # Handle previous
-        if "previous" in time_series_df["skipMeasurements"].values:
+        if "previous" in skip_measurements:
             last_occurence_previous = time_series_df[time_series_df["skipMeasurements"] == "previous"].index.max()
             time_series_df = time_series_df.iloc[last_occurence_previous:]
 
         # Handle this
-        if "this" in time_series_df["skipMeasurements"].values:
+        if "this" in skip_measurements:
             # Set y to NaN if we skip this measurement, it is the recommended way by the Prophet documentation
             # see https://facebook.github.io/prophet/docs/outliers
             time_series_df.loc[time_series_df["skipMeasurements"] == "this", "y"] = None

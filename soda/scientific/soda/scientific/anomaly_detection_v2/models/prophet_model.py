@@ -20,10 +20,13 @@ from soda.sodacl.anomaly_detection_metric_check_cfg import (
 )
 from tqdm import tqdm
 
+from soda.common.logs import Logs
+from soda.execution.check.anomaly_detection_metric_check import HISTORIC_RESULTS_LIMIT
 from soda.scientific.anomaly_detection_v2.exceptions import (
     AggregationValueError,
     FreqDetectionResultError,
     NotSupportedHolidayCountryError,
+    WindowLengthError,
 )
 from soda.scientific.anomaly_detection_v2.frequency_detector import FrequencyDetector
 from soda.scientific.anomaly_detection_v2.globals import (
@@ -125,11 +128,12 @@ class ProphetDetector(BaseDetector):
             )
 
             # Only use the last n points for training based on the window length
-            window_length = min(training_df["y"].dropna().shape[0], self.training_dataset_params.window_length)
+            window_length = self.get_window_length(training_df=training_df)
             training_df = training_df.iloc[-window_length:]
 
-            if training_df["y"].dropna().shape[0] <= self._min_n_points:
-                freq_detection_result = get_not_enough_measurements_freq_result()
+            training_df_shape = training_df["y"].dropna().shape[0]
+            if training_df_shape <= self._min_n_points:
+                freq_detection_result = get_not_enough_measurements_freq_result(n_data_points=training_df_shape)
                 return self.exit_with_warning(freq_detection_result)
 
             model_hyperparameters = self.get_prophet_hyperparameters(time_series_df=training_df)
@@ -142,8 +146,22 @@ class ProphetDetector(BaseDetector):
             anomalies_df = self.compute_alert_level(anomalies_df=anomalies_df)
             return anomalies_df, freq_detection_result
         except Exception as e:
-            self.logs.error(str(e), exception=e)
             raise e
+
+    def get_window_length(self, training_df: pd.DataFrame) -> int:
+        original_window_length = self.training_dataset_params.window_length
+        if original_window_length <= self._min_n_points:
+            raise WindowLengthError(
+                "Anomaly Detection Error: The window_length parameter is too small, "
+                f"it is set to {original_window_length} but it should be at least {self._min_n_points}. "
+            )
+        elif original_window_length > HISTORIC_RESULTS_LIMIT:
+            raise WindowLengthError(
+                "Anomaly Detection Error: The window_length parameter is too big"
+                f" it is set to {original_window_length} but it should be at most {HISTORIC_RESULTS_LIMIT}. "
+            )
+        adjusted_window_length = min(training_df["y"].dropna().shape[0], self.training_dataset_params.window_length)
+        return adjusted_window_length
 
     def apply_training_dataset_configs(
         self, time_series_df: pd.DataFrame, freq_detection_result: FreqDetectionResult
@@ -166,7 +184,7 @@ class ProphetDetector(BaseDetector):
         return aggregated_df
 
     def exit_with_warning(self, freq_detection_result: FreqDetectionResult) -> Tuple[pd.DataFrame, FreqDetectionResult]:
-        self.logs.warning(DETECTOR_MESSAGES[freq_detection_result.freq_detection_strategy].log_message)
+        self.logs.warning(freq_detection_result.error_message)
         anomalies_df = pd.DataFrame()
         return anomalies_df, freq_detection_result
 

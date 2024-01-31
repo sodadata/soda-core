@@ -607,10 +607,10 @@ class SodaCLParser(Parser):
         metric_query = None
         samples_limit = None
         samples_columns = None
-        training_dataset_params = None
-        model_cfg = None
-        take_over_existing_anomaly_score_check = None
-        severity_level_params = None
+        training_dataset_params: TrainingDatasetParameters = TrainingDatasetParameters()
+        model_cfg: ModelConfigs = ModelConfigs()
+        take_over_existing_anomaly_score_check = False
+        severity_level_params: SeverityLevelParameters = SeverityLevelParameters()
 
         if isinstance(check_configurations, dict):
             for configuration_key in check_configurations:
@@ -669,10 +669,9 @@ class SodaCLParser(Parser):
                         missing_and_valid_cfg,
                     )
                 elif configuration_key == ANOMALY_DETECTION_CONFIGS:
-                    model_cfg = ModelConfigs.create_instance(
+                    model_cfg: ModelConfigs = ModelConfigs.create_instance(
                         logger=self.logs, location=self.location, **configuration_value
                     )
-
                 elif configuration_key == ANOMALY_DETECTION_TRAINING_DATASET_CONFIGS:
                     training_dataset_params = TrainingDatasetParameters.create_instance(
                         logger=self.logs, location=self.location, **configuration_value
@@ -810,18 +809,8 @@ class SodaCLParser(Parser):
                     )
 
         elif antlr_metric_check.anomaly_detection():
-            if training_dataset_params is None:
-                # Set defaults for training dataset configurations
-                training_dataset_params: TrainingDatasetParameters = TrainingDatasetParameters()
-            if model_cfg is None:
-                # Set defaults for model configurations
-                model_cfg: ModelConfigs = ModelConfigs()
-
-            if take_over_existing_anomaly_score_check is None:
-                take_over_existing_anomaly_score_check = False
-
-            if severity_level_params is None:
-                severity_level_params: SeverityLevelParameters = SeverityLevelParameters()
+            if model_cfg is None or training_dataset_params is None or severity_level_params is None:
+                return None
 
             anomaly_detection_check_cfg = AnomalyDetectionMetricCheckCfg(
                 source_header=header_str,
