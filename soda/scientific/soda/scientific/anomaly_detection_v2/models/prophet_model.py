@@ -12,6 +12,7 @@ import numpy as np
 import pandas as pd
 from prophet.diagnostics import cross_validation, performance_metrics
 from soda.common.logs import Logs
+from soda.execution.check.anomaly_detection_metric_check import HISTORIC_RESULTS_LIMIT
 from soda.sodacl.anomaly_detection_metric_check_cfg import (
     ModelConfigs,
     ProphetDefaultHyperparameters,
@@ -20,8 +21,6 @@ from soda.sodacl.anomaly_detection_metric_check_cfg import (
 )
 from tqdm import tqdm
 
-from soda.common.logs import Logs
-from soda.execution.check.anomaly_detection_metric_check import HISTORIC_RESULTS_LIMIT
 from soda.scientific.anomaly_detection_v2.exceptions import (
     AggregationValueError,
     FreqDetectionResultError,
