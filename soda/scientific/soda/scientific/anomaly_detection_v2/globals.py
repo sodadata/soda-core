@@ -38,7 +38,12 @@ DETECTOR_MESSAGES: Dict[str, DetectorMessageComponent] = {
         error_code_str="Manual frequency is detected successfully",
     ),
     "not_enough_measurements": DetectorMessageComponent(
-        log_message="Data frame must have at least 4 measurements",
+        log_message=(
+            "Anomaly Detection Insufficient Training Data Warning:"
+            " The model requires a minimum of 4 historical measurements"
+            " for accurate predictions, but currently has only {n_data_points}"
+            " check results available."
+        ),
         severity="error",
         error_code_int=100,
         error_code_str="not_enough_measurements",
