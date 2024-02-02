@@ -289,9 +289,7 @@ class DbtCloud:
 
         return run_id
 
-    def _parse_manifest(
-        self, manifest: dict[str, Any]
-    ) -> tuple[
+    def _parse_manifest(self, manifest: dict[str, Any]) -> tuple[
         dict[str, ParsedModelNode | CompiledModelNode] | None,
         dict[str, ParsedSeedNode | CompiledSeedNode] | None,
         dict[str, ParsedGenericTestNode | CompiledGenericTestNode] | None,

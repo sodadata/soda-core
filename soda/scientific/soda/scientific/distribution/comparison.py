@@ -233,8 +233,7 @@ class DistributionAlgorithm(abc.ABC):
             self.ref_data = generate_ref_data(cfg, len(test_data), np.random.default_rng(seed))
 
     @abc.abstractmethod
-    def evaluate(self) -> dict[str, float]:
-        ...
+    def evaluate(self) -> dict[str, float]: ...
 
 
 class ChiSqAlgorithm(DistributionAlgorithm):
