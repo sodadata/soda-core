@@ -22,6 +22,11 @@ help the diagnostic process.
 
 ## 1) Writing contract YAML files
 
+> Prerequisites: To write contract YAML files, you will need: 
+> * A YAML text editor
+> * Optional: a local development environment to test contract YAML files
+> * Optional: a git repository to version control your contract YAML file
+
 See chapter [writing contract  YAML files](01_writing_contract_yaml_files/README.md) on how to write schema and 
 other data quality checks in Soda contract YAML files
 
