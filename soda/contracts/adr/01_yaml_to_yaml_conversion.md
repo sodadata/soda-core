@@ -1,7 +1,7 @@
 # YAML string to YAML string conversion
 
 We translate Soda data contract YAML format to SodaCL YAML string first and then feed the SodaCL YAML
-string into a Soda scan.  This way we can quickly build a relative complete coverage of checks 
+string into a Soda scan.  This way we can quickly build a relative complete coverage of checks
 in a contract with a tested implementation.
 
 Pros:

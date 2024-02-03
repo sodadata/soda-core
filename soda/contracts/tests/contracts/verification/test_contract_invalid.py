@@ -1,12 +1,17 @@
-from contracts.helpers.contract_test_tables import contracts_test_table, contract_refs_test_table
+from contracts.helpers.contract_test_tables import (
+    contract_refs_test_table,
+    contracts_test_table,
+)
 from contracts.helpers.test_connection import TestConnection
-from soda.contracts.contract import ContractResult, CheckOutcome
+
+from soda.contracts.contract import CheckOutcome, ContractResult
 
 
 def test_contract_invalid_values(test_connection: TestConnection):
     table_name: str = test_connection.ensure_test_table(contracts_test_table)
 
-    contract_result: ContractResult = test_connection.assert_contract_fail(f"""
+    contract_result: ContractResult = test_connection.assert_contract_fail(
+        f"""
         dataset: {table_name}
         columns:
           - name: id
@@ -16,7 +21,8 @@ def test_contract_invalid_values(test_connection: TestConnection):
           - name: size
           - name: distance
           - name: created
-    """)
+    """
+    )
     assert "Actual invalid_count(id) was 1" in str(contract_result)
     check_result = contract_result.check_results[1]
     assert check_result.outcome == CheckOutcome.FAIL
@@ -29,7 +35,8 @@ def test_contract_invalid_values(test_connection: TestConnection):
 def test_contract_missing_and_invalid_values(test_connection: TestConnection):
     table_name: str = test_connection.ensure_test_table(contracts_test_table)
 
-    contract_result: ContractResult = test_connection.assert_contract_fail(f"""
+    contract_result: ContractResult = test_connection.assert_contract_fail(
+        f"""
         dataset: {table_name}
         columns:
           - name: id
@@ -41,7 +48,8 @@ def test_contract_missing_and_invalid_values(test_connection: TestConnection):
           - name: size
           - name: distance
           - name: created
-    """)
+    """
+    )
     assert "Actual invalid_count(id) was 1" in str(contract_result)
     check_result = contract_result.check_results[2]
     assert check_result.outcome == CheckOutcome.FAIL
@@ -54,7 +62,8 @@ def test_contract_missing_and_invalid_values(test_connection: TestConnection):
 def test_contract_multi_validity_configs(test_connection: TestConnection):
     table_name: str = test_connection.ensure_test_table(contracts_test_table)
 
-    contract_result: ContractResult = test_connection.assert_contract_fail(f"""
+    contract_result: ContractResult = test_connection.assert_contract_fail(
+        f"""
         dataset: {table_name}
         columns:
           - name: id
@@ -66,7 +75,8 @@ def test_contract_multi_validity_configs(test_connection: TestConnection):
           - name: size
           - name: distance
           - name: created
-    """)
+    """
+    )
     assert "Actual invalid_count(id) was 1" in str(contract_result)
     check_result = contract_result.check_results[1]
     assert check_result.outcome == CheckOutcome.FAIL
@@ -80,7 +90,8 @@ def test_contract_column_invalid_reference_check(test_connection: TestConnection
     table_name: str = test_connection.ensure_test_table(contract_refs_test_table)
     customers_table_name: str = test_connection.ensure_test_table(contracts_test_table)
 
-    contract_result: ContractResult = test_connection.assert_contract_fail(f"""
+    contract_result: ContractResult = test_connection.assert_contract_fail(
+        f"""
         dataset: {table_name}
         columns:
           - name: id
@@ -91,7 +102,8 @@ def test_contract_column_invalid_reference_check(test_connection: TestConnection
                     dataset: {customers_table_name}
                     column: id
                 samples_limit: 20
-    """)
+    """
+    )
     assert "Actual invalid_count(contract_id) was 1" in str(contract_result)
     check_result = contract_result.check_results[1]
     assert check_result.outcome == CheckOutcome.FAIL

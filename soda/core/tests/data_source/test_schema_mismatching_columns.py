@@ -53,9 +53,7 @@ def test_mismatching_columns_with_optional_columns_pass(data_source_fixture: Dat
     def column_type_format(column_name: str) -> str:
         test_column = customers_test_table.find_test_column_by_name(column_name)
         casified_column_name = ds.default_casify_column_name(column_name)
-        casified_data_type = ds.default_casify_type_name(
-            ds.get_sql_type_for_schema_check(test_column.data_type)
-        )
+        casified_data_type = ds.default_casify_type_name(ds.get_sql_type_for_schema_check(test_column.data_type))
         return f"{casified_column_name}: {casified_data_type}"
 
     scan.add_sodacl_yaml_str(
@@ -87,8 +85,6 @@ def test_mismatching_columns_with_optional_columns_pass(data_source_fixture: Dat
     scan.execute()
 
     scan.assert_all_checks_pass()
-
-
 
 
 # def test_columns_types_fail(data_source_fixture: DataSourceFixture):

@@ -131,8 +131,9 @@ class SchemaCheck(Check):
 
         if required_column_names:
             for required_column_name in required_column_names:
-                if (required_column_name not in measured_column_names
-                    and not schema_validations.is_optional(required_column_name)):
+                if required_column_name not in measured_column_names and not schema_validations.is_optional(
+                    required_column_name
+                ):
                     schema_missing_column_names.append(required_column_name)
 
         if schema_validations.forbidden_column_names:
@@ -235,7 +236,7 @@ class SchemaCheck(Check):
             "column_type_changes": {},
             "column_type_mismatches": {},
             "missing_column_names": [],
-            "present_column_names": []
+            "present_column_names": [],
         }
 
         if self.warn_result:

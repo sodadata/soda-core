@@ -1,15 +1,15 @@
 # Exceptions vs error logs
 
-In general the principle is that contract verification aims to be resilient, 
+In general the principle is that contract verification aims to be resilient,
 record any logs and continue to report as many problems in a single execution.
 
-This is realized by suppressing exceptions and collecting all the logs until the 
-end of the `contract.verify` method. There any error logs or check failures will 
-cause an exception to be raised. The SodaException raised at the end of the 
-`contract.verify` method will list all the errors and check failures in a 
+This is realized by suppressing exceptions and collecting all the logs until the
+end of the `contract.verify` method. There any error logs or check failures will
+cause an exception to be raised. The SodaException raised at the end of the
+`contract.verify` method will list all the errors and check failures in a
 single SodaException.
 
-So for any of the following problems, you will get an exception being 
+So for any of the following problems, you will get an exception being
 raised at the end of the contract.verfiy method:
 * Connection
   * Connection YAML or configuration issues (includes variable resolving problems)
@@ -20,9 +20,9 @@ raised at the end of the contract.verfiy method:
 * Contract
   * Contract YAML or configuration issues (includes variable resolving problems)
   * Contract verification issues
-  * Check failures 
+  * Check failures
 
-In the next recommended API usage, please note that exceptions suppressed in 
+In the next recommended API usage, please note that exceptions suppressed in
 Connection, SodaCloud and contract parsing are passed as logs (Connection.logs,
 SodaCloud.logs, Contract.logs) in to the `contract.verify` method.
 

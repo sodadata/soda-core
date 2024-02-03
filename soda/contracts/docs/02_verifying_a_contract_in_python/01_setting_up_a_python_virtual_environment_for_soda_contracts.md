@@ -2,7 +2,7 @@
 
 > Prerequisites:
 > * Linux or Mac
-> * You have installed Python 3.8 or greater. 
+> * You have installed Python 3.8 or greater.
 > * You have installed Pip 21.0 or greater.
 
 This tutorial references a MacOS environment.

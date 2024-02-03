@@ -1,11 +1,11 @@
 # Soda data contracts
 
-Use Soda to verify that datasets comply with the specified data contract. 
+Use Soda to verify that datasets comply with the specified data contract.
 
 A dataset is a table or other tabular datastructure accessible via a SQL connection.
 
-A data contract is a YAML file that describes the data in a dataset. Soda is used to 
-verify that new data in a dataset is matching the schema and other data quality properties 
+A data contract is a YAML file that describes the data in a dataset. Soda is used to
+verify that new data in a dataset is matching the schema and other data quality properties
 in the contract.
 
 # Contract YAML format
@@ -16,30 +16,30 @@ Example:
 dataset: DIM_CUSTOMER
 
 columns:
-    
+
 - name: id
   data_type: character varying
   checks:
   - type: missing
   - type: unique
-    
+
 - name: cst_size_txt
   checks:
   - type: invalid
     valid_values: [1, 2, 3]
-    
+
 - name: distance
   data_type: integer
-  checks: 
+  checks:
   - type: avg
     fail_when_not_between: [50, 150]
-          
+
 - name: country
   data_type: varchar
   checks:
   - type: no_missing_values
   - type: invalid
-    valid_values_column: 
+    valid_values_column:
       dataset: COUNTRIES
       column: id
 

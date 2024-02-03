@@ -12,7 +12,7 @@
 
 ### Schema check
 
-When verifying a contract, Soda will first check the schema.  The schema is essential and will always be checked. 
+When verifying a contract, Soda will first check the schema.  The schema is essential and will always be checked.
 
 Example contract schema check:
 ```yaml
@@ -28,7 +28,7 @@ columns:
 Optionally, if the `data_type` property is specified in the column, the data type will be checked as well as part of
 the schema check.
 
-By default all columns specified in the contract are required. Columns can also be marked as `optional: true`.  
+By default all columns specified in the contract are required. Columns can also be marked as `optional: true`.
 
 See the examples below for more schema features like optional columns and allowing other columns.
 
@@ -55,7 +55,7 @@ checks:
     fail_when_not_between: [100, 120]
 ```
 
-See [Thresholds](#thresholds) for more on specifying failure thresholds and ranges.  
+See [Thresholds](#thresholds) for more on specifying failure thresholds and ranges.
 
 ### Missing values checks
 
@@ -91,7 +91,7 @@ columns:
     missing_values: ['N/A', 'No value']
 ```
 
-Example: configure optional missing_regex 
+Example: configure optional missing_regex
 ```yaml
 dataset: CUSTOMERS
 columns:
@@ -102,7 +102,7 @@ columns:
     missing_regex: ^(NULL|null)$
 ```
 
-Missing values also can have the [common check properties](#common-check-properties) 
+Missing values also can have the [common check properties](#common-check-properties)
 
 ### Invalid values checks
 
@@ -149,7 +149,7 @@ dataset: CUSTOMERS
 columns:
 - name: id
   checks:
-  # Fail when there are values not a fixed length of 5 
+  # Fail when there are values not a fixed length of 5
   - type: invalid_count
     valid_length: 5
 ```
@@ -160,7 +160,7 @@ dataset: CUSTOMERS
 columns:
 - name: id
   checks:
-  # Fail when there are values not matching a SQL regex 
+  # Fail when there are values not matching a SQL regex
   - type: invalid_count
     valid_regex: '^ID.$'
 ```
@@ -171,7 +171,7 @@ dataset: CUSTOMERS
 columns:
 - name: category_id
   checks:
-  # Fail when there are values not occuring in another column of another dataset 
+  # Fail when there are values not occuring in another column of another dataset
   - type: invalid_count
     valid_values_column:
         dataset: CUSTOMER_CATEGORIES
@@ -187,7 +187,7 @@ columns:
   # In case there are missing value customizations (apart from NULL, which is always missing)...
   - type: missing
     missing_values: ['N/A']
-  # The invalid values check will ignore the missing values.  This is to ensure that 
+  # The invalid values check will ignore the missing values.  This is to ensure that
   # missing_count + invalid_count + valid_count = row_count
   - type: invalid_count
     valid_values: ['S', 'M', 'L']
@@ -205,20 +205,20 @@ dataset: CUSTOMERS
 columns:
 - name: id
   checks:
-  # Fail when there are duplicates  
+  # Fail when there are duplicates
   - type: duplicate_count
 ```
 
 ### Freshness check
 
-Checks if there are rows indicating recent data has been added.  It assumes there is a column that represents a timestamp like 
-an event time or so.  The check looks for the maximum value in the column and verifies if that maximum value is not older than 
+Checks if there are rows indicating recent data has been added.  It assumes there is a column that represents a timestamp like
+an event time or so.  The check looks for the maximum value in the column and verifies if that maximum value is not older than
 a given threshold time period.
 
 Example
 ```yaml
 dataset: CUSTOMERS
-checks: 
+checks:
     - type: freshness_in_hours
       fail_when_greater_than: 6
 ```
@@ -237,7 +237,7 @@ dataset: CUSTOMERS
 columns:
 - name: size
   checks:
-  # Fail when the average is not between 10 and 20  
+  # Fail when the average is not between 10 and 20
   - type: avg
     fail_when_not_between: [10, 20]
 ```
@@ -263,7 +263,7 @@ Example of a multi columns duplicates check
 dataset: CUSTOMERS
 columns:
     - ...
-checks: 
+checks:
     - type: multi_column_duplicates
       columns: ['country_code', 'zip']
 ```
@@ -276,7 +276,7 @@ Example of a user-defined SQL check
 dataset: CUSTOMERS
 columns:
     - ...
-checks: 
+checks:
     - type: user_defined_sql
       metric: us_count
       query: |

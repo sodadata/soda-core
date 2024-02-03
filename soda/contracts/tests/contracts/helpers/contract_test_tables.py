@@ -1,4 +1,4 @@
-from datetime import timezone, date
+from datetime import date, timezone
 
 from helpers.test_table import TestTable
 from soda.execution.data_type import DataType
@@ -25,10 +25,7 @@ contracts_test_table = TestTable(
 
 contract_refs_test_table = TestTable(
     name="contract_refs",
-    columns=[
-        ("id", DataType.TEXT),
-        ("contract_id", DataType.TEXT)
-    ],
+    columns=[("id", DataType.TEXT), ("contract_id", DataType.TEXT)],
     # fmt: off
     values=[
         ('1', 'ID1'),

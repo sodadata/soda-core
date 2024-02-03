@@ -10,15 +10,15 @@ from typing import List
 @dataclass
 class Location:
 
-    file: str | None = None,
-    line: int | None = None,
+    file: str | None = (None,)
+    line: int | None = (None,)
     column: int | None = None
 
     def __str__(self):
-        parts =[
+        parts = [
             f"file={self.file}" if self.file else None,
             f"line={self.line}" if self.line is not None else None,
-            f"column={self.column}" if self.column is not None else None
+            f"column={self.column}" if self.column is not None else None,
         ]
         parts = [p for p in parts if p is not None]
         return ",".join(parts)
@@ -36,13 +36,14 @@ class LogLevel(Enum):
 
 class Log:
 
-    def __init__(self,
-                 level: LogLevel,
-                 message: str,
-                 location: Location | None = None,
-                 exception: BaseException | None = None,
-                 docs: str | None = None
-                 ):
+    def __init__(
+        self,
+        level: LogLevel,
+        message: str,
+        location: Location | None = None,
+        exception: BaseException | None = None,
+        docs: str | None = None,
+    ):
         self.level: LogLevel = level
         self.message: str = message
         self.location: Location | None = location
@@ -65,11 +66,7 @@ class Log:
         return f"{self.level.value.ljust(7)}| {self.message}{location_str}{doc_str}{exception_str}"
 
     @classmethod
-    def error(cls,
-              message: str,
-              location: Location | None = None,
-              exception: BaseException | None = None
-              ) -> Log:
+    def error(cls, message: str, location: Location | None = None, exception: BaseException | None = None) -> Log:
         return Log(level=LogLevel.ERROR, message=message, location=location, exception=exception)
 
 
@@ -96,11 +93,7 @@ class Logs:
     def get_errors(self) -> List[Log]:
         return [log for log in self.logs if log.level == LogLevel.ERROR]
 
-    def error(self,
-                   message: str,
-                   location: Location | None = None,
-                   exception: BaseException | None = None
-                   ) -> None:
+    def error(self, message: str, location: Location | None = None, exception: BaseException | None = None) -> None:
         self._log(Log(LogLevel.ERROR, message, location, exception))
 
     def _log(self, log: Log) -> None:

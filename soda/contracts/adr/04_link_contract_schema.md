@@ -1,15 +1,15 @@
 # Link between contract and schema
 
-With the new contracts API, we will revisit the concept of a data source.  Instead of 
-combining the connection together with the schema in a data source, contracts will just 
-work on a connection.  This will bring the abstractions more in line with what users 
+With the new contracts API, we will revisit the concept of a data source.  Instead of
+combining the connection together with the schema in a data source, contracts will just
+work on a connection.  This will bring the abstractions more in line with what users
 know.
 
 Contract verification operates on a connection.  This implies a selection of a database.
 Usually one connection can provide access to multiple schemas.
 
-In the simplest case, a schema is not needed.  Contract verification can run on just the 
-table name.  As long as the connection is able to identify the table by its name without 
+In the simplest case, a schema is not needed.  Contract verification can run on just the
+table name.  As long as the connection is able to identify the table by its name without
 referring to the schema.
 
 ```yaml
@@ -17,10 +17,10 @@ dataset: CUSTOMERS
 columns:
     - name: id
     ...
-``` 
+```
 
-The connection may not have the target schema in the search path and referring to the table 
-name may not be sufficient on the connection.  In that case, we should consider to let users 
+The connection may not have the target schema in the search path and referring to the table
+name may not be sufficient on the connection.  In that case, we should consider to let users
 specify the schema in several ways:
 
 a) In the contract itself:
@@ -38,7 +38,7 @@ contract: Contract = Contract.from_yaml_file(file_path=contract_file_path, schem
 contract_result: ContractResult = contract.verify(connection=connection, soda_cloud=soda_cloud)
 ```
 
-c) (still in idea-stage) We can expand this basic API with a file naming convention that uses relative references to 
+c) (still in idea-stage) We can expand this basic API with a file naming convention that uses relative references to
 the schema and connection files.`../schema.yml`
 and `../../../connection.yml` leading to for example:
 
@@ -68,4 +68,4 @@ except SodaException as e:
 ```
 
 This would also fit the CLI tooling.  Using this file name convention, it also makes the connection between the contract
-and the database much clearer: The contract is the place where you can extend the databases metadata. 
+and the database much clearer: The contract is the place where you can extend the databases metadata.

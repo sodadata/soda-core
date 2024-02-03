@@ -1,10 +1,8 @@
-import os
 from textwrap import dedent
 
-import pytest
-
 from helpers.fixtures import project_root_dir
-from soda.contracts.connection import Connection, SodaException
+
+from soda.contracts.connection import Connection
 
 
 def test_connection_exception_file_not_found():
@@ -24,23 +22,31 @@ def test_connection_from_file_with_variable_resolving(environ):
 
 
 def test_invalid_database():
-    connection = Connection.from_yaml_str(dedent("""
+    connection = Connection.from_yaml_str(
+        dedent(
+            """
         type: postgres
         host: localhost
         database: invalid_db
         username: sodasql
-    """))
+    """
+        )
+    )
     connection_logs = str(connection.logs)
 
-    assert "database \"invalid_db\" does not exist" in connection_logs
+    assert 'database "invalid_db" does not exist' in connection_logs
 
 
 def test_invalid_username():
-    connection = Connection.from_yaml_str(dedent("""
+    connection = Connection.from_yaml_str(
+        dedent(
+            """
         type: postgres
         host: localhost
         database: sodasql
         username: invalid_usr
-    """))
+    """
+        )
+    )
     connection_logs = str(connection.logs)
-    assert "role \"invalid_usr\" does not exist" in connection_logs
+    assert 'role "invalid_usr" does not exist' in connection_logs

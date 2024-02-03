@@ -54,7 +54,6 @@ class YamlWriter:
 
 
 class YamlWrapper:
-
     """
     Wraps Ruamel YAML objects into YamlValue's that provide
      - capturing all errors into a central logs object instead of raising an exception on the first problem
@@ -290,25 +289,20 @@ class YamlObject(YamlValue):
                 logger.error(msg)
         return yaml_value
 
+
 class YamlList(YamlValue):
     def __init__(self, ruamel_value: CommentedSeq, yaml_wrapper: YamlWrapper):
         super().__init__(ruamel_value)
         self.value: list[YamlValue] = [
             self.__convert_array_value(
-                ruamel_value=ruamel_list_value,
-                commented_seq=ruamel_value,
-                index=index,
-                yaml_wrapper=yaml_wrapper
+                ruamel_value=ruamel_list_value, commented_seq=ruamel_value, index=index, yaml_wrapper=yaml_wrapper
             )
             for index, ruamel_list_value in enumerate(ruamel_value)
         ]
 
-    def __convert_array_value(self,
-                              ruamel_value,
-                              commented_seq: CommentedSeq,
-                              index: int,
-                              yaml_wrapper: YamlWrapper
-                              ) -> YamlValue:
+    def __convert_array_value(
+        self, ruamel_value, commented_seq: CommentedSeq, index: int, yaml_wrapper: YamlWrapper
+    ) -> YamlValue:
         ruamel_location = commented_seq.lc.key(index)
         line: int = ruamel_location[0]
         column: int = ruamel_location[1]

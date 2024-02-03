@@ -43,17 +43,13 @@ class SodaCloud:
                     f"soda_cloud_yaml_file_path={soda_cloud_yaml_file_path}, but was '{type(soda_cloud_yaml_file_path)}"
                 )
             if not len(soda_cloud_yaml_file_path) > 1:
-                logs.error(
-                    f"Couldn't create SodaCloud from yaml file. soda_cloud_yaml_file_path is an empty string"
-                )
+                logs.error(f"Couldn't create SodaCloud from yaml file. soda_cloud_yaml_file_path is an empty string")
 
             with open(file=soda_cloud_yaml_file_path) as f:
                 soda_cloud_yaml_str = f.read()
                 return cls.from_yaml_str(soda_cloud_yaml_str=soda_cloud_yaml_str, logs=logs)
         except Exception as e:
-            raise SodaException(
-                f"Couldn't create SodaCloud from yaml file '{soda_cloud_yaml_file_path}'"
-            ) from e
+            raise SodaException(f"Couldn't create SodaCloud from yaml file '{soda_cloud_yaml_file_path}'") from e
 
     @classmethod
     def from_yaml_str(cls, soda_cloud_yaml_str: str, logs: Logs | None = None) -> SodaCloud:
@@ -70,14 +66,11 @@ class SodaCloud:
 
         if not isinstance(soda_cloud_yaml_str, str):
             logs.error(
-                f"Expected a string for parameter soda_cloud_yaml_str, "
-                f"but was '{type(soda_cloud_yaml_str)}'"
+                f"Expected a string for parameter soda_cloud_yaml_str, " f"but was '{type(soda_cloud_yaml_str)}'"
             )
 
         if soda_cloud_yaml_str == "":
-            logs.error(
-                f"soda_cloud_yaml_str must be non-emtpy, but was ''"
-            )
+            logs.error(f"soda_cloud_yaml_str must be non-emtpy, but was ''")
 
         variable_resolver = VariableResolver(logs=logs)
         resolved_soda_cloud_yaml_str: str = variable_resolver.resolve(soda_cloud_yaml_str)
@@ -89,15 +82,12 @@ class SodaCloud:
             soda_cloud_dict = yaml.load(resolved_soda_cloud_yaml_str)
         except MarkedYAMLError as e:
             mark = e.context_mark if e.context_mark else e.problem_mark
-            line = mark.line + 1,
-            column = mark.column + 1,
+            line = (mark.line + 1,)
+            column = (mark.column + 1,)
             logs.error(f"YAML syntax error: {e} | line={line} | column={column}")
 
         if not isinstance(soda_cloud_dict, dict):
-            logs.error(
-                f"Content of the SodaCloud YAML file must be a YAML object, "
-                f"but was {type(soda_cloud_dict)}"
-            )
+            logs.error(f"Content of the SodaCloud YAML file must be a YAML object, " f"but was {type(soda_cloud_dict)}")
 
         return cls.from_dict(soda_cloud_dict=soda_cloud_dict, logs=logs)
 
@@ -113,31 +103,21 @@ class SodaCloud:
             logs.error(f"soda_cloud_dict must be a dict, but was {type(soda_cloud_dict)}")
 
         host: str = cls.__get_configuration_value(
-            soda_cloud_dict=soda_cloud_dict,
-            key="host",
-            logs=logs,
-            default_value="cloud.soda.io"
+            soda_cloud_dict=soda_cloud_dict, key="host", logs=logs, default_value="cloud.soda.io"
         )
-        api_key_id: str = cls.__get_configuration_value(
-            soda_cloud_dict=soda_cloud_dict,
-            key="api_key_id",
-            logs=logs
-        )
+        api_key_id: str = cls.__get_configuration_value(soda_cloud_dict=soda_cloud_dict, key="api_key_id", logs=logs)
         api_key_secret: str = cls.__get_configuration_value(
-            soda_cloud_dict=soda_cloud_dict,
-            key="api_key_secret",
-            logs=logs
+            soda_cloud_dict=soda_cloud_dict, key="api_key_secret", logs=logs
         )
         scheme: str = cls.__get_configuration_value(
-            soda_cloud_dict=soda_cloud_dict,
-            key="scheme",
-            logs=logs,
-            default_value="https"
+            soda_cloud_dict=soda_cloud_dict, key="scheme", logs=logs, default_value="https"
         )
         return SodaCloud(host=host, api_key_id=api_key_id, api_key_secret=api_key_secret, scheme=scheme, logs=logs)
 
     @classmethod
-    def __get_configuration_value(cls, soda_cloud_dict: dict, key: str, logs: Logs, default_value: str | None = None) -> str:
+    def __get_configuration_value(
+        cls, soda_cloud_dict: dict, key: str, logs: Logs, default_value: str | None = None
+    ) -> str:
         environment_key_lower = f"soda_cloud_{key}".lower()
         if environment_key_lower in os.environ:
             return os.environ[environment_key_lower]

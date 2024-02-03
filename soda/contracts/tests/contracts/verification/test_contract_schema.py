@@ -2,7 +2,13 @@ import logging
 
 from contracts.helpers.contract_test_tables import contracts_test_table
 from contracts.helpers.test_connection import TestConnection
-from soda.contracts.contract import ContractResult, SchemaCheckResult, CheckOutcome, Measurement
+
+from soda.contracts.contract import (
+    CheckOutcome,
+    ContractResult,
+    Measurement,
+    SchemaCheckResult,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -10,7 +16,8 @@ logger = logging.getLogger(__name__)
 def test_contract_schema_pass_with_data_types(test_connection: TestConnection):
     table_name: str = test_connection.ensure_test_table(contracts_test_table)
 
-    contract_result: ContractResult = test_connection.assert_contract_pass(f"""
+    contract_result: ContractResult = test_connection.assert_contract_pass(
+        f"""
         dataset: {table_name}
         columns:
           - name: id
@@ -21,7 +28,8 @@ def test_contract_schema_pass_with_data_types(test_connection: TestConnection):
             data_type: {test_connection.data_type_integer()}
           - name: created
             data_type: {test_connection.data_type_date()}
-    """)
+    """
+    )
 
     schema_check_result: SchemaCheckResult = contract_result.check_results[0]
     assert schema_check_result.outcome == CheckOutcome.PASS
@@ -37,21 +45,23 @@ def test_contract_schema_pass_with_data_types(test_connection: TestConnection):
         "id": test_connection.data_type_text(),
         "size": test_connection.data_type_decimal(),
         "distance": test_connection.data_type_integer(),
-        "created": test_connection.data_type_date()
+        "created": test_connection.data_type_date(),
     }
 
 
 def test_contract_schema_pass_without_data_types(test_connection: TestConnection):
     table_name: str = test_connection.ensure_test_table(contracts_test_table)
 
-    contract_result: ContractResult = test_connection.assert_contract_pass(f"""
+    contract_result: ContractResult = test_connection.assert_contract_pass(
+        f"""
         dataset: {table_name}
         columns:
           - name: id
           - name: size
           - name: distance
           - name: created
-    """)
+    """
+    )
 
     schema_check_result: SchemaCheckResult = contract_result.check_results[0]
     assert schema_check_result.outcome == CheckOutcome.PASS
@@ -67,14 +77,15 @@ def test_contract_schema_pass_without_data_types(test_connection: TestConnection
         "id": test_connection.data_type_text(),
         "size": test_connection.data_type_decimal(),
         "distance": test_connection.data_type_integer(),
-        "created": test_connection.data_type_date()
+        "created": test_connection.data_type_date(),
     }
 
 
 def test_contract_schema_missing_column(test_connection: TestConnection):
     table_name: str = test_connection.ensure_test_table(contracts_test_table)
 
-    contract_result: ContractResult = test_connection.assert_contract_fail(f"""
+    contract_result: ContractResult = test_connection.assert_contract_fail(
+        f"""
         dataset: {table_name}
         columns:
           - name: id
@@ -87,7 +98,8 @@ def test_contract_schema_missing_column(test_connection: TestConnection):
             data_type: {test_connection.data_type_text()}
           - name: created
             data_type: {test_connection.data_type_date()}
-    """)
+    """
+    )
 
     schema_check_result: SchemaCheckResult = contract_result.check_results[0]
     assert schema_check_result.outcome == CheckOutcome.FAIL
@@ -103,7 +115,7 @@ def test_contract_schema_missing_column(test_connection: TestConnection):
         "id": test_connection.data_type_text(),
         "size": test_connection.data_type_decimal(),
         "distance": test_connection.data_type_integer(),
-        "created": test_connection.data_type_date()
+        "created": test_connection.data_type_date(),
     }
     assert "Column 'themissingcolumn' was missing" in str(contract_result)
 
@@ -111,7 +123,8 @@ def test_contract_schema_missing_column(test_connection: TestConnection):
 def test_contract_schema_missing_optional_column(test_connection: TestConnection):
     table_name: str = test_connection.ensure_test_table(contracts_test_table)
 
-    contract_result: ContractResult = test_connection.assert_contract_pass(f"""
+    contract_result: ContractResult = test_connection.assert_contract_pass(
+        f"""
         dataset: {table_name}
         columns:
           - name: id
@@ -125,7 +138,8 @@ def test_contract_schema_missing_optional_column(test_connection: TestConnection
             optional: true
           - name: created
             data_type: {test_connection.data_type_date()}
-    """)
+    """
+    )
 
     schema_check_result: SchemaCheckResult = contract_result.check_results[0]
     assert schema_check_result.outcome == CheckOutcome.PASS
@@ -141,14 +155,15 @@ def test_contract_schema_missing_optional_column(test_connection: TestConnection
         "id": test_connection.data_type_text(),
         "size": test_connection.data_type_decimal(),
         "distance": test_connection.data_type_integer(),
-        "created": test_connection.data_type_date()
+        "created": test_connection.data_type_date(),
     }
 
 
 def test_contract_schema_extra_column(test_connection: TestConnection):
     table_name: str = test_connection.ensure_test_table(contracts_test_table)
 
-    contract_result: ContractResult = test_connection.assert_contract_fail(f"""
+    contract_result: ContractResult = test_connection.assert_contract_fail(
+        f"""
         dataset: {table_name}
         columns:
           - name: id
@@ -157,7 +172,8 @@ def test_contract_schema_extra_column(test_connection: TestConnection):
             data_type: {test_connection.data_type_decimal()}
           - name: created
             data_type: {test_connection.data_type_date()}
-    """)
+    """
+    )
 
     schema_check_result: SchemaCheckResult = contract_result.check_results[0]
     assert schema_check_result.outcome == CheckOutcome.FAIL
@@ -173,7 +189,7 @@ def test_contract_schema_extra_column(test_connection: TestConnection):
         "id": test_connection.data_type_text(),
         "size": test_connection.data_type_decimal(),
         "distance": test_connection.data_type_integer(),
-        "created": test_connection.data_type_date()
+        "created": test_connection.data_type_date(),
     }
     assert "Column 'distance' was present and not allowed" in str(contract_result)
 
@@ -181,7 +197,8 @@ def test_contract_schema_extra_column(test_connection: TestConnection):
 def test_contract_schema_data_type_mismatch(test_connection: TestConnection):
     table_name: str = test_connection.ensure_test_table(contracts_test_table)
 
-    contract_result: ContractResult = test_connection.assert_contract_fail(f"""
+    contract_result: ContractResult = test_connection.assert_contract_fail(
+        f"""
         dataset: {table_name}
         columns:
           - name: id
@@ -192,7 +209,8 @@ def test_contract_schema_data_type_mismatch(test_connection: TestConnection):
             data_type: {test_connection.data_type_integer()}
           - name: created
             data_type: {test_connection.data_type_date()}
-    """)
+    """
+    )
 
     schema_check_result: SchemaCheckResult = contract_result.check_results[0]
     assert schema_check_result.outcome == CheckOutcome.FAIL

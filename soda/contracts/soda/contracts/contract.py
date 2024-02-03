@@ -2,21 +2,22 @@ from __future__ import annotations
 
 import dataclasses
 import logging
-from abc import abstractmethod, ABC
+from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from enum import Enum
 from numbers import Number
 from textwrap import indent
-from typing import List, Dict
+from typing import Dict, List
 
 from soda.common import logs as soda_common_logs
-from soda.contracts.connection import SodaException, DataSourceConnection
-from soda.contracts.impl import logs as contract_logs
-from soda.contracts.impl.logs import Logs
-from soda.contracts.impl.yaml import YamlWriter, YamlObject
-from soda.contracts.soda_cloud import SodaCloud
 from soda.scan import Scan
 from soda.sodacl.location import Location
+
+from soda.contracts.connection import SodaException
+from soda.contracts.impl import logs as contract_logs
+from soda.contracts.impl.logs import Logs
+from soda.contracts.impl.yaml import YamlObject, YamlWriter
+from soda.contracts.soda_cloud import SodaCloud
 
 logger = logging.getLogger(__name__)
 
@@ -24,20 +25,16 @@ logger = logging.getLogger(__name__)
 class Contract:
 
     @classmethod
-    def from_yaml_str(cls,
-                      contract_yaml_str: str,
-                      variables: dict[str, str] | None = None,
-                      logs: Logs | None = None
-                      ) -> Contract:
+    def from_yaml_str(
+        cls, contract_yaml_str: str, variables: dict[str, str] | None = None, logs: Logs | None = None
+    ) -> Contract:
         """
         Build a contract from a YAML string
         """
         from soda.contracts.impl.contract_parser import ContractParser
+
         contract_parser: ContractParser = ContractParser(logs=logs)
-        return contract_parser.parse_contract(
-            contract_yaml_str=contract_yaml_str,
-            variables=variables
-        )
+        return contract_parser.parse_contract(contract_yaml_str=contract_yaml_str, variables=variables)
 
     @classmethod
     def from_yaml_file(cls, file_path: str) -> Contract:
@@ -50,14 +47,7 @@ class Contract:
             contract_yaml_str = f.read()
             return cls.from_yaml_str(contract_yaml_str)
 
-
-    def __init__(self,
-                 dataset: str,
-                 schema: str | None,
-                 checks: List[Check],
-                 contract_yaml_str: str,
-                 logs: Logs
-                 ):
+    def __init__(self, dataset: str, schema: str | None, checks: List[Check], contract_yaml_str: str, logs: Logs):
         """
         Consider using Contract.from_yaml_str(contract_yaml_str) instead as that is more stable API.
         """
@@ -70,12 +60,9 @@ class Contract:
         self.logs: Logs = logs
         self.sodacl_yaml_str: str | None = None
 
-    def verify(self,
-               connection: "Connection",
-               soda_cloud: SodaCloud | None = None,
-               variables: Dict[str, str] | None = None
-               ) -> ContractResult:
-
+    def verify(
+        self, connection: Connection, soda_cloud: SodaCloud | None = None, variables: Dict[str, str] | None = None
+    ) -> ContractResult:
         """
         Verifies if the data in the dataset matches the contract.
         """
@@ -115,10 +102,7 @@ class Contract:
         self._transform_scan_warning_and_error_logs(scan)
 
         contract_result: ContractResult = ContractResult(
-            contract=self,
-            sodacl_yaml_str=sodacl_yaml_str,
-            logs=self.logs,
-            scan=scan
+            contract=self, sodacl_yaml_str=sodacl_yaml_str, logs=self.logs, scan=scan
         )
         if contract_result.failed():
             raise SodaException(contract_result=contract_result)
@@ -130,32 +114,29 @@ class Contract:
             soda_common_logs.LogLevel.ERROR: contract_logs.LogLevel.ERROR,
             soda_common_logs.LogLevel.WARNING: contract_logs.LogLevel.WARNING,
             soda_common_logs.LogLevel.INFO: contract_logs.LogLevel.INFO,
-            soda_common_logs.LogLevel.DEBUG: contract_logs.LogLevel.DEBUG
+            soda_common_logs.LogLevel.DEBUG: contract_logs.LogLevel.DEBUG,
         }
         for scan_log in scan._logs.logs:
-            if scan_log.level in [
-                soda_common_logs.LogLevel.ERROR,
-                soda_common_logs.LogLevel.WARNING
-            ]:
+            if scan_log.level in [soda_common_logs.LogLevel.ERROR, soda_common_logs.LogLevel.WARNING]:
                 contracts_location: Location = (
                     contract_logs.Location(line=scan_log.location.line, column=scan_log.location.col)
                     if scan_log.location is not None
                     else None
                 )
                 contracts_level: contract_logs.LogLevel = level_map[scan_log.level]
-                self.logs._log(contract_logs.Log(
-                    level=contracts_level,
-                    message=scan_log.message,
-                    location=contracts_location,
-                    exception=scan_log.exception
-                ))
+                self.logs._log(
+                    contract_logs.Log(
+                        level=contracts_level,
+                        message=scan_log.message,
+                        location=contracts_location,
+                        exception=scan_log.exception,
+                    )
+                )
 
     def _generate_sodacl_yaml_str(self, logs: Logs) -> str:
         # Serialize the SodaCL YAML object to a YAML string
         sodacl_checks: list = []
-        sodacl_yaml_object: dict = {
-            f"checks for {self.dataset}": sodacl_checks
-        }
+        sodacl_yaml_object: dict = {f"checks for {self.dataset}": sodacl_checks}
         for check in self.checks:
             sodacl_check = check._to_sodacl_check()
             if sodacl_check is not None:
@@ -184,16 +165,11 @@ class ContractResult:
         self.contract = contract
         self.sodacl_yaml_str = sodacl_yaml_str
         self.logs: Logs = Logs(logs)
-        self.check_results: List[CheckResult]  = []
+        self.check_results: List[CheckResult] = []
 
-        contract_checks_by_id: dict[str, Check] = {
-            check.contract_check_id: check for check in contract.checks
-        }
+        contract_checks_by_id: dict[str, Check] = {check.contract_check_id: check for check in contract.checks}
 
-        schema_check: SchemaCheck | None = next(
-            (c for c in contract.checks if isinstance(c, SchemaCheck)),
-            None
-        )
+        schema_check: SchemaCheck | None = next((c for c in contract.checks if isinstance(c, SchemaCheck)), None)
 
         scan_metrics_by_id: dict[str, dict] = {
             scan_metric["identity"]: scan_metric for scan_metric in scan.scan_results.get("metrics", [])
@@ -220,9 +196,7 @@ class ContractResult:
                     scan_check_metric.get("metricName"): scan_check_metric for scan_check_metric in scan_check_metrics
                 }
                 check_result = contract_check._create_check_result(
-                    scan_check=scan_check,
-                    scan_check_metrics_by_name=scan_check_metrics_by_name,
-                    scan=scan
+                    scan_check=scan_check, scan_check_metrics_by_name=scan_check_metrics_by_name, scan=scan
                 )
                 self.check_results.append(check_result)
 
@@ -239,10 +213,7 @@ class ContractResult:
         return any(check.outcome == CheckOutcome.FAIL for check in self.check_results)
 
     def __str__(self) -> str:
-        error_texts_list: List[str] = [
-            str(error)
-            for error in self.logs.get_errors()
-        ]
+        error_texts_list: List[str] = [str(error) for error in self.logs.get_errors()]
 
         check_failure_message_list = [
             check_result.get_console_log_message()
@@ -294,10 +265,9 @@ class Check(ABC):
         pass
 
     @abstractmethod
-    def _create_check_result(self,
-                            scan_check: dict[str, dict],
-                            scan_check_metrics_by_name: dict[str, dict],
-                            scan: Scan):
+    def _create_check_result(
+        self, scan_check: dict[str, dict], scan_check_metrics_by_name: dict[str, dict], scan: Scan
+    ):
         pass
 
 
@@ -309,13 +279,13 @@ class CheckResult:
 
     def get_console_log_message(self) -> str:
         outcome_text = (
-            "Check FAILED" if self.outcome == CheckOutcome.FAIL
-            else "Check passed" if self.outcome == CheckOutcome.PASS
-            else "Check unknown"
+            "Check FAILED"
+            if self.outcome == CheckOutcome.FAIL
+            else "Check passed" if self.outcome == CheckOutcome.PASS else "Check unknown"
         )
         name_text = f" [{self.check.name}]" if self.check.name else ""
         definition_text = indent(f"Expected {self.check.get_definition_line()}", "  ")
-        measurements_text =  ", ".join(metric.get_console_log_message() for metric in self.measurements)
+        measurements_text = ", ".join(metric.get_console_log_message() for metric in self.measurements)
         measurements_text = f"  Actual {measurements_text}"
         return f"{outcome_text}{name_text}\n{definition_text}\n{measurements_text}"
 
@@ -334,12 +304,8 @@ class Measurement:
         if isinstance(scan_check_metric_identities, list) and isinstance(scan_metrics, list):
             for metric_identity in scan_check_metric_identities:
                 scan_metric = next(
-                    (
-                        scan_metric
-                        for scan_metric in scan_metrics
-                        if scan_metric.get("identity") == metric_identity
-                    ),
-                    None
+                    (scan_metric for scan_metric in scan_metrics if scan_metric.get("identity") == metric_identity),
+                    None,
                 )
                 if isinstance(scan_metric, dict):
                     name = scan_metric.get("identity")
@@ -384,19 +350,12 @@ class SchemaCheck(Check):
             schema_fail_dict["with optional columns"] = self.optional_columns
         return {"schema": {"fail": schema_fail_dict}}
 
-    def _create_check_result(self,
-                            scan_check: dict[str, dict],
-                            scan_check_metrics_by_name: dict[str, dict],
-                            scan: Scan):
+    def _create_check_result(
+        self, scan_check: dict[str, dict], scan_check_metrics_by_name: dict[str, dict], scan: Scan
+    ):
         scan_measured_schema: list[dict] = scan_check_metrics_by_name.get("schema").get("value")
-        measured_schema = {
-            c.get("columnName"): c.get("sourceDataType") for c in scan_measured_schema
-        }
-        measurement = Measurement(
-            name="schema",
-            type="schema",
-            value=measured_schema
-        )
+        measured_schema = {c.get("columnName"): c.get("sourceDataType") for c in scan_measured_schema}
+        measurement = Measurement(name="schema", type="schema", value=measured_schema)
 
         diagnostics = scan_check.get("diagnostics", {})
 
@@ -410,11 +369,7 @@ class SchemaCheck(Check):
                 expected_type = column_type_mismatch.get("expected_type")
                 actual_type = column_type_mismatch.get("actual_type")
                 columns_having_wrong_type.append(
-                    DataTypeMismatch(
-                        column=column_name,
-                        expected_data_type=expected_type,
-                        actual_data_type=actual_type
-                    )
+                    DataTypeMismatch(column=column_name, expected_data_type=expected_type, actual_data_type=actual_type)
                 )
 
         return SchemaCheckResult(
@@ -423,17 +378,23 @@ class SchemaCheck(Check):
             outcome=CheckOutcome._from_scan_check(scan_check),
             columns_not_allowed_and_present=columns_not_allowed_and_present,
             columns_required_and_not_present=columns_required_and_not_present,
-            columns_having_wrong_type=columns_having_wrong_type
+            columns_having_wrong_type=columns_having_wrong_type,
         )
 
     def get_definition_line(self) -> str:
-        column_spec: str = ",".join([f"{c.get('name')}{c.get('optional')}{c.get('type')}" for c in [
-            {
-                "name": column_name,
-                "type": f"={data_type}" if data_type else "",
-                "optional": "(optional)" if column_name in self.optional_columns else ""
-            } for column_name, data_type in self.columns.items()
-        ]])
+        column_spec: str = ",".join(
+            [
+                f"{c.get('name')}{c.get('optional')}{c.get('type')}"
+                for c in [
+                    {
+                        "name": column_name,
+                        "type": f"={data_type}" if data_type else "",
+                        "optional": "(optional)" if column_name in self.optional_columns else "",
+                    }
+                    for column_name, data_type in self.columns.items()
+                ]
+            ]
+        )
         return f"Schema: {column_spec}"
 
 
@@ -445,9 +406,16 @@ class SchemaCheckResult(CheckResult):
 
     def get_console_log_message(self) -> str:
         pieces: list[str] = [super().get_console_log_message()]
-        pieces.extend([f"  Column '{column}' was present and not allowed" for column in self.columns_not_allowed_and_present])
+        pieces.extend(
+            [f"  Column '{column}' was present and not allowed" for column in self.columns_not_allowed_and_present]
+        )
         pieces.extend([f"  Column '{column}' was missing" for column in self.columns_required_and_not_present])
-        pieces.extend([f"  Column '{data_type_mismatch.column}': Expected type '{data_type_mismatch.expected_data_type}', but was '{data_type_mismatch.actual_data_type}'" for data_type_mismatch in self.columns_having_wrong_type])
+        pieces.extend(
+            [
+                f"  Column '{data_type_mismatch.column}': Expected type '{data_type_mismatch.expected_data_type}', but was '{data_type_mismatch.actual_data_type}'"
+                for data_type_mismatch in self.columns_having_wrong_type
+            ]
+        )
         return "\n".join(pieces)
 
 
@@ -473,9 +441,7 @@ class NumericMetricCheck(Check):
         return f"{self.metric} {self.fail_threshold._get_sodacl_checkline_threshold()}"
 
     def _to_sodacl_check(self) -> str | dict | None:
-        sodacl_check_configs = {
-            "contract check id": self.contract_check_id
-        }
+        sodacl_check_configs = {"contract check id": self.contract_check_id}
 
         if self.name:
             sodacl_check_configs["name"] = self.name
@@ -496,33 +462,22 @@ class NumericMetricCheck(Check):
             if self.warn_threshold:
                 self.warn_threshold._update_sodacl_threshold_configs(sodacl_check_configs, "warn")
 
-        return (
-            {sodacl_check_line: sodacl_check_configs} if sodacl_check_configs
-            else sodacl_check_line
-        )
+        return {sodacl_check_line: sodacl_check_configs} if sodacl_check_configs else sodacl_check_line
 
-    def _create_check_result(self,
-                             scan_check: dict[str, dict],
-                             scan_check_metrics_by_name: dict[str, dict],
-                             scan: Scan):
+    def _create_check_result(
+        self, scan_check: dict[str, dict], scan_check_metrics_by_name: dict[str, dict], scan: Scan
+    ):
         scan_metric_dict: dict
         bracket_index: int = self.metric.index("(")
         if bracket_index != -1:
-            scan_metric_name = self.metric[:self.metric.index("(")]
+            scan_metric_name = self.metric[: self.metric.index("(")]
             scan_metric_dict = scan_check_metrics_by_name.get(scan_metric_name, None)
         else:
             scan_metric_dict = scan_check_metrics_by_name.get(self.metric, None)
         value: Number = scan_metric_dict.get("value") if scan_metric_dict else None
-        measurement = Measurement(
-            name=self.metric,
-            type="numeric",
-            value=value
-        )
-        return CheckResult(
-            check=self,
-            measurements=[measurement],
-            outcome=CheckOutcome._from_scan_check(scan_check)
-        )
+        measurement = Measurement(name=self.metric, type="numeric", value=value)
+        return CheckResult(check=self, measurements=[measurement], outcome=CheckOutcome._from_scan_check(scan_check))
+
 
 @dataclass
 class InvalidReferenceCheck(Check):
@@ -536,36 +491,22 @@ class InvalidReferenceCheck(Check):
         return f"values in ({self.column}) must exist in {self.reference_dataset} ({self.reference_column})"
 
     def _to_sodacl_check(self) -> str | dict | None:
-        sodacl_check_configs = {
-            "contract check id": self.contract_check_id
-        }
+        sodacl_check_configs = {"contract check id": self.contract_check_id}
 
         if self.name:
             sodacl_check_configs["name"] = self.name
 
         sodacl_check_line: str = self.get_definition_line()
 
-        return (
-            {sodacl_check_line: sodacl_check_configs} if sodacl_check_configs
-            else sodacl_check_line
-        )
+        return {sodacl_check_line: sodacl_check_configs} if sodacl_check_configs else sodacl_check_line
 
-    def _create_check_result(self,
-                             scan_check: dict[str, dict],
-                             scan_check_metrics_by_name: dict[str, dict],
-                             scan: Scan):
+    def _create_check_result(
+        self, scan_check: dict[str, dict], scan_check_metrics_by_name: dict[str, dict], scan: Scan
+    ):
         scan_metric_dict = scan_check_metrics_by_name.get("reference", {})
         value: Number = scan_metric_dict.get("value")
-        measurement = Measurement(
-            name=f"invalid_count({self.column})",
-            type="numeric",
-            value=value
-        )
-        return CheckResult(
-            check=self,
-            measurements=[measurement],
-            outcome=CheckOutcome._from_scan_check(scan_check)
-        )
+        measurement = Measurement(name=f"invalid_count({self.column})", type="numeric", value=value)
+        return CheckResult(check=self, measurements=[measurement], outcome=CheckOutcome._from_scan_check(scan_check))
 
 
 @dataclass
@@ -582,10 +523,7 @@ class UserDefinedSqlCheck(Check):
 
     def _to_sodacl_check(self) -> str | dict | None:
 
-        sodacl_check_configs = {
-            "contract check id": self.contract_check_id,
-            f"{self.metric} query": self.query
-        }
+        sodacl_check_configs = {"contract check id": self.contract_check_id, f"{self.metric} query": self.query}
         if self.name:
             sodacl_check_configs["name"] = self.name
 
@@ -596,10 +534,9 @@ class UserDefinedSqlCheck(Check):
 
         return {sodacl_check_line: sodacl_check_configs}
 
-    def _create_check_result(self,
-                             scan_check: dict[str, dict],
-                             scan_check_metrics_by_name: dict[str, dict],
-                             scan: Scan):
+    def _create_check_result(
+        self, scan_check: dict[str, dict], scan_check_metrics_by_name: dict[str, dict], scan: Scan
+    ):
         scan_metric_dict: dict = scan_check_metrics_by_name.get(self.get_definition_line(), None)
         # try:
         #     bracket_index: int = self.metric.index("(")
@@ -607,16 +544,9 @@ class UserDefinedSqlCheck(Check):
         # except ValueError:
         #     scan_metric_dict = scan_check_metrics_by_name.get(self.metric, None)
         value: Number = scan_metric_dict.get("value") if scan_metric_dict else None
-        measurement = Measurement(
-            name=self.metric,
-            type="numeric",
-            value=value
-        )
-        return CheckResult(
-            check=self,
-            measurements=[measurement],
-            outcome=CheckOutcome._from_scan_check(scan_check)
-        )
+        measurement = Measurement(name=self.metric, type="numeric", value=value)
+        return CheckResult(check=self, measurements=[measurement], outcome=CheckOutcome._from_scan_check(scan_check))
+
 
 def dataclass_object_to_sodacl_dict(dataclass_object: object) -> dict:
     dict_factory = lambda x: {k.replace("_", " "): v for (k, v) in x if v is not None}
@@ -638,8 +568,8 @@ class ValidConfigurations:
     invalid_format: str | None
     invalid_regex: str | None
     valid_values: list[str] | list[Number] | None
-    valid_format:  str | None
-    valid_regex:  str | None
+    valid_format: str | None
+    valid_regex: str | None
     valid_min: Number | None
     valid_max: Number | None
     valid_length: int | None
@@ -674,7 +604,9 @@ class NumericThreshold:
     not_between: Range | None = None
 
     def _get_sodacl_checkline_threshold(self) -> str:
-        greater_bound: Number | None = self.greater_than if self.greater_than is not None else self.greater_than_or_equal
+        greater_bound: Number | None = (
+            self.greater_than if self.greater_than is not None else self.greater_than_or_equal
+        )
         less_bound: Number | None = self.less_than if self.less_than is not None else self.less_than_or_equal
         if greater_bound is not None and less_bound is not None:
             if greater_bound > less_bound:
@@ -683,7 +615,7 @@ class NumericThreshold:
                     lower_bound=less_bound,
                     lower_bound_included=self.less_than is not None,
                     upper_bound=greater_bound,
-                    upper_bound_included=self.greater_than is not None
+                    upper_bound_included=self.greater_than is not None,
                 )
             else:
                 return self._sodacl_threshold(
@@ -691,7 +623,7 @@ class NumericThreshold:
                     lower_bound=greater_bound,
                     lower_bound_included=self.greater_than_or_equal is not None,
                     upper_bound=less_bound,
-                    upper_bound_included=self.less_than_or_equal is not None
+                    upper_bound_included=self.less_than_or_equal is not None,
                 )
         elif isinstance(self.between, Range):
             return self._sodacl_threshold(
@@ -699,7 +631,7 @@ class NumericThreshold:
                 lower_bound=self.between.lower_bound,
                 lower_bound_included=True,
                 upper_bound=self.between.upper_bound,
-                upper_bound_included=True
+                upper_bound_included=True,
             )
         elif isinstance(self.not_between, Range):
             return self._sodacl_threshold(
@@ -707,7 +639,7 @@ class NumericThreshold:
                 lower_bound=self.not_between.lower_bound,
                 lower_bound_included=True,
                 upper_bound=self.not_between.upper_bound,
-                upper_bound_included=True
+                upper_bound_included=True,
             )
         elif self.greater_than is not None:
             return f"<= {self.greater_than}"
@@ -723,13 +655,14 @@ class NumericThreshold:
             return f"= {self.not_equals}"
 
     @classmethod
-    def _sodacl_threshold(cls,
-                          is_not_between: bool,
-                          lower_bound: Number,
-                          lower_bound_included: bool,
-                          upper_bound: Number,
-                          upper_bound_included: bool
-                          ) -> str:
+    def _sodacl_threshold(
+        cls,
+        is_not_between: bool,
+        lower_bound: Number,
+        lower_bound_included: bool,
+        upper_bound: Number,
+        upper_bound_included: bool,
+    ) -> str:
         optional_not = "" if is_not_between else "not "
         lower_bound_bracket = "(" if lower_bound_included else ""
         upper_bound_bracket = ")" if upper_bound_included else ""
@@ -741,5 +674,6 @@ class Range:
     """
     Boundary values are inclusive
     """
+
     lower_bound: Number | None
     upper_bound: Number | None

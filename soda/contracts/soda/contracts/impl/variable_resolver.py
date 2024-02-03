@@ -15,9 +15,9 @@ class VariableResolver:
 
     def resolve(self, text: str) -> str:
         return re.sub(
-            pattern=r'\$\{([a-zA-Z_][a-zA-Z_0-9]*)\}',
+            pattern=r"\$\{([a-zA-Z_][a-zA-Z_0-9]*)\}",
             repl=lambda m: self._resolve_variable(m.group(1).strip()),
-            string=text
+            string=text,
         )
 
     def _resolve_variable(self, variable_name: str, variables: Dict[str, str] | None = None) -> str:

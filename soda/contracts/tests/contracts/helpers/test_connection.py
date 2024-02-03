@@ -3,9 +3,10 @@ from textwrap import dedent
 
 from helpers.data_source_fixture import DataSourceFixture
 from helpers.test_table import TestTable
-from soda.contracts.connection import Connection, SodaException
-from soda.contracts.contract import ContractResult, Contract
 from soda.execution.data_type import DataType
+
+from soda.contracts.connection import Connection, SodaException
+from soda.contracts.contract import Contract, ContractResult
 
 
 class TestConnection(Connection):
@@ -48,7 +49,9 @@ class TestConnection(Connection):
         contract: Contract = Contract.from_yaml_str(contract_yaml_str)
         try:
             contract_result: ContractResult = contract.verify(self)
-            raise AssertionError(f"Expected contract verification exception, but got contract result: {contract_result}")
+            raise AssertionError(
+                f"Expected contract verification exception, but got contract result: {contract_result}"
+            )
         except SodaException as e:
             assert e.contract_result
             if e.contract_result.has_execution_errors():

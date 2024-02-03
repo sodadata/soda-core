@@ -2,4 +2,4 @@
 
 TODO
 
-This will document how to use the Soda CLI to create a skeleton contract YAML file from the metadata in the database. 
+This will document how to use the Soda CLI to create a skeleton contract YAML file from the metadata in the database.

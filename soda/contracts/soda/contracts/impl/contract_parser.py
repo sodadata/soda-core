@@ -2,13 +2,24 @@ from __future__ import annotations
 
 import logging
 from numbers import Number
-from typing import List, Dict
+from typing import Dict, List
 
 from ruamel.yaml import CommentedMap
 
 from soda.contracts.connection import SodaException
-from soda.contracts.contract import Contract, Check, SchemaCheck, NumericThreshold, MissingConfigurations, \
-    NumericMetricCheck, ValidReferenceColumn, ValidConfigurations, Range, InvalidReferenceCheck, UserDefinedSqlCheck
+from soda.contracts.contract import (
+    Check,
+    Contract,
+    InvalidReferenceCheck,
+    MissingConfigurations,
+    NumericMetricCheck,
+    NumericThreshold,
+    Range,
+    SchemaCheck,
+    UserDefinedSqlCheck,
+    ValidConfigurations,
+    ValidReferenceColumn,
+)
 from soda.contracts.impl.json_schema_verifier import JsonSchemaVerifier
 from soda.contracts.impl.logs import Logs
 from soda.contracts.impl.variable_resolver import VariableResolver
@@ -25,10 +36,7 @@ class ContractParser:
         self.missing_value_configs_by_column = {}
         self.skip_schema_validation: bool = False
 
-    def parse_contract(self,
-                       contract_yaml_str: str,
-                       variables: dict[str, str] | None = None
-                       ) -> Contract:
+    def parse_contract(self, contract_yaml_str: str, variables: dict[str, str] | None = None) -> Contract:
         if not isinstance(contract_yaml_str, str):
             raise SodaException(f"contract_yaml_str must be a str, but was {type(contract_yaml_str)}")
 
@@ -59,17 +67,19 @@ class ContractParser:
 
         contract_columns_yaml_list: YamlList | None = contract_yaml_object.read_yaml_list("columns")
         if contract_columns_yaml_list:
-            schema_columns: Dict[str,str | None] = {}
+            schema_columns: Dict[str, str | None] = {}
             schema_optional_columns: List[str] = []
 
-            checks.append(SchemaCheck(
-                type="schema",
-                name="Schema",
-                contract_check_id=None,
-                location=None,
-                columns=schema_columns,
-                optional_columns=schema_optional_columns
-            ))
+            checks.append(
+                SchemaCheck(
+                    type="schema",
+                    name="Schema",
+                    contract_check_id=None,
+                    location=None,
+                    columns=schema_columns,
+                    optional_columns=schema_optional_columns,
+                )
+            )
 
             contract_column_yaml_object: YamlObject
             for contract_column_yaml_object in contract_columns_yaml_list.read_yaml_objects():
@@ -90,7 +100,7 @@ class ContractParser:
                             check: Check = self._parse_column_check(
                                 contract_check_id=str(len(checks)),
                                 check_yaml_object=column_check_yaml_object,
-                                column=column_name
+                                column=column_name,
                             )
                             if check:
                                 checks.append(check)
@@ -101,25 +111,16 @@ class ContractParser:
         if checks_yaml_list:
             for check_yaml_object in checks_yaml_list:
                 check = self._parse_dataset_check(
-                    contract_check_id=str(len(checks)),
-                    check_yaml_object=check_yaml_object
+                    contract_check_id=str(len(checks)), check_yaml_object=check_yaml_object
                 )
                 if check:
                     checks.append(check)
 
         return Contract(
-            dataset=dataset_name,
-            schema=schema_name,
-            checks=checks,
-            contract_yaml_str=contract_yaml_str,
-            logs=self.logs
+            dataset=dataset_name, schema=schema_name, checks=checks, contract_yaml_str=contract_yaml_str, logs=self.logs
         )
 
-    def _parse_column_check(self,
-                            contract_check_id: str,
-                            check_yaml_object: YamlObject,
-                            column: str
-                            ) -> Check | None:
+    def _parse_column_check(self, contract_check_id: str, check_yaml_object: YamlObject, column: str) -> Check | None:
 
         check_type = check_yaml_object.read_string("type")
         if check_type is None:
@@ -138,10 +139,19 @@ class ContractParser:
             metric = f"{check_type}{column_text}"
 
         default_threshold: NumericThreshold | None = (
-            NumericThreshold(not_equals=0) if check_type in[
-                "missing", "not_null", "missing_count", "missing_percent",
-                "invalid", "invalid_count", "invalid_percent",
-                "unique", "duplicate_count", "duplicate_percent"
+            NumericThreshold(not_equals=0)
+            if check_type
+            in [
+                "missing",
+                "not_null",
+                "missing_count",
+                "missing_percent",
+                "invalid",
+                "invalid_count",
+                "invalid_percent",
+                "unique",
+                "duplicate_count",
+                "duplicate_percent",
             ]
             else None
         )
@@ -149,14 +159,14 @@ class ContractParser:
         valid_values_column_yaml_object: YamlObject = check_yaml_object.read_yaml_object_opt("valid_values_column")
         if metric.startswith("invalid_") and valid_values_column_yaml_object:
             return self._parse_invalid_reference_check(
-            contract_check_id=contract_check_id,
-            check_yaml_object=check_yaml_object,
-            check_type=check_type,
-            metric=metric,
-            column=column,
-            valid_values_column_yaml_object=valid_values_column_yaml_object,
-            default_threshold=default_threshold
-        )
+                contract_check_id=contract_check_id,
+                check_yaml_object=check_yaml_object,
+                check_type=check_type,
+                metric=metric,
+                column=column,
+                valid_values_column_yaml_object=valid_values_column_yaml_object,
+                default_threshold=default_threshold,
+            )
 
         return self._parse_numeric_metric_check(
             contract_check_id=contract_check_id,
@@ -164,23 +174,22 @@ class ContractParser:
             check_type=check_type,
             metric=metric,
             column=column,
-            default_threshold=default_threshold
+            default_threshold=default_threshold,
         )
 
-    def _parse_numeric_metric_check(self,
-                                    contract_check_id: str,
-                                    check_yaml_object: YamlObject,
-                                    check_type: str,
-                                    metric: str,
-                                    column: str | None,
-                                    default_threshold: NumericThreshold | None
-                                    ) -> Check | None:
+    def _parse_numeric_metric_check(
+        self,
+        contract_check_id: str,
+        check_yaml_object: YamlObject,
+        check_type: str,
+        metric: str,
+        column: str | None,
+        default_threshold: NumericThreshold | None,
+    ) -> Check | None:
 
         name = check_yaml_object.read_string_opt("name")
         fail_threshold: NumericThreshold = self._parse_numeric_threshold(
-            check_yaml_object=check_yaml_object,
-            prefix="fail_when_",
-            default_threshold=default_threshold
+            check_yaml_object=check_yaml_object, prefix="fail_when_", default_threshold=default_threshold
         )
 
         for k in check_yaml_object:
@@ -212,18 +221,19 @@ class ContractParser:
             missing_configurations=missing_configurations,
             valid_configurations=valid_configurations,
             fail_threshold=fail_threshold,
-            warn_threshold=None
+            warn_threshold=None,
         )
 
-    def _parse_invalid_reference_check(self,
-                                       contract_check_id: str,
-                                       check_yaml_object: YamlObject,
-                                       check_type: str,
-                                       metric: str,
-                                       column: str | None,
-                                       valid_values_column_yaml_object: YamlObject,
-                                       default_threshold: NumericThreshold | None
-                                       ) -> Check | None:
+    def _parse_invalid_reference_check(
+        self,
+        contract_check_id: str,
+        check_yaml_object: YamlObject,
+        check_type: str,
+        metric: str,
+        column: str | None,
+        valid_values_column_yaml_object: YamlObject,
+        default_threshold: NumericThreshold | None,
+    ) -> Check | None:
         name = check_yaml_object.read_string_opt("name")
 
         reference_dataset = valid_values_column_yaml_object.read_string("dataset")
@@ -237,7 +247,7 @@ class ContractParser:
             check_yaml_object=check_yaml_object,
             column=column,
             reference_dataset=reference_dataset,
-            reference_column=reference_column
+            reference_column=reference_column,
         )
 
     def _parse_missing_configurations(self, check_yaml: YamlObject) -> MissingConfigurations | None:
@@ -248,10 +258,7 @@ class ContractParser:
         if all(v is None for v in [missing_values, missing_regex]):
             return None
         else:
-            return MissingConfigurations(
-                missing_values=missing_values,
-                missing_regex=missing_regex
-            )
+            return MissingConfigurations(missing_values=missing_values, missing_regex=missing_regex)
 
     def _parse_valid_configurations(self, check_yaml: YamlObject) -> ValidConfigurations | None:
         invalid_values_yaml_list: YamlList | None = check_yaml.read_yaml_list_opt(f"invalid_values")
@@ -273,22 +280,38 @@ class ContractParser:
         valid_max_length: int | None = check_yaml.read_number_opt(f"valid_max_length")
 
         valid_reference_column: ValidReferenceColumn | None = None
-        valid_reference_column_yaml_object: YamlObject | None = check_yaml.read_yaml_object_opt(f"valid_reference_column")
+        valid_reference_column_yaml_object: YamlObject | None = check_yaml.read_yaml_object_opt(
+            f"valid_reference_column"
+        )
         if valid_reference_column_yaml_object:
             ref_dataset = valid_reference_column_yaml_object.read_string("dataset")
             ref_column = valid_reference_column_yaml_object.read_string("column")
             valid_reference_column = ValidReferenceColumn(dataset=ref_dataset, column=ref_column)
 
-        if all(v is None for v in [invalid_values, invalid_format, invalid_regex, valid_values, valid_format,
-                                   valid_regex, valid_min, valid_max, valid_length, valid_min_length,
-                                   valid_max_length, valid_reference_column]):
+        if all(
+            v is None
+            for v in [
+                invalid_values,
+                invalid_format,
+                invalid_regex,
+                valid_values,
+                valid_format,
+                valid_regex,
+                valid_min,
+                valid_max,
+                valid_length,
+                valid_min_length,
+                valid_max_length,
+                valid_reference_column,
+            ]
+        ):
             return None
         else:
             return ValidConfigurations(
                 invalid_values=invalid_values,
                 invalid_format=invalid_format,
                 invalid_regex=invalid_regex,
-                valid_values = valid_values,
+                valid_values=valid_values,
                 valid_format=valid_format,
                 valid_regex=valid_regex,
                 valid_min=valid_min,
@@ -296,14 +319,12 @@ class ContractParser:
                 valid_length=valid_length,
                 valid_min_length=valid_min_length,
                 valid_max_length=valid_max_length,
-                valid_reference_column = valid_reference_column
+                valid_reference_column=valid_reference_column,
             )
 
-    def _parse_numeric_threshold(self,
-                                 check_yaml_object: YamlObject,
-                                 prefix: str,
-                                 default_threshold: NumericThreshold | None
-                                 ) -> NumericThreshold | None:
+    def _parse_numeric_threshold(
+        self, check_yaml_object: YamlObject, prefix: str, default_threshold: NumericThreshold | None
+    ) -> NumericThreshold | None:
         greater_than = check_yaml_object.read_number_opt(f"{prefix}greater_than")
         greater_than_or_equal = check_yaml_object.read_number_opt(f"{prefix}greater_than_or_equal")
         less_than = check_yaml_object.read_number_opt(f"{prefix}less_than")
@@ -313,8 +334,19 @@ class ContractParser:
         between = self._parse_range(check_yaml_object, f"{prefix}between")
         not_between = self._parse_range(check_yaml_object, f"{prefix}not_between")
 
-        if all(v is None for v in [greater_than, greater_than_or_equal, less_than, less_than_or_equal, equals,
-                                   not_equals, between, not_between]):
+        if all(
+            v is None
+            for v in [
+                greater_than,
+                greater_than_or_equal,
+                less_than,
+                less_than_or_equal,
+                equals,
+                not_equals,
+                between,
+                not_between,
+            ]
+        ):
             return default_threshold
         else:
             return NumericThreshold(
@@ -325,25 +357,19 @@ class ContractParser:
                 equals=equals,
                 not_equals=not_equals,
                 between=between,
-                not_between=not_between
+                not_between=not_between,
             )
 
     def _parse_range(self, check_yaml_object: YamlObject, range_key: str) -> Range | None:
         range_yaml_list: YamlList | None = check_yaml_object.read_yaml_list_opt(range_key)
         if isinstance(range_yaml_list, YamlList):
             range_values = range_yaml_list.unpacked()
-            if (
-                all(isinstance(range_value, Number) for range_value in range_values)
-                and len(range_values) == 2
-            ):
+            if all(isinstance(range_value, Number) for range_value in range_values) and len(range_values) == 2:
                 return Range(lower_bound=range_values[0], upper_bound=range_values[1])
             else:
                 self.logs.error("range expects a list of 2 numbers", location=range_yaml_list.location)
 
-    def _parse_dataset_check(self,
-                             contract_check_id: str,
-                             check_yaml_object: YamlObject
-                             ) -> Check | None:
+    def _parse_dataset_check(self, contract_check_id: str, check_yaml_object: YamlObject) -> Check | None:
 
         check_type: str | None = check_yaml_object.read_string("type")
         if check_type is None:
@@ -362,9 +388,7 @@ class ContractParser:
 
         elif check_type == "user_defined_sql":
             return self._parse_user_defined_sql_check(
-                contract_check_id=contract_check_id,
-                check_yaml_object=check_yaml_object,
-                check_type=check_type
+                contract_check_id=contract_check_id, check_yaml_object=check_yaml_object, check_type=check_type
             )
 
         return self._parse_numeric_metric_check(
@@ -373,23 +397,22 @@ class ContractParser:
             check_type=check_type,
             metric=metric,
             column=None,
-            default_threshold=NumericThreshold(not_equals=0)
+            default_threshold=NumericThreshold(not_equals=0),
         )
 
-    def _parse_user_defined_sql_check(self,
-                                      contract_check_id: str,
-                                      check_yaml_object: YamlObject,
-                                      check_type: str,
-                                      ) -> Check | None:
+    def _parse_user_defined_sql_check(
+        self,
+        contract_check_id: str,
+        check_yaml_object: YamlObject,
+        check_type: str,
+    ) -> Check | None:
 
         name = check_yaml_object.read_string_opt("name")
         metric: str = check_yaml_object.read_string("metric")
         query: str = check_yaml_object.read_string("query")
 
         fail_threshold: NumericThreshold = self._parse_numeric_threshold(
-            check_yaml_object=check_yaml_object,
-            prefix="fail_when_",
-            default_threshold=None
+            check_yaml_object=check_yaml_object, prefix="fail_when_", default_threshold=None
         )
 
         for k in check_yaml_object:
@@ -405,5 +428,5 @@ class ContractParser:
             metric=metric,
             query=query,
             fail_threshold=fail_threshold,
-            warn_threshold=None
+            warn_threshold=None,
         )

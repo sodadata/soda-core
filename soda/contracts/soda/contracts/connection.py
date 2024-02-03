@@ -3,13 +3,13 @@ from __future__ import annotations
 import logging
 from typing import Dict
 
+import soda.common.logs as soda_common_logs
 from ruamel.yaml import YAML
 from ruamel.yaml.error import MarkedYAMLError
+from soda.execution.data_source import DataSource
 
-import soda.common.logs as soda_common_logs
 from soda.contracts.impl.logs import Logs
 from soda.contracts.impl.variable_resolver import VariableResolver
-from soda.execution.data_source import DataSource
 
 logger = logging.getLogger(__name__)
 
@@ -19,18 +19,16 @@ class SodaException(Exception):
     See also adr/03_exceptions_vs_error_logs.md
     """
 
-    def __init__(self,
-                 message: str | None = None,
-                 contract_result: "ContractResult | None" = None
-                 ):
+    def __init__(self, message: str | None = None, contract_result: ContractResult | None = None):
         from soda.contracts.contract import ContractResult
+
         self.contract_result: ContractResult = contract_result
         message_parts: list[str] = []
         if message:
             message_parts.append(message)
         if self.contract_result:
             message_parts.append(str(self.contract_result))
-        exception_message: str ="\n".join(message_parts)
+        exception_message: str = "\n".join(message_parts)
         super().__init__(exception_message)
 
 
@@ -80,26 +78,19 @@ class Connection:
                     f"connection_yaml_file_path={connection_yaml_file_path}, but was '{type(connection_yaml_file_path)}"
                 )
             elif not len(connection_yaml_file_path) > 1:
-                logs.error(
-                    f"Couldn't create connection from yaml file. connection_yaml_file_path is an empty string"
-                )
+                logs.error(f"Couldn't create connection from yaml file. connection_yaml_file_path is an empty string")
             else:
                 with open(file=connection_yaml_file_path) as f:
                     connection_yaml_str = f.read()
                     return cls.from_yaml_str(connection_yaml_str=connection_yaml_str, logs=logs)
         except Exception as e:
-            logs.error(
-                f"Couldn't create connection from yaml file '{connection_yaml_file_path}': {e}",
-                exception=e
-            )
+            logs.error(f"Couldn't create connection from yaml file '{connection_yaml_file_path}': {e}", exception=e)
         return Connection(logs=logs)
 
     @classmethod
-    def from_yaml_str(cls,
-                      connection_yaml_str: str,
-                      variables: Dict[str, str] | None = None,
-                      logs: Logs | None = None
-                      ) -> Connection:
+    def from_yaml_str(
+        cls, connection_yaml_str: str, variables: Dict[str, str] | None = None, logs: Logs | None = None
+    ) -> Connection:
         """
         # TODO specify where the connection configuration properties are being documented
         connection_yaml_str: str = "...YAML string for connection configuration properties..."
@@ -122,14 +113,11 @@ class Connection:
 
         if not isinstance(connection_yaml_str, str):
             logs.error(
-                f"Expected a string for parameter connection_yaml_str, "
-                f"but was '{type(connection_yaml_str)}'"
+                f"Expected a string for parameter connection_yaml_str, " f"but was '{type(connection_yaml_str)}'"
             )
 
         if connection_yaml_str == "":
-            logs.error(
-                f"connection_yaml_str must be non-emtpy, but was ''"
-            )
+            logs.error(f"connection_yaml_str must be non-emtpy, but was ''")
 
         try:
             variable_resolver = VariableResolver(variables=variables, logs=logs)
@@ -143,14 +131,13 @@ class Connection:
             connection_dict = yaml.load(resolved_connection_yaml_str)
             if not isinstance(connection_dict, dict):
                 logs.error(
-                    f"Content of the connection YAML file must be a YAML object, "
-                    f"but was {type(connection_dict)}"
+                    f"Content of the connection YAML file must be a YAML object, " f"but was {type(connection_dict)}"
                 )
             return cls.from_dict(connection_dict)
         except MarkedYAMLError as e:
             mark = e.context_mark if e.context_mark else e.problem_mark
-            line = mark.line + 1,
-            column = mark.column + 1,
+            line = (mark.line + 1,)
+            column = (mark.column + 1,)
             logs.error(f"YAML syntax error: {e} | line={line} | column={column}")
 
     @classmethod
@@ -174,19 +161,13 @@ class Connection:
         connection_type: str | None = None
 
         if not isinstance(connection_dict, dict):
-            logs.error(
-                f"connect_properties must be a object, but was {type(connection_dict)}"
-            )
+            logs.error(f"connect_properties must be a object, but was {type(connection_dict)}")
         elif "type" not in connection_dict:
-            logs.error(
-                f"'type' is required, but was not provided"
-            )
+            logs.error(f"'type' is required, but was not provided")
         else:
             connection_type = connection_dict.get("type")
             if not isinstance(connection_type, str):
-                logs.error(
-                    f"'type' must be a string, but was  {type(connection_type)}"
-                )
+                logs.error(f"'type' must be a string, but was  {type(connection_type)}")
         return DataSourceConnection(connection_type=connection_type, connection_dict=connection_dict, logs=logs)
 
     def __enter__(self):
@@ -209,12 +190,13 @@ class Connection:
             except Exception as e:
                 logger.warning(f"Could not close the dbapi connection: {e}")
 
-    def _create_contract_parser(self, logs: Logs) -> "ContractParser":
+    def _create_contract_parser(self, logs: Logs) -> ContractParser:
         """
         Enables connection subclasses to create database specific errors during translation.
         This is for better static analysis of the contract taking the connection type into account.
         """
         from soda.contracts.impl.contract_parser import ContractParser
+
         return ContractParser(logs)
 
 

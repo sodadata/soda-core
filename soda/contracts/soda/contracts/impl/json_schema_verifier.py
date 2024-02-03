@@ -11,7 +11,7 @@ class ValidatorLoader:
 
     @classmethod
     def load_json_schema_validator(cls) -> Draft7Validator:
-        contracts_dir = __file__[:-len("/impl/json_schema_verifier.py")]
+        contracts_dir = __file__[: -len("/impl/json_schema_verifier.py")]
         contract_schema_json_file_path = f"{contracts_dir}/soda_data_contract_json_schema_1_0_0.json"
         with open(contract_schema_json_file_path) as f:
             contract_schema_json_str = f.read()
@@ -20,7 +20,6 @@ class ValidatorLoader:
 
 
 class JsonSchemaVerifier:
-
 
     __validator = ValidatorLoader.load_json_schema_validator()
 

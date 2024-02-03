@@ -695,7 +695,7 @@ class SodaCLParser(Parser):
                     SAMPLES_LIMIT,
                     ATTRIBUTES,
                     ANOMALY_DETECTION_WARN_ONLY,
-                    "contract check id"
+                    "contract check id",
                 ]:
                     if metric_name != "distribution_difference":
                         self.logs.error(
@@ -1186,9 +1186,8 @@ class SodaCLParser(Parser):
                 schema_validations.other_columns_allowed = False
                 with_optional_columns = validations_dict.get(WITH_OPTIONAL_COLUMNS)
                 if with_optional_columns is not None:
-                    if (
-                        isinstance(with_optional_columns, List)
-                        and all(isinstance(e, str) for e in with_optional_columns)
+                    if isinstance(with_optional_columns, List) and all(
+                        isinstance(e, str) for e in with_optional_columns
                     ):
                         schema_validations.optional_columns = with_optional_columns
                     else:

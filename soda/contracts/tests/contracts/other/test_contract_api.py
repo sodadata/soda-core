@@ -2,11 +2,9 @@ import logging
 from textwrap import dedent
 
 import pytest
-
 from contracts.helpers.contract_test_tables import contracts_test_table
-from contracts.helpers.test_connection import TestConnection
-from helpers.common_test_tables import customers_test_table
 from helpers.data_source_fixture import DataSourceFixture
+
 from soda.contracts.connection import Connection, SodaException
 from soda.contracts.contract import Contract, ContractResult
 from soda.contracts.soda_cloud import SodaCloud
@@ -18,14 +16,17 @@ def test_contract_api(data_source_fixture: DataSourceFixture, environ: dict):
     environ["soda_cloud_api_key_id"] = "***"
     environ["soda_cloud_api_key_secret"] = "***"
 
-    connection_yaml_str = dedent("""
+    connection_yaml_str = dedent(
+        """
         type: postgres
         host: localhost
         database: sodasql
         username: sodasql
-    """)
+    """
+    )
 
-    contract_yaml_str = dedent(f"""
+    contract_yaml_str = dedent(
+        f"""
       dataset: {table_name}
       columns:
       - name: id
@@ -36,7 +37,8 @@ def test_contract_api(data_source_fixture: DataSourceFixture, environ: dict):
         data_type: integer
       - name: created
         data_type: date
-    """)
+    """
+    )
 
     try:
         # Optionally a Soda Cloud link can be established that
@@ -71,14 +73,16 @@ def test_contract_api(data_source_fixture: DataSourceFixture, environ: dict):
 def test_connection_exception_is_raised_in_contract_verify(data_source_fixture: DataSourceFixture):
     table_name: str = data_source_fixture.ensure_test_table(contracts_test_table)
 
-    contract_yaml_str = dedent(f"""
+    contract_yaml_str = dedent(
+        f"""
       dataset: {table_name}
       columns:
       - name: id
       - name: size
       - name: distance
       - name: created
-    """)
+    """
+    )
 
     with Connection.from_yaml_file("./non_existing_file.scn.yml") as connection:
         contract: Contract = Contract.from_yaml_str(contract_yaml_str)
