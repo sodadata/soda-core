@@ -25,6 +25,7 @@ def hive_connection_function(
     port: str,
     database: str,
     auth_method: str,
+    kerberos_service_name: str,
     **kwargs,
 ):
     """
@@ -44,6 +45,8 @@ def hive_connection_function(
         The databse
     auth_method : str
         The authentication method
+    kerberos_service_name: str
+        The Kerberos service name
 
     Returns
     -------
@@ -59,6 +62,8 @@ def hive_connection_function(
         port=port,
         database=database,
         auth=auth_method,
+        configuration=kwargs.get("configuration", {}),
+        kerberos_service_name=kerberos_service_name,
     )
     return connection
 
@@ -221,7 +226,7 @@ class SparkSQLBase(DataSource):
         included_columns: list[str] | None = None,
         excluded_columns: list[str] | None = None,
     ):
-        return f"DESCRIBE TABLE {table_name}"
+        return f"DESCRIBE {table_name}"
 
     def sql_get_column(self, include_tables: list[str] | None = None, exclude_tables: list[str] | None = None) -> str:
         table_filter_expression = self.sql_table_include_exclude_filter(
@@ -339,7 +344,7 @@ class SparkSQLBase(DataSource):
             query = Query(
                 data_source_scan=self.data_source_scan,
                 unqualified_query_name=f"get-tables-columns-metadata-describe-table-{table_name}-spark",
-                sql=f"DESCRIBE TABLE {table_name}",
+                sql=f"DESCRIBE {table_name}",
             )
             query.execute()
             columns_metadata = query.rows
@@ -438,6 +443,7 @@ class SparkDataSource(SparkSQLBase):
         self.database = data_source_properties.get("catalog", "default")
         self.schema = data_source_properties.get("schema", "default")
         self.auth_method = data_source_properties.get("authentication", None)
+        self.kerberos_service_name = data_source_properties.get("kerberos_service_name", None)
         self.configuration = data_source_properties.get("configuration", {})
         self.driver = data_source_properties.get("driver", None)
         self.organization = data_source_properties.get("organization", None)
@@ -464,6 +470,7 @@ class SparkDataSource(SparkSQLBase):
                 port=self.port,
                 database=self.database,
                 auth_method=self.auth_method,
+                kerberos_service_name=self.kerberos_service_name,
                 driver=self.driver,
                 token=self.token,
                 schema=self.schema,
@@ -471,6 +478,7 @@ class SparkDataSource(SparkSQLBase):
                 organization=self.organization,
                 cluster=self.cluster,
                 server_side_parameters=self.server_side_parameters,
+                configuration=self.configuration,
             )
 
             self.connection = connection

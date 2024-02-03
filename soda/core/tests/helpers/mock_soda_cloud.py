@@ -63,7 +63,7 @@ class MockSodaCloud(SodaCloud):
         To learn the metric_identity: fill in any string, check the error log and capture the metric_identity from there
         """
         historic_metric_values = [
-            {"identity": metric_identity, "id": i, "value": v, "dataTime": time_generator.next()}
+            {"identity": metric_identity, "id": str(i), "value": v, "dataTime": time_generator.next()}
             for i, v in enumerate(metric_values)
         ]
         self.add_historic_metric_values(historic_metric_values)

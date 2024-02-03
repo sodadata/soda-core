@@ -4,7 +4,7 @@ from setuptools import find_namespace_packages, setup
 
 package_name = "soda-core"
 # Managed by tbump - do not change manually
-package_version = "3.1.1"
+package_version = "3.1.5"
 description = "Soda Core"
 
 requires = [
@@ -17,7 +17,8 @@ requires = [
     "opentelemetry-api~=1.16.0",
     "opentelemetry-exporter-otlp-proto-http~=1.16.0",
     "sqlparse~=0.4",
-    "inflect~=6.0",
+    "inflect~=7.0",
+    "pydantic>=2.0.0,<3.0.0",
 ]
 
 setup(

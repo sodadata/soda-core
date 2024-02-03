@@ -1,0 +1,36 @@
+version: 1
+
+request_params:
+  columns_mapping:
+    dataTime: "ds"
+    value: "y"
+    anomalyPredictedValue: "anomaly_predicted_value"
+    anomalyProbability: "anomaly_probability"
+    feedback: "feedback"
+
+feedback_processor_params:
+  output_columns:
+    ds:
+    y:
+    delta: "external_regressor"
+    skipMeasurements:
+
+prophet_detector:
+  preprocess_params:
+    frequency: "D"
+    assume_daily: true
+    min_number_of_data_points: 4
+  anomaly_detection:
+    n_points: 1
+  suppress_stan: True
+
+
+response_params:
+  output_columns:
+    #this is going to be a dict, if value is null, we will use the key
+    yhat: "anomaly_predicted_value"
+    anomaly_probability:
+    warning_lower_than_or_equal:
+    warning_greater_than_or_equal:
+    critical_lower_than_or_equal:
+    critical_greater_than_or_equal:

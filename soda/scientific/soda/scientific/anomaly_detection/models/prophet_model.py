@@ -138,7 +138,8 @@ class ProphetDetector(BaseDetector):
         params: Dict[str, Any],
         time_series_data: pd.DataFrame,
         metric_name: str,
-        has_exegonenous_regressor: bool = False,
+        has_exogenous_regressor: bool = False,
+        warn_only: bool = False,
     ) -> None:
         """Constructor for ProphetDetector
 
@@ -168,10 +169,10 @@ class ProphetDetector(BaseDetector):
         self._criticality_threshold = self._anomaly_detection_params["criticality_threshold"]
         self._suppress_stan = self._prophet_detector_params["suppress_stan"]
         self._is_trained: bool = False
-        self._has_exogenous_regressor = has_exegonenous_regressor
+        self._has_exogenous_regressor = has_exogenous_regressor
         self.time_series_data = time_series_data  # this gets potentially rewritten when runnin skip measurements
         self.uncertainty_bounds_require_integer_rounding: bool = metric_name in self.integer_type_metrics
-
+        self.warn_only = warn_only
         # public attrs
         self.model: Prophet
         self.predictions: pd.DataFrame
@@ -286,11 +287,7 @@ class ProphetDetector(BaseDetector):
         #               # how do we communcate this to our users? Is it even a good idea to do that at all?
         raise PreprocessError(DETECTOR_MESSAGES["bailing_out"].log_message)
 
-    def preprocess(self):
-        missing_values = self.time_series_data.isnull().sum().sum()
-        if self._preprocess_params["warn_if_missing_values"] and missing_values:
-            self._logs.debug(f"dataframe has {missing_values} missing values.")
-
+    def preprocess(self) -> None:
         try:
             self.freq_detection_result = self.detect_frequency_better()
             if self.freq_detection_result.error_severity == "error":
@@ -321,7 +318,7 @@ class ProphetDetector(BaseDetector):
             self._preprocess_params["interpolation_kwargs"]["method"] = "linear"
 
         self.time_series = self.time_series.set_index("ds")
-        self.time_series = self.time_series.resample(self.freq_detection_result.inferred_frequency).mean()
+        self.time_series = self.time_series.resample(self.freq_detection_result.inferred_frequency).last()
         self.time_series = self.time_series.reset_index()
         self.time_series["y"] = self.time_series["y"].interpolate(**self._preprocess_params["interpolation_kwargs"])
         if self._has_exogenous_regressor:
@@ -349,7 +346,7 @@ class ProphetDetector(BaseDetector):
         self.predictions = self.model.predict(self.time_series)
         self._is_trained = True
 
-    def detect_anomalies(self):
+    def detect_anomalies(self) -> None:
         assert (
             self._is_trained
         ), "ProphetDetector has not been trained yet. Make sure you run `setup_and_train_ts_model` first"
@@ -387,18 +384,22 @@ class ProphetDetector(BaseDetector):
         ), "Anomalies have not been detected yet. Make sure you run `detect_anomalies` first."
         # See criticality_threshold_calc method, the critical zone will always take over and
         # "extend" or replace the extreme to inf points of the warning zone.
-        self.anomalies.loc[:, "critical_greater_than_or_equal"] = self.anomalies.apply(
-            lambda x: self._criticality_threshold_calc(
-                x, threshold=self._criticality_threshold, directionality="upper"
-            ),
-            axis=1,
-        )
-        self.anomalies.loc[:, "critical_lower_than_or_equal"] = self.anomalies.apply(
-            lambda x: self._criticality_threshold_calc(
-                x, threshold=self._criticality_threshold, directionality="lower"
-            ),
-            axis=1,
-        )
+        if self.warn_only is False:
+            self.anomalies.loc[:, "critical_greater_than_or_equal"] = self.anomalies.apply(
+                lambda x: self._criticality_threshold_calc(
+                    x, threshold=self._criticality_threshold, directionality="upper"
+                ),
+                axis=1,
+            )
+            self.anomalies.loc[:, "critical_lower_than_or_equal"] = self.anomalies.apply(
+                lambda x: self._criticality_threshold_calc(
+                    x, threshold=self._criticality_threshold, directionality="lower"
+                ),
+                axis=1,
+            )
+        else:
+            self.anomalies.loc[:, "critical_greater_than_or_equal"] = np.inf
+            self.anomalies.loc[:, "critical_lower_than_or_equal"] = -np.inf
 
         # The bounds for warning are in fact anything that is outside of the model's
         # confidence bounds so we simply reassign them to another column.

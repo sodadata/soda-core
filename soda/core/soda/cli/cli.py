@@ -352,7 +352,7 @@ def update_dro(
 
         if data_source_scan:
             if distribution_type == "categorical":
-                query = f"SELECT {column_name}, COUNT(*) FROM {dataset_name} {filter_clause} GROUP BY {column_name} ORDER BY 2 DESC"
+                query = f"SELECT {column_name}, {data_source_scan.data_source.expr_count_all()} FROM {dataset_name} {filter_clause} GROUP BY {column_name} ORDER BY 2 DESC"
             else:
                 query = f"SELECT {column_name} FROM {dataset_name} {filter_clause}"
             logging.info(f"Querying column values to build distribution reference:\n{query}")
@@ -389,7 +389,7 @@ def update_dro(
                 return
 
             dro = DROGenerator(RefDataCfg(distribution_type=distribution_type), column_values).generate()
-            distribution_dict["distribution_reference"] = dro.dict()
+            distribution_dict["distribution_reference"] = dro.model_dump()
             if "distribution reference" in distribution_dict:
                 # To clean up the file and don't leave the old syntax
                 distribution_dict.pop("distribution reference")

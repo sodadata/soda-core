@@ -66,16 +66,22 @@ class AnomalyMetricCheck(MetricCheck):
                 exception=e,
             )
 
-    def evaluate(self, metrics: dict[str, Metric], historic_values: dict[str, object]):
+    def evaluate(self, metrics: dict[str, Metric], historic_values: dict[str, object]) -> None:
         if self.skip_anomaly_check:
             return
 
+        self.logs.info(
+            "Anomaly Score Deprecation Warning: The anomaly score check is deprecated "
+            "and will be removed in the future. Please consider using the anomaly "
+            "detection check going forward. See the migration guide: "
+            "https://docs.soda.io/soda-cl/anomaly-detection#migrate-to-anomaly-detection"
+        )
         metric_name = self.check_cfg.metric_name
         # check that we get data objects from cloud that we can work with
         if isinstance(historic_values, dict):
             historic_measurements = historic_values.get(KEY_HISTORIC_MEASUREMENTS, {}).get("measurements", {})
             self.logs.debug(
-                f"Anomaly Detection: using historical measurements for identity {self.metrics[metric_name].identity}"
+                f"Anomaly Score: using historical measurements for identity {self.metrics[metric_name].identity}"
             )
             historic_check_results = historic_values.get(KEY_HISTORIC_CHECK_RESULTS, {}).get("check_results", {})
         else:
@@ -93,7 +99,7 @@ class AnomalyMetricCheck(MetricCheck):
         # Append current results
         historic_measurements.get("results", []).append(
             {
-                "id": 61,  # Placeholder number that will be overwritten
+                "id": str(61),  # Placeholder number that will be overwritten
                 "identity": metrics[metric_name].identity,
                 "value": self.get_metric_value(),
                 "dataTime": (
@@ -113,7 +119,13 @@ class AnomalyMetricCheck(MetricCheck):
             self.logs.error(f"{SODA_SCIENTIFIC_MISSING_LOG_MESSAGE}\n Original error: {e}")
             return
 
-        anomaly_detector = AnomalyDetector(historic_measurements, historic_check_results, self.logs, metric_name)
+        warn_only = False
+        if self.check_cfg.source_configurations is not None:
+            warn_only = self.check_cfg.source_configurations.get("warn_only", False)
+
+        anomaly_detector = AnomalyDetector(
+            historic_measurements, historic_check_results, self.logs, metric_name, warn_only
+        )
         level, diagnostics = anomaly_detector.evaluate()
         assert isinstance(diagnostics, dict), f"Anomaly diagnostics should be a dict. Got a {type(diagnostics)} instead"
 

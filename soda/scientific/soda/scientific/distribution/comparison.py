@@ -192,7 +192,7 @@ class DistributionChecker:
             raise DistributionRefParsingException(
                 f"Cannot parse {dist_ref_file_path}, please check your reference file! \n"
             )
-        return RefDataCfg.parse_obj(ref_data_cfg), dist_method
+        return RefDataCfg.model_validate(ref_data_cfg), dist_method
 
     def assert_test_data(self, data: pd.Series, max_limit: int, distribution_type: str, column_name: str) -> None:
         if len(data) == 0:
@@ -219,6 +219,7 @@ class DistributionChecker:
 
 class DistributionAlgorithm(abc.ABC):
     def __init__(self, cfg: RefDataCfg, test_data: pd.Series, seed: int = 61) -> None:
+        self.logs = logging.getLogger("soda.core")
         if cfg.distribution_type == "categorical":
             # Convert to Series with tuple's first element as index and second as value
             test_data_bins = test_data.map(lambda x: x[0]).tolist()
@@ -232,8 +233,7 @@ class DistributionAlgorithm(abc.ABC):
             self.ref_data = generate_ref_data(cfg, len(test_data), np.random.default_rng(seed))
 
     @abc.abstractmethod
-    def evaluate(self) -> dict[str, float]:
-        ...
+    def evaluate(self) -> dict[str, float]: ...
 
 
 class ChiSqAlgorithm(DistributionAlgorithm):
@@ -289,9 +289,17 @@ class ChiSqAlgorithm(DistributionAlgorithm):
 class KSAlgorithm(DistributionAlgorithm):
     def evaluate(self) -> dict[str, float]:
         # TODO: set up some assertion testing that the distribution_type are continuous
-        # TODO: consider whether we may want to warn users if any or both of their series are nulls
-        # although ks_2samp() behaves correctly in either cases
-        stat_value, p_value = ks_2samp(self.ref_data, self.test_data)
+        n_records_test_data = len(self.test_data)
+        clean_test_data = self.test_data.dropna()
+        n_records_cleaned_test_data = len(clean_test_data)
+
+        if n_records_cleaned_test_data < n_records_test_data:
+            n_dropped_values = n_records_test_data - n_records_cleaned_test_data
+            self.logs.warning(
+                f"Distribution Check Warning: Dropped {n_dropped_values} "
+                f"null values from {n_records_test_data} total records in test data."
+            )
+        stat_value, p_value = ks_2samp(self.ref_data, clean_test_data)
         return dict(stat_value=stat_value, check_value=p_value)
 
 

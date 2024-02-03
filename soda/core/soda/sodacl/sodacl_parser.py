@@ -15,6 +15,12 @@ from soda.common.file_system import file_system
 from soda.common.logs import Logs
 from soda.common.parser import Parser
 from soda.common.yaml_helper import to_yaml_str
+from soda.sodacl.anomaly_detection_metric_check_cfg import (
+    AnomalyDetectionMetricCheckCfg,
+    ModelConfigs,
+    SeverityLevelParameters,
+    TrainingDatasetParameters,
+)
 from soda.sodacl.antlr.SodaCLAntlrLexer import SodaCLAntlrLexer
 from soda.sodacl.antlr.SodaCLAntlrParser import SodaCLAntlrParser
 from soda.sodacl.change_over_time_cfg import ChangeOverTimeCfg
@@ -44,6 +50,11 @@ from soda.sodacl.threshold_cfg import ThresholdCfg
 
 logger = logging.getLogger(__name__)
 
+ANOMALY_DETECTION_CONFIGS = "model"
+ANOMALY_DETECTION_TRAINING_DATASET_CONFIGS = "training_dataset_parameters"
+ANOMALY_DETECTION_TAKE_OVER_EXISTING_ANOMALY_SCORE_CHECK = "take_over_existing_anomaly_score_check"
+ANOMALY_DETECTION_SEVERITY_LEVEL_PARAMETERS = "severity_level_parameters"
+ANOMALY_DETECTION_WARN_ONLY = "warn_only"
 ATTRIBUTES = "attributes"
 FAIL = "fail"
 FAIL_CONDITION = "fail condition"
@@ -75,6 +86,7 @@ WHEN_REQUIRED_GROUP_MISSING = "when required group missing"
 WHEN_SCHEMA_CHANGES = "when schema changes"
 WHEN_WRONG_COLUMN_INDEX = "when wrong column index"
 WHEN_WRONG_COLUMN_TYPE = "when wrong column type"
+
 
 ALL_GROUP_VALIDATIONS = [
     WHEN_REQUIRED_GROUP_MISSING,
@@ -547,7 +559,7 @@ class SodaCLParser(Parser):
 
     def __parse_metric_check(
         self,
-        antlr_metric_check,
+        antlr_metric_check: SodaCLAntlrParser.Metric_checkContext,
         header_str: str,
         check_str: str,
         check_configurations: dict | None,
@@ -596,6 +608,11 @@ class SodaCLParser(Parser):
         metric_expression = None
         metric_query = None
         samples_limit = None
+        samples_columns = None
+        training_dataset_params: TrainingDatasetParameters = TrainingDatasetParameters()
+        model_cfg: ModelConfigs = ModelConfigs()
+        take_over_existing_anomaly_score_check = False
+        severity_level_params: SeverityLevelParameters = SeverityLevelParameters()
 
         if isinstance(check_configurations, dict):
             for configuration_key in check_configurations:
@@ -653,7 +670,33 @@ class SodaCLParser(Parser):
                         configuration_value,
                         missing_and_valid_cfg,
                     )
-                elif configuration_key not in [NAME, IDENTITY, WARN, FAIL, SAMPLES_LIMIT, ATTRIBUTES, "contract check id"]:
+                elif configuration_key == ANOMALY_DETECTION_CONFIGS:
+                    model_cfg: ModelConfigs = ModelConfigs.create_instance(
+                        logger=self.logs, location=self.location, **configuration_value
+                    )
+                elif configuration_key == ANOMALY_DETECTION_TRAINING_DATASET_CONFIGS:
+                    training_dataset_params = TrainingDatasetParameters.create_instance(
+                        logger=self.logs, location=self.location, **configuration_value
+                    )
+
+                elif configuration_key == ANOMALY_DETECTION_SEVERITY_LEVEL_PARAMETERS:
+                    severity_level_params = SeverityLevelParameters.create_instance(
+                        logger=self.logs, location=self.location, **configuration_value
+                    )
+
+                elif configuration_key == ANOMALY_DETECTION_TAKE_OVER_EXISTING_ANOMALY_SCORE_CHECK:
+                    take_over_existing_anomaly_score_check = configuration_value
+
+                elif configuration_key not in [
+                    NAME,
+                    IDENTITY,
+                    WARN,
+                    FAIL,
+                    SAMPLES_LIMIT,
+                    ATTRIBUTES,
+                    ANOMALY_DETECTION_WARN_ONLY,
+                    "contract check id"
+                ]:
                     if metric_name != "distribution_difference":
                         self.logs.error(
                             f"Skipping unsupported check configuration: {configuration_key}",
@@ -767,6 +810,35 @@ class SodaCLParser(Parser):
                         "is allowed where threshold-value must be between 0 (ok) and 1 (anomaly)",
                         location=self.location,
                     )
+
+        elif antlr_metric_check.anomaly_detection():
+            if model_cfg is None or training_dataset_params is None or severity_level_params is None:
+                return None
+
+            anomaly_detection_check_cfg = AnomalyDetectionMetricCheckCfg(
+                source_header=header_str,
+                source_line=check_str,
+                source_configurations=check_configurations,
+                location=self.location,
+                name=name,
+                metric_name=metric_name,
+                metric_args=metric_args,
+                missing_and_valid_cfg=missing_and_valid_cfg,
+                filter=filter,
+                condition=condition,
+                metric_expression=metric_expression,
+                metric_query=metric_query,
+                change_over_time_cfg=change_over_time_cfg,
+                fail_threshold_cfg=None,
+                warn_threshold_cfg=None,
+                training_dataset_params=training_dataset_params,
+                model_cfg=model_cfg,
+                severity_level_params=severity_level_params,
+                take_over_existing_anomaly_score_check=take_over_existing_anomaly_score_check,
+                samples_limit=samples_limit,
+                samples_columns=samples_columns,
+            )
+            return anomaly_detection_check_cfg
 
         elif antlr_metric_check.default_anomaly_threshold():
             self.logs.error(
@@ -1047,7 +1119,7 @@ class SodaCLParser(Parser):
         if isinstance(check_configurations, dict):
             self._push_path_element(check_str, check_configurations)
             for configuration_key in check_configurations:
-                if configuration_key not in [NAME, WARN, FAIL, ATTRIBUTES]:
+                if configuration_key not in [NAME, WARN, FAIL, ATTRIBUTES, IDENTITY]:
                     self.logs.error(
                         f'Invalid schema check configuration key "{configuration_key}"', location=self.location
                     )
@@ -1192,9 +1264,11 @@ class SodaCLParser(Parser):
                         WHEN_REQUIRED_COLUMN_MISSING,
                         WHEN_FORBIDDEN_COLUMN_PRESENT,
                     ]
-                    else "dict with strings for keys and values"
-                    if validation_type == WHEN_WRONG_COLUMN_TYPE
-                    else "dict with strings for keys and ints for values"
+                    else (
+                        "dict with strings for keys and values"
+                        if validation_type == WHEN_WRONG_COLUMN_TYPE
+                        else "dict with strings for keys and ints for values"
+                    )
                 )
                 self.logs.error(
                     f'"{validation_type}" must contain {expected_configuration_type}',

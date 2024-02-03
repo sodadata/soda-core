@@ -5,13 +5,10 @@ import numpy as np
 import pandas as pd
 import pytest
 from numpy.random import default_rng
+from pydantic import ValidationError
 from ruamel.yaml import YAML
 
-from soda.scientific.distribution.comparison import (
-    DistributionRefKeyException,
-    DistributionRefParsingException,
-    MissingCategories,
-)
+from soda.scientific.distribution.comparison import DistributionRefKeyException
 from soda.scientific.distribution.utils import RefDataCfg
 
 
@@ -33,8 +30,6 @@ def read_dro(dro_path: str) -> YAML:
     ],
 )
 def test_config_distribution_type(distribution_type, error_expected):
-    from pydantic.error_wrappers import ValidationError
-
     try:
         bins = [1, 2, 3]
         weights = [0.1, 0.8, 0.1]
@@ -52,8 +47,6 @@ def test_config_distribution_type(distribution_type, error_expected):
     ],
 )
 def test_config_weights(weights, error_expected):
-    from pydantic.error_wrappers import ValidationError
-
     bins = [1, 2, 3]
     try:
         RefDataCfg(bins=bins, weights=weights, labels=None, distribution_type="continuous")
@@ -263,10 +256,10 @@ TEST_CONFIG_CONT_1 = RefDataCfg(
             id="distributions are extremely different",
         ),
         pytest.param(
-            pd.Series(np.full([100], np.nan)),
-            1.0,
-            0.0,
-            id="distributions are all made of nulls",
+            pd.Series([None, 2] * 50),
+            0.78,
+            1.6389584501763118e-20,
+            id="partially null distribution",
         ),
     ],
 )

@@ -40,8 +40,7 @@ class DaskCursor:
             row_value = self.df.values[0]
         return tuple(row_value)
 
-    def close(self) -> None:
-        ...
+    def close(self) -> None: ...
 
     def get_description(self) -> tuple:
         if self.df.empty:
