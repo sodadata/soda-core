@@ -262,28 +262,41 @@ Example of a multi columns duplicates check
 ```yaml
 dataset: CUSTOMERS
 columns:
-    - ...
+- ...
 checks:
-    - type: multi_column_duplicates
-      columns: ['country_code', 'zip']
+- type: multi_column_duplicates
+  columns: ['country_code', 'zip']
 ```
 
-### User defined SQL check
+### User defined SQL checks
 
-Example of a user-defined SQL check
+Example of a user-defined SQL expression check
 
 ```yaml
 dataset: CUSTOMERS
 columns:
-    - ...
+- name: country
+  checks: 
+  - type: sql_expression
+    metric: us_count
+    metric_sql_expression: COUNT(CASE WHEN country = 'US' THEN 1 END)
+    fail_when_not_between: [100, 120]
+```
+
+Example of a user-defined SQL query check
+
+```yaml
+dataset: CUSTOMERS
+columns:
+- ...
 checks:
-    - type: user_defined_sql
-      metric: us_count
-      query: |
-        SELECT COUNT(*)
-        FROM {table_name}
-        WHERE country = 'US'
-      fail_when_between: [0, 5]
+- type: user_defined_sql
+  metric: us_count
+  query: |
+    SELECT COUNT(*)
+    FROM {table_name}
+    WHERE country = 'US'
+  fail_when_between: [0, 5]
 ```
 
 ### Thresholds

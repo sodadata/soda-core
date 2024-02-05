@@ -16,7 +16,8 @@ from soda.contracts.contract import (
     NumericThreshold,
     Range,
     SchemaCheck,
-    UserDefinedSqlCheck,
+    UserDefinedSqlQueryCheck,
+    UserDefinedSqlExpressionCheck,
     ValidConfigurations,
     ValidReferenceColumn,
 )
@@ -167,6 +168,13 @@ class ContractParser:
                 valid_values_column_yaml_object=valid_values_column_yaml_object,
                 default_threshold=default_threshold,
             )
+        elif check_type == "sql_expression":
+            return self._parse_user_defined_sql_expression_check(
+                contract_check_id=contract_check_id,
+                check_yaml_object=check_yaml_object,
+                check_type=check_type,
+                column=column
+            )
 
         return self._parse_numeric_metric_check(
             contract_check_id=contract_check_id,
@@ -248,6 +256,42 @@ class ContractParser:
             column=column,
             reference_dataset=reference_dataset,
             reference_column=reference_column,
+        )
+
+    def _parse_user_defined_sql_expression_check(self,
+                                                 contract_check_id: str,
+                                                 check_yaml_object: YamlObject,
+                                                 check_type: str,
+                                                 column: str | None
+                                                 ) -> Check | None:
+        name = check_yaml_object.read_string_opt("name")
+        metric: str = check_yaml_object.read_string("metric")
+        sql_expression: str = check_yaml_object.read_string("metric_sql_expression")
+
+        fail_threshold: NumericThreshold = self._parse_numeric_threshold(
+            check_yaml_object=check_yaml_object,
+            prefix="fail_when_",
+            default_threshold=None
+        )
+
+        if not fail_threshold:
+            self.logs.error("No threshold defined for sql_expression check", location=check_yaml_object.location)
+
+        for k in check_yaml_object:
+            if k.startswith("warn_when"):
+                self.logs.error(message=f"Warnings not yet supported: '{k}'", location=check_yaml_object.location)
+
+        return UserDefinedSqlExpressionCheck(
+            column=column,
+            type=check_type,
+            name=name,
+            contract_check_id=contract_check_id,
+            location=check_yaml_object.location,
+            check_yaml_object=check_yaml_object,
+            metric=metric,
+            sql_expression=sql_expression,
+            fail_threshold=fail_threshold,
+            warn_threshold=None
         )
 
     def _parse_missing_configurations(self, check_yaml: YamlObject) -> MissingConfigurations | None:
@@ -419,7 +463,7 @@ class ContractParser:
             if k.startswith("warn_when"):
                 self.logs.error(message=f"Warnings not yet supported: '{k}'", location=check_yaml_object.location)
 
-        return UserDefinedSqlCheck(
+        return UserDefinedSqlQueryCheck(
             type=check_type,
             name=name,
             contract_check_id=contract_check_id,

@@ -11,7 +11,7 @@ from soda.contracts.connection import Connection
 
 def pytest_sessionstart(session: Any) -> None:
     configure_logging()
-    logging.getLogger("soda").setLevel(logging.WARNING)
+    # logging.getLogger("soda").setLevel(logging.WARNING)
 
 
 @pytest.fixture(scope="session")
