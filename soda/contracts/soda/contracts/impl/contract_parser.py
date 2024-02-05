@@ -16,8 +16,8 @@ from soda.contracts.contract import (
     NumericThreshold,
     Range,
     SchemaCheck,
-    UserDefinedSqlQueryCheck,
     UserDefinedSqlExpressionCheck,
+    UserDefinedSqlQueryCheck,
     ValidConfigurations,
     ValidReferenceColumn,
 )
@@ -173,7 +173,7 @@ class ContractParser:
                 contract_check_id=contract_check_id,
                 check_yaml_object=check_yaml_object,
                 check_type=check_type,
-                column=column
+                column=column,
             )
 
         return self._parse_numeric_metric_check(
@@ -258,20 +258,15 @@ class ContractParser:
             reference_column=reference_column,
         )
 
-    def _parse_user_defined_sql_expression_check(self,
-                                                 contract_check_id: str,
-                                                 check_yaml_object: YamlObject,
-                                                 check_type: str,
-                                                 column: str | None
-                                                 ) -> Check | None:
+    def _parse_user_defined_sql_expression_check(
+        self, contract_check_id: str, check_yaml_object: YamlObject, check_type: str, column: str | None
+    ) -> Check | None:
         name = check_yaml_object.read_string_opt("name")
         metric: str = check_yaml_object.read_string("metric")
         sql_expression: str = check_yaml_object.read_string("metric_sql_expression")
 
         fail_threshold: NumericThreshold = self._parse_numeric_threshold(
-            check_yaml_object=check_yaml_object,
-            prefix="fail_when_",
-            default_threshold=None
+            check_yaml_object=check_yaml_object, prefix="fail_when_", default_threshold=None
         )
 
         if not fail_threshold:
@@ -291,7 +286,7 @@ class ContractParser:
             metric=metric,
             sql_expression=sql_expression,
             fail_threshold=fail_threshold,
-            warn_threshold=None
+            warn_threshold=None,
         )
 
     def _parse_missing_configurations(self, check_yaml: YamlObject) -> MissingConfigurations | None:

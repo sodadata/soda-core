@@ -276,7 +276,7 @@ Example of a user-defined SQL expression check
 dataset: CUSTOMERS
 columns:
 - name: country
-  checks: 
+  checks:
   - type: sql_expression
     metric: us_count
     metric_sql_expression: COUNT(CASE WHEN country = 'US' THEN 1 END)

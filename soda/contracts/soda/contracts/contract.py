@@ -525,7 +525,7 @@ class UserDefinedSqlExpressionCheck(Check):
 
         sodacl_check_configs = {
             "contract check id": self.contract_check_id,
-            f"{self.metric} expression": self.sql_expression
+            f"{self.metric} expression": self.sql_expression,
         }
         if self.name:
             sodacl_check_configs["name"] = self.name
@@ -537,22 +537,14 @@ class UserDefinedSqlExpressionCheck(Check):
 
         return {sodacl_check_line: sodacl_check_configs}
 
-    def _create_check_result(self,
-                             scan_check: dict[str, dict],
-                             scan_check_metrics_by_name: dict[str, dict],
-                             scan: Scan):
+    def _create_check_result(
+        self, scan_check: dict[str, dict], scan_check_metrics_by_name: dict[str, dict], scan: Scan
+    ):
         scan_metric_dict: dict = scan_check_metrics_by_name.get(self.metric, None)
         value: Number = scan_metric_dict.get("value") if scan_metric_dict else None
-        measurement = Measurement(
-            name=self.metric,
-            type="numeric",
-            value=value
-        )
-        return CheckResult(
-            check=self,
-            measurements=[measurement],
-            outcome=CheckOutcome._from_scan_check(scan_check)
-        )
+        measurement = Measurement(name=self.metric, type="numeric", value=value)
+        return CheckResult(check=self, measurements=[measurement], outcome=CheckOutcome._from_scan_check(scan_check))
+
 
 @dataclass
 class UserDefinedSqlQueryCheck(Check):

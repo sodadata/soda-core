@@ -19,6 +19,7 @@ user_defined_sql_test_table = TestTable(
     # fmt: on
 )
 
+
 def test_contract_user_defined_sql_query(test_connection: TestConnection):
     table_name: str = test_connection.ensure_test_table(user_defined_sql_test_table)
 
