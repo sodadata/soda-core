@@ -31,3 +31,18 @@ class WindowLengthError(Exception):
 
     To be raised and passed as a result error message down the line.
     """
+
+
+class AuthenticationException(Exception):
+    """Thrown in case of authentication failure.
+
+    To be raised and passed as a result error message down the line.
+    """
+
+
+class CheckIDNotFoundException(Exception):
+    """Thrown in case of check id not found.
+    class WindowLengthError(Exception):
+
+        To be raised and passed as a result error message down the line.
+    """
