@@ -5,8 +5,8 @@ import os
 from typing import Any, Dict
 
 import requests
-
 from soda.scan import Scan
+
 from soda.scientific.anomaly_detection_v2.exceptions import (
     AuthenticationException,
     CheckIDNotFoundException,

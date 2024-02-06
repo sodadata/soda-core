@@ -7,8 +7,17 @@ from logging import Logger
 from pathlib import Path
 
 import streamlit as st
-
 from soda.common.logs import Logs
+from soda.sodacl.anomaly_detection_metric_check_cfg import (
+    HyperparameterConfigs,
+    ModelConfigs,
+    ProphetCustomHyperparameters,
+    ProphetDefaultHyperparameters,
+    ProphetHyperparameterProfiles,
+    SeverityLevelParameters,
+    TrainingDatasetParameters,
+)
+
 from soda.scientific.anomaly_detection_v2.anomaly_detector import AnomalyDetector
 from soda.scientific.anomaly_detection_v2.exceptions import (
     AuthenticationException,
@@ -26,15 +35,6 @@ from soda.scientific.anomaly_detection_v2.simulate.pydantic_models import (
 )
 from soda.scientific.anomaly_detection_v2.simulate.visualisation import (
     visualize_results,
-)
-from soda.sodacl.anomaly_detection_metric_check_cfg import (
-    HyperparameterConfigs,
-    ModelConfigs,
-    ProphetCustomHyperparameters,
-    ProphetDefaultHyperparameters,
-    ProphetHyperparameterProfiles,
-    SeverityLevelParameters,
-    TrainingDatasetParameters,
 )
 
 FILE_PATH = Path(__file__).parent.absolute()
