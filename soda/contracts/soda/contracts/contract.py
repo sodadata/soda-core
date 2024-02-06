@@ -47,7 +47,15 @@ class Contract:
             contract_yaml_str = f.read()
             return cls.from_yaml_str(contract_yaml_str)
 
-    def __init__(self, dataset: str, sql_filter: str | None, schema: str | None, checks: List[Check], contract_yaml_str: str, logs: Logs):
+    def __init__(
+        self,
+        dataset: str,
+        sql_filter: str | None,
+        schema: str | None,
+        checks: List[Check],
+        contract_yaml_str: str,
+        logs: Logs,
+    ):
         """
         Consider using Contract.from_yaml_str(contract_yaml_str) instead as that is more stable API.
         """
@@ -137,14 +145,14 @@ class Contract:
     def _generate_sodacl_yaml_str(self, logs: Logs) -> str:
         # Serialize the SodaCL YAML object to a YAML string
         sodacl_checks: list = []
-        sodacl_yaml_object: dict = {
-                f"filter {self.dataset} [filter]": {
-                    "where": self.sql_filter
-                },
-                f"checks for {self.dataset} [filter]": sodacl_checks
-            } if self.sql_filter else {
-                f"checks for {self.dataset}": sodacl_checks
+        sodacl_yaml_object: dict = (
+            {
+                f"filter {self.dataset} [filter]": {"where": self.sql_filter},
+                f"checks for {self.dataset} [filter]": sodacl_checks,
             }
+            if self.sql_filter
+            else {f"checks for {self.dataset}": sodacl_checks}
+        )
 
         for check in self.checks:
             sodacl_check = check._to_sodacl_check()

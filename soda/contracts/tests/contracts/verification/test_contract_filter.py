@@ -1,11 +1,10 @@
-from datetime import date, datetime
+from datetime import datetime
 
-from contracts.helpers.contract_test_tables import contracts_test_table
 from contracts.helpers.test_connection import TestConnection
 from helpers.test_table import TestTable
+from soda.execution.data_type import DataType
 
 from soda.contracts.contract import CheckOutcome, ContractResult
-from soda.execution.data_type import DataType
 
 contracts_filter_test_table = TestTable(
     name="contracts_filter",
@@ -21,7 +20,6 @@ contracts_filter_test_table = TestTable(
     ]
     # fmt: on
 )
-
 
 
 def test_contract_filter_row_count(test_connection: TestConnection, environ: dict):

@@ -119,7 +119,12 @@ class ContractParser:
                     checks.append(check)
 
         return Contract(
-            dataset=dataset_name, sql_filter=sql_filter, schema=schema_name, checks=checks, contract_yaml_str=contract_yaml_str, logs=self.logs
+            dataset=dataset_name,
+            sql_filter=sql_filter,
+            schema=schema_name,
+            checks=checks,
+            contract_yaml_str=contract_yaml_str,
+            logs=self.logs,
         )
 
     def _parse_column_check(self, contract_check_id: str, check_yaml_object: YamlObject, column: str) -> Check | None:
