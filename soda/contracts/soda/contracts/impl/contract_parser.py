@@ -63,6 +63,7 @@ class ContractParser:
 
         dataset_name: str | None = contract_yaml_object.read_string("dataset")
         schema_name: str | None = contract_yaml_object.read_string_opt("schema")
+        sql_filter: str | None = contract_yaml_object.read_string_opt("sql_filter")
 
         checks: list[Check] = []
 
@@ -118,7 +119,7 @@ class ContractParser:
                     checks.append(check)
 
         return Contract(
-            dataset=dataset_name, schema=schema_name, checks=checks, contract_yaml_str=contract_yaml_str, logs=self.logs
+            dataset=dataset_name, sql_filter=sql_filter, schema=schema_name, checks=checks, contract_yaml_str=contract_yaml_str, logs=self.logs
         )
 
     def _parse_column_check(self, contract_check_id: str, check_yaml_object: YamlObject, column: str) -> Check | None:

@@ -299,6 +299,25 @@ checks:
   fail_when_between: [0, 5]
 ```
 
+### Filter
+
+Sometimes new data is already appended in an incremental table and you only want to run the 
+contract checks on the new data.  For this, a SQL filter can be used.
+
+The following check requires a variable to be passed.
+
+```yaml
+dataset: CUSTOMERS
+sql_filter: |
+  created > ${FILTER_START_TIME}
+columns:
+  - name: id
+  - name: created
+checks:
+  - type: row_count
+    fail_when_less_than: 10
+```
+
 ### Thresholds
 
 Some check types have default thresholds.  If you do want to specify a threshold, use one of these check configuration properties
