@@ -67,6 +67,7 @@ class DremioDataSource(DataSource):
         self.port = data_source_properties.get("port", "32010")
         self.username = data_source_properties.get("username")
         self.password = data_source_properties.get("password")
+        self.token = data_source_properties.get("token")
         self.schema = data_source_properties.get("schema")
         self.use_encryption = data_source_properties.get("use_encryption", "false")
         self.routing_queue = data_source_properties.get("routing_queue", "")
@@ -84,6 +85,8 @@ class DremioDataSource(DataSource):
                 + self.username
                 + ";PWD="
                 + self.password
+                + ";TOKEN="
+                + self.token
                 + ";useEncryption="
                 + self.use_encryption
                 + ";routing_queue="
