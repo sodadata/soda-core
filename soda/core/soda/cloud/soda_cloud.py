@@ -312,7 +312,7 @@ class SodaCloud(Cloud):
             query_name="get_hisotric_check_results",
         )
 
-    def _get_token(self):
+    def _get_token(self) -> str:
         if not self.token:
             login_command = {"type": "login"}
             if self.api_key_id and self.api_key_secret:

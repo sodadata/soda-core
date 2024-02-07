@@ -9,7 +9,7 @@
 ./soda/spark[odbc]
 ./soda/spark[databricks]
 ./soda/spark_df
-./soda/scientific
+./soda/scientific[simulator]
 ./soda/sqlserver
 ./soda/mysql
 ./soda/dask

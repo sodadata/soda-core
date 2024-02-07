@@ -11,6 +11,8 @@
 from __future__ import annotations
 
 import logging
+import os
+import subprocess
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -606,6 +608,63 @@ def test_connection(
         result = 1
 
     sys.exit(result)
+
+
+@main.command(
+    short_help="Simulates anomaly detection parameters",
+)
+@click.option(
+    "-c",
+    "--configuration",
+    required=True,
+    multiple=True,
+    type=click.STRING,
+)
+@soda_trace
+def simulate_anomaly_detection(configuration: list[str]) -> None:
+    try:
+        pass
+    except ImportError:
+        logging.error(
+            " soda-scientific[simulator] is not installed. "
+            "Please install the simulator sub package by running the following command: \n"
+            '   pip install "soda-scientific[simulator]" -i https://pypi.cloud.soda.io'
+        )
+        return
+    configure_logging()
+
+    # Test whether the configuration file exists
+    fs = file_system()
+    scan = Scan()
+    for configuration_path in configuration:
+        if not fs.exists(configuration_path):
+            logging.error(
+                f"Configuration File Path Error: "
+                "Configuration path '{configuration_path}' does not exist. "
+                "Please provide a valid configuration file path. Exiting.."
+            )
+            return
+        scan.add_configuration_yaml_file(file_path=configuration_path)
+        try:
+            scan._configuration.soda_cloud.login()
+        except Exception as e:
+            logging.error(
+                "Soda Cloud Authentication Error: "
+                "Unable to login to Soda Cloud. Please provide a valid Soda Cloud credentials. "
+                f"\n{e}"
+            )
+            return
+        # This file path using Pathlib
+    logging.info("Starting Soda Anomaly Detection Simulator.. It might take a few seconds to start.")
+
+    # set environment variable SODA_CONFIG_FILE_PATH to the path of your configuration file
+    os.environ["SODA_CONFIG_FILE_PATH"] = configuration[0]
+
+    file_path = Path(__file__).parent.absolute()
+    src_dir = file_path.parent.parent.parent.absolute()
+    streamlit_app_path = src_dir / "scientific" / "soda" / "scientific" / "anomaly_detection_v2" / "simulate" / "app.py"
+
+    subprocess.run(["streamlit", "run", streamlit_app_path])
 
 
 def __execute_query(connection, sql: str) -> list[tuple]:

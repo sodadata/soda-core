@@ -19,7 +19,11 @@ requires = [
     "prophet>=1.1.5,<2.0.0",
 ]
 
-# TODO Fix the params
+simulator_deps = [
+    "streamlit>=1.30.0,<2.0.0",
+    "plotly>=5.18.0",
+]
+
 setup(
     name=package_name,
     version=package_version,
@@ -27,5 +31,8 @@ setup(
     packages=find_namespace_packages(include=["soda*"]),
     package_data={
         "": ["detector_config.yaml"],
+    },
+    extras_require={
+        "simulator": simulator_deps,
     },
 )
