@@ -28,10 +28,7 @@ from soda.scientific.anomaly_detection_v2.exceptions import (
     WindowLengthError,
 )
 from soda.scientific.anomaly_detection_v2.frequency_detector import FrequencyDetector
-from soda.scientific.anomaly_detection_v2.globals import (
-    DETECTOR_MESSAGES,
-    ERROR_CODE_LEVEL_CUTTOFF,
-)
+from soda.scientific.anomaly_detection_v2.globals import ERROR_CODE_LEVEL_CUTTOFF
 from soda.scientific.anomaly_detection_v2.models.base import BaseDetector
 from soda.scientific.anomaly_detection_v2.pydantic_models import FreqDetectionResult
 from soda.scientific.anomaly_detection_v2.utils import (
@@ -172,6 +169,8 @@ class ProphetDetector(BaseDetector):
         try:
             aggregated_df = pd.DataFrame(df.resample(frequency).agg(aggregation_function))
             aggregated_df = aggregated_df.reset_index()
+            if "external_regressor" in df.columns:
+                aggregated_df["external_regressor"] = aggregated_df["external_regressor"].fillna(value=0)
         except AttributeError:
             raise AggregationValueError(
                 f"Anomaly Detection: Aggregation function '{aggregation_function}' is not supported. "

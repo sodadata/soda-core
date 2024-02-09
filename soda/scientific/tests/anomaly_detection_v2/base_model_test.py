@@ -6,6 +6,8 @@ import pandas as pd
 import pytest
 from anomaly_detection_v2.utils import generate_random_dataframe
 from assets.anomaly_detection_assets import (
+    test_prophet_model_is_anomaly_true,
+    test_prophet_model_is_anomaly_true_expectation,
     test_prophet_model_skip_measurements_previousAndThis,
     test_prophet_model_skip_measurements_previousAndThis_expectation,
     test_prophet_model_skip_measurements_previousAndThis_last_measurement,
@@ -61,6 +63,11 @@ FREQ_DETECTION_RESULTS = FreqDetectionResult(
             test_prophet_model_skip_measurements_previousAndThis_last_measurement,
             pd.DataFrame(columns=["ds", "y"], index=pd.RangeIndex(start=0, stop=0, step=1)),
             id="previousAndThis on last measurement",
+        ),
+        pytest.param(
+            test_prophet_model_is_anomaly_true,
+            test_prophet_model_is_anomaly_true_expectation,
+            id="is_correctly_classified_anomaly is True and skipMeasurements present",
         ),
     ],
 )

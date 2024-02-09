@@ -8,6 +8,8 @@ from anomaly_detection_v2.utils import PARAMS
 from assets.anomaly_detection_assets import (
     test_anomaly_detector_parsed_ad_measurements,
     test_empty_anomaly_detector_parsed_ad_measurements,
+    test_feedback_processor_correctly_classified_anomalies,
+    test_feedback_processor_correctly_classified_anomalies_expectation,
     test_feedback_processor_feedback_processed_df,
     test_feedback_processor_seasonality_skip_measurements,
     test_feedback_processor_seasonality_skip_measurements_expectation,
@@ -33,6 +35,12 @@ LOGS = Logs(logging.getLogger(__name__))
             test_empty_anomaly_detector_parsed_ad_measurements,
             test_empty_anomaly_detector_parsed_ad_measurements,
             id="Test feedback processor feedback processed df with empty feedbacks",
+        ),
+        pytest.param(
+            {},
+            test_feedback_processor_correctly_classified_anomalies,
+            test_feedback_processor_correctly_classified_anomalies_expectation,
+            id="Test feedback processor with correctly classified anomalies",
         ),
     ],
 )

@@ -2,7 +2,8 @@ from __future__ import annotations
 
 from typing import Any, ClassVar, List, Optional, Union
 
-from pydantic import BaseModel, ConfigDict, ValidationError, field_validator, validator
+from pydantic import BaseModel, ConfigDict, ValidationError, field_validator
+
 from soda.common.logs import Logs
 from soda.sodacl.change_over_time_cfg import ChangeOverTimeCfg
 from soda.sodacl.location import Location
@@ -168,7 +169,7 @@ class SeverityLevelParameters(ADBaseModel):
     warning_ratio: float = 0.1
     min_confidence_interval_ratio: float = 0.001
 
-    @validator("warning_ratio", "min_confidence_interval_ratio")
+    @field_validator("warning_ratio", "min_confidence_interval_ratio")
     def check_ratio(cls, v: float) -> float:
         if not 0 <= v <= 1:
             raise ValueError(f"Value must be between 0 and 1, but got {v}")
