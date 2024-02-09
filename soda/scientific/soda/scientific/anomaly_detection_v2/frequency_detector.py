@@ -4,6 +4,7 @@ from typing import Any
 
 import pandas as pd
 from soda.common.logs import Logs
+
 from soda.scientific.anomaly_detection_v2.globals import (
     DETECTOR_MESSAGES,
     MANUAL_FREQUENCY_MAPPING,
