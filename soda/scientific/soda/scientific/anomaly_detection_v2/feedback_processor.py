@@ -6,7 +6,7 @@
 #   # reproduces is forward at captured regularity with some smoothing/decay around the point
 
 from datetime import date
-from typing import Any, Dict, Tuple
+from typing import Any, Dict, Optional, Tuple
 
 import pandas as pd
 from soda.common.logs import Logs
@@ -83,20 +83,32 @@ class FeedbackProcessor:
         df_feedback_processed = pd.merge(df, df_flattened, left_index=True, right_index=True)
         df_feedback_processed_cols = df_feedback_processed.columns
 
-        # Add misclassification flags
-        if "isCorrectlyClassified" in df_feedback_processed_cols:
-            df_feedback_processed["isCorrectlyClassified"] = df_feedback_processed["isCorrectlyClassified"].fillna(True)
-        else:
-            df_feedback_processed["isCorrectlyClassified"] = True
-        df_feedback_processed["is_misclassification"] = ~df_feedback_processed["isCorrectlyClassified"]
-
-        # Replace NAN in "reason" with some string that won't match later so that we dump it
-        # and it does not upset the rest of the flow
         if "reason" in df_feedback_processed_cols:
             df_feedback_processed["reason"] = df_feedback_processed["reason"].fillna("Invalid reason")
         else:
             df_feedback_processed["reason"] = "Invalid reason"
+
+        df_feedback_processed["is_correctly_classified_anomaly"] = None
+        # compute whether an anomaly was correctly classified
+        if "isCorrectlyClassified" in df_feedback_processed_cols and "outcome" in df_feedback_processed_cols:
+            df_feedback_processed["is_correctly_classified_anomaly"] = df_feedback_processed.apply(
+                lambda x: self.find_is_correctly_classified_anomalies(
+                    is_correctly_classified=x["isCorrectlyClassified"], outcome=x["outcome"]
+                ),  # type: ignore
+                axis=1,
+            )
         return df_feedback_processed
+
+    @staticmethod
+    def find_is_correctly_classified_anomalies(
+        is_correctly_classified: Optional[bool], outcome: Optional[str]
+    ) -> Optional[bool]:
+        is_fail_or_warn = outcome in ["warn", "fail"]
+        if is_fail_or_warn is True and is_correctly_classified is True:
+            return True
+        elif is_fail_or_warn is True and is_correctly_classified is False:
+            return False
+        return None
 
     def derive_exogenous_regressor(self, df_feedback_processed: pd.DataFrame) -> Tuple[bool, pd.DataFrame]:
         has_exegonenous_regressor = False
@@ -106,8 +118,8 @@ class FeedbackProcessor:
             df_feedback_processed["y"] - df_feedback_processed["anomaly_predicted_value"]
         )
         df_regressor_ref = df_feedback_processed.loc[
-            df_feedback_processed["is_misclassification"] == True  # noqa: E712
-        ]
+            df_feedback_processed["is_correctly_classified_anomaly"] == False
+        ]  # noqa: E712
         self._logs.debug(f"Processing {len(df_regressor_ref)} user feedbacks")
         df_regressor_ref = df_regressor_ref.merge(feedback_ref_mapping, how="left", left_on="reason", right_on="index")
 

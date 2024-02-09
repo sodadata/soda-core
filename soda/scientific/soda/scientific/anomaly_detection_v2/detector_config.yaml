@@ -7,6 +7,7 @@ request_params:
     anomalyPredictedValue: "anomaly_predicted_value"
     anomalyProbability: "anomaly_probability"
     feedback: "feedback"
+    outcome: "outcome"
 
 feedback_processor_params:
   output_columns:
