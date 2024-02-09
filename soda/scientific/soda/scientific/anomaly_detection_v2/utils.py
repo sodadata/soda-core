@@ -43,9 +43,11 @@ def get_not_enough_measurements_freq_result(n_data_points: int) -> FreqDetection
     return FreqDetectionResult(
         inferred_frequency=None,
         df=pd.DataFrame(),
-        freq_detection_strategy="not_enough_measurements",
-        error_code_int=DETECTOR_MESSAGES["not_enough_measurements"].error_code_int,
-        error_code=DETECTOR_MESSAGES["not_enough_measurements"].error_code_str,
-        error_severity=DETECTOR_MESSAGES["not_enough_measurements"].severity,
-        error_message=DETECTOR_MESSAGES["not_enough_measurements"].log_message.format(n_data_points=n_data_points),
+        freq_detection_strategy="not_enough_measurements_custom",
+        error_code_int=DETECTOR_MESSAGES["not_enough_measurements_custom"].error_code_int,
+        error_code=DETECTOR_MESSAGES["not_enough_measurements_custom"].error_code_str,
+        error_severity=DETECTOR_MESSAGES["not_enough_measurements_custom"].severity,
+        error_message=DETECTOR_MESSAGES["not_enough_measurements_custom"].log_message.format(
+            n_data_points=n_data_points
+        ),
     )

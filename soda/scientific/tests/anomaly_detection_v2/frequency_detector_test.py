@@ -38,7 +38,7 @@ def test_auto_daily_frequency_detector() -> None:
     assert frequency_detector_result.freq_detection_strategy == "native_freq"
     assert frequency_detector_result.error_code_int == 0
     assert frequency_detector_result.error_severity == "info"
-    assert frequency_detector_result.error_message == "native frequency detected"
+    assert frequency_detector_result.error_message == "Frequency Detection Info: native frequency detected"
 
 
 def test_auto_hourly_frequency_detector() -> None:
@@ -54,7 +54,7 @@ def test_auto_hourly_frequency_detector() -> None:
     assert frequency_detector_result.freq_detection_strategy == "native_freq"
     assert frequency_detector_result.error_code_int == 0
     assert frequency_detector_result.error_severity == "info"
-    assert frequency_detector_result.error_message == "native frequency detected"
+    assert frequency_detector_result.error_message == "Frequency Detection Info: native frequency detected"
 
 
 def test_not_enough_data_frequency_detector() -> None:
@@ -67,7 +67,7 @@ def test_not_enough_data_frequency_detector() -> None:
     )
     frequency_detector_result = frequency_detector.detect_frequency()
     assert frequency_detector_result.inferred_frequency == None
-    assert frequency_detector_result.freq_detection_strategy == "not_enough_measurements"
+    assert frequency_detector_result.freq_detection_strategy == "not_enough_measurements_custom"
     assert frequency_detector_result.error_code_int == 100
     assert frequency_detector_result.error_severity == "error"
     assert frequency_detector_result.error_message == (
@@ -93,7 +93,12 @@ def test_coerced_daily_frequency_detector() -> None:
     assert frequency_detector_result.freq_detection_strategy == "coerced_daily"
     assert frequency_detector_result.error_code_int == 0
     assert frequency_detector_result.error_severity == "warn"
-    assert frequency_detector_result.error_message == "Coerced to daily frequency with last daily time point kept"
+    assert frequency_detector_result.error_message == (
+        "Frequency Detection Warning: Due to unpredictable time intervals, "
+        "we have assumed a daily frequency. If more than 1 data point occurs "
+        "in one day we take the last record. Free free to set the "
+        "frequency manually in your SodaCL."
+    )
 
 
 def test_no_duplicate_dates_daily_frequency_detector() -> None:
@@ -111,4 +116,6 @@ def test_no_duplicate_dates_daily_frequency_detector() -> None:
     assert frequency_detector_result.freq_detection_strategy == "converted_daily_no_dupes"
     assert frequency_detector_result.error_code_int == 0
     assert frequency_detector_result.error_severity == "info"
-    assert frequency_detector_result.error_message == "converted to daily frequency no dupes with time info removed"
+    assert frequency_detector_result.error_message == (
+        "Frequency Detection Info: Converted to daily frequency no dupes with time info removed"
+    )
