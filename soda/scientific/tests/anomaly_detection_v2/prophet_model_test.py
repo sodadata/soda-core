@@ -53,7 +53,7 @@ def test_with_exit() -> None:
     df_anomalies, frequency_result = detector.run()
     assert df_anomalies.empty
     assert frequency_result.error_code_int == 100
-    assert frequency_result.freq_detection_strategy == "not_enough_measurements"
+    assert frequency_result.freq_detection_strategy == "not_enough_measurements_custom"
 
 
 @pytest.mark.parametrize(
@@ -165,7 +165,7 @@ def test_not_enough_data() -> None:
     df_anomalies, frequency_result = prophet_detector.run()
     assert df_anomalies.empty
     assert frequency_result.error_code_int == 100
-    assert frequency_result.freq_detection_strategy == "not_enough_measurements"
+    assert frequency_result.freq_detection_strategy == "not_enough_measurements_custom"
 
 
 def test_get_prophet_hyperparameters_no_tuning() -> None:
