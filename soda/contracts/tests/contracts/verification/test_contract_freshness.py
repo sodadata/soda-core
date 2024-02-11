@@ -1,12 +1,10 @@
-from datetime import date, datetime, timezone
-from unittest import skip
+from datetime import datetime, timezone
 
-from contracts.helpers.contract_test_tables import contracts_test_table
 from contracts.helpers.test_connection import TestConnection
 from helpers.test_table import TestTable
+from soda.execution.data_type import DataType
 
 from soda.contracts.contract import CheckOutcome, ContractResult
-from soda.execution.data_type import DataType
 
 contracts_freshness_test_table = TestTable(
     name="contracts_freshness",
@@ -39,7 +37,7 @@ def test_contract_freshness_pass(test_connection: TestConnection, environ: dict)
             - type: freshness_in_hours
               fail_when_greater_than_or_equal: 3
     """,
-        variables=variables
+        variables=variables,
     )
 
 
@@ -58,7 +56,7 @@ def test_contract_freshness_fail(test_connection: TestConnection, environ: dict)
             - type: freshness_in_hours
               fail_when_greater_than_or_equal: 3
     """,
-        variables=variables
+        variables=variables,
     )
     contract_result_str = str(contract_result)
     assert "Expected freshness(created) < 3h" in contract_result_str

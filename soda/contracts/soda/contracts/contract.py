@@ -14,10 +14,10 @@ from soda.common import logs as soda_core_logs
 from soda.scan import Scan
 from soda.scan import logger as scan_logger
 
-from soda.contracts.connection import SodaException
-from soda.contracts.impl.logs import Logs, LogLevel, Log, Location
-from soda.contracts.impl.yaml import YamlObject, YamlWriter
 from soda.contracts import soda_cloud as contract_soda_cloud
+from soda.contracts.connection import SodaException
+from soda.contracts.impl.logs import Location, Log, LogLevel, Logs
+from soda.contracts.impl.yaml import YamlObject, YamlWriter
 
 logger = logging.getLogger(__name__)
 
@@ -53,7 +53,7 @@ class Contract:
         checks: List[Check],
         contract_yaml_str: str,
         variables: dict[str, str] | None,
-        logs: Logs
+        logs: Logs,
     ):
         """
         Consider using Contract.from_yaml_str(contract_yaml_str) instead as that is more stable API.
@@ -69,9 +69,7 @@ class Contract:
         self.logs: Logs = logs
         self.sodacl_yaml_str: str | None = None
 
-    def verify(
-        self, connection: "Connection", soda_cloud: contract_soda_cloud.SodaCloud | None = None
-    ) -> ContractResult:
+    def verify(self, connection: Connection, soda_cloud: contract_soda_cloud.SodaCloud | None = None) -> ContractResult:
         """
         Verifies if the data in the dataset matches the contract.
         """
@@ -93,8 +91,9 @@ class Contract:
                 # Execute the contract SodaCL in a scan
                 scan.set_data_source_name(data_source.data_source_name)
                 scan_definition_name = (
-                    f"dataset://{connection.name}/{self.schema}/{self.dataset}" if self.schema else
-                    f"dataset://{connection.name}/{self.dataset}"
+                    f"dataset://{connection.name}/{self.schema}/{self.dataset}"
+                    if self.schema
+                    else f"dataset://{connection.name}/{self.dataset}"
                 )
                 scan._data_source_manager.data_sources[data_source.data_source_name] = data_source
 
@@ -655,7 +654,9 @@ class FreshnessCheck(Check):
         measurements = [
             Measurement(name="freshness", type="string", value=diagnostics["freshness"]),
             Measurement(name="freshness_column_max_value", type="string", value=diagnostics["maxColumnTimestamp"]),
-            Measurement(name="freshness_column_max_value_utc", type="string", value=diagnostics["maxColumnTimestampUtc"]),
+            Measurement(
+                name="freshness_column_max_value_utc", type="string", value=diagnostics["maxColumnTimestampUtc"]
+            ),
             Measurement(name="now", type="string", value=diagnostics["nowTimestamp"]),
             Measurement(name="now_utc", type="string", value=diagnostics["nowTimestampUtc"]),
         ]

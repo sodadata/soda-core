@@ -1,7 +1,7 @@
 # Setting up a Soda contracts virtual environment
 
-> Alternative: As an alternative to setting up your own virtual environment, consider using 
-> a Soda docker container.  That will have a tested combination of all the library dependencies. 
+> Alternative: As an alternative to setting up your own virtual environment, consider using
+> a Soda docker container.  That will have a tested combination of all the library dependencies.
 
 > Prerequisites:
 > * Linux or Mac

@@ -11,8 +11,8 @@ A Soda data contract contains:
 * Data quality checks on column and dataset level
 * Other metadata not related to contract verification
 
-Soda contracts is a Python library that verifies if the schema and data in a dataset/table/view 
-passes checks in the contract.        
+Soda contracts is a Python library that verifies if the schema and data in a dataset/table/view
+passes checks in the contract.
 
 ```yaml
 dataset: CUSTOMERS

@@ -11,15 +11,16 @@ from soda.contracts.impl.variable_resolver import VariableResolver
 
 
 class SodaCloud:
-    def __init__(self,
-                 host: str,
-                 api_key_id: str,
-                 api_key_secret: str,
-                 token: str | None,
-                 port: str | None,
-                 scheme: str,
-                 logs: Logs
-                 ):
+    def __init__(
+        self,
+        host: str,
+        api_key_id: str,
+        api_key_secret: str,
+        token: str | None,
+        port: str | None,
+        scheme: str,
+        logs: Logs,
+    ):
         self.host: str = host
         self.api_key_id: str = api_key_id
         self.api_key_secret: str = api_key_secret
@@ -28,7 +29,6 @@ class SodaCloud:
         self.scheme: str = scheme
         # See also adr/03_exceptions_vs_error_logs.md
         self.logs: Logs = logs
-
 
     @classmethod
     def from_environment_variables(cls) -> SodaCloud:
@@ -122,12 +122,8 @@ class SodaCloud:
         api_key_secret: str = cls.__get_configuration_value(
             soda_cloud_dict=soda_cloud_dict, key="api_key_secret", logs=logs, required=True
         )
-        token: str | None = cls.__get_configuration_value(
-            soda_cloud_dict=soda_cloud_dict, key="token", logs=logs
-        )
-        port: str | None = cls.__get_configuration_value(
-            soda_cloud_dict=soda_cloud_dict, key="port", logs=logs
-        )
+        token: str | None = cls.__get_configuration_value(soda_cloud_dict=soda_cloud_dict, key="token", logs=logs)
+        port: str | None = cls.__get_configuration_value(soda_cloud_dict=soda_cloud_dict, key="port", logs=logs)
         scheme: str = cls.__get_configuration_value(
             soda_cloud_dict=soda_cloud_dict, key="scheme", logs=logs, default_value="https"
         )
@@ -140,7 +136,7 @@ class SodaCloud:
             token=token,
             port=port,
             scheme=scheme,
-            logs=logs
+            logs=logs,
         )
 
     @classmethod

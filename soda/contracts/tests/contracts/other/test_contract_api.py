@@ -6,11 +6,11 @@ import pytest
 from contracts.helpers.contract_test_tables import contracts_test_table
 from helpers.data_source_fixture import DataSourceFixture
 from helpers.test_table import TestTable
+from soda.execution.data_type import DataType
 
 from soda.contracts.connection import Connection, SodaException
 from soda.contracts.contract import Contract, ContractResult
 from soda.contracts.soda_cloud import SodaCloud
-from soda.execution.data_type import DataType
 
 contracts_api_test_table = TestTable(
     name="contracts_api",
@@ -28,6 +28,7 @@ contracts_api_test_table = TestTable(
     ]
     # fmt: on
 )
+
 
 def test_contract_api(data_source_fixture: DataSourceFixture, environ: dict):
     table_name: str = data_source_fixture.ensure_test_table(contracts_api_test_table)

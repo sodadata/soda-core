@@ -1,7 +1,7 @@
 from __future__ import annotations
+
 import logging
 from textwrap import dedent
-from typing import Dict
 
 from helpers.data_source_fixture import DataSourceFixture
 from helpers.test_table import TestTable

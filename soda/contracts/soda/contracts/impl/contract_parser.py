@@ -10,6 +10,7 @@ from soda.contracts.connection import SodaException
 from soda.contracts.contract import (
     Check,
     Contract,
+    FreshnessCheck,
     InvalidReferenceCheck,
     MissingConfigurations,
     NumericMetricCheck,
@@ -19,7 +20,7 @@ from soda.contracts.contract import (
     UserDefinedSqlExpressionCheck,
     UserDefinedSqlQueryCheck,
     ValidConfigurations,
-    ValidReferenceColumn, FreshnessCheck,
+    ValidReferenceColumn,
 )
 from soda.contracts.impl.json_schema_verifier import JsonSchemaVerifier
 from soda.contracts.impl.logs import Logs
@@ -125,7 +126,7 @@ class ContractParser:
             checks=checks,
             contract_yaml_str=contract_yaml_str,
             variables=variables,
-            logs=self.logs
+            logs=self.logs,
         )
 
     def _parse_column_check(self, contract_check_id: str, check_yaml_object: YamlObject, column: str) -> Check | None:
@@ -314,8 +315,7 @@ class ContractParser:
             "freshness_in_minutes",
         ]
         if check_type not in freshness_check_types:
-            self.logs.error(
-                f"Invalid freshness check type: {check_type}: Expected one of {freshness_check_types}")
+            self.logs.error(f"Invalid freshness check type: {check_type}: Expected one of {freshness_check_types}")
             return None
 
         fail_threshold: NumericThreshold = self._parse_numeric_threshold(
@@ -323,14 +323,18 @@ class ContractParser:
         )
         if not fail_threshold:
             self.logs.error("No threshold defined for sql_expression check", location=check_yaml_object.location)
-        elif (fail_threshold.not_between is not None
-                or fail_threshold.between is not None
-                or fail_threshold.equal is not None
-                or fail_threshold.not_equal is not None
-                or fail_threshold.greater_than is not None
-                or fail_threshold.less_than is not None
-                or fail_threshold.less_than_or_equal is not None):
-            self.logs.error("Invalid freshness threshold. Use fail_when_greater_than_or_equal", location=check_yaml_object.location)
+        elif (
+            fail_threshold.not_between is not None
+            or fail_threshold.between is not None
+            or fail_threshold.equal is not None
+            or fail_threshold.not_equal is not None
+            or fail_threshold.greater_than is not None
+            or fail_threshold.less_than is not None
+            or fail_threshold.less_than_or_equal is not None
+        ):
+            self.logs.error(
+                "Invalid freshness threshold. Use fail_when_greater_than_or_equal", location=check_yaml_object.location
+            )
 
         for k in check_yaml_object:
             if k.startswith("warn_when"):
