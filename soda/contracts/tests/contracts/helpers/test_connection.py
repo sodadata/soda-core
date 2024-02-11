@@ -1,5 +1,7 @@
+from __future__ import annotations
 import logging
 from textwrap import dedent
+from typing import Dict
 
 from helpers.data_source_fixture import DataSourceFixture
 from helpers.test_table import TestTable
@@ -31,10 +33,10 @@ class TestConnection(Connection):
     def data_type_date(self) -> str:
         return self.data_source.get_sql_type_for_schema_check(DataType.DATE)
 
-    def assert_contract_pass(self, contract_yaml_str: str) -> ContractResult:
+    def assert_contract_pass(self, contract_yaml_str: str, variables: dict[str, str] | None = None) -> ContractResult:
         contract_yaml_str = dedent(contract_yaml_str)
         logging.debug(contract_yaml_str)
-        contract: Contract = Contract.from_yaml_str(contract_yaml_str)
+        contract: Contract = Contract.from_yaml_str(contract_yaml_str=contract_yaml_str, variables=variables)
         contract_result: ContractResult = contract.verify(self)
         if contract_result.failed():
             raise AssertionError(str(contract_result))
@@ -43,12 +45,12 @@ class TestConnection(Connection):
         assert contract_result_str == "All is good. No checks failed. No contract execution errors."
         return contract_result
 
-    def assert_contract_fail(self, contract_yaml_str: str) -> ContractResult:
+    def assert_contract_fail(self, contract_yaml_str: str, variables: dict[str, str] | None = None) -> ContractResult:
         contract_yaml_str = dedent(contract_yaml_str).strip()
         logging.debug(contract_yaml_str)
-        contract: Contract = Contract.from_yaml_str(contract_yaml_str)
+        contract: Contract = Contract.from_yaml_str(contract_yaml_str=contract_yaml_str, variables=variables)
         try:
-            contract_result: ContractResult = contract.verify(self)
+            contract_result: ContractResult = contract.verify(connection=self)
             raise AssertionError(
                 f"Expected contract verification exception, but got contract result: {contract_result}"
             )

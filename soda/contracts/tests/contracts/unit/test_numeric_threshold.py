@@ -73,9 +73,9 @@ def test_numeric_threshold_fail_when_greater_than_or_equal():
     assert NumericThreshold(greater_than_or_equal=0)._get_sodacl_checkline_threshold() == "< 0"
 
 
-def test_numeric_threshold_fail_when_equals():
-    assert NumericThreshold(equals=0)._get_sodacl_checkline_threshold() == "!= 0"
+def test_numeric_threshold_fail_when_equal():
+    assert NumericThreshold(equal=0)._get_sodacl_checkline_threshold() == "!= 0"
 
 
-def test_numeric_threshold_fail_when_not_equals():
-    assert NumericThreshold(not_equals=0)._get_sodacl_checkline_threshold() == "= 0"
+def test_numeric_threshold_fail_when_not_equal():
+    assert NumericThreshold(not_equal=0)._get_sodacl_checkline_threshold() == "= 0"

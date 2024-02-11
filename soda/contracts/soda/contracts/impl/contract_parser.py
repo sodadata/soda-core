@@ -19,7 +19,7 @@ from soda.contracts.contract import (
     UserDefinedSqlExpressionCheck,
     UserDefinedSqlQueryCheck,
     ValidConfigurations,
-    ValidReferenceColumn,
+    ValidReferenceColumn, FreshnessCheck,
 )
 from soda.contracts.impl.json_schema_verifier import JsonSchemaVerifier
 from soda.contracts.impl.logs import Logs
@@ -31,9 +31,9 @@ logger = logging.getLogger(__name__)
 
 class ContractParser:
 
-    def __init__(self, logs: Logs | None = None):
+    def __init__(self):
         super().__init__()
-        self.logs = logs if logs else Logs()
+        self.logs = Logs()
         self.missing_value_configs_by_column = {}
         self.skip_schema_validation: bool = False
 
@@ -124,7 +124,8 @@ class ContractParser:
             schema=schema_name,
             checks=checks,
             contract_yaml_str=contract_yaml_str,
-            logs=self.logs,
+            variables=variables,
+            logs=self.logs
         )
 
     def _parse_column_check(self, contract_check_id: str, check_yaml_object: YamlObject, column: str) -> Check | None:
@@ -146,7 +147,7 @@ class ContractParser:
             metric = f"{check_type}{column_text}"
 
         default_threshold: NumericThreshold | None = (
-            NumericThreshold(not_equals=0)
+            NumericThreshold(not_equal=0)
             if check_type
             in [
                 "missing",
@@ -176,6 +177,13 @@ class ContractParser:
             )
         elif check_type == "sql_expression":
             return self._parse_user_defined_sql_expression_check(
+                contract_check_id=contract_check_id,
+                check_yaml_object=check_yaml_object,
+                check_type=check_type,
+                column=column,
+            )
+        elif check_type.startswith("freshness_in_"):
+            return self._parse_freshness_check(
                 contract_check_id=contract_check_id,
                 check_yaml_object=check_yaml_object,
                 check_type=check_type,
@@ -295,6 +303,50 @@ class ContractParser:
             warn_threshold=None,
         )
 
+    def _parse_freshness_check(
+        self, contract_check_id: str, check_yaml_object: YamlObject, check_type: str, column: str | None
+    ) -> Check | None:
+        name = check_yaml_object.read_string_opt("name")
+
+        freshness_check_types = [
+            "freshness_in_days",
+            "freshness_in_hours",
+            "freshness_in_minutes",
+        ]
+        if check_type not in freshness_check_types:
+            self.logs.error(
+                f"Invalid freshness check type: {check_type}: Expected one of {freshness_check_types}")
+            return None
+
+        fail_threshold: NumericThreshold = self._parse_numeric_threshold(
+            check_yaml_object=check_yaml_object, prefix="fail_when_", default_threshold=None
+        )
+        if not fail_threshold:
+            self.logs.error("No threshold defined for sql_expression check", location=check_yaml_object.location)
+        elif (fail_threshold.not_between is not None
+                or fail_threshold.between is not None
+                or fail_threshold.equal is not None
+                or fail_threshold.not_equal is not None
+                or fail_threshold.greater_than is not None
+                or fail_threshold.less_than is not None
+                or fail_threshold.less_than_or_equal is not None):
+            self.logs.error("Invalid freshness threshold. Use fail_when_greater_than_or_equal", location=check_yaml_object.location)
+
+        for k in check_yaml_object:
+            if k.startswith("warn_when"):
+                self.logs.error(message=f"Warnings not yet supported: '{k}'", location=check_yaml_object.location)
+
+        return FreshnessCheck(
+            column=column,
+            type=check_type,
+            name=name,
+            contract_check_id=contract_check_id,
+            location=check_yaml_object.location,
+            check_yaml_object=check_yaml_object,
+            fail_threshold=fail_threshold,
+            warn_threshold=None,
+        )
+
     def _parse_missing_configurations(self, check_yaml: YamlObject) -> MissingConfigurations | None:
         missing_values_yaml_list: YamlList | None = check_yaml.read_yaml_list_opt(f"missing_values")
         missing_values: list | None = missing_values_yaml_list.unpacked() if missing_values_yaml_list else None
@@ -370,40 +422,23 @@ class ContractParser:
     def _parse_numeric_threshold(
         self, check_yaml_object: YamlObject, prefix: str, default_threshold: NumericThreshold | None
     ) -> NumericThreshold | None:
-        greater_than = check_yaml_object.read_number_opt(f"{prefix}greater_than")
-        greater_than_or_equal = check_yaml_object.read_number_opt(f"{prefix}greater_than_or_equal")
-        less_than = check_yaml_object.read_number_opt(f"{prefix}less_than")
-        less_than_or_equal = check_yaml_object.read_number_opt(f"{prefix}less_than_or_equal")
-        equals = check_yaml_object.read_number_opt(f"{prefix}equals")
-        not_equals = check_yaml_object.read_number_opt(f"{prefix}not_equals")
-        between = self._parse_range(check_yaml_object, f"{prefix}between")
-        not_between = self._parse_range(check_yaml_object, f"{prefix}not_between")
 
-        if all(
-            v is None
-            for v in [
-                greater_than,
-                greater_than_or_equal,
-                less_than,
-                less_than_or_equal,
-                equals,
-                not_equals,
-                between,
-                not_between,
-            ]
-        ):
-            return default_threshold
-        else:
-            return NumericThreshold(
-                greater_than=greater_than,
-                greater_than_or_equal=greater_than_or_equal,
-                less_than=less_than,
-                less_than_or_equal=less_than_or_equal,
-                equals=equals,
-                not_equals=not_equals,
-                between=between,
-                not_between=not_between,
-            )
+        numeric_threshold: NumericThreshold = NumericThreshold(
+            greater_than=check_yaml_object.read_number_opt(f"{prefix}greater_than"),
+            greater_than_or_equal=check_yaml_object.read_number_opt(f"{prefix}greater_than_or_equal"),
+            less_than=check_yaml_object.read_number_opt(f"{prefix}less_than"),
+            less_than_or_equal=check_yaml_object.read_number_opt(f"{prefix}less_than_or_equal"),
+            equal=check_yaml_object.read_number_opt(f"{prefix}equal"),
+            not_equal=check_yaml_object.read_number_opt(f"{prefix}not_equal"),
+            between=self._parse_range(check_yaml_object, f"{prefix}between"),
+            not_between=self._parse_range(check_yaml_object, f"{prefix}not_between"),
+        )
+
+        for key in check_yaml_object:
+            if key.startswith(prefix) and key.endswith("equals"):
+                self.logs.error(f"Invalid threshold '{key}'.  Did you mean '{key[:-1]}'?")
+
+        return numeric_threshold if not numeric_threshold.is_empty() else default_threshold
 
     def _parse_range(self, check_yaml_object: YamlObject, range_key: str) -> Range | None:
         range_yaml_list: YamlList | None = check_yaml_object.read_yaml_list_opt(range_key)
@@ -442,7 +477,7 @@ class ContractParser:
             check_type=check_type,
             metric=metric,
             column=None,
-            default_threshold=NumericThreshold(not_equals=0),
+            default_threshold=NumericThreshold(not_equal=0),
         )
 
     def _parse_user_defined_sql_check(

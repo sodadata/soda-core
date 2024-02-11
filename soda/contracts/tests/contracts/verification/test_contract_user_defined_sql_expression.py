@@ -30,7 +30,7 @@ def test_contract_user_defined_sql_expression(test_connection: TestConnection):
             - type: sql_expression
               metric: us_count
               metric_sql_expression: COUNT(CASE WHEN country = 'US' THEN 1 END)
-              fail_when_equals: 2
+              fail_when_equal: 2
     """
     )
     assert "Actual us_count was 2" in str(contract_result)

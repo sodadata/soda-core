@@ -10,7 +10,7 @@ Contract verification performed executed on a SQL connection to a warehouse.
 ## Requires
 
 * A virtual environment with `soda-core-contracts` installed.
-  See [Setting up a soda contracts virtual environment](./01_setting_up_a_python_virtual_environment_for_soda_contracts)
+  See [Setting up a soda contracts virtual environment](02_02_setting_up_a_python_virtual_environment_for_soda_contracts)
 
 ## The API
 
@@ -180,4 +180,4 @@ api_key_id (required)
 api_key_secret (required)
 scheme (default https)
 
-> Next, learn more about [Writing contracts](../01_writing_contract_yaml_files/README.md)
+> Next, learn more about [Writing contracts](01_00_writing_contract_files.md)

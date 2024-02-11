@@ -9,15 +9,15 @@ from numbers import Number
 from textwrap import indent
 from typing import Dict, List
 
-from soda.common import logs as soda_common_logs
+from soda.cloud.soda_cloud import SodaCloud
+from soda.common import logs as soda_core_logs
 from soda.scan import Scan
-from soda.sodacl.location import Location
+from soda.scan import logger as scan_logger
 
 from soda.contracts.connection import SodaException
-from soda.contracts.impl import logs as contract_logs
-from soda.contracts.impl.logs import Logs
+from soda.contracts.impl.logs import Logs, LogLevel, Log, Location
 from soda.contracts.impl.yaml import YamlObject, YamlWriter
-from soda.contracts.soda_cloud import SodaCloud
+from soda.contracts import soda_cloud as contract_soda_cloud
 
 logger = logging.getLogger(__name__)
 
@@ -25,19 +25,17 @@ logger = logging.getLogger(__name__)
 class Contract:
 
     @classmethod
-    def from_yaml_str(
-        cls, contract_yaml_str: str, variables: dict[str, str] | None = None, logs: Logs | None = None
-    ) -> Contract:
+    def from_yaml_str(cls, contract_yaml_str: str, variables: dict[str, str] | None = None) -> Contract:
         """
         Build a contract from a YAML string
         """
         from soda.contracts.impl.contract_parser import ContractParser
 
-        contract_parser: ContractParser = ContractParser(logs=logs)
+        contract_parser: ContractParser = ContractParser()
         return contract_parser.parse_contract(contract_yaml_str=contract_yaml_str, variables=variables)
 
     @classmethod
-    def from_yaml_file(cls, file_path: str) -> Contract:
+    def from_yaml_file(cls, file_path: str, variables: dict[str, str] | None = None) -> Contract:
         """
         Build a contract from a YAML file.
         Raises OSError in case the file_path cannot be opened like e.g.
@@ -45,7 +43,7 @@ class Contract:
         """
         with open(file_path) as f:
             contract_yaml_str = f.read()
-            return cls.from_yaml_str(contract_yaml_str)
+            return cls.from_yaml_str(contract_yaml_str=contract_yaml_str, variables=variables)
 
     def __init__(
         self,
@@ -54,7 +52,8 @@ class Contract:
         schema: str | None,
         checks: List[Check],
         contract_yaml_str: str,
-        logs: Logs,
+        variables: dict[str, str] | None,
+        logs: Logs
     ):
         """
         Consider using Contract.from_yaml_str(contract_yaml_str) instead as that is more stable API.
@@ -64,34 +63,57 @@ class Contract:
         self.schema: str | None = schema
         self.checks: List[Check] = checks
         self.contract_yaml_str: str = contract_yaml_str
+        self.variables: dict[str, str] | None = variables
         # The initial logs will contain the logs of contract parser.  If there are error logs, these error logs
         # will cause a SodaException to be raised at the end of the Contract.verify method
         self.logs: Logs = logs
         self.sodacl_yaml_str: str | None = None
 
     def verify(
-        self, connection: Connection, soda_cloud: SodaCloud | None = None, variables: Dict[str, str] | None = None
+        self, connection: "Connection", soda_cloud: contract_soda_cloud.SodaCloud | None = None
     ) -> ContractResult:
         """
         Verifies if the data in the dataset matches the contract.
         """
 
         scan = Scan()
-        sodacl_yaml_str: str | None = None
 
+        scan_logs = soda_core_logs.Logs(logger=scan_logger)
+
+        sodacl_yaml_str: str | None = None
         try:
             sodacl_yaml_str = self._generate_sodacl_yaml_str(self.logs)
-
             logger.debug(sodacl_yaml_str)
 
             if sodacl_yaml_str and hasattr(connection, "data_source"):
+                scan._logs = scan_logs
+
                 # This assumes the connection is a DataSourceConnection
                 data_source = connection.data_source
-
                 # Execute the contract SodaCL in a scan
                 scan.set_data_source_name(data_source.data_source_name)
-                # noinspection PyProtectedMember
+                scan_definition_name = (
+                    f"dataset://{connection.name}/{self.schema}/{self.dataset}" if self.schema else
+                    f"dataset://{connection.name}/{self.dataset}"
+                )
                 scan._data_source_manager.data_sources[data_source.data_source_name] = data_source
+
+                if soda_cloud:
+                    scan.set_scan_definition_name(scan_definition_name)
+                    scan._configuration.soda_cloud = SodaCloud(
+                        host=soda_cloud.host,
+                        api_key_id=soda_cloud.api_key_id,
+                        api_key_secret=soda_cloud.api_key_secret,
+                        token=soda_cloud.token,
+                        port=soda_cloud.port,
+                        logs=scan_logs,
+                        scheme=soda_cloud.scheme,
+                    )
+
+                if self.variables:
+                    scan.add_variables(self.variables)
+
+                # noinspection PyProtectedMember
                 scan.add_sodacl_yaml_str(sodacl_yaml_str)
                 scan.execute()
 
@@ -108,7 +130,7 @@ class Contract:
             self.logs.logs.extend(connection.logs.logs)
         # The scan warning and error logs are copied into self.logs and at the end of this
         # method, a SodaException is raised if there are error logs.
-        self._transform_scan_warning_and_error_logs(scan)
+        self._transform_scan_warning_and_error_logs(scan_logs)
 
         contract_result: ContractResult = ContractResult(
             contract=self, sodacl_yaml_str=sodacl_yaml_str, logs=self.logs, scan=scan
@@ -118,23 +140,23 @@ class Contract:
 
         return contract_result
 
-    def _transform_scan_warning_and_error_logs(self, scan: Scan) -> None:
+    def _transform_scan_warning_and_error_logs(self, scan_logs: soda_core_logs.Logs) -> None:
         level_map = {
-            soda_common_logs.LogLevel.ERROR: contract_logs.LogLevel.ERROR,
-            soda_common_logs.LogLevel.WARNING: contract_logs.LogLevel.WARNING,
-            soda_common_logs.LogLevel.INFO: contract_logs.LogLevel.INFO,
-            soda_common_logs.LogLevel.DEBUG: contract_logs.LogLevel.DEBUG,
+            soda_core_logs.LogLevel.ERROR: LogLevel.ERROR,
+            soda_core_logs.LogLevel.WARNING: LogLevel.WARNING,
+            soda_core_logs.LogLevel.INFO: LogLevel.INFO,
+            soda_core_logs.LogLevel.DEBUG: LogLevel.DEBUG,
         }
-        for scan_log in scan._logs.logs:
-            if scan_log.level in [soda_common_logs.LogLevel.ERROR, soda_common_logs.LogLevel.WARNING]:
+        for scan_log in scan_logs.logs:
+            if scan_log.level in [soda_core_logs.LogLevel.ERROR, soda_core_logs.LogLevel.WARNING]:
                 contracts_location: Location = (
-                    contract_logs.Location(line=scan_log.location.line, column=scan_log.location.col)
+                    Location(line=scan_log.location.line, column=scan_log.location.col)
                     if scan_log.location is not None
                     else None
                 )
-                contracts_level: contract_logs.LogLevel = level_map[scan_log.level]
+                contracts_level: LogLevel = level_map[scan_log.level]
                 self.logs._log(
-                    contract_logs.Log(
+                    Log(
                         level=contracts_level,
                         message=scan_log.message,
                         location=contracts_location,
@@ -597,6 +619,49 @@ class UserDefinedSqlQueryCheck(Check):
         return CheckResult(check=self, measurements=[measurement], outcome=CheckOutcome._from_scan_check(scan_check))
 
 
+@dataclass
+class FreshnessCheck(Check):
+
+    column: str | None
+    check_yaml_object: YamlObject
+    fail_threshold: NumericThreshold | None
+    warn_threshold: NumericThreshold | None
+
+    def get_definition_line(self) -> str:
+        return f"freshness({self.column}) {self.fail_threshold._get_sodacl_checkline_threshold()}{self.get_sodacl_time_unit()}"
+
+    def get_sodacl_time_unit(self) -> str:
+        sodacl_time_unit_by_check_type = {
+            "freshness_in_days": "d",
+            "freshness_in_hours": "h",
+            "freshness_in_minutes": "m",
+        }
+        return sodacl_time_unit_by_check_type.get(self.type)
+
+    def _to_sodacl_check(self) -> str | dict | None:
+        sodacl_check_configs = {
+            "contract check id": self.contract_check_id,
+        }
+        if self.name:
+            sodacl_check_configs["name"] = self.name
+
+        sodacl_check_line: str = self.get_definition_line()
+        return {sodacl_check_line: sodacl_check_configs}
+
+    def _create_check_result(
+        self, scan_check: dict[str, dict], scan_check_metrics_by_name: dict[str, dict], scan: Scan
+    ):
+        diagnostics: dict = scan_check["diagnostics"]
+        measurements = [
+            Measurement(name="freshness", type="string", value=diagnostics["freshness"]),
+            Measurement(name="freshness_column_max_value", type="string", value=diagnostics["maxColumnTimestamp"]),
+            Measurement(name="freshness_column_max_value_utc", type="string", value=diagnostics["maxColumnTimestampUtc"]),
+            Measurement(name="now", type="string", value=diagnostics["nowTimestamp"]),
+            Measurement(name="now_utc", type="string", value=diagnostics["nowTimestampUtc"]),
+        ]
+        return CheckResult(check=self, measurements=measurements, outcome=CheckOutcome._from_scan_check(scan_check))
+
+
 def dataclass_object_to_sodacl_dict(dataclass_object: object) -> dict:
     dict_factory = lambda x: {k.replace("_", " "): v for (k, v) in x if v is not None}
     return dataclasses.asdict(dataclass_object, dict_factory=dict_factory)
@@ -647,8 +712,8 @@ class NumericThreshold:
     greater_than_or_equal: Number | None = None
     less_than: Number | None = None
     less_than_or_equal: Number | None = None
-    equals: Number | None = None
-    not_equals: Number | None = None
+    equal: Number | None = None
+    not_equal: Number | None = None
     between: Range | None = None
     not_between: Range | None = None
 
@@ -698,10 +763,10 @@ class NumericThreshold:
             return f">= {self.less_than}"
         elif self.less_than_or_equal is not None:
             return f"> {self.less_than_or_equal}"
-        elif self.equals is not None:
-            return f"!= {self.equals}"
-        elif self.not_equals is not None:
-            return f"= {self.not_equals}"
+        elif self.equal is not None:
+            return f"!= {self.equal}"
+        elif self.not_equal is not None:
+            return f"= {self.not_equal}"
 
     @classmethod
     def _sodacl_threshold(
@@ -716,6 +781,18 @@ class NumericThreshold:
         lower_bound_bracket = "(" if lower_bound_included else ""
         upper_bound_bracket = ")" if upper_bound_included else ""
         return f"{optional_not}between {lower_bound_bracket}{lower_bound} and {upper_bound}{upper_bound_bracket}"
+
+    def is_empty(self) -> bool:
+        return (
+            self.greater_than is None
+            and self.greater_than_or_equal is None
+            and self.less_than is None
+            and self.less_than_or_equal is None
+            and self.equal is None
+            and self.not_equal is None
+            and self.between is None
+            and self.not_between is None
+        )
 
 
 @dataclass

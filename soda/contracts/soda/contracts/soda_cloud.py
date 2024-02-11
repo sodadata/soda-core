@@ -11,13 +11,24 @@ from soda.contracts.impl.variable_resolver import VariableResolver
 
 
 class SodaCloud:
-    def __init__(self, host: str, api_key_id: str, api_key_secret: str, scheme: str, logs: Logs):
+    def __init__(self,
+                 host: str,
+                 api_key_id: str,
+                 api_key_secret: str,
+                 token: str | None,
+                 port: str | None,
+                 scheme: str,
+                 logs: Logs
+                 ):
         self.host: str = host
         self.api_key_id: str = api_key_id
         self.api_key_secret: str = api_key_secret
+        self.token: str | None = token
+        self.port: str | None = port
         self.scheme: str = scheme
         # See also adr/03_exceptions_vs_error_logs.md
         self.logs: Logs = logs
+
 
     @classmethod
     def from_environment_variables(cls) -> SodaCloud:
@@ -92,7 +103,7 @@ class SodaCloud:
         return cls.from_dict(soda_cloud_dict=soda_cloud_dict, logs=logs)
 
     @classmethod
-    def from_dict(cls, soda_cloud_dict: dict | None = None, logs: Logs | None = None) -> SodaCloud:
+    def from_dict(cls, soda_cloud_dict: dict | None = None, logs: Logs | None = None) -> SodaCloud | None:
         if soda_cloud_dict is None:
             soda_cloud_dict = {}
 
@@ -105,18 +116,41 @@ class SodaCloud:
         host: str = cls.__get_configuration_value(
             soda_cloud_dict=soda_cloud_dict, key="host", logs=logs, default_value="cloud.soda.io"
         )
-        api_key_id: str = cls.__get_configuration_value(soda_cloud_dict=soda_cloud_dict, key="api_key_id", logs=logs)
+        api_key_id: str = cls.__get_configuration_value(
+            soda_cloud_dict=soda_cloud_dict, key="api_key_id", logs=logs, required=True
+        )
         api_key_secret: str = cls.__get_configuration_value(
-            soda_cloud_dict=soda_cloud_dict, key="api_key_secret", logs=logs
+            soda_cloud_dict=soda_cloud_dict, key="api_key_secret", logs=logs, required=True
+        )
+        token: str | None = cls.__get_configuration_value(
+            soda_cloud_dict=soda_cloud_dict, key="token", logs=logs
+        )
+        port: str | None = cls.__get_configuration_value(
+            soda_cloud_dict=soda_cloud_dict, key="port", logs=logs
         )
         scheme: str = cls.__get_configuration_value(
             soda_cloud_dict=soda_cloud_dict, key="scheme", logs=logs, default_value="https"
         )
-        return SodaCloud(host=host, api_key_id=api_key_id, api_key_secret=api_key_secret, scheme=scheme, logs=logs)
+        if not isinstance(api_key_id, str) or not isinstance(api_key_secret, str):
+            return None
+        return SodaCloud(
+            host=host,
+            api_key_id=api_key_id,
+            api_key_secret=api_key_secret,
+            token=token,
+            port=port,
+            scheme=scheme,
+            logs=logs
+        )
 
     @classmethod
     def __get_configuration_value(
-        cls, soda_cloud_dict: dict, key: str, logs: Logs, default_value: str | None = None
+        cls,
+        soda_cloud_dict: dict,
+        key: str,
+        logs: Logs,
+        default_value: str | None = None,
+        required: bool = False,
     ) -> str:
         environment_key_lower = f"soda_cloud_{key}".lower()
         if environment_key_lower in os.environ:
@@ -126,6 +160,6 @@ class SodaCloud:
             return os.environ[environment_key_upper]
         if key in soda_cloud_dict:
             return soda_cloud_dict[key]
-        if default_value is not None:
+        if not required:
             return default_value
         logs.error(f"Key {environment_key_lower} not found in Soda Cloud configuration")

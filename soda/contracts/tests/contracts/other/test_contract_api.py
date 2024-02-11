@@ -1,20 +1,36 @@
 import logging
+from datetime import date
 from textwrap import dedent
 
 import pytest
 from contracts.helpers.contract_test_tables import contracts_test_table
 from helpers.data_source_fixture import DataSourceFixture
+from helpers.test_table import TestTable
 
 from soda.contracts.connection import Connection, SodaException
 from soda.contracts.contract import Contract, ContractResult
 from soda.contracts.soda_cloud import SodaCloud
+from soda.execution.data_type import DataType
 
+contracts_api_test_table = TestTable(
+    name="contracts_api",
+    columns=[
+        ("id", DataType.TEXT),
+        ("size", DataType.DECIMAL),
+        ("distance", DataType.INTEGER),
+        ("created", DataType.DATE),
+    ],
+    # fmt: off
+    values=[
+        ('ID1',  1,    0,       date(2020, 6, 23)),
+        ('N/A',  1,    None,    date(2020, 6, 23)),
+        (None,   1,    None,    date(2020, 6, 23)),
+    ]
+    # fmt: on
+)
 
 def test_contract_api(data_source_fixture: DataSourceFixture, environ: dict):
-    table_name: str = data_source_fixture.ensure_test_table(contracts_test_table)
-
-    environ["soda_cloud_api_key_id"] = "***"
-    environ["soda_cloud_api_key_secret"] = "***"
+    table_name: str = data_source_fixture.ensure_test_table(contracts_api_test_table)
 
     connection_yaml_str = dedent(
         """

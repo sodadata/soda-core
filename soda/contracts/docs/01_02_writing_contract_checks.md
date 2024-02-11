@@ -10,6 +10,11 @@
 * [Multi-column uniqueness check](#multi-column-uniqueness-check)
 * [User-defined SQL check](#user-defined-sql-check)
 
+> IDE code completion support: When authoring contract YAML files, consider using 
+> the [JSON schema file](../soda/contracts/soda_data_contract_json_schema_1_0_0.json) 
+> to get code completion and editor support in either [PyCharm](01_01_contract_basics.md#setting-up-code-completion-in-pycharm) 
+> or [VSCode](01_01_contract_basics.md#setting-up-code-completion-in-vscode)
+
 ### Schema check
 
 When verifying a contract, Soda will first check the schema.  The schema is essential and will always be checked.

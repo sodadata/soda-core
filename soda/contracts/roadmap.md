@@ -1,5 +1,9 @@
 # Roadmap
 
+### Next TODOs
+* [ ] Test Soda Cloud link
+
+
 ### Second release
 * [ ] Improve docs input & json schema
 * [ ] Decide on JSON schema validation in contracts parser

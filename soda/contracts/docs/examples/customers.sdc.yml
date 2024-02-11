@@ -1,0 +1,31 @@
+dataset: CUSTOMERS
+
+owner: johndow@example.com
+
+pii_category: very sensitive
+
+columns:
+
+  - name: id
+    data_type: VARCHAR
+    checks:
+      - type: duplicates_count
+
+  - name: size
+    data_type: VARCHAR
+    checks:
+      - type: invalid_count
+        valid_values: ['S', 'M', 'L']
+        fail_when_greater_than_or_equal: 10
+
+  - name: distance
+    checks:
+      - type: invalid_count
+        valid_min: 0
+        valid_max: 1000
+
+  - name: created
+    optional: true
+
+checks:
+  - type: row_count

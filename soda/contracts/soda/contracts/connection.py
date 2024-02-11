@@ -52,8 +52,9 @@ class Connection:
     All the other properties are passed in the DBAPI connect method to create the DBAPI connection.
     """
 
-    def __init__(self, dbapi_connection: object | None = None, logs: Logs | None = None):
+    def __init__(self, dbapi_connection: object | None = None, name: str | None = None, logs: Logs | None = None):
         self.dbapi_connection = dbapi_connection
+        self.name: str | None = name
         # See also adr/03_exceptions_vs_error_logs.md
         self.logs: Logs = logs if logs else Logs()
 
@@ -190,15 +191,6 @@ class Connection:
             except Exception as e:
                 logger.warning(f"Could not close the dbapi connection: {e}")
 
-    def _create_contract_parser(self, logs: Logs) -> ContractParser:
-        """
-        Enables connection subclasses to create database specific errors during translation.
-        This is for better static analysis of the contract taking the connection type into account.
-        """
-        from soda.contracts.impl.contract_parser import ContractParser
-
-        return ContractParser(logs)
-
 
 class DataSourceConnection(Connection):
 
@@ -215,4 +207,5 @@ class DataSourceConnection(Connection):
             self.data_source.connect()
         except Exception as e:
             logs.error(message=f"Could not create the connection: {e}", exception=e)
-        super().__init__(dbapi_connection=self.data_source.connection, logs=logs)
+        name: str | None = connection_dict.get("name", connection_type)
+        super().__init__(dbapi_connection=self.data_source.connection, name=name, logs=logs)

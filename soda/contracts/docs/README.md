@@ -27,7 +27,7 @@ help the diagnostic process.
 > * Optional: a local development environment to test contract YAML files
 > * Optional: a git repository to version control your contract YAML file
 
-See chapter [writing contract  YAML files](01_writing_contract_yaml_files/README.md) on how to write schema and
+See chapter [writing contract  YAML files](01_00_writing_contract_files.md) on how to write schema and
 other data quality checks in Soda contract YAML files
 
 ## 2) Choose a way to verify a contract
@@ -54,23 +54,17 @@ GitHub commit, etc?
   Instructions are provided.
 
 * [Verifying a contract using docker (Roadmap)](03_verifying_a_contract_using_docker/README.md):
-  If you know how to work with docker containers, then the Soda contract docker container removes the
+  (Roadmap) If you know how to work with docker containers, then the Soda contract docker container removes the
   hassle of setting up the virtual environment and ensuring that the versions of all the libraries are
   compatible.
 
-* [Verifying contracts in an Airflow DAG (Roadmap)](04_verifying_a_contract_in_an_airflow_dag/README.md):
-  If you want to run a contract verification in an Airflow DAG, these instructions show how you can add
-  an operator to your Airflow DAG.
+## 3) Configuring a connection
 
-* [Verifying a contract using GitHub action (Roadmap)](05_verifying_a_contract_as_a_github_action/README.md):
-  If you want to run a contract verification as part of you CI/CD workflow in GitHub actions after each
-  commit on a PR, then check out this Soda github actions support.
+For each type of contract verification, you will need to configure a connection.
 
-* [Verifying contracts using Soda Agent (Roadmap)](06_verifying_contracts_using_soda_cloud_agent/README.md):
-  Running contract verification on a the Soda Agent managed service is the easiest.  You can use an API
-  and don't have to manage contract verification.
+See [Configuring a connection](02_03_configuring_a_connection)
 
-## 3) Enable contract check contributions
+## 4) Enable contract check contributions
 
 Once you have your development environment, production environment and potentially other staging
 environments set up, consider to enable contributions to the contract by anyone in the organization.

@@ -1,5 +1,8 @@
 # Setting up a Soda contracts virtual environment
 
+> Alternative: As an alternative to setting up your own virtual environment, consider using 
+> a Soda docker container.  That will have a tested combination of all the library dependencies. 
+
 > Prerequisites:
 > * Linux or Mac
 > * You have installed Python 3.8 or greater.
