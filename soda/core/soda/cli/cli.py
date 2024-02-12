@@ -665,7 +665,7 @@ def simulate_anomaly_detection(configuration: list[str]) -> None:
     streamlit_app_path = simulator_app.__file__
 
     try:
-        import streamlit
+        pass
 
         subprocess.run(["streamlit", "run", streamlit_app_path])
     except ImportError:
