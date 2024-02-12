@@ -43,7 +43,7 @@ below can be used to build your workflow for:
 * Verifying a contract on a fixed time schedule (not recommended)
 
 To make a choice, consider what triggers execution of your contract verification and the in what
-environment will it run?  Eg A shell script in your local development environment using the Soda
+environment will it run? For example a shell script in your local development environment using the Soda
 contract API in a Python virtual environment, an Airflow operator in a DAG that is executed, a
 GitHub commit, etc?
 
