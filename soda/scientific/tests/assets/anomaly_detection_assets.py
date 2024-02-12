@@ -129,6 +129,75 @@ test_anomaly_detector_evaluate_expected_results = {
     },
 }
 
+test_prophet_model_is_anomaly_true = pd.DataFrame(
+    {
+        "y": {
+            0: 245.0,
+            1: 45.0,
+            2: 40.0,
+            3: 35.0,
+            4: 30.0,
+            5: 25.0,
+            6: 20.0,
+            7: 15.0,
+            8: 10.0,
+            9: 5.0,
+            10: 250.0,
+        },
+        "ds": {
+            0: "2023-02-15 11:00:00",
+            1: "2023-02-14 11:00:00",
+            2: "2023-02-13 11:00:00",
+            3: "2023-02-12 11:00:00",
+            4: "2023-02-11 11:00:00",
+            5: "2023-02-10 11:00:00",
+            6: "2023-02-09 11:00:00",
+            7: "2023-02-08 11:00:00",
+            8: "2023-02-07 11:00:00",
+            9: "2023-02-06 11:00:00",
+            10: "2023-02-16 11:00:00",
+        },
+        "is_correctly_classified_anomaly": {
+            0: None,
+            1: None,
+            2: None,
+            3: None,
+            4: None,
+            5: None,
+            6: None,
+            7: None,
+            8: None,
+            9: None,
+            10: True,
+        },
+        "skipMeasurements": {
+            0: None,
+            1: "this",
+            2: None,
+            3: None,
+            4: None,
+            5: "previous",
+            6: None,
+            7: None,
+            8: None,
+            9: None,
+            10: nan,
+        },
+    }
+)
+
+test_prophet_model_is_anomaly_true_expectation = pd.DataFrame(
+    [
+        {"ds": "2023-02-10 11:00:00", "y": 25.0},
+        {"ds": "2023-02-11 11:00:00", "y": 30.0},
+        {"ds": "2023-02-12 11:00:00", "y": 35.0},
+        {"ds": "2023-02-13 11:00:00", "y": 40.0},
+        {"ds": "2023-02-14 11:00:00", "y": nan},
+        {"ds": "2023-02-15 11:00:00", "y": 245.0},
+        {"ds": "2023-02-16 11:00:00", "y": nan},
+    ]
+)
+
 test_prophet_model_skip_measurements_this_exclusive_previous = pd.DataFrame(
     {
         "y": {
@@ -312,6 +381,12 @@ test_feedback_processor_seasonality_skip_measurements = {
         1: 40.95227600086607,
         2: 38.65839999718243,
         3: 35.780745001179646,
+    },
+    "outcome": {
+        0: "fail",
+        1: None,
+        2: None,
+        3: "pass",
     },
 }
 
@@ -518,11 +593,57 @@ test_anomaly_detector_parsed_empty_historic_check_results = pd.DataFrame(
     ]
 )
 
+test_feedback_processor_correctly_classified_anomalies = pd.DataFrame(
+    [
+        {
+            "y": 21.0,
+            "ds": pd.Timestamp("2022-04-20 15:05:30"),
+            "outcome": "warn",
+            "feedback": {
+                "isCorrectlyClassified": True,
+                "isAnomaly": True,
+                "reason": None,
+                "freeTextReason": None,
+                "skipMeasurements": None,
+            },
+            "anomaly_probability": nan,
+            "anomaly_predicted_value": 20.870516335508597,
+        },
+    ]
+)
+
+test_feedback_processor_correctly_classified_anomalies_expectation = pd.DataFrame(
+    [
+        {
+            "y": 21.0,
+            "ds": pd.Timestamp("2022-04-20 15:05:30"),
+            "outcome": "warn",
+            "feedback": {
+                "isCorrectlyClassified": True,
+                "isAnomaly": True,
+                "reason": None,
+                "freeTextReason": None,
+                "skipMeasurements": None,
+            },
+            "anomaly_probability": nan,
+            "anomaly_predicted_value": 20.870516335508597,
+            "isCorrectlyClassified": True,
+            "isAnomaly": True,
+            "reason": "Invalid reason",
+            "freeTextReason": None,
+            "skipMeasurements": None,
+            "is_correctly_classified_anomaly": True,
+            "predicted_to_real_delta": 0.1294836644914028,
+        }
+    ]
+)
+
 test_anomaly_detector_parsed_ad_measurements = pd.DataFrame(
     [
         {
             "y": 21.0,
             "ds": pd.Timestamp("2022-04-20 15:05:30"),
+            "outcome": "pass",
             "feedback": {
                 "isCorrectlyClassified": None,
                 "isAnomaly": None,
@@ -536,6 +657,7 @@ test_anomaly_detector_parsed_ad_measurements = pd.DataFrame(
         {
             "y": 21.0,
             "ds": pd.Timestamp("2022-04-19 15:05:10"),
+            "outcome": nan,
             "feedback": nan,
             "anomaly_probability": nan,
             "anomaly_predicted_value": nan,
@@ -543,6 +665,7 @@ test_anomaly_detector_parsed_ad_measurements = pd.DataFrame(
         {
             "y": 2.0,
             "ds": pd.Timestamp("2022-04-18 14:49:59"),
+            "outcome": nan,
             "feedback": nan,
             "anomaly_probability": nan,
             "anomaly_predicted_value": nan,
@@ -550,6 +673,7 @@ test_anomaly_detector_parsed_ad_measurements = pd.DataFrame(
         {
             "y": 1.0,
             "ds": pd.Timestamp("2022-04-17 14:49:20"),
+            "outcome": nan,
             "feedback": nan,
             "anomaly_probability": nan,
             "anomaly_predicted_value": nan,
@@ -557,6 +681,7 @@ test_anomaly_detector_parsed_ad_measurements = pd.DataFrame(
         {
             "y": 1.0,
             "ds": pd.Timestamp("2022-04-16 14:47:44"),
+            "outcome": nan,
             "feedback": nan,
             "anomaly_probability": nan,
             "anomaly_predicted_value": nan,
@@ -564,6 +689,7 @@ test_anomaly_detector_parsed_ad_measurements = pd.DataFrame(
         {
             "y": 21.0,
             "ds": pd.Timestamp("2022-04-15 15:04:42"),
+            "outcome": nan,
             "feedback": nan,
             "anomaly_probability": nan,
             "anomaly_predicted_value": nan,
@@ -573,12 +699,12 @@ test_anomaly_detector_parsed_ad_measurements = pd.DataFrame(
 
 test_empty_anomaly_detector_parsed_ad_measurements = pd.DataFrame(
     [
-        {"y": 21.0, "ds": pd.Timestamp("2022-04-20 15:05:30"), "feedback": nan},
-        {"y": 21.0, "ds": pd.Timestamp("2022-04-19 15:05:10"), "feedback": nan},
-        {"y": 2.0, "ds": pd.Timestamp("2022-04-18 14:49:59"), "feedback": nan},
-        {"y": 1.0, "ds": pd.Timestamp("2022-04-17 14:49:20"), "feedback": nan},
-        {"y": 1.0, "ds": pd.Timestamp("2022-04-16 14:47:44"), "feedback": nan},
-        {"y": 21.0, "ds": pd.Timestamp("2022-04-15 15:04:42"), "feedback": nan},
+        {"y": 21.0, "ds": pd.Timestamp("2022-04-20 15:05:30"), "outcome": nan, "feedback": nan},
+        {"y": 21.0, "ds": pd.Timestamp("2022-04-19 15:05:10"), "outcome": nan, "feedback": nan},
+        {"y": 2.0, "ds": pd.Timestamp("2022-04-18 14:49:59"), "outcome": nan, "feedback": nan},
+        {"y": 1.0, "ds": pd.Timestamp("2022-04-17 14:49:20"), "outcome": nan, "feedback": nan},
+        {"y": 1.0, "ds": pd.Timestamp("2022-04-16 14:47:44"), "outcome": nan, "feedback": nan},
+        {"y": 21.0, "ds": pd.Timestamp("2022-04-15 15:04:42"), "outcome": nan, "feedback": nan},
     ]
 )
 
@@ -588,6 +714,7 @@ test_feedback_processor_feedback_processed_df = pd.DataFrame(
         {
             "y": 21.0,
             "ds": pd.Timestamp("2022-04-20 15:05:30"),
+            "outcome": "pass",
             "feedback": {
                 "isCorrectlyClassified": None,
                 "isAnomaly": None,
@@ -597,82 +724,87 @@ test_feedback_processor_feedback_processed_df = pd.DataFrame(
             },
             "anomaly_probability": nan,
             "anomaly_predicted_value": 20.870516335508597,
-            "isCorrectlyClassified": True,
+            "isCorrectlyClassified": nan,
             "isAnomaly": nan,
             "reason": "Invalid reason",
             "freeTextReason": nan,
             "skipMeasurements": nan,
-            "is_misclassification": False,
+            "is_correctly_classified_anomaly": None,
             "predicted_to_real_delta": 0.1294836644914028,
         },
         {
             "y": 21.0,
             "ds": pd.Timestamp("2022-04-19 15:05:10"),
+            "outcome": nan,
             "feedback": {},
             "anomaly_probability": nan,
             "anomaly_predicted_value": nan,
-            "isCorrectlyClassified": True,
+            "isCorrectlyClassified": nan,
             "isAnomaly": nan,
             "reason": "Invalid reason",
             "freeTextReason": nan,
             "skipMeasurements": nan,
-            "is_misclassification": False,
+            "is_correctly_classified_anomaly": None,
             "predicted_to_real_delta": nan,
         },
         {
             "y": 2.0,
             "ds": pd.Timestamp("2022-04-18 14:49:59"),
+            "outcome": nan,
             "feedback": {},
             "anomaly_probability": nan,
             "anomaly_predicted_value": nan,
-            "isCorrectlyClassified": True,
+            "isCorrectlyClassified": nan,
             "isAnomaly": nan,
             "reason": "Invalid reason",
             "freeTextReason": nan,
             "skipMeasurements": nan,
-            "is_misclassification": False,
+            "is_correctly_classified_anomaly": None,
             "predicted_to_real_delta": nan,
         },
         {
             "y": 1.0,
             "ds": pd.Timestamp("2022-04-17 14:49:20"),
+            "outcome": nan,
             "feedback": {},
             "anomaly_probability": nan,
             "anomaly_predicted_value": nan,
-            "isCorrectlyClassified": True,
+            "isCorrectlyClassified": nan,
             "isAnomaly": nan,
             "reason": "Invalid reason",
             "freeTextReason": nan,
             "skipMeasurements": nan,
-            "is_misclassification": False,
+            "is_correctly_classified_anomaly": None,
             "predicted_to_real_delta": nan,
         },
         {
             "y": 1.0,
             "ds": pd.Timestamp("2022-04-16 14:47:44"),
+            "outcome": nan,
             "feedback": {},
             "anomaly_probability": nan,
             "anomaly_predicted_value": nan,
-            "isCorrectlyClassified": True,
+            "isCorrectlyClassified": nan,
             "isAnomaly": nan,
             "reason": "Invalid reason",
             "freeTextReason": nan,
             "skipMeasurements": nan,
-            "is_misclassification": False,
+            "is_correctly_classified_anomaly": None,
             "predicted_to_real_delta": nan,
         },
         {
             "y": 21.0,
             "ds": pd.Timestamp("2022-04-15 15:04:42"),
+            "outcome": nan,
             "feedback": {},
             "anomaly_probability": nan,
             "anomaly_predicted_value": nan,
-            "isCorrectlyClassified": True,
+            "isCorrectlyClassified": nan,
             "isAnomaly": nan,
             "reason": "Invalid reason",
             "freeTextReason": nan,
             "skipMeasurements": nan,
-            "is_misclassification": False,
+            "is_correctly_classified_anomaly": None,
             "predicted_to_real_delta": nan,
         },
     ]

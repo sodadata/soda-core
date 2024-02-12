@@ -8,36 +8,41 @@ ERROR_CODE_LEVEL_CUTTOFF = 99
 
 DETECTOR_MESSAGES: Dict[str, DetectorMessageComponent] = {
     "native_freq": DetectorMessageComponent(
-        log_message="native frequency detected",
+        log_message="Frequency Detection Info: native frequency detected",
         severity="info",
         error_code_int=0,
         error_code_str="Native frequency is detected successfully",
     ),
     "converted_daily_no_dupes": DetectorMessageComponent(
-        log_message="converted to daily frequency no dupes with time info removed",
+        log_message="Frequency Detection Info: Converted to daily frequency no dupes with time info removed",
         severity="info",
         error_code_int=1,
-        error_code_str="",
+        error_code_str="converted_daily_no_dupes",
     ),
     "coerced_daily": DetectorMessageComponent(
-        log_message="Coerced to daily frequency with last daily time point kept",
+        log_message=(
+            "Frequency Detection Warning: Due to unpredictable time intervals, "
+            "we have assumed a daily frequency. If more than 1 data point occurs "
+            "in one day we take the last record. Free free to set the "
+            "frequency manually in your SodaCL."
+        ),
         severity="warn",
         error_code_int=2,
-        error_code_str="made_daily_keeping_last_point_only",
+        error_code_str="made_daily_keeping_last_point_only_custom",
     ),
     "last_four": DetectorMessageComponent(
-        log_message="Frequency inferred from the last 4 stable data points",
+        log_message="Frequency Detection Warning: Frequency inferred from the last 4 stable data points",
         severity="warn",
         error_code_int=3,
         error_code_str="frequency_from_last_4_points",
     ),
     "manual_freq": DetectorMessageComponent(
-        log_message="Manual frequency provided by SodaCL",
+        log_message="Frequency Detection Info: Frequency is set to '{frequency}' manually.",
         severity="info",
         error_code_int=4,
-        error_code_str="Manual frequency is detected successfully",
+        error_code_str="manual_frequency",
     ),
-    "not_enough_measurements": DetectorMessageComponent(
+    "not_enough_measurements_custom": DetectorMessageComponent(
         log_message=(
             "Anomaly Detection Insufficient Training Data Warning:"
             " The model requires a minimum of 4 historical measurements"
@@ -46,12 +51,25 @@ DETECTOR_MESSAGES: Dict[str, DetectorMessageComponent] = {
         ),
         severity="error",
         error_code_int=100,
-        error_code_str="not_enough_measurements",
+        error_code_str="not_enough_measurements_custom",
     ),
     "bailing_out": DetectorMessageComponent(
-        log_message="All attempts to detect the datset frequency failed. Process terminated.",
+        log_message="Frequency Detection Error: All attempts to detect the datset frequency failed. Process terminated.",
         severity="error",
         error_code_int=ERROR_CODE_LEVEL_CUTTOFF,
         error_code_str="all_freq_detection_attempts_failed",
     ),
+}
+
+MANUAL_FREQUENCY_MAPPING = {
+    "T": "T (minute)",
+    "H": "H (hourly)",
+    "D": "D (daily)",
+    "W": "W (weekly)",
+    "M": "M (monthly end)",
+    "MS": "MS (monthly start)",
+    "Q": "Q (quarterly end)",
+    "QS": "QS (quarterly start)",
+    "A": "A (yearly end)",
+    "AS": "AS (yearly start)",
 }
