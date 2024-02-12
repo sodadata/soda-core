@@ -12,10 +12,10 @@ following use cases.
 Use contracts if you want to prevent data issues. It's a tool used by the producer, which
 are the technical engineering team responsible for the pipeline component producing the data.
 
-It's a technical component used for encapsulation in the software engineering sense. A data
-contract specifies the interface of the software component producing the data.  The interface
-is the dataset that can be queried with SQL.  It can be used to divide and conquer
-the big monolithic data pipelines into manageable pipeline components.
+Data contracts are a solution used for applying encapsulation in the software engineering sense to 
+data pipeline components. A data contract specifies the interface of the software component producing 
+the data.  The interface is the dataset that can be queried with SQL.  It can be used to divide and 
+conquer the big monolithic data pipelines into manageable pipeline components.
 
 Contracts will significantly reduce the number of data issues that occur and it will
 help the diagnostic process.
