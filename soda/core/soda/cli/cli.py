@@ -660,11 +660,19 @@ def simulate_anomaly_detection(configuration: list[str]) -> None:
     # set environment variable SODA_CONFIG_FILE_PATH to the path of your configuration file
     os.environ["SODA_CONFIG_FILE_PATH"] = configuration[0]
 
-    file_path = Path(__file__).parent.absolute()
-    src_dir = file_path.parent.parent.parent.absolute()
-    streamlit_app_path = src_dir / "scientific" / "soda" / "scientific" / "anomaly_detection_v2" / "simulate" / "app.py"
+    import soda.scientific.anomaly_detection_v2.simulate.app as simulator_app
 
-    subprocess.run(["streamlit", "run", streamlit_app_path])
+    streamlit_app_path = simulator_app.__file__
+
+    try:
+        import streamlit
+
+        subprocess.run(["streamlit", "run", streamlit_app_path])
+    except ImportError:
+        logging.error(
+            "Streamlit is not installed. Please install scientific[simulator] sub package by running the following command: \n"
+            "   pip install soda-scientific[simulator] -i https://pypi.cloud.soda.io"
+        )
 
 
 def __execute_query(connection, sql: str) -> list[tuple]:
