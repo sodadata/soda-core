@@ -74,7 +74,7 @@ class OracleDataSource(DataSource):
             host = data_source_properties.get("host")
             port = data_source_properties.get("port", 1523)
             service_name = data_source_properties.get("service_name")
-            self.connectstring = f"(DESCRIPTION=(ADDRESS=(PROTOCOL=TCP)(HOST={host})(PORT={port}))(CONNECT_DATA=(SERVICE_NAME={service_name})))"
+            self.connectstring = f'(DESCRIPTION=(ADDRESS=(PROTOCOL=TCP)(HOST={host})(PORT={port}))(CONNECT_DATA=(SERVICE_NAME={service_name})))'
 
     def connect(self):
         self.connection = oracledb.connect(user=self.username, password=self.password, dsn=self.connectstring)
