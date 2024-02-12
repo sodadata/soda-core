@@ -50,7 +50,7 @@ GitHub commit, etc?
 * [Verifying a contract in Python](02_verifying_a_contract_in_python/README.md):
   This is the most basic, common and versatile way to verify a contract.  In fact, all other ways below
   are based on this Python library approach.  To use our Soda Contracts Python library and API you
-  have to know Python like setting up a Python virtual environment and Python library dependencies.
+  need to have the ability to set up a Python virtual environment and Python library dependencies.
   Instructions are provided.
 
 * [Verifying a contract using docker (Roadmap)](03_verifying_a_contract_using_docker/README.md):
