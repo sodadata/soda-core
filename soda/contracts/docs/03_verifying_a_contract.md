@@ -12,27 +12,27 @@
 ### Contract verification environments
 
 Verifying a contract means to verify if (new) data in a dataset complies a contract descriptions.
-It's typically done at the end of a data pipeline right after new data was produced.  The schema will 
-be verified along with all data quality properties specified in the contract. This section lists the 
+It's typically done at the end of a data pipeline right after new data was produced.  The schema will
+be verified along with all data quality properties specified in the contract. This section lists the
 different environments and approaches where contract verification is appropriate.
 
-A contract is commonly verified after new data has been produced. Often data production is coordinated 
-through an orchestration tool like for example Airflow. The benefit of this approach is that there is that 
+A contract is commonly verified after new data has been produced. Often data production is coordinated
+through an orchestration tool like for example Airflow. The benefit of this approach is that there is that
 there is no time delay between new data becoming available and the data verification.
 
-Even when testing the new, incremental data right after it is produced, it still may be that the 
-data is bad and already exposed to consumers.  To avoid this, consider the 
-[circuit breaker pattern](#the-circuit-breaker-pattern). 
+Even when testing the new, incremental data right after it is produced, it still may be that the
+data is bad and already exposed to consumers.  To avoid this, consider the
+[circuit breaker pattern](#the-circuit-breaker-pattern).
 
-In CI/CD, contract verification is executed because pipeline code changes may have caused changes to the 
-produced data.  So when creating a PR, it makes sense to verify the contract to see if any unwanted changes 
+In CI/CD, contract verification is executed because pipeline code changes may have caused changes to the
+produced data.  So when creating a PR, it makes sense to verify the contract to see if any unwanted changes
 to the data have creeped in.
 
-On a developers local environment, a contract can be verified as part of the development of a new 
+On a developers local environment, a contract can be verified as part of the development of a new
 feature.
 
-Data contract verification can also be executed on a time based schedule.  This is often inferior as 
-it leaves a period of time where data is produced and not verified.  It's always preferrable to verify 
+Data contract verification can also be executed on a time based schedule.  This is often inferior as
+it leaves a period of time where data is produced and not verified.  It's always preferrable to verify
 data as soon as it is made available.
 
 ### Verifying a contract with the Python API
@@ -42,13 +42,13 @@ data as soon as it is made available.
 > * All connection details to your SQL engine like Snowflake or postgres
 > * Python 3.8 or higher
 
-This section explains the Python API to verify a contract.  The contract object is created from 
-a YAML file (or string). Contract verification performed executed on a SQL connection to a 
+This section explains the Python API to verify a contract.  The contract object is created from
+a YAML file (or string). Contract verification performed executed on a SQL connection to a
 warehouse.
 
-The contract Python library is the most basic, common and versatile way to verify a contract. 
-It's the lowest level component that can be used in all the environments.  We may have more specific 
-support for environments like Airflow or Docker.  But if not, you can use the Python API to 
+The contract Python library is the most basic, common and versatile way to verify a contract.
+It's the lowest level component that can be used in all the environments.  We may have more specific
+support for environments like Airflow or Docker.  But if not, you can use the Python API to
 embed contract verification into your environment.
 
 ### Setting up a Soda contracts virtual environment
@@ -115,9 +115,9 @@ a Python DBAPI connection.
 A connection can be created based on a YAML connection configuration file, a YAML string or a dict.
 Use one of the `Connection.from_*` methods to create a connection.
 
-It's good practice to [use environment variables](#environment-variables-and-defaults) in your YAML 
-files to protect your credentials. Use syntax `${POSTGRES_PASSWORD}` for resolving environment variables.  
-Variable resolving is case sensitive. We recommend using all upper case and underscores for naming 
+It's good practice to [use environment variables](#environment-variables-and-defaults) in your YAML
+files to protect your credentials. Use syntax `${POSTGRES_PASSWORD}` for resolving environment variables.
+Variable resolving is case sensitive. We recommend using all upper case and underscores for naming
 environment variables.
 
 For Soda connection configuration YAML files, we recommend to use extension `connection.yml`. because
