@@ -623,7 +623,7 @@ def test_connection(
 @soda_trace
 def simulate_anomaly_detection(configuration: list[str]) -> None:
     try:
-        pass
+        import soda.scientific.anomaly_detection_v2.simulate.app as simulator_app
     except ImportError:
         logging.error(
             " soda-scientific[simulator] is not installed. "
@@ -660,9 +660,7 @@ def simulate_anomaly_detection(configuration: list[str]) -> None:
     # set environment variable SODA_CONFIG_FILE_PATH to the path of your configuration file
     os.environ["SODA_CONFIG_FILE_PATH"] = configuration[0]
 
-    file_path = Path(__file__).parent.absolute()
-    src_dir = file_path.parent.parent.parent.absolute()
-    streamlit_app_path = src_dir / "scientific" / "soda" / "scientific" / "anomaly_detection_v2" / "simulate" / "app.py"
+    streamlit_app_path = simulator_app.__file__
 
     subprocess.run(["streamlit", "run", streamlit_app_path])
 
