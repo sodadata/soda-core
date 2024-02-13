@@ -65,15 +65,15 @@ class OracleDataSource(DataSource):
 
     def __init__(self, logs: Logs, data_source_name: str, data_source_properties: dict):
         super().__init__(logs, data_source_name, data_source_properties)
-        self.username = data_source_properties.get("username", "localhost")
-        self.password = data_source_properties.get("password", "")
-        connectstring = data_source_properties.get("connectstring")
+        self.username = str(data_source_properties.get("username", "localhost"))
+        self.password = str(data_source_properties.get("password", ""))
+        connectstring = str(data_source_properties.get("connectstring"))
         if connectstring:
-            self.connectstring = connectstring
+            self.connectstring = str(connectstring)
         else:
-            host = data_source_properties.get("host")
-            port = data_source_properties.get("port", 1523)
-            service_name = data_source_properties.get("service_name")
+            host = str(data_source_properties.get("host"))
+            port = int(data_source_properties.get("port", 1523))
+            service_name = str(data_source_properties.get("service_name"))
             self.connectstring = f"(DESCRIPTION=(ADDRESS=(PROTOCOL=TCP)(HOST={host})(PORT={port}))(CONNECT_DATA=(SERVICE_NAME={service_name})))"
 
     def connect(self):
