@@ -31,6 +31,7 @@ setup(
     packages=find_namespace_packages(include=["soda*"]),
     package_data={
         "": ["detector_config.yaml"],
+        "soda.scientific.anomaly_detection_v2.simulate": ["assets/*"],
     },
     extras_require={
         "simulator": simulator_deps,
