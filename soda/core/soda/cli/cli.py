@@ -622,7 +622,11 @@ def test_connection(
 )
 @soda_trace
 def simulate_anomaly_detection(configuration: list[str]) -> None:
+    configure_logging()
     try:
+        # This file path using Pathlib
+        logging.info("Starting Soda Anomaly Detection Simulator.. It might take a few seconds to start.")
+
         import soda.scientific.anomaly_detection_v2.simulate.app as simulator_app
     except ImportError:
         logging.error(
@@ -631,8 +635,6 @@ def simulate_anomaly_detection(configuration: list[str]) -> None:
             '   pip install "soda-scientific[simulator]" -i https://pypi.cloud.soda.io'
         )
         return
-    configure_logging()
-
     # Test whether the configuration file exists
     fs = file_system()
     scan = Scan()
@@ -654,8 +656,6 @@ def simulate_anomaly_detection(configuration: list[str]) -> None:
                 f"\n{e}"
             )
             return
-        # This file path using Pathlib
-    logging.info("Starting Soda Anomaly Detection Simulator.. It might take a few seconds to start.")
 
     # set environment variable SODA_CONFIG_FILE_PATH to the path of your configuration file
     os.environ["SODA_CONFIG_FILE_PATH"] = configuration[0]
