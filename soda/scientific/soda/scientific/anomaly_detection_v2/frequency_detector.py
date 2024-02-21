@@ -108,7 +108,7 @@ class FrequencyDetector:
                         f"Anomaly Detection Insufficient Training Data Warning: "
                         "Due to the aggregation of the historical check results into daily frequency, "
                         f"{original_number_of_points} data points were reduced to {len(_df)} data points."
-                        " The model requires a minimum of 4 historical measurements."
+                        " The model requires a minimum of 5 historical measurements."
                     )
                     return freq_result
         # we take the last 4 data points. Try to get a freq on that.
