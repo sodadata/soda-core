@@ -121,16 +121,15 @@ class AnomalyDetectionMetricCheck(MetricCheck):
             historic_measurements["results"] = []
 
         # Append current results
+        local_data_time = self.data_source_scan.scan._data_timestamp
+        utc_data_time = local_data_time.astimezone(timezone.utc)
+        utc_data_time_str = utc_data_time.strftime("%Y-%m-%dT%H:%M:%SZ")
         historic_measurements.get("results", []).append(
             {
                 "id": "dummy_id",  # Placeholder number that will be overwritten
                 "identity": metrics[metric_name].identity,
                 "value": self.get_metric_value(),
-                "dataTime": (
-                    self.data_source_scan.scan._data_timestamp.replace(tzinfo=timezone.utc).strftime(
-                        "%Y-%m-%dT%H:%M:%SZ"
-                    )
-                ),
+                "dataTime": utc_data_time_str,
             }
         )
         return historic_measurements

@@ -108,7 +108,7 @@ def test_anomaly_detection_not_enough_data(data_source_fixture: DataSourceFixtur
     scan_cloud_result = mock_soda_cloud.pop_scan_result()
     message = (
         "Anomaly Detection Insufficient Training Data Warning: "
-        "The model requires a minimum of 4 historical measurements "
+        "The model requires a minimum of 5 historical measurements "
         "for accurate predictions, but currently has only 2 check results available."
     )
     assert scan_cloud_result["checks"][0]["outcomeReasons"] == [
@@ -136,7 +136,7 @@ def test_anomaly_detection_have_no_data(data_source_fixture: DataSourceFixture) 
     scan_cloud_result = mock_soda_cloud.pop_scan_result()
     message = (
         "Anomaly Detection Insufficient Training Data Warning: "
-        "The model requires a minimum of 4 historical measurements "
+        "The model requires a minimum of 5 historical measurements "
         "for accurate predictions, but currently has only 1 check results available."
     )
     assert scan_cloud_result["checks"][0]["outcomeReasons"] == [

@@ -45,7 +45,7 @@ DETECTOR_MESSAGES: Dict[str, DetectorMessageComponent] = {
     "not_enough_measurements_custom": DetectorMessageComponent(
         log_message=(
             "Anomaly Detection Insufficient Training Data Warning:"
-            " The model requires a minimum of 4 historical measurements"
+            " The model requires a minimum of 5 historical measurements"
             " for accurate predictions, but currently has only {n_data_points}"
             " check results available."
         ),
