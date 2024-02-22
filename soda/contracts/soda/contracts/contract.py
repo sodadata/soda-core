@@ -284,6 +284,8 @@ class ContractResult:
 @dataclass
 class Check(ABC):
 
+    dataset: str
+    column: str | None
     type: str
 
     # User defined name as in the contract.  None if not specified in the contract.
@@ -330,35 +332,67 @@ class CheckResult:
 
 @dataclass
 class Measurement:
-    name: str
-    type: str
-    value: object
+    dataset: str
+    column: str | None
+    metric: str
 
-    @classmethod
-    def _from_scan_metrics(cls, scan_check: Dict[str, object], scan: Scan) -> List[Measurement]:
-        measurements: List[Measurement] = []
-        scan_check_metric_identities = scan_check.get("metrics")
-        scan_metrics = scan.scan_results.get("metrics")
-        if isinstance(scan_check_metric_identities, list) and isinstance(scan_metrics, list):
-            for metric_identity in scan_check_metric_identities:
-                scan_metric = next(
-                    (scan_metric for scan_metric in scan_metrics if scan_metric.get("identity") == metric_identity),
-                    None,
-                )
-                if isinstance(scan_metric, dict):
-                    name = scan_metric.get("identity")
-                    type = scan_metric.get("metricName")
-                    value = scan_metric.get("value")
-                    if isinstance(name, str) and isinstance(type, str):
-                        measurement = Measurement(name=name, type=type, value=value)
-                    else:
-                        logger.error(f"Invalid metric types name={name} and type={type}")
-                        measurement = Measurement(name=str(name), type=str(type), value=value)
-                    measurements.append(measurement)
-        return measurements
+    # @classmethod
+    # def _from_scan_metrics(cls, scan_check: Dict[str, object], scan: Scan) -> List[Measurement]:
+    #     measurements: List[Measurement] = []
+    #     scan_check_metric_identities = scan_check.get("metrics")
+    #     scan_metrics = scan.scan_results.get("metrics")
+    #     if isinstance(scan_check_metric_identities, list) and isinstance(scan_metrics, list):
+    #         for metric_identity in scan_check_metric_identities:
+    #             scan_metric = next(
+    #                 (scan_metric for scan_metric in scan_metrics if scan_metric.get("identity") == metric_identity),
+    #                 None,
+    #             )
+    #             if isinstance(scan_metric, dict):
+    #                 name = scan_metric.get("identity")
+    #                 type = scan_metric.get("metricName")
+    #                 value = scan_metric.get("value")
+    #                 if isinstance(name, str) and isinstance(type, str):
+    #                     measurement = Measurement(name=name, type=type, value=value)
+    #                 else:
+    #                     logger.error(f"Invalid metric types name={name} and type={type}")
+    #                     measurement = Measurement(name=str(name), type=str(type), value=value)
+    #                 measurements.append(measurement)
+    #     return measurements
+
+    def __str__(self) -> str:
+        return self.get_console_log_message()
+
+    def get_metric_with_column(self) -> str:
+        column_text: str = f"({self.column})" if self.column else ""
+        return f"{self.metric}{column_text}"
+
+    @abstractmethod
+    def get_value_str(self) -> str:
+        pass
 
     def get_console_log_message(self) -> str:
-        return f"{self.name} was {self.value}"
+        return f"{self.get_metric_with_column()} was {self.get_value_str()}"
+
+
+@dataclass
+class NumericMeasurement(Measurement):
+
+    value: Number
+
+    @abstractmethod
+    def get_value_str(self) -> str:
+        return str(self.value) if self.value is not None else "-"
+
+
+@dataclass
+class SchemaMeasurement(Measurement):
+
+    value: Dict[str, str]
+
+    @abstractmethod
+    def get_value_str(self) -> str:
+        return str(self.value) if self.value is not None else "-"
+
 
 
 class CheckOutcome(Enum):
@@ -393,7 +427,12 @@ class SchemaCheck(Check):
     ):
         scan_measured_schema: list[dict] = scan_check_metrics_by_name.get("schema").get("value")
         measured_schema = {c.get("columnName"): c.get("sourceDataType") for c in scan_measured_schema}
-        measurement = Measurement(name="schema", type="schema", value=measured_schema)
+        measurement = SchemaMeasurement(
+            dataset=self.dataset,
+            column=None,
+            metric="schema",
+            value=measured_schema
+        )
 
         diagnostics = scan_check.get("diagnostics", {})
 
@@ -469,38 +508,30 @@ class NumericMetricCheck(Check):
 
     metric: str
     check_yaml_object: YamlObject
-    column: str
     missing_configurations: MissingConfigurations | None
     valid_configurations: ValidConfigurations | None
     fail_threshold: NumericThreshold | None
-    warn_threshold: NumericThreshold | None
+    warn_threshold: NumericThreshold | None = None
 
     def get_definition_line(self) -> str:
-        return f"{self.metric} {self.fail_threshold._get_sodacl_checkline_threshold()}"
+        sodacl_metric = f"{self.metric}({self.column})" if self.column else self.metric
+        sodacl_threshold: str = self.fail_threshold._get_sodacl_checkline_threshold() if self.fail_threshold else ""
+        return f"{sodacl_metric} {sodacl_threshold}"
 
     def _to_sodacl_check(self) -> str | dict | None:
-        sodacl_check_configs = {"contract check id": self.contract_check_id}
+        sodacl_check_configs = {
+            "contract check id": self.contract_check_id
+        }
 
         if self.name:
             sodacl_check_configs["name"] = self.name
 
-        sodacl_check_line: str | None = None
         if self.valid_configurations:
             sodacl_check_configs.update(self.valid_configurations._to_sodacl_check_configs_dict())
         if self.missing_configurations:
             sodacl_check_configs.update(self.missing_configurations._to_sodacl_check_configs_dict())
 
-        if self.fail_threshold and not self.warn_threshold:
-            sodacl_checkline_threshold = self.fail_threshold._get_sodacl_checkline_threshold()
-            sodacl_check_line = f"{self.metric} {sodacl_checkline_threshold}"
-        elif self.fail_threshold or self.warn_threshold:
-            sodacl_check_line = self.metric
-            if self.fail_threshold:
-                self.fail_threshold._update_sodacl_threshold_configs(sodacl_check_configs, "fail")
-            if self.warn_threshold:
-                self.warn_threshold._update_sodacl_threshold_configs(sodacl_check_configs, "warn")
-
-        return {sodacl_check_line: sodacl_check_configs} if sodacl_check_configs else sodacl_check_line
+        return {self.get_definition_line(): sodacl_check_configs}
 
     def _create_check_result(
         self, scan_check: dict[str, dict], scan_check_metrics_by_name: dict[str, dict], scan: Scan
@@ -512,7 +543,12 @@ class NumericMetricCheck(Check):
         else:
             scan_metric_dict = scan_check_metrics_by_name.get(self.metric, None)
         value: Number = scan_metric_dict.get("value") if scan_metric_dict else None
-        measurement = Measurement(name=self.metric, type="numeric", value=value)
+        measurement = NumericMeasurement(
+            dataset=self.dataset,
+            column=self.column,
+            metric=self.metric,
+            value=value
+        )
         return CheckResult(check=self, measurements=[measurement], outcome=CheckOutcome._from_scan_check(scan_check))
 
 
@@ -757,17 +793,17 @@ class NumericThreshold:
                 upper_bound_included=True,
             )
         elif self.greater_than is not None:
-            return f"<= {self.greater_than}"
+            return f"> {self.greater_than}"
         elif self.greater_than_or_equal is not None:
-            return f"< {self.greater_than_or_equal}"
+            return f">= {self.greater_than_or_equal}"
         elif self.less_than is not None:
-            return f">= {self.less_than}"
+            return f"< {self.less_than}"
         elif self.less_than_or_equal is not None:
-            return f"> {self.less_than_or_equal}"
+            return f"<= {self.less_than_or_equal}"
         elif self.equal is not None:
-            return f"!= {self.equal}"
+            return f"= {self.equal}"
         elif self.not_equal is not None:
-            return f"= {self.not_equal}"
+            return f"!= {self.not_equal}"
 
     @classmethod
     def _sodacl_threshold(
@@ -778,9 +814,9 @@ class NumericThreshold:
         upper_bound: Number,
         upper_bound_included: bool,
     ) -> str:
-        optional_not = "" if is_not_between else "not "
-        lower_bound_bracket = "(" if lower_bound_included else ""
-        upper_bound_bracket = ")" if upper_bound_included else ""
+        optional_not = "not " if is_not_between else ""
+        lower_bound_bracket = "" if lower_bound_included else "("
+        upper_bound_bracket = "" if upper_bound_included else ")"
         return f"{optional_not}between {lower_bound_bracket}{lower_bound} and {upper_bound}{upper_bound_bracket}"
 
     def is_empty(self) -> bool:
