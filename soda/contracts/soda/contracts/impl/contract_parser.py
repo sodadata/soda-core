@@ -32,13 +32,31 @@ logger = logging.getLogger(__name__)
 
 class ContractParser:
 
-    __threshold_keys = ["must_be_greater_than", "must_be_greater_than_or_equal_to", "must_be_less_than",
-                      "must_be_less_than_or_equal_to", "must_be", "must_not_be", "must_be_between",
-                      "must_be_not_between"]
+    __threshold_keys = [
+        "must_be_greater_than",
+        "must_be_greater_than_or_equal_to",
+        "must_be_less_than",
+        "must_be_less_than_or_equal_to",
+        "must_be",
+        "must_not_be",
+        "must_be_between",
+        "must_be_not_between",
+    ]
 
-    __validity_keys = ["invalid_values", "invalid_format", "invalid_regex", "valid_values", "valid_format",
-                       "valid_regex", "valid_min", "valid_max", "valid_length", "valid_min_length", "valid_max_length",
-                       "valid_reference_column"]
+    __validity_keys = [
+        "invalid_values",
+        "invalid_format",
+        "invalid_regex",
+        "valid_values",
+        "valid_format",
+        "valid_regex",
+        "valid_min",
+        "valid_max",
+        "valid_length",
+        "valid_min_length",
+        "valid_max_length",
+        "valid_reference_column",
+    ]
 
     def __init__(self):
         super().__init__()
@@ -158,7 +176,7 @@ class ContractParser:
                 column=column,
                 contract_check_id=contract_check_id,
                 check_yaml_object=check_yaml_object,
-                check_type=check_type
+                check_type=check_type,
             )
         # elif check_type in ["no_invalid", "invalid_count", invalid_percent"]:
         # elif check_type in ["no_duplicates", "duplicate_count", "duplicate_percent"]:
@@ -228,12 +246,7 @@ class ContractParser:
         )
 
     def _parse_column_check_missing(
-        self,
-        dataset: str,
-        contract_check_id: str,
-        check_yaml_object: YamlObject,
-        check_type: str,
-        column: str | None
+        self, dataset: str, contract_check_id: str, check_yaml_object: YamlObject, check_type: str, column: str | None
     ):
         name = check_yaml_object.read_string_opt("name")
 
@@ -246,19 +259,20 @@ class ContractParser:
             if not threshold.is_empty():
                 self.logs.error(
                     "Check type 'no_missing' does not allow for threshold keys must_be_...",
-                    location=check_yaml_object.location
+                    location=check_yaml_object.location,
                 )
             threshold = NumericThreshold(equal=0)
         elif threshold.is_empty():
             self.logs.error(
-                (f"Check type '{check_type}' requires threshold configuration "
-                 f"with keys like {self.__threshold_keys}"),
-                location=check_yaml_object.location
+                (
+                    f"Check type '{check_type}' requires threshold configuration "
+                    f"with keys like {self.__threshold_keys}"
+                ),
+                location=check_yaml_object.location,
             )
 
         missing_configurations: MissingConfigurations | None = self._parse_missing_configurations(
-            check_yaml=check_yaml_object,
-            column=column
+            check_yaml=check_yaml_object, column=column
         )
 
         return NumericMetricCheck(
@@ -272,15 +286,11 @@ class ContractParser:
             metric=metric,
             missing_configurations=missing_configurations,
             valid_configurations=None,
-            fail_threshold=threshold
+            fail_threshold=threshold,
         )
 
     def _parse_column_check_invalid(
-        self,
-        contract_check_id: str,
-        check_yaml_object: YamlObject,
-        check_type: str,
-        column: str | None
+        self, contract_check_id: str, check_yaml_object: YamlObject, check_type: str, column: str | None
     ):
         name = check_yaml_object.read_string_opt("name")
 
@@ -293,19 +303,20 @@ class ContractParser:
             if threshold.is_empty():
                 self.logs.error(
                     "Check type 'no_invalid' does not allow for threshold keys must_be_...",
-                    location=check_yaml_object.location
+                    location=check_yaml_object.location,
                 )
         elif not threshold.is_empty():
             metric = check_type
             self.logs.error(
-                (f"Check type '{check_type}' requires threshold configuration "
-                 f"with keys like {self.__threshold_keys}"),
-                location=check_yaml_object.location
+                (
+                    f"Check type '{check_type}' requires threshold configuration "
+                    f"with keys like {self.__threshold_keys}"
+                ),
+                location=check_yaml_object.location,
             )
 
         missing_configurations: MissingConfigurations | None = self._parse_missing_configurations(
-            check_yaml=check_yaml_object,
-            column=column
+            check_yaml=check_yaml_object, column=column
         )
 
         valid_configurations: ValidConfigurations | None = self._parse_valid_configurations(
@@ -315,7 +326,7 @@ class ContractParser:
         if not valid_configurations:
             self.logs.error(
                 message=f"Check type '{check_type}' must have a validity configuration like {self.__validity_keys}",
-                location=check_yaml_object.location
+                location=check_yaml_object.location,
             )
 
         return NumericMetricCheck(
@@ -328,7 +339,7 @@ class ContractParser:
             column=column,
             missing_configurations=missing_configurations,
             valid_configurations=valid_configurations,
-            fail_threshold=threshold
+            fail_threshold=threshold,
         )
 
     def _parse_numeric_metric_check(
@@ -559,7 +570,7 @@ class ContractParser:
             less_than_or_equal=check_yaml_object.read_number_opt("must_be_less_than_or_equal_to"),
             equal=check_yaml_object.read_number_opt("must_be"),
             not_equal=check_yaml_object.read_number_opt("must_not_be"),
-            between=self._parse_range(check_yaml_object,  "must_be_between"),
+            between=self._parse_range(check_yaml_object, "must_be_between"),
             not_between=self._parse_range(check_yaml_object, "must_not_be_between"),
         )
 

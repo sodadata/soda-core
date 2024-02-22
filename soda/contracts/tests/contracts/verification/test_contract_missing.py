@@ -1,16 +1,12 @@
-from contracts.helpers.contract_test_tables import contracts_test_table
 from contracts.helpers.test_connection import TestConnection
 from helpers.test_table import TestTable
+from soda.execution.data_type import DataType
 
 from soda.contracts.contract import CheckOutcome, ContractResult, NumericMeasurement
-from soda.execution.data_type import DataType
 
 contracts_missing_test_table = TestTable(
     name="contracts_missing",
-    columns=[
-        ("holes", DataType.TEXT),
-        ("solid", DataType.TEXT)
-    ],
+    columns=[("holes", DataType.TEXT), ("solid", DataType.TEXT)],
     # fmt: off
     values=[
         ('ID1', 'ID1'),

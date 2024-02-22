@@ -1,4 +1,3 @@
-import logging
 from textwrap import dedent
 from typing import List
 

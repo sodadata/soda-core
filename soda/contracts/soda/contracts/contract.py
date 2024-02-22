@@ -394,7 +394,6 @@ class SchemaMeasurement(Measurement):
         return str(self.value) if self.value is not None else "-"
 
 
-
 class CheckOutcome(Enum):
     PASS = "pass"
     FAIL = "fail"
@@ -427,12 +426,7 @@ class SchemaCheck(Check):
     ):
         scan_measured_schema: list[dict] = scan_check_metrics_by_name.get("schema").get("value")
         measured_schema = {c.get("columnName"): c.get("sourceDataType") for c in scan_measured_schema}
-        measurement = SchemaMeasurement(
-            dataset=self.dataset,
-            column=None,
-            metric="schema",
-            value=measured_schema
-        )
+        measurement = SchemaMeasurement(dataset=self.dataset, column=None, metric="schema", value=measured_schema)
 
         diagnostics = scan_check.get("diagnostics", {})
 
@@ -519,9 +513,7 @@ class NumericMetricCheck(Check):
         return f"{sodacl_metric} {sodacl_threshold}"
 
     def _to_sodacl_check(self) -> str | dict | None:
-        sodacl_check_configs = {
-            "contract check id": self.contract_check_id
-        }
+        sodacl_check_configs = {"contract check id": self.contract_check_id}
 
         if self.name:
             sodacl_check_configs["name"] = self.name
@@ -543,12 +535,7 @@ class NumericMetricCheck(Check):
         else:
             scan_metric_dict = scan_check_metrics_by_name.get(self.metric, None)
         value: Number = scan_metric_dict.get("value") if scan_metric_dict else None
-        measurement = NumericMeasurement(
-            dataset=self.dataset,
-            column=self.column,
-            metric=self.metric,
-            value=value
-        )
+        measurement = NumericMeasurement(dataset=self.dataset, column=self.column, metric=self.metric, value=value)
         return CheckResult(check=self, measurements=[measurement], outcome=CheckOutcome._from_scan_check(scan_check))
 
 
