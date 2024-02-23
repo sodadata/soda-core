@@ -20,7 +20,7 @@ from soda.contracts.contract import (
     UserDefinedSqlExpressionCheck,
     UserDefinedSqlQueryCheck,
     ValidConfigurations,
-    ValidReferenceColumn,
+    ValidValuesReferenceData,
 )
 from soda.contracts.impl.json_schema_verifier import JsonSchemaVerifier
 from soda.contracts.impl.logs import Logs
@@ -55,7 +55,7 @@ class ContractParser:
         "valid_length",
         "valid_min_length",
         "valid_max_length",
-        "valid_reference_column",
+        "valid_values_reference_data",
     ]
 
     def __init__(self):
@@ -335,6 +335,28 @@ class ContractParser:
                 message=f"Check type '{check_type}' must have a validity configuration like {self.__validity_keys}",
                 location=check_yaml_object.location,
             )
+            return None
+
+        if valid_configurations.valid_values_reference_data is not None:
+            if valid_configurations.has_non_reference_data_configs():
+                self.logs.error(
+                    message=f"Check type '{check_type}' cannot combine 'valid_values_reference_data' with other validity configurations",
+                    location=check_yaml_object.location,
+                )
+                return None
+
+            return InvalidReferenceCheck(
+                dataset=dataset,
+                column=column,
+                type=check_type,
+                name=name,
+                contract_check_id=contract_check_id,
+                location=check_yaml_object.location,
+                check_yaml_object=check_yaml_object,
+                missing_configurations=missing_configurations,
+                valid_values_reference_data=valid_configurations.valid_values_reference_data
+            )
+
 
         return NumericMetricCheck(
             dataset=dataset,
@@ -385,32 +407,6 @@ class ContractParser:
             valid_configurations=valid_configurations,
             fail_threshold=fail_threshold,
             warn_threshold=None,
-        )
-
-    def _parse_invalid_reference_check(
-        self,
-        contract_check_id: str,
-        check_yaml_object: YamlObject,
-        check_type: str,
-        metric: str,
-        column: str | None,
-        valid_values_column_yaml_object: YamlObject,
-        default_threshold: NumericThreshold | None,
-    ) -> Check | None:
-        name = check_yaml_object.read_string_opt("name")
-
-        reference_dataset = valid_values_column_yaml_object.read_string("dataset")
-        reference_column = valid_values_column_yaml_object.read_string("column")
-
-        return InvalidReferenceCheck(
-            type=check_type,
-            name=name,
-            contract_check_id=contract_check_id,
-            location=check_yaml_object.location,
-            check_yaml_object=check_yaml_object,
-            column=column,
-            reference_dataset=reference_dataset,
-            reference_column=reference_column,
         )
 
     def _parse_user_defined_sql_expression_check(
@@ -527,14 +523,14 @@ class ContractParser:
         valid_min_length: int | None = check_yaml.read_number_opt(f"valid_min_length")
         valid_max_length: int | None = check_yaml.read_number_opt(f"valid_max_length")
 
-        valid_reference_column: ValidReferenceColumn | None = None
-        valid_reference_column_yaml_object: YamlObject | None = check_yaml.read_yaml_object_opt(
-            f"valid_reference_column"
+        valid_values_reference_data: ValidValuesReferenceData | None = None
+        valid_values_reference_data_yaml_object: YamlObject | None = check_yaml.read_yaml_object_opt(
+            f"valid_values_reference_data"
         )
-        if valid_reference_column_yaml_object:
-            ref_dataset = valid_reference_column_yaml_object.read_string("dataset")
-            ref_column = valid_reference_column_yaml_object.read_string("column")
-            valid_reference_column = ValidReferenceColumn(dataset=ref_dataset, column=ref_column)
+        if valid_values_reference_data_yaml_object:
+            ref_dataset = valid_values_reference_data_yaml_object.read_string("dataset")
+            ref_column = valid_values_reference_data_yaml_object.read_string("column")
+            valid_values_reference_data = ValidValuesReferenceData(dataset=ref_dataset, column=ref_column)
 
         if all(
             v is None
@@ -550,7 +546,7 @@ class ContractParser:
                 valid_length,
                 valid_min_length,
                 valid_max_length,
-                valid_reference_column,
+                valid_values_reference_data,
             ]
         ):
             return None
@@ -567,7 +563,7 @@ class ContractParser:
                 valid_length=valid_length,
                 valid_min_length=valid_min_length,
                 valid_max_length=valid_max_length,
-                valid_reference_column=valid_reference_column,
+                valid_values_reference_data=valid_values_reference_data,
             )
 
     def _parse_numeric_threshold(self, check_yaml_object: YamlObject) -> NumericThreshold | None:

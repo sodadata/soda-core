@@ -337,29 +337,6 @@ class Measurement:
     column: str | None
     metric: str
 
-    # @classmethod
-    # def _from_scan_metrics(cls, scan_check: Dict[str, object], scan: Scan) -> List[Measurement]:
-    #     measurements: List[Measurement] = []
-    #     scan_check_metric_identities = scan_check.get("metrics")
-    #     scan_metrics = scan.scan_results.get("metrics")
-    #     if isinstance(scan_check_metric_identities, list) and isinstance(scan_metrics, list):
-    #         for metric_identity in scan_check_metric_identities:
-    #             scan_metric = next(
-    #                 (scan_metric for scan_metric in scan_metrics if scan_metric.get("identity") == metric_identity),
-    #                 None,
-    #             )
-    #             if isinstance(scan_metric, dict):
-    #                 name = scan_metric.get("identity")
-    #                 type = scan_metric.get("metricName")
-    #                 value = scan_metric.get("value")
-    #                 if isinstance(name, str) and isinstance(type, str):
-    #                     measurement = Measurement(name=name, type=type, value=value)
-    #                 else:
-    #                     logger.error(f"Invalid metric types name={name} and type={type}")
-    #                     measurement = Measurement(name=str(name), type=str(type), value=value)
-    #                 measurements.append(measurement)
-    #     return measurements
-
     def __str__(self) -> str:
         return self.get_console_log_message()
 
@@ -388,11 +365,33 @@ class NumericMeasurement(Measurement):
 @dataclass
 class SchemaMeasurement(Measurement):
 
-    value: Dict[str, str]
+    measured_schema: Dict[str, str]
+    columns_not_allowed_and_present: list[str] | None
+    columns_required_and_not_present: list[str] | None
+    columns_having_wrong_type: list[DataTypeMismatch] | None
 
     @abstractmethod
     def get_value_str(self) -> str:
-        return str(self.value) if self.value is not None else "-"
+        pieces: list[str] = []
+        pieces.extend(
+            [f"  Column '{column}' was present and not allowed" for column in self.columns_not_allowed_and_present]
+        )
+        pieces.extend(
+            [f"  Column '{column}' was missing" for column in self.columns_required_and_not_present]
+        )
+        pieces.extend(
+            [
+                (f"  Column '{data_type_mismatch.column}': Expected type '{data_type_mismatch.expected_data_type}', "
+                 f"but was '{data_type_mismatch.actual_data_type}'")
+                for data_type_mismatch in self.columns_having_wrong_type
+            ]
+        )
+        if len(pieces) == 0:
+            return "no mismatches"
+        else:
+            optional_plural_es: str = "" if len(pieces) == 1 else "es"
+            pieces.insert(0, f"having {len(pieces)} mismatch{optional_plural_es}")
+        return "\n".join(pieces)
 
 
 class CheckOutcome(Enum):
@@ -427,7 +426,6 @@ class SchemaCheck(Check):
     ):
         scan_measured_schema: list[dict] = scan_check_metrics_by_name.get("schema").get("value")
         measured_schema = {c.get("columnName"): c.get("sourceDataType") for c in scan_measured_schema}
-        measurement = SchemaMeasurement(dataset=self.dataset, column=None, metric="schema", value=measured_schema)
 
         diagnostics = scan_check.get("diagnostics", {})
 
@@ -435,22 +433,29 @@ class SchemaCheck(Check):
         columns_required_and_not_present: list[str] = diagnostics.get("missing_column_names", [])
 
         columns_having_wrong_type: list[DataTypeMismatch] = []
-        column_type_mismatches = diagnostics.get("column_type_mismatches", {})
-        if column_type_mismatches:
-            for column_name, column_type_mismatch in column_type_mismatches.items():
+        scan_column_type_mismatches = diagnostics.get("column_type_mismatches", {})
+        if scan_column_type_mismatches:
+            for column_name, column_type_mismatch in scan_column_type_mismatches.items():
                 expected_type = column_type_mismatch.get("expected_type")
                 actual_type = column_type_mismatch.get("actual_type")
                 columns_having_wrong_type.append(
                     DataTypeMismatch(column=column_name, expected_data_type=expected_type, actual_data_type=actual_type)
                 )
 
-        return SchemaCheckResult(
-            check=self,
-            measurements=[measurement],
-            outcome=CheckOutcome._from_scan_check(scan_check),
+        measurement = SchemaMeasurement(
+            dataset=self.dataset,
+            column=None,
+            metric="schema_mismatches",
+            measured_schema=measured_schema,
             columns_not_allowed_and_present=columns_not_allowed_and_present,
             columns_required_and_not_present=columns_required_and_not_present,
-            columns_having_wrong_type=columns_having_wrong_type,
+            columns_having_wrong_type=columns_having_wrong_type
+        )
+
+        return CheckResult(
+            check=self,
+            measurements=[measurement],
+            outcome=CheckOutcome._from_scan_check(scan_check)
         )
 
     def get_definition_line(self) -> str:
@@ -468,27 +473,6 @@ class SchemaCheck(Check):
             ]
         )
         return f"Schema: {column_spec}"
-
-
-@dataclass
-class SchemaCheckResult(CheckResult):
-    columns_not_allowed_and_present: list[str] | None
-    columns_required_and_not_present: list[str] | None
-    columns_having_wrong_type: list[DataTypeMismatch] | None
-
-    def get_console_log_message(self) -> str:
-        pieces: list[str] = [super().get_console_log_message()]
-        pieces.extend(
-            [f"  Column '{column}' was present and not allowed" for column in self.columns_not_allowed_and_present]
-        )
-        pieces.extend([f"  Column '{column}' was missing" for column in self.columns_required_and_not_present])
-        pieces.extend(
-            [
-                f"  Column '{data_type_mismatch.column}': Expected type '{data_type_mismatch.expected_data_type}', but was '{data_type_mismatch.actual_data_type}'"
-                for data_type_mismatch in self.columns_having_wrong_type
-            ]
-        )
-        return "\n".join(pieces)
 
 
 @dataclass
@@ -544,12 +528,11 @@ class NumericMetricCheck(Check):
 class InvalidReferenceCheck(Check):
 
     check_yaml_object: YamlObject
-    column: str
-    reference_dataset: str
-    reference_column: str
+    missing_configurations: MissingConfigurations
+    valid_values_reference_data: ValidValuesReferenceData
 
     def get_definition_line(self) -> str:
-        return f"values in ({self.column}) must exist in {self.reference_dataset} ({self.reference_column})"
+        return f"values in ({self.column}) must exist in {self.valid_values_reference_data.dataset} ({self.valid_values_reference_data.column})"
 
     def _to_sodacl_check(self) -> str | dict | None:
         sodacl_check_configs = {"contract check id": self.contract_check_id}
@@ -557,16 +540,25 @@ class InvalidReferenceCheck(Check):
         if self.name:
             sodacl_check_configs["name"] = self.name
 
+        if self.missing_configurations:
+            sodacl_missing_configurations = self.missing_configurations._to_sodacl_check_configs_dict()
+            sodacl_check_configs.update(sodacl_missing_configurations)
+
         sodacl_check_line: str = self.get_definition_line()
 
-        return {sodacl_check_line: sodacl_check_configs} if sodacl_check_configs else sodacl_check_line
+        return {sodacl_check_line: sodacl_check_configs}
 
     def _create_check_result(
         self, scan_check: dict[str, dict], scan_check_metrics_by_name: dict[str, dict], scan: Scan
     ):
         scan_metric_dict = scan_check_metrics_by_name.get("reference", {})
         value: Number = scan_metric_dict.get("value")
-        measurement = Measurement(name=f"invalid_count({self.column})", type="numeric", value=value)
+        measurement = NumericMeasurement(
+            dataset=self.dataset,
+            column=self.column,
+            metric="invalid_count",
+            value=value
+        )
         return CheckResult(check=self, measurements=[measurement], outcome=CheckOutcome._from_scan_check(scan_check))
 
 
@@ -714,14 +706,28 @@ class ValidConfigurations:
     valid_length: int | None
     valid_min_length: int | None
     valid_max_length: int | None
-    valid_reference_column: ValidReferenceColumn | None
+    valid_values_reference_data: ValidValuesReferenceData | None
 
     def _to_sodacl_check_configs_dict(self) -> dict:
         return dataclass_object_to_sodacl_dict(self)
 
+    def has_non_reference_data_configs(self) -> bool:
+        return (self.invalid_values is not None
+               or self.invalid_format is not None
+               or self.invalid_regex is not None
+               or self.valid_values is not None
+               or self.valid_format is not None
+               or self.valid_regex is not None
+               or self.valid_min is not None
+               or self.valid_max is not None
+               or self.valid_length is not None
+               or self.valid_min_length is not None
+               or self.valid_max_length is not None)
+
+
 
 @dataclass
-class ValidReferenceColumn:
+class ValidValuesReferenceData:
     dataset: str
     column: str
 

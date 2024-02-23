@@ -9,8 +9,8 @@ contracts_missing_test_table = TestTable(
     name="contracts_missing",
     # fmt: off
     columns=[
-        ("colinv", DataType.TEXT),
-        ("colval", DataType.TEXT)
+        ("holes", DataType.TEXT),
+        ("solid", DataType.TEXT)
     ],
     values=[
         ('ID1', 'ID1'),

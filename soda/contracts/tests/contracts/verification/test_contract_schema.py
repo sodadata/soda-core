@@ -7,7 +7,7 @@ from soda.contracts.contract import (
     CheckOutcome,
     ContractResult,
     Measurement,
-    SchemaCheckResult,
+    SchemaMeasurement, CheckResult,
 )
 
 logger = logging.getLogger(__name__)
@@ -31,22 +31,24 @@ def test_contract_schema_pass_with_data_types(test_connection: TestConnection):
     """
     )
 
-    schema_check_result: SchemaCheckResult = contract_result.check_results[0]
+    schema_check_result: CheckResult = contract_result.check_results[0]
     assert schema_check_result.outcome == CheckOutcome.PASS
-    assert schema_check_result.columns_not_allowed_and_present == []
-    assert schema_check_result.columns_required_and_not_present == []
-    assert schema_check_result.columns_having_wrong_type == []
     assert schema_check_result.check.name == "Schema"
     assert schema_check_result.check.location is None
-    measurement: Measurement = schema_check_result.measurements[0]
-    assert measurement.name == "schema"
-    assert measurement.type == "schema"
-    assert measurement.value == {
+    measurement = schema_check_result.measurements[0]
+    assert isinstance(measurement, SchemaMeasurement)
+    assert measurement.dataset == table_name
+    assert measurement.column is None
+    assert measurement.metric == "schema_mismatches"
+    assert measurement.measured_schema == {
         "id": test_connection.data_type_text(),
         "size": test_connection.data_type_decimal(),
         "distance": test_connection.data_type_integer(),
         "created": test_connection.data_type_date(),
     }
+    assert measurement.columns_not_allowed_and_present == []
+    assert measurement.columns_required_and_not_present == []
+    assert measurement.columns_having_wrong_type == []
 
 
 def test_contract_schema_pass_without_data_types(test_connection: TestConnection):
@@ -63,22 +65,19 @@ def test_contract_schema_pass_without_data_types(test_connection: TestConnection
     """
     )
 
-    schema_check_result: SchemaCheckResult = contract_result.check_results[0]
+    schema_check_result: CheckResult = contract_result.check_results[0]
     assert schema_check_result.outcome == CheckOutcome.PASS
-    assert schema_check_result.columns_not_allowed_and_present == []
-    assert schema_check_result.columns_required_and_not_present == []
-    assert schema_check_result.columns_having_wrong_type == []
-    assert schema_check_result.check.name == "Schema"
-    assert schema_check_result.check.location is None
-    measurement: Measurement = schema_check_result.measurements[0]
-    assert measurement.name == "schema"
-    assert measurement.type == "schema"
-    assert measurement.value == {
+    measurement = schema_check_result.measurements[0]
+    assert isinstance(measurement, SchemaMeasurement)
+    assert measurement.measured_schema == {
         "id": test_connection.data_type_text(),
         "size": test_connection.data_type_decimal(),
         "distance": test_connection.data_type_integer(),
         "created": test_connection.data_type_date(),
     }
+    assert measurement.columns_not_allowed_and_present == []
+    assert measurement.columns_required_and_not_present == []
+    assert measurement.columns_having_wrong_type == []
 
 
 def test_contract_schema_missing_column(test_connection: TestConnection):
@@ -101,22 +100,13 @@ def test_contract_schema_missing_column(test_connection: TestConnection):
     """
     )
 
-    schema_check_result: SchemaCheckResult = contract_result.check_results[0]
+    schema_check_result: CheckResult = contract_result.check_results[0]
     assert schema_check_result.outcome == CheckOutcome.FAIL
-    assert schema_check_result.columns_not_allowed_and_present == []
-    assert schema_check_result.columns_required_and_not_present == ["themissingcolumn"]
-    assert schema_check_result.columns_having_wrong_type == []
-    assert schema_check_result.check.name == "Schema"
-    assert schema_check_result.check.location is None
-    measurement: Measurement = schema_check_result.measurements[0]
-    assert measurement.name == "schema"
-    assert measurement.type == "schema"
-    assert measurement.value == {
-        "id": test_connection.data_type_text(),
-        "size": test_connection.data_type_decimal(),
-        "distance": test_connection.data_type_integer(),
-        "created": test_connection.data_type_date(),
-    }
+    measurement = schema_check_result.measurements[0]
+    assert isinstance(measurement, SchemaMeasurement)
+    assert measurement.columns_not_allowed_and_present == []
+    assert measurement.columns_required_and_not_present == ['themissingcolumn']
+    assert measurement.columns_having_wrong_type == []
     assert "Column 'themissingcolumn' was missing" in str(contract_result)
 
 
@@ -141,22 +131,19 @@ def test_contract_schema_missing_optional_column(test_connection: TestConnection
     """
     )
 
-    schema_check_result: SchemaCheckResult = contract_result.check_results[0]
+    schema_check_result: CheckResult = contract_result.check_results[0]
     assert schema_check_result.outcome == CheckOutcome.PASS
-    assert schema_check_result.columns_not_allowed_and_present == []
-    assert schema_check_result.columns_required_and_not_present == []
-    assert schema_check_result.columns_having_wrong_type == []
-    assert schema_check_result.check.name == "Schema"
-    assert schema_check_result.check.location is None
-    measurement: Measurement = schema_check_result.measurements[0]
-    assert measurement.name == "schema"
-    assert measurement.type == "schema"
-    assert measurement.value == {
+    measurement = schema_check_result.measurements[0]
+    assert isinstance(measurement, SchemaMeasurement)
+    assert measurement.measured_schema == {
         "id": test_connection.data_type_text(),
         "size": test_connection.data_type_decimal(),
         "distance": test_connection.data_type_integer(),
         "created": test_connection.data_type_date(),
     }
+    assert measurement.columns_not_allowed_and_present == []
+    assert measurement.columns_required_and_not_present == []
+    assert measurement.columns_having_wrong_type == []
 
 
 def test_contract_schema_extra_column(test_connection: TestConnection):
@@ -175,22 +162,19 @@ def test_contract_schema_extra_column(test_connection: TestConnection):
     """
     )
 
-    schema_check_result: SchemaCheckResult = contract_result.check_results[0]
+    schema_check_result: CheckResult = contract_result.check_results[0]
     assert schema_check_result.outcome == CheckOutcome.FAIL
-    assert schema_check_result.columns_not_allowed_and_present == ["distance"]
-    assert schema_check_result.columns_required_and_not_present == []
-    assert schema_check_result.columns_having_wrong_type == []
-    assert schema_check_result.check.name == "Schema"
-    assert schema_check_result.check.location is None
-    measurement: Measurement = schema_check_result.measurements[0]
-    assert measurement.name == "schema"
-    assert measurement.type == "schema"
-    assert measurement.value == {
+    measurement = schema_check_result.measurements[0]
+    assert isinstance(measurement, SchemaMeasurement)
+    assert measurement.measured_schema == {
         "id": test_connection.data_type_text(),
         "size": test_connection.data_type_decimal(),
         "distance": test_connection.data_type_integer(),
         "created": test_connection.data_type_date(),
     }
+    assert measurement.columns_not_allowed_and_present == ["distance"]
+    assert measurement.columns_required_and_not_present == []
+    assert measurement.columns_having_wrong_type == []
     assert "Column 'distance' was present and not allowed" in str(contract_result)
 
 
@@ -212,12 +196,22 @@ def test_contract_schema_data_type_mismatch(test_connection: TestConnection):
     """
     )
 
-    schema_check_result: SchemaCheckResult = contract_result.check_results[0]
+    schema_check_result: CheckResult = contract_result.check_results[0]
     assert schema_check_result.outcome == CheckOutcome.FAIL
-    assert schema_check_result.columns_not_allowed_and_present == []
-    assert schema_check_result.columns_required_and_not_present == []
-    data_type_mismatch = schema_check_result.columns_having_wrong_type[0]
+    measurement = schema_check_result.measurements[0]
+    assert isinstance(measurement, SchemaMeasurement)
+    assert measurement.measured_schema == {
+        "id": test_connection.data_type_text(),
+        "size": test_connection.data_type_decimal(),
+        "distance": test_connection.data_type_integer(),
+        "created": test_connection.data_type_date(),
+    }
+    assert measurement.columns_not_allowed_and_present == []
+    assert measurement.columns_required_and_not_present == []
+
+    data_type_mismatch = measurement.columns_having_wrong_type[0]
     assert data_type_mismatch.column == "id"
     assert data_type_mismatch.expected_data_type == "WRONG_VARCHAR"
     assert data_type_mismatch.actual_data_type == test_connection.data_type_text()
+
     assert "Column 'id': Expected type 'WRONG_VARCHAR', but was 'character varying'" in str(contract_result)
