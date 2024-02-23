@@ -115,8 +115,8 @@
                                 "row_count", "freshness_in_days", "freshness_in_hours", "freshness_in_minutes",
                                 "avg", "avg_length", "duplicate_count", "duplicate_percent", "invalid_count",
                                 "invalid_percent", "max", "max_length", "min", "min_length", "missing_count",
-                                "missing_percent", "percentile", "stddev", "stddev_pop", "stddev_samp", "sum",
-                                "variance", "var_pop", "var_samp"
+                                "missing_percent", "no_missing", "no_invalid", "no_duplicates", "percentile",
+                                "stddev", "stddev_pop", "stddev_samp", "sum", "variance", "var_pop", "var_samp"
                             ]
                         },
                         {
@@ -193,35 +193,35 @@
                     "description": "Specifies a sql expression filter that should be applied on the metric",
                     "type": "string"
                 },
-                "fail_when_is": {
+                "must_be": {
                     "description": "Specifies the threshold for the check. The check fails if the metric value is the specified threshold value.",
                     "type": "number"
                 },
-                "fail_when_is_not": {
+                "must_not_be": {
                     "description": "Specifies the threshold for the check. The check fails if the metric value is not the specified threshold value.",
                     "type": "number"
                 },
-                "fail_when_greater_than": {
+                "must_be_greater_than": {
                     "description": "Specifies the threshold for the check. The check fails if the metric value is greater than the specified threshold value.",
                     "type": "number"
                 },
-                "fail_when_greater_than_or_equal": {
+                "must_be_greater_than_or_equal_to": {
                     "description": "Specifies the threshold for the check. The check fails if the metric value is greater than or equal to the specified threshold value.",
                     "type": "number"
                 },
-                "fail_when_less_than": {
+                "must_be_less_than": {
                     "description": "Specifies the threshold for the check. The check fails if the metric value is less than the specified threshold value.",
                     "type": "number"
                 },
-                "fail_when_less_than_or_equal": {
+                "must_be_less_than_or_equal_to": {
                     "description": "Specifies the threshold for the check. The check fails if the metric value is less than or equal to the specified threshold value.",
                     "type": "number"
                 },
-                "fail_when_between": {
+                "must_be_between": {
                     "description": "Specifies a threshold range for the check. The check fails if the metric value is between a minimum and maximum value. In short style eg fail_when_between:[10,20] boundary values 10 and 20 will pass. For including boundary values, use nested min_* and max_* properties",
                     "$ref": "#/$defs/numeric_range"
                 },
-                "fail_when_not_between": {
+                "must_not_be_between": {
                     "description": "Specifies a threshold range for the check. The check fails if the metric value is not between a minimum and maximum value. In short style eg fail_when_between:[10,20] boundary values 10 and 20 will pass. For including boundary values, use nested min_* and max_* properties",
                     "$ref": "#/$defs/numeric_range"
                 }

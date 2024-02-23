@@ -9,18 +9,19 @@ columns:
   - name: id
     data_type: VARCHAR
     checks:
-      - type: duplicates_count
+      - type: no_missing
+      - type: no_duplicates
 
   - name: size
     data_type: VARCHAR
     checks:
       - type: invalid_count
         valid_values: ['S', 'M', 'L']
-        fail_when_greater_than_or_equal: 10
+        must_be_less_than: 10
 
   - name: distance
     checks:
-      - type: invalid_count
+      - type: no_invalid
         valid_min: 0
         valid_max: 1000
 
