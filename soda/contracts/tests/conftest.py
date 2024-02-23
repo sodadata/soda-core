@@ -1,7 +1,8 @@
+from textwrap import dedent
+
 from contracts.helpers.contract_fixtures import *  # NOQA
 from helpers.fixtures import *  # NOQA
 
-from textwrap import dedent
 from soda.contracts.contract import Contract
 from soda.contracts.impl.logs import Log
 

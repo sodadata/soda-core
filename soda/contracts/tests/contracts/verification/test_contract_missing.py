@@ -22,7 +22,8 @@ contracts_missing_test_table = TestTable(
 
 
 def test_no_missing_with_threshold():
-    errors_str = get_parse_errors_str("""
+    errors_str = get_parse_errors_str(
+        """
           dataset: TABLE_NAME
           columns:
             - name: id
@@ -36,7 +37,8 @@ def test_no_missing_with_threshold():
 
 
 def test_missing_count_without_threshold():
-    errors_str = get_parse_errors_str("""
+    errors_str = get_parse_errors_str(
+        """
           dataset: TABLE_NAME
           columns:
             - name: id

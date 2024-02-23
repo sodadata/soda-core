@@ -5,10 +5,9 @@ from contracts.helpers.contract_test_tables import (
 )
 from contracts.helpers.test_connection import TestConnection
 from helpers.test_table import TestTable
-
-from soda.contracts.contract import CheckOutcome, ContractResult, NumericMeasurement
 from soda.execution.data_type import DataType
 
+from soda.contracts.contract import CheckOutcome, ContractResult, NumericMeasurement
 
 contracts_invalid_test_table = TestTable(
     name="contracts_missing",
@@ -76,7 +75,8 @@ def test_contract_no_invalid_with_valid_values_fail(test_connection: TestConnect
 
 
 def test_no_invalid_with_threshold():
-    errors_str = get_parse_errors_str("""
+    errors_str = get_parse_errors_str(
+        """
           dataset: TABLE_NAME
           columns:
             - name: id
@@ -91,7 +91,8 @@ def test_no_invalid_with_threshold():
 
 
 def test_no_invalid_without_valid_configuration():
-    errors_str = get_parse_errors_str("""
+    errors_str = get_parse_errors_str(
+        """
           dataset: TABLE_NAME
           columns:
             - name: id
