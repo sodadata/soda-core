@@ -201,6 +201,7 @@ contracts_invalid_multi_test_table = TestTable(
     # fmt: on
 )
 
+
 def test_contract_multi_validity_configs(test_connection: TestConnection):
     table_name: str = test_connection.ensure_test_table(contracts_invalid_multi_test_table)
 

@@ -5,9 +5,10 @@ from contracts.helpers.test_connection import TestConnection
 
 from soda.contracts.contract import (
     CheckOutcome,
+    CheckResult,
     ContractResult,
     Measurement,
-    SchemaMeasurement, CheckResult,
+    SchemaMeasurement,
 )
 
 logger = logging.getLogger(__name__)
@@ -105,7 +106,7 @@ def test_contract_schema_missing_column(test_connection: TestConnection):
     measurement = schema_check_result.measurements[0]
     assert isinstance(measurement, SchemaMeasurement)
     assert measurement.columns_not_allowed_and_present == []
-    assert measurement.columns_required_and_not_present == ['themissingcolumn']
+    assert measurement.columns_required_and_not_present == ["themissingcolumn"]
     assert measurement.columns_having_wrong_type == []
     assert "Column 'themissingcolumn' was missing" in str(contract_result)
 

@@ -354,9 +354,8 @@ class ContractParser:
                 location=check_yaml_object.location,
                 check_yaml_object=check_yaml_object,
                 missing_configurations=missing_configurations,
-                valid_values_reference_data=valid_configurations.valid_values_reference_data
+                valid_values_reference_data=valid_configurations.valid_values_reference_data,
             )
-
 
         return NumericMetricCheck(
             dataset=dataset,

@@ -376,13 +376,13 @@ class SchemaMeasurement(Measurement):
         pieces.extend(
             [f"  Column '{column}' was present and not allowed" for column in self.columns_not_allowed_and_present]
         )
-        pieces.extend(
-            [f"  Column '{column}' was missing" for column in self.columns_required_and_not_present]
-        )
+        pieces.extend([f"  Column '{column}' was missing" for column in self.columns_required_and_not_present])
         pieces.extend(
             [
-                (f"  Column '{data_type_mismatch.column}': Expected type '{data_type_mismatch.expected_data_type}', "
-                 f"but was '{data_type_mismatch.actual_data_type}'")
+                (
+                    f"  Column '{data_type_mismatch.column}': Expected type '{data_type_mismatch.expected_data_type}', "
+                    f"but was '{data_type_mismatch.actual_data_type}'"
+                )
                 for data_type_mismatch in self.columns_having_wrong_type
             ]
         )
@@ -449,14 +449,10 @@ class SchemaCheck(Check):
             measured_schema=measured_schema,
             columns_not_allowed_and_present=columns_not_allowed_and_present,
             columns_required_and_not_present=columns_required_and_not_present,
-            columns_having_wrong_type=columns_having_wrong_type
+            columns_having_wrong_type=columns_having_wrong_type,
         )
 
-        return CheckResult(
-            check=self,
-            measurements=[measurement],
-            outcome=CheckOutcome._from_scan_check(scan_check)
-        )
+        return CheckResult(check=self, measurements=[measurement], outcome=CheckOutcome._from_scan_check(scan_check))
 
     def get_definition_line(self) -> str:
         column_spec: str = ",".join(
@@ -553,12 +549,7 @@ class InvalidReferenceCheck(Check):
     ):
         scan_metric_dict = scan_check_metrics_by_name.get("reference", {})
         value: Number = scan_metric_dict.get("value")
-        measurement = NumericMeasurement(
-            dataset=self.dataset,
-            column=self.column,
-            metric="invalid_count",
-            value=value
-        )
+        measurement = NumericMeasurement(dataset=self.dataset, column=self.column, metric="invalid_count", value=value)
         return CheckResult(check=self, measurements=[measurement], outcome=CheckOutcome._from_scan_check(scan_check))
 
 
@@ -712,18 +703,19 @@ class ValidConfigurations:
         return dataclass_object_to_sodacl_dict(self)
 
     def has_non_reference_data_configs(self) -> bool:
-        return (self.invalid_values is not None
-               or self.invalid_format is not None
-               or self.invalid_regex is not None
-               or self.valid_values is not None
-               or self.valid_format is not None
-               or self.valid_regex is not None
-               or self.valid_min is not None
-               or self.valid_max is not None
-               or self.valid_length is not None
-               or self.valid_min_length is not None
-               or self.valid_max_length is not None)
-
+        return (
+            self.invalid_values is not None
+            or self.invalid_format is not None
+            or self.invalid_regex is not None
+            or self.valid_values is not None
+            or self.valid_format is not None
+            or self.valid_regex is not None
+            or self.valid_min is not None
+            or self.valid_max is not None
+            or self.valid_length is not None
+            or self.valid_min_length is not None
+            or self.valid_max_length is not None
+        )
 
 
 @dataclass
