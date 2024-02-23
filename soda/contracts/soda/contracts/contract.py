@@ -77,6 +77,7 @@ class Contract:
         scan = Scan()
 
         scan_logs = soda_core_logs.Logs(logger=scan_logger)
+        scan_logs.verbose = True
 
         sodacl_yaml_str: str | None = None
         try:
@@ -157,7 +158,7 @@ class Contract:
                 self.logs._log(
                     Log(
                         level=contracts_level,
-                        message=scan_log.message,
+                        message=f"SodaCL: {scan_log.message}",
                         location=contracts_location,
                         exception=scan_log.exception,
                     )

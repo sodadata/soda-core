@@ -178,7 +178,14 @@ class ContractParser:
                 check_yaml_object=check_yaml_object,
                 check_type=check_type,
             )
-        # elif check_type in ["no_invalid", "invalid_count", invalid_percent"]:
+        elif check_type in ["no_invalid", "invalid_count", "invalid_percent"]:
+            return self._parse_column_check_invalid(
+                dataset=dataset,
+                column=column,
+                contract_check_id=contract_check_id,
+                check_yaml_object=check_yaml_object,
+                check_type=check_type,
+            )
         # elif check_type in ["no_duplicates", "duplicate_count", "duplicate_percent"]:
 
         column_text = f"({column})" if column else ""
@@ -290,23 +297,23 @@ class ContractParser:
         )
 
     def _parse_column_check_invalid(
-        self, contract_check_id: str, check_yaml_object: YamlObject, check_type: str, column: str | None
+        self, dataset: str, contract_check_id: str, check_yaml_object: YamlObject, check_type: str, column: str | None
     ):
         name = check_yaml_object.read_string_opt("name")
 
         threshold: NumericThreshold = self._parse_numeric_threshold(check_yaml_object=check_yaml_object)
 
-        metric: str = ""
+        metric: str = check_type
 
         if check_type == "no_invalid":
             metric = "invalid_count"
-            if threshold.is_empty():
+            if not threshold.is_empty():
                 self.logs.error(
                     "Check type 'no_invalid' does not allow for threshold keys must_be_...",
                     location=check_yaml_object.location,
                 )
-        elif not threshold.is_empty():
-            metric = check_type
+            threshold = NumericThreshold(equal=0)
+        elif threshold.is_empty():
             self.logs.error(
                 (
                     f"Check type '{check_type}' requires threshold configuration "
@@ -330,13 +337,14 @@ class ContractParser:
             )
 
         return NumericMetricCheck(
+            dataset=dataset,
+            column=column,
             type=check_type,
             name=name,
             contract_check_id=contract_check_id,
             location=check_yaml_object.location,
             check_yaml_object=check_yaml_object,
             metric=metric,
-            column=column,
             missing_configurations=missing_configurations,
             valid_configurations=valid_configurations,
             fail_threshold=threshold,

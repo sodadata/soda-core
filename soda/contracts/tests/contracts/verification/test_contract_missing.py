@@ -1,3 +1,4 @@
+from conftest import get_parse_errors_str
 from contracts.helpers.test_connection import TestConnection
 from helpers.test_table import TestTable
 from soda.execution.data_type import DataType
@@ -6,8 +7,11 @@ from soda.contracts.contract import CheckOutcome, ContractResult, NumericMeasure
 
 contracts_missing_test_table = TestTable(
     name="contracts_missing",
-    columns=[("holes", DataType.TEXT), ("solid", DataType.TEXT)],
     # fmt: off
+    columns=[
+        ("colinv", DataType.TEXT),
+        ("colval", DataType.TEXT)
+    ],
     values=[
         ('ID1', 'ID1'),
         ('N/A', 'ID2'),
@@ -15,6 +19,33 @@ contracts_missing_test_table = TestTable(
     ]
     # fmt: on
 )
+
+
+def test_no_missing_with_threshold():
+    errors_str = get_parse_errors_str("""
+          dataset: TABLE_NAME
+          columns:
+            - name: id
+              checks:
+                - type: no_missing
+                  must_be: 5
+        """
+    )
+
+    assert "Check type 'no_missing' does not allow for threshold keys must_be_..." in errors_str
+
+
+def test_missing_count_without_threshold():
+    errors_str = get_parse_errors_str("""
+          dataset: TABLE_NAME
+          columns:
+            - name: id
+              checks:
+                - type: missing_count
+        """
+    )
+
+    assert "Check type 'missing_count' requires threshold configuration" in errors_str
 
 
 def test_contract_nomissing_with_missing_values(test_connection: TestConnection):
