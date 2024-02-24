@@ -1,29 +1,48 @@
 from contracts.helpers.contract_test_tables import contracts_test_table
 from contracts.helpers.test_connection import TestConnection
+from helpers.test_table import TestTable
 
-from soda.contracts.contract import CheckOutcome, ContractResult
+from soda.contracts.contract import CheckOutcome, ContractResult, NumericMetricCheck, NumericMetricCheckResult
+from soda.execution.data_type import DataType
+
+contracts_row_count_test_table = TestTable(
+    name="contracts_row_count",
+    # fmt: off
+    columns=[
+        ("one", DataType.TEXT)
+    ],
+    values=[
+        ('1', ),
+        ('2', ),
+        (None,),
+    ]
+    # fmt: on
+)
 
 
 def test_contract_row_count(test_connection: TestConnection):
-    table_name: str = test_connection.ensure_test_table(contracts_test_table)
+    table_name: str = test_connection.ensure_test_table(contracts_row_count_test_table)
 
     contract_result: ContractResult = test_connection.assert_contract_fail(
         f"""
         dataset: {table_name}
         columns:
-          - name: id
-          - name: size
-          - name: distance
-          - name: created
+          - name: one
         checks:
           - type: row_count
-            fail_when_not_between: [100, 120]
+            must_be_between: [100, 120]
     """
     )
-    assert "Actual row_count was 3" in str(contract_result)
     check_result = contract_result.check_results[1]
+    assert isinstance(check_result, NumericMetricCheckResult)
     assert check_result.outcome == CheckOutcome.FAIL
-    measurement = check_result.measurements[0]
-    assert measurement.name == "row_count"
-    assert measurement.value == 3
-    assert measurement.type == "numeric"
+    assert check_result.metric_value == 3
+
+    check = check_result.check
+    assert isinstance(check, NumericMetricCheck)
+    assert check.type == "row_count"
+    assert check.metric == "row_count"
+    assert check.dataset == table_name
+    assert check.column is None
+
+    assert "Actual row_count was 3" in str(contract_result)

@@ -112,11 +112,14 @@
                         {
                             "type": "string",
                             "enum": [
-                                "row_count", "freshness_in_days", "freshness_in_hours", "freshness_in_minutes",
-                                "avg", "avg_length", "duplicate_count", "duplicate_percent", "invalid_count",
-                                "invalid_percent", "max", "max_length", "min", "min_length", "missing_count",
-                                "missing_percent", "no_missing", "no_invalid", "no_duplicates", "percentile",
-                                "stddev", "stddev_pop", "stddev_samp", "sum", "variance", "var_pop", "var_samp"
+                                "row_count", "rows_present",
+                                "no_missing_values", "missing_count", "missing_percent",
+                                "no_invalid_values", "invalid_count", "invalid_percent",
+                                "no_duplicate_values", "duplicate_count", "duplicate_percent",
+                                "freshness_in_days", "freshness_in_hours", "freshness_in_minutes",
+                                "max", "avg", "min", "min_length", "avg_length", "max_length",
+                                "percentile", "stddev", "stddev_pop", "stddev_samp", "sum",
+                                "variance", "var_pop", "var_samp"
                             ]
                         },
                         {
@@ -194,11 +197,11 @@
                     "type": "string"
                 },
                 "must_be": {
-                    "description": "Specifies the threshold for the check. The check fails if the metric value is the specified threshold value.",
+                    "description": "YY The value the check metric (as specified in the type) must have for the check to pass; The check passes if the metric has the specified value, and fails otherwise; https://docs.soda.io/#thresholds",
                     "type": "number"
                 },
                 "must_not_be": {
-                    "description": "Specifies the threshold for the check. The check fails if the metric value is not the specified threshold value.",
+                    "description": "The value that the check metric (as specified in the type) may not have. The check passes if the metric doesn't have this value and fails otherwise.",
                     "type": "number"
                 },
                 "must_be_greater_than": {

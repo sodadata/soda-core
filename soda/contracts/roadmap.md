@@ -2,7 +2,7 @@
 
 ### Next TODOs
 * [ ] Test Soda Cloud link
-
+* [ ] Enforce uniqueness in parser of qualified metric names
 
 ### Second release
 * [ ] Improve docs input & json schema

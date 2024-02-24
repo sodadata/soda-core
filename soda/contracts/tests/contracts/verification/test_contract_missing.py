@@ -3,14 +3,15 @@ from contracts.helpers.test_connection import TestConnection
 from helpers.test_table import TestTable
 from soda.execution.data_type import DataType
 
-from soda.contracts.contract import CheckOutcome, ContractResult, NumericMeasurement
+from soda.contracts.contract import CheckOutcome, ContractResult, NumericMetricCheckResult, \
+    NumericMetricCheck
 
 contracts_missing_test_table = TestTable(
     name="contracts_missing",
     # fmt: off
     columns=[
-        ("holes", DataType.TEXT),
-        ("solid", DataType.TEXT)
+        ("one", DataType.TEXT),
+        ("two", DataType.TEXT)
     ],
     values=[
         ('ID1', 'ID1'),
@@ -26,14 +27,14 @@ def test_no_missing_with_threshold():
         """
           dataset: TABLE_NAME
           columns:
-            - name: id
+            - name: one
               checks:
-                - type: no_missing
+                - type: no_missing_values
                   must_be: 5
         """
     )
 
-    assert "Check type 'no_missing' does not allow for threshold keys must_be_..." in errors_str
+    assert "Check type 'no_missing_values' does not allow for threshold keys must_..." in errors_str
 
 
 def test_missing_count_without_threshold():
@@ -41,7 +42,7 @@ def test_missing_count_without_threshold():
         """
           dataset: TABLE_NAME
           columns:
-            - name: id
+            - name: one
               checks:
                 - type: missing_count
         """
@@ -57,22 +58,26 @@ def test_contract_nomissing_with_missing_values(test_connection: TestConnection)
         f"""
         dataset: {table_name}
         columns:
-          - name: holes
+          - name: one
             checks:
-            - type: no_missing
-          - name: solid
+            - type: no_missing_values
+          - name: two
     """
     )
 
-    assert "Actual missing_count(holes) was 1" in str(contract_result)
     check_result = contract_result.check_results[1]
+    assert isinstance(check_result, NumericMetricCheckResult)
     assert check_result.outcome == CheckOutcome.FAIL
-    measurement = check_result.measurements[0]
-    assert isinstance(measurement, NumericMeasurement)
-    assert measurement.dataset == table_name
-    assert measurement.column == "holes"
-    assert measurement.metric == "missing_count"
-    assert measurement.value == 1
+    assert check_result.metric_value == 1
+
+    check = check_result.check
+    assert isinstance(check, NumericMetricCheck)
+    assert check.type == "no_missing_values"
+    assert check.metric == "missing_count"
+    assert check.dataset == table_name
+    assert check.column == "one"
+
+    assert "Actual missing_count(one) was 1" in str(contract_result)
 
 
 def test_contract_nomissing_without_missing_values(test_connection: TestConnection):
@@ -82,21 +87,24 @@ def test_contract_nomissing_without_missing_values(test_connection: TestConnecti
         f"""
         dataset: {table_name}
         columns:
-          - name: holes
-          - name: solid
+          - name: one
+          - name: two
             checks:
-            - type: no_missing
+            - type: no_missing_values
     """
     )
 
     check_result = contract_result.check_results[1]
+    assert isinstance(check_result, NumericMetricCheckResult)
     assert check_result.outcome == CheckOutcome.PASS
-    measurement = check_result.measurements[0]
-    assert isinstance(measurement, NumericMeasurement)
-    assert measurement.dataset == table_name
-    assert measurement.column == "solid"
-    assert measurement.metric == "missing_count"
-    assert measurement.value == 0
+    assert check_result.metric_value == 0
+
+    check = check_result.check
+    assert isinstance(check, NumericMetricCheck)
+    assert check.type == "no_missing_values"
+    assert check.metric == "missing_count"
+    assert check.dataset == table_name
+    assert check.column == "two"
 
 
 def test_contract_missing_count_with_missing_values(test_connection: TestConnection):
@@ -106,23 +114,27 @@ def test_contract_missing_count_with_missing_values(test_connection: TestConnect
         f"""
         dataset: {table_name}
         columns:
-          - name: holes
+          - name: one
             checks:
             - type: missing_count
               must_be: 0
-          - name: solid
+          - name: two
     """
     )
 
-    assert "Actual missing_count(holes) was 1" in str(contract_result)
     check_result = contract_result.check_results[1]
+    assert isinstance(check_result, NumericMetricCheckResult)
     assert check_result.outcome == CheckOutcome.FAIL
-    measurement = check_result.measurements[0]
-    assert isinstance(measurement, NumericMeasurement)
-    assert measurement.dataset == table_name
-    assert measurement.column == "holes"
-    assert measurement.metric == "missing_count"
-    assert measurement.value == 1
+    assert check_result.metric_value == 1
+
+    check = check_result.check
+    assert isinstance(check, NumericMetricCheck)
+    assert check.type == "missing_count"
+    assert check.metric == "missing_count"
+    assert check.dataset == table_name
+    assert check.column == "one"
+
+    assert "Actual missing_count(one) was 1" in str(contract_result)
 
 
 def test_contract_missing_count_pass(test_connection: TestConnection):
@@ -132,22 +144,25 @@ def test_contract_missing_count_pass(test_connection: TestConnection):
         f"""
         dataset: {table_name}
         columns:
-          - name: holes
+          - name: one
             checks:
             - type: missing_count
               must_be_less_than: 10
-          - name: solid
+          - name: two
     """
     )
 
     check_result = contract_result.check_results[1]
+    assert isinstance(check_result, NumericMetricCheckResult)
     assert check_result.outcome == CheckOutcome.PASS
-    measurement = check_result.measurements[0]
-    assert isinstance(measurement, NumericMeasurement)
-    assert measurement.dataset == table_name
-    assert measurement.column == "holes"
-    assert measurement.metric == "missing_count"
-    assert measurement.value == 1
+    assert check_result.metric_value == 1
+
+    check = check_result.check
+    assert isinstance(check, NumericMetricCheck)
+    assert check.type == "missing_count"
+    assert check.metric == "missing_count"
+    assert check.dataset == table_name
+    assert check.column == "one"
 
 
 def test_contract_missing_count_with_missing_values_pass(test_connection: TestConnection):
@@ -157,23 +172,26 @@ def test_contract_missing_count_with_missing_values_pass(test_connection: TestCo
         f"""
         dataset: {table_name}
         columns:
-          - name: holes
+          - name: one
             checks:
             - type: missing_count
               missing_values: ['N/A']
               must_be: 2
-          - name: solid
+          - name: two
     """
     )
 
     check_result = contract_result.check_results[1]
+    assert isinstance(check_result, NumericMetricCheckResult)
     assert check_result.outcome == CheckOutcome.PASS
-    measurement = check_result.measurements[0]
-    assert isinstance(measurement, NumericMeasurement)
-    assert measurement.dataset == table_name
-    assert measurement.column == "holes"
-    assert measurement.metric == "missing_count"
-    assert measurement.value == 2
+    assert check_result.metric_value == 2
+
+    check = check_result.check
+    assert isinstance(check, NumericMetricCheck)
+    assert check.type == "missing_count"
+    assert check.metric == "missing_count"
+    assert check.dataset == table_name
+    assert check.column == "one"
 
 
 def test_contract_missing_count_with_missing_regex(test_connection: TestConnection):
@@ -183,15 +201,28 @@ def test_contract_missing_count_with_missing_regex(test_connection: TestConnecti
         f"""
         dataset: {table_name}
         columns:
-          - name: holes
+          - name: one
             checks:
             - type: missing_count
               missing_regex: ^N/A$
               must_be: 0
-          - name: solid
+          - name: two
     """
     )
-    assert "Actual missing_count(holes) was 2" in str(contract_result)
+
+    check_result = contract_result.check_results[1]
+    assert isinstance(check_result, NumericMetricCheckResult)
+    assert check_result.outcome == CheckOutcome.FAIL
+    assert check_result.metric_value == 2
+
+    check = check_result.check
+    assert isinstance(check, NumericMetricCheck)
+    assert check.type == "missing_count"
+    assert check.metric == "missing_count"
+    assert check.dataset == table_name
+    assert check.column == "one"
+
+    assert "Actual missing_count(one) was 2" in str(contract_result)
 
 
 def test_contract_missing_count_name_and_threshold(test_connection: TestConnection):
@@ -201,13 +232,24 @@ def test_contract_missing_count_name_and_threshold(test_connection: TestConnecti
         f"""
         dataset: {table_name}
         columns:
-          - name: holes
+          - name: one
             checks:
             - type: missing_count
-              name: Volume
+              name: Missing values count must be between 0 and 3
               must_be_between: [0, 3]
-          - name: solid
+          - name: two
     """
     )
 
-    assert contract_result.check_results[1].check.name == "Volume"
+    check_result = contract_result.check_results[1]
+    assert isinstance(check_result, NumericMetricCheckResult)
+    assert check_result.outcome == CheckOutcome.PASS
+    assert check_result.metric_value == 1
+
+    check = check_result.check
+    assert isinstance(check, NumericMetricCheck)
+    assert check.type == "missing_count"
+    assert check.name == "Missing values count must be between 0 and 3"
+    assert check.metric == "missing_count"
+    assert check.dataset == table_name
+    assert check.column == "one"

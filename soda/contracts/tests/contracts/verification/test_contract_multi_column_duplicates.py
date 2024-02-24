@@ -40,5 +40,5 @@ def test_contract_multi_column_duplicates(test_connection: TestConnection):
     assert check_result.outcome == CheckOutcome.FAIL
     measurement = check_result.measurements[0]
     assert measurement.name == "duplicate_count(country_code, zip)"
-    assert measurement.value == 1
+    assert measurement.metric_value == 1
     assert measurement.type == "numeric"

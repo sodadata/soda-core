@@ -4,15 +4,15 @@ from contracts.helpers.test_connection import TestConnection
 from helpers.test_table import TestTable
 from soda.execution.data_type import DataType
 
-from soda.contracts.contract import CheckOutcome, ContractResult
+from soda.contracts.contract import CheckOutcome, ContractResult, NumericMetricCheckResult, NumericMetricCheck
 
 contracts_filter_test_table = TestTable(
     name="contracts_filter",
+    # fmt: off
     columns=[
         ("id", DataType.TEXT),
         ("created", DataType.DATE),
     ],
-    # fmt: off
     values=[
         ('1',  datetime(2020, 6, 23, 12, 45)),
         ('2',  datetime(2020, 6, 23, 12, 45)),
@@ -38,13 +38,19 @@ def test_contract_filter_row_count(test_connection: TestConnection, environ: dic
           - name: created
         checks:
           - type: row_count
-            fail_when_less_than: 10
+            must_be: 0
     """
     )
-    assert "Actual row_count was 1" in str(contract_result)
     check_result = contract_result.check_results[1]
+    assert isinstance(check_result, NumericMetricCheckResult)
     assert check_result.outcome == CheckOutcome.FAIL
-    measurement = check_result.measurements[0]
-    assert measurement.name == "row_count"
-    assert measurement.value == 1
-    assert measurement.type == "numeric"
+    assert check_result.metric_value == 1
+
+    check = check_result.check
+    assert isinstance(check, NumericMetricCheck)
+    assert check.type == "row_count"
+    assert check.metric == "row_count"
+    assert check.dataset == table_name
+    assert check.column is None
+
+    assert "Actual row_count was 1" in str(contract_result)

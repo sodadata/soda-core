@@ -254,11 +254,11 @@ class ContractResult:
     def __str__(self) -> str:
         error_texts_list: List[str] = [str(error) for error in self.logs.get_errors()]
 
-        check_failure_message_list = [
-            check_result.get_console_log_message()
-            for check_result in self.check_results
-            if check_result.outcome == CheckOutcome.FAIL
-        ]
+        check_failure_message_list: list[str] = []
+        for check_result in self.check_results:
+            if check_result.outcome == CheckOutcome.FAIL:
+                result_str_lines = check_result.get_contract_result_str_lines()
+                check_failure_message_list.extend(result_str_lines)
 
         if not error_texts_list and not check_failure_message_list:
             return "All is good. No checks failed. No contract execution errors."
@@ -298,115 +298,14 @@ class Check(ABC):
     location: Location | None
 
     @abstractmethod
-    def get_definition_line(self) -> str:
-        pass
-
-    @abstractmethod
     def _to_sodacl_check(self) -> str | dict | None:
         pass
 
     @abstractmethod
     def _create_check_result(
         self, scan_check: dict[str, dict], scan_check_metrics_by_name: dict[str, dict], scan: Scan
-    ):
+    ) -> CheckResult:
         pass
-
-
-@dataclass
-class CheckResult:
-    check: Check
-    measurements: List[Measurement]
-    outcome: CheckOutcome
-
-    def get_console_log_message(self) -> str:
-        outcome_text = (
-            "Check FAILED"
-            if self.outcome == CheckOutcome.FAIL
-            else "Check passed" if self.outcome == CheckOutcome.PASS else "Check unknown"
-        )
-        name_text = f" [{self.check.name}]" if self.check.name else ""
-        definition_text = indent(f"Expected {self.check.get_definition_line()}", "  ")
-        measurements_text = ", ".join(metric.get_console_log_message() for metric in self.measurements)
-        measurements_text = f"  Actual {measurements_text}"
-        return f"{outcome_text}{name_text}\n{definition_text}\n{measurements_text}"
-
-
-@dataclass
-class Measurement:
-    dataset: str
-    column: str | None
-    metric: str
-
-    def __str__(self) -> str:
-        return self.get_console_log_message()
-
-    def get_metric_with_column(self) -> str:
-        column_text: str = f"({self.column})" if self.column else ""
-        return f"{self.metric}{column_text}"
-
-    @abstractmethod
-    def get_value_str(self) -> str:
-        pass
-
-    def get_console_log_message(self) -> str:
-        return f"{self.get_metric_with_column()} was {self.get_value_str()}"
-
-
-@dataclass
-class NumericMeasurement(Measurement):
-
-    value: Number
-
-    @abstractmethod
-    def get_value_str(self) -> str:
-        return str(self.value) if self.value is not None else "-"
-
-
-@dataclass
-class SchemaMeasurement(Measurement):
-
-    measured_schema: Dict[str, str]
-    columns_not_allowed_and_present: list[str] | None
-    columns_required_and_not_present: list[str] | None
-    columns_having_wrong_type: list[DataTypeMismatch] | None
-
-    @abstractmethod
-    def get_value_str(self) -> str:
-        pieces: list[str] = []
-        pieces.extend(
-            [f"  Column '{column}' was present and not allowed" for column in self.columns_not_allowed_and_present]
-        )
-        pieces.extend([f"  Column '{column}' was missing" for column in self.columns_required_and_not_present])
-        pieces.extend(
-            [
-                (
-                    f"  Column '{data_type_mismatch.column}': Expected type '{data_type_mismatch.expected_data_type}', "
-                    f"but was '{data_type_mismatch.actual_data_type}'"
-                )
-                for data_type_mismatch in self.columns_having_wrong_type
-            ]
-        )
-        if len(pieces) == 0:
-            return "no mismatches"
-        else:
-            optional_plural_es: str = "" if len(pieces) == 1 else "es"
-            pieces.insert(0, f"having {len(pieces)} mismatch{optional_plural_es}")
-        return "\n".join(pieces)
-
-
-class CheckOutcome(Enum):
-    PASS = "pass"
-    FAIL = "fail"
-    UNKNOWN = "unknown"
-
-    @classmethod
-    def _from_scan_check(cls, scan_check: Dict[str, object]) -> CheckOutcome:
-        scan_check_outcome = scan_check.get("outcome")
-        if scan_check_outcome == "pass":
-            return CheckOutcome.PASS
-        elif scan_check_outcome == "fail":
-            return CheckOutcome.FAIL
-        return CheckOutcome.UNKNOWN
 
 
 @dataclass
@@ -442,40 +341,14 @@ class SchemaCheck(Check):
                     DataTypeMismatch(column=column_name, expected_data_type=expected_type, actual_data_type=actual_type)
                 )
 
-        measurement = SchemaMeasurement(
-            dataset=self.dataset,
-            column=None,
-            metric="schema_mismatches",
+        return SchemaCheckResult(
+            check=self,
+            outcome=CheckOutcome._from_scan_check(scan_check),
             measured_schema=measured_schema,
             columns_not_allowed_and_present=columns_not_allowed_and_present,
             columns_required_and_not_present=columns_required_and_not_present,
-            columns_having_wrong_type=columns_having_wrong_type,
+            columns_having_wrong_type=columns_having_wrong_type
         )
-
-        return CheckResult(check=self, measurements=[measurement], outcome=CheckOutcome._from_scan_check(scan_check))
-
-    def get_definition_line(self) -> str:
-        column_spec: str = ",".join(
-            [
-                f"{c.get('name')}{c.get('optional')}{c.get('type')}"
-                for c in [
-                    {
-                        "name": column_name,
-                        "type": f"={data_type}" if data_type else "",
-                        "optional": "(optional)" if column_name in self.optional_columns else "",
-                    }
-                    for column_name, data_type in self.columns.items()
-                ]
-            ]
-        )
-        return f"Schema: {column_spec}"
-
-
-@dataclass
-class DataTypeMismatch:
-    column: str
-    expected_data_type: str
-    actual_data_type: str
 
 
 @dataclass
@@ -485,15 +358,13 @@ class NumericMetricCheck(Check):
     check_yaml_object: YamlObject
     missing_configurations: MissingConfigurations | None
     valid_configurations: ValidConfigurations | None
-    fail_threshold: NumericThreshold | None
-    warn_threshold: NumericThreshold | None = None
-
-    def get_definition_line(self) -> str:
-        sodacl_metric = f"{self.metric}({self.column})" if self.column else self.metric
-        sodacl_threshold: str = self.fail_threshold._get_sodacl_checkline_threshold() if self.fail_threshold else ""
-        return f"{sodacl_metric} {sodacl_threshold}"
+    threshold: NumericThreshold | None
 
     def _to_sodacl_check(self) -> str | dict | None:
+        sodacl_metric = f"{self.metric}({self.column})" if self.column else self.metric
+        sodacl_threshold: str = self.threshold._get_sodacl_checkline_threshold() if self.threshold else ""
+        sodacl_check_line = f"{sodacl_metric} {sodacl_threshold}"
+
         sodacl_check_configs = {"contract check id": self.contract_check_id}
 
         if self.name:
@@ -504,7 +375,7 @@ class NumericMetricCheck(Check):
         if self.missing_configurations:
             sodacl_check_configs.update(self.missing_configurations._to_sodacl_check_configs_dict())
 
-        return {self.get_definition_line(): sodacl_check_configs}
+        return {sodacl_check_line: sodacl_check_configs}
 
     def _create_check_result(
         self, scan_check: dict[str, dict], scan_check_metrics_by_name: dict[str, dict], scan: Scan
@@ -515,9 +386,21 @@ class NumericMetricCheck(Check):
             scan_metric_dict = scan_check_metrics_by_name.get(scan_metric_name, None)
         else:
             scan_metric_dict = scan_check_metrics_by_name.get(self.metric, None)
-        value: Number = scan_metric_dict.get("value") if scan_metric_dict else None
-        measurement = NumericMeasurement(dataset=self.dataset, column=self.column, metric=self.metric, value=value)
-        return CheckResult(check=self, measurements=[measurement], outcome=CheckOutcome._from_scan_check(scan_check))
+        metric_value: Number = scan_metric_dict.get("value") if scan_metric_dict else None
+        return NumericMetricCheckResult(
+            check=self,
+            outcome=CheckOutcome._from_scan_check(scan_check),
+            metric_value=metric_value
+        )
+
+    def get_qualified_metric_str(self) -> str:
+        return f"{self.metric}({self.column})" if self.column else self.metric
+
+    def get_sodacl_threshold_str(self) -> str:
+        return self.threshold._get_sodacl_checkline_threshold() if self.threshold else "?"
+
+    def get_expected_str(self) -> str:
+        return f"{self.get_qualified_metric_str()} {self.get_sodacl_threshold_str()}"
 
 
 @dataclass
@@ -668,6 +551,118 @@ class FreshnessCheck(Check):
             Measurement(name="now_utc", type="string", value=diagnostics["nowTimestampUtc"]),
         ]
         return CheckResult(check=self, measurements=measurements, outcome=CheckOutcome._from_scan_check(scan_check))
+
+
+
+@dataclass
+class CheckResult:
+    check: Check
+    outcome: CheckOutcome
+
+    def __str__(self) -> str:
+        return "\n".join(self.get_contract_result_str_lines())
+
+    @abstractmethod
+    def get_contract_result_str_lines(self) -> list[str]:
+        """
+        Provides the summary for the contract result logs, as well as the __str__ impl of this check result.
+        Method implementations can use self._get_outcome_line(self)
+        """
+        pass
+
+    def _get_outcome_str(self) -> str:
+        if self.outcome == CheckOutcome.FAIL:
+            return "FAILED"
+        if self.outcome == CheckOutcome.PASS:
+            return "passed"
+        return "unverified"
+
+    def _get_outcome_and_name_line(self) -> str:
+        name_str: str = f" [{self.check.name}]" if self.check.name else ""
+        return f"Check {self._get_outcome_str()}{name_str}"
+
+
+@dataclass
+class NumericMetricCheckResult(CheckResult):
+    metric_value: Number
+
+    def get_contract_result_str_lines(self) -> list[str]:
+        assert isinstance(self.check, NumericMetricCheck)
+        return [
+            self._get_outcome_and_name_line(),
+            f"  Expected {self.check.get_expected_str()}",
+            f"  Actual {self.check.get_qualified_metric_str() } was {self.metric_value}"
+        ]
+
+
+@dataclass
+class SchemaCheckResult(CheckResult):
+
+    measured_schema: Dict[str, str]
+    columns_not_allowed_and_present: list[str] | None
+    columns_required_and_not_present: list[str] | None
+    columns_having_wrong_type: list[DataTypeMismatch] | None
+
+    def get_contract_result_str_lines(self) -> list[str]:
+        schema_check: SchemaCheck = self.check
+        expected_schema: str = ",".join(
+            [
+                f"{c.get('name')}{c.get('optional')}{c.get('type')}"
+                for c in [
+                    {
+                        "name": column_name,
+                        "optional": "(optional)" if column_name in schema_check.optional_columns else "",
+                        "type": f"={data_type}" if data_type else "",
+                    }
+                    for column_name, data_type in schema_check.columns.items()
+                ]
+            ]
+        )
+
+        lines: list[str] = [
+            f"Schema check {self._get_outcome_str()}",
+            f"  Expected schema: {expected_schema}",
+            f"  Actual schema: {self.measured_schema}"
+        ]
+        lines.extend(
+            [f"  Column '{column}' was present and not allowed" for column in self.columns_not_allowed_and_present]
+        )
+        lines.extend([f"  Column '{column}' was missing" for column in self.columns_required_and_not_present])
+        lines.extend(
+            [
+                (
+                    f"  Column '{data_type_mismatch.column}': Expected type '{data_type_mismatch.expected_data_type}', "
+                    f"but was '{data_type_mismatch.actual_data_type}'"
+                )
+                for data_type_mismatch in self.columns_having_wrong_type
+            ]
+        )
+        return lines
+
+
+class CheckOutcome(Enum):
+    PASS = "pass"
+    FAIL = "fail"
+    UNKNOWN = "unknown"
+
+    @classmethod
+    def _from_scan_check(cls, scan_check: Dict[str, object]) -> CheckOutcome:
+        scan_check_outcome = scan_check.get("outcome")
+        if scan_check_outcome == "pass":
+            return CheckOutcome.PASS
+        elif scan_check_outcome == "fail":
+            return CheckOutcome.FAIL
+        return CheckOutcome.UNKNOWN
+
+
+
+
+@dataclass
+class DataTypeMismatch:
+    column: str
+    expected_data_type: str
+    actual_data_type: str
+
 
 
 def dataclass_object_to_sodacl_dict(dataclass_object: object) -> dict:
