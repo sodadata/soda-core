@@ -187,8 +187,7 @@ class ContractParser:
             parse_check_function = self._parse_column_check_basic_sql_function
         else:
             self.logs.error(
-                f"Invalid column check type '{check_type}' (column '{column}')",
-                location=check_yaml_object.location
+                f"Invalid column check type '{check_type}' (column '{column}')", location=check_yaml_object.location
             )
             return None
 
@@ -282,7 +281,7 @@ class ContractParser:
         if not valid_configurations:
             self.logs.error(
                 message=f"Check type '{check_type}' must have a validity configuration like {self.__validity_keys} "
-                        f"(column '{column}')",
+                f"(column '{column}')",
                 location=check_yaml_object.location,
             )
             return None
@@ -291,7 +290,7 @@ class ContractParser:
             if valid_configurations.has_non_reference_data_configs():
                 self.logs.error(
                     message=f"Check type '{check_type}' cannot combine 'valid_values_reference_data' with other "
-                            f"validity configurations (column '{column}')",
+                    f"validity configurations (column '{column}')",
                     location=check_yaml_object.location,
                 )
                 return None
@@ -556,7 +555,6 @@ class ContractParser:
 
             return valid_configurations
 
-
     def _parse_numeric_threshold(self, check_yaml_object: YamlObject) -> NumericThreshold | None:
         numeric_threshold: NumericThreshold = NumericThreshold(
             greater_than=check_yaml_object.read_number_opt("must_be_greater_than"),
@@ -614,10 +612,7 @@ class ContractParser:
         if check_type == "row_count":
             check_parse_function = self._parse_dataset_row_count
         else:
-            self.logs.error(
-                f"Invalid dataset check type '{check_type}'",
-                location=check_yaml_object.location
-            )
+            self.logs.error(f"Invalid dataset check type '{check_type}'", location=check_yaml_object.location)
             return None
 
         return check_parse_function(
@@ -728,7 +723,14 @@ class ContractParser:
         # TODO expand this with a proper SQL parser and inheritance so that all valid SQL expressions
         #      of the underlying connection are allowed
         return check_type in [
-            "min", "max", "avg", "sum",
-            "stddev", "stddev_pop", "stddev_samp",
-            "variance", "var_pop", "var_samp"
+            "min",
+            "max",
+            "avg",
+            "sum",
+            "stddev",
+            "stddev_pop",
+            "stddev_samp",
+            "variance",
+            "var_pop",
+            "var_samp",
         ]

@@ -1,9 +1,13 @@
-from contracts.helpers.contract_test_tables import contracts_test_table
 from contracts.helpers.test_connection import TestConnection
 from helpers.test_table import TestTable
-
-from soda.contracts.contract import CheckOutcome, ContractResult, NumericMetricCheck, NumericMetricCheckResult
 from soda.execution.data_type import DataType
+
+from soda.contracts.contract import (
+    CheckOutcome,
+    ContractResult,
+    NumericMetricCheck,
+    NumericMetricCheckResult,
+)
 
 contracts_row_count_test_table = TestTable(
     name="contracts_row_count",

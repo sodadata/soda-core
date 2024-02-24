@@ -1,11 +1,14 @@
-from contracts.helpers.contract_test_tables import (
-    contracts_test_table,
-)
+from contracts.helpers.contract_test_tables import contracts_test_table
 from contracts.helpers.test_connection import TestConnection
 from helpers.test_table import TestTable
-
-from soda.contracts.contract import CheckOutcome, ContractResult, NumericMetricCheckResult, NumericMetricCheck
 from soda.execution.data_type import DataType
+
+from soda.contracts.contract import (
+    CheckOutcome,
+    ContractResult,
+    NumericMetricCheck,
+    NumericMetricCheckResult,
+)
 
 contracts_basic_sql_functions_check_types_test_table = TestTable(
     name="contracts_basic_sql_functions_check_type",

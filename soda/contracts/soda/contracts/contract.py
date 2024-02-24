@@ -347,7 +347,7 @@ class SchemaCheck(Check):
             measured_schema=measured_schema,
             columns_not_allowed_and_present=columns_not_allowed_and_present,
             columns_required_and_not_present=columns_required_and_not_present,
-            columns_having_wrong_type=columns_having_wrong_type
+            columns_having_wrong_type=columns_having_wrong_type,
         )
 
 
@@ -388,9 +388,7 @@ class NumericMetricCheck(Check):
             scan_metric_dict = scan_check_metrics_by_name.get(self.metric, None)
         metric_value: Number = scan_metric_dict.get("value") if scan_metric_dict else None
         return NumericMetricCheckResult(
-            check=self,
-            outcome=CheckOutcome._from_scan_check(scan_check),
-            metric_value=metric_value
+            check=self, outcome=CheckOutcome._from_scan_check(scan_check), metric_value=metric_value
         )
 
     def get_qualified_metric_str(self) -> str:
@@ -553,7 +551,6 @@ class FreshnessCheck(Check):
         return CheckResult(check=self, measurements=measurements, outcome=CheckOutcome._from_scan_check(scan_check))
 
 
-
 @dataclass
 class CheckResult:
     check: Check
@@ -568,7 +565,6 @@ class CheckResult:
         Provides the summary for the contract result logs, as well as the __str__ impl of this check result.
         Method implementations can use self._get_outcome_line(self)
         """
-        pass
 
     def _get_outcome_str(self) -> str:
         if self.outcome == CheckOutcome.FAIL:
@@ -591,7 +587,7 @@ class NumericMetricCheckResult(CheckResult):
         return [
             self._get_outcome_and_name_line(),
             f"  Expected {self.check.get_expected_str()}",
-            f"  Actual {self.check.get_qualified_metric_str() } was {self.metric_value}"
+            f"  Actual {self.check.get_qualified_metric_str() } was {self.metric_value}",
         ]
 
 
@@ -622,7 +618,7 @@ class SchemaCheckResult(CheckResult):
         lines: list[str] = [
             f"Schema check {self._get_outcome_str()}",
             f"  Expected schema: {expected_schema}",
-            f"  Actual schema: {self.measured_schema}"
+            f"  Actual schema: {self.measured_schema}",
         ]
         lines.extend(
             [f"  Column '{column}' was present and not allowed" for column in self.columns_not_allowed_and_present]
@@ -655,14 +651,11 @@ class CheckOutcome(Enum):
         return CheckOutcome.UNKNOWN
 
 
-
-
 @dataclass
 class DataTypeMismatch:
     column: str
     expected_data_type: str
     actual_data_type: str
-
 
 
 def dataclass_object_to_sodacl_dict(dataclass_object: object) -> dict:
