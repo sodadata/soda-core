@@ -302,8 +302,11 @@ class ContractParser:
                 name=name,
                 contract_check_id=contract_check_id,
                 location=check_yaml_object.location,
+                metric="invalid_count",
                 check_yaml_object=check_yaml_object,
                 missing_configurations=missing_configurations,
+                valid_configurations=valid_configurations,
+                threshold=threshold,
                 valid_values_reference_data=valid_configurations.valid_values_reference_data,
             )
 
@@ -393,7 +396,7 @@ class ContractParser:
         )
 
     def _parse_user_defined_sql_expression_check(
-        self, contract_check_id: str, check_yaml_object: YamlObject, check_type: str, column: str | None
+        self, dataset: str, contract_check_id: str, check_yaml_object: YamlObject, check_type: str, column: str | None
     ) -> Check | None:
         name = check_yaml_object.read_string_opt("name")
         metric: str = check_yaml_object.read_string("metric")
@@ -424,7 +427,7 @@ class ContractParser:
         )
 
     def _parse_freshness_check(
-        self, contract_check_id: str, check_yaml_object: YamlObject, check_type: str, column: str | None
+        self, dataset: str, contract_check_id: str, check_yaml_object: YamlObject, check_type: str, column: str | None
     ) -> Check | None:
         name = check_yaml_object.read_string_opt("name")
 
@@ -437,37 +440,33 @@ class ContractParser:
             self.logs.error(f"Invalid freshness check type: {check_type}: Expected one of {freshness_check_types}")
             return None
 
-        fail_threshold: NumericThreshold = self._parse_numeric_threshold_deprecated(
-            check_yaml_object=check_yaml_object, prefix="fail_when_", default_threshold=None
+        threshold: NumericThreshold = self._parse_numeric_threshold(
+            check_yaml_object=check_yaml_object
         )
-        if not fail_threshold:
-            self.logs.error("No threshold defined for sql_expression check", location=check_yaml_object.location)
+        if not threshold:
+            self.logs.error("No threshold defined for freshness check", location=check_yaml_object.location)
         elif (
-            fail_threshold.not_between is not None
-            or fail_threshold.between is not None
-            or fail_threshold.equal is not None
-            or fail_threshold.not_equal is not None
-            or fail_threshold.greater_than is not None
-            or fail_threshold.less_than is not None
-            or fail_threshold.less_than_or_equal is not None
+            threshold.not_between is not None
+            or threshold.between is not None
+            or threshold.equal is not None
+            or threshold.not_equal is not None
+            or threshold.greater_than is not None
+            or threshold.less_than is not None
+            or threshold.less_than_or_equal is not None
         ):
             self.logs.error(
-                "Invalid freshness threshold. Use fail_when_greater_than_or_equal", location=check_yaml_object.location
+                "Invalid freshness threshold. Use must_be_less_than", location=check_yaml_object.location
             )
 
-        for k in check_yaml_object:
-            if k.startswith("warn_when"):
-                self.logs.error(message=f"Warnings not yet supported: '{k}'", location=check_yaml_object.location)
-
         return FreshnessCheck(
+            dataset=dataset,
             column=column,
             type=check_type,
             name=name,
             contract_check_id=contract_check_id,
             location=check_yaml_object.location,
             check_yaml_object=check_yaml_object,
-            fail_threshold=fail_threshold,
-            warn_threshold=None,
+            threshold=threshold
         )
 
     def _parse_missing_configurations(self, check_yaml: YamlObject, column: str) -> MissingConfigurations | None:

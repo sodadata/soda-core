@@ -35,7 +35,7 @@ def test_contract_freshness_pass(test_connection: TestConnection, environ: dict)
           - name: created
             checks:
             - type: freshness_in_hours
-              fail_when_greater_than_or_equal: 3
+              must_be_less_than: 3
     """,
         variables=variables,
     )
@@ -54,7 +54,7 @@ def test_contract_freshness_fail(test_connection: TestConnection, environ: dict)
           - name: created
             checks:
             - type: freshness_in_hours
-              fail_when_greater_than_or_equal: 3
+              must_be_less_than: 3
     """,
         variables=variables,
     )

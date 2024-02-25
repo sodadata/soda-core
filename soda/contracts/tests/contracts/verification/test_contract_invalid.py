@@ -189,19 +189,19 @@ def test_contract_missing_and_invalid_values_pass(test_connection: TestConnectio
 
     check_result = contract_result.check_results[1]
     assert isinstance(check_result, NumericMetricCheckResult)
-    assert check_result.outcome == CheckOutcome.FAIL
+    assert check_result.outcome == CheckOutcome.PASS
     assert check_result.metric_value == 2
 
     check = check_result.check
     assert isinstance(check, NumericMetricCheck)
-    assert check.type == "invalid_count"
-    assert check.metric == "invalid_count"
+    assert check.type == "missing_count"
+    assert check.metric == "missing_count"
     assert check.dataset == table_name
     assert check.column == "one"
 
     check_result = contract_result.check_results[2]
     assert isinstance(check_result, NumericMetricCheckResult)
-    assert check_result.outcome == CheckOutcome.FAIL
+    assert check_result.outcome == CheckOutcome.PASS
     assert check_result.metric_value == 1
 
     check = check_result.check
@@ -209,7 +209,7 @@ def test_contract_missing_and_invalid_values_pass(test_connection: TestConnectio
     assert check.type == "invalid_count"
     assert check.metric == "invalid_count"
     assert check.dataset == table_name
-    assert check.column == "two"
+    assert check.column == "one"
 
 
 contracts_invalid_multi_test_table = TestTable(
@@ -292,7 +292,7 @@ def test_contract_column_invalid_reference_check(test_connection: TestConnection
               - type: no_invalid_values
                 valid_values_reference_data:
                     dataset: {reference_data_table_name}
-                    column: id
+                    column: one
                 samples_limit: 20
     """
     )
@@ -304,7 +304,7 @@ def test_contract_column_invalid_reference_check(test_connection: TestConnection
 
     check = check_result.check
     assert isinstance(check, NumericMetricCheck)
-    assert check.type == "invalid_count"
+    assert check.type == "no_invalid_values"
     assert check.metric == "invalid_count"
     assert check.dataset == referencing_table_name
     assert check.column == "ref_id"

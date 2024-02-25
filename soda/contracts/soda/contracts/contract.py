@@ -309,6 +309,33 @@ class Check(ABC):
 
 
 @dataclass
+class CheckResult:
+    check: Check
+    outcome: CheckOutcome
+
+    def __str__(self) -> str:
+        return "\n".join(self.get_contract_result_str_lines())
+
+    @abstractmethod
+    def get_contract_result_str_lines(self) -> list[str]:
+        """
+        Provides the summary for the contract result logs, as well as the __str__ impl of this check result.
+        Method implementations can use self._get_outcome_line(self)
+        """
+
+    def _get_outcome_str(self) -> str:
+        if self.outcome == CheckOutcome.FAIL:
+            return "FAILED"
+        if self.outcome == CheckOutcome.PASS:
+            return "passed"
+        return "unverified"
+
+    def _get_outcome_and_name_line(self) -> str:
+        name_str: str = f" [{self.check.name}]" if self.check.name else ""
+        return f"Check {self._get_outcome_str()}{name_str}"
+
+
+@dataclass
 class SchemaCheck(Check):
 
     columns: dict[str, str | None]
@@ -349,6 +376,51 @@ class SchemaCheck(Check):
             columns_required_and_not_present=columns_required_and_not_present,
             columns_having_wrong_type=columns_having_wrong_type,
         )
+
+
+@dataclass
+class SchemaCheckResult(CheckResult):
+
+    measured_schema: Dict[str, str]
+    columns_not_allowed_and_present: list[str] | None
+    columns_required_and_not_present: list[str] | None
+    columns_having_wrong_type: list[DataTypeMismatch] | None
+
+    def get_contract_result_str_lines(self) -> list[str]:
+        schema_check: SchemaCheck = self.check
+        expected_schema: str = ",".join(
+            [
+                f"{c.get('name')}{c.get('optional')}{c.get('type')}"
+                for c in [
+                    {
+                        "name": column_name,
+                        "optional": "(optional)" if column_name in schema_check.optional_columns else "",
+                        "type": f"={data_type}" if data_type else "",
+                    }
+                    for column_name, data_type in schema_check.columns.items()
+                ]
+            ]
+        )
+
+        lines: list[str] = [
+            f"Schema check {self._get_outcome_str()}",
+            f"  Expected schema: {expected_schema}",
+            f"  Actual schema: {self.measured_schema}",
+        ]
+        lines.extend(
+            [f"  Column '{column}' was present and not allowed" for column in self.columns_not_allowed_and_present]
+        )
+        lines.extend([f"  Column '{column}' was missing" for column in self.columns_required_and_not_present])
+        lines.extend(
+            [
+                (
+                    f"  Column '{data_type_mismatch.column}': Expected type '{data_type_mismatch.expected_data_type}', "
+                    f"but was '{data_type_mismatch.actual_data_type}'"
+                )
+                for data_type_mismatch in self.columns_having_wrong_type
+            ]
+        )
+        return lines
 
 
 @dataclass
@@ -402,14 +474,22 @@ class NumericMetricCheck(Check):
 
 
 @dataclass
-class InvalidReferenceCheck(Check):
+class NumericMetricCheckResult(CheckResult):
+    metric_value: Number
 
-    check_yaml_object: YamlObject
-    missing_configurations: MissingConfigurations
+    def get_contract_result_str_lines(self) -> list[str]:
+        assert isinstance(self.check, NumericMetricCheck) or isinstance(self.check, InvalidReferenceCheck)
+        return [
+            self._get_outcome_and_name_line(),
+            f"  Expected {self.check.get_expected_str()}",
+            f"  Actual {self.check.get_qualified_metric_str() } was {self.metric_value}",
+        ]
+
+
+@dataclass
+class InvalidReferenceCheck(NumericMetricCheck):
+
     valid_values_reference_data: ValidValuesReferenceData
-
-    def get_definition_line(self) -> str:
-        return f"values in ({self.column}) must exist in {self.valid_values_reference_data.dataset} ({self.valid_values_reference_data.column})"
 
     def _to_sodacl_check(self) -> str | dict | None:
         sodacl_check_configs = {"contract check id": self.contract_check_id}
@@ -417,11 +497,12 @@ class InvalidReferenceCheck(Check):
         if self.name:
             sodacl_check_configs["name"] = self.name
 
+        if self.valid_configurations:
+            sodacl_check_configs.update(self.valid_configurations._to_sodacl_check_configs_dict())
         if self.missing_configurations:
-            sodacl_missing_configurations = self.missing_configurations._to_sodacl_check_configs_dict()
-            sodacl_check_configs.update(sodacl_missing_configurations)
+            sodacl_check_configs.update(self.missing_configurations._to_sodacl_check_configs_dict())
 
-        sodacl_check_line: str = self.get_definition_line()
+        sodacl_check_line: str = f"values in ({self.column}) must exist in {self.valid_values_reference_data.dataset} ({self.valid_values_reference_data.column})"
 
         return {sodacl_check_line: sodacl_check_configs}
 
@@ -430,8 +511,11 @@ class InvalidReferenceCheck(Check):
     ):
         scan_metric_dict = scan_check_metrics_by_name.get("reference", {})
         value: Number = scan_metric_dict.get("value")
-        measurement = NumericMeasurement(dataset=self.dataset, column=self.column, metric="invalid_count", value=value)
-        return CheckResult(check=self, measurements=[measurement], outcome=CheckOutcome._from_scan_check(scan_check))
+        return NumericMetricCheckResult(
+            check=self,
+            outcome=CheckOutcome._from_scan_check(scan_check),
+            metric_value=value
+        )
 
 
 @dataclass
@@ -511,11 +595,10 @@ class FreshnessCheck(Check):
 
     column: str | None
     check_yaml_object: YamlObject
-    fail_threshold: NumericThreshold | None
-    warn_threshold: NumericThreshold | None
+    threshold: NumericThreshold | None
 
     def get_definition_line(self) -> str:
-        return f"freshness({self.column}) {self.fail_threshold._get_sodacl_checkline_threshold()}{self.get_sodacl_time_unit()}"
+        return f"freshness({self.column}) {self.threshold._get_sodacl_checkline_threshold()}{self.get_sodacl_time_unit()}"
 
     def get_sodacl_time_unit(self) -> str:
         sodacl_time_unit_by_check_type = {
@@ -549,91 +632,6 @@ class FreshnessCheck(Check):
             Measurement(name="now_utc", type="string", value=diagnostics["nowTimestampUtc"]),
         ]
         return CheckResult(check=self, measurements=measurements, outcome=CheckOutcome._from_scan_check(scan_check))
-
-
-@dataclass
-class CheckResult:
-    check: Check
-    outcome: CheckOutcome
-
-    def __str__(self) -> str:
-        return "\n".join(self.get_contract_result_str_lines())
-
-    @abstractmethod
-    def get_contract_result_str_lines(self) -> list[str]:
-        """
-        Provides the summary for the contract result logs, as well as the __str__ impl of this check result.
-        Method implementations can use self._get_outcome_line(self)
-        """
-
-    def _get_outcome_str(self) -> str:
-        if self.outcome == CheckOutcome.FAIL:
-            return "FAILED"
-        if self.outcome == CheckOutcome.PASS:
-            return "passed"
-        return "unverified"
-
-    def _get_outcome_and_name_line(self) -> str:
-        name_str: str = f" [{self.check.name}]" if self.check.name else ""
-        return f"Check {self._get_outcome_str()}{name_str}"
-
-
-@dataclass
-class NumericMetricCheckResult(CheckResult):
-    metric_value: Number
-
-    def get_contract_result_str_lines(self) -> list[str]:
-        assert isinstance(self.check, NumericMetricCheck)
-        return [
-            self._get_outcome_and_name_line(),
-            f"  Expected {self.check.get_expected_str()}",
-            f"  Actual {self.check.get_qualified_metric_str() } was {self.metric_value}",
-        ]
-
-
-@dataclass
-class SchemaCheckResult(CheckResult):
-
-    measured_schema: Dict[str, str]
-    columns_not_allowed_and_present: list[str] | None
-    columns_required_and_not_present: list[str] | None
-    columns_having_wrong_type: list[DataTypeMismatch] | None
-
-    def get_contract_result_str_lines(self) -> list[str]:
-        schema_check: SchemaCheck = self.check
-        expected_schema: str = ",".join(
-            [
-                f"{c.get('name')}{c.get('optional')}{c.get('type')}"
-                for c in [
-                    {
-                        "name": column_name,
-                        "optional": "(optional)" if column_name in schema_check.optional_columns else "",
-                        "type": f"={data_type}" if data_type else "",
-                    }
-                    for column_name, data_type in schema_check.columns.items()
-                ]
-            ]
-        )
-
-        lines: list[str] = [
-            f"Schema check {self._get_outcome_str()}",
-            f"  Expected schema: {expected_schema}",
-            f"  Actual schema: {self.measured_schema}",
-        ]
-        lines.extend(
-            [f"  Column '{column}' was present and not allowed" for column in self.columns_not_allowed_and_present]
-        )
-        lines.extend([f"  Column '{column}' was missing" for column in self.columns_required_and_not_present])
-        lines.extend(
-            [
-                (
-                    f"  Column '{data_type_mismatch.column}': Expected type '{data_type_mismatch.expected_data_type}', "
-                    f"but was '{data_type_mismatch.actual_data_type}'"
-                )
-                for data_type_mismatch in self.columns_having_wrong_type
-            ]
-        )
-        return lines
 
 
 class CheckOutcome(Enum):
@@ -688,7 +686,9 @@ class ValidConfigurations:
     valid_values_reference_data: ValidValuesReferenceData | None
 
     def _to_sodacl_check_configs_dict(self) -> dict:
-        return dataclass_object_to_sodacl_dict(self)
+        sodacl_check_configs_dict = dataclass_object_to_sodacl_dict(self)
+        sodacl_check_configs_dict.pop("valid values reference data", None)
+        return sodacl_check_configs_dict
 
     def has_non_reference_data_configs(self) -> bool:
         return (
