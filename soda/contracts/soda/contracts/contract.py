@@ -502,7 +502,9 @@ class InvalidReferenceCheck(NumericMetricCheck):
         if self.missing_configurations:
             sodacl_check_configs.update(self.missing_configurations._to_sodacl_check_configs_dict())
 
-        sodacl_check_line: str = f"values in ({self.column}) must exist in {self.valid_values_reference_data.dataset} ({self.valid_values_reference_data.column})"
+        sodacl_check_line: str = (
+            f"values in ({self.column}) must exist in {self.valid_values_reference_data.dataset} ({self.valid_values_reference_data.column})"
+        )
 
         return {sodacl_check_line: sodacl_check_configs}
 
@@ -512,9 +514,7 @@ class InvalidReferenceCheck(NumericMetricCheck):
         scan_metric_dict = scan_check_metrics_by_name.get("reference", {})
         value: Number = scan_metric_dict.get("value")
         return NumericMetricCheckResult(
-            check=self,
-            outcome=CheckOutcome._from_scan_check(scan_check),
-            metric_value=value
+            check=self, outcome=CheckOutcome._from_scan_check(scan_check), metric_value=value
         )
 
 
@@ -598,7 +598,9 @@ class FreshnessCheck(Check):
     threshold: NumericThreshold | None
 
     def get_definition_line(self) -> str:
-        return f"freshness({self.column}) {self.threshold._get_sodacl_checkline_threshold()}{self.get_sodacl_time_unit()}"
+        return (
+            f"freshness({self.column}) {self.threshold._get_sodacl_checkline_threshold()}{self.get_sodacl_time_unit()}"
+        )
 
     def get_sodacl_time_unit(self) -> str:
         sodacl_time_unit_by_check_type = {

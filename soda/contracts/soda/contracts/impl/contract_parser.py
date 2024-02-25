@@ -440,9 +440,7 @@ class ContractParser:
             self.logs.error(f"Invalid freshness check type: {check_type}: Expected one of {freshness_check_types}")
             return None
 
-        threshold: NumericThreshold = self._parse_numeric_threshold(
-            check_yaml_object=check_yaml_object
-        )
+        threshold: NumericThreshold = self._parse_numeric_threshold(check_yaml_object=check_yaml_object)
         if not threshold:
             self.logs.error("No threshold defined for freshness check", location=check_yaml_object.location)
         elif (
@@ -454,9 +452,7 @@ class ContractParser:
             or threshold.less_than is not None
             or threshold.less_than_or_equal is not None
         ):
-            self.logs.error(
-                "Invalid freshness threshold. Use must_be_less_than", location=check_yaml_object.location
-            )
+            self.logs.error("Invalid freshness threshold. Use must_be_less_than", location=check_yaml_object.location)
 
         return FreshnessCheck(
             dataset=dataset,
@@ -466,7 +462,7 @@ class ContractParser:
             contract_check_id=contract_check_id,
             location=check_yaml_object.location,
             check_yaml_object=check_yaml_object,
-            threshold=threshold
+            threshold=threshold,
         )
 
     def _parse_missing_configurations(self, check_yaml: YamlObject, column: str) -> MissingConfigurations | None:
