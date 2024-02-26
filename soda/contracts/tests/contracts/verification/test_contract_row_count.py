@@ -51,7 +51,6 @@ def test_contract_row_count(test_connection: TestConnection):
     assert "Actual row_count was 3" in str(contract_result)
 
 
-
 def test_contract_row_count(test_connection: TestConnection):
     table_name: str = test_connection.ensure_test_table(contracts_row_count_test_table)
 

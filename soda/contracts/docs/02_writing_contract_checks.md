@@ -69,7 +69,7 @@ Missing values also can have the [common check properties](#common-check-propert
 
 ### Missing values checks
 
-There are 3 missing check types: 
+There are 3 missing check types:
 
 | Missing check type | Threshold requirement                          | Check fails when                                                                                         |
 |--------------------|------------------------------------------------|----------------------------------------------------------------------------------------------------------|
@@ -132,10 +132,10 @@ Missing values also can have the [common check properties](#common-check-propert
 | invalid_count      | At least one `must_...` threshold key required | The number of invalid values does not exceed to the specified threshold                                  |
 | invalid_percent    | At least one `must_...` threshold key required | The percentage of invalid values relative to the total row count does not exceed the specified threshold |
 
-Validity checks always need a validity configuration 
-like in this case a list of `valid_values`. 
+Validity checks always need a validity configuration
+like in this case a list of `valid_values`.
 
-Multiple validity configurations can be combined.  All the specified validity configurations have to be 
+Multiple validity configurations can be combined.  All the specified validity configurations have to be
 met for a value to be valid.  So in other words: `AND` logic is applied.
 
 ```yaml
