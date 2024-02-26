@@ -4,7 +4,7 @@ from contracts.helpers.test_connection import TestConnection
 from helpers.test_table import TestTable
 from soda.execution.data_type import DataType
 
-from soda.contracts.contract import CheckOutcome, ContractResult
+from soda.contracts.contract import CheckOutcome, ContractResult, FreshnessCheckResult
 
 contracts_freshness_test_table = TestTable(
     name="contracts_freshness",
@@ -40,6 +40,11 @@ def test_contract_freshness_pass(test_connection: TestConnection, environ: dict)
         variables=variables,
     )
 
+    check_result = contract_result.check_results[1]
+    assert isinstance(check_result, FreshnessCheckResult)
+    assert check_result.outcome == CheckOutcome.PASS
+    assert check_result.freshness == '2:19:50'
+
 
 def test_contract_freshness_fail(test_connection: TestConnection, environ: dict):
     table_name: str = test_connection.ensure_test_table(contracts_freshness_test_table)
@@ -59,11 +64,15 @@ def test_contract_freshness_fail(test_connection: TestConnection, environ: dict)
         variables=variables,
     )
     contract_result_str = str(contract_result)
-    assert "Expected freshness(created) < 3h" in contract_result_str
-    assert "freshness was 3:19:50" in contract_result_str
-    assert "freshness_column_max_value was 2021-01-01 10:10:10+00:00" in contract_result_str
-    assert "freshness_column_max_value_utc was 2021-01-01 10:10:10+00:00" in contract_result_str
-    assert "now was 2021-01-01 13:30" in contract_result_str
-    assert "now_utc was 2021-01-01 13:30:00+00:00" in contract_result_str
+
     check_result = contract_result.check_results[1]
+    assert isinstance(check_result, FreshnessCheckResult)
     assert check_result.outcome == CheckOutcome.FAIL
+    assert check_result.freshness == '3:19:50'
+
+    assert "Expected freshness(created) < 3h" in contract_result_str
+    assert "Actual freshness(created) was 3:19:50" in contract_result_str
+    assert "Max value in column was ...... 2021-01-01 10:10:10+00:00" in contract_result_str
+    assert "Max value in column in UTC was 2021-01-01 10:10:10+00:00" in contract_result_str
+    assert "Now was ...................... 2021-01-01 13:30" in contract_result_str
+    assert "Now in UTC was ............... 2021-01-01 13:30:00+00:00" in contract_result_str

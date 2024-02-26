@@ -449,7 +449,7 @@ class ContractParser:
             or threshold.equal is not None
             or threshold.not_equal is not None
             or threshold.greater_than is not None
-            or threshold.less_than is not None
+            or threshold.greater_than is not None
             or threshold.less_than_or_equal is not None
         ):
             self.logs.error("Invalid freshness threshold. Use must_be_less_than", location=check_yaml_object.location)

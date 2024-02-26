@@ -624,16 +624,42 @@ class FreshnessCheck(Check):
         self, scan_check: dict[str, dict], scan_check_metrics_by_name: dict[str, dict], scan: Scan
     ):
         diagnostics: dict = scan_check["diagnostics"]
-        measurements = [
-            Measurement(name="freshness", type="string", value=diagnostics["freshness"]),
-            Measurement(name="freshness_column_max_value", type="string", value=diagnostics["maxColumnTimestamp"]),
-            Measurement(
-                name="freshness_column_max_value_utc", type="string", value=diagnostics["maxColumnTimestampUtc"]
-            ),
-            Measurement(name="now", type="string", value=diagnostics["nowTimestamp"]),
-            Measurement(name="now_utc", type="string", value=diagnostics["nowTimestampUtc"]),
+        freshness = diagnostics["freshness"]
+        freshness_column_max_value = diagnostics["maxColumnTimestamp"]
+        freshness_column_max_value_utc = diagnostics["maxColumnTimestampUtc"]
+        now = diagnostics["nowTimestamp"]
+        now_utc = diagnostics["nowTimestampUtc"]
+
+        return FreshnessCheckResult(
+            check=self,
+            outcome=CheckOutcome._from_scan_check(scan_check),
+            freshness=freshness,
+            freshness_column_max_value=freshness_column_max_value,
+            freshness_column_max_value_utc=freshness_column_max_value_utc,
+            now=now,
+            now_utc=now_utc
+        )
+
+
+@dataclass
+class FreshnessCheckResult(CheckResult):
+    freshness: str
+    freshness_column_max_value: str
+    freshness_column_max_value_utc: str
+    now: str
+    now_utc: str
+
+    def get_contract_result_str_lines(self) -> list[str]:
+        assert isinstance(self.check, FreshnessCheck)
+        return [
+            self._get_outcome_and_name_line(),
+            f"  Expected {self.check.get_definition_line()}",
+            f"  Actual freshness({self.check.column}) was {self.freshness}",
+            f"  Max value in column was ...... {self.freshness_column_max_value}",
+            f"  Max value in column in UTC was {self.freshness_column_max_value_utc}",
+            f"  Now was ...................... {self.now}",
+            f"  Now in UTC was ............... {self.now_utc}"
         ]
-        return CheckResult(check=self, measurements=measurements, outcome=CheckOutcome._from_scan_check(scan_check))
 
 
 class CheckOutcome(Enum):
