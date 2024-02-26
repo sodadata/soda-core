@@ -1,15 +1,15 @@
 import logging
 
-from contracts.helpers.contract_test_tables import contracts_test_table
 from contracts.helpers.test_connection import TestConnection
 from helpers.test_table import TestTable
+from soda.execution.data_type import DataType
 
 from soda.contracts.contract import (
     CheckOutcome,
     CheckResult,
-    ContractResult, SchemaCheckResult
+    ContractResult,
+    SchemaCheckResult,
 )
-from soda.execution.data_type import DataType
 
 logger = logging.getLogger(__name__)
 
@@ -209,7 +209,7 @@ def test_contract_schema_extra_column(test_connection: TestConnection):
         "distance": test_connection.data_type_integer(),
         "created": test_connection.data_type_date(),
     }
-    assert schema_check_result.columns_not_allowed_and_present == ['distance']
+    assert schema_check_result.columns_not_allowed_and_present == ["distance"]
     assert schema_check_result.columns_required_and_not_present == []
     assert schema_check_result.columns_having_wrong_type == []
 

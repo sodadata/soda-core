@@ -2,8 +2,13 @@ from contracts.helpers.test_connection import TestConnection
 from helpers.test_table import TestTable
 from soda.execution.data_type import DataType
 
-from soda.contracts.contract import CheckOutcome, ContractResult, NumericMetricCheckResult, \
-    UserDefinedMetricSqlExpressionCheck, UserDefinedMetricSqlQueryCheck
+from soda.contracts.contract import (
+    CheckOutcome,
+    ContractResult,
+    NumericMetricCheckResult,
+    UserDefinedMetricSqlExpressionCheck,
+    UserDefinedMetricSqlQueryCheck,
+)
 
 user_defined_sql_test_table = TestTable(
     name="user_defined_sql_query",
@@ -48,8 +53,8 @@ def test_contract_user_defined_sql_query(test_connection: TestConnection):
 
     check = check_result.check
     assert isinstance(check, UserDefinedMetricSqlQueryCheck)
-    assert check.type == 'metric_sql_query'
-    assert check.metric == 'us_count'
+    assert check.type == "metric_sql_query"
+    assert check.metric == "us_count"
     assert check.column is None
 
     assert "Actual us_count was 2" in str(contract_result)

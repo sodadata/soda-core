@@ -347,9 +347,7 @@ class SchemaCheck(Check):
             schema_fail_dict["with optional columns"] = self.optional_columns
         return {"schema": {"fail": schema_fail_dict}}
 
-    def create_check_result(
-        self, scan_check: dict[str, dict], scan_check_metrics_by_name: dict[str, dict], scan: Scan
-    ):
+    def create_check_result(self, scan_check: dict[str, dict], scan_check_metrics_by_name: dict[str, dict], scan: Scan):
         scan_measured_schema: list[dict] = scan_check_metrics_by_name.get("schema").get("value")
         measured_schema = {c.get("columnName"): c.get("sourceDataType") for c in scan_measured_schema}
 
@@ -447,9 +445,7 @@ class NumericMetricCheck(Check):
 
         return {sodacl_check_line: sodacl_check_configs}
 
-    def create_check_result(
-        self, scan_check: dict[str, dict], scan_check_metrics_by_name: dict[str, dict], scan: Scan
-    ):
+    def create_check_result(self, scan_check: dict[str, dict], scan_check_metrics_by_name: dict[str, dict], scan: Scan):
         scan_metric_dict: dict
         if "(" in self.metric:
             scan_metric_name = self.metric[: self.metric.index("(")]
@@ -522,9 +518,7 @@ class InvalidReferenceCheck(NumericMetricCheck):
 
         return {sodacl_check_line: sodacl_check_configs}
 
-    def create_check_result(
-        self, scan_check: dict[str, dict], scan_check_metrics_by_name: dict[str, dict], scan: Scan
-    ):
+    def create_check_result(self, scan_check: dict[str, dict], scan_check_metrics_by_name: dict[str, dict], scan: Scan):
         scan_metric_dict = scan_check_metrics_by_name.get("reference", {})
         value: Number = scan_metric_dict.get("value")
         return NumericMetricCheckResult(
@@ -540,9 +534,7 @@ class FreshnessCheck(Check):
     threshold: NumericThreshold | None
 
     def get_definition_line(self) -> str:
-        return (
-            f"freshness({self.column}) {self.threshold.get_sodacl_threshold()}{self.get_sodacl_time_unit()}"
-        )
+        return f"freshness({self.column}) {self.threshold.get_sodacl_threshold()}{self.get_sodacl_time_unit()}"
 
     def get_sodacl_time_unit(self) -> str:
         sodacl_time_unit_by_check_type = {
@@ -562,9 +554,7 @@ class FreshnessCheck(Check):
         sodacl_check_line: str = self.get_definition_line()
         return {sodacl_check_line: sodacl_check_configs}
 
-    def create_check_result(
-        self, scan_check: dict[str, dict], scan_check_metrics_by_name: dict[str, dict], scan: Scan
-    ):
+    def create_check_result(self, scan_check: dict[str, dict], scan_check_metrics_by_name: dict[str, dict], scan: Scan):
         diagnostics: dict = scan_check["diagnostics"]
         freshness = diagnostics["freshness"]
         freshness_column_max_value = diagnostics["maxColumnTimestamp"]
@@ -623,15 +613,11 @@ class UserDefinedMetricSqlExpressionCheck(NumericMetricCheck):
 
         return {sodacl_check_line: sodacl_check_configs}
 
-    def create_check_result(
-        self, scan_check: dict[str, dict], scan_check_metrics_by_name: dict[str, dict], scan: Scan
-    ):
+    def create_check_result(self, scan_check: dict[str, dict], scan_check_metrics_by_name: dict[str, dict], scan: Scan):
         scan_metric_dict: dict = scan_check_metrics_by_name.get(self.metric, None)
         metric_value: Number = scan_metric_dict.get("value") if scan_metric_dict else None
         return NumericMetricCheckResult(
-            check=self,
-            outcome=CheckOutcome.from_scan_check(scan_check),
-            metric_value=metric_value
+            check=self, outcome=CheckOutcome.from_scan_check(scan_check), metric_value=metric_value
         )
 
 
@@ -641,24 +627,23 @@ class UserDefinedMetricSqlQueryCheck(NumericMetricCheck):
     metric_sql_query: str
 
     def to_sodacl_check(self) -> str | dict | None:
-        sodacl_check_configs = {"contract check id": self.contract_check_id, f"{self.metric} query": self.metric_sql_query}
+        sodacl_check_configs = {
+            "contract check id": self.contract_check_id,
+            f"{self.metric} query": self.metric_sql_query,
+        }
         if self.name:
             sodacl_check_configs["name"] = self.name
 
-        sodacl_check_line: str  = self.get_sodacl_check_line()
+        sodacl_check_line: str = self.get_sodacl_check_line()
 
         return {sodacl_check_line: sodacl_check_configs}
 
-    def create_check_result(
-        self, scan_check: dict[str, dict], scan_check_metrics_by_name: dict[str, dict], scan: Scan
-    ):
+    def create_check_result(self, scan_check: dict[str, dict], scan_check_metrics_by_name: dict[str, dict], scan: Scan):
         scan_metric_dict: dict = scan_check_metrics_by_name.get(self.get_sodacl_check_line(), None)
         metric_value: Number = scan_metric_dict.get("value") if scan_metric_dict else None
 
         return NumericMetricCheckResult(
-            check=self,
-            outcome=CheckOutcome.from_scan_check(scan_check),
-            metric_value=metric_value
+            check=self, outcome=CheckOutcome.from_scan_check(scan_check), metric_value=metric_value
         )
 
 

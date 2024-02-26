@@ -1,8 +1,13 @@
 from contracts.helpers.test_connection import TestConnection
 from helpers.test_table import TestTable
-from soda.contracts.contract import CheckOutcome, ContractResult, NumericMetricCheckResult, \
-    UserDefinedMetricSqlExpressionCheck
 from soda.execution.data_type import DataType
+
+from soda.contracts.contract import (
+    CheckOutcome,
+    ContractResult,
+    NumericMetricCheckResult,
+    UserDefinedMetricSqlExpressionCheck,
+)
 
 user_defined_metric_sql_expression_test_table = TestTable(
     name="user_defined_metric_sql_expression",
@@ -41,9 +46,9 @@ def test_contract_column_metric_sql_expression(test_connection: TestConnection):
 
     check = check_result.check
     assert isinstance(check, UserDefinedMetricSqlExpressionCheck)
-    assert check.type == 'metric_sql_expression'
-    assert check.metric == 'us_count'
-    assert check.column == 'country'
+    assert check.type == "metric_sql_expression"
+    assert check.metric == "us_count"
+    assert check.column == "country"
 
     assert "Actual us_count(country) was 2" in str(contract_result)
 
@@ -72,8 +77,8 @@ def test_contract_dataset_metric_sql_expression(test_connection: TestConnection)
 
     check = check_result.check
     assert isinstance(check, UserDefinedMetricSqlExpressionCheck)
-    assert check.type == 'metric_sql_expression'
-    assert check.metric == 'us_count'
+    assert check.type == "metric_sql_expression"
+    assert check.metric == "us_count"
     assert check.column is None
 
     assert "Actual us_count was 2" in str(contract_result)

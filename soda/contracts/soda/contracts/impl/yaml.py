@@ -143,7 +143,7 @@ class YamlObject(YamlValue):
         return yaml_value
 
     def unpacked(self) -> Any:
-        return {k:v.unpacked() for k, v in self.yaml_dict.items()}
+        return {k: v.unpacked() for k, v in self.yaml_dict.items()}
 
     def __iter__(self):
         return iter(self.yaml_dict)

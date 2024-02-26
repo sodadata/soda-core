@@ -6,22 +6,15 @@ def test_numeric_threshold_fail_when_greater_than_and_less_than():
 
 
 def test_numeric_threshold_fail_when_greater_than_or_equal_and_less_than_or_equal():
-    assert (
-        NumericThreshold(greater_than_or_equal=0, less_than_or_equal=1).get_sodacl_threshold()
-        == "between 0 and 1"
-    )
+    assert NumericThreshold(greater_than_or_equal=0, less_than_or_equal=1).get_sodacl_threshold() == "between 0 and 1"
 
 
 def test_numeric_threshold_fail_when_greater_than_and_less_than_or_equal():
-    assert (
-            NumericThreshold(greater_than=0, less_than_or_equal=1).get_sodacl_threshold() == "between (0 and 1"
-    )
+    assert NumericThreshold(greater_than=0, less_than_or_equal=1).get_sodacl_threshold() == "between (0 and 1"
 
 
 def test_numeric_threshold_dfail_when_greater_than_or_equal_and_less_than():
-    assert (
-            NumericThreshold(greater_than_or_equal=0, less_than=1).get_sodacl_threshold() == "between 0 and 1)"
-    )
+    assert NumericThreshold(greater_than_or_equal=0, less_than=1).get_sodacl_threshold() == "between 0 and 1)"
 
 
 def test_numeric_threshold_fail_when_greater_than_and_less_than_swap():
@@ -29,17 +22,11 @@ def test_numeric_threshold_fail_when_greater_than_and_less_than_swap():
 
 
 def test_numeric_threshold_fail_when_greater_than_or_equal_and_less_than_swap():
-    assert (
-        NumericThreshold(greater_than_or_equal=1, less_than=0).get_sodacl_threshold()
-        == "not between 0 and 1)"
-    )
+    assert NumericThreshold(greater_than_or_equal=1, less_than=0).get_sodacl_threshold() == "not between 0 and 1)"
 
 
 def test_numeric_threshold_fail_when_greater_than_and_less_than_or_equal_swap():
-    assert (
-        NumericThreshold(greater_than=1, less_than_or_equal=0).get_sodacl_threshold()
-        == "not between (0 and 1"
-    )
+    assert NumericThreshold(greater_than=1, less_than_or_equal=0).get_sodacl_threshold() == "not between (0 and 1"
 
 
 def test_numeric_threshold_fail_when_greater_than_or_equal_and_less_than_or_equal_swap():

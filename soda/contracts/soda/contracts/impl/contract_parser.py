@@ -10,6 +10,7 @@ from soda.contracts.connection import SodaException
 from soda.contracts.contract import (
     Check,
     Contract,
+    DuplicateCheck,
     FreshnessCheck,
     InvalidReferenceCheck,
     MissingConfigurations,
@@ -20,7 +21,7 @@ from soda.contracts.contract import (
     UserDefinedMetricSqlExpressionCheck,
     UserDefinedMetricSqlQueryCheck,
     ValidConfigurations,
-    ValidValuesReferenceData, DuplicateCheck,
+    ValidValuesReferenceData,
 )
 from soda.contracts.impl.json_schema_verifier import JsonSchemaVerifier
 from soda.contracts.impl.logs import Logs
@@ -364,12 +365,8 @@ class ContractParser:
 
         else:
             # Means this is a (single) column duplicate check
-            missing_configurations = self._parse_missing_configurations(
-                check_yaml=check_yaml_object, column=column
-            )
-            valid_configurations = self._parse_valid_configurations(
-                check_yaml=check_yaml_object, column=column
-            )
+            missing_configurations = self._parse_missing_configurations(check_yaml=check_yaml_object, column=column)
+            valid_configurations = self._parse_valid_configurations(check_yaml=check_yaml_object, column=column)
 
         return DuplicateCheck(
             dataset=dataset,
@@ -383,7 +380,7 @@ class ContractParser:
             missing_configurations=missing_configurations,
             valid_configurations=valid_configurations,
             threshold=threshold,
-            columns=columns
+            columns=columns,
         )
 
     def _parse_column_check_basic_sql_function(
@@ -416,9 +413,7 @@ class ContractParser:
         metric: str = check_yaml_object.read_string("metric")
         sql_expression: str = check_yaml_object.read_string("expression")
 
-        threshold: NumericThreshold = self._parse_numeric_threshold(
-            check_yaml_object=check_yaml_object
-        )
+        threshold: NumericThreshold = self._parse_numeric_threshold(check_yaml_object=check_yaml_object)
 
         if not threshold:
             self.logs.error("No threshold defined for metric_sql_expression check", location=check_yaml_object.location)
@@ -435,7 +430,7 @@ class ContractParser:
             missing_configurations=None,
             valid_configurations=None,
             threshold=threshold,
-            metric_sql_expression=sql_expression
+            metric_sql_expression=sql_expression,
         )
 
     def _parse_freshness_check(
@@ -669,9 +664,7 @@ class ContractParser:
         metric: str = check_yaml_object.read_string("metric")
         metric_sql_query: str = check_yaml_object.read_string("query")
 
-        threshold: NumericThreshold = self._parse_numeric_threshold(
-            check_yaml_object=check_yaml_object
-        )
+        threshold: NumericThreshold = self._parse_numeric_threshold(check_yaml_object=check_yaml_object)
 
         return UserDefinedMetricSqlQueryCheck(
             dataset=dataset,
