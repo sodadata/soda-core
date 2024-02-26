@@ -589,7 +589,7 @@ class ContractParser:
         if check_type is None:
             return None
 
-        if check_type in ["rows_required", "row_count"]:
+        if check_type in ["rows_exist", "row_count"]:
             check_parse_function = self._parse_dataset_row_count
         elif check_type in ["no_duplicate_values", "duplicate_count", "duplicate_percent"]:
             check_parse_function = self._parse_check_duplicate
@@ -620,11 +620,11 @@ class ContractParser:
 
         metric: str = check_type
 
-        if check_type == "rows_required":
+        if check_type == "rows_exist":
             metric = "row_count"
             if not threshold.is_empty():
                 self.logs.error(
-                    f"Check type 'rows_required' does not allow for threshold keys must_... (column '{column}')",
+                    f"Check type 'rows_exist' does not allow for threshold keys must_... (column '{column}')",
                     location=check_yaml_object.location,
                 )
             threshold = NumericThreshold(greater_than=0)

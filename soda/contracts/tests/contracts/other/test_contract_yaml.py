@@ -66,7 +66,7 @@ def test_contract_row_count_ignore_other_keys(test_connection: TestConnection):
           - name: distance
           - name: created
         checks:
-          - type: rows_required
+          - type: rows_exist
             fail_when_not_between: [0, 10]
             another_dataset_check_key: check
     """

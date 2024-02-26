@@ -6,9 +6,11 @@
 * [Invalid values check](#invalid-values-checks)
 * [Uniqueness check](#uniqueness-check)
 * [Freshness check](#freshness-check)
-* [Avg, sum and other SQL aggregation checks](#avg-sum-and-other-sql-aggregation-checks)
-* [Multi-column uniqueness check](#multi-column-uniqueness-check)
-* [User-defined SQL check](#user-defined-sql-check)
+* [Basic SQL aggregation checks](#basic-sql-aggregation-checks)
+* [Multi-column duplicates check](#multi-column-duplicates-check)
+* [User-defined metric SQL expression check](#user-defined-sql-check)
+* [User-defined metric SQL query check](#user-defined-sql-check)
+* [User-defined failed rows SQL query check](#user-defined-sql-check)
 
 > IDE code completion support: When authoring contract YAML files, consider using
 > the [JSON schema file](../soda/contracts/soda_data_contract_json_schema_1_0_0.json)
@@ -45,8 +47,8 @@ dataset: CUSTOMERS
 columns:
   - ...
 checks:
-  # Check if the row count is greater than 0
-  - type: row_count
+  # Verify that at least1 row exist
+  - type: rows_exist
 ```
 
 Example: Row count check with a range
@@ -55,23 +57,34 @@ dataset: CUSTOMERS
 columns:
   - ...
 checks:
-  # Check if the row count is not between 100 and 120
+  # Verify that the row count is between 100 and 120
   - type: row_count
-    fail_when_not_between: [100, 120]
+    must_be_between: [100, 120]
 ```
 
 See [Thresholds](#thresholds) for more on specifying failure thresholds and ranges.
 
+Missing values also can have the [common check properties](#common-check-properties)
+
+
 ### Missing values checks
 
-Example: simplest not-null check. By default the missing values applies the `fail_when_greater_than: 0` threshold.
+There are 3 missing check types: 
+
+| Missing check type | Threshold requirement                          | Check fails when                                                                                         |
+|--------------------|------------------------------------------------|----------------------------------------------------------------------------------------------------------|
+| no_missing_values  | No `must_...` threshold keys allowed           | There are missing values                                                                                 |
+| missing_count      | At least one `must_...` threshold key required | The number of missing values does not exceed to the specified threshold                                  |
+| missing_percent    | At least one `must_...` threshold key required | The percentage of missing values relative to the total row count does not exceed the specified threshold |
+
+Example: simplest not-null check. `no_missing_values` is a short version of missing_count must be zero.
 ```yaml
 dataset: CUSTOMERS
 columns:
 - name: id
   checks:
-  # Fail when there are NULL values in CUSTOMERS.id
-  - type: missing_count
+  # Verify that there are no NULL values in CUSTOMERS.id
+  - type: no_missing_values
 ```
 
 Example: configure optional threshold
@@ -80,9 +93,9 @@ dataset: CUSTOMERS
 columns:
 - name: id
   checks:
-  # Fail when there are more than 10 NULL values in CUSTOMERS.id
+  # Verify there are less than 10 NULL values in CUSTOMERS.id
   - type: missing_count
-    fail_when_greater_than: 10
+    must_be_less_than: 10
 ```
 
 Example: configure optional missing_values list
@@ -91,10 +104,12 @@ dataset: CUSTOMERS
 columns:
 - name: id
   checks:
-  # Fail when there are missing values in CUSTOMERS.id where `'N/A'` and `'No value'` are considered missing values.
-  - type: missing_count
+  # Verify there are no missing values in CUSTOMERS.id where NULL, `'N/A'` and `'No value'` are considered missing values.
+  - type: no_missing_values
     missing_values: ['N/A', 'No value']
 ```
+
+When specifying missing values, keep in mind that NULL is always considered a missing value.
 
 Example: configure optional missing_regex
 ```yaml
@@ -102,16 +117,26 @@ dataset: CUSTOMERS
 columns:
 - name: id
   checks:
-  # Fail when there are missing values in CUSTOMERS.id where missing values are specified with a SQL regex
-  - type: missing_count
-    missing_regex: ^(NULL|null)$
+  # Verify there are no missing values in CUSTOMERS.id where missing values are specified with a SQL regex
+  - type: no_missing_values
+    missing_regex: '^[# -]+$'
 ```
 
 Missing values also can have the [common check properties](#common-check-properties)
 
 ### Invalid values checks
 
-Example: Validate against a list of valid values in the contract
+| Missing check type | Threshold requirement                          | Check fails when                                                                                         |
+|--------------------|------------------------------------------------|----------------------------------------------------------------------------------------------------------|
+| no_invalid_values  | No `must_...` threshold keys allowed           | There are invalid values                                                                                 |
+| invalid_count      | At least one `must_...` threshold key required | The number of invalid values does not exceed to the specified threshold                                  |
+| invalid_percent    | At least one `must_...` threshold key required | The percentage of invalid values relative to the total row count does not exceed the specified threshold |
+
+Validity checks always need a validity configuration 
+like in this case a list of `valid_values`. 
+
+Multiple validity configurations can be combined.  All the specified validity configurations have to be 
+met for a value to be valid.  So in other words: `AND` logic is applied.
 
 ```yaml
 dataset: CUSTOMERS
@@ -119,11 +144,11 @@ columns:
 - name: size
   checks:
   # Fail when there are values not in the given list of valid values
-  - type: invalid_count
+  - type: no_invalid_values
     valid_values: ['S', 'M', 'L']
 ```
 
-Example of valid min-max checks
+Example of valid min-max checks.  This assumes the column has a numeric data type.
 ```yaml
 dataset: CUSTOMERS
 columns:
@@ -133,8 +158,8 @@ columns:
   - type: invalid_count
     valid_min: 0
     valid_max: 100
+    must_be_less_than: 1000
 ```
-
 
 Example of valid length checks as a range
 ```yaml
@@ -234,7 +259,7 @@ checks:
 | `type: freshness_in_hours`   |
 | `type: freshness_in_minutes` |
 
-### Avg, sum and other SQL aggregation checks
+### Basic SQL aggregation checks
 
 Exmple of an average check
 ```yaml
@@ -251,16 +276,8 @@ columns:
 |-------------------------------------|
 | `type: avg`                         |
 | `type: sum`                         |
-| `type: min`                         |
-| `type: max`                         |
-| `type: stddev`                      |
-| `type: stddev_pop`                  |
-| `type: stddev_samp`                 |
-| `type: variance`                    |
-| `type: var_pop`                     |
-| `type: var_samp`                    |
 
-### Multi-column uniqueness check
+### Multi-column duplicates check
 
 Example of a multi columns duplicates check
 
@@ -327,15 +344,21 @@ checks:
 
 Some check types have default thresholds.  If you do want to specify a threshold, use one of these check configuration properties
 
-| Threshold key                     | Example                                |
-|-----------------------------------|----------------------------------------|
-| `fail_when_is`                    | `fail_when_is: 0`                      |
-| `fail_when_is_not`                | `fail_when_is_not: 0`                  |
-| `fail_when_greater_than`          | `fail_when_greater_than: 100`          |
-| `fail_when_greater_than_or_equal` | `fail_when_greater_than_or_equal: 100` |
-| `fail_when_less_than`             | `fail_when_less_than: 100`             |
-| `fail_when_less_than_or_equal`    | `fail_when_less_than_or_equal: 100`    |
-| `fail_when_between`               | `fail_when_between: [0, 100]`          |
-| `fail_when_not_between`           | `fail_when_not_between: [0, 100]`      |
+| Threshold key                      | Value             | Example                                 |
+|------------------------------------|-------------------|-----------------------------------------|
+| `must_be`                          | Number            | `must_be: 0`                            |
+| `must_not_be`                      | Number            | `must_not_be: 0`                        |
+| `must_be_greater_than`             | Number            | `must_be_greater_than: 100`             |
+| `must_be_greater_than_or_equal_to` | Number            | `must_be_greater_than_or_equal_to: 100` |
+| `must_be_less_than`                | Number            | `must_be_less_than: 100`                |
+| `must_be_less_than_or_equal_to`    | Number            | `must_be_less_than_or_equal_to: 100`    |
+| `must_be_between`                  | List of 2 numbers | `must_be_between: [0, 100]`             |
+| `must_be_not_between`              | List of 2 numbers | `must_be_not_between: [0, 100]`         |
 
 TODO explain the how to do in/exclusions in case of ranges
+
+### Common check properties
+
+| Key  | Description                           |
+|------|---------------------------------------|
+| Name | The human readable name for the check |

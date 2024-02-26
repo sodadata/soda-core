@@ -7,6 +7,13 @@ The basics for authoring Soda contract YAML files.
 > * Optional: a local development environment to test contract YAML files
 > * Optional: a git repository to version control your contract YAML file
 
+Contents:
+  * [Simple contract file explained](#simple-contract-file-explained)
+  * [Soda contract file naming convension](#soda-contract-file-naming-convension)
+  * [Setting up code completion in PyCharm](#setting-up-code-completion-in-pycharm)
+  * [Setting up code completion in VSCode](#setting-up-code-completion-in-vscode)
+
+
 ### Simple contract file explained
 
 A Soda data contract contains:
@@ -27,34 +34,32 @@ columns:
 - name: id
   data_type: character varying
   checks:
-  - type: missing
-  - type: duplicate_count
-
-- name: cst_size_txt
-  checks:
-  - type: invalid_count
-    valid_values: [1, 2, 3]
+  - type: no_missing_values
+  - type: no_duplicate_values
+  - type: no_invalid_values
+    valid_regex: '^[A-Z0-9]{8}$'
 
 - name: distance
   data_type: integer
   checks:
   - type: avg
-    fail_when_not_between: [50, 150]
+    must_be_between: [50, 150]
 
-- name: country
-  data_type: varchar
+- name: country_id
   checks:
-  - type: missing_count
-  - type: invalid_count
+  - type: invalid_percent
     valid_values_column:
       dataset: COUNTRIES
       column: id
+    must_be_less_than: 5
+
+- name: country_id
+  checks:
+  - type: freshness_in_hours
+    must_be_less_than: 6
 
 checks:
-- type: row_count
-  fail_when_not_between: [100, 500]
-- type: freshness_in_hours
-  fail_when_greater_than: 6
+- type: rows_exist
 ```
 
 ### Setting up code completion in VSCode
@@ -75,7 +80,7 @@ columns:
 
 Alternatively see https://dev.to/brpaz/how-to-create-your-own-auto-completion-for-json-and-yaml-files-on-vs-code-with-the-help-of-json-schema-k1i
 
-## Setting up code completion in PyCharm
+### Setting up code completion in PyCharm
 
 Download [the schema file](./soda/contracts/soda_data_contract_schema_1_0_0.json), put it somewhere in your project or on yourr file system.
 
