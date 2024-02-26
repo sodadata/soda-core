@@ -61,12 +61,12 @@ def test_contract_row_count_ignore_other_keys(test_connection: TestConnection):
             another_column_key: check
           - name: size
             checks:
-              - type: missing
+              - type: no_missing_values
                 another_column_check_key: check
           - name: distance
           - name: created
         checks:
-          - type: row_count
+          - type: rows_required
             fail_when_not_between: [0, 10]
             another_dataset_check_key: check
     """

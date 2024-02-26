@@ -26,7 +26,7 @@ contracts_basic_sql_functions_check_types_test_table = TestTable(
 
 
 def test_contract_avg(test_connection: TestConnection):
-    table_name: str = test_connection.ensure_test_table(contracts_basic_sql_function_check_types_test_table)
+    table_name: str = test_connection.ensure_test_table(contracts_basic_sql_functions_check_types_test_table)
 
     contract_result: ContractResult = test_connection.assert_contract_fail(
         f"""
@@ -55,7 +55,7 @@ def test_contract_avg(test_connection: TestConnection):
 
 
 def test_contract_sum(test_connection: TestConnection):
-    table_name: str = test_connection.ensure_test_table(contracts_basic_sql_function_check_types_test_table)
+    table_name: str = test_connection.ensure_test_table(contracts_basic_sql_functions_check_types_test_table)
 
     contract_result: ContractResult = test_connection.assert_contract_fail(
         f"""

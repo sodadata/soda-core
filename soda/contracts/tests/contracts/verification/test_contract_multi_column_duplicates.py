@@ -2,7 +2,8 @@ from contracts.helpers.test_connection import TestConnection
 from helpers.test_table import TestTable
 from soda.execution.data_type import DataType
 
-from soda.contracts.contract import CheckOutcome, ContractResult
+from soda.contracts.contract import CheckOutcome, ContractResult, NumericMetricCheckResult, NumericMetricCheck, \
+    DuplicateCheck
 
 contracts_multi_column_duplicates_test_table = TestTable(
     name="multi_column_duplicates",
@@ -31,14 +32,20 @@ def test_contract_multi_column_duplicates(test_connection: TestConnection):
           - name: country_code
           - name: zip
         checks:
-          - type: multi_column_duplicates
+          - type: no_duplicate_values
             columns: ['country_code', 'zip']
     """
     )
     assert "Actual duplicate_count(country_code, zip) was 1" in str(contract_result)
     check_result = contract_result.check_results[1]
+    assert isinstance(check_result, NumericMetricCheckResult)
     assert check_result.outcome == CheckOutcome.FAIL
-    measurement = check_result.measurements[0]
-    assert measurement.name == "duplicate_count(country_code, zip)"
-    assert measurement.metric_value == 1
-    assert measurement.type == "numeric"
+    assert check_result.metric_value == 1
+
+    check = check_result.check
+    assert isinstance(check, DuplicateCheck)
+    assert check.type == "no_duplicate_values"
+    assert check.metric == "duplicate_count"
+    assert check.dataset == table_name
+    assert check.column is None
+    assert list(check.columns) == ['country_code', 'zip']

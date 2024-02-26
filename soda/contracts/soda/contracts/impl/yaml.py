@@ -142,6 +142,9 @@ class YamlObject(YamlValue):
         yaml_value.set_location(YamlLocation(line=line, column=column))
         return yaml_value
 
+    def unpacked(self) -> Any:
+        return {k:v.unpacked() for k, v in self.yaml_dict.items()}
+
     def __iter__(self):
         return iter(self.yaml_dict)
 
@@ -309,6 +312,9 @@ class YamlList(YamlValue):
         yaml_value = yaml_wrapper.wrap(ruamel_value=ruamel_value)
         yaml_value.set_location(YamlLocation(line=line, column=column))
         return yaml_value
+
+    def unpacked(self) -> Any:
+        return [e.unpacked() for e in self.value]
 
     def __iter__(self):
         return iter(self.value)
