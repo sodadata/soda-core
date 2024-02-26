@@ -11,8 +11,11 @@ from soda.contracts.contract import (
 
 user_defined_metric_sql_expression_test_table = TestTable(
     name="user_defined_metric_sql_expression",
-    columns=[("id", DataType.TEXT), ("country", DataType.TEXT)],
     # fmt: off
+    columns=[
+        ("id", DataType.TEXT),
+        ("country", DataType.TEXT)
+    ],
     values=[
         ('1', 'US'),
         ('2', 'US'),

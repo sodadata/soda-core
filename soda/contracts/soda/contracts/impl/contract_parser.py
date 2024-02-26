@@ -184,8 +184,6 @@ class ContractParser:
             parse_check_function = self._parse_user_defined_metric_sql_expression_check
         elif check_type.startswith("freshness_in_"):
             parse_check_function = self._parse_freshness_check
-        elif self.is_basic_sql_function(check_type):
-            parse_check_function = self._parse_column_check_basic_sql_function
         else:
             self.logs.error(
                 f"Invalid column check type '{check_type}' (column '{column}')", location=check_yaml_object.location
@@ -680,19 +678,3 @@ class ContractParser:
             threshold=threshold,
             metric_sql_query=metric_sql_query,
         )
-
-    def is_basic_sql_function(self, check_type: str) -> bool:
-        # TODO expand this with a proper SQL parser and inheritance so that all valid SQL expressions
-        #      of the underlying connection are allowed
-        return check_type in [
-            "min",
-            "max",
-            "avg",
-            "sum",
-            "stddev",
-            "stddev_pop",
-            "stddev_samp",
-            "variance",
-            "var_pop",
-            "var_samp",
-        ]
