@@ -43,7 +43,7 @@ def test_contract_freshness_pass(test_connection: TestConnection, environ: dict)
     check_result = contract_result.check_results[1]
     assert isinstance(check_result, FreshnessCheckResult)
     assert check_result.outcome == CheckOutcome.PASS
-    assert check_result.freshness == '2:19:50'
+    assert check_result.freshness == "2:19:50"
 
 
 def test_contract_freshness_fail(test_connection: TestConnection, environ: dict):
@@ -68,7 +68,7 @@ def test_contract_freshness_fail(test_connection: TestConnection, environ: dict)
     check_result = contract_result.check_results[1]
     assert isinstance(check_result, FreshnessCheckResult)
     assert check_result.outcome == CheckOutcome.FAIL
-    assert check_result.freshness == '3:19:50'
+    assert check_result.freshness == "3:19:50"
 
     assert "Expected freshness(created) < 3h" in contract_result_str
     assert "Actual freshness(created) was 3:19:50" in contract_result_str

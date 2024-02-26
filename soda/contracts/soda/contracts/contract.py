@@ -637,7 +637,7 @@ class FreshnessCheck(Check):
             freshness_column_max_value=freshness_column_max_value,
             freshness_column_max_value_utc=freshness_column_max_value_utc,
             now=now,
-            now_utc=now_utc
+            now_utc=now_utc,
         )
 
 
@@ -658,7 +658,7 @@ class FreshnessCheckResult(CheckResult):
             f"  Max value in column was ...... {self.freshness_column_max_value}",
             f"  Max value in column in UTC was {self.freshness_column_max_value_utc}",
             f"  Now was ...................... {self.now}",
-            f"  Now in UTC was ............... {self.now_utc}"
+            f"  Now in UTC was ............... {self.now_utc}",
         ]
 
 
