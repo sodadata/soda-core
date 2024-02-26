@@ -184,6 +184,8 @@ class ContractParser:
             parse_check_function = self._parse_user_defined_metric_sql_expression_check
         elif check_type.startswith("freshness_in_"):
             parse_check_function = self._parse_freshness_check
+        elif check_type in ["avg", "sum"]:
+            parse_check_function = self._parse_column_check_basic_sql_function
         else:
             self.logs.error(
                 f"Invalid column check type '{check_type}' (column '{column}')", location=check_yaml_object.location

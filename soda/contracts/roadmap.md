@@ -1,19 +1,14 @@
 # Roadmap
 
 ### Next TODOs
-* [ ] Test Soda Cloud link
+* [ ] Update docs
+* [ ] Add failed rows query support
 * [ ] Enforce uniqueness in parser of qualified metric names
-
-### Second release
-* [ ] Improve docs input & json schema
+* [ ] Test Soda Cloud link
 * [ ] Decide on JSON schema validation in contracts parser
-* [ ] Work out the Soda Cloud protocol updates needed
-* [ ] Add filter capability to contracts
-* [ ] Add Docker container for verifying contract
-* [ ] Incorporate Atlan integration
-* [ ] Write release docs (based on docs input)
 
 ### Later (work to be refined)
+* [ ] Add Docker container for verifying contract
 * [ ] Add CLI support for verifying contract
 * [ ] Add CLI support to create a new contract based on profiling information
 * [ ] Add attributes upload to Soda Cloud

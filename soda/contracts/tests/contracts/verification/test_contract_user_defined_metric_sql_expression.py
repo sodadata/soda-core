@@ -13,13 +13,13 @@ user_defined_metric_sql_expression_test_table = TestTable(
     name="user_defined_metric_sql_expression",
     # fmt: off
     columns=[
-        ("id", DataType.TEXT),
+        ("id", DataType.INTEGER),
         ("country", DataType.TEXT)
     ],
     values=[
-        ('1', 'US'),
-        ('2', 'US'),
-        ('3', 'BE'),
+        (1, 'US'),
+        (2, 'US'),
+        (3, 'BE'),
     ]
     # fmt: on
 )
