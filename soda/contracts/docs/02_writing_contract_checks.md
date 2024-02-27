@@ -25,11 +25,11 @@ Example contract schema check:
 ```yaml
 dataset: CUSTOMERS
 columns:
-- name: id
-  data_type: VARCHAR
-- name: size
-- name: discount
-  optional: true
+  - name: id
+    data_type: VARCHAR
+  - name: size
+  - name: discount
+    optional: true
 ```
 
 Optionally, if the `data_type` property is specified in the column, the data type will be checked as well as part of
@@ -39,13 +39,11 @@ By default all columns specified in the contract are required. Columns can also 
 
 See the examples below for more schema features like optional columns and allowing other columns.
 
-### Row count check
+### Row count checks
 
 Example: Simplest row count check. This dataset level check verifies at least 1 row exists.
 ```yaml
 dataset: CUSTOMERS
-columns:
-  - ...
 checks:
   - type: rows_exist
 ```
@@ -54,8 +52,6 @@ Example: Specify a threshold for your `row_count`.  See [section Tresholds](#thr
 `must_...` threshold configurations.
 ```yaml
 dataset: CUSTOMERS
-columns:
-  - ...
 checks:
   # Verify that the row count is between 100 and 120
   - type: row_count
@@ -84,9 +80,9 @@ which makes it easy.
 ```yaml
 dataset: CUSTOMERS
 columns:
-- name: id
-  checks:
-  - type: no_missing_values
+  - name: id
+    checks:
+      - type: no_missing_values
 ```
 
 Example: Use check type `missing_count` to configure a different threshold with one of the `must_...` configurations.
@@ -95,10 +91,10 @@ This check verifies there are less than 10 NULL values in CUSTOMERS.id
 ```yaml
 dataset: CUSTOMERS
 columns:
-- name: id
-  checks:
-  - type: missing_count
-    must_be_less_than: 10
+  - name: id
+    checks:
+      - type: missing_count
+        must_be_less_than: 10
 ```
 
 Example: Customize the values considered missing with `missing_values`. This check verifies there are no missing values
@@ -108,10 +104,10 @@ as missing so that does not have to be specified in the list.
 ```yaml
 dataset: CUSTOMERS
 columns:
-- name: id
-  checks:
-  - type: no_missing_values
-    missing_values: ['N/A', 'No value']
+  - name: id
+    checks:
+      - type: no_missing_values
+        missing_values: ['N/A', 'No value']
 ```
 
 Example: Configure optional `missing_regex`.  This check verifies there are no missing values in CUSTOMERS.id where
@@ -121,15 +117,15 @@ dialect of your SQL-engine.
 ```yaml
 dataset: CUSTOMERS
 columns:
-- name: id
-  checks:
-  - type: no_missing_values
-    missing_regex: '^[# -]+$'
+  - name: id
+    checks:
+      - type: no_missing_values
+        missing_regex: '^[# -]+$'
 ```
 
 Missing values also can have the [common check properties](#common-check-properties)
 
-### Invalid values checks
+### Validity checks
 
 | Missing check type | Threshold requirement                          | Check fails when                                                                                         |
 |--------------------|------------------------------------------------|----------------------------------------------------------------------------------------------------------|
@@ -164,23 +160,22 @@ The check will fail if there is a value for `size` is not missing (NULL by defau
 ```yaml
 dataset: CUSTOMERS
 columns:
-- name: size
-  checks:
-  - type: no_invalid_values
-    valid_values: ['S', 'M', 'L']
+  - name: size
+    checks:
+      - type: no_invalid_values
+        valid_values: ['S', 'M', 'L']
 ```
 
-Example checking the validity of a SQL regex check. The regex is directly used in the SQL query so it has to
-match the dialect of your SQL-engine.
+Example check verifies the validity of a SQL using a regular expression. The regex is directly used in the SQL 
+query so it has to match the dialect of your SQL-engine.
 
 ```yaml
 dataset: CUSTOMERS
 columns:
-- name: id
-  checks:
-  # Fail when there are values not matching a SQL regex
-  - type: invalid_count
-    valid_regex: '^ID.$'
+  - name: id
+    checks:
+      - type: invalid_count
+        valid_regex: '^ID.$'
 ```
 
 Example of a check that verifies that each value is between certain range of values.  This check assumes the column has a
@@ -192,12 +187,12 @@ met for a value to be valid.  So in other words: `AND` logic is applied.
 ```yaml
 dataset: CUSTOMERS
 columns:
-- name: market_share_pct
-  checks:
-  - type: invalid_count
-    valid_min: 0
-    valid_max: 100
-    must_be_less_than: 1000
+  - name: market_share_pct
+    checks:
+      - type: invalid_count
+        valid_min: 0
+        valid_max: 100
+        must_be_less_than: 1000
 ```
 
 Example of valid length checks as a range.  This check verifies that values have a length between a min and max length.
@@ -206,11 +201,11 @@ The min and max boundary values are considered ok.
 ```yaml
 dataset: CUSTOMERS
 columns:
-- name: comment
-  checks:
-  - type: invalid_count
-    valid_min_length: 1
-    valid_max_length: 144
+  - name: comment
+    checks:
+      - type: no_invalid_values
+        valid_min_length: 1
+        valid_max_length: 144
 ```
 
 Example of a check verifying that each value has a fixed length of 5. This assumes the column is a text or other type that supports
@@ -219,13 +214,15 @@ the `length(...)` SQL function.
 ```yaml
 dataset: CUSTOMERS
 columns:
-- name: id
-  checks:
-  - type: invalid_count
-    valid_length: 5
+  - name: id
+    checks:
+      - type: no_invalid_values
+        valid_length: 5
 ```
 
-Example of a reference check, (aka referential integrity, foreign key).
+Example of a reference data validity check. This counts all values that occur in the 
+column and that do not occur in the `valid_values_reference_data` column. This is also 
+known as referential integrity or foreign key check.
 
 > Performance tip: This check is a bit special in the senses that it requires a separate query. Other validity
 > checks are expressions that are combined in a single query for performance.  That's not possible for the
@@ -234,13 +231,12 @@ Example of a reference check, (aka referential integrity, foreign key).
 ```yaml
 dataset: CUSTOMERS
 columns:
-- name: category_id
-  checks:
-  # Fail when there are values not occuring in another column of another dataset
-  - type: invalid_count
-    valid_values_reference_data:
-      dataset: CUSTOMER_CATEGORIES
-      column: id
+ - name: category_id
+   checks:
+     - type: no_invalid_values
+       valid_values_reference_data:
+         dataset: CUSTOMER_CATEGORIES
+         column: id
 ```
 
 Example of combing missing & invalid. Soda's contract engine is cleverly separating the missing values from the
@@ -250,11 +246,11 @@ the sum of missing values + invalid values + valid values adds up to the row cou
 ```yaml
 dataset: CUSTOMERS
 columns:
-- name: size
-  checks:
-  - type: invalid_count
-    missing_values: ['N/A']
-    valid_values: ['S', 'M', 'L']
+  - name: size
+    checks:
+      - type: no_invalid_values
+        missing_values: ['N/A']
+        valid_values: ['S', 'M', 'L']
 ```
 
 Even more clever, Soda's parser leverages any previous missing and valid configurations for subsequent checks.
@@ -269,15 +265,15 @@ check.
 ```yaml
 dataset: CUSTOMERS
 columns:
-- name: size
-  checks:
-  - type: no_missing_values
-    missing_values: ['N/A']
-  - type: no_invalid_values
-    valid_values: ['S', 'M', 'L']
+  - name: size
+    checks:
+      - type: no_missing_values
+        missing_values: ['N/A']
+      - type: no_invalid_values
+        valid_values: ['S', 'M', 'L']
 ```
 
-### Duplicate check
+### Duplicate / uniqueness checks
 
 This is also known as uniqueness checks.  In the Soda contract language, for consistently, we only use the notion of counting
 duplicates instead of uniqueness.  That allows for ranges that allow flexibility to relax the uniqueness constraint in cases
@@ -294,9 +290,9 @@ This example shows a simple uniqueness check
 ```yaml
 dataset: CUSTOMERS
 columns:
-- name: id
-  checks:
-  - type: no_duplicate_values
+  - name: id
+    checks:
+      - type: no_duplicate_values
 ```
 
 Example of a check specifying a threshold on the `duplicate_count`
@@ -304,10 +300,10 @@ Example of a check specifying a threshold on the `duplicate_count`
 ```yaml
 dataset: CUSTOMERS
 columns:
-- name: id
-  checks:
-  - type: duplicate_count
-    must_be_less_than: 10
+  - name: id
+    checks:
+      - type: duplicate_count
+        must_be_less_than: 10
 ```
 
 Example of a check specifying a threshold on the `duplicate_percent`
@@ -315,13 +311,24 @@ Example of a check specifying a threshold on the `duplicate_percent`
 ```yaml
 dataset: CUSTOMERS
 columns:
-- name: id
-  checks:
-  - type: duplicate_percent
-    must_be_less_than: 1
+  - name: id
+    checks:
+      - type: duplicate_percent
+        must_be_less_than: 1
 ```
 
-### Freshness check
+The next example shows a multi columns duplicates / uniqueness check.  In this case the check has to be specified
+on the dataset level.  The 3 check types `no_duplicate_count`, `duplicate_count` and `duplicate_percent` all support
+the `columns` key on the dataset level.  
+
+```yaml
+dataset: CUSTOMERS
+checks:
+  - type: no_duplicate_count
+    columns: ['country_code', 'zip']
+```
+
+### Freshness checks
 
 Checks if there are rows indicating recent data has been added.  It assumes there is a column that represents a timestamp like
 an event time or so.  The check looks for the maximum value in the column and verifies if that maximum value is not older than
@@ -338,8 +345,8 @@ Example freshness check
 ```yaml
 dataset: CUSTOMERS
 checks:
-    - type: freshness_in_hours
-      must_be_less_than: 6
+  - type: freshness_in_hours
+    must_be_less_than: 6
 ```
 
 ### Basic SQL aggregation checks
@@ -349,33 +356,16 @@ Example of check verifying that the average of column `size` must be between 10 
 ```yaml
 dataset: CUSTOMERS
 columns:
-- name: size
-  checks:
-  - type: avg
-    must_be_between: [10, 20]
+  - name: size
+    checks:
+      - type: avg
+        must_be_between: [10, 20]
 ```
 
 | Numeric SQL aggregation check types |
 |-------------------------------------|
 | `type: avg`                         |
 | `type: sum`                         |
-
-### Multi-column duplicates check
-
-This is another form of uniqueness check.
-
-For single column duplicates / uniqueness checks, see [Duplicate check](#duplicate-check)
-
-Example of a multi columns duplicates check
-
-```yaml
-dataset: CUSTOMERS
-columns:
-- ...
-checks:
-- type: multi_column_duplicates
-  columns: ['country_code', 'zip']
-```
 
 ### User defined SQL checks
 
@@ -384,28 +374,26 @@ Example of a user-defined SQL expression check
 ```yaml
 dataset: CUSTOMERS
 columns:
-- name: country
-  checks:
-  - type: sql_expression
-    metric: us_count
-    metric_sql_expression: COUNT(CASE WHEN country = 'US' THEN 1 END)
-    fail_when_not_between: [100, 120]
+  - name: country
+    checks:
+      - type: sql_expression
+        metric: us_count
+        metric_sql_expression: COUNT(CASE WHEN country = 'US' THEN 1 END)
+        fail_when_not_between: [100, 120]
 ```
 
 Example of a user-defined SQL query check
 
 ```yaml
 dataset: CUSTOMERS
-columns:
-- ...
 checks:
-- type: user_defined_sql
-  metric: us_count
-  query: |
-    SELECT COUNT(*)
-    FROM {table_name}
-    WHERE country = 'US'
-  fail_when_between: [0, 5]
+  - type: user_defined_sql
+    metric: us_count
+    query: |
+        SELECT COUNT(*)
+        FROM {table_name}
+        WHERE country = 'US'
+    must_be_between: [0, 5]
 ```
 
 ### Filter
@@ -424,7 +412,7 @@ columns:
   - name: created
 checks:
   - type: row_count
-    fail_when_less_than: 10
+    must_be_greater_than: 10
 ```
 
 ### Thresholds

@@ -172,8 +172,6 @@ class ContractParser:
         if check_type is None:
             return None
 
-        parse_check_function = None
-
         if check_type in ["no_missing_values", "missing_count", "missing_percent"]:
             parse_check_function = self._parse_column_check_missing
         elif check_type in ["no_invalid_values", "invalid_count", "invalid_percent"]:
