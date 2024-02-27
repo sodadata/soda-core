@@ -50,8 +50,8 @@ checks:
   - type: rows_exist
 ```
 
-Example: Specify a threshold for your `row_count`.  See [section Tresholds](#thresholds) to see all other 
-`must_...` threshold configurations.   
+Example: Specify a threshold for your `row_count`.  See [section Tresholds](#thresholds) to see all other
+`must_...` threshold configurations.
 ```yaml
 dataset: CUSTOMERS
 columns:
@@ -62,8 +62,8 @@ checks:
     must_be_between: [100, 120]
 ```
 
-> Tip: If you have configured the JSON schema in your YAML editor, you can start typing key `must_` in the 
-> check and use code completion to find the right syntax of the [threshold](#thresholds) you want. 
+> Tip: If you have configured the JSON schema in your YAML editor, you can start typing key `must_` in the
+> check and use code completion to find the right syntax of the [threshold](#thresholds) you want.
 
 Missing values also can have the [common check properties](#common-check-properties)
 
@@ -78,7 +78,7 @@ There are 3 missing check types:
 | missing_percent    | At least one `must_...` [threshold](#thresholds) key required | The percentage of missing values relative to the total row count does not exceed the specified threshold |
 
 Example: Easy not-null check type. `no_missing_values` is a short version of missing_count must be zero.
-This check verifies that there are no NULL values in CUSTOMERS.id.  There is no need to specify a must_... threshold, 
+This check verifies that there are no NULL values in CUSTOMERS.id.  There is no need to specify a must_... threshold,
 which makes it easy.
 
 ```yaml
@@ -89,7 +89,7 @@ columns:
   - type: no_missing_values
 ```
 
-Example: Use check type `missing_count` to configure a different threshold with one of the `must_...` configurations. 
+Example: Use check type `missing_count` to configure a different threshold with one of the `must_...` configurations.
 This check verifies there are less than 10 NULL values in CUSTOMERS.id
 
 ```yaml
@@ -101,8 +101,8 @@ columns:
     must_be_less_than: 10
 ```
 
-Example: Customize the values considered missing with `missing_values`. This check verifies there are no missing values 
-in CUSTOMERS.id where NULL, `'N/A'` and `'No value'` are considered missing values.  `NULL` is always considered 
+Example: Customize the values considered missing with `missing_values`. This check verifies there are no missing values
+in CUSTOMERS.id where NULL, `'N/A'` and `'No value'` are considered missing values.  `NULL` is always considered
 as missing so that does not have to be specified in the list.
 
 ```yaml
@@ -114,8 +114,8 @@ columns:
     missing_values: ['N/A', 'No value']
 ```
 
-Example: Configure optional `missing_regex`.  This check verifies there are no missing values in CUSTOMERS.id where 
-missing values are specified with a SQL regex. The regex is directly used in the SQL query so it has to match the 
+Example: Configure optional `missing_regex`.  This check verifies there are no missing values in CUSTOMERS.id where
+missing values are specified with a SQL regex. The regex is directly used in the SQL query so it has to match the
 dialect of your SQL-engine.
 
 ```yaml
@@ -155,11 +155,11 @@ Validity checks always require a validity configuration.  The complete list of v
 | `invalid_format`              |
 | `invalid_regex`               |
 
-> Tip: If you have configured the JSON schema in your YAML editor, you can start typing keys `valid` in the 
-> check and use code completion to find the right syntax of these validity configurations 
+> Tip: If you have configured the JSON schema in your YAML editor, you can start typing keys `valid` in the
+> check and use code completion to find the right syntax of these validity configurations
 
 This first example shows the simplest and most common invalid check type with a configured list of valid values.
-The check will fail if there is a value for `size` is not missing (NULL by default) and not in the given list.  
+The check will fail if there is a value for `size` is not missing (NULL by default) and not in the given list.
 
 ```yaml
 dataset: CUSTOMERS
@@ -170,7 +170,7 @@ columns:
     valid_values: ['S', 'M', 'L']
 ```
 
-Example checking the validity of a SQL regex check. The regex is directly used in the SQL query so it has to 
+Example checking the validity of a SQL regex check. The regex is directly used in the SQL query so it has to
 match the dialect of your SQL-engine.
 
 ```yaml
@@ -183,11 +183,11 @@ columns:
     valid_regex: '^ID.$'
 ```
 
-Example of a check that verifies that each value is between certain range of values.  This check assumes the column has a 
+Example of a check that verifies that each value is between certain range of values.  This check assumes the column has a
 numeric data type. The min and max boundary values are considered ok.
 
 Here we see an example of combining multiple validity configurations.  **All** the specified validity configurations have to be
-met for a value to be valid.  So in other words: `AND` logic is applied. 
+met for a value to be valid.  So in other words: `AND` logic is applied.
 
 ```yaml
 dataset: CUSTOMERS
@@ -213,8 +213,8 @@ columns:
     valid_max_length: 144
 ```
 
-Example of a check verifying that each value has a fixed length of 5. This assumes the column is a text or other type that supports 
-the `length(...)` SQL function. 
+Example of a check verifying that each value has a fixed length of 5. This assumes the column is a text or other type that supports
+the `length(...)` SQL function.
 
 ```yaml
 dataset: CUSTOMERS
@@ -225,10 +225,10 @@ columns:
     valid_length: 5
 ```
 
-Example of a reference check, (aka referential integrity, foreign key). 
+Example of a reference check, (aka referential integrity, foreign key).
 
-> Performance tip: This check is a bit special in the senses that it requires a separate query. Other validity 
-> checks are expressions that are combined in a single query for performance.  That's not possible for the 
+> Performance tip: This check is a bit special in the senses that it requires a separate query. Other validity
+> checks are expressions that are combined in a single query for performance.  That's not possible for the
 > reference data check.
 
 ```yaml
@@ -243,8 +243,8 @@ columns:
       column: id
 ```
 
-Example of combing missing & invalid. Soda's contract engine is cleverly separating the missing values from the 
-computation of the invalid values.  It ensures that missing values are not double counted as invalid values and that 
+Example of combing missing & invalid. Soda's contract engine is cleverly separating the missing values from the
+computation of the invalid values.  It ensures that missing values are not double counted as invalid values and that
 the sum of missing values + invalid values + valid values adds up to the row count.
 
 ```yaml
@@ -258,10 +258,10 @@ columns:
 ```
 
 Even more clever, Soda's parser leverages any previous missing and valid configurations for subsequent checks.
-In the next example, the `no_invalid_values` check will leverage the `missing_values` configuration from the previous 
-check.  
+In the next example, the `no_invalid_values` check will leverage the `missing_values` configuration from the previous
+check.
 
-> Detail: In the (unlikely) case that there are multiple missing checks with missing values configs, they are 
+> Detail: In the (unlikely) case that there are multiple missing checks with missing values configs, they are
 > overriding (not merging). Last one wins.
 
 > Caveat: This ignoring of missing values probably doesn't work when using 'valid_values_reference_data' configuration
@@ -279,9 +279,9 @@ columns:
 
 ### Duplicate check
 
-This is also known as uniqueness checks.  In the Soda contract language, for consistently, we only use the notion of counting 
-duplicates instead of uniqueness.  That allows for ranges that allow flexibility to relax the uniqueness constraint in cases 
-where that is applicable. 
+This is also known as uniqueness checks.  In the Soda contract language, for consistently, we only use the notion of counting
+duplicates instead of uniqueness.  That allows for ranges that allow flexibility to relax the uniqueness constraint in cases
+where that is applicable.
 
 | Missing check type  | Threshold requirement                                           | Check fails when                                                                                           |
 |---------------------|-----------------------------------------------------------------|------------------------------------------------------------------------------------------------------------|
@@ -362,9 +362,9 @@ columns:
 
 ### Multi-column duplicates check
 
-This is another form of uniqueness check. 
+This is another form of uniqueness check.
 
-For single column duplicates / uniqueness checks, see [Duplicate check](#duplicate-check) 
+For single column duplicates / uniqueness checks, see [Duplicate check](#duplicate-check)
 
 Example of a multi columns duplicates check
 
@@ -442,11 +442,11 @@ Some check types have default thresholds.  If you do want to specify a threshold
 | `must_be_between`                  | List of 2 numbers | `must_be_between: [0, 100]`             |
 | `must_be_not_between`              | List of 2 numbers | `must_be_not_between: [0, 100]`         |
 
-> Tip: If you have configured the JSON schema in your YAML editor, you can start typing key `must_` in the 
-> check and use code completion to find the right syntax of the [threshold](#thresholds) you want. 
+> Tip: If you have configured the JSON schema in your YAML editor, you can start typing key `must_` in the
+> check and use code completion to find the right syntax of the [threshold](#thresholds) you want.
 
-When specifying ranges with `must_be_between` boundaries values are considered ok. In the example below, 
-`row_count`s of 100 and 120 both will pass. 
+When specifying ranges with `must_be_between` boundaries values are considered ok. In the example below,
+`row_count`s of 100 and 120 both will pass.
 
 ```yaml
 dataset: CUSTOMERS
@@ -455,8 +455,8 @@ checks:
     must_be_between: [100, 120]
 ```
 
-When specifying ranges with `must_be_not_between` boundaries values are considered not ok. In the example below, 
-`row_count`s of 0 and 120 will both fail. 
+When specifying ranges with `must_be_not_between` boundaries values are considered not ok. In the example below,
+`row_count`s of 0 and 120 will both fail.
 
 ```yaml
 dataset: CUSTOMERS
