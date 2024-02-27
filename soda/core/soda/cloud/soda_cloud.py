@@ -214,6 +214,14 @@ class SodaCloud(Cloud):
 
         return []
 
+    def get_check_identities(self, check_id: str) -> dict:
+        payload = {"type": "sodaCoreCheckIdentities", "checkId": check_id}
+
+        return self._execute_query(
+            payload,
+            query_name="get_check_identity",
+        )
+
     def _get_historic_changes_over_time(self, hd: HistoricChangeOverTimeDescriptor):
         query = {
             "type": "sodaCoreHistoricMeasurements",
