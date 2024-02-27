@@ -166,7 +166,7 @@ columns:
         valid_values: ['S', 'M', 'L']
 ```
 
-Example check verifies the validity of a SQL using a regular expression. The regex is directly used in the SQL 
+Example check verifies the validity of a SQL using a regular expression. The regex is directly used in the SQL
 query so it has to match the dialect of your SQL-engine.
 
 ```yaml
@@ -220,8 +220,8 @@ columns:
         valid_length: 5
 ```
 
-Example of a reference data validity check. This counts all values that occur in the 
-column and that do not occur in the `valid_values_reference_data` column. This is also 
+Example of a reference data validity check. This counts all values that occur in the
+column and that do not occur in the `valid_values_reference_data` column. This is also
 known as referential integrity or foreign key check.
 
 > Performance tip: This check is a bit special in the senses that it requires a separate query. Other validity
@@ -319,7 +319,7 @@ columns:
 
 The next example shows a multi columns duplicates / uniqueness check.  In this case the check has to be specified
 on the dataset level.  The 3 check types `no_duplicate_count`, `duplicate_count` and `duplicate_percent` all support
-the `columns` key on the dataset level.  
+the `columns` key on the dataset level.
 
 ```yaml
 dataset: CUSTOMERS

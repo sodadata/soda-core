@@ -5,8 +5,9 @@ from soda.execution.data_type import DataType
 from soda.contracts.contract import (
     CheckOutcome,
     ContractResult,
+    DuplicateCheck,
     NumericMetricCheck,
-    NumericMetricCheckResult, DuplicateCheck,
+    NumericMetricCheckResult,
 )
 
 contracts_duplicate_test_table = TestTable(
