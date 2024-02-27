@@ -41,17 +41,17 @@ See the examples below for more schema features like optional columns and allowi
 
 ### Row count check
 
-Example: Simplest row count check
+Example: Simplest row count check. This dataset level check verifies at least 1 row exists.
 ```yaml
 dataset: CUSTOMERS
 columns:
   - ...
 checks:
-  # Verify that at least1 row exist
   - type: rows_exist
 ```
 
-Example: Row count check with a range
+Example: Specify a threshold for your `row_count`.  See [section Tresholds](#thresholds) to see all other 
+`must_...` threshold configurations.   
 ```yaml
 dataset: CUSTOMERS
 columns:
@@ -62,62 +62,67 @@ checks:
     must_be_between: [100, 120]
 ```
 
-See [Thresholds](#thresholds) for more on specifying failure thresholds and ranges.
+> Tip: If you have configured the JSON schema in your YAML editor, you can start typing key `must_` in the 
+> check and use code completion to find the right syntax of the [threshold](#thresholds) you want. 
 
 Missing values also can have the [common check properties](#common-check-properties)
-
 
 ### Missing values checks
 
 There are 3 missing check types:
 
-| Missing check type | Threshold requirement                          | Check fails when                                                                                         |
-|--------------------|------------------------------------------------|----------------------------------------------------------------------------------------------------------|
-| no_missing_values  | No `must_...` threshold keys allowed           | There are missing values                                                                                 |
-| missing_count      | At least one `must_...` threshold key required | The number of missing values does not exceed to the specified threshold                                  |
-| missing_percent    | At least one `must_...` threshold key required | The percentage of missing values relative to the total row count does not exceed the specified threshold |
+| Missing check type | Threshold requirement                                         | Check fails when                                                                                         |
+|--------------------|---------------------------------------------------------------|----------------------------------------------------------------------------------------------------------|
+| no_missing_values  | No `must_...` threshold keys allowed                          | There are missing values                                                                                 |
+| missing_count      | At least one `must_...` [threshold](#thresholds) key required | The number of missing values does not exceed to the specified threshold                                  |
+| missing_percent    | At least one `must_...` [threshold](#thresholds) key required | The percentage of missing values relative to the total row count does not exceed the specified threshold |
 
-Example: simplest not-null check. `no_missing_values` is a short version of missing_count must be zero.
+Example: Easy not-null check type. `no_missing_values` is a short version of missing_count must be zero.
+This check verifies that there are no NULL values in CUSTOMERS.id.  There is no need to specify a must_... threshold, 
+which makes it easy.
+
 ```yaml
 dataset: CUSTOMERS
 columns:
 - name: id
   checks:
-  # Verify that there are no NULL values in CUSTOMERS.id
   - type: no_missing_values
 ```
 
-Example: configure optional threshold
+Example: Use check type `missing_count` to configure a different threshold with one of the `must_...` configurations. 
+This check verifies there are less than 10 NULL values in CUSTOMERS.id
+
 ```yaml
 dataset: CUSTOMERS
 columns:
 - name: id
   checks:
-  # Verify there are less than 10 NULL values in CUSTOMERS.id
   - type: missing_count
     must_be_less_than: 10
 ```
 
-Example: configure optional missing_values list
+Example: Customize the values considered missing with `missing_values`. This check verifies there are no missing values 
+in CUSTOMERS.id where NULL, `'N/A'` and `'No value'` are considered missing values.  `NULL` is always considered 
+as missing so that does not have to be specified in the list.
+
 ```yaml
 dataset: CUSTOMERS
 columns:
 - name: id
   checks:
-  # Verify there are no missing values in CUSTOMERS.id where NULL, `'N/A'` and `'No value'` are considered missing values.
   - type: no_missing_values
     missing_values: ['N/A', 'No value']
 ```
 
-When specifying missing values, keep in mind that NULL is always considered a missing value.
+Example: Configure optional `missing_regex`.  This check verifies there are no missing values in CUSTOMERS.id where 
+missing values are specified with a SQL regex. The regex is directly used in the SQL query so it has to match the 
+dialect of your SQL-engine.
 
-Example: configure optional missing_regex
 ```yaml
 dataset: CUSTOMERS
 columns:
 - name: id
   checks:
-  # Verify there are no missing values in CUSTOMERS.id where missing values are specified with a SQL regex
   - type: no_missing_values
     missing_regex: '^[# -]+$'
 ```
@@ -132,59 +137,42 @@ Missing values also can have the [common check properties](#common-check-propert
 | invalid_count      | At least one `must_...` threshold key required | The number of invalid values does not exceed to the specified threshold                                  |
 | invalid_percent    | At least one `must_...` threshold key required | The percentage of invalid values relative to the total row count does not exceed the specified threshold |
 
-Validity checks always need a validity configuration
-like in this case a list of `valid_values`.
+Validity checks always require a validity configuration.  The complete list of validity configurations is
 
-Multiple validity configurations can be combined.  All the specified validity configurations have to be
-met for a value to be valid.  So in other words: `AND` logic is applied.
+| Validity configuration key    |
+|-------------------------------|
+| `valid_values`                |
+| `valid_values`                |
+| `valid_format`                |
+| `valid_regex`                 |
+| `valid_min`                   |
+| `valid_max`                   |
+| `valid_length`                |
+| `valid_min_length`            |
+| `valid_max_length`            |
+| `valid_values_reference_data` |
+| `invalid_values`              |
+| `invalid_format`              |
+| `invalid_regex`               |
+
+> Tip: If you have configured the JSON schema in your YAML editor, you can start typing keys `valid` in the 
+> check and use code completion to find the right syntax of these validity configurations 
+
+This first example shows the simplest and most common invalid check type with a configured list of valid values.
+The check will fail if there is a value for `size` is not missing (NULL by default) and not in the given list.  
 
 ```yaml
 dataset: CUSTOMERS
 columns:
 - name: size
   checks:
-  # Fail when there are values not in the given list of valid values
   - type: no_invalid_values
     valid_values: ['S', 'M', 'L']
 ```
 
-Example of valid min-max checks.  This assumes the column has a numeric data type.
-```yaml
-dataset: CUSTOMERS
-columns:
-- name: market_share_pct
-  checks:
-  # Fail when there are values not between the min and max value
-  - type: invalid_count
-    valid_min: 0
-    valid_max: 100
-    must_be_less_than: 1000
-```
+Example checking the validity of a SQL regex check. The regex is directly used in the SQL query so it has to 
+match the dialect of your SQL-engine.
 
-Example of valid length checks as a range
-```yaml
-dataset: CUSTOMERS
-columns:
-- name: comment
-  checks:
-  # Fail when there are values not between the min and max length
-  - type: invalid_count
-    valid_min_length: 1
-    valid_max_length: 144
-```
-
-Example of a fixed valid length check
-```yaml
-dataset: CUSTOMERS
-columns:
-- name: id
-  checks:
-  # Fail when there are values not a fixed length of 5
-  - type: invalid_count
-    valid_length: 5
-```
-
-Example of a valid SQL regex check
 ```yaml
 dataset: CUSTOMERS
 columns:
@@ -195,7 +183,54 @@ columns:
     valid_regex: '^ID.$'
 ```
 
-Example of a reference check, (aka referential integrity, foreign key)
+Example of a check that verifies that each value is between certain range of values.  This check assumes the column has a 
+numeric data type. The min and max boundary values are considered ok.
+
+Here we see an example of combining multiple validity configurations.  **All** the specified validity configurations have to be
+met for a value to be valid.  So in other words: `AND` logic is applied. 
+
+```yaml
+dataset: CUSTOMERS
+columns:
+- name: market_share_pct
+  checks:
+  - type: invalid_count
+    valid_min: 0
+    valid_max: 100
+    must_be_less_than: 1000
+```
+
+Example of valid length checks as a range.  This check verifies that values have a length between a min and max length.
+The min and max boundary values are considered ok.
+
+```yaml
+dataset: CUSTOMERS
+columns:
+- name: comment
+  checks:
+  - type: invalid_count
+    valid_min_length: 1
+    valid_max_length: 144
+```
+
+Example of a check verifying that each value has a fixed length of 5. This assumes the column is a text or other type that supports 
+the `length(...)` SQL function. 
+
+```yaml
+dataset: CUSTOMERS
+columns:
+- name: id
+  checks:
+  - type: invalid_count
+    valid_length: 5
+```
+
+Example of a reference check, (aka referential integrity, foreign key). 
+
+> Performance tip: This check is a bit special in the senses that it requires a separate query. Other validity 
+> checks are expressions that are combined in a single query for performance.  That's not possible for the 
+> reference data check.
+
 ```yaml
 dataset: CUSTOMERS
 columns:
@@ -203,40 +238,87 @@ columns:
   checks:
   # Fail when there are values not occuring in another column of another dataset
   - type: invalid_count
-    valid_values_column:
-        dataset: CUSTOMER_CATEGORIES
-        column: id
+    valid_values_reference_data:
+      dataset: CUSTOMER_CATEGORIES
+      column: id
 ```
 
-Example of combing missing & invalid:
+Example of combing missing & invalid. Soda's contract engine is cleverly separating the missing values from the 
+computation of the invalid values.  It ensures that missing values are not double counted as invalid values and that 
+the sum of missing values + invalid values + valid values adds up to the row count.
+
 ```yaml
 dataset: CUSTOMERS
 columns:
 - name: size
   checks:
-  # In case there are missing value customizations (apart from NULL, which is always missing)...
-  - type: missing
-    missing_values: ['N/A']
-  # The invalid values check will ignore the missing values.  This is to ensure that
-  # missing_count + invalid_count + valid_count = row_count
   - type: invalid_count
+    missing_values: ['N/A']
     valid_values: ['S', 'M', 'L']
 ```
-Caveats:
-* Ensure that the missing check and missing configuration is declared * before * the invalid check
-* In the (unlikely) case that there are multiple missing checks with missing values configs, they are overriding (not merging). Last one wins.
-* This ignoring of missing values probably doesn't work when using valid_values_column configuration
 
-### Uniqueness check
+Even more clever, Soda's parser leverages any previous missing and valid configurations for subsequent checks.
+In the next example, the `no_invalid_values` check will leverage the `missing_values` configuration from the previous 
+check.  
 
-Example of the simplest uniqueness check
+> Detail: In the (unlikely) case that there are multiple missing checks with missing values configs, they are 
+> overriding (not merging). Last one wins.
+
+> Caveat: This ignoring of missing values probably doesn't work when using 'valid_values_reference_data' configuration
+
+```yaml
+dataset: CUSTOMERS
+columns:
+- name: size
+  checks:
+  - type: no_missing_values
+    missing_values: ['N/A']
+  - type: no_invalid_values
+    valid_values: ['S', 'M', 'L']
+```
+
+### Duplicate check
+
+This is also known as uniqueness checks.  In the Soda contract language, for consistently, we only use the notion of counting 
+duplicates instead of uniqueness.  That allows for ranges that allow flexibility to relax the uniqueness constraint in cases 
+where that is applicable. 
+
+| Missing check type  | Threshold requirement                                           | Check fails when                                                                                           |
+|---------------------|-----------------------------------------------------------------|------------------------------------------------------------------------------------------------------------|
+| no_duplicate_values | No `must_...` threshold keys allowed                            | There are duplicate values                                                                                 |
+| duplicate_count     | At least one `must_...` [threshold](#thresdholds) key required  | The number of duplicate values does not exceed to the specified threshold                                  |
+| duplicate_percent   | At least one `must_...` [threshold](#thresdholds) key required  | The percentage of duplicate values relative to the total row count does not exceed the specified threshold |
+
+This example shows a simple uniqueness check
+
 ```yaml
 dataset: CUSTOMERS
 columns:
 - name: id
   checks:
-  # Fail when there are duplicates
+  - type: no_duplicate_values
+```
+
+Example of a check specifying a threshold on the `duplicate_count`
+
+```yaml
+dataset: CUSTOMERS
+columns:
+- name: id
+  checks:
   - type: duplicate_count
+    must_be_less_than: 10
+```
+
+Example of a check specifying a threshold on the `duplicate_percent`
+
+```yaml
+dataset: CUSTOMERS
+columns:
+- name: id
+  checks:
+  - type: duplicate_percent
+    must_be_less_than: 1
 ```
 
 ### Freshness check
@@ -245,31 +327,32 @@ Checks if there are rows indicating recent data has been added.  It assumes ther
 an event time or so.  The check looks for the maximum value in the column and verifies if that maximum value is not older than
 a given threshold time period.
 
-Example
-```yaml
-dataset: CUSTOMERS
-checks:
-    - type: freshness_in_hours
-      fail_when_greater_than: 6
-```
-
 | All freshness check types    |
 |------------------------------|
 | `type: freshness_in_days`    |
 | `type: freshness_in_hours`   |
 | `type: freshness_in_minutes` |
 
+Example freshness check
+
+```yaml
+dataset: CUSTOMERS
+checks:
+    - type: freshness_in_hours
+      must_be_less_than: 6
+```
+
 ### Basic SQL aggregation checks
 
-Exmple of an average check
+Example of check verifying that the average of column `size` must be between 10 and 20
+
 ```yaml
 dataset: CUSTOMERS
 columns:
 - name: size
   checks:
-  # Fail when the average is not between 10 and 20
   - type: avg
-    fail_when_not_between: [10, 20]
+    must_be_between: [10, 20]
 ```
 
 | Numeric SQL aggregation check types |
@@ -278,6 +361,10 @@ columns:
 | `type: sum`                         |
 
 ### Multi-column duplicates check
+
+This is another form of uniqueness check. 
+
+For single column duplicates / uniqueness checks, see [Duplicate check](#duplicate-check) 
 
 Example of a multi columns duplicates check
 
@@ -355,7 +442,50 @@ Some check types have default thresholds.  If you do want to specify a threshold
 | `must_be_between`                  | List of 2 numbers | `must_be_between: [0, 100]`             |
 | `must_be_not_between`              | List of 2 numbers | `must_be_not_between: [0, 100]`         |
 
-TODO explain the how to do in/exclusions in case of ranges
+> Tip: If you have configured the JSON schema in your YAML editor, you can start typing key `must_` in the 
+> check and use code completion to find the right syntax of the [threshold](#thresholds) you want. 
+
+When specifying ranges with `must_be_between` boundaries values are considered ok. In the example below, 
+`row_count`s of 100 and 120 both will pass. 
+
+```yaml
+dataset: CUSTOMERS
+checks:
+  - type: row_count
+    must_be_between: [100, 120]
+```
+
+When specifying ranges with `must_be_not_between` boundaries values are considered not ok. In the example below, 
+`row_count`s of 0 and 120 will both fail. 
+
+```yaml
+dataset: CUSTOMERS
+checks:
+  - type: row_count
+    must_be_not_between: [0, 120]
+```
+
+To tweak the inclusion of boundary values, use a combination of the less than and greater than keys.
+
+The next example check passes if the avg < 100 or avg >= 200. In this case, values outside the range are ok.
+
+```yaml
+dataset: CUSTOMERS
+checks:
+  - type: avg
+    must_be_less_than: 100
+    must_be_greater_than_or_equal_to: 200
+```
+
+The next example check passes if 100 <= avg < 200. In this case, values inside the range are ok.
+
+```yaml
+dataset: CUSTOMERS
+checks:
+  - type: avg
+    must_be_greater_than_or_equal_to: 100
+    must_be_less_than: 200
+```
 
 ### Common check properties
 
