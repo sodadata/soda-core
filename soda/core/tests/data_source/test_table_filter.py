@@ -11,12 +11,14 @@ def test_filter_on_date(data_source_fixture: DataSourceFixture):
     cst_dist_table_name = data_source_fixture.ensure_test_table(customers_dist_check_test_table)
 
     scan = data_source_fixture.create_test_scan()
-    scan.add_variables({"DATE": "2020-06-23"})
+    scan.add_variables(
+        {"DATE_LOWER": "2020-06-23", "DATE_UPPER": "2020-06-24"}
+    )  # use DATE_LOWER and DATE_UPPER to avoid issues with dask
     date_expr = "" if test_data_source == "sqlserver" else "DATE"
     scan.add_sodacl_yaml_str(
         f"""
           filter {table_name} [daily]:
-            where: date_updated = {date_expr} '${{DATE}}'
+            where: date_updated >= {date_expr} "${{DATE_LOWER}}" AND date_updated < {date_expr} "${{DATE_UPPER}}"
 
           checks for {table_name}:
             - row_count = 10
@@ -35,11 +37,13 @@ def test_filter_on_date(data_source_fixture: DataSourceFixture):
     scan.assert_all_checks_pass()
 
     scan = data_source_fixture.create_test_scan()
-    scan.add_variables({"date": "2020-06-24"})
+    scan.add_variables(
+        {"DATE_LOWER": "2020-06-24", "DATE_UPPER": "2020-06-25"}
+    )  # use DATE_LOWER and DATE_UPPER to avoid issues with dask
     scan.add_sodacl_yaml_str(
         f"""
           filter {table_name} [daily]:
-            where: date_updated = {date_expr} '${{date}}'
+            where: date_updated >= {date_expr} "${{DATE_LOWER}}" AND date_updated < {date_expr} "${{DATE_UPPER}}"
 
           checks for {table_name}:
             - row_count = 10

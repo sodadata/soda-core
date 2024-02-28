@@ -165,9 +165,6 @@ def assert_format_values(format, data_source_fixture: DataSourceFixture, table_n
     expressions_sql = ",\n  ".join(expressions)
     sql = f"SELECT \n  {expressions_sql} FROM {qualified_table_name}"
     row = data_source_fixture._fetch_all(sql)[0]
-    if test_data_source == "dask":
-        # Parse string boolean values to boolean.
-        row = [value == "True" for value in row]
 
     failures_messages = []
     for index, expected_value in enumerate(expected_values):
