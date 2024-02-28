@@ -353,6 +353,12 @@ class ProphetDetector(BaseDetector):
 
         # check whether y value is an integer
         is_real_value_always_integer = time_series_df["y"].dropna().apply(self._is_integer).all()
+
+        # If all values are same like 0.0, then we can't assume that the value is always integer
+        # Check whether the values are not always the same
+        if is_real_value_always_integer:
+            is_real_value_always_integer = time_series_df["y"].dropna().nunique() > 1
+
         lower_bound, upper_bound = self.get_upper_and_lower_bounds(predictions_df=predictions_df)
 
         if is_real_value_always_integer:
