@@ -78,7 +78,11 @@ class DaskDataSource(DataSource):
         super().__init__(logs, data_source_name, data_source_properties)
         self.context: Context = data_source_properties.get("context")
         self.context.register_function(
-            self.nullif_custom, "nullif_custom", [("regex_pattern", str)], str, row_udf=False
+            self.nullif_custom,
+            "nullif_custom",
+            [("selected_column", str), ("null_replacement", str)],
+            str,
+            row_udf=False,
         )
         self.context.register_function(
             self.regexp_like,
@@ -96,7 +100,7 @@ class DaskDataSource(DataSource):
         self.context.register_function(
             self.regexp_replace_custom,
             "regexp_replace_custom",
-            [("regex_pattern", str), ("replacement_pattern", str), ("flags", str)],
+            [("selected_column", str), ("regex_pattern", str), ("replacement_pattern", str), ("flags", str)],
             str,
             row_udf=False,
         )
