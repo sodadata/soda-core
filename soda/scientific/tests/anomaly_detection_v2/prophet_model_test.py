@@ -74,8 +74,8 @@ def test_with_weekly_seasonality_feedback(check_results: dict) -> None:
     feedback_processor = FeedbackProcessor(params=PARAMS, df_historic=df_historic, logs=LOGS)
     has_exogenous_regressor, df_feedback_processed = feedback_processor.get_processed_feedback_df()
     assert has_exogenous_regressor == True
-    assert df_feedback_processed.columns.tolist() == ["y", "ds", "skipMeasurements", "external_regressor"]
-    assert np.round(df_feedback_processed["external_regressor"].values[0], 4) == pytest.approx(-0.8325)
+    assert "external_regressor_weekly" in df_feedback_processed.columns
+    assert df_feedback_processed["external_regressor_weekly"].tolist() == [1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0]
 
     detector = ProphetDetector(
         logs=LOGS,
@@ -89,12 +89,12 @@ def test_with_weekly_seasonality_feedback(check_results: dict) -> None:
 
     anomalies_df, freq_detection_result = detector.run()
     assert anomalies_df.level.values[0] == "warn"
-    assert np.round(anomalies_df.yhat.values[0], 3) == pytest.approx(-0.692)
+    assert np.round(anomalies_df.yhat.values[0], 3) == pytest.approx(-0.803)
     assert np.round(anomalies_df.real_data.values[0], 3) == pytest.approx(14.237)
-    assert np.round(anomalies_df.critical_greater_than_or_equal.values[0], 3) == pytest.approx(14.241)
-    assert np.round(anomalies_df.critical_lower_than_or_equal.values[0], 3) == pytest.approx(-15.101)
-    assert np.round(anomalies_df.warning_greater_than_or_equal.values[0], 3) == pytest.approx(11.796)
-    assert np.round(anomalies_df.warning_lower_than_or_equal.values[0], 3) == pytest.approx(-12.655)
+    assert np.round(anomalies_df.critical_greater_than_or_equal.values[0], 3) == pytest.approx(14.491)
+    assert np.round(anomalies_df.critical_lower_than_or_equal.values[0], 3) == pytest.approx(-15.559)
+    assert np.round(anomalies_df.warning_greater_than_or_equal.values[0], 3) == pytest.approx(11.987)
+    assert np.round(anomalies_df.warning_lower_than_or_equal.values[0], 3) == pytest.approx(-13.054)
     assert freq_detection_result.inferred_frequency == "D"
     assert freq_detection_result.freq_detection_strategy == "native_freq"
 
