@@ -4,6 +4,7 @@ from abc import ABC, abstractmethod
 
 import pandas as pd
 from soda.common.logs import Logs
+
 from soda.scientific.anomaly_detection_v2.globals import EXTERNAL_REGRESSOR_COLUMNS
 from soda.scientific.anomaly_detection_v2.pydantic_models import FreqDetectionResult
 
