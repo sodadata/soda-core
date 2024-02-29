@@ -4,7 +4,7 @@ from abc import ABC, abstractmethod
 
 import pandas as pd
 from soda.common.logs import Logs
-
+from soda.scientific.anomaly_detection_v2.globals import EXTERNAL_REGRESSOR_COLUMNS
 from soda.scientific.anomaly_detection_v2.pydantic_models import FreqDetectionResult
 
 
@@ -39,13 +39,9 @@ class BaseDetector(ABC):
         if "skipMeasurements" in columns:
             time_series_df = self.handle_skip_measurements(time_series_df)
 
-        # Remove unnecessary columns
-        if "external_regressor" in columns:
-            time_series_df = time_series_df[["ds", "y", "external_regressor"]]
-            time_series_df["external_regressor"] = time_series_df["external_regressor"].fillna(0)
-        else:
-            time_series_df = time_series_df[["ds", "y"]]
-        time_series_df = time_series_df.reset_index(drop=True)
+        available_regressor_columns = [col for col in columns if col in EXTERNAL_REGRESSOR_COLUMNS]
+        filtered_columns = ["ds", "y"] + available_regressor_columns
+        time_series_df = time_series_df[filtered_columns].reset_index(drop=True)
         return time_series_df
 
     def handle_skip_measurements(self, time_series_df: pd.DataFrame) -> pd.DataFrame:

@@ -73,3 +73,25 @@ MANUAL_FREQUENCY_MAPPING = {
     "A": "A (yearly end)",
     "AS": "AS (yearly start)",
 }
+
+FEEDBACK_REASONS = {
+    "expectedWeeklySeasonality": {
+        "internal_remap": "weekly_seasonality",
+        "frequency_unit": "W",
+        "frequency_value": 1,
+    },
+    "expectedMonthlySeasonality": {
+        "internal_remap": "monthly_seasonality",
+        "frequency_unit": "M",
+        "frequency_value": 1,
+    },
+    "expectedYearlySeasonality": {
+        "internal_remap": "yearly_seasonality",
+        "frequency_unit": "Y",
+        "frequency_value": 1,
+    },
+}
+
+EXTERNAL_REGRESSOR_COLUMNS = ["external_regressor_weekly", "external_regressor_monthly", "external_regressor_yearly"]
+
+REQUIRED_FEEDBACK_COLUMNS = ["ds", "y", "skipMeasurements"]

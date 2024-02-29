@@ -10,40 +10,10 @@ from typing import Any, Dict, Optional, Tuple
 
 import pandas as pd
 from soda.common.logs import Logs
-
-FEEDBACK_REASONS = {
-    "expectedDailySeasonality": {
-        "internal_remap": "daily_seasonality",
-        "frequency_unit": "D",
-        "frequency_value": 1,
-    },
-    "expectedWeeklySeasonality": {
-        "internal_remap": "weekly_seasonality",
-        "frequency_unit": "W",
-        "frequency_value": 1,
-    },
-    "expectedMonthlySeasonality": {
-        "internal_remap": "monthly_seasonality",
-        "frequency_unit": "M",
-        "frequency_value": 1,
-    },
-    "expectedYearlySeasonality": {
-        "internal_remap": "yearly_seasonality",
-        "frequency_unit": "Y",
-        "frequency_value": 1,
-    },
-}
-
-
-WEEK_ANCHORED_OFFSETS = {
-    "Monday": "MON",
-    "Tuesday": "TUE",
-    "Wednesday": "WED",
-    "Thursday": "THU",
-    "Friday": "FRI",
-    "Saturday": "SAT",
-    "Sunday": "SUN",
-}
+from soda.scientific.anomaly_detection_v2.globals import (
+    EXTERNAL_REGRESSOR_COLUMNS,
+    FEEDBACK_REASONS,
+)
 
 
 class FeedbackProcessor:
@@ -57,15 +27,15 @@ class FeedbackProcessor:
 
     def get_processed_feedback_df(self) -> Tuple[bool, pd.DataFrame]:
         has_feedback = self.check_feedback()
-        has_exegonenous_regressor = False
+        has_external_regressor = False
         if has_feedback:
             df_feedback_processed: pd.DataFrame = self.process_feedback()
-            has_exegonenous_regressor, df_feedback_processed = self.derive_exogenous_regressor(
+            has_external_regressor, df_feedback_processed = self.derive_external_regressor(
                 df_feedback_processed=df_feedback_processed
             )
         else:
             df_feedback_processed = self.df_historic.copy()
-        return has_exegonenous_regressor, df_feedback_processed
+        return has_external_regressor, df_feedback_processed
 
     def check_feedback(self) -> bool:
         df = self.df_historic.copy()
@@ -110,67 +80,157 @@ class FeedbackProcessor:
             return False
         return None
 
-    def derive_exogenous_regressor(self, df_feedback_processed: pd.DataFrame) -> Tuple[bool, pd.DataFrame]:
-        has_exegonenous_regressor = False
-        feedback_ref_mapping = pd.DataFrame.from_dict(FEEDBACK_REASONS, orient="index").reset_index()
+    def derive_external_regressor(self, df_feedback_processed: pd.DataFrame) -> Tuple[bool, pd.DataFrame]:
+        df_feedback_processed = df_feedback_processed.copy()
+        df_misclassifications = self.get_misclassified_anomalies_df(df_feedback_processed=df_feedback_processed)
+        if df_misclassifications.empty:
+            has_external_regressor = False
+            return has_external_regressor, df_feedback_processed
 
-        df_feedback_processed["predicted_to_real_delta"] = (
-            df_feedback_processed["y"] - df_feedback_processed["anomaly_predicted_value"]
+        today = date.today()
+        df_weekly_offsets = self.handle_weekly_seasonality_offsets(
+            df_misclassifications=df_misclassifications, today=today
         )
-        df_regressor_ref = df_feedback_processed.loc[
-            df_feedback_processed["is_correctly_classified_anomaly"] == False
-        ]  # noqa: E712
-        self._logs.debug(f"Processing {len(df_regressor_ref)} user feedbacks")
-        df_regressor_ref = df_regressor_ref.merge(feedback_ref_mapping, how="left", left_on="reason", right_on="index")
 
-        # grab the day of the week
-        df_regressor_ref["day_of_week"] = df_regressor_ref["ds"].dt.day_name()
-        df_regressor_ref = df_regressor_ref.replace({"day_of_week": WEEK_ANCHORED_OFFSETS})
+        df_monthly_offsets = self.handle_monthly_seasonality_offsets(
+            df_misclassifications=df_misclassifications, today=today
+        )
 
-        # for each row in the ref table
-        # build a date_range with start as misclass and end as today using frequency unit + DAY (if "W").
-        offsets = pd.DataFrame()
-        df_regressor_ref["ds"] = df_regressor_ref["ds"].dt.tz_localize(None)
-        if not df_regressor_ref.empty:
-            for _, misclassification in df_regressor_ref.iterrows():
-                _offsets = pd.date_range(
-                    misclassification["ds"],
-                    date.today(),
-                    freq=f'W-{misclassification["day_of_week"]}',
-                    normalize=True,
-                )
-                _offsets = _offsets.to_frame(index=False, name="exg_reg_date")
-                _offsets["delta"] = misclassification["predicted_to_real_delta"]
-                _offsets["misclassification_start"] = misclassification["ds"]
-                _offsets["chosen_reason"] = misclassification["reason"]
-                _offsets["normalised_date"] = pd.to_datetime(misclassification["ds"]).normalize()
+        df_yearly_offsets = self.handle_yearly_seasonality_offsets(
+            df_misclassifications=df_misclassifications, today=today
+        )
 
-                # concat and join to main table.
-                offsets = offsets.append(_offsets)  # type: ignore
-            # Consider only weekly feedback # TODO: enable the other ones later.
-            offsets = offsets.loc[offsets["chosen_reason"] == "expectedWeeklySeasonality"]
+        df_feedback_processed = self.join_external_regressor_offsets(
+            df_feedback_processed=df_feedback_processed,
+            df_weekly_offsets=df_weekly_offsets,
+            df_monthly_offsets=df_monthly_offsets,
+            df_yearly_offsets=df_yearly_offsets,
+        )
+        has_external_regressor = True
 
-            # join the offsets to the main table on offset date
-            df_feedback_processed["normalised_date_left"] = df_feedback_processed["ds"].dt.normalize()
+        return has_external_regressor, df_feedback_processed
+
+    def join_external_regressor_offsets(
+        self,
+        df_feedback_processed: pd.DataFrame,
+        df_weekly_offsets: pd.DataFrame,
+        df_monthly_offsets: pd.DataFrame,
+        df_yearly_offsets: pd.DataFrame,
+    ) -> pd.DataFrame:
+        df_feedback_processed = df_feedback_processed.copy().reset_index(drop=True)
+        df_feedback_processed["normalised_date"] = df_feedback_processed["ds"].dt.normalize()
+
+        if not df_weekly_offsets.empty:
             df_feedback_processed = df_feedback_processed.merge(
-                offsets,
-                how="left",
-                left_on="normalised_date_left",
-                right_on="exg_reg_date",
+                df_weekly_offsets, how="left", left_on="normalised_date", right_on="external_regressor_date"
             )
 
-            # drop columns we do not want anymore
-            feedback_processor_params = self._params["feedback_processor_params"]["output_columns"]
-            df_feedback_processed = df_feedback_processed[
-                df_feedback_processed.columns[
-                    df_feedback_processed.columns.isin(list(feedback_processor_params.keys()))
-                ]
-            ]
-            # rename columns
-            df_feedback_processed = df_feedback_processed.rename(columns=feedback_processor_params)
-            has_exegonenous_regressor = True
+        if not df_monthly_offsets.empty:
+            df_feedback_processed = df_feedback_processed.merge(
+                df_monthly_offsets, how="left", left_on="normalised_date", right_on="external_regressor_date"
+            )
 
-            # fill nas with 0s? # TODO: We might want to revisit this if 0s mess the non
-            # feedbacked data points because the model tries to learn too much from it
-            df_feedback_processed.loc[df_feedback_processed["external_regressor"].isnull(), "external_regressor"] = 0
-        return has_exegonenous_regressor, df_feedback_processed
+        if not df_yearly_offsets.empty:
+            df_feedback_processed = df_feedback_processed.merge(
+                df_yearly_offsets, how="left", left_on="normalised_date", right_on="external_regressor_date"
+            )
+        available_regressor_columns = [
+            col for col in df_feedback_processed.columns if col in EXTERNAL_REGRESSOR_COLUMNS
+        ]
+        df_feedback_processed[available_regressor_columns] = df_feedback_processed[available_regressor_columns].fillna(
+            0
+        )
+        return df_feedback_processed
+
+    def get_misclassified_anomalies_df(self, df_feedback_processed: pd.DataFrame) -> pd.DataFrame:
+        allowed_seasonality_reasons = list(FEEDBACK_REASONS.keys())
+        df_misclassifications = df_feedback_processed.loc[
+            df_feedback_processed["reason"].isin(allowed_seasonality_reasons)
+        ]
+        df_misclassifications = df_misclassifications.loc[
+            df_misclassifications["is_correctly_classified_anomaly"] == False
+        ]
+
+        df_misclassifications_mapping = pd.DataFrame.from_dict(FEEDBACK_REASONS, orient="index").reset_index()
+        df_misclassifications = df_misclassifications.merge(
+            df_misclassifications_mapping, how="left", left_on="reason", right_on="index"
+        )
+        df_misclassifications["ds"] = df_misclassifications["ds"].dt.tz_localize(None)
+        return df_misclassifications
+
+    def handle_weekly_seasonality_offsets(self, df_misclassifications: pd.DataFrame, today: date) -> pd.DataFrame:
+        df_weekly_seasonality = (
+            df_misclassifications.loc[df_misclassifications["reason"] == "expectedWeeklySeasonality"]
+            .copy()
+            .reset_index(drop=True)
+        )
+
+        if df_weekly_seasonality.empty:
+            return pd.DataFrame()
+
+        df_weekly_seasonality["day_of_week"] = df_weekly_seasonality["ds"].dt.day_name().str[:3].str.upper()
+        offsets = pd.Series(dtype="datetime64[ns]")
+        for _, row in df_weekly_seasonality.iterrows():
+            offsets_for_single_misclassification = pd.date_range(
+                row["ds"],
+                today,
+                freq="W-" + str(row["day_of_week"]),
+                normalize=True,
+            )
+            offsets = pd.concat([offsets, pd.Series(offsets_for_single_misclassification)], ignore_index=True)  # type: ignore
+        df_weekly_offsets = offsets.to_frame(name="external_regressor_date")
+        df_weekly_offsets["external_regressor_date"] = df_weekly_offsets["external_regressor_date"].dt.normalize()
+        df_weekly_offsets["external_regressor_weekly"] = 1
+        return df_weekly_offsets
+
+    def handle_monthly_seasonality_offsets(self, df_misclassifications: pd.DataFrame, today: date) -> pd.DataFrame:
+        df_monthly_seasonality = (
+            df_misclassifications.loc[df_misclassifications["reason"] == "expectedMonthlySeasonality"]
+            .copy()
+            .reset_index(drop=True)
+        )
+
+        if df_monthly_seasonality.empty:
+            return pd.DataFrame()
+
+        offsets = pd.Series(dtype="datetime64[ns]")
+        for _, row in df_monthly_seasonality.iterrows():
+            offsets_for_single_misclassification = pd.date_range(
+                row["ds"], today, freq="MS", normalize=True, inclusive="left"
+            )
+            offset_days = row["ds"].day - 1
+            offsets_for_single_misclassification = offsets_for_single_misclassification + pd.DateOffset(
+                days=offset_days
+            )  # type: ignore
+            # Append row["ds"] to the list of offsets if it is not already present
+            normalized_ds = row["ds"].normalize()
+            if normalized_ds not in offsets_for_single_misclassification:
+                offsets_for_single_misclassification = pd.DatetimeIndex([normalized_ds]).append(
+                    offsets_for_single_misclassification
+                )
+            offsets = pd.concat([offsets, pd.Series(offsets_for_single_misclassification)], ignore_index=True)  # type: ignore
+        df_monthly_offsets = offsets.to_frame(name="external_regressor_date")
+        df_monthly_offsets["external_regressor_date"] = df_monthly_offsets["external_regressor_date"].dt.normalize()
+        df_monthly_offsets["external_regressor_monthly"] = 1
+        return df_monthly_offsets
+
+    def handle_yearly_seasonality_offsets(self, df_misclassifications: pd.DataFrame, today: date) -> pd.DataFrame:
+        df_yearly_seasonality = (
+            df_misclassifications.loc[df_misclassifications["reason"] == "expectedYearlySeasonality"]
+            .copy()
+            .reset_index(drop=True)
+        )
+
+        if df_yearly_seasonality.empty:
+            return pd.DataFrame()
+
+        offsets = pd.Series(dtype="datetime64[ns]")
+        for _, row in df_yearly_seasonality.iterrows():
+            offsets_for_single_misclassification = [
+                row["ds"] + pd.DateOffset(years=i) for i in range(today.year - row["ds"].year + 1)
+            ]
+            offsets = pd.concat([offsets, pd.Series(offsets_for_single_misclassification)], ignore_index=True)
+        df_yearly_offsets = offsets.to_frame(name="external_regressor_date")
+        df_yearly_offsets["external_regressor_date"] = df_yearly_offsets["external_regressor_date"].dt.normalize()
+        df_yearly_offsets["external_regressor_yearly"] = 1
+        return df_yearly_offsets
