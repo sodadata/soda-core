@@ -4,6 +4,7 @@ import logging
 import re
 from textwrap import dedent
 
+import dask_sql
 import numpy as np
 import pandas as pd
 from dask.dataframe.core import Series
@@ -77,21 +78,29 @@ class DaskDataSource(DataSource):
         super().__init__(logs, data_source_name, data_source_properties)
         self.context: Context = data_source_properties.get("context")
         self.context.register_function(
-            self.nullif_custom, "nullif_custom", [("regex_pattern", str)], str, row_udf=False
+            self.nullif_custom,
+            "nullif_custom",
+            [("selected_column", str), ("null_replacement", str)],
+            str,
+            row_udf=False,
         )
         self.context.register_function(
             self.regexp_like,
             "regexp_like",
             [("x", np.dtype("object")), ("regex_pattern", np.dtype("object"))],
-            np.dtype("object"),
+            return_type=np.bool_,
             row_udf=False,
             replace=True,
         )
-        self.context.register_function(self.length, "length", [("x", np.dtype("object"))], np.int32)
+
+        # Length function is not available in dask-sql version <2023.8.0, add it.
+        if dask_sql.__version__ < "2023.8.0":
+            self.context.register_function(self.length, "length", [("x", np.dtype("object"))], np.int32)
+
         self.context.register_function(
             self.regexp_replace_custom,
             "regexp_replace_custom",
-            [("regex_pattern", str), ("replacement_pattern", str), ("flags", str)],
+            [("selected_column", str), ("regex_pattern", str), ("replacement_pattern", str), ("flags", str)],
             str,
             row_udf=False,
         )
@@ -188,6 +197,8 @@ class DaskDataSource(DataSource):
 
         # Due to a bug in dask-sql we cannot use uppercases in column names
         dd_show_tables.columns = ["table"]
+        # dask-sql started to setting the table column as float from some version, enforce it to be string
+        dd_show_tables["table"] = dd_show_tables["table"].astype(str)
 
         self.context.create_table("showtables", dd_show_tables)
 
@@ -330,7 +341,7 @@ class DaskDataSource(DataSource):
         }
 
     @staticmethod
-    def regexp_like(value: str | Series, regex_pattern: str) -> int:
+    def regexp_like(value: str | Series, regex_pattern: str) -> bool:
         if isinstance(value, str):
             if re.match(regex_pattern, value):
                 return True
