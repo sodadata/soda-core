@@ -1,32 +1,24 @@
 dataset: CUSTOMERS
-
-owner: johndow@example.com
-
-pii_category: very sensitive
-
 columns:
-
   - name: id
     data_type: VARCHAR
     checks:
-      - type: no_missing
-      - type: no_duplicates
-
+      - type: no_missing_values
+      - type: no_duplicate_values
   - name: size
-    data_type: VARCHAR
     checks:
       - type: invalid_count
         valid_values: ['S', 'M', 'L']
         must_be_less_than: 10
-
+  - name: created
+    checks:
+      - type: freshness_in_hours
+        must_be_less_than: 6
   - name: distance
     checks:
-      - type: no_invalid
-        valid_min: 0
-        valid_max: 1000
-
-  - name: created
-    optional: true
-
+      - type: metric_sql_expression
+        metric: us_avg_distance
+        expression: AVG(CASE WHEN country = 'US' THEN distance END)
+        must_be_between: [10, 20]
 checks:
-  - type: row_count
+  - type: rows_required

@@ -53,7 +53,6 @@ Example: Specify a threshold for your `row_count`.  See [section Tresholds](#thr
 ```yaml
 dataset: CUSTOMERS
 checks:
-  # Verify that the row count is between 100 and 120
   - type: row_count
     must_be_between: [100, 120]
 ```

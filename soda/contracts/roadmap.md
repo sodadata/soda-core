@@ -1,7 +1,7 @@
 # Roadmap
 
 ### Next TODOs
-* [ ] Update docs
+* [ ] Clean up file extensions
 * [ ] Add failed rows query support
 * [ ] Enforce uniqueness in parser of qualified metric names
 * [ ] Test Soda Cloud link
