@@ -113,9 +113,7 @@ class Connection:
             logs = Logs()
 
         if not isinstance(connection_yaml_str, str):
-            logs.error(
-                f"Expected a string for parameter connection_yaml_str, but was '{type(connection_yaml_str)}'"
-            )
+            logs.error(f"Expected a string for parameter connection_yaml_str, but was '{type(connection_yaml_str)}'")
 
         if connection_yaml_str == "":
             logs.error("connection_yaml_str must be non-emtpy, but was ''")
