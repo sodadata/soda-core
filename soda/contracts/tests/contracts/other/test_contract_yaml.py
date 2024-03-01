@@ -4,7 +4,7 @@ from contracts.helpers.test_connection import TestConnection
 
 def test_contract_without_dataset(test_connection: TestConnection):
     contract_result = test_connection.assert_contract_error(
-        f"""
+        """
         columns:
           - name: id
           - name: size

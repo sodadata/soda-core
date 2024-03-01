@@ -1193,12 +1193,12 @@ class SodaCLParser(Parser):
                         schema_validations.optional_columns = with_optional_columns
                     else:
                         self.logs.error(
-                            f'"with optional columns" must be a list of strings',
+                            message='"with optional columns" must be a list of strings',
                             location=self.location,
                         )
             elif validations_dict.get(WITH_OPTIONAL_COLUMNS):
                 self.logs.error(
-                    f'"with optional columns" is only allowed together with "when mismatching columns"',
+                    message='"with optional columns" is only allowed together with "when mismatching columns"',
                     location=self.location,
                 )
 
