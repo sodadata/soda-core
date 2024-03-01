@@ -3,7 +3,7 @@
 from setuptools import find_namespace_packages, setup
 
 package_name = "soda-core-scientific"
-package_version = "3.1.5"
+package_version = "3.2.2"
 description = "Soda Core Scientific Package"
 requires = [
     f"soda-core=={package_version}",
@@ -19,7 +19,11 @@ requires = [
     "prophet>=1.1.5,<2.0.0",
 ]
 
-# TODO Fix the params
+simulator_deps = [
+    "streamlit>=1.30.0,<2.0.0",
+    "plotly>=5.18.0",
+]
+
 setup(
     name=package_name,
     version=package_version,
@@ -27,5 +31,9 @@ setup(
     packages=find_namespace_packages(include=["soda*"]),
     package_data={
         "": ["detector_config.yaml"],
+        "soda.scientific.anomaly_detection_v2.simulate": ["assets/*"],
+    },
+    extras_require={
+        "simulator": simulator_deps,
     },
 )

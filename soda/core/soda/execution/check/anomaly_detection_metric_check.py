@@ -95,24 +95,18 @@ class AnomalyDetectionMetricCheck(MetricCheck):
         level, diagnostics = anomaly_detector.evaluate()
         assert isinstance(diagnostics, dict), f"Anomaly diagnostics should be a dict. Got a {type(diagnostics)} instead"
 
-        if diagnostics["anomalyErrorCode"] == "not_enough_measurements":
-            self.add_outcome_reason(
-                outcome_type=diagnostics["anomalyErrorCode"],
-                message="Anomaly detection needs at least 4 measurements",
-                severity=diagnostics["anomalyErrorSeverity"],
-            )
-            self.diagnostics = diagnostics
+        self.add_outcome_reason(
+            outcome_type=diagnostics["anomalyErrorCode"],
+            message=diagnostics["anomalyErrorMessage"],
+            severity=diagnostics["anomalyErrorSeverity"],
+        )
+        self.diagnostics = diagnostics
+
+        if diagnostics["anomalyErrorCode"] == "not_enough_measurements_custom":
             if self.diagnostics["value"] is None:
                 self.diagnostics["value"] = self.get_metric_value()
             return
         self.outcome = CheckOutcome(level)
-        self.diagnostics = diagnostics
-        if diagnostics["anomalyErrorSeverity"] in ["warn", "error"]:
-            self.add_outcome_reason(
-                outcome_type=diagnostics["anomalyErrorCode"],
-                message=diagnostics["anomalyErrorMessage"],
-                severity=diagnostics["anomalyErrorSeverity"],
-            )
 
     def get_historic_measurements(
         self, metrics: dict[str, Metric], historic_values: dict[str, dict[str, Any]]
@@ -127,16 +121,15 @@ class AnomalyDetectionMetricCheck(MetricCheck):
             historic_measurements["results"] = []
 
         # Append current results
+        local_data_time = self.data_source_scan.scan._data_timestamp
+        utc_data_time = local_data_time.astimezone(timezone.utc)
+        utc_data_time_str = utc_data_time.strftime("%Y-%m-%dT%H:%M:%SZ")
         historic_measurements.get("results", []).append(
             {
                 "id": "dummy_id",  # Placeholder number that will be overwritten
                 "identity": metrics[metric_name].identity,
                 "value": self.get_metric_value(),
-                "dataTime": (
-                    self.data_source_scan.scan._data_timestamp.replace(tzinfo=timezone.utc).strftime(
-                        "%Y-%m-%dT%H:%M:%SZ"
-                    )
-                ),
+                "dataTime": utc_data_time_str,
             }
         )
         return historic_measurements

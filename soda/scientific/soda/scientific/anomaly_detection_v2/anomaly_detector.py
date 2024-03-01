@@ -181,7 +181,7 @@ class AnomalyDetector:
                 "anomalyPredictedValue": None,
                 "anomalyErrorSeverity": freq_detection_result.error_severity,
                 "anomalyErrorCode": freq_detection_result.error_code,
-                "amomalyErrorMessage": freq_detection_result.error_message,
+                "anomalyErrorMessage": freq_detection_result.error_message,
             }
 
         diagnostics_dict: Dict[str, Any] = AnomalyDiagnostics.model_validate(diagnostics).model_dump()

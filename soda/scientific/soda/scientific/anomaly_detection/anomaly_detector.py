@@ -25,7 +25,7 @@ class UserFeedback(BaseModel):
 
     @field_validator("skipMeasurements")
     @classmethod
-    def check_accepted_values_skip_measurements(cls, v):
+    def check_accepted_values_skip_measurements(cls, v: Optional[str]) -> Optional[str]:
         accepted_values = ["this", "previous", "previousAndThis", None]
         assert v in accepted_values, f"skip_measurements must be one of {accepted_values}, but '{v}' was provided."
         return v

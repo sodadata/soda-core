@@ -5,6 +5,7 @@ from abc import ABC, abstractmethod
 import pandas as pd
 from soda.common.logs import Logs
 
+from soda.scientific.anomaly_detection_v2.globals import EXTERNAL_REGRESSOR_COLUMNS
 from soda.scientific.anomaly_detection_v2.pydantic_models import FreqDetectionResult
 
 
@@ -29,12 +30,22 @@ class BaseDetector(ABC):
 
     def preprocess(self, time_series_df: pd.DataFrame) -> pd.DataFrame:
         """Eliminates measurements that are labelled as skipped by users."""
-        if "skipMeasurements" not in time_series_df.columns:
-            return time_series_df
-
         time_series_df = time_series_df.sort_values(by="ds", ascending=True)
         time_series_df = time_series_df.reset_index(drop=True)
+        columns = time_series_df.columns
+        # Handle if anomaly is detected correctly with the feedback
+        if "is_correctly_classified_anomaly" in columns:
+            time_series_df.loc[time_series_df["is_correctly_classified_anomaly"] == True, "y"] = None
 
+        if "skipMeasurements" in columns:
+            time_series_df = self.handle_skip_measurements(time_series_df)
+
+        available_regressor_columns = [col for col in columns if col in EXTERNAL_REGRESSOR_COLUMNS]
+        filtered_columns = ["ds", "y"] + available_regressor_columns
+        time_series_df = time_series_df[filtered_columns].reset_index(drop=True)
+        return time_series_df
+
+    def handle_skip_measurements(self, time_series_df: pd.DataFrame) -> pd.DataFrame:
         skip_measurements = time_series_df["skipMeasurements"].tolist()
         # Handle previousAndThis
         if "previousAndThis" in skip_measurements:
@@ -57,15 +68,6 @@ class BaseDetector(ABC):
             # Set y to NaN if we skip this measurement, it is the recommended way by the Prophet documentation
             # see https://facebook.github.io/prophet/docs/outliers
             time_series_df.loc[time_series_df["skipMeasurements"] == "this", "y"] = None
-
-        time_series_df = time_series_df.reset_index(drop=True)
-
-        # Remove unnecessary columns
-        if "external_regressor" in time_series_df.columns:
-            time_series_df = time_series_df[["ds", "y", "external_regressor"]]
-            time_series_df["external_regressor"] = time_series_df["external_regressor"].fillna(0)
-        else:
-            time_series_df = time_series_df[["ds", "y"]]
         return time_series_df
 
     def remove_big_gaps_from_time_series(

@@ -5,7 +5,10 @@ from typing import Any
 import pandas as pd
 from soda.common.logs import Logs
 
-from soda.scientific.anomaly_detection_v2.globals import DETECTOR_MESSAGES
+from soda.scientific.anomaly_detection_v2.globals import (
+    DETECTOR_MESSAGES,
+    MANUAL_FREQUENCY_MAPPING,
+)
 from soda.scientific.anomaly_detection_v2.pydantic_models import FreqDetectionResult
 from soda.scientific.anomaly_detection_v2.utils import (
     get_not_enough_measurements_freq_result,
@@ -32,7 +35,9 @@ class FrequencyDetector:
                 error_code_int=DETECTOR_MESSAGES["manual_freq"].error_code_int,
                 error_code=DETECTOR_MESSAGES["manual_freq"].error_code_str,
                 error_severity=DETECTOR_MESSAGES["manual_freq"].severity,
-                error_message=DETECTOR_MESSAGES["manual_freq"].log_message,
+                error_message=DETECTOR_MESSAGES["manual_freq"].log_message.format(
+                    frequency=MANUAL_FREQUENCY_MAPPING.get(self.manual_freq, self.manual_freq)
+                ),
             )
         self.logs.debug("Anomaly Detection: Frequency is set to 'auto' and will be detected automatically")
         _df = self.time_series_df.copy()
@@ -103,7 +108,7 @@ class FrequencyDetector:
                         f"Anomaly Detection Insufficient Training Data Warning: "
                         "Due to the aggregation of the historical check results into daily frequency, "
                         f"{original_number_of_points} data points were reduced to {len(_df)} data points."
-                        " The model requires a minimum of 4 historical measurements."
+                        " The model requires a minimum of 5 historical measurements."
                     )
                     return freq_result
         # we take the last 4 data points. Try to get a freq on that.

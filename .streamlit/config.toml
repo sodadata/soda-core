@@ -1,0 +1,6 @@
+[theme]
+primaryColor = "#00D891"  # Primary color
+backgroundColor = "#F5F7F7"  # Background color
+# secondaryBackgroundColor = "#00D891"  # Color for the sidebar and other secondary backgrounds
+textColor = "#262730"  # Primary text color
+font = "sans serif"  # Font style (e.g., "sans serif", "serif", "monospace")

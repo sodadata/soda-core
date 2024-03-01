@@ -29,8 +29,8 @@ from soda.scientific.anomaly_detection_v2.exceptions import (
 )
 from soda.scientific.anomaly_detection_v2.frequency_detector import FrequencyDetector
 from soda.scientific.anomaly_detection_v2.globals import (
-    DETECTOR_MESSAGES,
     ERROR_CODE_LEVEL_CUTTOFF,
+    EXTERNAL_REGRESSOR_COLUMNS,
 )
 from soda.scientific.anomaly_detection_v2.models.base import BaseDetector
 from soda.scientific.anomaly_detection_v2.pydantic_models import FreqDetectionResult
@@ -172,6 +172,8 @@ class ProphetDetector(BaseDetector):
         try:
             aggregated_df = pd.DataFrame(df.resample(frequency).agg(aggregation_function))
             aggregated_df = aggregated_df.reset_index()
+            if "external_regressor" in df.columns:
+                aggregated_df["external_regressor"] = aggregated_df["external_regressor"].fillna(value=0)
         except AttributeError:
             raise AggregationValueError(
                 f"Anomaly Detection: Aggregation function '{aggregation_function}' is not supported. "
@@ -299,11 +301,13 @@ class ProphetDetector(BaseDetector):
                     "The list of supported countries can be found here: "
                     "https://github.com/vacanza/python-holidays/"
                 )
-        if "external_regressor" in time_series_df:
-            self.logs.info(
-                "Anomaly Detection: Found a custom external_regressor derived from user feedback and adding it to Prophet model"
-            )
-            model = model.add_regressor("external_regressor", mode="multiplicative")
+        available_regressor_columns = [col for col in time_series_df.columns if col in EXTERNAL_REGRESSOR_COLUMNS]
+        if len(available_regressor_columns) > 0:
+            for regressor_column in available_regressor_columns:
+                model = model.add_regressor(regressor_column, mode="multiplicative")
+                self.logs.info(
+                    f"Anomaly Detection: Found a custom {regressor_column} derived from user feedback and adding it to Prophet model"
+                )
         else:
             self.logs.debug("Anomaly Detection: No external_regressor/user feedback found")
         # Set seed to get reproducible results
@@ -354,6 +358,12 @@ class ProphetDetector(BaseDetector):
 
         # check whether y value is an integer
         is_real_value_always_integer = time_series_df["y"].dropna().apply(self._is_integer).all()
+
+        # If all values are same like 0.0, then we can't assume that the value is always integer
+        # Check whether the values are not always the same
+        if is_real_value_always_integer:
+            is_real_value_always_integer = time_series_df["y"].dropna().nunique() > 1
+
         lower_bound, upper_bound = self.get_upper_and_lower_bounds(predictions_df=predictions_df)
 
         if is_real_value_always_integer:
