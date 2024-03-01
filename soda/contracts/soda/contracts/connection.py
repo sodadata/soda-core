@@ -78,8 +78,8 @@ class Connection:
                     f"Couldn't create connection from yaml file. Expected str in parameter "
                     f"connection_yaml_file_path={connection_yaml_file_path}, but was '{type(connection_yaml_file_path)}"
                 )
-            elif not len(connection_yaml_file_path) > 1:
-                logs.error(f"Couldn't create connection from yaml file. connection_yaml_file_path is an empty string")
+            elif len(connection_yaml_file_path) <= 1:
+                logs.error("Couldn't create connection from yaml file. connection_yaml_file_path is an empty string")
             else:
                 with open(file=connection_yaml_file_path) as f:
                     connection_yaml_str = f.read()
@@ -114,11 +114,11 @@ class Connection:
 
         if not isinstance(connection_yaml_str, str):
             logs.error(
-                f"Expected a string for parameter connection_yaml_str, " f"but was '{type(connection_yaml_str)}'"
+                f"Expected a string for parameter connection_yaml_str, but was '{type(connection_yaml_str)}'"
             )
 
         if connection_yaml_str == "":
-            logs.error(f"connection_yaml_str must be non-emtpy, but was ''")
+            logs.error("connection_yaml_str must be non-emtpy, but was ''")
 
         try:
             variable_resolver = VariableResolver(variables=variables, logs=logs)
@@ -132,7 +132,7 @@ class Connection:
             connection_dict = yaml.load(resolved_connection_yaml_str)
             if not isinstance(connection_dict, dict):
                 logs.error(
-                    f"Content of the connection YAML file must be a YAML object, " f"but was {type(connection_dict)}"
+                    f"Content of the connection YAML file must be a YAML object, but was {type(connection_dict)}"
                 )
             return cls.from_dict(connection_dict)
         except MarkedYAMLError as e:
@@ -164,7 +164,7 @@ class Connection:
         if not isinstance(connection_dict, dict):
             logs.error(f"connect_properties must be a object, but was {type(connection_dict)}")
         elif "type" not in connection_dict:
-            logs.error(f"'type' is required, but was not provided")
+            logs.error("'type' is required, but was not provided")
         else:
             connection_type = connection_dict.get("type")
             if not isinstance(connection_type, str):

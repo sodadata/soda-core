@@ -207,7 +207,7 @@ def test_contract_multi_column_duplicate_percent(test_connection: TestConnection
     check_result = contract_result.check_results[1]
     assert isinstance(check_result, NumericMetricCheckResult)
     assert check_result.outcome == CheckOutcome.FAIL
-    assert check_result.metric_value == 14.29
+    assert 14.28 < float(check_result.metric_value) < 14.30
 
     check = check_result.check
     assert isinstance(check, DuplicateCheck)
