@@ -479,7 +479,9 @@ class ContractParser:
             return self.missing_value_configs_by_column.get(column)
 
         else:
-            missing_configurations = MissingConfigurations(missing_values=missing_values, missing_sql_regex=missing_sql_regex)
+            missing_configurations = MissingConfigurations(
+                missing_values=missing_values, missing_sql_regex=missing_sql_regex
+            )
 
             # If a missing config is specified, do a complete overwrite.
             # Overwriting the missing configs gives more control to the contract author over merging the missing configs.

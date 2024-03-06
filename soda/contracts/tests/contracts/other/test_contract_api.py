@@ -1,12 +1,10 @@
 from __future__ import annotations
 
-from datetime import datetime
 import logging
-from datetime import date
+from datetime import date, datetime
 from textwrap import dedent
 
 import pytest
-
 from contracts.helpers.contract_test_tables import contracts_test_table
 from helpers.data_source_fixture import DataSourceFixture
 from helpers.test_table import TestTable
@@ -68,7 +66,7 @@ def test_contract_api(data_source_fixture: DataSourceFixture, environ: dict):
         #  - Central place from which people can subscribe and notifications get dispatched
 
         # Using a SodaCloud instance will send the results to Cloud and make this test run over 2 seconds
-        soda_cloud: SodaCloud | None = None # SodaCloud.from_environment_variables()
+        soda_cloud: SodaCloud | None = None  # SodaCloud.from_environment_variables()
 
         # The connection to the SQL-engine
         before = datetime.now()

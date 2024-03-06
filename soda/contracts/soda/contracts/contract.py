@@ -674,6 +674,7 @@ def dataclass_object_to_sodacl_dict(dataclass_object: object) -> dict:
         if "sql_" in key:
             key = key.replace("sql_", "")
         return key.replace("_", " ")
+
     dict_factory = lambda x: {translate_to_sodacl_key(k): v for (k, v) in x if v is not None}
     return dataclasses.asdict(dataclass_object, dict_factory=dict_factory)
 
