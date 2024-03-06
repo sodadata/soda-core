@@ -9,7 +9,10 @@ rm -rf soda_sql.egg-info
 
 python3 -m venv .venv
 # shellcheck disable=SC1091
-source .venv/bin/activate
+
+#source .venv/bin/activate
+source .venv/Scripts/activate
+
 pip install --upgrade pip
 pip install "$(grep pip-tools < dev-requirements.in )"
 pip-compile dev-requirements.in
