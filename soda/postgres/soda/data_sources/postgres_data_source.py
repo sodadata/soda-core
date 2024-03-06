@@ -4,8 +4,6 @@ from typing import List, Optional
 from soda.common.logs import Logs
 from soda.execution.data_source import DataSource
 
-# from soda.soda.core.soda.common.logs import Logs
-
 logger = logging.getLogger(__name__)
 
 
