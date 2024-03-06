@@ -1,3 +1,0 @@
-"""
-Common test infrastructure.
-"""

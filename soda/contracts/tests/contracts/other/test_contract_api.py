@@ -1,8 +1,12 @@
+from __future__ import annotations
+
+from datetime import datetime
 import logging
 from datetime import date
 from textwrap import dedent
 
 import pytest
+
 from contracts.helpers.contract_test_tables import contracts_test_table
 from helpers.data_source_fixture import DataSourceFixture
 from helpers.test_table import TestTable
@@ -62,9 +66,12 @@ def test_contract_api(data_source_fixture: DataSourceFixture, environ: dict):
         #  - Enables change-over-time thresholds in checks using the Soda Cloud metric store
         #  - Collects and displays all contract results and diagnostics information
         #  - Central place from which people can subscribe and notifications get dispatched
-        soda_cloud: SodaCloud = SodaCloud.from_environment_variables()
+
+        # Using a SodaCloud instance will send the results to Cloud and make this test run over 2 seconds
+        soda_cloud: SodaCloud | None = None # SodaCloud.from_environment_variables()
 
         # The connection to the SQL-engine
+        before = datetime.now()
         with Connection.from_yaml_str(connection_yaml_str) as connection:
 
             # Parsing the contract YAML into a contract python object

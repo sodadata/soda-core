@@ -109,7 +109,7 @@ columns:
         missing_values: ['N/A', 'No value']
 ```
 
-Example: Configure optional `missing_regex`.  This check verifies there are no missing values in CUSTOMERS.id where
+Example: Configure optional `missing_sql_regex`.  This check verifies there are no missing values in CUSTOMERS.id where
 missing values are specified with a SQL regex. The regex is directly used in the SQL query so it has to match the
 dialect of your SQL-engine.
 
@@ -119,7 +119,7 @@ columns:
   - name: id
     checks:
       - type: no_missing_values
-        missing_regex: '^[# -]+$'
+        missing_sql_regex: '^[# -]+$'
 ```
 
 Missing values also can have the [common check properties](#common-check-properties)
@@ -139,7 +139,7 @@ Validity checks always require a validity configuration.  The complete list of v
 | `valid_values`                |
 | `valid_values`                |
 | `valid_format`                |
-| `valid_regex`                 |
+| `valid_sql_regex`             |
 | `valid_min`                   |
 | `valid_max`                   |
 | `valid_length`                |
@@ -148,7 +148,7 @@ Validity checks always require a validity configuration.  The complete list of v
 | `valid_values_reference_data` |
 | `invalid_values`              |
 | `invalid_format`              |
-| `invalid_regex`               |
+| `invalid_sql_regex`           |
 
 > Tip: If you have configured the JSON schema in your YAML editor, you can start typing keys `valid` in the
 > check and use code completion to find the right syntax of these validity configurations
@@ -174,7 +174,7 @@ columns:
   - name: id
     checks:
       - type: invalid_count
-        valid_regex: '^ID.$'
+        valid_sql_regex: '^ID.$'
 ```
 
 Example of a check that verifies that each value is between certain range of values.  This check assumes the column has a
@@ -377,7 +377,7 @@ columns:
     checks:
       - type: sql_expression
         metric: us_count
-        metric_sql_expression: COUNT(CASE WHEN country = 'US' THEN 1 END)
+        sql_expression: COUNT(CASE WHEN country = 'US' THEN 1 END)
         fail_when_not_between: [100, 120]
 ```
 
@@ -388,7 +388,7 @@ dataset: CUSTOMERS
 checks:
   - type: user_defined_sql
     metric: us_count
-    query: |
+    sql_query: |
         SELECT COUNT(*)
         FROM {table_name}
         WHERE country = 'US'

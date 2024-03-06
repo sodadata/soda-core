@@ -670,14 +670,18 @@ class DataTypeMismatch:
 
 
 def dataclass_object_to_sodacl_dict(dataclass_object: object) -> dict:
-    dict_factory = lambda x: {k.replace("_", " "): v for (k, v) in x if v is not None}
+    def translate_to_sodacl_key(key: str) -> str:
+        if "sql_" in key:
+            key = key.replace("sql_", "")
+        return key.replace("_", " ")
+    dict_factory = lambda x: {translate_to_sodacl_key(k): v for (k, v) in x if v is not None}
     return dataclasses.asdict(dataclass_object, dict_factory=dict_factory)
 
 
 @dataclass
 class MissingConfigurations:
     missing_values: list[str] | list[Number] | None
-    missing_regex: str | None
+    missing_sql_regex: str | None
 
     def to_sodacl_check_configs_dict(self) -> dict:
         return dataclass_object_to_sodacl_dict(self)
@@ -687,10 +691,10 @@ class MissingConfigurations:
 class ValidConfigurations:
     invalid_values: list[str] | list[Number] | None
     invalid_format: str | None
-    invalid_regex: str | None
+    invalid_sql_regex: str | None
     valid_values: list[str] | list[Number] | None
     valid_format: str | None
-    valid_regex: str | None
+    valid_sql_regex: str | None
     valid_min: Number | None
     valid_max: Number | None
     valid_length: int | None
@@ -707,10 +711,10 @@ class ValidConfigurations:
         return (
             self.invalid_values is not None
             or self.invalid_format is not None
-            or self.invalid_regex is not None
+            or self.invalid_sql_regex is not None
             or self.valid_values is not None
             or self.valid_format is not None
-            or self.valid_regex is not None
+            or self.valid_sql_regex is not None
             or self.valid_min is not None
             or self.valid_max is not None
             or self.valid_length is not None

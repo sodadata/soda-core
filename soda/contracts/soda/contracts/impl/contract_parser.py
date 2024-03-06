@@ -47,10 +47,10 @@ class ContractParser:
     __validity_keys = [
         "invalid_values",
         "invalid_format",
-        "invalid_regex",
+        "invalid_sql_regex",
         "valid_values",
         "valid_format",
-        "valid_regex",
+        "valid_sql_regex",
         "valid_min",
         "valid_max",
         "valid_length",
@@ -409,7 +409,7 @@ class ContractParser:
     ) -> Check | None:
         name = check_yaml_object.read_string_opt("name")
         metric: str = check_yaml_object.read_string("metric")
-        sql_expression: str = check_yaml_object.read_string("expression")
+        sql_expression: str = check_yaml_object.read_string("sql_expression")
 
         threshold: NumericThreshold = self._parse_numeric_threshold(check_yaml_object=check_yaml_object)
 
@@ -473,13 +473,13 @@ class ContractParser:
     def _parse_missing_configurations(self, check_yaml: YamlObject, column: str) -> MissingConfigurations | None:
         missing_values_yaml_list: YamlList | None = check_yaml.read_yaml_list_opt(f"missing_values")
         missing_values: list | None = missing_values_yaml_list.unpacked() if missing_values_yaml_list else None
-        missing_regex: str | None = check_yaml.read_string_opt(f"missing_regex")
+        missing_sql_regex: str | None = check_yaml.read_string_opt(f"missing_sql_regex")
 
-        if all(v is None for v in [missing_values, missing_regex]):
+        if all(v is None for v in [missing_values, missing_sql_regex]):
             return self.missing_value_configs_by_column.get(column)
 
         else:
-            missing_configurations = MissingConfigurations(missing_values=missing_values, missing_regex=missing_regex)
+            missing_configurations = MissingConfigurations(missing_values=missing_values, missing_sql_regex=missing_sql_regex)
 
             # If a missing config is specified, do a complete overwrite.
             # Overwriting the missing configs gives more control to the contract author over merging the missing configs.
@@ -491,13 +491,13 @@ class ContractParser:
         invalid_values_yaml_list: YamlList | None = check_yaml.read_yaml_list_opt(f"invalid_values")
         invalid_values: list | None = invalid_values_yaml_list.unpacked() if invalid_values_yaml_list else None
         invalid_format: str | None = check_yaml.read_string_opt(f"invalid_format")
-        invalid_regex: str | None = check_yaml.read_string_opt(f"invalid_regex")
+        invalid_sql_regex: str | None = check_yaml.read_string_opt(f"invalid_sql_regex")
 
         valid_values_yaml_list: YamlList | None = check_yaml.read_yaml_list_opt(f"valid_values")
         valid_values: list | None = valid_values_yaml_list.unpacked() if valid_values_yaml_list else None
 
         valid_format: str | None = check_yaml.read_string_opt(f"valid_format")
-        valid_regex: str | None = check_yaml.read_string_opt(f"valid_regex")
+        valid_sql_regex: str | None = check_yaml.read_string_opt(f"valid_sql_regex")
 
         valid_min: Number | None = check_yaml.read_number_opt(f"valid_min")
         valid_max: Number | None = check_yaml.read_number_opt(f"valid_max")
@@ -520,10 +520,10 @@ class ContractParser:
             for v in [
                 invalid_values,
                 invalid_format,
-                invalid_regex,
+                invalid_sql_regex,
                 valid_values,
                 valid_format,
-                valid_regex,
+                valid_sql_regex,
                 valid_min,
                 valid_max,
                 valid_length,
@@ -537,10 +537,10 @@ class ContractParser:
             valid_configurations = ValidConfigurations(
                 invalid_values=invalid_values,
                 invalid_format=invalid_format,
-                invalid_regex=invalid_regex,
+                invalid_sql_regex=invalid_sql_regex,
                 valid_values=valid_values,
                 valid_format=valid_format,
-                valid_regex=valid_regex,
+                valid_sql_regex=valid_sql_regex,
                 valid_min=valid_min,
                 valid_max=valid_max,
                 valid_length=valid_length,
@@ -660,7 +660,7 @@ class ContractParser:
 
         name = check_yaml_object.read_string_opt("name")
         metric: str = check_yaml_object.read_string("metric")
-        metric_sql_query: str = check_yaml_object.read_string("query")
+        metric_sql_query: str = check_yaml_object.read_string("sql_query")
 
         threshold: NumericThreshold = self._parse_numeric_threshold(check_yaml_object=check_yaml_object)
 

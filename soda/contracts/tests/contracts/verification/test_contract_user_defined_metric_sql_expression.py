@@ -37,7 +37,7 @@ def test_contract_column_metric_sql_expression(test_connection: TestConnection):
             checks:
             - type: metric_sql_expression
               metric: us_count
-              expression: COUNT(CASE WHEN country = 'US' THEN 1 END)
+              sql_expression: COUNT(CASE WHEN country = 'US' THEN 1 END)
               must_be: 0
     """
     )
@@ -68,7 +68,7 @@ def test_contract_dataset_metric_sql_expression(test_connection: TestConnection)
         checks:
         - type: metric_sql_expression
           metric: us_count
-          expression: COUNT(CASE WHEN country = 'US' THEN 1 END)
+          sql_expression: COUNT(CASE WHEN country = 'US' THEN 1 END)
           must_be: 0
     """
     )

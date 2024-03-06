@@ -138,7 +138,7 @@
                         "type": ["integer", "string"]
                     }
                 },
-                "missing_regex": {
+                "missing_sql_regex": {
                     "description": "Customized SQL regex to identify missing values. The flavor of regex depends on the SQL engine / warehouse. NULL is always considered missing so that does not have to be specified. Implies a missing_count check in Soda.",
                     "type": "string"
                 },
@@ -149,7 +149,7 @@
                         "type": ["number", "string"]
                     }
                 },
-                "valid_regex": {
+                "valid_sql_regex": {
                     "description": "A SQL regular expression that matches valid values. Implies a valid_count check in Soda. All (in)valid_* configs are combined in a single invalid_count check.",
                     "type": "string"
                 },
@@ -184,7 +184,7 @@
                         "type": ["number", "string"]
                     }
                 },
-                "invalid_regex": {
+                "invalid_sql_regex": {
                     "description": "A regular expression that specifies valid values.",
                     "type": "string"
                 },

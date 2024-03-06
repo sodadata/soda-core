@@ -198,7 +198,7 @@ def test_contract_missing_count_with_missing_values_pass(test_connection: TestCo
     assert check.column == "one"
 
 
-def test_contract_missing_count_with_missing_regex(test_connection: TestConnection):
+def test_contract_missing_count_with_missing_sql_regex(test_connection: TestConnection):
     table_name: str = test_connection.ensure_test_table(contracts_missing_test_table)
 
     contract_result: ContractResult = test_connection.assert_contract_fail(
@@ -208,7 +208,7 @@ def test_contract_missing_count_with_missing_regex(test_connection: TestConnecti
           - name: one
             checks:
             - type: missing_count
-              missing_regex: ^N/A$
+              missing_sql_regex: ^N/A$
               must_be: 0
           - name: two
     """

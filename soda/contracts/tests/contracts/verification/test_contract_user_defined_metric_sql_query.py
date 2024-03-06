@@ -10,7 +10,7 @@ from soda.contracts.contract import (
     UserDefinedMetricSqlQueryCheck,
 )
 
-user_defined_sql_test_table = TestTable(
+user_defined_metric_sql_query_test_table = TestTable(
     name="user_defined_sql_query",
     # fmt: off
     columns=[
@@ -27,7 +27,7 @@ user_defined_sql_test_table = TestTable(
 
 
 def test_contract_user_defined_sql_query(test_connection: TestConnection):
-    table_name: str = test_connection.ensure_test_table(user_defined_sql_test_table)
+    table_name: str = test_connection.ensure_test_table(user_defined_metric_sql_query_test_table)
 
     contract_result: ContractResult = test_connection.assert_contract_fail(
         f"""
@@ -38,7 +38,7 @@ def test_contract_user_defined_sql_query(test_connection: TestConnection):
         checks:
           - type: metric_sql_query
             metric: us_count
-            query: |
+            sql_query: |
               SELECT COUNT(*)
               FROM {table_name}
               WHERE country = 'US'
