@@ -480,7 +480,7 @@ def test_sample_with_multiple_value_condition(data_source_fixture: DataSourceFix
     failed_ids = [sample[0] for sample in scan._configuration.sampler.samples[0].rows]
     assert sorted(failed_ids) == sorted(["ID5", "ID7"])
 
-def test_missing_filtered_with_dataset_filter(data_source_fixture: DataSourceFixture):
+def test_missing_with_check_and_dataset_filter(data_source_fixture: DataSourceFixture):
     table_name = data_source_fixture.ensure_test_table(customers_test_table)
     # Row count is 10
     scan = data_source_fixture.create_test_scan()
