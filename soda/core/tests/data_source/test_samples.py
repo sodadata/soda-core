@@ -479,3 +479,25 @@ def test_sample_with_multiple_value_condition(data_source_fixture: DataSourceFix
 
     failed_ids = [sample[0] for sample in scan._configuration.sampler.samples[0].rows]
     assert sorted(failed_ids) == sorted(["ID5", "ID7"])
+
+def test_missing_filtered_with_dataset_filter(data_source_fixture: DataSourceFixture):
+    table_name = data_source_fixture.ensure_test_table(customers_test_table)
+    # Row count is 10
+    scan = data_source_fixture.create_test_scan()
+    mock_soda_cloud = scan.enable_mock_soda_cloud()
+    scan.enable_mock_sampler()
+    scan.add_sodacl_yaml_str(
+        f"""
+      filter {table_name} [not_null_id]:
+        where: id IS NOT NULL
+
+      checks for {table_name} [not_null_id]:
+        - missing_count(pct) = 1:
+            missing values: [No value, N/A, error]
+            filter: cst_size IS NOT NULL or cst_size_txt IS NOT NULL
+    """
+    )
+    scan.execute()
+
+    scan.assert_all_checks_pass()
+    assert mock_soda_cloud.find_failed_rows_line_count(0) == 1
