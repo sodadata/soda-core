@@ -495,9 +495,14 @@ def test_missing_with_check_and_dataset_filter(data_source_fixture: DataSourceFi
         - missing_count(pct) = 1:
             missing values: [No value, N/A, error]
             filter: cst_size IS NOT NULL or cst_size_txt IS NOT NULL
+        - invalid_count(cat) > 0:
+            valid values: ['HIGH']
+            filter: country = 'BE' OR country = 'NL'
     """
     )
     scan.execute()
 
     scan.assert_all_checks_pass()
+
     assert mock_soda_cloud.find_failed_rows_line_count(0) == 1
+    assert mock_soda_cloud.find_failed_rows_line_count(1) == 2
