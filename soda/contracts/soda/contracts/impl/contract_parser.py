@@ -66,7 +66,9 @@ class ContractParser:
         self.valid_value_configs_by_column: dict[str, ValidConfigurations] = {}
         self.skip_schema_validation: bool = False
 
-    def parse_contract(self, contract_yaml_str: str, variables: dict[str, str] | None, schedule: str | None) -> Contract:
+    def parse_contract(
+        self, contract_yaml_str: str, variables: dict[str, str] | None, schedule: str | None
+    ) -> Contract:
         if not isinstance(contract_yaml_str, str):
             raise SodaException(f"contract_yaml_str must be a str, but was {type(contract_yaml_str)}")
 
@@ -109,7 +111,7 @@ class ContractParser:
                 check_identity_suffix=None,
                 check_location=None,
                 checks=checks,
-                logs=self.logs
+                logs=self.logs,
             )
 
             checks[schema_check_identity] = SchemaCheck(
@@ -141,7 +143,9 @@ class ContractParser:
                         column_check_yaml_object: YamlObject
                         for column_check_yaml_object in column_check_yaml_objects:
                             check_type: str | None = column_check_yaml_object.read_string("type")
-                            check_identity_suffix: str | None = column_check_yaml_object.read_string_opt("identity_suffix")
+                            check_identity_suffix: str | None = column_check_yaml_object.read_string_opt(
+                                "identity_suffix"
+                            )
                             if check_type is not None:
                                 check_identity: str = Check.create_check_identity(
                                     schedule=schedule,
@@ -151,7 +155,7 @@ class ContractParser:
                                     check_identity_suffix=check_identity_suffix,
                                     check_location=column_check_yaml_object.location,
                                     checks=checks,
-                                    logs=self.logs
+                                    logs=self.logs,
                                 )
                                 check: Check = self._parse_column_check(
                                     schedule=schedule,
@@ -159,7 +163,7 @@ class ContractParser:
                                     contract_check_id=check_identity,
                                     check_yaml_object=column_check_yaml_object,
                                     column=column_name,
-                                    check_type=check_type
+                                    check_type=check_type,
                                 )
                                 if check:
                                     checks[check_identity] = check
@@ -180,14 +184,14 @@ class ContractParser:
                         check_identity_suffix=check_identity_suffix,
                         check_location=check_yaml_object.location,
                         checks=checks,
-                        logs=self.logs
+                        logs=self.logs,
                     )
                     check = self._parse_dataset_check(
                         schedule=schedule,
                         dataset=dataset,
                         contract_check_id=check_identity,
                         check_yaml_object=check_yaml_object,
-                        check_type=check_type
+                        check_type=check_type,
                     )
                     if check:
                         checks[check_identity] = check
@@ -210,7 +214,7 @@ class ContractParser:
         column: str,
         contract_check_id: str,
         check_yaml_object: YamlObject,
-        check_type: str
+        check_type: str,
     ) -> Check | None:
 
         if check_type in ["no_missing_values", "missing_count", "missing_percent"]:
@@ -247,7 +251,7 @@ class ContractParser:
         contract_check_id: str,
         check_yaml_object: YamlObject,
         check_type: str,
-        column: str | None
+        column: str | None,
     ):
         name = check_yaml_object.read_string_opt("name")
 
@@ -298,7 +302,7 @@ class ContractParser:
         contract_check_id: str,
         check_yaml_object: YamlObject,
         check_type: str,
-        column: str | None
+        column: str | None,
     ):
         name = check_yaml_object.read_string_opt("name")
 
@@ -387,7 +391,7 @@ class ContractParser:
         contract_check_id: str,
         check_yaml_object: YamlObject,
         check_type: str,
-        column: str | None
+        column: str | None,
     ):
         """
         Parses both the column level duplicate checks as well as the dataset level multi column duplicate checks.
@@ -452,7 +456,7 @@ class ContractParser:
         contract_check_id: str,
         check_yaml_object: YamlObject,
         check_type: str,
-        column: str | None
+        column: str | None,
     ):
         name = check_yaml_object.read_string_opt("name")
 
@@ -482,7 +486,7 @@ class ContractParser:
         contract_check_id: str,
         check_yaml_object: YamlObject,
         check_type: str,
-        column: str | None
+        column: str | None,
     ) -> Check | None:
         name = check_yaml_object.read_string_opt("name")
         metric: str = check_yaml_object.read_string("metric")
@@ -516,7 +520,7 @@ class ContractParser:
         contract_check_id: str,
         check_yaml_object: YamlObject,
         check_type: str,
-        column: str | None
+        column: str | None,
     ) -> Check | None:
         name = check_yaml_object.read_string_opt("name")
 
@@ -670,12 +674,7 @@ class ContractParser:
                 self.logs.error("range expects a list of 2 numbers", location=range_yaml_list.location)
 
     def _parse_dataset_check(
-        self,
-        schedule: str | None,
-        dataset: str,
-        contract_check_id: str,
-        check_yaml_object: YamlObject,
-        check_type: str
+        self, schedule: str | None, dataset: str, contract_check_id: str, check_yaml_object: YamlObject, check_type: str
     ) -> Check | None:
 
         if check_type in ["rows_exist", "row_count"]:
@@ -708,7 +707,7 @@ class ContractParser:
         contract_check_id: str,
         check_yaml_object: YamlObject,
         check_type: str,
-        column: str | None
+        column: str | None,
     ) -> NumericMetricCheck:
         name = check_yaml_object.read_string_opt("name")
 

@@ -25,17 +25,23 @@ logger = logging.getLogger(__name__)
 class Contract:
 
     @classmethod
-    def from_yaml_str(cls, contract_yaml_str: str, variables: dict[str, str] | None = None, schedule: str | None = None) -> Contract:
+    def from_yaml_str(
+        cls, contract_yaml_str: str, variables: dict[str, str] | None = None, schedule: str | None = None
+    ) -> Contract:
         """
         Build a contract from a YAML string
         """
         from soda.contracts.impl.contract_parser import ContractParser
 
         contract_parser: ContractParser = ContractParser()
-        return contract_parser.parse_contract(contract_yaml_str=contract_yaml_str, variables=variables, schedule=schedule)
+        return contract_parser.parse_contract(
+            contract_yaml_str=contract_yaml_str, variables=variables, schedule=schedule
+        )
 
     @classmethod
-    def from_yaml_file(cls, file_path: str, variables: dict[str, str] | None = None, schedule: str | None = None) -> Contract:
+    def from_yaml_file(
+        cls, file_path: str, variables: dict[str, str] | None = None, schedule: str | None = None
+    ) -> Contract:
         """
         Build a contract from a YAML file.
         Raises OSError in case the file_path cannot be opened like e.g.
@@ -324,7 +330,7 @@ class Check(ABC):
         check_identity_suffix: str | None,
         check_location: Location | None,
         checks: dict[str, Check],
-        logs: Logs
+        logs: Logs,
     ) -> str:
         opt_schedule_part = f"//{schedule}" if schedule else ""
         opt_column_part = f"/{column}" if column else ""
@@ -339,7 +345,9 @@ class Check(ABC):
                 opt_check_identity_suffix_part = (
                     f"/{check_identity_suffix}_{suffix_index}" if check_identity_suffix else f"/{suffix_index}"
                 )
-                check_identity = f"{opt_schedule_part}/{dataset}{opt_column_part}/{check_type}{opt_check_identity_suffix_part}"
+                check_identity = (
+                    f"{opt_schedule_part}/{dataset}{opt_column_part}/{check_type}{opt_check_identity_suffix_part}"
+                )
                 suffix_index = suffix_index + 1
         return check_identity
 
