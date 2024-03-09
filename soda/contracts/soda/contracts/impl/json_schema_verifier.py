@@ -27,6 +27,7 @@ class JsonSchemaVerifier:
     __validator = ValidatorLoader.load_json_schema_validator()
 
     def __init__(self, logs: Logs | None = None):
+        # See also adr/03_exceptions_vs_error_logs.md
         self.logs: Logs = logs if logs else Logs()
 
     def verify(self, yaml_object: object) -> None:

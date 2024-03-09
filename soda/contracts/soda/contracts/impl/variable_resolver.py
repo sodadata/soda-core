@@ -10,6 +10,7 @@ from soda.contracts.impl.logs import Logs
 class VariableResolver:
 
     def __init__(self, logs: Logs | None = None, variables: Dict[str, str] | None = None):
+        # See also adr/03_exceptions_vs_error_logs.md
         self.logs: Logs = logs if logs else Logs()
         self.variables: Dict[str, str] | None = variables
 

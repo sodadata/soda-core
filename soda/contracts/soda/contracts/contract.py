@@ -25,17 +25,17 @@ logger = logging.getLogger(__name__)
 class Contract:
 
     @classmethod
-    def from_yaml_str(cls, contract_yaml_str: str, variables: dict[str, str] | None = None) -> Contract:
+    def from_yaml_str(cls, contract_yaml_str: str, variables: dict[str, str] | None = None, schedule: str | None = None) -> Contract:
         """
         Build a contract from a YAML string
         """
         from soda.contracts.impl.contract_parser import ContractParser
 
         contract_parser: ContractParser = ContractParser()
-        return contract_parser.parse_contract(contract_yaml_str=contract_yaml_str, variables=variables)
+        return contract_parser.parse_contract(contract_yaml_str=contract_yaml_str, variables=variables, schedule=schedule)
 
     @classmethod
-    def from_yaml_file(cls, file_path: str, variables: dict[str, str] | None = None) -> Contract:
+    def from_yaml_file(cls, file_path: str, variables: dict[str, str] | None = None, schedule: str | None = None) -> Contract:
         """
         Build a contract from a YAML file.
         Raises OSError in case the file_path cannot be opened like e.g.
@@ -43,10 +43,11 @@ class Contract:
         """
         with open(file_path) as f:
             contract_yaml_str = f.read()
-            return cls.from_yaml_str(contract_yaml_str=contract_yaml_str, variables=variables)
+            return cls.from_yaml_str(contract_yaml_str=contract_yaml_str, variables=variables, schedule=schedule)
 
     def __init__(
         self,
+        schedule: str | None,
         dataset: str,
         sql_filter: str | None,
         schema: str | None,
@@ -58,6 +59,7 @@ class Contract:
         """
         Consider using Contract.from_yaml_str(contract_yaml_str) instead as that is more stable API.
         """
+        self.schedule: str | None = schedule
         self.dataset: str = dataset
         self.sql_filter: str | None = sql_filter
         self.schema: str | None = schema
@@ -66,6 +68,7 @@ class Contract:
         self.variables: dict[str, str] | None = variables
         # The initial logs will contain the logs of contract parser.  If there are error logs, these error logs
         # will cause a SodaException to be raised at the end of the Contract.verify method
+        # See also adr/03_exceptions_vs_error_logs.md
         self.logs: Logs = logs
         self.sodacl_yaml_str: str | None = None
 
@@ -203,10 +206,11 @@ class ContractResult:
     def __init__(self, contract: Contract, sodacl_yaml_str: str | None, logs: Logs, scan: Scan):
         self.contract = contract
         self.sodacl_yaml_str = sodacl_yaml_str
+        # See also adr/03_exceptions_vs_error_logs.md
         self.logs: Logs = Logs(logs)
         self.check_results: List[CheckResult] = []
 
-        contract_checks_by_id: dict[str, Check] = {check.contract_check_id: check for check in contract.checks}
+        contract_checks_by_id: dict[str, Check] = {check.identity: check for check in contract.checks}
 
         schema_check: SchemaCheck | None = next((c for c in contract.checks if isinstance(c, SchemaCheck)), None)
 
@@ -285,6 +289,7 @@ class ContractResult:
 @dataclass
 class Check(ABC):
 
+    schedule: str | None
     dataset: str
     column: str | None
     type: str
@@ -292,9 +297,11 @@ class Check(ABC):
     # User defined name as in the contract.  None if not specified in the contract.
     name: str | None
 
-    # Identifier used to correlate the sodacl check results with this contract check object when parsing scan results
-    # contract_check_id is None for schema checks
-    contract_check_id: str | None
+    # Check identifier used to correlate the sodacl check results with this contract check object when parsing
+    # scan results.  Also used as correlation id in Soda Cloud to match subsequent results for the same check.
+    # Composite key created from schedule, dataset, column, type and identity_suffix.
+    identity: str | None
+
     location: Location | None
 
     @abstractmethod
@@ -306,6 +313,35 @@ class Check(ABC):
         self, scan_check: dict[str, dict], scan_check_metrics_by_name: dict[str, dict], scan: Scan
     ) -> CheckResult:
         pass
+
+    @classmethod
+    def create_check_identity(
+        cls,
+        schedule: str | None,
+        dataset: str,
+        column: str | None,
+        check_type: str,
+        check_identity_suffix: str | None,
+        check_location: Location | None,
+        checks: dict[str, Check],
+        logs: Logs
+    ) -> str:
+        opt_schedule_part = f"//{schedule}" if schedule else ""
+        opt_column_part = f"/{column}" if column else ""
+        opt_check_identity_suffix_part = f"/{check_identity_suffix}" if check_identity_suffix else ""
+        check_identity = f"{opt_schedule_part}/{dataset}{opt_column_part}/{check_type}{opt_check_identity_suffix_part}"
+
+        other_check: Check = checks.get(check_identity)
+        if other_check:
+            logs.error(f"Duplicate check identity '{check_identity}': {other_check.location} and {check_location}")
+            suffix_index: int = 2
+            while check_identity in checks:
+                opt_check_identity_suffix_part = (
+                    f"/{check_identity_suffix}_{suffix_index}" if check_identity_suffix else f"/{suffix_index}"
+                )
+                check_identity = f"{opt_schedule_part}/{dataset}{opt_column_part}/{check_type}{opt_check_identity_suffix_part}"
+                suffix_index = suffix_index + 1
+        return check_identity
 
 
 @dataclass
@@ -433,7 +469,7 @@ class NumericMetricCheck(Check):
     def to_sodacl_check(self) -> str | dict | None:
         sodacl_check_line = self.get_sodacl_check_line()
 
-        sodacl_check_configs = {"contract check id": self.contract_check_id}
+        sodacl_check_configs = {"contract check id": self.identity}
 
         if self.name:
             sodacl_check_configs["name"] = self.name
@@ -502,7 +538,7 @@ class InvalidReferenceCheck(NumericMetricCheck):
     valid_values_reference_data: ValidValuesReferenceData
 
     def to_sodacl_check(self) -> str | dict | None:
-        sodacl_check_configs = {"contract check id": self.contract_check_id}
+        sodacl_check_configs = {"contract check id": self.identity}
 
         if self.name:
             sodacl_check_configs["name"] = self.name
@@ -546,7 +582,7 @@ class FreshnessCheck(Check):
 
     def to_sodacl_check(self) -> str | dict | None:
         sodacl_check_configs = {
-            "contract check id": self.contract_check_id,
+            "contract check id": self.identity,
         }
         if self.name:
             sodacl_check_configs["name"] = self.name
@@ -602,7 +638,7 @@ class UserDefinedMetricSqlExpressionCheck(NumericMetricCheck):
     def to_sodacl_check(self) -> str | dict | None:
 
         sodacl_check_configs = {
-            "contract check id": self.contract_check_id,
+            "contract check id": self.identity,
             f"{self.metric} expression": self.metric_sql_expression,
         }
         if self.name:
@@ -628,7 +664,7 @@ class UserDefinedMetricSqlQueryCheck(NumericMetricCheck):
 
     def to_sodacl_check(self) -> str | dict | None:
         sodacl_check_configs = {
-            "contract check id": self.contract_check_id,
+            "contract check id": self.identity,
             f"{self.metric} query": self.metric_sql_query,
         }
         if self.name:

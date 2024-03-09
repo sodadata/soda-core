@@ -5,7 +5,6 @@
 * [ ] Add failed rows query support
 * [ ] Enforce uniqueness in parser of qualified metric names
 * [ ] Test Soda Cloud link
-* [ ] Decide on JSON schema validation in contracts parser
 
 ### Later (work to be refined)
 * [ ] Add Docker container for verifying contract

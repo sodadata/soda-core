@@ -7,6 +7,7 @@ from typing import Any
 from ruamel.yaml import YAML, CommentedMap, CommentedSeq, round_trip_dump
 from ruamel.yaml.error import MarkedYAMLError
 
+from soda.contracts.connection import SodaException
 from soda.contracts.impl.logs import Logs
 
 logger = logging.getLogger(__name__)
@@ -17,6 +18,7 @@ class YamlParser:
     def __init__(self, logs: Logs | None = None):
         self.ruamel_yaml: YAML = YAML()
         self.ruamel_yaml.preserve_quotes = True
+        # See also adr/03_exceptions_vs_error_logs.md
         self.logs: Logs = logs if logs else Logs()
 
     def parse_yaml_str(self, yaml_str: str) -> object:
@@ -30,8 +32,7 @@ class YamlParser:
             return self.ruamel_yaml.load(yaml_str)
         except MarkedYAMLError as e:
             location = self.get_location_from_yaml_error(e)
-            msg = f"YAML syntax error at {location}: {e}"
-            self.logs.error(message=msg, exception=e)
+            raise SodaException(f"YAML syntax error at {location}: {e}") from e
 
     @classmethod
     def get_location_from_yaml_error(cls, e):
@@ -44,6 +45,7 @@ class YamlParser:
 
 class YamlWriter:
     def __init__(self, logs: Logs | None = None):
+        # See also adr/03_exceptions_vs_error_logs.md
         self.logs: Logs = logs if logs else Logs()
 
     def write_to_yaml_str(self, yaml_object: object) -> str:
@@ -62,6 +64,7 @@ class YamlWrapper:
     """
 
     def __init__(self, logs: Logs = Logs()):
+        # See also adr/03_exceptions_vs_error_logs.md
         self.logs: Logs = logs
 
     def wrap(self, ruamel_value: object) -> YamlValue:
@@ -128,6 +131,7 @@ class YamlNull(YamlValue):
 class YamlObject(YamlValue):
     def __init__(self, ruamel_value: CommentedMap, yaml_wrapper: YamlWrapper):
         super().__init__(ruamel_value)
+        # See also adr/03_exceptions_vs_error_logs.md
         self.logs: Logs = yaml_wrapper.logs
         self.yaml_dict: dict[str, YamlValue] = {
             key: self.__convert_map_value(ruamel_object=ruamel_value, key=key, value=value, yaml_wrapper=yaml_wrapper)

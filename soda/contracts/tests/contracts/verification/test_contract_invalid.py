@@ -1,4 +1,4 @@
-from contracts.helpers.contract_utils import get_parse_errors_str
+from contracts.helpers.contract_parse_errors import get_parse_errors_str
 from contracts.helpers.test_connection import TestConnection
 from helpers.test_table import TestTable
 from soda.execution.data_type import DataType
