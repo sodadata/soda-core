@@ -239,15 +239,26 @@ class SodaCLParser(Parser):
                 check_str, check_configurations = self.__parse_check_configuration(check_list_element)
 
                 if check_str is not None:
-                    check_cfg = self.__parse_table_check_str(header_str, check_str, check_configurations)
+                    if check_str == ATTRIBUTES:
+                        self._dataset_attributes = check_configurations
+                    else:
+                        check_cfg = self.__parse_table_check_str(header_str, check_str, check_configurations)
+                        if self._dataset_attributes:
+                            check_cfg.source_configurations = (
+                                {} if check_cfg.source_configurations is None else check_cfg.source_configurations
+                            )
+                            check_cfg.source_configurations[ATTRIBUTES] = {
+                                **check_cfg.source_configurations.get(ATTRIBUTES, {}),
+                                **self._dataset_attributes,
+                            }
 
-                    if check_cfg:
-                        column_name = check_cfg.get_column_name()
-                        if column_name:
-                            column_checks = partition_cfg.get_or_create_column_checks(column_name)
-                            column_checks.add_check_cfg(check_cfg)
-                        else:
-                            partition_cfg.add_check_cfg(check_cfg)
+                        if check_cfg:
+                            column_name = check_cfg.get_column_name()
+                            if column_name:
+                                column_checks = partition_cfg.get_or_create_column_checks(column_name)
+                                column_checks.add_check_cfg(check_cfg)
+                            else:
+                                partition_cfg.add_check_cfg(check_cfg)
 
                 self._pop_path_element()
         else:
