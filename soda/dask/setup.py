@@ -3,10 +3,12 @@
 from setuptools import find_namespace_packages, setup
 
 package_name = "soda-core-pandas-dask"
-package_version = "3.2.1"
+package_version = "3.2.3"
 description = "Soda Core Dask Package"
 
-requires = [f"soda-core=={package_version}", "dask>=2022.10.0", "dask-sql>=2022.12.0,<2023.6.0"]
+# 2023.10 or its subdependencies introduces breaking changes in how rows are counted, so we stay away from it for now.
+requires = [f"soda-core=={package_version}", "dask>=2022.10.0", "dask-sql>=2022.12.0,<2023.10.0"]
+
 
 setup(
     name=package_name,

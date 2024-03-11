@@ -74,6 +74,10 @@ class DremioDataSource(DataSource):
 
     def connect(self):
         try:
+            token_string = ""
+            if self.token:
+                token_string = f";TOKEN={self.token}"
+
             self.connection = pyodbc.connect(
                 "DRIVER={"
                 + self.driver
@@ -85,8 +89,7 @@ class DremioDataSource(DataSource):
                 + self.username
                 + ";PWD="
                 + self.password
-                + ";TOKEN="
-                + self.token
+                + token_string
                 + ";useEncryption="
                 + self.use_encryption
                 + ";routing_queue="

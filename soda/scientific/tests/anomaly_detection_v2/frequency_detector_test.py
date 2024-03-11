@@ -72,7 +72,7 @@ def test_not_enough_data_frequency_detector() -> None:
     assert frequency_detector_result.error_severity == "error"
     assert frequency_detector_result.error_message == (
         "Anomaly Detection Insufficient Training Data Warning: "
-        "The model requires a minimum of 4 historical measurements"
+        "The model requires a minimum of 5 historical measurements"
         " for accurate predictions, but currently has only 2 check"
         " results available."
     )

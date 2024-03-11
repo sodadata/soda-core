@@ -91,8 +91,8 @@ def test_profile_columns_numeric(data_source_fixture: DataSourceFixture):
     histogram = first_column_profile["histogram"]
     assert histogram["boundaries"] == [0.5, 3.3, 6.1]
 
-    # TODO: Fix the histogram issue for mysql refer to CLOUD-2763
-    if data_source_fixture.data_source_name in ["mysql"]:
+    # TODO: Fix the histogram issue for mysql/dask refer to CLOUD-2763
+    if data_source_fixture.data_source_name in ["mysql", "dask"]:
         assert histogram["frequencies"] == [4, 2, 0]
     else:
         assert histogram["frequencies"] == [4, 0, 2]

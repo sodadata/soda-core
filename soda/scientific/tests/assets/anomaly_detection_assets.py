@@ -407,6 +407,27 @@ test_feedback_processor_seasonality_skip_measurements_expectation = {
     },
 }
 
+test_feedback_processor_weekly_seasonality_expectation = [
+    {"ds": pd.Timestamp("2023-03-06 11:00:00"), "y": 42.0, "external_regressor_weekly": 1.0},
+    {"ds": pd.Timestamp("2023-03-05 11:00:00"), "y": 41.0, "external_regressor_weekly": 0.0},
+    {"ds": pd.Timestamp("2023-03-04 11:00:00"), "y": 40.0, "external_regressor_weekly": 0.0},
+    {"ds": pd.Timestamp("2023-03-03 11:00:00"), "y": 35.0, "external_regressor_weekly": 0.0},
+]
+
+test_feedback_processor_monthly_seasonality_expectation = [
+    {"ds": pd.Timestamp("2023-03-06 11:00:00"), "y": 42.0, "external_regressor_monthly": 1.0},
+    {"ds": pd.Timestamp("2023-03-05 11:00:00"), "y": 41.0, "external_regressor_monthly": 0.0},
+    {"ds": pd.Timestamp("2023-03-04 11:00:00"), "y": 40.0, "external_regressor_monthly": 0.0},
+    {"ds": pd.Timestamp("2023-03-03 11:00:00"), "y": 35.0, "external_regressor_monthly": 0.0},
+]
+
+test_feedback_processor_yearly_seasonality_expectation = [
+    {"ds": pd.Timestamp("2023-03-06 11:00:00"), "y": 42.0, "external_regressor_yearly": 1.0},
+    {"ds": pd.Timestamp("2023-03-05 11:00:00"), "y": 41.0, "external_regressor_yearly": 0.0},
+    {"ds": pd.Timestamp("2023-03-04 11:00:00"), "y": 40.0, "external_regressor_yearly": 0.0},
+    {"ds": pd.Timestamp("2023-03-03 11:00:00"), "y": 35.0, "external_regressor_yearly": 0.0},
+]
+
 test_feedback_processor_prophet_model_skip_measurements_expectation = {
     "y": {
         0: 42.0,
@@ -633,7 +654,6 @@ test_feedback_processor_correctly_classified_anomalies_expectation = pd.DataFram
             "freeTextReason": None,
             "skipMeasurements": None,
             "is_correctly_classified_anomaly": True,
-            "predicted_to_real_delta": 0.1294836644914028,
         }
     ]
 )
@@ -730,7 +750,6 @@ test_feedback_processor_feedback_processed_df = pd.DataFrame(
             "freeTextReason": nan,
             "skipMeasurements": nan,
             "is_correctly_classified_anomaly": None,
-            "predicted_to_real_delta": 0.1294836644914028,
         },
         {
             "y": 21.0,
@@ -745,7 +764,6 @@ test_feedback_processor_feedback_processed_df = pd.DataFrame(
             "freeTextReason": nan,
             "skipMeasurements": nan,
             "is_correctly_classified_anomaly": None,
-            "predicted_to_real_delta": nan,
         },
         {
             "y": 2.0,
@@ -760,7 +778,6 @@ test_feedback_processor_feedback_processed_df = pd.DataFrame(
             "freeTextReason": nan,
             "skipMeasurements": nan,
             "is_correctly_classified_anomaly": None,
-            "predicted_to_real_delta": nan,
         },
         {
             "y": 1.0,
@@ -775,7 +792,6 @@ test_feedback_processor_feedback_processed_df = pd.DataFrame(
             "freeTextReason": nan,
             "skipMeasurements": nan,
             "is_correctly_classified_anomaly": None,
-            "predicted_to_real_delta": nan,
         },
         {
             "y": 1.0,
@@ -790,7 +806,6 @@ test_feedback_processor_feedback_processed_df = pd.DataFrame(
             "freeTextReason": nan,
             "skipMeasurements": nan,
             "is_correctly_classified_anomaly": None,
-            "predicted_to_real_delta": nan,
         },
         {
             "y": 21.0,
@@ -805,7 +820,6 @@ test_feedback_processor_feedback_processed_df = pd.DataFrame(
             "freeTextReason": nan,
             "skipMeasurements": nan,
             "is_correctly_classified_anomaly": None,
-            "predicted_to_real_delta": nan,
         },
     ]
 )
