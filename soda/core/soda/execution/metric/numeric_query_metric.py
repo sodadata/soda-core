@@ -324,7 +324,7 @@ class NumericQueryMetric(QueryMetric):
 
             if self.filter:
                 where_clauses.append(f"({self.filter})")
-                passing_where_clauses.append(self.filter)
+                passing_where_clauses.append(f"({self.filter})")
 
             where_sql = " AND ".join(where_clauses)
             passing_where_sql = " AND ".join(passing_where_clauses)
