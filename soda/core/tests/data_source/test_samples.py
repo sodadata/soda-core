@@ -482,7 +482,6 @@ def test_sample_with_multiple_value_condition(data_source_fixture: DataSourceFix
 
 def test_missing_with_check_and_dataset_filter(data_source_fixture: DataSourceFixture):
     table_name = data_source_fixture.ensure_test_table(customers_test_table)
-    # Row count is 10
     scan = data_source_fixture.create_test_scan()
     mock_soda_cloud = scan.enable_mock_soda_cloud()
     scan.enable_mock_sampler()
@@ -494,15 +493,30 @@ def test_missing_with_check_and_dataset_filter(data_source_fixture: DataSourceFi
       checks for {table_name} [not_null_id]:
         - missing_count(pct) = 1:
             missing values: [No value, N/A, error]
-            filter: cst_size IS NOT NULL or cst_size_txt IS NOT NULL
-        - invalid_count(cat) > 0:
+            filter: cst_size IS NOT NULL OR 
+                    cst_size_txt IS NOT NULL
+        - missing_percent(pct) < 20:
+            missing values: [No value, N/A, error]
+            filter: |
+                "cst_size" IS NOT NULL or "cst_size_txt" IS NOT NULL
+        - invalid_count(cat) < 3:
             valid values: ['HIGH']
+            filter: country = 'BE' OR country = 'NL'
+        - invalid_percent(cat) < 30:
+            valid values: ['HIGH']
+            filter: country = 'BE' OR country = 'NL'
+        - duplicate_count(cat) = 1:
+            filter: country = 'BE' OR country = 'NL'
+        - duplicate_percent(cat) < 20:
             filter: country = 'BE' OR country = 'NL'
     """
     )
     scan.execute()
-
     scan.assert_all_checks_pass()
 
     assert mock_soda_cloud.find_failed_rows_line_count(0) == 1
-    assert mock_soda_cloud.find_failed_rows_line_count(1) == 2
+    assert mock_soda_cloud.find_failed_rows_line_count(1) == 1
+    assert mock_soda_cloud.find_failed_rows_line_count(2) == 2
+    assert mock_soda_cloud.find_failed_rows_line_count(3) == 2
+    assert mock_soda_cloud.find_failed_rows_line_count(4) == 3
+    assert mock_soda_cloud.find_failed_rows_line_count(5) == 3
