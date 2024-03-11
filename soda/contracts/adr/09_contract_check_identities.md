@@ -2,7 +2,7 @@
 
 TODO explain a bit better:
 
-Every check in a contract has an identity.  
+Every check in a contract has an identity.
 
 * why uniqueness required
 * relation to schedule
