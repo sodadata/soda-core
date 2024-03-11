@@ -119,6 +119,7 @@ class SodaCLParser(Parser):
 
         self.sodacl_cfg: SodaCLCfg = sodacl_cfg
         self.data_source_name = data_source_name
+        self._dataset_attributes = None
 
     def assert_header_content_is_dict(func):
         @functools.wraps(func)
