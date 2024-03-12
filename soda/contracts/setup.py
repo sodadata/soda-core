@@ -6,8 +6,8 @@ package_name = "soda-core-contracts"
 package_version = "3.2.2"
 description = "Soda Core Contracts Package"
 
-requires = [f"soda-core=={package_version}", "jsonschema==4.20.0"]
-# TODO Fix the params
+requires = [f"soda-core=={package_version}", "jsonschema>=4.20.0"]
+
 setup(
     name=package_name,
     version=package_version,
