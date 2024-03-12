@@ -3,8 +3,9 @@ from __future__ import annotations
 import logging
 import re
 import struct
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timedelta, timezone
 from itertools import chain, repeat
+from textwrap import dedent
 
 import pyodbc
 from azure.identity import ClientSecretCredential
@@ -12,7 +13,6 @@ from soda.common.exceptions import DataSourceConnectionError
 from soda.common.logs import Logs
 from soda.execution.data_source import DataSource
 from soda.execution.data_type import DataType
-from textwrap import dedent
 
 logger = logging.getLogger(__name__)
 
