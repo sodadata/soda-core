@@ -491,7 +491,7 @@ def test_sample_with_multiple_value_condition(data_source_fixture: DataSourceFix
                         filter: cst_size IS NOT NULL OR cst_size_txt IS NOT NULL
             """,
             1,
-            ['ID7']
+            ["ID7"],
         ),
         pytest.param(
             """
@@ -501,7 +501,7 @@ def test_sample_with_multiple_value_condition(data_source_fixture: DataSourceFix
                             "cst_size" IS NOT NULL or "cst_size_txt" IS NOT NULL
             """,
             1,
-            ['ID7']
+            ["ID7"],
         ),
         pytest.param(
             """
@@ -510,7 +510,7 @@ def test_sample_with_multiple_value_condition(data_source_fixture: DataSourceFix
                 filter: country = 'BE' OR country = 'NL'
             """,
             2,
-            ['ID3', 'ID4']
+            ["ID3", "ID4"],
         ),
         pytest.param(
             """
@@ -519,7 +519,7 @@ def test_sample_with_multiple_value_condition(data_source_fixture: DataSourceFix
                 filter: country = 'BE' OR country = 'NL'
             """,
             2,
-            ['ID3', 'ID4']
+            ["ID3", "ID4"],
         ),
         pytest.param(
             """
@@ -527,7 +527,7 @@ def test_sample_with_multiple_value_condition(data_source_fixture: DataSourceFix
                 filter: country = 'BE' OR country = 'NL'
             """,
             3,
-            ['ID1', 'ID2', None]
+            ["ID1", "ID2", None],
         ),
         pytest.param(
             """
@@ -535,9 +535,9 @@ def test_sample_with_multiple_value_condition(data_source_fixture: DataSourceFix
                 filter: country = 'BE' OR country = 'NL'
             """,
             3,
-            ['ID1', 'ID2', None]
-        )
-    ]
+            ["ID1", "ID2", None],
+        ),
+    ],
 )
 def test_missing_with_check_and_dataset_filter(data_source_fixture: DataSourceFixture, check, sample_count, samples):
     table_name = data_source_fixture.ensure_test_table(customers_test_table)
