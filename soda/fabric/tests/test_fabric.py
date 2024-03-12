@@ -1,21 +1,20 @@
 from pathlib import Path
 
-from helpers.data_source_fixture import DataSourceFixture
-
 import pandas as pd
 import pyodbc
+from helpers.data_source_fixture import DataSourceFixture
 
 
 def test_connectivity(data_source_fixture: DataSourceFixture):
     print("Starting SQL Server connection test...")
 
     conn_str = (
-        f'DRIVER={{ODBC Driver 18 for SQL Server}};'
-        f'SERVER=localhost,1433;'
-        f'DATABASE=master;'
-        f'UID=sa;'
-        f'PWD=YourStrong!Passw0rd;'
-        f'Encrypt=No'
+        f"DRIVER={{ODBC Driver 18 for SQL Server}};"
+        f"SERVER=localhost,1433;"
+        f"DATABASE=master;"
+        f"UID=sa;"
+        f"PWD=YourStrong!Passw0rd;"
+        f"Encrypt=No"
     )
 
     try:
