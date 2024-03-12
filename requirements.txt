@@ -21,3 +21,4 @@
 ./soda/vertica
 ./soda/teradata
 ./soda/contracts
+./soda/fabric
