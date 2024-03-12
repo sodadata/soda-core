@@ -497,8 +497,7 @@ def test_sample_with_multiple_value_condition(data_source_fixture: DataSourceFix
             """
             - missing_percent(pct) < 20:
                         missing values: [No value, N/A, error]
-                        filter: |
-                            "cst_size" IS NOT NULL or "cst_size_txt" IS NOT NULL
+                        filter: cst_size IS NOT NULL or cst_size_txt IS NOT NULL
             """,
             1,
             ["ID7"],
@@ -553,7 +552,6 @@ def test_missing_with_check_and_dataset_filter(data_source_fixture: DataSourceFi
         {check}
         """
     )
-
     scan.execute()
     scan.assert_all_checks_pass()
     assert mock_soda_cloud.find_failed_rows_line_count(0) == sample_count
