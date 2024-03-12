@@ -28,7 +28,10 @@ click==8.1.7
     #   pip-tools
 colorama==0.4.6
     # via
+    #   build
     #   cli-ui
+    #   click
+    #   pytest
     #   tox
 contextlib2==21.6.0
     # via schema
@@ -103,6 +106,8 @@ python-dateutil==2.8.2
     # via faker
 python-dotenv==1.0.1
     # via -r dev-requirements.in
+pywin32==306
+    # via docker
 readme-renderer==32.0
     # via -r dev-requirements.in
 requests==2.31.0
