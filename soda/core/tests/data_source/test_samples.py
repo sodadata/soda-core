@@ -481,7 +481,65 @@ def test_sample_with_multiple_value_condition(data_source_fixture: DataSourceFix
     assert sorted(failed_ids) == sorted(["ID5", "ID7"])
 
 
-def test_missing_with_check_and_dataset_filter(data_source_fixture: DataSourceFixture):
+@pytest.mark.parametrize(
+    "check,sample_count,samples",
+    [
+        pytest.param(
+            """
+            - missing_count(pct) = 1:
+                        missing values: [No value, N/A, error]
+                        filter: cst_size IS NOT NULL OR cst_size_txt IS NOT NULL
+            """,
+            1,
+            ['ID7']
+        ),
+        pytest.param(
+            """
+            - missing_percent(pct) < 20:
+                        missing values: [No value, N/A, error]
+                        filter: |
+                            "cst_size" IS NOT NULL or "cst_size_txt" IS NOT NULL
+            """,
+            1,
+            ['ID7']
+        ),
+        pytest.param(
+            """
+            - invalid_count(cat) < 3:
+                valid values: ['HIGH']
+                filter: country = 'BE' OR country = 'NL'
+            """,
+            2,
+            ['ID3', 'ID4']
+        ),
+        pytest.param(
+            """
+            - invalid_percent(cat) < 30:
+                valid values: ['HIGH']
+                filter: country = 'BE' OR country = 'NL'
+            """,
+            2,
+            ['ID3', 'ID4']
+        ),
+        pytest.param(
+            """
+            - duplicate_count(cat) = 1:
+                filter: country = 'BE' OR country = 'NL'
+            """,
+            3,
+            ['ID1', 'ID2', None]
+        ),
+        pytest.param(
+            """
+            - duplicate_percent(cat) < 20:
+                filter: country = 'BE' OR country = 'NL'
+            """,
+            3,
+            ['ID1', 'ID2', None]
+        )
+    ]
+)
+def test_missing_with_check_and_dataset_filter(data_source_fixture: DataSourceFixture, check, sample_count, samples):
     table_name = data_source_fixture.ensure_test_table(customers_test_table)
     scan = data_source_fixture.create_test_scan()
     mock_soda_cloud = scan.enable_mock_soda_cloud()
@@ -492,32 +550,12 @@ def test_missing_with_check_and_dataset_filter(data_source_fixture: DataSourceFi
         where: id IS NOT NULL
 
       checks for {table_name} [not_null_id]:
-        - missing_count(pct) = 1:
-            missing values: [No value, N/A, error]
-            filter: cst_size IS NOT NULL OR
-                    cst_size_txt IS NOT NULL
-        - missing_percent(pct) < 20:
-            missing values: [No value, N/A, error]
-            filter: |
-                "cst_size" IS NOT NULL or "cst_size_txt" IS NOT NULL
-        - invalid_count(cat) < 3:
-            valid values: ['HIGH']
-            filter: country = 'BE' OR country = 'NL'
-        - invalid_percent(cat) < 30:
-            valid values: ['HIGH']
-            filter: country = 'BE' OR country = 'NL'
-        - duplicate_count(cat) = 1:
-            filter: country = 'BE' OR country = 'NL'
-        - duplicate_percent(cat) < 20:
-            filter: country = 'BE' OR country = 'NL'
-    """
+        {check}
+        """
     )
+
     scan.execute()
     scan.assert_all_checks_pass()
-
-    assert mock_soda_cloud.find_failed_rows_line_count(0) == 1
-    assert mock_soda_cloud.find_failed_rows_line_count(1) == 1
-    assert mock_soda_cloud.find_failed_rows_line_count(2) == 2
-    assert mock_soda_cloud.find_failed_rows_line_count(3) == 2
-    assert mock_soda_cloud.find_failed_rows_line_count(4) == 3
-    assert mock_soda_cloud.find_failed_rows_line_count(5) == 3
+    assert mock_soda_cloud.find_failed_rows_line_count(0) == sample_count
+    failed_ids = [sample[0] for sample in scan._configuration.sampler.samples[0].rows]
+    assert set(failed_ids) == set(samples)
