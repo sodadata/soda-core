@@ -7,7 +7,7 @@ set -e
 rm -rf .venv
 rm -rf soda_sql.egg-info
 
-python3 -m venv .venv
+virtualenv .venv
 # shellcheck disable=SC1091
 source .venv/bin/activate
 pip install --upgrade pip
