@@ -246,7 +246,7 @@ class DbtCloud:
         """
 
         if job_id is not None:
-            self.scan_logs.info(f"Retrieving latest run for job: {job_id}")
+            self.scan._logs.info(f"Retrieving latest run for job: {job_id}")
             run_id = self._get_latest_run_id(api_token, account_id, job_id)
 
             assert run_id, "Could not get a valid run_id for this job"
