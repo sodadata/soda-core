@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 import re
 
-from soda.cloud.dbt_config import DbtCloudConfig
+from soda.cloud.dbt_config import DBT_CLOUD_FALLBACK_ACCESS_URL, DbtCloudConfig
 from soda.cloud.soda_cloud import SodaCloud
 from soda.common.logs import Logs
 from soda.common.parser import Parser
@@ -172,6 +172,14 @@ class ConfigurationParser(Parser):
     def parse_dbt_cloud_cfg(self, config_dict: dict):
         api_token = config_dict.get("api_token")
         account_id = config_dict.get("account_id")
-        api_url = config_dict.get("api_url", "https://cloud.getdbt.com/api/v2/accounts/")
+        access_url = config_dict.get("access_url", DBT_CLOUD_FALLBACK_ACCESS_URL)
+        api_url = config_dict.get("api_url")
 
-        return DbtCloudConfig(api_token=api_token, account_id=account_id, api_url=api_url)
+        if api_url:
+            raise AttributeError(
+                "The 'api_url' property is now deprecated."
+                f"If you wish to provide a different base URL than {DBT_CLOUD_FALLBACK_ACCESS_URL}"
+                "use the 'access_url' property instead. See https://go.soda.io/access-url for more information"
+            )
+
+        return DbtCloudConfig(api_token=api_token, account_id=account_id, access_url=access_url)
