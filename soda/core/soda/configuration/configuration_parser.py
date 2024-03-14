@@ -177,8 +177,8 @@ class ConfigurationParser(Parser):
 
         if api_url:
             raise AttributeError(
-                "The 'api_url' property is now deprecated."
-                f"If you wish to provide a different base URL than {DBT_CLOUD_FALLBACK_ACCESS_URL}"
+                "The 'api_url' property is now deprecated. "
+                f"If you wish to provide a different base URL than {DBT_CLOUD_FALLBACK_ACCESS_URL} "
                 "use the 'access_url' property instead. See https://go.soda.io/access-url for more information"
             )
 
