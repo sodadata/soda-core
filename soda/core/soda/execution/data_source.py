@@ -115,7 +115,7 @@ class DataSource:
     # Keys represent the data_source type, values are lists of "aliases" that can be used in SodaCL as synonyms.
     SCHEMA_CHECK_TYPES_MAPPING: dict = {
         "character varying": ["varchar", "text"],
-        "double precision": ["decimal"],
+        "double precision": ["decimal", "numeric"],
         "timestamp without time zone": ["timestamp"],
         "timestamp with time zone": ["timestamptz"],
     }
@@ -290,6 +290,12 @@ class DataSource:
         if (
             actual_type in self.SCHEMA_CHECK_TYPES_MAPPING
             and expected_type in self.SCHEMA_CHECK_TYPES_MAPPING[actual_type]
+        ):
+            return True
+
+        if (
+            expected_type in self.SCHEMA_CHECK_TYPES_MAPPING
+            and actual_type in self.SCHEMA_CHECK_TYPES_MAPPING[expected_type]
         ):
             return True
 

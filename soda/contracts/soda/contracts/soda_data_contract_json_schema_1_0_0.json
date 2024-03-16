@@ -1,0 +1,235 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "$id": "https://soda.io/soda_data_contract_json_schema_1_0_0.json",
+    "title": "Soda data contract",
+    "description": "A data contract",
+    "type": "object",
+    "properties": {
+        "dataset": {
+            "description": "The name of the dataset",
+            "type": "string"
+        },
+        "owner": {
+            "description": "Contact person for this contract. Email address.",
+            "type": "string",
+            "format": "email"
+        },
+        "description": {
+            "description": "The description of the dataset.  What does each row represent?",
+            "type": "string"
+        },
+        "columns": {
+            "description": "The schema",
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "name": {
+                        "description": "The name of the column as in the SQL warehouse",
+                        "type": "string"
+                    },
+                    "description": {
+                        "description": "The description to be used anywhere this column is shown to users",
+                        "type": "string"
+                    },
+                    "data_type": {
+                        "description": "The SQL data type as in the warehouse",
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "string",
+                                "enum": [
+                                    "VARCHAR", "CHAR", "TEXT", "STRING",
+                                    "INT", "SMALLINT", "TINYINT", "BIGINT", "INTEGER",
+                                    "DECIMAL", "NUMERIC", "DOUBLE", "PRECISION", "DOUBLE PRECISION", "FLOAT", "FLOAT4", "FLOAT8", "REAL",
+                                    "CLOB", "BLOB", "BINARY", "VARBINARY",
+                                    "JSON", "JSONB", "XML",
+                                    "BOOLEAN",
+                                    "DATE",
+                                    "TIME",
+                                    "TIMESTAMP", "TIMESTAMP_TZ"
+                                ]
+                            }
+                        ]
+                    },
+                    "optional": {
+                        "description": "When set to true, the schema check will not fail if the column is not present. Default is required.",
+                        "type": "boolean"
+                    },
+                    "checks": {
+                        "description": "Checks for this column",
+                        "type": "array",
+                        "items": { "$ref": "#/$defs/check" },
+                        "required": ["type"]
+                    }
+                },
+                "required": ["name"]
+            }
+        },
+        "checks": {
+            "description": "A list of checks for this dataset executed by a Soda",
+            "type": "array",
+            "items": { "$ref": "#/$defs/check" }
+        }
+    },
+    "required": ["dataset", "columns"],
+    "$defs": {
+        "numeric_range": {
+            "anyOf": [
+                {
+                    "type": "array",
+                    "items": {
+                        "type": "number"
+                    },
+                    "minLength": 2,
+                    "maxLength": 2
+                }
+            ]
+        },
+        "format": {
+            "type": "string",
+            "enum": [
+                "integer", "positive integer", "negative integer", "decimal", "positive decimal",
+                "negative decimal", "decimal point", "positive decimal point", "negative decimal point",
+                "decimal comma", "positive decimal comma", "negative decimal comma", "percentage",
+                "positive percentage", "negative percentage", "percentage point",
+                "positive percentage point", "negative percentage point", "percentage comma",
+                "positive percentage comma", "negative percentage comma", "money", "money point",
+                "money comma", "date us", "date eu", "date inverse", "date iso 8601", "time 24h",
+                "time 24h nosec", "time 12h", "time 12h nosec", "timestamp 24h", "timestamp 12h",
+                "uuid", "ip address", "ipv4 address", "ipv6 address", "email", "phone number",
+                "credit card number"
+            ]
+        },
+        "check": {
+            "type": "object",
+            "properties": {
+                "type": {
+                    "description": "The type of the check, usually this is the name of the metric",
+                    "anyOf": [
+                        {
+                            "type": "string",
+                            "enum": [
+                                "row_count", "rows_present",
+                                "no_missing_values", "missing_count", "missing_percent",
+                                "no_invalid_values", "invalid_count", "invalid_percent",
+                                "no_duplicate_values", "duplicate_count", "duplicate_percent",
+                                "freshness_in_days", "freshness_in_hours", "freshness_in_minutes",
+                                "max", "avg", "min", "min_length", "avg_length", "max_length",
+                                "percentile", "stddev", "stddev_pop", "stddev_samp", "sum",
+                                "variance", "var_pop", "var_samp"
+                            ]
+                        },
+                        {
+                            "type": "string"
+                        }
+                    ]
+                },
+                "name": {
+                    "description": "The display name for the check used in Soda Cloud and other UI tools",
+                    "type": "string"
+                },
+                "missing_values": {
+                    "description": "Customized list of missing values. NULL is always considered missing so that does not have to be specified. If no customization is needed, consider specifying not_null:true instead. Implies a missing_count check in Soda.",
+                    "type": "array",
+                    "items": {
+                        "type": ["integer", "string"]
+                    }
+                },
+                "missing_sql_regex": {
+                    "description": "Customized SQL regex to identify missing values. The flavor of regex depends on the SQL engine / warehouse. NULL is always considered missing so that does not have to be specified. Implies a missing_count check in Soda.",
+                    "type": "string"
+                },
+                "valid_values": {
+                    "description": "A list of valid values. Only supports all strings or all numbers. Implies an invalid_count check in Soda.",
+                    "type": "array",
+                    "items": {
+                        "type": ["number", "string"]
+                    }
+                },
+                "valid_sql_regex": {
+                    "description": "A SQL regular expression that matches valid values. Implies a valid_count check in Soda. All (in)valid_* configs are combined in a single invalid_count check.",
+                    "type": "string"
+                },
+                "valid_format": {
+                    "description": "A named regular expression that specifies valid values.",
+                    "$ref": "#/$defs/format"
+                },
+                "valid_length": {
+                    "description": "The exact length of values. Only for text data types. Implies an invalid_count check in Soda. Also consider valid_min_length & valid_max_length.",
+                    "type": "integer"
+                },
+                "valid_max_length": {
+                    "description": "The maximum length of values. Only for text data types. Implies an invalid_count check in Soda.",
+                    "type": "integer"
+                },
+                "valid_min_length": {
+                    "description": "The minimum length of values. Only for text data types. Implies an invalid_count check in Soda.",
+                    "type": "integer"
+                },
+                "valid_min": {
+                    "description": "The minimum allowed value. Only for numeric data types or text types with a numeric format. Implies an invalid_count check in Soda.",
+                    "type": "integer"
+                },
+                "valid_max": {
+                    "description": "The maximum allowed value. Only for numeric data types or text types with a numeric format. Implies an invalid_count check in Soda.",
+                    "type": "integer"
+                },
+                "invalid_values": {
+                    "description": "A list of valid values. Only supports all strings or all numbers. Implies an invalid_count check in Soda.",
+                    "type": "array",
+                    "items": {
+                        "type": ["number", "string"]
+                    }
+                },
+                "invalid_sql_regex": {
+                    "description": "A regular expression that specifies valid values.",
+                    "type": "string"
+                },
+                "invalid_format": {
+                    "description": "A named regular expression that specifies invalid values.",
+                    "$ref": "#/$defs/format"
+                },
+                "filter_sql_expression": {
+                    "description": "Specifies a sql expression filter that should be applied on the metric",
+                    "type": "string"
+                },
+                "must_be": {
+                    "description": "YY The value the check metric (as specified in the type) must have for the check to pass; The check passes if the metric has the specified value, and fails otherwise; https://docs.soda.io/#thresholds",
+                    "type": "number"
+                },
+                "must_not_be": {
+                    "description": "The value that the check metric (as specified in the type) may not have. The check passes if the metric doesn't have this value and fails otherwise.",
+                    "type": "number"
+                },
+                "must_be_greater_than": {
+                    "description": "Specifies the threshold for the check. The check fails if the metric value is greater than the specified threshold value.",
+                    "type": "number"
+                },
+                "must_be_greater_than_or_equal_to": {
+                    "description": "Specifies the threshold for the check. The check fails if the metric value is greater than or equal to the specified threshold value.",
+                    "type": "number"
+                },
+                "must_be_less_than": {
+                    "description": "Specifies the threshold for the check. The check fails if the metric value is less than the specified threshold value.",
+                    "type": "number"
+                },
+                "must_be_less_than_or_equal_to": {
+                    "description": "Specifies the threshold for the check. The check fails if the metric value is less than or equal to the specified threshold value.",
+                    "type": "number"
+                },
+                "must_be_between": {
+                    "description": "Specifies a threshold range for the check. The check fails if the metric value is between a minimum and maximum value. In short style eg fail_when_between:[10,20] boundary values 10 and 20 will pass. For including boundary values, use nested min_* and max_* properties",
+                    "$ref": "#/$defs/numeric_range"
+                },
+                "must_not_be_between": {
+                    "description": "Specifies a threshold range for the check. The check fails if the metric value is not between a minimum and maximum value. In short style eg fail_when_between:[10,20] boundary values 10 and 20 will pass. For including boundary values, use nested min_* and max_* properties",
+                    "$ref": "#/$defs/numeric_range"
+                }
+            },
+            "required": ["type"]
+        }
+    }
+}
