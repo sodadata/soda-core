@@ -69,3 +69,11 @@ def mock_file_system():
 def format_query_one_line(query: str) -> str:
     """@TODO: implement"""
     return query
+
+
+@pytest.fixture(scope="function")
+def environ():
+    original_environ = os.environ.copy()
+    yield os.environ
+    os.environ.clear()
+    os.environ.update(original_environ)
