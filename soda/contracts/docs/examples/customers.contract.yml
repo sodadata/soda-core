@@ -1,0 +1,24 @@
+dataset: CUSTOMERS
+columns:
+  - name: id
+    data_type: VARCHAR
+    checks:
+      - type: no_missing_values
+      - type: no_duplicate_values
+  - name: size
+    checks:
+      - type: invalid_count
+        valid_values: ['S', 'M', 'L']
+        must_be_less_than: 10
+  - name: created
+    checks:
+      - type: freshness_in_hours
+        must_be_less_than: 6
+  - name: distance
+    checks:
+      - type: metric_sql_expression
+        metric: us_avg_distance
+        expression: AVG(CASE WHEN country = 'US' THEN distance END)
+        must_be_between: [10, 20]
+checks:
+  - type: rows_required

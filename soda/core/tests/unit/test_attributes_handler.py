@@ -1,3 +1,4 @@
+import time
 from datetime import date, datetime
 
 import pytest
@@ -101,12 +102,22 @@ def test_validation_unsupported_type(data_source_fixture: DataSourceFixture):
         ("something", "something"),
         (1, "1"),
         (1.1, "1.1"),
-        (datetime(2022, 1, 1, 12, 0, 0), "2022-01-01T00:00:00+00:00"),
+        (datetime(2022, 1, 1, 0, 0, 0), "2022-01-01T00:00:00+00:00"),
         (date(2022, 1, 1), "2022-01-01T00:00:00+00:00"),
         (True, True),
     ],
 )
 def test_formatting(value, expected, data_source_fixture: DataSourceFixture):
+    if isinstance(value, datetime) or isinstance(value, date):
+        # Attribute handler localizes dates and datetimes to local timezone, change the expected value to reflect that.
+        timezone_offset_sec = time.localtime().tm_gmtoff
+
+        offset_hours = timezone_offset_sec // 3600
+        offset_minutes = abs(timezone_offset_sec) % 3600 // 60
+        offset_sign = "+" if offset_hours >= 0 else "-"
+        offset_str = f"{offset_sign}{abs(offset_hours):02d}:{offset_minutes:02d}"
+
+        expected = expected.replace("+00:00", offset_str)
     scan = data_source_fixture.create_test_scan()
     attributes_handler = AttributeHandler(scan._logs)
 

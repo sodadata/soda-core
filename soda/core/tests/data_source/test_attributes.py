@@ -12,6 +12,31 @@ mock_schema = [
 mock_variables = {"DEPT": "sales"}
 
 
+def test_dataset_attributes_valid(data_source_fixture: DataSourceFixture):
+    table_name = data_source_fixture.ensure_test_table(customers_test_table)
+
+    scan = data_source_fixture.create_test_scan()
+    scan.mock_check_attributes_schema(mock_schema)
+    scan.add_variables(mock_variables)
+    scan.add_sodacl_yaml_str(
+        f"""
+      checks for {table_name}:
+        - attributes:
+            priority: 1
+            tags: ["user-created"]
+        - row_count > 0
+    """
+    )
+    scan.execute()
+    scan.assert_all_checks_pass()
+
+    scan_result = scan.build_scan_results()
+    assert scan_result["checks"][0]["resourceAttributes"] == [
+        {"name": "priority", "value": "1"},
+        {"name": "tags", "value": ["user-created"]},
+    ]
+
+
 def test_check_attributes_valid(data_source_fixture: DataSourceFixture):
     table_name = data_source_fixture.ensure_test_table(customers_test_table)
 

@@ -378,6 +378,12 @@ class Check(ABC):
             }
         )
 
+        # "contract check id" is a property used by contracts implementation.
+        # Here we propagate it from the check source configuration to the check result so that
+        # the contracts implementation can correlate the sodacl check result with the contract check
+        if self.check_cfg.source_configurations and "contract check id" in self.check_cfg.source_configurations:
+            self.dict["contract_check_id"] = self.check_cfg.source_configurations.get("contract check id")
+
         return self.dict
 
     def get_cloud_diagnostics_dict(self) -> dict:

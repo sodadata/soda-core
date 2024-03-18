@@ -110,9 +110,7 @@ class SchemaCheck(Check):
             return None
 
         measured_schema = self.measured_schema
-
         measured_column_names = [column["name"] for column in measured_schema]
-
         column_types = {column["name"]: column["type"] for column in measured_schema}
 
         schema_missing_column_names = []
@@ -133,7 +131,9 @@ class SchemaCheck(Check):
 
         if required_column_names:
             for required_column_name in required_column_names:
-                if required_column_name not in measured_column_names:
+                if required_column_name not in measured_column_names and not schema_validations.is_optional(
+                    required_column_name
+                ):
                     schema_missing_column_names.append(required_column_name)
 
         if schema_validations.forbidden_column_names:
@@ -229,7 +229,21 @@ class SchemaCheck(Check):
     def get_cloud_diagnostics_dict(self) -> dict:
         schema_diagnostics = {
             "blocks": [],
+            # The following diagnostics information is added for the contracts implementation
+            "column_additions": [],
+            "column_deletions": [],
+            "column_index_changes": {},
+            "column_index_mismatches": {},
+            "column_type_changes": {},
+            "column_type_mismatches": {},
+            "missing_column_names": [],
+            "present_column_names": [],
         }
+
+        if self.warn_result:
+            self._append_diffs(schema_diagnostics, self.warn_result)
+        if self.fail_result:
+            self._append_diffs(schema_diagnostics, self.fail_result)
 
         if self.measured_schema:
             columns_str = "\n".join([f'{c["name"]},{c["type"]}' for c in self.measured_schema])
@@ -286,6 +300,16 @@ class SchemaCheck(Check):
         }
 
         return schema_diagnostics
+
+    def _append_diffs(self, schema_diagnostics, result):
+        schema_diagnostics["column_additions"].extend(result.column_additions)
+        schema_diagnostics["column_deletions"].extend(result.column_deletions)
+        schema_diagnostics["column_index_changes"].update(result.column_index_changes)
+        schema_diagnostics["column_index_mismatches"].update(result.column_index_mismatches)
+        schema_diagnostics["column_type_changes"].update(result.column_type_changes)
+        schema_diagnostics["column_type_mismatches"].update(result.column_type_mismatches)
+        schema_diagnostics["missing_column_names"].extend(result.missing_column_names)
+        schema_diagnostics["present_column_names"].extend(result.present_column_names)
 
     def __build_change_events(self, schema_validation_result: SchemaCheckValidationResult) -> list(dict(str, str)):
         change_events: list(dict(str, str)) = []

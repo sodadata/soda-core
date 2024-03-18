@@ -7,6 +7,7 @@ import re
 from datetime import timedelta
 from numbers import Number
 from textwrap import dedent
+from typing import List
 
 from antlr4 import CommonTokenStream, InputStream
 from antlr4.error.ErrorListener import ErrorListener
@@ -55,6 +56,7 @@ ANOMALY_DETECTION_TAKE_OVER_EXISTING_ANOMALY_SCORE_CHECK = "take_over_existing_a
 ANOMALY_DETECTION_SEVERITY_LEVEL_PARAMETERS = "severity_level_parameters"
 ANOMALY_DETECTION_WARN_ONLY = "warn_only"
 ATTRIBUTES = "attributes"
+CONTRACT_CHECK_ID = "contract check id"
 FAIL = "fail"
 FAIL_CONDITION = "fail condition"
 FAIL_QUERY = "fail query"
@@ -79,6 +81,7 @@ WHEN_FORBIDDEN_COLUMN_PRESENT = "when forbidden column present"
 WHEN_FORBIDDEN_GROUP_PRESENT = "when forbidden group present"
 WHEN_GROUPS_CHANGE = "when groups change"
 WHEN_MISMATCHING_COLUMNS = "when mismatching columns"
+WITH_OPTIONAL_COLUMNS = "with optional columns"
 WHEN_REQUIRED_COLUMN_MISSING = "when required column missing"
 WHEN_REQUIRED_GROUP_MISSING = "when required group missing"
 WHEN_SCHEMA_CHANGES = "when schema changes"
@@ -119,6 +122,7 @@ class SodaCLParser(Parser):
 
         self.sodacl_cfg: SodaCLCfg = sodacl_cfg
         self.data_source_name = data_source_name
+        self._dataset_attributes = None
 
     def assert_header_content_is_dict(func):
         @functools.wraps(func)
@@ -239,15 +243,26 @@ class SodaCLParser(Parser):
                 check_str, check_configurations = self.__parse_check_configuration(check_list_element)
 
                 if check_str is not None:
-                    check_cfg = self.__parse_table_check_str(header_str, check_str, check_configurations)
+                    if check_str == ATTRIBUTES:
+                        self._dataset_attributes = check_configurations
+                    else:
+                        check_cfg = self.__parse_table_check_str(header_str, check_str, check_configurations)
+                        if self._dataset_attributes:
+                            check_cfg.source_configurations = (
+                                {} if check_cfg.source_configurations is None else check_cfg.source_configurations
+                            )
+                            check_cfg.source_configurations[ATTRIBUTES] = {
+                                **check_cfg.source_configurations.get(ATTRIBUTES, {}),
+                                **self._dataset_attributes,
+                            }
 
-                    if check_cfg:
-                        column_name = check_cfg.get_column_name()
-                        if column_name:
-                            column_checks = partition_cfg.get_or_create_column_checks(column_name)
-                            column_checks.add_check_cfg(check_cfg)
-                        else:
-                            partition_cfg.add_check_cfg(check_cfg)
+                        if check_cfg:
+                            column_name = check_cfg.get_column_name()
+                            if column_name:
+                                column_checks = partition_cfg.get_or_create_column_checks(column_name)
+                                column_checks.add_check_cfg(check_cfg)
+                            else:
+                                partition_cfg.add_check_cfg(check_cfg)
 
                 self._pop_path_element()
         else:
@@ -693,6 +708,7 @@ class SodaCLParser(Parser):
                     SAMPLES_LIMIT,
                     ATTRIBUTES,
                     ANOMALY_DETECTION_WARN_ONLY,
+                    CONTRACT_CHECK_ID,
                 ]:
                     if metric_name != "distribution_difference":
                         self.logs.error(
@@ -1181,6 +1197,22 @@ class SodaCLParser(Parser):
             if validations_dict.get(WHEN_MISMATCHING_COLUMNS):
                 schema_validations.required_column_types = self.__parse_schema_validation(WHEN_MISMATCHING_COLUMNS)
                 schema_validations.other_columns_allowed = False
+                with_optional_columns = validations_dict.get(WITH_OPTIONAL_COLUMNS)
+                if with_optional_columns is not None:
+                    if isinstance(with_optional_columns, List) and all(
+                        isinstance(e, str) for e in with_optional_columns
+                    ):
+                        schema_validations.optional_columns = with_optional_columns
+                    else:
+                        self.logs.error(
+                            message='"with optional columns" must be a list of strings',
+                            location=self.location,
+                        )
+            elif validations_dict.get(WITH_OPTIONAL_COLUMNS):
+                self.logs.error(
+                    message='"with optional columns" is only allowed together with "when mismatching columns"',
+                    location=self.location,
+                )
 
             for invalid_schema_validation in [
                 v
@@ -1190,6 +1222,7 @@ class SodaCLParser(Parser):
                     WHEN_REQUIRED_COLUMN_MISSING,
                     WHEN_WRONG_COLUMN_TYPE,
                     WHEN_MISMATCHING_COLUMNS,
+                    WITH_OPTIONAL_COLUMNS,
                     WHEN_WRONG_COLUMN_INDEX,
                     WHEN_FORBIDDEN_COLUMN_PRESENT,
                     WHEN_SCHEMA_CHANGES,
@@ -1343,7 +1376,7 @@ class SodaCLParser(Parser):
             samples_limit = self._get_optional(SAMPLES_LIMIT, int)
 
             for configuration_key in check_configurations:
-                if configuration_key not in [NAME, SAMPLES_LIMIT, ATTRIBUTES]:
+                if configuration_key not in [NAME, SAMPLES_LIMIT, ATTRIBUTES, CONTRACT_CHECK_ID]:
                     self.logs.error(
                         f"Invalid reference check configuration key {configuration_key}", location=self.location
                     )
