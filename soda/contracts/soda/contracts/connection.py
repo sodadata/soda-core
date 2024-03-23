@@ -57,6 +57,7 @@ class Connection:
         self.name: str | None = name
         # See also adr/03_exceptions_vs_error_logs.md
         self.logs: Logs = logs if logs else Logs()
+        self.spark_session = None
 
     @classmethod
     def from_yaml_file(cls, connection_yaml_file_path: str) -> Connection:
@@ -168,6 +169,15 @@ class Connection:
             if not isinstance(connection_type, str):
                 logs.error(f"'type' must be a string, but was  {type(connection_type)}")
         return DataSourceConnection(connection_type=connection_type, connection_dict=connection_dict, logs=logs)
+
+    @classmethod
+    def from_spark_session(cls, spark_session) -> Connection:
+        return DataSourceConnection(
+            connection_type="spark_df",
+            connection_dict={
+                "spark_session": spark_session
+            }
+        )
 
     def __enter__(self):
         return self

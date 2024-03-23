@@ -1,6 +1,10 @@
 # Roadmap
 
 ### Next TODOs
+* [ ] Documenting the spark session approach
+* [ ] Decide on owner key and fix the JSON Schema.  Consider the notifications key as well.
+* [ ] Skipping checks
+* [ ] Splitting/merging multiple files into single contract (or include).  Consider Templating.
 * [ ] Clean up file extensions
 * [ ] Add failed rows query support
 * [ ] Test Soda Cloud link
