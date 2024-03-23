@@ -5,6 +5,7 @@
 * [ ] Decide on owner key and fix the JSON Schema.  Consider the notifications key as well.
 * [ ] Skipping checks
 * [ ] Splitting/merging multiple files into single contract (or include).  Consider Templating.
+* [ ] Harmonize the sql_ keys (all in the front or all in the back)
 * [ ] Clean up file extensions
 * [ ] Add failed rows query support
 * [ ] Test Soda Cloud link

@@ -11,13 +11,14 @@ from typing import Dict, List
 
 from soda.cloud.soda_cloud import SodaCloud
 from soda.common import logs as soda_core_logs
+from soda.contracts.connection import SodaException
+from soda.contracts.impl.json_schema_verifier import JsonSchemaVerifier
+from soda.contracts.impl.logs import Location, Log, LogLevel, Logs
+from soda.contracts.impl.variable_resolver import VariableResolver
+from soda.contracts.impl.yaml import YamlObject, YamlWriter, YamlParser
+from soda.contracts.impl.yaml_helper import YamlHelper
 from soda.scan import Scan
 from soda.scan import logger as scan_logger
-
-from soda.contracts import soda_cloud as contract_soda_cloud
-from soda.contracts.connection import SodaException
-from soda.contracts.impl.logs import Location, Log, LogLevel, Logs
-from soda.contracts.impl.yaml import YamlObject, YamlWriter
 
 logger = logging.getLogger(__name__)
 
@@ -25,63 +26,129 @@ logger = logging.getLogger(__name__)
 class Contract:
 
     @classmethod
-    def from_yaml_str(
-        cls, contract_yaml_str: str, variables: dict[str, str] | None = None, schedule: str | None = None
-    ) -> Contract:
-        """
-        Build a contract from a YAML string
-        """
-        from soda.contracts.impl.contract_parser import ContractParser
-
-        contract_parser: ContractParser = ContractParser()
-        return contract_parser.parse_contract(
-            contract_yaml_str=contract_yaml_str, variables=variables, schedule=schedule
-        )
+    def from_yaml_str(cls, contract_yaml_str: str) -> Contract:
+        return Contract(contract_yaml_str=contract_yaml_str)
 
     @classmethod
-    def from_yaml_file(
-        cls, file_path: str, variables: dict[str, str] | None = None, schedule: str | None = None
-    ) -> Contract:
+    def from_yaml_file(cls, contract_yaml_file_path: str) -> Contract:
+        return Contract(contract_yaml_file_path=contract_yaml_file_path)
+
+    @classmethod
+    def from_dict(cls, contract_dict: dict) -> Contract:
+        return Contract(contract_dict=contract_dict)
+
+    def __init__(
+        self,
+        contract_yaml_file_path: str | None = None,
+        contract_yaml_str: str | None = None,
+        contract_dict: dict | None = None
+    ):
+        self.contract_yaml_file_path: str | None = contract_yaml_file_path
+        self.contract_yaml_str: str | None = contract_yaml_str
+        self.contract_dict: dict | None = contract_dict
+        self.variables: dict[str, str] = {}
+        self.soda_cloud: SodaCloud | None = None
+        self.logs: Logs | None = None
+        self.spark_session = None
+        self.checks: list[Check] = []
+
+    def with_variable(self, key: str, value: str) -> Contract:
+        self.variables[key] = value
+        return self
+
+    def with_variables(self, variables: dict[str, str]) -> Contract:
+        self.variables.update(variables)
+        return self
+
+    def with_soda_cloud(self, soda_cloud: SodaCloud) -> Contract:
+        self.soda_cloud = soda_cloud
+        return self
+
+    def with_spark_session(self, spark_session) -> Contract:
+        self.spark_session = spark_session
+        return self
+
+    def with_logs(self, logs: Logs) -> Contract:
+        self.logs = logs
+        return self
+
+    def verify(self) -> ContractResult:
+        try:
+            if isinstance(self.contract_yaml_file_path, str):
+                with open(self.contract_yaml_file_path) as f:
+                    self.contract_yaml_str = f.read()
+
+            if self.variables:
+                # Resolve all the ${VARIABLES} in the contract based on either the provided
+                # variables or system variables (os.environ)
+                variable_resolver = VariableResolver(logs=self.logs, variables=self.variables)
+                resolved_contract_yaml_str: str = variable_resolver.resolve(self.contract_yaml_str)
+            else:
+                resolved_contract_yaml_str = self.contract_yaml_str
+
+            if isinstance(resolved_contract_yaml_str, str):
+                from ruamel.yaml import YAML
+                ruamel_yaml: YAML = YAML()
+                ruamel_yaml.preserve_quotes = True
+                self.contract_dict = ruamel_yaml.load(resolved_contract_yaml_str)
+
+            # Verify the contract schema on the ruamel instance object
+            if isinstance(self.contract_dict, dict):
+                json_schema_verifier: JsonSchemaVerifier = JsonSchemaVerifier(self.logs)
+                json_schema_verifier.verify(self.contract_dict)
+
+            yaml_helper = YamlHelper(logs=self.logs)
+
+            warehouse: str | None = yaml_helper.read_string(self.contract_dict, "warehouse")
+            TODO parse the warehouse
+
+            dataset: str | None = yaml_helper.read_string(self.contract_dict, "dataset")
+            schema: str | None = yaml_helper.read_string_opt(self.contract_dict, "schema")
+            sql_filter: str | None = yaml_helper.read_string_opt(self.contract_dict, "sql_filter")
+
+            columns_yaml_list: list | None = yaml_helper.read_yaml_list(self.contract_dict, "columns")
+            if columns_yaml_list:
+                schema_columns: Dict[str, str | None] = {}
+                schema_optional_columns: List[str] = []
+
+                self.checks.append(SchemaCheck(
+                    dataset=dataset,
+                    yaml_source=columns_yaml_list
+                )
+
+
+
+        except OSError as e:
+            self.logs.error(
+                message=f"Could not verify contract: {e}",
+                exception=e
+            )
+
+        # self.schedule: str | None = schedule
+        # self.dataset: str = dataset
+        # self.sql_filter: str | None = sql_filter
+        # self.schema: str | None = schema
+        # self.checks: List[Check] = checks
+        # self.contract_yaml_str: str = contract_yaml_str
+        # self.variables: dict[str, str] | None = variables
+        # # The initial logs will contain the logs of contract parser.  If there are error logs, these error logs
+        # # will cause a SodaException to be raised at the end of the Contract.verify method
+        # # See also adr/03_exceptions_vs_error_logs.md
+        # self.logs: Logs = logs
+        # self.sodacl_yaml_str: str | None = None
+
+
+        """
+        Verifies if the data in the dataset matches the contract.
+        """
+
         """
         Build a contract from a YAML file.
         Raises OSError in case the file_path cannot be opened like e.g.
         FileNotFoundError or PermissionError
         """
-        with open(file_path) as f:
-            contract_yaml_str = f.read()
             return cls.from_yaml_str(contract_yaml_str=contract_yaml_str, variables=variables, schedule=schedule)
 
-    def __init__(
-        self,
-        schedule: str | None,
-        dataset: str,
-        sql_filter: str | None,
-        schema: str | None,
-        checks: List[Check],
-        contract_yaml_str: str,
-        variables: dict[str, str] | None,
-        logs: Logs,
-    ):
-        """
-        Consider using Contract.from_yaml_str(contract_yaml_str) instead as that is more stable API.
-        """
-        self.schedule: str | None = schedule
-        self.dataset: str = dataset
-        self.sql_filter: str | None = sql_filter
-        self.schema: str | None = schema
-        self.checks: List[Check] = checks
-        self.contract_yaml_str: str = contract_yaml_str
-        self.variables: dict[str, str] | None = variables
-        # The initial logs will contain the logs of contract parser.  If there are error logs, these error logs
-        # will cause a SodaException to be raised at the end of the Contract.verify method
-        # See also adr/03_exceptions_vs_error_logs.md
-        self.logs: Logs = logs
-        self.sodacl_yaml_str: str | None = None
-
-    def verify(self, connection: Connection, soda_cloud: contract_soda_cloud.SodaCloud | None = None) -> ContractResult:
-        """
-        Verifies if the data in the dataset matches the contract.
-        """
 
         scan = Scan()
 
@@ -149,7 +216,12 @@ class Contract:
 
         return contract_result
 
-    def append_scan_warning_and_error_logs(self, scan_logs: soda_core_logs.Logs) -> None:
+
+    def __parse_checks(self, contract_dict: dict) -> None:
+
+
+
+def append_scan_warning_and_error_logs(self, scan_logs: soda_core_logs.Logs) -> None:
         level_map = {
             soda_core_logs.LogLevel.ERROR: LogLevel.ERROR,
             soda_core_logs.LogLevel.WARNING: LogLevel.WARNING,
@@ -186,9 +258,10 @@ class Contract:
         )
 
         for check in self.checks:
-            sodacl_check = check.to_sodacl_check()
-            if sodacl_check is not None:
-                sodacl_checks.append(sodacl_check)
+            if not check.skip:
+                sodacl_check = check.to_sodacl_check()
+                if sodacl_check is not None:
+                    sodacl_checks.append(sodacl_check)
         yaml_writer: YamlWriter = YamlWriter(logs)
         return yaml_writer.write_to_yaml_str(sodacl_yaml_object)
 
@@ -292,23 +365,23 @@ class ContractResult:
         return "\n".join(parts)
 
 
-@dataclass
 class Check(ABC):
 
-    schedule: str | None
-    dataset: str
-    column: str | None
-    type: str
-
-    # User defined name as in the contract.  None if not specified in the contract.
-    name: str | None
-
-    # Check identifier used to correlate the sodacl check results with this contract check object when parsing
-    # scan results.  Also used as correlation id in Soda Cloud to match subsequent results for the same check.
-    # Composite key created from schedule, dataset, column, type and identity_suffix.
-    identity: str | None
-
-    location: Location | None
+    def __init__(
+            self,
+            warehouse: str,
+            dataset: str,
+            column: str | None,
+            type: str,
+            yaml_source: YamlObject
+    ):
+        self.warehouse: str = warehouse
+        self.dataset: str = dataset
+        self.column: str | None = column
+        self.type: str = type
+        self.yaml_source: YamlObject = yaml_source
+        self.identity: str = self.create_identity()
+        self.skip: bool = False
 
     @abstractmethod
     def to_sodacl_check(self) -> str | dict | None:
@@ -320,18 +393,7 @@ class Check(ABC):
     ) -> CheckResult:
         pass
 
-    @classmethod
-    def create_check_identity(
-        cls,
-        schedule: str | None,
-        dataset: str,
-        column: str | None,
-        check_type: str,
-        check_identity_suffix: str | None,
-        check_location: Location | None,
-        checks: dict[str, Check],
-        logs: Logs,
-    ) -> str:
+    def create_identity() -> str:
         opt_schedule_part = f"//{schedule}" if schedule else ""
         opt_column_part = f"/{column}" if column else ""
         opt_check_identity_suffix_part = f"/{check_identity_suffix}" if check_identity_suffix else ""
@@ -350,6 +412,9 @@ class Check(ABC):
                 )
                 suffix_index = suffix_index + 1
         return check_identity
+
+    def skip(self) -> None:
+        self.is_skip = True
 
 
 @dataclass
@@ -384,6 +449,10 @@ class SchemaCheck(Check):
 
     columns: dict[str, str | None]
     optional_columns: list[str]
+
+    def __init__(self, dataset: str | None, yaml_source: list | None):
+        self.dataset = dataset,
+        self.yaml_source = columns_yaml_list
 
     def to_sodacl_check(self) -> str | dict | None:
         schema_fail_dict = {"when mismatching columns": self.columns}
@@ -463,6 +532,21 @@ class SchemaCheckResult(CheckResult):
             ]
         )
         return lines
+
+
+class AbstractCheck(Check):
+    def __init__(self):
+        super().__init__()
+        self.yaml_source: YamlObject = yaml_source
+
+        # Check identifier used to correlate the sodacl check results with this contract check object when parsing
+        # scan results.  Also used as correlation id in Soda Cloud to match subsequent results for the same check.
+        # Composite key created from schedule, dataset, column, type and identity_suffix.
+        self.identity_suffix: str | None = self.get_identity_suffix()
+
+        # User defined name as in the contract.  None if not specified in the contract.
+        self.name: str | None
+
 
 
 @dataclass
