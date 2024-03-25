@@ -35,7 +35,7 @@ def test_contract_filter_row_count(test_connection: TestConnection, environ: dic
     contract_result: ContractResult = test_connection.assert_contract_fail(
         f"""
         dataset: {table_name}
-        sql_filter: |
+        filter_sql: |
           created > ${{FILTER_START_TIME}}
         columns:
           - name: id

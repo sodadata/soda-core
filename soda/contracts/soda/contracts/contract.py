@@ -12,8 +12,9 @@ from soda.scan import logger as scan_logger
 
 from soda.contracts.check import FreshnessCheck, Check, MissingConfigurations, ValidConfigurations, SchemaCheck, \
     Threshold, MissingCheckFactory, InvalidCheckFactory, DuplicateCheckFactory, ValidValuesReferenceData, \
-    AbstractCheck, UserDefinedMetricExpressionSqlCheckFactory, SqlFunctionCheckFactory, CheckFactory, CheckResult, \
-    CheckOutcome, FreshnessCheckFactory, CheckArgs
+    AbstractCheck, UserDefinedMetricExpressionCheckFactory, SqlFunctionCheckFactory, CheckFactory, CheckResult, \
+    CheckOutcome, FreshnessCheckFactory, CheckArgs, UserDefinedMetricQueryCheckFactory, \
+    MultiColumnDuplicateCheckFactory, RowCountCheckFactory
 from soda.contracts.connection import Connection
 from soda.contracts.impl.json_schema_verifier import JsonSchemaVerifier
 from soda.contracts.impl.logs import Location, Log, LogLevel, Logs
@@ -104,129 +105,177 @@ class Contract:
         return self
 
     def verify(self) -> ContractResult:
-        self.__parse()
+        self.parse()
         return self.__execute()
 
-    def __parse(self) -> None:
-        try:
-            if isinstance(self.yaml_file_path, str):
-                with open(self.yaml_file_path) as f:
-                    self.yaml_str = f.read()
+    def parse(self) -> Contract:
+        already_parsed: bool = isinstance(self.verification_context, str)
+        if not already_parsed:
+            try:
+                if isinstance(self.yaml_file_path, str):
+                    with open(self.yaml_file_path) as f:
+                        self.yaml_str = f.read()
 
-            if self.variables:
-                # Resolve all the ${VARIABLES} in the contract based on either the provided
-                # variables or system variables (os.environ)
-                variable_resolver = VariableResolver(logs=self.logs, variables=self.variables)
-                resolved_contract_yaml_str: str = variable_resolver.resolve(self.yaml_str)
-            else:
-                resolved_contract_yaml_str = self.yaml_str
+                if self.variables:
+                    # Resolve all the ${VARIABLES} in the contract based on either the provided
+                    # variables or system variables (os.environ)
+                    variable_resolver = VariableResolver(logs=self.logs, variables=self.variables)
+                    resolved_contract_yaml_str: str = variable_resolver.resolve(self.yaml_str)
+                else:
+                    resolved_contract_yaml_str = self.yaml_str
 
-            if isinstance(resolved_contract_yaml_str, str):
-                from ruamel.yaml import YAML
-                ruamel_yaml: YAML = YAML()
-                ruamel_yaml.preserve_quotes = True
-                self.yaml_dict = ruamel_yaml.load(resolved_contract_yaml_str)
+                if isinstance(resolved_contract_yaml_str, str):
+                    from ruamel.yaml import YAML
+                    ruamel_yaml: YAML = YAML()
+                    ruamel_yaml.preserve_quotes = True
+                    self.yaml_dict = ruamel_yaml.load(resolved_contract_yaml_str)
 
-            # Verify the contract schema on the ruamel instance object
-            if isinstance(self.yaml_dict, dict):
-                json_schema_verifier: JsonSchemaVerifier = JsonSchemaVerifier(self.logs)
-                json_schema_verifier.verify(self.yaml_dict)
+                # Verify the contract schema on the ruamel instance object
+                if isinstance(self.yaml_dict, dict):
+                    json_schema_verifier: JsonSchemaVerifier = JsonSchemaVerifier(self.logs)
+                    json_schema_verifier.verify(self.yaml_dict)
 
-            yaml_helper = YamlHelper(logs=self.logs)
+                yaml_helper = YamlHelper(logs=self.logs)
 
-            self.data_source: str | None = yaml_helper.read_string_opt(self.yaml_dict, "data_source")
-            self.schema: str | None = yaml_helper.read_string_opt(self.yaml_dict, "schema")
-            self.dataset: str | None = yaml_helper.read_string(self.yaml_dict, "dataset")
-            self.filter_sql: str | None = yaml_helper.read_string_opt(
-                self.yaml_dict,
-                "filter_expression_sql"
-            )
-            self.filter: str | None = "default" if self.filter_sql else None
+                self.data_source: str | None = yaml_helper.read_string_opt(self.yaml_dict, "data_source")
+                self.schema: str | None = yaml_helper.read_string_opt(self.yaml_dict, "schema")
+                self.dataset: str | None = yaml_helper.read_string(self.yaml_dict, "dataset")
+                self.filter_sql: str | None = yaml_helper.read_string_opt(
+                    self.yaml_dict,
+                    "filter_sql"
+                )
+                self.filter: str | None = "default" if self.filter_sql else None
 
-            # Computing the verification_context
-            verification_context_dict: dict = self.variables.copy()
-            verification_context_dict.update({
-                "data_source": self.data_source,
-                "schema": self.schema,
-                "dataset": self.dataset,
-                "filter": self.filter,
-            })
-            verification_context_parts: list = [
-                f"{k}={v}" for k, v in verification_context_dict.items() if v
-            ]
-            self.verification_context = ",".join(verification_context_parts)
+                # Computing the verification_context
+                verification_context_dict: dict = self.variables.copy()
+                verification_context_dict.update({
+                    "data_source": self.data_source,
+                    "schema": self.schema,
+                    "dataset": self.dataset,
+                    "filter": self.filter,
+                })
+                verification_context_parts: list = [
+                    f"{k}={v}" for k, v in verification_context_dict.items() if v
+                ]
+                self.verification_context = ",".join(verification_context_parts)
 
-            self.checks.append(SchemaCheck(
-                logs=self.logs,
-                verification_context=self.verification_context,
-                yaml_contract=self.yaml_dict
-            ))
+                self.checks.append(SchemaCheck(
+                    logs=self.logs,
+                    verification_context=self.verification_context,
+                    yaml_contract=self.yaml_dict
+                ))
 
-            yaml_columns: list | None = yaml_helper.read_yaml_list(self.yaml_dict, "columns")
-            if yaml_columns:
-                for yaml_column in yaml_columns:
-                    column: str | None = yaml_helper.read_string(yaml_column, "name")
-                    check_yamls: list | None = yaml_helper.read_yaml_list_opt(yaml_column, "checks")
-                    if column and check_yamls:
-                        for check_yaml in check_yamls:
-                            check_type: str | None = yaml_helper.read_string(check_yaml, "type")
+                column_yamls: list | None = yaml_helper.read_yaml_list(self.yaml_dict, "columns")
+                if column_yamls:
+                    for column_yaml in column_yamls:
+                        column: str | None = yaml_helper.read_string(column_yaml, "name")
+                        check_yamls: list | None = yaml_helper.read_yaml_list_opt(column_yaml, "checks")
+                        if column and check_yamls:
+                            for check_yaml in check_yamls:
+                                check_type: str | None = yaml_helper.read_string(check_yaml, "type")
+                                check_name = yaml_helper.read_string_opt(check_yaml,"name")
 
-                            check_name = yaml_helper.read_string_opt(check_yaml,"name")
-                            check_name = yaml_helper.read_string_opt(check_yaml,"name")
+                                missing_configurations: MissingConfigurations | None = self.__parse_missing_configurations(
+                                    check_yaml=check_yaml, column=column
+                                )
+                                valid_configurations: ValidConfigurations | None = self.__parse_valid_configurations(
+                                    check_yaml=check_yaml, column=column
+                                )
+                                threshold: Threshold = self.__parse_numeric_threshold(
+                                    check_yaml=check_yaml
+                                )
 
-                            missing_configurations: MissingConfigurations | None = self.__parse_missing_configurations(
-                                check_yaml=check_yaml, column=column
-                            )
-                            valid_configurations: ValidConfigurations | None = self.__parse_valid_configurations(
-                                check_yaml=check_yaml, column=column
-                            )
-                            threshold: Threshold = self.__parse_numeric_threshold(
-                                check_yaml=check_yaml
-                            )
+                                location: Location = yaml_helper.create_location_from_yaml_value(check_yaml)
 
-                            location: Location = yaml_helper.create_location_from_yaml_value(check_yaml)
+                                check_args: CheckArgs = CheckArgs(
+                                    logs=self.logs,
+                                    verification_context=self.verification_context,
+                                    check_type=check_type,
+                                    check_yaml=check_yaml,
+                                    check_name=check_name,
+                                    threshold=threshold,
+                                    location=location,
+                                    yaml_helper=yaml_helper,
+                                    column=column,
+                                    missing_configurations=missing_configurations,
+                                    valid_configurations=valid_configurations,
+                                )
 
-                            check_args: CheckArgs = CheckArgs(
-                                logs=self.logs,
-                                verification_context=self.verification_context,
-                                column=column,
-                                check_type=check_type,
-                                check_yaml=check_yaml,
-                                check_name=check_name,
-                                missing_configurations=missing_configurations,
-                                valid_configurations=valid_configurations,
-                                threshold=threshold,
-                                location=location,
-                                yaml_helper=yaml_helper
-                            )
+                                column_check_factory_classes: list[CheckFactory] = [
+                                    MissingCheckFactory(),
+                                    InvalidCheckFactory(),
+                                    DuplicateCheckFactory(),
+                                    UserDefinedMetricExpressionCheckFactory(),
+                                    UserDefinedMetricQueryCheckFactory(),
+                                    FreshnessCheckFactory(),
+                                    SqlFunctionCheckFactory(),
+                                ]
 
-                            column_check_factory_classes: list[CheckFactory] = [
-                                MissingCheckFactory(),
-                                InvalidCheckFactory(),
-                                DuplicateCheckFactory(),
-                                UserDefinedMetricExpressionSqlCheckFactory(),
-                                FreshnessCheckFactory(),
-                                SqlFunctionCheckFactory(),
-                            ]
-
-                            check: Check | None = None
-                            for column_check_factory_class in column_check_factory_classes:
-                                check = column_check_factory_class.create_check(check_args)
+                                check: Check = self.__create_check(check_args, column_check_factory_classes)
                                 if check:
-                                    break
+                                    self.checks.append(check)
+                                else:
+                                    self.logs.error(
+                                        message=f"Invalid column {check_args.check_type} check",
+                                        location=check_args.location
+                                    )
 
-                            if check:
-                                self.checks.append(check)
-                            else:
-                                self.logs.error(f"Invalid {check_type} check", location=location)
+                check_yamls: list | None = yaml_helper.read_yaml_list_opt(self.yaml_dict, "checks")
+                if check_yamls:
+                    for check_yaml in check_yamls:
+                        check_type: str | None = yaml_helper.read_string(check_yaml, "type")
+                        check_name = yaml_helper.read_string_opt(check_yaml,"name")
+                        threshold: Threshold = self.__parse_numeric_threshold(
+                            check_yaml=check_yaml
+                        )
 
-            # TODO check for duplicate identities
+                        location: Location = yaml_helper.create_location_from_yaml_value(check_yaml)
 
-        except OSError as e:
-            self.logs.error(
-                message=f"Could not verify contract: {e}",
-                exception=e
-            )
+                        check_args: CheckArgs = CheckArgs(
+                            logs=self.logs,
+                            verification_context=self.verification_context,
+                            check_type=check_type,
+                            check_yaml=check_yaml,
+                            check_name=check_name,
+                            threshold=threshold,
+                            location=location,
+                            yaml_helper=yaml_helper,
+                        )
+
+                        dataset_check_factory_classes: list[CheckFactory] = [
+                            UserDefinedMetricExpressionCheckFactory(),
+                            UserDefinedMetricQueryCheckFactory(),
+                            RowCountCheckFactory(),
+                            MultiColumnDuplicateCheckFactory(),
+                        ]
+
+                        check: Check = self.__create_check(check_args, dataset_check_factory_classes)
+                        if check:
+                            self.checks.append(check)
+                        else:
+                            self.logs.error(
+                                message=f"Invalid dataset {check_args.check_type} check",
+                                location=check_args.location
+                            )
+
+                checks_by_identity: dict[str, Check] = {}
+                for check in self.checks:
+                    if check.identity in checks_by_identity:
+                        other_check: Check = checks_by_identity[check.identity]
+                        if other_check:
+                            location_info: str = ""
+                            if isinstance(check, AbstractCheck) and isinstance(other_check, AbstractCheck):
+                                location_info = f": {other_check.location} and {check.location}"
+                            self.logs.error(f"Duplicate check identity '{check.identity}'{location_info}")
+                    else:
+                        checks_by_identity[check.identity] = check
+
+            except OSError as e:
+                self.logs.error(
+                    message=f"Could not verify contract: {e}",
+                    exception=e
+                )
+        return self
 
     def __parse_missing_configurations(self, check_yaml: dict, column: str) -> MissingConfigurations | None:
         yaml_helper: YamlHelper = YamlHelper(self.logs)
@@ -335,6 +384,12 @@ class Contract:
                 self.logs.error(f"Invalid threshold '{key}'. Must be in '{AbstractCheck.threshold_keys}'.")
 
         return numeric_threshold
+
+    def __create_check(self, check_args: CheckArgs, column_check_factory_classes: list[CheckFactory]) -> Check | None:
+        for column_check_factory_class in column_check_factory_classes:
+            check = column_check_factory_class.create_check(check_args)
+            if check:
+                return check
 
     def append_scan_warning_and_error_logs(self, scan_logs: soda_core_logs.Logs) -> None:
         level_map = {

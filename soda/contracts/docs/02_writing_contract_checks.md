@@ -404,7 +404,7 @@ The following check requires a variable to be passed.
 
 ```yaml
 dataset: CUSTOMERS
-sql_filter: |
+filter_sql: |
   created > ${FILTER_START_TIME}
 columns:
   - name: id

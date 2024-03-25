@@ -1,21 +1,21 @@
 from __future__ import annotations
 
 import logging
-from datetime import date, datetime
+from datetime import date
 from textwrap import dedent
 
 import pytest
+
 from contracts.helpers.contract_test_tables import contracts_test_table
 from helpers.data_source_fixture import DataSourceFixture
 from helpers.test_table import TestTable
+from soda.contracts.connection import Connection
+from soda.contracts.contract import Contract, ContractResult, SodaException
+from soda.contracts.soda_cloud import SodaCloud
 from soda.execution.data_type import DataType
 
-from soda.contracts.connection import Connection, SodaException
-from soda.contracts.contract import Contract, ContractResult
-from soda.contracts.soda_cloud import SodaCloud
-
 contracts_api_test_table = TestTable(
-    name="contracts_api",
+    name="contracts_api_old",
     columns=[
         ("id", DataType.TEXT),
         ("size", DataType.DECIMAL),

@@ -1,12 +1,11 @@
 from contracts.helpers.test_connection import TestConnection
 from helpers.test_table import TestTable
-from soda.contracts.check import MetricCheckResult, UserDefinedMetricSqlQueryCheck
-from soda.execution.data_type import DataType
-
+from soda.contracts.check import MetricCheckResult, UserDefinedMetricQueryCheck
 from soda.contracts.contract import (
     CheckOutcome,
     ContractResult,
 )
+from soda.execution.data_type import DataType
 
 user_defined_metric_query_sql_test_table = TestTable(
     name="metric_query_query",
@@ -50,12 +49,12 @@ def test_contract_metric_query_on_column(test_connection: TestConnection):
     assert check_result.metric_value == 2
 
     check = check_result.check
-    assert isinstance(check, UserDefinedMetricSqlQueryCheck)
-    assert check.type == "metric_query_sql"
+    assert isinstance(check, UserDefinedMetricQueryCheck)
+    assert check.type == "metric_query"
     assert check.metric == "us_count"
     assert check.column == "id"
 
-    assert "Actual us_count was 2" in str(contract_result)
+    assert "Actual us_count(id) was 2" in str(contract_result)
 
 
 def test_contract_metric_query_on_dataset(test_connection: TestConnection):
@@ -84,8 +83,8 @@ def test_contract_metric_query_on_dataset(test_connection: TestConnection):
     assert check_result.metric_value == 2
 
     check = check_result.check
-    assert isinstance(check, UserDefinedMetricSqlQueryCheck)
-    assert check.type == "metric_query_sql"
+    assert isinstance(check, UserDefinedMetricQueryCheck)
+    assert check.type == "metric_query"
     assert check.metric == "us_count"
     assert check.column is None
 

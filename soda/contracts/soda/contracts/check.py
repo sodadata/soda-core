@@ -203,12 +203,12 @@ class CheckArgs:
     check_type: str
     check_yaml: dict
     check_name: str | None
-    column: str | None
-    missing_configurations: MissingConfigurations
-    valid_configurations: ValidConfigurations
     threshold: Threshold
     location: Location
     yaml_helper: YamlHelper
+    column: str | None = None
+    missing_configurations: MissingConfigurations = None
+    valid_configurations: ValidConfigurations = None
 
 
 class CheckFactory(ABC):
@@ -332,7 +332,10 @@ class DuplicateCheckFactory(CheckFactory):
             elif not threshold or threshold.is_empty():
                 check_args.logs.error(f"Check type '{check_type}' requires threshold configuration")
 
-            return MetricCheck(check_args=check_args, metric=metric)
+            return self.create_duplicate_check(check_args=check_args, metric=metric)
+
+    def create_duplicate_check(self, check_args: CheckArgs, metric: str):
+        return MetricCheck(check_args=check_args, metric=metric)
 
 
 class SqlFunctionCheckFactory(CheckFactory):
@@ -340,6 +343,32 @@ class SqlFunctionCheckFactory(CheckFactory):
         metric: str = check_args.check_type
         # TODO Should we add validation here? But then we need to get the connection here too :()
         return MetricCheck(check_args=check_args, metric=metric)
+
+
+class RowCountCheckFactory(CheckFactory):
+
+    def create_check(self, check_args: CheckArgs) -> Check | None:
+        check_type: str = check_args.check_type
+        if check_type in ["row_count", "rows_exist"]:
+            threshold = check_args.threshold
+            metric: str = check_type
+            if check_type == "rows_exist":
+                metric = "row_count"
+                if not threshold.is_empty():
+                    check_args.logs.error(
+                        f"Check type 'rows_exist' does not allow for threshold keys must_...",
+                        location=check_args.location,
+                    )
+                check_args.threshold = Threshold(greater_than=0)
+            elif threshold.is_empty():
+                check_args.logs.error(
+                    (
+                        f"Check type '{check_type}' requires threshold configuration "
+                        f"with keys like {AbstractCheck.threshold_keys}"
+                    ),
+                    location=check_args.location,
+                )
+            return MetricCheck(check_args=check_args, metric=metric)
 
 
 class MetricCheck(AbstractCheck):
@@ -442,24 +471,24 @@ class ReferenceDataCheck(MetricCheck):
         )
 
 
-class UserDefinedMetricExpressionSqlCheckFactory(CheckFactory):
+class UserDefinedMetricExpressionCheckFactory(CheckFactory):
     def create_check(self, check_args: CheckArgs) -> Check | None:
         check_type: str = check_args.check_type
         if check_type == "metric_expression":
-            return UserDefinedMetricExpressionSqlCheck(check_args)
+            return UserDefinedMetricExpressionCheck(check_args)
 
 
-class UserDefinedMetricExpressionSqlCheck(MetricCheck):
+class UserDefinedMetricExpressionCheck(MetricCheck):
     def __init__(self, check_args: CheckArgs):
         check_yaml = check_args.check_yaml
         metric: str = check_args.yaml_helper.read_string_opt(check_yaml, "metric")
         super().__init__(check_args=check_args, metric=metric)
-        self.metric_expression: str = check_yaml.get("expression_sql")
+        self.expression_sql: str = check_yaml.get("expression_sql")
 
     def to_sodacl_check(self) -> str | dict | None:
         sodacl_check_configs = {
             "contract check id": self.identity,
-            f"{self.metric} expression": self.metric_expression,
+            f"{self.metric} expression": self.expression_sql,
         }
         if self.name:
             sodacl_check_configs["name"] = self.name
@@ -473,6 +502,42 @@ class UserDefinedMetricExpressionSqlCheck(MetricCheck):
                             scan: Scan):
         scan_metric_dict: dict = scan_check_metrics_by_name.get(self.metric, None)
         metric_value: Number = scan_metric_dict.get("value") if scan_metric_dict else None
+        return MetricCheckResult(
+            check=self, outcome=CheckOutcome.from_scan_check(scan_check), metric_value=metric_value
+        )
+
+
+class UserDefinedMetricQueryCheckFactory(CheckFactory):
+    def create_check(self, check_args: CheckArgs) -> Check | None:
+        check_type: str = check_args.check_type
+        if check_type == "metric_query":
+            return UserDefinedMetricQueryCheck(check_args)
+
+
+class UserDefinedMetricQueryCheck(MetricCheck):
+
+    def __init__(self, check_args: CheckArgs):
+        check_yaml = check_args.check_yaml
+        metric: str = check_args.yaml_helper.read_string(check_yaml, "metric")
+        super().__init__(check_args=check_args, metric=metric)
+        self.query_sql: str = check_args.yaml_helper.read_string(check_yaml, "query_sql")
+
+    def to_sodacl_check(self) -> str | dict | None:
+        sodacl_check_configs = {
+            "contract check id": self.identity,
+            f"{self.metric} query": self.query_sql,
+        }
+        if self.name:
+            sodacl_check_configs["name"] = self.name
+
+        sodacl_check_line: str = self.get_sodacl_check_line()
+
+        return {sodacl_check_line: sodacl_check_configs}
+
+    def create_check_result(self, scan_check: dict[str, dict], scan_check_metrics_by_name: dict[str, dict], scan: Scan):
+        scan_metric_dict: dict = scan_check_metrics_by_name.get(self.get_sodacl_check_line(), None)
+        metric_value: Number = scan_metric_dict.get("value") if scan_metric_dict else None
+
         return MetricCheckResult(
             check=self, outcome=CheckOutcome.from_scan_check(scan_check), metric_value=metric_value
         )
@@ -564,6 +629,13 @@ class FreshnessCheckResult(CheckResult):
         ]
 
 
+class MultiColumnDuplicateCheckFactory(DuplicateCheckFactory):
+
+    def create_duplicate_check(self, check_args: CheckArgs, metric: str):
+        columns: list[str] = check_args.yaml_helper.read_list_of_strings(check_args.check_yaml, "columns")
+        return MultiColumnDuplicateCheck(check_args=check_args, metric=metric, columns=columns)
+
+
 class MultiColumnDuplicateCheck(MetricCheck):
 
     def __init__(self, check_args: CheckArgs, metric: str, columns: list[str]):
@@ -573,33 +645,6 @@ class MultiColumnDuplicateCheck(MetricCheck):
     def get_sodacl_metric(self) -> str:
         column_str = self.column if self.column else ", ".join(self.columns)
         return f"{self.metric}({column_str})"
-
-
-class UserDefinedMetricSqlQueryCheck(MetricCheck):
-
-    def __init__(self, check_args: CheckArgs, metric: str, metric_query_sql: str):
-        super().__init__(check_args=check_args, metric=metric)
-        self.metric_query_sql: str = metric_query_sql
-
-    def to_sodacl_check(self) -> str | dict | None:
-        sodacl_check_configs = {
-            "contract check id": self.identity,
-            f"{self.metric} query": self.metric_query_sql,
-        }
-        if self.name:
-            sodacl_check_configs["name"] = self.name
-
-        sodacl_check_line: str = self.get_sodacl_check_line()
-
-        return {sodacl_check_line: sodacl_check_configs}
-
-    def create_check_result(self, scan_check: dict[str, dict], scan_check_metrics_by_name: dict[str, dict], scan: Scan):
-        scan_metric_dict: dict = scan_check_metrics_by_name.get(self.get_sodacl_check_line(), None)
-        metric_value: Number = scan_metric_dict.get("value") if scan_metric_dict else None
-
-        return MetricCheckResult(
-            check=self, outcome=CheckOutcome.from_scan_check(scan_check), metric_value=metric_value
-        )
 
 
 class CheckOutcome(Enum):

@@ -5,7 +5,7 @@ import os
 from ruamel.yaml import YAML
 from yaml import MarkedYAMLError
 
-from soda.contracts.connection import SodaException
+from soda.contracts.contract import SodaException
 from soda.contracts.impl.logs import Logs
 from soda.contracts.impl.variable_resolver import VariableResolver
 

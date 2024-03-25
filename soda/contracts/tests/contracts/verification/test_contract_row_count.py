@@ -26,7 +26,7 @@ contracts_row_count_test_table = TestTable(
 def test_contract_row_count(test_connection: TestConnection):
     table_name: str = test_connection.ensure_test_table(contracts_row_count_test_table)
 
-    contract_result: ContractResult = test_connection.assert_contract_fail(
+    contract_result: ContractResult = test_connection.assert_contract_pass(
         f"""
         dataset: {table_name}
         columns:
@@ -37,16 +37,14 @@ def test_contract_row_count(test_connection: TestConnection):
     )
     check_result = contract_result.check_results[1]
     assert isinstance(check_result, MetricCheckResult)
-    assert check_result.outcome == CheckOutcome.FAIL
+    assert check_result.outcome == CheckOutcome.PASS
     assert check_result.metric_value == 3
 
     check = check_result.check
     assert isinstance(check, MetricCheck)
-    assert check.type == "row_count"
+    assert check.type == "rows_exist"
     assert check.metric == "row_count"
     assert check.column is None
-
-    assert "Actual row_count was 3" in str(contract_result)
 
 
 def test_contract_row_count2(test_connection: TestConnection):

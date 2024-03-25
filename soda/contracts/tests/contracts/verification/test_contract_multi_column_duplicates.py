@@ -1,6 +1,6 @@
 from contracts.helpers.test_connection import TestConnection
 from helpers.test_table import TestTable
-from soda.contracts.check import MetricCheckResult, MultiColumnDuplicateCheck
+from soda.contracts.check import MetricCheckResult, MultiColumnDuplicateCheck, MetricCheck
 from soda.execution.data_type import DataType
 
 from soda.contracts.contract import (
@@ -75,7 +75,7 @@ def test_contract_multi_column_duplicate_count(test_connection: TestConnection):
     assert check_result.metric_value == 1
 
     check = check_result.check
-    assert isinstance(check, DuplicateCheck)
+    assert isinstance(check, MultiColumnDuplicateCheck)
     assert check.type == "duplicate_count"
     assert check.metric == "duplicate_count"
     assert check.column is None
@@ -104,7 +104,7 @@ def test_contract_multi_column_duplicate_percent(test_connection: TestConnection
     assert 14.28 < float(check_result.metric_value) < 14.30
 
     check = check_result.check
-    assert isinstance(check, DuplicateCheck)
+    assert isinstance(check, MultiColumnDuplicateCheck)
     assert check.type == "duplicate_percent"
     assert check.metric == "duplicate_percent"
     assert check.column is None

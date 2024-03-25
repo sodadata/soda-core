@@ -1,6 +1,6 @@
 from contracts.helpers.test_connection import TestConnection
 from helpers.test_table import TestTable
-from soda.contracts.check import MetricCheckResult, UserDefinedMetricExpressionSqlCheck
+from soda.contracts.check import MetricCheckResult, UserDefinedMetricExpressionCheck
 from soda.execution.data_type import DataType
 
 from soda.contracts.contract import (
@@ -47,7 +47,7 @@ def test_contract_column_metric_expression(test_connection: TestConnection):
     assert check_result.metric_value == 2
 
     check = check_result.check
-    assert isinstance(check, UserDefinedMetricExpressionSqlCheck)
+    assert isinstance(check, UserDefinedMetricExpressionCheck)
     assert check.type == "metric_expression"
     assert check.metric == "us_count"
     assert check.column == "country"
@@ -78,7 +78,7 @@ def test_contract_dataset_metric_expression(test_connection: TestConnection):
     assert check_result.metric_value == 2
 
     check = check_result.check
-    assert isinstance(check, UserDefinedMetricExpressionSqlCheck)
+    assert isinstance(check, UserDefinedMetricExpressionCheck)
     assert check.type == "metric_expression"
     assert check.metric == "us_count"
     assert check.column is None
