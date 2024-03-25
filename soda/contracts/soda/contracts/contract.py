@@ -1,24 +1,25 @@
 from __future__ import annotations
 
-import dataclasses
 import logging
-from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from enum import Enum
 from numbers import Number
 from textwrap import indent
-from typing import Dict, List
+from typing import List
 
 from soda.cloud.soda_cloud import SodaCloud
 from soda.common import logs as soda_core_logs
-from soda.contracts.connection import SodaException
+from soda.scan import logger as scan_logger
+
+from soda.contracts.check import FreshnessCheck, Check, MissingConfigurations, ValidConfigurations, SchemaCheck, \
+    NumericThreshold, MissingCheckFactory, InvalidCheckFactory, DuplicateCheckFactory, ValidValuesReferenceData, \
+    AbstractCheck, UserDefinedMetricExpressionSqlCheckFactory, SqlFunctionCheckFactory, CheckFactory, CheckResult, \
+    CheckOutcome
+from soda.contracts.connection import Connection
 from soda.contracts.impl.json_schema_verifier import JsonSchemaVerifier
 from soda.contracts.impl.logs import Location, Log, LogLevel, Logs
 from soda.contracts.impl.variable_resolver import VariableResolver
-from soda.contracts.impl.yaml import YamlObject, YamlWriter, YamlParser
 from soda.contracts.impl.yaml_helper import YamlHelper
 from soda.scan import Scan
-from soda.scan import logger as scan_logger
 
 logger = logging.getLogger(__name__)
 
@@ -34,30 +35,56 @@ class Contract:
         return Contract(contract_yaml_file_path=contract_yaml_file_path)
 
     @classmethod
-    def from_dict(cls, contract_dict: dict) -> Contract:
-        return Contract(contract_dict=contract_dict)
+    def from_dict(cls, contract_yaml_dict: dict) -> Contract:
+        return Contract(contract_yaml_dict=contract_yaml_dict)
 
     def __init__(
         self,
         contract_yaml_file_path: str | None = None,
         contract_yaml_str: str | None = None,
-        contract_dict: dict | None = None
+        contract_yaml_dict: dict | None = None
     ):
-        self.contract_yaml_file_path: str | None = contract_yaml_file_path
-        self.contract_yaml_str: str | None = contract_yaml_str
-        self.contract_dict: dict | None = contract_dict
+        self.yaml_file_path: str | None = contract_yaml_file_path
+        self.yaml_str: str | None = contract_yaml_str
+        self.yaml_dict: dict | None = contract_yaml_dict
+
         self.variables: dict[str, str] = {}
         self.soda_cloud: SodaCloud | None = None
-        self.logs: Logs | None = None
+        self.logs: Logs = Logs()
         self.spark_session = None
+        self.connection: Connection | None = None
+
+        # TODO decide on file format for data sources: one per file or list per file
+        # TODO explain data_source resolving:
+        #   - first in ${user.home}/.soda/data_sources/*.yml
+        #   - then in a list of identified data source file paths with contract.with_data_source_file_path(file_path)
+        #   - then gradually up the dir hierarchy to find higher up data_source.yml files automatically
+        self.data_source: str | None = None
+        self.dataset: str | None = None
+        self.schema: str | None = None
+        # TODO explain filter_expression_sql, default filter and named filters
+        # filter name must part of the identity of the metrics
+        #   - no filter part if no filter is specified
+        #   - "default" is the filter name if there is only a default specified with "filter_expression_sql"
+        #   - {filter_name} if a filter is activated from a named map of filters
+        self.filter: str | None = None
+
+        # TODO explain verification context
+        self.verification_context: str | None = None
+
+        self.filter_sql: str | None = None
         self.checks: list[Check] = []
+
+        self.missing_value_configs_by_column: dict[str, MissingConfigurations] = {}
+        self.valid_value_configs_by_column: dict[str, ValidConfigurations] = {}
 
     def with_variable(self, key: str, value: str) -> Contract:
         self.variables[key] = value
         return self
 
     def with_variables(self, variables: dict[str, str]) -> Contract:
-        self.variables.update(variables)
+        if isinstance(variables, dict):
+            self.variables.update(variables)
         return self
 
     def with_soda_cloud(self, soda_cloud: SodaCloud) -> Contract:
@@ -68,55 +95,126 @@ class Contract:
         self.spark_session = spark_session
         return self
 
+    def with_connection(self, connection: Connection) -> Contract:
+        self.connection = connection
+        return self
+
     def with_logs(self, logs: Logs) -> Contract:
         self.logs = logs
         return self
 
     def verify(self) -> ContractResult:
+        self.__parse()
+        return self.__execute()
+
+    def __parse(self) -> None:
         try:
-            if isinstance(self.contract_yaml_file_path, str):
-                with open(self.contract_yaml_file_path) as f:
-                    self.contract_yaml_str = f.read()
+            if isinstance(self.yaml_file_path, str):
+                with open(self.yaml_file_path) as f:
+                    self.yaml_str = f.read()
 
             if self.variables:
                 # Resolve all the ${VARIABLES} in the contract based on either the provided
                 # variables or system variables (os.environ)
                 variable_resolver = VariableResolver(logs=self.logs, variables=self.variables)
-                resolved_contract_yaml_str: str = variable_resolver.resolve(self.contract_yaml_str)
+                resolved_contract_yaml_str: str = variable_resolver.resolve(self.yaml_str)
             else:
-                resolved_contract_yaml_str = self.contract_yaml_str
+                resolved_contract_yaml_str = self.yaml_str
 
             if isinstance(resolved_contract_yaml_str, str):
                 from ruamel.yaml import YAML
                 ruamel_yaml: YAML = YAML()
                 ruamel_yaml.preserve_quotes = True
-                self.contract_dict = ruamel_yaml.load(resolved_contract_yaml_str)
+                self.yaml_dict = ruamel_yaml.load(resolved_contract_yaml_str)
 
             # Verify the contract schema on the ruamel instance object
-            if isinstance(self.contract_dict, dict):
+            if isinstance(self.yaml_dict, dict):
                 json_schema_verifier: JsonSchemaVerifier = JsonSchemaVerifier(self.logs)
-                json_schema_verifier.verify(self.contract_dict)
+                json_schema_verifier.verify(self.yaml_dict)
 
             yaml_helper = YamlHelper(logs=self.logs)
 
-            warehouse: str | None = yaml_helper.read_string(self.contract_dict, "warehouse")
-            TODO parse the warehouse
+            self.data_source: str | None = yaml_helper.read_string_opt(self.yaml_dict, "data_source")
+            self.schema: str | None = yaml_helper.read_string_opt(self.yaml_dict, "schema")
+            self.dataset: str | None = yaml_helper.read_string(self.yaml_dict, "dataset")
+            self.filter_sql: str | None = yaml_helper.read_string_opt(
+                self.yaml_dict,
+                "filter_expression_sql"
+            )
+            self.filter: str | None = "default" if self.filter_sql else None
 
-            dataset: str | None = yaml_helper.read_string(self.contract_dict, "dataset")
-            schema: str | None = yaml_helper.read_string_opt(self.contract_dict, "schema")
-            sql_filter: str | None = yaml_helper.read_string_opt(self.contract_dict, "sql_filter")
+            # Computing the verification_context
+            verification_context_dict: dict = self.variables.copy()
+            verification_context_dict.update({
+                "data_source": self.data_source,
+                "schema": self.schema,
+                "dataset": self.dataset,
+                "filter": self.filter,
+            })
+            verification_context_parts: list = [
+                f"{k}={v}" for k, v in verification_context_dict.items() if v
+            ]
+            self.verification_context = ",".join(verification_context_parts)
 
-            columns_yaml_list: list | None = yaml_helper.read_yaml_list(self.contract_dict, "columns")
-            if columns_yaml_list:
-                schema_columns: Dict[str, str | None] = {}
-                schema_optional_columns: List[str] = []
+            self.checks.append(SchemaCheck(
+                logs=self.logs,
+                verification_context=self.verification_context,
+                yaml_contract=self.yaml_dict
+            ))
 
-                self.checks.append(SchemaCheck(
-                    dataset=dataset,
-                    yaml_source=columns_yaml_list
-                )
+            yaml_columns: list | None = yaml_helper.read_yaml_list(self.yaml_dict, "columns")
+            if yaml_columns:
+                for yaml_column in yaml_columns:
+                    column: str | None = yaml_helper.read_string(yaml_column, "name")
+                    check_yamls: list | None = yaml_helper.read_yaml_list_opt(yaml_column, "checks")
+                    if column and check_yamls:
+                        for check_yaml in check_yamls:
+                            check_type: str | None = yaml_helper.read_string(check_yaml, "type")
 
+                            check_name = yaml_helper.read_string(check_yaml,"name")
 
+                            missing_configurations: MissingConfigurations | None = self.__parse_missing_configurations(
+                                check_yaml=check_yaml, column=column
+                            )
+                            valid_configurations: ValidConfigurations | None = self.__parse_valid_configurations(
+                                check_yaml=check_yaml, column=column
+                            )
+                            threshold: NumericThreshold = self.__parse_numeric_threshold(
+                                check_yaml=check_yaml
+                            )
+
+                            check_args: dict = {
+                                "logs": self.logs,
+                                "verification_context": self.verification_context,
+                                "column": column,
+                                "check_type": check_type,
+                                "check_name": check_name,
+                                "missing_configurations": missing_configurations,
+                                "valid_configurations": valid_configurations,
+                                "threshold": threshold,
+                                "check_yaml": check_yaml
+                            }
+
+                            column_check_factory_classes: list[CheckFactory] = [
+                                MissingCheckFactory(),
+                                InvalidCheckFactory(),
+                                DuplicateCheckFactory(),
+                                UserDefinedMetricExpressionSqlCheckFactory(),
+                                FreshnessCheck(),
+                                SqlFunctionCheckFactory(),
+                            ]
+
+                            check: Check | None = None
+                            for column_check_factory_class in column_check_factory_classes:
+                                check = column_check_factory_class.create_check(**check_args)
+
+                            if check:
+                                self.checks.append(check)
+                            else:
+                                location: Location = yaml_helper.create_location_from_yaml_value(check_yaml)
+                                self.logs.error(f"Invalid {check_type} check", location=location)
+
+            # TODO check for duplicate identities
 
         except OSError as e:
             self.logs.error(
@@ -124,104 +222,115 @@ class Contract:
                 exception=e
             )
 
-        # self.schedule: str | None = schedule
-        # self.dataset: str = dataset
-        # self.sql_filter: str | None = sql_filter
-        # self.schema: str | None = schema
-        # self.checks: List[Check] = checks
-        # self.contract_yaml_str: str = contract_yaml_str
-        # self.variables: dict[str, str] | None = variables
-        # # The initial logs will contain the logs of contract parser.  If there are error logs, these error logs
-        # # will cause a SodaException to be raised at the end of the Contract.verify method
-        # # See also adr/03_exceptions_vs_error_logs.md
-        # self.logs: Logs = logs
-        # self.sodacl_yaml_str: str | None = None
+    def __parse_missing_configurations(self, check_yaml: dict, column: str) -> MissingConfigurations | None:
+        yaml_helper: YamlHelper = YamlHelper(self.logs)
+        missing_values: list | None = yaml_helper.read_yaml_list_opt(check_yaml, "missing_values")
+        missing_regex_sql: str | None = yaml_helper.read_string_opt(check_yaml, "missing_regex_sql")
 
+        if all(v is None for v in [missing_values, missing_regex_sql]):
+            return self.missing_value_configs_by_column.get(column)
 
-        """
-        Verifies if the data in the dataset matches the contract.
-        """
+        else:
+            missing_configurations = MissingConfigurations(
+                missing_values=missing_values, missing_regex_sql=missing_regex_sql
+            )
 
-        """
-        Build a contract from a YAML file.
-        Raises OSError in case the file_path cannot be opened like e.g.
-        FileNotFoundError or PermissionError
-        """
-            return cls.from_yaml_str(contract_yaml_str=contract_yaml_str, variables=variables, schedule=schedule)
+            # If a missing config is specified, do a complete overwrite.
+            # Overwriting the missing configs gives more control to the contract author over merging the missing configs.
+            self.missing_value_configs_by_column[column] = missing_configurations
 
+            return missing_configurations
 
-        scan = Scan()
+    def __parse_valid_configurations(self, check_yaml: dict, column: str) -> ValidConfigurations | None:
+        yaml_helper: YamlHelper = YamlHelper(self.logs)
 
-        scan_logs = soda_core_logs.Logs(logger=scan_logger)
-        scan_logs.verbose = True
+        invalid_values: list | None = yaml_helper.read_yaml_list_opt(check_yaml, "invalid_values")
+        invalid_format: str | None = yaml_helper.read_string_opt(check_yaml, "invalid_format")
+        invalid_sql_regex: str | None = yaml_helper.read_string_opt(check_yaml, "invalid_sql_regex")
 
-        sodacl_yaml_str: str | None = None
-        try:
-            sodacl_yaml_str = self.generate_sodacl_yaml_str(self.logs)
-            logger.debug(sodacl_yaml_str)
+        valid_values: list | None = yaml_helper.read_yaml_list_opt(check_yaml, "valid_values")
 
-            if sodacl_yaml_str and hasattr(connection, "data_source"):
-                scan._logs = scan_logs
+        valid_format: str | None = yaml_helper.read_string_opt(check_yaml, "valid_format")
+        valid_sql_regex: str | None = yaml_helper.read_string_opt(check_yaml, "valid_sql_regex")
 
-                # This assumes the connection is a DataSourceConnection
-                data_source = connection.data_source
-                # Execute the contract SodaCL in a scan
-                scan.set_data_source_name(data_source.data_source_name)
-                scan_definition_name = (
-                    f"dataset://{connection.name}/{self.schema}/{self.dataset}"
-                    if self.schema
-                    else f"dataset://{connection.name}/{self.dataset}"
-                )
-                scan._data_source_manager.data_sources[data_source.data_source_name] = data_source
+        valid_min: Number | None = yaml_helper.read_number_opt(check_yaml, "valid_min")
+        valid_max: Number | None = yaml_helper.read_number_opt(check_yaml, "valid_max")
 
-                if soda_cloud:
-                    scan.set_scan_definition_name(scan_definition_name)
-                    scan._configuration.soda_cloud = SodaCloud(
-                        host=soda_cloud.host,
-                        api_key_id=soda_cloud.api_key_id,
-                        api_key_secret=soda_cloud.api_key_secret,
-                        token=soda_cloud.token,
-                        port=soda_cloud.port,
-                        logs=scan_logs,
-                        scheme=soda_cloud.scheme,
-                    )
+        valid_length: int | None = yaml_helper.read_number_opt(check_yaml, "valid_length")
+        valid_min_length: int | None = yaml_helper.read_number_opt(check_yaml, "valid_min_length")
+        valid_max_length: int | None = yaml_helper.read_number_opt(check_yaml, "valid_max_length")
 
-                if self.variables:
-                    scan.add_variables(self.variables)
-
-                # noinspection PyProtectedMember
-                scan.add_sodacl_yaml_str(sodacl_yaml_str)
-                scan.execute()
-
-        except Exception as e:
-            self.logs.error(f"Data contract verification error: {e}", exception=e)
-
-        if soda_cloud:
-            # If SodaCloud is configured, the logs are copied into the contract result and
-            # at the end of this method, a SodaException is raised if there are error logs.
-            self.logs.logs.extend(soda_cloud.logs.logs)
-        if connection:
-            # The connection logs are copied into the contract result and at the end of this
-            # method, a SodaException is raised if there are error logs.
-            self.logs.logs.extend(connection.logs.logs)
-        # The scan warning and error logs are copied into self.logs and at the end of this
-        # method, a SodaException is raised if there are error logs.
-        self.append_scan_warning_and_error_logs(scan_logs)
-
-        contract_result: ContractResult = ContractResult(
-            contract=self, sodacl_yaml_str=sodacl_yaml_str, logs=self.logs, scan=scan
+        valid_values_reference_data: ValidValuesReferenceData | None = None
+        valid_values_reference_data_yaml_object: dict | None = yaml_helper.read_yaml_object_opt(
+            check_yaml,
+            f"valid_values_reference_data"
         )
-        if contract_result.failed():
-            raise SodaException(contract_result=contract_result)
+        if valid_values_reference_data_yaml_object:
+            ref_dataset = valid_values_reference_data_yaml_object.read_string("dataset")
+            ref_column = valid_values_reference_data_yaml_object.read_string("column")
+            valid_values_reference_data = ValidValuesReferenceData(dataset=ref_dataset, column=ref_column)
 
-        return contract_result
+        if all(
+            v is None
+            for v in [
+                invalid_values,
+                invalid_format,
+                invalid_sql_regex,
+                valid_values,
+                valid_format,
+                valid_sql_regex,
+                valid_min,
+                valid_max,
+                valid_length,
+                valid_min_length,
+                valid_max_length,
+                valid_values_reference_data,
+            ]
+        ):
+            return self.valid_value_configs_by_column.get(column)
+        else:
+            valid_configurations = ValidConfigurations(
+                invalid_values=invalid_values,
+                invalid_format=invalid_format,
+                invalid_sql_regex=invalid_sql_regex,
+                valid_values=valid_values,
+                valid_format=valid_format,
+                valid_sql_regex=valid_sql_regex,
+                valid_min=valid_min,
+                valid_max=valid_max,
+                valid_length=valid_length,
+                valid_min_length=valid_min_length,
+                valid_max_length=valid_max_length,
+                valid_values_reference_data=valid_values_reference_data,
+            )
 
+            # If a valid config is specified, do a complete overwrite.
+            # Overwriting the valid configs gives more control to the contract author over merging the missing configs.
+            self.valid_value_configs_by_column[column] = valid_configurations
 
-    def __parse_checks(self, contract_dict: dict) -> None:
+            return valid_configurations
 
+    def __parse_numeric_threshold(self, check_yaml: dict) -> NumericThreshold | None:
+        yaml_helper: YamlHelper = YamlHelper(self.logs)
 
+        numeric_threshold: NumericThreshold = NumericThreshold(
+            greater_than=yaml_helper.read_number_opt(check_yaml, "must_be_greater_than"),
+            greater_than_or_equal=yaml_helper.read_number_opt(check_yaml, "must_be_greater_than_or_equal_to"),
+            less_than=yaml_helper.read_number_opt(check_yaml, "must_be_less_than"),
+            less_than_or_equal=yaml_helper.read_number_opt(check_yaml, "must_be_less_than_or_equal_to"),
+            equal=yaml_helper.read_number_opt(check_yaml, "must_be"),
+            not_equal=yaml_helper.read_number_opt(check_yaml, "must_not_be"),
+            between=yaml_helper.read_range(check_yaml, "must_be_between"),
+            not_between=yaml_helper.read_range(check_yaml, "must_be_not_between"),
+        )
 
-def append_scan_warning_and_error_logs(self, scan_logs: soda_core_logs.Logs) -> None:
+        for key in check_yaml:
+            if key.startswith("must_") and key not in AbstractCheck.threshold_keys:
+                self.logs.error(f"Invalid threshold '{key}'. Must be in '{AbstractCheck.threshold_keys}'.")
+
+        return numeric_threshold
+
+    def append_scan_warning_and_error_logs(self, scan_logs: soda_core_logs.Logs) -> None:
         level_map = {
             soda_core_logs.LogLevel.ERROR: LogLevel.ERROR,
             soda_core_logs.LogLevel.WARNING: LogLevel.WARNING,
@@ -245,15 +354,98 @@ def append_scan_warning_and_error_logs(self, scan_logs: soda_core_logs.Logs) -> 
                     )
                 )
 
-    def generate_sodacl_yaml_str(self, logs: Logs) -> str:
+    def __execute(self) -> ContractResult:
+
+        if self.connection is None:
+            if self.spark_session is not None:
+                self.connection = Connection.from_spark_session(self.spark_session)
+            elif isinstance(self.data_source, str):
+                self.connection = Connection.from_data_source_name(self.data_source)
+            else:
+                # TODO provide better diagnostic info and pointers on how to fix this error
+                self.logs.error("'data_source' not specified")
+
+        if self.connection:
+            pass
+        else:
+            # TODO provide better diagnostic info and pointers on how to fix this error
+            self.logs.error("No connection")
+
+        scan = Scan()
+
+        scan_logs = soda_core_logs.Logs(logger=scan_logger)
+        scan_logs.verbose = True
+
+        sodacl_yaml_str: str | None = None
+        try:
+            sodacl_yaml_str = self.__generate_sodacl_yaml_str()
+            logger.debug(sodacl_yaml_str)
+
+            if sodacl_yaml_str and hasattr(self.connection, "data_source"):
+                scan._logs = scan_logs
+
+                # This assumes the connection is a DataSourceConnection
+                data_source = self.connection.data_source
+                # Execute the contract SodaCL in a scan
+                scan.set_data_source_name(data_source.data_source_name)
+                scan_definition_name = (
+                    f"dataset://{self.connection.name}/{self.schema}/{self.dataset}"
+                    if self.schema
+                    else f"dataset://{self.connection.name}/{self.dataset}"
+                )
+                scan._data_source_manager.data_sources[data_source.data_source_name] = data_source
+
+                if self.soda_cloud:
+                    scan.set_scan_definition_name(scan_definition_name)
+                    scan._configuration.soda_cloud = SodaCloud(
+                        host=self.soda_cloud.host,
+                        api_key_id=self.soda_cloud.api_key_id,
+                        api_key_secret=self.soda_cloud.api_key_secret,
+                        token=self.soda_cloud.token,
+                        port=self.soda_cloud.port,
+                        logs=scan_logs,
+                        scheme=self.soda_cloud.scheme,
+                    )
+
+                if self.variables:
+                    scan.add_variables(self.variables)
+
+                # noinspection PyProtectedMember
+                scan.add_sodacl_yaml_str(sodacl_yaml_str)
+                scan.execute()
+
+        except Exception as e:
+            self.logs.error(f"Data contract verification error: {e}", exception=e)
+
+        if self.soda_cloud:
+            # If SodaCloud is configured, the logs are copied into the contract result and
+            # at the end of this method, a SodaException is raised if there are error logs.
+            self.logs.logs.extend(self.soda_cloud.logs.logs)
+        if self.connection:
+            # The connection logs are copied into the contract result and at the end of this
+            # method, a SodaException is raised if there are error logs.
+            self.logs.logs.extend(self.connection.logs.logs)
+        # The scan warning and error logs are copied into self.logs and at the end of this
+        # method, a SodaException is raised if there are error logs.
+        self.append_scan_warning_and_error_logs(scan_logs)
+
+        contract_result: ContractResult = ContractResult(
+            contract=self, sodacl_yaml_str=sodacl_yaml_str, logs=self.logs, scan=scan
+        )
+        if contract_result.failed():
+            raise SodaException(contract_result=contract_result)
+
+        return contract_result
+
+    def __generate_sodacl_yaml_str(self) -> str:
         # Serialize the SodaCL YAML object to a YAML string
         sodacl_checks: list = []
         sodacl_yaml_object: dict = (
             {
-                f"filter {self.dataset} [filter]": {"where": self.sql_filter},
+                f"filter {self.dataset} [filter]": {"where": self.filter_sql},
                 f"checks for {self.dataset} [filter]": sodacl_checks,
             }
-            if self.sql_filter
+            if self.filter_sql
             else {f"checks for {self.dataset}": sodacl_checks}
         )
 
@@ -262,8 +454,8 @@ def append_scan_warning_and_error_logs(self, scan_logs: soda_core_logs.Logs) -> 
                 sodacl_check = check.to_sodacl_check()
                 if sodacl_check is not None:
                     sodacl_checks.append(sodacl_check)
-        yaml_writer: YamlWriter = YamlWriter(logs)
-        return yaml_writer.write_to_yaml_str(sodacl_yaml_object)
+        yaml_helper: YamlHelper = YamlHelper(self.logs)
+        return yaml_helper.write_to_yaml_str(sodacl_yaml_object)
 
 
 @dataclass
@@ -365,598 +557,19 @@ class ContractResult:
         return "\n".join(parts)
 
 
-class Check(ABC):
-
-    def __init__(
-            self,
-            warehouse: str,
-            dataset: str,
-            column: str | None,
-            type: str,
-            yaml_source: YamlObject
-    ):
-        self.warehouse: str = warehouse
-        self.dataset: str = dataset
-        self.column: str | None = column
-        self.type: str = type
-        self.yaml_source: YamlObject = yaml_source
-        self.identity: str = self.create_identity()
-        self.skip: bool = False
-
-    @abstractmethod
-    def to_sodacl_check(self) -> str | dict | None:
-        pass
-
-    @abstractmethod
-    def create_check_result(
-        self, scan_check: dict[str, dict], scan_check_metrics_by_name: dict[str, dict], scan: Scan
-    ) -> CheckResult:
-        pass
-
-    def create_identity() -> str:
-        opt_schedule_part = f"//{schedule}" if schedule else ""
-        opt_column_part = f"/{column}" if column else ""
-        opt_check_identity_suffix_part = f"/{check_identity_suffix}" if check_identity_suffix else ""
-        check_identity = f"{opt_schedule_part}/{dataset}{opt_column_part}/{check_type}{opt_check_identity_suffix_part}"
-
-        other_check: Check = checks.get(check_identity)
-        if other_check:
-            logs.error(f"Duplicate check identity '{check_identity}': {other_check.location} and {check_location}")
-            suffix_index: int = 2
-            while check_identity in checks:
-                opt_check_identity_suffix_part = (
-                    f"/{check_identity_suffix}_{suffix_index}" if check_identity_suffix else f"/{suffix_index}"
-                )
-                check_identity = (
-                    f"{opt_schedule_part}/{dataset}{opt_column_part}/{check_type}{opt_check_identity_suffix_part}"
-                )
-                suffix_index = suffix_index + 1
-        return check_identity
-
-    def skip(self) -> None:
-        self.is_skip = True
-
-
-@dataclass
-class CheckResult:
-    check: Check
-    outcome: CheckOutcome
-
-    def __str__(self) -> str:
-        return "\n".join(self.get_contract_result_str_lines())
-
-    @abstractmethod
-    def get_contract_result_str_lines(self) -> list[str]:
-        """
-        Provides the summary for the contract result logs, as well as the __str__ impl of this check result.
-        Method implementations can use self._get_outcome_line(self)
-        """
-
-    def get_outcome_and_name_line(self) -> str:
-        name_str: str = f" [{self.check.name}]" if self.check.name else ""
-        return f"Check {self.get_outcome_str()}{name_str}"
-
-    def get_outcome_str(self) -> str:
-        if self.outcome == CheckOutcome.FAIL:
-            return "FAILED"
-        if self.outcome == CheckOutcome.PASS:
-            return "passed"
-        return "unverified"
-
-
-@dataclass
-class SchemaCheck(Check):
-
-    columns: dict[str, str | None]
-    optional_columns: list[str]
-
-    def __init__(self, dataset: str | None, yaml_source: list | None):
-        self.dataset = dataset,
-        self.yaml_source = columns_yaml_list
-
-    def to_sodacl_check(self) -> str | dict | None:
-        schema_fail_dict = {"when mismatching columns": self.columns}
-        if self.optional_columns:
-            schema_fail_dict["with optional columns"] = self.optional_columns
-        return {"schema": {"fail": schema_fail_dict}}
-
-    def create_check_result(self, scan_check: dict[str, dict], scan_check_metrics_by_name: dict[str, dict], scan: Scan):
-        scan_measured_schema: list[dict] = scan_check_metrics_by_name.get("schema").get("value")
-        measured_schema = {c.get("columnName"): c.get("sourceDataType") for c in scan_measured_schema}
-
-        diagnostics = scan_check.get("diagnostics", {})
-
-        columns_not_allowed_and_present: list[str] = diagnostics.get("present_column_names", [])
-        columns_required_and_not_present: list[str] = diagnostics.get("missing_column_names", [])
-
-        columns_having_wrong_type: list[DataTypeMismatch] = []
-        scan_column_type_mismatches = diagnostics.get("column_type_mismatches", {})
-        if scan_column_type_mismatches:
-            for column_name, column_type_mismatch in scan_column_type_mismatches.items():
-                expected_type = column_type_mismatch.get("expected_type")
-                actual_type = column_type_mismatch.get("actual_type")
-                columns_having_wrong_type.append(
-                    DataTypeMismatch(column=column_name, expected_data_type=expected_type, actual_data_type=actual_type)
-                )
-
-        return SchemaCheckResult(
-            check=self,
-            outcome=CheckOutcome.from_scan_check(scan_check),
-            measured_schema=measured_schema,
-            columns_not_allowed_and_present=columns_not_allowed_and_present,
-            columns_required_and_not_present=columns_required_and_not_present,
-            columns_having_wrong_type=columns_having_wrong_type,
-        )
-
-
-@dataclass
-class SchemaCheckResult(CheckResult):
-
-    measured_schema: Dict[str, str]
-    columns_not_allowed_and_present: list[str] | None
-    columns_required_and_not_present: list[str] | None
-    columns_having_wrong_type: list[DataTypeMismatch] | None
-
-    def get_contract_result_str_lines(self) -> list[str]:
-        schema_check: SchemaCheck = self.check
-        expected_schema: str = ",".join(
-            [
-                f"{c.get('name')}{c.get('optional')}{c.get('type')}"
-                for c in [
-                    {
-                        "name": column_name,
-                        "optional": "(optional)" if column_name in schema_check.optional_columns else "",
-                        "type": f"={data_type}" if data_type else "",
-                    }
-                    for column_name, data_type in schema_check.columns.items()
-                ]
-            ]
-        )
-
-        lines: list[str] = [
-            f"Schema check {self.get_outcome_str()}",
-            f"  Expected schema: {expected_schema}",
-            f"  Actual schema: {self.measured_schema}",
-        ]
-        lines.extend(
-            [f"  Column '{column}' was present and not allowed" for column in self.columns_not_allowed_and_present]
-        )
-        lines.extend([f"  Column '{column}' was missing" for column in self.columns_required_and_not_present])
-        lines.extend(
-            [
-                (
-                    f"  Column '{data_type_mismatch.column}': Expected type '{data_type_mismatch.expected_data_type}', "
-                    f"but was '{data_type_mismatch.actual_data_type}'"
-                )
-                for data_type_mismatch in self.columns_having_wrong_type
-            ]
-        )
-        return lines
-
-
-class AbstractCheck(Check):
-    def __init__(self):
-        super().__init__()
-        self.yaml_source: YamlObject = yaml_source
-
-        # Check identifier used to correlate the sodacl check results with this contract check object when parsing
-        # scan results.  Also used as correlation id in Soda Cloud to match subsequent results for the same check.
-        # Composite key created from schedule, dataset, column, type and identity_suffix.
-        self.identity_suffix: str | None = self.get_identity_suffix()
-
-        # User defined name as in the contract.  None if not specified in the contract.
-        self.name: str | None
-
-
-
-@dataclass
-class NumericMetricCheck(Check):
-
-    metric: str
-    check_yaml_object: YamlObject
-    missing_configurations: MissingConfigurations | None
-    valid_configurations: ValidConfigurations | None
-    threshold: NumericThreshold | None
-
-    def to_sodacl_check(self) -> str | dict | None:
-        sodacl_check_line = self.get_sodacl_check_line()
-
-        sodacl_check_configs = {"contract check id": self.identity}
-
-        if self.name:
-            sodacl_check_configs["name"] = self.name
-
-        if self.valid_configurations:
-            sodacl_check_configs.update(self.valid_configurations.to_sodacl_check_configs_dict())
-        if self.missing_configurations:
-            sodacl_check_configs.update(self.missing_configurations.to_sodacl_check_configs_dict())
-
-        return {sodacl_check_line: sodacl_check_configs}
-
-    def create_check_result(self, scan_check: dict[str, dict], scan_check_metrics_by_name: dict[str, dict], scan: Scan):
-        scan_metric_dict: dict
-        if "(" in self.metric:
-            scan_metric_name = self.metric[: self.metric.index("(")]
-            scan_metric_dict = scan_check_metrics_by_name.get(scan_metric_name, None)
-        else:
-            scan_metric_dict = scan_check_metrics_by_name.get(self.metric, None)
-        metric_value: Number = scan_metric_dict.get("value") if scan_metric_dict else None
-        return NumericMetricCheckResult(
-            check=self, outcome=CheckOutcome.from_scan_check(scan_check), metric_value=metric_value
-        )
-
-    def get_sodacl_check_line(self) -> str:
-        sodacl_metric = self.get_sodacl_metric()
-        sodacl_threshold: str = self.threshold.get_sodacl_threshold() if self.threshold else ""
-        return f"{sodacl_metric} {sodacl_threshold}"
-
-    def get_sodacl_metric(self) -> str:
-        return f"{self.metric}({self.column})" if self.column else self.metric
-
-    def get_sodacl_threshold(self) -> str:
-        return self.threshold.get_sodacl_threshold() if self.threshold else "?"
-
-    def get_metric_str(self) -> str:
-        return self.get_sodacl_metric()
-
-    def get_expected_str(self) -> str:
-        return f"{self.get_metric_str()} {self.get_sodacl_threshold()}"
-
-
-@dataclass
-class NumericMetricCheckResult(CheckResult):
-    metric_value: Number
-
-    def get_contract_result_str_lines(self) -> list[str]:
-        return [
-            self.get_outcome_and_name_line(),
-            f"  Expected {self.check.get_expected_str()}",
-            f"  Actual {self.check.get_metric_str() } was {self.metric_value}",
-        ]
-
-
-@dataclass
-class DuplicateCheck(NumericMetricCheck):
-    columns: list[str]
-
-    def get_sodacl_metric(self) -> str:
-        column_str = self.column if self.column else ", ".join(self.columns)
-        return f"{self.metric}({column_str})"
-
-
-@dataclass
-class InvalidReferenceCheck(NumericMetricCheck):
-
-    valid_values_reference_data: ValidValuesReferenceData
-
-    def to_sodacl_check(self) -> str | dict | None:
-        sodacl_check_configs = {"contract check id": self.identity}
-
-        if self.name:
-            sodacl_check_configs["name"] = self.name
-
-        if self.valid_configurations:
-            sodacl_check_configs.update(self.valid_configurations.to_sodacl_check_configs_dict())
-        if self.missing_configurations:
-            sodacl_check_configs.update(self.missing_configurations.to_sodacl_check_configs_dict())
-
-        sodacl_check_line: str = (
-            f"values in ({self.column}) must exist in {self.valid_values_reference_data.dataset} ({self.valid_values_reference_data.column})"
-        )
-
-        return {sodacl_check_line: sodacl_check_configs}
-
-    def create_check_result(self, scan_check: dict[str, dict], scan_check_metrics_by_name: dict[str, dict], scan: Scan):
-        scan_metric_dict = scan_check_metrics_by_name.get("reference", {})
-        value: Number = scan_metric_dict.get("value")
-        return NumericMetricCheckResult(
-            check=self, outcome=CheckOutcome.from_scan_check(scan_check), metric_value=value
-        )
-
-
-@dataclass
-class FreshnessCheck(Check):
-
-    column: str | None
-    check_yaml_object: YamlObject
-    threshold: NumericThreshold | None
-
-    def get_definition_line(self) -> str:
-        return f"freshness({self.column}) {self.threshold.get_sodacl_threshold()}{self.get_sodacl_time_unit()}"
-
-    def get_sodacl_time_unit(self) -> str:
-        sodacl_time_unit_by_check_type = {
-            "freshness_in_days": "d",
-            "freshness_in_hours": "h",
-            "freshness_in_minutes": "m",
-        }
-        return sodacl_time_unit_by_check_type.get(self.type)
-
-    def to_sodacl_check(self) -> str | dict | None:
-        sodacl_check_configs = {
-            "contract check id": self.identity,
-        }
-        if self.name:
-            sodacl_check_configs["name"] = self.name
-
-        sodacl_check_line: str = self.get_definition_line()
-        return {sodacl_check_line: sodacl_check_configs}
-
-    def create_check_result(self, scan_check: dict[str, dict], scan_check_metrics_by_name: dict[str, dict], scan: Scan):
-        diagnostics: dict = scan_check["diagnostics"]
-        freshness = diagnostics["freshness"]
-        freshness_column_max_value = diagnostics["maxColumnTimestamp"]
-        freshness_column_max_value_utc = diagnostics["maxColumnTimestampUtc"]
-        now = diagnostics["nowTimestamp"]
-        now_utc = diagnostics["nowTimestampUtc"]
-
-        return FreshnessCheckResult(
-            check=self,
-            outcome=CheckOutcome.from_scan_check(scan_check),
-            freshness=freshness,
-            freshness_column_max_value=freshness_column_max_value,
-            freshness_column_max_value_utc=freshness_column_max_value_utc,
-            now=now,
-            now_utc=now_utc,
-        )
-
-
-@dataclass
-class FreshnessCheckResult(CheckResult):
-    freshness: str
-    freshness_column_max_value: str
-    freshness_column_max_value_utc: str
-    now: str
-    now_utc: str
-
-    def get_contract_result_str_lines(self) -> list[str]:
-        assert isinstance(self.check, FreshnessCheck)
-        return [
-            self.get_outcome_and_name_line(),
-            f"  Expected {self.check.get_definition_line()}",
-            f"  Actual freshness({self.check.column}) was {self.freshness}",
-            f"  Max value in column was ...... {self.freshness_column_max_value}",
-            f"  Max value in column in UTC was {self.freshness_column_max_value_utc}",
-            f"  Now was ...................... {self.now}",
-            f"  Now in UTC was ............... {self.now_utc}",
-        ]
-
-
-@dataclass
-class UserDefinedMetricSqlExpressionCheck(NumericMetricCheck):
-
-    metric_sql_expression: str
-
-    def to_sodacl_check(self) -> str | dict | None:
-
-        sodacl_check_configs = {
-            "contract check id": self.identity,
-            f"{self.metric} expression": self.metric_sql_expression,
-        }
-        if self.name:
-            sodacl_check_configs["name"] = self.name
-
-        sodacl_checkline_threshold = self.threshold.get_sodacl_threshold()
-        sodacl_check_line = f"{self.get_sodacl_metric()} {sodacl_checkline_threshold}"
-
-        return {sodacl_check_line: sodacl_check_configs}
-
-    def create_check_result(self, scan_check: dict[str, dict], scan_check_metrics_by_name: dict[str, dict], scan: Scan):
-        scan_metric_dict: dict = scan_check_metrics_by_name.get(self.metric, None)
-        metric_value: Number = scan_metric_dict.get("value") if scan_metric_dict else None
-        return NumericMetricCheckResult(
-            check=self, outcome=CheckOutcome.from_scan_check(scan_check), metric_value=metric_value
-        )
-
-
-@dataclass
-class UserDefinedMetricSqlQueryCheck(NumericMetricCheck):
-
-    metric_sql_query: str
-
-    def to_sodacl_check(self) -> str | dict | None:
-        sodacl_check_configs = {
-            "contract check id": self.identity,
-            f"{self.metric} query": self.metric_sql_query,
-        }
-        if self.name:
-            sodacl_check_configs["name"] = self.name
-
-        sodacl_check_line: str = self.get_sodacl_check_line()
-
-        return {sodacl_check_line: sodacl_check_configs}
-
-    def create_check_result(self, scan_check: dict[str, dict], scan_check_metrics_by_name: dict[str, dict], scan: Scan):
-        scan_metric_dict: dict = scan_check_metrics_by_name.get(self.get_sodacl_check_line(), None)
-        metric_value: Number = scan_metric_dict.get("value") if scan_metric_dict else None
-
-        return NumericMetricCheckResult(
-            check=self, outcome=CheckOutcome.from_scan_check(scan_check), metric_value=metric_value
-        )
-
-
-class CheckOutcome(Enum):
-    PASS = "pass"
-    FAIL = "fail"
-    UNKNOWN = "unknown"
-
-    @classmethod
-    def from_scan_check(cls, scan_check: Dict[str, object]) -> CheckOutcome:
-        scan_check_outcome = scan_check.get("outcome")
-        if scan_check_outcome == "pass":
-            return CheckOutcome.PASS
-        elif scan_check_outcome == "fail":
-            return CheckOutcome.FAIL
-        return CheckOutcome.UNKNOWN
-
-
-@dataclass
-class DataTypeMismatch:
-    column: str
-    expected_data_type: str
-    actual_data_type: str
-
-
-def dataclass_object_to_sodacl_dict(dataclass_object: object) -> dict:
-    def translate_to_sodacl_key(key: str) -> str:
-        if "sql_" in key:
-            key = key.replace("sql_", "")
-        return key.replace("_", " ")
-
-    dict_factory = lambda x: {translate_to_sodacl_key(k): v for (k, v) in x if v is not None}
-    return dataclasses.asdict(dataclass_object, dict_factory=dict_factory)
-
-
-@dataclass
-class MissingConfigurations:
-    missing_values: list[str] | list[Number] | None
-    missing_sql_regex: str | None
-
-    def to_sodacl_check_configs_dict(self) -> dict:
-        return dataclass_object_to_sodacl_dict(self)
-
-
-@dataclass
-class ValidConfigurations:
-    invalid_values: list[str] | list[Number] | None
-    invalid_format: str | None
-    invalid_sql_regex: str | None
-    valid_values: list[str] | list[Number] | None
-    valid_format: str | None
-    valid_sql_regex: str | None
-    valid_min: Number | None
-    valid_max: Number | None
-    valid_length: int | None
-    valid_min_length: int | None
-    valid_max_length: int | None
-    valid_values_reference_data: ValidValuesReferenceData | None
-
-    def to_sodacl_check_configs_dict(self) -> dict:
-        sodacl_check_configs_dict = dataclass_object_to_sodacl_dict(self)
-        sodacl_check_configs_dict.pop("valid values reference data", None)
-        return sodacl_check_configs_dict
-
-    def has_non_reference_data_configs(self) -> bool:
-        return (
-            self.invalid_values is not None
-            or self.invalid_format is not None
-            or self.invalid_sql_regex is not None
-            or self.valid_values is not None
-            or self.valid_format is not None
-            or self.valid_sql_regex is not None
-            or self.valid_min is not None
-            or self.valid_max is not None
-            or self.valid_length is not None
-            or self.valid_min_length is not None
-            or self.valid_max_length is not None
-        )
-
-
-@dataclass
-class ValidValuesReferenceData:
-    dataset: str
-    column: str
-
-
-@dataclass
-class NumericThreshold:
+class SodaException(Exception):
     """
-    The threshold is exceeded when any of the member field conditions is True.
-    To be interpreted as a check fails when the metric value is ...greater_than or ...less_than etc...
+    See also adr/03_exceptions_vs_error_logs.md
     """
 
-    greater_than: Number | None = None
-    greater_than_or_equal: Number | None = None
-    less_than: Number | None = None
-    less_than_or_equal: Number | None = None
-    equal: Number | None = None
-    not_equal: Number | None = None
-    between: Range | None = None
-    not_between: Range | None = None
+    def __init__(self, message: str | None = None, contract_result: ContractResult | None = None):
+        from soda.contracts.contract import ContractResult
 
-    def get_sodacl_threshold(self) -> str:
-        greater_bound: Number | None = (
-            self.greater_than if self.greater_than is not None else self.greater_than_or_equal
-        )
-        less_bound: Number | None = self.less_than if self.less_than is not None else self.less_than_or_equal
-        if greater_bound is not None and less_bound is not None:
-            if greater_bound > less_bound:
-                return self.sodacl_threshold(
-                    is_not_between=True,
-                    lower_bound=less_bound,
-                    lower_bound_included=self.less_than is not None,
-                    upper_bound=greater_bound,
-                    upper_bound_included=self.greater_than is not None,
-                )
-            else:
-                return self.sodacl_threshold(
-                    is_not_between=False,
-                    lower_bound=greater_bound,
-                    lower_bound_included=self.greater_than_or_equal is not None,
-                    upper_bound=less_bound,
-                    upper_bound_included=self.less_than_or_equal is not None,
-                )
-        elif isinstance(self.between, Range):
-            return self.sodacl_threshold(
-                is_not_between=False,
-                lower_bound=self.between.lower_bound,
-                lower_bound_included=True,
-                upper_bound=self.between.upper_bound,
-                upper_bound_included=True,
-            )
-        elif isinstance(self.not_between, Range):
-            return self.sodacl_threshold(
-                is_not_between=True,
-                lower_bound=self.not_between.lower_bound,
-                lower_bound_included=True,
-                upper_bound=self.not_between.upper_bound,
-                upper_bound_included=True,
-            )
-        elif self.greater_than is not None:
-            return f"> {self.greater_than}"
-        elif self.greater_than_or_equal is not None:
-            return f">= {self.greater_than_or_equal}"
-        elif self.less_than is not None:
-            return f"< {self.less_than}"
-        elif self.less_than_or_equal is not None:
-            return f"<= {self.less_than_or_equal}"
-        elif self.equal is not None:
-            return f"= {self.equal}"
-        elif self.not_equal is not None:
-            return f"!= {self.not_equal}"
-
-    @classmethod
-    def sodacl_threshold(
-        cls,
-        is_not_between: bool,
-        lower_bound: Number,
-        lower_bound_included: bool,
-        upper_bound: Number,
-        upper_bound_included: bool,
-    ) -> str:
-        optional_not = "not " if is_not_between else ""
-        lower_bound_bracket = "" if lower_bound_included else "("
-        upper_bound_bracket = "" if upper_bound_included else ")"
-        return f"{optional_not}between {lower_bound_bracket}{lower_bound} and {upper_bound}{upper_bound_bracket}"
-
-    def is_empty(self) -> bool:
-        return (
-            self.greater_than is None
-            and self.greater_than_or_equal is None
-            and self.less_than is None
-            and self.less_than_or_equal is None
-            and self.equal is None
-            and self.not_equal is None
-            and self.between is None
-            and self.not_between is None
-        )
-
-
-@dataclass
-class Range:
-    """
-    Boundary values are inclusive
-    """
-
-    lower_bound: Number | None
-    upper_bound: Number | None
+        self.contract_result: ContractResult = contract_result
+        message_parts: list[str] = []
+        if message:
+            message_parts.append(message)
+        if self.contract_result:
+            message_parts.append(str(self.contract_result))
+        exception_message: str = "\n".join(message_parts)
+        super().__init__(exception_message)

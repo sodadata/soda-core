@@ -60,16 +60,15 @@ def test_contract_api(data_source_fixture: DataSourceFixture, environ: dict):
     )
 
     try:
-        contract_result: ContractResult = ContractVerification()
-          .with_contract_yaml_file()
-          .execute()
+        contract_result: ContractResult = Contract.from_yaml_str(contract_yaml_str).verify()
 
-        contract_result: ContractResult = ContractVerification()
-          .with_connection()
-          .with_contract_yaml_file()
-          .with_variables()
-          .with_soda_cloud()
-          .execute()
+        contract_result: ContractResult = (Contract
+            .from_yaml_str(contract_yaml_str)
+            .with_connection()
+            .with_variables()
+            .with_soda_cloud()
+            .verify()
+        )
 
         # Optionally a Soda Cloud link can be established that
         #  - Enables change-over-time thresholds in checks using the Soda Cloud metric store

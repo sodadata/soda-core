@@ -2,16 +2,36 @@ from __future__ import annotations
 
 from numbers import Number
 
-from ruamel.yaml import CommentedMap
+from ruamel.yaml import CommentedMap, CommentedSeq, round_trip_dump
 
-from soda.contracts.impl.logs import Logs
-from soda.contracts.impl.yaml import YamlLocation
+from soda.contracts.impl.logs import Logs, Location
 
 
 class YamlHelper:
 
     def __init__(self, logs: Logs):
         self.logs: Logs = logs
+
+    def write_to_yaml_str(self, yaml_object: object) -> str:
+        try:
+            return round_trip_dump(yaml_object)
+        except Exception as e:
+            self.logs.error(f"Couldn't write SodaCL YAML object: {e}", exception=e)
+
+    @classmethod
+    def create_location_from_yaml_dict_key(cls, d: dict, key) -> Location | None:
+        if isinstance(d, CommentedMap):
+            ruamel_location = d.lc.value(key)
+            line: int = ruamel_location[0]
+            column: int = ruamel_location[1]
+            return Location(line=line, column=column)
+        return None
+
+    @classmethod
+    def create_location_from_yaml_value(cls, d: object) -> Location | None:
+        if isinstance(d, CommentedMap) or isinstance(d, CommentedSeq):
+            return Location(line=d.lc.line, column=d.lc.column)
+        return None
 
     def read_yaml_object(self, d: dict, key: str) -> dict | None:
         """
@@ -61,16 +81,18 @@ class YamlHelper:
             if all(isinstance(e, str) for e in list_value):
                 return list_value
             else:
-                location: YamlLocation | None = self.create_dict_value_location(d, key)
+                location: Location | None = self.create_location_from_yaml_dict_key(d, key)
                 self.logs.error(message=f"Not all elements in list '{key}' are strings", location=location)
 
-    def create_dict_value_location(self, d: dict, key) -> YamlLocation | None:
-        if isinstance(d, CommentedMap):
-            ruamel_location = d.lc.value(key)
-            line: int = ruamel_location[0]
-            column: int = ruamel_location[1]
-            return YamlLocation(line=line, column=column)
-        return None
+    def read_range(self, d: dict, key: str) -> "Range" | None:
+        range_yaml: list | None = self.read_yaml_list_opt(d, key)
+        if isinstance(range_yaml, list):
+            if all(isinstance(range_value, Number) for range_value in range_yaml) and len(range_yaml) == 2:
+                from soda.contracts.check import Range
+                return Range(lower_bound=range_yaml[0], upper_bound=range_yaml[1])
+            else:
+                location: Location = self.create_location_from_yaml_value(range_yaml)
+                self.logs.error("range expects a list of 2 numbers", location=location)
 
     def read_bool(self, d: dict, key: str) -> bool | None:
         """
@@ -110,12 +132,12 @@ class YamlHelper:
     ) -> object | None:
         if key not in d:
             if required:
-                location = self.create_dict_value_location(d, key)
+                location = self.create_location_from_yaml_value(d)
                 self.logs.error(message=f"'{key}' is required", location=location)
             return default_value
         value = d.get(key)
         if expected_type is not None and not isinstance(value, expected_type):
-            location = self.create_dict_value_location(d, key)
+            location = self.create_location_from_yaml_dict_key(d, key)
             self.logs.error(
                 message=f"'{key}' expected a {expected_type.__name__}, but was {type(value).__name__}",
                 location=location

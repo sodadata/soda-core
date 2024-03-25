@@ -7,8 +7,8 @@ from helpers.data_source_fixture import DataSourceFixture
 from helpers.test_table import TestTable
 from soda.execution.data_type import DataType
 
-from soda.contracts.connection import Connection, SodaException
-from soda.contracts.contract import Contract, ContractResult
+from soda.contracts.connection import Connection
+from soda.contracts.contract import Contract, ContractResult, SodaException
 
 
 class TestConnection(Connection):
@@ -36,8 +36,12 @@ class TestConnection(Connection):
     def assert_contract_pass(self, contract_yaml_str: str, variables: dict[str, str] | None = None) -> ContractResult:
         contract_yaml_str = dedent(contract_yaml_str)
         logging.debug(contract_yaml_str)
-        contract: Contract = Contract.from_yaml_str(contract_yaml_str=contract_yaml_str, variables=variables)
-        contract_result: ContractResult = contract.verify(self)
+        contract: Contract = (Contract
+            .from_yaml_str(contract_yaml_str)
+            .with_variables(variables)
+            .with_connection(self)
+        )
+        contract_result: ContractResult = contract.verify()
         if contract_result.failed():
             raise AssertionError(str(contract_result))
         contract_result_str = str(contract_result)
@@ -48,9 +52,13 @@ class TestConnection(Connection):
     def assert_contract_fail(self, contract_yaml_str: str, variables: dict[str, str] | None = None) -> ContractResult:
         contract_yaml_str = dedent(contract_yaml_str).strip()
         logging.debug(contract_yaml_str)
-        contract: Contract = Contract.from_yaml_str(contract_yaml_str=contract_yaml_str, variables=variables)
+        contract: Contract = (Contract
+            .from_yaml_str(contract_yaml_str)
+            .with_variables(variables)
+            .with_connection(self)
+        )
         try:
-            contract_result: ContractResult = contract.verify(connection=self)
+            contract_result: ContractResult = contract.verify()
             raise AssertionError(
                 f"Expected contract verification exception, but got contract result: {contract_result}"
             )

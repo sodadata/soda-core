@@ -569,7 +569,7 @@ class ContractParser:
 
         else:
             missing_configurations = MissingConfigurations(
-                missing_values=missing_values, missing_sql_regex=missing_sql_regex
+                missing_values=missing_values, missing_regex_sql=missing_sql_regex
             )
 
             # If a missing config is specified, do a complete overwrite.

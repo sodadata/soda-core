@@ -14,24 +14,6 @@ from soda.contracts.impl.variable_resolver import VariableResolver
 logger = logging.getLogger(__name__)
 
 
-class SodaException(Exception):
-    """
-    See also adr/03_exceptions_vs_error_logs.md
-    """
-
-    def __init__(self, message: str | None = None, contract_result: ContractResult | None = None):
-        from soda.contracts.contract import ContractResult
-
-        self.contract_result: ContractResult = contract_result
-        message_parts: list[str] = []
-        if message:
-            message_parts.append(message)
-        if self.contract_result:
-            message_parts.append(str(self.contract_result))
-        exception_message: str = "\n".join(message_parts)
-        super().__init__(exception_message)
-
-
 class Connection:
     """
     A wrapper for DBAPI a connection to handle all database differences. Usage:
@@ -52,12 +34,9 @@ class Connection:
     All the other properties are passed in the DBAPI connect method to create the DBAPI connection.
     """
 
-    def __init__(self, dbapi_connection: object | None = None, name: str | None = None, logs: Logs | None = None):
-        self.dbapi_connection = dbapi_connection
-        self.name: str | None = name
-        # See also adr/03_exceptions_vs_error_logs.md
-        self.logs: Logs = logs if logs else Logs()
-        self.spark_session = None
+    @classmethod
+    def from_data_source_name(cls, data_source_name) -> Connection:
+        pass
 
     @classmethod
     def from_yaml_file(cls, connection_yaml_file_path: str) -> Connection:
@@ -187,6 +166,13 @@ class Connection:
             self.close()
         except Exception as e:
             logger.warning(f"Could not close connection: {e}")
+
+    def __init__(self, dbapi_connection: object | None = None, name: str | None = None, logs: Logs | None = None):
+        self.dbapi_connection = dbapi_connection
+        self.name: str | None = name
+        # See also adr/03_exceptions_vs_error_logs.md
+        self.logs: Logs = logs if logs else Logs()
+        self.spark_session = None
 
     def close(self) -> None:
         """

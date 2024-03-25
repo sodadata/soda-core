@@ -10,13 +10,11 @@ from typing import List
 @dataclass
 class Location:
 
-    file: str | None = (None,)
-    line: int | None = (None,)
-    column: int | None = None
+    line: int | None
+    column: int | None
 
     def __str__(self):
         parts = [
-            f"file={self.file}" if self.file else None,
             f"line={self.line}" if self.line is not None else None,
             f"column={self.column}" if self.column is not None else None,
         ]
