@@ -2,13 +2,12 @@ from datetime import datetime
 
 from contracts.helpers.test_connection import TestConnection
 from helpers.test_table import TestTable
+from soda.contracts.check import MetricCheckResult, MetricCheck
 from soda.execution.data_type import DataType
 
 from soda.contracts.contract import (
     CheckOutcome,
     ContractResult,
-    NumericMetricCheck,
-    NumericMetricCheckResult,
 )
 
 contracts_filter_test_table = TestTable(
@@ -47,15 +46,14 @@ def test_contract_filter_row_count(test_connection: TestConnection, environ: dic
     """
     )
     check_result = contract_result.check_results[1]
-    assert isinstance(check_result, NumericMetricCheckResult)
+    assert isinstance(check_result, MetricCheckResult)
     assert check_result.outcome == CheckOutcome.FAIL
     assert check_result.metric_value == 1
 
     check = check_result.check
-    assert isinstance(check, NumericMetricCheck)
+    assert isinstance(check, MetricCheck)
     assert check.type == "row_count"
     assert check.metric == "row_count"
-    assert check.dataset == table_name
     assert check.column is None
 
     assert "Actual row_count was 1" in str(contract_result)

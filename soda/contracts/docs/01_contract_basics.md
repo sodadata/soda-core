@@ -37,7 +37,7 @@ columns:
   - type: no_missing_values
   - type: no_duplicate_values
   - type: no_invalid_values
-    valid_sql_regex: '^[A-Z0-9]{8}$'
+    valid_regex_sql: '^[A-Z0-9]{8}$'
 
 - name: distance
   data_type: integer

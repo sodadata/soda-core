@@ -8,7 +8,9 @@ from enum import Enum
 from numbers import Number
 from typing import Dict
 
-from soda.contracts.impl.logs import Logs
+from plotly.graph_objs.indicator.gauge import Threshold
+
+from soda.contracts.impl.logs import Logs, Location
 from soda.contracts.impl.yaml_helper import YamlHelper
 from soda.scan import Scan
 
@@ -21,12 +23,12 @@ class Check(ABC):
             self,
             logs: Logs,
             verification_context: str,
-            type: str,
+            check_type: str,
             check_yaml: dict
     ):
         self.logs: Logs = logs
         self.verification_context: str = verification_context
-        self.type: str = type
+        self.type: str = check_type
         self.check_yaml: dict = check_yaml
         self.identity: str = self._create_identity()
         self.skip: bool = False
@@ -82,7 +84,7 @@ class SchemaCheck(Check):
         super().__init__(
             logs=logs,
             verification_context=verification_context,
-            type="schema",
+            check_type="schema",
             check_yaml=yaml_contract
         )
 
@@ -194,9 +196,24 @@ class SchemaCheckResult(CheckResult):
         return lines
 
 
+@dataclass
+class CheckArgs:
+    logs: Logs
+    verification_context: str
+    check_type: str
+    check_yaml: dict
+    check_name: str | None
+    column: str | None
+    missing_configurations: MissingConfigurations
+    valid_configurations: ValidConfigurations
+    threshold: Threshold
+    location: Location
+    yaml_helper: YamlHelper
+
+
 class CheckFactory(ABC):
     @abstractmethod
-    def create_check(self, **kwargs) -> Check | None:
+    def create_check(self, check_args: CheckArgs) -> Check | None:
         pass
 
 
@@ -216,10 +233,10 @@ class AbstractCheck(Check, ABC):
     validity_keys = [
         "invalid_values",
         "invalid_format",
-        "invalid_sql_regex",
+        "invalid_regex_sql",
         "valid_values",
         "valid_format",
-        "valid_sql_regex",
+        "valid_regex_sql",
         "valid_min",
         "valid_max",
         "valid_length",
@@ -228,19 +245,21 @@ class AbstractCheck(Check, ABC):
         "valid_values_reference_data",
     ]
 
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-        self.name: str | None = kwargs["check_name"]
-        # column can be unspecified in the kwargs in case of dataset level checks,
-        # hence the kwargs.get("column") instead of kwargs["column"]
-        self.column: str | None = kwargs.get("column")
-        self.missing_configurations: MissingConfigurations = kwargs["missing_configurations"]
-        self.valid_configurations: ValidConfigurations = kwargs["valid_configurations"]
-        self.threshold: NumericThreshold = kwargs["threshold"]
+    def __init__(self, check_args: CheckArgs):
+        super().__init__(
+            logs=check_args.logs,
+            verification_context=check_args.verification_context,
+            check_type=check_args.check_type,
+            check_yaml=check_args.check_yaml
+        )
+        self.name: str | None = check_args.check_name
+        self.column: str | None = check_args.column
+        self.missing_configurations: MissingConfigurations = check_args.missing_configurations
+        self.valid_configurations: ValidConfigurations = check_args.valid_configurations
+        self.threshold: Threshold = check_args.threshold
+        self.location: Location = check_args.location
 
     def _create_identity(self) -> str:
-        yaml_helper = YamlHelper(self.logs)
-
         # TODO check the identity suffix with a regex so it is all lower case, numbers and underscores no spaces.
         #      Either here or better yet in the json schema, but then make sure it's in the errors
 
@@ -249,6 +268,7 @@ class AbstractCheck(Check, ABC):
         # Check identifier used to correlate the sodacl check results with this contract check object when parsing
         # scan results.  Also used as correlation id in Soda Cloud to match subsequent results for the same check.
         # Composite key created from schedule, dataset, column, type and identity_suffix.
+        yaml_helper: YamlHelper = YamlHelper(self.logs)
         identity_suffix = yaml_helper.read_string_opt(self.check_yaml, "identity_suffix")
         if identity_suffix:
             identity += f",identity_suffix={identity_suffix}"
@@ -257,44 +277,76 @@ class AbstractCheck(Check, ABC):
 
 
 class MissingCheckFactory(CheckFactory):
-    def create_check(self, **kwargs) -> Check | None:
-        check_type = kwargs["check_type"]
+    def create_check(self, check_args: CheckArgs) -> Check | None:
+        check_type = check_args.check_type
         if check_type in ["no_missing_values", "missing_count", "missing_percent"]:
-            metric = "missing_count" if check_type == "no_missing_values" else check_type
-            return MetricCheck(metric=metric, **kwargs)
+            threshold = check_args.threshold
+            metric = check_type
+            if check_type == "no_missing_values":
+                metric = "missing_count"
+                if threshold and not threshold.is_empty():
+                    check_args.logs.error("Check type 'no_missing_values' does not allow for threshold keys must_...")
+                else:
+                    check_args.threshold = Threshold(equal=0)
+            elif not threshold or threshold.is_empty():
+                check_args.logs.error(f"Check type '{check_type}' requires threshold configuration")
+            return MetricCheck(check_args=check_args, metric=metric)
 
 
 class InvalidCheckFactory(CheckFactory):
-    def create_check(self, **kwargs) -> Check | None:
-        check_type = kwargs["check_type"]
+    def create_check(self, check_args: CheckArgs) -> Check | None:
+        check_type = check_args.check_type
         if check_type in ["no_invalid_values", "invalid_count", "invalid_percent"]:
-            valid_configurations: ValidConfigurations = kwargs["valid_configurations"]
+            metric = "invalid_count" if check_type == "no_invalid_values" else check_type
+            valid_configurations = check_args.valid_configurations
+            valid_configurations: ValidConfigurations = valid_configurations
             if valid_configurations and valid_configurations.valid_values_reference_data:
-                return ReferenceDataCheck(**kwargs)
+                return ReferenceDataCheck(check_args=check_args, metric=metric)
             else:
-                metric = "invalid_count" if check_type == "no_invalid_values" else check_type
-                return MetricCheck(metric=metric, **kwargs)
+                threshold: Threshold | None = check_args.threshold
+                if check_type == "no_invalid_values":
+                    if threshold and not threshold.is_empty():
+                        check_args.logs.error("Check type 'no_invalid_values' does not allow for threshold keys must_...")
+                    else:
+                        check_args.threshold = Threshold(equal=0)
+                elif not threshold or threshold.is_empty():
+                    check_args.logs.error(f"Check type '{check_type}' requires threshold configuration")
+
+                if not valid_configurations or not valid_configurations.has_non_reference_data_configs():
+                    check_args.logs.error(f"Check type '{check_type}' must have a validity configuration like {AbstractCheck.validity_keys}")
+                return MetricCheck(check_args=check_args, metric=metric)
 
 
 class DuplicateCheckFactory(CheckFactory):
-    def create_check(self, **kwargs) -> Check | None:
-        check_type = kwargs["check_type"]
+    def create_check(self, check_args: CheckArgs) -> Check | None:
+        check_type = check_args.check_type
         if check_type in ["no_duplicate_values", "duplicate_count", "duplicate_percent"]:
-            metric = "duplicate_count" if check_type == "no_duplicate_values" else check_type
-            return MetricCheck(metric=metric, **kwargs)
+            threshold: Threshold | None = check_args.threshold
+            metric = check_type
+            if check_type == "no_duplicate_values":
+                metric = "duplicate_count"
+                if threshold and not threshold.is_empty():
+                    check_args.logs.error("Check type 'no_duplicate_values' does not allow for threshold keys must_...")
+                else:
+                    check_args.threshold = Threshold(equal=0)
+            elif not threshold or threshold.is_empty():
+                check_args.logs.error(f"Check type '{check_type}' requires threshold configuration")
+
+            return MetricCheck(check_args=check_args, metric=metric)
 
 
 class SqlFunctionCheckFactory(CheckFactory):
-    def create_check(self, **kwargs) -> Check | None:
-        check_type = kwargs["check_type"]
-        return MetricCheck(metric=check_type, **kwargs)
+    def create_check(self, check_args: CheckArgs) -> Check | None:
+        metric: str = check_args.check_type
+        # TODO Should we add validation here? But then we need to get the connection here too :()
+        return MetricCheck(check_args=check_args, metric=metric)
 
 
 class MetricCheck(AbstractCheck):
 
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-        self.metric: str = kwargs["metric"]
+    def __init__(self, check_args: CheckArgs, metric: str):
+        super().__init__(check_args)
+        self.metric: str = metric
 
     def to_sodacl_check(self) -> str | dict | None:
         sodacl_check_line = self.get_sodacl_check_line()
@@ -312,7 +364,6 @@ class MetricCheck(AbstractCheck):
         return {sodacl_check_line: sodacl_check_configs}
 
     def create_check_result(self, scan_check: dict[str, dict], scan_check_metrics_by_name: dict[str, dict], scan: Scan):
-        scan_metric_dict: dict
         if "(" in self.metric:
             scan_metric_name = self.metric[: self.metric.index("(")]
             scan_metric_dict = scan_check_metrics_by_name.get(scan_metric_name, None)
@@ -360,9 +411,11 @@ class MetricCheckResult(CheckResult):
 
 class ReferenceDataCheck(MetricCheck):
 
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-        self.valid_values_reference_data: ValidValuesReferenceData = kwargs["valid_values_reference_data"]
+    def __init__(self, metric: str, check_args: CheckArgs):
+        super().__init__(check_args=check_args, metric=metric)
+        self.valid_values_reference_data: ValidValuesReferenceData = (
+            check_args.valid_configurations.valid_values_reference_data
+        )
 
     def to_sodacl_check(self) -> str | dict | None:
         sodacl_check_configs = {"contract check id": self.identity}
@@ -390,17 +443,18 @@ class ReferenceDataCheck(MetricCheck):
 
 
 class UserDefinedMetricExpressionSqlCheckFactory(CheckFactory):
-    def create_check(self, **kwargs) -> Check | None:
-        check_type: str = kwargs["check_type"]
+    def create_check(self, check_args: CheckArgs) -> Check | None:
+        check_type: str = check_args.check_type
         if check_type == "metric_expression_sql":
-            return UserDefinedMetricExpressionSqlCheck(**kwargs)
+            return UserDefinedMetricExpressionSqlCheck(check_args)
 
 
 class UserDefinedMetricExpressionSqlCheck(MetricCheck):
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-        yaml_source: dict = kwargs["yaml_source"]
-        self.metric_expression_sql: str = kwargs.get("metric_expression_sql")
+    def __init__(self, check_args: CheckArgs):
+        check_yaml = check_args.check_yaml
+        metric: str = check_args.yaml_helper.read_string_opt(check_yaml, "metric")
+        super().__init__(check_args=check_args, metric=metric)
+        self.metric_expression_sql: str = check_yaml.get("expression_sql")
 
     def to_sodacl_check(self) -> str | dict | None:
         sodacl_check_configs = {
@@ -424,10 +478,17 @@ class UserDefinedMetricExpressionSqlCheck(MetricCheck):
         )
 
 
+class FreshnessCheckFactory(CheckFactory):
+    def create_check(self, check_args: CheckArgs) -> Check | None:
+        check_type = check_args.check_type
+        if check_type.startswith("freshness_"):
+            return FreshnessCheck(check_args)
+
+
 class FreshnessCheck(AbstractCheck):
 
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
+    def __init__(self, check_args: CheckArgs):
+        super().__init__(check_args)
 
     def get_definition_line(self) -> str:
         return f"freshness({self.column}) {self.threshold.get_sodacl_threshold()}{self.get_sodacl_time_unit()}"
@@ -469,13 +530,26 @@ class FreshnessCheck(AbstractCheck):
         )
 
 
-@dataclass
 class FreshnessCheckResult(CheckResult):
-    freshness: str
-    freshness_column_max_value: str
-    freshness_column_max_value_utc: str
-    now: str
-    now_utc: str
+
+    def __init__(self,
+                 check: Check,
+                 outcome: CheckOutcome,
+                 freshness: str,
+                 freshness_column_max_value: str,
+                 freshness_column_max_value_utc: str,
+                 now: str,
+                 now_utc: str,
+                ):
+        super().__init__(
+            check=check,
+            outcome=outcome,
+        )
+        self.freshness: str = freshness
+        self.freshness_column_max_value: str = freshness_column_max_value
+        self.freshness_column_max_value_utc: str = freshness_column_max_value_utc
+        self.now: str = now
+        self.now_utc: str = now_utc
 
     def get_contract_result_str_lines(self) -> list[str]:
         assert isinstance(self.check, FreshnessCheck)
@@ -490,23 +564,22 @@ class FreshnessCheckResult(CheckResult):
         ]
 
 
-
-@dataclass
 class MultiColumnDuplicateCheck(MetricCheck):
-    columns: list[str]
+
+    def __init__(self, check_args: CheckArgs, metric: str, columns: list[str]):
+        super().__init__(check_args=check_args, metric=metric)
+        self.columns: list[str] = columns
 
     def get_sodacl_metric(self) -> str:
         column_str = self.column if self.column else ", ".join(self.columns)
         return f"{self.metric}({column_str})"
 
 
-
-
-
-@dataclass
 class UserDefinedMetricSqlQueryCheck(MetricCheck):
 
-    metric_sql_query: str
+    def __init__(self, check_args: CheckArgs, metric: str, metric_sql_query: str):
+        super().__init__(check_args=check_args, metric=metric)
+        self.metric_sql_query: str = metric_sql_query
 
     def to_sodacl_check(self) -> str | dict | None:
         sodacl_check_configs = {
@@ -553,8 +626,8 @@ class DataTypeMismatch:
 
 def dataclass_object_to_sodacl_dict(dataclass_object: object) -> dict:
     def translate_to_sodacl_key(key: str) -> str:
-        if "sql_" in key:
-            key = key.replace("sql_", "")
+        if "_sql" in key:
+            key = key.replace("_sql", "")
         return key.replace("_", " ")
 
     dict_factory = lambda x: {translate_to_sodacl_key(k): v for (k, v) in x if v is not None}
@@ -574,10 +647,10 @@ class MissingConfigurations:
 class ValidConfigurations:
     invalid_values: list[str] | list[Number] | None
     invalid_format: str | None
-    invalid_sql_regex: str | None
+    invalid_regex_sql: str | None
     valid_values: list[str] | list[Number] | None
     valid_format: str | None
-    valid_sql_regex: str | None
+    valid_regex_sql: str | None
     valid_min: Number | None
     valid_max: Number | None
     valid_length: int | None
@@ -594,10 +667,10 @@ class ValidConfigurations:
         return (
             self.invalid_values is not None
             or self.invalid_format is not None
-            or self.invalid_sql_regex is not None
+            or self.invalid_regex_sql is not None
             or self.valid_values is not None
             or self.valid_format is not None
-            or self.valid_sql_regex is not None
+            or self.valid_regex_sql is not None
             or self.valid_min is not None
             or self.valid_max is not None
             or self.valid_length is not None
@@ -613,7 +686,7 @@ class ValidValuesReferenceData:
 
 
 @dataclass
-class NumericThreshold:
+class Threshold:
     """
     The threshold is exceeded when any of the member field conditions is True.
     To be interpreted as a check fails when the metric value is ...greater_than or ...less_than etc...

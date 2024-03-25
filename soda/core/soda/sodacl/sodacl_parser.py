@@ -641,17 +641,23 @@ class SodaCLParser(Parser):
                 elif "method" == configuration_key:
                     method = configuration_value.strip()
                 elif configuration_key.endswith("expression"):
-                    metric_expression = configuration_value.strip()
-                    configuration_metric_name = (
-                        configuration_key[: -len(" expression")]
-                        if len(configuration_key) > len(" expression")
-                        else None
-                    )
-                    if configuration_metric_name != metric_name:
+                    if configuration_value is None:
                         self.logs.error(
-                            f'In configuration "{configuration_key}" the metric name must match exactly the metric name in the check "{metric_name}"',
+                            f'In configuration "{configuration_key}" no value is provided',
                             location=self.location,
                         )
+                    else:
+                        metric_expression = configuration_value.strip()
+                        configuration_metric_name = (
+                            configuration_key[: -len(" expression")]
+                            if len(configuration_key) > len(" expression")
+                            else None
+                        )
+                        if configuration_metric_name != metric_name:
+                            self.logs.error(
+                                f'In configuration "{configuration_key}" the metric name must match exactly the metric name in the check "{metric_name}"',
+                                location=self.location,
+                            )
                 elif configuration_key.endswith("query") or configuration_key.endswith("sql_file"):
                     if configuration_key.endswith("sql_file"):
                         fs = file_system()

@@ -1,12 +1,11 @@
 from contracts.helpers.test_connection import TestConnection
 from helpers.test_table import TestTable
+from soda.contracts.check import MetricCheck, MetricCheckResult
 from soda.execution.data_type import DataType
 
 from soda.contracts.contract import (
     CheckOutcome,
     ContractResult,
-    NumericMetricCheck,
-    NumericMetricCheckResult,
 )
 
 contracts_basic_sql_functions_check_types_test_table = TestTable(
@@ -40,15 +39,14 @@ def test_contract_avg(test_connection: TestConnection):
     )
 
     check_result = contract_result.check_results[1]
-    assert isinstance(check_result, NumericMetricCheckResult)
+    assert isinstance(check_result, MetricCheckResult)
     assert check_result.outcome == CheckOutcome.FAIL
     assert check_result.metric_value == 2
 
     check = check_result.check
-    assert isinstance(check, NumericMetricCheck)
+    assert isinstance(check, MetricCheck)
     assert check.type == "avg"
     assert check.metric == "avg"
-    assert check.dataset == table_name
     assert check.column == "one"
 
     assert "Actual avg(one) was 2" in str(contract_result)
@@ -69,15 +67,14 @@ def test_contract_sum(test_connection: TestConnection):
     )
 
     check_result = contract_result.check_results[1]
-    assert isinstance(check_result, NumericMetricCheckResult)
+    assert isinstance(check_result, MetricCheckResult)
     assert check_result.outcome == CheckOutcome.FAIL
     assert check_result.metric_value == 6
 
     check = check_result.check
-    assert isinstance(check, NumericMetricCheck)
+    assert isinstance(check, MetricCheck)
     assert check.type == "sum"
     assert check.metric == "sum"
-    assert check.dataset == table_name
     assert check.column == "one"
 
     assert "Actual sum(one) was 6" in str(contract_result)

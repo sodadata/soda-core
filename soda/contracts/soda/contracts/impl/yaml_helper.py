@@ -30,7 +30,7 @@ class YamlHelper:
     @classmethod
     def create_location_from_yaml_value(cls, d: object) -> Location | None:
         if isinstance(d, CommentedMap) or isinstance(d, CommentedSeq):
-            return Location(line=d.lc.line, column=d.lc.column)
+            return Location(line=d.lc.line, column=d.lc.col)
         return None
 
     def read_yaml_object(self, d: dict, key: str) -> dict | None:

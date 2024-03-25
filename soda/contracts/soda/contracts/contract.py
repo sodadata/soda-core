@@ -11,9 +11,9 @@ from soda.common import logs as soda_core_logs
 from soda.scan import logger as scan_logger
 
 from soda.contracts.check import FreshnessCheck, Check, MissingConfigurations, ValidConfigurations, SchemaCheck, \
-    NumericThreshold, MissingCheckFactory, InvalidCheckFactory, DuplicateCheckFactory, ValidValuesReferenceData, \
+    Threshold, MissingCheckFactory, InvalidCheckFactory, DuplicateCheckFactory, ValidValuesReferenceData, \
     AbstractCheck, UserDefinedMetricExpressionSqlCheckFactory, SqlFunctionCheckFactory, CheckFactory, CheckResult, \
-    CheckOutcome
+    CheckOutcome, FreshnessCheckFactory, CheckArgs
 from soda.contracts.connection import Connection
 from soda.contracts.impl.json_schema_verifier import JsonSchemaVerifier
 from soda.contracts.impl.logs import Location, Log, LogLevel, Logs
@@ -171,7 +171,8 @@ class Contract:
                         for check_yaml in check_yamls:
                             check_type: str | None = yaml_helper.read_string(check_yaml, "type")
 
-                            check_name = yaml_helper.read_string(check_yaml,"name")
+                            check_name = yaml_helper.read_string_opt(check_yaml,"name")
+                            check_name = yaml_helper.read_string_opt(check_yaml,"name")
 
                             missing_configurations: MissingConfigurations | None = self.__parse_missing_configurations(
                                 check_yaml=check_yaml, column=column
@@ -179,39 +180,44 @@ class Contract:
                             valid_configurations: ValidConfigurations | None = self.__parse_valid_configurations(
                                 check_yaml=check_yaml, column=column
                             )
-                            threshold: NumericThreshold = self.__parse_numeric_threshold(
+                            threshold: Threshold = self.__parse_numeric_threshold(
                                 check_yaml=check_yaml
                             )
 
-                            check_args: dict = {
-                                "logs": self.logs,
-                                "verification_context": self.verification_context,
-                                "column": column,
-                                "check_type": check_type,
-                                "check_name": check_name,
-                                "missing_configurations": missing_configurations,
-                                "valid_configurations": valid_configurations,
-                                "threshold": threshold,
-                                "check_yaml": check_yaml
-                            }
+                            location: Location = yaml_helper.create_location_from_yaml_value(check_yaml)
+
+                            check_args: CheckArgs = CheckArgs(
+                                logs=self.logs,
+                                verification_context=self.verification_context,
+                                column=column,
+                                check_type=check_type,
+                                check_yaml=check_yaml,
+                                check_name=check_name,
+                                missing_configurations=missing_configurations,
+                                valid_configurations=valid_configurations,
+                                threshold=threshold,
+                                location=location,
+                                yaml_helper=yaml_helper
+                            )
 
                             column_check_factory_classes: list[CheckFactory] = [
                                 MissingCheckFactory(),
                                 InvalidCheckFactory(),
                                 DuplicateCheckFactory(),
                                 UserDefinedMetricExpressionSqlCheckFactory(),
-                                FreshnessCheck(),
+                                FreshnessCheckFactory(),
                                 SqlFunctionCheckFactory(),
                             ]
 
                             check: Check | None = None
                             for column_check_factory_class in column_check_factory_classes:
-                                check = column_check_factory_class.create_check(**check_args)
+                                check = column_check_factory_class.create_check(check_args)
+                                if check:
+                                    break
 
                             if check:
                                 self.checks.append(check)
                             else:
-                                location: Location = yaml_helper.create_location_from_yaml_value(check_yaml)
                                 self.logs.error(f"Invalid {check_type} check", location=location)
 
             # TODO check for duplicate identities
@@ -246,12 +252,12 @@ class Contract:
 
         invalid_values: list | None = yaml_helper.read_yaml_list_opt(check_yaml, "invalid_values")
         invalid_format: str | None = yaml_helper.read_string_opt(check_yaml, "invalid_format")
-        invalid_sql_regex: str | None = yaml_helper.read_string_opt(check_yaml, "invalid_sql_regex")
+        invalid_regex_sql: str | None = yaml_helper.read_string_opt(check_yaml, "invalid_regex_sql")
 
         valid_values: list | None = yaml_helper.read_yaml_list_opt(check_yaml, "valid_values")
 
         valid_format: str | None = yaml_helper.read_string_opt(check_yaml, "valid_format")
-        valid_sql_regex: str | None = yaml_helper.read_string_opt(check_yaml, "valid_sql_regex")
+        valid_regex_sql: str | None = yaml_helper.read_string_opt(check_yaml, "valid_regex_sql")
 
         valid_min: Number | None = yaml_helper.read_number_opt(check_yaml, "valid_min")
         valid_max: Number | None = yaml_helper.read_number_opt(check_yaml, "valid_max")
@@ -266,8 +272,8 @@ class Contract:
             f"valid_values_reference_data"
         )
         if valid_values_reference_data_yaml_object:
-            ref_dataset = valid_values_reference_data_yaml_object.read_string("dataset")
-            ref_column = valid_values_reference_data_yaml_object.read_string("column")
+            ref_dataset = yaml_helper.read_string(valid_values_reference_data_yaml_object, "dataset")
+            ref_column = yaml_helper.read_string(valid_values_reference_data_yaml_object, "column")
             valid_values_reference_data = ValidValuesReferenceData(dataset=ref_dataset, column=ref_column)
 
         if all(
@@ -275,10 +281,10 @@ class Contract:
             for v in [
                 invalid_values,
                 invalid_format,
-                invalid_sql_regex,
+                invalid_regex_sql,
                 valid_values,
                 valid_format,
-                valid_sql_regex,
+                valid_regex_sql,
                 valid_min,
                 valid_max,
                 valid_length,
@@ -292,10 +298,10 @@ class Contract:
             valid_configurations = ValidConfigurations(
                 invalid_values=invalid_values,
                 invalid_format=invalid_format,
-                invalid_sql_regex=invalid_sql_regex,
+                invalid_regex_sql=invalid_regex_sql,
                 valid_values=valid_values,
                 valid_format=valid_format,
-                valid_sql_regex=valid_sql_regex,
+                valid_regex_sql=valid_regex_sql,
                 valid_min=valid_min,
                 valid_max=valid_max,
                 valid_length=valid_length,
@@ -310,10 +316,10 @@ class Contract:
 
             return valid_configurations
 
-    def __parse_numeric_threshold(self, check_yaml: dict) -> NumericThreshold | None:
+    def __parse_numeric_threshold(self, check_yaml: dict) -> Threshold | None:
         yaml_helper: YamlHelper = YamlHelper(self.logs)
 
-        numeric_threshold: NumericThreshold = NumericThreshold(
+        numeric_threshold: Threshold = Threshold(
             greater_than=yaml_helper.read_number_opt(check_yaml, "must_be_greater_than"),
             greater_than_or_equal=yaml_helper.read_number_opt(check_yaml, "must_be_greater_than_or_equal_to"),
             less_than=yaml_helper.read_number_opt(check_yaml, "must_be_less_than"),

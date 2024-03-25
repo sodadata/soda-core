@@ -1,16 +1,15 @@
 from contracts.helpers.test_connection import TestConnection
 from helpers.test_table import TestTable
+from soda.contracts.check import MetricCheckResult, UserDefinedMetricExpressionSqlCheck
 from soda.execution.data_type import DataType
 
 from soda.contracts.contract import (
     CheckOutcome,
     ContractResult,
-    NumericMetricCheckResult,
-    UserDefinedMetricSqlExpressionCheck,
 )
 
-user_defined_metric_sql_expression_test_table = TestTable(
-    name="user_defined_metric_sql_expression",
+user_defined_metric_expression_sql_test_table = TestTable(
+    name="user_defined_metric_expression_sql",
     # fmt: off
     columns=[
         ("id", DataType.INTEGER),
@@ -25,8 +24,8 @@ user_defined_metric_sql_expression_test_table = TestTable(
 )
 
 
-def test_contract_column_metric_sql_expression(test_connection: TestConnection):
-    table_name: str = test_connection.ensure_test_table(user_defined_metric_sql_expression_test_table)
+def test_contract_column_metric_expression_sql(test_connection: TestConnection):
+    table_name: str = test_connection.ensure_test_table(user_defined_metric_expression_sql_test_table)
 
     contract_result: ContractResult = test_connection.assert_contract_fail(
         f"""
@@ -35,29 +34,29 @@ def test_contract_column_metric_sql_expression(test_connection: TestConnection):
           - name: id
           - name: country
             checks:
-            - type: metric_sql_expression
+            - type: metric_expression_sql
               metric: us_count
-              sql_expression: COUNT(CASE WHEN country = 'US' THEN 1 END)
+              expression_sql: COUNT(CASE WHEN country = 'US' THEN 1 END)
               must_be: 0
     """
     )
 
     check_result = contract_result.check_results[1]
-    assert isinstance(check_result, NumericMetricCheckResult)
+    assert isinstance(check_result, MetricCheckResult)
     assert check_result.outcome == CheckOutcome.FAIL
     assert check_result.metric_value == 2
 
     check = check_result.check
-    assert isinstance(check, UserDefinedMetricSqlExpressionCheck)
-    assert check.type == "metric_sql_expression"
+    assert isinstance(check, UserDefinedMetricExpressionSqlCheck)
+    assert check.type == "metric_expression_sql"
     assert check.metric == "us_count"
     assert check.column == "country"
 
     assert "Actual us_count(country) was 2" in str(contract_result)
 
 
-def test_contract_dataset_metric_sql_expression(test_connection: TestConnection):
-    table_name: str = test_connection.ensure_test_table(user_defined_metric_sql_expression_test_table)
+def test_contract_dataset_metric_expression_sql(test_connection: TestConnection):
+    table_name: str = test_connection.ensure_test_table(user_defined_metric_expression_sql_test_table)
 
     contract_result: ContractResult = test_connection.assert_contract_fail(
         f"""
@@ -66,21 +65,21 @@ def test_contract_dataset_metric_sql_expression(test_connection: TestConnection)
           - name: id
           - name: country
         checks:
-        - type: metric_sql_expression
+        - type: metric_expression_sql
           metric: us_count
-          sql_expression: COUNT(CASE WHEN country = 'US' THEN 1 END)
+          expression_sql: COUNT(CASE WHEN country = 'US' THEN 1 END)
           must_be: 0
     """
     )
 
     check_result = contract_result.check_results[1]
-    assert isinstance(check_result, NumericMetricCheckResult)
+    assert isinstance(check_result, MetricCheckResult)
     assert check_result.outcome == CheckOutcome.FAIL
     assert check_result.metric_value == 2
 
     check = check_result.check
-    assert isinstance(check, UserDefinedMetricSqlExpressionCheck)
-    assert check.type == "metric_sql_expression"
+    assert isinstance(check, UserDefinedMetricExpressionSqlCheck)
+    assert check.type == "metric_expression_sql"
     assert check.metric == "us_count"
     assert check.column is None
 

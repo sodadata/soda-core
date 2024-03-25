@@ -105,7 +105,6 @@ def test_contract_nomissing_without_missing_values(test_connection: TestConnecti
     assert isinstance(check, MetricCheck)
     assert check.type == "no_missing_values"
     assert check.metric == "missing_count"
-    assert check.dataset == table_name
     assert check.column == "two"
 
 
@@ -133,7 +132,6 @@ def test_contract_missing_count_with_missing_values(test_connection: TestConnect
     assert isinstance(check, MetricCheck)
     assert check.type == "missing_count"
     assert check.metric == "missing_count"
-    assert check.dataset == table_name
     assert check.column == "one"
 
     assert "Actual missing_count(one) was 1" in str(contract_result)
@@ -163,7 +161,6 @@ def test_contract_missing_count_pass(test_connection: TestConnection):
     assert isinstance(check, MetricCheck)
     assert check.type == "missing_count"
     assert check.metric == "missing_count"
-    assert check.dataset == table_name
     assert check.column == "one"
 
 
@@ -192,11 +189,10 @@ def test_contract_missing_count_with_missing_values_pass(test_connection: TestCo
     assert isinstance(check, MetricCheck)
     assert check.type == "missing_count"
     assert check.metric == "missing_count"
-    assert check.dataset == table_name
     assert check.column == "one"
 
 
-def test_contract_missing_count_with_missing_sql_regex(test_connection: TestConnection):
+def test_contract_missing_count_with_missing_regex_sql(test_connection: TestConnection):
     table_name: str = test_connection.ensure_test_table(contracts_missing_test_table)
 
     contract_result: ContractResult = test_connection.assert_contract_fail(
@@ -206,7 +202,7 @@ def test_contract_missing_count_with_missing_sql_regex(test_connection: TestConn
           - name: one
             checks:
             - type: missing_count
-              missing_sql_regex: ^N/A$
+              missing_regex_sql: ^N/A$
               must_be: 0
           - name: two
     """
@@ -221,7 +217,6 @@ def test_contract_missing_count_with_missing_sql_regex(test_connection: TestConn
     assert isinstance(check, MetricCheck)
     assert check.type == "missing_count"
     assert check.metric == "missing_count"
-    assert check.dataset == table_name
     assert check.column == "one"
 
     assert "Actual missing_count(one) was 2" in str(contract_result)
@@ -253,5 +248,4 @@ def test_contract_missing_count_name_and_threshold(test_connection: TestConnecti
     assert check.type == "missing_count"
     assert check.name == "Missing values count must be between 0 and 3"
     assert check.metric == "missing_count"
-    assert check.dataset == table_name
     assert check.column == "one"

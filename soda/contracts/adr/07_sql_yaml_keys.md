@@ -1,11 +1,11 @@
 In order to make it easier for contract authors to know when they are putting in literal SQL vs Soda Contract interpreted values,
 all the keys that are used literally in SQL queries should have `sql` in them.
 
-For example `sql_expression`, `invalid_sql_regex`, `valid_sql_regex` etc
+For example `sql_expression`, `invalid_regex_sql`, `valid_regex_sql` etc
 ```yaml
 dataset: {table_name}
 checks:
-- type: metric_sql_expression
+- type: metric_expression_sql
   metric: us_count
   sql_expression: COUNT(CASE WHEN country = 'US' THEN 1 END)
   must_be: 0

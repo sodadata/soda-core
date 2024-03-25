@@ -15,7 +15,7 @@ from soda.contracts.contract import (
     InvalidReferenceCheck,
     MissingConfigurations,
     NumericMetricCheck,
-    NumericThreshold,
+    Threshold,
     Range,
     SchemaCheck,
     UserDefinedMetricSqlExpressionCheck,
@@ -47,10 +47,10 @@ class ContractParser:
     __validity_keys = [
         "invalid_values",
         "invalid_format",
-        "invalid_sql_regex",
+        "invalid_regex_sql",
         "valid_values",
         "valid_format",
-        "valid_sql_regex",
+        "valid_regex_sql",
         "valid_min",
         "valid_max",
         "valid_length",
@@ -223,8 +223,8 @@ class ContractParser:
             parse_check_function = self._parse_column_check_invalid
         elif check_type in ["no_duplicate_values", "duplicate_count", "duplicate_percent"]:
             parse_check_function = self._parse_check_duplicate
-        elif check_type == "metric_sql_expression":
-            parse_check_function = self._parse_user_defined_metric_sql_expression_check
+        elif check_type == "metric_expression_sql":
+            parse_check_function = self._parse_user_defined_metric_expression_sql_check
         elif check_type.startswith("freshness_in_"):
             parse_check_function = self._parse_freshness_check
         elif check_type in ["avg", "sum"]:
@@ -255,7 +255,7 @@ class ContractParser:
     ):
         name = check_yaml_object.read_string_opt("name")
 
-        threshold: NumericThreshold = self._parse_numeric_threshold(check_yaml_object=check_yaml_object)
+        threshold: Threshold = self._parse_numeric_threshold(check_yaml_object=check_yaml_object)
 
         metric: str = check_type
 
@@ -266,7 +266,7 @@ class ContractParser:
                     f"Check type 'no_missing_values' does not allow for threshold keys must_... (column '{column}')",
                     location=check_yaml_object.location,
                 )
-            threshold = NumericThreshold(equal=0)
+            threshold = Threshold(equal=0)
         elif threshold.is_empty():
             self.logs.error(
                 (
@@ -306,7 +306,7 @@ class ContractParser:
     ):
         name = check_yaml_object.read_string_opt("name")
 
-        threshold: NumericThreshold = self._parse_numeric_threshold(check_yaml_object=check_yaml_object)
+        threshold: Threshold = self._parse_numeric_threshold(check_yaml_object=check_yaml_object)
 
         metric: str = check_type
 
@@ -318,7 +318,7 @@ class ContractParser:
                     f"keys must_... (column '{column}')",
                     location=check_yaml_object.location,
                 )
-            threshold = NumericThreshold(equal=0)
+            threshold = Threshold(equal=0)
         elif threshold.is_empty():
             self.logs.error(
                 (
@@ -399,7 +399,7 @@ class ContractParser:
 
         name = check_yaml_object.read_string_opt("name")
 
-        threshold: NumericThreshold = self._parse_numeric_threshold(check_yaml_object=check_yaml_object)
+        threshold: Threshold = self._parse_numeric_threshold(check_yaml_object=check_yaml_object)
 
         metric: str = check_type
 
@@ -410,7 +410,7 @@ class ContractParser:
                     f"Check type 'no_duplicate_values' does not allow for threshold keys must_... (column '{column}')",
                     location=check_yaml_object.location,
                 )
-            threshold = NumericThreshold(equal=0)
+            threshold = Threshold(equal=0)
         elif threshold.is_empty():
             self.logs.error(
                 (
@@ -460,7 +460,7 @@ class ContractParser:
     ):
         name = check_yaml_object.read_string_opt("name")
 
-        threshold: NumericThreshold = self._parse_numeric_threshold(check_yaml_object=check_yaml_object)
+        threshold: Threshold = self._parse_numeric_threshold(check_yaml_object=check_yaml_object)
 
         metric: str = check_type
 
@@ -479,7 +479,7 @@ class ContractParser:
             threshold=threshold,
         )
 
-    def _parse_user_defined_metric_sql_expression_check(
+    def _parse_user_defined_metric_expression_sql_check(
         self,
         schedule: str | None,
         dataset: str,
@@ -492,10 +492,10 @@ class ContractParser:
         metric: str = check_yaml_object.read_string("metric")
         sql_expression: str = check_yaml_object.read_string("sql_expression")
 
-        threshold: NumericThreshold = self._parse_numeric_threshold(check_yaml_object=check_yaml_object)
+        threshold: Threshold = self._parse_numeric_threshold(check_yaml_object=check_yaml_object)
 
         if not threshold:
-            self.logs.error("No threshold defined for metric_sql_expression check", location=check_yaml_object.location)
+            self.logs.error("No threshold defined for metric_expression_sql check", location=check_yaml_object.location)
 
         return UserDefinedMetricSqlExpressionCheck(
             schedule=schedule,
@@ -510,7 +510,7 @@ class ContractParser:
             missing_configurations=None,
             valid_configurations=None,
             threshold=threshold,
-            metric_sql_expression=sql_expression,
+            metric_expression_sql=sql_expression,
         )
 
     def _parse_freshness_check(
@@ -533,7 +533,7 @@ class ContractParser:
             self.logs.error(f"Invalid freshness check type: {check_type}: Expected one of {freshness_check_types}")
             return None
 
-        threshold: NumericThreshold = self._parse_numeric_threshold(check_yaml_object=check_yaml_object)
+        threshold: Threshold = self._parse_numeric_threshold(check_yaml_object=check_yaml_object)
         if not threshold:
             self.logs.error("No threshold defined for freshness check", location=check_yaml_object.location)
         elif (
@@ -562,14 +562,14 @@ class ContractParser:
     def _parse_missing_configurations(self, check_yaml: YamlObject, column: str) -> MissingConfigurations | None:
         missing_values_yaml_list: YamlList | None = check_yaml.read_yaml_list_opt(f"missing_values")
         missing_values: list | None = missing_values_yaml_list.unpacked() if missing_values_yaml_list else None
-        missing_sql_regex: str | None = check_yaml.read_string_opt(f"missing_sql_regex")
+        missing_regex_sql: str | None = check_yaml.read_string_opt(f"missing_regex_sql")
 
-        if all(v is None for v in [missing_values, missing_sql_regex]):
+        if all(v is None for v in [missing_values, missing_regex_sql]):
             return self.missing_value_configs_by_column.get(column)
 
         else:
             missing_configurations = MissingConfigurations(
-                missing_values=missing_values, missing_regex_sql=missing_sql_regex
+                missing_values=missing_values, missing_regex_sql=missing_regex_sql
             )
 
             # If a missing config is specified, do a complete overwrite.
@@ -582,13 +582,13 @@ class ContractParser:
         invalid_values_yaml_list: YamlList | None = check_yaml.read_yaml_list_opt(f"invalid_values")
         invalid_values: list | None = invalid_values_yaml_list.unpacked() if invalid_values_yaml_list else None
         invalid_format: str | None = check_yaml.read_string_opt(f"invalid_format")
-        invalid_sql_regex: str | None = check_yaml.read_string_opt(f"invalid_sql_regex")
+        invalid_regex_sql: str | None = check_yaml.read_string_opt(f"invalid_regex_sql")
 
         valid_values_yaml_list: YamlList | None = check_yaml.read_yaml_list_opt(f"valid_values")
         valid_values: list | None = valid_values_yaml_list.unpacked() if valid_values_yaml_list else None
 
         valid_format: str | None = check_yaml.read_string_opt(f"valid_format")
-        valid_sql_regex: str | None = check_yaml.read_string_opt(f"valid_sql_regex")
+        valid_regex_sql: str | None = check_yaml.read_string_opt(f"valid_regex_sql")
 
         valid_min: Number | None = check_yaml.read_number_opt(f"valid_min")
         valid_max: Number | None = check_yaml.read_number_opt(f"valid_max")
@@ -611,10 +611,10 @@ class ContractParser:
             for v in [
                 invalid_values,
                 invalid_format,
-                invalid_sql_regex,
+                invalid_regex_sql,
                 valid_values,
                 valid_format,
-                valid_sql_regex,
+                valid_regex_sql,
                 valid_min,
                 valid_max,
                 valid_length,
@@ -628,10 +628,10 @@ class ContractParser:
             valid_configurations = ValidConfigurations(
                 invalid_values=invalid_values,
                 invalid_format=invalid_format,
-                invalid_sql_regex=invalid_sql_regex,
+                invalid_regex_sql=invalid_regex_sql,
                 valid_values=valid_values,
                 valid_format=valid_format,
-                valid_sql_regex=valid_sql_regex,
+                valid_regex_sql=valid_regex_sql,
                 valid_min=valid_min,
                 valid_max=valid_max,
                 valid_length=valid_length,
@@ -646,8 +646,8 @@ class ContractParser:
 
             return valid_configurations
 
-    def _parse_numeric_threshold(self, check_yaml_object: YamlObject) -> NumericThreshold | None:
-        numeric_threshold: NumericThreshold = NumericThreshold(
+    def _parse_numeric_threshold(self, check_yaml_object: YamlObject) -> Threshold | None:
+        numeric_threshold: Threshold = Threshold(
             greater_than=check_yaml_object.read_number_opt("must_be_greater_than"),
             greater_than_or_equal=check_yaml_object.read_number_opt("must_be_greater_than_or_equal_to"),
             less_than=check_yaml_object.read_number_opt("must_be_less_than"),
@@ -681,8 +681,8 @@ class ContractParser:
             check_parse_function = self._parse_dataset_row_count
         elif check_type in ["no_duplicate_values", "duplicate_count", "duplicate_percent"]:
             check_parse_function = self._parse_check_duplicate
-        elif check_type == "metric_sql_expression":
-            check_parse_function = self._parse_user_defined_metric_sql_expression_check
+        elif check_type == "metric_expression_sql":
+            check_parse_function = self._parse_user_defined_metric_expression_sql_check
         elif check_type == "metric_sql_query":
             check_parse_function = self._parse_user_defined_metric_sql_query_check
         elif check_type == "failed_rows_sql_query":
@@ -711,7 +711,7 @@ class ContractParser:
     ) -> NumericMetricCheck:
         name = check_yaml_object.read_string_opt("name")
 
-        threshold: NumericThreshold = self._parse_numeric_threshold(check_yaml_object=check_yaml_object)
+        threshold: Threshold = self._parse_numeric_threshold(check_yaml_object=check_yaml_object)
 
         metric: str = check_type
 
@@ -722,7 +722,7 @@ class ContractParser:
                     f"Check type 'rows_exist' does not allow for threshold keys must_... (column '{column}')",
                     location=check_yaml_object.location,
                 )
-            threshold = NumericThreshold(greater_than=0)
+            threshold = Threshold(greater_than=0)
         elif threshold.is_empty():
             self.logs.error(
                 (
@@ -761,7 +761,7 @@ class ContractParser:
         metric: str = check_yaml_object.read_string("metric")
         metric_sql_query: str = check_yaml_object.read_string("sql_query")
 
-        threshold: NumericThreshold = self._parse_numeric_threshold(check_yaml_object=check_yaml_object)
+        threshold: Threshold = self._parse_numeric_threshold(check_yaml_object=check_yaml_object)
 
         return UserDefinedMetricSqlQueryCheck(
             schedule=schedule,
