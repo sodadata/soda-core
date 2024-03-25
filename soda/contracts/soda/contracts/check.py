@@ -445,7 +445,7 @@ class ReferenceDataCheck(MetricCheck):
 class UserDefinedMetricExpressionSqlCheckFactory(CheckFactory):
     def create_check(self, check_args: CheckArgs) -> Check | None:
         check_type: str = check_args.check_type
-        if check_type == "metric_expression_sql":
+        if check_type == "metric_expression":
             return UserDefinedMetricExpressionSqlCheck(check_args)
 
 
@@ -454,12 +454,12 @@ class UserDefinedMetricExpressionSqlCheck(MetricCheck):
         check_yaml = check_args.check_yaml
         metric: str = check_args.yaml_helper.read_string_opt(check_yaml, "metric")
         super().__init__(check_args=check_args, metric=metric)
-        self.metric_expression_sql: str = check_yaml.get("expression_sql")
+        self.metric_expression: str = check_yaml.get("expression_sql")
 
     def to_sodacl_check(self) -> str | dict | None:
         sodacl_check_configs = {
             "contract check id": self.identity,
-            f"{self.metric} expression": self.metric_expression_sql,
+            f"{self.metric} expression": self.metric_expression,
         }
         if self.name:
             sodacl_check_configs["name"] = self.name
@@ -577,14 +577,14 @@ class MultiColumnDuplicateCheck(MetricCheck):
 
 class UserDefinedMetricSqlQueryCheck(MetricCheck):
 
-    def __init__(self, check_args: CheckArgs, metric: str, metric_sql_query: str):
+    def __init__(self, check_args: CheckArgs, metric: str, metric_query_sql: str):
         super().__init__(check_args=check_args, metric=metric)
-        self.metric_sql_query: str = metric_sql_query
+        self.metric_query_sql: str = metric_query_sql
 
     def to_sodacl_check(self) -> str | dict | None:
         sodacl_check_configs = {
             "contract check id": self.identity,
-            f"{self.metric} query": self.metric_sql_query,
+            f"{self.metric} query": self.metric_query_sql,
         }
         if self.name:
             sodacl_check_configs["name"] = self.name

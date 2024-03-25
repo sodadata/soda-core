@@ -8,8 +8,8 @@ from soda.contracts.contract import (
     ContractResult,
 )
 
-user_defined_metric_expression_sql_test_table = TestTable(
-    name="user_defined_metric_expression_sql",
+user_defined_metric_expression_test_table = TestTable(
+    name="user_defined_metric_expression",
     # fmt: off
     columns=[
         ("id", DataType.INTEGER),
@@ -24,8 +24,8 @@ user_defined_metric_expression_sql_test_table = TestTable(
 )
 
 
-def test_contract_column_metric_expression_sql(test_connection: TestConnection):
-    table_name: str = test_connection.ensure_test_table(user_defined_metric_expression_sql_test_table)
+def test_contract_column_metric_expression(test_connection: TestConnection):
+    table_name: str = test_connection.ensure_test_table(user_defined_metric_expression_test_table)
 
     contract_result: ContractResult = test_connection.assert_contract_fail(
         f"""
@@ -34,7 +34,7 @@ def test_contract_column_metric_expression_sql(test_connection: TestConnection):
           - name: id
           - name: country
             checks:
-            - type: metric_expression_sql
+            - type: metric_expression
               metric: us_count
               expression_sql: COUNT(CASE WHEN country = 'US' THEN 1 END)
               must_be: 0
@@ -48,15 +48,15 @@ def test_contract_column_metric_expression_sql(test_connection: TestConnection):
 
     check = check_result.check
     assert isinstance(check, UserDefinedMetricExpressionSqlCheck)
-    assert check.type == "metric_expression_sql"
+    assert check.type == "metric_expression"
     assert check.metric == "us_count"
     assert check.column == "country"
 
     assert "Actual us_count(country) was 2" in str(contract_result)
 
 
-def test_contract_dataset_metric_expression_sql(test_connection: TestConnection):
-    table_name: str = test_connection.ensure_test_table(user_defined_metric_expression_sql_test_table)
+def test_contract_dataset_metric_expression(test_connection: TestConnection):
+    table_name: str = test_connection.ensure_test_table(user_defined_metric_expression_test_table)
 
     contract_result: ContractResult = test_connection.assert_contract_fail(
         f"""
@@ -65,7 +65,7 @@ def test_contract_dataset_metric_expression_sql(test_connection: TestConnection)
           - name: id
           - name: country
         checks:
-        - type: metric_expression_sql
+        - type: metric_expression
           metric: us_count
           expression_sql: COUNT(CASE WHEN country = 'US' THEN 1 END)
           must_be: 0
@@ -79,7 +79,7 @@ def test_contract_dataset_metric_expression_sql(test_connection: TestConnection)
 
     check = check_result.check
     assert isinstance(check, UserDefinedMetricExpressionSqlCheck)
-    assert check.type == "metric_expression_sql"
+    assert check.type == "metric_expression"
     assert check.metric == "us_count"
     assert check.column is None
 

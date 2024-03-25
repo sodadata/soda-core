@@ -223,8 +223,8 @@ class ContractParser:
             parse_check_function = self._parse_column_check_invalid
         elif check_type in ["no_duplicate_values", "duplicate_count", "duplicate_percent"]:
             parse_check_function = self._parse_check_duplicate
-        elif check_type == "metric_expression_sql":
-            parse_check_function = self._parse_user_defined_metric_expression_sql_check
+        elif check_type == "metric_expression":
+            parse_check_function = self._parse_user_defined_metric_expression_check
         elif check_type.startswith("freshness_in_"):
             parse_check_function = self._parse_freshness_check
         elif check_type in ["avg", "sum"]:
@@ -479,7 +479,7 @@ class ContractParser:
             threshold=threshold,
         )
 
-    def _parse_user_defined_metric_expression_sql_check(
+    def _parse_user_defined_metric_expression_check(
         self,
         schedule: str | None,
         dataset: str,
@@ -495,7 +495,7 @@ class ContractParser:
         threshold: Threshold = self._parse_numeric_threshold(check_yaml_object=check_yaml_object)
 
         if not threshold:
-            self.logs.error("No threshold defined for metric_expression_sql check", location=check_yaml_object.location)
+            self.logs.error("No threshold defined for metric_expression check", location=check_yaml_object.location)
 
         return UserDefinedMetricSqlExpressionCheck(
             schedule=schedule,
@@ -510,7 +510,7 @@ class ContractParser:
             missing_configurations=None,
             valid_configurations=None,
             threshold=threshold,
-            metric_expression_sql=sql_expression,
+            metric_expression=sql_expression,
         )
 
     def _parse_freshness_check(
@@ -681,11 +681,11 @@ class ContractParser:
             check_parse_function = self._parse_dataset_row_count
         elif check_type in ["no_duplicate_values", "duplicate_count", "duplicate_percent"]:
             check_parse_function = self._parse_check_duplicate
-        elif check_type == "metric_expression_sql":
-            check_parse_function = self._parse_user_defined_metric_expression_sql_check
-        elif check_type == "metric_sql_query":
-            check_parse_function = self._parse_user_defined_metric_sql_query_check
-        elif check_type == "failed_rows_sql_query":
+        elif check_type == "metric_expression":
+            check_parse_function = self._parse_user_defined_metric_expression_check
+        elif check_type == "metric_query_sql":
+            check_parse_function = self._parse_user_defined_metric_query_sql_check
+        elif check_type == "failed_rows_query_sql":
             check_parse_function = self._parse_user_defined_failed_rows_query_check
         else:
             self.logs.error(f"Invalid dataset check type '{check_type}'", location=check_yaml_object.location)
@@ -747,7 +747,7 @@ class ContractParser:
             threshold=threshold,
         )
 
-    def _parse_user_defined_metric_sql_query_check(
+    def _parse_user_defined_metric_query_sql_check(
         self,
         schedule: str | None,
         dataset: str,
@@ -759,7 +759,7 @@ class ContractParser:
 
         name = check_yaml_object.read_string_opt("name")
         metric: str = check_yaml_object.read_string("metric")
-        metric_sql_query: str = check_yaml_object.read_string("sql_query")
+        metric_query_sql: str = check_yaml_object.read_string("query_sql")
 
         threshold: Threshold = self._parse_numeric_threshold(check_yaml_object=check_yaml_object)
 
@@ -776,5 +776,5 @@ class ContractParser:
             missing_configurations=None,
             valid_configurations=None,
             threshold=threshold,
-            metric_sql_query=metric_sql_query,
+            metric_query_sql=metric_query_sql,
         )

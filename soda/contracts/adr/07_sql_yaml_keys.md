@@ -5,7 +5,7 @@ For example `sql_expression`, `invalid_regex_sql`, `valid_regex_sql` etc
 ```yaml
 dataset: {table_name}
 checks:
-- type: metric_expression_sql
+- type: metric_expression
   metric: us_count
   sql_expression: COUNT(CASE WHEN country = 'US' THEN 1 END)
   must_be: 0

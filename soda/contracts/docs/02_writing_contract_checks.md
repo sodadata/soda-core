@@ -386,9 +386,9 @@ Example of a user-defined SQL query check
 ```yaml
 dataset: CUSTOMERS
 checks:
-  - type: user_defined_sql
+  - type: metric_query
     metric: us_count
-    sql_query: |
+    query_sql: |
         SELECT COUNT(*)
         FROM {table_name}
         WHERE country = 'US'
