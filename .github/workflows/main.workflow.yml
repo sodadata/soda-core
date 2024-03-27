@@ -198,7 +198,7 @@ jobs:
 
       - name: Test with tox
         run: |
-          tox --exit-and-dump-after 3600 -- soda -k soda/contracts
+          tox -- soda -k soda/contracts
 
   publish-pypi:
     name: Build & Publish Package
