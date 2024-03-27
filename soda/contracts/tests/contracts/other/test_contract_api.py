@@ -9,7 +9,7 @@ import pytest
 from contracts.helpers.contract_test_tables import contracts_test_table
 from helpers.data_source_fixture import DataSourceFixture
 from helpers.test_table import TestTable
-from soda.contracts.data_source import Connection
+from soda.contracts.data_source import Connection, DataSource
 from soda.contracts.contract import Contract, ContractResult, SodaException
 from soda.contracts.soda_cloud import SodaCloud
 from soda.execution.data_type import DataType
@@ -61,15 +61,45 @@ def test_contract_api(data_source_fixture: DataSourceFixture, environ: dict):
     """
     )
 
-    contract_result: ContractResult = Contract.from_yaml_str(contract_yaml_str).verify()
-
     contract_result: ContractResult = (
         Contract
         .from_yaml_str(contract_yaml_str)
-        .with_data_source_yaml_str(data_sources_yaml_str)
+        .with_data_source_yaml_str(data_source_yaml_str)
         .with_variables({})
         .verify()
     )
+
+    # Example that picks up the data source from user home
+    contract_result: ContractResult = (
+        Contract
+        .from_yaml_str(contract_yaml_str)
+        .with_data_source_from_user_home()
+        .verify()
+    )
+
+    # Example that picks up the data source from relative files
+    contract_result: ContractResult = (
+        Contract
+        .from_yaml_file(contract_yaml_file_path="./customers.contract.yml")
+        .with_data_source_from_parent_folders()
+        .verify()
+    )
+
+    # Running multiple contracts on the same connection?
+    file_path = "./postgres.datasource.yml"
+    with DataSource.from_yaml_file(file_path) as data_source:
+        contract_result: ContractResult = (
+            Contract
+            .from_yaml_file(contract_yaml_file_path="./customers.contract.yml")
+            .with_data_source_from_parent_folders()
+            .verify()
+        )
+        contract_result: ContractResult = (
+            Contract
+            .from_yaml_file(contract_yaml_file_path="./suppliers.contract.yml")
+            .with_data_source_from_parent_folders()
+            .verify()
+        )
 
     # try:
     #     # Optionally a Soda Cloud link can be established that
