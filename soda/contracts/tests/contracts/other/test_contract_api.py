@@ -35,12 +35,14 @@ contracts_api_test_table = TestTable(
 def test_contract_api(data_source_fixture: DataSourceFixture, environ: dict):
     table_name: str = data_source_fixture.ensure_test_table(contracts_api_test_table)
 
-    connection_yaml_str = dedent(
+    data_source_yaml_str = dedent(
         """
+        name: postgres_ds
         type: postgres
-        host: localhost
-        database: sodasql
-        username: sodasql
+        connection:
+            host: localhost
+            database: sodasql
+            username: sodasql
     """
     )
 
@@ -61,13 +63,14 @@ def test_contract_api(data_source_fixture: DataSourceFixture, environ: dict):
 
     contract_result: ContractResult = Contract.from_yaml_str(contract_yaml_str).verify()
 
-    contract_result: ContractResult = (Contract
-                                       .from_yaml_str(contract_yaml_str)
-                                       .with_connection()
-                                       .with_variables()
-                                       .with_soda_cloud()
-                                       .verify()
-                                       )
+    contract_result: ContractResult = (
+        Contract
+        .from_yaml_str(contract_yaml_str)
+        .with_data_source_yaml_str(data_sources_yaml_str)
+        .with_variables({})
+        .verify()
+    )
+
     # try:
     #     # Optionally a Soda Cloud link can be established that
     #     #  - Enables change-over-time thresholds in checks using the Soda Cloud metric store

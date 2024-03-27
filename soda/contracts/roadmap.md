@@ -1,6 +1,20 @@
 # Roadmap
 
 ### Next TODOs
+* [ ] Close the connection if opened at end of execute
+* [ ] Document ideal file structure
+  * soda 
+    * data_source_one (any )
+      * data_source.yml
+      * schema_one
+        * dataset_one.yml
+        * dataset_two.yml
+    * data_source_2
+      * data_source.yml
+      * schema_2
+        * dataset_2.1.yml
+        * dataset_2.2.yml
+* [ ] Finish the auto-search path for data sources yaml files (user home and 5 levels up the folder structure)
 * [ ] Documenting the spark session approach
 * [ ] Decide on owner key and fix the JSON Schema.  Consider the notifications key as well.
 * [ ] Skipping checks

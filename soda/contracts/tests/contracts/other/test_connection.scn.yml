@@ -1,4 +1,7 @@
-type: postgres
-host: localhost
-database: ${POSTGRES_DATABASE}
-username: ${POSTGRES_USERNAME}
+data_sources:
+  - name: postgres_ds
+    type: postgres
+    connection:
+      host: localhost
+      database: ${POSTGRES_DATABASE}
+      username: ${POSTGRES_USERNAME}

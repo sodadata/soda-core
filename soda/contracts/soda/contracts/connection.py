@@ -1,164 +1,126 @@
 from __future__ import annotations
 
 import logging
-from typing import Dict
 
 import soda.common.logs as soda_common_logs
-from ruamel.yaml import YAML
-from ruamel.yaml.error import MarkedYAMLError
-from soda.execution.data_source import DataSource
-
 from soda.contracts.impl.logs import Logs
-from soda.contracts.impl.variable_resolver import VariableResolver
+from soda.contracts.impl.yaml_helper import YamlHelper, YamlFile
 
 logger = logging.getLogger(__name__)
 
 
-class Connection:
+class DataSource:
+
     """
-    A wrapper for DBAPI a connection to handle all database differences. Usage:
-
-    with Connection.from_dict({
-      "type": "postgres",
-      "host": "localhost",
-      "database": "soda",
-      "user": "postgres",
-      "password": "<PASSWORD>"
-    }) as connection:
-        # Do stuff with connection
-
-    When creating a connection from YAML, you can use ${VAR} to resolve environment variables.
-    Recommended for credentials.
-
-    The 'type' property is used to determine the type of connection and driver.
-    All the other properties are passed in the DBAPI connect method to create the DBAPI connection.
+    Represents the configurations to create a connection. Usually it's loaded from a YAML file.
     """
 
-    @classmethod
-    def from_data_source_name(cls, data_source_name) -> Connection:
-        pass
+    def __init__(self,
+                 logs: Logs | None = None,
+                 data_source_yaml_file: YamlFile | None = None,
+                 spark_session: object | None = None,
+                 ):
+        self.logs: Logs = logs if logs else Logs()
+        self.variables: dict[str, str] = {}
+        self.data_source_file: YamlFile = data_source_yaml_file
+        self.spark_session: object | None = spark_session
+        self.name: str | None = None
 
     @classmethod
-    def from_yaml_file(cls, connection_yaml_file_path: str) -> Connection:
-        """
-        with Connection.from_yaml_file(file_path) as connection:
-            # Do stuff with connection
-
-        Use ${YOUR_PASSWORD} to resolve environment variables. Recommended for credentials.
-
-        :param connection_yaml_file_path: A file path to a YAML file containing the connection configuration properties.
-        :return: an open connection, if no exception is raised
-        :raises SodaConnectionException: if the connection cannot be established for any reason
-        """
-
-        logs: Logs = Logs()
-        try:
-            if not isinstance(connection_yaml_file_path, str):
-                logs.error(
-                    f"Couldn't create connection from yaml file. Expected str in parameter "
-                    f"connection_yaml_file_path={connection_yaml_file_path}, but was '{type(connection_yaml_file_path)}"
-                )
-            elif len(connection_yaml_file_path) <= 1:
-                logs.error("Couldn't create connection from yaml file. connection_yaml_file_path is an empty string")
-            else:
-                with open(file=connection_yaml_file_path) as f:
-                    connection_yaml_str = f.read()
-                    return cls.from_yaml_str(connection_yaml_str=connection_yaml_str, logs=logs)
-        except Exception as e:
-            logs.error(f"Couldn't create connection from yaml file '{connection_yaml_file_path}': {e}", exception=e)
-        return Connection(logs=logs)
-
-    @classmethod
-    def from_yaml_str(
-        cls, connection_yaml_str: str, variables: Dict[str, str] | None = None, logs: Logs | None = None
-    ) -> Connection:
-        """
-        # TODO specify where the connection configuration properties are being documented
-        connection_yaml_str: str = "...YAML string for connection configuration properties..."
-        with Connection.from_yaml_str(connection_yaml_str) as connection:
-           # do stuff with connection
-
-        Use ${YOUR_PASSWORD} to resolve environment variables. Recommended for credentials. Resolving will
-        first use the variables parameter and otherwise fall back to environment variables.  A SodaConnectionException
-        will be raised if a variable is used and cannot be resolved.
-
-        :param connection_yaml_str: A YAML string containing the connection configuration properties.
-        :param variables: Optional dictionary of variables that will be used to resolve variables before checking
-        environment variables.
-        :return: an open connection, if no exception is raised
-        :raises SodaConnectionException: if the connection cannot be established for any reason
-        """
-
-        if not logs:
-            logs = Logs()
-
-        if not isinstance(connection_yaml_str, str):
-            logs.error(f"Expected a string for parameter connection_yaml_str, but was '{type(connection_yaml_str)}'")
-
-        if connection_yaml_str == "":
-            logs.error("connection_yaml_str must be non-emtpy, but was ''")
-
-        try:
-            variable_resolver = VariableResolver(variables=variables, logs=logs)
-            resolved_connection_yaml_str = variable_resolver.resolve(connection_yaml_str)
-        except BaseException as e:
-            logs.error(f"Could not resolve variables in connection YAML: {e}", exception=e)
-
-        try:
-            yaml = YAML()
-            yaml.preserve_quotes = True
-            connection_dict = yaml.load(resolved_connection_yaml_str)
-            if not isinstance(connection_dict, dict):
-                logs.error(
-                    f"Content of the connection YAML file must be a YAML object, but was {type(connection_dict)}"
-                )
-            return cls.from_dict(connection_dict)
-        except MarkedYAMLError as e:
-            mark = e.context_mark if e.context_mark else e.problem_mark
-            line = (mark.line + 1,)
-            column = (mark.column + 1,)
-            logs.error(f"YAML syntax error: {e} | line={line} | column={column}")
-
-    @classmethod
-    def from_dict(cls, connection_dict: dict, logs: Logs | None = None) -> Connection:
-        """
-        with Connection.from_dict({
-          "type": "postgres",
-          "host": "localhost",
-          "database": "soda",
-          "user": "postgres",
-          "password": "<PASSWORD>"
-        }) as connection:
-            # Do stuff with connection
-
-        :return: an open connection, if no exception is raised
-        :raises SodaConnectionException: if the connection cannot be established for any reason
-        """
-        if not logs:
-            logs = Logs()
-
-        connection_type: str | None = None
-
-        if not isinstance(connection_dict, dict):
-            logs.error(f"connect_properties must be a object, but was {type(connection_dict)}")
-        elif "type" not in connection_dict:
-            logs.error("'type' is required, but was not provided")
-        else:
-            connection_type = connection_dict.get("type")
-            if not isinstance(connection_type, str):
-                logs.error(f"'type' must be a string, but was  {type(connection_type)}")
-        return DataSourceConnection(connection_type=connection_type, connection_dict=connection_dict, logs=logs)
-
-    @classmethod
-    def from_spark_session(cls, spark_session) -> Connection:
-        return DataSourceConnection(
-            connection_type="spark_df",
-            connection_dict={
-                "spark_session": spark_session
-            }
+    def from_yaml_file(cls, data_source_yaml_file_path: str, logs: Logs | None = None) -> DataSource:
+        assert isinstance(data_source_yaml_file_path, str) and len(data_source_yaml_file_path) > 1
+        return DataSource(
+            data_source_yaml_file=YamlFile(yaml_file_path=data_source_yaml_file_path, logs=logs)
         )
 
-    def __enter__(self):
+    @classmethod
+    def from_yaml_str(cls, data_source_yaml_str: str, logs: Logs | None = None) -> DataSource:
+        assert isinstance(data_source_yaml_str, str) and len(data_source_yaml_str) > 1
+        return DataSource(
+            data_source_yaml_file=YamlFile(yaml_str=data_source_yaml_str, logs=logs)
+        )
+
+    @classmethod
+    def from_yaml_dict(cls, data_source_yaml_dict: str, logs: Logs | None = None) -> DataSource:
+        return DataSource(
+            data_source_yaml_file=YamlFile(yaml_dict=data_source_yaml_dict, logs=logs)
+        )
+
+    @classmethod
+    def from_spark_session(cls, spark_session, logs: Logs | None = None) -> DataSource:
+        return DataSource(spark_session=spark_session, logs=logs)
+
+    def with_variable(self, key: str, value: str) -> DataSource:
+        self.variables[key] = value
+        return self
+
+    def with_variables(self, variables: dict[str, str]) -> DataSource:
+        if isinstance(variables, dict):
+            self.variables.update(variables)
+        return self
+
+    def build(self) -> DataSource:
+        if self.data_source_file and self.data_source_file.is_ok():
+            yaml_helper: YamlHelper = YamlHelper(yaml_file=self.data_source_file, logs=self.logs)
+            self.name: str = yaml_helper.read_string(self.data_source_file.dict, "name")
+            self.data_source_file.parse(self.variables)
+        elif self.spark_session:
+            self.name = "spark_ds"
+        return self
+
+    def create_connection(self) -> Connection:
+        if self.spark_session:
+            # build the connection
+            return Connection.from_spark_session(
+                spark_session=self.spark_session,
+                logs=self.logs
+            )
+        elif self.data_source_file and self.data_source_file.is_ok():
+            return Connection.from_yaml_dict(
+                data_source_yaml_dict=self.data_source_file.dict,
+                logs=self.logs
+            )
+        else:
+            self.logs.error("Data source not properly configured")
+            return Connection(logs=self.logs)
+
+
+class Connection:
+
+    @classmethod
+    def from_yaml_dict(cls, data_source_yaml_dict: dict) -> Connection:
+        logs: Logs = Logs()
+        return Connection.from_yaml_file(
+            data_source_yaml_file=YamlFile(logs=logs, yaml_dict=data_source_yaml_dict),
+            logs=logs
+        )
+
+    @classmethod
+    def from_yaml_file(cls, data_source_yaml_file: YamlFile, logs: Logs | None = None) -> Connection:
+        TODO continue
+        logs: Logs = Logs()
+        yaml_helper: yaml_helper = YamlHelper(logs=logs)
+        # For now, the type is not yet used, but it will when we start building native contract connection types
+        data_source_type: str = yaml_helper.read_string(data_source_yaml_dict, "type")
+        return DataSourceConnection(
+            data_source_yaml_dict=data_source_yaml_dict,
+            logs=logs if logs else Logs()
+        )
+
+    @classmethod
+    def from_spark_session(cls, spark_session: object, data_source_name: str = "spark_ds", logs: Logs | None = None) -> Connection:
+        return DataSourceConnection(data_source_yaml_dict={
+                "name": data_source_name,
+                "type": "spark_df",
+                "connection": {
+                    "spark_session": spark_session
+                }
+            },
+            logs=logs if logs else Logs()
+        )
+
+    def __enter__(self) -> Connection:
+        self.open()
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
@@ -167,12 +129,12 @@ class Connection:
         except Exception as e:
             logger.warning(f"Could not close connection: {e}")
 
-    def __init__(self, dbapi_connection: object | None = None, name: str | None = None, logs: Logs | None = None):
-        self.dbapi_connection = dbapi_connection
-        self.name: str | None = name
-        # See also adr/03_exceptions_vs_error_logs.md
-        self.logs: Logs = logs if logs else Logs()
-        self.spark_session = None
+    def __init__(self, logs: Logs):
+        self.logs: Logs = logs
+        self.dbapi_connection: object | None = None
+
+    def open(self) -> None:
+        pass
 
     def close(self) -> None:
         """
@@ -188,18 +150,26 @@ class Connection:
 
 class DataSourceConnection(Connection):
 
-    def __init__(self, connection_type: str, connection_dict: dict, logs: Logs | None = None):
+    def __init__(self, data_source_yaml_dict: dict, logs: Logs):
+        yaml_helper: yaml_helper = YamlHelper(logs)
+        self.data_source_type: str = yaml_helper.read_string_opt(data_source_yaml_dict, "type")
+        self.data_source_name: str = yaml_helper.read_string(data_source_yaml_dict, "name")
+        self.connection_dict: dict = yaml_helper.read_dict(data_source_yaml_dict, "connection")
+        self.logs: Logs = logs
+
         # consider translating postgres schema search_path option
         # options = f"-c search_path={schema}" if schema else None
         try:
             self.data_source = DataSource.create(
                 logs=soda_common_logs.Logs(logger=logger),
-                data_source_name=f"{connection_type}_ds",
-                data_source_type=connection_type,
-                data_source_properties=connection_dict,
+                data_source_name=self.data_source_name,
+                data_source_type=self.data_source_type,
+                data_source_properties=self.connection_dict,
             )
-            self.data_source.connect()
         except Exception as e:
             logs.error(message=f"Could not create the connection: {e}", exception=e)
-        name: str | None = connection_dict.get("name", connection_type)
-        super().__init__(dbapi_connection=self.data_source.connection, name=name, logs=logs)
+        super().__init__(logs=logs)
+
+    def open(self) -> None:
+        self.data_source.connect()
+        self.dbapi_connection = self.data_source.connection

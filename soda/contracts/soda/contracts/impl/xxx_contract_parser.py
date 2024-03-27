@@ -98,7 +98,7 @@ class ContractParser:
 
         checks: dict[str, Check] = {}
 
-        contract_columns_yaml_list: YamlList | None = contract_yaml_object.read_yaml_list("columns")
+        contract_columns_yaml_list: YamlList | None = contract_yaml_object.read_list("columns")
         if contract_columns_yaml_list:
             schema_columns: Dict[str, str | None] = {}
             schema_optional_columns: List[str] = []
@@ -137,7 +137,7 @@ class ContractParser:
                     if contract_column_yaml_object.read_bool_opt("optional", default_value=False):
                         schema_optional_columns.append(column_name)
 
-                    column_check_yaml_objects: YamlList = contract_column_yaml_object.read_yaml_list_opt("checks")
+                    column_check_yaml_objects: YamlList = contract_column_yaml_object.read_list_opt("checks")
 
                     if column_check_yaml_objects:
                         column_check_yaml_object: YamlObject
@@ -170,7 +170,7 @@ class ContractParser:
                                 else:
                                     logging.error(f"Could not parse check for {column_check_yaml_object.unpacked()}")
 
-        checks_yaml_list: YamlList | None = contract_yaml_object.read_yaml_list_opt("checks")
+        checks_yaml_list: YamlList | None = contract_yaml_object.read_list_opt("checks")
         if checks_yaml_list:
             for check_yaml_object in checks_yaml_list:
                 check_type: str | None = check_yaml_object.read_string("type")
@@ -560,7 +560,7 @@ class ContractParser:
         )
 
     def _parse_missing_configurations(self, check_yaml: YamlObject, column: str) -> MissingConfigurations | None:
-        missing_values_yaml_list: YamlList | None = check_yaml.read_yaml_list_opt(f"missing_values")
+        missing_values_yaml_list: YamlList | None = check_yaml.read_list_opt(f"missing_values")
         missing_values: list | None = missing_values_yaml_list.unpacked() if missing_values_yaml_list else None
         missing_regex_sql: str | None = check_yaml.read_string_opt(f"missing_regex_sql")
 
@@ -579,12 +579,12 @@ class ContractParser:
             return missing_configurations
 
     def _parse_valid_configurations(self, check_yaml: YamlObject, column: str) -> ValidConfigurations | None:
-        invalid_values_yaml_list: YamlList | None = check_yaml.read_yaml_list_opt(f"invalid_values")
+        invalid_values_yaml_list: YamlList | None = check_yaml.read_list_opt(f"invalid_values")
         invalid_values: list | None = invalid_values_yaml_list.unpacked() if invalid_values_yaml_list else None
         invalid_format: str | None = check_yaml.read_string_opt(f"invalid_format")
         invalid_regex_sql: str | None = check_yaml.read_string_opt(f"invalid_regex_sql")
 
-        valid_values_yaml_list: YamlList | None = check_yaml.read_yaml_list_opt(f"valid_values")
+        valid_values_yaml_list: YamlList | None = check_yaml.read_list_opt(f"valid_values")
         valid_values: list | None = valid_values_yaml_list.unpacked() if valid_values_yaml_list else None
 
         valid_format: str | None = check_yaml.read_string_opt(f"valid_format")
@@ -598,7 +598,7 @@ class ContractParser:
         valid_max_length: int | None = check_yaml.read_number_opt(f"valid_max_length")
 
         valid_values_reference_data: ValidValuesReferenceData | None = None
-        valid_values_reference_data_yaml_object: YamlObject | None = check_yaml.read_yaml_object_opt(
+        valid_values_reference_data_yaml_object: YamlObject | None = check_yaml.read_dict_opt(
             f"valid_values_reference_data"
         )
         if valid_values_reference_data_yaml_object:
@@ -665,7 +665,7 @@ class ContractParser:
         return numeric_threshold
 
     def _parse_range(self, check_yaml_object: YamlObject, range_key: str) -> Range | None:
-        range_yaml_list: YamlList | None = check_yaml_object.read_yaml_list_opt(range_key)
+        range_yaml_list: YamlList | None = check_yaml_object.read_list_opt(range_key)
         if isinstance(range_yaml_list, YamlList):
             range_values = range_yaml_list.unpacked()
             if all(isinstance(range_value, Number) for range_value in range_values) and len(range_values) == 2:

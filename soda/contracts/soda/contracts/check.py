@@ -11,7 +11,7 @@ from typing import Dict
 from plotly.graph_objs.indicator.gauge import Threshold
 
 from soda.contracts.impl.logs import Logs, Location
-from soda.contracts.impl.yaml_helper import YamlHelper
+from soda.contracts.impl.yaml_helper import YamlHelper, YamlFile
 from soda.scan import Scan
 
 logger = logging.getLogger(__name__)
@@ -22,11 +22,13 @@ class Check(ABC):
     def __init__(
             self,
             logs: Logs,
+            contract_file: YamlFile,
             verification_context: str,
             check_type: str,
             check_yaml: dict
     ):
         self.logs: Logs = logs
+        self.contract_file: YamlFile = contract_file
         self.verification_context: str = verification_context
         self.type: str = check_type
         self.check_yaml: dict = check_yaml
@@ -80,9 +82,10 @@ class CheckResult:
 
 class SchemaCheck(Check):
 
-    def __init__(self, logs: Logs, verification_context: str, yaml_contract: dict):
+    def __init__(self, logs: Logs, contract_file: YamlFile, verification_context: str, yaml_contract: dict):
         super().__init__(
             logs=logs,
+            contract_file=contract_file,
             verification_context=verification_context,
             check_type="schema",
             check_yaml=yaml_contract
@@ -91,11 +94,11 @@ class SchemaCheck(Check):
         self.columns: dict[str, str] = {}
         self.optional_columns: list[str] = []
 
-        yaml_helper = YamlHelper(logs=self.logs)
+        yaml_helper = YamlHelper(logs=self.logs, yaml_file=self.contract_file)
         extra_columns: str | None = yaml_helper.read_string_opt(yaml_contract, "extra_columns")
         self.extra_columns_allowed: bool = "allowed" == extra_columns
 
-        yaml_columns: list | None = yaml_helper.read_yaml_list(yaml_contract, "columns")
+        yaml_columns: list | None = yaml_helper.read_list(yaml_contract, "columns")
         if yaml_columns:
             for yaml_column in yaml_columns:
                 column_name: str | None = yaml_helper.read_string(yaml_column, "name")
@@ -199,6 +202,7 @@ class SchemaCheckResult(CheckResult):
 @dataclass
 class CheckArgs:
     logs: Logs
+    contract_file: YamlFile
     verification_context: str
     check_type: str
     check_yaml: dict
@@ -248,6 +252,7 @@ class AbstractCheck(Check, ABC):
     def __init__(self, check_args: CheckArgs):
         super().__init__(
             logs=check_args.logs,
+            contract_file=check_args.contract_file,
             verification_context=check_args.verification_context,
             check_type=check_args.check_type,
             check_yaml=check_args.check_yaml

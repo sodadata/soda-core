@@ -75,8 +75,11 @@ class TestConnection(Connection):
         contract_yaml_str = dedent(contract_yaml_str).strip()
         logging.debug(contract_yaml_str)
         try:
-            contract: Contract = Contract.from_yaml_str(contract_yaml_str)
-            contract_result: ContractResult = contract.verify(self)
+            contract: Contract = (Contract
+                .from_yaml_str(contract_yaml_str)
+                .with_connection(self)
+            )
+            contract_result: ContractResult = contract.verify()
             logs_text = "\n".join([str(l) for l in contract_result.logs.logs])
             raise AssertionError(f"Expected contract execution errors, but got none. Logs:\n{logs_text}")
         except SodaException as e:

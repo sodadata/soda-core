@@ -37,6 +37,7 @@ def test_contract_api(data_source_fixture: DataSourceFixture, environ: dict):
 
     connection_yaml_str = dedent(
         """
+
         type: postgres
         host: localhost
         database: sodasql
@@ -64,7 +65,7 @@ def test_contract_api(data_source_fixture: DataSourceFixture, environ: dict):
 
         contract_result: ContractResult = (Contract
             .from_yaml_str(contract_yaml_str)
-            .with_connection()
+            .with_data_source_yaml_str()
             .with_variables()
             .with_soda_cloud()
             .verify()

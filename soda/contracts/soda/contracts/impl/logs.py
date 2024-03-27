@@ -10,6 +10,7 @@ from typing import List
 @dataclass
 class Location:
 
+    file_path: str | None
     line: int | None
     column: int | None
 
@@ -17,6 +18,7 @@ class Location:
         parts = [
             f"line={self.line}" if self.line is not None else None,
             f"column={self.column}" if self.column is not None else None,
+            f"file={self.file_path}" if self.file_path is not None else None,
         ]
         parts = [p for p in parts if p is not None]
         return ",".join(parts)
@@ -69,6 +71,8 @@ class Log:
 
 
 class Logs:
+
+    # See also adr/03_exceptions_vs_error_logs.md
 
     def __init__(self, logs: Logs | None = None):
         self.logs: List[Log] = []

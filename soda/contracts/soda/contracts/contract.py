@@ -8,59 +8,57 @@ from typing import List
 
 from soda.cloud.soda_cloud import SodaCloud
 from soda.common import logs as soda_core_logs
-from soda.scan import logger as scan_logger
-
-from soda.contracts.check import FreshnessCheck, Check, MissingConfigurations, ValidConfigurations, SchemaCheck, \
+from soda.contracts.check import Check, MissingConfigurations, ValidConfigurations, SchemaCheck, \
     Threshold, MissingCheckFactory, InvalidCheckFactory, DuplicateCheckFactory, ValidValuesReferenceData, \
     AbstractCheck, UserDefinedMetricExpressionCheckFactory, SqlFunctionCheckFactory, CheckFactory, CheckResult, \
     CheckOutcome, FreshnessCheckFactory, CheckArgs, UserDefinedMetricQueryCheckFactory, \
     MultiColumnDuplicateCheckFactory, RowCountCheckFactory
-from soda.contracts.connection import Connection
+from soda.contracts.connection import Connection, DataSource
 from soda.contracts.impl.json_schema_verifier import JsonSchemaVerifier
 from soda.contracts.impl.logs import Location, Log, LogLevel, Logs
-from soda.contracts.impl.variable_resolver import VariableResolver
-from soda.contracts.impl.yaml_helper import YamlHelper
+from soda.contracts.impl.yaml_helper import YamlHelper, YamlFile
 from soda.scan import Scan
+from soda.scan import logger as scan_logger
 
 logger = logging.getLogger(__name__)
 
 
 class Contract:
 
-    @classmethod
-    def from_yaml_str(cls, contract_yaml_str: str) -> Contract:
-        return Contract(contract_yaml_str=contract_yaml_str)
+    def __init__(self,
+                 contract_yaml_file_path: str | None = None,
+                 contract_yaml_str: str | None = None,
+                 contract_yaml_dict: dict | None = None,
+                 ):
 
-    @classmethod
-    def from_yaml_file(cls, contract_yaml_file_path: str) -> Contract:
-        return Contract(contract_yaml_file_path=contract_yaml_file_path)
+        self.logs: Logs = Logs()
 
-    @classmethod
-    def from_dict(cls, contract_yaml_dict: dict) -> Contract:
-        return Contract(contract_yaml_dict=contract_yaml_dict)
+        self.contract_file: YamlFile | None = YamlFile(
+            yaml_file_path=contract_yaml_file_path,
+            yaml_str=contract_yaml_str,
+            yaml_dict=contract_yaml_dict,
+            logs=self.logs
+        )
 
-    def __init__(
-        self,
-        contract_yaml_file_path: str | None = None,
-        contract_yaml_str: str | None = None,
-        contract_yaml_dict: dict | None = None
-    ):
-        self.yaml_file_path: str | None = contract_yaml_file_path
-        self.yaml_str: str | None = contract_yaml_str
-        self.yaml_dict: dict | None = contract_yaml_dict
+        # TODO decide on file format for data sources: one per file or list per file
+        # TODO explain data_source / connection resolving:
+        #   - provided connection
+        #   - provided spark session
+        #   - provided data source
+        #   - provided data source files
+        #   - then in a list of identified data source file paths with contract.with_data_source_file_path(file_path)
+        #   - data source file in ${user.home}/.soda/data_sources/*.yml
+        #   - then gradually up the dir hierarchy to find higher up data_source.yml files automatically
+        self.data_source_files: list[YamlFile] = []
+        self.spark_session = None
+        self.data_sources_by_name: dict[str, DataSource] = {}
+
+        self.data_source: DataSource | None = None
+        self.connection: Connection | None = None
 
         self.variables: dict[str, str] = {}
         self.soda_cloud: SodaCloud | None = None
-        self.logs: Logs = Logs()
-        self.spark_session = None
-        self.connection: Connection | None = None
 
-        # TODO decide on file format for data sources: one per file or list per file
-        # TODO explain data_source resolving:
-        #   - first in ${user.home}/.soda/data_sources/*.yml
-        #   - then in a list of identified data source file paths with contract.with_data_source_file_path(file_path)
-        #   - then gradually up the dir hierarchy to find higher up data_source.yml files automatically
-        self.data_source: str | None = None
         self.dataset: str | None = None
         self.schema: str | None = None
         # TODO explain filter_expression_sql, default filter and named filters
@@ -78,6 +76,30 @@ class Contract:
 
         self.missing_value_configs_by_column: dict[str, MissingConfigurations] = {}
         self.valid_value_configs_by_column: dict[str, ValidConfigurations] = {}
+
+    @classmethod
+    def from_yaml_file(cls, contract_yaml_file_path: str) -> Contract:
+        return Contract(contract_yaml_file_path=contract_yaml_file_path)
+
+    @classmethod
+    def from_yaml_str(cls, contract_yaml_str: str) -> Contract:
+        return Contract(contract_yaml_str=contract_yaml_str)
+
+    @classmethod
+    def from_dict(cls, contract_yaml_dict: dict) -> Contract:
+        return Contract(contract_yaml_dict=contract_yaml_dict)
+
+    def with_data_source_yaml_file(self, data_sources_yaml_file_path: str) -> Contract:
+        self.data_source_files.append(YamlFile(logs=self.logs, yaml_file_path=data_sources_yaml_file_path))
+        return self
+
+    def with_data_source_yaml_str(self, data_sources_yaml_str: str) -> Contract:
+        self.data_source_files.append(YamlFile(logs=self.logs, yaml_str=data_sources_yaml_str))
+        return self
+
+    def with_data_source_yaml_dict(self, data_sources_yaml_dict: str) -> Contract:
+        self.data_source_files.append(YamlFile(logs=self.logs, yaml_dict=data_sources_yaml_dict))
+        return self
 
     def with_variable(self, key: str, value: str) -> Contract:
         self.variables[key] = value
@@ -109,39 +131,49 @@ class Contract:
         return self.__execute()
 
     def parse(self) -> Contract:
+        """
+        Dry run: parse but not verify the contract to get the errors in the logs.
+        """
         already_parsed: bool = isinstance(self.verification_context, str)
         if not already_parsed:
             try:
-                if isinstance(self.yaml_file_path, str):
-                    with open(self.yaml_file_path) as f:
-                        self.yaml_str = f.read()
+                yaml_helper = YamlHelper(logs=self.logs, file_path=self.contract_file.file_path)
 
-                if self.variables:
-                    # Resolve all the ${VARIABLES} in the contract based on either the provided
-                    # variables or system variables (os.environ)
-                    variable_resolver = VariableResolver(logs=self.logs, variables=self.variables)
-                    resolved_contract_yaml_str: str = variable_resolver.resolve(self.yaml_str)
-                else:
-                    resolved_contract_yaml_str = self.yaml_str
-
-                if isinstance(resolved_contract_yaml_str, str):
-                    from ruamel.yaml import YAML
-                    ruamel_yaml: YAML = YAML()
-                    ruamel_yaml.preserve_quotes = True
-                    self.yaml_dict = ruamel_yaml.load(resolved_contract_yaml_str)
+                self.contract_file.parse(self.variables)
+                if not self.contract_file.is_ok():
+                    return self
 
                 # Verify the contract schema on the ruamel instance object
-                if isinstance(self.yaml_dict, dict):
-                    json_schema_verifier: JsonSchemaVerifier = JsonSchemaVerifier(self.logs)
-                    json_schema_verifier.verify(self.yaml_dict)
+                json_schema_verifier: JsonSchemaVerifier = JsonSchemaVerifier(self.logs)
+                json_schema_verifier.verify(self.contract_file.dict)
 
-                yaml_helper = YamlHelper(logs=self.logs)
+                # Parse the data source files into self.data_source_yaml_dicts_by_name
+                for data_sources_file in self.data_source_files:
+                    data_source = DataSource(data_source_yaml_file=data_sources_file, logs=self.logs).build()
 
-                self.data_source: str | None = yaml_helper.read_string_opt(self.yaml_dict, "data_source")
-                self.schema: str | None = yaml_helper.read_string_opt(self.yaml_dict, "schema")
-                self.dataset: str | None = yaml_helper.read_string(self.yaml_dict, "dataset")
+                    data_sources_file.parse(self.variables)
+
+                    if data_sources_file.is_ok():
+                        data_sources_yamls: list[dict] = yaml_helper.read_list_of_dicts(
+                            data_sources_file.dict,
+                            "data_sources"
+                        )
+                        if data_sources_yamls:
+                            for data_sources_yaml in data_sources_yamls:
+                                data_source_name: str = yaml_helper.read_string(data_sources_yaml, "name")
+                                # TODO verify name validity with a regex pattern.  Allow lower case, numbers and underscores
+                                if data_source_name:
+                                    data_source = DataSource(data_source_yaml_file=data_sources_file, logs=self.logs)
+                                    self.data_sources_by_name[data_source_name] = data_sources_yaml
+
+
+                contract_yaml_dict = self.contract_file.dict
+
+                self.data_source_name: str | None = yaml_helper.read_string_opt(contract_yaml_dict, "data_source")
+                self.schema: str | None = yaml_helper.read_string_opt(contract_yaml_dict, "schema")
+                self.dataset: str | None = yaml_helper.read_string(contract_yaml_dict, "dataset")
                 self.filter_sql: str | None = yaml_helper.read_string_opt(
-                    self.yaml_dict,
+                    contract_yaml_dict,
                     "filter_sql"
                 )
                 self.filter: str | None = "default" if self.filter_sql else None
@@ -161,15 +193,16 @@ class Contract:
 
                 self.checks.append(SchemaCheck(
                     logs=self.logs,
+                    contract_file=self.contract_file,
                     verification_context=self.verification_context,
-                    yaml_contract=self.yaml_dict
+                    yaml_contract=contract_yaml_dict
                 ))
 
-                column_yamls: list | None = yaml_helper.read_yaml_list(self.yaml_dict, "columns")
+                column_yamls: list | None = yaml_helper.read_list(contract_yaml_dict, "columns")
                 if column_yamls:
                     for column_yaml in column_yamls:
                         column: str | None = yaml_helper.read_string(column_yaml, "name")
-                        check_yamls: list | None = yaml_helper.read_yaml_list_opt(column_yaml, "checks")
+                        check_yamls: list | None = yaml_helper.read_list_opt(column_yaml, "checks")
                         if column and check_yamls:
                             for check_yaml in check_yamls:
                                 check_type: str | None = yaml_helper.read_string(check_yaml, "type")
@@ -185,10 +218,11 @@ class Contract:
                                     check_yaml=check_yaml
                                 )
 
-                                location: Location = yaml_helper.create_location_from_yaml_value(check_yaml)
+                                location: Location = yaml_helper.create_location_from_yaml_value(check_yaml, self.contract_file.file_path)
 
                                 check_args: CheckArgs = CheckArgs(
                                     logs=self.logs,
+                                    contract_file=self.contract_file,
                                     verification_context=self.verification_context,
                                     check_type=check_type,
                                     check_yaml=check_yaml,
@@ -220,7 +254,7 @@ class Contract:
                                         location=check_args.location
                                     )
 
-                check_yamls: list | None = yaml_helper.read_yaml_list_opt(self.yaml_dict, "checks")
+                check_yamls: list | None = yaml_helper.read_list_opt(contract_yaml_dict, "checks")
                 if check_yamls:
                     for check_yaml in check_yamls:
                         check_type: str | None = yaml_helper.read_string(check_yaml, "type")
@@ -229,10 +263,11 @@ class Contract:
                             check_yaml=check_yaml
                         )
 
-                        location: Location = yaml_helper.create_location_from_yaml_value(check_yaml)
+                        location: Location = yaml_helper.create_location_from_yaml_value(check_yaml, self.contract_file.file_path)
 
                         check_args: CheckArgs = CheckArgs(
                             logs=self.logs,
+                            contract_file=self.contract_file,
                             verification_context=self.verification_context,
                             check_type=check_type,
                             check_yaml=check_yaml,
@@ -270,7 +305,7 @@ class Contract:
                     else:
                         checks_by_identity[check.identity] = check
 
-            except OSError as e:
+            except Exception as e:
                 self.logs.error(
                     message=f"Could not verify contract: {e}",
                     exception=e
@@ -279,7 +314,7 @@ class Contract:
 
     def __parse_missing_configurations(self, check_yaml: dict, column: str) -> MissingConfigurations | None:
         yaml_helper: YamlHelper = YamlHelper(self.logs)
-        missing_values: list | None = yaml_helper.read_yaml_list_opt(check_yaml, "missing_values")
+        missing_values: list | None = yaml_helper.read_list_opt(check_yaml, "missing_values")
         missing_regex_sql: str | None = yaml_helper.read_string_opt(check_yaml, "missing_regex_sql")
 
         if all(v is None for v in [missing_values, missing_regex_sql]):
@@ -299,11 +334,11 @@ class Contract:
     def __parse_valid_configurations(self, check_yaml: dict, column: str) -> ValidConfigurations | None:
         yaml_helper: YamlHelper = YamlHelper(self.logs)
 
-        invalid_values: list | None = yaml_helper.read_yaml_list_opt(check_yaml, "invalid_values")
+        invalid_values: list | None = yaml_helper.read_list_opt(check_yaml, "invalid_values")
         invalid_format: str | None = yaml_helper.read_string_opt(check_yaml, "invalid_format")
         invalid_regex_sql: str | None = yaml_helper.read_string_opt(check_yaml, "invalid_regex_sql")
 
-        valid_values: list | None = yaml_helper.read_yaml_list_opt(check_yaml, "valid_values")
+        valid_values: list | None = yaml_helper.read_list_opt(check_yaml, "valid_values")
 
         valid_format: str | None = yaml_helper.read_string_opt(check_yaml, "valid_format")
         valid_regex_sql: str | None = yaml_helper.read_string_opt(check_yaml, "valid_regex_sql")
@@ -316,7 +351,7 @@ class Contract:
         valid_max_length: int | None = yaml_helper.read_number_opt(check_yaml, "valid_max_length")
 
         valid_values_reference_data: ValidValuesReferenceData | None = None
-        valid_values_reference_data_yaml_object: dict | None = yaml_helper.read_yaml_object_opt(
+        valid_values_reference_data_yaml_object: dict | None = yaml_helper.read_dict_opt(
             check_yaml,
             f"valid_values_reference_data"
         )
@@ -391,7 +426,7 @@ class Contract:
             if check:
                 return check
 
-    def append_scan_warning_and_error_logs(self, scan_logs: soda_core_logs.Logs) -> None:
+    def __append_scan_warning_and_error_logs(self, scan_logs: soda_core_logs.Logs) -> None:
         level_map = {
             soda_core_logs.LogLevel.ERROR: LogLevel.ERROR,
             soda_core_logs.LogLevel.WARNING: LogLevel.WARNING,
@@ -401,7 +436,7 @@ class Contract:
         for scan_log in scan_logs.logs:
             if scan_log.level in [soda_core_logs.LogLevel.ERROR, soda_core_logs.LogLevel.WARNING]:
                 contracts_location: Location = (
-                    Location(line=scan_log.location.line, column=scan_log.location.col)
+                    Location(file_path=self.contract_file.get_file_name(), line=scan_log.location.line, column=scan_log.location.col)
                     if scan_log.location is not None
                     else None
                 )
@@ -416,79 +451,91 @@ class Contract:
                 )
 
     def __execute(self) -> ContractResult:
+        if self.contract_file.is_ok():
+            if self.connection is None:
+                if self.spark_session is not None:
+                    self.connection = Connection.from_spark_session(self.spark_session)
+                elif isinstance(self.data_source, str):
+                    data_source_yaml_dict = self.data_source_yaml_dicts_by_name.get(self.data_source)
+                    if data_source_yaml_dict:
+                        self.connection = Connection.from_dict(data_source_yaml_dict)
+                    else:
+                        file_paths = ", ".join([
+                            file.file_path for file in self.data_source_files
+                            if file.file_path
+                        ])
+                        self.logs.error(
+                            f"Data source '{self.data_source}' not configured: "
+                            f"Available {self.data_source_yaml_dicts_by_name.keys()} "
+                            f"loaded from files {file_paths}"
+                        )
+                else:
+                    # TODO provide better diagnostic info and pointers on how to fix this error
+                    self.logs.error("No 'data_source' specified nor connection provided")
 
-        if self.connection is None:
-            if self.spark_session is not None:
-                self.connection = Connection.from_spark_session(self.spark_session)
-            elif isinstance(self.data_source, str):
-                self.connection = Connection.from_data_source_name(self.data_source)
+            if self.connection:
+                pass
             else:
                 # TODO provide better diagnostic info and pointers on how to fix this error
-                self.logs.error("'data_source' not specified")
+                self.logs.error("No connection")
 
-        if self.connection:
-            pass
-        else:
-            # TODO provide better diagnostic info and pointers on how to fix this error
-            self.logs.error("No connection")
+            scan = Scan()
 
-        scan = Scan()
+            scan_logs = soda_core_logs.Logs(logger=scan_logger)
+            scan_logs.verbose = True
 
-        scan_logs = soda_core_logs.Logs(logger=scan_logger)
-        scan_logs.verbose = True
+            sodacl_yaml_str: str | None = None
+            try:
+                sodacl_yaml_str = self.__generate_sodacl_yaml_str()
+                logger.debug(sodacl_yaml_str)
 
-        sodacl_yaml_str: str | None = None
-        try:
-            sodacl_yaml_str = self.__generate_sodacl_yaml_str()
-            logger.debug(sodacl_yaml_str)
+                if sodacl_yaml_str and hasattr(self.connection, "data_source"):
+                    scan._logs = scan_logs
 
-            if sodacl_yaml_str and hasattr(self.connection, "data_source"):
-                scan._logs = scan_logs
-
-                # This assumes the connection is a DataSourceConnection
-                data_source = self.connection.data_source
-                # Execute the contract SodaCL in a scan
-                scan.set_data_source_name(data_source.data_source_name)
-                scan_definition_name = (
-                    f"dataset://{self.connection.name}/{self.schema}/{self.dataset}"
-                    if self.schema
-                    else f"dataset://{self.connection.name}/{self.dataset}"
-                )
-                scan._data_source_manager.data_sources[data_source.data_source_name] = data_source
-
-                if self.soda_cloud:
-                    scan.set_scan_definition_name(scan_definition_name)
-                    scan._configuration.soda_cloud = SodaCloud(
-                        host=self.soda_cloud.host,
-                        api_key_id=self.soda_cloud.api_key_id,
-                        api_key_secret=self.soda_cloud.api_key_secret,
-                        token=self.soda_cloud.token,
-                        port=self.soda_cloud.port,
-                        logs=scan_logs,
-                        scheme=self.soda_cloud.scheme,
+                    # This assumes the connection is a DataSourceConnection
+                    data_source = self.connection.data_source
+                    # Execute the contract SodaCL in a scan
+                    scan.set_data_source_name(data_source.data_source_name)
+                    scan_definition_name = (
+                        f"dataset://{self.connection.name}/{self.schema}/{self.dataset}"
+                        if self.schema
+                        else f"dataset://{self.connection.name}/{self.dataset}"
                     )
+                    scan._data_source_manager.data_sources[data_source.data_source_name] = data_source
 
-                if self.variables:
-                    scan.add_variables(self.variables)
+                    if self.soda_cloud:
+                        scan.set_scan_definition_name(scan_definition_name)
+                        scan._configuration.soda_cloud = SodaCloud(
+                            host=self.soda_cloud.host,
+                            api_key_id=self.soda_cloud.api_key_id,
+                            api_key_secret=self.soda_cloud.api_key_secret,
+                            token=self.soda_cloud.token,
+                            port=self.soda_cloud.port,
+                            logs=scan_logs,
+                            scheme=self.soda_cloud.scheme,
+                        )
 
-                # noinspection PyProtectedMember
-                scan.add_sodacl_yaml_str(sodacl_yaml_str)
-                scan.execute()
+                    if self.variables:
+                        scan.add_variables(self.variables)
 
-        except Exception as e:
-            self.logs.error(f"Data contract verification error: {e}", exception=e)
+                    # noinspection PyProtectedMember
+                    scan.add_sodacl_yaml_str(sodacl_yaml_str)
+                    scan.execute()
 
-        if self.soda_cloud:
-            # If SodaCloud is configured, the logs are copied into the contract result and
-            # at the end of this method, a SodaException is raised if there are error logs.
-            self.logs.logs.extend(self.soda_cloud.logs.logs)
-        if self.connection:
-            # The connection logs are copied into the contract result and at the end of this
+            except Exception as e:
+                self.logs.error(f"Data contract verification error: {e}", exception=e)
+
+            if self.soda_cloud:
+                # If SodaCloud is configured, the logs are copied into the contract result and
+                # at the end of this method, a SodaException is raised if there are error logs.
+                self.logs.logs.extend(self.soda_cloud.logs.logs)
+            if self.connection:
+                # The connection logs are copied into the contract result and at the end of this
+                # method, a SodaException is raised if there are error logs.
+                self.logs.logs.extend(self.connection.logs.logs)
+            # The scan warning and error logs are copied into self.logs and at the end of this
             # method, a SodaException is raised if there are error logs.
-            self.logs.logs.extend(self.connection.logs.logs)
-        # The scan warning and error logs are copied into self.logs and at the end of this
-        # method, a SodaException is raised if there are error logs.
-        self.append_scan_warning_and_error_logs(scan_logs)
+            self.__append_scan_warning_and_error_logs(scan_logs)
 
         contract_result: ContractResult = ContractResult(
             contract=self, sodacl_yaml_str=sodacl_yaml_str, logs=self.logs, scan=scan

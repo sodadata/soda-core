@@ -3,14 +3,79 @@ from __future__ import annotations
 from numbers import Number
 
 from ruamel.yaml import CommentedMap, CommentedSeq, round_trip_dump
+from ruamel.yaml.error import MarkedYAMLError
 
 from soda.contracts.impl.logs import Logs, Location
+from soda.contracts.impl.variable_resolver import VariableResolver
+
+
+class YamlFile:
+
+    def __init__(self,
+                 logs: Logs,
+                 yaml_file_path: str | None = None,
+                 yaml_str: str | None = None,
+                 yaml_dict: dict | None = None,
+                 ):
+        self.file_path: str | None = yaml_file_path
+        self.source_str: str | None = yaml_str
+        self.resolved_str: str | None = None
+        self.dict: dict | None = yaml_dict
+        self.logs: Logs = logs
+
+    def parse(self, variables: dict) -> bool:
+        if self.file_path is None and self.source_str is None and self.dict is None:
+            self.logs.error(f"File not configured")
+
+        if isinstance(self.file_path, str) and self.source_str is None:
+            try:
+                with open(self.file_path) as f:
+                    self.source_str = f.read()
+            except OSError as e:
+                self.logs.error(f"Problem reading file '{self.file_path}': {e}")
+
+        if isinstance(self.source_str, str) and self.resolved_str is None:
+            # Resolve all the ${VARIABLES} in the contract based on either the provided
+            # variables or system variables (os.environ)
+            variable_resolver = VariableResolver(logs=self.logs, variables=variables)
+            self.resolved_str = variable_resolver.resolve(self.source_str)
+        else:
+            self.resolved_str = self.source_str
+
+        if isinstance(self.resolved_str, str) and self.dict is None:
+            try:
+                from ruamel.yaml import YAML
+                ruamel_yaml: YAML = YAML()
+                ruamel_yaml.preserve_quotes = True
+                self.dict = ruamel_yaml.load(self.resolved_str)
+            except MarkedYAMLError as e:
+                mark = e.context_mark if e.context_mark else e.problem_mark
+                line = mark.line + 1
+                col = mark.column + 1
+                location = Location(file_path=self.get_file_name(), line=line, column=col)
+                self.logs.error(f"YAML syntax error: {e}", location)
+
+        # It is assumed that if this parse is not ok, that an error has been logged
+        return self.is_ok()
+
+    def is_ok(self):
+        return isinstance(self.dict, dict)
+
+    def get_file_name(self) -> str:
+        if self.file_path:
+            return self.file_path
+        if self.source_str:
+            return "provided YAML str"
+        if self.dict:
+            return "provided dict"
+        return "no yaml source provided"
 
 
 class YamlHelper:
 
-    def __init__(self, logs: Logs):
+    def __init__(self, logs: Logs, yaml_file: YamlFile) -> None:
         self.logs: Logs = logs
+        self.yaml_file: YamlFile | None = yaml_file
 
     def write_to_yaml_str(self, yaml_object: object) -> str:
         try:
@@ -18,48 +83,64 @@ class YamlHelper:
         except Exception as e:
             self.logs.error(f"Couldn't write SodaCL YAML object: {e}", exception=e)
 
-    @classmethod
-    def create_location_from_yaml_dict_key(cls, d: dict, key) -> Location | None:
+    def create_location_from_yaml_dict_key(self, d: dict, key) -> Location | None:
         if isinstance(d, CommentedMap):
             ruamel_location = d.lc.value(key)
             line: int = ruamel_location[0]
             column: int = ruamel_location[1]
-            return Location(line=line, column=column)
+            return Location(file_path=self.yaml_file.get_file_name(), line=line, column=column)
         return None
 
-    @classmethod
-    def create_location_from_yaml_value(cls, d: object) -> Location | None:
+    def create_location_from_yaml_value(self, d: object, file_path: str | None) -> Location | None:
         if isinstance(d, CommentedMap) or isinstance(d, CommentedSeq):
-            return Location(line=d.lc.line, column=d.lc.col)
+            return Location(file_path=self.yaml_file.get_file_name(), line=d.lc.line, column=d.lc.col)
         return None
 
-    def read_yaml_object(self, d: dict, key: str) -> dict | None:
+    def read_dict(self, d: dict, key: str) -> dict | None:
         """
         An error is generated if the value is missing or not a YAML object.
         :return: a dict if the value for the key is a YAML object, otherwise None.
         """
         return self.read_value(d=d, key=key, expected_type=dict, required=True, default_value=None)
 
-    def read_yaml_object_opt(self, d: dict, key: str) -> dict | None:
+    def read_dict_opt(self, d: dict, key: str) -> dict | None:
         """
         An error is generated if the value is present and not a YAML object.
         :return: a dict if the value for the key is a YAML object, otherwise None.
         """
         return self.read_value(d=d, key=key, expected_type=dict, required=False, default_value=None)
 
-    def read_yaml_list(self, d: dict, key: str) -> list | None:
+    def read_list(self, d: dict, key: str) -> list | None:
         """
         An error is generated if the value is missing or not a YAML list.
         :return: a list if the value for the key is a YAML list, otherwise None.
         """
         return self.read_value(d=d, key=key, expected_type=list, required=True, default_value=None)
 
-    def read_yaml_list_opt(self, d: dict, key: str) -> list | None:
+    def read_list_opt(self, d: dict, key: str) -> list | None:
         """
         An error is generated if the value is present and not a YAML list.
         :return: a list if the value for the key is a YAML list, otherwise None.
         """
         return self.read_value(d=d, key=key, expected_type=list, required=False, default_value=None)
+
+    def read_list_of_dicts(self, d: dict, key: str) -> list[dict] | None:
+        list_value: list = self.read_list(d, key)
+        if isinstance(list_value, list):
+            if all(isinstance(e, dict) for e in list_value):
+                return list_value
+            else:
+                location: Location = self.create_location_from_yaml_dict_key(d, key)
+                self.logs.error(f"Not all elements in list '{key}' are objects", location=location)
+
+    def read_list_of_strings(self, d: dict, key: str) -> list[str] | None:
+        list_value = self.read_value(d=d, key=key, expected_type=list, required=True, default_value=None)
+        if isinstance(list_value, list):
+            if all(isinstance(e, str) for e in list_value):
+                return list_value
+            else:
+                location: Location | None = self.create_location_from_yaml_dict_key(d, key)
+                self.logs.error(message=f"Not all elements in list '{key}' are strings", location=location)
 
     def read_string(self, d: dict, key: str) -> str | None:
         """
@@ -75,17 +156,8 @@ class YamlHelper:
         """
         return self.read_value(d=d, key=key, expected_type=str, required=False, default_value=default_value)
 
-    def read_list_of_strings(self, d: dict, key: str) -> list[str] | None:
-        list_value = self.read_value(d=d, key=key, expected_type=list, required=True, default_value=None)
-        if isinstance(list_value, list):
-            if all(isinstance(e, str) for e in list_value):
-                return list_value
-            else:
-                location: Location | None = self.create_location_from_yaml_dict_key(d, key)
-                self.logs.error(message=f"Not all elements in list '{key}' are strings", location=location)
-
     def read_range(self, d: dict, key: str) -> "Range" | None:
-        range_yaml: list | None = self.read_yaml_list_opt(d, key)
+        range_yaml: list | None = self.read_list_opt(d, key)
         if isinstance(range_yaml, list):
             if all(isinstance(range_value, Number) for range_value in range_yaml) and len(range_yaml) == 2:
                 from soda.contracts.check import Range
@@ -132,7 +204,7 @@ class YamlHelper:
     ) -> object | None:
         if key not in d:
             if required:
-                location = self.create_location_from_yaml_value(d)
+                location = self.create_location_from_yaml_value(d, key)
                 self.logs.error(message=f"'{key}' is required", location=location)
             return default_value
         value = d.get(key)
