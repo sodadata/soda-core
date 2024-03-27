@@ -2,7 +2,7 @@ from textwrap import dedent
 
 from helpers.fixtures import project_root_dir
 
-from soda.contracts.connection import Connection
+from soda.contracts.data_source import Connection
 
 
 def test_connection_exception_file_not_found():
@@ -16,7 +16,7 @@ def test_connection_from_file_with_variable_resolving(environ):
     environ["POSTGRES_DATABASE"] = "sodasql"
     environ["POSTGRES_USERNAME"] = "sodasql"
 
-    connection_file_path = f"{project_root_dir}soda/contracts/tests/contracts/other/test_connection.scn.yml"
+    connection_file_path = f"{project_root_dir}soda/contracts/tests/contracts/other/test_data_source.scn.yml"
     with Connection.from_yaml_file(connection_file_path, "postgres_ds") as connection:
         assert connection.dbapi_connection
 

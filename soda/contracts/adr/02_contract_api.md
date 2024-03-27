@@ -27,7 +27,7 @@ The returned connection is immediately open.
 
 ```python
 import logging
-from soda.contracts.connection import Connection, SodaException
+from soda.contracts.data_source import Connection, SodaException
 from soda.contracts.contract import Contract, ContractResult
 from soda.contracts.soda_cloud import SodaCloud
 

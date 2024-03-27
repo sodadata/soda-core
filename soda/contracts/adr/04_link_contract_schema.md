@@ -58,7 +58,7 @@ then we can add a simpler API like
 ```python
 import logging
 from soda.contracts.contract import Contracts
-from soda.contracts.connection import SodaException
+from soda.contracts.data_source import SodaException
 
 try:
     Contracts.verify(["postgres_localhost_db/schemas/CSTMR_DATA_PROD/datasets/*.sdc.yml"])

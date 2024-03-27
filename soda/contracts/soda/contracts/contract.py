@@ -13,7 +13,7 @@ from soda.contracts.check import Check, MissingConfigurations, ValidConfiguratio
     AbstractCheck, UserDefinedMetricExpressionCheckFactory, SqlFunctionCheckFactory, CheckFactory, CheckResult, \
     CheckOutcome, FreshnessCheckFactory, CheckArgs, UserDefinedMetricQueryCheckFactory, \
     MultiColumnDuplicateCheckFactory, RowCountCheckFactory
-from soda.contracts.connection import Connection, DataSource
+from soda.contracts.data_source import DataSource, FileClDataSource
 from soda.contracts.impl.json_schema_verifier import JsonSchemaVerifier
 from soda.contracts.impl.logs import Location, Log, LogLevel, Logs
 from soda.contracts.impl.yaml_helper import YamlHelper, YamlFile
@@ -54,7 +54,6 @@ class Contract:
         self.data_sources_by_name: dict[str, DataSource] = {}
 
         self.data_source: DataSource | None = None
-        self.connection: Connection | None = None
 
         self.variables: dict[str, str] = {}
         self.soda_cloud: SodaCloud | None = None
@@ -97,8 +96,12 @@ class Contract:
         self.data_source_files.append(YamlFile(logs=self.logs, yaml_str=data_sources_yaml_str))
         return self
 
-    def with_data_source_yaml_dict(self, data_sources_yaml_dict: str) -> Contract:
+    def with_data_source_yaml_dict(self, data_sources_yaml_dict: dict) -> Contract:
         self.data_source_files.append(YamlFile(logs=self.logs, yaml_dict=data_sources_yaml_dict))
+        return self
+
+    def with_data_source(self, data_source: DataSource) -> Contract:
+        self.data_source = data_source
         return self
 
     def with_variable(self, key: str, value: str) -> Contract:
@@ -118,10 +121,6 @@ class Contract:
         self.spark_session = spark_session
         return self
 
-    def with_connection(self, connection: Connection) -> Contract:
-        self.connection = connection
-        return self
-
     def with_logs(self, logs: Logs) -> Contract:
         self.logs = logs
         return self
@@ -137,7 +136,7 @@ class Contract:
         already_parsed: bool = isinstance(self.verification_context, str)
         if not already_parsed:
             try:
-                yaml_helper = YamlHelper(logs=self.logs, file_path=self.contract_file.file_path)
+                yaml_helper = YamlHelper(yaml_file=self.contract_file, logs=self.logs)
 
                 self.contract_file.parse(self.variables)
                 if not self.contract_file.is_ok():
@@ -149,9 +148,11 @@ class Contract:
 
                 # Parse the data source files into self.data_source_yaml_dicts_by_name
                 for data_sources_file in self.data_source_files:
-                    data_source = DataSource(data_source_yaml_file=data_sources_file, logs=self.logs).build()
-
-                    data_sources_file.parse(self.variables)
+                    data_source = (
+                        DataSource(data_source_yaml_file=data_sources_file, logs=self.logs)
+                        .with_variables(variables=self.variables)
+                        .build()
+                    )
 
                     if data_sources_file.is_ok():
                         data_sources_yamls: list[dict] = yaml_helper.read_list_of_dicts(
@@ -164,7 +165,7 @@ class Contract:
                                 # TODO verify name validity with a regex pattern.  Allow lower case, numbers and underscores
                                 if data_source_name:
                                     data_source = DataSource(data_source_yaml_file=data_sources_file, logs=self.logs)
-                                    self.data_sources_by_name[data_source_name] = data_sources_yaml
+                                    self.data_sources_by_name[data_source_name] = data_source
 
 
                 contract_yaml_dict = self.contract_file.dict
@@ -452,98 +453,79 @@ class Contract:
 
     def __execute(self) -> ContractResult:
         if self.contract_file.is_ok():
-            if self.connection is None:
-                if self.spark_session is not None:
-                    self.connection = Connection.from_spark_session(self.spark_session)
-                elif isinstance(self.data_source, str):
-                    data_source_yaml_dict = self.data_source_yaml_dicts_by_name.get(self.data_source)
-                    if data_source_yaml_dict:
-                        self.connection = Connection.from_dict(data_source_yaml_dict)
-                    else:
-                        file_paths = ", ".join([
-                            file.file_path for file in self.data_source_files
-                            if file.file_path
-                        ])
-                        self.logs.error(
-                            f"Data source '{self.data_source}' not configured: "
-                            f"Available {self.data_source_yaml_dicts_by_name.keys()} "
-                            f"loaded from files {file_paths}"
-                        )
-                else:
-                    # TODO provide better diagnostic info and pointers on how to fix this error
-                    self.logs.error("No 'data_source' specified nor connection provided")
-
-            if self.connection:
-                pass
+            if isinstance(self.data_source, DataSource):
+                return self.__execute_on_data_source(self.data_source)
             else:
-                # TODO provide better diagnostic info and pointers on how to fix this error
-                self.logs.error("No connection")
+                self.data_source = self.__create_data_source()
+                if isinstance(self.data_source, DataSource):
+                    with self.data_source as data_source:
+                        return self.__execute_on_data_source(self.data_source)
 
-            scan = Scan()
+    def __execute_on_data_source(self, data_source: DataSource) -> ContractResult:
+        scan = Scan()
 
-            scan_logs = soda_core_logs.Logs(logger=scan_logger)
-            scan_logs.verbose = True
+        scan_logs = soda_core_logs.Logs(logger=scan_logger)
+        scan_logs.verbose = True
 
-            sodacl_yaml_str: str | None = None
-            try:
-                sodacl_yaml_str = self.__generate_sodacl_yaml_str()
-                logger.debug(sodacl_yaml_str)
+        sodacl_yaml_str: str | None = None
+        try:
+            sodacl_yaml_str = self.__generate_sodacl_yaml_str()
+            logger.debug(sodacl_yaml_str)
 
-                if sodacl_yaml_str and hasattr(self.connection, "data_source"):
-                    scan._logs = scan_logs
+            if sodacl_yaml_str and hasattr(data_source, "sodacl_data_source"):
+                scan._logs = scan_logs
 
-                    # This assumes the connection is a DataSourceConnection
-                    data_source = self.connection.data_source
-                    # Execute the contract SodaCL in a scan
-                    scan.set_data_source_name(data_source.data_source_name)
-                    scan_definition_name = (
-                        f"dataset://{self.connection.name}/{self.schema}/{self.dataset}"
-                        if self.schema
-                        else f"dataset://{self.connection.name}/{self.dataset}"
+                # This assumes the connection is a DataSourceConnection
+                sodacl_data_source = data_source.sodacl_data_source
+                # Execute the contract SodaCL in a scan
+                scan.set_data_source_name(sodacl_data_source.data_source_name)
+                scan_definition_name = (
+                    f"dataset://{data_source.data_source_name}/{self.schema}/{self.dataset}"
+                    if self.schema
+                    else f"dataset://{data_source.data_source_name}/{self.dataset}"
+                )
+                # noinspection PyProtectedMember
+                scan._data_source_manager.data_sources[data_source.data_source_name] = sodacl_data_source
+
+                if self.soda_cloud:
+                    scan.set_scan_definition_name(scan_definition_name)
+                    scan._configuration.soda_cloud = SodaCloud(
+                        host=self.soda_cloud.host,
+                        api_key_id=self.soda_cloud.api_key_id,
+                        api_key_secret=self.soda_cloud.api_key_secret,
+                        token=self.soda_cloud.token,
+                        port=self.soda_cloud.port,
+                        logs=scan_logs,
+                        scheme=self.soda_cloud.scheme,
                     )
-                    scan._data_source_manager.data_sources[data_source.data_source_name] = data_source
 
-                    if self.soda_cloud:
-                        scan.set_scan_definition_name(scan_definition_name)
-                        scan._configuration.soda_cloud = SodaCloud(
-                            host=self.soda_cloud.host,
-                            api_key_id=self.soda_cloud.api_key_id,
-                            api_key_secret=self.soda_cloud.api_key_secret,
-                            token=self.soda_cloud.token,
-                            port=self.soda_cloud.port,
-                            logs=scan_logs,
-                            scheme=self.soda_cloud.scheme,
-                        )
+                if self.variables:
+                    scan.add_variables(self.variables)
 
-                    if self.variables:
-                        scan.add_variables(self.variables)
+                scan.add_sodacl_yaml_str(sodacl_yaml_str)
+                scan.execute()
 
-                    # noinspection PyProtectedMember
-                    scan.add_sodacl_yaml_str(sodacl_yaml_str)
-                    scan.execute()
+        except Exception as e:
+            self.logs.error(f"Data contract verification error: {e}", exception=e)
 
-            except Exception as e:
-                self.logs.error(f"Data contract verification error: {e}", exception=e)
+        if self.soda_cloud:
+            # If SodaCloud is configured, the logs are copied into the contract result and
+            # at the end of this method, a SodaException is raised if there are error logs.
+            self.logs.logs.extend(self.soda_cloud.logs.logs)
 
-            if self.soda_cloud:
-                # If SodaCloud is configured, the logs are copied into the contract result and
-                # at the end of this method, a SodaException is raised if there are error logs.
-                self.logs.logs.extend(self.soda_cloud.logs.logs)
-            if self.connection:
-                # The connection logs are copied into the contract result and at the end of this
-                # method, a SodaException is raised if there are error logs.
-                self.logs.logs.extend(self.connection.logs.logs)
-            # The scan warning and error logs are copied into self.logs and at the end of this
-            # method, a SodaException is raised if there are error logs.
-            self.__append_scan_warning_and_error_logs(scan_logs)
+        # The scan warning and error logs are copied into self.logs and at the end of this
+        # method, a SodaException is raised if there are error logs.
+        self.__append_scan_warning_and_error_logs(scan_logs)
 
         contract_result: ContractResult = ContractResult(
             contract=self, sodacl_yaml_str=sodacl_yaml_str, logs=self.logs, scan=scan
         )
+
         if contract_result.failed():
             raise SodaException(contract_result=contract_result)
 
         return contract_result
+
 
     def __generate_sodacl_yaml_str(self) -> str:
         # Serialize the SodaCL YAML object to a YAML string
@@ -562,9 +544,34 @@ class Contract:
                 sodacl_check = check.to_sodacl_check()
                 if sodacl_check is not None:
                     sodacl_checks.append(sodacl_check)
-        yaml_helper: YamlHelper = YamlHelper(self.logs)
+        yaml_helper: YamlHelper = YamlHelper(logs=self.logs)
         return yaml_helper.write_to_yaml_str(sodacl_yaml_object)
 
+    def __create_data_source(self):
+        if self.spark_session is not None:
+            return DataSource.from_spark_session(spark_session=self.spark_session, logs=self.logs)
+
+        if self.data_source_files:
+            for data_source_file in self.data_source_files:
+                data_source: DataSource = FileClDataSource(data_source_yaml_file=data_source_file, logs=self.logs)
+                self.data_sources_by_name[data_source.data_source_name] = data_source
+
+            data_source: DataSource | None = None
+            if isinstance(self.data_source_name, str):
+                data_source = self.data_sources_by_name.get(self.data_source_name)
+                if data_source is None:
+                    file_names = [data_source_file.get_file_name() for data_source_file in self.data_source_files]
+                    self.logs.error(
+                        f"Data source '{self.data_source_name}' is not found in data source files: {file_names}"
+                    )
+            elif self.data_source_name is None and len(self.data_sources_by_name) == 1:
+                data_source = next(iter(self.data_sources_by_name.values()))
+            if data_source:
+                data_source.with_variables(self.variables)
+                return data_source
+        else:
+            # TODO provide better diagnostic info and pointers on how to fix this error
+            self.logs.error("No 'data_source' specified")
 
 @dataclass
 class ContractResult:

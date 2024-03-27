@@ -6,7 +6,7 @@ from typing import Dict, List
 
 from ruamel.yaml import CommentedMap
 
-from soda.contracts.connection import SodaException
+from soda.contracts.data_source import SodaException
 from soda.contracts.contract import (
     Check,
     Contract,

@@ -5,33 +5,41 @@ from textwrap import dedent
 
 from helpers.data_source_fixture import DataSourceFixture
 from helpers.test_table import TestTable
+from soda.contracts.data_source import DataSource
 from soda.execution.data_type import DataType
 
-from soda.contracts.connection import Connection
 from soda.contracts.contract import Contract, ContractResult, SodaException
 
 
-class TestConnection(Connection):
+class TestDataSource(DataSource):
 
     def __init__(self, data_source_fixture: DataSourceFixture):
-        super().__init__(dbapi_connection=data_source_fixture.data_source.connection)
+        super().__init__()
         self.data_source_fixture = data_source_fixture
-        self.data_source = data_source_fixture.data_source
+        self.sodacl_data_source = data_source_fixture.data_source
+        # DataSource field initialization
+        self.data_source_name = data_source_fixture.data_source_name
+        self.data_source_type = data_source_fixture.data_source.type
+        self.dbapi_connection = data_source_fixture.data_source.connection
 
     def ensure_test_table(self, test_table: TestTable) -> str:
         return self.data_source_fixture.ensure_test_table(test_table=test_table)
 
     def data_type_text(self) -> str:
-        return self.data_source.get_sql_type_for_schema_check(DataType.TEXT)
+        return self.sodacl_data_source.get_sql_type_for_schema_check(DataType.TEXT)
 
     def data_type_decimal(self) -> str:
-        return self.data_source.get_sql_type_for_schema_check(DataType.DECIMAL)
+        return self.sodacl_data_source.get_sql_type_for_schema_check(DataType.DECIMAL)
 
     def data_type_integer(self) -> str:
-        return self.data_source.get_sql_type_for_schema_check(DataType.INTEGER)
+        return self.sodacl_data_source.get_sql_type_for_schema_check(DataType.INTEGER)
 
     def data_type_date(self) -> str:
-        return self.data_source.get_sql_type_for_schema_check(DataType.DATE)
+        return self.sodacl_data_source.get_sql_type_for_schema_check(DataType.DATE)
+
+    def _create_dbapi_connection(self) -> object:
+        # already initialized in constructor
+        return self.dbapi_connection
 
     def assert_contract_pass(self, contract_yaml_str: str, variables: dict[str, str] | None = None) -> ContractResult:
         contract_yaml_str = dedent(contract_yaml_str)
@@ -39,7 +47,7 @@ class TestConnection(Connection):
         contract: Contract = (Contract
             .from_yaml_str(contract_yaml_str)
             .with_variables(variables)
-            .with_connection(self)
+            .with_data_source(self)
         )
         contract_result: ContractResult = contract.verify()
         if contract_result.failed():
@@ -55,7 +63,7 @@ class TestConnection(Connection):
         contract: Contract = (Contract
             .from_yaml_str(contract_yaml_str)
             .with_variables(variables)
-            .with_connection(self)
+            .with_data_source(self)
         )
         try:
             contract_result: ContractResult = contract.verify()
@@ -71,13 +79,15 @@ class TestConnection(Connection):
         logging.debug(f"Contract result: {contract_result_str}")
         return contract_result
 
-    def assert_contract_error(self, contract_yaml_str: str) -> ContractResult:
+    def assert_contract_error(self, contract_yaml_str: str, variables: dict[str, str] | None = None) -> ContractResult:
         contract_yaml_str = dedent(contract_yaml_str).strip()
         logging.debug(contract_yaml_str)
         try:
-            contract: Contract = (Contract
+            contract: Contract = (
+                Contract
                 .from_yaml_str(contract_yaml_str)
-                .with_connection(self)
+                .with_variables(variables)
+                .with_data_source(self)
             )
             contract_result: ContractResult = contract.verify()
             logs_text = "\n".join([str(l) for l in contract_result.logs.logs])

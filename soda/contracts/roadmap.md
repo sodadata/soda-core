@@ -2,24 +2,24 @@
 
 ### Next TODOs
 * [ ] Close the connection if opened at end of execute
-* [ ] Document ideal file structure
+* [ ] Document recommended file structure (can be embedded in the git repo with the transformation source code or in a separate repo)
   * soda 
-    * data_source_one (any )
-      * data_source.yml
-      * schema_one
-        * dataset_one.yml
-        * dataset_two.yml
-    * data_source_2
-      * data_source.yml
-      * schema_2
-        * dataset_2.1.yml
-        * dataset_2.2.yml
+    * dsone_datasource.yml
+    * dsone_datasets
+      * dataset_one.yml
+      * dataset_two.yml
+    * dstwo_datasource.yml
+    * dstwo_datasets
+      * schemaone
+        * dataset_211.yml
+        * dataset_212.yml
 * [ ] Finish the auto-search path for data sources yaml files (user home and 5 levels up the folder structure)
 * [ ] Documenting the spark session approach
 * [ ] Decide on owner key and fix the JSON Schema.  Consider the notifications key as well.
 * [ ] Skipping checks
 * [ ] Splitting/merging multiple files into single contract (or include).  Consider Templating.
 * [ ] Harmonize the sql_ keys (all in the front or all in the back)
+* [ ] Document how to run a contract inside a notebook (azure/databricks)
 * [ ] Clean up file extensions
 * [ ] Add failed rows query support
 * [ ] Test Soda Cloud link

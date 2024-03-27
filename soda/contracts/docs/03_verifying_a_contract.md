@@ -96,7 +96,7 @@ In your python (virtual) environment, ensure that the libraries `soda-core` and 
 as well as the `soda-core-xxxx` library for the SQL engine of your choice.
 
 ```python
-from soda.contracts.connection import Connection
+from soda.contracts.data_source import Connection
 from soda.contracts.contract import Contract, ContractResult
 
 try:
@@ -104,7 +104,7 @@ try:
         contract: Contract = Contract.from_yaml_file("./customers.sdc.yml")
         contract_result: ContractResult = contract.verify(connection)
 except SodaException as e:
-    # make the orchestration job fail and report all problems
+# make the orchestration job fail and report all problems
 ```
 
 ### Creating a connection

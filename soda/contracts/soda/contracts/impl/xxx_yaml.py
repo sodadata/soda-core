@@ -7,7 +7,7 @@ from typing import Any
 from ruamel.yaml import YAML, CommentedMap, CommentedSeq, round_trip_dump
 from ruamel.yaml.error import MarkedYAMLError
 
-from soda.contracts.connection import SodaException
+from soda.contracts.data_source import SodaException
 from soda.contracts.impl.logs import Logs
 
 logger = logging.getLogger(__name__)

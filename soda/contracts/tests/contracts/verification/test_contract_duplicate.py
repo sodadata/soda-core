@@ -1,4 +1,4 @@
-from contracts.helpers.test_connection import TestConnection
+from contracts.helpers.test_connection import TestDataSource
 from helpers.test_table import TestTable
 from soda.contracts.check import MetricCheck, MetricCheckResult
 from soda.execution.data_type import DataType
@@ -24,10 +24,10 @@ contracts_duplicate_test_table = TestTable(
 )
 
 
-def test_contract_no_duplicate_values(test_connection: TestConnection):
-    table_name: str = test_connection.ensure_test_table(contracts_duplicate_test_table)
+def test_contract_no_duplicate_values(test_data_source: TestDataSource):
+    table_name: str = test_data_source.ensure_test_table(contracts_duplicate_test_table)
 
-    contract_result: ContractResult = test_connection.assert_contract_fail(
+    contract_result: ContractResult = test_data_source.assert_contract_fail(
         f"""
         dataset: {table_name}
         columns:
@@ -51,10 +51,10 @@ def test_contract_no_duplicate_values(test_connection: TestConnection):
     assert "Actual duplicate_count(one) was 1" in str(contract_result)
 
 
-def test_contract_duplicate_count(test_connection: TestConnection):
-    table_name: str = test_connection.ensure_test_table(contracts_duplicate_test_table)
+def test_contract_duplicate_count(test_data_source: TestDataSource):
+    table_name: str = test_data_source.ensure_test_table(contracts_duplicate_test_table)
 
-    contract_result: ContractResult = test_connection.assert_contract_fail(
+    contract_result: ContractResult = test_data_source.assert_contract_fail(
         f"""
         dataset: {table_name}
         columns:
@@ -79,10 +79,10 @@ def test_contract_duplicate_count(test_connection: TestConnection):
     assert "Actual duplicate_count(one) was 1" in str(contract_result)
 
 
-def test_contract_duplicate_percent(test_connection: TestConnection):
-    table_name: str = test_connection.ensure_test_table(contracts_duplicate_test_table)
+def test_contract_duplicate_percent(test_data_source: TestDataSource):
+    table_name: str = test_data_source.ensure_test_table(contracts_duplicate_test_table)
 
-    contract_result: ContractResult = test_connection.assert_contract_fail(
+    contract_result: ContractResult = test_data_source.assert_contract_fail(
         f"""
         dataset: {table_name}
         columns:

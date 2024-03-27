@@ -1,7 +1,7 @@
 import logging
 from textwrap import dedent
 
-from contracts.helpers.test_connection import TestConnection
+from contracts.helpers.test_connection import TestDataSource
 from helpers.test_table import TestTable
 from soda.contracts.check import MetricCheck, MetricCheckResult, SchemaCheckResult
 from soda.contracts.contract import (
@@ -23,8 +23,8 @@ contracts_missing_test_table = TestTable(
 )
 
 
-def test_skip_all_checks_except_schema_check(test_connection: TestConnection):
-    table_name: str = test_connection.ensure_test_table(contracts_missing_test_table)
+def test_skip_all_checks_except_schema_check(test_data_source: TestDataSource):
+    table_name: str = test_data_source.ensure_test_table(contracts_missing_test_table)
 
     contract_yaml_str: str = dedent(f"""
         dataset: {table_name}
@@ -40,7 +40,7 @@ def test_skip_all_checks_except_schema_check(test_connection: TestConnection):
 
     contract: Contract = (Contract
         .from_yaml_str(contract_yaml_str=contract_yaml_str)
-        .with_connection(test_connection)
+        .with_data_source(test_data_source)
         .parse()
     )
 

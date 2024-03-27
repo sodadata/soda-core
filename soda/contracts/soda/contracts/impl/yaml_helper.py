@@ -73,7 +73,7 @@ class YamlFile:
 
 class YamlHelper:
 
-    def __init__(self, logs: Logs, yaml_file: YamlFile) -> None:
+    def __init__(self, logs: Logs, yaml_file: YamlFile | None = None) -> None:
         self.logs: Logs = logs
         self.yaml_file: YamlFile | None = yaml_file
 
