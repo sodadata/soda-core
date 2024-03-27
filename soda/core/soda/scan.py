@@ -124,8 +124,8 @@ class Scan:
         global verbose
         verbose = verbose_var
 
-    def set_scan_results_file(self, set_scan_results_file: str):
-        self._scan_results_file = set_scan_results_file
+    def set_scan_results_file(self, scan_results_file: str):
+        self._scan_results_file = scan_results_file
 
     def add_configuration_yaml_file(self, file_path: str):
         """
