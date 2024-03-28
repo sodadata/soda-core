@@ -4,8 +4,7 @@ from textwrap import dedent
 import pytest
 from pyspark.sql import SparkSession
 
-from soda.contracts.data_source import Connection
-from soda.contracts.contract import Contract, ContractResult, SodaException
+from soda.contracts.contract import Contract, ContractResult
 
 
 @pytest.mark.skip

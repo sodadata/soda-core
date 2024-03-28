@@ -4,12 +4,16 @@ from contracts.helpers.contract_fixtures import *  # NOQA
 from helpers.fixtures import *  # NOQA
 
 from soda.contracts.contract import Contract
+from soda.contracts.contract_verification import ContractVerification
 from soda.contracts.impl.logs import Log
 
 
 def get_parse_errors_str(contract_yaml_str: str) -> str:
     contract_yaml_str = dedent(contract_yaml_str).strip()
-    contract = Contract.from_yaml_str(contract_yaml_str=contract_yaml_str)
-    contract.parse()
-    errors: list[Log] = contract.logs.get_errors()
+    contract_verification = (
+        ContractVerification()
+        .with_contract_yaml_str(contract_yaml_str=contract_yaml_str)
+    )
+    contract_verification.build()
+    errors: list[Log] = contract_verification.logs.get_errors()
     return "\n".join([str(e) for e in errors])

@@ -5,7 +5,6 @@ import os
 from ruamel.yaml import YAML
 from yaml import MarkedYAMLError
 
-from soda.contracts.contract import SodaException
 from soda.contracts.impl.logs import Logs
 from soda.contracts.impl.variable_resolver import VariableResolver
 
@@ -60,6 +59,7 @@ class SodaCloud:
                 soda_cloud_yaml_str = f.read()
                 return cls.from_yaml_str(soda_cloud_yaml_str=soda_cloud_yaml_str, logs=logs)
         except Exception as e:
+            from soda.contracts.contract_verification import SodaException
             raise SodaException(f"Couldn't create SodaCloud from yaml file '{soda_cloud_yaml_file_path}'") from e
 
     @classmethod

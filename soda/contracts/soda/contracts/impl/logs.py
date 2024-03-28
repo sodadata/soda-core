@@ -82,15 +82,14 @@ class Logs:
     def __str__(self) -> str:
         return "\n".join([str(log) for log in self.logs])
 
-    def assert_no_errors(self) -> None:
-        if self.has_errors():
-            errors_lines: List[str] = [str(log) for log in self.logs if log.level == LogLevel.ERROR]
-            error_text = "\n".join(errors_lines)
-            error_word = "error: " if len(self.logs) == 1 else "errors:\n"
-            raise AssertionError(f"Connection {error_word}{error_text}")
-
     def has_errors(self) -> bool:
         return any(log.level == LogLevel.ERROR for log in self.logs)
+
+    def get_errors_str(self) -> str:
+        errors_lines: List[str] = [str(log) for log in self.logs if log.level == LogLevel.ERROR]
+        error_text = "\n".join(errors_lines)
+        error_word = "Error: " if len(self.logs) == 1 else "Errors:\n"
+        return f"{error_word}{error_text}"
 
     def get_errors(self) -> List[Log]:
         return [log for log in self.logs if log.level == LogLevel.ERROR]

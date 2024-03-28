@@ -9,8 +9,8 @@ import pytest
 from contracts.helpers.contract_test_tables import contracts_test_table
 from helpers.data_source_fixture import DataSourceFixture
 from helpers.test_table import TestTable
-from soda.contracts.data_source import Connection
-from soda.contracts.contract import Contract, ContractResult, SodaException
+from soda.contracts.contract import Contract, ContractResult
+from soda.contracts.contract_verification import SodaException
 from soda.contracts.soda_cloud import SodaCloud
 from soda.execution.data_type import DataType
 

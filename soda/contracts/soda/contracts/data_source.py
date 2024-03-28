@@ -18,15 +18,8 @@ class DataSource:
     Represents the configurations to create a connection. Usually it's loaded from a YAML file.
     """
 
-    def __init__(self,
-                 logs: Logs | None = None,
-                 data_source_yaml_file: YamlFile | None = None,
-                 spark_session: object | None = None,
-                 ):
+    def __init__(self, logs: Logs | None = None):
         self.logs: Logs = logs if logs else Logs()
-        self.variables: dict[str, str] = {}
-        self.data_source_file: YamlFile = data_source_yaml_file
-        self.spark_session: object | None = spark_session
 
         # only initialized after the .open() method is called
         self.dbapi_connection: object | None = None
@@ -36,40 +29,12 @@ class DataSource:
         self.data_source_type: str | None = None
 
     @classmethod
-    def from_yaml_file(cls, data_source_yaml_file_path: str, logs: Logs | None = None) -> DataSource:
-        assert isinstance(data_source_yaml_file_path, str) and len(data_source_yaml_file_path) > 1
-        return FileClDataSource(
-            data_source_yaml_file=YamlFile(yaml_file_path=data_source_yaml_file_path, logs=logs),
-            logs=logs
-        )
-
-    @classmethod
-    def from_yaml_str(cls, data_source_yaml_str: str, logs: Logs | None = None) -> DataSource:
-        assert isinstance(data_source_yaml_str, str) and len(data_source_yaml_str) > 1
-        return FileClDataSource(
-            data_source_yaml_file=YamlFile(yaml_str=data_source_yaml_str, logs=logs),
-            logs=logs
-        )
-
-    @classmethod
-    def from_yaml_dict(cls, data_source_yaml_dict: dict, logs: Logs | None = None) -> DataSource:
-        return FileClDataSource(
-            data_source_yaml_file=YamlFile(yaml_dict=data_source_yaml_dict, logs=logs),
-            logs=logs
-        )
+    def from_yaml_file(cls, data_source_file: YamlFile) -> DataSource:
+        return FileClDataSource(data_source_yaml_file=data_source_file, logs=logs)
 
     @classmethod
     def from_spark_session(cls, spark_session, logs: Logs | None = None) -> DataSource:
         return SparkSessionClDataSource(spark_session=spark_session, logs=logs)
-
-    def with_variable(self, key: str, value: str) -> DataSource:
-        self.variables[key] = value
-        return self
-
-    def with_variables(self, variables: dict[str, str]) -> DataSource:
-        if isinstance(variables, dict):
-            self.variables.update(variables)
-        return self
 
     def __enter__(self) -> DataSource:
         self.open()
@@ -118,20 +83,20 @@ class ClDataSource(DataSource, ABC):
 
 class FileClDataSource(ClDataSource):
 
-    def __init__(self, data_source_yaml_file: YamlFile, logs: Logs):
-        super().__init__(logs)
+    def __init__(self, data_source_yaml_file: YamlFile, variables: dict[str, str]):
+        super().__init__(data_source_yaml_file.logs)
         self.data_source_file: YamlFile = data_source_yaml_file
         self.connection_dict: dict | None = None
 
+        self.data_source_file.parse(variables)
+        if self.data_source_file.is_ok():
+            yaml_helper: yaml_helper = YamlHelper(yaml_file=self.data_source_file, logs=self.logs)
+            data_source_yaml_dict: dict = self.data_source_file.dict
+            self.data_source_type = yaml_helper.read_string_opt(data_source_yaml_dict, "type")
+            self.data_source_name = yaml_helper.read_string(data_source_yaml_dict, "name")
+            self.connection_dict: dict = yaml_helper.read_dict(data_source_yaml_dict, "connection")
+
     def _create_sodacl_data_source(self) -> SodaCLDataSource:
-        self.data_source_file.parse(self.variables)
-
-        yaml_helper: yaml_helper = YamlHelper(yaml_file=self.data_source_file, logs=self.logs)
-        data_source_yaml_dict: dict = self.data_source_file.dict
-        self.data_source_type = yaml_helper.read_string_opt(data_source_yaml_dict, "type")
-        self.data_source_name = yaml_helper.read_string(data_source_yaml_dict, "name")
-        self.connection_dict = yaml_helper.read_dict(data_source_yaml_dict, "connection")
-
         # consider translating postgres schema search_path option
         # options = f"-c search_path={schema}" if schema else None
         try:
@@ -150,10 +115,10 @@ class SparkSessionClDataSource(ClDataSource):
     def __init__(self, spark_session: object, logs: Logs):
         super().__init__(logs)
         self.spark_session: object = spark_session
-
-    def _create_sodacl_data_source(self) -> SodaCLDataSource:
         self.data_source_name = "spark_ds"
         self.data_source_type = "spark_df"
+
+    def _create_sodacl_data_source(self) -> SodaCLDataSource:
         try:
             return SodaCLDataSource.create(
                 logs=soda_common_logs.Logs(logger=logger),

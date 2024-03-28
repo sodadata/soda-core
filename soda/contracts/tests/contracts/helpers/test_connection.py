@@ -5,10 +5,30 @@ from textwrap import dedent
 
 from helpers.data_source_fixture import DataSourceFixture
 from helpers.test_table import TestTable
+from soda.contracts.contract_verification import ContractVerification
 from soda.contracts.data_source import DataSource
+from soda.contracts.impl.contract_verification_impl import VerificationDataSource, ContractVerificationResult
 from soda.execution.data_type import DataType
 
-from soda.contracts.contract import Contract, ContractResult, SodaException
+from soda.contracts.contract import Contract, ContractResult
+
+
+class TestVerificationDataSource(VerificationDataSource):
+    def __init__(self, data_source: DataSource):
+        super().__init__()
+        self.data_source = data_source
+        self.data_source_name = data_source.data_source_name
+
+    def requires_with_block(self) -> bool:
+        return False
+
+
+class TestContractVerification(ContractVerification):
+
+    def __init__(self, data_source: DataSource):
+        super().__init__()
+        self.data_source = data_source
+        self.verification_data_sources.append(TestVerificationDataSource(data_source))
 
 
 class TestDataSource(DataSource):
@@ -44,53 +64,52 @@ class TestDataSource(DataSource):
     def assert_contract_pass(self, contract_yaml_str: str, variables: dict[str, str] | None = None) -> ContractResult:
         contract_yaml_str = dedent(contract_yaml_str)
         logging.debug(contract_yaml_str)
-        contract: Contract = (Contract
-            .from_yaml_str(contract_yaml_str)
+        contract_verification_result: ContractVerificationResult = (
+            TestContractVerification(data_source=self)
+            .with_contract_yaml_str(contract_yaml_str)
             .with_variables(variables)
-            .with_data_source(self)
+            .execute()
         )
-        contract_result: ContractResult = contract.verify()
-        if contract_result.failed():
-            raise AssertionError(str(contract_result))
-        contract_result_str = str(contract_result)
-        logging.debug(f"Contract result: {contract_result_str}")
-        assert contract_result_str == "All is good. No checks failed. No contract execution errors."
-        return contract_result
+        if contract_verification_result.failed():
+            raise AssertionError(f"Expected contract verification passed, but was: {contract_verification_result}")
+        logging.debug(f"Contract result: {contract_verification_result}")
+        return contract_verification_result.contract_results[0]
 
     def assert_contract_fail(self, contract_yaml_str: str, variables: dict[str, str] | None = None) -> ContractResult:
+        from soda.contracts.contract_verification import SodaException
         contract_yaml_str = dedent(contract_yaml_str).strip()
         logging.debug(contract_yaml_str)
-        contract: Contract = (Contract
-            .from_yaml_str(contract_yaml_str)
+        contract_verification_result: ContractVerificationResult = (
+            TestContractVerification(data_source=self)
+            .with_contract_yaml_str(contract_yaml_str)
             .with_variables(variables)
-            .with_data_source(self)
+            .execute()
         )
-        try:
-            contract_result: ContractResult = contract.verify()
+        if not contract_verification_result.failed():
             raise AssertionError(
-                f"Expected contract verification exception, but got contract result: {contract_result}"
+                f"Expected contract verification exception, but got contract result: {contract_verification_result}"
             )
-        except SodaException as e:
-            assert e.contract_result
-            if e.contract_result.has_execution_errors():
-                raise AssertionError(str(e.contract_result))
-            contract_result = e.contract_result
-        contract_result_str = str(contract_result)
-        logging.debug(f"Contract result: {contract_result_str}")
-        return contract_result
+        logging.debug(f"Contract result: {contract_verification_result}")
+        return contract_verification_result.contract_results[0]
+
+        # except SodaException as e:
+        #     assert e.contract_result
+        #     if e.contract_result.has_execution_errors():
+        #         raise AssertionError(str(e.contract_result))
+        #     contract_result = e.contract_result
 
     def assert_contract_error(self, contract_yaml_str: str, variables: dict[str, str] | None = None) -> ContractResult:
+        from soda.contracts.contract_verification import SodaException
         contract_yaml_str = dedent(contract_yaml_str).strip()
         logging.debug(contract_yaml_str)
         try:
-            contract: Contract = (
-                Contract
-                .from_yaml_str(contract_yaml_str)
+            contract_verification_result: ContractVerificationResult = (
+                TestContractVerification(data_source=self)
+                .with_contract_yaml_str(contract_yaml_str)
                 .with_variables(variables)
-                .with_data_source(self)
+                .execute()
             )
-            contract_result: ContractResult = contract.verify()
-            logs_text = "\n".join([str(l) for l in contract_result.logs.logs])
+            logs_text = "\n".join([str(l) for l in contract_verification_result.logs.logs])
             raise AssertionError(f"Expected contract execution errors, but got none. Logs:\n{logs_text}")
         except SodaException as e:
             assert e.contract_result

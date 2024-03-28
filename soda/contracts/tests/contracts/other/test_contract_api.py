@@ -4,14 +4,11 @@ import logging
 from datetime import date
 from textwrap import dedent
 
-import pytest
-
-from contracts.helpers.contract_test_tables import contracts_test_table
 from helpers.data_source_fixture import DataSourceFixture
 from helpers.test_table import TestTable
-from soda.contracts.data_source import Connection, DataSource
-from soda.contracts.contract import Contract, ContractResult, SodaException
-from soda.contracts.soda_cloud import SodaCloud
+from soda.contracts.contract import Contract, ContractResult
+from soda.contracts.contract_verification import ContractVerification, ContractVerificationResult
+from soda.contracts.data_source import DataSource
 from soda.execution.data_type import DataType
 
 contracts_api_test_table = TestTable(
@@ -61,13 +58,15 @@ def test_contract_api(data_source_fixture: DataSourceFixture, environ: dict):
     """
     )
 
-    contract_result: ContractResult = (
-        Contract
-        .from_yaml_str(contract_yaml_str)
+    contract_verification_result: ContractVerificationResult = (
+        ContractVerification()
+        .with_contract_yaml_str(contract_yaml_str)
         .with_data_source_yaml_str(data_source_yaml_str)
         .with_variables({})
-        .verify()
+        .execute()
     )
+    logging.debug(str(contract_verification_result))
+
 
     # Example that picks up the data source from user home
     contract_result: ContractResult = (
