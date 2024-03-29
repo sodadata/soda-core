@@ -15,6 +15,7 @@
         * dataset_212.yml
 * [ ] Finish the auto-search path for data sources yaml files (user home and 5 levels up the folder structure)
 * [ ] Documenting the spark session approach
+* [ ] filter_sql on checks
 * [ ] Decide on owner key and fix the JSON Schema.  Consider the notifications key as well.
 * [ ] Skipping checks
 * [ ] Splitting/merging multiple files into single contract (or include).  Consider Templating.

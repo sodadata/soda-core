@@ -9,17 +9,31 @@
             "description": "The name of the dataset",
             "type": "string"
         },
+        "data_source": {
+            "description": "The name of the data source",
+            "type": "string"
+        },
+        "schema": {
+            "description": "The name of the schema within the data source (on bigquery, this schema property this refers to a dataset)",
+            "type": "string"
+        },
         "owner": {
-            "description": "Contact person for this contract. Email address.",
-            "type": "string",
-            "format": "email"
+            "description": "The contact details for the person or team responsible for producing this dataset",
+            "type": "object",
+            "properties": {
+                "email": {
+                    "description": "The email of the person or group responsible for producing this dataset",
+                    "type": "string",
+                    "format": "email"
+                }
+            }
         },
         "description": {
-            "description": "The description of the dataset.  What does each row represent?",
+            "description": "The description of the dataset",
             "type": "string"
         },
         "columns": {
-            "description": "The schema",
+            "description": "The list of columns, also known as 'the schema' of the dataset.",
             "type": "array",
             "items": {
                 "type": "object",
@@ -192,8 +206,8 @@
                     "description": "A named regular expression that specifies invalid values.",
                     "$ref": "#/$defs/format"
                 },
-                "filter_sql_expression": {
-                    "description": "Specifies a sql expression filter that should be applied on the metric",
+                "filter_sql": {
+                    "description": "[Not yet supported] Specifies a sql expression filter that should be applied on the metric",
                     "type": "string"
                 },
                 "must_be": {
