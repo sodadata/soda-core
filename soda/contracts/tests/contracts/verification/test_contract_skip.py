@@ -1,7 +1,7 @@
 import logging
 from textwrap import dedent
 
-from contracts.helpers.test_connection import TestDataSource, TestContractVerification
+from contracts.helpers.test_data_source import TestDataSource, TestContractVerification
 from helpers.test_table import TestTable
 from soda.contracts.check import MetricCheck, MetricCheckResult, SchemaCheckResult
 from soda.contracts.contract import (

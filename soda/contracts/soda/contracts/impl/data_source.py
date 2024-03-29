@@ -3,6 +3,8 @@ from __future__ import annotations
 import logging
 from abc import abstractmethod, ABC
 
+from psycopg2 import OperationalError
+
 import soda.common.logs as soda_common_logs
 from soda.contracts.impl.logs import Logs
 from soda.contracts.impl.yaml_helper import YamlHelper, YamlFile
@@ -30,7 +32,7 @@ class DataSource:
 
     @classmethod
     def from_yaml_file(cls, data_source_file: YamlFile) -> DataSource:
-        return FileClDataSource(data_source_yaml_file=data_source_file, logs=logs)
+        return FileClDataSource(data_source_yaml_file=data_source_file)
 
     @classmethod
     def from_spark_session(cls, spark_session, logs: Logs | None = None) -> DataSource:
@@ -73,7 +75,10 @@ class ClDataSource(DataSource, ABC):
 
     def _create_dbapi_connection(self) -> object:
         self.sodacl_data_source: SodaCLDataSource= self._create_sodacl_data_source()
-        self.sodacl_data_source.connect()
+        try:
+            self.sodacl_data_source.connect()
+        except Exception as e:
+            self.logs.error(f"Could not connect to '{self.data_source_name}': {e}")
         return self.sodacl_data_source.connection
 
     @abstractmethod
@@ -83,16 +88,15 @@ class ClDataSource(DataSource, ABC):
 
 class FileClDataSource(ClDataSource):
 
-    def __init__(self, data_source_yaml_file: YamlFile, variables: dict[str, str]):
+    def __init__(self, data_source_yaml_file: YamlFile):
         super().__init__(data_source_yaml_file.logs)
         self.data_source_file: YamlFile = data_source_yaml_file
         self.connection_dict: dict | None = None
 
-        self.data_source_file.parse(variables)
         if self.data_source_file.is_ok():
             yaml_helper: yaml_helper = YamlHelper(yaml_file=self.data_source_file, logs=self.logs)
             data_source_yaml_dict: dict = self.data_source_file.dict
-            self.data_source_type = yaml_helper.read_string_opt(data_source_yaml_dict, "type")
+            self.data_source_type = yaml_helper.read_string(data_source_yaml_dict, "type")
             self.data_source_name = yaml_helper.read_string(data_source_yaml_dict, "name")
             self.connection_dict: dict = yaml_helper.read_dict(data_source_yaml_dict, "connection")
 

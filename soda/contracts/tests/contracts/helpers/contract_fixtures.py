@@ -1,10 +1,10 @@
 from typing import Any
 
 import pytest
-from contracts.helpers.test_connection import TestDataSource
+from contracts.helpers.test_data_source import TestDataSource
 from helpers.data_source_fixture import DataSourceFixture
 from soda.common.logs import configure_logging
-from soda.contracts.data_source import DataSource
+from soda.contracts.impl.data_source import DataSource
 
 
 def pytest_sessionstart(session: Any) -> None:

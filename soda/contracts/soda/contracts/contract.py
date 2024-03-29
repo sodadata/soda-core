@@ -12,12 +12,14 @@ from soda.contracts.check import Check, MissingConfigurations, ValidConfiguratio
     AbstractCheck, UserDefinedMetricExpressionCheckFactory, SqlFunctionCheckFactory, CheckFactory, CheckResult, \
     CheckOutcome, FreshnessCheckFactory, CheckArgs, UserDefinedMetricQueryCheckFactory, \
     MultiColumnDuplicateCheckFactory, RowCountCheckFactory
-from soda.contracts.data_source import DataSource, FileClDataSource
+from soda.contracts.impl.data_source import DataSource
 from soda.contracts.impl.json_schema_verifier import JsonSchemaVerifier
 from soda.contracts.impl.logs import Location, Log, LogLevel, Logs
 from soda.contracts.impl.yaml_helper import YamlHelper, YamlFile
+from soda.contracts.impl.soda_cloud import SodaCloud
 from soda.scan import Scan
 from soda.scan import logger as scan_logger
+from soda.cloud.soda_cloud import SodaCloud as SodaCLSodaCloud
 
 logger = logging.getLogger(__name__)
 
@@ -25,13 +27,14 @@ logger = logging.getLogger(__name__)
 class Contract:
 
     @classmethod
-    def create(cls, data_source: DataSource, contract_file: YamlFile, variables: dict[str, str], logs: Logs):
-        return Contract(data_source=data_source, contract_file=contract_file, variables=variables, logs=logs)
+    def create(cls, data_source: DataSource, contract_file: YamlFile, variables: dict[str, str], soda_cloud: SodaCloud | None, logs: Logs):
+        return Contract(data_source=data_source, contract_file=contract_file, variables=variables, soda_cloud=soda_cloud, logs=logs)
 
-    def __init__(self, data_source: DataSource, contract_file: YamlFile, variables: dict[str, str], logs: Logs):
+    def __init__(self, data_source: DataSource, contract_file: YamlFile, variables: dict[str, str], soda_cloud: SodaCloud | None, logs: Logs):
         self.data_source: DataSource = data_source
         self.contract_file: YamlFile = contract_file
         self.variables: dict[str, str] = variables
+        self.soda_cloud: SodaCloud | None = soda_cloud
         self.logs: Logs = logs
 
         self.dataset: str | None = None
@@ -380,17 +383,18 @@ class Contract:
                 # noinspection PyProtectedMember
                 scan._data_source_manager.data_sources[self.data_source.data_source_name] = sodacl_data_source
 
-                # if self.soda_cloud:
-                #     scan.set_scan_definition_name(scan_definition_name)
-                #     scan._configuration.soda_cloud = SodaCloud(
-                #         host=self.soda_cloud.host,
-                #         api_key_id=self.soda_cloud.api_key_id,
-                #         api_key_secret=self.soda_cloud.api_key_secret,
-                #         token=self.soda_cloud.token,
-                #         port=self.soda_cloud.port,
-                #         logs=scan_logs,
-                #         scheme=self.soda_cloud.scheme,
-                #     )
+                if self.soda_cloud:
+                    scan.set_scan_definition_name(scan_definition_name)
+                    # noinspection PyProtectedMember
+                    scan._configuration.soda_cloud = SodaCLSodaCloud(
+                        host=self.soda_cloud.host,
+                        api_key_id=self.soda_cloud.api_key_id,
+                        api_key_secret=self.soda_cloud.api_key_secret,
+                        token=self.soda_cloud.token,
+                        port=self.soda_cloud.port,
+                        logs=scan_logs,
+                        scheme=self.soda_cloud.scheme,
+                    )
 
                 if self.variables:
                     scan.add_variables(self.variables)
@@ -489,16 +493,18 @@ class ContractResult:
                 self.check_results.append(check_result)
 
     def failed(self) -> bool:
-        return self.has_execution_errors() or self.has_check_failures()
+        """
+        Returns true if there are checks that have failed.
+        Ignores execution errors in the logs.
+        """
+        return any(check.outcome == CheckOutcome.FAIL for check in self.check_results)
 
     def passed(self) -> bool:
+        """
+        Returns true if there are no checks that have failed.
+        Ignores execution errors in the logs.
+        """
         return not self.failed()
-
-    def has_execution_errors(self):
-        return self.logs.has_errors()
-
-    def has_check_failures(self):
-        return any(check.outcome == CheckOutcome.FAIL for check in self.check_results)
 
     def __str__(self) -> str:
         error_texts_list: List[str] = [str(error) for error in self.logs.get_errors()]

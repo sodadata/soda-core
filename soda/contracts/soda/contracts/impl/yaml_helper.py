@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from numbers import Number
 
 from ruamel.yaml import CommentedMap, CommentedSeq, round_trip_dump
@@ -32,7 +33,12 @@ class YamlFile:
                 with open(self.file_path) as f:
                     self.source_str = f.read()
             except OSError as e:
-                self.logs.error(f"Problem reading file '{self.file_path}': {e}")
+                if not os.path.exists(self.file_path):
+                    self.logs.error(f"File '{self.file_path}' does not exist")
+                elif not os.path.isdir(self.file_path):
+                    self.logs.error(f"File path '{self.file_path}' is a directory")
+                else:
+                    self.logs.error(f"File '{self.file_path}' can't be read: {e}")
 
         if isinstance(self.source_str, str) and self.resolved_str is None:
             # Resolve all the ${VARIABLES} in the contract based on either the provided
@@ -69,6 +75,11 @@ class YamlFile:
         if self.dict:
             return "provided dict"
         return "no yaml source provided"
+
+    def exists(self):
+        if self.file_path:
+            return os.path.isfile(self.file_path)
+        return isinstance(self.source_str, str) or isinstance(self.dict, dict)
 
 
 class YamlHelper:

@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 
-from contracts.helpers.test_connection import TestDataSource
+from contracts.helpers.test_data_source import TestDataSource
 from helpers.test_table import TestTable
 from soda.contracts.check import FreshnessCheckResult
 from soda.execution.data_type import DataType

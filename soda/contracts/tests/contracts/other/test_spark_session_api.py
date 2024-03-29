@@ -5,6 +5,7 @@ import pytest
 from pyspark.sql import SparkSession
 
 from soda.contracts.contract import Contract, ContractResult
+from soda.contracts.contract_verification import ContractVerification, SodaException
 
 
 @pytest.mark.skip
@@ -16,31 +17,18 @@ def test_spark_session_api():
       dataset: CUSTOMERS
       columns:
       - name: id
-        data_type: text
       - name: size
-        data_type: decimal
-      - name: distance
-        data_type: integer
-      - name: created
-        data_type: date
     """
     )
 
     try:
-        with Connection.from_spark_session(spark_session) as connection:
-
-            # Parsing the contract YAML into a contract python object
-            contract: Contract = Contract.from_yaml_str(contract_yaml_str)
-
-            contract_result: ContractResult = contract.verify(connection)
-
-            # This place in the code means contract verification has passed successfully:
-            # No exceptions means there are no contract execution exceptions and no check failures.
-
-            # The default way to visualize diagnostics information for checks is Soda Cloud.
-            # But contract results information can be transformed and sent to any destination
-            # (contract_results includes information like eg the check results and diagnostics information)
-            logging.debug(f"Contract verification passed:\n{contract_result}")
+        (
+            ContractVerification()
+            .with_contract_yaml_str(contract_yaml_str)
+            .with_data_source_spark_session(spark_session=spark_session, data_source_name="spark_ds")
+            .execute()
+            .assert_no_problems()
+        )
 
     except SodaException as e:
         # An exception is raised means there are either check failures or contract verification exceptions.

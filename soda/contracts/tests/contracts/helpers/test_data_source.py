@@ -6,11 +6,11 @@ from textwrap import dedent
 from helpers.data_source_fixture import DataSourceFixture
 from helpers.test_table import TestTable
 from soda.contracts.contract_verification import ContractVerification
-from soda.contracts.data_source import DataSource
-from soda.contracts.impl.contract_verification_impl import VerificationDataSource, ContractVerificationResult
+from soda.contracts.impl.data_source import DataSource
+from soda.contracts.impl.contract_verification_impl import VerificationDataSource
 from soda.execution.data_type import DataType
 
-from soda.contracts.contract import Contract, ContractResult
+from soda.contracts.contract import ContractResult
 
 
 class TestVerificationDataSource(VerificationDataSource):
@@ -76,7 +76,6 @@ class TestDataSource(DataSource):
         return contract_verification_result.contract_results[0]
 
     def assert_contract_fail(self, contract_yaml_str: str, variables: dict[str, str] | None = None) -> ContractResult:
-        from soda.contracts.contract_verification import SodaException
         contract_yaml_str = dedent(contract_yaml_str).strip()
         logging.debug(contract_yaml_str)
         contract_verification_result: ContractVerificationResult = (
@@ -98,24 +97,19 @@ class TestDataSource(DataSource):
         #         raise AssertionError(str(e.contract_result))
         #     contract_result = e.contract_result
 
-    def assert_contract_error(self, contract_yaml_str: str, variables: dict[str, str] | None = None) -> ContractResult:
-        from soda.contracts.contract_verification import SodaException
+    def assert_contract_error(self, contract_yaml_str: str, variables: dict[str, str] | None = None) -> ContractVerification:
         contract_yaml_str = dedent(contract_yaml_str).strip()
         logging.debug(contract_yaml_str)
-        try:
-            contract_verification_result: ContractVerificationResult = (
-                TestContractVerification(data_source=self)
-                .with_contract_yaml_str(contract_yaml_str)
-                .with_variables(variables)
-                .execute()
-            )
-            logs_text = "\n".join([str(l) for l in contract_verification_result.logs.logs])
+        contract_verification: ContractVerification
+        contract_verification = (
+            TestContractVerification(data_source=self)
+            .with_contract_yaml_str(contract_yaml_str)
+            .with_variables(variables)
+            .execute()
+        )
+        logs_text = "\n".join([str(l) for l in contract_verification.logs.logs])
+        if not contract_verification.has_errors():
             raise AssertionError(f"Expected contract execution errors, but got none. Logs:\n{logs_text}")
-        except SodaException as e:
-            assert e.contract_result
-            if not e.contract_result.has_execution_errors():
-                raise AssertionError(str(e.contract_result))
-            contract_result = e.contract_result
-        contract_result_str = str(contract_result)
+        contract_result_str = str(contract_verification)
         logging.debug(f"Contract result: {contract_result_str}")
-        return contract_result
+        return contract_verification

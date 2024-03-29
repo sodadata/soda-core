@@ -27,9 +27,9 @@ The returned connection is immediately open.
 
 ```python
 import logging
-from soda.contracts.data_source import Connection, SodaException
+from soda.contracts.impl.data_source import Connection, SodaException
 from soda.contracts.contract import Contract, ContractResult
-from soda.contracts.soda_cloud import SodaCloud
+from soda.contracts.impl.soda_cloud import SodaCloud
 
 connection_file_path = 'postgres_localhost.scn.yml'
 contract_file_path = 'customers.sdc.yml'

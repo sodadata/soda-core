@@ -1,6 +1,6 @@
 import logging
 
-from contracts.helpers.test_connection import TestDataSource
+from contracts.helpers.test_data_source import TestDataSource
 from helpers.test_table import TestTable
 from soda.contracts.check import SchemaCheckResult, SchemaCheck
 
