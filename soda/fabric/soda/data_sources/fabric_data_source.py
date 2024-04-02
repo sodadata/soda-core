@@ -70,10 +70,10 @@ class FabricDataSource(DataSource):
         self.azure_client_secret = data_source_properties.get("tenant_client_secret")
 
         # Connection
-        self.host = data_source_properties.get("host", "localhost")
+        self.host = data_source_properties.get("host")
         self.port = data_source_properties.get("port", "1433")
         self.driver = data_source_properties.get("driver", "ODBC Driver 18 for SQL Server")
-        self.database = data_source_properties.get("database", "master")
+        self.database = data_source_properties.get("database")
         self.schema = data_source_properties.get("schema", "dbo")
         self.trusted_connection = data_source_properties.get("trusted_connection", False)
         self.encrypt = data_source_properties.get("encrypt", False)
