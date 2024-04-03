@@ -6,7 +6,7 @@ package_name = "soda-core-fabric"
 package_version = "3.2.3"
 description = "Soda Core Fabric Package"
 
-requires = [f"soda-core=={package_version}", "azure-identity", "pyodbc"]
+requires = [f"soda-core=={package_version}", "azure-identity", "pyodbc", "faker"]
 
 setup(
     name=package_name,
