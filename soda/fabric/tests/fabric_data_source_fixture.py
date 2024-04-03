@@ -2,9 +2,8 @@ from __future__ import annotations
 
 import logging
 import os
-from helpers.data_source_fixture import TestTable
 
-from helpers.data_source_fixture import DataSourceFixture
+from helpers.data_source_fixture import DataSourceFixture, TestTable
 
 logger = logging.getLogger(__name__)
 
@@ -36,7 +35,8 @@ class FabricDataSourceFixture(DataSourceFixture):
         )
 
     def _drop_all_tables_in_schema_sql(self):
-        return """
+        return (
+            """
             DECLARE @sql NVARCHAR(MAX) = N'';
 
             SELECT @sql += 'DROP TABLE [' + TABLE_SCHEMA + '].[' + TABLE_NAME + '];' + CHAR(13)
@@ -45,7 +45,9 @@ class FabricDataSourceFixture(DataSourceFixture):
             AND TABLE_TYPE = 'BASE TABLE';
 
             EXEC sp_executesql @sql, N'@schemaName NVARCHAR(MAX)', @schemaName = %s;
-            """ % self.schema_name
+            """
+            % self.schema_name
+        )
 
     def _drop_all_tables_in_schema(self):
         drop_all_tables_in_schema_sql = self._drop_all_tables_in_schema_sql()
@@ -168,9 +170,7 @@ class FabricDataSourceFixture(DataSourceFixture):
         """
 
     def _drop_test_table_sql(self, table_name: str) -> str:
-        return (
-            f"DROP TABLE IF EXISTS {self.schema_name}.{table_name}"
-        )
+        return f"DROP TABLE IF EXISTS {self.schema_name}.{table_name}"
 
     def drop_test_table(self, table_name: str) -> None:
         drop_test_table_sql = self._drop_test_table_sql(table_name)

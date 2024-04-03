@@ -1,9 +1,7 @@
-from pathlib import Path
-from helpers.data_source_fixture import DataSourceFixture
-from helpers.data_source_fixture import TestTable
-
 import logging
+from pathlib import Path
 
+from helpers.data_source_fixture import DataSourceFixture, TestTable
 
 logger = logging.getLogger(__name__)
 
@@ -22,10 +20,7 @@ def test_integer_types(data_source_fixture: DataSourceFixture, tmp_path: Path):
                 ("c07", "real"),
                 ("c08", "double precision"),
             ],
-            values=[
-                (1, 1, 1, 1, 1, 1, 1, 1),
-                (None, None, None, None, None, None, None, None)
-            ],
+            values=[(1, 1, 1, 1, 1, 1, 1, 1), (None, None, None, None, None, None, None, None)],
         )
     )
 
@@ -58,10 +53,7 @@ def test_string_types(data_source_fixture: DataSourceFixture, tmp_path: Path):
                 ("c02", "char"),
                 ("c03", "text"),
             ],
-            values=[
-                ("a", "a", "a"),
-                (None, None, None)
-            ],
+            values=[("a", "a", "a"), (None, None, None)],
         )
     )
 
@@ -88,26 +80,26 @@ def test_phone_numbers(data_source_fixture: DataSourceFixture, tmp_path: Path):
                 ("phone_number", "varchar(255)"),
             ],
             values=[
-                ('(112)460-2361x65894',),
-                ('807-662-2501x35953',),
-                ('(475)731-7388',),
-                ('001-274-976-7914',),
-                ('001-374-523-5313x4894',),
-                ('001-890-029-5781x0453',),
-                ('(104)288-2035',),
-                ('(607)302-7399',),
-                ('(888)525-5788',),
-                ('001-091-463-6827x23608',),
-                ('+1-719-180-2912',),
-                ('4031776749',),
-                ('(431)434-8587x558',),
-                ('(527)557-4929',),
-                ('632-820-4846',),
-                ('293.284.8346x9240',),
-                ('397-779-2835x593',),
-                ('8609814597',),
-                ('210-574-9910x971',),
-                ('4520621059',)
+                ("(112)460-2361x65894",),
+                ("807-662-2501x35953",),
+                ("(475)731-7388",),
+                ("001-274-976-7914",),
+                ("001-374-523-5313x4894",),
+                ("001-890-029-5781x0453",),
+                ("(104)288-2035",),
+                ("(607)302-7399",),
+                ("(888)525-5788",),
+                ("001-091-463-6827x23608",),
+                ("+1-719-180-2912",),
+                ("4031776749",),
+                ("(431)434-8587x558",),
+                ("(527)557-4929",),
+                ("632-820-4846",),
+                ("293.284.8346x9240",),
+                ("397-779-2835x593",),
+                ("8609814597",),
+                ("210-574-9910x971",),
+                ("4520621059",),
             ],
         )
     )
@@ -134,26 +126,26 @@ def test_email_addresses(data_source_fixture: DataSourceFixture, tmp_path: Path)
                 ("email_address", "varchar(255)"),
             ],
             values=[
-                ('michelle09@example.org',),
-                ('michael85@example.org',),
-                ('fordjohn@example.net',),
-                ('ehansen@example.com',),
-                ('brownmorgan@example.net',),
-                ('ymcdowell@example.net',),
-                ('pittmanbrian@example.com',),
-                ('ssnow@example.net',),
-                ('irollins@example.org',),
-                ('riggsjoseph@example.org',),
-                ('vincent49@example.net',),
-                ('meadowsrobert@example.net',),
-                ('timothy82@example.net',),
-                ('walkersusan@example.net',),
-                ('hammondlaura@example.org',),
-                ('ginajohnson@example.com',),
-                ('masonmelinda@example.net',),
-                ('wernerkelly@example.net',),
-                ('samuel13@example.net',),
-                ('moorekristin@example.com',)
+                ("michelle09@example.org",),
+                ("michael85@example.org",),
+                ("fordjohn@example.net",),
+                ("ehansen@example.com",),
+                ("brownmorgan@example.net",),
+                ("ymcdowell@example.net",),
+                ("pittmanbrian@example.com",),
+                ("ssnow@example.net",),
+                ("irollins@example.org",),
+                ("riggsjoseph@example.org",),
+                ("vincent49@example.net",),
+                ("meadowsrobert@example.net",),
+                ("timothy82@example.net",),
+                ("walkersusan@example.net",),
+                ("hammondlaura@example.org",),
+                ("ginajohnson@example.com",),
+                ("masonmelinda@example.net",),
+                ("wernerkelly@example.net",),
+                ("samuel13@example.net",),
+                ("moorekristin@example.com",),
             ],
         )
     )
