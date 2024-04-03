@@ -3,7 +3,7 @@
 from setuptools import find_namespace_packages, setup
 
 package_name = "soda-core-fabric"
-package_version = "3.2.3"
+package_version = "3.3.1"
 description = "Soda Core Fabric Package"
 
 requires = [f"soda-core=={package_version}", "azure-identity", "pyodbc", "faker"]
