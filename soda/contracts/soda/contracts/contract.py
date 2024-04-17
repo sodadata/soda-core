@@ -12,7 +12,7 @@ from soda.contracts.check import Check, MissingConfigurations, ValidConfiguratio
     AbstractCheck, UserDefinedMetricExpressionCheckFactory, SqlFunctionCheckFactory, CheckFactory, CheckResult, \
     CheckOutcome, FreshnessCheckFactory, CheckArgs, UserDefinedMetricQueryCheckFactory, \
     MultiColumnDuplicateCheckFactory, RowCountCheckFactory
-from soda.contracts.impl.data_source import DataSource
+from soda.contracts.impl.warehouse import Warehouse
 from soda.contracts.impl.json_schema_verifier import JsonSchemaVerifier
 from soda.contracts.impl.logs import Location, Log, LogLevel, Logs
 from soda.contracts.impl.yaml_helper import YamlHelper, YamlFile
@@ -27,11 +27,11 @@ logger = logging.getLogger(__name__)
 class Contract:
 
     @classmethod
-    def create(cls, data_source: DataSource, contract_file: YamlFile, variables: dict[str, str], soda_cloud: SodaCloud | None, logs: Logs):
-        return Contract(data_source=data_source, contract_file=contract_file, variables=variables, soda_cloud=soda_cloud, logs=logs)
+    def create(cls, warehouse: Warehouse, contract_file: YamlFile, variables: dict[str, str], soda_cloud: SodaCloud | None, logs: Logs):
+        return Contract(warehouse=warehouse, contract_file=contract_file, variables=variables, soda_cloud=soda_cloud, logs=logs)
 
-    def __init__(self, data_source: DataSource, contract_file: YamlFile, variables: dict[str, str], soda_cloud: SodaCloud | None, logs: Logs):
-        self.data_source: DataSource = data_source
+    def __init__(self, warehouse: Warehouse, contract_file: YamlFile, variables: dict[str, str], soda_cloud: SodaCloud | None, logs: Logs):
+        self.warehouse: Warehouse = warehouse
         self.contract_file: YamlFile = contract_file
         self.variables: dict[str, str] = variables
         self.soda_cloud: SodaCloud | None = soda_cloud
@@ -76,7 +76,7 @@ class Contract:
 
                 contract_yaml_dict = self.contract_file.dict
 
-                self.data_source_name: str | None = yaml_helper.read_string_opt(contract_yaml_dict, "data_source")
+                self.warehouse_name: str | None = yaml_helper.read_string_opt(contract_yaml_dict, "warehouse")
                 self.schema: str | None = yaml_helper.read_string_opt(contract_yaml_dict, "schema")
                 self.dataset: str | None = yaml_helper.read_string(contract_yaml_dict, "dataset")
                 self.filter_sql: str | None = yaml_helper.read_string_opt(
@@ -88,7 +88,7 @@ class Contract:
                 # Computing the verification_context
                 verification_context_dict: dict = self.variables.copy()
                 verification_context_dict.update({
-                    "data_source": self.data_source,
+                    "warehouse": self.warehouse,
                     "schema": self.schema,
                     "dataset": self.dataset,
                     "filter": self.filter,
@@ -368,20 +368,20 @@ class Contract:
             sodacl_yaml_str = self.__generate_sodacl_yaml_str()
             logger.debug(sodacl_yaml_str)
 
-            if sodacl_yaml_str and hasattr(self.data_source, "sodacl_data_source"):
+            if sodacl_yaml_str and hasattr(self.warehouse, "sodacl_data_source"):
                 scan._logs = scan_logs
 
-                # This assumes the connection is a DataSourceConnection
-                sodacl_data_source = self.data_source.sodacl_data_source
+                # This assumes the connection is a WarehouseConnection
+                sodacl_data_source = self.warehouse.sodacl_data_source
                 # Execute the contract SodaCL in a scan
                 scan.set_data_source_name(sodacl_data_source.data_source_name)
                 scan_definition_name = (
-                    f"dataset://{self.data_source.data_source_name}/{self.schema}/{self.dataset}"
+                    f"dataset://{self.warehouse.warehouse_name}/{self.schema}/{self.dataset}"
                     if self.schema
-                    else f"dataset://{self.data_source.data_source_name}/{self.dataset}"
+                    else f"dataset://{self.warehouse.warehouse_name}/{self.dataset}"
                 )
                 # noinspection PyProtectedMember
-                scan._data_source_manager.data_sources[self.data_source.data_source_name] = sodacl_data_source
+                scan._data_source_manager.data_sources[self.warehouse.warehouse_name] = sodacl_data_source
 
                 if self.soda_cloud:
                     scan.set_scan_definition_name(scan_definition_name)

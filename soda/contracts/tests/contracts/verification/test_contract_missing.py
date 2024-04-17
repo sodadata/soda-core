@@ -1,5 +1,5 @@
 from contracts.helpers.contract_parse_errors import get_parse_errors_str
-from contracts.helpers.test_data_source import TestDataSource
+from contracts.helpers.test_warehouse import TestWarehouse
 from helpers.test_table import TestTable
 from soda.contracts.check import MetricCheckResult, MetricCheck
 from soda.execution.data_type import DataType
@@ -54,10 +54,10 @@ def test_missing_count_without_threshold():
     assert "Check type 'missing_count' requires threshold configuration" in errors_str
 
 
-def test_contract_nomissing_with_missing_values(test_data_source: TestDataSource):
-    table_name: str = test_data_source.ensure_test_table(contracts_missing_test_table)
+def test_contract_nomissing_with_missing_values(test_warehouse: TestWarehouse):
+    table_name: str = test_warehouse.ensure_test_table(contracts_missing_test_table)
 
-    contract_result: ContractResult = test_data_source.assert_contract_fail(
+    contract_result: ContractResult = test_warehouse.assert_contract_fail(
         f"""
         dataset: {table_name}
         columns:
@@ -82,10 +82,10 @@ def test_contract_nomissing_with_missing_values(test_data_source: TestDataSource
     assert "Actual missing_count(one) was 1" in str(contract_result)
 
 
-def test_contract_nomissing_without_missing_values(test_data_source: TestDataSource):
-    table_name: str = test_data_source.ensure_test_table(contracts_missing_test_table)
+def test_contract_nomissing_without_missing_values(test_warehouse: TestWarehouse):
+    table_name: str = test_warehouse.ensure_test_table(contracts_missing_test_table)
 
-    contract_result: ContractResult = test_data_source.assert_contract_pass(
+    contract_result: ContractResult = test_warehouse.assert_contract_pass(
         f"""
         dataset: {table_name}
         columns:
@@ -108,10 +108,10 @@ def test_contract_nomissing_without_missing_values(test_data_source: TestDataSou
     assert check.column == "two"
 
 
-def test_contract_missing_count_with_missing_values(test_data_source: TestDataSource):
-    table_name: str = test_data_source.ensure_test_table(contracts_missing_test_table)
+def test_contract_missing_count_with_missing_values(test_warehouse: TestWarehouse):
+    table_name: str = test_warehouse.ensure_test_table(contracts_missing_test_table)
 
-    contract_result: ContractResult = test_data_source.assert_contract_fail(
+    contract_result: ContractResult = test_warehouse.assert_contract_fail(
         f"""
         dataset: {table_name}
         columns:
@@ -137,10 +137,10 @@ def test_contract_missing_count_with_missing_values(test_data_source: TestDataSo
     assert "Actual missing_count(one) was 1" in str(contract_result)
 
 
-def test_contract_missing_count_pass(test_data_source: TestDataSource):
-    table_name: str = test_data_source.ensure_test_table(contracts_missing_test_table)
+def test_contract_missing_count_pass(test_warehouse: TestWarehouse):
+    table_name: str = test_warehouse.ensure_test_table(contracts_missing_test_table)
 
-    contract_result: ContractResult = test_data_source.assert_contract_pass(
+    contract_result: ContractResult = test_warehouse.assert_contract_pass(
         f"""
         dataset: {table_name}
         columns:
@@ -164,10 +164,10 @@ def test_contract_missing_count_pass(test_data_source: TestDataSource):
     assert check.column == "one"
 
 
-def test_contract_missing_count_with_missing_values_pass(test_data_source: TestDataSource):
-    table_name: str = test_data_source.ensure_test_table(contracts_missing_test_table)
+def test_contract_missing_count_with_missing_values_pass(test_warehouse: TestWarehouse):
+    table_name: str = test_warehouse.ensure_test_table(contracts_missing_test_table)
 
-    contract_result: ContractResult = test_data_source.assert_contract_pass(
+    contract_result: ContractResult = test_warehouse.assert_contract_pass(
         f"""
         dataset: {table_name}
         columns:
@@ -192,10 +192,10 @@ def test_contract_missing_count_with_missing_values_pass(test_data_source: TestD
     assert check.column == "one"
 
 
-def test_contract_missing_count_with_missing_regex_sql(test_data_source: TestDataSource):
-    table_name: str = test_data_source.ensure_test_table(contracts_missing_test_table)
+def test_contract_missing_count_with_missing_regex_sql(test_warehouse: TestWarehouse):
+    table_name: str = test_warehouse.ensure_test_table(contracts_missing_test_table)
 
-    contract_result: ContractResult = test_data_source.assert_contract_fail(
+    contract_result: ContractResult = test_warehouse.assert_contract_fail(
         f"""
         dataset: {table_name}
         columns:
@@ -222,10 +222,10 @@ def test_contract_missing_count_with_missing_regex_sql(test_data_source: TestDat
     assert "Actual missing_count(one) was 2" in str(contract_result)
 
 
-def test_contract_missing_count_name_and_threshold(test_data_source: TestDataSource):
-    table_name: str = test_data_source.ensure_test_table(contracts_missing_test_table)
+def test_contract_missing_count_name_and_threshold(test_warehouse: TestWarehouse):
+    table_name: str = test_warehouse.ensure_test_table(contracts_missing_test_table)
 
-    contract_result: ContractResult = test_data_source.assert_contract_pass(
+    contract_result: ContractResult = test_warehouse.assert_contract_pass(
         f"""
         dataset: {table_name}
         columns:

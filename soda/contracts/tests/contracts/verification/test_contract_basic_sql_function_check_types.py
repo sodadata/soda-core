@@ -1,4 +1,4 @@
-from contracts.helpers.test_data_source import TestDataSource
+from contracts.helpers.test_warehouse import TestWarehouse
 from helpers.test_table import TestTable
 from soda.contracts.check import MetricCheck, MetricCheckResult
 from soda.execution.data_type import DataType
@@ -24,10 +24,10 @@ contracts_basic_sql_functions_check_types_test_table = TestTable(
 )
 
 
-def test_contract_avg(test_data_source: TestDataSource):
-    table_name: str = test_data_source.ensure_test_table(contracts_basic_sql_functions_check_types_test_table)
+def test_contract_avg(test_warehouse: TestWarehouse):
+    table_name: str = test_warehouse.ensure_test_table(contracts_basic_sql_functions_check_types_test_table)
 
-    contract_result: ContractResult = test_data_source.assert_contract_fail(
+    contract_result: ContractResult = test_warehouse.assert_contract_fail(
         f"""
         dataset: {table_name}
         columns:
@@ -52,10 +52,10 @@ def test_contract_avg(test_data_source: TestDataSource):
     assert "Actual avg(one) was 2" in str(contract_result)
 
 
-def test_contract_sum(test_data_source: TestDataSource):
-    table_name: str = test_data_source.ensure_test_table(contracts_basic_sql_functions_check_types_test_table)
+def test_contract_sum(test_warehouse: TestWarehouse):
+    table_name: str = test_warehouse.ensure_test_table(contracts_basic_sql_functions_check_types_test_table)
 
-    contract_result: ContractResult = test_data_source.assert_contract_fail(
+    contract_result: ContractResult = test_warehouse.assert_contract_fail(
         f"""
         dataset: {table_name}
         columns:

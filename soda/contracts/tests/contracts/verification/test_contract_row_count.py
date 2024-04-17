@@ -1,4 +1,4 @@
-from contracts.helpers.test_data_source import TestDataSource
+from contracts.helpers.test_warehouse import TestWarehouse
 from helpers.test_table import TestTable
 from soda.contracts.check import MetricCheckResult, MetricCheck
 from soda.execution.data_type import DataType
@@ -23,10 +23,10 @@ contracts_row_count_test_table = TestTable(
 )
 
 
-def test_contract_row_count(test_data_source: TestDataSource):
-    table_name: str = test_data_source.ensure_test_table(contracts_row_count_test_table)
+def test_contract_row_count(test_warehouse: TestWarehouse):
+    table_name: str = test_warehouse.ensure_test_table(contracts_row_count_test_table)
 
-    contract_result: ContractResult = test_data_source.assert_contract_pass(
+    contract_result: ContractResult = test_warehouse.assert_contract_pass(
         f"""
         dataset: {table_name}
         columns:
@@ -47,10 +47,10 @@ def test_contract_row_count(test_data_source: TestDataSource):
     assert check.column is None
 
 
-def test_contract_row_count2(test_data_source: TestDataSource):
-    table_name: str = test_data_source.ensure_test_table(contracts_row_count_test_table)
+def test_contract_row_count2(test_warehouse: TestWarehouse):
+    table_name: str = test_warehouse.ensure_test_table(contracts_row_count_test_table)
 
-    contract_result: ContractResult = test_data_source.assert_contract_fail(
+    contract_result: ContractResult = test_warehouse.assert_contract_fail(
         f"""
         dataset: {table_name}
         columns:

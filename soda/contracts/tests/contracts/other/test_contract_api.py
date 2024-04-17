@@ -4,7 +4,7 @@ import logging
 from datetime import date
 from textwrap import dedent
 
-from helpers.data_source_fixture import DataSourceFixture
+from contracts.helpers.test_warehouse import TestWarehouse
 from helpers.test_table import TestTable
 from soda.contracts.contract_verification import ContractVerification, ContractVerificationResult
 from soda.execution.data_type import DataType
@@ -27,12 +27,12 @@ contracts_api_test_table = TestTable(
 )
 
 
-def test_contract_verification_api(data_source_fixture: DataSourceFixture, environ: dict):
-    table_name: str = data_source_fixture.ensure_test_table(contracts_api_test_table)
+def test_contract_verification_api(test_warehouse: TestWarehouse, environ: dict):
+    table_name: str = test_warehouse.ensure_test_table(contracts_api_test_table)
 
     environ["USERNAME"] = "sodasql"
 
-    data_source_yaml_str = dedent(
+    warehouse_yaml_str = dedent(
         """
         name: postgres_ds
         type: postgres
@@ -61,7 +61,7 @@ def test_contract_verification_api(data_source_fixture: DataSourceFixture, envir
     contract_verification_result: ContractVerificationResult = (
         ContractVerification.builder()
         .with_contract_yaml_str(contract_yaml_str)
-        .with_data_source_yaml_str(data_source_yaml_str)
+        .with_warehouse_yaml_str(warehouse_yaml_str)
         .with_variables({"TABLE_NAME": table_name})
         .execute()
         .assert_no_problems()

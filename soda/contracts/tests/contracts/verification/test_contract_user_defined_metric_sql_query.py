@@ -1,4 +1,4 @@
-from contracts.helpers.test_data_source import TestDataSource
+from contracts.helpers.test_warehouse import TestWarehouse
 from helpers.test_table import TestTable
 from soda.contracts.check import MetricCheckResult, UserDefinedMetricQueryCheck
 from soda.contracts.contract import (
@@ -23,10 +23,10 @@ user_defined_metric_query_sql_test_table = TestTable(
 )
 
 
-def test_contract_metric_query_on_column(test_data_source: TestDataSource):
-    table_name: str = test_data_source.ensure_test_table(user_defined_metric_query_sql_test_table)
+def test_contract_metric_query_on_column(test_warehouse: TestWarehouse):
+    table_name: str = test_warehouse.ensure_test_table(user_defined_metric_query_sql_test_table)
 
-    contract_result: ContractResult = test_data_source.assert_contract_fail(
+    contract_result: ContractResult = test_warehouse.assert_contract_fail(
         f"""
         dataset: {table_name}
         columns:
@@ -57,10 +57,10 @@ def test_contract_metric_query_on_column(test_data_source: TestDataSource):
     assert "Actual us_count(id) was 2" in str(contract_result)
 
 
-def test_contract_metric_query_on_dataset(test_data_source: TestDataSource):
-    table_name: str = test_data_source.ensure_test_table(user_defined_metric_query_sql_test_table)
+def test_contract_metric_query_on_dataset(test_warehouse: TestWarehouse):
+    table_name: str = test_warehouse.ensure_test_table(user_defined_metric_query_sql_test_table)
 
-    contract_result: ContractResult = test_data_source.assert_contract_fail(
+    contract_result: ContractResult = test_warehouse.assert_contract_fail(
         f"""
         dataset: {table_name}
         columns:

@@ -20,14 +20,14 @@ contract verification parameter or some other way.
 
 A wrapper around the DBAPI connection is needed to handle the SQL differences.
 It's anticipated that initially the implementation will be based on the existing Soda Core
-DataSource and Scan.  But that later there will be direct connection implementations
+Warehouse and Scan.  But that later there will be direct connection implementations
 for each database.
 
 The returned connection is immediately open.
 
 ```python
 import logging
-from soda.contracts.impl.data_source import Connection, SodaException
+from soda.contracts.impl.warehouse import Connection, SodaException
 from soda.contracts.contract import Contract, ContractResult
 from soda.contracts.impl.soda_cloud import SodaCloud
 

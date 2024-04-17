@@ -23,9 +23,9 @@ def test_spark_session_api():
 
     try:
         (
-            ContractVerification()
+            ContractVerification.builder()
             .with_contract_yaml_str(contract_yaml_str)
-            .with_data_source_spark_session(spark_session=spark_session, data_source_name="spark_ds")
+            .with_warehouse_spark_session(spark_session=spark_session, warehouse_name="spark_ds")
             .execute()
             .assert_no_problems()
         )

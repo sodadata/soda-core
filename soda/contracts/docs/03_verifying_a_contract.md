@@ -96,7 +96,7 @@ In your python (virtual) environment, ensure that the libraries `soda-core` and 
 as well as the `soda-core-xxxx` library for the SQL engine of your choice.
 
 ```python
-from soda.contracts.impl.data_source import Connection
+from soda.contracts.impl.warehouse import Connection
 from soda.contracts.contract import Contract, ContractResult
 
 try:

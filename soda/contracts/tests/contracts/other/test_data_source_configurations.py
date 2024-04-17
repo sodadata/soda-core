@@ -4,37 +4,37 @@ from textwrap import dedent
 from soda.contracts.contract_verification import ContractVerification, SodaException
 
 
-def test_data_source_error_file_not_found():
+def test_warehouse_error_file_not_found():
     contract_verification = (
         ContractVerification.builder()
-        .with_data_source_yaml_file("./non_existing_file.scn.yml")
+        .with_warehouse_yaml_file("./non_existing_file.scn.yml")
         .build()
     )
     contract_verification_str = str(contract_verification)
     assert "File './non_existing_file.scn.yml' does not exist" in contract_verification_str
 
 
-def test_data_source_file_variable_resolving(environ):
+def test_warehouse_file_variable_resolving(environ):
     environ["POSTGRES_DATABASE"] = "sodasql"
     environ["POSTGRES_USERNAME"] = "sodasql"
 
-    data_source_file_path = os.path.join(os.path.dirname(__file__), "test_data_source_configurations.yml")
+    warehouse_file_path = os.path.join(os.path.dirname(__file__), "test_warehouse_configurations.yml")
 
     contract_verification = (
         ContractVerification.builder()
-        .with_data_source_yaml_file(data_source_file_path)
+        .with_warehouse_yaml_file(warehouse_file_path)
         .build()
     )
 
     resolved_connection_properties = (
-        contract_verification.verification_data_sources_by_name["postgres_ds"].data_source.data_source_file.dict["connection"]
+        contract_verification.verification_warehouses_by_name["postgres_ds"].warehouse.warehouse_file.dict["connection"]
     )
     assert "sodasql" == resolved_connection_properties["database"]
     assert "sodasql" == resolved_connection_properties["username"]
 
 
 def test_invalid_database():
-    data_source_yaml_str = dedent(
+    warehouse_yaml_str = dedent(
                 """
             name: postgres_ds
             type: postgres
@@ -47,7 +47,7 @@ def test_invalid_database():
 
     contract_verification = (
         ContractVerification.builder()
-        .with_data_source_yaml_str(data_source_yaml_str)
+        .with_warehouse_yaml_str(warehouse_yaml_str)
         .execute()
     )
 
@@ -57,7 +57,7 @@ def test_invalid_database():
 
 
 def test_invalid_username():
-    data_source_yaml_str = dedent(
+    warehouse_yaml_str = dedent(
                 """
             name: postgres_ds
             type: postgres
@@ -71,7 +71,7 @@ def test_invalid_username():
     try:
         (
             ContractVerification.builder()
-            .with_data_source_yaml_str(data_source_yaml_str)
+            .with_warehouse_yaml_str(warehouse_yaml_str)
             .execute()
             .assert_no_problems()
         )

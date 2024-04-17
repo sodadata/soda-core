@@ -1,7 +1,7 @@
 import logging
 from textwrap import dedent
 
-from contracts.helpers.test_data_source import TestDataSource, TestContractVerification
+from contracts.helpers.test_warehouse import TestWarehouse, TestContractVerification
 from helpers.test_table import TestTable
 from soda.contracts.check import MetricCheck, MetricCheckResult, SchemaCheckResult
 from soda.contracts.contract import (
@@ -24,8 +24,8 @@ contracts_missing_test_table = TestTable(
 )
 
 
-def test_skip_all_checks_except_schema_check(test_data_source: TestDataSource):
-    table_name: str = test_data_source.ensure_test_table(contracts_missing_test_table)
+def test_skip_all_checks_except_schema_check(test_warehouse: TestWarehouse):
+    table_name: str = test_warehouse.ensure_test_table(contracts_missing_test_table)
 
     contract_yaml_str: str = dedent(f"""
         dataset: {table_name}
@@ -41,7 +41,7 @@ def test_skip_all_checks_except_schema_check(test_data_source: TestDataSource):
 
     contract_verification: ContractVerification = (
         TestContractVerification.builder()
-        .with_data_source(test_data_source)
+        .with_warehouse(test_warehouse)
         .with_contract_yaml_str(contract_yaml_str=contract_yaml_str)
         .build()
     )
