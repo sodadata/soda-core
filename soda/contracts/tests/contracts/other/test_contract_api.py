@@ -59,10 +59,12 @@ def test_contract_verification_api(data_source_fixture: DataSourceFixture, envir
     )
 
     contract_verification: ContractVerification = (
-        ContractVerification()
+        ContractVerification.builder()
         .with_contract_yaml_str(contract_yaml_str)
         .with_data_source_yaml_str(data_source_yaml_str)
         .with_variables({"TABLE_NAME": table_name})
         .execute()
+        .assert_no_problems()
     )
+
     logging.debug(str(contract_verification))

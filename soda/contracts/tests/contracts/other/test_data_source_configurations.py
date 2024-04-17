@@ -6,7 +6,7 @@ from soda.contracts.contract_verification import ContractVerification, SodaExcep
 
 def test_data_source_error_file_not_found():
     contract_verification = (
-        ContractVerification()
+        ContractVerification.builder()
         .with_data_source_yaml_file("./non_existing_file.scn.yml")
         .build()
     )
@@ -21,7 +21,7 @@ def test_data_source_file_variable_resolving(environ):
     data_source_file_path = os.path.join(os.path.dirname(__file__), "test_data_source_configurations.yml")
 
     contract_verification = (
-        ContractVerification()
+        ContractVerification.builder()
         .with_data_source_yaml_file(data_source_file_path)
         .build()
     )
@@ -46,7 +46,7 @@ def test_invalid_database():
             )
 
     contract_verification = (
-        ContractVerification()
+        ContractVerification.builder()
         .with_data_source_yaml_str(data_source_yaml_str)
         .execute()
     )
@@ -70,7 +70,7 @@ def test_invalid_username():
 
     try:
         (
-            ContractVerification()
+            ContractVerification.builder()
             .with_data_source_yaml_str(data_source_yaml_str)
             .execute()
             .assert_no_problems()

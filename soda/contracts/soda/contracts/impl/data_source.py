@@ -48,6 +48,9 @@ class DataSource:
         except Exception as e:
             logger.warning(f"Could not close connection: {e}")
 
+    def __str__(self) -> str:
+        return self.data_source_name
+
     def open(self) -> None:
         self.dbapi_connection = self._create_dbapi_connection()
 
