@@ -6,7 +6,7 @@ from textwrap import dedent
 
 from helpers.data_source_fixture import DataSourceFixture
 from helpers.test_table import TestTable
-from soda.contracts.contract_verification import ContractVerification
+from soda.contracts.contract_verification import ContractVerification, ContractVerificationResult
 from soda.execution.data_type import DataType
 
 contracts_api_test_table = TestTable(
@@ -58,7 +58,7 @@ def test_contract_verification_api(data_source_fixture: DataSourceFixture, envir
     """
     )
 
-    contract_verification: ContractVerification = (
+    contract_verification_result: ContractVerificationResult = (
         ContractVerification.builder()
         .with_contract_yaml_str(contract_yaml_str)
         .with_data_source_yaml_str(data_source_yaml_str)
@@ -67,4 +67,4 @@ def test_contract_verification_api(data_source_fixture: DataSourceFixture, envir
         .assert_no_problems()
     )
 
-    logging.debug(str(contract_verification))
+    logging.debug(str(contract_verification_result))
