@@ -69,9 +69,7 @@ class Db2DataSource(DataSource):
         self.update_schema(self.schema)
 
     def connect(self):
-        conn_str = (
-             f"DATABASE={self.database};HOSTNAME={self.host};PORT={self.port};UID={self.username};PWD={self.password};SECURITY={self.verify_ssl}"
-        )
+        conn_str = f"DATABASE={self.database};HOSTNAME={self.host};PORT={self.port};UID={self.username};PWD={self.password};SECURITY={self.verify_ssl}"
         self.connection = ibm_db_dbi.connect(conn_str)
         return self.connection
 
