@@ -65,11 +65,12 @@ class Db2DataSource(DataSource):
         self.username = data_source_properties.get("username")
         self.database = data_source_properties.get("database")
         self.schema = data_source_properties.get("schema")
+        self.verify_ssl = data_source_properties.get("security")
         self.update_schema(self.schema)
 
     def connect(self):
         conn_str = (
-            f"DATABASE={self.database};HOSTNAME={self.host};PORT={self.port};UID={self.username};PWD={self.password}"
+             f"DATABASE={self.database};HOSTNAME={self.host};PORT={self.port};UID={self.username};PWD={self.password};SECURITY={self.verify_ssl}"
         )
         self.connection = ibm_db_dbi.connect(conn_str)
         return self.connection
