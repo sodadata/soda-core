@@ -65,12 +65,15 @@ class Db2DataSource(DataSource):
         self.username = data_source_properties.get("username")
         self.database = data_source_properties.get("database")
         self.schema = data_source_properties.get("schema")
+        self.security = data_source_properties.get("security")
         self.update_schema(self.schema)
 
     def connect(self):
         conn_str = (
             f"DATABASE={self.database};HOSTNAME={self.host};PORT={self.port};UID={self.username};PWD={self.password}"
         )
+        if self.security is not None:
+            conn_str += f";SECURITY={self.security}"
         self.connection = ibm_db_dbi.connect(conn_str)
         return self.connection
 
