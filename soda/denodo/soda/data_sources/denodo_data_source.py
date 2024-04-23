@@ -17,6 +17,7 @@ class DenodoDataSource(DataSource):
         self.port = data_source_properties.get("port")
         self.password = data_source_properties.get("password")
         self.username = data_source_properties.get("username")
+        self.connection_timeout = data_source_properties.get("connection_timeout")
 
     def connect(self):
         import psycopg2
