@@ -153,15 +153,18 @@ class ContractVerification:
     def _initialize_verification_warehouses(self, contract_verification_builder: ContractVerificationBuilder) -> None:
         # Parse data sources
         for warehouse_yaml_file in contract_verification_builder.warehouse_yaml_files:
-            verification_warehouse = FileVerificationWarehouse(warehouse_yaml_file=warehouse_yaml_file)
-            if verification_warehouse.initialize_warehouse(self.variables):
-                warehouse_name = verification_warehouse.warehouse.warehouse_name
-                self.verification_warehouses_by_name[warehouse_name] = verification_warehouse
+            verification_warehouse: VerificationWarehouse = FileVerificationWarehouse(warehouse_yaml_file=warehouse_yaml_file)
+            self._initialize_verification_warehouse(verification_warehouse)
         for warehouse_name, spark_session in contract_verification_builder.warehouse_spark_sessions.items():
-            verification_warehouse = SparkVerificationWarehouse(
+            verification_warehouse: VerificationWarehouse = SparkVerificationWarehouse(
                 spark_session=spark_session,
                 warehouse_name=warehouse_name
             )
+            self._initialize_verification_warehouse(verification_warehouse)
+
+    def _initialize_verification_warehouse(self, verification_warehouse: VerificationWarehouse) -> None:
+        if verification_warehouse.initialize_warehouse(self.variables):
+            warehouse_name = verification_warehouse.warehouse.warehouse_name
             self.verification_warehouses_by_name[warehouse_name] = verification_warehouse
 
     def execute(self) -> ContractVerificationResult:
@@ -187,13 +190,13 @@ class ContractVerificationResult:
         self.variables: dict[str, str] = variables
         self.contract_results: list[ContractResult] = contract_results
 
-    def failed(self):
+    def failed(self) -> bool:
         """
         Returns True if there are execution errors or if there are check failures.
         """
         return not self.passed()
 
-    def passed(self):
+    def passed(self) -> bool:
         """
         Returns True if there are no execution errors and no check failures.
         """
@@ -202,10 +205,16 @@ class ContractVerificationResult:
             and all(contract_result.passed() for contract_result in self.contract_results)
         )
 
-    def has_errors(self):
+    def has_errors(self) -> bool:
         return self.logs.has_errors()
 
-    def assert_no_problems(self):
+    def has_failures(self) -> bool:
+        return any(contract_result.failed() for contract_result in self.contract_results)
+
+    def is_ok(self) -> bool:
+        return not self.has_errors() and not self.has_failures()
+
+    def assert_ok(self):
         errors_str: str | None = self.logs.get_errors_str() if self.logs.get_errors() else None
         if errors_str or any(contract_result.failed() for contract_result in self.contract_results):
             raise SodaException(message=errors_str, contract_verification_result=self)

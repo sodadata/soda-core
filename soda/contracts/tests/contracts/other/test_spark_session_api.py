@@ -27,7 +27,7 @@ def test_spark_session_api():
             .with_contract_yaml_str(contract_yaml_str)
             .with_warehouse_spark_session(spark_session=spark_session, warehouse_name="spark_ds")
             .execute()
-            .assert_no_problems()
+            .assert_ok()
         )
 
     except SodaException as e:

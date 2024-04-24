@@ -8,7 +8,7 @@ from soda.contracts.contract import (
     CheckOutcome,
     ContractResult, Contract,
 )
-from soda.contracts.contract_verification import ContractVerification
+from soda.contracts.contract_verification import ContractVerification, ContractVerificationResult
 from soda.execution.data_type import DataType
 
 
@@ -51,7 +51,8 @@ def test_skip_all_checks_except_schema_check(test_warehouse: TestWarehouse):
         if check.type != "schema":
             check.skip = True
 
-    contract_result: ContractResult = contract.verify()
+    contract_verification_result: ContractVerificationResult = contract_verification.execute()
+    contract_result: ContractResult = contract_verification_result.contract_results[0]
 
     check_result = contract_result.check_results[0]
     assert isinstance(check_result, SchemaCheckResult)
