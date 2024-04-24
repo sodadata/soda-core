@@ -3,7 +3,7 @@
 from setuptools import find_namespace_packages, setup
 
 package_name = "soda-core-athena"
-package_version = "3.3.1"
+package_version = "3.3.2"
 description = "Soda Core Athena Package"
 
 requires = [
