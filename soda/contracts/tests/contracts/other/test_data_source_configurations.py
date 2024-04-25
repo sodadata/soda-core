@@ -73,7 +73,7 @@ def test_invalid_username():
             ContractVerification.builder()
             .with_warehouse_yaml_str(warehouse_yaml_str)
             .execute()
-            .assert_no_problems()
+            .assert_ok()
         )
         raise AssertionError("Expected SodaException from the .assert_no_problems()")
     except SodaException as e:

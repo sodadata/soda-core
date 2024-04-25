@@ -64,7 +64,7 @@ def test_contract_verification_api(test_warehouse: TestWarehouse, environ: dict)
         .with_warehouse_yaml_str(warehouse_yaml_str)
         .with_variables({"TABLE_NAME": table_name})
         .execute()
-        .assert_no_problems()
+        .assert_ok()
     )
 
     logging.debug(str(contract_verification_result))

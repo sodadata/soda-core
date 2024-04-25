@@ -101,7 +101,9 @@ class Contract:
                 self.checks.append(SchemaCheck(
                     logs=self.logs,
                     contract_file=self.contract_file,
-                    verification_context=self.verification_context,
+                    warehouse=self.warehouse_name,
+                    schema=self.schema,
+                    dataset=self.dataset,
                     yaml_contract=contract_yaml_dict
                 ))
 
@@ -114,6 +116,7 @@ class Contract:
                             for check_yaml in check_yamls:
                                 check_type: str | None = yaml_helper.read_string(check_yaml, "type")
                                 check_name = yaml_helper.read_string_opt(check_yaml,"name")
+                                check_name_was = yaml_helper.read_string_opt(check_yaml, "name_was")
 
                                 missing_configurations: MissingConfigurations | None = self.__parse_missing_configurations(
                                     check_yaml=check_yaml, column=column
@@ -130,10 +133,14 @@ class Contract:
                                 check_args: CheckArgs = CheckArgs(
                                     logs=self.logs,
                                     contract_file=self.contract_file,
-                                    verification_context=self.verification_context,
+                                    warehouse=self.warehouse_name,
+                                    schema=self.schema,
+                                    dataset=self.dataset,
+                                    filter=self.filter,
                                     check_type=check_type,
                                     check_yaml=check_yaml,
                                     check_name=check_name,
+                                    check_name_was=check_name_was,
                                     threshold=threshold,
                                     location=location,
                                     yaml_helper=yaml_helper,
@@ -166,6 +173,7 @@ class Contract:
                     for check_yaml in check_yamls:
                         check_type: str | None = yaml_helper.read_string(check_yaml, "type")
                         check_name = yaml_helper.read_string_opt(check_yaml,"name")
+                        check_name_was = yaml_helper.read_string_opt(check_yaml,"name_was")
                         threshold: Threshold = self.__parse_numeric_threshold(
                             check_yaml=check_yaml
                         )
@@ -175,10 +183,14 @@ class Contract:
                         check_args: CheckArgs = CheckArgs(
                             logs=self.logs,
                             contract_file=self.contract_file,
-                            verification_context=self.verification_context,
+                            warehouse=self.warehouse_name,
+                            schema=self.schema,
+                            dataset=self.dataset,
+                            filter=self.filter,
                             check_type=check_type,
                             check_yaml=check_yaml,
                             check_name=check_name,
+                            check_name_was=check_name_was,
                             threshold=threshold,
                             location=location,
                             yaml_helper=yaml_helper,
@@ -196,7 +208,7 @@ class Contract:
                             self.checks.append(check)
                         else:
                             self.logs.error(
-                                message=f"Invalid dataset {check_args.check_type} check",
+                                message=f"Invalid dataset check {check_args.check_type}",
                                 location=check_args.location
                             )
 
@@ -474,9 +486,9 @@ class ContractResult:
                 if scan_check.get("name") == "Schema Check" and scan_check.get("type") == "generic":
                     contract_check = schema_check
                 else:
-                    contract_check_id = scan_check.get("contract_check_id")
-                    if isinstance(contract_check_id, str):
-                        contract_check = contract_checks_by_id[contract_check_id]
+                    source_identity = scan_check.get("source_identity")
+                    if isinstance(source_identity, str):
+                        contract_check = contract_checks_by_id[source_identity]
 
                 assert contract_check is not None, "Contract scan check matching failed :("
 

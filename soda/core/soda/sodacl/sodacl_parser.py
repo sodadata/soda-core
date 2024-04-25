@@ -56,7 +56,6 @@ ANOMALY_DETECTION_TAKE_OVER_EXISTING_ANOMALY_SCORE_CHECK = "take_over_existing_a
 ANOMALY_DETECTION_SEVERITY_LEVEL_PARAMETERS = "severity_level_parameters"
 ANOMALY_DETECTION_WARN_ONLY = "warn_only"
 ATTRIBUTES = "attributes"
-CONTRACT_CHECK_ID = "contract check id"
 FAIL = "fail"
 FAIL_CONDITION = "fail condition"
 FAIL_QUERY = "fail query"
@@ -714,7 +713,6 @@ class SodaCLParser(Parser):
                     SAMPLES_LIMIT,
                     ATTRIBUTES,
                     ANOMALY_DETECTION_WARN_ONLY,
-                    CONTRACT_CHECK_ID,
                 ]:
                     if metric_name != "distribution_difference":
                         self.logs.error(
@@ -1382,7 +1380,7 @@ class SodaCLParser(Parser):
             samples_limit = self._get_optional(SAMPLES_LIMIT, int)
 
             for configuration_key in check_configurations:
-                if configuration_key not in [NAME, SAMPLES_LIMIT, ATTRIBUTES, CONTRACT_CHECK_ID]:
+                if configuration_key not in [NAME, SAMPLES_LIMIT, ATTRIBUTES]:
                     self.logs.error(
                         f"Invalid reference check configuration key {configuration_key}", location=self.location
                     )

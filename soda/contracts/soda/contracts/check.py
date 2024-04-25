@@ -8,8 +8,7 @@ from enum import Enum
 from numbers import Number
 from typing import Dict
 
-from plotly.graph_objs.indicator.gauge import Threshold
-
+from soda.contracts.impl.consistent_hash_builder import ConsistentHashBuilder
 from soda.contracts.impl.logs import Logs, Location
 from soda.contracts.impl.yaml_helper import YamlHelper, YamlFile
 from soda.scan import Scan
@@ -23,13 +22,17 @@ class Check(ABC):
             self,
             logs: Logs,
             contract_file: YamlFile,
-            verification_context: str,
+            warehouse: str,
+            schema: str | None,
+            dataset: str,
             check_type: str,
             check_yaml: dict
     ):
         self.logs: Logs = logs
         self.contract_file: YamlFile = contract_file
-        self.verification_context: str = verification_context
+        self.warehouse: str = warehouse
+        self.schema: str | None = schema
+        self.dataset: str = dataset
         self.type: str = check_type
         self.check_yaml: dict = check_yaml
         self.identity: str = self._create_identity()
@@ -45,8 +48,9 @@ class Check(ABC):
     ) -> CheckResult:
         pass
 
+    @abstractmethod
     def _create_identity(self) -> str:
-        return f"{self.verification_context},type={self.type}"
+        pass
 
 
 class CheckResult:
@@ -82,11 +86,21 @@ class CheckResult:
 
 class SchemaCheck(Check):
 
-    def __init__(self, logs: Logs, contract_file: YamlFile, verification_context: str, yaml_contract: dict):
+    def __init__(
+            self,
+            logs: Logs,
+            contract_file: YamlFile,
+            warehouse: str,
+            schema: str | None,
+            dataset: str,
+            yaml_contract: dict
+    ):
         super().__init__(
             logs=logs,
             contract_file=contract_file,
-            verification_context=verification_context,
+            warehouse=warehouse,
+            schema=schema,
+            dataset=dataset,
             check_type="schema",
             check_yaml=yaml_contract
         )
@@ -110,6 +124,15 @@ class SchemaCheck(Check):
                 if is_column_optional:
                     self.optional_columns.append(column_name)
 
+    def _create_identity(self) -> str:
+        return (
+            ConsistentHashBuilder()
+            .add_property("warehouse", self.warehouse)
+            .add_property("schema", self.schema)
+            .add_property("dataset", self.dataset)
+            .add_property("type", self.type)
+            .get_hash()
+        )
 
     def to_sodacl_check(self) -> str | dict | None:
         schema_fail_dict = {"when mismatching columns": self.columns}
@@ -203,10 +226,14 @@ class SchemaCheckResult(CheckResult):
 class CheckArgs:
     logs: Logs
     contract_file: YamlFile
-    verification_context: str
+    warehouse: str
+    schema: str | None
+    dataset: str
+    filter: str | None
     check_type: str
     check_yaml: dict
     check_name: str | None
+    check_name_was: str | None
     threshold: Threshold
     location: Location
     yaml_helper: YamlHelper
@@ -250,36 +277,54 @@ class AbstractCheck(Check, ABC):
     ]
 
     def __init__(self, check_args: CheckArgs):
+        # name is initialized before super constructor because it's used in the _create_identity
+        self.name: str | None = check_args.check_name
+        # column is initialized before super constructor because it's used in the _create_identity
+        self.column: str | None = check_args.column
         super().__init__(
             logs=check_args.logs,
             contract_file=check_args.contract_file,
-            verification_context=check_args.verification_context,
+            warehouse=check_args.warehouse,
+            schema=check_args.schema,
+            dataset=check_args.dataset,
             check_type=check_args.check_type,
             check_yaml=check_args.check_yaml
         )
-        self.name: str | None = check_args.check_name
-        self.column: str | None = check_args.column
+        self.name_was: str | None = check_args.check_name_was
         self.missing_configurations: MissingConfigurations = check_args.missing_configurations
         self.valid_configurations: ValidConfigurations = check_args.valid_configurations
         self.threshold: Threshold = check_args.threshold
         self.location: Location = check_args.location
 
     def _create_identity(self) -> str:
-        # TODO check the identity suffix with a regex so it is all lower case, numbers and underscores no spaces.
-        #      Either here or better yet in the json schema, but then make sure it's in the errors
+        return self._create_identity_with_name(self.name)
 
-        identity = f"{self.verification_context},type={self.type}"
+    def _create_identity_with_name(self, name: str) -> str:
+        return (
+            ConsistentHashBuilder()
+            .add_property("warehouse", self.warehouse)
+            .add_property("schema", self.schema)
+            .add_property("dataset", self.dataset)
+            .add_property("column", self.column)
+            .add_property("type", self.type)
+            .add_property("name", name)
+            .get_hash()
+        )
 
-        # Check identifier used to correlate the sodacl check results with this contract check object when parsing
-        # scan results.  Also used as correlation id in Soda Cloud to match subsequent results for the same check.
-        # Composite key created from schedule, dataset, column, type and identity_suffix.
-        yaml_helper: YamlHelper = YamlHelper(self.logs)
-        identity_suffix = yaml_helper.read_string_opt(self.check_yaml, "identity_suffix")
-        if identity_suffix:
-            identity += f",identity_suffix={identity_suffix}"
-
-        return identity
-
+    def _create_sodacl_check_configs(self, check_specific_configs: dict | None = None) -> dict:
+        check_configs: dict = {
+            "identity": self.identity
+        }
+        if self.name:
+            check_configs["name"] = self.name
+        if self.name_was:
+            identity_was: str = self._create_identity_with_name(self.name_was)
+            check_configs["identity_was"] = identity_was
+        if isinstance(check_specific_configs, dict):
+            for key, value in check_specific_configs.items():
+                if value is not None:
+                    check_configs[key] = value
+        return check_configs
 
 class MissingCheckFactory(CheckFactory):
     def create_check(self, check_args: CheckArgs) -> Check | None:
@@ -384,11 +429,7 @@ class MetricCheck(AbstractCheck):
 
     def to_sodacl_check(self) -> str | dict | None:
         sodacl_check_line = self.get_sodacl_check_line()
-
-        sodacl_check_configs = {"contract check id": self.identity}
-
-        if self.name:
-            sodacl_check_configs["name"] = self.name
+        sodacl_check_configs = self._create_sodacl_check_configs()
 
         if self.valid_configurations:
             sodacl_check_configs.update(self.valid_configurations.to_sodacl_check_configs_dict())
@@ -452,10 +493,7 @@ class ReferenceDataCheck(MetricCheck):
         )
 
     def to_sodacl_check(self) -> str | dict | None:
-        sodacl_check_configs = {"contract check id": self.identity}
-
-        if self.name:
-            sodacl_check_configs["name"] = self.name
+        sodacl_check_configs = self._create_sodacl_check_configs()
 
         if self.valid_configurations:
             sodacl_check_configs.update(self.valid_configurations.to_sodacl_check_configs_dict())
@@ -491,12 +529,9 @@ class UserDefinedMetricExpressionCheck(MetricCheck):
         self.expression_sql: str = check_yaml.get("expression_sql")
 
     def to_sodacl_check(self) -> str | dict | None:
-        sodacl_check_configs = {
-            "contract check id": self.identity,
-            f"{self.metric} expression": self.expression_sql,
-        }
-        if self.name:
-            sodacl_check_configs["name"] = self.name
+        sodacl_check_configs = self._create_sodacl_check_configs({
+          f"{self.metric} expression": self.expression_sql
+        })
 
         sodacl_checkline_threshold = self.threshold.get_sodacl_threshold()
         sodacl_check_line = f"{self.get_sodacl_metric()} {sodacl_checkline_threshold}"
@@ -528,12 +563,9 @@ class UserDefinedMetricQueryCheck(MetricCheck):
         self.query_sql: str = check_args.yaml_helper.read_string(check_yaml, "query_sql")
 
     def to_sodacl_check(self) -> str | dict | None:
-        sodacl_check_configs = {
-            "contract check id": self.identity,
-            f"{self.metric} query": self.query_sql,
-        }
-        if self.name:
-            sodacl_check_configs["name"] = self.name
+        sodacl_check_configs = self._create_sodacl_check_configs({
+          f"{self.metric} query": self.query_sql
+        })
 
         sodacl_check_line: str = self.get_sodacl_check_line()
 
@@ -572,12 +604,7 @@ class FreshnessCheck(AbstractCheck):
         return sodacl_time_unit_by_check_type.get(self.type)
 
     def to_sodacl_check(self) -> str | dict | None:
-        sodacl_check_configs = {
-            "contract check id": self.identity,
-        }
-        if self.name:
-            sodacl_check_configs["name"] = self.name
-
+        sodacl_check_configs = self._create_sodacl_check_configs()
         sodacl_check_line: str = self.get_definition_line()
         return {sodacl_check_line: sodacl_check_configs}
 
