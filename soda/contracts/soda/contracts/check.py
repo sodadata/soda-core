@@ -234,6 +234,7 @@ class CheckArgs:
     check_yaml: dict
     check_name: str | None
     check_name_was: str | None
+    check_filter_sql: str | None
     threshold: Threshold
     location: Location
     yaml_helper: YamlHelper
@@ -291,6 +292,7 @@ class AbstractCheck(Check, ABC):
             check_yaml=check_args.check_yaml
         )
         self.name_was: str | None = check_args.check_name_was
+        self.filter_sql: str | None = check_args.check_filter_sql
         self.missing_configurations: MissingConfigurations = check_args.missing_configurations
         self.valid_configurations: ValidConfigurations = check_args.valid_configurations
         self.threshold: Threshold = check_args.threshold
@@ -320,6 +322,8 @@ class AbstractCheck(Check, ABC):
         if self.name_was:
             identity_was: str = self._create_identity_with_name(self.name_was)
             check_configs["identity_was"] = identity_was
+        if self.filter_sql:
+            check_configs["filter"] = self.filter_sql
         if isinstance(check_specific_configs, dict):
             for key, value in check_specific_configs.items():
                 if value is not None:

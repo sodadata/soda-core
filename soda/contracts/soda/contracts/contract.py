@@ -117,6 +117,7 @@ class Contract:
                                 check_type: str | None = yaml_helper.read_string(check_yaml, "type")
                                 check_name = yaml_helper.read_string_opt(check_yaml,"name")
                                 check_name_was = yaml_helper.read_string_opt(check_yaml, "name_was")
+                                check_filter_sql = yaml_helper.read_string_opt(check_yaml, "filter_sql")
 
                                 missing_configurations: MissingConfigurations | None = self.__parse_missing_configurations(
                                     check_yaml=check_yaml, column=column
@@ -141,6 +142,7 @@ class Contract:
                                     check_yaml=check_yaml,
                                     check_name=check_name,
                                     check_name_was=check_name_was,
+                                    check_filter_sql=check_filter_sql,
                                     threshold=threshold,
                                     location=location,
                                     yaml_helper=yaml_helper,
@@ -174,6 +176,7 @@ class Contract:
                         check_type: str | None = yaml_helper.read_string(check_yaml, "type")
                         check_name = yaml_helper.read_string_opt(check_yaml,"name")
                         check_name_was = yaml_helper.read_string_opt(check_yaml,"name_was")
+                        check_filter_sql = yaml_helper.read_string_opt(check_yaml, "filter_sql")
                         threshold: Threshold = self.__parse_numeric_threshold(
                             check_yaml=check_yaml
                         )
@@ -191,6 +194,7 @@ class Contract:
                             check_yaml=check_yaml,
                             check_name=check_name,
                             check_name_was=check_name_was,
+                            check_filter_sql=check_filter_sql,
                             threshold=threshold,
                             location=location,
                             yaml_helper=yaml_helper,
