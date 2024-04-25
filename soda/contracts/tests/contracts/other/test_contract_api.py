@@ -6,8 +6,12 @@ from textwrap import dedent
 
 from contracts.helpers.test_warehouse import TestWarehouse
 from helpers.test_table import TestTable
-from soda.contracts.contract_verification import ContractVerification, ContractVerificationResult
 from soda.execution.data_type import DataType
+
+from soda.contracts.contract_verification import (
+    ContractVerification,
+    ContractVerificationResult,
+)
 
 contracts_api_test_table = TestTable(
     name="contracts_api",

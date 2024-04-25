@@ -6,18 +6,19 @@ from numbers import Number
 from ruamel.yaml import CommentedMap, CommentedSeq, round_trip_dump
 from ruamel.yaml.error import MarkedYAMLError
 
-from soda.contracts.impl.logs import Logs, Location
+from soda.contracts.impl.logs import Location, Logs
 from soda.contracts.impl.variable_resolver import VariableResolver
 
 
 class YamlFile:
 
-    def __init__(self,
-                 logs: Logs,
-                 yaml_file_path: str | None = None,
-                 yaml_str: str | None = None,
-                 yaml_dict: dict | None = None,
-                 ):
+    def __init__(
+        self,
+        logs: Logs,
+        yaml_file_path: str | None = None,
+        yaml_str: str | None = None,
+        yaml_dict: dict | None = None,
+    ):
         self.file_path: str | None = yaml_file_path
         self.source_str: str | None = yaml_str
         self.resolved_str: str | None = None
@@ -51,6 +52,7 @@ class YamlFile:
         if isinstance(self.resolved_str, str) and self.dict is None:
             try:
                 from ruamel.yaml import YAML
+
                 ruamel_yaml: YAML = YAML()
                 ruamel_yaml.preserve_quotes = True
                 self.dict = ruamel_yaml.load(self.resolved_str)
@@ -167,11 +169,12 @@ class YamlHelper:
         """
         return self.read_value(d=d, key=key, expected_type=str, required=False, default_value=default_value)
 
-    def read_range(self, d: dict, key: str) -> "Range" | None:
+    def read_range(self, d: dict, key: str) -> Range | None:
         range_yaml: list | None = self.read_list_opt(d, key)
         if isinstance(range_yaml, list):
             if all(isinstance(range_value, Number) for range_value in range_yaml) and len(range_yaml) == 2:
                 from soda.contracts.check import Range
+
                 return Range(lower_bound=range_yaml[0], upper_bound=range_yaml[1])
             else:
                 location: Location = self.create_location_from_yaml_value(range_yaml)
@@ -223,7 +226,7 @@ class YamlHelper:
             location = self.create_location_from_yaml_dict_key(d, key)
             self.logs.error(
                 message=f"'{key}' expected a {expected_type.__name__}, but was {type(value).__name__}",
-                location=location
+                location=location,
             )
         return value
 
@@ -233,7 +236,7 @@ class QuotingSerializer:
     @classmethod
     def quote(cls, name: str) -> str:
         return (
-            f"\"{name}\""
+            f'"{name}"'
             # Depends on ruamel class names DoubleQuotedScalarString and SingleQuotedScalarString
             if isinstance(name, str) and "Quoted" in type(name).__name__
             else name

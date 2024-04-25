@@ -1,16 +1,16 @@
 import logging
 from textwrap import dedent
 
-from contracts.helpers.test_warehouse import TestWarehouse, TestContractVerification
+from contracts.helpers.test_warehouse import TestContractVerification, TestWarehouse
 from helpers.test_table import TestTable
-from soda.contracts.check import MetricCheck, MetricCheckResult, SchemaCheckResult
-from soda.contracts.contract import (
-    CheckOutcome,
-    ContractResult, Contract,
-)
-from soda.contracts.contract_verification import ContractVerification, ContractVerificationResult
 from soda.execution.data_type import DataType
 
+from soda.contracts.check import MetricCheck, MetricCheckResult, SchemaCheckResult
+from soda.contracts.contract import CheckOutcome, Contract, ContractResult
+from soda.contracts.contract_verification import (
+    ContractVerification,
+    ContractVerificationResult,
+)
 
 contracts_missing_test_table = TestTable(
     name="contracts_skip",
@@ -27,14 +27,15 @@ contracts_missing_test_table = TestTable(
 def test_skip_all_checks_except_schema_check(test_warehouse: TestWarehouse):
     table_name: str = test_warehouse.ensure_test_table(contracts_missing_test_table)
 
-    contract_yaml_str: str = dedent(f"""
+    contract_yaml_str: str = dedent(
+        f"""
         dataset: {table_name}
         columns:
           - name: one
             checks:
             - type: no_missing_values
-    """).strip()
-
+    """
+    ).strip()
 
     contract_yaml_str = dedent(contract_yaml_str).strip()
     logging.debug(contract_yaml_str)

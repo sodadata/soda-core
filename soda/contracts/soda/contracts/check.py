@@ -8,10 +8,11 @@ from enum import Enum
 from numbers import Number
 from typing import Dict
 
-from soda.contracts.impl.consistent_hash_builder import ConsistentHashBuilder
-from soda.contracts.impl.logs import Logs, Location
-from soda.contracts.impl.yaml_helper import YamlHelper, YamlFile, QuotingSerializer
 from soda.scan import Scan
+
+from soda.contracts.impl.consistent_hash_builder import ConsistentHashBuilder
+from soda.contracts.impl.logs import Location, Logs
+from soda.contracts.impl.yaml_helper import QuotingSerializer, YamlFile, YamlHelper
 
 logger = logging.getLogger(__name__)
 
@@ -19,14 +20,14 @@ logger = logging.getLogger(__name__)
 class Check(ABC):
 
     def __init__(
-            self,
-            logs: Logs,
-            contract_file: YamlFile,
-            warehouse: str,
-            schema: str | None,
-            dataset: str,
-            check_type: str,
-            check_yaml: dict
+        self,
+        logs: Logs,
+        contract_file: YamlFile,
+        warehouse: str,
+        schema: str | None,
+        dataset: str,
+        check_type: str,
+        check_yaml: dict,
     ):
         self.logs: Logs = logs
         self.contract_file: YamlFile = contract_file
@@ -55,10 +56,7 @@ class Check(ABC):
 
 class CheckResult:
 
-    def __init__(self,
-                 check: Check,
-                 outcome: CheckOutcome
-                 ):
+    def __init__(self, check: Check, outcome: CheckOutcome):
         self.check: Check = check
         self.outcome: CheckOutcome = outcome
 
@@ -87,13 +85,7 @@ class CheckResult:
 class SchemaCheck(Check):
 
     def __init__(
-            self,
-            logs: Logs,
-            contract_file: YamlFile,
-            warehouse: str,
-            schema: str | None,
-            dataset: str,
-            yaml_contract: dict
+        self, logs: Logs, contract_file: YamlFile, warehouse: str, schema: str | None, dataset: str, yaml_contract: dict
     ):
         super().__init__(
             logs=logs,
@@ -102,7 +94,7 @@ class SchemaCheck(Check):
             schema=schema,
             dataset=dataset,
             check_type="schema",
-            check_yaml=yaml_contract
+            check_yaml=yaml_contract,
         )
 
         self.columns: dict[str, str] = {}
@@ -136,12 +128,13 @@ class SchemaCheck(Check):
 
     def to_sodacl_check(self) -> str | dict | None:
         column_names: dict[str, str | None] = {
-            QuotingSerializer.quote(column_name): data_type
-            for column_name, data_type in self.columns.items()
+            QuotingSerializer.quote(column_name): data_type for column_name, data_type in self.columns.items()
         }
         schema_fail_dict = {"when mismatching columns": column_names}
         if self.optional_columns:
-            optional_column_names: list[str] = [QuotingSerializer.quote(column_name) for column_name in self.optional_columns]
+            optional_column_names: list[str] = [
+                QuotingSerializer.quote(column_name) for column_name in self.optional_columns
+            ]
             schema_fail_dict["with optional columns"] = optional_column_names
         return {"schema": {"fail": schema_fail_dict}}
 
@@ -176,14 +169,15 @@ class SchemaCheck(Check):
 
 class SchemaCheckResult(CheckResult):
 
-    def __init__(self,
-                 check: Check,
-                 outcome: CheckOutcome,
-                 measured_schema: Dict[str, str],
-                 columns_not_allowed_and_present: list[str] | None,
-                 columns_required_and_not_present: list[str] | None,
-                 columns_having_wrong_type: list[DataTypeMismatch] | None
-                 ):
+    def __init__(
+        self,
+        check: Check,
+        outcome: CheckOutcome,
+        measured_schema: Dict[str, str],
+        columns_not_allowed_and_present: list[str] | None,
+        columns_required_and_not_present: list[str] | None,
+        columns_having_wrong_type: list[DataTypeMismatch] | None,
+    ):
         super().__init__(check, outcome)
         self.measured_schema: Dict[str, str] = measured_schema
         self.columns_not_allowed_and_present: list[str] | None = columns_not_allowed_and_present
@@ -294,7 +288,7 @@ class AbstractCheck(Check, ABC):
             schema=check_args.schema,
             dataset=check_args.dataset,
             check_type=check_args.check_type,
-            check_yaml=check_args.check_yaml
+            check_yaml=check_args.check_yaml,
         )
         self.name_was: str | None = check_args.check_name_was
         self.filter_sql: str | None = check_args.check_filter_sql
@@ -319,9 +313,7 @@ class AbstractCheck(Check, ABC):
         )
 
     def _create_sodacl_check_configs(self, check_specific_configs: dict | None = None) -> dict:
-        check_configs: dict = {
-            "identity": self.identity
-        }
+        check_configs: dict = {"identity": self.identity}
         if self.name:
             check_configs["name"] = self.name
         if self.name_was:
@@ -334,6 +326,7 @@ class AbstractCheck(Check, ABC):
                 if value is not None:
                     check_configs[key] = value
         return check_configs
+
 
 class MissingCheckFactory(CheckFactory):
     def create_check(self, check_args: CheckArgs) -> Check | None:
@@ -365,14 +358,18 @@ class InvalidCheckFactory(CheckFactory):
                 threshold: Threshold | None = check_args.threshold
                 if check_type == "no_invalid_values":
                     if threshold and not threshold.is_empty():
-                        check_args.logs.error("Check type 'no_invalid_values' does not allow for threshold keys must_...")
+                        check_args.logs.error(
+                            "Check type 'no_invalid_values' does not allow for threshold keys must_..."
+                        )
                     else:
                         check_args.threshold = Threshold(equal=0)
                 elif not threshold or threshold.is_empty():
                     check_args.logs.error(f"Check type '{check_type}' requires threshold configuration")
 
                 if not valid_configurations or not valid_configurations.has_non_reference_data_configs():
-                    check_args.logs.error(f"Check type '{check_type}' must have a validity configuration like {AbstractCheck.validity_keys}")
+                    check_args.logs.error(
+                        f"Check type '{check_type}' must have a validity configuration like {AbstractCheck.validity_keys}"
+                    )
                 return MetricCheck(check_args=check_args, metric=metric)
 
 
@@ -478,11 +475,12 @@ class MetricCheck(AbstractCheck):
 
 
 class MetricCheckResult(CheckResult):
-    def __init__(self,
-                 check: Check,
-                 outcome: CheckOutcome,
-                 metric_value: Number,
-                 ):
+    def __init__(
+        self,
+        check: Check,
+        outcome: CheckOutcome,
+        metric_value: Number,
+    ):
         super().__init__(check, outcome)
         self.metric_value: Number = metric_value
 
@@ -521,9 +519,7 @@ class ReferenceDataCheck(MetricCheck):
     def create_check_result(self, scan_check: dict[str, dict], scan_check_metrics_by_name: dict[str, dict], scan: Scan):
         scan_metric_dict = scan_check_metrics_by_name.get("reference", {})
         value: Number = scan_metric_dict.get("value")
-        return MetricCheckResult(
-            check=self, outcome=CheckOutcome.from_scan_check(scan_check), metric_value=value
-        )
+        return MetricCheckResult(check=self, outcome=CheckOutcome.from_scan_check(scan_check), metric_value=value)
 
 
 class UserDefinedMetricExpressionCheckFactory(CheckFactory):
@@ -541,17 +537,14 @@ class UserDefinedMetricExpressionCheck(MetricCheck):
         self.expression_sql: str = check_yaml.get("expression_sql")
 
     def to_sodacl_check(self) -> str | dict | None:
-        sodacl_check_configs = self._create_sodacl_check_configs({
-          f"{self.metric} expression": self.expression_sql
-        })
+        sodacl_check_configs = self._create_sodacl_check_configs({f"{self.metric} expression": self.expression_sql})
 
         sodacl_checkline_threshold = self.threshold.get_sodacl_threshold()
         sodacl_check_line = f"{self.get_sodacl_metric()} {sodacl_checkline_threshold}"
 
         return {sodacl_check_line: sodacl_check_configs}
 
-    def create_check_result(self, scan_check: dict[str, dict], scan_check_metrics_by_name: dict[str, dict],
-                            scan: Scan):
+    def create_check_result(self, scan_check: dict[str, dict], scan_check_metrics_by_name: dict[str, dict], scan: Scan):
         scan_metric_dict: dict = scan_check_metrics_by_name.get(self.metric, None)
         metric_value: Number = scan_metric_dict.get("value") if scan_metric_dict else None
         return MetricCheckResult(
@@ -575,9 +568,7 @@ class UserDefinedMetricQueryCheck(MetricCheck):
         self.query_sql: str = check_args.yaml_helper.read_string(check_yaml, "query_sql")
 
     def to_sodacl_check(self) -> str | dict | None:
-        sodacl_check_configs = self._create_sodacl_check_configs({
-          f"{self.metric} query": self.query_sql
-        })
+        sodacl_check_configs = self._create_sodacl_check_configs({f"{self.metric} query": self.query_sql})
 
         sodacl_check_line: str = self.get_sodacl_check_line()
 
@@ -642,15 +633,16 @@ class FreshnessCheck(AbstractCheck):
 
 class FreshnessCheckResult(CheckResult):
 
-    def __init__(self,
-                 check: Check,
-                 outcome: CheckOutcome,
-                 freshness: str,
-                 freshness_column_max_value: str,
-                 freshness_column_max_value_utc: str,
-                 now: str,
-                 now_utc: str,
-                ):
+    def __init__(
+        self,
+        check: Check,
+        outcome: CheckOutcome,
+        freshness: str,
+        freshness_column_max_value: str,
+        freshness_column_max_value_utc: str,
+        now: str,
+        now_utc: str,
+    ):
         super().__init__(
             check=check,
             outcome=outcome,
@@ -693,10 +685,7 @@ class MultiColumnDuplicateCheck(MetricCheck):
         #     QuotingSerializer.quote(self.column) if self.column
         #     else ", ".join([QuotingSerializer.quote(column_name) for column_name in self.columns])
         # )
-        column_str = (
-            self.column if self.column
-            else ", ".join(self.columns)
-        )
+        column_str = self.column if self.column else ", ".join(self.columns)
         return f"{self.metric}({column_str})"
 
 

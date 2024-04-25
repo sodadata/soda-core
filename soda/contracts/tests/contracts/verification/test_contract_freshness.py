@@ -2,9 +2,9 @@ from datetime import datetime, timezone
 
 from contracts.helpers.test_warehouse import TestWarehouse
 from helpers.test_table import TestTable
-from soda.contracts.check import FreshnessCheckResult
 from soda.execution.data_type import DataType
 
+from soda.contracts.check import FreshnessCheckResult
 from soda.contracts.contract import CheckOutcome, ContractResult
 
 contracts_freshness_test_table = TestTable(

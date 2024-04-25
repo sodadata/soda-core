@@ -1,11 +1,9 @@
 from contracts.helpers.test_warehouse import TestWarehouse
 from helpers.test_table import TestTable
-from soda.contracts.check import MetricCheckResult, UserDefinedMetricQueryCheck
-from soda.contracts.contract import (
-    CheckOutcome,
-    ContractResult,
-)
 from soda.execution.data_type import DataType
+
+from soda.contracts.check import MetricCheckResult, UserDefinedMetricQueryCheck
+from soda.contracts.contract import CheckOutcome, ContractResult
 
 user_defined_metric_query_sql_test_table = TestTable(
     name="metric_query_query",

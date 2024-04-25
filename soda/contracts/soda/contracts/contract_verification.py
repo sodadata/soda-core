@@ -1,11 +1,14 @@
 from __future__ import annotations
 
-from soda.contracts.contract import ContractResult, Contract
-from soda.contracts.impl.contract_verification_impl import FileVerificationWarehouse, SparkVerificationWarehouse, \
-    VerificationWarehouse
+from soda.contracts.contract import Contract, ContractResult
+from soda.contracts.impl.contract_verification_impl import (
+    FileVerificationWarehouse,
+    SparkVerificationWarehouse,
+    VerificationWarehouse,
+)
 from soda.contracts.impl.logs import Logs
-from soda.contracts.impl.yaml_helper import YamlFile
 from soda.contracts.impl.soda_cloud import SodaCloud
+from soda.contracts.impl.yaml_helper import YamlFile
 
 
 class ContractVerificationBuilder:
@@ -20,7 +23,9 @@ class ContractVerificationBuilder:
 
     def with_contract_yaml_file(self, contract_yaml_file_path: str) -> ContractVerificationBuilder:
         if not isinstance(contract_yaml_file_path, str):
-            self.logs.error(message=f"In ContractVerificationBuilder, parameter contract_yaml_file_path must be a string, but was {contract_yaml_file_path} ({type(contract_yaml_file_path)})")
+            self.logs.error(
+                message=f"In ContractVerificationBuilder, parameter contract_yaml_file_path must be a string, but was {contract_yaml_file_path} ({type(contract_yaml_file_path)})"
+            )
         self.contract_files.append(YamlFile(yaml_file_path=contract_yaml_file_path, logs=self.logs))
         return self
 
@@ -52,10 +57,9 @@ class ContractVerificationBuilder:
         self.warehouse_yaml_files.append(warehouse_yaml_file)
         return self
 
-    def with_warehouse_spark_session(self,
-                                       spark_session: object,
-                                       warehouse_name: str = "spark_ds"
-                                       ) -> ContractVerificationBuilder:
+    def with_warehouse_spark_session(
+        self, spark_session: object, warehouse_name: str = "spark_ds"
+    ) -> ContractVerificationBuilder:
         assert isinstance(spark_session, object) and isinstance(warehouse_name, str)
         self.warehouse_spark_sessions[warehouse_name] = spark_session
         return self
@@ -139,7 +143,7 @@ class ContractVerification:
                     contract_file=contract_file,
                     variables=self.variables,
                     soda_cloud=self.soda_cloud,
-                    logs=contract_file.logs
+                    logs=contract_file.logs,
                 )
                 verification_warehouse.add_contract(contract)
                 self.contracts.append(contract)
@@ -153,12 +157,13 @@ class ContractVerification:
     def _initialize_verification_warehouses(self, contract_verification_builder: ContractVerificationBuilder) -> None:
         # Parse data sources
         for warehouse_yaml_file in contract_verification_builder.warehouse_yaml_files:
-            verification_warehouse: VerificationWarehouse = FileVerificationWarehouse(warehouse_yaml_file=warehouse_yaml_file)
+            verification_warehouse: VerificationWarehouse = FileVerificationWarehouse(
+                warehouse_yaml_file=warehouse_yaml_file
+            )
             self._initialize_verification_warehouse(verification_warehouse)
         for warehouse_name, spark_session in contract_verification_builder.warehouse_spark_sessions.items():
             verification_warehouse: VerificationWarehouse = SparkVerificationWarehouse(
-                spark_session=spark_session,
-                warehouse_name=warehouse_name
+                spark_session=spark_session, warehouse_name=warehouse_name
             )
             self._initialize_verification_warehouse(verification_warehouse)
 
@@ -172,9 +177,7 @@ class ContractVerification:
         for verification_warehouse in self.verification_warehouses_by_name.values():
             all_contract_results.extend(verification_warehouse.ensure_open_and_verify_contracts())
         return ContractVerificationResult(
-            logs=self.logs,
-            variables=self.variables,
-            contract_results=all_contract_results
+            logs=self.logs, variables=self.variables, contract_results=all_contract_results
         )
 
     def __str__(self) -> str:
@@ -200,10 +203,7 @@ class ContractVerificationResult:
         """
         Returns True if there are no execution errors and no check failures.
         """
-        return (
-            not self.logs.has_errors()
-            and all(contract_result.passed() for contract_result in self.contract_results)
-        )
+        return not self.logs.has_errors() and all(contract_result.passed() for contract_result in self.contract_results)
 
     def has_errors(self) -> bool:
         return self.logs.has_errors()
@@ -227,12 +227,7 @@ class ContractVerificationResult:
 
     @classmethod
     def __format_contract_results_with_heading(cls, contract_result: ContractResult) -> list[str]:
-        return [
-            f"# Contract results for {contract_result.contract.dataset}",
-            str(contract_result)
-        ]
-
-
+        return [f"# Contract results for {contract_result.contract.dataset}", str(contract_result)]
 
 
 class SodaException(Exception):
@@ -240,7 +235,9 @@ class SodaException(Exception):
     See also adr/03_exceptions_vs_error_logs.md
     """
 
-    def __init__(self, message: str | None = None, contract_verification_result: ContractVerificationResult | None = None):
+    def __init__(
+        self, message: str | None = None, contract_verification_result: ContractVerificationResult | None = None
+    ):
         self.contract_verification_result: ContractVerificationResult | None = contract_verification_result
         message_parts: list[str] = []
         if message:

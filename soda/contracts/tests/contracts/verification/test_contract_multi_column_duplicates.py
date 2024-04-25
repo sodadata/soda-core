@@ -1,12 +1,13 @@
 from contracts.helpers.test_warehouse import TestWarehouse
 from helpers.test_table import TestTable
-from soda.contracts.check import MetricCheckResult, MultiColumnDuplicateCheck, MetricCheck
 from soda.execution.data_type import DataType
 
-from soda.contracts.contract import (
-    CheckOutcome,
-    ContractResult,
+from soda.contracts.check import (
+    MetricCheck,
+    MetricCheckResult,
+    MultiColumnDuplicateCheck,
 )
+from soda.contracts.contract import CheckOutcome, ContractResult
 
 contracts_multi_column_duplicates_test_table = TestTable(
     name="multi_column_duplicates",

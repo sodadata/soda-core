@@ -5,13 +5,16 @@ from textwrap import dedent
 
 from helpers.data_source_fixture import DataSourceFixture
 from helpers.test_table import TestTable
-from soda.contracts.contract_verification import ContractVerification, ContractVerificationBuilder, \
-    ContractVerificationResult
-from soda.contracts.impl.warehouse import Warehouse
-from soda.contracts.impl.contract_verification_impl import VerificationWarehouse
 from soda.execution.data_type import DataType
 
 from soda.contracts.contract import ContractResult
+from soda.contracts.contract_verification import (
+    ContractVerification,
+    ContractVerificationBuilder,
+    ContractVerificationResult,
+)
+from soda.contracts.impl.contract_verification_impl import VerificationWarehouse
+from soda.contracts.impl.warehouse import Warehouse
 
 
 class TestVerificationWarehouse(VerificationWarehouse):
@@ -47,7 +50,9 @@ class TestContractVerification(ContractVerification):
     def __init__(self, test_contract_verification_builder: TestContractVerificationBuilder):
         super().__init__(contract_verification_builder=test_contract_verification_builder)
 
-    def _initialize_verification_warehouses(self, contract_verification_builder: TestContractVerificationBuilder) -> None:
+    def _initialize_verification_warehouses(
+        self, contract_verification_builder: TestContractVerificationBuilder
+    ) -> None:
         super()._initialize_verification_warehouses(contract_verification_builder)
         warehouse: Warehouse = contract_verification_builder.warehouse
         warehouse_name: str = warehouse.warehouse_name
@@ -122,7 +127,9 @@ class TestWarehouse(Warehouse):
         #         raise AssertionError(str(e.contract_result))
         #     contract_result = e.contract_result
 
-    def assert_contract_error(self, contract_yaml_str: str, variables: dict[str, str] | None = None) -> ContractVerificationResult:
+    def assert_contract_error(
+        self, contract_yaml_str: str, variables: dict[str, str] | None = None
+    ) -> ContractVerificationResult:
         contract_yaml_str = dedent(contract_yaml_str).strip()
         logging.debug(contract_yaml_str)
         contract_verification_result: ContractVerificationResult = (

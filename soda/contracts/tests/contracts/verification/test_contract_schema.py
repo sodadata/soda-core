@@ -2,13 +2,10 @@ import logging
 
 from contracts.helpers.test_warehouse import TestWarehouse
 from helpers.test_table import TestTable
-from soda.contracts.check import SchemaCheckResult, SchemaCheck
-
-from soda.contracts.contract import (
-    CheckOutcome,
-    ContractResult,
-)
 from soda.execution.data_type import DataType
+
+from soda.contracts.check import SchemaCheck, SchemaCheckResult
+from soda.contracts.contract import CheckOutcome, ContractResult
 
 logger = logging.getLogger(__name__)
 

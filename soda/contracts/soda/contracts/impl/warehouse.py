@@ -1,18 +1,18 @@
 from __future__ import annotations
 
 import logging
-from abc import abstractmethod, ABC
+from abc import ABC, abstractmethod
 
 import soda.common.logs as soda_common_logs
-from soda.contracts.impl.logs import Logs
-from soda.contracts.impl.yaml_helper import YamlHelper, YamlFile
 from soda.execution.data_source import DataSource
+
+from soda.contracts.impl.logs import Logs
+from soda.contracts.impl.yaml_helper import YamlFile, YamlHelper
 
 logger = logging.getLogger(__name__)
 
 
 class Warehouse:
-
     """
     Represents the configurations to create a connection. Usually it's loaded from a YAML file.
     """
@@ -74,7 +74,7 @@ class ClWarehouse(Warehouse, ABC):
         self.sodacl_data_source: DataSource | None = None
 
     def _create_dbapi_connection(self) -> object:
-        self.sodacl_data_source: DataSource= self._create_sodacl_data_source()
+        self.sodacl_data_source: DataSource = self._create_sodacl_data_source()
         try:
             self.sodacl_data_source.connect()
         except Exception as e:
@@ -128,9 +128,7 @@ class SparkSessionClWarehouse(ClWarehouse):
                 logs=soda_common_logs.Logs(logger=logger),
                 data_source_name=self.warehouse_name,
                 data_source_type=self.warehouse_type,
-                data_source_properties={
-                    "spark_session": self.spark_session
-                },
+                data_source_properties={"spark_session": self.spark_session},
             )
         except Exception as e:
             self.logs.error(message=f"Could not create the spark session data source: {e}", exception=e)

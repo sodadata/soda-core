@@ -1,12 +1,9 @@
 from contracts.helpers.test_warehouse import TestWarehouse
 from helpers.test_table import TestTable
-from soda.contracts.check import MetricCheck, MetricCheckResult
 from soda.execution.data_type import DataType
 
-from soda.contracts.contract import (
-    CheckOutcome,
-    ContractResult,
-)
+from soda.contracts.check import MetricCheck, MetricCheckResult
+from soda.contracts.contract import CheckOutcome, ContractResult
 
 contracts_basic_sql_functions_check_types_test_table = TestTable(
     name="contracts_basic_sql_functions_check_type",
