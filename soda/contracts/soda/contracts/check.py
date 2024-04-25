@@ -688,6 +688,7 @@ class MultiColumnDuplicateCheck(MetricCheck):
         self.columns: list[str] = columns
 
     def get_sodacl_metric(self) -> str:
+        # https://sodadata.slack.com/archives/C02J6Q493PY/p1714052722844239
         # column_str = (
         #     QuotingSerializer.quote(self.column) if self.column
         #     else ", ".join([QuotingSerializer.quote(column_name) for column_name in self.columns])
