@@ -15,7 +15,7 @@ from soda.contracts.check import Check, MissingConfigurations, ValidConfiguratio
 from soda.contracts.impl.warehouse import Warehouse
 from soda.contracts.impl.json_schema_verifier import JsonSchemaVerifier
 from soda.contracts.impl.logs import Location, Log, LogLevel, Logs
-from soda.contracts.impl.yaml_helper import YamlHelper, YamlFile
+from soda.contracts.impl.yaml_helper import YamlHelper, YamlFile, QuotingSerializer
 from soda.contracts.impl.soda_cloud import SodaCloud
 from soda.scan import Scan
 from soda.scan import logger as scan_logger
@@ -434,13 +434,15 @@ class Contract:
     def __generate_sodacl_yaml_str(self) -> str:
         # Serialize the SodaCL YAML object to a YAML string
         sodacl_checks: list = []
+
+        dataset_name: str = QuotingSerializer.quote(self.dataset)
         sodacl_yaml_object: dict = (
             {
-                f"filter {self.dataset} [filter]": {"where": self.filter_sql},
-                f"checks for {self.dataset} [filter]": sodacl_checks,
+                f"filter {dataset_name} [filter]": {"where": self.filter_sql},
+                f"checks for {dataset_name} [filter]": sodacl_checks,
             }
             if self.filter_sql
-            else {f"checks for {self.dataset}": sodacl_checks}
+            else {f"checks for {dataset_name}": sodacl_checks}
         )
 
         for check in self.checks:

@@ -10,7 +10,7 @@ from typing import Dict
 
 from soda.contracts.impl.consistent_hash_builder import ConsistentHashBuilder
 from soda.contracts.impl.logs import Logs, Location
-from soda.contracts.impl.yaml_helper import YamlHelper, YamlFile
+from soda.contracts.impl.yaml_helper import YamlHelper, YamlFile, QuotingSerializer
 from soda.scan import Scan
 
 logger = logging.getLogger(__name__)
@@ -135,9 +135,14 @@ class SchemaCheck(Check):
         )
 
     def to_sodacl_check(self) -> str | dict | None:
-        schema_fail_dict = {"when mismatching columns": self.columns}
+        column_names: dict[str, str | None] = {
+            QuotingSerializer.quote(column_name): data_type
+            for column_name, data_type in self.columns.items()
+        }
+        schema_fail_dict = {"when mismatching columns": column_names}
         if self.optional_columns:
-            schema_fail_dict["with optional columns"] = self.optional_columns
+            optional_column_names: list[str] = [QuotingSerializer.quote(column_name) for column_name in self.optional_columns]
+            schema_fail_dict["with optional columns"] = optional_column_names
         return {"schema": {"fail": schema_fail_dict}}
 
     def create_check_result(self, scan_check: dict[str, dict], scan_check_metrics_by_name: dict[str, dict], scan: Scan):
@@ -459,7 +464,8 @@ class MetricCheck(AbstractCheck):
         return f"{sodacl_metric} {sodacl_threshold}"
 
     def get_sodacl_metric(self) -> str:
-        return f"{self.metric}({self.column})" if self.column else self.metric
+        column_name: str = QuotingSerializer.quote(self.column)
+        return f"{self.metric}({column_name})" if column_name else self.metric
 
     def get_sodacl_threshold(self) -> str:
         return self.threshold.get_sodacl_threshold() if self.threshold else "?"
@@ -505,7 +511,9 @@ class ReferenceDataCheck(MetricCheck):
             sodacl_check_configs.update(self.missing_configurations.to_sodacl_check_configs_dict())
 
         sodacl_check_line: str = (
-            f"values in ({self.column}) must exist in {self.valid_values_reference_data.dataset} ({self.valid_values_reference_data.column})"
+            f"values in ({QuotingSerializer.quote(self.column)}) "
+            f"must exist in {QuotingSerializer.quote(self.valid_values_reference_data.dataset)} "
+            f"({QuotingSerializer.quote(self.valid_values_reference_data.column)})"
         )
 
         return {sodacl_check_line: sodacl_check_configs}
@@ -597,7 +605,8 @@ class FreshnessCheck(AbstractCheck):
         super().__init__(check_args)
 
     def get_definition_line(self) -> str:
-        return f"freshness({self.column}) {self.threshold.get_sodacl_threshold()}{self.get_sodacl_time_unit()}"
+        column_name: str = QuotingSerializer.quote(self.column)
+        return f"freshness({column_name}) {self.threshold.get_sodacl_threshold()}{self.get_sodacl_time_unit()}"
 
     def get_sodacl_time_unit(self) -> str:
         sodacl_time_unit_by_check_type = {
@@ -679,7 +688,14 @@ class MultiColumnDuplicateCheck(MetricCheck):
         self.columns: list[str] = columns
 
     def get_sodacl_metric(self) -> str:
-        column_str = self.column if self.column else ", ".join(self.columns)
+        # column_str = (
+        #     QuotingSerializer.quote(self.column) if self.column
+        #     else ", ".join([QuotingSerializer.quote(column_name) for column_name in self.columns])
+        # )
+        column_str = (
+            self.column if self.column
+            else ", ".join(self.columns)
+        )
         return f"{self.metric}({column_str})"
 
 

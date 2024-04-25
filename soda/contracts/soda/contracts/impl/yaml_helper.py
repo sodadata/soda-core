@@ -226,3 +226,15 @@ class YamlHelper:
                 location=location
             )
         return value
+
+
+class QuotingSerializer:
+
+    @classmethod
+    def quote(cls, name: str) -> str:
+        return (
+            f"\"{name}\""
+            # Depends on ruamel class names DoubleQuotedScalarString and SingleQuotedScalarString
+            if isinstance(name, str) and "Quoted" in type(name).__name__
+            else name
+        )

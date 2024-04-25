@@ -36,7 +36,9 @@ def test_contract_multi_column_no_duplicate_values(test_warehouse: TestWarehouse
           - name: zip
         checks:
           - type: no_duplicate_values
-            columns: ['country_code', 'zip']
+            columns:
+            - country_code
+            - zip
     """
     )
     assert "Actual duplicate_count(country_code, zip) was 1" in str(contract_result)
