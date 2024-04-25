@@ -4,7 +4,6 @@
 * [ ] Close the connection if opened at end of execute
 * [ ] Quoting problem https://github.com/sodadata/soda-core/issues/2056
 * [ ] filter_sql on checks https://github.com/sodadata/soda-core/issues/2054
-* [ ] Documenting the spark session approach 
 * [ ] Document recommended file structure (can be embedded in the git repo with the transformation source code or in a separate repo)
   * soda 
     * dsone_datasource.yml

@@ -21,4 +21,4 @@ columns:
         expression: AVG(CASE WHEN country = 'US' THEN distance END)
         must_be_between: [10, 20]
 checks:
-  - type: rows_required
+  - type: rows_exist
