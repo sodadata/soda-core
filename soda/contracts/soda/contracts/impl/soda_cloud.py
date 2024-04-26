@@ -20,7 +20,7 @@ class SodaCloud:
             environment_variable_name: str = f"SODA_CLOUD_{key.upper()}"
             default_value = os.environ.get(environment_variable_name, default_value)
             value = yaml_helper.read_string_opt(d=configuration_dict, key=key, default_value=default_value)
-            if not isinstance(value, str):
+            if is_required and not isinstance(value, str):
                 logs.error(f"Soda Cloud configuration '{key}' not provided as configuration nor environment variable")
             return value
 

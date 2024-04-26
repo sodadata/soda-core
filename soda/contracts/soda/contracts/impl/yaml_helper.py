@@ -27,49 +27,60 @@ class YamlFile:
 
     def parse(self, variables: dict) -> bool:
         if self.file_path is None and self.source_str is None and self.dict is None:
-            self.logs.error(f"File not configured")
+            self.logs.error("File not configured")
 
         if isinstance(self.file_path, str) and self.source_str is None:
-            try:
-                with open(self.file_path) as f:
-                    self.source_str = f.read()
-            except OSError as e:
-                if not os.path.exists(self.file_path):
-                    self.logs.error(f"File '{self.file_path}' does not exist")
-                elif not os.path.isdir(self.file_path):
-                    self.logs.error(f"File path '{self.file_path}' is a directory")
-                else:
-                    self.logs.error(f"File '{self.file_path}' can't be read: {e}")
+            self.source_str = self.__read_file_as_str(file_path=self.file_path, logs=self.logs)
 
-        if isinstance(self.source_str, str) and self.resolved_str is None:
-            # Resolve all the ${VARIABLES} in the contract based on either the provided
-            # variables or system variables (os.environ)
-            variable_resolver = VariableResolver(logs=self.logs, variables=variables)
-            self.resolved_str = variable_resolver.resolve(self.source_str)
-        else:
-            self.resolved_str = self.source_str
+        self.resolved_str = self.__resolve_variables(source_str=self.source_str, variables=variables, logs=self.logs)
 
         if isinstance(self.resolved_str, str) and self.dict is None:
-            try:
-                from ruamel.yaml import YAML
-
-                ruamel_yaml: YAML = YAML()
-                ruamel_yaml.preserve_quotes = True
-                self.dict = ruamel_yaml.load(self.resolved_str)
-            except MarkedYAMLError as e:
-                mark = e.context_mark if e.context_mark else e.problem_mark
-                line = mark.line + 1
-                col = mark.column + 1
-                location = Location(file_path=self.get_file_name(), line=line, column=col)
-                self.logs.error(f"YAML syntax error: {e}", location)
+            self.dict = self.__parse_yaml_str(yaml_str=self.resolved_str, logs=self.logs)
 
         # It is assumed that if this parse is not ok, that an error has been logged
         return self.is_ok()
 
+    @classmethod
+    def __read_file_as_str(cls, file_path: str | None, logs: Logs) -> str | None:
+        try:
+            with open(file_path) as f:
+                return f.read()
+        except OSError as e:
+            if not os.path.exists(file_path):
+                logs.error(f"File '{file_path}' does not exist")
+            elif not os.path.isdir(file_path):
+                logs.error(f"File path '{file_path}' is a directory")
+            else:
+                logs.error(f"File '{file_path}' can't be read: {e}")
+
+    @classmethod
+    def __resolve_variables(cls, source_str: str | None, variables: dict[str, str] | None, logs: Logs) -> str | None:
+        if isinstance(source_str, str):
+            # Resolve all the ${VARIABLES} in the contract based on either the provided
+            # variables or system variables (os.environ)
+            variable_resolver = VariableResolver(logs=logs, variables=variables)
+            return variable_resolver.resolve(source_str)
+        else:
+            return source_str
+
+    def __parse_yaml_str(self, yaml_str: str | None, logs: Logs) -> dict | None:
+        try:
+            from ruamel.yaml import YAML
+
+            ruamel_yaml: YAML = YAML()
+            ruamel_yaml.preserve_quotes = True
+            return ruamel_yaml.load(yaml_str)
+        except MarkedYAMLError as e:
+            mark = e.context_mark if e.context_mark else e.problem_mark
+            line = mark.line + 1
+            col = mark.column + 1
+            location = Location(file_path=self.get_file_description(), line=line, column=col)
+            logs.error(f"YAML syntax error: {e}", location)
+
     def is_ok(self):
         return isinstance(self.dict, dict)
 
-    def get_file_name(self) -> str:
+    def get_file_description(self) -> str:
         if self.file_path:
             return self.file_path
         if self.source_str:
@@ -98,15 +109,18 @@ class YamlHelper:
 
     def create_location_from_yaml_dict_key(self, d: dict, key) -> Location | None:
         if isinstance(d, CommentedMap):
-            ruamel_location = d.lc.value(key)
-            line: int = ruamel_location[0]
-            column: int = ruamel_location[1]
-            return Location(file_path=self.yaml_file.get_file_name(), line=line, column=column)
+            if key in d:
+                ruamel_location = d.lc.value(key)
+                line: int = ruamel_location[0]
+                column: int = ruamel_location[1]
+                return Location(file_path=self.yaml_file.get_file_description(), line=line, column=column)
+            else:
+                return self.create_location_from_yaml_value(d)
         return None
 
-    def create_location_from_yaml_value(self, d: object, file_path: str | None) -> Location | None:
+    def create_location_from_yaml_value(self, d: object) -> Location | None:
         if isinstance(d, CommentedMap) or isinstance(d, CommentedSeq):
-            return Location(file_path=self.yaml_file.get_file_name(), line=d.lc.line, column=d.lc.col)
+            return Location(file_path=self.yaml_file.get_file_description(), line=d.lc.line, column=d.lc.col)
         return None
 
     def read_dict(self, d: dict, key: str) -> dict | None:
@@ -169,12 +183,11 @@ class YamlHelper:
         """
         return self.read_value(d=d, key=key, expected_type=str, required=False, default_value=default_value)
 
-    def read_range(self, d: dict, key: str) -> Range | None:
+    def read_range(self, d: dict, key: str): # returns Range | None
         range_yaml: list | None = self.read_list_opt(d, key)
         if isinstance(range_yaml, list):
             if all(isinstance(range_value, Number) for range_value in range_yaml) and len(range_yaml) == 2:
                 from soda.contracts.check import Range
-
                 return Range(lower_bound=range_yaml[0], upper_bound=range_yaml[1])
             else:
                 location: Location = self.create_location_from_yaml_value(range_yaml)
@@ -218,7 +231,7 @@ class YamlHelper:
     ) -> object | None:
         if key not in d:
             if required:
-                location = self.create_location_from_yaml_value(d, key)
+                location = self.create_location_from_yaml_dict_key(d, key)
                 self.logs.error(message=f"'{key}' is required", location=location)
             return default_value
         value = d.get(key)

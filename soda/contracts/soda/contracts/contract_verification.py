@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Iterator
+
 from soda.contracts.contract import Contract, ContractResult
 from soda.contracts.impl.contract_verification_impl import (
     FileVerificationWarehouse,
@@ -96,6 +98,58 @@ class ContractVerificationBuilder:
         return contract_verification.execute()
 
 
+class VerificationWarehouses:
+    def __init__(self, contract_verification_builder: ContractVerificationBuilder):
+        self.verification_warehouses_by_name: dict[str, VerificationWarehouse] = {}
+        # The purpose of the undefined verification warehouse is to ensure that we still capture
+        # all the parsing errors in the logs, even if there is no warehouse associated
+        self.undefined_verification_warehouse = VerificationWarehouse()
+        self.single_verification_warehouse: VerificationWarehouse | None = None
+        self.logs: Logs = contract_verification_builder.logs
+
+        # Parse data sources
+        variables: dict[str, str] = contract_verification_builder.variables
+        for warehouse_yaml_file in contract_verification_builder.warehouse_yaml_files:
+            warehouse_yaml_file.parse(variables)
+            verification_warehouse: VerificationWarehouse = FileVerificationWarehouse(
+                warehouse_yaml_file=warehouse_yaml_file
+            )
+            self.add(verification_warehouse)
+        for warehouse_name, spark_session in contract_verification_builder.warehouse_spark_sessions.items():
+            verification_warehouse: VerificationWarehouse = SparkVerificationWarehouse(
+                spark_session=spark_session, warehouse_name=warehouse_name
+            )
+            self.add(verification_warehouse)
+
+    def get(self, contract_warehouse_name: str | None) -> VerificationWarehouse:
+        if isinstance(contract_warehouse_name, str):
+            verification_warehouse = self.verification_warehouses_by_name.get(contract_warehouse_name)
+            if verification_warehouse:
+                return verification_warehouse
+            else:
+                self.logs.error(f"Data source '{contract_warehouse_name}' not configured")
+                return self.undefined_verification_warehouse
+
+        if self.single_verification_warehouse:
+            # no data source specified in the contract
+            # and a single data source was specified in the verification
+            return self.single_verification_warehouse
+
+        return self.undefined_verification_warehouse
+
+    def add(self, verification_warehouse: VerificationWarehouse):
+        self.verification_warehouses_by_name[verification_warehouse.warehouse.warehouse_name] = verification_warehouse
+        # update self.single_verification_warehouse because the number of verification warehouses changed
+        warehouses_count = len(self.verification_warehouses_by_name)
+        if warehouses_count == 1:
+            self.single_verification_warehouse = next(iter(self.verification_warehouses_by_name.values()))
+        elif warehouses_count == 0:
+            self.single_verification_warehouse = self.undefined_verification_warehouse
+
+    def __iter__(self) -> Iterator[VerificationWarehouse]:
+        return iter(self.verification_warehouses_by_name.values())
+
+
 class ContractVerification:
 
     @classmethod
@@ -105,38 +159,18 @@ class ContractVerification:
     def __init__(self, contract_verification_builder: ContractVerificationBuilder):
         self.logs: Logs = contract_verification_builder.logs
         self.variables: dict[str, str] = contract_verification_builder.variables
-        self.verification_warehouses_by_name: dict[str, VerificationWarehouse] = {}
         self.contracts: list[Contract] = []
         self.contract_results: list[ContractResult] = []
         self.soda_cloud: SodaCloud | None = None
-
-        self._initialize_verification_warehouses(contract_verification_builder)
-
-        undefined_verification_warehouse = VerificationWarehouse()
-        single_verification_warehouse: VerificationWarehouse | None = None
-
-        warehouses_count = len(self.verification_warehouses_by_name)
-        if warehouses_count == 1:
-            single_verification_warehouse = next(iter(self.verification_warehouses_by_name.values()))
-        elif warehouses_count == 0:
-            single_verification_warehouse = undefined_verification_warehouse
+        self.verification_warehouses = self._parse_verification_warehouses(contract_verification_builder)
 
         # parse the contract files and add them to the matching verification data source
         for contract_file in contract_verification_builder.contract_files:
             contract_file.parse(self.variables)
             if contract_file.is_ok():
                 contract_warehouse_name: str | None = contract_file.dict.get("warehouse")
-                if isinstance(contract_warehouse_name, str):
-                    verification_warehouse = self.verification_warehouses_by_name.get(contract_warehouse_name)
-                    if not verification_warehouse:
-                        self.logs.error(f"Data source '{contract_warehouse_name}' not configured")
-                        verification_warehouse = undefined_verification_warehouse
-                elif single_verification_warehouse:
-                    # no data source specified in the contract
-                    # and a single data source was specified in the verification
-                    verification_warehouse = single_verification_warehouse
-                else:
-                    verification_warehouse = undefined_verification_warehouse
+
+                verification_warehouse = self.verification_warehouses.get(contract_warehouse_name)
 
                 contract: Contract = Contract.create(
                     warehouse=verification_warehouse.warehouse,
@@ -154,38 +188,20 @@ class ContractVerification:
                 self.soda_cloud = SodaCloud(soda_cloud_file)
                 break
 
-    def _initialize_verification_warehouses(self, contract_verification_builder: ContractVerificationBuilder) -> None:
-        # Parse data sources
-        for warehouse_yaml_file in contract_verification_builder.warehouse_yaml_files:
-            verification_warehouse: VerificationWarehouse = FileVerificationWarehouse(
-                warehouse_yaml_file=warehouse_yaml_file
-            )
-            self._initialize_verification_warehouse(verification_warehouse)
-        for warehouse_name, spark_session in contract_verification_builder.warehouse_spark_sessions.items():
-            verification_warehouse: VerificationWarehouse = SparkVerificationWarehouse(
-                spark_session=spark_session, warehouse_name=warehouse_name
-            )
-            self._initialize_verification_warehouse(verification_warehouse)
+    def _parse_verification_warehouses(self, contract_verification_builder) -> VerificationWarehouses:
+        return VerificationWarehouses(contract_verification_builder)
 
-    def _initialize_verification_warehouse(self, verification_warehouse: VerificationWarehouse) -> None:
-        if verification_warehouse.initialize_warehouse(self.variables):
-            warehouse_name = verification_warehouse.warehouse.warehouse_name
-            self.verification_warehouses_by_name[warehouse_name] = verification_warehouse
+    def __str__(self) -> str:
+        return str(self.logs)
 
     def execute(self) -> ContractVerificationResult:
         all_contract_results: list[ContractResult] = []
-        for verification_warehouse in self.verification_warehouses_by_name.values():
-            all_contract_results.extend(verification_warehouse.ensure_open_and_verify_contracts())
+        for verification_warehouse in self.verification_warehouses:
+            warehouse_contract_results: list[ContractResult] = verification_warehouse.ensure_open_and_verify_contracts()
+            all_contract_results.extend(warehouse_contract_results)
         return ContractVerificationResult(
             logs=self.logs, variables=self.variables, contract_results=all_contract_results
         )
-
-    def __str__(self) -> str:
-        blocks: list[str] = [str(self.logs)]
-        for contract_result in self.contract_results:
-            blocks.extend(self.__format_contract_results_with_heading(contract_result))
-        return "\n".join(blocks)
-
 
 class ContractVerificationResult:
     def __init__(self, logs: Logs, variables: dict[str, str], contract_results: list[ContractResult]):
@@ -214,10 +230,11 @@ class ContractVerificationResult:
     def is_ok(self) -> bool:
         return not self.has_errors() and not self.has_failures()
 
-    def assert_ok(self):
+    def assert_ok(self) -> ContractVerificationResult:
         errors_str: str | None = self.logs.get_errors_str() if self.logs.get_errors() else None
         if errors_str or any(contract_result.failed() for contract_result in self.contract_results):
             raise SodaException(message=errors_str, contract_verification_result=self)
+        return self
 
     def __str__(self) -> str:
         blocks: list[str] = [str(self.logs)]

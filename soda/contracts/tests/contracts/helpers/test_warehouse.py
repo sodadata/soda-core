@@ -11,7 +11,7 @@ from soda.contracts.contract import ContractResult
 from soda.contracts.contract_verification import (
     ContractVerification,
     ContractVerificationBuilder,
-    ContractVerificationResult,
+    ContractVerificationResult, VerificationWarehouses,
 )
 from soda.contracts.impl.contract_verification_impl import VerificationWarehouse
 from soda.contracts.impl.warehouse import Warehouse
@@ -50,13 +50,14 @@ class TestContractVerification(ContractVerification):
     def __init__(self, test_contract_verification_builder: TestContractVerificationBuilder):
         super().__init__(contract_verification_builder=test_contract_verification_builder)
 
-    def _initialize_verification_warehouses(
-        self, contract_verification_builder: TestContractVerificationBuilder
-    ) -> None:
-        super()._initialize_verification_warehouses(contract_verification_builder)
+    def _parse_verification_warehouses(self, contract_verification_builder) -> VerificationWarehouses:
+        verification_warehouses: VerificationWarehouses = (
+            super()._parse_verification_warehouses(contract_verification_builder)
+        )
         warehouse: Warehouse = contract_verification_builder.warehouse
-        warehouse_name: str = warehouse.warehouse_name
-        self.verification_warehouses_by_name[warehouse_name] = TestVerificationWarehouse(warehouse)
+        test_verification_warehouse = TestVerificationWarehouse(warehouse)
+        verification_warehouses.add(test_verification_warehouse)
+        return verification_warehouses
 
 
 class TestWarehouse(Warehouse):
@@ -116,7 +117,7 @@ class TestWarehouse(Warehouse):
         )
         if not contract_verification_result.failed():
             raise AssertionError(
-                f"Expected contract verification exception, but got contract result: {contract_verification_result}"
+                f"Expected contract verification failed, but got contract result: {contract_verification_result}"
             )
         logging.debug(f"Contract result: {contract_verification_result}")
         return contract_verification_result.contract_results[0]

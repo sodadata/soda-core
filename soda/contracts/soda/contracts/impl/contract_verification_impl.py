@@ -6,12 +6,13 @@ from soda.contracts.impl.yaml_helper import YamlFile
 
 
 class VerificationWarehouse:
+    """
+    Groups all contracts for a specific warehouse. Used during contract verification execution to group all
+    contracts per warehouse and ensure the warehouse is open during verification of the contract for this warehouse.
+    """
     def __init__(self) -> None:
         self.warehouse: Warehouse | None = None
         self.contracts: list[Contract] = []
-
-    def initialize_warehouse(self, variables: dict) -> bool:
-        return True
 
     def requires_with_block(self) -> bool:
         return True
@@ -44,12 +45,7 @@ class FileVerificationWarehouse(VerificationWarehouse):
     def __init__(self, warehouse_yaml_file: YamlFile):
         super().__init__()
         self.warehouse_file: YamlFile = warehouse_yaml_file
-
-    def initialize_warehouse(self, variables: dict) -> bool:
-        if self.warehouse_file.parse(variables=variables):
-            self.warehouse = Warehouse.from_yaml_file(self.warehouse_file)
-            return isinstance(self.warehouse, Warehouse)
-        return False
+        self.warehouse = Warehouse.from_yaml_file(self.warehouse_file)
 
 
 class SparkVerificationWarehouse(VerificationWarehouse):
@@ -57,7 +53,4 @@ class SparkVerificationWarehouse(VerificationWarehouse):
         super().__init__()
         self.spark_session: object = spark_session
         self.warehouse_name = warehouse_name
-
-    def initialize_warehouse(self, variables: dict) -> bool:
         self.warehouse = Warehouse.from_spark_session(spark_session=self.spark_session)
-        return True

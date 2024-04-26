@@ -20,9 +20,11 @@ def test_warehouse_file_variable_resolving(environ):
 
     contract_verification = ContractVerification.builder().with_warehouse_yaml_file(warehouse_file_path).build()
 
-    resolved_connection_properties = contract_verification.verification_warehouses_by_name[
-        "postgres_ds"
-    ].warehouse.warehouse_file.dict["connection"]
+    resolved_connection_properties = (
+        contract_verification
+        .verification_warehouses.get("postgres_ds")
+        .warehouse.warehouse_file.dict["connection"]
+    )
     assert "sodasql" == resolved_connection_properties["database"]
     assert "sodasql" == resolved_connection_properties["username"]
 

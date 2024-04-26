@@ -238,8 +238,8 @@ class CheckArgs:
     location: Location
     yaml_helper: YamlHelper
     column: str | None = None
-    missing_configurations: MissingConfigurations = None
-    valid_configurations: ValidConfigurations = None
+    missing_configurations: MissingConfigurations | None = None
+    valid_configurations: ValidConfigurations | None = None
 
 
 class CheckFactory(ABC):
@@ -348,29 +348,30 @@ class MissingCheckFactory(CheckFactory):
 class InvalidCheckFactory(CheckFactory):
     def create_check(self, check_args: CheckArgs) -> Check | None:
         check_type = check_args.check_type
-        if check_type in ["no_invalid_values", "invalid_count", "invalid_percent"]:
-            metric = "invalid_count" if check_type == "no_invalid_values" else check_type
-            valid_configurations = check_args.valid_configurations
-            valid_configurations: ValidConfigurations = valid_configurations
-            if valid_configurations and valid_configurations.valid_values_reference_data:
-                return ReferenceDataCheck(check_args=check_args, metric=metric)
-            else:
-                threshold: Threshold | None = check_args.threshold
-                if check_type == "no_invalid_values":
-                    if threshold and not threshold.is_empty():
-                        check_args.logs.error(
-                            "Check type 'no_invalid_values' does not allow for threshold keys must_..."
-                        )
-                    else:
-                        check_args.threshold = Threshold(equal=0)
-                elif not threshold or threshold.is_empty():
-                    check_args.logs.error(f"Check type '{check_type}' requires threshold configuration")
+        if check_type not in ["no_invalid_values", "invalid_count", "invalid_percent"]:
+            return None
 
-                if not valid_configurations or not valid_configurations.has_non_reference_data_configs():
-                    check_args.logs.error(
-                        f"Check type '{check_type}' must have a validity configuration like {AbstractCheck.validity_keys}"
-                    )
-                return MetricCheck(check_args=check_args, metric=metric)
+        metric = "invalid_count" if check_type == "no_invalid_values" else check_type
+        valid_configurations: ValidConfigurations = check_args.valid_configurations
+        if valid_configurations and valid_configurations.valid_values_reference_data:
+            return ReferenceDataCheck(check_args=check_args, metric=metric)
+
+        threshold: Threshold | None = check_args.threshold
+        if check_type == "no_invalid_values":
+            if threshold and not threshold.is_empty():
+                check_args.logs.error(
+                    "Check type 'no_invalid_values' does not allow for threshold keys must_..."
+                )
+            else:
+                check_args.threshold = Threshold(equal=0)
+        elif not threshold or threshold.is_empty():
+            check_args.logs.error(f"Check type '{check_type}' requires threshold configuration")
+
+        if not valid_configurations or not valid_configurations.has_non_reference_data_configs():
+            check_args.logs.error(
+                f"Check type '{check_type}' must have a validity configuration like {AbstractCheck.validity_keys}"
+            )
+        return MetricCheck(check_args=check_args, metric=metric)
 
 
 class DuplicateCheckFactory(CheckFactory):
@@ -397,7 +398,6 @@ class DuplicateCheckFactory(CheckFactory):
 class SqlFunctionCheckFactory(CheckFactory):
     def create_check(self, check_args: CheckArgs) -> Check | None:
         metric: str = check_args.check_type
-        # TODO Should we add validation here? But then we need to get the connection here too :()
         return MetricCheck(check_args=check_args, metric=metric)
 
 
@@ -412,7 +412,7 @@ class RowCountCheckFactory(CheckFactory):
                 metric = "row_count"
                 if not threshold.is_empty():
                     check_args.logs.error(
-                        f"Check type 'rows_exist' does not allow for threshold keys must_...",
+                        "Check type 'rows_exist' does not allow for threshold keys must_...",
                         location=check_args.location,
                     )
                 check_args.threshold = Threshold(greater_than=0)
@@ -793,7 +793,7 @@ class Threshold:
             self.greater_than if self.greater_than is not None else self.greater_than_or_equal
         )
         less_bound: Number | None = self.less_than if self.less_than is not None else self.less_than_or_equal
-        if greater_bound is not None and less_bound is not None:
+        if isinstance(greater_bound, Number) and isinstance(less_bound, Number):
             if greater_bound > less_bound:
                 return self.sodacl_threshold(
                     is_not_between=True,

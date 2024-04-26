@@ -8,12 +8,12 @@ from soda.contracts.contract import Contract, ContractResult
 from soda.contracts.contract_verification import ContractVerification, SodaException
 
 
-@pytest.mark.skip
+@pytest.mark.skip("Takes too long to be part of the local development test suite")
 def test_spark_session_api():
     spark_session = SparkSession.builder.master("local").appName("test").getOrCreate()
 
     contract_yaml_str = dedent(
-        f"""
+        """
       dataset: CUSTOMERS
       columns:
       - name: id
