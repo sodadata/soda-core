@@ -11,7 +11,8 @@ from soda.contracts.contract import ContractResult
 from soda.contracts.contract_verification import (
     ContractVerification,
     ContractVerificationBuilder,
-    ContractVerificationResult, VerificationWarehouses,
+    ContractVerificationResult,
+    VerificationWarehouses,
 )
 from soda.contracts.impl.contract_verification_impl import VerificationWarehouse
 from soda.contracts.impl.warehouse import Warehouse
@@ -51,8 +52,8 @@ class TestContractVerification(ContractVerification):
         super().__init__(contract_verification_builder=test_contract_verification_builder)
 
     def _parse_verification_warehouses(self, contract_verification_builder) -> VerificationWarehouses:
-        verification_warehouses: VerificationWarehouses = (
-            super()._parse_verification_warehouses(contract_verification_builder)
+        verification_warehouses: VerificationWarehouses = super()._parse_verification_warehouses(
+            contract_verification_builder
         )
         warehouse: Warehouse = contract_verification_builder.warehouse
         test_verification_warehouse = TestVerificationWarehouse(warehouse)

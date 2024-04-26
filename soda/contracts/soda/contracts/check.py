@@ -359,9 +359,7 @@ class InvalidCheckFactory(CheckFactory):
         threshold: Threshold | None = check_args.threshold
         if check_type == "no_invalid_values":
             if threshold and not threshold.is_empty():
-                check_args.logs.error(
-                    "Check type 'no_invalid_values' does not allow for threshold keys must_..."
-                )
+                check_args.logs.error("Check type 'no_invalid_values' does not allow for threshold keys must_...")
             else:
                 check_args.threshold = Threshold(equal=0)
         elif not threshold or threshold.is_empty():

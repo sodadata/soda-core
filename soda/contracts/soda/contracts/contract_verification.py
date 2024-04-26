@@ -203,6 +203,7 @@ class ContractVerification:
             logs=self.logs, variables=self.variables, contract_results=all_contract_results
         )
 
+
 class ContractVerificationResult:
     def __init__(self, logs: Logs, variables: dict[str, str], contract_results: list[ContractResult]):
         self.logs: Logs = logs

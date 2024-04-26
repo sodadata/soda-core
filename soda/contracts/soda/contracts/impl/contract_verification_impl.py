@@ -10,6 +10,7 @@ class VerificationWarehouse:
     Groups all contracts for a specific warehouse. Used during contract verification execution to group all
     contracts per warehouse and ensure the warehouse is open during verification of the contract for this warehouse.
     """
+
     def __init__(self) -> None:
         self.warehouse: Warehouse | None = None
         self.contracts: list[Contract] = []

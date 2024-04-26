@@ -184,17 +184,15 @@ class Contract:
         if check:
             self.checks.append(check)
         else:
-            self.logs.error(
-                message=f"Invalid dataset check {check_args.check_type}", location=check_args.location
-            )
+            self.logs.error(message=f"Invalid dataset check {check_args.check_type}", location=check_args.location)
 
     def __parse_column_check(self, check_yaml: dict, column: str, yaml_helper: YamlHelper) -> None:
         check_type: str | None = yaml_helper.read_string(check_yaml, "type")
         check_name = yaml_helper.read_string_opt(check_yaml, "name")
         check_name_was = yaml_helper.read_string_opt(check_yaml, "name_was")
         check_filter_sql = yaml_helper.read_string_opt(check_yaml, "filter_sql")
-        missing_configurations: MissingConfigurations | None = (
-            self.__parse_missing_configurations(check_yaml=check_yaml, column=column)
+        missing_configurations: MissingConfigurations | None = self.__parse_missing_configurations(
+            check_yaml=check_yaml, column=column
         )
         valid_configurations: ValidConfigurations | None = self.__parse_valid_configurations(
             check_yaml=check_yaml, column=column

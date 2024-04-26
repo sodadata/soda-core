@@ -183,11 +183,12 @@ class YamlHelper:
         """
         return self.read_value(d=d, key=key, expected_type=str, required=False, default_value=default_value)
 
-    def read_range(self, d: dict, key: str): # returns Range | None
+    def read_range(self, d: dict, key: str):  # returns Range | None
         range_yaml: list | None = self.read_list_opt(d, key)
         if isinstance(range_yaml, list):
             if all(isinstance(range_value, Number) for range_value in range_yaml) and len(range_yaml) == 2:
                 from soda.contracts.check import Range
+
                 return Range(lower_bound=range_yaml[0], upper_bound=range_yaml[1])
             else:
                 location: Location = self.create_location_from_yaml_value(range_yaml)
