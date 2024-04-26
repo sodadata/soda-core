@@ -5,8 +5,8 @@ from contracts.helpers.test_warehouse import TestContractVerification, TestWareh
 from helpers.test_table import TestTable
 from soda.execution.data_type import DataType
 
-from soda.contracts.check import MetricCheck, MetricCheckResult, SchemaCheckResult
-from soda.contracts.contract import CheckOutcome, Contract, ContractResult
+from soda.contracts.check import SchemaCheckResult
+from soda.contracts.contract import CheckOutcome, ContractResult
 from soda.contracts.contract_verification import (
     ContractVerification,
     ContractVerificationResult,

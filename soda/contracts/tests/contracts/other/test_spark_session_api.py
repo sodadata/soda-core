@@ -4,7 +4,6 @@ from textwrap import dedent
 import pytest
 from pyspark.sql import SparkSession
 
-from soda.contracts.contract import Contract, ContractResult
 from soda.contracts.contract_verification import ContractVerification, SodaException
 
 

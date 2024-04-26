@@ -1,5 +1,3 @@
-from datetime import datetime
-
 from contracts.helpers.test_warehouse import TestWarehouse
 from helpers.test_table import TestTable
 from soda.execution.data_type import DataType
