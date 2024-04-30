@@ -33,7 +33,7 @@ try:
     soda_cloud: SodaCloud = SodaCloud.from_environment_variables()
     with Connection.from_yaml_file(file_path=connection_file_path) as connection:
         contract: Contract = Contract.from_yaml_file(file_path=contract_file_path)
-        contract_result: ContractResult = contract.verify(connection=connection, soda_cloud=soda_cloud)
+        contract_result: ContractResult = contract.execute(connection=connection, soda_cloud=soda_cloud)
         # contract verification passed
 except SodaException as e:
     # contract verification failed

@@ -11,9 +11,7 @@ class ValidatorLoader:
 
     @classmethod
     def load_json_schema_validator(cls) -> Draft7Validator:
-        this_file_path: str = __file__
         suffix = "/impl/json_schema_verifier.py"
-        assert this_file_path.endswith(suffix)
         contracts_dir = __file__[: -len(suffix)]
         contract_schema_json_file_path = f"{contracts_dir}/soda_data_contract_json_schema_1_0_0.json"
         with open(contract_schema_json_file_path) as f:

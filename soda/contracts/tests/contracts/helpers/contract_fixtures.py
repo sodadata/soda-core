@@ -1,11 +1,11 @@
 from typing import Any
 
 import pytest
-from contracts.helpers.test_connection import TestConnection
+from contracts.helpers.test_warehouse import TestWarehouse
 from helpers.data_source_fixture import DataSourceFixture
 from soda.common.logs import configure_logging
 
-from soda.contracts.connection import Connection
+from soda.contracts.impl.warehouse import Warehouse
 
 
 def pytest_sessionstart(session: Any) -> None:
@@ -14,6 +14,6 @@ def pytest_sessionstart(session: Any) -> None:
 
 
 @pytest.fixture(scope="session")
-def test_connection(data_source_fixture: DataSourceFixture) -> Connection:
-    test_connection = TestConnection(data_source_fixture)
-    yield test_connection
+def test_warehouse(data_source_fixture: DataSourceFixture) -> Warehouse:
+    with TestWarehouse(data_source_fixture) as test_warehouse:
+        yield test_warehouse
