@@ -4,12 +4,7 @@ from contracts.helpers.test_connection import TestConnection
 from helpers.test_table import TestTable
 from soda.execution.data_type import DataType
 
-from soda.contracts.contract import (
-    CheckOutcome,
-    CheckResult,
-    ContractResult,
-    SchemaCheckResult,
-)
+from soda.contracts.contract import CheckOutcome, ContractResult, SchemaCheckResult
 
 logger = logging.getLogger(__name__)
 

@@ -6,7 +6,6 @@ from soda.contracts.contract import (
     CheckOutcome,
     ContractResult,
     NumericMetricCheckResult,
-    UserDefinedMetricSqlExpressionCheck,
     UserDefinedMetricSqlQueryCheck,
 )
 

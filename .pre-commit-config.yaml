@@ -18,8 +18,8 @@ repos:
       - id: debug-statements
       - id: detect-private-key
       - id: end-of-file-fixer
-  - repo: https://github.com/humitos/mirrors-autoflake.git
-    rev: v1.1
+  - repo: https://github.com/PyCQA/autoflake
+    rev: v2.2.1
     hooks:
       - id: autoflake
         args: ["--in-place", "--remove-all-unused-imports"]
