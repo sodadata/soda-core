@@ -5,7 +5,6 @@ from soda.execution.data_type import DataType
 from soda.contracts.contract import (
     CheckOutcome,
     ContractResult,
-    DuplicateCheck,
     NumericMetricCheck,
     NumericMetricCheckResult,
 )
