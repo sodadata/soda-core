@@ -10,15 +10,15 @@ from typing import List
 @dataclass
 class Location:
 
-    file: str | None = (None,)
-    line: int | None = (None,)
-    column: int | None = None
+    file_path: str | None
+    line: int | None
+    column: int | None
 
     def __str__(self):
         parts = [
-            f"file={self.file}" if self.file else None,
             f"line={self.line}" if self.line is not None else None,
             f"column={self.column}" if self.column is not None else None,
+            f"file={self.file_path}" if self.file_path is not None else None,
         ]
         parts = [p for p in parts if p is not None]
         return ",".join(parts)
@@ -72,6 +72,8 @@ class Log:
 
 class Logs:
 
+    # See also adr/03_exceptions_vs_error_logs.md
+
     def __init__(self, logs: Logs | None = None):
         self.logs: List[Log] = []
         if logs is not None:
@@ -80,15 +82,14 @@ class Logs:
     def __str__(self) -> str:
         return "\n".join([str(log) for log in self.logs])
 
-    def assert_no_errors(self) -> None:
-        if self.has_errors():
-            errors_lines: List[str] = [str(log) for log in self.logs if log.level == LogLevel.ERROR]
-            error_text = "\n".join(errors_lines)
-            error_word = "error: " if len(self.logs) == 1 else "errors:\n"
-            raise AssertionError(f"Connection {error_word}{error_text}")
-
     def has_errors(self) -> bool:
         return any(log.level == LogLevel.ERROR for log in self.logs)
+
+    def get_errors_str(self) -> str:
+        errors_lines: List[str] = [str(log) for log in self.logs if log.level == LogLevel.ERROR]
+        error_text = "\n".join(errors_lines)
+        error_word = "Error: " if len(self.logs) == 1 else "Errors:\n"
+        return f"{error_word}{error_text}"
 
     def get_errors(self) -> List[Log]:
         return [log for log in self.logs if log.level == LogLevel.ERROR]

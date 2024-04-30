@@ -16,9 +16,9 @@ columns:
         must_be_less_than: 6
   - name: distance
     checks:
-      - type: metric_sql_expression
+      - type: metric_expression
         metric: us_avg_distance
         expression: AVG(CASE WHEN country = 'US' THEN distance END)
         must_be_between: [10, 20]
 checks:
-  - type: rows_required
+  - type: rows_exist
