@@ -60,9 +60,6 @@ class AutomatedMonitoringRun:
             )
             anomaly_metric_check.archetype = "volumeConsistency"
 
-            # Execute query to change the value of metric class to get the historical results
-            self.data_source_scan.execute_queries()
-
             annomaly_detection_checks.append(anomaly_metric_check)
 
         return annomaly_detection_checks
@@ -110,8 +107,6 @@ class AutomatedMonitoringRun:
             schema_check = SchemaCheck(schema_check_cfg, self.data_source_scan, partition=partition)
             schema_check.archetype = "schemaConsistency"
 
-            # Execute query to change the value of metric class to get the historical results
-            self.data_source_scan.execute_queries()
             schema_checks.append(schema_check)
         return schema_checks
 

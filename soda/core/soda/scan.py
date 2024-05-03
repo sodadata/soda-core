@@ -504,6 +504,12 @@ class Scan:
                 self._logs.info(f"Refer to list of valid attributes and values at {attributes_page_url}.")
 
             if not invalid_checks:
+                # Run profiling, data samples, automated monitoring, sample tables
+                try:
+                    self.run_data_source_scan()
+                except Exception as e:
+                    self._logs.error("""An error occurred while executing data source scan""", exception=e)
+
                 # Each data_source is asked to create metric values that are returned as a list of query results
                 for data_source_scan in self._data_source_scans:
                     data_source_scan.execute_queries()
@@ -517,12 +523,6 @@ class Scan:
                         # are associated with the derived metric as well.
                         for metric_dep in metric.derived_formula.metric_dependencies.values():
                             metric.queries += metric_dep.queries
-
-                # Run profiling, data samples, automated monitoring, sample tables
-                try:
-                    self.run_data_source_scan()
-                except Exception as e:
-                    self._logs.error("""An error occurred while executing data source scan""", exception=e)
 
                 # Evaluates the checks based on all the metric values
                 for check in self._checks:
