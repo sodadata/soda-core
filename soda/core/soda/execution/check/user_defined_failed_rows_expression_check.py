@@ -81,6 +81,7 @@ class UserDefinedFailedRowsExpressionCheck(Check):
             scan = self.data_source_scan.scan
             condition = scan.jinja_resolve(definition=partition_filter, location=self.check_cfg.location)
             sql += f"\n      AND ({condition})"
+
         return sql
 
     def get_log_diagnostic_dict(self) -> dict:

@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from soda.execution.query.query import Query
 
+from soda.core.soda.execution.query.sample_query import SampleQuery
+
 
 class UserDefinedFailedRowsExpressionQuery(Query):
     def __init__(
@@ -23,4 +25,12 @@ class UserDefinedFailedRowsExpressionQuery(Query):
         self.metric = metric
 
     def execute(self):
-        self.store()
+        # By default don't store samples through the store method to circumvent sample limit not being applied to
+        # failed row checks
+        self.store(allow_samples=False)
+
+        samples_sql = self.sql
+        if self.metric.samples_limit:
+            samples_sql += f"\nLIMIT {self.metric.samples_limit}"
+        sample_query = SampleQuery(self.data_source_scan, self.metric, "failed_rows", samples_sql)
+        sample_query.execute()
