@@ -187,7 +187,7 @@ class DataSource:
         if "oracle" == data_source_type:
             return "\nFETCH FIRST {limit} ROWS ONLY"
         else:
-            return "\nLIMIT {limit}"
+            return "\n LIMIT {limit}"
 
     @staticmethod
     def create(
