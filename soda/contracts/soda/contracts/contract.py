@@ -6,11 +6,7 @@ from numbers import Number
 from textwrap import indent
 from typing import List
 
-from soda.cloud.soda_cloud import SodaCloud as SodaCLSodaCloud
 from soda.common import logs as soda_core_logs
-from soda.scan import Scan
-from soda.scan import logger as scan_logger
-
 from soda.contracts.check import (
     AbstractCheck,
     Check,
@@ -33,11 +29,14 @@ from soda.contracts.check import (
     ValidConfigurations,
     ValidValuesReferenceData,
 )
+from soda.contracts.impl.customized_sodacl_soda_cloud import CustomizedSodaClCloud
+from soda.contracts.impl.data_source import DataSource
 from soda.contracts.impl.json_schema_verifier import JsonSchemaVerifier
 from soda.contracts.impl.logs import Location, Log, LogLevel, Logs
 from soda.contracts.impl.soda_cloud import SodaCloud
-from soda.contracts.impl.warehouse import Warehouse
 from soda.contracts.impl.yaml_helper import QuotingSerializer, YamlFile, YamlHelper
+from soda.scan import Scan
+from soda.scan import logger as scan_logger
 
 logger = logging.getLogger(__name__)
 
@@ -47,32 +46,34 @@ class Contract:
     @classmethod
     def create(
         cls,
-        warehouse: Warehouse,
+        data_source: DataSource,
         contract_file: YamlFile,
         variables: dict[str, str],
         soda_cloud: SodaCloud | None,
         logs: Logs,
     ):
         return Contract(
-            warehouse=warehouse, contract_file=contract_file, variables=variables, soda_cloud=soda_cloud, logs=logs
+            data_source=data_source, contract_file=contract_file, variables=variables, soda_cloud=soda_cloud, logs=logs
         )
 
     def __init__(
         self,
-        warehouse: Warehouse,
+        data_source: DataSource,
         contract_file: YamlFile,
         variables: dict[str, str],
         soda_cloud: SodaCloud | None,
         logs: Logs,
     ):
-        self.warehouse: Warehouse = warehouse
+        self.data_source: DataSource = data_source
         self.contract_file: YamlFile = contract_file
         self.variables: dict[str, str] = variables
         self.soda_cloud: SodaCloud | None = soda_cloud
         self.logs: Logs = logs
 
-        self.dataset: str | None = None
+        self.database: str | None = None
         self.schema: str | None = None
+        self.dataset: str | None = None
+
         # TODO explain filter_expression_sql, default filter and named filters
         # filter name must part of the identity of the metrics
         #   - no filter part if no filter is specified
@@ -105,7 +106,7 @@ class Contract:
 
             contract_yaml_dict = self.contract_file.dict
 
-            self.warehouse_name: str | None = yaml_helper.read_string_opt(contract_yaml_dict, "warehouse")
+            self.data_source_name: str | None = yaml_helper.read_string_opt(contract_yaml_dict, "data_source")
             self.schema: str | None = yaml_helper.read_string_opt(contract_yaml_dict, "schema")
             self.dataset: str | None = yaml_helper.read_string(contract_yaml_dict, "dataset")
             self.filter_sql: str | None = yaml_helper.read_string_opt(contract_yaml_dict, "filter_sql")
@@ -115,7 +116,7 @@ class Contract:
                 SchemaCheck(
                     logs=self.logs,
                     contract_file=self.contract_file,
-                    warehouse=self.warehouse_name,
+                    data_source=self.data_source_name,
                     schema=self.schema,
                     dataset=self.dataset,
                     yaml_contract=contract_yaml_dict,
@@ -161,7 +162,7 @@ class Contract:
         check_args: CheckArgs = CheckArgs(
             logs=self.logs,
             contract_file=self.contract_file,
-            warehouse=self.warehouse_name,
+            data_source=self.data_source_name,
             schema=self.schema,
             dataset=self.dataset,
             filter=self.filter,
@@ -202,7 +203,7 @@ class Contract:
         check_args: CheckArgs = CheckArgs(
             logs=self.logs,
             contract_file=self.contract_file,
-            warehouse=self.warehouse_name,
+            data_source=self.data_source_name,
             schema=self.schema,
             dataset=self.dataset,
             filter=self.filter,
@@ -381,32 +382,32 @@ class Contract:
         scan = Scan()
 
         scan_logs = soda_core_logs.Logs(logger=scan_logger)
-        scan_logs.verbose = True
+        scan.set_verbose(True)
 
         sodacl_yaml_str: str | None = None
         try:
             sodacl_yaml_str = self.__generate_sodacl_yaml_str()
             logger.debug(sodacl_yaml_str)
 
-            if sodacl_yaml_str and hasattr(self.warehouse, "sodacl_data_source"):
+            if sodacl_yaml_str and hasattr(self.data_source, "sodacl_data_source"):
                 scan._logs = scan_logs
 
-                # This assumes the connection is a WarehouseConnection
-                sodacl_data_source = self.warehouse.sodacl_data_source
+                # This assumes the connection is a DataSourceConnection
+                sodacl_data_source = self.data_source.sodacl_data_source
                 # Execute the contract SodaCL in a scan
                 scan.set_data_source_name(sodacl_data_source.data_source_name)
                 scan_definition_name = (
-                    f"dataset://{self.warehouse.warehouse_name}/{self.schema}/{self.dataset}"
+                    f"dataset://{self.data_source.data_source_name}/{self.schema}/{self.dataset}"
                     if self.schema
-                    else f"dataset://{self.warehouse.warehouse_name}/{self.dataset}"
+                    else f"dataset://{self.data_source.data_source_name}/{self.dataset}"
                 )
                 # noinspection PyProtectedMember
-                scan._data_source_manager.data_sources[self.warehouse.warehouse_name] = sodacl_data_source
+                scan._data_source_manager.data_sources[self.data_source.data_source_name] = sodacl_data_source
 
                 if self.soda_cloud:
                     scan.set_scan_definition_name(scan_definition_name)
                     # noinspection PyProtectedMember
-                    scan._configuration.soda_cloud = SodaCLSodaCloud(
+                    scan._configuration.soda_cloud = CustomizedSodaClCloud(
                         host=self.soda_cloud.host,
                         api_key_id=self.soda_cloud.api_key_id,
                         api_key_secret=self.soda_cloud.api_key_secret,
@@ -414,6 +415,7 @@ class Contract:
                         port=self.soda_cloud.port,
                         logs=scan_logs,
                         scheme=self.soda_cloud.scheme,
+                        default_data_source_properties=sodacl_data_source.get_basic_properties()
                     )
 
                 if self.variables:

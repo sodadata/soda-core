@@ -12,19 +12,19 @@ from soda.contracts.contract_verification import (
     ContractVerification,
     ContractVerificationBuilder,
     ContractVerificationResult,
-    VerificationWarehouses,
+    VerificationDataSources,
 )
-from soda.contracts.impl.contract_verification_impl import VerificationWarehouse
-from soda.contracts.impl.warehouse import Warehouse
+from soda.contracts.impl.contract_verification_impl import VerificationDataSource
+from soda.contracts.impl.data_source import DataSource
 
 
-class TestVerificationWarehouse(VerificationWarehouse):
+class TestVerificationDataSource(VerificationDataSource):
     __test__ = False
 
-    def __init__(self, warehouse: Warehouse):
+    def __init__(self, data_source: DataSource):
         super().__init__()
-        self.warehouse = warehouse
-        self.warehouse_name = warehouse.warehouse_name
+        self.data_source = data_source
+        self.data_source_name = data_source.data_source_name
 
     def requires_with_block(self) -> bool:
         return False
@@ -35,10 +35,10 @@ class TestContractVerificationBuilder(ContractVerificationBuilder):
 
     def __init__(self):
         super().__init__()
-        self.warehouse = None
+        self.data_source = None
 
-    def with_warehouse(self, warehouse) -> TestContractVerificationBuilder:
-        self.warehouse = warehouse
+    def with_data_source(self, data_source) -> TestContractVerificationBuilder:
+        self.data_source = data_source
         return self
 
     def build(self) -> TestContractVerification:
@@ -55,30 +55,30 @@ class TestContractVerification(ContractVerification):
     def __init__(self, test_contract_verification_builder: TestContractVerificationBuilder):
         super().__init__(contract_verification_builder=test_contract_verification_builder)
 
-    def _parse_verification_warehouses(self, contract_verification_builder) -> VerificationWarehouses:
-        verification_warehouses: VerificationWarehouses = super()._parse_verification_warehouses(
+    def _parse_verification_data_sources(self, contract_verification_builder) -> VerificationDataSources:
+        verification_data_sources: VerificationDataSources = super()._parse_verification_data_sources(
             contract_verification_builder
         )
-        warehouse: Warehouse = contract_verification_builder.warehouse
-        test_verification_warehouse = TestVerificationWarehouse(warehouse)
-        verification_warehouses.add(test_verification_warehouse)
-        return verification_warehouses
+        data_source: DataSource = contract_verification_builder.data_source
+        test_verification_data_source = TestVerificationDataSource(data_source)
+        verification_data_sources.add(test_verification_data_source)
+        return verification_data_sources
 
 
-class TestWarehouse(Warehouse):
+class TestDataSource(DataSource):
     __test__ = False
 
     def __init__(self, data_source_fixture: DataSourceFixture):
         super().__init__()
-        self.warehouse_fixture = data_source_fixture
+        self.data_source_fixture = data_source_fixture
         self.sodacl_data_source = data_source_fixture.data_source
-        # Warehouse field initialization
-        self.warehouse_name = data_source_fixture.data_source_name
-        self.warehouse_type = data_source_fixture.data_source.type
+        # DataSource field initialization
+        self.data_source_name = data_source_fixture.data_source_name
+        self.data_source_type = data_source_fixture.data_source.type
         self.dbapi_connection = data_source_fixture.data_source.connection
 
     def ensure_test_table(self, test_table: TestTable) -> str:
-        return self.warehouse_fixture.ensure_test_table(test_table=test_table)
+        return self.data_source_fixture.ensure_test_table(test_table=test_table)
 
     def data_type_text(self) -> str:
         return self.sodacl_data_source.get_sql_type_for_schema_check(DataType.TEXT)
@@ -101,7 +101,7 @@ class TestWarehouse(Warehouse):
         logging.debug(contract_yaml_str)
         contract_verification_result: ContractVerificationResult = (
             TestContractVerification.builder()
-            .with_warehouse(self)
+            .with_data_source(self)
             .with_contract_yaml_str(contract_yaml_str)
             .with_variables(variables)
             .execute()
@@ -116,7 +116,7 @@ class TestWarehouse(Warehouse):
         logging.debug(contract_yaml_str)
         contract_verification_result: ContractVerificationResult = (
             TestContractVerification.builder()
-            .with_warehouse(self)
+            .with_data_source(self)
             .with_contract_yaml_str(contract_yaml_str)
             .with_variables(variables)
             .execute()
@@ -141,7 +141,7 @@ class TestWarehouse(Warehouse):
         logging.debug(contract_yaml_str)
         contract_verification_result: ContractVerificationResult = (
             TestContractVerification.builder()
-            .with_warehouse(self)
+            .with_data_source(self)
             .with_contract_yaml_str(contract_yaml_str)
             .with_variables(variables)
             .execute()

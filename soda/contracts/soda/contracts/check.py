@@ -23,7 +23,7 @@ class Check(ABC):
         self,
         logs: Logs,
         contract_file: YamlFile,
-        warehouse: str,
+        data_source: str,
         schema: str | None,
         dataset: str,
         check_type: str,
@@ -31,7 +31,7 @@ class Check(ABC):
     ):
         self.logs: Logs = logs
         self.contract_file: YamlFile = contract_file
-        self.warehouse: str = warehouse
+        self.data_source: str = data_source
         self.schema: str | None = schema
         self.dataset: str = dataset
         self.type: str = check_type
@@ -85,12 +85,12 @@ class CheckResult:
 class SchemaCheck(Check):
 
     def __init__(
-        self, logs: Logs, contract_file: YamlFile, warehouse: str, schema: str | None, dataset: str, yaml_contract: dict
+        self, logs: Logs, contract_file: YamlFile, data_source: str, schema: str | None, dataset: str, yaml_contract: dict
     ):
         super().__init__(
             logs=logs,
             contract_file=contract_file,
-            warehouse=warehouse,
+            data_source=data_source,
             schema=schema,
             dataset=dataset,
             check_type="schema",
@@ -119,7 +119,7 @@ class SchemaCheck(Check):
     def _create_identity(self) -> str:
         return (
             ConsistentHashBuilder()
-            .add_property("warehouse", self.warehouse)
+            .add_property("data_source", self.data_source)
             .add_property("schema", self.schema)
             .add_property("dataset", self.dataset)
             .add_property("type", self.type)
@@ -225,7 +225,7 @@ class SchemaCheckResult(CheckResult):
 class CheckArgs:
     logs: Logs
     contract_file: YamlFile
-    warehouse: str
+    data_source: str
     schema: str | None
     dataset: str
     filter: str | None
@@ -284,7 +284,7 @@ class AbstractCheck(Check, ABC):
         super().__init__(
             logs=check_args.logs,
             contract_file=check_args.contract_file,
-            warehouse=check_args.warehouse,
+            data_source=check_args.data_source,
             schema=check_args.schema,
             dataset=check_args.dataset,
             check_type=check_args.check_type,
@@ -303,7 +303,7 @@ class AbstractCheck(Check, ABC):
     def _create_identity_with_name(self, name: str) -> str:
         return (
             ConsistentHashBuilder()
-            .add_property("warehouse", self.warehouse)
+            .add_property("data_source", self.data_source)
             .add_property("schema", self.schema)
             .add_property("dataset", self.dataset)
             .add_property("column", self.column)
