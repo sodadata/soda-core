@@ -2,16 +2,16 @@
 
 A list of data sources are declared in data source YAML files.
 
-A in order to verify or push a contract, a data source is required.  
+In order to verify or push a contract, a data source is required.  
 
 Contracts may be used in different environments. In order to use a contract in different 
 environments, the data source must be made configurable.  A contract may also have a default data source.
 
-In order the overwrite or specify the data source, 2 options are explained below:
+In order to overwrite or specify the data source, 2 options are explained below:
 * Specify the environment as a parameter 
 * Use a variable to specify a different data source
 
-### Data source file format
+## Data source file format
 
 (1) Example
 ```yaml
@@ -43,19 +43,19 @@ data_sources:
     role: ...
 ```
 
-(1.1) Terminology: We refer to this type of files as **data source** files or data source configuration files.  
-And we will **not** refer to these as database, warehouse or connection files.  
+(1.1) Terminology: We refer to this type of file as a **data source** file or **data source configuration** file.
+And we will **not** refer to these as database, warehouse or connection files.
 
 (2) Properties like `database`, `schema` and in the bigquery case `project` and `datasets` are 
-dependent on the connection type.  For these type of properties we use the connection specific 
+dependent on the connection type.  For each of these properties we use connection-specific 
 terminology.
 
-### Default data source resolving
+## Default data source resolving
 
 (3) A CLI or API operation like Soda's `verify` or Atlan's `push` requires one or more contract files.
 Each contract file has a default way to resolve the data source based on relative file location.
 
-(4) These source files will be found automatically: 
+(4) These source files will be found automatically, and used in this order of precedence (top-most is highest precedence): 
 * {contract_file_dir}/data_sources.yml
 * {contract_file_dir}/../data_sources.yml
 * {contract_file_dir}/../../data_sources.yml
@@ -75,10 +75,10 @@ contract file.
 
 The motivation for this is to keep the cognitive load to a minimal for initial use cases where people are learning.
 
-### Specifying environments
+## Specifying environments
 
 (7) In case users want to work with different environments, we allow for the `environment` parameter 
-to be specified in the CLI and API.  
+to be specified in the CLI and API.
 
 Typical environments are: `dev`, `prod`, `cicd`.  Environment names must be matching regex `[a-z_]+`.  The motivation 
 to only allow for lower case is to prevent upper-lower-case errors.
@@ -86,7 +86,7 @@ to only allow for lower case is to prevent upper-lower-case errors.
 * CLI parameter `--environment` or `-e` to specify the environment name
 * API method `.environment(environment: str)` for the environment name
 
-(8) The data sources can have a property `environment` that has to match with the specified environment.  Eg
+(8) The data sources can have a property `environment` that has to match with the specified environment.  For example:
 
 ```yaml
 type: snowflake
@@ -126,7 +126,7 @@ variables:
   DB_PREFIX: SWFLK_
 ```
 
-### Identifying datasets
+## Identifying datasets
 
 TODO: describe how we match datasets.  
 
@@ -138,11 +138,11 @@ TODO: Variables should used to specify credentials...
 
 TODO: Variables can used in the contract file to specify a different data source name... 
 
-### Quoting
+## Quoting
 
 TODO
 
-### Example: simplest configuration using defaults  
+## Example: simplest configuration using defaults  
 
 Contract file `./customers.yml`
 ```yaml
@@ -169,39 +169,7 @@ data_sources:
     other: datasource properties
 ```
 
-### Example: Specifying a data source name  
-
-Contract file `./customers.yml`
-```yaml
-dataset: CUSTOMERS
-data_source: postgres_segment_ds 
-columns:
-    - name: ...
-```
-will match the `postgres_segment_ds` data source in
-
-Data source file `../data_sources.yml`
-```yaml
-type: postgres
-data_sources: 
-  - name: postgres_segment_ds
-    database: ...
-    username: ***
-    password: ***
-    other: datasource properties
-  - name: postgres_snowflake_ds
-    database: ...
-    username: ***
-    password: ***
-    other: datasource properties
-```
-
-CLI:
-```shell
-command -c ./customers.yml
-```
-
-### Example: Specifying a data source name  
+## Example: Specifying a data source name  
 
 Contract file `./customers.yml`
 ```yaml
@@ -234,7 +202,7 @@ data_sources:
     other: datasource properties
 ```
 
-### Example: Specifying a data source & environment  
+## Example: Specifying a data source & environment  
 
 Contract file `./customers.yml`
 ```yaml
@@ -268,7 +236,7 @@ data_sources:
     other: datasource properties
 ```
 
-### Example: Specifying a data source file  
+## Example: Specifying a data source file  
 
 Contract file `./customers.yml`
 ```yaml
