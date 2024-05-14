@@ -3,7 +3,6 @@ from __future__ import annotations
 import json
 
 import requests
-
 from soda.execution.partition import Partition
 from soda.sampler.sample_context import SampleContext
 from soda.sampler.sample_ref import SampleRef

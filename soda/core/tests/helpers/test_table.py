@@ -4,7 +4,6 @@ import hashlib
 import os
 
 from helpers.test_column import TestColumn
-
 from soda.common.json_helper import JsonHelper
 
 

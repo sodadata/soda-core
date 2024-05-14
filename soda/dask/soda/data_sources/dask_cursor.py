@@ -1,9 +1,8 @@
 from __future__ import annotations
 
 import numpy as np
-from dask_sql import Context
-
 from dask.dataframe.core import DataFrame
+from dask_sql import Context
 
 
 class DaskCursor:
@@ -49,8 +48,7 @@ class DaskCursor:
             row_value = self.df.values[0]
         return tuple(row_value)
 
-    def close(self) -> None:
-        ...
+    def close(self) -> None: ...
 
     def get_description(self) -> tuple:
         if self.df.empty:

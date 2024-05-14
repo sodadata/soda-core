@@ -13,7 +13,6 @@ import pytest
 from dotenv import load_dotenv
 from helpers.data_source_fixture import DataSourceFixture
 from helpers.mock_file_system import MockFileSystem
-
 from soda.common.file_system import FileSystemSingleton
 from soda.common.logs import Logs, configure_logging
 
