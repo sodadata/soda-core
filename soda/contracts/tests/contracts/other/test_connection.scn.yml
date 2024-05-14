@@ -1,4 +1,0 @@
-type: postgres
-host: localhost
-database: ${POSTGRES_DATABASE}
-username: ${POSTGRES_USERNAME}

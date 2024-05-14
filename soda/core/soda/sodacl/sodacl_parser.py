@@ -56,7 +56,6 @@ ANOMALY_DETECTION_TAKE_OVER_EXISTING_ANOMALY_SCORE_CHECK = "take_over_existing_a
 ANOMALY_DETECTION_SEVERITY_LEVEL_PARAMETERS = "severity_level_parameters"
 ANOMALY_DETECTION_WARN_ONLY = "warn_only"
 ATTRIBUTES = "attributes"
-CONTRACT_CHECK_ID = "contract check id"
 FAIL = "fail"
 FAIL_CONDITION = "fail condition"
 FAIL_QUERY = "fail query"
@@ -641,17 +640,23 @@ class SodaCLParser(Parser):
                 elif "method" == configuration_key:
                     method = configuration_value.strip()
                 elif configuration_key.endswith("expression"):
-                    metric_expression = configuration_value.strip()
-                    configuration_metric_name = (
-                        configuration_key[: -len(" expression")]
-                        if len(configuration_key) > len(" expression")
-                        else None
-                    )
-                    if configuration_metric_name != metric_name:
+                    if configuration_value is None:
                         self.logs.error(
-                            f'In configuration "{configuration_key}" the metric name must match exactly the metric name in the check "{metric_name}"',
+                            f'In configuration "{configuration_key}" no value is provided',
                             location=self.location,
                         )
+                    else:
+                        metric_expression = configuration_value.strip()
+                        configuration_metric_name = (
+                            configuration_key[: -len(" expression")]
+                            if len(configuration_key) > len(" expression")
+                            else None
+                        )
+                        if configuration_metric_name != metric_name:
+                            self.logs.error(
+                                f'In configuration "{configuration_key}" the metric name must match exactly the metric name in the check "{metric_name}"',
+                                location=self.location,
+                            )
                 elif configuration_key.endswith("query") or configuration_key.endswith("sql_file"):
                     if configuration_key.endswith("sql_file"):
                         fs = file_system()
@@ -708,7 +713,6 @@ class SodaCLParser(Parser):
                     SAMPLES_LIMIT,
                     ATTRIBUTES,
                     ANOMALY_DETECTION_WARN_ONLY,
-                    CONTRACT_CHECK_ID,
                 ]:
                     if metric_name != "distribution_difference":
                         self.logs.error(
@@ -1376,7 +1380,7 @@ class SodaCLParser(Parser):
             samples_limit = self._get_optional(SAMPLES_LIMIT, int)
 
             for configuration_key in check_configurations:
-                if configuration_key not in [NAME, SAMPLES_LIMIT, ATTRIBUTES, CONTRACT_CHECK_ID]:
+                if configuration_key not in [NAME, SAMPLES_LIMIT, ATTRIBUTES]:
                     self.logs.error(
                         f"Invalid reference check configuration key {configuration_key}", location=self.location
                     )
