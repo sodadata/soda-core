@@ -16,6 +16,7 @@ from soda.common.logs import Logs
 from soda.common.string_helper import string_matches_simple_pattern
 from soda.execution.data_type import DataType
 from soda.execution.query.query import Query
+from soda.execution.query.query_without_results import QueryWithoutResults
 from soda.execution.query.schema_query import TableColumnsQuery
 from soda.sampler.sample_ref import SampleRef
 from soda.sodacl.location import Location
@@ -235,7 +236,7 @@ class DataSource:
         self.quote_tables: bool = data_source_properties.get("quote_tables", False)
 
     def has_valid_connection(self) -> bool:
-        query = Query(
+        query = QueryWithoutResults(
             data_source_scan=self.data_source_scan,
             sql=self.sql_test_connection(),
             unqualified_query_name="test-connection",

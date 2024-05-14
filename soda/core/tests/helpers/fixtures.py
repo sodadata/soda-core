@@ -13,17 +13,20 @@ import pytest
 from dotenv import load_dotenv
 from helpers.data_source_fixture import DataSourceFixture
 from helpers.mock_file_system import MockFileSystem
+
 from soda.common.file_system import FileSystemSingleton
-from soda.common.logs import configure_logging
+from soda.common.logs import Logs, configure_logging
 
 logger = logging.getLogger(__name__)
 
 # Load local env file so that test data sources can be set up.
-project_root_dir = __file__[: -len("soda/core/tests/helpers/fixtures.py")]
+project_root_dir = __file__[: -len("src/soda/tests/helpers/fixtures.py")]
 load_dotenv(f"{project_root_dir}/.env", override=True)
 
 # In global scope because it is used in pytest annotations, it would not work as a fixture.
 test_data_source = os.getenv("test_data_source", "postgres")
+
+logs = Logs()
 
 
 def pytest_sessionstart(session: Any) -> None:
@@ -34,7 +37,7 @@ def pytest_runtest_logstart(nodeid: str, location: tuple[str, int | None, str]) 
     """
     Prints the test function name and the location in a format that PyCharm recognizes and turns into a link in the console
     """
-    logging.debug(f'### "soda/core/tests/{location[0]}:{(location[1]+1)}" {location[2]}')
+    logging.debug(f'### "src/soda/tests/{location[0]}:{(location[1]+1)}" {location[2]}')
 
 
 @pytest.fixture(scope="session")
@@ -66,14 +69,12 @@ def mock_file_system():
     FileSystemSingleton.INSTANCE = original_file_system
 
 
+@pytest.fixture(autouse=True)
+def clean_logs_before_tests():
+    logs.reset()
+    yield
+
+
 def format_query_one_line(query: str) -> str:
     """@TODO: implement"""
     return query
-
-
-@pytest.fixture(scope="function")
-def environ():
-    original_environ = os.environ.copy()
-    yield os.environ
-    os.environ.clear()
-    os.environ.update(original_environ)
