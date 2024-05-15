@@ -1,25 +1,24 @@
 from __future__ import annotations
+from soda.common.logs import Logs, configure_logging
+from soda.common.file_system import FileSystemSingleton
+from helpers.mock_file_system import MockFileSystem
+from helpers.data_source_fixture import DataSourceFixture
+from dotenv import load_dotenv
+import pytest
+from typing import Any
+import os
+import logging
 
 # Initialize telemetry in test mode. This is done before importing anything datasource/scan/scanner related which initializes telemetry in standard mode so that we avoid unnecessary setup and re-setup which easily causes errors.
 from soda.telemetry.soda_telemetry import SodaTelemetry
 
 soda_telemetry = SodaTelemetry.get_instance(test_mode=True)
 
-import logging
-import os
-from typing import Any
-
-import pytest
-from dotenv import load_dotenv
-from helpers.data_source_fixture import DataSourceFixture
-from helpers.mock_file_system import MockFileSystem
-from soda.common.file_system import FileSystemSingleton
-from soda.common.logs import Logs, configure_logging
 
 logger = logging.getLogger(__name__)
 
 # Load local env file so that test data sources can be set up.
-project_root_dir = __file__[: -len("src/soda/tests/helpers/fixtures.py")]
+project_root_dir = __file__[: -len("soda/core/tests/helpers/fixtures.py")]
 load_dotenv(f"{project_root_dir}/.env", override=True)
 
 # In global scope because it is used in pytest annotations, it would not work as a fixture.
@@ -36,7 +35,8 @@ def pytest_runtest_logstart(nodeid: str, location: tuple[str, int | None, str]) 
     """
     Prints the test function name and the location in a format that PyCharm recognizes and turns into a link in the console
     """
-    logging.debug(f'### "src/soda/tests/{location[0]}:{(location[1]+1)}" {location[2]}')
+    logging.debug(
+        f'### "src/soda/tests/{location[0]}:{(location[1]+1)}" {location[2]}')
 
 
 @pytest.fixture(scope="session")
