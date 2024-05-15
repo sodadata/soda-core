@@ -10,7 +10,7 @@ connections.
 
 Different environments require different configurations.  The configuration files are 
 grouped per environment in a directory.  When performing a contract operation, next to 
-the contract files, the environment configurations is passed as a directory.
+the contract files, the environment configuration is passed as a directory.
 
 In an environment configuration directory, the file names are used to determine the file type:
 
@@ -56,15 +56,17 @@ where the configuration is fetched from:
 ```
 > soda --contract contracts/customers.yml 
 ```
-will by default take the first configuration directory that exists and is contains configuration files:
-1. ${user.home}/.soda
-2. ${user.home}/.atlan
-3. ./.soda
-4. ./.atlan
+will by default take the first configuration directory that exists and contains configuration files:
+1. ./.soda
+2. ./.atlan
+3. ${user.home}/.soda
+4. ${user.home}/.atlan
+
+*(Note: for the Atlan CLI the precedence of (1) and (2) may be inverted, and the precedence of (3) and (4) may be inverted.)*
 
 ### Working with environments
 
-Typically engineers need to work on different environments like (local) development, cicd and production.
+Typically engineers need to work on different environments like (local) development, CI/CD and production.
 
 All configuration files for an environment must be located in a single configuration directory.  That 
 environment configuration directory is passed to the CLI or API command.
@@ -119,9 +121,9 @@ data_source: snowflake_landing_zone
 A data source contains a list of connections.  Each connection has a type.
 
 A connection also has a list of named `data_sources`.  These data source keys must match the names referenced 
-in the contract files with `data_source`.  
+in the contract files with `data_source`.
 
-Each data source can specify a specific schema, database or any other structural element of the specific SQL engine
+Each data source can specify a specific schema, database or any other structural element of the specific SQL engine.
 Data source properties like `database`, `schema` (and in the bigquery case `project` and `datasets`) are dependent 
 on the connection type.  For each of these properties we use connection-specific terminology.
 
@@ -134,7 +136,7 @@ Variables must be upper case underscore: regex `[A-Z0-9_]+`
 
 (no jinja templating, only variable substitution without spaces)
 
-In the future we may define a vault.yml configuration file that specifies how to load environment variables from 
+In the future we may define a `vault.yml` configuration file that specifies how to load environment variables from 
 a vault or secret store.
 
 ## Identifying datasets
