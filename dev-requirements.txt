@@ -4,6 +4,9 @@
 #
 #    pip-compile dev-requirements.in
 #
+--extra-index-url https://pypi.ngc.nvidia.com
+--trusted-host pypi.ngc.nvidia.com
+
 black==22.6.0
     # via -r dev-requirements.in
 bleach==6.1.0
@@ -14,6 +17,8 @@ certifi==2024.2.2
     # via
     #   -r dev-requirements.in
     #   requests
+cfgv==3.4.0
+    # via pre-commit
 charset-normalizer==3.3.2
     # via requests
 cli-ui==0.17.2
@@ -44,12 +49,16 @@ filelock==3.14.0
     # via
     #   tox
     #   virtualenv
+identify==2.5.36
+    # via pre-commit
 idna==3.7
     # via requests
 iniconfig==2.0.0
     # via pytest
 mypy-extensions==1.0.0
     # via black
+nodeenv==1.8.0
+    # via pre-commit
 packaging==24.0
     # via
     #   build
@@ -69,6 +78,8 @@ pluggy==1.5.0
     # via
     #   pytest
     #   tox
+pre-commit==3.7.1
+    # via -r dev-requirements.in
 py==1.11.0
     # via
     #   pytest-html
@@ -97,6 +108,8 @@ python-dateutil==2.9.0.post0
     # via faker
 python-dotenv==1.0.1
     # via -r dev-requirements.in
+pyyaml==6.0.1
+    # via pre-commit
 readme-renderer==32.0
     # via -r dev-requirements.in
 requests==2.31.0
@@ -138,7 +151,9 @@ urllib3==1.26.18
     #   docker
     #   requests
 virtualenv==20.26.1
-    # via tox
+    # via
+    #   pre-commit
+    #   tox
 webencodings==0.5.1
     # via bleach
 websocket-client==1.8.0
