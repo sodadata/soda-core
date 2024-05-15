@@ -37,7 +37,7 @@ def pytest_runtest_logstart(nodeid: str, location: tuple[str, int | None, str]) 
     """
     Prints the test function name and the location in a format that PyCharm recognizes and turns into a link in the console
     """
-    logging.debug(f'### "src/soda/tests/{location[0]}:{(location[1]+1)}" {location[2]}')
+    logging.debug(f'### "soda/core/tests/{location[0]}:{(location[1]+1)}" {location[2]}')
 
 
 @pytest.fixture(scope="session")
@@ -73,6 +73,14 @@ def mock_file_system():
 def clean_logs_before_tests():
     logs.reset()
     yield
+
+
+@pytest.fixture(scope="function")
+def environ():
+    original_environ = os.environ.copy()
+    yield os.environ
+    os.environ.clear()
+    os.environ.update(original_environ)
 
 
 def format_query_one_line(query: str) -> str:
