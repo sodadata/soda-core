@@ -2,14 +2,14 @@
 
 In order to verify (Soda) or push (Atlan) a contract, a data source is required.
 
-A contract file will reference a data source by name. Data sources are configured in 
+A contract file will reference a data source by name. Data sources are configured in
 data source YAML files.
 
-Other configurations next to data sources are variables, Soda Cloud connection and Atlan 
+Other configurations next to data sources are variables, Soda Cloud connection and Atlan
 connections.
 
-Different environments require different configurations.  The configuration files are 
-grouped per environment in a directory.  When performing a contract operation, next to 
+Different environments require different configurations.  The configuration files are
+grouped per environment in a directory.  When performing a contract operation, next to
 the contract files, the environment configuration is passed as a directory.
 
 In an environment configuration directory, the file names are used to determine the file type:
@@ -25,7 +25,7 @@ In an environment configuration directory, the file names are used to determine 
 A CLI or API operation like Soda's `verify` or Atlan's `push` requires one or more contract files.
 Each contract file will need to resolve the data source by name.
 
-A `data_source` is **required** in a contract file and refers to the data source in the data sources 
+A `data_source` is **required** in a contract file and refers to the data source in the data sources
 configuration file.
 
 Eg `./customers.yml`
@@ -45,16 +45,16 @@ For example: with following file structure...
 +- contracts
     +- customers.yml
 ```
-And a command line prompt in the root directory, soda can be invoked with 
+And a command line prompt in the root directory, soda can be invoked with
 ```
-> soda --configuration .soda --contract contracts/customers.yml 
+> soda --configuration .soda --contract contracts/customers.yml
 ```
 
-In this case the `--configuration .soda` is optional as it will be 1 of 4 default locations 
+In this case the `--configuration .soda` is optional as it will be 1 of 4 default locations
 where the configuration is fetched from:
 
 ```
-> soda --contract contracts/customers.yml 
+> soda --contract contracts/customers.yml
 ```
 will by default take the first configuration directory that exists and contains configuration files:
 1. ./.soda
@@ -68,7 +68,7 @@ will by default take the first configuration directory that exists and contains 
 
 Typically engineers need to work on different environments like (local) development, CI/CD and production.
 
-All configuration files for an environment must be located in a single configuration directory.  That 
+All configuration files for an environment must be located in a single configuration directory.  That
 environment configuration directory is passed to the CLI or API command.
 
 For example: with following file structure...
@@ -86,7 +86,7 @@ For example: with following file structure...
 +- contracts
 |   +- customers.yml
 ```
-Soda can be executing using the cicd environment configurations like this: 
+Soda can be executing using the cicd environment configurations like this:
 ```shell
 soda -cfg ./.soda/cicd ./contracts/customers.yml
 ```
@@ -100,7 +100,7 @@ data_source: snowflake_landing_zone
 
 ### Data source file format
 
-(1) Example 
+(1) Example
 ```yaml
 - type: snowflake
   connection:
@@ -120,11 +120,11 @@ data_source: snowflake_landing_zone
 
 A data source contains a list of connections.  Each connection has a type.
 
-A connection also has a list of named `data_sources`.  These data source keys must match the names referenced 
+A connection also has a list of named `data_sources`.  These data source keys must match the names referenced
 in the contract files with `data_source`.
 
 Each data source can specify a specific schema, database or any other structural element of the specific SQL engine.
-Data source properties like `database`, `schema` (and in the bigquery case `project` and `datasets`) are dependent 
+Data source properties like `database`, `schema` (and in the bigquery case `project` and `datasets`) are dependent
 on the connection type.  For each of these properties we use connection-specific terminology.
 
 And each data source can also overwrite certain connection properties.
@@ -136,12 +136,12 @@ Variables must be upper case underscore: regex `[A-Z0-9_]+`
 
 (no jinja templating, only variable substitution without spaces)
 
-In the future we may define a `vault.yml` configuration file that specifies how to load environment variables from 
+In the future we may define a `vault.yml` configuration file that specifies how to load environment variables from
 a vault or secret store.
 
 ## Identifying datasets
 
-TODO: describe how datasets are identified as a combination 
+TODO: describe how datasets are identified as a combination
 * configuration folder name
 * data source name
 * dataset name
