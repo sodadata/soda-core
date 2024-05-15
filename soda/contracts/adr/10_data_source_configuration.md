@@ -1,89 +1,34 @@
 # Data source configuration
 
-In order to verify or push a contract, a data source is required.
+In order to verify (Soda) or push (Atlan) a contract, a data source is required.
 
-Data sources are configured in data source YAML files.
+A contract file will reference a data source by name. Data sources are configured in 
+data source YAML files.
 
-Contracts may be used in different environments. In order to use a contract in different
-environments, the data source must be made configurable.  A contract may also have a 
-default data source.
+Other configurations next to data sources are variables, Soda Cloud connection and Atlan 
+connections.
 
-To specify the data source for a contract, these are the ways to specify the data source 
-for a contract:
-1. Specify the data source name in the contract
-2. Use a variable to specify a the data source 
-3. Specify or overwrite the data source name as a parameter (in CLI or API)
+Different environments require different configurations.  The configuration files are 
+grouped per environment in a directory.  When performing a contract operation, next to 
+the contract files, the environment configurations is passed as a directory.
 
-## Data source file format
+In an environment configuration directory, the file names are used to determine the file type:
 
-(1) Example 
-```yaml
-type: snowflake
-connection:
-    # Connection properties
-    host: ... (prod host)
-    port: 443
-    connection_uri: jdbc://username@password:...:443
-    username: ${SNOWFLAKE_USERNAME}
-    password: ${SNOWFLAKE_PASSWORD}
-# declaring a set of named data sources
-data_sources:
-    # Defines data source snowflake_slfc_raw
-    - name: snflk_slfc_raw
-      environment: prod
-      database: db_name1
-      schema: SLFC_RAW
-      warehouse: WH
-      role: ...
-    # Defines data source segment_events
-    - name: snflk_slfc_raw
-      database: SEG
-      schema: SGM
-      warehouse: WH
-      role: ...
-```
-
-
-
-
-
-./environments.yml
-```yaml
-local:
-  connection:  
-  datasets:
-  schema: 
-      
-  data_source_file: ${USER_HOME}/.ds/snowflake.ds.yml
-  data_source_name: snflk_slfc_raw
-cicd:
-    
-prod:
-```
-
-```shell
-{TOOLNAME} -c ./customers.dc.yml -environment prod
-```
-
-```shell
-soda -cfg ./config.yml -contract ./contracts/customers.yml
-
-soda -cfg ./other.config.yml -contract ./contracts/customers.yml
-```
-
-Terminology: We refer to this type of file as a **data source** file or **data source configuration** file.
-And we will **not** refer to these as database, warehouse or connection files.
-
-Properties like `database`, `schema` and in the bigquery case `project` and `datasets` are
-dependent on the connection type.  For each of these properties we use connection-specific
-terminology.
+* `data_sources.yml` : Configuration of connections to SQL engines
+* `variables.yml` : Configuration of variables for this environment (no credentials)
+* `soda.yml` : Configurations for Soda Cloud connectivity
+* `atlan.yml` : Configurations for Atlan connectivity
+* `vault.yml` : Configurations for loading variables from a secret store.
 
 ## Specifying the data source name
 
 A CLI or API operation like Soda's `verify` or Atlan's `push` requires one or more contract files.
 Each contract file will need to resolve the data source by name.
 
-The data source name can be specified in a contract file `./customers.yml`
+A `data_source` is **required** in a contract file and refers to the data source in the data sources 
+configuration file.
+
+Eg `./customers.yml`
 ```yaml
 dataset: CUSTOMERS
 data_source: snflk_slfc_raw
@@ -91,251 +36,112 @@ columns:
     - name: ...
 ```
 
-Or the data source name can be specified as a command parameter:
-```yaml
-dataset: CUSTOMERS
-columns:
-    - name: ...
+### Basic configuration examples
+
+For example: with following file structure...
 ```
++- .soda
+|   +- data_sources.yml
++- contracts
+    +- customers.yml
+```
+And a command line prompt in the root directory, soda can be invoked with 
+```
+> soda --configuration .soda --contract contracts/customers.yml 
+```
+
+In this case the `--configuration .soda` is optional as it will be 1 of 4 default locations 
+where the configuration is fetched from:
+
+```
+> soda --contract contracts/customers.yml 
+```
+will by default take the first configuration directory that exists and is contains configuration files:
+1. ${user.home}/.soda
+2. ${user.home}/.atlan
+3. ./.soda
+4. ./.atlan
+
+### Working with environments
+
+Typically engineers need to work on different environments like (local) development, cicd and production.
+
+All configuration files for an environment must be located in a single configuration directory.  That 
+environment configuration directory is passed to the CLI or API command.
+
+For example: with following file structure...
+```
++- .soda
+|   +- dev
+|   |   +- data_sources.yml
+|   |   +- soda.yml
+|   +- cicd
+|   |   +- data_sources.yml
+|   |   +- soda.yml
+|   +- prod
+|   |   +- data_sources.yml
+|   |   +- soda.yml
++- contracts
+|   +- customers.yml
+```
+Soda can be executing using the cicd environment configurations like this: 
 ```shell
-toolname -ds snflk_slfc_raw -c ./customers.yml
+soda -cfg ./.soda/cicd ./contracts/customers.yml
 ```
 
-The data source name can also be overwritten as a command parameter:
-```yaml
-dataset: CUSTOMERS
-data_source: snflk_slfc_raw
-columns:
-    - name: ...
-```
-```shell
-toolname -ds cicd_snflk_slfc_raw -c ./customers.yml
-```
-In this case the data source `cicd_snflk_slfc_raw` will be used.
-
-## Resolving the data source name
-
-Any operation can be provided with a collection of data source configuration files.  
-All data source names provided must be unique and if not, an error should be produced.
-
-These source files will be found automatically:
-* {contract_file_dir}/data_sources.yml
-* {contract_file_dir}/../data_sources.yml
-* {contract_file_dir}/../../data_sources.yml
-* {user.home}/.data_sources/*.yml
-* data_sources/*.yml
-
-Apart from the default data source file paths, users can specify other data source file paths or
-directories as CLI or API parameters:
-* CLI parameter `--data-source` or `-d` for a single data source file path
-* API method `.data_source(file_path: str)` for a single data source file path
-* CLI parameter `--data-sources-dir` or `-dd` for a directory containing data source files
-* API method `.data_sources_dir(dir_path: str)` for a directory containing data source files
-
-## Recommended contract file structure
-
-
-
-```
-+ README.md (generic file indicating this is the root of a repo)
-+ data.environments.yml
-      
-+ data_sources
-|  + snowflake_prod.ds.yml         # data source file
-|  + snowflake_cicd.ds.yml         # data source file
-|  + postgres_local.ds.yml         # data source file
-+ contracts                        # tools may recognize this folder name in a project 
-|  + user_defined_project_name
-|  |  + snowflake_cicd.ds.yml         # data source file
-|  |  + postgres_local.ds.yml         # data source file
-project_name            # user defined project name
-|  + snowflakecicd              # directory grouping all contracts in cicd data source
-|  |  + customers.yml  # contract in cicd data source 
-```
-
-(7) In case users want to work with different environments, we allow for the `environment` parameter
-to be specified in the CLI and API.
-
-Typical environments are: `dev`, `prod`, `cicd`.  Environment names must be matching regex `[a-z_]+`.  The motivation
-to only allow for lower case is to prevent upper-lower-case errors.
-
-* CLI parameter `--environment` or `-e` to specify the environment name
-* API method `.environment(environment: str)` for the environment name
-
-(8) The data sources can have a property `environment` that has to match with the specified environment.  For example:
+### Referencing data sources in contract files
 
 ```yaml
-type: snowflake
-
-connection:
-  # Connection properties
-  host: ... (prod host)
-  port: 443
-  connection_uri: jdbc://username@password:...:443
-  username: ${SNOWFLAKE_USERNAME}
-  password: ${SNOWFLAKE_PASSWORD}
-
-# declaring a set of named data sources
-data_source:
-
-  # Defines data source snowflake_slfc_raw in the default environment
-  - name: snflk_slfc_raw
-    database: db_name1
-    schema: SLFC_RAW
-    warehouse: WH
-    role: ...
-    use_quotes: true
-    variables:
-      TABLE_PREFIX: SR_
-
-  # Defines data source snflk_slfc_raw in the default environment
-  - name: snflk_slfc_raw
-    environment: cicd
-    database: db_name2
-    schema: cicd_schem
-    warehouse: ...
-    role: ...
-    variables:
-      TABLE_PREFIX: SEGM_
-
-variables:
-  DB_PREFIX: SWFLK_
+dataset: dim_customers
+data_source: snowflake_landing_zone
 ```
+
+### Data source file format
+
+(1) Example 
+```yaml
+- type: snowflake
+  connection:
+      host: 0sd89fs09d8f0s9d8f.snflk.com
+      warehouse: XXXL
+      username: ${SNOWFLAKE_USERNAME}
+      password: ${SNOWFLAKE_PASSWORD}
+      role: admin
+  data_sources:
+      snowflake_landing_zone:
+        schema: snowflake_landing_zone
+      snowflake_silver:
+        schema: SILVER_PRD
+      snowflake_gold:
+        schema: GOLD_PRODUCTION
+```
+
+A data source contains a list of connections.  Each connection has a type.
+
+A connection also has a list of named `data_sources`.  These data source keys must match the names referenced 
+in the contract files with `data_source`.  
+
+Each data source can specify a specific schema, database or any other structural element of the specific SQL engine
+Data source properties like `database`, `schema` (and in the bigquery case `project` and `datasets`) are dependent 
+on the connection type.  For each of these properties we use connection-specific terminology.
+
+And each data source can also overwrite certain connection properties.
+
+### Variables
+
+In all configuration and contract files, variables can be referenced as `${VARIABLE_NAME}`
+Variables must be upper case underscore: regex `[A-Z0-9_]+`
+
+(no jinja templating, only variable substitution without spaces)
+
+In the future we may define a vault.yml configuration file that specifies how to load environment variables from 
+a vault or secret store.
 
 ## Identifying datasets
 
-TODO: describe how we match datasets.
+TODO: describe how datasets are identified as a combination 
+* configuration folder name
+* data source name
+* dataset name
 
-TODO: This should be based on a consistent hash of the data source properties.
-
-### Configuring variables
-
-TODO: Variables should used to specify credentials...
-
-TODO: Variables can used in the contract file to specify a different data source name...
-
-## Quoting
-
-TODO
-
-## Example: simplest configuration using defaults
-
-Contract file `./customers.yml`
-```yaml
-dataset: CUSTOMERS
-columns:
-    - name: ...
-```
-
-With CLI command:
-```shell
-command -c ./customers.yml
-```
-
-will match the single data source in
-
-Data source file `./data_sources.yml`
-```yaml
-type: ...
-data_sources:
-  - name: the_single_ds
-    database: ...
-    username: ***
-    password: ***
-    other: datasource properties
-```
-
-## Example: Specifying a data source name
-
-Contract file `./customers.yml`
-```yaml
-dataset: CUSTOMERS
-data_source: postgres_segment_ds
-columns:
-    - name: ...
-```
-
-With CLI command:
-```shell
-command -c ./customers.yml
-```
-
-will match the `postgres_segment_ds` data source in
-
-Data source file `../data_sources.yml`
-```yaml
-type: postgres
-data_sources:
-  - name: postgres_segment_ds
-    database: ...
-    username: ***
-    password: ***
-    other: datasource properties
-  - name: postgres_snowflake_ds
-    database: ...
-    username: ***
-    password: ***
-    other: datasource properties
-```
-
-## Example: Specifying a data source & environment
-
-Contract file `./customers.yml`
-```yaml
-dataset: CUSTOMERS
-data_source: postgres_segment_ds
-columns:
-    - name: ...
-```
-
-With CLI command:
-```shell
-command -c ./customers.yml -e cicd
-```
-
-will match the second `postgres_segment_ds` data source in
-
-Data source file `../data_sources.yml`
-```yaml
-type: postgres
-data_sources:
-  - name: postgres_segment_ds
-    database: ...
-    username: ***
-    password: ***
-    other: datasource properties
-  - name: postgres_segment_ds
-    environment: cicd
-    database: ...
-    username: ***
-    password: ***
-    other: datasource properties
-```
-
-## Example: Specifying a data source file
-
-Contract file `./customers.yml`
-```yaml
-dataset: CUSTOMERS
-data_source: postgres_segment_ds
-columns:
-    - name: ...
-```
-
-With CLI command:
-```shell
-command -c ./customers.yml -d ../cfg/postgres_data_sources.yml
-```
-
-will match the `postgres_segment_ds` data source in
-
-Data source file `../cfg/postgres_data_sources.yml` (non-default name & directory!)
-```yaml
-type: postgres
-data_sources:
-  - name: postgres_segment_ds
-    database: ...
-    username: ***
-    password: ***
-    other: datasource properties
-```
+Should instead of configuration folder name, a consistent hash of the data source properties be used?
