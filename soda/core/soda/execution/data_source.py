@@ -236,7 +236,7 @@ class DataSource:
         self.quote_tables: bool = data_source_properties.get("quote_tables", False)
 
     def has_valid_connection(self) -> bool:
-        query = QueryWithoutResults(
+        query = Query(
             data_source_scan=self.data_source_scan,
             sql=self.sql_test_connection(),
             unqualified_query_name="test-connection",
@@ -1077,7 +1077,7 @@ class DataSource:
 
     def analyze_table(self, table: str):
         if self.sql_analyze_table(table):
-            Query(
+            QueryWithoutResults(
                 data_source_scan=self.data_source_scan,
                 unqualified_query_name=f"analyze_{table}",
                 sql=self.sql_analyze_table(table),
