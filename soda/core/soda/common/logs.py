@@ -196,3 +196,13 @@ class Logs:
                 doc=doc,
                 exception=exception,
             )
+
+    def log_message_present(self, message: str, full_match: bool = False) -> bool:
+        for log in self.logs:
+            if full_match:
+                if log.message == message:
+                    return True
+            else:
+                if message in log.message:
+                    return True
+        return False
