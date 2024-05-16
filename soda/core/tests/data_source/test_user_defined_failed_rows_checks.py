@@ -290,3 +290,39 @@ def test_failed_rows_query_warn_threshold_pass(data_source_fixture: DataSourceFi
     )
     scan.execute()
     scan.assert_check_pass()
+
+
+def test_failed_rows_condition_fail_threshold_pass(data_source_fixture: DataSourceFixture):
+    table_name = data_source_fixture.ensure_test_table(customers_test_table)
+
+    scan = data_source_fixture.create_test_scan()
+    scan.enable_mock_sampler()
+    scan.add_sodacl_yaml_str(
+        f"""
+          checks for {table_name}:
+            - failed rows:
+                name: Customers must have cst_size
+                fail condition: cst_size < 0
+                fail: when > 3
+        """
+    )
+    scan.execute()
+    scan.assert_check_pass()
+
+
+def test_failed_rows_condition_warn_threshold_pass(data_source_fixture: DataSourceFixture):
+    table_name = data_source_fixture.ensure_test_table(customers_test_table)
+
+    scan = data_source_fixture.create_test_scan()
+    scan.enable_mock_sampler()
+    scan.add_sodacl_yaml_str(
+        f"""
+          checks for {table_name}:
+            - failed rows:
+                name: Customers must have cst_size
+                fail condition: cst_size < 0
+                warn: when > 3
+        """
+    )
+    scan.execute()
+    scan.assert_check_pass()
