@@ -619,6 +619,7 @@ class SodaCLParser(Parser):
         condition = None
         metric_expression = None
         metric_query = None
+        failed_rows_query = None
         samples_limit = None
         samples_columns = None
         training_dataset_params: TrainingDatasetParameters = TrainingDatasetParameters()
@@ -657,6 +658,13 @@ class SodaCLParser(Parser):
                                 f'In configuration "{configuration_key}" the metric name must match exactly the metric name in the check "{metric_name}"',
                                 location=self.location,
                             )
+                elif configuration_key == "failed rows query" or configuration_key == "failed rows sql_file":
+                    if configuration_key.endswith("sql_file"):
+                        fs = file_system()
+                        sql_file_path = fs.join(fs.dirname(self.path_stack.file_path), configuration_value.strip())
+                        failed_rows_query = dedent(fs.file_read_as_str(sql_file_path)).strip()
+                    else:
+                        failed_rows_query = dedent(configuration_value).strip()
                 elif configuration_key.endswith("query") or configuration_key.endswith("sql_file"):
                     if configuration_key.endswith("sql_file"):
                         fs = file_system()
@@ -935,6 +943,7 @@ class SodaCLParser(Parser):
             fail_threshold_cfg=fail_threshold_cfg,
             warn_threshold_cfg=warn_threshold_cfg,
             samples_limit=samples_limit,
+            failed_rows_query=failed_rows_query,
         )
 
     def __parse_configuration_threshold_condition(self, value) -> ThresholdCfg | None:

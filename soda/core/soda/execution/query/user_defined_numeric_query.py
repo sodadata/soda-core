@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from soda.execution.metric.metric import Metric
 from soda.execution.query.query import Query
 
@@ -5,7 +7,7 @@ from soda.execution.query.query import Query
 class UserDefinedNumericQuery(Query):
     def __init__(
         self,
-        data_source_scan: "DataSourceScan",
+        data_source_scan: DataSourceScan,
         check_name: str,
         sql: str,
         metric: Metric,
@@ -22,3 +24,8 @@ class UserDefinedNumericQuery(Query):
                 if self.row[index] is not None:
                     metric_value = float(self.row[index])
                     self.metric.set_value(metric_value)
+
+            sample_query = self.metric.create_failed_rows_sample_query()
+            if sample_query:
+                self.metric.queries.append(sample_query)
+                sample_query.execute()
