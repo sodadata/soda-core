@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import functools
+import inspect
 import logging
 import os
 import re
@@ -619,6 +620,7 @@ class SodaCLParser(Parser):
         condition = None
         metric_expression = None
         metric_query = None
+        failed_rows_query = None
         samples_limit = None
         samples_columns = None
         training_dataset_params: TrainingDatasetParameters = TrainingDatasetParameters()
@@ -657,6 +659,13 @@ class SodaCLParser(Parser):
                                 f'In configuration "{configuration_key}" the metric name must match exactly the metric name in the check "{metric_name}"',
                                 location=self.location,
                             )
+                elif configuration_key == "failed rows query" or configuration_key == "failed rows sql_file":
+                    if configuration_key.endswith("sql_file"):
+                        fs = file_system()
+                        sql_file_path = fs.join(fs.dirname(self.path_stack.file_path), configuration_value.strip())
+                        failed_rows_query = dedent(fs.file_read_as_str(sql_file_path)).strip()
+                    else:
+                        failed_rows_query = dedent(configuration_value).strip()
                 elif configuration_key.endswith("query") or configuration_key.endswith("sql_file"):
                     if configuration_key.endswith("sql_file"):
                         fs = file_system()
@@ -918,24 +927,39 @@ class SodaCLParser(Parser):
                 f"Invalid syntax used in '{check_str}'. More than one check attribute is not supported. A check like this will be skipped in future versions of Soda Core"
             )
 
-        return metric_check_cfg_class(
-            source_header=header_str,
-            source_line=check_str,
-            source_configurations=check_configurations,
-            location=self.location,
-            name=name,
-            metric_name=metric_name,
-            metric_args=metric_args,
-            missing_and_valid_cfg=missing_and_valid_cfg,
-            filter=filter,
-            condition=condition,
-            metric_expression=metric_expression,
-            metric_query=metric_query,
-            change_over_time_cfg=change_over_time_cfg,
-            fail_threshold_cfg=fail_threshold_cfg,
-            warn_threshold_cfg=warn_threshold_cfg,
-            samples_limit=samples_limit,
-        )
+        def takes_keyword_argument(cls, keyword):
+            signature = inspect.signature(cls.__init__)
+            return keyword in signature.parameters
+
+        # Some arguments make no sense for certain metric checks, so we only pass the ones that are supported by the given class constructor.
+        # Do this instead of accepting kwargs and passing all arguments to the constructor, because it's easier to see what arguments are supported and they do not disappear in the constructor.
+        all_args = {
+            "source_header": header_str,
+            "source_line": check_str,
+            "source_configurations": check_configurations,
+            "location": self.location,
+            "name": name,
+            "metric_name": metric_name,
+            "metric_args": metric_args,
+            "missing_and_valid_cfg": missing_and_valid_cfg,
+            "filter": filter,
+            "condition": condition,
+            "metric_expression": metric_expression,
+            "metric_query": metric_query,
+            "change_over_time_cfg": change_over_time_cfg,
+            "fail_threshold_cfg": fail_threshold_cfg,
+            "warn_threshold_cfg": warn_threshold_cfg,
+            "samples_limit": samples_limit,
+            "failed_rows_query": failed_rows_query,
+        }
+
+        use_args = {}
+
+        for arg in all_args.keys():
+            if takes_keyword_argument(metric_check_cfg_class, arg):
+                use_args[arg] = all_args[arg]
+
+        return metric_check_cfg_class(**use_args)
 
     def __parse_configuration_threshold_condition(self, value) -> ThresholdCfg | None:
         if isinstance(value, str):
