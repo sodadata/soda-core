@@ -98,6 +98,7 @@ jobs:
           sudo apt-get update
           ACCEPT_EULA=Y sudo apt-get install -y libsasl2-dev msodbcsql18
           python -m pip install --upgrade pip
+          pip install requests==2.31.0
           cat dev-requirements.in | grep tox | xargs pip install
 
       - name: Test with tox
@@ -132,6 +133,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libsasl2-dev
           python -m pip install --upgrade pip
+          pip install requests==2.31.0
           cat dev-requirements.in | grep tox | xargs pip install
 
       - name: Test with tox
@@ -166,6 +168,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libsasl2-dev
           python -m pip install --upgrade pip
+          pip install requests==2.31.0
           cat dev-requirements.in | grep tox | xargs pip install
 
       - name: Test with tox
@@ -194,6 +197,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libsasl2-dev
           python -m pip install --upgrade pip
+          pip install requests==2.31.0
           cat dev-requirements.in | grep tox | xargs pip install
 
       - name: Test with tox
