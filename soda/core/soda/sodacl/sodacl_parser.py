@@ -8,6 +8,7 @@ from datetime import timedelta
 from numbers import Number
 from textwrap import dedent
 from typing import List
+import inspect
 
 from antlr4 import CommonTokenStream, InputStream
 from antlr4.error.ErrorListener import ErrorListener
@@ -926,25 +927,39 @@ class SodaCLParser(Parser):
                 f"Invalid syntax used in '{check_str}'. More than one check attribute is not supported. A check like this will be skipped in future versions of Soda Core"
             )
 
-        return metric_check_cfg_class(
-            source_header=header_str,
-            source_line=check_str,
-            source_configurations=check_configurations,
-            location=self.location,
-            name=name,
-            metric_name=metric_name,
-            metric_args=metric_args,
-            missing_and_valid_cfg=missing_and_valid_cfg,
-            filter=filter,
-            condition=condition,
-            metric_expression=metric_expression,
-            metric_query=metric_query,
-            change_over_time_cfg=change_over_time_cfg,
-            fail_threshold_cfg=fail_threshold_cfg,
-            warn_threshold_cfg=warn_threshold_cfg,
-            samples_limit=samples_limit,
-            failed_rows_query=failed_rows_query,
-        )
+        def takes_keyword_argument(cls, keyword):
+            signature = inspect.signature(cls.__init__)
+            return keyword in signature.parameters
+
+        # Some arguments make no sense for certain metric checks, so we only pass the ones that are supported by the given class constructor.
+        # Do this instead of accepting kwargs and passing all arguments to the constructor, because it's easier to see what arguments are supported and they do not disappear in the constructor.
+        all_args = {
+            "source_header": header_str,
+            "source_line": check_str,
+            "source_configurations": check_configurations,
+            "location": self.location,
+            "name": name,
+            "metric_name": metric_name,
+            "metric_args": metric_args,
+            "missing_and_valid_cfg": missing_and_valid_cfg,
+            "filter": filter,
+            "condition": condition,
+            "metric_expression": metric_expression,
+            "metric_query": metric_query,
+            "change_over_time_cfg": change_over_time_cfg,
+            "fail_threshold_cfg": fail_threshold_cfg,
+            "warn_threshold_cfg": warn_threshold_cfg,
+            "samples_limit": samples_limit,
+            "failed_rows_query": failed_rows_query,
+        }
+
+        use_args = {}
+
+        for arg in all_args.keys():
+            if takes_keyword_argument(metric_check_cfg_class, arg):
+                use_args[arg] = all_args[arg]
+
+        return metric_check_cfg_class(**use_args)
 
     def __parse_configuration_threshold_condition(self, value) -> ThresholdCfg | None:
         if isinstance(value, str):
