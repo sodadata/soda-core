@@ -163,3 +163,34 @@ def test_user_defined_data_source_query_metric_check_with_fail_query(data_source
     scan.assert_all_checks_pass()
 
     assert mock_soda_cloud.find_failed_rows_line_count(0) == 4
+
+
+def test_user_defined_data_source_query_metric_check_with_fail_query_file(data_source_fixture: DataSourceFixture):
+    fd, path = tempfile.mkstemp()
+    table_name = data_source_fixture.ensure_test_table(customers_test_table)
+    qualified_table_name = data_source_fixture.data_source.qualified_table_name(table_name)
+
+    scan = data_source_fixture.create_test_scan()
+    mock_soda_cloud = scan.enable_mock_soda_cloud()
+    scan.enable_mock_sampler()
+    try:
+        with os.fdopen(fd, "w") as tmp:
+            tmp.write(f"SELECT * FROM {qualified_table_name} WHERE country != 'BE'")
+
+        scan.add_sodacl_yaml_str(
+            f"""
+              checks:
+                - belgium_customers = 6:
+                    belgium_customers query: |
+                        SELECT count(*) as belgium_customers
+                        FROM {qualified_table_name}
+                        WHERE country = 'BE'
+                    failed rows sql_file: "{path}"
+                """
+        )
+        scan.execute()
+        scan.assert_all_checks_pass()
+        assert mock_soda_cloud.find_failed_rows_line_count(0) == 4
+
+    finally:
+        os.remove(path)
