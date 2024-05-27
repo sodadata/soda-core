@@ -16,7 +16,6 @@ class SnowflakeDataSourceFixture(DataSourceFixture):
         return {
             "data_source snowflake": {
                 "type": "snowflake",
-                "host": os.getenv("SNOWFLAKE_HOST"),
                 "account": os.getenv("SNOWFLAKE_ACCOUNT"),
                 "username": os.getenv("SNOWFLAKE_USERNAME"),
                 "password": os.getenv("SNOWFLAKE_PASSWORD"),
