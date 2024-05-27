@@ -70,7 +70,7 @@ pathspec==0.12.1
     # via black
 pip-tools==7.4.1
     # via -r dev-requirements.in
-platformdirs==4.2.1
+platformdirs==4.2.2
     # via
     #   black
     #   virtualenv
@@ -113,7 +113,9 @@ pyyaml==6.0.1
 readme-renderer==32.0
     # via -r dev-requirements.in
 requests==2.31.0
-    # via docker
+    # via
+    #   -r dev-requirements.in
+    #   docker
 schema==0.7.7
     # via tbump
 six==1.16.0
@@ -154,6 +156,8 @@ virtualenv==20.26.1
     # via
     #   pre-commit
     #   tox
+virtualenv==20.26.2
+    # via tox
 webencodings==0.5.1
     # via bleach
 websocket-client==1.8.0

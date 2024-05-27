@@ -32,8 +32,17 @@ class MetricCheckCfg(CheckCfg):
         fail_threshold_cfg: ThresholdCfg | None,
         warn_threshold_cfg: ThresholdCfg | None,
         samples_limit: int | None = None,
+        failed_rows_query: str | None = None,
     ):
-        super().__init__(source_header, source_line, source_configurations, location, name, samples_limit)
+        super().__init__(
+            source_header,
+            source_line,
+            source_configurations,
+            location,
+            name,
+            samples_limit,
+            failed_rows_query=failed_rows_query,
+        )
         self.metric_name: str = metric_name
         self.metric_args: list[object] | None = metric_args
         self.missing_and_valid_cfg: MissingAndValidCfg = missing_and_valid_cfg
