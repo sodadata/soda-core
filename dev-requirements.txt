@@ -152,12 +152,10 @@ urllib3==1.26.18
     #   -r dev-requirements.in
     #   docker
     #   requests
-virtualenv==20.26.1
+virtualenv==20.26.2
     # via
     #   pre-commit
     #   tox
-virtualenv==20.26.2
-    # via tox
 webencodings==0.5.1
     # via bleach
 websocket-client==1.8.0
