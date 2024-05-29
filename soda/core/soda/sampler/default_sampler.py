@@ -12,8 +12,7 @@ logger = logging.getLogger(__name__)
 class DefaultSampler(Sampler):
     def store_sample(self, sample_context: SampleContext) -> SampleRef:
         self.logs.info("Using DefaultSampler")
-        sample_rows = sample_context.sample.get_rows()
-        row_count = len(sample_rows)
+        row_count = sample_context.sample.get_rows_count()
 
         sample_schema = sample_context.sample.get_schema()
 

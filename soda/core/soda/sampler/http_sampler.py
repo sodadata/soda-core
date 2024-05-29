@@ -20,7 +20,7 @@ class HTTPSampler(Sampler):
     def store_sample(self, sample_context: SampleContext) -> SampleRef | None:
         self.logs.info(f"Sending failed row samples to {self.url}")
         sample_rows = sample_context.sample.get_rows()
-        row_count = len(sample_rows)
+        row_count = sample_context.sample.get_rows_count()
         sample_schema = sample_context.sample.get_schema()
 
         result_dict = {

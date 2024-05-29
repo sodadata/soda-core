@@ -10,7 +10,8 @@ class DaskCursor:
         self.context = context
         self.df: DataFrame | None = None
         self.description: tuple[tuple] | None = None
-        self.row_count: int = -1
+        self.rowcount: int = -1
+        self.cursor_index: int = -1
 
     def execute(self, sql: str) -> None:
         # Run sql query in dask sql context and replace np.nan with None
@@ -21,14 +22,21 @@ class DaskCursor:
         # Reset index
         self.df = self.df.reset_index(drop=True)
         self.description: tuple = self.get_description()
+        self.cursor_index = 0
 
     def fetchall(self) -> tuple[list, ...]:
-        self.row_count = self.df.shape[0]
+        self.rowcount = self.df.shape[0]
         rows: tuple[list, ...] = tuple(self.df.values.tolist())
         return rows
 
+    def fetchmany(self, size: int) -> tuple[list, ...]:
+        self.rowcount = self.df.shape[0]
+        rows: tuple[list, ...] = tuple(self.df.values.tolist()[self.cursor_index : self.cursor_index + size])
+        self.cursor_index += len(rows)
+        return rows
+
     def fetchone(self) -> tuple:
-        self.row_count = self.df.shape[0]
+        self.rowcount = self.df.shape[0]
         if self.df.empty:
             row_value = []
             for col_dtype in self.df.dtypes:

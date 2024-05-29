@@ -16,6 +16,7 @@ from soda.common.logs import Logs
 from soda.common.string_helper import string_matches_simple_pattern
 from soda.execution.data_type import DataType
 from soda.execution.query.query import Query
+from soda.execution.query.query_without_results import QueryWithoutResults
 from soda.execution.query.schema_query import TableColumnsQuery
 from soda.sampler.sample_ref import SampleRef
 from soda.sodacl.location import Location
@@ -1076,7 +1077,7 @@ class DataSource:
 
     def analyze_table(self, table: str):
         if self.sql_analyze_table(table):
-            Query(
+            QueryWithoutResults(
                 data_source_scan=self.data_source_scan,
                 unqualified_query_name=f"analyze_{table}",
                 sql=self.sql_analyze_table(table),
