@@ -27,7 +27,9 @@ def test_warehouse_file_variable_resolving(environ):
     assert "sodasql" == resolved_connection_properties["username"]
 
 
-def test_invalid_database():
+def test_invalid_database(environ: dict):
+    environ["PORT"] = os.getenv("POSTGRES_PORT", "5432")
+
     warehouse_yaml_str = dedent(
         """
             name: postgres_ds
@@ -36,6 +38,7 @@ def test_invalid_database():
               host: localhost
               database: invalid_db
               username: sodasql
+              port: ${PORT}
         """
     )
 
@@ -46,7 +49,9 @@ def test_invalid_database():
     assert 'database "invalid_db" does not exist' in contract_verification_str
 
 
-def test_invalid_username():
+def test_invalid_username(environ: dict):
+    environ["PORT"] = os.getenv("POSTGRES_PORT", "5432")
+
     warehouse_yaml_str = dedent(
         """
             name: postgres_ds
@@ -55,6 +60,7 @@ def test_invalid_username():
               host: localhost
               database: sodasql
               username: invalid_usr
+              port: ${PORT}
         """
     )
 

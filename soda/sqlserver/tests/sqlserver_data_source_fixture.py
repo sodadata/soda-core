@@ -21,6 +21,8 @@ class SQLServerDataSourceFixture(DataSourceFixture):
                 # Local docker compose has self-signed certificate
                 "trust_server_certificate": "true",
                 "schema": schema_name or os.getenv("SQLSERVER_SCHEMA", "dbo"),
+                "port": int(os.getenv("SQLSERVER_PORT", 1433)),
+                "driver": os.getenv("SQLSERVER_DRIVER", "ODBC Driver 18 for SQL Server"),
             }
         }
 
