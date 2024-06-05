@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import os
 from datetime import date
 from textwrap import dedent
 
@@ -35,6 +36,7 @@ def test_contract_verification_api(test_warehouse: TestWarehouse, environ: dict)
     table_name: str = test_warehouse.ensure_test_table(contracts_api_test_table)
 
     environ["USERNAME"] = "sodasql"
+    environ["PORT"] = int(os.getenv("POSTGRES_PORT", 5432))
 
     warehouse_yaml_str = dedent(
         """
@@ -44,6 +46,7 @@ def test_contract_verification_api(test_warehouse: TestWarehouse, environ: dict)
             host: localhost
             database: sodasql
             username: ${USERNAME}
+            port: ${PORT}
     """
     )
 

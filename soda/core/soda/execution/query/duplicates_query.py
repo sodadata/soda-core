@@ -93,28 +93,29 @@ class DuplicatesQuery(Query):
 
     def execute(self):
         self.fetchone()
-        duplicates_count = self.row[0]
-        self.metric.set_value(duplicates_count)
+        if self.row:
+            duplicates_count = self.row[0]
+            self.metric.set_value(duplicates_count)
 
-        if duplicates_count and self.samples_limit > 0:
-            # TODO: Sample Query execute implicitly stores the failed rows file reference in the passed on metric.
-            sample_query = SampleQuery(
-                self.data_source_scan,
-                self.metric,
-                "failed_rows",
-                self.failed_rows_sql,
-            )
-            sample_query.execute()
+            if duplicates_count and self.samples_limit > 0:
+                # TODO: Sample Query execute implicitly stores the failed rows file reference in the passed on metric.
+                sample_query = SampleQuery(
+                    self.data_source_scan,
+                    self.metric,
+                    "failed_rows",
+                    self.failed_rows_sql,
+                )
+                sample_query.execute()
 
-        # TODO: This should be a second failed rows file, refactor failed rows to support multiple files.
-        if self.failing_rows_sql_aggregated and self.samples_limit > 0:
-            aggregate_sample_query = Query(
-                self.data_source_scan,
-                self.partition.table,
-                self.partition,
-                unqualified_query_name=f"duplicate_count[{'-'.join(self.metric.metric_args)}].failed_rows.aggregated",
-                sql=self.failing_rows_sql_aggregated,
-                samples_limit=self.samples_limit,
-            )
-            aggregate_sample_query.execute()
-            self.aggregated_failed_rows_data = aggregate_sample_query.rows
+            # TODO: This should be a second failed rows file, refactor failed rows to support multiple files.
+            if self.failing_rows_sql_aggregated and self.samples_limit > 0:
+                aggregate_sample_query = Query(
+                    self.data_source_scan,
+                    self.partition.table,
+                    self.partition,
+                    unqualified_query_name=f"duplicate_count[{'-'.join(self.metric.metric_args)}].failed_rows.aggregated",
+                    sql=self.failing_rows_sql_aggregated,
+                    samples_limit=self.samples_limit,
+                )
+                aggregate_sample_query.execute()
+                self.aggregated_failed_rows_data = aggregate_sample_query.rows
