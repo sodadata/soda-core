@@ -17,6 +17,7 @@ class MySQLDataSourceFixture(DataSourceFixture):
                 "username": os.getenv("MYSQL_USERNAME", "root"),
                 "password": os.getenv("MYSQL_PASSWORD", "sodacore"),
                 "database": schema_name if schema_name else os.getenv("MYSQL_DATABASE", "sodacore"),
+                "port": int(os.getenv("MYSQL_PORT", 3306)),
             }
         }
 
