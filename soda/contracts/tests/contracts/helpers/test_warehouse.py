@@ -19,6 +19,8 @@ from soda.contracts.impl.warehouse import Warehouse
 
 
 class TestVerificationWarehouse(VerificationWarehouse):
+    __test__ = False
+
     def __init__(self, warehouse: Warehouse):
         super().__init__()
         self.warehouse = warehouse
@@ -29,6 +31,7 @@ class TestVerificationWarehouse(VerificationWarehouse):
 
 
 class TestContractVerificationBuilder(ContractVerificationBuilder):
+    __test__ = False
 
     def __init__(self):
         super().__init__()
@@ -43,6 +46,7 @@ class TestContractVerificationBuilder(ContractVerificationBuilder):
 
 
 class TestContractVerification(ContractVerification):
+    __test__ = False
 
     @classmethod
     def builder(cls) -> TestContractVerificationBuilder:
@@ -62,6 +66,7 @@ class TestContractVerification(ContractVerification):
 
 
 class TestWarehouse(Warehouse):
+    __test__ = False
 
     def __init__(self, data_source_fixture: DataSourceFixture):
         super().__init__()
