@@ -13,12 +13,16 @@ bleach==6.1.0
     # via readme-renderer
 build==1.2.1
     # via pip-tools
-certifi==2024.2.2
+cachetools==5.3.3
+    # via tox
+certifi==2024.6.2
     # via
     #   -r dev-requirements.in
     #   requests
 cfgv==3.4.0
     # via pre-commit
+chardet==5.2.0
+    # via tox
 charset-normalizer==3.3.2
     # via requests
 cli-ui==0.17.2
@@ -28,12 +32,14 @@ click==8.1.7
     #   black
     #   pip-tools
 colorama==0.4.6
-    # via cli-ui
+    # via
+    #   cli-ui
+    #   tox
 coverage[toml]==7.5.3
     # via pytest-cov
 distlib==0.3.8
     # via virtualenv
-docker==6.1.3
+docker==7.1.0
     # via tox-docker
 docopt==0.6.2
     # via tbump
@@ -57,15 +63,14 @@ iniconfig==2.0.0
     # via pytest
 mypy-extensions==1.0.0
     # via black
-nodeenv==1.9.0
+nodeenv==1.9.1
     # via pre-commit
 packaging==24.0
     # via
     #   build
-    #   docker
+    #   pyproject-api
     #   pytest
     #   tox
-    #   tox-docker
 pathspec==0.12.1
     # via black
 pip-tools==7.4.1
@@ -73,6 +78,7 @@ pip-tools==7.4.1
 platformdirs==4.2.2
     # via
     #   black
+    #   tox
     #   virtualenv
 pluggy==1.5.0
     # via
@@ -81,13 +87,13 @@ pluggy==1.5.0
 pre-commit==3.5.0
     # via -r dev-requirements.in
 py==1.11.0
-    # via
-    #   pytest-html
-    #   tox
+    # via pytest-html
 pygments==2.18.0
     # via
     #   -r dev-requirements.in
     #   readme-renderer
+pyproject-api==1.6.1
+    # via tox
 pyproject-hooks==1.1.0
     # via
     #   build
@@ -112,7 +118,7 @@ pyyaml==6.0.1
     # via pre-commit
 readme-renderer==32.0
     # via -r dev-requirements.in
-requests==2.31.0
+requests==2.32.3
     # via
     #   -r dev-requirements.in
     #   docker
@@ -122,7 +128,6 @@ six==1.16.0
     # via
     #   bleach
     #   python-dateutil
-    #   tox
 tabulate==0.8.10
     # via cli-ui
 tbump==6.11.0
@@ -133,17 +138,18 @@ tomli==2.0.1
     #   build
     #   coverage
     #   pip-tools
+    #   pyproject-api
     #   pytest
     #   tox
 tomlkit==0.11.8
     # via tbump
-tox==3.28.0
+tox==4.15.0
     # via
     #   -r dev-requirements.in
     #   tox-docker
-tox-docker==4.1.0
+tox-docker==5.0.0
     # via -r dev-requirements.in
-typing-extensions==4.12.0
+typing-extensions==4.12.1
     # via -r dev-requirements.in
 unidecode==1.3.8
     # via cli-ui
@@ -158,8 +164,6 @@ virtualenv==20.26.2
     #   tox
 webencodings==0.5.1
     # via bleach
-websocket-client==1.8.0
-    # via docker
 wheel==0.43.0
     # via
     #   -r dev-requirements.in
