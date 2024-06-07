@@ -28,8 +28,8 @@ from helpers.data_source_fixture import DataSourceFixture
             False,
             id="invalid_percent",
         ),
-        pytest.param("- duplicate_count(cat) = 0", True, id="duplicate_count"),
-        pytest.param("- duplicate_percent(cat) = 0", True, id="duplicate_percent"),
+        pytest.param("- duplicate_count(cat) = 0", False, id="duplicate_count"),
+        pytest.param("- duplicate_percent(cat) = 0", False, id="duplicate_percent"),
         pytest.param("- values in (cst_size) must exist in {{another_table_name}} (cst_size)", False, id="reference"),
         pytest.param(
             """- failed rows:
@@ -82,15 +82,33 @@ def test_dataset_checks(check: str, skip_samples: bool, data_source_fixture: Dat
         scan.assert_log_info("Skipping samples from query")
         mock_soda_cloud.assert_no_failed_rows_block_present(0)
     else:
+        casify = data_source_fixture.data_source.default_casify_table_name
         scan.assert_no_log("Skipping samples from query")
         mock_soda_cloud.assert_is_failed_rows_block_present(0)
+        failed_rows_block = mock_soda_cloud.find_failed_rows_diagnostics_block(0)
+        failed_rows_columns = [col["name"] for col in failed_rows_block["file"]["columns"]]
+        assert failed_rows_columns == [
+            casify(col)
+            for col in [
+                "id",
+                "cst_size_txt",
+                "distance",
+                "pct",
+                "country",
+                "zip",
+                "email",
+                "date_updated",
+                "ts",
+                "ts_with_tz",
+            ]
+        ]
 
 
 @pytest.mark.parametrize(
     "check, skip_samples",
     [
         pytest.param("- missing_count(cat) = 0", False, id="missing_count"),
-        pytest.param("- duplicate_count(cat) = 0", True, id="duplicate_count"),
+        pytest.param("- duplicate_count(cat) = 0", False, id="duplicate_count"),
     ],
 )
 def test_for_each_checks(check: str, skip_samples: bool, data_source_fixture: DataSourceFixture):

@@ -142,10 +142,6 @@ class SQLServerDataSourceFixture(DataSourceFixture):
         GO
         """
 
-    def _drop_test_table_sql(self, table_name):
-        # @TOOD
-        pass
-
     def _create_view_from_table_sql(self, test_table: TestTable):
         # @TOOD
         pass
