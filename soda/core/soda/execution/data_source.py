@@ -560,7 +560,7 @@ class DataSource:
         query_name: str,
         included_columns: list[str] | None = None,
         excluded_columns: list[str] | None = None,
-    ) -> dict[str, str] | None:
+    ) -> dict[str, str]:
         """
         :return: A dict mapping column names to data source data types.  Like eg
         {"id": "varchar", "cst_size": "int8", ...}
@@ -575,7 +575,7 @@ class DataSource:
         query.execute()
         if query.rows and len(query.rows) > 0:
             return {row[0]: row[1] for row in query.rows}
-        return None
+        return {}
 
     def create_table_columns_query(self, partition: Partition, schema_metric: SchemaMetric) -> TableColumnsQuery:
         return TableColumnsQuery(partition, schema_metric)
@@ -721,11 +721,13 @@ class DataSource:
         table_name: str,
         filter: str,
     ) -> str | None:
+        qualified_table_name = self.qualified_table_name(table_name)
+
         sql = dedent(
             f"""
             WITH frequencies AS (
                 SELECT {self.expr_count_all()} AS frequency
-                FROM {table_name}
+                FROM {qualified_table_name}
                 WHERE {filter}
                 GROUP BY {column_names})
             SELECT {self.expr_count_all()}
@@ -744,12 +746,14 @@ class DataSource:
         invert_condition: bool = False,
         exclude_patterns: list[str] | None = None,
     ) -> str | None:
+        qualified_table_name = self.qualified_table_name(table_name)
         main_query_columns = f"{column_names}, frequency" if exclude_patterns else "*"
+
         sql = dedent(
             f"""
             WITH frequencies AS (
                 SELECT {column_names}, {self.expr_count_all()} AS frequency
-                FROM {table_name}
+                FROM {qualified_table_name}
                 WHERE {filter}
                 GROUP BY {column_names})
             SELECT {main_query_columns}
@@ -770,24 +774,24 @@ class DataSource:
         filter: str,
         limit: str | None = None,
         invert_condition: bool = False,
-        exclude_patterns: list[str] | None = None,
     ) -> str | None:
+        qualified_table_name = self.qualified_table_name(table_name)
         columns = column_names.split(", ")
 
-        qualified_main_query_columns = ", ".join([f"main.{c}" for c in columns])
-        main_query_columns = qualified_main_query_columns if exclude_patterns else "main.*"
+        main_query_columns = self.sql_select_all_column_names(table_name)
+        qualified_main_query_columns = ", ".join([f"main.{c}" for c in main_query_columns])
         join = " AND ".join([f"main.{c} = frequencies.{c}" for c in columns])
 
         sql = dedent(
             f"""
             WITH frequencies AS (
                 SELECT {column_names}
-                FROM {table_name}
+                FROM {qualified_table_name}
                 WHERE {filter}
                 GROUP BY {column_names}
                 HAVING {self.expr_count_all()} {'<=' if invert_condition else '>'} 1)
-            SELECT {main_query_columns}
-            FROM {table_name} main
+            SELECT {qualified_main_query_columns}
+            FROM {qualified_table_name} main
             JOIN frequencies ON {join}
             """
         )
