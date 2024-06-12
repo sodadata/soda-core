@@ -12,10 +12,12 @@ class AwsCredentials:
         session_token: Optional[str] = None,
         profile_name: Optional[str] = None,
         region_name: Optional[str] = "eu-west-1",
+        external_id: Optional[str] = None,
     ):
         self.access_key_id = access_key_id
         self.secret_access_key = secret_access_key
         self.role_arn = role_arn
+        self.external_id = external_id
         self.session_token = session_token
         self.profile_name = profile_name
         self.region_name = region_name
@@ -32,6 +34,7 @@ class AwsCredentials:
             access_key_id=access_key_id,
             secret_access_key=configuration.get("secret_access_key"),
             role_arn=configuration.get("role_arn"),
+            external_id=configuration.get("external_id"),
             session_token=configuration.get("session_token"),
             profile_name=configuration.get("profile_name"),
             region_name=configuration.get("region", "eu-west-1"),

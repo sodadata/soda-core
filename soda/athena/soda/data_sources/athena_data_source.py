@@ -34,6 +34,7 @@ class AthenaDataSource(DataSource):
             session_token=data_source_properties.get("session_token"),
             region_name=data_source_properties.get("region_name"),
             profile_name=data_source_properties.get("profile_name"),
+            external_id=data_source_properties.get("external_id")
         )
 
     def connect(self):
@@ -45,6 +46,7 @@ class AthenaDataSource(DataSource):
                 s3_staging_dir=self.athena_staging_dir,
                 region_name=self.aws_credentials.region_name,
                 role_arn=self.aws_credentials.role_arn,
+                external_id=self.aws_credentials.external_id,
                 catalog_name=self.catalog,
                 work_group=self.work_group,
                 schema_name=self.schema,
