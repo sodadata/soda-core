@@ -603,7 +603,9 @@ class DataSource:
             )
 
         if self.schema:
-            filter_clauses.append(f"{casify_function}(table_schema) = '{self.default_casify_system_name(self.schema)}'")
+            filter_clauses.append(
+                f"{casify_function}({self.column_metadata_schema_name()}) = '{self.default_casify_system_name(self.schema)}'"
+            )
 
         if included_columns:
             include_clauses = []
