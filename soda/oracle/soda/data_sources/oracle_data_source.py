@@ -58,7 +58,8 @@ class OracleDataSource(DataSource):
         "INT",
         "SMALLINT",
         "FLOAT",
-        "" "DOUBLE PRECISION",
+        "NUMBER",
+        "DOUBLE PRECISION",
         "REAL",
     ]
     TEXT_TYPES_FOR_PROFILING = ["CHARACTER VARYING", "CHAR", "NCHAR", "VARCHAR", "CHAR VARYING", "VARCHAR2"]
@@ -152,7 +153,7 @@ class OracleDataSource(DataSource):
 
         columns_names = ", ".join(self.sql_select_all_column_names(table_name))
 
-        sql = f"SELECT  {columns_names} FROM {qualified_table_name}{filter_sql} {limit_sql}"
+        sql = f"SELECT {columns_names} FROM {qualified_table_name}{filter_sql} {limit_sql}"
         return sql
 
     def default_casify_table_name(self, identifier: str) -> str:
@@ -164,6 +165,9 @@ class OracleDataSource(DataSource):
     def default_casify_sql_function(self) -> str:
         """Returns the sql function to use for default casify."""
         return "upper"
+
+    def default_casify_system_name(self, identifier: str) -> str:
+        return identifier.upper()
 
     def default_casify_type_name(self, identifier: str) -> str:
         """Formats type identifier to e.g. a default case for a given data source."""
@@ -196,7 +200,7 @@ class OracleDataSource(DataSource):
                             SELECT  {cast_to_text("'frequent_values'")} AS metric_, ROW_NUMBER() OVER(ORDER BY frequency_ DESC) AS index_, value_, frequency_
                             FROM value_frequencies
                             ORDER BY frequency_ desc
-                             FETCH FIRST  {limit_frequent_values} ROWS ONLY
+                             FETCH FIRST {limit_frequent_values} ROWS ONLY
                         )"""
 
         if data_type_category == "text":
@@ -268,4 +272,38 @@ class OracleDataSource(DataSource):
         sample_clauses_str = f"\n {sample_clause}" if sample_clause else ""
         limit_str = f"\n FETCH FIRST {limit} ROWS ONLY" if limit else ""
         sql = f"SELECT \n" f"  {column_name} \n" f"FROM {table_name}{sample_clauses_str}{filter_clauses_str}{limit_str}"
+        return sql
+
+    def sql_get_duplicates(
+        self,
+        column_names: str,
+        table_name: str,
+        filter: str,
+        limit: str | None = None,
+        invert_condition: bool = False,
+    ) -> str | None:
+        qualified_table_name = self.qualified_table_name(table_name)
+        columns = column_names.split(", ")
+
+        main_query_columns = self.sql_select_all_column_names(table_name)
+        qualified_main_query_columns = ", ".join([f"main.{c}" for c in main_query_columns])
+        join = " AND ".join([f"main.{c} = frequencies.{c}" for c in columns])
+
+        sql = dedent(
+            f"""
+            WITH frequencies AS (
+                SELECT {column_names}
+                FROM {qualified_table_name}
+                WHERE {filter}
+                GROUP BY {column_names}
+                HAVING {self.expr_count_all()} {'<=' if invert_condition else '>'} 1)
+            SELECT {qualified_main_query_columns}
+            FROM {qualified_table_name} main
+            JOIN frequencies ON {join}
+            """
+        )
+
+        if limit:
+            sql += f"\nFETCH FIRST {limit} ROWS ONLY"
+
         return sql
