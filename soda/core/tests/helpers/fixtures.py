@@ -6,17 +6,17 @@ from soda.telemetry.soda_telemetry import SodaTelemetry
 
 soda_telemetry = SodaTelemetry.get_instance(test_mode=True)
 
-import requests
 import logging
 import os
 from typing import Any
 
 import pytest
-from pytest import MonkeyPatch
+import requests
 from dotenv import load_dotenv
-from helpers.mock_http_request import MockHttpRequest
 from helpers.data_source_fixture import DataSourceFixture
 from helpers.mock_file_system import MockFileSystem
+from helpers.mock_http_request import MockHttpRequest
+from pytest import MonkeyPatch
 from soda.common.file_system import FileSystemSingleton
 from soda.common.logs import Logs, configure_logging
 
@@ -71,10 +71,11 @@ def mock_file_system():
     yield FileSystemSingleton.INSTANCE
     FileSystemSingleton.INSTANCE = original_file_system
 
+
 @pytest.fixture
 def mock_http_post_request(monkeypatch: MonkeyPatch):
     mock_http_request: MockHttpRequest = MockHttpRequest._create()
-    monkeypatch.setattr(requests, 'post', mock_http_request.mock_post)
+    monkeypatch.setattr(requests, "post", mock_http_request.mock_post)
     yield mock_http_request
 
 

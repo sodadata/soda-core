@@ -1,7 +1,8 @@
 import json as json_module
+from dataclasses import dataclass
 
 from requests import Response
-from dataclasses import dataclass
+
 
 @dataclass
 class MockResponse:
@@ -11,12 +12,13 @@ class MockResponse:
 
     def json(self):
         return self._json
-    
+
     @property
     def text(self):
         if self._json:
             return self._json.get("text")
-        return ''
+        return ""
+
 
 class MockHttpRequest:
     @staticmethod
@@ -36,12 +38,12 @@ class MockHttpRequest:
 
     def assert_failed_rows_http_samples_absent(self, check_name: str):
         assert self.find_failed_rows_http_samples(check_name) is None
-    
+
     def mock_post(self, url, **kwargs) -> Response:
         if url.endswith("failed-rows.sampler.com"):
             return self._mock_http_sampler_request(url, **kwargs)
         raise AssertionError(f"Unsupported request to mock.")
-    
+
     def _mock_http_sampler_request(self, url, json):
         json_obj = json_module.loads(json)
         check_name = json_obj.get("check_name")

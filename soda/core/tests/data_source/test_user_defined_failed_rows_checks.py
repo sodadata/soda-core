@@ -1,7 +1,7 @@
 from helpers.common_test_tables import customers_test_table
 from helpers.data_source_fixture import DataSourceFixture
-from helpers.mock_http_sampler import MockHttpSampler
 from helpers.mock_http_request import MockHttpRequest
+from helpers.mock_http_sampler import MockHttpSampler
 
 
 def test_failed_rows_table_expression_with_limit(data_source_fixture: DataSourceFixture):
@@ -97,7 +97,10 @@ def test_failed_rows_data_source_query(data_source_fixture: DataSourceFixture):
 
     assert mock_soda_cloud.find_failed_rows_line_count(0) == 3
 
-def test_failed_rows_http_samples_present(data_source_fixture: DataSourceFixture, mock_http_post_request: MockHttpRequest):
+
+def test_failed_rows_http_samples_present(
+    data_source_fixture: DataSourceFixture, mock_http_post_request: MockHttpRequest
+):
     table_name = data_source_fixture.ensure_test_table(customers_test_table)
 
     qualified_table_name = data_source_fixture.data_source.qualified_table_name(table_name)
@@ -122,7 +125,10 @@ def test_failed_rows_http_samples_present(data_source_fixture: DataSourceFixture
 
     mock_http_post_request.assert_failed_rows_http_samples_present("Customers must have cst_size")
 
-def test_failed_rows_http_samples_absent(data_source_fixture: DataSourceFixture, mock_http_post_request: MockHttpRequest):
+
+def test_failed_rows_http_samples_absent(
+    data_source_fixture: DataSourceFixture, mock_http_post_request: MockHttpRequest
+):
     table_name = data_source_fixture.ensure_test_table(customers_test_table)
 
     qualified_table_name = data_source_fixture.data_source.qualified_table_name(table_name)

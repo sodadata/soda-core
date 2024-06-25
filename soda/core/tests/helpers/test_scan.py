@@ -18,7 +18,8 @@ from soda.scan import Scan
 
 logger = logging.getLogger(__name__)
 
-T = TypeVar('T')
+T = TypeVar("T")
+
 
 class TestScan(Scan):
     __test__ = False
