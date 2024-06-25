@@ -27,28 +27,28 @@ class HTTPSampler(Sampler):
         link_text = self.link_text
 
         if row_count != 0:
-          result_dict = {
-              "schema": sample_schema.get_dict(),
-              "count": row_count,
-              "rows": sample_rows,
-              "datasource": sample_context.sample.data_source.data_source_name,
-              "dataset": Partition.get_table_name(sample_context.partition),
-              "scan_definition": sample_context.scan._scan_definition_name,
-              "check_name": sample_context.check_name,
-          }
+            result_dict = {
+                "schema": sample_schema.get_dict(),
+                "count": row_count,
+                "rows": sample_rows,
+                "datasource": sample_context.sample.data_source.data_source_name,
+                "dataset": Partition.get_table_name(sample_context.partition),
+                "scan_definition": sample_context.scan._scan_definition_name,
+                "check_name": sample_context.check_name,
+            }
 
-          response = requests.post(self.url, json=json.dumps(result_dict, sort_keys=True, default=str))
-          message = f"{self.message} {response.text}"
+            response = requests.post(self.url, json=json.dumps(result_dict, sort_keys=True, default=str))
+            message = f"{self.message} {response.text}"
 
-          if response.status_code != 200:
-              self.logs.error(f"Unable to upload failed rows to {self.url} -  {response.text}")
-          else:
-              self.logs.info(f"Uploaded {row_count} failed rows to {self.url}")
+            if response.status_code != 200:
+                self.logs.error(f"Unable to upload failed rows to {self.url} -  {response.text}")
+            else:
+                self.logs.info(f"Uploaded {row_count} failed rows to {self.url}")
         else:
-          link = None
-          message = None
-          link_text = None
-          self.logs.info(f"No failed rows recognized. Nothing uploaded to {self.url}")
+            link = None
+            message = None
+            link_text = None
+            self.logs.info(f"No failed rows recognized. Nothing uploaded to {self.url}")
 
         if sample_context.samples_limit is not None:
             stored_row_count = row_count if row_count < sample_context.samples_limit else sample_context.samples_limit

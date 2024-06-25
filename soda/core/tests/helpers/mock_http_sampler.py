@@ -1,9 +1,9 @@
 from dataclasses import dataclass
 from typing import Tuple
 
+from soda.sampler.http_sampler import HTTPSampler
 from soda.sampler.sample_context import SampleContext
 from soda.sampler.sample_ref import SampleRef
-from soda.sampler.http_sampler import HTTPSampler
 
 
 @dataclass
