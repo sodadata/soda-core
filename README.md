@@ -22,7 +22,12 @@ When it runs a scan on a dataset, Soda Core executes the checks to find invalid,
 
 #### Soda Library 
 
-Consider using **[Soda Library](https://docs.soda.io/soda/quick-start-sip.html)**, an extension of Soda Core that offers more features and functionality, and enables you to connect to a [Soda Cloud](https://docs.soda.io/soda-cloud/overview.html) account to collaborate with your team on data quality.
+Consider migrating to **[Soda Library](https://docs.soda.io/soda/quick-start-sip.html)**, an extension of Soda Core that offers more features and functionality, and enables you to connect to a [Soda Cloud](https://docs.soda.io/soda-cloud/overview.html) account to collaborate with your team on data quality.
+* Use [Group by](https://docs.soda.io/soda-cl/group-by.html) and [Group Evolution](https://docs.soda.io/soda-cl/group-evolution.html) configurations to intelligently group check results
+* Leverage [Reconciliation checks](https://docs.soda.io/soda-cl/recon.html) to compare data between data sources for data migration projects.
+* Use [Schema Evolution](https://docs.soda.io/soda-cl/schema.html#define-schema-evolution-checks) checks to automatically validate schemas.
+* Set up [Anomaly Detection](https://docs.soda.io/soda-cl/anomaly-detection.html) checks to automatically learn patterns and discover anomalies in your data.
+
 [Install Soda Library](https://docs.soda.io/soda-library/install.html) and get started with a 45-day free trial.
 
 <br />
