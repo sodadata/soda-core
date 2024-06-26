@@ -186,19 +186,12 @@ class MockSodaCloud(SodaCloud):
         file_contents = self.find_failed_rows_content(check_index)
         return file_contents.count("\n")
 
-    def find_failed_rows_sample_query_condition(self, check_index: int, query_type: str = "failingRowsQueryName"):
+    def find_failed_rows_sample_query(self, check_index: int, query_type: str = "failingRowsQueryName"):
         block = self.find_failed_rows_diagnostics_block(check_index)
         assert block[query_type]
         sample_query = self.find_queries(block[query_type])
         assert sample_query["sql"]
-        return self.extract_where_clause(sample_query["sql"])
-
-    def extract_where_clause(self, query):
-        pattern = r"\bWHERE\b(.*?)(?=\bORDER\b|\bGROUP\b|\bLIMIT\b|$)"
-        match = re.search(pattern, query, re.IGNORECASE | re.DOTALL)
-        if match:
-            return match.group(0).strip()
-        return None
+        return sample_query["sql"].lower()
 
     def assert_no_failed_rows_block_present(self, check_index: int):
         diagnostics = self.find_check_diagnostics(check_index)
