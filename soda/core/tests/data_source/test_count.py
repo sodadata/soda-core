@@ -21,6 +21,7 @@ def test_row_count_thresholds_with_variables(data_source_fixture: DataSourceFixt
 
     scan.assert_all_checks_pass()
 
+
 def test_row_count_between_thresholds_with_variables(data_source_fixture: DataSourceFixture):
     """
     Tests all passing thresholds on a simple row count
