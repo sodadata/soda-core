@@ -38,6 +38,30 @@ def test_missing_filtered(data_source_fixture: DataSourceFixture):
 
     scan.assert_all_checks_pass()
 
+def test_missing_filtered_sample_query(data_source_fixture: DataSourceFixture):
+    table_name = data_source_fixture.ensure_test_table(customers_test_table)
+
+    # Row count is 10
+    scan = data_source_fixture.create_test_scan()
+    mock_soda_cloud = scan.enable_mock_soda_cloud()
+    scan.add_sodacl_yaml_str(
+        f"""
+      checks for {table_name}:
+        - missing_count(pct) = 1:
+            missing values: [No value, N/A, error]
+            filter: country = 'NL'
+    """
+    )
+    scan.execute()
+
+    scan.assert_all_checks_fail()
+
+    failing_rows_query_condition = mock_soda_cloud.find_failed_rows_sample_query_condition(0, "failingRowsQueryName")
+    assert failing_rows_query_condition == "WHERE (pct IS NULL OR pct IN ('No value','N/A','error')) AND (country = 'NL')"
+
+    passing_rows_query_condition = mock_soda_cloud.find_failed_rows_sample_query_condition(0, "passingRowsQueryName")
+    assert passing_rows_query_condition == "WHERE NOT (pct IS NULL OR pct IN ('No value','N/A','error')) AND (country = 'NL')"
+
 
 @pytest.mark.skipif(
     test_data_source == "sqlserver",
