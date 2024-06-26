@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import re
 from datetime import date, datetime
 from textwrap import dedent
 
@@ -80,6 +81,10 @@ class OracleDataSource(DataSource):
     def connect(self):
         self.connection = oracledb.connect(user=self.username, password=self.password, dsn=self.connectstring)
 
+    def output_type_handler(cursor, name, default_type, size, precision, scale):
+        if default_type == oracledb.DATETIME:
+            return cursor.var(oracledb.DATETIME, arraysize=cursor.arraysize, outconverter=datetime.fromisoformat)
+
     def sql_test_connection(self) -> str:
         return "SELECT 1 FROM DUAL"
 
@@ -121,8 +126,13 @@ class OracleDataSource(DataSource):
         return f"DATE'{date_string}'".strip()
 
     def literal_datetime(self, datetime: datetime):
-        datetime_str = datetime.strftime("%Y-%m-%d %H:%M:%S %Z")
-        return f"TIMESTAMP '{datetime_str}'".strip()
+        if datetime.tzinfo:
+            datetime_str = datetime.strftime("%Y-%m-%d %H:%M:%S %z")
+            datetime_str_formatted = datetime_str[:-2] + ":" + datetime_str[-2:]
+        else:
+            datetime_str_formatted = datetime.strftime("%Y-%m-%d %H:%M:%S")
+
+        return f"TIMESTAMP '{datetime_str_formatted}'".strip()
 
     def sql_find_table_names(
         self,
@@ -307,3 +317,84 @@ class OracleDataSource(DataSource):
             sql += f"\nFETCH FIRST {limit} ROWS ONLY"
 
         return sql
+
+    def expr_regexp_like(self, expr: str, regex_pattern: str):
+        return f"NVL({super().expr_regexp_like(expr, regex_pattern)}, 0)"
+
+    def sql_get_duplicates_aggregated(
+        self,
+        column_names: str,
+        table_name: str,
+        filter: str,
+        limit: str | None = None,
+        invert_condition: bool = False,
+        exclude_patterns: list[str] | None = None,
+    ) -> str | None:
+        qualified_table_name = self.qualified_table_name(table_name)
+        main_query_columns = f"{column_names}, frequency" if exclude_patterns else "*"
+
+        sql = dedent(
+            f"""
+            WITH frequencies AS (
+                SELECT {column_names}, {self.expr_count_all()} AS frequency
+                FROM {qualified_table_name}
+                WHERE {filter}
+                GROUP BY {column_names})
+            SELECT {main_query_columns}
+            FROM frequencies
+            WHERE frequency {'<=' if invert_condition else '>'} 1
+            ORDER BY frequency DESC"""
+        )
+
+        if limit:
+            sql += f"\nFETCH FIRST {limit} ROWS ONLY"
+
+        return sql
+
+    def sql_groupby_count_categorical_column(
+        self,
+        select_query: str,
+        column_name: str,
+        limit: int | None = None,
+    ) -> str:
+        cte = select_query.replace("\n", " ")
+        # delete multiple spaces
+        cte = re.sub(" +", " ", cte)
+        sql = dedent(
+            f"""
+                WITH processed_table AS (
+                    {cte}
+                )
+                SELECT
+                    {column_name}
+                    , {self.expr_count_all()} AS frequency
+                FROM processed_table
+                GROUP BY {column_name}
+            """
+        )
+        sql += f"FETCH FIRST {limit} ROWS ONLY" if limit else ""
+        return dedent(sql)
+
+    def sql_reference_query(
+        self,
+        columns: str,
+        table_name: str,
+        target_table_name: str,
+        join_condition: str,
+        where_condition: str,
+        limit: int | None = None,
+    ) -> str:
+        sql = dedent(
+            f"""
+            SELECT {columns}
+                FROM {table_name}  SOURCE
+                LEFT JOIN {target_table_name} TARGET on {join_condition}
+            WHERE {where_condition}"""
+        )
+        if limit:
+            sql += f"\nFETCH FIRST {limit} ROWS ONLY"
+
+        return sql
+
+    def regex_replace_flags(self) -> str:
+        return ""
