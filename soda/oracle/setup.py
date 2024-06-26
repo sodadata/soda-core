@@ -7,7 +7,7 @@ package_version = "3.3.6"
 # TODO Add proper description
 description = "Soda Core Oracle Package"
 
-requires = [f"soda-core=={package_version}", "oracledb==1.1.1"]
+requires = [f"soda-core=={package_version}", "oracledb>=1.1.1,<3.0.0"]
 # TODO Fix the params
 setup(
     name=package_name,
