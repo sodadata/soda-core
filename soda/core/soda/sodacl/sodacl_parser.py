@@ -1548,7 +1548,9 @@ class SodaCLParser(Parser):
             upper_included = antlr_between_threshold.ROUND_RIGHT() is None
             antlr_upper_value = antlr_between_threshold.threshold_value(1)
             upper_bound = self.__antlr_threshold_value(antlr_upper_value)
-            if lower_bound > upper_bound:
+            if "${" in lower_bound or "${" in upper_bound:
+                self.logs.info(f"Lower bound ({lower_bound}) or upper bound ({lower_bound}) contains variables. Skip SodaCL parser 'between' validation.")
+            elif lower_bound > upper_bound:
                 self.logs.error(
                     f"Left lower bound should be less than the upper bound on the right {antlr_between_threshold.getText()}",
                     location=self.location,
