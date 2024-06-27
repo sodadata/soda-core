@@ -115,11 +115,11 @@ def test_with_multiple_aggregate_checks(data_source_fixture: DataSourceFixture):
     assert "cat.failed_rows[missing_count].failing_sql" in block_cat["failingRowsQueryName"]
     assert "cat.failed_rows[missing_count].passing_sql" in block_cat["passingRowsQueryName"]
     cat_failing_query = _find_query_by_name(result["queries"], block_cat["failingRowsQueryName"])
-    assert "where cat is null" in cat_failing_query["sql"].lower()
+    assert "where (cat is null)" in cat_failing_query["sql"].lower()
 
     block_id = mock_soda_cloud.find_failed_rows_diagnostics_block(1)
     assert block_cat["type"] == "failedRowsAnalysis"
     assert "id.failed_rows[missing_count].failing_sql" in block_id["failingRowsQueryName"]
     assert "id.failed_rows[missing_count].passing_sql" in block_id["passingRowsQueryName"]
     id_failing_query = _find_query_by_name(result["queries"], block_id["failingRowsQueryName"])
-    assert "where id is null" in id_failing_query["sql"].lower()
+    assert "where (id is null)" in id_failing_query["sql"].lower()

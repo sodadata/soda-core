@@ -240,7 +240,9 @@ def test_fail_freshness_var_missing(data_source_fixture: DataSourceFixture):
     scan.assert_log_error("variable not found")
 
 
-@pytest.mark.skipif(test_data_source == "dask", reason="In dask/pandas the date is casted as datetime")
+@pytest.mark.skipif(
+    test_data_source in ["dask", "oracle"], reason="In dask/pandas/oracle the date is casted as datetime"
+)
 def test_freshness_with_date(data_source_fixture: DataSourceFixture):
     table_name = data_source_fixture.ensure_test_table(customers_test_table)
 

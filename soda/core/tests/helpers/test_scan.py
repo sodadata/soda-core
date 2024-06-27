@@ -4,6 +4,7 @@ import logging
 import os
 import textwrap
 from textwrap import dedent
+from typing import Type, TypeVar
 
 from helpers.mock_sampler import MockSampler
 from helpers.mock_soda_cloud import MockSodaCloud, TimeGenerator
@@ -16,6 +17,8 @@ from soda.sampler.log_sampler import LogSampler
 from soda.scan import Scan
 
 logger = logging.getLogger(__name__)
+
+T = TypeVar("T")
 
 
 class TestScan(Scan):
@@ -80,9 +83,9 @@ class TestScan(Scan):
             self._configuration.soda_cloud = MockSodaCloud(self)
         return self._configuration.soda_cloud
 
-    def enable_mock_sampler(self) -> MockSampler:
-        if not isinstance(self._configuration.sampler, MockSampler):
-            self._configuration.sampler = MockSampler()
+    def enable_mock_sampler(self, sampler_class: Type[T] = MockSampler) -> T:
+        if not type(self._configuration.sampler) is sampler_class:
+            self._configuration.sampler = sampler_class()
         return self._configuration.sampler
 
     def execute(self, allow_error_warning: bool = False, allow_warnings_only: bool = False):
