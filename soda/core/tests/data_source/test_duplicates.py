@@ -69,4 +69,4 @@ def test_duplicates_with_filter(data_source_fixture: DataSourceFixture):
     scan.execute()
 
     scan.assert_all_checks_pass()
-    scan.assert_log("AND country = 'NL'")
+    scan.assert_log("AND (country = 'NL')")
