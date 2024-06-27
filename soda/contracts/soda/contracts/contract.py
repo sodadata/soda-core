@@ -6,6 +6,8 @@ from numbers import Number
 from textwrap import indent
 from typing import List
 
+from soda.scan import Scan
+
 from soda.contracts.check import (
     AbstractCheck,
     Check,
@@ -32,7 +34,6 @@ from soda.contracts.impl.data_source import DataSource
 from soda.contracts.impl.json_schema_verifier import JsonSchemaVerifier
 from soda.contracts.impl.logs import Location, Logs
 from soda.contracts.impl.yaml_helper import YamlFile, YamlHelper
-from soda.scan import Scan
 
 logger = logging.getLogger(__name__)
 
@@ -92,8 +93,10 @@ class Contract:
                 if self.database_name is None:
                     self.database_name = contract_database_name
                 elif contract_database_name != self.database_name:
-                    self.logs.info(f"Database name in contract YAML '{contract_database_name}' was overridden to "
-                                   f"'{self.database_name}' by contract verification parameter.")
+                    self.logs.info(
+                        f"Database name in contract YAML '{contract_database_name}' was overridden to "
+                        f"'{self.database_name}' by contract verification parameter."
+                    )
 
             # self.schema_name comes from the contract verification API
             contract_schema_name: str | None = yaml_helper.read_string_opt(contract_yaml_dict, "schema")
@@ -101,8 +104,10 @@ class Contract:
                 if self.schema_name is None:
                     self.schema_name = contract_schema_name
                 elif contract_schema_name != self.schema_name:
-                    self.logs.info(f"Schema name in contract YAML '{contract_schema_name}' was overridden to "
-                                   f"'{self.schema_name}' by contract verification parameter.")
+                    self.logs.info(
+                        f"Schema name in contract YAML '{contract_schema_name}' was overridden to "
+                        f"'{self.schema_name}' by contract verification parameter."
+                    )
 
             self.dataset_name: str | None = yaml_helper.read_string(contract_yaml_dict, "dataset")
             self.filter_sql: str | None = yaml_helper.read_string_opt(contract_yaml_dict, "filter_sql")
@@ -116,7 +121,7 @@ class Contract:
                     schema_name=self.schema_name,
                     dataset_name=self.dataset_name,
                     yaml_contract=contract_yaml_dict,
-                    logs=self.logs
+                    logs=self.logs,
                 )
             )
 
@@ -349,6 +354,7 @@ class Contract:
             if check:
                 return check
 
+
 @dataclass
 class ContractResult:
     """
@@ -365,7 +371,9 @@ class ContractResult:
     logs: Logs
     check_results: List[CheckResult]
 
-    def __init__(self, data_source: DataSource, contract: Contract, sodacl_yaml_str: str | None, logs: Logs, scan: Scan):
+    def __init__(
+        self, data_source: DataSource, contract: Contract, sodacl_yaml_str: str | None, logs: Logs, scan: Scan
+    ):
         self.data_source_yaml_dict: dict = data_source.data_source_yaml_dict
         self.contract = contract
         self.sodacl_yaml_str = sodacl_yaml_str

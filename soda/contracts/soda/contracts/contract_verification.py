@@ -2,16 +2,17 @@ from __future__ import annotations
 
 import logging
 
-from soda.contracts.impl.customized_sodacl_soda_cloud import CustomizedSodaClCloud
+from soda.common import logs as soda_core_logs
+from soda.scan import Scan
+from soda.scan import logger as scan_logger
+
 from soda.contracts.contract import Contract, ContractResult
+from soda.contracts.impl.customized_sodacl_soda_cloud import CustomizedSodaClCloud
 from soda.contracts.impl.data_source import DataSource, SparkConfiguration
-from soda.contracts.impl.logs import Logs, LogLevel, Location, Log
+from soda.contracts.impl.logs import Location, Log, LogLevel, Logs
 from soda.contracts.impl.plugin import Plugin
 from soda.contracts.impl.soda_cloud import SodaCloud
-from soda.contracts.impl.yaml_helper import YamlFile, QuotingSerializer, YamlHelper
-from soda.scan import Scan
-from soda.common import logs as soda_core_logs
-from soda.scan import logger as scan_logger
+from soda.contracts.impl.yaml_helper import QuotingSerializer, YamlFile, YamlHelper
 
 logger = logging.getLogger(__name__)
 
@@ -76,7 +77,7 @@ class ContractVerificationBuilder:
         self.spark_configuration = SparkConfiguration(
             spark_session=spark_session,
             data_source_yaml_dict=data_source_yaml_dict if isinstance(data_source_yaml_dict, dict) else {},
-            logs=self.logs
+            logs=self.logs,
         )
         return self
 
@@ -233,9 +234,7 @@ class ContractVerification:
         else:
             self.logs.error("No data source configured")
 
-        return ContractVerificationResult(
-            logs=self.logs, variables=self.variables, contract_results=contract_results
-        )
+        return ContractVerificationResult(logs=self.logs, variables=self.variables, contract_results=contract_results)
 
     def _verify(self, contract: Contract) -> ContractResult:
         scan = Scan()
@@ -274,7 +273,7 @@ class ContractVerification:
                         port=self.soda_cloud.port,
                         logs=scan_logs,
                         scheme=self.soda_cloud.scheme,
-                        default_data_source_properties=sodacl_data_source.get_basic_properties()
+                        default_data_source_properties=sodacl_data_source.get_basic_properties(),
                     )
 
                 if self.variables:
@@ -291,11 +290,7 @@ class ContractVerification:
         self._append_scan_warning_and_error_logs(scan_logs=scan_logs, contract=contract)
 
         return ContractResult(
-            data_source=self.data_source,
-            contract=contract,
-            sodacl_yaml_str=sodacl_yaml_str,
-            logs=self.logs,
-            scan=scan
+            data_source=self.data_source, contract=contract, sodacl_yaml_str=sodacl_yaml_str, logs=self.logs, scan=scan
         )
 
     def _generate_sodacl_yaml_str(self, contract: Contract) -> str:
@@ -347,6 +342,7 @@ class ContractVerification:
                         exception=scan_log.exception,
                     )
                 )
+
 
 class ContractVerificationResult:
     def __init__(self, logs: Logs, variables: dict[str, str], contract_results: list[ContractResult]):

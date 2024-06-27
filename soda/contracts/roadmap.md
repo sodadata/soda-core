@@ -8,7 +8,7 @@
 
 
 * [ ] Test all data source configurations
-  * [ ] BigQuery and others on the new data source file format.  Document this as part of the contract docs 
+  * [ ] BigQuery and others on the new data source file format.  Document this as part of the contract docs
   * [ ] Document how to run a contract inside a notebook (azure/databricks)
 
 
@@ -30,7 +30,7 @@
 
 
 * [ ] Add support for nested JSON data types
-* [ ] Skipping checks 
+* [ ] Skipping checks
 * [ ] Add attributes upload to Soda Cloud
 * [ ] Splitting/merging multiple files into single contract (or include).  Consider Templating.
 * [ ] Add a way to monitor arrival time SLOs (Requires log analysis)

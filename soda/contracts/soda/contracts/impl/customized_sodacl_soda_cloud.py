@@ -6,16 +6,17 @@ from soda.scan import Scan
 
 
 class CustomizedSodaClCloud(SodaCLSodaCloud):
-    def __init__(self,
-                 host: str,
-                 api_key_id: str,
-                 api_key_secret: str,
-                 token: str | None,
-                 port: str | None,
-                 logs: Logs,
-                 scheme: str,
-                 default_data_source_properties: dict
-                 ):
+    def __init__(
+        self,
+        host: str,
+        api_key_id: str,
+        api_key_secret: str,
+        token: str | None,
+        port: str | None,
+        logs: Logs,
+        scheme: str,
+        default_data_source_properties: dict,
+    ):
         super().__init__(host, api_key_id, api_key_secret, token, port, logs, scheme)
         self.default_data_source_properties: dict = default_data_source_properties
 

@@ -47,7 +47,7 @@ class DataSource(ABC):
         return SparkSessionClDataSource(
             spark_session=spark_configuration.spark_session,
             data_source_yaml_dict=spark_configuration.data_source_yaml_dict,
-            logs=spark_configuration.logs
+            logs=spark_configuration.logs,
         )
 
     def __enter__(self) -> DataSource:

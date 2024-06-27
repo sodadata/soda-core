@@ -5,13 +5,15 @@ from textwrap import dedent
 
 from helpers.data_source_fixture import DataSourceFixture
 from helpers.test_table import TestTable
-from soda.contracts.contract import ContractResult
-from soda.contracts.contract_verification import (
-    ContractVerificationResult, ContractVerification, ContractVerificationBuilder,
-)
-from soda.contracts.impl.data_source import DataSource
 from soda.execution.data_type import DataType
 
+from soda.contracts.contract import ContractResult
+from soda.contracts.contract_verification import (
+    ContractVerification,
+    ContractVerificationBuilder,
+    ContractVerificationResult,
+)
+from soda.contracts.impl.data_source import DataSource
 
 # class TestVerificationDataSource(VerificationDataSource):
 #     __test__ = False

@@ -1,11 +1,5 @@
 from __future__ import annotations
 
-from soda.contracts.contract import Contract, ContractResult
-from soda.contracts.impl.data_source import DataSource
-from soda.contracts.impl.logs import Logs
-from soda.contracts.impl.yaml_helper import YamlFile
-
-
 # class VerificationDataSource:
 #     """
 #     Groups all contracts for a specific data_source. Used during contract verification execution to group all

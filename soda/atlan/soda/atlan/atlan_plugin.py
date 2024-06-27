@@ -35,8 +35,10 @@ class AtlanPlugin(Plugin):
 
         if error_messages:
             error_messages_text = ", ".join(error_messages)
-            self.logs.error(f"Atlan integration cannot be activated as not all "
-                            f"integration requirements are met: {error_messages_text}")
+            self.logs.error(
+                f"Atlan integration cannot be activated as not all "
+                f"integration requirements are met: {error_messages_text}"
+            )
             return None
 
         contract_dict: dict = contract_result.contract.contract_file.dict
@@ -47,10 +49,7 @@ class AtlanPlugin(Plugin):
         from pyatlan.client.atlan import AtlanClient
         from pyatlan.model.assets import DataContract
 
-        client = AtlanClient(
-            base_url=self.atlan_base_url,
-            api_key=self.atlan_api_key
-        )
+        client = AtlanClient(base_url=self.atlan_base_url, api_key=self.atlan_api_key)
         contract = DataContract.creator(  #
             asset_qualified_name=dataset_atlan_qualified_name,
             contract_json=contract_json_str,

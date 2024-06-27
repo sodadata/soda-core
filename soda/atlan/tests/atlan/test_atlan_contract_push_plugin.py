@@ -3,7 +3,10 @@ from textwrap import dedent
 
 from dotenv import load_dotenv
 
-from soda.contracts.contract_verification import ContractVerificationResult, ContractVerification
+from soda.contracts.contract_verification import (
+    ContractVerification,
+    ContractVerificationResult,
+)
 
 
 # @pytest.mark.skip("Takes too long to be part of the local development test suite & depends on Atlan & Soda Cloud services")
@@ -11,7 +14,8 @@ def test_atlan_contract_push_plugin():
     this_file_dir_path = os.path.dirname(os.path.realpath(__file__))
     load_dotenv(f"{this_file_dir_path}/.env", override=True)
 
-    data_source_yaml_str: str = dedent("""
+    data_source_yaml_str: str = dedent(
+        """
         name: postgres_ds
         type: postgres
         atlan_qualified_name: default/postgres/1718112025
@@ -21,9 +25,11 @@ def test_atlan_contract_push_plugin():
             username: ${CONTRACTS_POSTGRES_USERNAME}
             password: ${CONTRACTS_POSTGRES_PASSWORD}
             schema: contracts
-    """)
+    """
+    )
 
-    contract_yaml_str: str = dedent("""
+    contract_yaml_str: str = dedent(
+        """
         type: Table
         status: DRAFT
         kind: DataContract
@@ -38,18 +44,23 @@ def test_atlan_contract_push_plugin():
           data_type: varchar
         - name: age
           data_type: integer
-    """)
+    """
+    )
 
-    soda_cloud_yaml_str: str = dedent("""
+    soda_cloud_yaml_str: str = dedent(
+        """
         api_key_id: ${SODA_API_KEY_ID}
         api_key_secret: ${SODA_API_KEY_SECRET}
-    """)
+    """
+    )
 
-    atlan_yaml_str: str = dedent("""
+    atlan_yaml_str: str = dedent(
+        """
         plugin: atlan
         atlan_api_key: ${ATLAN_API_KEY}
         atlan_base_url: https://soda-partner.atlan.com
-    """)
+    """
+    )
 
     contract_verification_result: ContractVerificationResult = (
         ContractVerification.builder()
