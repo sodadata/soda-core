@@ -412,12 +412,14 @@ class Check(ABC):
                                 if derived_value in self.formula_values:
                                     total_failing_rows = self.formula_values[derived_value]
 
+                        check_identity = self.create_identity(with_datasource=True, with_filename=True)
+                        query.set_check_identity(check_identity)
                         rca_block = {
                             "type": "failedRowsAnalysis",
                             "title": "Failed Rows Analysis",
                             "file": sample_ref_block["file"],
-                            "failingRowsQueryName": f"{query.query_name}.failing_sql",
-                            "passingRowsQueryName": f"{query.query_name}.passing_sql",
+                            "failingRowsQueryName": f"{check_identity}.{query.query_name}.failing_sql",
+                            "passingRowsQueryName": f"{check_identity}.{query.query_name}.passing_sql",
                             "totalFailingRows": total_failing_rows,
                             "sampleRowCount": sample_ref_block["file"]["storedRowCount"],
                         }
