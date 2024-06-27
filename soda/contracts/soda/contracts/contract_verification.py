@@ -1,11 +1,19 @@
 from __future__ import annotations
 
+import logging
+
+from soda.contracts.impl.customized_sodacl_soda_cloud import CustomizedSodaClCloud
 from soda.contracts.contract import Contract, ContractResult
 from soda.contracts.impl.data_source import DataSource, SparkConfiguration
-from soda.contracts.impl.logs import Logs
+from soda.contracts.impl.logs import Logs, LogLevel, Location, Log
 from soda.contracts.impl.plugin import Plugin
 from soda.contracts.impl.soda_cloud import SodaCloud
-from soda.contracts.impl.yaml_helper import YamlFile
+from soda.contracts.impl.yaml_helper import YamlFile, QuotingSerializer, YamlHelper
+from soda.scan import Scan
+from soda.common import logs as soda_core_logs
+from soda.scan import logger as scan_logger
+
+logger = logging.getLogger(__name__)
 
 
 class ContractVerificationBuilder:
@@ -72,24 +80,34 @@ class ContractVerificationBuilder:
         )
         return self
 
+    def with_database_name(self, database_name: str) -> ContractVerificationBuilder:
+        assert isinstance(database_name, str)
+        self.database_name = database_name
+        return self
+
+    def with_schema_name(self, schema_name: str) -> ContractVerificationBuilder:
+        assert isinstance(schema_name, str)
+        self.schema_name = schema_name
+        return self
+
     def with_soda_cloud_yaml_file(self, soda_cloud_yaml_file_path: str) -> ContractVerificationBuilder:
         assert isinstance(soda_cloud_yaml_file_path, str)
-        if self.data_source_yaml_file is not None:
-            self.logs.error("Duplicate data source definition. Ignoring previous data sources.")
+        if self.soda_cloud_file is not None:
+            self.logs.error("Duplicate Soda Cloud definition. Ignoring previous data sources.")
         self.soda_cloud_file = YamlFile(yaml_file_path=soda_cloud_yaml_file_path, logs=self.logs)
         return self
 
     def with_soda_cloud_yaml_str(self, soda_cloud_yaml_str: str) -> ContractVerificationBuilder:
         assert isinstance(soda_cloud_yaml_str, str)
-        if self.data_source_yaml_file is not None:
-            self.logs.error("Duplicate data source definition. Ignoring previous data sources.")
+        if self.soda_cloud_file is not None:
+            self.logs.error("Duplicate Soda Cloud definition. Ignoring previous data sources.")
         self.soda_cloud_file = YamlFile(yaml_str=soda_cloud_yaml_str, logs=self.logs)
         return self
 
     def with_soda_cloud_yaml_dict(self, soda_cloud_yaml_dict: dict) -> ContractVerificationBuilder:
         assert isinstance(soda_cloud_yaml_dict, dict)
-        if self.data_source_yaml_file is not None:
-            self.logs.error("Duplicate data source definition. Ignoring previous data sources.")
+        if self.soda_cloud_file is not None:
+            self.logs.error("Duplicate Soda Cloud definition. Ignoring previous data sources.")
         self.soda_cloud_file = YamlFile(yaml_dict=soda_cloud_yaml_dict, logs=self.logs)
         return self
 
@@ -135,8 +153,10 @@ class ContractVerification:
         self.logs: Logs = contract_verification_builder.logs
         self.variables: dict[str, str] = contract_verification_builder.variables
         self.data_source: DataSource | None = None
-        self.soda_cloud: SodaCloud | None = None
+        self.database_name: str | None = contract_verification_builder.database_name
+        self.schema_name: str | None = contract_verification_builder.schema_name
         self.contracts: list[Contract] = []
+        self.soda_cloud: SodaCloud | None = None
         self.plugins: list[Plugin] = []
         self.contract_results: list[ContractResult] = []
 
@@ -158,11 +178,11 @@ class ContractVerification:
         for contract_file in contract_verification_builder.contract_files:
             contract_file.parse(self.variables)
             if contract_file.is_ok():
-                contract: Contract = Contract.create(
-                    data_source=self.data_source,
+                contract: Contract = Contract(
+                    data_source_name=self.data_source.data_source_name if self.data_source else None,
+                    database_name=self.database_name,
+                    schema_name=self.schema_name,
                     contract_file=contract_file,
-                    variables=self.variables,
-                    soda_cloud=self.soda_cloud,
                     logs=contract_file.logs,
                 )
                 self.contracts.append(contract)
@@ -204,7 +224,7 @@ class ContractVerification:
             with self.data_source:
                 if len(self.contracts) > 0:
                     for contract in self.contracts:
-                        contract_result: ContractResult = contract.verify()
+                        contract_result: ContractResult = self._verify(contract)
                         contract_results.append(contract_result)
                         for plugin in self.plugins:
                             plugin.process_contract_results(contract_result)
@@ -217,58 +237,116 @@ class ContractVerification:
             logs=self.logs, variables=self.variables, contract_results=contract_results
         )
 
+    def _verify(self, contract: Contract) -> ContractResult:
+        scan = Scan()
 
-# class VerificationDataSources:
-#     def __init__(self, contract_verification_builder: ContractVerificationBuilder):
-#         self.verification_data_sources_by_name: dict[str, VerificationDataSource] = {}
-#         # The purpose of the undefined verification data_source is to ensure that we still capture
-#         # all the parsing errors in the logs, even if there is no data_source associated
-#         self.undefined_verification_data_source = VerificationDataSource()
-#         self.single_verification_data_source: VerificationDataSource | None = None
-#         self.logs: Logs = contract_verification_builder.logs
-#
-#         # Parse data sources
-#         variables: dict[str, str] = contract_verification_builder.variables
-#         for data_source_yaml_file in contract_verification_builder.data_source_yaml_files:
-#             data_source_yaml_file.parse(variables)
-#             verification_data_source: VerificationDataSource = FileVerificationDataSource(
-#                 data_source_yaml_file=data_source_yaml_file
-#             )
-#             self.add(verification_data_source)
-#         for spark_configuration in contract_verification_builder.spark_configurations:
-#             verification_data_source: VerificationDataSource = SparkVerificationDataSource(
-#                 spark_configuration=spark_configuration
-#             )
-#             self.add(verification_data_source)
-#
-#     def get(self, contract_data_source_name: str | None) -> VerificationDataSource:
-#         if isinstance(contract_data_source_name, str):
-#             verification_data_source = self.verification_data_sources_by_name.get(contract_data_source_name)
-#             if verification_data_source:
-#                 return verification_data_source
-#             else:
-#                 self.logs.error(f"Data source '{contract_data_source_name}' not configured")
-#                 return self.undefined_verification_data_source
-#
-#         if self.single_verification_data_source:
-#             # no data source specified in the contract
-#             # and a single data source was specified in the verification
-#             return self.single_verification_data_source
-#
-#         return self.undefined_verification_data_source
-#
-#     def add(self, verification_data_source: VerificationDataSource):
-#         self.verification_data_sources_by_name[verification_data_source.data_source.data_source_name] = verification_data_source
-#         # update self.single_verification_data_source because the number of verification data_sources changed
-#         data_sources_count = len(self.verification_data_sources_by_name)
-#         if data_sources_count == 1:
-#             self.single_verification_data_source = next(iter(self.verification_data_sources_by_name.values()))
-#         elif data_sources_count == 0:
-#             self.single_verification_data_source = self.undefined_verification_data_source
-#
-#     def __iter__(self) -> Iterator[VerificationDataSource]:
-#         return iter(self.verification_data_sources_by_name.values())
+        scan_logs = soda_core_logs.Logs(logger=scan_logger)
+        scan.set_verbose(True)
 
+        sodacl_yaml_str: str | None = None
+        try:
+            sodacl_yaml_str = self._generate_sodacl_yaml_str(contract)
+            logger.debug("Generated SodaCL:")
+            logger.debug(sodacl_yaml_str)
+
+            if sodacl_yaml_str and hasattr(self.data_source, "sodacl_data_source"):
+                scan._logs = scan_logs
+
+                # This assumes the connection is a DataSourceConnection
+                sodacl_data_source = self.data_source.sodacl_data_source
+                # Execute the contract SodaCL in a scan
+                scan.set_data_source_name(sodacl_data_source.data_source_name)
+                # noinspection PyProtectedMember
+                scan._data_source_manager.data_sources[self.data_source.data_source_name] = sodacl_data_source
+
+                if self.soda_cloud:
+                    scan_definition_name = (
+                        f"dataset://{self.data_source.data_source_name}"
+                        f"/{self.database_name}/{self.schema_name}/{contract.dataset_name}"
+                    )
+                    scan.set_scan_definition_name(scan_definition_name)
+                    # noinspection PyProtectedMember
+                    scan._configuration.soda_cloud = CustomizedSodaClCloud(
+                        host=self.soda_cloud.host,
+                        api_key_id=self.soda_cloud.api_key_id,
+                        api_key_secret=self.soda_cloud.api_key_secret,
+                        token=self.soda_cloud.token,
+                        port=self.soda_cloud.port,
+                        logs=scan_logs,
+                        scheme=self.soda_cloud.scheme,
+                        default_data_source_properties=sodacl_data_source.get_basic_properties()
+                    )
+
+                if self.variables:
+                    scan.add_variables(self.variables)
+
+                scan.add_sodacl_yaml_str(sodacl_yaml_str)
+                scan.execute()
+
+        except Exception as e:
+            self.logs.error(f"Data contract verification error: {e}", exception=e)
+
+        # The scan warning and error logs are copied into self.logs and at the end of this
+        # method, a SodaException is raised if there are error logs.
+        self._append_scan_warning_and_error_logs(scan_logs=scan_logs, contract=contract)
+
+        return ContractResult(
+            data_source=self.data_source,
+            contract=contract,
+            sodacl_yaml_str=sodacl_yaml_str,
+            logs=self.logs,
+            scan=scan
+        )
+
+    def _generate_sodacl_yaml_str(self, contract: Contract) -> str:
+        # Serialize the SodaCL YAML object to a YAML string
+        sodacl_checks: list = []
+
+        dataset_name: str = QuotingSerializer.quote(contract.dataset_name)
+        sodacl_yaml_object: dict = (
+            {
+                f"filter {dataset_name} [filter]": {"where": contract.filter_sql},
+                f"checks for {dataset_name} [filter]": sodacl_checks,
+            }
+            if contract.filter_sql
+            else {f"checks for {dataset_name}": sodacl_checks}
+        )
+
+        for check in contract.checks:
+            if not check.skip:
+                sodacl_check = check.to_sodacl_check()
+                if sodacl_check is not None:
+                    sodacl_checks.append(sodacl_check)
+        yaml_helper: YamlHelper = YamlHelper(logs=self.logs)
+        return yaml_helper.write_to_yaml_str(sodacl_yaml_object)
+
+    def _append_scan_warning_and_error_logs(self, scan_logs: soda_core_logs.Logs, contract: Contract) -> None:
+        level_map = {
+            soda_core_logs.LogLevel.ERROR: LogLevel.ERROR,
+            soda_core_logs.LogLevel.WARNING: LogLevel.WARNING,
+            soda_core_logs.LogLevel.INFO: LogLevel.INFO,
+            soda_core_logs.LogLevel.DEBUG: LogLevel.DEBUG,
+        }
+        for scan_log in scan_logs.logs:
+            if scan_log.level in [soda_core_logs.LogLevel.ERROR, soda_core_logs.LogLevel.WARNING]:
+                contracts_location: Location = (
+                    Location(
+                        file_path=contract.contract_file.get_file_description(),
+                        line=scan_log.location.line,
+                        column=scan_log.location.col,
+                    )
+                    if scan_log.location is not None
+                    else None
+                )
+                contracts_level: LogLevel = level_map[scan_log.level]
+                self.logs._log(
+                    Log(
+                        level=contracts_level,
+                        message=f"SodaCL: {scan_log.message}",
+                        location=contracts_location,
+                        exception=scan_log.exception,
+                    )
+                )
 
 class ContractVerificationResult:
     def __init__(self, logs: Logs, variables: dict[str, str], contract_results: list[ContractResult]):
@@ -311,7 +389,7 @@ class ContractVerificationResult:
 
     @classmethod
     def __format_contract_results_with_heading(cls, contract_result: ContractResult) -> list[str]:
-        return [f"# Contract results for {contract_result.contract.dataset}", str(contract_result)]
+        return [f"# Contract results for {contract_result.contract.dataset_name}", str(contract_result)]
 
 
 class SodaException(Exception):

@@ -1,5 +1,7 @@
 from json import dumps
 
+from pyatlan.errors import AtlanError
+
 from soda.contracts.contract import ContractResult
 from soda.contracts.impl.logs import Logs
 from soda.contracts.impl.plugin import Plugin
@@ -15,16 +17,27 @@ class AtlanPlugin(Plugin):
         self.atlan_base_url: str = atlan_configuration_dict["atlan_base_url"]
 
     def process_contract_results(self, contract_result: ContractResult) -> None:
-        data_source = contract_result.contract.data_source
-        atlan_qualified_name: str = data_source.data_source_yaml_dict.get("atlan_qualified_name")
+        error_messages: list[str] = []
+        atlan_qualified_name: str = contract_result.data_source_yaml_dict.get("atlan_qualified_name")
         if not isinstance(atlan_qualified_name, str):
-            self.logs.error("atlan_qualified_name is required in a data source configuration yaml when using the Atlan plugin.  Disabling Atlan integration.")
-            return None
+            error_messages.append("atlan_qualified_name is required in a data source configuration yaml")
 
-        database_name: str = contract_result.contract.get_database_name()
-        schema_name: str = contract_result.contract.get_schema_name()
-        dataset_name: str = contract_result.contract.dataset
+        database_name: str = contract_result.contract.database_name
+        if not isinstance(database_name, str):
+            error_messages.append("database is required in the contract yaml")
+
+        schema_name: str = contract_result.contract.schema_name
+        if not isinstance(schema_name, str):
+            error_messages.append("schema is required in the contract yaml")
+
+        dataset_name: str = contract_result.contract.dataset_name
         dataset_atlan_qualified_name: str = f"{atlan_qualified_name}/{database_name}/{schema_name}/{dataset_name}"
+
+        if error_messages:
+            error_messages_text = ", ".join(error_messages)
+            self.logs.error(f"Atlan integration cannot be activated as not all "
+                            f"integration requirements are met: {error_messages_text}")
+            return None
 
         contract_dict: dict = contract_result.contract.contract_file.dict
         contract_json_str: str = dumps(contract_dict)
@@ -42,5 +55,8 @@ class AtlanPlugin(Plugin):
             asset_qualified_name=dataset_atlan_qualified_name,
             contract_json=contract_json_str,
         )
-        response = client.asset.save(contract)
-        self.logs.info(str(response))
+        try:
+            response = client.asset.save(contract)
+            self.logs.info(str(response))
+        except AtlanError as e:
+            self.logs.error(f"Atlan integration error: {e}")

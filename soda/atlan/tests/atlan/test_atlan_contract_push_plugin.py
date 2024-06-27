@@ -28,6 +28,8 @@ def test_atlan_contract_push_plugin():
         status: DRAFT
         kind: DataContract
         data_source: postgres_ds
+        database: ${CONTRACTS_POSTGRES_DATABASE}
+        schema: contracts
         dataset: students
         columns:
         - name: id
@@ -46,7 +48,7 @@ def test_atlan_contract_push_plugin():
     atlan_yaml_str: str = dedent("""
         plugin: atlan
         atlan_api_key: ${ATLAN_API_KEY}
-        atlan_base_url: ${ATLAN_BASE_URL}
+        atlan_base_url: https://soda-partner.atlan.com
     """)
 
     contract_verification_result: ContractVerificationResult = (

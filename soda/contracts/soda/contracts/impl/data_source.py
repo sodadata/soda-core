@@ -123,8 +123,6 @@ class FileClDataSource(ClDataSource):
             self.data_source_name = yaml_helper.read_string(self.data_source_yaml_dict, "name")
             self.connection_dict: dict = yaml_helper.read_dict(self.data_source_yaml_dict, "connection")
 
-        self.initialize_database_and_schema_name()
-
     def _create_sodacl_data_source(self) -> DataSource:
         # consider translating postgres schema search_path option
         # options = f"-c search_path={schema}" if schema else None
@@ -137,16 +135,6 @@ class FileClDataSource(ClDataSource):
             )
         except Exception as e:
             self.logs.error(message=f"Could not create the data source: {e}", exception=e)
-
-    def initialize_database_and_schema_name(self):
-        if isinstance(self.connection_dict, dict):
-            # Some sql engines use other names for dataset and schema.  For those
-            # this method should be overriden and the alternative configuration properties
-            # should be mapped to the self.database_name and self.schema_name
-            # Order of pref: data source config, contract config, API parameter
-            yaml_helper: yaml_helper = YamlHelper(yaml_file=self.data_source_file, logs=self.logs)
-            self.database_name = yaml_helper.read_dict_opt(self.connection_dict, "dataset")
-            self.schema_name = yaml_helper.read_dict_opt(self.connection_dict, "schema")
 
 
 class SparkConfiguration:

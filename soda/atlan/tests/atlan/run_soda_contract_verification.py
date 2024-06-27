@@ -95,7 +95,7 @@ def soda_verify_contract():
         ContractVerification.builder()
         .with_contract_yaml_str(contract_yaml_str)
         .with_data_source_yaml_str(data_source_yaml_str)
-        .with_database_name(os.environ["CONTRACTS_POSTGRES_DATABASE"])
+        .with_database_name(os.environ[""])
         .with_schema_name("public")
         .with_soda_cloud_yaml_str(soda_cloud_yaml_str)
         .with_plugin_yaml_str(atlan_yaml_str)
