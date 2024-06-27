@@ -48,7 +48,7 @@ class OracleDataSourceFixture(DataSourceFixture):
             return f"INSERT ALL {rows_sql} \n SELECT 1 FROM DUAL"
 
     def _create_schema_if_not_exists_sql(self):
-        casify = self.data_source.default_casify_system_name
+        casify = str.upper
         return f"""
         declare
             userexist integer;
@@ -64,7 +64,7 @@ class OracleDataSourceFixture(DataSourceFixture):
         """
 
     def _drop_schema_if_exists_sql(self):
-        casify = self.data_source.default_casify_system_name
+        casify = str.upper
         return f"""
         declare
         userexist integer;

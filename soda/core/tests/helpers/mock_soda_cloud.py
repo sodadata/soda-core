@@ -134,6 +134,16 @@ class MockSodaCloud(SodaCloud):
     def pop_scan_result(self) -> dict:
         return self.scan_results.pop()
 
+    def find_queries(self, query_name: str):
+        assert len(self.scan_results) > 0
+        scan_result = self.scan_results[0]
+        self.assert_key("queries", scan_result)
+        queries = scan_result["queries"]
+        for query in queries:
+            if query["name"] == query_name:
+                return query
+        return None
+
     def find_check(self, check_index: int) -> dict | None:
         assert len(self.scan_results) > 0
         scan_result = self.scan_results[0]
@@ -174,6 +184,13 @@ class MockSodaCloud(SodaCloud):
     def find_failed_rows_line_count(self, check_index: int) -> int:
         file_contents = self.find_failed_rows_content(check_index)
         return file_contents.count("\n")
+
+    def find_failed_rows_sample_query(self, check_index: int, query_type: str = "failingRowsQueryName"):
+        block = self.find_failed_rows_diagnostics_block(check_index)
+        assert block[query_type]
+        sample_query = self.find_queries(block[query_type])
+        assert sample_query["sql"]
+        return sample_query["sql"].lower()
 
     def assert_no_failed_rows_block_present(self, check_index: int):
         diagnostics = self.find_check_diagnostics(check_index)
