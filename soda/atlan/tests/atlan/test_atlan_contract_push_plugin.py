@@ -1,6 +1,7 @@
 import os
 from textwrap import dedent
 
+import pytest
 from dotenv import load_dotenv
 
 from soda.contracts.contract_verification import (
