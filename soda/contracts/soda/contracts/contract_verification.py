@@ -1,14 +1,7 @@
 from __future__ import annotations
 
-import importlib
-from typing import Iterator
-
 from soda.contracts.contract import Contract, ContractResult
-from soda.contracts.impl.contract_verification_impl import (
-    FileVerificationDataSource,
-    SparkVerificationDataSource,
-    VerificationDataSource, SparkConfiguration,
-)
+from soda.contracts.impl.data_source import DataSource, SparkConfiguration
 from soda.contracts.impl.logs import Logs
 from soda.contracts.impl.plugin import Plugin
 from soda.contracts.impl.soda_cloud import SodaCloud
@@ -19,10 +12,12 @@ class ContractVerificationBuilder:
 
     def __init__(self):
         self.logs: Logs = Logs()
-        self.data_source_yaml_files: list[YamlFile] = []
-        self.spark_configurations: list[SparkConfiguration] = []
+        self.data_source_yaml_file: YamlFile | None = None
+        self.spark_configuration: SparkConfiguration | None = None
+        self.database_name: str | None = None
+        self.schema_name: str | None = None
         self.contract_files: list[YamlFile] = []
-        self.soda_cloud_files: list[YamlFile] = []
+        self.soda_cloud_file: YamlFile | None = None
         self.plugin_files: list[YamlFile] = []
         self.variables: dict[str, str] = {}
 
@@ -46,20 +41,23 @@ class ContractVerificationBuilder:
 
     def with_data_source_yaml_file(self, data_source_yaml_file_path: str) -> ContractVerificationBuilder:
         assert isinstance(data_source_yaml_file_path, str)
-        data_source_yaml_file = YamlFile(yaml_file_path=data_source_yaml_file_path, logs=self.logs)
-        self.data_source_yaml_files.append(data_source_yaml_file)
+        if self.data_source_yaml_file is not None:
+            self.logs.error("Duplicate data source definition. Ignoring previous data sources.")
+        self.data_source_yaml_file = YamlFile(yaml_file_path=data_source_yaml_file_path, logs=self.logs)
         return self
 
     def with_data_source_yaml_str(self, data_source_yaml_str: str) -> ContractVerificationBuilder:
         assert isinstance(data_source_yaml_str, str)
-        data_source_yaml_file = YamlFile(logs=self.logs, yaml_str=data_source_yaml_str)
-        self.data_source_yaml_files.append(data_source_yaml_file)
+        if self.data_source_yaml_file is not None:
+            self.logs.error("Duplicate data source definition. Ignoring previous data sources.")
+        self.data_source_yaml_file = YamlFile(logs=self.logs, yaml_str=data_source_yaml_str)
         return self
 
     def with_data_source_yaml_dict(self, data_source_yaml_dict: dict) -> ContractVerificationBuilder:
         assert isinstance(data_source_yaml_dict, dict)
-        data_source_yaml_file = YamlFile(logs=self.logs, yaml_dict=data_source_yaml_dict)
-        self.data_source_yaml_files.append(data_source_yaml_file)
+        if self.data_source_yaml_file is not None:
+            self.logs.error("Duplicate data source definition. Ignoring previous data sources.")
+        self.data_source_yaml_file = YamlFile(logs=self.logs, yaml_dict=data_source_yaml_dict)
         return self
 
     def with_data_source_spark_session(
@@ -67,35 +65,32 @@ class ContractVerificationBuilder:
     ) -> ContractVerificationBuilder:
         assert isinstance(spark_session, object)
         assert isinstance(data_source_yaml_dict, dict) or data_source_yaml_dict is None
-        self.spark_configurations.append(SparkConfiguration(
+        self.spark_configuration = SparkConfiguration(
             spark_session=spark_session,
             data_source_yaml_dict=data_source_yaml_dict if isinstance(data_source_yaml_dict, dict) else {},
             logs=self.logs
-        ))
-        return self
-
-    def with_variable(self, key: str, value: str) -> ContractVerificationBuilder:
-        self.variables[key] = value
-        return self
-
-    def with_variables(self, variables: dict[str, str]) -> ContractVerificationBuilder:
-        if isinstance(variables, dict):
-            self.variables.update(variables)
+        )
         return self
 
     def with_soda_cloud_yaml_file(self, soda_cloud_yaml_file_path: str) -> ContractVerificationBuilder:
         assert isinstance(soda_cloud_yaml_file_path, str)
-        self.soda_cloud_files.append(YamlFile(yaml_file_path=soda_cloud_yaml_file_path, logs=self.logs))
+        if self.data_source_yaml_file is not None:
+            self.logs.error("Duplicate data source definition. Ignoring previous data sources.")
+        self.soda_cloud_file = YamlFile(yaml_file_path=soda_cloud_yaml_file_path, logs=self.logs)
         return self
 
     def with_soda_cloud_yaml_str(self, soda_cloud_yaml_str: str) -> ContractVerificationBuilder:
         assert isinstance(soda_cloud_yaml_str, str)
-        self.soda_cloud_files.append(YamlFile(yaml_str=soda_cloud_yaml_str, logs=self.logs))
+        if self.data_source_yaml_file is not None:
+            self.logs.error("Duplicate data source definition. Ignoring previous data sources.")
+        self.soda_cloud_file = YamlFile(yaml_str=soda_cloud_yaml_str, logs=self.logs)
         return self
 
     def with_soda_cloud_yaml_dict(self, soda_cloud_yaml_dict: dict) -> ContractVerificationBuilder:
         assert isinstance(soda_cloud_yaml_dict, dict)
-        self.soda_cloud_files.append(YamlFile(yaml_dict=soda_cloud_yaml_dict, logs=self.logs))
+        if self.data_source_yaml_file is not None:
+            self.logs.error("Duplicate data source definition. Ignoring previous data sources.")
+        self.soda_cloud_file = YamlFile(yaml_dict=soda_cloud_yaml_dict, logs=self.logs)
         return self
 
     def with_plugin_yaml_file(self, plugin_yaml_file_path: str) -> ContractVerificationBuilder:
@@ -111,6 +106,15 @@ class ContractVerificationBuilder:
     def with_plugin_yaml_dict(self, plugin_yaml_dict: dict) -> ContractVerificationBuilder:
         assert isinstance(plugin_yaml_dict, dict)
         self.plugin_files.append(YamlFile(yaml_dict=plugin_yaml_dict, logs=self.logs))
+        return self
+
+    def with_variable(self, key: str, value: str) -> ContractVerificationBuilder:
+        self.variables[key] = value
+        return self
+
+    def with_variables(self, variables: dict[str, str]) -> ContractVerificationBuilder:
+        if isinstance(variables, dict):
+            self.variables.update(variables)
         return self
 
     def build(self) -> ContractVerification:
@@ -130,36 +134,46 @@ class ContractVerification:
     def __init__(self, contract_verification_builder: ContractVerificationBuilder):
         self.logs: Logs = contract_verification_builder.logs
         self.variables: dict[str, str] = contract_verification_builder.variables
-        self.contracts: list[Contract] = []
-        self.contract_results: list[ContractResult] = []
+        self.data_source: DataSource | None = None
         self.soda_cloud: SodaCloud | None = None
-        self.verification_data_sources = self._parse_verification_data_sources(contract_verification_builder)
+        self.contracts: list[Contract] = []
         self.plugins: list[Plugin] = []
+        self.contract_results: list[ContractResult] = []
 
-        # parse the contract files and add them to the matching verification data source
+        self._initialize_data_source(contract_verification_builder)
+        self._initialize_soda_cloud(contract_verification_builder)
+        self._initialize_contracts(contract_verification_builder)
+        self._initialize_plugins(contract_verification_builder)
+
+    def _initialize_data_source(self, contract_verification_builder: ContractVerificationBuilder) -> None:
+        data_source_yaml_file: YamlFile | None = contract_verification_builder.data_source_yaml_file
+        spark_configuration: SparkConfiguration | None = contract_verification_builder.spark_configuration
+        if isinstance(data_source_yaml_file, YamlFile):
+            data_source_yaml_file.parse(contract_verification_builder.variables)
+            self.data_source = DataSource.from_yaml_file(data_source_yaml_file)
+        elif isinstance(spark_configuration, SparkConfiguration):
+            self.data_source = DataSource.from_spark_session(spark_configuration)
+
+    def _initialize_contracts(self, contract_verification_builder: ContractVerificationBuilder) -> None:
         for contract_file in contract_verification_builder.contract_files:
             contract_file.parse(self.variables)
             if contract_file.is_ok():
-                contract_data_source_name: str | None = contract_file.dict.get("data_source")
-
-                verification_data_source = self.verification_data_sources.get(contract_data_source_name)
-
                 contract: Contract = Contract.create(
-                    data_source=verification_data_source.data_source,
+                    data_source=self.data_source,
                     contract_file=contract_file,
                     variables=self.variables,
                     soda_cloud=self.soda_cloud,
                     logs=contract_file.logs,
                 )
-                verification_data_source.add_contract(contract)
                 self.contracts.append(contract)
 
-        for soda_cloud_file in contract_verification_builder.soda_cloud_files:
-            if soda_cloud_file.exists():
-                soda_cloud_file.parse(self.variables)
-                self.soda_cloud = SodaCloud(soda_cloud_file)
-                break
+    def _initialize_soda_cloud(self, contract_verification_builder: ContractVerificationBuilder) -> None:
+        soda_cloud_file: YamlFile | None = contract_verification_builder.soda_cloud_file
+        if isinstance(soda_cloud_file, YamlFile) and soda_cloud_file.exists():
+            soda_cloud_file.parse(contract_verification_builder.variables)
+            self.soda_cloud = SodaCloud(soda_cloud_file)
 
+    def _initialize_plugins(self, contract_verification_builder) -> None:
         plugin_files_by_type: dict[str, list[YamlFile]] = {}
         for plugin_file in contract_verification_builder.plugin_files:
             plugin_file.parse(self.variables)
@@ -171,7 +185,6 @@ class ContractVerification:
                     self.logs.error(f"Key plugin is required in plugin YAML files")
             else:
                 self.logs.error(f"Could not read plugin YAML file {plugin_file.file_path}")
-
         for plugin_name, plugin_yaml_files in plugin_files_by_type.items():
             for plugin_yaml_file in plugin_yaml_files:
                 plugin_yaml_file.parse(self.variables)
@@ -181,96 +194,80 @@ class ContractVerification:
             else:
                 self.logs.error(f"Could not load plugin {plugin_name}")
 
-    def _parse_verification_data_sources(self, contract_verification_builder) -> VerificationDataSources:
-        return VerificationDataSources(contract_verification_builder)
-
     def __str__(self) -> str:
         return str(self.logs)
 
     def execute(self) -> ContractVerificationResult:
-        all_contract_results: list[ContractResult] = []
-        for verification_data_source in self.verification_data_sources:
-            data_source_contract_results: list[ContractResult] = self.ensure_open_and_verify_contracts(verification_data_source)
-            all_contract_results.extend(data_source_contract_results)
+        contract_results: list[ContractResult] = []
+
+        if self.data_source is not None:
+            with self.data_source:
+                if len(self.contracts) > 0:
+                    for contract in self.contracts:
+                        contract_result: ContractResult = contract.verify()
+                        contract_results.append(contract_result)
+                        for plugin in self.plugins:
+                            plugin.process_contract_results(contract_result)
+                else:
+                    self.logs.error("No contracts configured")
+        else:
+            self.logs.error("No data source configured")
+
         return ContractVerificationResult(
-            logs=self.logs, variables=self.variables, contract_results=all_contract_results
+            logs=self.logs, variables=self.variables, contract_results=contract_results
         )
 
-    def ensure_open_and_verify_contracts(self, verification_data_source: VerificationDataSource) -> list[ContractResult]:
-        """
-        Ensures that the data source has an open connection and then invokes self.__verify_contracts()
-        """
-        if verification_data_source.requires_with_block():
-            with verification_data_source.data_source as d:
-                return self.verify_contracts()
-        else:
-            return self.verify_contracts()
 
-    def verify_contracts(self):
-        """
-        Assumes the data source has an open connection
-        """
-        contract_results: list[ContractResult] = []
-        for contract in self.contracts:
-            # TODO ensure proper initialization of contract.soda_cloud
-            contract.soda_cloud = self.soda_cloud
-            contract_result: ContractResult = contract.verify()
-            contract_results.append(contract_result)
-            for plugin in self.plugins:
-                plugin.process_contract_results(contract_result)
-        return contract_results
-
-
-class VerificationDataSources:
-    def __init__(self, contract_verification_builder: ContractVerificationBuilder):
-        self.verification_data_sources_by_name: dict[str, VerificationDataSource] = {}
-        # The purpose of the undefined verification data_source is to ensure that we still capture
-        # all the parsing errors in the logs, even if there is no data_source associated
-        self.undefined_verification_data_source = VerificationDataSource()
-        self.single_verification_data_source: VerificationDataSource | None = None
-        self.logs: Logs = contract_verification_builder.logs
-
-        # Parse data sources
-        variables: dict[str, str] = contract_verification_builder.variables
-        for data_source_yaml_file in contract_verification_builder.data_source_yaml_files:
-            data_source_yaml_file.parse(variables)
-            verification_data_source: VerificationDataSource = FileVerificationDataSource(
-                data_source_yaml_file=data_source_yaml_file
-            )
-            self.add(verification_data_source)
-        for spark_configuration in contract_verification_builder.spark_configurations:
-            verification_data_source: VerificationDataSource = SparkVerificationDataSource(
-                spark_configuration=spark_configuration
-            )
-            self.add(verification_data_source)
-
-    def get(self, contract_data_source_name: str | None) -> VerificationDataSource:
-        if isinstance(contract_data_source_name, str):
-            verification_data_source = self.verification_data_sources_by_name.get(contract_data_source_name)
-            if verification_data_source:
-                return verification_data_source
-            else:
-                self.logs.error(f"Data source '{contract_data_source_name}' not configured")
-                return self.undefined_verification_data_source
-
-        if self.single_verification_data_source:
-            # no data source specified in the contract
-            # and a single data source was specified in the verification
-            return self.single_verification_data_source
-
-        return self.undefined_verification_data_source
-
-    def add(self, verification_data_source: VerificationDataSource):
-        self.verification_data_sources_by_name[verification_data_source.data_source.data_source_name] = verification_data_source
-        # update self.single_verification_data_source because the number of verification data_sources changed
-        data_sources_count = len(self.verification_data_sources_by_name)
-        if data_sources_count == 1:
-            self.single_verification_data_source = next(iter(self.verification_data_sources_by_name.values()))
-        elif data_sources_count == 0:
-            self.single_verification_data_source = self.undefined_verification_data_source
-
-    def __iter__(self) -> Iterator[VerificationDataSource]:
-        return iter(self.verification_data_sources_by_name.values())
+# class VerificationDataSources:
+#     def __init__(self, contract_verification_builder: ContractVerificationBuilder):
+#         self.verification_data_sources_by_name: dict[str, VerificationDataSource] = {}
+#         # The purpose of the undefined verification data_source is to ensure that we still capture
+#         # all the parsing errors in the logs, even if there is no data_source associated
+#         self.undefined_verification_data_source = VerificationDataSource()
+#         self.single_verification_data_source: VerificationDataSource | None = None
+#         self.logs: Logs = contract_verification_builder.logs
+#
+#         # Parse data sources
+#         variables: dict[str, str] = contract_verification_builder.variables
+#         for data_source_yaml_file in contract_verification_builder.data_source_yaml_files:
+#             data_source_yaml_file.parse(variables)
+#             verification_data_source: VerificationDataSource = FileVerificationDataSource(
+#                 data_source_yaml_file=data_source_yaml_file
+#             )
+#             self.add(verification_data_source)
+#         for spark_configuration in contract_verification_builder.spark_configurations:
+#             verification_data_source: VerificationDataSource = SparkVerificationDataSource(
+#                 spark_configuration=spark_configuration
+#             )
+#             self.add(verification_data_source)
+#
+#     def get(self, contract_data_source_name: str | None) -> VerificationDataSource:
+#         if isinstance(contract_data_source_name, str):
+#             verification_data_source = self.verification_data_sources_by_name.get(contract_data_source_name)
+#             if verification_data_source:
+#                 return verification_data_source
+#             else:
+#                 self.logs.error(f"Data source '{contract_data_source_name}' not configured")
+#                 return self.undefined_verification_data_source
+#
+#         if self.single_verification_data_source:
+#             # no data source specified in the contract
+#             # and a single data source was specified in the verification
+#             return self.single_verification_data_source
+#
+#         return self.undefined_verification_data_source
+#
+#     def add(self, verification_data_source: VerificationDataSource):
+#         self.verification_data_sources_by_name[verification_data_source.data_source.data_source_name] = verification_data_source
+#         # update self.single_verification_data_source because the number of verification data_sources changed
+#         data_sources_count = len(self.verification_data_sources_by_name)
+#         if data_sources_count == 1:
+#             self.single_verification_data_source = next(iter(self.verification_data_sources_by_name.values()))
+#         elif data_sources_count == 0:
+#             self.single_verification_data_source = self.undefined_verification_data_source
+#
+#     def __iter__(self) -> Iterator[VerificationDataSource]:
+#         return iter(self.verification_data_sources_by_name.values())
 
 
 class ContractVerificationResult:

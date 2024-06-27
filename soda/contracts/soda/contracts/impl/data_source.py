@@ -12,7 +12,7 @@ from soda.contracts.impl.yaml_helper import YamlFile, YamlHelper
 logger = logging.getLogger(__name__)
 
 
-class DataSource:
+class DataSource(ABC):
     """
     Represents the configurations to create a connection. Usually it's loaded from a YAML file.
     """
@@ -22,10 +22,19 @@ class DataSource:
 
         # only initialized after the .open() method is called
         self.dbapi_connection: object | None = None
+
+        # Only if the open method has opened a connection should the close method close the connection
+        # In the test suite this is used and later this may be used when passing in a user defined DBAPI connection
+        self.close_connection: bool = False
+
         # only initialized after the .open() method is called
         self.data_source_name: str | None = None
         # only initialized after the .open() method is called
         self.data_source_type: str | None = None
+        # only initialized after the .open() method is called
+        self.database_name: str | None = None
+        # only initialized after the .open() method is called
+        self.schema_name: str | None = None
 
         self.data_source_yaml_dict: dict = {}
 
@@ -34,11 +43,11 @@ class DataSource:
         return FileClDataSource(data_source_yaml_file=data_source_file)
 
     @classmethod
-    def from_spark_session(cls, spark_session, data_source_yaml_dict: dict, logs: Logs | None) -> DataSource:
+    def from_spark_session(cls, spark_configuration: SparkConfiguration) -> DataSource:
         return SparkSessionClDataSource(
-            spark_session=spark_session,
-            data_source_yaml_dict=data_source_yaml_dict,
-            logs=logs
+            spark_session=spark_configuration.spark_session,
+            data_source_yaml_dict=spark_configuration.data_source_yaml_dict,
+            logs=spark_configuration.logs
         )
 
     def __enter__(self) -> DataSource:
@@ -55,7 +64,9 @@ class DataSource:
         return self.data_source_name
 
     def open(self) -> None:
-        self.dbapi_connection = self._create_dbapi_connection()
+        if self.dbapi_connection is None:
+            self.dbapi_connection = self._create_dbapi_connection()
+            self.close_connection = True
 
     @abstractmethod
     def _create_dbapi_connection(self) -> object:
@@ -66,11 +77,17 @@ class DataSource:
         Closes te connection. This method will not throw any exceptions.
         Check errors with has_errors or assert_no_errors.
         """
-        if self.dbapi_connection:
+        if self.close_connection and self.dbapi_connection:
             try:
                 self.dbapi_connection.close()
             except Exception as e:
                 logger.warning(f"Could not close the dbapi connection: {e}")
+
+    def get_database_name(self) -> str:
+        return self.database_name
+
+    def get_schema_name(self) -> str:
+        return self.schema_name
 
 
 class ClDataSource(DataSource, ABC):
@@ -106,6 +123,8 @@ class FileClDataSource(ClDataSource):
             self.data_source_name = yaml_helper.read_string(self.data_source_yaml_dict, "name")
             self.connection_dict: dict = yaml_helper.read_dict(self.data_source_yaml_dict, "connection")
 
+        self.initialize_database_and_schema_name()
+
     def _create_sodacl_data_source(self) -> DataSource:
         # consider translating postgres schema search_path option
         # options = f"-c search_path={schema}" if schema else None
@@ -118,6 +137,23 @@ class FileClDataSource(ClDataSource):
             )
         except Exception as e:
             self.logs.error(message=f"Could not create the data source: {e}", exception=e)
+
+    def initialize_database_and_schema_name(self):
+        if isinstance(self.connection_dict, dict):
+            # Some sql engines use other names for dataset and schema.  For those
+            # this method should be overriden and the alternative configuration properties
+            # should be mapped to the self.database_name and self.schema_name
+            # Order of pref: data source config, contract config, API parameter
+            yaml_helper: yaml_helper = YamlHelper(yaml_file=self.data_source_file, logs=self.logs)
+            self.database_name = yaml_helper.read_dict_opt(self.connection_dict, "dataset")
+            self.schema_name = yaml_helper.read_dict_opt(self.connection_dict, "schema")
+
+
+class SparkConfiguration:
+    def __init__(self, spark_session: object, data_source_yaml_dict: dict, logs: Logs):
+        self.spark_session: object = spark_session
+        self.data_source_yaml_dict: dict = data_source_yaml_dict
+        self.logs: Logs = logs
 
 
 class SparkSessionClDataSource(ClDataSource):

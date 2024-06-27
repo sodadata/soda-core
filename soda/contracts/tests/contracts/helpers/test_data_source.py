@@ -5,29 +5,24 @@ from textwrap import dedent
 
 from helpers.data_source_fixture import DataSourceFixture
 from helpers.test_table import TestTable
-from soda.execution.data_type import DataType
-
 from soda.contracts.contract import ContractResult
 from soda.contracts.contract_verification import (
-    ContractVerification,
-    ContractVerificationBuilder,
-    ContractVerificationResult,
-    VerificationDataSources,
+    ContractVerificationResult, ContractVerification, ContractVerificationBuilder,
 )
-from soda.contracts.impl.contract_verification_impl import VerificationDataSource
 from soda.contracts.impl.data_source import DataSource
+from soda.execution.data_type import DataType
 
 
-class TestVerificationDataSource(VerificationDataSource):
-    __test__ = False
-
-    def __init__(self, data_source: DataSource):
-        super().__init__()
-        self.data_source = data_source
-        self.data_source_name = data_source.data_source_name
-
-    def requires_with_block(self) -> bool:
-        return False
+# class TestVerificationDataSource(VerificationDataSource):
+#     __test__ = False
+#
+#     def __init__(self, data_source: DataSource):
+#         super().__init__()
+#         self.data_source = data_source
+#         self.data_source_name = data_source.data_source_name
+#
+#     def requires_with_block(self) -> bool:
+#         return False
 
 
 class TestContractVerificationBuilder(ContractVerificationBuilder):
@@ -55,14 +50,8 @@ class TestContractVerification(ContractVerification):
     def __init__(self, test_contract_verification_builder: TestContractVerificationBuilder):
         super().__init__(contract_verification_builder=test_contract_verification_builder)
 
-    def _parse_verification_data_sources(self, contract_verification_builder) -> VerificationDataSources:
-        verification_data_sources: VerificationDataSources = super()._parse_verification_data_sources(
-            contract_verification_builder
-        )
-        data_source: DataSource = contract_verification_builder.data_source
-        test_verification_data_source = TestVerificationDataSource(data_source)
-        verification_data_sources.add(test_verification_data_source)
-        return verification_data_sources
+    def _initialize_data_source(self, contract_verification_builder: ContractVerificationBuilder) -> None:
+        self.data_source = contract_verification_builder.data_source
 
 
 class TestDataSource(DataSource):
@@ -95,6 +84,12 @@ class TestDataSource(DataSource):
     def _create_dbapi_connection(self) -> object:
         # already initialized in constructor
         return self.dbapi_connection
+
+    def __enter__(self) -> DataSource:
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        pass
 
     def assert_contract_pass(self, contract_yaml_str: str, variables: dict[str, str] | None = None) -> ContractResult:
         contract_yaml_str = dedent(contract_yaml_str)

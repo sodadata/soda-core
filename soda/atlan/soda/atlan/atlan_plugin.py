@@ -15,22 +15,24 @@ class AtlanPlugin(Plugin):
         self.atlan_base_url: str = atlan_configuration_dict["atlan_base_url"]
 
     def process_contract_results(self, contract_result: ContractResult) -> None:
-        from pyatlan.client.atlan import AtlanClient
-        from pyatlan.model.assets import DataContract
-
         data_source = contract_result.contract.data_source
         atlan_qualified_name: str = data_source.data_source_yaml_dict.get("atlan_qualified_name")
         if not isinstance(atlan_qualified_name, str):
             self.logs.error("atlan_qualified_name is required in a data source configuration yaml when using the Atlan plugin.  Disabling Atlan integration.")
             return None
 
-        database_name: str = data_source.get_database_name()
-        schema_name: str = contract_result.contract.schema
+        database_name: str = contract_result.contract.get_database_name()
+        schema_name: str = contract_result.contract.get_schema_name()
         dataset_name: str = contract_result.contract.dataset
         dataset_atlan_qualified_name: str = f"{atlan_qualified_name}/{database_name}/{schema_name}/{dataset_name}"
 
         contract_dict: dict = contract_result.contract.contract_file.dict
         contract_json_str: str = dumps(contract_dict)
+
+        self.logs.info(f"Pushing contract to Atlan: {dataset_atlan_qualified_name}")
+
+        from pyatlan.client.atlan import AtlanClient
+        from pyatlan.model.assets import DataContract
 
         client = AtlanClient(
             base_url=self.atlan_base_url,
