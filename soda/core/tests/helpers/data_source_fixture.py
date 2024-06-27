@@ -79,10 +79,10 @@ class DataSourceFixture:
         return schema_name
 
     def _test_session_starts(self):
-        self.data_source = self._create_test_data_source()
         self.schema_data_source = self._create_schema_data_source()
         self._drop_schema_if_exists()
         self._create_schema_if_not_exists()
+        self.data_source = self._create_test_data_source()
 
     def _create_schema_data_source(self) -> DataSource:
         configuration_dict = self._build_configuration_dict()
