@@ -24,7 +24,7 @@ def test_row_count_thresholds_with_variables(data_source_fixture: DataSourceFixt
 
 def test_row_count_between_thresholds_with_variables(data_source_fixture: DataSourceFixture):
     """
-    Tests all passing thresholds on a simple row count
+    Tests all passing thresholds on between row count with variables
     """
     table_name = data_source_fixture.ensure_test_table(customers_test_table)
 
