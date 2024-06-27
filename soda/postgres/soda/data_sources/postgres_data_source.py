@@ -15,6 +15,7 @@ class PostgresDataSource(DataSource):
         self.password = data_source_properties.get("password")
         self.username = data_source_properties.get("username")
         self.connection_timeout = data_source_properties.get("connection_timeout")
+        self.sslmode = data_source_properties.get("sslmode", "prefer")
 
     def connect(self):
         import psycopg2
@@ -36,6 +37,7 @@ class PostgresDataSource(DataSource):
                 connect_timeout=self.connection_timeout,
                 database=self.database,
                 options=options,
+                sslmode=self.sslmode,
             )
         else:
             raise ConnectionError(f"Invalid postgres connection properties: invalid host: {self.host}")
