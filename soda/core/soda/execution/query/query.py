@@ -55,6 +55,10 @@ class Query:
         self.sample_ref: SampleRef | None = None
         self.exception: BaseException | None = None
         self.duration: timedelta | None = None
+        self.check_identity: str | None = None
+
+    def set_check_identity(self, identity: str):
+        self.check_identity = identity
 
     def get_cloud_dicts(self) -> list(dict(str, any)):
         dicts = [self.get_dict()]
@@ -74,7 +78,10 @@ class Query:
         from soda.execution.column import Column
         from soda.execution.partition import Partition
 
-        name = self.query_name
+        if self.check_identity:
+            name = f"{self.check_identity}.{self.query_name}"
+        else:
+            name = self.query_name
 
         if name_suffix:
             name += f".{name_suffix}"
