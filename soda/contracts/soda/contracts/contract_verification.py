@@ -255,10 +255,7 @@ class ContractVerification:
                     prefix_parts: list[str] = [contract.database_name, contract.schema_name]
                     prefix = ".".join(prefix_parts)
 
-                    default_data_source_properties = {
-                        "type": "spark_df",
-                        "prefix": prefix
-                    }
+                    default_data_source_properties = {"type": "spark_df", "prefix": prefix}
 
                     # noinspection PyProtectedMember
                     scan._configuration.soda_cloud = CustomizedSodaClCloud(

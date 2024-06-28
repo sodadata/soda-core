@@ -1,10 +1,9 @@
-import os
 from textwrap import dedent
 
 import pytest
 from dotenv import load_dotenv
-
 from helpers.fixtures import project_root_dir
+
 from soda.contracts.contract_verification import (
     ContractVerification,
     ContractVerificationResult,
