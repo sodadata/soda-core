@@ -42,18 +42,15 @@ class Contract:
 
     def __init__(
         self,
-        data_source_name: str | None,
-        database_name: str | None,
-        schema_name: str | None,
         contract_file: YamlFile,
         logs: Logs,
     ):
         self.contract_file: YamlFile = contract_file
         self.logs: Logs = logs
 
-        self.data_source_name: str | None = data_source_name
-        self.database_name: str | None = database_name
-        self.schema_name: str | None = schema_name
+        self.data_source_name: str | None = None
+        self.database_name: str | None = None
+        self.schema_name: str | None = None
         self.dataset_name: str | None = None
 
         # TODO explain filter_expression_sql, default filter and named filters
@@ -87,28 +84,9 @@ class Contract:
 
             contract_yaml_dict = self.contract_file.dict
 
-            # self.database_name comes from the contract verification API
-            contract_database_name: str | None = yaml_helper.read_string_opt(contract_yaml_dict, "database")
-            if contract_database_name is not None:
-                if self.database_name is None:
-                    self.database_name = contract_database_name
-                elif contract_database_name != self.database_name:
-                    self.logs.info(
-                        f"Database name in contract YAML '{contract_database_name}' was overridden to "
-                        f"'{self.database_name}' by contract verification parameter."
-                    )
-
-            # self.schema_name comes from the contract verification API
-            contract_schema_name: str | None = yaml_helper.read_string_opt(contract_yaml_dict, "schema")
-            if contract_schema_name is not None:
-                if self.schema_name is None:
-                    self.schema_name = contract_schema_name
-                elif contract_schema_name != self.schema_name:
-                    self.logs.info(
-                        f"Schema name in contract YAML '{contract_schema_name}' was overridden to "
-                        f"'{self.schema_name}' by contract verification parameter."
-                    )
-
+            self.data_source_name: str | None = yaml_helper.read_string_opt(contract_yaml_dict, "data_source")
+            self.database_name: str | None = yaml_helper.read_string_opt(contract_yaml_dict, "database")
+            self.schema_name: str | None = yaml_helper.read_string_opt(contract_yaml_dict, "schema")
             self.dataset_name: str | None = yaml_helper.read_string(contract_yaml_dict, "dataset")
             self.filter_sql: str | None = yaml_helper.read_string_opt(contract_yaml_dict, "filter_sql")
             self.filter: str | None = "default" if self.filter_sql else None

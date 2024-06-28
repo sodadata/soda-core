@@ -23,8 +23,6 @@ class ContractVerificationBuilder:
         self.logs: Logs = Logs()
         self.data_source_yaml_file: YamlFile | None = None
         self.spark_configuration: SparkConfiguration | None = None
-        self.database_name: str | None = None
-        self.schema_name: str | None = None
         self.contract_files: list[YamlFile] = []
         self.soda_cloud_file: YamlFile | None = None
         self.plugin_files: list[YamlFile] = []
@@ -79,16 +77,6 @@ class ContractVerificationBuilder:
             data_source_yaml_dict=data_source_yaml_dict if isinstance(data_source_yaml_dict, dict) else {},
             logs=self.logs,
         )
-        return self
-
-    def with_database_name(self, database_name: str) -> ContractVerificationBuilder:
-        assert isinstance(database_name, str)
-        self.database_name = database_name
-        return self
-
-    def with_schema_name(self, schema_name: str) -> ContractVerificationBuilder:
-        assert isinstance(schema_name, str)
-        self.schema_name = schema_name
         return self
 
     def with_soda_cloud_yaml_file(self, soda_cloud_yaml_file_path: str) -> ContractVerificationBuilder:
@@ -154,8 +142,6 @@ class ContractVerification:
         self.logs: Logs = contract_verification_builder.logs
         self.variables: dict[str, str] = contract_verification_builder.variables
         self.data_source: DataSource | None = None
-        self.database_name: str | None = contract_verification_builder.database_name
-        self.schema_name: str | None = contract_verification_builder.schema_name
         self.contracts: list[Contract] = []
         self.soda_cloud: SodaCloud | None = None
         self.plugins: list[Plugin] = []
@@ -180,9 +166,6 @@ class ContractVerification:
             contract_file.parse(self.variables)
             if contract_file.is_ok():
                 contract: Contract = Contract(
-                    data_source_name=self.data_source.data_source_name if self.data_source else None,
-                    database_name=self.database_name,
-                    schema_name=self.schema_name,
                     contract_file=contract_file,
                     logs=contract_file.logs,
                 )
@@ -259,10 +242,12 @@ class ContractVerification:
                 scan._data_source_manager.data_sources[self.data_source.data_source_name] = sodacl_data_source
 
                 if self.soda_cloud:
-                    scan_definition_name = (
-                        f"dataset://{self.data_source.data_source_name}"
-                        f"/{self.database_name}/{self.schema_name}/{contract.dataset_name}"
-                    )
+                    parts: list[str] = [
+                        self.data_source.data_source_name, contract.database_name,
+                        contract.schema_name, contract.dataset_name
+                    ]
+                    parts_str: str = "/".join([part for part in parts if part is not None])
+                    scan_definition_name = f"dataset://{parts_str}"
                     scan.set_scan_definition_name(scan_definition_name)
                     # noinspection PyProtectedMember
                     scan._configuration.soda_cloud = CustomizedSodaClCloud(

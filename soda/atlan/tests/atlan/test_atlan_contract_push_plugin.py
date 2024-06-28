@@ -10,9 +10,9 @@ from soda.contracts.contract_verification import (
 )
 
 
-@pytest.mark.skip(
-    "Takes too long to be part of the local development test suite & depends on Atlan & Soda Cloud services"
-)
+#@pytest.mark.skip(
+#     "Takes too long to be part of the local development test suite & depends on Atlan & Soda Cloud services"
+# )
 def test_atlan_contract_push_plugin():
     this_file_dir_path = os.path.dirname(os.path.realpath(__file__))
     load_dotenv(f"{this_file_dir_path}/.env", override=True)
@@ -33,9 +33,6 @@ def test_atlan_contract_push_plugin():
 
     contract_yaml_str: str = dedent(
         """
-        type: Table
-        status: DRAFT
-        kind: DataContract
         data_source: postgres_ds
         database: ${CONTRACTS_POSTGRES_DATABASE}
         schema: contracts
