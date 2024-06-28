@@ -69,17 +69,6 @@ class DuplicatesQuery(Query):
             )
         )
 
-        self.failing_rows_sql_aggregated = jinja_resolve(
-            data_source.sql_get_duplicates_aggregated(
-                column_names,
-                table_name,
-                values_filter,
-                self.samples_limit,
-                invert_condition=False,
-                exclude_patterns=exclude_patterns,
-            )
-        )
-
     def execute(self):
         self.fetchone()
         if self.row:
@@ -97,14 +86,15 @@ class DuplicatesQuery(Query):
                 sample_query.execute()
 
             # TODO: This should be a second failed rows file, refactor failed rows to support multiple files.
-            if self.failing_rows_sql_aggregated and self.samples_limit > 0:
-                aggregate_sample_query = Query(
-                    self.data_source_scan,
-                    self.partition.table,
-                    self.partition,
-                    unqualified_query_name=f"duplicate_count[{'-'.join(self.metric.metric_args)}].failed_rows.aggregated",
-                    sql=self.failing_rows_sql_aggregated,
-                    samples_limit=self.samples_limit,
-                )
-                aggregate_sample_query.execute()
-                self.aggregated_failed_rows_data = aggregate_sample_query.rows
+            # TODO: removing for now, this is not using standard Query.store() and "gatekeeper" does not kick in - which is a potential data leak.
+            # if self.failing_rows_sql_aggregated and self.samples_limit > 0:
+            #     aggregate_sample_query = Query(
+            #         self.data_source_scan,
+            #         self.partition.table,
+            #         self.partition,
+            #         unqualified_query_name=f"duplicate_count[{'-'.join(self.metric.metric_args)}].failed_rows.aggregated",
+            #         sql=self.failing_rows_sql_aggregated,
+            #         samples_limit=self.samples_limit,
+            #     )
+            #     aggregate_sample_query.execute()
+            #     self.aggregated_failed_rows_data = aggregate_sample_query.rows
