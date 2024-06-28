@@ -9,24 +9,13 @@
             "description": "The name of the dataset",
             "type": "string"
         },
-        "warehouse": {
-            "description": "The name of the warehouse",
+        "data_source": {
+            "description": "The name of the data_source",
             "type": "string"
         },
         "schema": {
             "description": "The name of the schema within the data source (on bigquery, this schema property this refers to a dataset)",
             "type": "string"
-        },
-        "owner": {
-            "description": "The contact details for the person or team responsible for producing this dataset",
-            "type": "object",
-            "properties": {
-                "email": {
-                    "description": "The email of the person or group responsible for producing this dataset",
-                    "type": "string",
-                    "format": "email"
-                }
-            }
         },
         "description": {
             "description": "The description of the dataset",
@@ -39,7 +28,7 @@
                 "type": "object",
                 "properties": {
                     "name": {
-                        "description": "The name of the column as in the SQL warehouse",
+                        "description": "The name of the column as in the SQL data_source",
                         "type": "string"
                     },
                     "description": {
@@ -47,7 +36,7 @@
                         "type": "string"
                     },
                     "data_type": {
-                        "description": "The SQL data type as in the warehouse",
+                        "description": "The SQL data type as in the data_source",
                         "anyOf": [
                             {
                                 "type": "string"
@@ -153,7 +142,7 @@
                     }
                 },
                 "missing_regex_sql": {
-                    "description": "Customized SQL regex to identify missing values. The flavor of regex depends on the SQL engine / warehouse. NULL is always considered missing so that does not have to be specified. Implies a missing_count check in Soda.",
+                    "description": "Customized SQL regex to identify missing values. The flavor of regex depends on the SQL engine / data_source. NULL is always considered missing so that does not have to be specified. Implies a missing_count check in Soda.",
                     "type": "string"
                 },
                 "valid_values": {

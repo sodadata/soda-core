@@ -2,15 +2,12 @@
 
 from setuptools import find_namespace_packages, setup
 
-package_name = "soda-core-spark-df"
+package_name = "soda-core-atlan"
 package_version = "3.3.9"
-description = "Soda Core Spark Dataframe Package"
+description = "Soda Core Atlan Package"
 
-requires = [
-    f"soda-core-spark=={package_version}",
-    "pyspark>=3.4.0",
-]
-# TODO Fix the params
+requires = [f"soda-core=={package_version}", "pyatlan>=2.2.4, <3.0"]
+
 setup(
     name=package_name,
     version=package_version,

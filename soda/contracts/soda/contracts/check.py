@@ -21,22 +21,24 @@ class Check(ABC):
 
     def __init__(
         self,
-        logs: Logs,
         contract_file: YamlFile,
-        warehouse: str,
-        schema: str | None,
-        dataset: str,
+        data_source_name: str | None,
+        database_name: str | None,
+        schema_name: str | None,
+        dataset_name: str,
         check_type: str,
         check_yaml: dict,
+        logs: Logs,
     ):
-        self.logs: Logs = logs
         self.contract_file: YamlFile = contract_file
-        self.warehouse: str = warehouse
-        self.schema: str | None = schema
-        self.dataset: str = dataset
+        self.data_source_name: str | None = data_source_name
+        self.database_name: str | None = database_name
+        self.schema_name: str | None = schema_name
+        self.dataset_name: str = dataset_name
         self.type: str = check_type
         self.check_yaml: dict = check_yaml
         self.identity: str = self._create_identity()
+        self.logs: Logs = logs
         self.skip: bool = False
 
     @abstractmethod
@@ -85,16 +87,24 @@ class CheckResult:
 class SchemaCheck(Check):
 
     def __init__(
-        self, logs: Logs, contract_file: YamlFile, warehouse: str, schema: str | None, dataset: str, yaml_contract: dict
+        self,
+        contract_file: YamlFile,
+        data_source_name: str | None,
+        database_name: str | None,
+        schema_name: str | None,
+        dataset_name: str,
+        yaml_contract: dict,
+        logs: Logs,
     ):
         super().__init__(
-            logs=logs,
             contract_file=contract_file,
-            warehouse=warehouse,
-            schema=schema,
-            dataset=dataset,
+            data_source_name=data_source_name,
+            database_name=database_name,
+            schema_name=schema_name,
+            dataset_name=dataset_name,
             check_type="schema",
             check_yaml=yaml_contract,
+            logs=logs,
         )
 
         self.columns: dict[str, str] = {}
@@ -119,9 +129,10 @@ class SchemaCheck(Check):
     def _create_identity(self) -> str:
         return (
             ConsistentHashBuilder()
-            .add_property("warehouse", self.warehouse)
-            .add_property("schema", self.schema)
-            .add_property("dataset", self.dataset)
+            .add_property("connection", self.data_source_name)
+            .add_property("database", self.database_name)
+            .add_property("schema", self.schema_name)
+            .add_property("dataset", self.dataset_name)
             .add_property("type", self.type)
             .get_hash()
         )
@@ -225,9 +236,10 @@ class SchemaCheckResult(CheckResult):
 class CheckArgs:
     logs: Logs
     contract_file: YamlFile
-    warehouse: str
-    schema: str | None
-    dataset: str
+    data_source_name: str | None
+    database_name: str | None
+    schema_name: str | None
+    dataset_name: str
     filter: str | None
     check_type: str
     check_yaml: dict
@@ -284,9 +296,10 @@ class AbstractCheck(Check, ABC):
         super().__init__(
             logs=check_args.logs,
             contract_file=check_args.contract_file,
-            warehouse=check_args.warehouse,
-            schema=check_args.schema,
-            dataset=check_args.dataset,
+            data_source_name=check_args.data_source_name,
+            database_name=check_args.database_name,
+            schema_name=check_args.schema_name,
+            dataset_name=check_args.dataset_name,
             check_type=check_args.check_type,
             check_yaml=check_args.check_yaml,
         )
@@ -303,10 +316,10 @@ class AbstractCheck(Check, ABC):
     def _create_identity_with_name(self, name: str) -> str:
         return (
             ConsistentHashBuilder()
-            .add_property("warehouse", self.warehouse)
-            .add_property("schema", self.schema)
-            .add_property("dataset", self.dataset)
-            .add_property("column", self.column)
+            .add_property("connection", self.data_source_name)
+            .add_property("database", self.database_name)
+            .add_property("schema", self.schema_name)
+            .add_property("dataset", self.dataset_name)
             .add_property("type", self.type)
             .add_property("name", name)
             .get_hash()

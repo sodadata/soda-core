@@ -20,7 +20,7 @@ checks are not unique, users must use the name property to ensure uniqueness.
 
 Checks automatically generate a unique identity if you have max 1 check in each scope.
 A scope is defined by
-* warehouse
+* data_source
 * schema
 * dataset
 * column
@@ -36,13 +36,13 @@ there are multiple checks with the same check type.  To keep those unique, a `na
 The contract check identity will be a consistent hash (soda/contracts/soda/contracts/impl/consistent_hash_builder.py) based on:
 
 For schema checks:
-* warehouse
+* data_source
 * schema
 * dataset
 * check type (=schema)
 
 For all other checks:
-* warehouse
+* data_source
 * schema
 * dataset
 * column
