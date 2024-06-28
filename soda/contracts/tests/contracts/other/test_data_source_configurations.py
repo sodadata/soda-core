@@ -27,7 +27,7 @@ def test_data_source_file_variable_resolving(environ):
     assert "sodasql" == resolved_connection_properties["username"]
 
 
-def test_invalid_database(test_data_source: TestDataSource):
+def test_invalid_database():
     data_source_yaml_str = dedent(
         """
             name: postgres_ds
@@ -36,6 +36,7 @@ def test_invalid_database(test_data_source: TestDataSource):
               host: localhost
               database: invalid_db
               username: sodasql
+              port: ${POSTGRES_PORT}
         """
     )
 
@@ -46,7 +47,7 @@ def test_invalid_database(test_data_source: TestDataSource):
     assert 'database "invalid_db" does not exist' in contract_verification_str
 
 
-def test_invalid_username(test_data_source: TestDataSource):
+def test_invalid_username():
     data_source_yaml_str = dedent(
         """
             name: postgres_ds
@@ -55,6 +56,7 @@ def test_invalid_username(test_data_source: TestDataSource):
               host: localhost
               database: sodasql
               username: invalid_usr
+              port: ${POSTGRES_PORT}
         """
     )
 
