@@ -22,10 +22,10 @@ def test_atlan_contract_push_plugin():
         type: postgres
         atlan_qualified_name: default/postgres/1718112025
         connection:
-            host: ${POSTGRES_HOST}
-            database: ${POSTGRES_DATABASE}
-            username: ${POSTGRES_USERNAME}
-            password: ${POSTGRES_PASSWORD}
+            host: ${CONTRACTS_POSTGRES_HOST}
+            database: ${CONTRACTS_POSTGRES_DATABASE}
+            username: ${CONTRACTS_POSTGRES_USERNAME}
+            password: ${CONTRACTS_POSTGRES_PASSWORD}
             schema: contracts
     """
     )
@@ -33,7 +33,7 @@ def test_atlan_contract_push_plugin():
     contract_yaml_str: str = dedent(
         """
         data_source: postgres_ds
-        database: ${POSTGRES_DATABASE}
+        database: ${CONTRACTS_POSTGRES_DATABASE}
         schema: contracts
         dataset: students
         columns:
