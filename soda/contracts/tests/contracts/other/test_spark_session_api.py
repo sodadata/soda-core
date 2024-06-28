@@ -11,7 +11,7 @@ from soda.contracts.contract_verification import (
 )
 
 
-#@pytest.mark.skip("Takes too long to be part of the local development test suite")
+@pytest.mark.skip("Takes too long to be part of the local development test suite")
 def test_spark_session_api():
     spark_session = SparkSession.builder.master("local").appName("test").getOrCreate()
 
