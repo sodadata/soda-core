@@ -253,7 +253,7 @@ class ContractVerification:
                     scan.set_scan_definition_name(scan_definition_name)
 
                     prefix_parts: list[str] = [contract.database_name, contract.schema_name]
-                    prefix = ".".join(prefix_parts)
+                    prefix = ".".join([prefix_part for prefix_part in prefix_parts if isinstance(prefix_part, str)])
 
                     default_data_source_properties = {"type": "spark_df", "prefix": prefix}
 
