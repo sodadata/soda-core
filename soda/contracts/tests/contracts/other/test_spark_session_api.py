@@ -24,11 +24,19 @@ def test_spark_session_api():
     """
     )
 
+    soda_cloud_yaml_str: str = dedent(
+        """
+        api_key_id: ${DEV_SODADATA_IO_API_KEY_ID}
+        api_key_secret: ${DEV_SODADATA_IO_API_KEY_SECRET}
+    """
+    )
+
     try:
         contract_verification_result: ContractVerificationResult = (
             ContractVerification.builder()
             .with_contract_yaml_str(contract_yaml_str)
-            .with_data_source_spark_session(spark_session=spark_session)
+            .with_data_source_spark_session(spark_session)
+            .with_soda_cloud_yaml_str(soda_cloud_yaml_str)
             .execute()
             .assert_ok()
         )

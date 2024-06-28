@@ -1,20 +1,21 @@
 import os
 from textwrap import dedent
 
+import pytest
 from dotenv import load_dotenv
 
+from helpers.fixtures import project_root_dir
 from soda.contracts.contract_verification import (
     ContractVerification,
     ContractVerificationResult,
 )
 
 
-# @pytest.mark.skip(
-#     "Takes too long to be part of the local development test suite & depends on Atlan & Soda Cloud services"
-# )
+@pytest.mark.skip(
+    "Takes too long to be part of the local development test suite & depends on Atlan & Soda Cloud services"
+)
 def test_atlan_contract_push_plugin():
-    this_file_dir_path = os.path.dirname(os.path.realpath(__file__))
-    load_dotenv(f"{this_file_dir_path}/.env", override=True)
+    load_dotenv(f"{project_root_dir}/.env", override=True)
 
     data_source_yaml_str: str = dedent(
         """
@@ -22,10 +23,10 @@ def test_atlan_contract_push_plugin():
         type: postgres
         atlan_qualified_name: default/postgres/1718112025
         connection:
-            host: ${CONTRACTS_POSTGRES_HOST}
-            database: ${CONTRACTS_POSTGRES_DATABASE}
-            username: ${CONTRACTS_POSTGRES_USERNAME}
-            password: ${CONTRACTS_POSTGRES_PASSWORD}
+            host: ${POSTGRES_HOST}
+            database: ${POSTGRES_DATABASE}
+            username: ${POSTGRES_USERNAME}
+            password: ${POSTGRES_PASSWORD}
             schema: contracts
     """
     )
@@ -33,7 +34,7 @@ def test_atlan_contract_push_plugin():
     contract_yaml_str: str = dedent(
         """
         data_source: postgres_ds
-        database: ${CONTRACTS_POSTGRES_DATABASE}
+        database: ${POSTGRES_DATABASE}
         schema: contracts
         dataset: students
         columns:
@@ -48,8 +49,8 @@ def test_atlan_contract_push_plugin():
 
     soda_cloud_yaml_str: str = dedent(
         """
-        api_key_id: ${SODA_API_KEY_ID}
-        api_key_secret: ${SODA_API_KEY_SECRET}
+        api_key_id: ${DEV_SODADATA_IO_API_KEY_ID}
+        api_key_secret: ${DEV_SODADATA_IO_API_KEY_SECRET}
     """
     )
 

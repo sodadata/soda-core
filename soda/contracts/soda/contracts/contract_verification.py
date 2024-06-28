@@ -242,15 +242,24 @@ class ContractVerification:
                 scan._data_source_manager.data_sources[self.data_source.data_source_name] = sodacl_data_source
 
                 if self.soda_cloud:
-                    parts: list[str] = [
+                    scan_definition_name_parts: list[str] = [
                         self.data_source.data_source_name,
                         contract.database_name,
                         contract.schema_name,
                         contract.dataset_name,
                     ]
-                    parts_str: str = "/".join([part for part in parts if part is not None])
+                    parts_str: str = "/".join([part for part in scan_definition_name_parts if part is not None])
                     scan_definition_name = f"dataset://{parts_str}"
                     scan.set_scan_definition_name(scan_definition_name)
+
+                    prefix_parts: list[str] = [contract.database_name, contract.schema_name]
+                    prefix = ".".join(prefix_parts)
+
+                    default_data_source_properties = {
+                        "type": "spark_df",
+                        "prefix": prefix
+                    }
+
                     # noinspection PyProtectedMember
                     scan._configuration.soda_cloud = CustomizedSodaClCloud(
                         host=self.soda_cloud.host,
@@ -260,7 +269,7 @@ class ContractVerification:
                         port=self.soda_cloud.port,
                         logs=scan_logs,
                         scheme=self.soda_cloud.scheme,
-                        default_data_source_properties=sodacl_data_source.get_basic_properties(),
+                        default_data_source_properties=default_data_source_properties,
                     )
 
                 if self.variables:

@@ -268,12 +268,6 @@ class DataSource:
             or self.get_metric_sql_aggregation_expression(metric_name, None, None) is not None
         )
 
-    def get_basic_properties(self) -> dict:
-        return {
-            "type": self.type,
-            "prefix": f"{self.database}.{self.schema}",
-        }
-
     def get_metric_sql_aggregation_expression(self, metric_name: str, metric_args: list[object] | None, expr: str):
         if "min" == metric_name:
             return self.expr_min(expr)
