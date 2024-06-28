@@ -1,8 +1,6 @@
 import os
 from textwrap import dedent
 
-from contracts.helpers.test_data_source import TestDataSource
-
 from soda.contracts.contract_verification import ContractVerification, SodaException
 
 
