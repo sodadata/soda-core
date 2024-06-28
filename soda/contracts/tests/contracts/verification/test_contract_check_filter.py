@@ -1,4 +1,4 @@
-from contracts.helpers.test_warehouse import TestWarehouse
+from contracts.helpers.test_data_source import TestDataSource
 from helpers.test_table import TestTable
 from soda.execution.data_type import DataType
 
@@ -23,10 +23,10 @@ contracts_check_filter_test_table = TestTable(
 )
 
 
-def test_contract_check_filter(test_warehouse: TestWarehouse):
-    table_name: str = test_warehouse.ensure_test_table(contracts_check_filter_test_table)
+def test_contract_check_filter(test_data_source: TestDataSource):
+    table_name: str = test_data_source.ensure_test_table(contracts_check_filter_test_table)
 
-    contract_result: ContractResult = test_warehouse.assert_contract_fail(
+    contract_result: ContractResult = test_data_source.assert_contract_fail(
         f"""
         dataset: {table_name}
         columns:

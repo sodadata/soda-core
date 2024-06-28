@@ -1,5 +1,5 @@
 from contracts.helpers.contract_parse_errors import get_parse_errors_str
-from contracts.helpers.test_warehouse import TestWarehouse
+from contracts.helpers.test_data_source import TestDataSource
 from helpers.test_table import TestTable
 from soda.execution.data_type import DataType
 
@@ -22,10 +22,10 @@ contracts_invalid_test_table = TestTable(
 )
 
 
-def test_contract_no_invalid_with_valid_values_pass(test_warehouse: TestWarehouse):
-    table_name: str = test_warehouse.ensure_test_table(contracts_invalid_test_table)
+def test_contract_no_invalid_with_valid_values_pass(test_data_source: TestDataSource):
+    table_name: str = test_data_source.ensure_test_table(contracts_invalid_test_table)
 
-    contract_result: ContractResult = test_warehouse.assert_contract_pass(
+    contract_result: ContractResult = test_data_source.assert_contract_pass(
         f"""
         dataset: {table_name}
         columns:
@@ -48,10 +48,10 @@ def test_contract_no_invalid_with_valid_values_pass(test_warehouse: TestWarehous
     assert check.column == "one"
 
 
-def test_contract_no_invalid_with_valid_values_fail(test_warehouse: TestWarehouse):
-    table_name: str = test_warehouse.ensure_test_table(contracts_invalid_test_table)
+def test_contract_no_invalid_with_valid_values_fail(test_data_source: TestDataSource):
+    table_name: str = test_data_source.ensure_test_table(contracts_invalid_test_table)
 
-    contract_result: ContractResult = test_warehouse.assert_contract_fail(
+    contract_result: ContractResult = test_data_source.assert_contract_fail(
         f"""
         dataset: {table_name}
         columns:
@@ -106,10 +106,10 @@ def test_no_invalid_without_valid_configuration():
     assert "Check type 'no_invalid_values' must have a validity configuration like" in errors_str
 
 
-def test_contract_invalid_count_pass(test_warehouse: TestWarehouse):
-    table_name: str = test_warehouse.ensure_test_table(contracts_invalid_test_table)
+def test_contract_invalid_count_pass(test_data_source: TestDataSource):
+    table_name: str = test_data_source.ensure_test_table(contracts_invalid_test_table)
 
-    contract_result: ContractResult = test_warehouse.assert_contract_pass(
+    contract_result: ContractResult = test_data_source.assert_contract_pass(
         f"""
         dataset: {table_name}
         columns:
@@ -133,10 +133,10 @@ def test_contract_invalid_count_pass(test_warehouse: TestWarehouse):
     assert check.column == "one"
 
 
-def test_contract_invalid_count_fail(test_warehouse: TestWarehouse):
-    table_name: str = test_warehouse.ensure_test_table(contracts_invalid_test_table)
+def test_contract_invalid_count_fail(test_data_source: TestDataSource):
+    table_name: str = test_data_source.ensure_test_table(contracts_invalid_test_table)
 
-    contract_result: ContractResult = test_warehouse.assert_contract_fail(
+    contract_result: ContractResult = test_data_source.assert_contract_fail(
         f"""
         dataset: {table_name}
         columns:
@@ -161,10 +161,10 @@ def test_contract_invalid_count_fail(test_warehouse: TestWarehouse):
     assert "Actual invalid_count(one) was 2" in str(contract_result)
 
 
-def test_contract_missing_and_invalid_values_pass(test_warehouse: TestWarehouse):
-    table_name: str = test_warehouse.ensure_test_table(contracts_invalid_test_table)
+def test_contract_missing_and_invalid_values_pass(test_data_source: TestDataSource):
+    table_name: str = test_data_source.ensure_test_table(contracts_invalid_test_table)
 
-    contract_result: ContractResult = test_warehouse.assert_contract_pass(
+    contract_result: ContractResult = test_data_source.assert_contract_pass(
         f"""
         dataset: {table_name}
         columns:
@@ -219,13 +219,13 @@ contracts_invalid_multi_test_table = TestTable(
 )
 
 
-def test_contract_multi_validity_configs(test_warehouse: TestWarehouse):
-    table_name: str = test_warehouse.ensure_test_table(contracts_invalid_multi_test_table)
+def test_contract_multi_validity_configs(test_data_source: TestDataSource):
+    table_name: str = test_data_source.ensure_test_table(contracts_invalid_multi_test_table)
 
     # AND logic is applied between all the specified validity configs
     # So ALL of the validity constraints have to be met
 
-    contract_result: ContractResult = test_warehouse.assert_contract_pass(
+    contract_result: ContractResult = test_data_source.assert_contract_pass(
         f"""
         dataset: {table_name}
         columns:
@@ -267,11 +267,11 @@ contract_reference_test_table = TestTable(
 )
 
 
-def test_contract_column_invalid_reference_check(test_warehouse: TestWarehouse):
-    referencing_table_name: str = test_warehouse.ensure_test_table(contract_reference_test_table)
-    reference_data_table_name: str = test_warehouse.ensure_test_table(contracts_invalid_test_table)
+def test_contract_column_invalid_reference_check(test_data_source: TestDataSource):
+    referencing_table_name: str = test_data_source.ensure_test_table(contract_reference_test_table)
+    reference_data_table_name: str = test_data_source.ensure_test_table(contracts_invalid_test_table)
 
-    contract_result: ContractResult = test_warehouse.assert_contract_fail(
+    contract_result: ContractResult = test_data_source.assert_contract_fail(
         f"""
         dataset: {referencing_table_name}
         columns:

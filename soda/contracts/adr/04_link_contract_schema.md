@@ -59,7 +59,7 @@ then we can add a simpler API like
 ```python
 import logging
 from soda.contracts.contract import Contracts
-from soda.contracts.impl.warehouse import SodaException
+from soda.contracts.impl.data_source import SodaException
 
 try:
     Contracts.execute(["postgres_localhost_db/schemas/CSTMR_DATA_PROD/datasets/*.sdc.yml"])
