@@ -1,7 +1,6 @@
 import os
 from textwrap import dedent
 
-import pytest
 from dotenv import load_dotenv
 
 from soda.contracts.contract_verification import (
@@ -10,7 +9,7 @@ from soda.contracts.contract_verification import (
 )
 
 
-#@pytest.mark.skip(
+# @pytest.mark.skip(
 #     "Takes too long to be part of the local development test suite & depends on Atlan & Soda Cloud services"
 # )
 def test_atlan_contract_push_plugin():

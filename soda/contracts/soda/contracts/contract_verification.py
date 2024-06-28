@@ -243,8 +243,10 @@ class ContractVerification:
 
                 if self.soda_cloud:
                     parts: list[str] = [
-                        self.data_source.data_source_name, contract.database_name,
-                        contract.schema_name, contract.dataset_name
+                        self.data_source.data_source_name,
+                        contract.database_name,
+                        contract.schema_name,
+                        contract.dataset_name,
                     ]
                     parts_str: str = "/".join([part for part in parts if part is not None])
                     scan_definition_name = f"dataset://{parts_str}"
