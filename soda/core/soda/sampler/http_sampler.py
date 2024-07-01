@@ -35,6 +35,7 @@ class HTTPSampler(Sampler):
                 "dataset": Partition.get_table_name(sample_context.partition),
                 "scan_definition": sample_context.scan._scan_definition_name,
                 "check_name": sample_context.check_name,
+                "scan_time": sample_context.scan._data_timestamp.isoformat(),
             }
 
             response = requests.post(self.url, json=json.dumps(result_dict, sort_keys=True, default=str))
