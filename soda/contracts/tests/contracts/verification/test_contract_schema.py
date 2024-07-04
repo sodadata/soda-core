@@ -239,4 +239,4 @@ def test_contract_schema_data_type_mismatch(test_data_source: TestDataSource):
     assert data_type_mismatch.expected_data_type == "WRONG_VARCHAR"
     assert data_type_mismatch.actual_data_type == test_data_source.data_type_text()
 
-    assert "Column 'id': Expected type 'WRONG_VARCHAR', but was 'character varying'" in str(contract_result)
+    assert f"Column 'id': Expected type 'WRONG_VARCHAR', but was '{test_data_source.data_type_text()}'" in str(contract_result)

@@ -10,9 +10,13 @@ from typing import Any
 from soda.__version__ import SODA_CORE_VERSION
 from soda.common.exceptions import DataSourceConnectionError
 from soda.common.logs import Logs
+from soda.data_sources.spark_table_columns_query import SparkTableColumnsQuery
 from soda.execution.data_source import DataSource
 from soda.execution.data_type import DataType
+from soda.execution.metric.schema_metric import SchemaMetric
+from soda.execution.partition import Partition
 from soda.execution.query.query import Query
+from soda.execution.query.schema_query import TableColumnsQuery
 
 logger = logging.getLogger(__name__)
 ColumnMetadata = namedtuple("ColumnMetadata", ["name", "data_type", "is_nullable"])
@@ -198,6 +202,9 @@ class SparkSQLBase(DataSource):
 
     def __init__(self, logs: Logs, data_source_name: str, data_source_properties: dict):
         super().__init__(logs, data_source_name, data_source_properties)
+
+    def create_table_columns_query(self, partition: Partition, schema_metric: SchemaMetric) -> TableColumnsQuery:
+        return SparkTableColumnsQuery(partition, schema_metric)
 
     def get_table_columns(
         self,
