@@ -1,4 +1,3 @@
-from soda.execution.query.query import Query
 from soda.execution.query.schema_query import TableColumnsQuery
 
 
