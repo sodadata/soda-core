@@ -55,7 +55,7 @@ def test_formats(data_source_fixture: DataSourceFixture):
                 "06-14-1899",
                 "07-04-1776",
                 "08-15-1620",
-                "09-20-1519"
+                "09-20-1519",
             ],
             "failing_values": [
                 "",
