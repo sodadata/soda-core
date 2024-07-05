@@ -55,7 +55,7 @@ def test_formats(data_source_fixture: DataSourceFixture):
                 "06-14-1899",
                 "07-04-1776",
                 "08-15-1620",
-                "09-20-1519",
+                "09-20-1519"
             ],
             "failing_values": [
                 "",
@@ -66,7 +66,8 @@ def test_formats(data_source_fixture: DataSourceFixture):
                 "13/11/1981",
                 "31-12-1925",
                 "07-00-2021",
-                "00-25-2019" "02-14-999",
+                "00-25-2019",
+                "02-14-999",
             ],
         },
         "date eu": {
