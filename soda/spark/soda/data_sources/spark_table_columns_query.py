@@ -16,4 +16,4 @@ class SparkTableColumnsQuery(TableColumnsQuery):
         table_df = data_source.spark_session.table(self.table.table_name)
         self.rows = tuple([field.name, field.simpleString()] for field in table_df.schema.fields)
         self.row_count = len(self.rows)
-        self.description = (('col_name', 'StringType'), ('data_type', 'StringType'))
+        self.description = (("col_name", "StringType"), ("data_type", "StringType"))
