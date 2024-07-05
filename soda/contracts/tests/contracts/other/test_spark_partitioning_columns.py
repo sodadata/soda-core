@@ -55,7 +55,7 @@ def test_spark_partitionind_columns(test_data_source: TestDataSource):
         print(field.dataType.simpleString())
         print(field.name)
 
-    contract_result: ContractResult = test_data_source.assert_contract_fail(
+    contract_result: ContractResult = test_data_source.assert_contract_pass(
         contract_yaml_str=f"""
         dataset: customer
         columns:
