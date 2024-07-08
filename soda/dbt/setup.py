@@ -3,7 +3,7 @@
 from setuptools import find_namespace_packages, setup
 
 package_name = "soda-core-dbt"
-package_version = "3.3.9"
+package_version = "3.3.10"
 description = "Soda Core dbt Package"
 
 requires = [
