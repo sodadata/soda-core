@@ -96,7 +96,17 @@ class SnowflakeDataSource(DataSource):
         self.authenticator = data_source_properties.get("authenticator", "snowflake")
         self.session_params = data_source_properties.get("session_parameters")
 
+        self.host = data_source_properties.get("host")
+        self.port = data_source_properties.get("port")
+
     def connect(self):
+        # set optional parameters as keyword args
+        connection_parameters = {}
+        if self.host:
+            connection_parameters["host"] = self.host
+        if self.port:
+            connection_parameters["port"] = self.port
+
         self.connection = connector.connect(
             user=self.user,
             password=self.password,
@@ -116,6 +126,7 @@ class SnowflakeDataSource(DataSource):
             client_prefetch_threads=self.client_prefetch_threads,
             authenticator=self.authenticator,
             application="Soda Core",
+            **connection_parameters,
         )
 
     def __get_private_key(self):
