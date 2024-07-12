@@ -1,11 +1,11 @@
 import logging
+from textwrap import dedent
 from typing import List
 
 from ruamel.yaml import YAML
 from ruamel.yaml.error import MarkedYAMLError
 from soda.common.logs import Logs
 from soda.sodacl.location import Location
-from textwrap import dedent
 
 logger = logging.getLogger(__name__)
 
@@ -101,7 +101,7 @@ class Parser:
             )
             return None
         return value
-    
+
     def _sanitize_query(self, query: str | None):
         if query == None:
             return None
