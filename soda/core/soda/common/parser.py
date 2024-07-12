@@ -1,7 +1,8 @@
+from __future__ import annotations
+
 import logging
 from textwrap import dedent
 from typing import List
-from __future__ import annotations
 
 from ruamel.yaml import YAML
 from ruamel.yaml.error import MarkedYAMLError
