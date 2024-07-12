@@ -7,7 +7,6 @@ import os
 import re
 from datetime import timedelta
 from numbers import Number
-from textwrap import dedent
 from typing import List
 
 from antlr4 import CommonTokenStream, InputStream
@@ -394,7 +393,7 @@ class SodaCLParser(Parser):
 
             try:
                 group_limit = self._get_optional("group_limit", int) or 1000
-                query = self._get_required("query", str)
+                query = self._sanitize_query(self._get_required("query", str))
                 fields = self._get_required("fields", list)
                 check_cfgs = self._get_required("checks", list)
                 if check_cfgs:
@@ -444,7 +443,7 @@ class SodaCLParser(Parser):
                 fail_condition_sql_expr = self._get_optional(FAIL_CONDITION, str)
                 samples_limit = self._get_optional(SAMPLES_LIMIT, int)
                 samples_columns = self._get_optional(SAMPLES_COLUMNS, list)
-                fail_query = self._get_optional(FAIL_QUERY, str)
+                fail_query = self._sanitize_query(self._get_optional(FAIL_QUERY, str))
 
                 fail_threshold_condition_str = self._get_optional(FAIL, str)
                 fail_threshold_cfg = self.__parse_configuration_threshold_condition(fail_threshold_condition_str)
@@ -478,7 +477,7 @@ class SodaCLParser(Parser):
                         samples_columns=samples_columns,
                     )
                 else:
-                    fail_query = self._get_optional(FAIL_QUERY, str)
+                    fail_query = self._sanitize_query(self._get_optional(FAIL_QUERY, str))
                     if fail_query:
                         return UserDefinedFailedRowsCheckCfg(
                             source_header=header_str,
@@ -542,7 +541,7 @@ class SodaCLParser(Parser):
             self._push_path_element(check_str, check_configurations)
             try:
                 name = self._get_optional(NAME, str)
-                query = self._get_required(FAIL_QUERY, str)
+                query = self._sanitize_query(self._get_required(FAIL_QUERY, str))
                 samples_limit = self._get_optional(SAMPLES_LIMIT, int)
                 samples_columns = self._get_optional(SAMPLES_COLUMNS, list)
                 fail_threshold_condition_str = self._get_optional(FAIL, str)
@@ -663,14 +662,14 @@ class SodaCLParser(Parser):
                     if configuration_key.endswith("sql_file"):
                         fs = file_system()
                         sql_file_path = fs.join(fs.dirname(self.path_stack.file_path), configuration_value.strip())
-                        failed_rows_query = dedent(fs.file_read_as_str(sql_file_path)).strip()
+                        failed_rows_query = self._sanitize_query(fs.file_read_as_str(sql_file_path))
                     else:
-                        failed_rows_query = dedent(configuration_value).strip()
+                        failed_rows_query = self._sanitize_query(configuration_value)
                 elif configuration_key.endswith("query") or configuration_key.endswith("sql_file"):
                     if configuration_key.endswith("sql_file"):
                         fs = file_system()
                         sql_file_path = fs.join(fs.dirname(self.path_stack.file_path), configuration_value.strip())
-                        metric_query = dedent(fs.file_read_as_str(sql_file_path)).strip()
+                        metric_query = self._sanitize_query(fs.file_read_as_str(sql_file_path))
                         configuration_metric_name = (
                             configuration_key[: -len(" sql_file")]
                             if len(configuration_key) > len(" sql_file")
@@ -678,7 +677,7 @@ class SodaCLParser(Parser):
                         )
 
                     else:
-                        metric_query = dedent(configuration_value).strip()
+                        metric_query = self._sanitize_query(configuration_value)
 
                         configuration_metric_name = (
                             configuration_key[: -len(" query")] if len(configuration_key) > len(" query") else None
@@ -1041,7 +1040,7 @@ class SodaCLParser(Parser):
                         f'Invalid group evolution check configuration key "{configuration_key}"', location=self.location
                     )
             name = self._get_optional(NAME, str)
-            query = self._get_required("query", str)
+            query = self._sanitize_query(self._get_required("query", str))
             group_evolution_check_cfg = GroupEvolutionCheckCfg(
                 source_header=header_str,
                 source_line=check_str,

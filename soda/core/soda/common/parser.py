@@ -5,6 +5,7 @@ from ruamel.yaml import YAML
 from ruamel.yaml.error import MarkedYAMLError
 from soda.common.logs import Logs
 from soda.sodacl.location import Location
+from textwrap import dedent
 
 logger = logging.getLogger(__name__)
 
@@ -100,6 +101,11 @@ class Parser:
             )
             return None
         return value
+    
+    def _sanitize_query(self, query: str | None):
+        if query == None:
+            return None
+        return dedent(query).strip()
 
     def _resolve_jinja(self, value: str, variables: dict = None):
         from soda.common.jinja import Jinja
