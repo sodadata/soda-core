@@ -28,6 +28,7 @@ def test_group_evolution(data_source_fixture: DataSourceFixture):
 
     scan.assert_all_checks_pass()
 
+
 def test_group_evolution_query_multiline(data_source_fixture: DataSourceFixture):
     table_name = data_source_fixture.ensure_test_table(customers_test_table)
 
