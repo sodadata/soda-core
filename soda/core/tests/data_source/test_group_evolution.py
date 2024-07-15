@@ -27,3 +27,24 @@ def test_group_evolution(data_source_fixture: DataSourceFixture):
     scan.execute()
 
     scan.assert_all_checks_pass()
+
+def test_group_evolution_query_multiline(data_source_fixture: DataSourceFixture):
+    table_name = data_source_fixture.ensure_test_table(customers_test_table)
+
+    scan = data_source_fixture.create_test_scan()
+    scan.add_sodacl_yaml_str(
+        f"""
+            checks for {table_name}:
+              - group evolution:
+                  query: |
+                    SELECT distinct(country)
+                    FROM {table_name}
+                  fail:
+                    when required group missing: ["BE"]
+                    when forbidden group present: ["US"]
+    """
+    )
+    scan.execute()
+
+    # No empty line at the end of the string
+    assert scan._queries[0].sql == "SELECT distinct(country)\nFROM SODATEST_Customers_151a0c3d"
