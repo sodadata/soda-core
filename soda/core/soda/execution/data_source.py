@@ -86,7 +86,7 @@ class FormatHelper:
             "date inverse": rf"^{s}{year}[-\./]{month}[-\./]{day}{s}$",
             "date iso 8601": f"^{s}"
             rf"{year4}-?({month2}-?{day2}|W[0-5]\d(-?[1-7])?|[0-3]\d\d)"
-            rf"([ T]{hour2}(:?{minute2}(:?{second2}([.,]\d+)?)?)?([+-]{hour2}:?{minute2}|Z)?)?"
+            rf"([ T]{hour24}(:?{minute2}(:?{second2}([.,]\d+)?)?)?([+-]{hour24}:?{minute2}|Z)?)?"
             f"{s}$",
             "time 24h": f"^{s}{hour24}:{minute}(:{second})?{s}$",
             "time 24h nosec": f"^{s}{hour24}:{minute}{s}$",
