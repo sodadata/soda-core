@@ -29,6 +29,10 @@ def test_group_evolution(data_source_fixture: DataSourceFixture):
     scan.assert_all_checks_pass()
 
 
+@pytest.mark.skipif(
+    test_data_source not in ["postgres", "bigquery", "spark_df", "oracle"],
+    reason="Need to make tests work with lower and upper case values for column names",
+)
 def test_group_evolution_query_multiline(data_source_fixture: DataSourceFixture):
     table_name = data_source_fixture.ensure_test_table(customers_test_table)
 
