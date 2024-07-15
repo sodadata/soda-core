@@ -9,7 +9,7 @@ class SodaCloud:
     def __init__(self, soda_cloud_file: YamlFile):
         logs = soda_cloud_file.logs
         configuration_dict = soda_cloud_file.dict if soda_cloud_file.is_ok() else {}
-        yaml_helper: YamlHelper = YamlHelper(logs=logs)
+        yaml_helper: YamlHelper = YamlHelper(logs=logs, yaml_file=soda_cloud_file)
 
         def get_configuration(key: str, default_value: str | None = None, is_required: bool = True) -> str | None:
             """

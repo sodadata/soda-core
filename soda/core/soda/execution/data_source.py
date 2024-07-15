@@ -42,16 +42,16 @@ class FormatHelper:
         money_comma = r"\d{1,3}(\.\d\d\d)*(,\d+)?"
         currency = r"([A-Z]{3}|[a-z]{3})"
 
-        day = r"([1-9]|[012][0-9]|3[01])"
-        month = r"([1-9]|0[1-9]|1[012])"
-        year = r"(19|20)?\d\d"
+        day = r"(0?[1-9]|[12][0-9]|3[01])"
+        month = r"(0?[1-9]|1[012])"
+        year = r"([12][0-9])?\d\d"
         hour24 = r"(0?[0-9]|[01]\d|2[0-3])"
         hour12 = r"(0?[0-9]|1[0-2])"
         minute = r"[0-5]?[0-9]"
         second = r"[0-5]?[0-9]([.,]\d+)?"
-        year4 = r"(19|20)\d\d"
-        month2 = r"(0[0-9]|1[12])"
-        day2 = r"([012][0-9]|3[01])"
+        year4 = r"[12][0-9]{3}"
+        month2 = r"(0[1-9]|1[012])"
+        day2 = r"(0[1-9]|[12][0-9]|3[01])"
         hour2 = r"(0[0-9]|1[012])"
         minute2 = r"[0-5][0-9]"
         second2 = minute2
@@ -513,7 +513,7 @@ class DataSource:
             exclude_filter = " AND ".join(exclude_sql_filter_clauses)
             filter_clauses.append(f"({exclude_filter})")
 
-        if self.database:
+        if self.database and self.use_database_in_filter():
             catalog_filter = self.catalog_column_filter()
             if catalog_filter:
                 filter_clauses.append(catalog_filter)
@@ -597,7 +597,7 @@ class DataSource:
         casify_function = self.default_casify_sql_function()
         filter_clauses = [f"{casify_function}(table_name) = '{unquoted_table_name_default_case}'"]
 
-        if self.database:
+        if self.database and self.use_database_in_filter():
             filter_clauses.append(
                 f"{casify_function}({self.column_metadata_catalog_column()}) = '{self.default_casify_system_name(self.database)}'"
             )
@@ -1421,3 +1421,6 @@ class DataSource:
 
     def expr_false_condition(self):
         return "FALSE"
+
+    def use_database_in_filter(self) -> bool:
+        return True

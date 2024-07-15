@@ -2,13 +2,12 @@
 
 from setuptools import find_namespace_packages, setup
 
-package_name = "soda-core-oracle"
+package_name = "soda-core-atlan"
 package_version = "3.3.10"
-# TODO Add proper description
-description = "Soda Core Oracle Package"
+description = "Soda Core Atlan Package"
 
-requires = [f"soda-core=={package_version}", "oracledb>=1.1.1,<3.0.0"]
-# TODO Fix the params
+requires = [f"soda-core=={package_version}", "pyatlan>=2.2.4, <3.0"]
+
 setup(
     name=package_name,
     version=package_version,
