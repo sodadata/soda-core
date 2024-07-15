@@ -227,6 +227,7 @@ class DataSource:
         self.connection = None
         self.database: str | None = data_source_properties.get("database")
         self.schema: str | None = data_source_properties.get("schema")
+        self.connection_parameters: dict = data_source_properties.get("connection_parameters", {})
         self.table_prefix: str | None = self._create_table_prefix()
         # self.data_source_scan is initialized in create_data_source_scan(...) below
         self.data_source_scan: DataSourceScan | None = None

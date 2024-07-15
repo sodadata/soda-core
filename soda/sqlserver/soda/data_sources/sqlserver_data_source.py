@@ -71,6 +71,7 @@ class SQLServerDataSource(DataSource):
         self.trusted_connection = data_source_properties.get("trusted_connection", False)
         self.encrypt = data_source_properties.get("encrypt", False)
         self.trust_server_certificate = data_source_properties.get("trust_server_certificate", False)
+        self.multi_subnet_failover = self.connection_parameters.get("multi_subnet_failover", False)
 
         # sqlserver reuses only a handful of default formats.
         reuse_formats = ["percentage"]
@@ -129,6 +130,7 @@ class SQLServerDataSource(DataSource):
                 ("Trusted_Connection=YES;" if self.trusted_connection else "")
                 + ("TrustServerCertificate=YES;" if self.trust_server_certificate else "")
                 + ("Encrypt=YES;" if self.encrypt else "")
+                + ("MultiSubnetFailover=YES;" if self.multi_subnet_failover else "")
                 + "DRIVER={"
                 + self.driver
                 + "};SERVER="
