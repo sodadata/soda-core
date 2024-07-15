@@ -48,4 +48,4 @@ def test_group_evolution_query_multiline(data_source_fixture: DataSourceFixture)
     scan.execute()
 
     # No empty line at the end of the string
-    assert scan._queries[0].sql == "SELECT distinct(country)\nFROM SODATEST_Customers_151a0c3d"
+    assert scan._queries[0].sql == f"""SELECT distinct(country)\nFROM {table_name}"""
