@@ -126,6 +126,7 @@ def test_formats(data_source_fixture: DataSourceFixture):
                 "2020-10-11 11:34",
                 "2100-01-01 14:36",
                 "1899-01-01 21:55",
+                "1623-10-11T10:10:10.0000+01:00",
             ],
             "failing_values": [
                 "",
