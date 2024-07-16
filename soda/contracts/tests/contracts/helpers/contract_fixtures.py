@@ -1,15 +1,11 @@
 import pytest
-from contracts.helpers.test_data_source import TestDataSource
-from helpers.data_source_fixture import DataSourceFixture
 
+from contracts.helpers.test_data_source import DataSourceTestHelper
 from soda.contracts.impl.data_source import DataSource
-
-# def pytest_sessionstart(session: Any) -> None:
-#     configure_logging()
-#     # logging.getLogger("soda").setLevel(logging.WARNING)
 
 
 @pytest.fixture(scope="session")
-def test_data_source(data_source_fixture: DataSourceFixture) -> DataSource:
-    with TestDataSource(data_source_fixture) as test_data_source:
-        yield test_data_source
+def test_data_source() -> DataSource:
+    data_source_test_helper: DataSourceTestHelper = DataSourceTestHelper.create()
+    with data_source_test_helper:
+        yield data_source_test_helper

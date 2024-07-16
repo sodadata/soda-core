@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import logging
+import os
+from importlib import import_module
 from textwrap import dedent
 
 from helpers.data_source_fixture import DataSourceFixture
@@ -25,48 +27,85 @@ from soda.contracts.impl.data_source import DataSource
 #
 #     def requires_with_block(self) -> bool:
 #         return False
+#
+#
+# class TestContractVerificationBuilder(ContractVerificationBuilder):
+#     __test__ = False
+#
+#     def __init__(self):
+#         super().__init__()
+#         self.data_source = None
+#
+#     def with_data_source(self, data_source) -> TestContractVerificationBuilder:
+#         self.data_source = data_source
+#         return self
+#
+#     def build(self) -> TestContractVerification:
+#         return TestContractVerification(self)
+#
+#
+# class TestContractVerification(ContractVerification):
+#     __test__ = False
+#
+#     @classmethod
+#     def builder(cls) -> TestContractVerificationBuilder:
+#         return TestContractVerificationBuilder()
+#
+#     def __init__(self, test_contract_verification_builder: TestContractVerificationBuilder):
+#         super().__init__(contract_verification_builder=test_contract_verification_builder)
+#
+#     def _initialize_data_source(self, contract_verification_builder: ContractVerificationBuilder) -> None:
+#         self.data_source = contract_verification_builder.data_source
+#
 
+class DataSourceTestHelper:
 
-class TestContractVerificationBuilder(ContractVerificationBuilder):
-    __test__ = False
+    @classmethod
+    def create(cls):
+        test_data_source_type = os.getenv("test_data_source", "postgres")
+        if test_data_source_type in [
+            "postgresql"
+        ]:
+            cls._instantiate_data_source_test_helper(test_data_source_type)
+        else:
+            return DataSourceTestHelper()
+
+    @classmethod
+    def _instantiate_data_source_test_helper(cls, test_data_source_type: str) -> DataSourceFixture:
+        module = import_module(f"{test_data_source_type}_data_source_test_helper")
+        data_source_fixture_class = f"{cls._camel_case_data_source_type(test_data_source_type)}DataSourceTestHelper"
+        class_ = getattr(module, data_source_fixture_class)
+        return class_()
+
+    @classmethod
+    def _camel_case_data_source_type(cls, test_data_source_type) -> str:
+        data_source_camel_case: dict[str, str] = {
+            "bigquery": "BigQuery",
+            "spark_df": "SparkDf",
+            "sqlserver": "SQLServer",
+            "mysql": "MySQL",
+            "duckdb": "DuckDB"
+        }
+        if test_data_source_type in data_source_camel_case:
+            return data_source_camel_case[test_data_source_type]
+        else:
+            return f"{test_data_source_type[0:1].upper()}{test_data_source_type[1:]}"
 
     def __init__(self):
         super().__init__()
-        self.data_source = None
+        self.data_source_fixture: DataSourceFixture = DataSourceFixture._create()
 
-    def with_data_source(self, data_source) -> TestContractVerificationBuilder:
-        self.data_source = data_source
+    def __enter__(self) -> DataSourceTestHelper:
+        self.data_source_fixture._test_session_starts()
+        self.sodacl_data_source = self.data_source_fixture.data_source
+        # DataSource field initialization
+        self.data_source_name = self.data_source_fixture.data_source_name
+        self.data_source_type = self.data_source_fixture.data_source.type
+        self.dbapi_connection = self.data_source_fixture.data_source.connection
         return self
 
-    def build(self) -> TestContractVerification:
-        return TestContractVerification(self)
-
-
-class TestContractVerification(ContractVerification):
-    __test__ = False
-
-    @classmethod
-    def builder(cls) -> TestContractVerificationBuilder:
-        return TestContractVerificationBuilder()
-
-    def __init__(self, test_contract_verification_builder: TestContractVerificationBuilder):
-        super().__init__(contract_verification_builder=test_contract_verification_builder)
-
-    def _initialize_data_source(self, contract_verification_builder: ContractVerificationBuilder) -> None:
-        self.data_source = contract_verification_builder.data_source
-
-
-class TestDataSource(DataSource):
-    __test__ = False
-
-    def __init__(self, data_source_fixture: DataSourceFixture):
-        super().__init__()
-        self.data_source_fixture = data_source_fixture
-        self.sodacl_data_source = data_source_fixture.data_source
-        # DataSource field initialization
-        self.data_source_name = data_source_fixture.data_source_name
-        self.data_source_type = data_source_fixture.data_source.type
-        self.dbapi_connection = data_source_fixture.data_source.connection
+    def __exit__(self) -> None:
+        self.data_source_fixture._test_session_ends()
 
     def ensure_test_table(self, test_table: TestTable) -> str:
         return self.data_source_fixture.ensure_test_table(test_table=test_table)
@@ -87,17 +126,11 @@ class TestDataSource(DataSource):
         # already initialized in constructor
         return self.dbapi_connection
 
-    def __enter__(self) -> DataSource:
-        return self
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        pass
-
     def assert_contract_pass(self, contract_yaml_str: str, variables: dict[str, str] | None = None) -> ContractResult:
         contract_yaml_str = dedent(contract_yaml_str)
         logging.debug(contract_yaml_str)
         contract_verification_result: ContractVerificationResult = (
-            TestContractVerification.builder()
+            ContractVerification.builder()
             .with_data_source(self)
             .with_contract_yaml_str(contract_yaml_str)
             .with_variables(variables)

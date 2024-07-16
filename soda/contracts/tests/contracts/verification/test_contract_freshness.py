@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 
-from contracts.helpers.test_data_source import TestDataSource
+from contracts.helpers.test_data_source import DataSourceTestHelper
 from helpers.test_table import TestTable
 from soda.execution.data_type import DataType
 
@@ -23,12 +23,12 @@ contracts_freshness_test_table = TestTable(
 )
 
 
-def test_contract_freshness_pass(test_data_source: TestDataSource, environ: dict):
-    table_name: str = test_data_source.ensure_test_table(contracts_freshness_test_table)
+def test_contract_freshness_pass(data_source_test_helper: DataSourceTestHelper, environ: dict):
+    table_name: str = data_source_test_helper.ensure_test_table(contracts_freshness_test_table)
 
     variables: dict[str, str] = {"NOW": "2021-01-01 12:30"}
 
-    contract_result: ContractResult = test_data_source.assert_contract_pass(
+    contract_result: ContractResult = data_source_test_helper.assert_contract_pass(
         contract_yaml_str=f"""
         dataset: {table_name}
         columns:
@@ -47,12 +47,12 @@ def test_contract_freshness_pass(test_data_source: TestDataSource, environ: dict
     assert check_result.freshness == "2:19:50"
 
 
-def test_contract_freshness_fail(test_data_source: TestDataSource, environ: dict):
-    table_name: str = test_data_source.ensure_test_table(contracts_freshness_test_table)
+def test_contract_freshness_fail(data_source_test_helper: DataSourceTestHelper, environ: dict):
+    table_name: str = data_source_test_helper.ensure_test_table(contracts_freshness_test_table)
 
     variables: dict[str, str] = {"NOW": "2021-01-01 13:30"}
 
-    contract_result: ContractResult = test_data_source.assert_contract_fail(
+    contract_result: ContractResult = data_source_test_helper.assert_contract_fail(
         contract_yaml_str=f"""
         dataset: {table_name}
         columns:

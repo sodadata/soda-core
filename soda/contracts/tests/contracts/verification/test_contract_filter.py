@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from contracts.helpers.test_data_source import TestDataSource
+from contracts.helpers.test_data_source import DataSourceTestHelper
 from helpers.test_table import TestTable
 from soda.execution.data_type import DataType
 
@@ -23,13 +23,13 @@ contracts_filter_test_table = TestTable(
 )
 
 
-def test_contract_filter_row_count(test_data_source: TestDataSource, environ: dict):
-    table_name: str = test_data_source.ensure_test_table(contracts_filter_test_table)
+def test_contract_filter_row_count(data_source_test_helper: DataSourceTestHelper, environ: dict):
+    table_name: str = data_source_test_helper.ensure_test_table(contracts_filter_test_table)
 
     filter_start_time = datetime(2021, 1, 1, 1, 1, 1)
-    environ["FILTER_START_TIME"] = test_data_source.sodacl_data_source.literal_datetime(filter_start_time)
+    environ["FILTER_START_TIME"] = data_source_test_helper.sodacl_data_source.literal_datetime(filter_start_time)
 
-    contract_result: ContractResult = test_data_source.assert_contract_fail(
+    contract_result: ContractResult = data_source_test_helper.assert_contract_fail(
         f"""
         dataset: {table_name}
         filter_sql: |

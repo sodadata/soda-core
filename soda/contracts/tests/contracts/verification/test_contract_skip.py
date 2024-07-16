@@ -1,7 +1,7 @@
 import logging
 from textwrap import dedent
 
-from contracts.helpers.test_data_source import TestContractVerification, TestDataSource
+from contracts.helpers.test_data_source import TestContractVerification, DataSourceTestHelper
 from helpers.test_table import TestTable
 from soda.execution.data_type import DataType
 
@@ -24,8 +24,8 @@ contracts_missing_test_table = TestTable(
 )
 
 
-def test_skip_all_checks_except_schema_check(test_data_source: TestDataSource):
-    table_name: str = test_data_source.ensure_test_table(contracts_missing_test_table)
+def test_skip_all_checks_except_schema_check(data_source_test_helper: DataSourceTestHelper):
+    table_name: str = data_source_test_helper.ensure_test_table(contracts_missing_test_table)
 
     contract_yaml_str: str = dedent(
         f"""

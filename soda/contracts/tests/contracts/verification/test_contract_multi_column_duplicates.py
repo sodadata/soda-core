@@ -1,4 +1,4 @@
-from contracts.helpers.test_data_source import TestDataSource
+from contracts.helpers.test_data_source import DataSourceTestHelper
 from helpers.test_table import TestTable
 from soda.execution.data_type import DataType
 
@@ -22,10 +22,10 @@ contracts_multi_column_duplicates_test_table = TestTable(
 )
 
 
-def test_contract_multi_column_no_duplicate_values(test_data_source: TestDataSource):
-    table_name: str = test_data_source.ensure_test_table(contracts_multi_column_duplicates_test_table)
+def test_contract_multi_column_no_duplicate_values(data_source_test_helper: DataSourceTestHelper):
+    table_name: str = data_source_test_helper.ensure_test_table(contracts_multi_column_duplicates_test_table)
 
-    contract_result: ContractResult = test_data_source.assert_contract_fail(
+    contract_result: ContractResult = data_source_test_helper.assert_contract_fail(
         f"""
         dataset: {table_name}
         columns:
@@ -52,10 +52,10 @@ def test_contract_multi_column_no_duplicate_values(test_data_source: TestDataSou
     assert list(check.columns) == ["country_code", "zip"]
 
 
-def test_contract_multi_column_duplicate_count(test_data_source: TestDataSource):
-    table_name: str = test_data_source.ensure_test_table(contracts_multi_column_duplicates_test_table)
+def test_contract_multi_column_duplicate_count(data_source_test_helper: DataSourceTestHelper):
+    table_name: str = data_source_test_helper.ensure_test_table(contracts_multi_column_duplicates_test_table)
 
-    contract_result: ContractResult = test_data_source.assert_contract_fail(
+    contract_result: ContractResult = data_source_test_helper.assert_contract_fail(
         f"""
         dataset: {table_name}
         columns:
@@ -81,10 +81,10 @@ def test_contract_multi_column_duplicate_count(test_data_source: TestDataSource)
     assert list(check.columns) == ["country_code", "zip"]
 
 
-def test_contract_multi_column_duplicate_percent(test_data_source: TestDataSource):
-    table_name: str = test_data_source.ensure_test_table(contracts_multi_column_duplicates_test_table)
+def test_contract_multi_column_duplicate_percent(data_source_test_helper: DataSourceTestHelper):
+    table_name: str = data_source_test_helper.ensure_test_table(contracts_multi_column_duplicates_test_table)
 
-    contract_result: ContractResult = test_data_source.assert_contract_fail(
+    contract_result: ContractResult = data_source_test_helper.assert_contract_fail(
         f"""
         dataset: {table_name}
         columns:
