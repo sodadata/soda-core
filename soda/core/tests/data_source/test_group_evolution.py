@@ -4,12 +4,9 @@ from helpers.data_source_fixture import DataSourceFixture
 from helpers.fixtures import test_data_source
 
 
-@pytest.mark.skipif(
-    test_data_source not in ["postgres", "bigquery", "spark_df"],
-    reason="Need to make tests work with lower and upper case values for column names",
-)
 def test_group_evolution(data_source_fixture: DataSourceFixture):
     table_name = data_source_fixture.ensure_test_table(customers_test_table)
+    casify = data_source_fixture.data_source.default_casify_column_name 
 
     scan = data_source_fixture.create_test_scan()
     scan.add_sodacl_yaml_str(
@@ -17,7 +14,7 @@ def test_group_evolution(data_source_fixture: DataSourceFixture):
             checks for {table_name}:
               - group evolution:
                   query: |
-                    SELECT distinct(country)
+                    SELECT distinct({casify('country')})
                     FROM {table_name}
                   fail:
                     when required group missing: ["BE"]
@@ -29,12 +26,9 @@ def test_group_evolution(data_source_fixture: DataSourceFixture):
     scan.assert_all_checks_pass()
 
 
-@pytest.mark.skipif(
-    test_data_source not in ["postgres", "bigquery", "spark_df", "oracle"],
-    reason="Need to make tests work with lower and upper case values for column names",
-)
 def test_group_evolution_query_multiline(data_source_fixture: DataSourceFixture):
     table_name = data_source_fixture.ensure_test_table(customers_test_table)
+    casify = data_source_fixture.data_source.default_casify_column_name 
 
     scan = data_source_fixture.create_test_scan()
     scan.add_sodacl_yaml_str(
@@ -42,7 +36,7 @@ def test_group_evolution_query_multiline(data_source_fixture: DataSourceFixture)
             checks for {table_name}:
               - group evolution:
                   query: |
-                    SELECT distinct(country)
+                    SELECT distinct({casify('country')})
                     FROM {table_name}
                   fail:
                     when required group missing: ["BE"]
