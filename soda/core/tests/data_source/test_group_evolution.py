@@ -26,6 +26,7 @@ def test_group_evolution(data_source_fixture: DataSourceFixture):
 
 def test_group_evolution_query_multiline(data_source_fixture: DataSourceFixture):
     table_name = data_source_fixture.ensure_test_table(customers_test_table)
+    qualified_table_name = data_source_fixture.data_source.qualified_table_name(table_name)
     casify = data_source_fixture.data_source.default_casify_column_name
 
     scan = data_source_fixture.create_test_scan()
@@ -35,7 +36,7 @@ def test_group_evolution_query_multiline(data_source_fixture: DataSourceFixture)
               - group evolution:
                   query: |
                     SELECT distinct({casify('country')})
-                    FROM {table_name}
+                    FROM {qualified_table_name}
                   fail:
                     when required group missing: ["BE"]
                     when forbidden group present: ["US"]
@@ -44,4 +45,4 @@ def test_group_evolution_query_multiline(data_source_fixture: DataSourceFixture)
     scan.execute()
 
     # No empty line at the end of the string
-    assert scan._queries[0].sql == f"""SELECT distinct({casify('country')})\nFROM {table_name}"""
+    assert scan._queries[0].sql == f"""SELECT distinct({casify('country')})\nFROM {qualified_table_name}"""
