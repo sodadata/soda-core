@@ -4,6 +4,7 @@ from helpers.data_source_fixture import DataSourceFixture
 
 def test_group_evolution(data_source_fixture: DataSourceFixture):
     table_name = data_source_fixture.ensure_test_table(customers_test_table)
+    qualified_table_name = data_source_fixture.data_source.qualified_table_name(table_name)
     casify = data_source_fixture.data_source.default_casify_column_name
 
     scan = data_source_fixture.create_test_scan()
@@ -13,7 +14,7 @@ def test_group_evolution(data_source_fixture: DataSourceFixture):
               - group evolution:
                   query: |
                     SELECT distinct({casify('country')})
-                    FROM {table_name}
+                    FROM {qualified_table_name}
                   fail:
                     when required group missing: ["BE"]
                     when forbidden group present: ["US"]
