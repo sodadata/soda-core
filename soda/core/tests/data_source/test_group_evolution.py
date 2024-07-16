@@ -46,4 +46,4 @@ def test_group_evolution_query_multiline(data_source_fixture: DataSourceFixture)
     scan.execute()
 
     # No empty line at the end of the string
-    assert scan._queries[0].sql == f"""SELECT distinct(country)\nFROM {table_name}"""
+    assert scan._queries[0].sql == f"""SELECT distinct({casify('country')})\nFROM {table_name}"""
