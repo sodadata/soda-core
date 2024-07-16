@@ -1,9 +1,9 @@
 from contracts.helpers.contract_test_tables import contracts_test_table
-from contracts.helpers.test_connection import TestConnection
+from contracts.helpers.test_data_source import TestDataSource
 
 
-def test_contract_without_dataset(test_connection: TestConnection):
-    contract_result = test_connection.assert_contract_error(
+def test_contract_without_dataset(test_data_source: TestDataSource):
+    contract_result = test_data_source.assert_contract_error(
         """
         columns:
           - name: id
@@ -15,9 +15,9 @@ def test_contract_without_dataset(test_connection: TestConnection):
     assert "'dataset' is a required property" in str(contract_result)
 
 
-def test_contract_without_columns(test_connection: TestConnection):
-    table_name: str = test_connection.ensure_test_table(contracts_test_table)
-    contract_result = test_connection.assert_contract_error(
+def test_contract_without_columns(test_data_source: TestDataSource):
+    table_name: str = test_data_source.ensure_test_table(contracts_test_table)
+    contract_result = test_data_source.assert_contract_error(
         f"""
         dataset: {table_name}
     """
@@ -25,9 +25,9 @@ def test_contract_without_columns(test_connection: TestConnection):
     assert "'columns' is a required property" in str(contract_result)
 
 
-def test_contract_invalid_column_type_dict(test_connection: TestConnection):
-    table_name: str = test_connection.ensure_test_table(contracts_test_table)
-    contract_result = test_connection.assert_contract_error(
+def test_contract_invalid_column_type_dict(test_data_source: TestDataSource):
+    table_name: str = test_data_source.ensure_test_table(contracts_test_table)
+    contract_result = test_data_source.assert_contract_error(
         f"""
         dataset: {table_name}
         columns:
@@ -37,9 +37,9 @@ def test_contract_invalid_column_type_dict(test_connection: TestConnection):
     assert "'plainstringascheck' is not of type 'object'" in str(contract_result)
 
 
-def test_contract_invalid_column_no_name(test_connection: TestConnection):
-    table_name: str = test_connection.ensure_test_table(contracts_test_table)
-    contract_result = test_connection.assert_contract_error(
+def test_contract_invalid_column_no_name(test_data_source: TestDataSource):
+    table_name: str = test_data_source.ensure_test_table(contracts_test_table)
+    contract_result = test_data_source.assert_contract_error(
         f"""
         dataset: {table_name}
         columns:
@@ -49,10 +49,10 @@ def test_contract_invalid_column_no_name(test_connection: TestConnection):
     assert "'name' is required" in str(contract_result)
 
 
-def test_contract_row_count_ignore_other_keys(test_connection: TestConnection):
-    table_name: str = test_connection.ensure_test_table(contracts_test_table)
+def test_contract_row_count_ignore_other_keys(test_data_source: TestDataSource):
+    table_name: str = test_data_source.ensure_test_table(contracts_test_table)
 
-    test_connection.assert_contract_pass(
+    test_data_source.assert_contract_pass(
         f"""
         another_top_level_key: check
         dataset: {table_name}

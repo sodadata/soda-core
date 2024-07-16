@@ -16,6 +16,7 @@ from soda.common.logs import Logs
 from soda.common.string_helper import string_matches_simple_pattern
 from soda.execution.data_type import DataType
 from soda.execution.query.query import Query
+from soda.execution.query.query_without_results import QueryWithoutResults
 from soda.execution.query.schema_query import TableColumnsQuery
 from soda.sampler.sample_ref import SampleRef
 from soda.sodacl.location import Location
@@ -41,16 +42,16 @@ class FormatHelper:
         money_comma = r"\d{1,3}(\.\d\d\d)*(,\d+)?"
         currency = r"([A-Z]{3}|[a-z]{3})"
 
-        day = r"([1-9]|[012][0-9]|3[01])"
-        month = r"([1-9]|0[1-9]|1[012])"
-        year = r"(19|20)?\d\d"
+        day = r"(0?[1-9]|[12][0-9]|3[01])"
+        month = r"(0?[1-9]|1[012])"
+        year = r"([12][0-9])?\d\d"
         hour24 = r"(0?[0-9]|[01]\d|2[0-3])"
         hour12 = r"(0?[0-9]|1[0-2])"
         minute = r"[0-5]?[0-9]"
         second = r"[0-5]?[0-9]([.,]\d+)?"
-        year4 = r"(19|20)\d\d"
-        month2 = r"(0[0-9]|1[12])"
-        day2 = r"([012][0-9]|3[01])"
+        year4 = r"[12][0-9]{3}"
+        month2 = r"(0[1-9]|1[012])"
+        day2 = r"(0[1-9]|[12][0-9]|3[01])"
         hour2 = r"(0[0-9]|1[012])"
         minute2 = r"[0-5][0-9]"
         second2 = minute2
@@ -512,7 +513,7 @@ class DataSource:
             exclude_filter = " AND ".join(exclude_sql_filter_clauses)
             filter_clauses.append(f"({exclude_filter})")
 
-        if self.database:
+        if self.database and self.use_database_in_filter():
             catalog_filter = self.catalog_column_filter()
             if catalog_filter:
                 filter_clauses.append(catalog_filter)
@@ -559,7 +560,7 @@ class DataSource:
         query_name: str,
         included_columns: list[str] | None = None,
         excluded_columns: list[str] | None = None,
-    ) -> dict[str, str] | None:
+    ) -> dict[str, str]:
         """
         :return: A dict mapping column names to data source data types.  Like eg
         {"id": "varchar", "cst_size": "int8", ...}
@@ -574,7 +575,7 @@ class DataSource:
         query.execute()
         if query.rows and len(query.rows) > 0:
             return {row[0]: row[1] for row in query.rows}
-        return None
+        return {}
 
     def create_table_columns_query(self, partition: Partition, schema_metric: SchemaMetric) -> TableColumnsQuery:
         return TableColumnsQuery(partition, schema_metric)
@@ -596,13 +597,15 @@ class DataSource:
         casify_function = self.default_casify_sql_function()
         filter_clauses = [f"{casify_function}(table_name) = '{unquoted_table_name_default_case}'"]
 
-        if self.database:
+        if self.database and self.use_database_in_filter():
             filter_clauses.append(
                 f"{casify_function}({self.column_metadata_catalog_column()}) = '{self.default_casify_system_name(self.database)}'"
             )
 
         if self.schema:
-            filter_clauses.append(f"{casify_function}(table_schema) = '{self.default_casify_system_name(self.schema)}'")
+            filter_clauses.append(
+                f"{casify_function}({self.column_metadata_schema_name()}) = '{self.default_casify_system_name(self.schema)}'"
+            )
 
         if included_columns:
             include_clauses = []
@@ -720,11 +723,13 @@ class DataSource:
         table_name: str,
         filter: str,
     ) -> str | None:
+        qualified_table_name = self.qualified_table_name(table_name)
+
         sql = dedent(
             f"""
             WITH frequencies AS (
                 SELECT {self.expr_count_all()} AS frequency
-                FROM {table_name}
+                FROM {qualified_table_name}
                 WHERE {filter}
                 GROUP BY {column_names})
             SELECT {self.expr_count_all()}
@@ -743,12 +748,14 @@ class DataSource:
         invert_condition: bool = False,
         exclude_patterns: list[str] | None = None,
     ) -> str | None:
+        qualified_table_name = self.qualified_table_name(table_name)
         main_query_columns = f"{column_names}, frequency" if exclude_patterns else "*"
+
         sql = dedent(
             f"""
             WITH frequencies AS (
                 SELECT {column_names}, {self.expr_count_all()} AS frequency
-                FROM {table_name}
+                FROM {qualified_table_name}
                 WHERE {filter}
                 GROUP BY {column_names})
             SELECT {main_query_columns}
@@ -769,24 +776,24 @@ class DataSource:
         filter: str,
         limit: str | None = None,
         invert_condition: bool = False,
-        exclude_patterns: list[str] | None = None,
     ) -> str | None:
+        qualified_table_name = self.qualified_table_name(table_name)
         columns = column_names.split(", ")
 
-        qualified_main_query_columns = ", ".join([f"main.{c}" for c in columns])
-        main_query_columns = qualified_main_query_columns if exclude_patterns else "main.*"
+        main_query_columns = self.sql_select_all_column_names(table_name)
+        qualified_main_query_columns = ", ".join([f"main.{c}" for c in main_query_columns])
         join = " AND ".join([f"main.{c} = frequencies.{c}" for c in columns])
 
         sql = dedent(
             f"""
             WITH frequencies AS (
                 SELECT {column_names}
-                FROM {table_name}
+                FROM {qualified_table_name}
                 WHERE {filter}
                 GROUP BY {column_names}
                 HAVING {self.expr_count_all()} {'<=' if invert_condition else '>'} 1)
-            SELECT {main_query_columns}
-            FROM {table_name} main
+            SELECT {qualified_main_query_columns}
+            FROM {qualified_table_name} main
             JOIN frequencies ON {join}
             """
         )
@@ -1076,7 +1083,7 @@ class DataSource:
 
     def analyze_table(self, table: str):
         if self.sql_analyze_table(table):
-            Query(
+            QueryWithoutResults(
                 data_source_scan=self.data_source_scan,
                 unqualified_query_name=f"analyze_{table}",
                 sql=self.sql_analyze_table(table),
@@ -1414,3 +1421,6 @@ class DataSource:
 
     def expr_false_condition(self):
         return "FALSE"
+
+    def use_database_in_filter(self) -> bool:
+        return True

@@ -3,7 +3,7 @@
 from setuptools import find_namespace_packages, setup
 
 package_name = "soda-core-spark"
-package_version = "3.3.2"
+package_version = "3.3.10"
 description = "Soda Core Spark Package"
 
 requires = [f"soda-core=={package_version}"]

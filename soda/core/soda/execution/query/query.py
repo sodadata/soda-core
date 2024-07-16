@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import datetime, timedelta
 
 from soda.common.exception_helper import get_exception_stacktrace
+from soda.common.memory_safe_cursor_fetcher import MemorySafeCursorFetcher
 from soda.common.query_helper import parse_columns_from_query
 from soda.common.string_helper import strip_quotes
 from soda.common.undefined_instance import undefined
@@ -50,6 +51,7 @@ class Query:
         self.description: tuple | None = None
         self.row: tuple | None = None
         self.rows: list[tuple] | None = None
+        self.row_count: int | None = None
         self.sample_ref: SampleRef | None = None
         self.exception: BaseException | None = None
         self.duration: timedelta | None = None
@@ -104,14 +106,14 @@ class Query:
         Execute method implementations should
           - invoke either self.fetchone, self.fetchall or self.store
           - update the metrics with value and optionally other diagnostic information
+        If queries are not intended to return any data, use the QueryWithoutResults class.
         """
         # TODO: some of the subclasses couple setting metric with storing the sample - refactor that.
         self.fetchall()
 
-    def fetchone(self):
+    def _execute_cursor(self, execute=True):
         """
-        DataSource query execution exceptions will be caught and result in the
-        self.exception being populated.
+        Execute the SQL query and yield the cursor for further processing.
         """
         self.__append_to_scan()
         start = datetime.now()
@@ -120,10 +122,16 @@ class Query:
             cursor = data_source.connection.cursor()
             try:
                 self.logs.debug(f"Query {self.query_name}:\n{self.sql}")
-                cursor.execute(self.sql)
-                self.row = cursor.fetchone()
+                if execute:
+                    cursor.execute(self.sql)
                 self.description = cursor.description
+                yield cursor
             finally:
+                # Some DB implementations, like MYSQL, require the cursor's results to be
+                # read before closing. This is not always the case so we want to make sure
+                # results are reset when possible.
+                if hasattr(cursor, "reset"):
+                    cursor.reset()
                 cursor.close()
         except BaseException as e:
             self.exception = e
@@ -136,103 +144,83 @@ class Query:
         finally:
             self.duration = datetime.now() - start
 
+    def fetchone(self):
+        """
+        DataSource query execution exceptions will be caught and result in the
+        self.exception being populated.
+        """
+        for cursor in self._execute_cursor():
+            self.row = cursor.fetchone()
+            self.row_count = 1 if self.row is not None else 0
+
     def fetchall(self):
         """
         DataSource query execution exceptions will be caught and result in the
         self.exception being populated.
         """
-        self.__append_to_scan()
-        start = datetime.now()
-        data_source = self.data_source_scan.data_source
-        try:
-            cursor = data_source.connection.cursor()
-            try:
-                self.logs.debug(f"Query {self.query_name}:\n{self.sql}")
-                cursor.execute(self.sql)
-                self.rows = cursor.fetchall()
-                self.description = cursor.description
-            finally:
-                cursor.close()
-        except BaseException as e:
-            self.exception = e
-            self.logs.error(f"Query error: {self.query_name}: {e}\n{self.sql}", exception=e, location=self.location)
-            data_source.query_failed(e)
-        finally:
-            self.duration = datetime.now() - start
+        for cursor in self._execute_cursor():
+            safe_fetcher = MemorySafeCursorFetcher(cursor)
+            self.rows = safe_fetcher.get_rows()
+            self.row_count = safe_fetcher.get_row_count()
 
     def store(self):
         """
         DataSource query execution exceptions will be caught and result in the
         self.exception being populated.
         """
-        self.__append_to_scan()
         sampler: Sampler = self.data_source_scan.scan._configuration.sampler
-        start = datetime.now()
-        data_source = self.data_source_scan.data_source
-        try:
-            cursor = data_source.connection.cursor()
-            try:
-                # Check if query does not contain forbidden columns and only create sample if it does not.
-                # Query still needs to execute in case this is a query that also sets a metric value. (e.g. reference check)
-                allow_samples = True
-                offending_columns = []
+        for cursor in self._execute_cursor(False):
+            # Check if query does not contain forbidden columns and only create sample if it does not.
+            # Query still needs to execute in case this is a query that also sets a metric value. (e.g. reference check)
+            allow_samples = True
+            offending_columns = []
 
-                if self.partition and self.partition.table:
-                    query_columns = parse_columns_from_query(self.sql)
+            if self.partition and self.partition.table:
+                query_columns = parse_columns_from_query(self.sql)
 
-                    for column in query_columns:
-                        if self.data_source_scan.data_source.is_column_excluded(
-                            self.partition.table.table_name, column
-                        ):
-                            allow_samples = False
-                            offending_columns.append(column)
+                for column in query_columns:
+                    if self.data_source_scan.data_source.is_column_excluded(self.partition.table.table_name, column):
+                        allow_samples = False
+                        offending_columns.append(column)
 
-                # A bit of a hacky workaround for queries that also set the metric in one go.
-                # TODO: revisit after decoupling getting metric values and storing samples. This can be dangerous, it sets the metric value
-                # only when metric value is not set, but this could cause weird regressions.
-                set_metric = False
-                if hasattr(self, "metric") and self.metric and self.metric.value == undefined:
-                    set_metric = True
+            # A bit of a hacky workaround for queries that also set the metric in one go.
+            # TODO: revisit after decoupling getting metric values and storing samples. This can be dangerous, it sets the metric value
+            # only when metric value is not set, but this could cause weird regressions.
+            set_metric = False
+            if hasattr(self, "metric") and self.metric and self.metric.value == undefined:
+                set_metric = True
 
-                if set_metric or allow_samples:
-                    self.logs.debug(f"Query {self.query_name}:\n{self.sql}")
-                    cursor.execute(str(self.sql))
-                    self.description = cursor.description
-                    db_sample = DbSample(cursor, self.data_source_scan.data_source)
+            if set_metric or allow_samples:
+                self.logs.debug(f"Query {self.query_name}:\n{self.sql}")
+                cursor.execute(str(self.sql))
+                self.description = cursor.description
+                db_sample = DbSample(cursor, self.data_source_scan.data_source, self.samples_limit)
 
-                if set_metric:
-                    self.metric.set_value(len(db_sample.get_rows()))
+            if set_metric:
+                self.metric.set_value(db_sample.get_rows_count())
 
-                if allow_samples:
-                    # TODO Hacky way to get the check name, check name isn't there when dataset samples are taken
-                    check_name = next(iter(self.metric.checks)).name if hasattr(self, "metric") else None
-                    sample_context = SampleContext(
-                        sample=db_sample,
-                        sample_name=self.sample_name,
-                        query=self.sql,
-                        data_source=self.data_source_scan.data_source,
-                        partition=self.partition,
-                        column=self.column,
-                        scan=self.data_source_scan.scan,
-                        logs=self.data_source_scan.scan._logs,
-                        samples_limit=self.samples_limit,
-                        passing_sql=self.passing_sql,
-                        check_name=check_name,
-                    )
+            if allow_samples:
+                # TODO Hacky way to get the check name, check name isn't there when dataset samples are taken
+                check_name = next(iter(self.metric.checks)).name if hasattr(self, "metric") else None
+                sample_context = SampleContext(
+                    sample=db_sample,
+                    sample_name=self.sample_name,
+                    query=self.sql,
+                    data_source=self.data_source_scan.data_source,
+                    partition=self.partition,
+                    column=self.column,
+                    scan=self.data_source_scan.scan,
+                    logs=self.data_source_scan.scan._logs,
+                    samples_limit=self.samples_limit,
+                    passing_sql=self.passing_sql,
+                    check_name=check_name,
+                )
 
-                    self.sample_ref = sampler.store_sample(sample_context)
-                else:
-                    self.logs.info(
-                        f"Skipping samples from query '{self.query_name}'. Excluded column(s) present: {offending_columns}."
-                    )
-            finally:
-                cursor.close()
-        except BaseException as e:
-            self.exception = e
-            self.logs.error(f"Query error: {self.query_name}: {e}\n{self.sql}", exception=e, location=self.location)
-            data_source.query_failed(e)
-        finally:
-            self.duration = datetime.now() - start
+                self.sample_ref = sampler.store_sample(sample_context)
+            else:
+                self.logs.info(
+                    f"Skipping samples from query '{self.query_name}'. Excluded column(s) present: {offending_columns}."
+                )
 
     def __append_to_scan(self):
         scan = self.data_source_scan.scan

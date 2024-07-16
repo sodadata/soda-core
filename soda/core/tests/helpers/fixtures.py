@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-# Initialize telemetry in test mode. This is done before importing anything datasource/scan/scanner related which initializes telemetry in standard mode so that we avoid unnecessary setup and re-setup which easily causes errors.
+# Initialize telemetry in test mode. This is done before importing anything datasource/scan/scanner related which initializes telemetry in standard mode
+#  so that we avoid unnecessary setup and re-setup which easily causes errors.
 from soda.telemetry.soda_telemetry import SodaTelemetry
 
 soda_telemetry = SodaTelemetry.get_instance(test_mode=True)
@@ -10,11 +11,14 @@ import os
 from typing import Any
 
 import pytest
+import requests
 from dotenv import load_dotenv
 from helpers.data_source_fixture import DataSourceFixture
 from helpers.mock_file_system import MockFileSystem
+from helpers.mock_http_request import MockHttpRequest
+from pytest import MonkeyPatch
 from soda.common.file_system import FileSystemSingleton
-from soda.common.logs import configure_logging
+from soda.common.logs import Logs, configure_logging
 
 logger = logging.getLogger(__name__)
 
@@ -24,6 +28,8 @@ load_dotenv(f"{project_root_dir}/.env", override=True)
 
 # In global scope because it is used in pytest annotations, it would not work as a fixture.
 test_data_source = os.getenv("test_data_source", "postgres")
+
+logs = Logs()
 
 
 def pytest_sessionstart(session: Any) -> None:
@@ -66,9 +72,17 @@ def mock_file_system():
     FileSystemSingleton.INSTANCE = original_file_system
 
 
-def format_query_one_line(query: str) -> str:
-    """@TODO: implement"""
-    return query
+@pytest.fixture
+def mock_http_post_request(monkeypatch: MonkeyPatch):
+    mock_http_request: MockHttpRequest = MockHttpRequest._create()
+    monkeypatch.setattr(requests, "post", mock_http_request.mock_post)
+    yield mock_http_request
+
+
+@pytest.fixture(autouse=True)
+def clean_logs_before_tests():
+    logs.reset()
+    yield
 
 
 @pytest.fixture(scope="function")
@@ -77,3 +91,8 @@ def environ():
     yield os.environ
     os.environ.clear()
     os.environ.update(original_environ)
+
+
+def format_query_one_line(query: str) -> str:
+    """@TODO: implement"""
+    return query

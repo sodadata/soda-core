@@ -3,11 +3,11 @@
 from setuptools import find_namespace_packages, setup
 
 package_name = "soda-core-db2"
-package_version = "3.3.2"
+package_version = "3.3.10"
 # TODO Add proper description
 description = "Soda Core IBM DB2 Package"
 
-requires = [f"soda-core=={package_version}", "ibm-db==3.1.2"]
+requires = [f"soda-core=={package_version}", "ibm-db==3.2.3"]
 # TODO Fix the params
 setup(
     name=package_name,

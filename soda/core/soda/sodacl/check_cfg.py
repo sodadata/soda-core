@@ -17,6 +17,7 @@ class CheckCfg:
         name: str | None,
         samples_limit: int | None = None,
         samples_columns: list | None = None,
+        failed_rows_query: str | None = None,
     ):
         self.source_header: str = source_header
         self.source_line: str = source_line
@@ -25,6 +26,7 @@ class CheckCfg:
         self.name: str | None = name
         self.samples_limit: int | None = samples_limit
         self.samples_columns: list | None = samples_columns
+        self.failed_rows_query: str | None = failed_rows_query
 
     def get_column_name(self) -> str | None:
         pass

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import os
 
 from helpers.test_column import TestColumn
 from soda.common.json_helper import JsonHelper
@@ -57,6 +58,7 @@ class TestTable:
                 self.name,
                 [test_column.to_hashable_json() for test_column in self.test_columns],
                 list(self.values) if self.values else None,
+                os.getenv("TEST_TABLE_SEED", None),
             ]
         )
         hexdigest = hashlib.md5(json_text.encode()).hexdigest()

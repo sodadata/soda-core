@@ -21,9 +21,9 @@ class VariableResolver:
             string=text,
         )
 
-    def _resolve_variable(self, variable_name: str, variables: Dict[str, str] | None = None) -> str:
+    def _resolve_variable(self, variable_name: str) -> str:
         if self.variables is not None and variable_name in self.variables:
             return self.variables[variable_name]
         if variable_name in os.environ:
             return os.getenv(variable_name)
-        self.logs.error(f"Variable '{variable_name}' not configured as environment variable")
+        self.logs.error(f"Variable '{variable_name}' not defined in the variables nor as environment variable")

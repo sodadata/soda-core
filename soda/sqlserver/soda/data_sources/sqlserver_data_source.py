@@ -347,6 +347,7 @@ class SQLServerDataSource(DataSource):
         invert_condition: bool = False,
         exclude_patterns: list[str] | None = None,
     ) -> str | None:
+        qualified_table_name = self.qualified_table_name(table_name)
         limit_sql = ""
         main_query_columns = f"{column_names}, frequency" if exclude_patterns else "*"
 
@@ -357,7 +358,7 @@ class SQLServerDataSource(DataSource):
             f"""
             WITH frequencies AS (
                 SELECT {column_names}, {self.expr_count_all()} AS frequency
-                FROM {table_name}
+                FROM {qualified_table_name}
                 WHERE {filter}
                 GROUP BY {column_names})
             SELECT {limit_sql} {main_query_columns}
@@ -375,12 +376,12 @@ class SQLServerDataSource(DataSource):
         filter: str,
         limit: str | None = None,
         invert_condition: bool = False,
-        exclude_patterns: list[str] | None = None,
     ) -> str | None:
+        qualified_table_name = self.qualified_table_name(table_name)
         columns = column_names.split(", ")
 
-        qualified_main_query_columns = ", ".join([f"main.{c}" for c in columns])
-        main_query_columns = qualified_main_query_columns if exclude_patterns else "main.*"
+        main_query_columns = self.sql_select_all_column_names(table_name)
+        qualified_main_query_columns = ", ".join([f"main.{c}" for c in main_query_columns])
         join = " AND ".join([f"main.{c} = frequencies.{c}" for c in columns])
 
         limit_sql = ""
@@ -391,12 +392,12 @@ class SQLServerDataSource(DataSource):
             f"""
             WITH frequencies AS (
                 SELECT {column_names}
-                FROM {table_name}
+                FROM {qualified_table_name}
                 WHERE {filter}
                 GROUP BY {column_names}
                 HAVING {self.expr_count_all()} {'<=' if invert_condition else '>'} 1)
-            SELECT {limit_sql} {main_query_columns}
-            FROM {table_name} main
+            SELECT {limit_sql} {qualified_main_query_columns}
+            FROM {qualified_table_name} main
             JOIN frequencies ON {join}
             """
         )

@@ -33,9 +33,10 @@ columns:
 ```
 
 b) In the API
+
 ```python
 contract: Contract = Contract.from_yaml_file(file_path=contract_file_path, schema="CSTMR_DATA_PROD")
-contract_result: ContractResult = contract.verify(connection=connection, soda_cloud=soda_cloud)
+contract_result: ContractResult = contract.execute(connection=connection, soda_cloud=soda_cloud)
 ```
 
 c) (still in idea-stage) We can expand this basic API with a file naming convention that uses relative references to
@@ -58,10 +59,10 @@ then we can add a simpler API like
 ```python
 import logging
 from soda.contracts.contract import Contracts
-from soda.contracts.connection import SodaException
+from soda.contracts.impl.data_source import SodaException
 
 try:
-    Contracts.verify(["postgres_localhost_db/schemas/CSTMR_DATA_PROD/datasets/*.sdc.yml"])
+    Contracts.execute(["postgres_localhost_db/schemas/CSTMR_DATA_PROD/datasets/*.sdc.yml"])
 except SodaException as e:
     logging.exception("Problems verifying contract")
     # TODO ensure you stop your ochestration job or pipeline & the right people are notified

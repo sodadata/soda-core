@@ -173,3 +173,6 @@ class DuckDBDataSource(DataSource):
 
     def extract_format(self) -> str:
         return Path(self.path).suffix
+
+    def use_database_in_filter(self) -> bool:
+        return False

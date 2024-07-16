@@ -1,8 +1,8 @@
 pip-tools~=7.3
 pytest~=7.0
 python-dotenv~=1.0
-tox~=3.24
-tox-docker~=4.1
+tox~=4.12
+tox-docker~=5.0
 pytest-html~=3.1
 pytest-cov~=3.0
 faker~=13.3
@@ -14,3 +14,7 @@ pygments~=2.11
 readme-renderer~=32.0
 certifi>=2022.12.07
 wheel>=0.38.1
+docutils<0.21 # 0.21 dropped py38 support, remove this after py38 support is gone
+pre-commit<3.6 # 3.6 dropped py38, remove this after py38 support is gone
+requests>=2.32.3
+

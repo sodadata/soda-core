@@ -1,3 +1,4 @@
+import os
 from textwrap import dedent
 
 import pytest
@@ -26,6 +27,7 @@ def test_imports(data_source_fixture: DataSourceFixture, mock_file_system: MockF
                   username: sodasql
                   database: sodasql
                   schema: {data_source_fixture.schema_name}
+                  port: {int(os.getenv("POSTGRES_PORT", 5432))}
             """
         ).strip(),
         f"{user_home_dir}/configuration2.yml": "",

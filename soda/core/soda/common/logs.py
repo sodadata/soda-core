@@ -19,6 +19,7 @@ def configure_logging():
     logging.getLogger("pyspark").setLevel(logging.ERROR)
     logging.getLogger("pyhive").setLevel(logging.ERROR)
     logging.getLogger("py4j").setLevel(logging.INFO)
+    logging.getLogger("segment").setLevel(logging.WARNING)
     logging.basicConfig(
         level=logging.DEBUG,
         force=True,  # Override any previously set handlers.
@@ -30,11 +31,22 @@ def configure_logging():
 
 
 class Logs:
-    def __init__(self, logger: Logger):
-        self.logger: Logger = logger
+    __instance = None
+
+    def __new__(cls, logger: Logger = None):
+        if cls.__instance is None:
+            cls.__instance = super().__new__(cls)
+            cls.__instance._initialize()
+        return cls.__instance
+
+    def _initialize(self):
         self.logs: list[Log] = []
         self.logs_buffer: list[Log] = []
         self.verbose: bool = False
+
+    def reset(self):
+        self.__instance = Logs()
+        self.__instance._initialize()
 
     def error(
         self,

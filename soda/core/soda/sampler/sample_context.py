@@ -37,3 +37,9 @@ class SampleContext:
             self.sample_name,
         ]
         return "_".join([part for part in parts if part])
+
+    def scan_context_get(self, key: str, default: any = None) -> any:
+        return self.scan.scan_context_get(key, default)
+
+    def scan_context_set(self, key: str | list, value: any, overwrite: bool = True):
+        return self.scan.scan_context_set(key, value, overwrite)
