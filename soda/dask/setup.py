@@ -3,7 +3,7 @@
 from setuptools import find_namespace_packages, setup
 
 package_name = "soda-core-pandas-dask"
-package_version = "3.3.10"
+package_version = "3.3.11"
 description = "Soda Core Dask Package"
 
 # 2023.10 or its subdependencies introduces breaking changes in how rows are counted, so we stay away from it for now.
