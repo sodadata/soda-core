@@ -45,6 +45,29 @@ def test_column_configured_invalid_values(data_source_fixture: DataSourceFixture
     scan.assert_all_checks_pass()
 
 
+def test_valid_failed_passing_rows_queries_uniqueness(data_source_fixture: DataSourceFixture):
+    table_name = data_source_fixture.ensure_test_table(customers_test_table)
+
+    scan = data_source_fixture.create_test_scan()
+    mock_soda_cloud = scan.enable_mock_soda_cloud()
+    scan.add_sodacl_yaml_str(
+        f"""
+      checks for {table_name}:
+        - invalid_count(cst_size) = 3:
+            valid min: 0
+        - invalid_count(cst_size) = 4:
+            valid max: 0
+    """
+    )
+    scan.execute()
+    scan.assert_all_checks_pass()
+
+    first_check_diagnostic_block = mock_soda_cloud.find_failed_rows_diagnostics_block(0)
+    second_check_diagnostic_block = mock_soda_cloud.find_failed_rows_diagnostics_block(1)
+    assert first_check_diagnostic_block["failingRowsQueryName"] != second_check_diagnostic_block["failingRowsQueryName"]
+    assert first_check_diagnostic_block["passingRowsQueryName"] != second_check_diagnostic_block["passingRowsQueryName"]
+
+
 def test_valid_min_max(data_source_fixture: DataSourceFixture):
     table_name = data_source_fixture.ensure_test_table(customers_test_table)
 
