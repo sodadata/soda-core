@@ -67,6 +67,7 @@ class Scan:
         self._sample_tables_result_tables: list[SampleTablesResultTable] = []
         self._logs.info(f"Soda Core {SODA_CORE_VERSION}")
         self.scan_results: dict = {}
+        self.scan_context: dict = {}
 
     def build_scan_results(self) -> dict:
         checks = [check.get_dict() for check in self._checks if check.outcome is not None and check.archetype is None]
@@ -958,3 +959,27 @@ class Scan:
 
     def has_soda_cloud_connection(self):
         return self._configuration.soda_cloud is not None
+
+    def scan_context_get(self, key: str, default: any = None) -> any:
+        return self.scan_context.get(key, default)
+
+    def scan_context_set(self, key: str | list, value: any, overwrite: bool = True):
+        dic = self.scan_context
+        dic_key = key
+
+        if type(key) == list:
+            for k in key[:-1]:
+                if type(dic) != dict:
+                    raise ValueError(
+                        f"Value '{dic}' is not a dictionary but you are trying to use it as one using nested key in sample context."
+                    )
+                if k not in dic:
+                    dic = dic.setdefault(k, {})
+                else:
+                    dic = dic[k]
+            dic_key = key[-1]
+
+        if dic_key in self.scan_context and not overwrite:
+            raise ValueError(f"Key '{key}' already exists in scan context")
+
+        dic[dic_key] = value
