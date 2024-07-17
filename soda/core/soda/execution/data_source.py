@@ -236,6 +236,16 @@ class DataSource:
         self.migrate_data_source_name = None
         self.quote_tables: bool = data_source_properties.get("quote_tables", False)
 
+    def get_connection_parameters_string(self) -> str:
+        return ";".join([f"{self.get_connection_parameter_key(key)}={self.get_connection_parameter_value(value)}" for key, value in self.connection_parameters.items()])
+    
+    def get_connection_parameter_key(self, key: str) -> str:
+        parts = key.split('_')
+        return ''.join(part.capitalize() for part in parts)
+    
+    def get_connection_parameter_value(self, value):
+        return value
+
     def has_valid_connection(self) -> bool:
         query = Query(
             data_source_scan=self.data_source_scan,

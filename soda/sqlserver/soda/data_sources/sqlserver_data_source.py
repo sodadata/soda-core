@@ -71,7 +71,6 @@ class SQLServerDataSource(DataSource):
         self.trusted_connection = data_source_properties.get("trusted_connection", False)
         self.encrypt = data_source_properties.get("encrypt", False)
         self.trust_server_certificate = data_source_properties.get("trust_server_certificate", False)
-        self.multi_subnet_failover = self.connection_parameters.get("multi_subnet_failover", False)
 
         # sqlserver reuses only a handful of default formats.
         reuse_formats = ["percentage"]
@@ -126,11 +125,12 @@ class SQLServerDataSource(DataSource):
             )
 
         try:
+            connection_parameters_string = self.get_connection_parameters_string()
             self.connection = pyodbc.connect(
                 ("Trusted_Connection=YES;" if self.trusted_connection else "")
                 + ("TrustServerCertificate=YES;" if self.trust_server_certificate else "")
                 + ("Encrypt=YES;" if self.encrypt else "")
-                + ("MultiSubnetFailover=YES;" if self.multi_subnet_failover else "")
+                + (f"{connection_parameters_string};" if connection_parameters_string else "")
                 + "DRIVER={"
                 + self.driver
                 + "};SERVER="
@@ -150,6 +150,12 @@ class SQLServerDataSource(DataSource):
             return self.connection
         except Exception as e:
             raise DataSourceConnectionError(self.TYPE, e)
+        
+    def get_connection_parameter_value(self, value):
+        if isinstance(value, bool):
+            return 'YES' if value else 'NO'
+        
+        return value
 
     def validate_configuration(self, logs: Logs) -> None:
         pass
