@@ -125,10 +125,12 @@ class SQLServerDataSource(DataSource):
             )
 
         try:
+            connection_parameters_string = self.get_connection_parameters_string()
             self.connection = pyodbc.connect(
                 ("Trusted_Connection=YES;" if self.trusted_connection else "")
                 + ("TrustServerCertificate=YES;" if self.trust_server_certificate else "")
                 + ("Encrypt=YES;" if self.encrypt else "")
+                + (f"{connection_parameters_string};" if connection_parameters_string else "")
                 + "DRIVER={"
                 + self.driver
                 + "};SERVER="
@@ -148,6 +150,12 @@ class SQLServerDataSource(DataSource):
             return self.connection
         except Exception as e:
             raise DataSourceConnectionError(self.TYPE, e)
+
+    def get_connection_parameter_value(self, value):
+        if isinstance(value, bool):
+            return "YES" if value else "NO"
+
+        return value
 
     def validate_configuration(self, logs: Logs) -> None:
         pass
