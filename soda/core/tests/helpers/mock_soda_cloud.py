@@ -185,10 +185,13 @@ class MockSodaCloud(SodaCloud):
         file_contents = self.find_failed_rows_content(check_index)
         return file_contents.count("\n")
 
-    def find_failed_rows_sample_query(self, check_index: int, query_type: str = "failingRowsQueryName"):
+    def find_failed_rows_query(self, check_index: int, query_type: str = "failingRowsQueryName"):
         block = self.find_failed_rows_diagnostics_block(check_index)
         assert block[query_type]
-        sample_query = self.find_queries(block[query_type])
+        return self.find_queries(block[query_type])
+
+    def find_failed_rows_query_sql(self, check_index: int, query_type: str = "failingRowsQueryName"):
+        sample_query = self.find_failed_rows_query(check_index, query_type)
         assert sample_query["sql"]
         return sample_query["sql"].lower()
 

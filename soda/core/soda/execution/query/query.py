@@ -13,6 +13,13 @@ from soda.sampler.sampler import Sampler
 
 
 class Query:
+    _counter = 0
+
+    @classmethod
+    def generate_id(cls):
+        cls._counter += 1
+        return cls._counter
+
     def __init__(
         self,
         data_source_scan: DataSourceScan,
@@ -91,9 +98,11 @@ class Query:
 
     @staticmethod
     def build_query_name(data_source_scan, table, partition, column, unqualified_query_name):
-        full_query_pieces = [data_source_scan.data_source.data_source_name]
+        full_query_pieces = [str(Query.generate_id()), data_source_scan.data_source.data_source_name]
         if partition is not None and partition.partition_name is not None:
             full_query_pieces.append(f"{partition.table.table_name}[{partition.partition_name}]")
+        elif partition is not None and partition.partition_name is None:
+            full_query_pieces.append(f"{partition.table.table_name}")
         elif table is not None:
             full_query_pieces.append(f"{table.table_name}")
         if column is not None:
