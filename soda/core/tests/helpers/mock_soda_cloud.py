@@ -184,7 +184,7 @@ class MockSodaCloud(SodaCloud):
     def find_failed_rows_line_count(self, check_index: int) -> int:
         file_contents = self.find_failed_rows_content(check_index)
         return file_contents.count("\n")
-    
+
     def find_failed_rows_query(self, check_index: int, query_type: str = "failingRowsQueryName"):
         block = self.find_failed_rows_diagnostics_block(check_index)
         assert block[query_type]
