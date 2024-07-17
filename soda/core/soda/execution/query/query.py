@@ -101,6 +101,8 @@ class Query:
         full_query_pieces = [str(Query.generate_id()), data_source_scan.data_source.data_source_name]
         if partition is not None and partition.partition_name is not None:
             full_query_pieces.append(f"{partition.table.table_name}[{partition.partition_name}]")
+        elif partition is not None and partition.partition_name is None:
+            full_query_pieces.append(f"{partition.table.table_name}")
         elif table is not None:
             full_query_pieces.append(f"{table.table_name}")
         if column is not None:
