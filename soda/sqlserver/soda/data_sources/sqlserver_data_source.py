@@ -150,11 +150,11 @@ class SQLServerDataSource(DataSource):
             return self.connection
         except Exception as e:
             raise DataSourceConnectionError(self.TYPE, e)
-        
+
     def get_connection_parameter_value(self, value):
         if isinstance(value, bool):
-            return 'YES' if value else 'NO'
-        
+            return "YES" if value else "NO"
+
         return value
 
     def validate_configuration(self, logs: Logs) -> None:
