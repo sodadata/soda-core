@@ -960,10 +960,22 @@ class Scan:
     def has_soda_cloud_connection(self):
         return self._configuration.soda_cloud is not None
 
-    def scan_context_get(self, key: str, default: any = None) -> any:
-        return self.scan_context.get(key, default)
+    def scan_context_get(self, key: str | list[str], default: any = None) -> any:
 
-    def scan_context_set(self, key: str | list, value: any, overwrite: bool = True):
+        if type(key) == str:
+            return self.scan_context.get(key, default)
+        elif type(key) == list:
+            nested_dict = self.scan_context
+            for k in key:
+                if isinstance(nested_dict, dict) and k in nested_dict:
+                    nested_dict = nested_dict[k]
+                else:
+                    return default
+            return nested_dict
+        else:
+            raise TypeError("Key must be a string or a list of strings")
+
+    def scan_context_set(self, key: str | list[str], value: any, overwrite: bool = True):
         dic = self.scan_context
         dic_key = key
 
