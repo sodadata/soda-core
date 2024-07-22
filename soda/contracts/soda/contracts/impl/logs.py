@@ -97,5 +97,8 @@ class Logs:
     def error(self, message: str, location: Location | None = None, exception: BaseException | None = None) -> None:
         self._log(Log(LogLevel.ERROR, message, location, exception))
 
+    def info(self, message: str, location: Location | None = None, exception: BaseException | None = None) -> None:
+        self._log(Log(LogLevel.INFO, message, location, exception))
+
     def _log(self, log: Log) -> None:
         self.logs.append(log)

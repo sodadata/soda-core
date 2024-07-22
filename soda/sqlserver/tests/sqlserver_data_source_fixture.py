@@ -21,6 +21,8 @@ class SQLServerDataSourceFixture(DataSourceFixture):
                 # Local docker compose has self-signed certificate
                 "trust_server_certificate": "true",
                 "schema": schema_name or os.getenv("SQLSERVER_SCHEMA", "dbo"),
+                "port": int(os.getenv("SQLSERVER_PORT", 1433)),
+                "driver": os.getenv("SQLSERVER_DRIVER", "ODBC Driver 18 for SQL Server"),
             }
         }
 
@@ -139,10 +141,6 @@ class SQLServerDataSourceFixture(DataSourceFixture):
         END
         GO
         """
-
-    def _drop_test_table_sql(self, table_name):
-        # @TOOD
-        pass
 
     def _create_view_from_table_sql(self, test_table: TestTable):
         # @TOOD

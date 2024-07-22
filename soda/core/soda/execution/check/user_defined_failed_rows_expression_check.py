@@ -44,13 +44,22 @@ class UserDefinedFailedRowsExpressionCheck(Check):
     def evaluate(self, metrics: Dict[str, Metric], historic_values: Dict[str, object]):
         self.check_value: int = metrics.get(KEY_FAILED_ROWS_COUNT).value
 
-        self.outcome = CheckOutcome.FAIL
-
-        if self.check_value > 0:
+        # Thresholds path
+        if self.check_cfg.fail_threshold_cfg or self.check_cfg.warn_threshold_cfg:
             if self.check_cfg.fail_threshold_cfg and self.check_cfg.fail_threshold_cfg.is_bad(self.check_value):
                 self.outcome = CheckOutcome.FAIL
             elif self.check_cfg.warn_threshold_cfg and self.check_cfg.warn_threshold_cfg.is_bad(self.check_value):
                 self.outcome = CheckOutcome.WARN
+            else:
+                self.outcome = CheckOutcome.PASS
+        else:
+            # Original non-threshold path
+            if self.check_value > 0:
+                self.outcome = CheckOutcome.FAIL
+            else:
+                self.outcome = CheckOutcome.PASS
+
+        if self.check_value > 0:
             # Collect failed rows
             failed_rows_sql = self.get_failed_rows_sql()
             failed_rows_query = UserDefinedFailedRowsExpressionQuery(
@@ -64,8 +73,6 @@ class UserDefinedFailedRowsExpressionCheck(Check):
             failed_rows_query.execute()
             if failed_rows_query.sample_ref:
                 self.failed_rows_sample_ref = failed_rows_query.sample_ref
-        else:
-            self.outcome = CheckOutcome.PASS
 
     def get_failed_rows_sql(self) -> str:
         columns = ", ".join(

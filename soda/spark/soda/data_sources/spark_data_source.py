@@ -182,8 +182,19 @@ class SparkSQLBase(DataSource):
         DataType.BOOLEAN: "boolean",
     }
 
-    NUMERIC_TYPES_FOR_PROFILING = ["integer", "int", "double", "float"]
-    TEXT_TYPES_FOR_PROFILING = ["string"]
+    NUMERIC_TYPES_FOR_PROFILING = [
+        "integer",
+        "int",
+        "double",
+        "float",
+        "bigint",
+        "decimal",
+        "long",
+        "short",
+        "smallint",
+        "tinyint",
+    ]
+    TEXT_TYPES_FOR_PROFILING = ["string", "varchar"]
 
     def __init__(self, logs: Logs, data_source_name: str, data_source_properties: dict):
         super().__init__(logs, data_source_name, data_source_properties)

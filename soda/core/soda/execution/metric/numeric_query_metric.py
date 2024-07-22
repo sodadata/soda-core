@@ -306,7 +306,7 @@ class NumericQueryMetric(QueryMetric):
                 passing_where_clauses.append(resolved_filter)
 
             if self.name == "missing_count":
-                where_clauses.append(self.build_missing_condition())
+                where_clauses.append(f"({self.build_missing_condition()})")
                 passing_where_clauses.append(f"NOT ({self.build_missing_condition()})")
             elif self.name == "invalid_count":
                 where_clauses.append(f"NOT ({self.build_missing_condition()})")
@@ -315,16 +315,16 @@ class NumericQueryMetric(QueryMetric):
                 valid_condition = self.build_valid_condition()
                 if valid_condition:
                     where_clauses.append(f"NOT ({valid_condition})")
-                    passing_where_clauses.append(valid_condition)
+                    passing_where_clauses.append(f"({valid_condition})")
 
                 invalid_condition = self.build_invalid_condition()
                 if invalid_condition:
                     passing_where_clauses.append(f"NOT ({invalid_condition})")
-                    where_clauses.append(invalid_condition)
+                    where_clauses.append(f"({invalid_condition})")
 
             if self.filter:
-                where_clauses.append(self.filter)
-                passing_where_clauses.append(self.filter)
+                where_clauses.append(f"({self.filter})")
+                passing_where_clauses.append(f"({self.filter})")
 
             where_sql = " AND ".join(where_clauses)
             passing_where_sql = " AND ".join(passing_where_clauses)

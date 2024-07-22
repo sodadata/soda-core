@@ -137,7 +137,9 @@ class DataSourceFixture:
             self.data_source.commit()
 
             # Run table analyze so that internal data source statistics are refreshed before running any tests.
-            self.data_source.analyze_table(test_table.unique_table_name)
+            table_name = test_table.unique_table_name
+            if test_table.quote_names:
+                table_name = self.data_source.quote_table_declaration(table_name)
         return test_table.unique_view_name if test_table.create_view else test_table.unique_table_name
 
     def _get_existing_test_table_names(self):

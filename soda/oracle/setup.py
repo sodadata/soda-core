@@ -3,11 +3,11 @@
 from setuptools import find_namespace_packages, setup
 
 package_name = "soda-core-oracle"
-package_version = "3.3.4"
+package_version = "3.3.12"
 # TODO Add proper description
 description = "Soda Core Oracle Package"
 
-requires = [f"soda-core=={package_version}", "oracledb==1.1.1"]
+requires = [f"soda-core=={package_version}", "oracledb>=1.1.1,<3.0.0"]
 # TODO Fix the params
 setup(
     name=package_name,
