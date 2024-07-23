@@ -44,7 +44,7 @@ class Scan:
         # Using this instead of utcnow() as that creates tz naive object, this has explicitly utc set. More info https://docs.python.org/3/library/datetime.html#datetime.datetime.utcnow
         now = datetime.now(tz=timezone.utc)
         self.sampler: Sampler | None = None
-        self._logs = Logs(logger)
+        self._logs = Logs(logger).reset()
         self._scan_definition_name: str | None = None
         self._scan_results_file: str | None = None
         self._data_source_name: str | None = None
