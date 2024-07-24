@@ -61,21 +61,15 @@ from soda.contracts.impl.data_source import DataSource
 class DataSourceTestHelper:
 
     @classmethod
-    def create(cls):
-        test_data_source_type = os.getenv("test_data_source", "postgres")
-        if test_data_source_type in [
-            "postgresql"
-        ]:
-            cls._instantiate_data_source_test_helper(test_data_source_type)
-        else:
-            return DataSourceTestHelper()
+    def create(cls, data_source: DataSource) -> DataSourceTestHelper:
+        data_source_type = data_source.data_source_type
+        data_source_type_module_name = f"{data_source_type}_data_source_test_helper"
+        camel_case_data_source_type = cls._camel_case_data_source_type(data_source_type)
+        data_source_fixture_class_name = f"{camel_case_data_source_type}DataSourceTestHelper"
 
-    @classmethod
-    def _instantiate_data_source_test_helper(cls, test_data_source_type: str) -> DataSourceFixture:
-        module = import_module(f"{test_data_source_type}_data_source_test_helper")
-        data_source_fixture_class = f"{cls._camel_case_data_source_type(test_data_source_type)}DataSourceTestHelper"
-        class_ = getattr(module, data_source_fixture_class)
-        return class_()
+        module = import_module(data_source_type_module_name)
+        class_ = getattr(module, data_source_fixture_class_name)
+        return class_(data_source)
 
     @classmethod
     def _camel_case_data_source_type(cls, test_data_source_type) -> str:
@@ -91,8 +85,9 @@ class DataSourceTestHelper:
         else:
             return f"{test_data_source_type[0:1].upper()}{test_data_source_type[1:]}"
 
-    def __init__(self):
+    def __init__(self, data_source: DataSource):
         super().__init__()
+        self.data_source: DataSource = data_source
         self.data_source_fixture: DataSourceFixture = DataSourceFixture._create()
 
     def __enter__(self) -> DataSourceTestHelper:
