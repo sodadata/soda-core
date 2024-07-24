@@ -234,28 +234,36 @@ class ContractVerification:
             if sodacl_yaml_str and hasattr(self.data_source, "sodacl_data_source"):
                 scan._logs = scan_logs
 
-                # This assumes the connection is a DataSourceConnection
-                sodacl_data_source = self.data_source.sodacl_data_source
+                prefix_parts: list[str | None] = [contract.database_name, contract.schema_name]
+                prefix_parts_str: list[str] = [
+                    prefix_part for prefix_part in prefix_parts
+                    if isinstance(prefix_part, str)
+                ]
+                prefix_underscored: str = "_".join(prefix_parts_str)
+
+                sodacl_data_source = self.data_source.create_sodacl_data_source(prefix_underscored)
+                sodacl_data_source_name = sodacl_data_source.data_source_name
+
                 # Execute the contract SodaCL in a scan
-                scan.set_data_source_name(sodacl_data_source.data_source_name)
+                scan.set_data_source_name(sodacl_data_source_name)
                 # noinspection PyProtectedMember
-                scan._data_source_manager.data_sources[self.data_source.data_source_name] = sodacl_data_source
+                scan._data_source_manager.data_sources[sodacl_data_source_name] = sodacl_data_source
 
                 if self.soda_cloud:
                     scan_definition_name_parts: list[str] = [
-                        self.data_source.data_source_name,
+                        sodacl_data_source_name,
                         contract.database_name,
                         contract.schema_name,
                         contract.dataset_name,
                     ]
-                    parts_str: str = "/".join([part for part in scan_definition_name_parts if part is not None])
-                    scan_definition_name = f"dataset://{parts_str}"
+                    scan_definition_name_parts_str: str = "/".join([part for part in scan_definition_name_parts if part is not None])
+                    scan_definition_name = f"contract://{scan_definition_name_parts_str}"
                     scan.set_scan_definition_name(scan_definition_name)
 
-                    prefix_parts: list[str] = [contract.database_name, contract.schema_name]
-                    prefix = ".".join([prefix_part for prefix_part in prefix_parts if isinstance(prefix_part, str)])
-
-                    default_data_source_properties = {"type": self.data_source.data_source_type, "prefix": prefix}
+                    default_data_source_properties = {
+                        "type": self.data_source.data_source_type,
+                        "prefix": ".".join(prefix_parts_str)
+                    }
 
                     # noinspection PyProtectedMember
                     scan._configuration.soda_cloud = CustomizedSodaClCloud(

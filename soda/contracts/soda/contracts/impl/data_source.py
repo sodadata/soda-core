@@ -83,11 +83,9 @@ class DataSource(ABC):
             except Exception as e:
                 logger.warning(f"Could not close the dbapi connection: {e}")
 
-    def get_database_name(self) -> str:
-        return self.database_name
-
-    def get_schema_name(self) -> str:
-        return self.schema_name
+    @abstractmethod
+    def create_sodacl_data_source(self, prefix: str) -> SodaCLDataSource:
+        pass
 
 
 class ClDataSource(DataSource, ABC):
