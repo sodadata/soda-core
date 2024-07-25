@@ -1,6 +1,6 @@
 import logging
 
-from contracts.helpers.test_data_source import DataSourceTestHelper
+from contracts.helpers.test_data_source import ContractDataSourceTestHelper
 from helpers.test_table import TestTable
 from soda.execution.data_type import DataType
 
@@ -25,7 +25,7 @@ contracts_schema_test_table = TestTable(
 )
 
 
-def test_contract_schema_pass_with_data_types(data_source_test_helper: DataSourceTestHelper):
+def test_contract_schema_pass_with_data_types(data_source_test_helper: ContractDataSourceTestHelper):
     table_name: str = data_source_test_helper.ensure_test_table(contracts_schema_test_table)
 
     contract_result: ContractResult = data_source_test_helper.assert_contract_pass(
@@ -65,7 +65,7 @@ def test_contract_schema_pass_with_data_types(data_source_test_helper: DataSourc
     }
 
 
-def test_contract_schema_pass_without_data_types(data_source_test_helper: DataSourceTestHelper):
+def test_contract_schema_pass_without_data_types(data_source_test_helper: ContractDataSourceTestHelper):
     table_name: str = data_source_test_helper.ensure_test_table(contracts_schema_test_table)
 
     contract_result: ContractResult = data_source_test_helper.assert_contract_pass(
@@ -101,7 +101,7 @@ def test_contract_schema_pass_without_data_types(data_source_test_helper: DataSo
     }
 
 
-def test_contract_schema_missing_column(data_source_test_helper: DataSourceTestHelper):
+def test_contract_schema_missing_column(data_source_test_helper: ContractDataSourceTestHelper):
     table_name: str = data_source_test_helper.ensure_test_table(contracts_schema_test_table)
 
     contract_result: ContractResult = data_source_test_helper.assert_contract_fail(
@@ -137,7 +137,7 @@ def test_contract_schema_missing_column(data_source_test_helper: DataSourceTestH
     assert "Column 'themissingcolumn' was missing" in str(contract_result)
 
 
-def test_contract_schema_missing_optional_column(data_source_test_helper: DataSourceTestHelper):
+def test_contract_schema_missing_optional_column(data_source_test_helper: ContractDataSourceTestHelper):
     table_name: str = data_source_test_helper.ensure_test_table(contracts_schema_test_table)
 
     contract_result: ContractResult = data_source_test_helper.assert_contract_pass(
@@ -172,7 +172,7 @@ def test_contract_schema_missing_optional_column(data_source_test_helper: DataSo
     assert schema_check_result.columns_having_wrong_type == []
 
 
-def test_contract_schema_extra_column(data_source_test_helper: DataSourceTestHelper):
+def test_contract_schema_extra_column(data_source_test_helper: ContractDataSourceTestHelper):
     table_name: str = data_source_test_helper.ensure_test_table(contracts_schema_test_table)
 
     contract_result: ContractResult = data_source_test_helper.assert_contract_fail(
@@ -204,7 +204,7 @@ def test_contract_schema_extra_column(data_source_test_helper: DataSourceTestHel
     assert "Column 'distance' was present and not allowed" in str(contract_result)
 
 
-def test_contract_schema_data_type_mismatch(data_source_test_helper: DataSourceTestHelper):
+def test_contract_schema_data_type_mismatch(data_source_test_helper: ContractDataSourceTestHelper):
     table_name: str = data_source_test_helper.ensure_test_table(contracts_schema_test_table)
 
     contract_result: ContractResult = data_source_test_helper.assert_contract_fail(

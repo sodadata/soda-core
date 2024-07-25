@@ -1,4 +1,4 @@
-from contracts.helpers.test_data_source import DataSourceTestHelper
+from contracts.helpers.test_data_source import ContractDataSourceTestHelper
 from helpers.test_table import TestTable
 from soda.execution.data_type import DataType
 
@@ -22,7 +22,7 @@ contracts_multi_column_duplicates_test_table = TestTable(
 )
 
 
-def test_contract_multi_column_no_duplicate_values(data_source_test_helper: DataSourceTestHelper):
+def test_contract_multi_column_no_duplicate_values(data_source_test_helper: ContractDataSourceTestHelper):
     table_name: str = data_source_test_helper.ensure_test_table(contracts_multi_column_duplicates_test_table)
 
     contract_result: ContractResult = data_source_test_helper.assert_contract_fail(
@@ -52,7 +52,7 @@ def test_contract_multi_column_no_duplicate_values(data_source_test_helper: Data
     assert list(check.columns) == ["country_code", "zip"]
 
 
-def test_contract_multi_column_duplicate_count(data_source_test_helper: DataSourceTestHelper):
+def test_contract_multi_column_duplicate_count(data_source_test_helper: ContractDataSourceTestHelper):
     table_name: str = data_source_test_helper.ensure_test_table(contracts_multi_column_duplicates_test_table)
 
     contract_result: ContractResult = data_source_test_helper.assert_contract_fail(
@@ -81,7 +81,7 @@ def test_contract_multi_column_duplicate_count(data_source_test_helper: DataSour
     assert list(check.columns) == ["country_code", "zip"]
 
 
-def test_contract_multi_column_duplicate_percent(data_source_test_helper: DataSourceTestHelper):
+def test_contract_multi_column_duplicate_percent(data_source_test_helper: ContractDataSourceTestHelper):
     table_name: str = data_source_test_helper.ensure_test_table(contracts_multi_column_duplicates_test_table)
 
     contract_result: ContractResult = data_source_test_helper.assert_contract_fail(

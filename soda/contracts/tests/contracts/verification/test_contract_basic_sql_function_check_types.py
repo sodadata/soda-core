@@ -1,4 +1,4 @@
-from contracts.helpers.test_data_source import DataSourceTestHelper
+from contracts.helpers.test_data_source import ContractDataSourceTestHelper
 from helpers.test_table import TestTable
 from soda.execution.data_type import DataType
 
@@ -21,7 +21,7 @@ contracts_basic_sql_functions_check_types_test_table = TestTable(
 )
 
 
-def test_contract_avg(data_source_test_helper: DataSourceTestHelper):
+def test_contract_avg(data_source_test_helper: ContractDataSourceTestHelper):
     table_name: str = data_source_test_helper.ensure_test_table(contracts_basic_sql_functions_check_types_test_table)
 
     contract_result: ContractResult = data_source_test_helper.assert_contract_fail(
@@ -49,7 +49,7 @@ def test_contract_avg(data_source_test_helper: DataSourceTestHelper):
     assert "Actual avg(one) was 2" in str(contract_result)
 
 
-def test_contract_sum(data_source_test_helper: DataSourceTestHelper):
+def test_contract_sum(data_source_test_helper: ContractDataSourceTestHelper):
     table_name: str = data_source_test_helper.ensure_test_table(contracts_basic_sql_functions_check_types_test_table)
 
     contract_result: ContractResult = data_source_test_helper.assert_contract_fail(

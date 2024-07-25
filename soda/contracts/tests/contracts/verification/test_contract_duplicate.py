@@ -1,4 +1,4 @@
-from contracts.helpers.test_data_source import DataSourceTestHelper
+from contracts.helpers.test_data_source import ContractDataSourceTestHelper
 from helpers.test_table import TestTable
 from soda.execution.data_type import DataType
 
@@ -21,7 +21,7 @@ contracts_duplicate_test_table = TestTable(
 )
 
 
-def test_contract_no_duplicate_values(data_source_test_helper: DataSourceTestHelper):
+def test_contract_no_duplicate_values(data_source_test_helper: ContractDataSourceTestHelper):
     table_name: str = data_source_test_helper.ensure_test_table(contracts_duplicate_test_table)
 
     contract_result: ContractResult = data_source_test_helper.assert_contract_fail(
@@ -48,7 +48,7 @@ def test_contract_no_duplicate_values(data_source_test_helper: DataSourceTestHel
     assert "Actual duplicate_count(one) was 1" in str(contract_result)
 
 
-def test_contract_duplicate_count(data_source_test_helper: DataSourceTestHelper):
+def test_contract_duplicate_count(data_source_test_helper: ContractDataSourceTestHelper):
     table_name: str = data_source_test_helper.ensure_test_table(contracts_duplicate_test_table)
 
     contract_result: ContractResult = data_source_test_helper.assert_contract_fail(
@@ -76,7 +76,7 @@ def test_contract_duplicate_count(data_source_test_helper: DataSourceTestHelper)
     assert "Actual duplicate_count(one) was 1" in str(contract_result)
 
 
-def test_contract_duplicate_percent(data_source_test_helper: DataSourceTestHelper):
+def test_contract_duplicate_percent(data_source_test_helper: ContractDataSourceTestHelper):
     table_name: str = data_source_test_helper.ensure_test_table(contracts_duplicate_test_table)
 
     contract_result: ContractResult = data_source_test_helper.assert_contract_fail(

@@ -1,4 +1,4 @@
-from contracts.helpers.test_data_source import DataSourceTestHelper
+from contracts.helpers.test_data_source import ContractDataSourceTestHelper
 from helpers.test_table import TestTable
 from soda.execution.data_type import DataType
 
@@ -23,7 +23,7 @@ contracts_check_filter_test_table = TestTable(
 )
 
 
-def test_contract_check_filter(data_source_test_helper: DataSourceTestHelper):
+def test_contract_check_filter(data_source_test_helper: ContractDataSourceTestHelper):
     table_name: str = data_source_test_helper.ensure_test_table(contracts_check_filter_test_table)
 
     contract_result: ContractResult = data_source_test_helper.assert_contract_fail(

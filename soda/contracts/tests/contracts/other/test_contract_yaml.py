@@ -1,8 +1,8 @@
 from contracts.helpers.contract_test_tables import contracts_test_table
-from contracts.helpers.test_data_source import DataSourceTestHelper
+from contracts.helpers.test_data_source import ContractDataSourceTestHelper
 
 
-def test_contract_without_dataset(test_data_source: DataSourceTestHelper):
+def test_contract_without_dataset(test_data_source: ContractDataSourceTestHelper):
     contract_result = test_data_source.assert_contract_error(
         """
         columns:
@@ -15,7 +15,7 @@ def test_contract_without_dataset(test_data_source: DataSourceTestHelper):
     assert "'dataset' is a required property" in str(contract_result)
 
 
-def test_contract_without_columns(test_data_source: DataSourceTestHelper):
+def test_contract_without_columns(test_data_source: ContractDataSourceTestHelper):
     table_name: str = test_data_source.ensure_test_table(contracts_test_table)
     contract_result = test_data_source.assert_contract_error(
         f"""
@@ -25,7 +25,7 @@ def test_contract_without_columns(test_data_source: DataSourceTestHelper):
     assert "'columns' is a required property" in str(contract_result)
 
 
-def test_contract_invalid_column_type_dict(test_data_source: DataSourceTestHelper):
+def test_contract_invalid_column_type_dict(test_data_source: ContractDataSourceTestHelper):
     table_name: str = test_data_source.ensure_test_table(contracts_test_table)
     contract_result = test_data_source.assert_contract_error(
         f"""
@@ -37,7 +37,7 @@ def test_contract_invalid_column_type_dict(test_data_source: DataSourceTestHelpe
     assert "'plainstringascheck' is not of type 'object'" in str(contract_result)
 
 
-def test_contract_invalid_column_no_name(test_data_source: DataSourceTestHelper):
+def test_contract_invalid_column_no_name(test_data_source: ContractDataSourceTestHelper):
     table_name: str = test_data_source.ensure_test_table(contracts_test_table)
     contract_result = test_data_source.assert_contract_error(
         f"""
@@ -49,7 +49,7 @@ def test_contract_invalid_column_no_name(test_data_source: DataSourceTestHelper)
     assert "'name' is required" in str(contract_result)
 
 
-def test_contract_row_count_ignore_other_keys(test_data_source: DataSourceTestHelper):
+def test_contract_row_count_ignore_other_keys(test_data_source: ContractDataSourceTestHelper):
     table_name: str = test_data_source.ensure_test_table(contracts_test_table)
 
     test_data_source.assert_contract_pass(

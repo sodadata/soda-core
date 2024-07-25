@@ -28,7 +28,7 @@ class DataSourceFixture:
     __test__ = False
 
     @staticmethod
-    def _create(test_data_source_name: str = None) -> DataSourceFixture:
+    def _create(ttes_data_source_name: str = None) -> DataSourceFixture:
         test_data_source = os.getenv("test_data_source", "postgres")
         module = import_module(f"{test_data_source}_data_source_fixture")
         data_source_fixture_class = f"{DataSource.camel_case_data_source_type(test_data_source)}DataSourceFixture"

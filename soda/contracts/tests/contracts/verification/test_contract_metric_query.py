@@ -1,4 +1,4 @@
-from contracts.helpers.test_data_source import DataSourceTestHelper
+from contracts.helpers.test_data_source import ContractDataSourceTestHelper
 from helpers.test_table import TestTable
 from soda.execution.data_type import DataType
 
@@ -21,7 +21,7 @@ user_defined_metric_query_sql_test_table = TestTable(
 )
 
 
-def test_contract_metric_query_on_column(data_source_test_helper: DataSourceTestHelper):
+def test_contract_metric_query_on_column(data_source_test_helper: ContractDataSourceTestHelper):
     table_name: str = data_source_test_helper.ensure_test_table(user_defined_metric_query_sql_test_table)
 
     contract_result: ContractResult = data_source_test_helper.assert_contract_fail(
@@ -55,7 +55,7 @@ def test_contract_metric_query_on_column(data_source_test_helper: DataSourceTest
     assert "Actual us_count(id) was 2" in str(contract_result)
 
 
-def test_contract_metric_query_on_dataset(data_source_test_helper: DataSourceTestHelper):
+def test_contract_metric_query_on_dataset(data_source_test_helper: ContractDataSourceTestHelper):
     table_name: str = data_source_test_helper.ensure_test_table(user_defined_metric_query_sql_test_table)
 
     contract_result: ContractResult = data_source_test_helper.assert_contract_fail(

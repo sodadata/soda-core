@@ -30,7 +30,7 @@ from soda.contracts.check import (
     ValidConfigurations,
     ValidValuesReferenceData,
 )
-from soda.contracts.impl.data_source import DataSource
+from soda.contracts.impl.contract_data_source import ContractDataSource
 from soda.contracts.impl.json_schema_verifier import JsonSchemaVerifier
 from soda.contracts.impl.logs import Location, Logs
 from soda.contracts.impl.yaml_helper import YamlFile, YamlHelper
@@ -350,7 +350,7 @@ class ContractResult:
     check_results: List[CheckResult]
 
     def __init__(
-        self, data_source: DataSource, contract: Contract, sodacl_yaml_str: str | None, logs: Logs, scan: Scan
+        self, data_source: ContractDataSource, contract: Contract, sodacl_yaml_str: str | None, logs: Logs, scan: Scan
     ):
         self.data_source_yaml_dict: dict = data_source.data_source_yaml_dict
         self.contract = contract

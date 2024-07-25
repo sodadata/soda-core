@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 
-from contracts.helpers.test_data_source import DataSourceTestHelper
+from contracts.helpers.test_data_source import ContractDataSourceTestHelper
 from helpers.test_table import TestTable
 from soda.execution.data_type import DataType
 
@@ -23,7 +23,7 @@ contracts_freshness_test_table = TestTable(
 )
 
 
-def test_contract_freshness_pass(data_source_test_helper: DataSourceTestHelper, environ: dict):
+def test_contract_freshness_pass(data_source_test_helper: ContractDataSourceTestHelper, environ: dict):
     table_name: str = data_source_test_helper.ensure_test_table(contracts_freshness_test_table)
 
     variables: dict[str, str] = {"NOW": "2021-01-01 12:30"}
@@ -47,7 +47,7 @@ def test_contract_freshness_pass(data_source_test_helper: DataSourceTestHelper, 
     assert check_result.freshness == "2:19:50"
 
 
-def test_contract_freshness_fail(data_source_test_helper: DataSourceTestHelper, environ: dict):
+def test_contract_freshness_fail(data_source_test_helper: ContractDataSourceTestHelper, environ: dict):
     table_name: str = data_source_test_helper.ensure_test_table(contracts_freshness_test_table)
 
     variables: dict[str, str] = {"NOW": "2021-01-01 13:30"}

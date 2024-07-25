@@ -1,4 +1,4 @@
-from contracts.helpers.test_data_source import DataSourceTestHelper
+from contracts.helpers.test_data_source import ContractDataSourceTestHelper
 from helpers.test_table import TestTable
 from soda.execution.data_type import DataType
 
@@ -21,7 +21,7 @@ user_defined_metric_expression_test_table = TestTable(
 )
 
 
-def test_contract_column_metric_expression(data_source_test_helper: DataSourceTestHelper):
+def test_contract_column_metric_expression(data_source_test_helper: ContractDataSourceTestHelper):
     table_name: str = data_source_test_helper.ensure_test_table(user_defined_metric_expression_test_table)
 
     contract_result: ContractResult = data_source_test_helper.assert_contract_fail(
@@ -52,7 +52,7 @@ def test_contract_column_metric_expression(data_source_test_helper: DataSourceTe
     assert "Actual us_count(country) was 2" in str(contract_result)
 
 
-def test_contract_dataset_metric_expression(data_source_test_helper: DataSourceTestHelper):
+def test_contract_dataset_metric_expression(data_source_test_helper: ContractDataSourceTestHelper):
     table_name: str = data_source_test_helper.ensure_test_table(user_defined_metric_expression_test_table)
 
     contract_result: ContractResult = data_source_test_helper.assert_contract_fail(

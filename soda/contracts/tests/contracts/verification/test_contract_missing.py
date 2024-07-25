@@ -1,5 +1,5 @@
 from contracts.helpers.contract_parse_errors import get_parse_errors_str
-from contracts.helpers.test_data_source import DataSourceTestHelper
+from contracts.helpers.test_data_source import ContractDataSourceTestHelper
 from helpers.test_table import TestTable
 from soda.execution.data_type import DataType
 
@@ -51,7 +51,7 @@ def test_missing_count_without_threshold():
     assert "Check type 'missing_count' requires threshold configuration" in errors_str
 
 
-def test_contract_nomissing_with_missing_values(data_source_test_helper: DataSourceTestHelper):
+def test_contract_nomissing_with_missing_values(data_source_test_helper: ContractDataSourceTestHelper):
     table_name: str = data_source_test_helper.ensure_test_table(contracts_missing_test_table)
 
     contract_result: ContractResult = data_source_test_helper.assert_contract_fail(
@@ -79,7 +79,7 @@ def test_contract_nomissing_with_missing_values(data_source_test_helper: DataSou
     assert "Actual missing_count(one) was 1" in str(contract_result)
 
 
-def test_contract_nomissing_without_missing_values(data_source_test_helper: DataSourceTestHelper):
+def test_contract_nomissing_without_missing_values(data_source_test_helper: ContractDataSourceTestHelper):
     table_name: str = data_source_test_helper.ensure_test_table(contracts_missing_test_table)
 
     contract_result: ContractResult = data_source_test_helper.assert_contract_pass(
@@ -105,7 +105,7 @@ def test_contract_nomissing_without_missing_values(data_source_test_helper: Data
     assert check.column == "two"
 
 
-def test_contract_missing_count_with_missing_values(data_source_test_helper: DataSourceTestHelper):
+def test_contract_missing_count_with_missing_values(data_source_test_helper: ContractDataSourceTestHelper):
     table_name: str = data_source_test_helper.ensure_test_table(contracts_missing_test_table)
 
     contract_result: ContractResult = data_source_test_helper.assert_contract_fail(
@@ -134,7 +134,7 @@ def test_contract_missing_count_with_missing_values(data_source_test_helper: Dat
     assert "Actual missing_count(one) was 1" in str(contract_result)
 
 
-def test_contract_missing_count_pass(data_source_test_helper: DataSourceTestHelper):
+def test_contract_missing_count_pass(data_source_test_helper: ContractDataSourceTestHelper):
     table_name: str = data_source_test_helper.ensure_test_table(contracts_missing_test_table)
 
     contract_result: ContractResult = data_source_test_helper.assert_contract_pass(
@@ -161,7 +161,7 @@ def test_contract_missing_count_pass(data_source_test_helper: DataSourceTestHelp
     assert check.column == "one"
 
 
-def test_contract_missing_count_with_missing_values_pass(data_source_test_helper: DataSourceTestHelper):
+def test_contract_missing_count_with_missing_values_pass(data_source_test_helper: ContractDataSourceTestHelper):
     table_name: str = data_source_test_helper.ensure_test_table(contracts_missing_test_table)
 
     contract_result: ContractResult = data_source_test_helper.assert_contract_pass(
@@ -189,7 +189,7 @@ def test_contract_missing_count_with_missing_values_pass(data_source_test_helper
     assert check.column == "one"
 
 
-def test_contract_missing_count_with_missing_regex_sql(data_source_test_helper: DataSourceTestHelper):
+def test_contract_missing_count_with_missing_regex_sql(data_source_test_helper: ContractDataSourceTestHelper):
     table_name: str = data_source_test_helper.ensure_test_table(contracts_missing_test_table)
 
     contract_result: ContractResult = data_source_test_helper.assert_contract_fail(
@@ -219,7 +219,7 @@ def test_contract_missing_count_with_missing_regex_sql(data_source_test_helper: 
     assert "Actual missing_count(one) was 2" in str(contract_result)
 
 
-def test_contract_missing_count_name_and_threshold(data_source_test_helper: DataSourceTestHelper):
+def test_contract_missing_count_name_and_threshold(data_source_test_helper: ContractDataSourceTestHelper):
     table_name: str = data_source_test_helper.ensure_test_table(contracts_missing_test_table)
 
     contract_result: ContractResult = data_source_test_helper.assert_contract_pass(

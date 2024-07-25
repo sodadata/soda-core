@@ -5,7 +5,7 @@ import os
 from datetime import date
 from textwrap import dedent
 
-from contracts.helpers.test_data_source import DataSourceTestHelper
+from contracts.helpers.test_data_source import ContractDataSourceTestHelper
 from helpers.test_table import TestTable
 from soda.execution.data_type import DataType
 
@@ -32,7 +32,7 @@ contracts_api_test_table = TestTable(
 )
 
 
-def test_contract_verification_api(test_data_source: DataSourceTestHelper, environ: dict):
+def test_contract_verification_api(test_data_source: ContractDataSourceTestHelper, environ: dict):
     table_name: str = test_data_source.ensure_test_table(contracts_api_test_table)
 
     environ["USERNAME"] = "sodasql"
