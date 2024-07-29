@@ -1,0 +1,14 @@
+version: "3.8"
+services:
+  soda-core-mssql:
+    # https://hub.docker.com/_/microsoft-mssql-server
+    image: mcr.microsoft.com/mssql/server:latest
+    environment:
+      - ACCEPT_EULA=Y
+      - SA_PASSWORD=YourStrong!Passw0rd
+    ports:
+      - "1433:1433"
+    volumes:
+      - sqlserver-data:/var/opt/mssql
+volumes:
+  sqlserver-data:
