@@ -1,4 +1,7 @@
+from __future__ import annotations
+
 import logging
+from textwrap import dedent
 from typing import List
 
 from ruamel.yaml import YAML
@@ -100,6 +103,11 @@ class Parser:
             )
             return None
         return value
+
+    def _sanitize_query(self, query: str | None):
+        if query == None:
+            return None
+        return dedent(query).strip()
 
     def _resolve_jinja(self, value: str, variables: dict = None):
         from soda.common.jinja import Jinja

@@ -57,11 +57,11 @@ def test_missing_filtered_sample_query(data_source_fixture: DataSourceFixture):
 
     scan.assert_all_checks_fail()
 
-    failing_rows_query_condition = mock_soda_cloud.find_failed_rows_sample_query(0, "failingRowsQueryName")
-    assert "(pct is null or pct in ('no value','n/a','error')) and (country = 'nl')" in failing_rows_query_condition
+    failing_rows_query_sql = mock_soda_cloud.find_failed_rows_query_sql(0, "failingRowsQueryName")
+    assert "(pct is null or pct in ('no value','n/a','error')) and (country = 'nl')" in failing_rows_query_sql
 
-    passing_rows_query_condition = mock_soda_cloud.find_failed_rows_sample_query(0, "passingRowsQueryName")
-    assert "not (pct is null or pct in ('no value','n/a','error')) and (country = 'nl')" in passing_rows_query_condition
+    passing_rows_query_sql = mock_soda_cloud.find_failed_rows_query_sql(0, "passingRowsQueryName")
+    assert "not (pct is null or pct in ('no value','n/a','error')) and (country = 'nl')" in passing_rows_query_sql
 
 
 @pytest.mark.skipif(
