@@ -1337,7 +1337,7 @@ class SodaCLParser(Parser):
             self._push_path_element(check_str, check_configurations)
             name = self._get_optional(NAME, str)
             for configuration_key in check_configurations:
-                if configuration_key not in [NAME, ATTRIBUTES]:
+                if configuration_key not in [NAME, ATTRIBUTES, IDENTITY]:
                     self.logs.error(
                         f"Invalid row count comparison configuration key {configuration_key}", location=self.location
                     )
