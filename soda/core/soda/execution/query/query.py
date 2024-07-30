@@ -120,6 +120,16 @@ class Query:
         # TODO: some of the subclasses couple setting metric with storing the sample - refactor that.
         self.fetchall()
 
+    def _cursor_execute_exception_handler(self, e):
+        data_source = self.data_source_scan.data_source
+        self.exception = e
+        self.logs.error(
+            message=f"Query execution error in {self.query_name}: {e}\n{self.sql}",
+            exception=e,
+            location=self.location,
+        )
+        data_source.query_failed(e)
+
     def _execute_cursor(self, execute=True):
         """
         Execute the SQL query and yield the cursor for further processing.
@@ -143,13 +153,7 @@ class Query:
                     cursor.reset()
                 cursor.close()
         except BaseException as e:
-            self.exception = e
-            self.logs.error(
-                message=f"Query execution error in {self.query_name}: {e}\n{self.sql}",
-                exception=e,
-                location=self.location,
-            )
-            data_source.query_failed(e)
+            self._cursor_execute_exception_handler(e)
         finally:
             self.duration = datetime.now() - start
 
@@ -232,11 +236,7 @@ class Query:
                         f"Skipping samples from query '{self.query_name}'. Excluded column(s) present: {offending_columns}."
                     )
             except BaseException as e:
-                self.logs.error(
-                    message=f"Query execution error in {self.query_name}: {e}\n{self.sql}",
-                    exception=e,
-                    location=self.location,
-                )
+                self._cursor_execute_exception_handler(e)
 
     def __append_to_scan(self):
         scan = self.data_source_scan.scan
