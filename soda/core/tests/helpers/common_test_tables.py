@@ -1,10 +1,40 @@
 import os
-from datetime import date, datetime, timezone
+from faker import Faker
+from random import randint, uniform, choice
+from decimal import Decimal
+from datetime import date, datetime, timezone, timedelta
 
 from helpers.test_table import TestTable
 from soda.execution.data_type import DataType
 
 utc = timezone.utc
+
+def generate_customer_records(num_records):
+    fake = Faker()
+    start_date = datetime.now()
+    records = []
+
+    for i in range(num_records):
+        current_date = start_date + timedelta(days=i)
+        current_date_with_tz = current_date.astimezone(utc)
+
+        record = (
+            fake.uuid4(),  # id
+            Decimal(str(round(uniform(1.0, 1000.0), 2))),  # cst_size
+            fake.word(),  # cst_size_txt
+            randint(1, 10000),  # distance
+            f"{randint(0, 100)}%",  # pct
+            choice(['A', 'B', 'C', 'D']),  # cat
+            choice(['PL', 'BE', 'NL', 'US']),  # country
+            fake.zipcode(),  # zip
+            fake.email(),  # email
+            fake.date_this_century(),  # date_updated
+            current_date,  # ts
+            current_date_with_tz  # ts_with_tz
+        )
+        records.append(record)
+    
+    return records
 
 customers_test_table = TestTable(
     name="Customers",
@@ -39,6 +69,26 @@ customers_test_table = TestTable(
         (None,   None, None,    None, None,        "HIGH",   'NL', '2363', None,                      date(2020, 6, 24), datetime(2020, 6, 24, 0, 4, 10), datetime(2020, 6, 24, 0, 4, 10, tzinfo=utc)),
     ]
     # fmt: on
+)
+
+customers_huge_test_table = TestTable(
+    name="CustomersHuge",
+    create_view=os.getenv("TEST_WITH_VIEWS", False),
+    columns=[
+        ("id", DataType.TEXT),
+        ("cst_size", DataType.DECIMAL),
+        ("cst_size_txt", DataType.TEXT),
+        ("distance", DataType.INTEGER),
+        ("pct", DataType.TEXT),
+        ("cat", DataType.TEXT),
+        ("country", DataType.TEXT),
+        ("zip", DataType.TEXT),
+        ("email", DataType.TEXT),
+        ("date_updated", DataType.DATE),
+        ("ts", DataType.TIMESTAMP),
+        ("ts_with_tz", DataType.TIMESTAMP_TZ),
+    ],
+    values=generate_customer_records(120)
 )
 
 customers_dist_check_test_table = TestTable(
