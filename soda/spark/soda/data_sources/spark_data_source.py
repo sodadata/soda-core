@@ -219,7 +219,7 @@ class SparkSQLBase(DataSource):
             ),
         )
         query.execute()
-        if len(query.rows) > 0:
+        if query.rows and len(query.rows) > 0:
             rows = query.rows
             # Remove the partitioning information (see https://spark.apache.org/docs/latest/sql-ref-syntax-aux-describe-table.html)
             partition_indices = [i for i in range(len(rows)) if rows[i][0].startswith("# Partition")]
