@@ -120,6 +120,16 @@ class Query:
         # TODO: some of the subclasses couple setting metric with storing the sample - refactor that.
         self.fetchall()
 
+    def _cursor_execute_exception_handler(self, e):
+        data_source = self.data_source_scan.data_source
+        self.exception = e
+        self.logs.error(
+            message=f"Query execution error in {self.query_name}: {e}\n{self.sql}",
+            exception=e,
+            location=self.location,
+        )
+        data_source.query_failed(e)
+
     def _execute_cursor(self, execute=True):
         """
         Execute the SQL query and yield the cursor for further processing.
@@ -143,13 +153,7 @@ class Query:
                     cursor.reset()
                 cursor.close()
         except BaseException as e:
-            self.exception = e
-            self.logs.error(
-                message=f"Query execution error in {self.query_name}: {e}\n{self.sql}",
-                exception=e,
-                location=self.location,
-            )
-            data_source.query_failed(e)
+            self._cursor_execute_exception_handler(e)
         finally:
             self.duration = datetime.now() - start
 
@@ -199,37 +203,40 @@ class Query:
             if hasattr(self, "metric") and self.metric and self.metric.value == undefined:
                 set_metric = True
 
-            if set_metric or allow_samples:
-                self.logs.debug(f"Query {self.query_name}:\n{self.sql}")
-                cursor.execute(str(self.sql))
-                self.description = cursor.description
-                db_sample = DbSample(cursor, self.data_source_scan.data_source, self.samples_limit)
+            try:
+                if set_metric or allow_samples:
+                    self.logs.debug(f"Query {self.query_name}:\n{self.sql}")
+                    cursor.execute(str(self.sql))
+                    self.description = cursor.description
+                    db_sample = DbSample(cursor, self.data_source_scan.data_source, self.samples_limit)
 
-            if set_metric:
-                self.metric.set_value(db_sample.get_rows_count())
+                if set_metric:
+                    self.metric.set_value(db_sample.get_rows_count())
 
-            if allow_samples:
-                # TODO Hacky way to get the check name, check name isn't there when dataset samples are taken
-                check_name = next(iter(self.metric.checks)).name if hasattr(self, "metric") else None
-                sample_context = SampleContext(
-                    sample=db_sample,
-                    sample_name=self.sample_name,
-                    query=self.sql,
-                    data_source=self.data_source_scan.data_source,
-                    partition=self.partition,
-                    column=self.column,
-                    scan=self.data_source_scan.scan,
-                    logs=self.data_source_scan.scan._logs,
-                    samples_limit=self.samples_limit,
-                    passing_sql=self.passing_sql,
-                    check_name=check_name,
-                )
+                if allow_samples:
+                    # TODO Hacky way to get the check name, check name isn't there when dataset samples are taken
+                    check_name = next(iter(self.metric.checks)).name if hasattr(self, "metric") else None
+                    sample_context = SampleContext(
+                        sample=db_sample,
+                        sample_name=self.sample_name,
+                        query=self.sql,
+                        data_source=self.data_source_scan.data_source,
+                        partition=self.partition,
+                        column=self.column,
+                        scan=self.data_source_scan.scan,
+                        logs=self.data_source_scan.scan._logs,
+                        samples_limit=self.samples_limit,
+                        passing_sql=self.passing_sql,
+                        check_name=check_name,
+                    )
 
-                self.sample_ref = sampler.store_sample(sample_context)
-            else:
-                self.logs.info(
-                    f"Skipping samples from query '{self.query_name}'. Excluded column(s) present: {offending_columns}."
-                )
+                    self.sample_ref = sampler.store_sample(sample_context)
+                else:
+                    self.logs.info(
+                        f"Skipping samples from query '{self.query_name}'. Excluded column(s) present: {offending_columns}."
+                    )
+            except BaseException as e:
+                self._cursor_execute_exception_handler(e)
 
     def __append_to_scan(self):
         scan = self.data_source_scan.scan
