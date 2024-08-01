@@ -11,11 +11,12 @@ utc = timezone.utc
 
 def generate_customer_records(num_records):
     fake = Faker()
-    start_date = datetime.now()
+    start_date = datetime(2020, 6, 24, 0, 4, 10)
     records = []
 
     for i in range(num_records):
-        current_date = start_date + timedelta(days=i)
+        backfill_day = i + 1 - num_records
+        current_date = start_date + timedelta(days=backfill_day)
         current_date_with_tz = current_date.astimezone(utc)
 
         record = (
