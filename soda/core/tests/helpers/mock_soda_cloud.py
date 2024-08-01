@@ -152,7 +152,7 @@ class MockSodaCloud(SodaCloud):
         checks = scan_result["checks"]
         assert len(checks) > check_index
         return checks[check_index]
-    
+
     def find_check_metric(self, metric_name: str) -> dict | None:
         assert len(self.scan_results) > 0
         scan_result = self.scan_results[0]

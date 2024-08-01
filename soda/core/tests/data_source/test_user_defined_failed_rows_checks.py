@@ -1,4 +1,4 @@
-from helpers.common_test_tables import customers_test_table, customers_huge_test_table
+from helpers.common_test_tables import customers_huge_test_table, customers_test_table
 from helpers.data_source_fixture import DataSourceFixture
 from helpers.mock_http_request import MockHttpRequest
 from helpers.mock_http_sampler import MockHttpSampler
