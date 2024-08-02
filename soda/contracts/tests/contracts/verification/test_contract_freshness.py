@@ -73,7 +73,12 @@ def test_contract_freshness_fail(test_data_source: TestDataSource, environ: dict
 
     assert "Expected freshness(created) < 3h" in contract_result_str
     assert "Actual freshness(created) was 3:19:50" in contract_result_str
-    assert "Max value in column was ...... 2021-01-01 10:10:10+00:00" in contract_result_str
+
+    if test_data_source.data_source_type.startswith("spark"):
+        assert "Max value in column was ...... 2021-01-01 10:10:10" in contract_result_str
+    else:
+        assert "Max value in column was ...... 2021-01-01 10:10:10+00:00" in contract_result_str
+
     assert "Max value in column in UTC was 2021-01-01 10:10:10+00:00" in contract_result_str
     assert "Now was ...................... 2021-01-01 13:30" in contract_result_str
     assert "Now in UTC was ............... 2021-01-01 13:30:00+00:00" in contract_result_str
