@@ -1,5 +1,5 @@
 from contracts.helpers.contract_parse_errors import get_parse_errors_str
-from contracts.helpers.test_data_source import ContractDataSourceTestHelper
+from contracts.helpers.contract_data_source_test_helper import ContractDataSourceTestHelper
 from helpers.test_table import TestTable
 from soda.execution.data_type import DataType
 
@@ -23,11 +23,9 @@ contracts_invalid_test_table = TestTable(
 
 
 def test_contract_no_invalid_with_valid_values_pass(data_source_test_helper: ContractDataSourceTestHelper):
-    table_name: str = data_source_test_helper.ensure_test_table(contracts_invalid_test_table)
-
     contract_result: ContractResult = data_source_test_helper.assert_contract_pass(
-        f"""
-        dataset: {table_name}
+        test_table=contracts_invalid_test_table,
+        contract_yaml_str=f"""
         columns:
           - name: one
             checks:
@@ -49,11 +47,9 @@ def test_contract_no_invalid_with_valid_values_pass(data_source_test_helper: Con
 
 
 def test_contract_no_invalid_with_valid_values_fail(data_source_test_helper: ContractDataSourceTestHelper):
-    table_name: str = data_source_test_helper.ensure_test_table(contracts_invalid_test_table)
-
     contract_result: ContractResult = data_source_test_helper.assert_contract_fail(
-        f"""
-        dataset: {table_name}
+        test_table=contracts_invalid_test_table,
+        contract_yaml_str=f"""
         columns:
           - name: one
             checks:
@@ -107,11 +103,9 @@ def test_no_invalid_without_valid_configuration():
 
 
 def test_contract_invalid_count_pass(data_source_test_helper: ContractDataSourceTestHelper):
-    table_name: str = data_source_test_helper.ensure_test_table(contracts_invalid_test_table)
-
     contract_result: ContractResult = data_source_test_helper.assert_contract_pass(
-        f"""
-        dataset: {table_name}
+        test_table=contracts_invalid_test_table,
+        contract_yaml_str=f"""
         columns:
           - name: one
             checks:
@@ -134,11 +128,9 @@ def test_contract_invalid_count_pass(data_source_test_helper: ContractDataSource
 
 
 def test_contract_invalid_count_fail(data_source_test_helper: ContractDataSourceTestHelper):
-    table_name: str = data_source_test_helper.ensure_test_table(contracts_invalid_test_table)
-
     contract_result: ContractResult = data_source_test_helper.assert_contract_fail(
-        f"""
-        dataset: {table_name}
+        test_table=contracts_invalid_test_table,
+        contract_yaml_str=f"""
         columns:
           - name: one
             checks:
@@ -162,11 +154,9 @@ def test_contract_invalid_count_fail(data_source_test_helper: ContractDataSource
 
 
 def test_contract_missing_and_invalid_values_pass(data_source_test_helper: ContractDataSourceTestHelper):
-    table_name: str = data_source_test_helper.ensure_test_table(contracts_invalid_test_table)
-
     contract_result: ContractResult = data_source_test_helper.assert_contract_pass(
-        f"""
-        dataset: {table_name}
+        test_table=contracts_invalid_test_table,
+        contract_yaml_str=f"""
         columns:
           - name: one
             checks:
@@ -220,14 +210,11 @@ contracts_invalid_multi_test_table = TestTable(
 
 
 def test_contract_multi_validity_configs(data_source_test_helper: ContractDataSourceTestHelper):
-    table_name: str = data_source_test_helper.ensure_test_table(contracts_invalid_multi_test_table)
-
     # AND logic is applied between all the specified validity configs
     # So ALL of the validity constraints have to be met
-
     contract_result: ContractResult = data_source_test_helper.assert_contract_pass(
-        f"""
-        dataset: {table_name}
+        test_table=contracts_invalid_multi_test_table,
+        contract_yaml_str=f"""
         columns:
           - name: one
             checks:
@@ -268,12 +255,11 @@ contract_reference_test_table = TestTable(
 
 
 def test_contract_column_invalid_reference_check(data_source_test_helper: ContractDataSourceTestHelper):
-    referencing_table_name: str = data_source_test_helper.ensure_test_table(contract_reference_test_table)
     reference_data_table_name: str = data_source_test_helper.ensure_test_table(contracts_invalid_test_table)
 
     contract_result: ContractResult = data_source_test_helper.assert_contract_fail(
-        f"""
-        dataset: {referencing_table_name}
+        test_table=contract_reference_test_table,
+        contract_yaml_str=f"""
         columns:
           - name: id
           - name: ref_id

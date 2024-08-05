@@ -1,6 +1,6 @@
 import pytest
 
-from contracts.helpers.test_data_source import ContractDataSourceTestHelper
+from contracts.helpers.contract_data_source_test_helper import ContractDataSourceTestHelper
 
 
 @pytest.fixture(scope="session")

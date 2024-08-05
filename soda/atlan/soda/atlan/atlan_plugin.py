@@ -42,8 +42,6 @@ class AtlanPlugin(Plugin):
             return None
 
         contract_dict: dict = contract_result.contract.contract_file.dict.copy()
-        contract_dict.setdefault("type", "Table")
-        contract_dict.setdefault("status", "DRAFT")
         contract_dict.setdefault("kind", "DataContract")
 
         contract_json_str: str = dumps(contract_dict)

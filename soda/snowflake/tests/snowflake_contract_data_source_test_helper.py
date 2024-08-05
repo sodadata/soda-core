@@ -5,13 +5,13 @@ import os
 from contracts.helpers.contract_data_source_test_helper import ContractDataSourceTestHelper
 
 
-class PostgresContractDataSourceTestHelper(ContractDataSourceTestHelper):
+class SnowflakeContractDataSourceTestHelper(ContractDataSourceTestHelper):
 
     def __init__(self):
         super().__init__()
 
     def _create_database_name(self) -> str:
-        return os.getenv("POSTGRES_DATABASE", "sodasql")
+        return os.getenv("SNOWFLAKE_DATABASE", "sodasql")
 
     def _create_contract_data_source_yaml_dict(
         self,
@@ -19,13 +19,13 @@ class PostgresContractDataSourceTestHelper(ContractDataSourceTestHelper):
         schema_name: str | None
     ) -> dict:
         return {
-            "type": "postgres",
-            "name": "postgres_test_ds",
+            "type": "snowflake",
+            "name": "snowflake_test_ds",
             "connection": {
-                "host": "localhost",
-                "user": os.getenv("POSTGRES_USERNAME", "sodasql"),
-                "password": os.getenv("POSTGRES_PASSWORD"),
-                "port": int(os.getenv("POSTGRES_PORT", "5432")),
+                "account": os.getenv("SNOWFLAKE_ACCOUNT"),
+                "user": os.getenv("SNOWFLAKE_USERNAME"),
+                "password": os.getenv("SNOWFLAKE_PASSWORD"),
+                "schema": schema_name if schema_name else os.getenv("SNOWFLAKE_SCHEMA", "public"),
                 "database": database_name
             }
         }

@@ -1,5 +1,5 @@
 from contracts.helpers.contract_test_tables import contracts_test_table
-from contracts.helpers.test_data_source import ContractDataSourceTestHelper
+from contracts.helpers.contract_data_source_test_helper import ContractDataSourceTestHelper
 
 
 def test_contract_without_dataset(test_data_source: ContractDataSourceTestHelper):

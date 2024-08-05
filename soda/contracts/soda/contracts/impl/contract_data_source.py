@@ -3,22 +3,25 @@ from __future__ import annotations
 import importlib
 import logging
 import re
+import textwrap
 from abc import ABC, abstractmethod
 
-
-import soda.common.logs as soda_common_logs
-from soda.contracts.impl.sodacl_log_converter import SodaClLogConverter
-from soda.execution.data_source import DataSource as SodaCLDataSource
-
+from helpers.test_table import TestTable
 from soda.contracts.impl.logs import Logs
+from soda.contracts.impl.sodacl_log_converter import SodaClLogConverter
+from soda.contracts.impl.sql_dialect import SqlDialect
 from soda.contracts.impl.yaml_helper import YamlFile, YamlHelper
+from soda.execution.data_source import DataSource as SodaCLDataSource
 
 logger = logging.getLogger(__name__)
 
 
 class ContractDataSource(ABC):
     """
-    Represents the configurations to create a connection. Usually it's loaded from a YAML file.
+    Takes configuration as input that is usually loaded from a data source YAML file.
+    Is responsible for creating the connection in a with-block.  (see __enter__ and __exit__)
+    Exposes methods to the rest of the engine that encapsulate interaction with the SQL connection.
+    This class uses self.sql_dialect to build the SQL statement strings.
     """
 
     __KEY_TYPE = "type"
@@ -50,7 +53,7 @@ class ContractDataSource(ABC):
 
     @classmethod
     def _create_data_source_class_name(cls, data_source_type: str) -> str:
-        return f"{cls._camel_case_data_source_type(data_source_type)}DataSource"
+        return f"{cls._camel_case_data_source_type(data_source_type)}ContractDataSource"
 
     @classmethod
     def _camel_case_data_source_type(cls, test_data_source_type) -> str:
@@ -89,9 +92,10 @@ class ContractDataSource(ABC):
         yaml_helper: yaml_helper = YamlHelper(yaml_file=data_source_yaml_file, logs=self.logs)
         self.type = yaml_helper.read_string(self.data_source_yaml_dict, self.__KEY_TYPE)
         self.name = yaml_helper.read_string(self.data_source_yaml_dict, self.__KEY_NAME)
-
         if isinstance(self.name, str) and not re.match("[_a-z0-9]+", self.name):
             self.logs.error(f"Data source name must contain only lower case letters, numbers and underscores.  Was {self.name}")
+
+        self.sql_dialect: SqlDialect = self._create_sql_dialect()
 
         self.connection_yaml_dict: dict | None = yaml_helper.read_dict(self.data_source_yaml_dict, self.__KEY_CONNECTION)
 
@@ -102,26 +106,44 @@ class ContractDataSource(ABC):
         # In the test suite this is used and later this may be used when passing in a user defined DBAPI connection
         self.close_connection: bool = False
 
-    def __enter__(self) -> ContractDataSource:
-        self.open()
-        return self
+        # The database name in the current connection context & current contract if applicable for this data source type
+        # Updated in the ensure_connection method
+        self.database_name: str | None = None
+        # The schema name in the current connection context & current contract if applicable for this data source type
+        # Updated in the ensure_connection method
+        self.schema_name: str | None = None
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        try:
-            self.close()
-        except Exception as e:
-            logger.warning(f"Could not close connection: {e}")
+
+    @abstractmethod
+    def _create_sql_dialect(self) -> SqlDialect:
+        raise NotImplementedError(f"{type(self).__name__} must override ContractDataSource._create_sql_dialect")
 
     def __str__(self) -> str:
         return self.name
 
-    def open(self) -> None:
+    def ensure_connection(self, database_name: str | None, schema_name: str | None) -> None:
+        """
+        Ensures that an open connection is available.
+        After this method ends, the open connection must have the database_name and optionally
+        the schema_name as context as far as these are applicable for the specific data source type.
+        Potentially closes and re-opens the self.connection if the existing connection has a different database
+        or schema context compared to the given database_name and schema_name for the next contract.
+        """
+        if self._is_different_connection_context(database_name, schema_name):
+            self.close()
+
         if self.connection is None:
             try:
                 self.connection = self._create_connection(self.connection_yaml_dict)
                 self.close_connection = True
             except Exception as e:
-                self.logs.error(f"Could not connect to '{self.name}': {e}")
+                self.logs.error(f"Could not connect to '{self.name}': {e}", exception=e)
+
+    def _is_different_connection_context(self, database_name: str, schema_name: str):
+        """
+        By default, only the database name is considered part of the connection context
+        """
+        return self.database_name != database_name
 
     @abstractmethod
     def _create_connection(self, connection_yaml_dict: dict) -> object:
@@ -145,6 +167,30 @@ class ContractDataSource(ABC):
             f"{data_source_type} connection properties: {dict_without_pwd}"
         )
 
+    def _create_sodacl_data_source(self,
+                                   database_name: str | None,
+                                   schema_name: str | None,
+                                   sodacl_data_source_name: str,
+                                   ) -> SodaCLDataSource:
+        """
+        Create SodaCL DataSource using the self.connection and sodacl_data_source_name
+        """
+        try:
+            data_source_properties = self.connection_yaml_dict.copy()
+            data_source_properties["database"] = database_name
+            data_source_properties["schema"] = schema_name
+            sodacl_data_source: SodaCLDataSource = SodaCLDataSource.create(
+                logs=SodaClLogConverter(self.logs),
+                data_source_name=sodacl_data_source_name,
+                data_source_type=self.type,
+                data_source_properties=data_source_properties,
+            )
+            sodacl_data_source.connection = self.connection
+            return sodacl_data_source
+
+        except Exception as e:
+            self.logs.error(message=f"Could not create the data source: {e}", exception=e)
+
     def close(self) -> None:
         """
         Closes te connection. This method will not throw any exceptions.
@@ -158,6 +204,44 @@ class ContractDataSource(ABC):
             finally:
                 self.connection = None
 
+    def select_existing_test_table_names(self, database_name: str | None, schema_name: str | None) -> list[str]:
+        sql = self.sql_dialect.stmt_select_table_names(
+            database_name=database_name,
+            schema_name=schema_name,
+            table_name_like_filter="sodatest_%"
+        )
+        rows = self._execute_sql_fetch_all(sql)
+        return [row[0] for row in rows]
+
+
+    def _execute_sql_fetch_all(self, sql: str) -> list[tuple]:
+        cursor = self.connection.cursor()
+        try:
+            sql_indented = textwrap.indent(text=sql, prefix="  #   ")
+            logger.debug(f"SQL query fetchall: \n{sql_indented}")
+            cursor.execute(sql)
+            rows = cursor.fetchall()
+            logger.debug(" | ".join([c[0] for c in cursor.description]))
+            for row in rows:
+                logger.debug(" | ".join([e for e in row]))
+            return rows
+        finally:
+            cursor.close()
+
+    def _execute_sql_update(self, sql: str) -> object:
+        cursor = self.connection.cursor()
+        try:
+            sql_indented = textwrap.indent(text=sql, prefix="  # ")
+            logger.debug(f"SQL update: \n{sql_indented}")
+            updates = cursor.execute(sql)
+            self.connection.commit()
+            return updates
+        finally:
+            cursor.close()
+
+    def commit(self):
+        self.connection.commit()
+
 
 class ClContractDataSource(ContractDataSource, ABC):
 
@@ -165,36 +249,11 @@ class ClContractDataSource(ContractDataSource, ABC):
         super().__init__(data_source_yaml_file=data_source_yaml_file)
         self.sodacl_data_source: SodaCLDataSource | None = None
 
-    @abstractmethod
-    def _create_sodacl_data_source(self,
-                                   database_name: str | None,
-                                   schema_name: str | None,
-                                   sodacl_data_source_name: str,
-                                   sodacl_logs: SodaClLogConverter,
-                                   ) -> SodaCLDataSource:
-        """
-        Create SodaCL DataSource using the self.connection and sodacl_data_source_name
-        """
-        pass
-
 
 class FileClContractDataSource(ClContractDataSource):
 
     def __init__(self, data_source_yaml_file: YamlFile):
         super().__init__(data_source_yaml_file=data_source_yaml_file)
-
-    def _create_sodacl_data_source(self, sodacl_data_source_name: str) -> SodaCLDataSource:
-        # consider translating postgres schema search_path option
-        # options = f"-c search_path={schema}" if schema else None
-        try:
-            return SodaCLDataSource.create(
-                logs=soda_common_logs.Logs(logger=logger),
-                data_source_name=sodacl_data_source_name,
-                data_source_type=self.type,
-                data_source_properties=self.connection_yaml_dict,
-            )
-        except Exception as e:
-            self.logs.error(message=f"Could not create the data source: {e}", exception=e)
 
 
 class SparkSessionClContractDataSource(ClContractDataSource):
@@ -202,16 +261,3 @@ class SparkSessionClContractDataSource(ClContractDataSource):
     def __init__(self, data_source_yaml_file: YamlFile):
         super().__init__(data_source_yaml_file)
         self.spark_session: object = self.data_source_yaml_dict[self.__KEY_SPARK_SESSION]
-
-    def _create_sodacl_data_source(self, sodacl_data_source_name: str) -> SodaCLDataSource:
-        try:
-            sodacl_data_source_properties = self.connection_yaml_dict.copy()
-            sodacl_data_source_properties["spark_session"] = self.spark_session
-            return SodaCLDataSource.create(
-                logs=soda_common_logs.Logs(logger=logger),
-                data_source_name=sodacl_data_source_name,
-                data_source_type=self.type,
-                data_source_properties=sodacl_data_source_properties
-            )
-        except Exception as e:
-            self.logs.error(message=f"Could not create the spark session data source: {e}", exception=e)
