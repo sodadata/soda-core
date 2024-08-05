@@ -346,7 +346,7 @@ class ContractVerification:
         # Serialize the SodaCL YAML object to a YAML string
         sodacl_checks: list = []
 
-        dataset_name: str = self.current_contract_data_source.sql_dialect.quote_default(contract.dataset_name)
+        dataset_name: str = contract.dataset_name
         sodacl_yaml_object: dict = (
             {
                 f"filter {dataset_name} [filter]": {"where": contract.filter_sql},

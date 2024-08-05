@@ -177,7 +177,12 @@ class SqlDialect:
             schema_name: str | None,
             test_table: TestTable
     ) -> str:
+
         table_name_qualified_quoted = self.quote_table(
+            database_name=database_name,
+            schema_name=schema_name,
+            table_name=test_table.unique_table_name
+        ) if test_table.quote_names else self.qualify_table(
             database_name=database_name,
             schema_name=schema_name,
             table_name=test_table.unique_table_name
@@ -213,7 +218,12 @@ class SqlDialect:
                 database_name=database_name,
                 schema_name=schema_name,
                 table_name=test_table.unique_table_name
+            ) if test_table.quote_names else self.qualify_table(
+                database_name=database_name,
+                schema_name=schema_name,
+                table_name=test_table.unique_table_name
             )
+
             def sql_test_table_row(row):
                 return ",".join([self.literal(value) for value in row])
 
@@ -222,12 +232,18 @@ class SqlDialect:
 
     def quote_table(self, database_name: str | None, schema_name: str, table_name: str) -> str:
         """
-        Creates a fully qualified, quoted table name to be used when referencing an existing table in a sql statement (read mode).
+        Creates a fully qualified, quoted table name.
         """
         return f"{self.quote_default(schema_name)}.{self.quote_default(table_name)}"
 
     def quote_default(self, table_name: str) -> str:
         return f'{self.default_quote_char}{table_name}{self.default_quote_char}'
+
+    def qualify_table(self, database_name: str | None, schema_name: str, table_name: str) -> str:
+        """
+        Creates a fully qualified, non-quoted table name.
+        """
+        return f"{schema_name}.{table_name}"
 
     def literal(self, o: object) -> str:
         if o is None:
