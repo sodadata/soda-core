@@ -1,7 +1,6 @@
 import logging
 import os
 import platform
-from distutils.util import strtobool
 from typing import Dict
 
 from opentelemetry import trace
@@ -85,8 +84,8 @@ class SodaTelemetry:
 
     def __setup(self):
         """Set up Open Telemetry processors and exporters for normal use."""
-        local_debug_mode = self.soda_config.get_value("telemetry_local_debug_mode") or bool(
-            strtobool(os.getenv("telemetry_local_debug_mode", "false"))
+        local_debug_mode = self.soda_config.get_value("telemetry_local_debug_mode") or (
+            os.getenv("telemetry_local_debug_mode", "false").lower() in ("y", "yes", "t", "true", "on", "1")
         )
 
         if local_debug_mode or logger.getEffectiveLevel() == logging.DEBUG:
