@@ -44,7 +44,7 @@ def test_contract_avg(data_source_test_helper: ContractDataSourceTestHelper):
     assert isinstance(check, MetricCheck)
     assert check.type == "avg"
     assert check.metric == "avg"
-    assert check.column == "one"
+    assert check.column.lower() == "one"
 
     assert "Actual avg(one) was 2" in str(contract_result)
 
@@ -72,6 +72,6 @@ def test_contract_sum(data_source_test_helper: ContractDataSourceTestHelper):
     assert isinstance(check, MetricCheck)
     assert check.type == "sum"
     assert check.metric == "sum"
-    assert check.column == "one"
+    assert check.column.lower() == "one"
 
     assert "Actual sum(one) was 6" in str(contract_result)

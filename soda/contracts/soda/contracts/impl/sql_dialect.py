@@ -58,12 +58,12 @@ class SqlDialect:
         Builds the full SQL query to query table names from the data source metadata.
         """
         table_name_column: str = self.sql_information_schema_tables_table_column()
-        table_name_column_quoted: str = self.quote_default(table_name_column)
-        information_schema_table_name_qualified_quoted: str = self.information_schema_table_name_qualified_quoted()
+        # table_name_column_quoted: str = self.quote_default(table_name_column)
+        information_schema_table_name_qualified: str = self.information_schema_table_name_qualified()
 
         sql = (
-            f"SELECT {table_name_column_quoted} \n"
-            f"FROM {information_schema_table_name_qualified_quoted}"
+            f"SELECT {table_name_column} \n"
+            f"FROM {information_schema_table_name_qualified}"
         )
 
         where_clauses: list[str] = self._filter_clauses_information_schema_table_name(
@@ -76,10 +76,10 @@ class SqlDialect:
 
         return sql
 
-    def information_schema_table_name_qualified_quoted(self) -> str:
+    def information_schema_table_name_qualified(self) -> str:
         information_schema_schema_name: str = self.information_schema_schema_name()
         information_schema_table_name: str = self.information_schema_table_name()
-        return self.quote_table(
+        return self.qualify_table(
             database_name=None,
             schema_name=information_schema_schema_name,
             table_name=information_schema_table_name
@@ -128,29 +128,29 @@ class SqlDialect:
         if database_name:
             database_column_name: str | None = self.sql_information_schema_tables_database_column()
             if database_column_name:
-                database_column_name_quoted: str = self.quote_default(database_column_name)
+                # database_column_name: str = self.quote_default(database_column_name)
                 database_name_lower: str = database_name.lower()
-                where_clauses.append(f"LOWER({database_column_name_quoted}) = '{database_name_lower}'")
+                where_clauses.append(f"LOWER({database_column_name}) = '{database_name_lower}'")
 
         if schema_name:
             schema_column_name: str | None = self.sql_information_schema_tables_schema_column()
             if schema_column_name:
-                schema_column_name_quoted: str = self.quote_default(schema_column_name)
+                # schema_column_name: str = self.quote_default(schema_column_name)
                 schema_name_lower: str = schema_name.lower()
-                where_clauses.append(f"LOWER({schema_column_name_quoted}) = '{schema_name_lower}'")
+                where_clauses.append(f"LOWER({schema_column_name}) = '{schema_name_lower}'")
 
         table_name_column = self.sql_information_schema_tables_table_column()
-        table_name_column_quoted = self.quote_default(table_name_column)
+        # table_name_column = self.quote_default(table_name_column)
 
         if table_name_like_filter:
-            where_clauses.append(f"LOWER({table_name_column_quoted}) LIKE '{table_name_like_filter.lower()}'")
+            where_clauses.append(f"LOWER({table_name_column}) LIKE '{table_name_like_filter.lower()}'")
 
         def build_table_matching_conditions(table_expressions: list[str], comparison_operator: str):
             conditions = []
             if table_expressions:
                 for table_expression in table_expressions:
                     table_expression_lower: str = table_expression.lower()
-                    conditions.append(f"LOWER({table_name_column_quoted}) {comparison_operator} '{table_expression_lower}'")
+                    conditions.append(f"LOWER({table_name_column}) {comparison_operator} '{table_expression_lower}'")
             return conditions
 
         if include_table_name_like_filters:
@@ -236,14 +236,17 @@ class SqlDialect:
         """
         return f"{self.quote_default(schema_name)}.{self.quote_default(table_name)}"
 
-    def quote_default(self, table_name: str) -> str:
-        return f'{self.default_quote_char}{table_name}{self.default_quote_char}'
+    def quote_default(self, identifier: str) -> str:
+        return f'{self.default_quote_char}{identifier}{self.default_quote_char}'
 
     def qualify_table(self, database_name: str | None, schema_name: str, table_name: str) -> str:
         """
         Creates a fully qualified, non-quoted table name.
         """
         return f"{schema_name}.{table_name}"
+
+    def default_casify(self, identifier: str) -> str:
+        return identifier.lower()
 
     def literal(self, o: object) -> str:
         if o is None:

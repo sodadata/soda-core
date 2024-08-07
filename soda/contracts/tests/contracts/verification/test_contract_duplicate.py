@@ -43,7 +43,7 @@ def test_contract_no_duplicate_values(data_source_test_helper: ContractDataSourc
     assert isinstance(check, MetricCheck)
     assert check.type == "no_duplicate_values"
     assert check.metric == "duplicate_count"
-    assert check.column == "one"
+    assert check.column.lower() == "one"
 
     assert "Actual duplicate_count(one) was 1" in str(contract_result)
 
@@ -71,7 +71,7 @@ def test_contract_duplicate_count(data_source_test_helper: ContractDataSourceTes
     assert isinstance(check, MetricCheck)
     assert check.type == "duplicate_count"
     assert check.metric == "duplicate_count"
-    assert check.column == "one"
+    assert check.column.lower() == "one"
 
     assert "Actual duplicate_count(one) was 1" in str(contract_result)
 
@@ -99,6 +99,6 @@ def test_contract_duplicate_percent(data_source_test_helper: ContractDataSourceT
     assert isinstance(check, MetricCheck)
     assert check.type == "duplicate_percent"
     assert check.metric == "duplicate_percent"
-    assert check.column == "one"
+    assert check.column.lower() == "one"
 
     assert "Actual duplicate_percent(one) was 25" in str(contract_result)

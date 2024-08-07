@@ -43,7 +43,7 @@ def test_contract_no_invalid_with_valid_values_pass(data_source_test_helper: Con
     assert isinstance(check, MetricCheck)
     assert check.type == "no_invalid_values"
     assert check.metric == "invalid_count"
-    assert check.column == "one"
+    assert check.column.lower() == "one"
 
 
 def test_contract_no_invalid_with_valid_values_fail(data_source_test_helper: ContractDataSourceTestHelper):
@@ -67,9 +67,9 @@ def test_contract_no_invalid_with_valid_values_fail(data_source_test_helper: Con
     assert isinstance(check, MetricCheck)
     assert check.type == "no_invalid_values"
     assert check.metric == "invalid_count"
-    assert check.column == "one"
+    assert check.column.lower() == "one"
 
-    assert "Actual invalid_count(one) was 2" in str(contract_result)
+    assert "actual invalid_count(one) was 2" in str(contract_result).lower()
 
 
 def test_no_invalid_with_threshold():
@@ -124,7 +124,7 @@ def test_contract_invalid_count_pass(data_source_test_helper: ContractDataSource
     assert isinstance(check, MetricCheck)
     assert check.type == "invalid_count"
     assert check.metric == "invalid_count"
-    assert check.column == "one"
+    assert check.column.lower() == "one"
 
 
 def test_contract_invalid_count_fail(data_source_test_helper: ContractDataSourceTestHelper):
@@ -148,9 +148,9 @@ def test_contract_invalid_count_fail(data_source_test_helper: ContractDataSource
     assert isinstance(check, MetricCheck)
     assert check.type == "invalid_count"
     assert check.metric == "invalid_count"
-    assert check.column == "one"
+    assert check.column.lower() == "one"
 
-    assert "Actual invalid_count(one) was 2" in str(contract_result)
+    assert "actual invalid_count(one) was 2" in str(contract_result).lower()
 
 
 def test_contract_missing_and_invalid_values_pass(data_source_test_helper: ContractDataSourceTestHelper):
@@ -178,7 +178,7 @@ def test_contract_missing_and_invalid_values_pass(data_source_test_helper: Contr
     assert isinstance(check, MetricCheck)
     assert check.type == "missing_count"
     assert check.metric == "missing_count"
-    assert check.column == "one"
+    assert check.column.lower() == "one"
 
     check_result = contract_result.check_results[2]
     assert isinstance(check_result, MetricCheckResult)
@@ -189,7 +189,7 @@ def test_contract_missing_and_invalid_values_pass(data_source_test_helper: Contr
     assert isinstance(check, MetricCheck)
     assert check.type == "invalid_count"
     assert check.metric == "invalid_count"
-    assert check.column == "one"
+    assert check.column.lower() == "one"
 
 
 contracts_invalid_multi_test_table = TestTable(
@@ -234,7 +234,7 @@ def test_contract_multi_validity_configs(data_source_test_helper: ContractDataSo
     assert isinstance(check, MetricCheck)
     assert check.type == "invalid_count"
     assert check.metric == "invalid_count"
-    assert check.column == "one"
+    assert check.column.lower() == "one"
 
 
 contract_reference_test_table = TestTable(
@@ -281,6 +281,6 @@ def test_contract_column_invalid_reference_check(data_source_test_helper: Contra
     assert isinstance(check, MetricCheck)
     assert check.type == "no_invalid_values"
     assert check.metric == "invalid_count"
-    assert check.column == "ref_id"
+    assert check.column.lower() == "ref_id"
 
-    assert "Actual invalid_count(ref_id) was 2" in str(contract_result)
+    assert "actual invalid_count(ref_id) was 2" in str(contract_result).lower()

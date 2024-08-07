@@ -74,7 +74,7 @@ def test_contract_nomissing_with_missing_values(data_source_test_helper: Contrac
     assert isinstance(check, MetricCheck)
     assert check.type == "no_missing_values"
     assert check.metric == "missing_count"
-    assert check.column == "one"
+    assert check.column.lower() == "one"
 
     assert "Actual missing_count(one) was 1" in str(contract_result)
 
@@ -102,7 +102,7 @@ def test_contract_nomissing_without_missing_values(data_source_test_helper: Cont
     assert isinstance(check, MetricCheck)
     assert check.type == "no_missing_values"
     assert check.metric == "missing_count"
-    assert check.column == "two"
+    assert check.column.lower() == "two"
 
 
 def test_contract_missing_count_with_missing_values(data_source_test_helper: ContractDataSourceTestHelper):
@@ -129,7 +129,7 @@ def test_contract_missing_count_with_missing_values(data_source_test_helper: Con
     assert isinstance(check, MetricCheck)
     assert check.type == "missing_count"
     assert check.metric == "missing_count"
-    assert check.column == "one"
+    assert check.column.lower() == "one"
 
     assert "Actual missing_count(one) was 1" in str(contract_result)
 
@@ -158,7 +158,7 @@ def test_contract_missing_count_pass(data_source_test_helper: ContractDataSource
     assert isinstance(check, MetricCheck)
     assert check.type == "missing_count"
     assert check.metric == "missing_count"
-    assert check.column == "one"
+    assert check.column.lower() == "one"
 
 
 def test_contract_missing_count_with_missing_values_pass(data_source_test_helper: ContractDataSourceTestHelper):
@@ -186,7 +186,7 @@ def test_contract_missing_count_with_missing_values_pass(data_source_test_helper
     assert isinstance(check, MetricCheck)
     assert check.type == "missing_count"
     assert check.metric == "missing_count"
-    assert check.column == "one"
+    assert check.column.lower() == "one"
 
 
 def test_contract_missing_count_with_missing_regex_sql(data_source_test_helper: ContractDataSourceTestHelper):
@@ -214,7 +214,7 @@ def test_contract_missing_count_with_missing_regex_sql(data_source_test_helper: 
     assert isinstance(check, MetricCheck)
     assert check.type == "missing_count"
     assert check.metric == "missing_count"
-    assert check.column == "one"
+    assert check.column.lower() == "one"
 
     assert "Actual missing_count(one) was 2" in str(contract_result)
 
@@ -245,4 +245,4 @@ def test_contract_missing_count_name_and_threshold(data_source_test_helper: Cont
     assert check.type == "missing_count"
     assert check.name == "Missing values count must be between 0 and 3"
     assert check.metric == "missing_count"
-    assert check.column == "one"
+    assert check.column.lower() == "one"

@@ -104,7 +104,7 @@ class ContractDataSource(ABC):
 
         # Only if the open method has opened a connection should the close method close the connection
         # In the test suite this is used and later this may be used when passing in a user defined DBAPI connection
-        self.close_connection: bool = False
+        self.close_connection_enabled: bool = False
 
         # The database name in the current connection context & current contract if applicable for this data source type
         # Updated in the ensure_connection method
@@ -121,7 +121,7 @@ class ContractDataSource(ABC):
     def __str__(self) -> str:
         return self.name
 
-    def ensure_connection(self, database_name: str | None, schema_name: str | None) -> None:
+    def open_connection(self) -> None:
         """
         Ensures that an open connection is available.
         After this method ends, the open connection must have the database_name and optionally
@@ -129,15 +129,23 @@ class ContractDataSource(ABC):
         Potentially closes and re-opens the self.connection if the existing connection has a different database
         or schema context compared to the given database_name and schema_name for the next contract.
         """
-        if self._is_different_connection_context(database_name, schema_name):
-            self.close()
-
         if self.connection is None:
             try:
                 self.connection = self._create_connection(self.connection_yaml_dict)
-                self.close_connection = True
+                self.close_connection_enabled = True
             except Exception as e:
                 self.logs.error(f"Could not connect to '{self.name}': {e}", exception=e)
+
+    def set_contract_context(self, database_name: str | None, schema_name: str | None) -> None:
+        """
+        Ensures that an open connection is available.
+        After this method ends, the open connection must have the database_name and optionally
+        the schema_name as context as far as these are applicable for the specific data source type.
+        Potentially closes and re-opens the self.connection if the existing connection has a different database
+        or schema context compared to the given database_name and schema_name for the next contract.
+        """
+        self.database_name = database_name
+        self.schema_name = schema_name
 
     def _is_different_connection_context(self, database_name: str, schema_name: str):
         """
@@ -191,12 +199,12 @@ class ContractDataSource(ABC):
         except Exception as e:
             self.logs.error(message=f"Could not create the data source: {e}", exception=e)
 
-    def close(self) -> None:
+    def close_connection(self) -> None:
         """
         Closes te connection. This method will not throw any exceptions.
         Check errors with has_errors or assert_no_errors.
         """
-        if self.close_connection and self.connection:
+        if self.close_connection_enabled and self.connection:
             try:
                 self.connection.close()
             except Exception as e:
