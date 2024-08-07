@@ -48,6 +48,6 @@ def test_contract_check_filter(data_source_test_helper: ContractDataSourceTestHe
     assert isinstance(check, MetricCheck)
     assert check.type == "no_invalid_values"
     assert check.metric == "invalid_count"
-    assert check.column == "currency"
+    assert check.column.lower() == "currency"
 
     assert "Actual invalid_count(currency) was 1" in str(contract_result)

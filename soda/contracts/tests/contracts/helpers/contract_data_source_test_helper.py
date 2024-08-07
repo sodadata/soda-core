@@ -8,6 +8,9 @@ import string
 from importlib import import_module
 from textwrap import dedent
 
+from ruamel.yaml import YAML, round_trip_dump
+from six import StringIO
+
 from helpers.test_table import TestTable
 from soda.contracts.contract import ContractResult
 from soda.contracts.contract_verification import (
@@ -17,6 +20,7 @@ from soda.contracts.contract_verification import (
 )
 from soda.contracts.impl.contract_data_source import ContractDataSource
 from soda.contracts.impl.logs import Logs
+from soda.contracts.impl.sql_dialect import SqlDialect
 from soda.contracts.impl.yaml_helper import YamlFile
 from soda.execution.data_source import DataSource as SodaCLDataSource
 
@@ -48,10 +52,8 @@ class TestContractVerification(ContractVerification):
     def __init__(self, test_contract_verification_builder: TestContractVerificationBuilder):
         super().__init__(contract_verification_builder=test_contract_verification_builder)
 
-    def _initialize_data_sources(self, contract_verification_builder: ContractVerificationBuilder) -> None:
-        super()._initialize_data_sources(contract_verification_builder)
-        data_source = contract_verification_builder.data_source
-        self._initialize_data_source(data_source)
+    def _initialize_data_source(self, contract_verification_builder: ContractVerificationBuilder) -> None:
+        self.data_source = contract_verification_builder.data_source
 
 
 class ContractDataSourceTestHelper:
@@ -156,7 +158,8 @@ class ContractDataSourceTestHelper:
         return schema_name
 
     def __enter__(self) -> ContractDataSourceTestHelper:
-        self.contract_data_source.ensure_connection(database_name=self.database_name, schema_name=self.schema_name)
+        self.contract_data_source.open_connection()
+        self.contract_data_source.close_connection_enabled = False
         if self.contract_data_source.logs.has_errors():
             e = next((l.exception for l in reversed(self.contract_data_source.logs.logs) if l.exception), None)
             raise AssertionError(f"Connection creation has errors: {self.contract_data_source.logs}") from e
@@ -166,7 +169,8 @@ class ContractDataSourceTestHelper:
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        self.contract_data_source.close()
+        self.contract_data_source.close_connection_enabled = True
+        self.contract_data_source.close_connection()
         if self.is_cicd:
             self.drop_test_schema_if_exists(self.schema_name)
 
@@ -248,9 +252,11 @@ class ContractDataSourceTestHelper:
         ds._execute_sql_update(insert_table_sql)
 
     def assert_contract_pass(self, test_table: TestTable, contract_yaml_str: str, variables: dict[str, str] | None = None) -> ContractResult:
-        table_name: str = self.ensure_test_table(test_table)
-        full_contract_yaml_str = self._build_full_contract_yaml_str(table_name=table_name, contract_yaml_str=contract_yaml_str)
-        logging.debug(contract_yaml_str)
+        unique_table_name: str = self.ensure_test_table(test_table)
+        full_contract_yaml_str = self._build_full_contract_yaml_str(
+            test_table=test_table, unique_table_name=unique_table_name, contract_yaml_str=contract_yaml_str
+        )
+        logging.debug(full_contract_yaml_str)
         contract_verification_result: ContractVerificationResult = (
             TestContractVerification.builder()
             .with_data_source(self.contract_data_source)
@@ -264,8 +270,10 @@ class ContractDataSourceTestHelper:
         return contract_verification_result.contract_results[0]
 
     def assert_contract_fail(self, test_table: TestTable, contract_yaml_str: str, variables: dict[str, str] | None = None) -> ContractResult:
-        table_name: str = self.ensure_test_table(test_table)
-        full_contract_yaml_str = self._build_full_contract_yaml_str(table_name=table_name, contract_yaml_str=contract_yaml_str)
+        unique_table_name: str = self.ensure_test_table(test_table)
+        full_contract_yaml_str = self._build_full_contract_yaml_str(
+            test_table=test_table, unique_table_name=unique_table_name, contract_yaml_str=contract_yaml_str
+        )
         logging.debug(full_contract_yaml_str)
         contract_verification_result: ContractVerificationResult = (
             TestContractVerification.builder()
@@ -300,13 +308,27 @@ class ContractDataSourceTestHelper:
         logging.debug(f"Contract result: {contract_result_str}")
         return contract_verification_result
 
-    def _build_full_contract_yaml_str(self, table_name: str, contract_yaml_str: str):
+    def _build_full_contract_yaml_str(self, test_table: TestTable, unique_table_name: str, contract_yaml_str: str):
         header_contract_yaml_str = dedent(f"""
-                dataset: {table_name}
+                dataset: {unique_table_name}
                 data_source: {self.contract_data_source.name}
                 database: {self.database_name}
                 schema: {self.schema_name}
 
             """).strip()
         checks_contract_yaml_str = dedent(contract_yaml_str).strip()
+
+        if not test_table.quote_names:
+            sql_dialect: SqlDialect = self.contract_data_source.sql_dialect
+            ruamel_yaml: YAML = YAML()
+            ruamel_yaml.preserve_quotes = True
+            contract_content_dict: dict = ruamel_yaml.load(checks_contract_yaml_str)
+            for column_yaml_dict in contract_content_dict["columns"]:
+                original_column_name: str = column_yaml_dict["name"]
+                actual_column_name: str = sql_dialect.default_casify(original_column_name)
+                column_yaml_dict["name"] = actual_column_name
+            stream = StringIO()
+            round_trip_dump(contract_content_dict, stream=stream)
+            checks_contract_yaml_str = stream.getvalue()
+
         return f"{header_contract_yaml_str}\n{checks_contract_yaml_str}"

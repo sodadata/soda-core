@@ -47,7 +47,7 @@ def test_contract_column_metric_expression(data_source_test_helper: ContractData
     assert isinstance(check, UserDefinedMetricExpressionCheck)
     assert check.type == "metric_expression"
     assert check.metric == "us_count"
-    assert check.column == "country"
+    assert check.column.lower() == "country"
 
     assert "Actual us_count(country) was 2" in str(contract_result)
 

@@ -50,7 +50,7 @@ def test_contract_metric_query_on_column(data_source_test_helper: ContractDataSo
     assert isinstance(check, UserDefinedMetricQueryCheck)
     assert check.type == "metric_query"
     assert check.metric == "us_count"
-    assert check.column == "id"
+    assert check.column.lower() == "id"
 
     assert "Actual us_count(id) was 2" in str(contract_result)
 

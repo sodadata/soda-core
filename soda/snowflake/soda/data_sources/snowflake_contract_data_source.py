@@ -11,6 +11,14 @@ logger = logging.getLogger(__name__)
 
 
 class SnowflakeSqlDialect(SqlDialect):
+
+
+    def stmt_drop_schema_if_exists(self, database_name: str, schema_name: str) -> str:
+        return f"DROP SCHEMA IF EXISTS {schema_name} CASCADE"
+
+    def stmt_create_schema_if_exists(self, schema_name) -> str:
+        return f"CREATE SCHEMA IF NOT EXISTS {schema_name}"
+
     def escape_regex(self, value: str):
         return re.sub(r"(\\.)", r"\\\1", value)
 
@@ -61,29 +69,9 @@ class SnowflakeSqlDialect(SqlDialect):
             """
         return sql
 
-    def _create_table_prefix(self):
-        return ".".join([p for p in [self.database, self.schema] if p is not None])
-
-    def default_casify_sql_function(self) -> str:
-        return "upper"
-
-    def default_casify_system_name(self, identifier: str) -> str:
+    def default_casify(self, identifier: str) -> str:
         return identifier.upper()
 
-    def default_casify_table_name(self, identifier: str) -> str:
-        return identifier.upper()
-
-    def default_casify_column_name(self, identifier: str) -> str:
-        return identifier.upper()
-
-    def default_casify_type_name(self, identifier: str) -> str:
-        return identifier.upper()
-
-    def safe_connection_data(self):
-        return [
-            self.type,
-            self.account,
-        ]
 
 class SnowflakeContractDataSource(FileClContractDataSource):
 

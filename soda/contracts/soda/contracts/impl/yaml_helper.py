@@ -3,7 +3,7 @@ from __future__ import annotations
 import os
 from numbers import Number
 
-from ruamel.yaml import CommentedMap, CommentedSeq, round_trip_dump
+from ruamel.yaml import CommentedMap, CommentedSeq, round_trip_dump, YAML
 from ruamel.yaml.error import MarkedYAMLError
 
 from soda.contracts.impl.logs import Location, Logs
@@ -65,8 +65,6 @@ class YamlFile:
 
     def __parse_yaml_str(self, yaml_str: str | None, logs: Logs) -> dict | None:
         try:
-            from ruamel.yaml import YAML
-
             ruamel_yaml: YAML = YAML()
             ruamel_yaml.preserve_quotes = True
             return ruamel_yaml.load(yaml_str)
