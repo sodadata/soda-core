@@ -80,9 +80,9 @@ class Contract:
 
             # Verify the contract schema on the ruamel instance object
             json_schema_verifier: JsonSchemaVerifier = JsonSchemaVerifier(self.logs)
-            json_schema_verifier.verify(self.contract_file.dict)
+            json_schema_verifier.verify(self.contract_file.get_dict())
 
-            contract_yaml_dict = self.contract_file.dict
+            contract_yaml_dict = self.contract_file.get_dict()
 
             self.data_source_name: str | None = yaml_helper.read_string_opt(contract_yaml_dict, "data_source")
             self.database_name: str | None = yaml_helper.read_string_opt(contract_yaml_dict, "database")

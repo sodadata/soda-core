@@ -12,6 +12,17 @@ from soda.contracts.impl.variable_resolver import VariableResolver
 
 class YamlFile:
 
+    """
+    Allows yaml configurations to be specified as a file_path, yaml_str or a yaml_dict.
+    If yaml configurations are specified as text (file or str), then parsing will resolve variables.
+    Then YamlFile provides access to resolved and parsed dict.
+    Usage:
+    variables: dict = {...}
+    yaml_file: YamlFile = YamlFile(logs=logs, ...use 1 of the other arguments to specify the yaml file content...)
+    yaml_file.parse(variables)
+    yaml_dict: dict = yaml_file.get_dict()
+    """
+
     def __init__(
         self,
         logs: Logs,
@@ -23,9 +34,28 @@ class YamlFile:
         self.source_str: str | None = yaml_str
         self.resolved_str: str | None = None
         self.dict: dict | None = yaml_dict
+        self.is_parsed: bool = self.file_path is None and self.source_str is None and isinstance(self.dict, dict)
         self.logs: Logs = logs
 
+    def get_dict(self) -> dict:
+        assert self.is_parsed, (
+            "Usage of YamlFile requires that self.parse(...) "
+            "is invoked before the dict is used."
+        )
+        return self.dict
+
+    def is_ok(self):
+        """
+        True if the yaml dict is available and the parsing didn't have errors
+        """
+        return isinstance(self.dict, dict)
+
     def parse(self, variables: dict) -> bool:
+        """
+        returns is_ok() indicating that parsing was successful and the dict is available
+        """
+        self.is_parsed = True
+
         if self.file_path is None and self.source_str is None and self.dict is None:
             self.logs.error("File not configured")
 
@@ -74,9 +104,6 @@ class YamlFile:
             col = mark.column + 1
             location = Location(file_path=self.get_file_description(), line=line, column=col)
             logs.error(f"YAML syntax error: {e}", location)
-
-    def is_ok(self):
-        return isinstance(self.dict, dict)
 
     def get_file_description(self) -> str:
         if self.file_path:
