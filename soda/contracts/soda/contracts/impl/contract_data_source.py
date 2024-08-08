@@ -6,7 +6,6 @@ import re
 import textwrap
 from abc import ABC, abstractmethod
 
-from helpers.test_table import TestTable
 from soda.contracts.impl.logs import Logs
 from soda.contracts.impl.sodacl_log_converter import SodaClLogConverter
 from soda.contracts.impl.sql_dialect import SqlDialect
@@ -24,14 +23,14 @@ class ContractDataSource(ABC):
     This class uses self.sql_dialect to build the SQL statement strings.
     """
 
-    __KEY_TYPE = "type"
-    __KEY_NAME = "name"
-    __KEY_CONNECTION = "connection"
-    __KEY_SPARK_SESSION = "spark_session"
+    _KEY_TYPE = "type"
+    _KEY_NAME = "name"
+    _KEY_CONNECTION = "connection"
+    _KEY_SPARK_SESSION = "spark_session"
 
     @classmethod
     def from_yaml_file(cls, data_source_yaml_file: YamlFile) -> ContractDataSource:
-        data_source_type: str = data_source_yaml_file.dict.get("type")
+        data_source_type: str = data_source_yaml_file.get_dict().get("type")
         data_source_module_name: str = cls._create_data_source_module_name(data_source_type)
         data_source_class_name: str = cls._create_data_source_class_name(data_source_type)
         # dynamically load contracts data source
@@ -69,15 +68,6 @@ class ContractDataSource(ABC):
         else:
             return f"{test_data_source_type[0:1].upper()}{test_data_source_type[1:]}"
 
-    @classmethod
-    def from_spark_session(cls, data_source_yaml_file: YamlFile, spark_session: object) -> ContractDataSource:
-        data_source_yaml_dict: dict = data_source_yaml_file.dict
-        data_source_yaml_dict[cls.__KEY_TYPE] = "spark_df"
-        data_source_yaml_dict.setdefault(cls.__KEY_NAME, "spark")
-        data_source_yaml_dict[cls.__KEY_SPARK_SESSION] = spark_session
-        data_source_yaml_dict[cls.__KEY_CONNECTION] = None
-        return SparkSessionClContractDataSource(data_source_yaml_file=data_source_yaml_file)
-
     def __init__(self, data_source_yaml_file: YamlFile):
         self.logs: Logs = data_source_yaml_file.logs
 
@@ -87,17 +77,17 @@ class ContractDataSource(ABC):
         self.type: str | None = None
 
         self.data_source_yaml_file: YamlFile = data_source_yaml_file
-        self.data_source_yaml_dict: dict = data_source_yaml_file.dict
+        self.data_source_yaml_dict: dict = data_source_yaml_file.get_dict()
 
         yaml_helper: yaml_helper = YamlHelper(yaml_file=data_source_yaml_file, logs=self.logs)
-        self.type = yaml_helper.read_string(self.data_source_yaml_dict, self.__KEY_TYPE)
-        self.name = yaml_helper.read_string(self.data_source_yaml_dict, self.__KEY_NAME)
+        self.type = yaml_helper.read_string(self.data_source_yaml_dict, self._KEY_TYPE)
+        self.name = yaml_helper.read_string(self.data_source_yaml_dict, self._KEY_NAME)
         if isinstance(self.name, str) and not re.match("[_a-z0-9]+", self.name):
             self.logs.error(f"Data source name must contain only lower case letters, numbers and underscores.  Was {self.name}")
 
         self.sql_dialect: SqlDialect = self._create_sql_dialect()
 
-        self.connection_yaml_dict: dict | None = yaml_helper.read_dict(self.data_source_yaml_dict, self.__KEY_CONNECTION)
+        self.connection_yaml_dict: dict | None = yaml_helper.read_dict(self.data_source_yaml_dict, self._KEY_CONNECTION)
 
         # only initialized after the .open() method is called
         self.connection: object | None = None
@@ -147,12 +137,6 @@ class ContractDataSource(ABC):
         self.database_name = database_name
         self.schema_name = schema_name
 
-    def _is_different_connection_context(self, database_name: str, schema_name: str):
-        """
-        By default, only the database name is considered part of the connection context
-        """
-        return self.database_name != database_name
-
     @abstractmethod
     def _create_connection(self, connection_yaml_dict: dict) -> object:
         """
@@ -176,8 +160,6 @@ class ContractDataSource(ABC):
         )
 
     def _create_sodacl_data_source(self,
-                                   database_name: str | None,
-                                   schema_name: str | None,
                                    sodacl_data_source_name: str,
                                    ) -> SodaCLDataSource:
         """
@@ -185,8 +167,8 @@ class ContractDataSource(ABC):
         """
         try:
             data_source_properties = self.connection_yaml_dict.copy()
-            data_source_properties["database"] = database_name
-            data_source_properties["schema"] = schema_name
+            data_source_properties["database"] = self.database_name
+            data_source_properties["schema"] = self.schema_name
             sodacl_data_source: SodaCLDataSource = SodaCLDataSource.create(
                 logs=SodaClLogConverter(self.logs),
                 data_source_name=sodacl_data_source_name,
@@ -262,10 +244,3 @@ class FileClContractDataSource(ClContractDataSource):
 
     def __init__(self, data_source_yaml_file: YamlFile):
         super().__init__(data_source_yaml_file=data_source_yaml_file)
-
-
-class SparkSessionClContractDataSource(ClContractDataSource):
-
-    def __init__(self, data_source_yaml_file: YamlFile):
-        super().__init__(data_source_yaml_file)
-        self.spark_session: object = self.data_source_yaml_dict[self.__KEY_SPARK_SESSION]

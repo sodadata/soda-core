@@ -97,6 +97,7 @@ class ContractDataSourceTestHelper:
             schema_name=schema_name,
         )
         data_source_yaml_file = YamlFile(yaml_dict=test_data_source_yaml_dict, logs=logs)
+        data_source_yaml_file.parse({})
         data_source = ContractDataSource.from_yaml_file(data_source_yaml_file=data_source_yaml_file)
         assert not logs.has_errors()
         return data_source

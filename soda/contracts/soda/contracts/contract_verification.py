@@ -11,6 +11,7 @@ from soda.contracts.impl.plugin import Plugin
 from soda.contracts.impl.soda_cloud import SodaCloud
 from soda.contracts.impl.sodacl_log_converter import SodaClLogConverter
 from soda.contracts.impl.yaml_helper import QuotingSerializer, YamlFile, YamlHelper
+from soda.data_sources.spark_df_contract_data_source import SparkDfContractDataSource
 from soda.execution.data_source import DataSource as SodaCLDataSource
 from soda.scan import Scan
 from soda.scan import logger as scan_logger
@@ -165,7 +166,7 @@ class ContractVerification:
                 if spark_session is None:
                     data_source = ContractDataSource.from_yaml_file(data_source_yaml_file)
                 else:
-                    data_source = ContractDataSource.from_spark_session(
+                    data_source = SparkDfContractDataSource(
                         data_source_yaml_file=data_source_yaml_file,
                         spark_session=spark_session
                     )
@@ -271,8 +272,6 @@ class ContractVerification:
                 sodacl_data_source_name: str = f"{contract_data_source.name}_{prefix_underscored}"
 
                 sodacl_data_source: SodaCLDataSource = contract_data_source._create_sodacl_data_source(
-                    database_name=contract.database_name,
-                    schema_name=contract.schema_name,
                     sodacl_data_source_name=sodacl_data_source_name
                 )
                 # noinspection PyProtectedMember
