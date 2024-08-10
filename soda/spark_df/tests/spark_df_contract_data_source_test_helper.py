@@ -21,8 +21,16 @@ class SparkDfContractDataSourceTestHelper(ContractDataSourceTestHelper):
         self.spark_session: SparkSession = SparkSession.builder.master("local").appName("test").getOrCreate()
         super().__init__()
 
-    def _create_database_name(self) -> str:
-        return "spark_df"
+    def _create_database_name(self) -> str | None:
+        return None
+
+    def _create_schema_name(self) -> str | None:
+        """
+        In test, we register tables with createOrReplaceTempView, this is not related to any databases.
+        i.e. we can't use db1.view1 to reference a local, temporary view.
+        See https://stackoverflow.com/questions/45929237/how-to-specify-the-database-when-registering-a-data-frame-to-a-table-in-spark1-6
+        """
+        return None
 
     def _create_contract_data_source_yaml_dict(
         self,
@@ -67,7 +75,7 @@ class SparkDfContractDataSourceTestHelper(ContractDataSourceTestHelper):
                 spark_rows.append(spark_row)
 
         spark_schema = types.StructType(spark_columns)
-        spark_session = self.data_source.connection.spark_session
+        spark_session = self.contract_data_source.connection.spark_session
         df = spark_session.createDataFrame(data=spark_rows, schema=spark_schema)
         logging.debug(f"Created table {test_table.unique_table_name}:")
         df.printSchema()

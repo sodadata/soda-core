@@ -16,7 +16,7 @@ class SnowflakeSqlDialect(SqlDialect):
     def stmt_drop_schema_if_exists(self, database_name: str, schema_name: str) -> str:
         return f"DROP SCHEMA IF EXISTS {schema_name} CASCADE"
 
-    def stmt_create_schema_if_exists(self, schema_name) -> str:
+    def stmt_create_schema_if_not_exists(self, database_name: str, schema_name: str) -> str:
         return f"CREATE SCHEMA IF NOT EXISTS {schema_name}"
 
     def escape_regex(self, value: str):

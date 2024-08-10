@@ -10,7 +10,7 @@ class SnowflakeContractDataSourceTestHelper(ContractDataSourceTestHelper):
     def __init__(self):
         super().__init__()
 
-    def _create_database_name(self) -> str:
+    def _create_database_name(self) -> str | None:
         return os.getenv("SNOWFLAKE_DATABASE", "sodasql")
 
     def _create_contract_data_source_yaml_dict(

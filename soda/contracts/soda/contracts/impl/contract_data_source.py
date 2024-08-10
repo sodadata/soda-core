@@ -232,6 +232,12 @@ class ContractDataSource(ABC):
     def commit(self):
         self.connection.commit()
 
+    def disable_close_connection(self) -> None:
+        self.close_connection_enabled = False
+
+    def enable_close_connection(self) -> None:
+        self.close_connection_enabled = True
+
 
 class ClContractDataSource(ContractDataSource, ABC):
 

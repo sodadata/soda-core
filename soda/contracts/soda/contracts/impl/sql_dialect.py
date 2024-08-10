@@ -42,7 +42,7 @@ class SqlDialect:
         schema_name_quoted: str = self.quote_default(schema_name)
         return f"DROP SCHEMA IF EXISTS {schema_name_quoted} CASCADE"
 
-    def stmt_create_schema_if_exists(self, schema_name) -> str:
+    def stmt_create_schema_if_not_exists(self, database_name: str, schema_name: str) -> str:
         schema_name_quoted: str = self.quote_default(schema_name)
         return f"CREATE SCHEMA IF NOT EXISTS {schema_name_quoted} AUTHORIZATION CURRENT_USER"
 
@@ -77,6 +77,7 @@ class SqlDialect:
         return sql
 
     def information_schema_table_name_qualified(self) -> str:
+        information_schema_database_name: str = self.information_schema_database_name()
         information_schema_schema_name: str = self.information_schema_schema_name()
         information_schema_table_name: str = self.information_schema_table_name()
         return self.qualify_table(
@@ -85,7 +86,10 @@ class SqlDialect:
             table_name=information_schema_table_name
         )
 
-    def information_schema_schema_name(self) -> str:
+    def information_schema_database_name(self) -> str | None:
+        return None
+
+    def information_schema_schema_name(self) -> str | None:
         return "information_schema"
 
     def information_schema_table_name(self) -> str:
@@ -164,7 +168,7 @@ class SqlDialect:
         return where_clauses
 
     def stmt_drop_test_table(self, database_name: str | None, schema_name: str | None, table_name: str) -> str:
-        qualified_table_name = self.quote_table(
+        qualified_table_name = self.qualify_table(
             database_name=database_name,
             schema_name=schema_name,
             table_name=table_name
@@ -178,14 +182,11 @@ class SqlDialect:
             test_table: TestTable
     ) -> str:
 
-        table_name_qualified_quoted = self.quote_table(
+        table_name_qualified_quoted = self.qualify_table(
             database_name=database_name,
             schema_name=schema_name,
-            table_name=test_table.unique_table_name
-        ) if test_table.quote_names else self.qualify_table(
-            database_name=database_name,
-            schema_name=schema_name,
-            table_name=test_table.unique_table_name
+            table_name=test_table.unique_table_name,
+            quote_table_name=test_table.quote_names
         )
 
         test_columns = test_table.test_columns
@@ -214,14 +215,11 @@ class SqlDialect:
 
     def _insert_test_table_sql(self, database_name: str | None, schema_name: str | None, test_table: TestTable) -> str:
         if test_table.values:
-            table_name_qualified_quoted = self.quote_table(
+            table_name_qualified_quoted = self.qualify_table(
                 database_name=database_name,
                 schema_name=schema_name,
-                table_name=test_table.unique_table_name
-            ) if test_table.quote_names else self.qualify_table(
-                database_name=database_name,
-                schema_name=schema_name,
-                table_name=test_table.unique_table_name
+                table_name=test_table.unique_table_name,
+                quote_table_name=test_table.quote_names
             )
 
             def sql_test_table_row(row):
@@ -230,20 +228,29 @@ class SqlDialect:
             rows_sql = ",\n".join([f"  ({sql_test_table_row(row)})" for row in test_table.values])
             return f"INSERT INTO {table_name_qualified_quoted} VALUES \n" f"{rows_sql};"
 
-    def quote_table(self, database_name: str | None, schema_name: str, table_name: str) -> str:
+    def qualify_table(
+        self,
+        database_name: str | None,
+        schema_name: str | None,
+        table_name: str,
+        quote_table_name: bool = False
+    ) -> str:
         """
-        Creates a fully qualified, quoted table name.
+        Creates a fully qualified table name, optionally quoting the table name
         """
-        return f"{self.quote_default(schema_name)}.{self.quote_default(table_name)}"
+        parts = [
+            database_name,
+            schema_name,
+            self.quote_default(table_name) if quote_table_name else table_name
+        ]
+        return ".".join([p for p in parts if p])
 
-    def quote_default(self, identifier: str) -> str:
-        return f'{self.default_quote_char}{identifier}{self.default_quote_char}'
-
-    def qualify_table(self, database_name: str | None, schema_name: str, table_name: str) -> str:
-        """
-        Creates a fully qualified, non-quoted table name.
-        """
-        return f"{schema_name}.{table_name}"
+    def quote_default(self, identifier: str | None) -> str | None:
+        return (
+            f'{self.default_quote_char}{identifier}{self.default_quote_char}'
+            if isinstance(identifier, str) and len(identifier) > 0
+            else None
+        )
 
     def default_casify(self, identifier: str) -> str:
         return identifier.lower()

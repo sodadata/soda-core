@@ -112,13 +112,13 @@ class ContractDataSourceTestHelper:
         """
         return  {}
 
-    def _create_database_name(self) -> str:
+    def _create_database_name(self) -> str | None:
         """
         Called in constructor to initialized self.database_name
         """
         return "sodasql"
 
-    def _create_schema_name(self):
+    def _create_schema_name(self) -> str | None:
         """
         Called in constructor to initialized self.schema_name
         """
@@ -158,22 +158,35 @@ class ContractDataSourceTestHelper:
         schema_name = re.sub("[^0-9a-zA-Z]+", "_", schema_name_raw).lower()
         return schema_name
 
-    def __enter__(self) -> ContractDataSourceTestHelper:
+    def start_test_session(self) -> None:
+        self.start_test_session_open_connection()
+        self.start_test_session_ensure_schema()
+
+    def start_test_session_open_connection(self) -> None:
         self.contract_data_source.open_connection()
-        self.contract_data_source.close_connection_enabled = False
+        self.contract_data_source.disable_close_connection()
         if self.contract_data_source.logs.has_errors():
             e = next((l.exception for l in reversed(self.contract_data_source.logs.logs) if l.exception), None)
             raise AssertionError(f"Connection creation has errors: {self.contract_data_source.logs}") from e
-        if self.is_cicd:
-            self.drop_test_schema_if_exists(self.schema_name)
-        self.create_test_schema_if_not_exists(self.schema_name)
-        return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        self.contract_data_source.close_connection_enabled = True
+    def start_test_session_ensure_schema(self) -> None:
+        if self.schema_name:
+            if self.is_cicd:
+                self.drop_test_schema_if_exists(database_name=self.database_name, schema_name=self.schema_name)
+            self.create_test_schema_if_not_exists(database_name=self.database_name, schema_name=self.schema_name)
+
+    def end_test_session(self, exception: Exception | None) -> None:
+        self.end_test_session_close_connection()
+        self.end_test_session_drop_schema()
+
+    def end_test_session_close_connection(self) -> None:
+        self.contract_data_source.enable_close_connection()
         self.contract_data_source.close_connection()
-        if self.is_cicd:
-            self.drop_test_schema_if_exists(self.schema_name)
+
+    def end_test_session_drop_schema(self) -> None:
+        if self.schema_name:
+            if self.is_cicd:
+                self.drop_test_schema_if_exists(database_name=self.database_name, schema_name=self.schema_name)
 
     def ensure_test_table(self, test_table: TestTable) -> str:
         """
@@ -210,17 +223,19 @@ class ContractDataSourceTestHelper:
             logger.debug(f"Test table {test_table.unique_table_name} already exists")
         return test_table.unique_view_name if test_table.create_view else test_table.unique_table_name
 
-    def drop_test_schema_if_exists(self, schema_name: str) -> None:
+    def drop_test_schema_if_exists(self, database_name: str, schema_name: str) -> None:
         ds = self.contract_data_source
         drop_schema_if_exists_sql = ds.sql_dialect.stmt_drop_schema_if_exists(
-            database_name=self.database_name,
-            schema_name=self.schema_name
+            database_name=database_name,
+            schema_name=schema_name
         )
         ds._execute_sql_update(drop_schema_if_exists_sql)
 
-    def create_test_schema_if_not_exists(self, schema_name: str) -> None:
+    def create_test_schema_if_not_exists(self, database_name: str, schema_name: str) -> None:
         ds = self.contract_data_source
-        create_schema_if_not_exists_sql = ds.sql_dialect.stmt_create_schema_if_exists(schema_name)
+        create_schema_if_not_exists_sql = ds.sql_dialect.stmt_create_schema_if_not_exists(
+            database_name, schema_name
+        )
         ds._execute_sql_update(create_schema_if_not_exists_sql)
 
     def drop_test_table(self, database_name: str, schema_name: str, table_name: str) -> None:
@@ -310,13 +325,15 @@ class ContractDataSourceTestHelper:
         return contract_verification_result
 
     def _build_full_contract_yaml_str(self, test_table: TestTable, unique_table_name: str, contract_yaml_str: str):
-        header_contract_yaml_str = dedent(f"""
-                dataset: {unique_table_name}
-                data_source: {self.contract_data_source.name}
-                database: {self.database_name}
-                schema: {self.schema_name}
-
-            """).strip()
+        header_lines: list[str] = [
+            f"dataset: {unique_table_name}",
+            f"data_source: {self.contract_data_source.name}"
+        ]
+        if self.database_name:
+            header_lines.append(f"database: {self.database_name}")
+        if self.schema_name:
+            header_lines.append(f"schema: {self.schema_name}")
+        header_contract_yaml_str = "\n".join(header_lines)
         checks_contract_yaml_str = dedent(contract_yaml_str).strip()
 
         if not test_table.quote_names:
