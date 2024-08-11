@@ -24,20 +24,18 @@ contracts_check_filter_test_table = TestTable(
 
 
 def test_contract_check_filter(data_source_test_helper: ContractDataSourceTestHelper):
-    table_name: str = data_source_test_helper.ensure_test_table(contracts_check_filter_test_table)
-
     contract_result: ContractResult = data_source_test_helper.assert_contract_fail(
-        f"""
-        dataset: {table_name}
-        columns:
-        - name: id
-        - name: country
-        - name: currency
-          checks:
-          - type: no_invalid_values
-            valid_values: ['pounds']
-            filter_sql: country = 'UK'
-    """
+        test_table=contracts_check_filter_test_table,
+        contract_yaml_str=f"""
+            columns:
+            - name: id
+            - name: country
+            - name: currency
+              checks:
+              - type: no_invalid_values
+                valid_values: ['pounds']
+                filter_sql: country = 'UK'
+        """
     )
     check_result = contract_result.check_results[1]
     assert isinstance(check_result, MetricCheckResult)

@@ -22,11 +22,9 @@ user_defined_metric_expression_test_table = TestTable(
 
 
 def test_contract_column_metric_expression(data_source_test_helper: ContractDataSourceTestHelper):
-    table_name: str = data_source_test_helper.ensure_test_table(user_defined_metric_expression_test_table)
-
     contract_result: ContractResult = data_source_test_helper.assert_contract_fail(
-        f"""
-        dataset: {table_name}
+        test_table=user_defined_metric_expression_test_table,
+        contract_yaml_str=f"""
         columns:
           - name: id
           - name: country
@@ -53,20 +51,18 @@ def test_contract_column_metric_expression(data_source_test_helper: ContractData
 
 
 def test_contract_dataset_metric_expression(data_source_test_helper: ContractDataSourceTestHelper):
-    table_name: str = data_source_test_helper.ensure_test_table(user_defined_metric_expression_test_table)
-
     contract_result: ContractResult = data_source_test_helper.assert_contract_fail(
-        f"""
-        dataset: {table_name}
-        columns:
-          - name: id
-          - name: country
-        checks:
-        - type: metric_expression
-          metric: us_count
-          expression_sql: COUNT(CASE WHEN country = 'US' THEN 1 END)
-          must_be: 0
-    """
+        test_table=user_defined_metric_expression_test_table,
+        contract_yaml_str=f"""
+            columns:
+              - name: id
+              - name: country
+            checks:
+            - type: metric_expression
+              metric: us_count
+              expression_sql: COUNT(CASE WHEN country = 'US' THEN 1 END)
+              must_be: 0
+        """
     )
 
     check_result = contract_result.check_results[1]

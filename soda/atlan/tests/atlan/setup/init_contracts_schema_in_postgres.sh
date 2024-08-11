@@ -1,7 +1,12 @@
 #!/usr/bin/env bash
 
+# Usage in soda-core root folder, enter command
+# [soda-core] ./soda/atlan/tests/atlan/setup/init_contracts_schema_in_postgres.sh
+
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
-ENV_FILE_PATH=$( cd -- "$( dirname -- "${SCRIPT_DIR}/../.." )" &> /dev/null && pwd )
+ENV_DIR=$( dirname -- "${SCRIPT_DIR}/../../../../../.." )
+echo $ENV_DIR
+ENV_FILE_PATH=$( cd -- "$ENV_DIR" &> /dev/null && pwd )
 echo Loading environment vars from: "$ENV_FILE_PATH"
 
 . "$ENV_FILE_PATH/.env"

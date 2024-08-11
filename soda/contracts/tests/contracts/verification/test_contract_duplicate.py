@@ -22,16 +22,14 @@ contracts_duplicate_test_table = TestTable(
 
 
 def test_contract_no_duplicate_values(data_source_test_helper: ContractDataSourceTestHelper):
-    table_name: str = data_source_test_helper.ensure_test_table(contracts_duplicate_test_table)
-
     contract_result: ContractResult = data_source_test_helper.assert_contract_fail(
-        f"""
-        dataset: {table_name}
-        columns:
-          - name: one
-            checks:
-              - type: no_duplicate_values
-    """
+        test_table=contracts_duplicate_test_table,
+        contract_yaml_str=f"""
+            columns:
+              - name: one
+                checks:
+                  - type: no_duplicate_values
+        """
     )
 
     check_result = contract_result.check_results[1]

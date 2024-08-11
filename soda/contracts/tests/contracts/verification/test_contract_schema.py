@@ -26,21 +26,19 @@ contracts_schema_test_table = TestTable(
 
 
 def test_contract_schema_pass_with_data_types(data_source_test_helper: ContractDataSourceTestHelper):
-    table_name: str = data_source_test_helper.ensure_test_table(contracts_schema_test_table)
-
     contract_result: ContractResult = data_source_test_helper.assert_contract_pass(
-        f"""
-        dataset: {table_name}
-        columns:
-          - name: id
-            data_type: {data_source_test_helper.data_type_text()}
-          - name: size
-            data_type: {data_source_test_helper.data_type_decimal()}
-          - name: distance
-            data_type: {data_source_test_helper.data_type_integer()}
-          - name: created
-            data_type: {data_source_test_helper.data_type_date()}
-    """
+        test_table=contracts_schema_test_table,
+        contract_yaml_str=f"""
+            columns:
+              - name: id
+                data_type: {data_source_test_helper.data_type_text()}
+              - name: size
+                data_type: {data_source_test_helper.data_type_decimal()}
+              - name: distance
+                data_type: {data_source_test_helper.data_type_integer()}
+              - name: created
+                data_type: {data_source_test_helper.data_type_date()}
+         """
     )
 
     schema_check_result = contract_result.check_results[0]
@@ -66,17 +64,15 @@ def test_contract_schema_pass_with_data_types(data_source_test_helper: ContractD
 
 
 def test_contract_schema_pass_without_data_types(data_source_test_helper: ContractDataSourceTestHelper):
-    table_name: str = data_source_test_helper.ensure_test_table(contracts_schema_test_table)
-
     contract_result: ContractResult = data_source_test_helper.assert_contract_pass(
-        f"""
-        dataset: {table_name}
-        columns:
-          - name: id
-          - name: size
-          - name: distance
-          - name: created
-    """
+        test_table=contracts_schema_test_table,
+        contract_yaml_str=f"""
+            columns:
+              - name: id
+              - name: size
+              - name: distance
+              - name: created
+        """
     )
 
     schema_check_result = contract_result.check_results[0]
@@ -102,23 +98,21 @@ def test_contract_schema_pass_without_data_types(data_source_test_helper: Contra
 
 
 def test_contract_schema_missing_column(data_source_test_helper: ContractDataSourceTestHelper):
-    table_name: str = data_source_test_helper.ensure_test_table(contracts_schema_test_table)
-
     contract_result: ContractResult = data_source_test_helper.assert_contract_fail(
-        f"""
-        dataset: {table_name}
-        columns:
-          - name: id
-            data_type: {data_source_test_helper.data_type_text()}
-          - name: size
-            data_type: {data_source_test_helper.data_type_decimal()}
-          - name: distance
-            data_type: {data_source_test_helper.data_type_integer()}
-          - name: themissingcolumn
-            data_type: {data_source_test_helper.data_type_text()}
-          - name: created
-            data_type: {data_source_test_helper.data_type_date()}
-    """
+        test_table=contracts_schema_test_table,
+        contract_yaml_str=f"""
+            columns:
+              - name: id
+                data_type: {data_source_test_helper.data_type_text()}
+              - name: size
+                data_type: {data_source_test_helper.data_type_decimal()}
+              - name: distance
+                data_type: {data_source_test_helper.data_type_integer()}
+              - name: themissingcolumn
+                data_type: {data_source_test_helper.data_type_text()}
+              - name: created
+                data_type: {data_source_test_helper.data_type_date()}
+        """
     )
 
     schema_check_result = contract_result.check_results[0]
@@ -138,24 +132,22 @@ def test_contract_schema_missing_column(data_source_test_helper: ContractDataSou
 
 
 def test_contract_schema_missing_optional_column(data_source_test_helper: ContractDataSourceTestHelper):
-    table_name: str = data_source_test_helper.ensure_test_table(contracts_schema_test_table)
-
     contract_result: ContractResult = data_source_test_helper.assert_contract_pass(
-        f"""
-        dataset: {table_name}
-        columns:
-          - name: id
-            data_type: {data_source_test_helper.data_type_text()}
-          - name: size
-            data_type: {data_source_test_helper.data_type_decimal()}
-          - name: distance
-            data_type: {data_source_test_helper.data_type_integer()}
-          - name: themissingcolumn
-            data_type: {data_source_test_helper.data_type_text()}
-            optional: true
-          - name: created
-            data_type: {data_source_test_helper.data_type_date()}
-    """
+        test_table=contracts_schema_test_table,
+        contract_yaml_str=f"""
+            columns:
+              - name: id
+                data_type: {data_source_test_helper.data_type_text()}
+              - name: size
+                data_type: {data_source_test_helper.data_type_decimal()}
+              - name: distance
+                data_type: {data_source_test_helper.data_type_integer()}
+              - name: themissingcolumn
+                data_type: {data_source_test_helper.data_type_text()}
+                optional: true
+              - name: created
+                data_type: {data_source_test_helper.data_type_date()}
+        """
     )
 
     schema_check_result = contract_result.check_results[0]
@@ -173,19 +165,17 @@ def test_contract_schema_missing_optional_column(data_source_test_helper: Contra
 
 
 def test_contract_schema_extra_column(data_source_test_helper: ContractDataSourceTestHelper):
-    table_name: str = data_source_test_helper.ensure_test_table(contracts_schema_test_table)
-
     contract_result: ContractResult = data_source_test_helper.assert_contract_fail(
-        f"""
-        dataset: {table_name}
-        columns:
-          - name: id
-            data_type: {data_source_test_helper.data_type_text()}
-          - name: size
-            data_type: {data_source_test_helper.data_type_decimal()}
-          - name: created
-            data_type: {data_source_test_helper.data_type_date()}
-    """
+        test_table=contracts_schema_test_table,
+        contract_yaml_str=f"""
+            columns:
+              - name: id
+                data_type: {data_source_test_helper.data_type_text()}
+              - name: size
+                data_type: {data_source_test_helper.data_type_decimal()}
+              - name: created
+                data_type: {data_source_test_helper.data_type_date()}
+        """
     )
 
     schema_check_result = contract_result.check_results[0]
@@ -205,21 +195,19 @@ def test_contract_schema_extra_column(data_source_test_helper: ContractDataSourc
 
 
 def test_contract_schema_data_type_mismatch(data_source_test_helper: ContractDataSourceTestHelper):
-    table_name: str = data_source_test_helper.ensure_test_table(contracts_schema_test_table)
-
     contract_result: ContractResult = data_source_test_helper.assert_contract_fail(
-        f"""
-        dataset: {table_name}
-        columns:
-          - name: id
-            data_type: WRONG_VARCHAR
-          - name: size
-            data_type: {data_source_test_helper.data_type_decimal()}
-          - name: distance
-            data_type: {data_source_test_helper.data_type_integer()}
-          - name: created
-            data_type: {data_source_test_helper.data_type_date()}
-    """
+        test_table=contracts_schema_test_table,
+        contract_yaml_str=f"""
+            columns:
+              - name: id
+                data_type: WRONG_VARCHAR
+              - name: size
+                data_type: {data_source_test_helper.data_type_decimal()}
+              - name: distance
+                data_type: {data_source_test_helper.data_type_integer()}
+              - name: created
+                data_type: {data_source_test_helper.data_type_date()}
+        """
     )
 
     schema_check_result = contract_result.check_results[0]

@@ -22,23 +22,23 @@ user_defined_metric_query_sql_test_table = TestTable(
 
 
 def test_contract_metric_query_on_column(data_source_test_helper: ContractDataSourceTestHelper):
-    table_name: str = data_source_test_helper.ensure_test_table(user_defined_metric_query_sql_test_table)
+    unique_table_name: str = data_source_test_helper.ensure_test_table(user_defined_metric_query_sql_test_table)
 
     contract_result: ContractResult = data_source_test_helper.assert_contract_fail(
-        f"""
-        dataset: {table_name}
-        columns:
-          - name: id
-            checks:
-            - type: metric_query
-              metric: us_count
-              query_sql: |
-                SELECT COUNT(*)
-                FROM {table_name}
-                WHERE country = 'US'
-              must_be_not_between: [0, 5]
-          - name: country
-    """
+        test_table=user_defined_metric_query_sql_test_table,
+        contract_yaml_str=f"""
+            columns:
+              - name: id
+                checks:
+                - type: metric_query
+                  metric: us_count
+                  query_sql: |
+                    SELECT COUNT(*)
+                    FROM {unique_table_name}
+                    WHERE country = 'US'
+                  must_be_not_between: [0, 5]
+              - name: country
+        """
     )
 
     check_result = contract_result.check_results[1]
@@ -56,11 +56,10 @@ def test_contract_metric_query_on_column(data_source_test_helper: ContractDataSo
 
 
 def test_contract_metric_query_on_dataset(data_source_test_helper: ContractDataSourceTestHelper):
-    table_name: str = data_source_test_helper.ensure_test_table(user_defined_metric_query_sql_test_table)
+    unique_table_name: str = data_source_test_helper.ensure_test_table(user_defined_metric_query_sql_test_table)
 
     contract_result: ContractResult = data_source_test_helper.assert_contract_fail(
         f"""
-        dataset: {table_name}
         columns:
           - name: id
           - name: country
@@ -69,7 +68,7 @@ def test_contract_metric_query_on_dataset(data_source_test_helper: ContractDataS
             metric: us_count
             query_sql: |
               SELECT COUNT(*)
-              FROM {table_name}
+              FROM {unique_table_name}
               WHERE country = 'US'
             must_be_not_between: [0, 5]
     """

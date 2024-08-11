@@ -24,13 +24,11 @@ contracts_freshness_test_table = TestTable(
 
 
 def test_contract_freshness_pass(data_source_test_helper: ContractDataSourceTestHelper, environ: dict):
-    table_name: str = data_source_test_helper.ensure_test_table(contracts_freshness_test_table)
-
     variables: dict[str, str] = {"NOW": "2021-01-01 12:30"}
 
     contract_result: ContractResult = data_source_test_helper.assert_contract_pass(
+        test_table=contracts_freshness_test_table,
         contract_yaml_str=f"""
-        dataset: {table_name}
         columns:
           - name: id
           - name: created
@@ -48,13 +46,11 @@ def test_contract_freshness_pass(data_source_test_helper: ContractDataSourceTest
 
 
 def test_contract_freshness_fail(data_source_test_helper: ContractDataSourceTestHelper, environ: dict):
-    table_name: str = data_source_test_helper.ensure_test_table(contracts_freshness_test_table)
-
     variables: dict[str, str] = {"NOW": "2021-01-01 13:30"}
 
     contract_result: ContractResult = data_source_test_helper.assert_contract_fail(
+        test_table=contracts_freshness_test_table,
         contract_yaml_str=f"""
-        dataset: {table_name}
         columns:
           - name: id
           - name: created

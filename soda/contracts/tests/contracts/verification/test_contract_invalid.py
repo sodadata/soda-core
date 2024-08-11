@@ -26,12 +26,12 @@ def test_contract_no_invalid_with_valid_values_pass(data_source_test_helper: Con
     contract_result: ContractResult = data_source_test_helper.assert_contract_pass(
         test_table=contracts_invalid_test_table,
         contract_yaml_str=f"""
-        columns:
-          - name: one
-            checks:
-            - type: no_invalid_values
-              valid_length: 3
-    """
+            columns:
+              - name: one
+                checks:
+                - type: no_invalid_values
+                  valid_length: 3
+        """
     )
 
     check_result = contract_result.check_results[1]

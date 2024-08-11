@@ -23,20 +23,18 @@ contracts_multi_column_duplicates_test_table = TestTable(
 
 
 def test_contract_multi_column_no_duplicate_values(data_source_test_helper: ContractDataSourceTestHelper):
-    table_name: str = data_source_test_helper.ensure_test_table(contracts_multi_column_duplicates_test_table)
-
     contract_result: ContractResult = data_source_test_helper.assert_contract_fail(
-        f"""
-        dataset: {table_name}
-        columns:
-          - name: country_code
-          - name: zip
-        checks:
-          - type: no_duplicate_values
+        test_table=contracts_multi_column_duplicates_test_table,
+        contract_yaml_str=f"""
             columns:
-            - country_code
-            - zip
-    """
+              - name: country_code
+              - name: zip
+            checks:
+              - type: no_duplicate_values
+                columns:
+                - country_code
+                - zip
+        """
     )
     assert "Actual duplicate_count(country_code, zip) was 1" in str(contract_result)
     check_result = contract_result.check_results[1]
@@ -53,19 +51,17 @@ def test_contract_multi_column_no_duplicate_values(data_source_test_helper: Cont
 
 
 def test_contract_multi_column_duplicate_count(data_source_test_helper: ContractDataSourceTestHelper):
-    table_name: str = data_source_test_helper.ensure_test_table(contracts_multi_column_duplicates_test_table)
-
     contract_result: ContractResult = data_source_test_helper.assert_contract_fail(
-        f"""
-        dataset: {table_name}
-        columns:
-          - name: country_code
-          - name: zip
-        checks:
-          - type: duplicate_count
-            columns: ['country_code', 'zip']
-            must_be: 0
-    """
+        test_table=contracts_multi_column_duplicates_test_table,
+        contract_yaml_str=f"""
+            columns:
+              - name: country_code
+              - name: zip
+            checks:
+              - type: duplicate_count
+                columns: ['country_code', 'zip']
+                must_be: 0
+        """
     )
     assert "Actual duplicate_count(country_code, zip) was 1" in str(contract_result)
     check_result = contract_result.check_results[1]
@@ -82,19 +78,17 @@ def test_contract_multi_column_duplicate_count(data_source_test_helper: Contract
 
 
 def test_contract_multi_column_duplicate_percent(data_source_test_helper: ContractDataSourceTestHelper):
-    table_name: str = data_source_test_helper.ensure_test_table(contracts_multi_column_duplicates_test_table)
-
     contract_result: ContractResult = data_source_test_helper.assert_contract_fail(
-        f"""
-        dataset: {table_name}
-        columns:
-          - name: country_code
-          - name: zip
-        checks:
-          - type: duplicate_percent
-            columns: ['country_code', 'zip']
-            must_be: 0
-    """
+        test_table=contracts_multi_column_duplicates_test_table,
+        contract_yaml_str=f"""
+            columns:
+              - name: country_code
+              - name: zip
+            checks:
+              - type: duplicate_percent
+                columns: ['country_code', 'zip']
+                must_be: 0
+        """
     )
     assert "Actual duplicate_percent(country_code, zip) was 14.29" in str(contract_result)
     check_result = contract_result.check_results[1]

@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import logging
 
+from pyspark.sql import SparkSession
+
 from soda.common import logs as soda_core_logs
 from soda.contracts.contract import Contract, ContractResult
 from soda.contracts.impl.customized_sodacl_soda_cloud import CustomizedSodaClCloud
@@ -23,7 +25,7 @@ class ContractVerificationBuilder:
 
     def __init__(self):
         self.logs: Logs = Logs()
-        self.data_source_yaml_files: list[YamlFile] = []
+        self.data_source_yaml_file: YamlFile | None = None
         self.spark_session: object | None = None
         self.contract_files: list[YamlFile] = []
         self.soda_cloud_file: YamlFile | None = None
@@ -52,24 +54,21 @@ class ContractVerificationBuilder:
         assert isinstance(data_source_yaml_file_path, str)
         if self.data_source_yaml_file is not None:
             self.logs.error("Duplicate data source definition. Ignoring previous data sources.")
-        data_source_yaml_file = YamlFile(yaml_file_path=data_source_yaml_file_path, logs=self.logs)
-        self.data_source_yaml_files.append(data_source_yaml_file)
+        self.data_source_yaml_file = YamlFile(yaml_file_path=data_source_yaml_file_path, logs=self.logs)
         return self
 
     def with_data_source_yaml_str(self, data_source_yaml_str: str) -> ContractVerificationBuilder:
         assert isinstance(data_source_yaml_str, str)
         if self.data_source_yaml_file is not None:
             self.logs.error("Duplicate data source definition. Ignoring previous data sources.")
-        data_source_yaml_file = YamlFile(logs=self.logs, yaml_str=data_source_yaml_str)
-        self.data_source_yaml_files.append(data_source_yaml_file)
+        self.data_source_yaml_file = YamlFile(logs=self.logs, yaml_str=data_source_yaml_str)
         return self
 
     def with_data_source_yaml_dict(self, data_source_yaml_dict: dict) -> ContractVerificationBuilder:
         assert isinstance(data_source_yaml_dict, dict)
         if self.data_source_yaml_file is not None:
             self.logs.error("Duplicate data source definition. Ignoring previous data sources.")
-        data_source_yaml_file = YamlFile(logs=self.logs, yaml_dict=data_source_yaml_dict)
-        self.data_source_yaml_files.append(data_source_yaml_file)
+        self.data_source_yaml_file = YamlFile(logs=self.logs, yaml_dict=data_source_yaml_dict)
         return self
 
     def with_data_source_spark_session(
@@ -158,11 +157,11 @@ class ContractVerification:
         self._initialize_plugins(contract_verification_builder)
 
     def _initialize_data_source(self, contract_verification_builder: ContractVerificationBuilder) -> None:
-        if len(contract_verification_builder.data_source_yaml_files) == 1:
-            data_source_yaml_file: YamlFile = contract_verification_builder.data_source_yaml_files[0]
+        if isinstance(contract_verification_builder.data_source_yaml_file, YamlFile):
+            data_source_yaml_file: YamlFile = contract_verification_builder.data_source_yaml_file
             if isinstance(data_source_yaml_file, YamlFile):
                 data_source_yaml_file.parse(contract_verification_builder.variables)
-                spark_session: object | None = contract_verification_builder.spark_session
+                spark_session: SparkSession | None = contract_verification_builder.spark_session
                 if spark_session is None:
                     data_source = ContractDataSource.from_yaml_file(data_source_yaml_file)
                 else:

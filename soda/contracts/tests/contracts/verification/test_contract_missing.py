@@ -52,17 +52,15 @@ def test_missing_count_without_threshold():
 
 
 def test_contract_nomissing_with_missing_values(data_source_test_helper: ContractDataSourceTestHelper):
-    table_name: str = data_source_test_helper.ensure_test_table(contracts_missing_test_table)
-
     contract_result: ContractResult = data_source_test_helper.assert_contract_fail(
-        f"""
-        dataset: {table_name}
-        columns:
-          - name: one
-            checks:
-            - type: no_missing_values
-          - name: two
-    """
+        test_table=contracts_missing_test_table,
+        contract_yaml_str=f"""
+            columns:
+              - name: one
+                checks:
+                - type: no_missing_values
+              - name: two
+        """
     )
 
     check_result = contract_result.check_results[1]
@@ -80,17 +78,15 @@ def test_contract_nomissing_with_missing_values(data_source_test_helper: Contrac
 
 
 def test_contract_nomissing_without_missing_values(data_source_test_helper: ContractDataSourceTestHelper):
-    table_name: str = data_source_test_helper.ensure_test_table(contracts_missing_test_table)
-
     contract_result: ContractResult = data_source_test_helper.assert_contract_pass(
-        f"""
-        dataset: {table_name}
-        columns:
-          - name: one
-          - name: two
-            checks:
-            - type: no_missing_values
-    """
+        test_table=contracts_missing_test_table,
+        contract_yaml_str=f"""
+            columns:
+              - name: one
+              - name: two
+                checks:
+                - type: no_missing_values
+        """
     )
 
     check_result = contract_result.check_results[1]
@@ -106,18 +102,16 @@ def test_contract_nomissing_without_missing_values(data_source_test_helper: Cont
 
 
 def test_contract_missing_count_with_missing_values(data_source_test_helper: ContractDataSourceTestHelper):
-    table_name: str = data_source_test_helper.ensure_test_table(contracts_missing_test_table)
-
     contract_result: ContractResult = data_source_test_helper.assert_contract_fail(
-        f"""
-        dataset: {table_name}
-        columns:
-          - name: one
-            checks:
-            - type: missing_count
-              must_be: 0
-          - name: two
-    """
+        test_table=contracts_missing_test_table,
+        contract_yaml_str=f"""
+            columns:
+              - name: one
+                checks:
+                - type: missing_count
+                  must_be: 0
+              - name: two
+        """
     )
 
     check_result = contract_result.check_results[1]
@@ -135,18 +129,16 @@ def test_contract_missing_count_with_missing_values(data_source_test_helper: Con
 
 
 def test_contract_missing_count_pass(data_source_test_helper: ContractDataSourceTestHelper):
-    table_name: str = data_source_test_helper.ensure_test_table(contracts_missing_test_table)
-
     contract_result: ContractResult = data_source_test_helper.assert_contract_pass(
-        f"""
-        dataset: {table_name}
-        columns:
-          - name: one
-            checks:
-            - type: missing_count
-              must_be_less_than: 10
-          - name: two
-    """
+        test_table=contracts_missing_test_table,
+        contract_yaml_str=f"""
+            columns:
+              - name: one
+                checks:
+                - type: missing_count
+                  must_be_less_than: 10
+              - name: two
+        """
     )
 
     check_result = contract_result.check_results[1]
@@ -162,19 +154,17 @@ def test_contract_missing_count_pass(data_source_test_helper: ContractDataSource
 
 
 def test_contract_missing_count_with_missing_values_pass(data_source_test_helper: ContractDataSourceTestHelper):
-    table_name: str = data_source_test_helper.ensure_test_table(contracts_missing_test_table)
-
     contract_result: ContractResult = data_source_test_helper.assert_contract_pass(
-        f"""
-        dataset: {table_name}
-        columns:
-          - name: one
-            checks:
-            - type: missing_count
-              missing_values: ['N/A']
-              must_be: 2
-          - name: two
-    """
+        test_table=contracts_missing_test_table,
+        contract_yaml_str=f"""
+            columns:
+              - name: one
+                checks:
+                - type: missing_count
+                  missing_values: ['N/A']
+                  must_be: 2
+              - name: two
+        """
     )
 
     check_result = contract_result.check_results[1]
@@ -190,19 +180,17 @@ def test_contract_missing_count_with_missing_values_pass(data_source_test_helper
 
 
 def test_contract_missing_count_with_missing_regex_sql(data_source_test_helper: ContractDataSourceTestHelper):
-    table_name: str = data_source_test_helper.ensure_test_table(contracts_missing_test_table)
-
     contract_result: ContractResult = data_source_test_helper.assert_contract_fail(
-        f"""
-        dataset: {table_name}
-        columns:
-          - name: one
-            checks:
-            - type: missing_count
-              missing_regex_sql: ^N/A$
-              must_be: 0
-          - name: two
-    """
+        test_table=contracts_missing_test_table,
+        contract_yaml_str=f"""
+            columns:
+              - name: one
+                checks:
+                - type: missing_count
+                  missing_regex_sql: ^N/A$
+                  must_be: 0
+              - name: two
+        """
     )
 
     check_result = contract_result.check_results[1]
@@ -220,19 +208,17 @@ def test_contract_missing_count_with_missing_regex_sql(data_source_test_helper: 
 
 
 def test_contract_missing_count_name_and_threshold(data_source_test_helper: ContractDataSourceTestHelper):
-    table_name: str = data_source_test_helper.ensure_test_table(contracts_missing_test_table)
-
     contract_result: ContractResult = data_source_test_helper.assert_contract_pass(
-        f"""
-        dataset: {table_name}
-        columns:
-          - name: one
-            checks:
-            - type: missing_count
-              name: Missing values count must be between 0 and 3
-              must_be_between: [0, 3]
-          - name: two
-    """
+        test_table=contracts_missing_test_table,
+        contract_yaml_str=f"""
+            columns:
+              - name: one
+                checks:
+                - type: missing_count
+                  name: Missing values count must be between 0 and 3
+                  must_be_between: [0, 3]
+              - name: two
+        """
     )
 
     check_result = contract_result.check_results[1]

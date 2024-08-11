@@ -21,16 +21,14 @@ contracts_row_count_test_table = TestTable(
 
 
 def test_contract_row_count(data_source_test_helper: ContractDataSourceTestHelper):
-    table_name: str = data_source_test_helper.ensure_test_table(contracts_row_count_test_table)
-
     contract_result: ContractResult = data_source_test_helper.assert_contract_pass(
-        f"""
-        dataset: {table_name}
-        columns:
-          - name: one
-        checks:
-          - type: rows_exist
-    """
+        test_table=contracts_row_count_test_table,
+        contract_yaml_str=f"""
+            columns:
+              - name: one
+            checks:
+              - type: rows_exist
+        """
     )
     check_result = contract_result.check_results[1]
     assert isinstance(check_result, MetricCheckResult)
@@ -45,17 +43,15 @@ def test_contract_row_count(data_source_test_helper: ContractDataSourceTestHelpe
 
 
 def test_contract_row_count2(data_source_test_helper: ContractDataSourceTestHelper):
-    table_name: str = data_source_test_helper.ensure_test_table(contracts_row_count_test_table)
-
     contract_result: ContractResult = data_source_test_helper.assert_contract_fail(
-        f"""
-        dataset: {table_name}
-        columns:
-          - name: one
-        checks:
-          - type: row_count
-            must_be_between: [100, 120]
-    """
+        test_table=contracts_row_count_test_table,
+        contract_yaml_str=f"""
+            columns:
+              - name: one
+            checks:
+              - type: row_count
+                must_be_between: [100, 120]
+        """
     )
     check_result = contract_result.check_results[1]
     assert isinstance(check_result, MetricCheckResult)
