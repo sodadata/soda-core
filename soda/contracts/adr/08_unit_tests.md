@@ -1,3 +1,5 @@
+from contracts.helpers.contract_data_source_test_helper import ContractDataSourceTestHelperfrom contracts.helpers.contract_data_source_test_helper import ContractDataSourceTestHelper
+
 # Unit tests
 
 Tests are grouped together by feature, especially in the `verification` package.  Each check type has it's
@@ -45,8 +47,8 @@ In that same functional test file for a feature or check type, we group the func
 with parsing error tests.  Example of testing a parsing error:
 
 ```python
-def test_no_missing_with_threshold():
-    errors_str = get_parse_errors_str(
+def test_no_missing_with_threshold(data_source_test_helper: ContractDataSourceTestHelper):
+    errors_str = data_source_test_helper.get_parse_errors_str(
         """
           dataset: TABLE_NAME
           columns:

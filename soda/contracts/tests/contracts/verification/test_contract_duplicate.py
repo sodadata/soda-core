@@ -47,11 +47,9 @@ def test_contract_no_duplicate_values(data_source_test_helper: ContractDataSourc
 
 
 def test_contract_duplicate_count(data_source_test_helper: ContractDataSourceTestHelper):
-    table_name: str = data_source_test_helper.ensure_test_table(contracts_duplicate_test_table)
-
     contract_result: ContractResult = data_source_test_helper.assert_contract_fail(
-        f"""
-        dataset: {table_name}
+        test_table=contracts_duplicate_test_table,
+        contract_yaml_str=f"""
         columns:
           - name: one
             checks:
@@ -75,11 +73,9 @@ def test_contract_duplicate_count(data_source_test_helper: ContractDataSourceTes
 
 
 def test_contract_duplicate_percent(data_source_test_helper: ContractDataSourceTestHelper):
-    table_name: str = data_source_test_helper.ensure_test_table(contracts_duplicate_test_table)
-
     contract_result: ContractResult = data_source_test_helper.assert_contract_fail(
-        f"""
-        dataset: {table_name}
+        test_table=contracts_duplicate_test_table,
+        contract_yaml_str=f"""
         columns:
           - name: one
             checks:

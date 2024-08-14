@@ -41,8 +41,7 @@ def test_skip_all_checks_except_schema_check(data_source_test_helper: ContractDa
     logging.debug(contract_yaml_str)
 
     contract_verification: ContractVerification = (
-        TestContractVerification.builder()
-        .with_data_source(test_data_source)
+        data_source_test_helper.create_test_verification_builder()
         .with_contract_yaml_str(contract_yaml_str=contract_yaml_str)
         .build()
     )

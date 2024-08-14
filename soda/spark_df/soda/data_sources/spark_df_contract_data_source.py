@@ -19,14 +19,14 @@ class SparkDfSqlDialect(SqlDialect):
     def __init__(self):
         super().__init__()
 
-    def get_default_quote_char(self) -> str:
+    def _get_default_quote_char(self) -> str:
         return '`'
 
     def stmt_create_schema_if_not_exists(self, database_name: str, schema_name: str) -> str:
         schema_name_quoted: str = self.quote_default(schema_name)
         return f"CREATE SCHEMA IF NOT EXISTS {schema_name_quoted}"
 
-    def get_create_table_sql_type_dict(self) -> dict[str, str]:
+    def _get_create_table_sql_type_dict(self) -> dict[str, str]:
         return {
             DataType.TEXT: "string",
             DataType.INTEGER: "integer",

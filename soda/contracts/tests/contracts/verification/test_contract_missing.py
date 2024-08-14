@@ -1,4 +1,3 @@
-from contracts.helpers.contract_parse_errors import get_parse_errors_str
 from contracts.helpers.contract_data_source_test_helper import ContractDataSourceTestHelper
 from helpers.test_table import TestTable
 from soda.execution.data_type import DataType
@@ -22,8 +21,8 @@ contracts_missing_test_table = TestTable(
 )
 
 
-def test_no_missing_with_threshold():
-    errors_str = get_parse_errors_str(
+def test_no_missing_with_threshold(data_source_test_helper: ContractDataSourceTestHelper):
+    errors_str = data_source_test_helper.get_parse_errors_str(
         """
           dataset: TABLE_NAME
           columns:
@@ -37,8 +36,8 @@ def test_no_missing_with_threshold():
     assert "Check type 'no_missing_values' does not allow for threshold keys must_..." in errors_str
 
 
-def test_missing_count_without_threshold():
-    errors_str = get_parse_errors_str(
+def test_missing_count_without_threshold(data_source_test_helper: ContractDataSourceTestHelper):
+    errors_str = data_source_test_helper.get_parse_errors_str(
         """
           dataset: TABLE_NAME
           columns:

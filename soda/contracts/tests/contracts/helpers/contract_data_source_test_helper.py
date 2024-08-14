@@ -19,7 +19,7 @@ from soda.contracts.contract_verification import (
     ContractVerificationResult,
 )
 from soda.contracts.impl.contract_data_source import ContractDataSource
-from soda.contracts.impl.logs import Logs
+from soda.contracts.impl.logs import Logs, Log
 from soda.contracts.impl.sql_dialect import SqlDialect
 from soda.contracts.impl.yaml_helper import YamlFile
 from soda.execution.data_source import DataSource as SodaCLDataSource
@@ -267,6 +267,15 @@ class ContractDataSourceTestHelper:
         )
         ds._execute_sql_update(insert_table_sql)
 
+    def get_parse_errors_str(self, contract_yaml_str: str) -> str:
+        contract_yaml_str = dedent(contract_yaml_str).strip()
+        contract_verification_builder = (self.create_test_verification_builder()
+            .with_contract_yaml_str(contract_yaml_str=contract_yaml_str)
+        )
+        contract_verification = contract_verification_builder.build()
+        errors: list[Log] = contract_verification.logs.get_errors()
+        return "\n".join([str(e) for e in errors])
+
     def assert_contract_pass(self, test_table: TestTable, contract_yaml_str: str, variables: dict[str, str] | None = None) -> ContractResult:
         unique_table_name: str = self.ensure_test_table(test_table)
         full_contract_yaml_str = self._build_full_contract_yaml_str(
@@ -274,8 +283,7 @@ class ContractDataSourceTestHelper:
         )
         logging.debug(full_contract_yaml_str)
         contract_verification_result: ContractVerificationResult = (
-            TestContractVerification.builder()
-            .with_data_source(self.contract_data_source)
+            self.create_test_verification_builder()
             .with_contract_yaml_str(full_contract_yaml_str)
             .with_variables(variables)
             .execute()
@@ -292,8 +300,7 @@ class ContractDataSourceTestHelper:
         )
         logging.debug(full_contract_yaml_str)
         contract_verification_result: ContractVerificationResult = (
-            TestContractVerification.builder()
-            .with_data_source(self.contract_data_source)
+            self.create_test_verification_builder()
             .with_contract_yaml_str(full_contract_yaml_str)
             .with_variables(variables)
             .execute()
@@ -311,8 +318,7 @@ class ContractDataSourceTestHelper:
         contract_yaml_str = dedent(contract_yaml_str).strip()
         logging.debug(contract_yaml_str)
         contract_verification_result: ContractVerificationResult = (
-            TestContractVerification.builder()
-            .with_data_source(self.contract_data_source)
+            self.create_test_verification_builder()
             .with_contract_yaml_str(contract_yaml_str)
             .with_variables(variables)
             .execute()
@@ -323,6 +329,9 @@ class ContractDataSourceTestHelper:
         contract_result_str = str(contract_verification_result)
         logging.debug(f"Contract result: {contract_result_str}")
         return contract_verification_result
+
+    def create_test_verification_builder(self):
+        return TestContractVerification.builder().with_data_source(self.contract_data_source)
 
     def _build_full_contract_yaml_str(self, test_table: TestTable, unique_table_name: str, contract_yaml_str: str):
         header_lines: list[str] = [

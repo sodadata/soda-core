@@ -174,7 +174,7 @@ class ContractVerification:
                 else:
                     self.logs.error(f"Error creating data source from {data_source_yaml_file}. See logs above.")
         else:
-            self.logs.error("Expected a single data source")
+            self.logs.error("No data source configured")
 
     def _initialize_contracts(self, contract_verification_builder: ContractVerificationBuilder) -> None:
         for contract_file in contract_verification_builder.contract_files:
@@ -219,18 +219,21 @@ class ContractVerification:
     def execute(self) -> ContractVerificationResult:
         contract_results: list[ContractResult] = []
 
-        if len(self.contracts) > 0 and isinstance(self.data_source, ContractDataSource):
+        if isinstance(self.data_source, ContractDataSource):
             self.data_source.open_connection()
             try:
-                for contract in self.contracts:
-                    self.data_source.set_contract_context(
-                        database_name=contract.database_name,
-                        schema_name=contract.schema_name
-                    )
-                    contract_result: ContractResult = self._verify(contract)
-                    contract_results.append(contract_result)
-                    for plugin in self.plugins:
-                        plugin.process_contract_results(contract_result)
+                if len(self.contracts) > 0:
+                    for contract in self.contracts:
+                        self.data_source.set_contract_context(
+                            database_name=contract.database_name,
+                            schema_name=contract.schema_name
+                        )
+                        contract_result: ContractResult = self._verify(contract)
+                        contract_results.append(contract_result)
+                        for plugin in self.plugins:
+                            plugin.process_contract_results(contract_result)
+                else:
+                    self.logs.error("No contracts specified")
             finally:
                 self.data_source.close_connection()
         else:

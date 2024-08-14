@@ -1,8 +1,8 @@
-from contracts.helpers.contract_parse_errors import get_parse_errors_str
+from contracts.helpers.contract_data_source_test_helper import ContractDataSourceTestHelper
 
 
-def test_duplicate_column_check_identity_not_unique_error():
-    errors_str = get_parse_errors_str(
+def test_duplicate_column_check_identity_not_unique_error(data_source_test_helper: ContractDataSourceTestHelper):
+    errors_str = data_source_test_helper.get_parse_errors_str(
         """
           dataset: TABLE_NAME
           columns:
@@ -18,8 +18,8 @@ def test_duplicate_column_check_identity_not_unique_error():
     assert "Duplicate check identity" in errors_str
 
 
-def test_duplicate_column_check_identity_unique_by_name():
-    errors_str = get_parse_errors_str(
+def test_duplicate_column_check_identity_unique_by_name(data_source_test_helper: ContractDataSourceTestHelper):
+    errors_str = data_source_test_helper.get_parse_errors_str(
         """
           dataset: TABLE_NAME
           columns:
@@ -36,8 +36,8 @@ def test_duplicate_column_check_identity_unique_by_name():
     assert "" == errors_str
 
 
-def test_duplicate_dataset_check_identity_not_unique_error():
-    errors_str = get_parse_errors_str(
+def test_duplicate_dataset_check_identity_not_unique_error(data_source_test_helper: ContractDataSourceTestHelper):
+    errors_str = data_source_test_helper.get_parse_errors_str(
         """
           dataset: TABLE_NAME
           columns:
@@ -51,8 +51,8 @@ def test_duplicate_dataset_check_identity_not_unique_error():
     assert "Duplicate check identity" in errors_str
 
 
-def test_duplicate_dataset_check_identity_unique_by_name():
-    errors_str = get_parse_errors_str(
+def test_duplicate_dataset_check_identity_unique_by_name(data_source_test_helper: ContractDataSourceTestHelper):
+    errors_str = data_source_test_helper.get_parse_errors_str(
         """
           dataset: TABLE_NAME
           columns:

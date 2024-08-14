@@ -29,8 +29,15 @@ class ContractDataSource(ABC):
     _KEY_SPARK_SESSION = "spark_session"
 
     @classmethod
-    def from_yaml_file(cls, data_source_yaml_file: YamlFile) -> ContractDataSource:
-        data_source_type: str = data_source_yaml_file.get_dict().get("type")
+    def from_yaml_file(cls, data_source_yaml_file: YamlFile) -> ContractDataSource | None:
+        data_source_yaml_dict = data_source_yaml_file.get_dict()
+        if not isinstance(data_source_yaml_dict, dict):
+            data_source_yaml_file.logs.error("No object content in data source YAML configuration")
+            return None
+        data_source_type: str = data_source_yaml_dict.get("type")
+        if not isinstance(data_source_type, str):
+            data_source_yaml_file.logs.error("No type property in data source YAML configuration")
+            return None
         data_source_module_name: str = cls._create_data_source_module_name(data_source_type)
         data_source_class_name: str = cls._create_data_source_class_name(data_source_type)
         # dynamically load contracts data source
@@ -237,6 +244,13 @@ class ContractDataSource(ABC):
 
     def enable_close_connection(self) -> None:
         self.close_connection_enabled = True
+
+    def qualify_table(self, table_name: str) -> str:
+        return self.sql_dialect.qualify_table(
+            database_name=self.database_name,
+            schema_name=self.schema_name,
+            table_name=table_name
+        )
 
 
 class ClContractDataSource(ContractDataSource, ABC):

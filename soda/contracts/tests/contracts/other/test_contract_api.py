@@ -32,8 +32,8 @@ contracts_api_test_table = TestTable(
 )
 
 
-def test_contract_verification_api(test_data_source: ContractDataSourceTestHelper, environ: dict):
-    table_name: str = test_data_source.ensure_test_table(contracts_api_test_table)
+def test_contract_verification_api(data_source_test_helper: ContractDataSourceTestHelper, environ: dict):
+    table_name: str = data_source_test_helper.ensure_test_table(contracts_api_test_table)
 
     environ["USERNAME"] = "sodasql"
     environ["PORT"] = os.getenv("POSTGRES_PORT", "5432")
@@ -45,7 +45,7 @@ def test_contract_verification_api(test_data_source: ContractDataSourceTestHelpe
         connection:
             host: localhost
             database: sodasql
-            username: ${USERNAME}
+            user: ${USERNAME}
             port: ${PORT}
     """
     )

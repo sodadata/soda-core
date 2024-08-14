@@ -20,9 +20,9 @@ def test_data_source_file_variable_resolving(environ):
 
     contract_verification = ContractVerification.builder().with_data_source_yaml_file(data_source_file_path).build()
 
-    resolved_connection_properties = contract_verification.data_source.data_source_file.dict["connection"]
+    resolved_connection_properties = contract_verification.data_source.data_source_yaml_file.dict["connection"]
     assert "sodasql" == resolved_connection_properties["database"]
-    assert "sodasql" == resolved_connection_properties["username"]
+    assert "sodasql" == resolved_connection_properties["user"]
 
 
 def test_invalid_database():
@@ -33,7 +33,7 @@ def test_invalid_database():
             connection:
               host: localhost
               database: invalid_db
-              username: sodasql
+              user: sodasql
               port: ${POSTGRES_PORT}
         """
     )
@@ -53,7 +53,7 @@ def test_invalid_username():
             connection:
               host: localhost
               database: sodasql
-              username: invalid_usr
+              user: invalid_usr
               port: ${POSTGRES_PORT}
         """
     )

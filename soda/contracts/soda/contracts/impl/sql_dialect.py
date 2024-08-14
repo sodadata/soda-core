@@ -20,13 +20,14 @@ class SqlDialect:
     """
 
     def __init__(self):
-        self.default_quote_char = self.get_default_quote_char()
-        self.create_table_sql_type_dict: dict[str, str] = self.get_create_table_sql_type_dict()
+        self.default_quote_char = self._get_default_quote_char()
+        self.create_table_sql_type_dict: dict[str, str] = self._get_create_table_sql_type_dict()
+        self.schema_check_sql_type_dict: dict[str, str] = self._get_schema_check_sql_type_dict()
 
-    def get_default_quote_char(self) -> str:
+    def _get_default_quote_char(self) -> str:
         return '"'
 
-    def get_create_table_sql_type_dict(self) -> dict[str, str]:
+    def _get_create_table_sql_type_dict(self) -> dict[str, str]:
         return {
             DataType.TEXT: "VARCHAR(255)",
             DataType.INTEGER: "INT",
@@ -36,6 +37,18 @@ class SqlDialect:
             DataType.TIMESTAMP: "TIMESTAMP",
             DataType.TIMESTAMP_TZ: "TIMESTAMPTZ",
             DataType.BOOLEAN: "BOOLEAN",
+        }
+
+    def _get_schema_check_sql_type_dict(self) -> dict[str, str]:
+        return {
+            DataType.TEXT: "character varying",
+            DataType.INTEGER: "integer",
+            DataType.DECIMAL: "double precision",
+            DataType.DATE: "date",
+            DataType.TIME: "time",
+            DataType.TIMESTAMP: "timestamp without time zone",
+            DataType.TIMESTAMP_TZ: "timestamp with time zone",
+            DataType.BOOLEAN: "boolean",
         }
 
     def stmt_drop_schema_if_exists(self, database_name: str, schema_name: str) -> str:
@@ -199,16 +212,43 @@ class SqlDialect:
                 for test_column in test_columns
             ]
 
-        def get_create_table_sql_type(data_type: str) -> str:
-            return self.create_table_sql_type_dict.get(data_type, data_type)
-
         columns_sql = ",\n".join(
             [
-                f"  {test_column.name} {get_create_table_sql_type(test_column.data_type)}"
+                f"  {test_column.name} {self.get_create_table_sql_type(test_column.data_type)}"
                 for test_column in test_columns
             ]
         )
         return self.compose_create_table_statement(table_name_qualified_quoted, columns_sql)
+
+    def get_create_table_sql_type(self, data_type: str) -> str:
+        return self.create_table_sql_type_dict.get(data_type)
+
+    def get_schema_check_sql_type(self, data_type: str) -> str:
+        return self.schema_check_sql_type_dict.get(data_type)
+
+    def get_schema_check_sql_type_text(self) -> str:
+        return self.schema_check_sql_type_dict.get(DataType.TEXT)
+
+    def get_schema_check_sql_type_time(self) -> str:
+        return self.schema_check_sql_type_dict.get(DataType.TIME)
+
+    def get_schema_check_sql_type_date(self) -> str:
+        return self.schema_check_sql_type_dict.get(DataType.DATE)
+
+    def get_schema_check_sql_type_timestamp(self) -> str:
+        return self.schema_check_sql_type_dict.get(DataType.TIMESTAMP)
+
+    def get_schema_check_sql_type_timestamp_tz(self) -> str:
+        return self.schema_check_sql_type_dict.get(DataType.TIMESTAMP_TZ)
+
+    def get_schema_check_sql_type_integer(self) -> str:
+        return self.schema_check_sql_type_dict.get(DataType.INTEGER)
+
+    def get_schema_check_sql_type_decimal(self) -> str:
+        return self.schema_check_sql_type_dict.get(DataType.DECIMAL)
+
+    def get_schema_check_sql_type_boolean(self) -> str:
+        return self.schema_check_sql_type_dict.get(DataType.BOOLEAN)
 
     def compose_create_table_statement(self, qualified_table_name, columns_sql) -> str:
         return f"CREATE TABLE {qualified_table_name} ( \n{columns_sql} \n)"

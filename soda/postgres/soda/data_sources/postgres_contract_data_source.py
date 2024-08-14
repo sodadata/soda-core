@@ -23,7 +23,7 @@ class PostgresContractDataSource(FileClContractDataSource):
     def _create_connection(self, connection_yaml_dict: dict) -> object:
         import psycopg2
 
-        if connection_yaml_dict["password"] == "":
+        if not "password" in connection_yaml_dict or connection_yaml_dict["password"] == "":
             connection_yaml_dict["password"] = None
 
         self._log_connection_properties_excl_pwd("postgres", connection_yaml_dict)

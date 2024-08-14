@@ -1,4 +1,3 @@
-from contracts.helpers.contract_parse_errors import get_parse_errors_str
 from contracts.helpers.contract_data_source_test_helper import ContractDataSourceTestHelper
 from helpers.test_table import TestTable
 from soda.execution.data_type import DataType
@@ -72,8 +71,8 @@ def test_contract_no_invalid_with_valid_values_fail(data_source_test_helper: Con
     assert "actual invalid_count(one) was 2" in str(contract_result).lower()
 
 
-def test_no_invalid_with_threshold():
-    errors_str = get_parse_errors_str(
+def test_no_invalid_with_threshold(data_source_test_helper: ContractDataSourceTestHelper):
+    errors_str = data_source_test_helper.get_parse_errors_str(
         """
           dataset: TABLE_NAME
           columns:
@@ -88,8 +87,8 @@ def test_no_invalid_with_threshold():
     assert "Check type 'no_invalid_values' does not allow for threshold keys must_..." in errors_str
 
 
-def test_no_invalid_without_valid_configuration():
-    errors_str = get_parse_errors_str(
+def test_no_invalid_without_valid_configuration(data_source_test_helper: ContractDataSourceTestHelper):
+    errors_str = data_source_test_helper.get_parse_errors_str(
         """
           dataset: TABLE_NAME
           columns:

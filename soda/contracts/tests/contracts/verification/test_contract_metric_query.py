@@ -6,7 +6,7 @@ from soda.contracts.check import MetricCheckResult, UserDefinedMetricQueryCheck
 from soda.contracts.contract import CheckOutcome, ContractResult
 
 user_defined_metric_query_sql_test_table = TestTable(
-    name="metric_query_query",
+    name="user_defined_metric_query_sql",
     # fmt: off
     columns=[
         ("id", DataType.TEXT),
@@ -23,6 +23,7 @@ user_defined_metric_query_sql_test_table = TestTable(
 
 def test_contract_metric_query_on_column(data_source_test_helper: ContractDataSourceTestHelper):
     unique_table_name: str = data_source_test_helper.ensure_test_table(user_defined_metric_query_sql_test_table)
+    qualified_table_name: str = data_source_test_helper.contract_data_source.qualify_table(unique_table_name)
 
     contract_result: ContractResult = data_source_test_helper.assert_contract_fail(
         test_table=user_defined_metric_query_sql_test_table,
@@ -34,7 +35,7 @@ def test_contract_metric_query_on_column(data_source_test_helper: ContractDataSo
                   metric: us_count
                   query_sql: |
                     SELECT COUNT(*)
-                    FROM {unique_table_name}
+                    FROM {qualified_table_name}
                     WHERE country = 'US'
                   must_be_not_between: [0, 5]
               - name: country
@@ -57,9 +58,11 @@ def test_contract_metric_query_on_column(data_source_test_helper: ContractDataSo
 
 def test_contract_metric_query_on_dataset(data_source_test_helper: ContractDataSourceTestHelper):
     unique_table_name: str = data_source_test_helper.ensure_test_table(user_defined_metric_query_sql_test_table)
+    qualified_table_name: str = data_source_test_helper.contract_data_source.qualify_table(unique_table_name)
 
     contract_result: ContractResult = data_source_test_helper.assert_contract_fail(
-        f"""
+        test_table=user_defined_metric_query_sql_test_table,
+        contract_yaml_str=f"""
         columns:
           - name: id
           - name: country
@@ -68,7 +71,7 @@ def test_contract_metric_query_on_dataset(data_source_test_helper: ContractDataS
             metric: us_count
             query_sql: |
               SELECT COUNT(*)
-              FROM {unique_table_name}
+              FROM {qualified_table_name}
               WHERE country = 'US'
             must_be_not_between: [0, 5]
     """
