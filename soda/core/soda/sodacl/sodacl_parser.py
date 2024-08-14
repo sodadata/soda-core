@@ -499,34 +499,6 @@ class SodaCLParser(Parser):
         else:
             self.logs.error(f'Check "{check_str}" expects a nested object/dict, but was {check_configurations}')
 
-    def __parse_failed_rows_table_expression_check(
-        self,
-        header_str: str,
-        check_str: str,
-        check_configurations: dict | None,
-    ) -> CheckCfg:
-        if isinstance(check_configurations, dict):
-            from soda.sodacl.user_defined_failed_rows_expression_check_cfg import (
-                UserDefinedFailedRowsExpressionCheckCfg,
-            )
-
-            self._push_path_element(check_str, check_configurations)
-            try:
-                expression = self._get_required("failed rows expression", str)
-                name = self._get_optional(NAME, str)
-                return UserDefinedFailedRowsExpressionCheckCfg(
-                    source_header=header_str,
-                    source_line=check_str,
-                    source_configurations=check_configurations,
-                    location=self.location,
-                    name=name,
-                    fail_condition_sql_expr=expression,
-                )
-            finally:
-                self._pop_path_element()
-        else:
-            self.logs.error(f'Check "{check_str}" expects a nested object/dict, but was {check_configurations}')
-
     def parse_failed_rows_data_source_query_check(
         self,
         header_str: str,
@@ -1582,7 +1554,19 @@ class SodaCLParser(Parser):
             freshness_threshold = antlr_threshold_value.freshness_threshold_value().getText()
             return self.parse_freshness_threshold(freshness_threshold)
         if antlr_threshold_value.IDENTIFIER_UNQUOTED():
+            resolved_value = self._resolve_jinja(
+                antlr_threshold_value.IDENTIFIER_UNQUOTED().getText(), self.sodacl_cfg.scan._variables
+            )
+            if self.__str_looks_like_freshness_threshold(resolved_value):
+                return self.parse_freshness_threshold(resolved_value)
             return antlr_threshold_value.IDENTIFIER_UNQUOTED().getText()
+
+    def __str_looks_like_freshness_threshold(self, str_value: str) -> bool:
+        """
+        This method replicates the antlr parsing logic for freshness threshold values. It is needed to validate input after parsing so that
+        variables can be used in thresholds.
+        """
+        return re.match(r"^(\d+[dhm])+$", str_value) is not None
 
     def __antlr_parse_signed_number(self, antlr_signed_number):
         signed_number_str = antlr_signed_number.getText()
