@@ -1,3 +1,5 @@
+from textwrap import dedent
+
 import pytest
 from helpers.common_test_tables import customers_test_table
 from helpers.data_source_fixture import DataSourceFixture
@@ -289,3 +291,41 @@ def test_freshness_mixed_threshold_hm(data_source_fixture: DataSourceFixture):
     scan.execute()
 
     scan.assert_all_checks_pass()
+
+
+@pytest.mark.parametrize(
+    "sodacl",
+    [
+        pytest.param(
+            dedent(
+                """
+            checks for {table_name}:
+                - freshness(ts) < ${{threshold}}
+            """
+            ),
+            id="simple threshold",
+        ),
+        pytest.param(
+            dedent(
+                """
+            checks for {table_name}:
+                - freshness(ts):
+                    fail: when > ${{threshold}}
+            """
+            ),
+            id="fail threshold",
+        ),
+    ],
+)
+def test_freshness_variable_in_threshold(data_source_fixture: DataSourceFixture, sodacl: str):
+    table_name = data_source_fixture.ensure_test_table(customers_test_table)
+    scan = data_source_fixture.create_test_scan()
+    scan.add_variables(
+        {
+            "threshold": "1h",
+        }
+    )
+    scan.add_sodacl_yaml_str(sodacl.format(table_name=table_name))
+    scan.execute()
+
+    scan.assert_all_checks_fail()
