@@ -44,7 +44,7 @@ def test_contract_avg(data_source_test_helper: ContractDataSourceTestHelper):
     assert check.metric == "avg"
     assert check.column.lower() == "one"
 
-    assert "Actual avg(one) was 2" in str(contract_result)
+    assert "actual avg(one) was 2" in str(contract_result).lower()
 
 
 def test_contract_sum(data_source_test_helper: ContractDataSourceTestHelper):
@@ -70,4 +70,4 @@ def test_contract_sum(data_source_test_helper: ContractDataSourceTestHelper):
     assert check.metric == "sum"
     assert check.column.lower() == "one"
 
-    assert "Actual sum(one) was 6" in str(contract_result)
+    assert "actual sum(one) was 6" in str(contract_result).lower()

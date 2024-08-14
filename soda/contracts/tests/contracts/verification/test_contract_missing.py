@@ -73,7 +73,7 @@ def test_contract_nomissing_with_missing_values(data_source_test_helper: Contrac
     assert check.metric == "missing_count"
     assert check.column.lower() == "one"
 
-    assert "Actual missing_count(one) was 1" in str(contract_result)
+    assert "actual missing_count(one) was 1" in str(contract_result).lower()
 
 
 def test_contract_nomissing_without_missing_values(data_source_test_helper: ContractDataSourceTestHelper):
@@ -124,7 +124,7 @@ def test_contract_missing_count_with_missing_values(data_source_test_helper: Con
     assert check.metric == "missing_count"
     assert check.column.lower() == "one"
 
-    assert "Actual missing_count(one) was 1" in str(contract_result)
+    assert "actual missing_count(one) was 1" in str(contract_result).lower()
 
 
 def test_contract_missing_count_pass(data_source_test_helper: ContractDataSourceTestHelper):
@@ -203,7 +203,7 @@ def test_contract_missing_count_with_missing_regex_sql(data_source_test_helper: 
     assert check.metric == "missing_count"
     assert check.column.lower() == "one"
 
-    assert "Actual missing_count(one) was 2" in str(contract_result)
+    assert "actual missing_count(one) was 2" in str(contract_result).lower()
 
 
 def test_contract_missing_count_name_and_threshold(data_source_test_helper: ContractDataSourceTestHelper):

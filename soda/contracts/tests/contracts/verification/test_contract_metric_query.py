@@ -53,7 +53,7 @@ def test_contract_metric_query_on_column(data_source_test_helper: ContractDataSo
     assert check.metric == "us_count"
     assert check.column.lower() == "id"
 
-    assert "Actual us_count(id) was 2" in str(contract_result)
+    assert "actual us_count(id) was 2" in str(contract_result).lower()
 
 
 def test_contract_metric_query_on_dataset(data_source_test_helper: ContractDataSourceTestHelper):
@@ -88,4 +88,4 @@ def test_contract_metric_query_on_dataset(data_source_test_helper: ContractDataS
     assert check.metric == "us_count"
     assert check.column is None
 
-    assert "Actual us_count was 2" in str(contract_result)
+    assert "actual us_count was 2" in str(contract_result).lower()

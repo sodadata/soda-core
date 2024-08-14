@@ -278,7 +278,7 @@ class ContractDataSourceTestHelper:
 
     def assert_contract_pass(self, test_table: TestTable, contract_yaml_str: str, variables: dict[str, str] | None = None) -> ContractResult:
         unique_table_name: str = self.ensure_test_table(test_table)
-        full_contract_yaml_str = self._build_full_contract_yaml_str(
+        full_contract_yaml_str: str = self._build_full_contract_yaml_str(
             test_table=test_table, unique_table_name=unique_table_name, contract_yaml_str=contract_yaml_str
         )
         logging.debug(full_contract_yaml_str)
@@ -295,7 +295,7 @@ class ContractDataSourceTestHelper:
 
     def assert_contract_fail(self, test_table: TestTable, contract_yaml_str: str, variables: dict[str, str] | None = None) -> ContractResult:
         unique_table_name: str = self.ensure_test_table(test_table)
-        full_contract_yaml_str = self._build_full_contract_yaml_str(
+        full_contract_yaml_str: str = self._build_full_contract_yaml_str(
             test_table=test_table, unique_table_name=unique_table_name, contract_yaml_str=contract_yaml_str
         )
         logging.debug(full_contract_yaml_str)
@@ -345,17 +345,28 @@ class ContractDataSourceTestHelper:
         header_contract_yaml_str = "\n".join(header_lines)
         checks_contract_yaml_str = dedent(contract_yaml_str).strip()
 
+        checks_contract_yaml_str = self.casify_contract_yaml_str(
+            test_table=test_table,
+            contract_yaml_str=checks_contract_yaml_str
+        )
+
+        return f"{header_contract_yaml_str}\n{checks_contract_yaml_str}"
+
+    def casify_contract_yaml_str(self, test_table, contract_yaml_str):
         if not test_table.quote_names:
             sql_dialect: SqlDialect = self.contract_data_source.sql_dialect
             ruamel_yaml: YAML = YAML()
             ruamel_yaml.preserve_quotes = True
-            contract_content_dict: dict = ruamel_yaml.load(checks_contract_yaml_str)
+            contract_content_dict: dict = ruamel_yaml.load(contract_yaml_str)
             for column_yaml_dict in contract_content_dict["columns"]:
                 original_column_name: str = column_yaml_dict["name"]
                 actual_column_name: str = sql_dialect.default_casify(original_column_name)
                 column_yaml_dict["name"] = actual_column_name
+                original_column_data_type: str | None = column_yaml_dict.get("data_type")
+                if isinstance(original_column_data_type, str):
+                    actual_column_data_type: str | None = sql_dialect.get_schema_check_sql_type(original_column_data_type)
+                    column_yaml_dict["data_type"] = actual_column_data_type if actual_column_data_type else original_column_data_type
             stream = StringIO()
             round_trip_dump(contract_content_dict, stream=stream)
-            checks_contract_yaml_str = stream.getvalue()
-
-        return f"{header_contract_yaml_str}\n{checks_contract_yaml_str}"
+            contract_yaml_str = stream.getvalue()
+        return contract_yaml_str

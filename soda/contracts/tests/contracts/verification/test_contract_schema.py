@@ -28,18 +28,23 @@ contracts_schema_test_table = TestTable(
 
 def test_contract_schema_pass_with_data_types(data_source_test_helper: ContractDataSourceTestHelper):
     sql_dialect: SqlDialect = data_source_test_helper.contract_data_source.sql_dialect
+    id_casified = sql_dialect.default_casify("id")
+    size_casified = sql_dialect.default_casify("size")
+    distance_casified = sql_dialect.default_casify("distance")
+    created_casified = sql_dialect.default_casify("created")
+
     contract_result: ContractResult = data_source_test_helper.assert_contract_pass(
         test_table=contracts_schema_test_table,
         contract_yaml_str=f"""
             columns:
               - name: id
-                data_type: {sql_dialect.get_schema_check_sql_type_text()}
+                data_type: {DataType.TEXT}
               - name: size
-                data_type: {sql_dialect.get_schema_check_sql_type_decimal()}
+                data_type: {DataType.DECIMAL}
               - name: distance
-                data_type: {sql_dialect.get_schema_check_sql_type_integer()}
+                data_type: {DataType.INTEGER}
               - name: created
-                data_type: {sql_dialect.get_schema_check_sql_type_date()}
+                data_type: {DataType.DATE}
          """
     )
 
@@ -47,10 +52,10 @@ def test_contract_schema_pass_with_data_types(data_source_test_helper: ContractD
     assert isinstance(schema_check_result, SchemaCheckResult)
     assert schema_check_result.outcome == CheckOutcome.PASS
     assert schema_check_result.measured_schema == {
-        "id": sql_dialect.get_schema_check_sql_type_text(),
-        "size": sql_dialect.get_schema_check_sql_type_decimal(),
-        "distance": sql_dialect.get_schema_check_sql_type_integer(),
-        "created": sql_dialect.get_schema_check_sql_type_date(),
+        id_casified: sql_dialect.get_schema_check_sql_type_text(),
+        size_casified: sql_dialect.get_schema_check_sql_type_decimal(),
+        distance_casified: sql_dialect.get_schema_check_sql_type_integer(),
+        created_casified: sql_dialect.get_schema_check_sql_type_date(),
     }
     assert schema_check_result.columns_not_allowed_and_present == []
     assert schema_check_result.columns_required_and_not_present == []
@@ -58,10 +63,10 @@ def test_contract_schema_pass_with_data_types(data_source_test_helper: ContractD
 
     check: SchemaCheck = schema_check_result.check
     assert check.columns == {
-        "id": sql_dialect.get_schema_check_sql_type_text(),
-        "size": sql_dialect.get_schema_check_sql_type_decimal(),
-        "distance": sql_dialect.get_schema_check_sql_type_integer(),
-        "created": sql_dialect.get_schema_check_sql_type_date(),
+        id_casified: sql_dialect.get_schema_check_sql_type_text(),
+        size_casified: sql_dialect.get_schema_check_sql_type_decimal(),
+        distance_casified: sql_dialect.get_schema_check_sql_type_integer(),
+        created_casified: sql_dialect.get_schema_check_sql_type_date(),
     }
 
 
@@ -78,15 +83,19 @@ def test_contract_schema_pass_without_data_types(data_source_test_helper: Contra
     )
 
     sql_dialect: SqlDialect = data_source_test_helper.contract_data_source.sql_dialect
+    id_casified = sql_dialect.default_casify("id")
+    size_casified = sql_dialect.default_casify("size")
+    distance_casified = sql_dialect.default_casify("distance")
+    created_casified = sql_dialect.default_casify("created")
 
     schema_check_result = contract_result.check_results[0]
     assert isinstance(schema_check_result, SchemaCheckResult)
     assert schema_check_result.outcome == CheckOutcome.PASS
     assert schema_check_result.measured_schema == {
-        "id": sql_dialect.get_schema_check_sql_type_text(),
-        "size": sql_dialect.get_schema_check_sql_type_decimal(),
-        "distance": sql_dialect.get_schema_check_sql_type_integer(),
-        "created": sql_dialect.get_schema_check_sql_type_date(),
+        id_casified: sql_dialect.get_schema_check_sql_type_text(),
+        size_casified: sql_dialect.get_schema_check_sql_type_decimal(),
+        distance_casified: sql_dialect.get_schema_check_sql_type_integer(),
+        created_casified: sql_dialect.get_schema_check_sql_type_date(),
     }
     assert schema_check_result.columns_not_allowed_and_present == []
     assert schema_check_result.columns_required_and_not_present == []
@@ -94,30 +103,35 @@ def test_contract_schema_pass_without_data_types(data_source_test_helper: Contra
 
     check: SchemaCheck = schema_check_result.check
     assert check.columns == {
-        "id": None,
-        "size": None,
-        "distance": None,
-        "created": None,
+        id_casified: None,
+        size_casified: None,
+        distance_casified: None,
+        created_casified: None,
     }
 
 
 def test_contract_schema_missing_column(data_source_test_helper: ContractDataSourceTestHelper):
     sql_dialect: SqlDialect = data_source_test_helper.contract_data_source.sql_dialect
+    id_casified = sql_dialect.default_casify("id")
+    size_casified = sql_dialect.default_casify("size")
+    distance_casified = sql_dialect.default_casify("distance")
+    created_casified = sql_dialect.default_casify("created")
+    themissingcolumn_casified = sql_dialect.default_casify("themissingcolumn")
 
     contract_result: ContractResult = data_source_test_helper.assert_contract_fail(
         test_table=contracts_schema_test_table,
         contract_yaml_str=f"""
             columns:
               - name: id
-                data_type: {sql_dialect.get_schema_check_sql_type_text()}
+                data_type: {DataType.TEXT}
               - name: size
-                data_type: {sql_dialect.get_schema_check_sql_type_decimal()}
+                data_type: {DataType.DECIMAL}
               - name: distance
-                data_type: {sql_dialect.get_schema_check_sql_type_integer()}
+                data_type: {DataType.INTEGER}
               - name: themissingcolumn
-                data_type: {sql_dialect.get_schema_check_sql_type_text()}
+                data_type: {DataType.TEXT}
               - name: created
-                data_type: {sql_dialect.get_schema_check_sql_type_date()}
+                data_type: {DataType.DATE}
         """
     )
 
@@ -125,36 +139,40 @@ def test_contract_schema_missing_column(data_source_test_helper: ContractDataSou
     assert isinstance(schema_check_result, SchemaCheckResult)
     assert schema_check_result.outcome == CheckOutcome.FAIL
     assert schema_check_result.measured_schema == {
-        "id": sql_dialect.get_schema_check_sql_type_text(),
-        "size": sql_dialect.get_schema_check_sql_type_decimal(),
-        "distance": sql_dialect.get_schema_check_sql_type_integer(),
-        "created": sql_dialect.get_schema_check_sql_type_date(),
+        id_casified: sql_dialect.get_schema_check_sql_type_text(),
+        size_casified: sql_dialect.get_schema_check_sql_type_decimal(),
+        distance_casified: sql_dialect.get_schema_check_sql_type_integer(),
+        created_casified: sql_dialect.get_schema_check_sql_type_date(),
     }
     assert schema_check_result.columns_not_allowed_and_present == []
-    assert schema_check_result.columns_required_and_not_present == ["themissingcolumn"]
+    assert schema_check_result.columns_required_and_not_present == [themissingcolumn_casified]
     assert schema_check_result.columns_having_wrong_type == []
 
-    assert "Column 'themissingcolumn' was missing" in str(contract_result)
+    assert "column 'themissingcolumn' was missing" in str(contract_result).lower()
 
 
 def test_contract_schema_missing_optional_column(data_source_test_helper: ContractDataSourceTestHelper):
     sql_dialect: SqlDialect = data_source_test_helper.contract_data_source.sql_dialect
+    id_casified = sql_dialect.default_casify("id")
+    size_casified = sql_dialect.default_casify("size")
+    distance_casified = sql_dialect.default_casify("distance")
+    created_casified = sql_dialect.default_casify("created")
 
     contract_result: ContractResult = data_source_test_helper.assert_contract_pass(
         test_table=contracts_schema_test_table,
         contract_yaml_str=f"""
             columns:
               - name: id
-                data_type: {sql_dialect.get_schema_check_sql_type_text()}
+                data_type: {DataType.TEXT}
               - name: size
-                data_type: {sql_dialect.get_schema_check_sql_type_decimal()}
+                data_type: {DataType.DECIMAL}
               - name: distance
-                data_type: {sql_dialect.get_schema_check_sql_type_integer()}
+                data_type: {DataType.INTEGER}
               - name: themissingcolumn
-                data_type: {sql_dialect.get_schema_check_sql_type_text()}
+                data_type: {DataType.TEXT}
                 optional: true
               - name: created
-                data_type: {sql_dialect.get_schema_check_sql_type_date()}
+                data_type: {DataType.DATE}
         """
     )
 
@@ -162,10 +180,10 @@ def test_contract_schema_missing_optional_column(data_source_test_helper: Contra
     assert isinstance(schema_check_result, SchemaCheckResult)
     assert schema_check_result.outcome == CheckOutcome.PASS
     assert schema_check_result.measured_schema == {
-        "id": sql_dialect.get_schema_check_sql_type_text(),
-        "size": sql_dialect.get_schema_check_sql_type_decimal(),
-        "distance": sql_dialect.get_schema_check_sql_type_integer(),
-        "created": sql_dialect.get_schema_check_sql_type_date(),
+        id_casified: sql_dialect.get_schema_check_sql_type_text(),
+        size_casified: sql_dialect.get_schema_check_sql_type_decimal(),
+        distance_casified: sql_dialect.get_schema_check_sql_type_integer(),
+        created_casified: sql_dialect.get_schema_check_sql_type_date(),
     }
     assert schema_check_result.columns_not_allowed_and_present == []
     assert schema_check_result.columns_required_and_not_present == []
@@ -174,17 +192,21 @@ def test_contract_schema_missing_optional_column(data_source_test_helper: Contra
 
 def test_contract_schema_extra_column(data_source_test_helper: ContractDataSourceTestHelper):
     sql_dialect: SqlDialect = data_source_test_helper.contract_data_source.sql_dialect
+    id_casified = sql_dialect.default_casify("id")
+    size_casified = sql_dialect.default_casify("size")
+    distance_casified = sql_dialect.default_casify("distance")
+    created_casified = sql_dialect.default_casify("created")
 
     contract_result: ContractResult = data_source_test_helper.assert_contract_fail(
         test_table=contracts_schema_test_table,
         contract_yaml_str=f"""
             columns:
               - name: id
-                data_type: {sql_dialect.get_schema_check_sql_type_text()}
+                data_type: {DataType.TEXT}
               - name: size
-                data_type: {sql_dialect.get_schema_check_sql_type_decimal()}
+                data_type: {DataType.DECIMAL}
               - name: created
-                data_type: {sql_dialect.get_schema_check_sql_type_date()}
+                data_type: {DataType.DATE}
         """
     )
 
@@ -192,20 +214,24 @@ def test_contract_schema_extra_column(data_source_test_helper: ContractDataSourc
     assert isinstance(schema_check_result, SchemaCheckResult)
     assert schema_check_result.outcome == CheckOutcome.FAIL
     assert schema_check_result.measured_schema == {
-        "id": sql_dialect.get_schema_check_sql_type_text(),
-        "size": sql_dialect.get_schema_check_sql_type_decimal(),
-        "distance": sql_dialect.get_schema_check_sql_type_integer(),
-        "created": sql_dialect.get_schema_check_sql_type_date(),
+        id_casified: sql_dialect.get_schema_check_sql_type_text(),
+        size_casified: sql_dialect.get_schema_check_sql_type_decimal(),
+        distance_casified: sql_dialect.get_schema_check_sql_type_integer(),
+        created_casified: sql_dialect.get_schema_check_sql_type_date(),
     }
-    assert schema_check_result.columns_not_allowed_and_present == ["distance"]
+    assert schema_check_result.columns_not_allowed_and_present == [distance_casified]
     assert schema_check_result.columns_required_and_not_present == []
     assert schema_check_result.columns_having_wrong_type == []
 
-    assert "Column 'distance' was present and not allowed" in str(contract_result)
+    assert "column 'distance' was present and not allowed" in str(contract_result).lower()
 
 
 def test_contract_schema_data_type_mismatch(data_source_test_helper: ContractDataSourceTestHelper):
     sql_dialect: SqlDialect = data_source_test_helper.contract_data_source.sql_dialect
+    id_casified = sql_dialect.default_casify("id")
+    size_casified = sql_dialect.default_casify("size")
+    distance_casified = sql_dialect.default_casify("distance")
+    created_casified = sql_dialect.default_casify("created")
 
     contract_result: ContractResult = data_source_test_helper.assert_contract_fail(
         test_table=contracts_schema_test_table,
@@ -214,11 +240,11 @@ def test_contract_schema_data_type_mismatch(data_source_test_helper: ContractDat
               - name: id
                 data_type: WRONG_VARCHAR
               - name: size
-                data_type: {sql_dialect.get_schema_check_sql_type_decimal()}
+                data_type: {DataType.DECIMAL}
               - name: distance
-                data_type: {sql_dialect.get_schema_check_sql_type_integer()}
+                data_type: {DataType.INTEGER}
               - name: created
-                data_type: {sql_dialect.get_schema_check_sql_type_date()}
+                data_type: {DataType.DATE}
         """
     )
 
@@ -226,17 +252,17 @@ def test_contract_schema_data_type_mismatch(data_source_test_helper: ContractDat
     assert isinstance(schema_check_result, SchemaCheckResult)
     assert schema_check_result.outcome == CheckOutcome.FAIL
     assert schema_check_result.measured_schema == {
-        "id": sql_dialect.get_schema_check_sql_type_text(),
-        "size": sql_dialect.get_schema_check_sql_type_decimal(),
-        "distance": sql_dialect.get_schema_check_sql_type_integer(),
-        "created": sql_dialect.get_schema_check_sql_type_date(),
+        id_casified: sql_dialect.get_schema_check_sql_type_text(),
+        size_casified: sql_dialect.get_schema_check_sql_type_decimal(),
+        distance_casified: sql_dialect.get_schema_check_sql_type_integer(),
+        created_casified: sql_dialect.get_schema_check_sql_type_date(),
     }
     assert schema_check_result.columns_not_allowed_and_present == []
     assert schema_check_result.columns_required_and_not_present == []
 
     data_type_mismatch = schema_check_result.columns_having_wrong_type[0]
-    assert data_type_mismatch.column == "id"
+    assert data_type_mismatch.column == id_casified
     assert data_type_mismatch.expected_data_type == "WRONG_VARCHAR"
     assert data_type_mismatch.actual_data_type == sql_dialect.get_schema_check_sql_type_text()
 
-    assert "Column 'id': Expected type 'WRONG_VARCHAR', but was 'character varying'" in str(contract_result)
+    assert f"column 'id': expected type 'wrong_varchar', but was " in str(contract_result).lower()

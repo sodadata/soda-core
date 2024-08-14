@@ -48,4 +48,4 @@ def test_contract_check_filter(data_source_test_helper: ContractDataSourceTestHe
     assert check.metric == "invalid_count"
     assert check.column.lower() == "currency"
 
-    assert "Actual invalid_count(currency) was 1" in str(contract_result)
+    assert "actual invalid_count(currency) was 1" in str(contract_result).lower()

@@ -6,12 +6,36 @@ import re
 from soda.contracts.impl.contract_data_source import FileClContractDataSource
 from soda.contracts.impl.sql_dialect import SqlDialect
 from soda.contracts.impl.yaml_helper import YamlFile
+from soda.execution.data_type import DataType
 
 logger = logging.getLogger(__name__)
 
 
 class SnowflakeSqlDialect(SqlDialect):
 
+    def _get_create_table_sql_type_dict(self) -> dict[str, str]:
+        return {
+            DataType.TEXT: "TEXT",
+            DataType.INTEGER: "INT",
+            DataType.DECIMAL: "FLOAT",
+            DataType.DATE: "DATE",
+            DataType.TIME: "TIME",
+            DataType.TIMESTAMP: "TIMESTAMP_NTZ",
+            DataType.TIMESTAMP_TZ: "TIMESTAMP_TZ",
+            DataType.BOOLEAN: "BOOLEAN",
+        }
+
+    def _get_schema_check_sql_type_dict(self) -> dict[str, str]:
+        return {
+            DataType.TEXT: "TEXT",
+            DataType.INTEGER: "NUMBER",
+            DataType.DECIMAL: "FLOAT",
+            DataType.DATE: "DATE",
+            DataType.TIME: "TIME",
+            DataType.TIMESTAMP: "TIMESTAMP_NTZ",
+            DataType.TIMESTAMP_TZ: "TIMESTAMP_TZ",
+            DataType.BOOLEAN: "BOOLEAN",
+        }
 
     def stmt_drop_schema_if_exists(self, database_name: str, schema_name: str) -> str:
         return f"DROP SCHEMA IF EXISTS {schema_name} CASCADE"
