@@ -69,7 +69,7 @@ def test_contract_freshness_fail(data_source_test_helper: ContractDataSourceTest
 
     assert "expected freshness(created) < 3h" in contract_result_str.lower()
     assert "actual freshness(created) was 3:19:50" in contract_result_str.lower()
-    assert "max value in column was ...... 2021-01-01 10:10:10+00:00" in contract_result_str.lower()
-    assert "max value in column in utc was 2021-01-01 10:10:10+00:00" in contract_result_str.lower()
+    assert "max value in column was ...... 2021-01-01 10:10:10" in contract_result_str.lower()
+    assert "max value in column in utc was 2021-01-01 10:10:10" in contract_result_str.lower()
     assert "now was ...................... 2021-01-01 13:30" in contract_result_str.lower()
-    assert "now in utc was ............... 2021-01-01 13:30:00+00:00" in contract_result_str.lower()
+    assert "now in utc was ............... 2021-01-01 13:30:00" in contract_result_str.lower()

@@ -38,6 +38,18 @@ class SparkDfSqlDialect(SqlDialect):
             DataType.BOOLEAN: "boolean",
         }
 
+    def _get_schema_check_sql_type_dict(self) -> dict[str, str]:
+        return {
+            DataType.TEXT: "string",
+            DataType.INTEGER: "int",
+            DataType.DECIMAL: "double",
+            DataType.DATE: "date",
+            DataType.TIME: "timestamp",
+            DataType.TIMESTAMP: "timestamp",
+            DataType.TIMESTAMP_TZ: "timestamp",  # No timezone support in Spark
+            DataType.BOOLEAN: "boolean",
+        }
+
     def stmt_select_table_names(
         self,
         database_name: str | None = None,
