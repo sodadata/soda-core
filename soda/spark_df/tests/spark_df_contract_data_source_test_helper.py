@@ -32,25 +32,27 @@ class SparkDfContractDataSourceTestHelper(ContractDataSourceTestHelper):
         """
         return None
 
-    def _create_contract_data_source_yaml_dict(
-        self,
-        database_name: str | None,
-        schema_name: str | None
-    ) -> dict:
-        return None
-
     def _create_contract_data_source(self, database_name: str | None, schema_name: str | None) -> ContractDataSource:
-        data_source_yaml_dict: dict = {
-            # TODO test Atlan integration
-            # atlan_qualified_name: 0sd9f8s09d8f0s9d8f
-        }
         logs: Logs = Logs()
-        data_source_yaml_file: YamlFile = YamlFile(yaml_dict=data_source_yaml_dict, logs=logs)
+        test_data_source_yaml_dict = self._create_contract_data_source_yaml_dict(
+            database_name=database_name,
+            schema_name=schema_name,
+        )
+        data_source_yaml_file = YamlFile(yaml_dict=test_data_source_yaml_dict, logs=logs)
+        data_source_yaml_file.parse({})
         data_source = SparkDfContractDataSource(
             spark_session=self.spark_session,
             data_source_yaml_file=data_source_yaml_file
         )
         return data_source
+
+    def _create_contract_data_source_yaml_dict(
+        self,
+        database_name: str | None,
+        schema_name: str | None
+    ) -> dict:
+        return {
+        }
 
     def create_and_insert_test_table(
         self, database_name: str | None, schema_name: str | None, test_table: TestTable
