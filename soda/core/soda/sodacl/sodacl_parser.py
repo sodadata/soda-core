@@ -1300,7 +1300,7 @@ class SodaCLParser(Parser):
         other_partition_name = None
         antlr_partition_name = antlr_row_count_comparison_check.partition_name()
         if antlr_partition_name:
-            other_partition_name = self.__antlr_parse_identifier(antlr_partition_name)
+            other_partition_name = self.__antlr_parse_identifier(antlr_partition_name).strip("[]")
 
         other_data_source_name = antlr_identifier2.getText() if antlr_identifier2 else None
 
