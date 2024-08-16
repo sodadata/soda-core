@@ -6,12 +6,12 @@ import random
 import re
 import string
 from importlib import import_module
+from io import StringIO
 from textwrap import dedent
 
-from ruamel.yaml import YAML, round_trip_dump
-from six import StringIO
-
 from helpers.test_table import TestTable
+from ruamel.yaml import YAML, round_trip_dump
+
 from soda.contracts.contract import ContractResult
 from soda.contracts.contract_verification import (
     ContractVerification,
@@ -19,10 +19,9 @@ from soda.contracts.contract_verification import (
     ContractVerificationResult,
 )
 from soda.contracts.impl.contract_data_source import ContractDataSource
-from soda.contracts.impl.logs import Logs, Log
+from soda.contracts.impl.logs import Log, Logs
 from soda.contracts.impl.sql_dialect import SqlDialect
 from soda.contracts.impl.yaml_helper import YamlFile
-from soda.execution.data_source import DataSource as SodaCLDataSource
 
 logger = logging.getLogger(__name__)
 
@@ -83,11 +82,7 @@ class ContractDataSourceTestHelper:
         self.existing_test_table_names: list[str] | None = None
         self.is_cicd = os.getenv("GITHUB_ACTIONS") is not None
 
-    def _create_contract_data_source(
-        self,
-        database_name: str | None,
-        schema_name: str | None
-    ) -> ContractDataSource:
+    def _create_contract_data_source(self, database_name: str | None, schema_name: str | None) -> ContractDataSource:
         """
         Called in constructor to initialized self.contract_data_source
         """
@@ -102,15 +97,11 @@ class ContractDataSourceTestHelper:
         assert not logs.has_errors()
         return data_source
 
-    def _create_contract_data_source_yaml_dict(
-        self,
-        database_name: str | None,
-        schema_name: str | None
-    ) -> dict:
+    def _create_contract_data_source_yaml_dict(self, database_name: str | None, schema_name: str | None) -> dict:
         """
         Called in _create_contract_data_source to initialized self.contract_data_source
         """
-        return  {}
+        return {}
 
     def _create_database_name(self) -> str | None:
         """
@@ -194,8 +185,7 @@ class ContractDataSourceTestHelper:
         """
         if self.existing_test_table_names is None:
             self.existing_test_table_names = self.contract_data_source.select_existing_test_table_names(
-                database_name=self.database_name,
-                schema_name=self.schema_name
+                database_name=self.database_name, schema_name=self.schema_name
             )
         existing_test_table_names_lower = [table_name.lower() for table_name in self.existing_test_table_names]
         if test_table.unique_table_name.lower() not in existing_test_table_names_lower:
@@ -207,15 +197,11 @@ class ContractDataSourceTestHelper:
             if obsolete_table_names:
                 for obsolete_table_name in obsolete_table_names:
                     logger.debug(f"Test table {obsolete_table_name} has changed and will be recreated")
-                    self.drop_test_table(
-                        self.database_name, self.schema_name, obsolete_table_name
-                    )
+                    self.drop_test_table(self.database_name, self.schema_name, obsolete_table_name)
                     self.existing_test_table_names.remove(obsolete_table_name)
             logger.debug(f"Test table {test_table.unique_table_name} will be created")
             self.create_and_insert_test_table(
-                    database_name=self.database_name,
-                    schema_name=self.schema_name,
-                    test_table=test_table
+                database_name=self.database_name, schema_name=self.schema_name, test_table=test_table
             )
             self.existing_test_table_names.append(test_table.unique_table_name)
             self.contract_data_source.commit()
@@ -226,57 +212,47 @@ class ContractDataSourceTestHelper:
     def drop_test_schema_if_exists(self, database_name: str, schema_name: str) -> None:
         ds = self.contract_data_source
         drop_schema_if_exists_sql = ds.sql_dialect.stmt_drop_schema_if_exists(
-            database_name=database_name,
-            schema_name=schema_name
+            database_name=database_name, schema_name=schema_name
         )
         ds._execute_sql_update(drop_schema_if_exists_sql)
 
     def create_test_schema_if_not_exists(self, database_name: str, schema_name: str) -> None:
         ds = self.contract_data_source
-        create_schema_if_not_exists_sql = ds.sql_dialect.stmt_create_schema_if_not_exists(
-            database_name, schema_name
-        )
+        create_schema_if_not_exists_sql = ds.sql_dialect.stmt_create_schema_if_not_exists(database_name, schema_name)
         ds._execute_sql_update(create_schema_if_not_exists_sql)
 
     def drop_test_table(self, database_name: str, schema_name: str, table_name: str) -> None:
         ds = self.contract_data_source
         sql = ds.sql_dialect.stmt_drop_test_table(
-            database_name=database_name,
-            schema_name=schema_name,
-            table_name=table_name
+            database_name=database_name, schema_name=schema_name, table_name=table_name
         )
         ds._execute_sql_update(sql)
 
     def create_and_insert_test_table(
-        self,
-        database_name: str | None,
-        schema_name: str | None,
-        test_table: TestTable
+        self, database_name: str | None, schema_name: str | None, test_table: TestTable
     ) -> None:
         ds = self.contract_data_source
         create_table_sql = ds.sql_dialect.stmt_create_test_table(
-            database_name=database_name,
-            schema_name=schema_name,
-            test_table=test_table
+            database_name=database_name, schema_name=schema_name, test_table=test_table
         )
         ds._execute_sql_update(create_table_sql)
         insert_table_sql = ds.sql_dialect._insert_test_table_sql(
-            database_name=database_name,
-            schema_name=schema_name,
-            test_table=test_table
+            database_name=database_name, schema_name=schema_name, test_table=test_table
         )
         ds._execute_sql_update(insert_table_sql)
 
     def get_parse_errors_str(self, contract_yaml_str: str) -> str:
         contract_yaml_str = dedent(contract_yaml_str).strip()
-        contract_verification_builder = (self.create_test_verification_builder()
-            .with_contract_yaml_str(contract_yaml_str=contract_yaml_str)
+        contract_verification_builder = self.create_test_verification_builder().with_contract_yaml_str(
+            contract_yaml_str=contract_yaml_str
         )
         contract_verification = contract_verification_builder.build()
         errors: list[Log] = contract_verification.logs.get_errors()
         return "\n".join([str(e) for e in errors])
 
-    def assert_contract_pass(self, test_table: TestTable, contract_yaml_str: str, variables: dict[str, str] | None = None) -> ContractResult:
+    def assert_contract_pass(
+        self, test_table: TestTable, contract_yaml_str: str, variables: dict[str, str] | None = None
+    ) -> ContractResult:
         unique_table_name: str = self.ensure_test_table(test_table)
         full_contract_yaml_str: str = self._build_full_contract_yaml_str(
             test_table=test_table, unique_table_name=unique_table_name, contract_yaml_str=contract_yaml_str
@@ -293,7 +269,9 @@ class ContractDataSourceTestHelper:
         logging.debug(f"Contract result: {contract_verification_result}")
         return contract_verification_result.contract_results[0]
 
-    def assert_contract_fail(self, test_table: TestTable, contract_yaml_str: str, variables: dict[str, str] | None = None) -> ContractResult:
+    def assert_contract_fail(
+        self, test_table: TestTable, contract_yaml_str: str, variables: dict[str, str] | None = None
+    ) -> ContractResult:
         unique_table_name: str = self.ensure_test_table(test_table)
         full_contract_yaml_str: str = self._build_full_contract_yaml_str(
             test_table=test_table, unique_table_name=unique_table_name, contract_yaml_str=contract_yaml_str
@@ -334,10 +312,7 @@ class ContractDataSourceTestHelper:
         return TestContractVerification.builder().with_data_source(self.contract_data_source)
 
     def _build_full_contract_yaml_str(self, test_table: TestTable, unique_table_name: str, contract_yaml_str: str):
-        header_lines: list[str] = [
-            f"dataset: {unique_table_name}",
-            f"data_source: {self.contract_data_source.name}"
-        ]
+        header_lines: list[str] = [f"dataset: {unique_table_name}", f"data_source: {self.contract_data_source.name}"]
         if self.database_name:
             header_lines.append(f"database: {self.database_name}")
         if self.schema_name:
@@ -346,8 +321,7 @@ class ContractDataSourceTestHelper:
         checks_contract_yaml_str = dedent(contract_yaml_str).strip()
 
         checks_contract_yaml_str = self.casify_contract_yaml_str(
-            test_table=test_table,
-            contract_yaml_str=checks_contract_yaml_str
+            test_table=test_table, contract_yaml_str=checks_contract_yaml_str
         )
 
         return f"{header_contract_yaml_str}\n{checks_contract_yaml_str}"
@@ -364,8 +338,12 @@ class ContractDataSourceTestHelper:
                 column_yaml_dict["name"] = actual_column_name
                 original_column_data_type: str | None = column_yaml_dict.get("data_type")
                 if isinstance(original_column_data_type, str):
-                    actual_column_data_type: str | None = sql_dialect.get_schema_check_sql_type(original_column_data_type)
-                    column_yaml_dict["data_type"] = actual_column_data_type if actual_column_data_type else original_column_data_type
+                    actual_column_data_type: str | None = sql_dialect.get_schema_check_sql_type(
+                        original_column_data_type
+                    )
+                    column_yaml_dict["data_type"] = (
+                        actual_column_data_type if actual_column_data_type else original_column_data_type
+                    )
             stream = StringIO()
             round_trip_dump(contract_content_dict, stream=stream)
             contract_yaml_str = stream.getvalue()

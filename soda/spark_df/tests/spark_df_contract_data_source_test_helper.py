@@ -4,15 +4,17 @@ import decimal
 import logging
 from datetime import datetime
 
-from pyspark.sql import types, SparkSession
-
-from contracts.helpers.contract_data_source_test_helper import ContractDataSourceTestHelper
+from contracts.helpers.contract_data_source_test_helper import (
+    ContractDataSourceTestHelper,
+)
 from helpers.test_table import TestTable
+from pyspark.sql import SparkSession, types
+from soda.data_sources.spark_df_contract_data_source import SparkDfContractDataSource
+from soda.execution.data_type import DataType
+
 from soda.contracts.impl.contract_data_source import ContractDataSource
 from soda.contracts.impl.logs import Logs
 from soda.contracts.impl.yaml_helper import YamlFile
-from soda.data_sources.spark_df_contract_data_source import SparkDfContractDataSource
-from soda.execution.data_type import DataType
 
 
 class SparkDfContractDataSourceTestHelper(ContractDataSourceTestHelper):
@@ -41,18 +43,12 @@ class SparkDfContractDataSourceTestHelper(ContractDataSourceTestHelper):
         data_source_yaml_file = YamlFile(yaml_dict=test_data_source_yaml_dict, logs=logs)
         data_source_yaml_file.parse({})
         data_source = SparkDfContractDataSource(
-            spark_session=self.spark_session,
-            data_source_yaml_file=data_source_yaml_file
+            spark_session=self.spark_session, data_source_yaml_file=data_source_yaml_file
         )
         return data_source
 
-    def _create_contract_data_source_yaml_dict(
-        self,
-        database_name: str | None,
-        schema_name: str | None
-    ) -> dict:
-        return {
-        }
+    def _create_contract_data_source_yaml_dict(self, database_name: str | None, schema_name: str | None) -> dict:
+        return {}
 
     def create_and_insert_test_table(
         self, database_name: str | None, schema_name: str | None, test_table: TestTable

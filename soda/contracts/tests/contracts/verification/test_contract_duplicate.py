@@ -1,4 +1,6 @@
-from contracts.helpers.contract_data_source_test_helper import ContractDataSourceTestHelper
+from contracts.helpers.contract_data_source_test_helper import (
+    ContractDataSourceTestHelper,
+)
 from helpers.test_table import TestTable
 from soda.execution.data_type import DataType
 
@@ -29,7 +31,7 @@ def test_contract_no_duplicate_values(data_source_test_helper: ContractDataSourc
               - name: one
                 checks:
                   - type: no_duplicate_values
-        """
+        """,
     )
 
     check_result = contract_result.check_results[1]
@@ -55,7 +57,7 @@ def test_contract_duplicate_count(data_source_test_helper: ContractDataSourceTes
             checks:
               - type: duplicate_count
                 must_be: 0
-    """
+    """,
     )
 
     check_result = contract_result.check_results[1]
@@ -81,7 +83,7 @@ def test_contract_duplicate_percent(data_source_test_helper: ContractDataSourceT
             checks:
               - type: duplicate_percent
                 must_be: 0
-    """
+    """,
     )
 
     check_result = contract_result.check_results[1]

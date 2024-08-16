@@ -1,4 +1,6 @@
-from contracts.helpers.contract_data_source_test_helper import ContractDataSourceTestHelper
+from contracts.helpers.contract_data_source_test_helper import (
+    ContractDataSourceTestHelper,
+)
 from helpers.test_table import TestTable
 from soda.execution.data_type import DataType
 
@@ -34,7 +36,7 @@ def test_contract_multi_column_no_duplicate_values(data_source_test_helper: Cont
                 columns:
                 - country_code
                 - zip
-        """
+        """,
     )
     assert "Actual duplicate_count(country_code, zip) was 1" in str(contract_result)
     check_result = contract_result.check_results[1]
@@ -61,7 +63,7 @@ def test_contract_multi_column_duplicate_count(data_source_test_helper: Contract
               - type: duplicate_count
                 columns: ['country_code', 'zip']
                 must_be: 0
-        """
+        """,
     )
     assert "Actual duplicate_count(country_code, zip) was 1" in str(contract_result)
     check_result = contract_result.check_results[1]
@@ -88,7 +90,7 @@ def test_contract_multi_column_duplicate_percent(data_source_test_helper: Contra
               - type: duplicate_percent
                 columns: ['country_code', 'zip']
                 must_be: 0
-        """
+        """,
     )
     assert "Actual duplicate_percent(country_code, zip) was 14.29" in str(contract_result)
     check_result = contract_result.check_results[1]

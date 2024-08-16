@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import pytest
-
-from contracts.helpers.contract_data_source_test_helper import ContractDataSourceTestHelper
+from contracts.helpers.contract_data_source_test_helper import (
+    ContractDataSourceTestHelper,
+)
 
 
 @pytest.fixture(scope="session")

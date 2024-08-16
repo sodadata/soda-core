@@ -6,11 +6,12 @@ import re
 import textwrap
 from abc import ABC, abstractmethod
 
+from soda.execution.data_source import DataSource as SodaCLDataSource
+
 from soda.contracts.impl.logs import Logs
 from soda.contracts.impl.sodacl_log_converter import SodaClLogConverter
 from soda.contracts.impl.sql_dialect import SqlDialect
 from soda.contracts.impl.yaml_helper import YamlFile, YamlHelper
-from soda.execution.data_source import DataSource as SodaCLDataSource
 
 logger = logging.getLogger(__name__)
 
@@ -68,7 +69,7 @@ class ContractDataSource(ABC):
             "spark_df": "SparkDf",
             "sqlserver": "SQLServer",
             "mysql": "MySQL",
-            "duckdb": "DuckDB"
+            "duckdb": "DuckDB",
         }
         if test_data_source_type in data_source_camel_case:
             return data_source_camel_case[test_data_source_type]
@@ -90,7 +91,9 @@ class ContractDataSource(ABC):
         self.type = yaml_helper.read_string(self.data_source_yaml_dict, self._KEY_TYPE)
         self.name = yaml_helper.read_string(self.data_source_yaml_dict, self._KEY_NAME)
         if isinstance(self.name, str) and not re.match("[_a-z0-9]+", self.name):
-            self.logs.error(f"Data source name must contain only lower case letters, numbers and underscores.  Was {self.name}")
+            self.logs.error(
+                f"Data source name must contain only lower case letters, numbers and underscores.  Was {self.name}"
+            )
 
         self.sql_dialect: SqlDialect = self._create_sql_dialect()
 
@@ -109,7 +112,6 @@ class ContractDataSource(ABC):
         # The schema name in the current connection context & current contract if applicable for this data source type
         # Updated in the ensure_connection method
         self.schema_name: str | None = None
-
 
     @abstractmethod
     def _create_sql_dialect(self) -> SqlDialect:
@@ -152,23 +154,19 @@ class ContractDataSource(ABC):
         The returned value will be saved in self.connection. See open() for details.
         Exceptions do not need to be handled.  They will be handled by the calling method.
         """
-        pass
 
     def _log_connection_properties_excl_pwd(self, data_source_type: str, connection_yaml_dict: dict):
         dict_without_pwd = {
-            k:v for k,v in connection_yaml_dict.items()
-            if not "password" in k
-               and not "pwd" in k
-               and not "key" in k
-               and not "secret" in k
+            k: v
+            for k, v in connection_yaml_dict.items()
+            if not "password" in k and not "pwd" in k and not "key" in k and not "secret" in k
         }
-        logger.debug(
-            f"{data_source_type} connection properties: {dict_without_pwd}"
-        )
+        logger.debug(f"{data_source_type} connection properties: {dict_without_pwd}")
 
-    def _create_sodacl_data_source(self,
-                                   sodacl_data_source_name: str,
-                                   ) -> SodaCLDataSource:
+    def _create_sodacl_data_source(
+        self,
+        sodacl_data_source_name: str,
+    ) -> SodaCLDataSource:
         """
         Create SodaCL DataSource using the self.connection and sodacl_data_source_name
         """
@@ -203,13 +201,10 @@ class ContractDataSource(ABC):
 
     def select_existing_test_table_names(self, database_name: str | None, schema_name: str | None) -> list[str]:
         sql = self.sql_dialect.stmt_select_table_names(
-            database_name=database_name,
-            schema_name=schema_name,
-            table_name_like_filter="sodatest_%"
+            database_name=database_name, schema_name=schema_name, table_name_like_filter="sodatest_%"
         )
         rows = self._execute_sql_fetch_all(sql)
         return [row[0] for row in rows]
-
 
     def _execute_sql_fetch_all(self, sql: str) -> list[tuple]:
         cursor = self.connection.cursor()
@@ -247,9 +242,7 @@ class ContractDataSource(ABC):
 
     def qualify_table(self, table_name: str) -> str:
         return self.sql_dialect.qualify_table(
-            database_name=self.database_name,
-            schema_name=self.schema_name,
-            table_name=table_name
+            database_name=self.database_name, schema_name=self.schema_name, table_name=table_name
         )
 
 

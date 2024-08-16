@@ -3,20 +3,22 @@ from __future__ import annotations
 import logging
 
 from pyspark.sql import SparkSession
-
 from soda.common import logs as soda_core_logs
-from soda.contracts.contract import Contract, ContractResult
-from soda.contracts.impl.customized_sodacl_soda_cloud import CustomizedSodaClCloud
-from soda.contracts.impl.contract_data_source import ContractDataSource, ClContractDataSource
-from soda.contracts.impl.logs import Location, Log, LogLevel, Logs
-from soda.contracts.impl.plugin import Plugin
-from soda.contracts.impl.soda_cloud import SodaCloud
-from soda.contracts.impl.sodacl_log_converter import SodaClLogConverter
-from soda.contracts.impl.yaml_helper import QuotingSerializer, YamlFile, YamlHelper
 from soda.data_sources.spark_df_contract_data_source import SparkDfContractDataSource
 from soda.execution.data_source import DataSource as SodaCLDataSource
 from soda.scan import Scan
 from soda.scan import logger as scan_logger
+
+from soda.contracts.contract import Contract, ContractResult
+from soda.contracts.impl.contract_data_source import (
+    ClContractDataSource,
+    ContractDataSource,
+)
+from soda.contracts.impl.customized_sodacl_soda_cloud import CustomizedSodaClCloud
+from soda.contracts.impl.logs import Location, Log, LogLevel, Logs
+from soda.contracts.impl.plugin import Plugin
+from soda.contracts.impl.soda_cloud import SodaCloud
+from soda.contracts.impl.yaml_helper import YamlFile, YamlHelper
 
 logger = logging.getLogger(__name__)
 
@@ -166,8 +168,7 @@ class ContractVerification:
                     data_source = ContractDataSource.from_yaml_file(data_source_yaml_file)
                 else:
                     data_source = SparkDfContractDataSource(
-                        data_source_yaml_file=data_source_yaml_file,
-                        spark_session=spark_session
+                        data_source_yaml_file=data_source_yaml_file, spark_session=spark_session
                     )
                 if isinstance(data_source, ContractDataSource):
                     self.data_source = data_source
@@ -225,8 +226,7 @@ class ContractVerification:
                 if len(self.contracts) > 0:
                     for contract in self.contracts:
                         self.data_source.set_contract_context(
-                            database_name=contract.database_name,
-                            schema_name=contract.schema_name
+                            database_name=contract.database_name, schema_name=contract.schema_name
                         )
                         contract_result: ContractResult = self._verify(contract)
                         contract_results.append(contract_result)
@@ -256,9 +256,7 @@ class ContractVerification:
             logger.debug(sodacl_yaml_str)
 
             if not isinstance(contract_data_source, ClContractDataSource):
-                raise NotImplementedError(
-                    f"Only ClDataSource's supported atm.  No support for {type(self).__name__}"
-                )
+                raise NotImplementedError(f"Only ClDataSource's supported atm.  No support for {type(self).__name__}")
 
             if not isinstance(sodacl_yaml_str, str):
                 self.logs.error("Bug: Empty SodaCL YAML string")
@@ -267,8 +265,7 @@ class ContractVerification:
 
                 prefix_parts: list[str | None] = [contract.database_name, contract.schema_name]
                 prefix_parts_str: list[str] = [
-                    prefix_part for prefix_part in prefix_parts
-                    if isinstance(prefix_part, str)
+                    prefix_part for prefix_part in prefix_parts if isinstance(prefix_part, str)
                 ]
                 prefix_underscored: str = "_".join(prefix_parts_str)
                 sodacl_data_source_name: str = f"{contract_data_source.name}_{prefix_underscored}"
@@ -288,13 +285,15 @@ class ContractVerification:
                         contract.schema_name,
                         contract.dataset_name,
                     ]
-                    scan_definition_name_parts_str: str = "/".join([part for part in scan_definition_name_parts if part is not None])
+                    scan_definition_name_parts_str: str = "/".join(
+                        [part for part in scan_definition_name_parts if part is not None]
+                    )
                     scan_definition_name = f"contract://{scan_definition_name_parts_str}"
                     scan.set_scan_definition_name(scan_definition_name)
 
                     default_data_source_properties = {
                         "type": contract_data_source.type,
-                        "prefix": ".".join(prefix_parts_str)
+                        "prefix": ".".join(prefix_parts_str),
                     }
 
                     # noinspection PyProtectedMember
@@ -323,7 +322,11 @@ class ContractVerification:
         self._append_scan_warning_and_error_logs(scan_logs=scan_logs, contract=contract)
 
         return ContractResult(
-            data_source=contract_data_source, contract=contract, sodacl_yaml_str=sodacl_yaml_str, logs=self.logs, scan=scan
+            data_source=contract_data_source,
+            contract=contract,
+            sodacl_yaml_str=sodacl_yaml_str,
+            logs=self.logs,
+            scan=scan,
         )
 
     def _generate_sodacl_yaml_str(self, contract: Contract) -> str:

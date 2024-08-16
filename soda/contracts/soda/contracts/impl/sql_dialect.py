@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 import re
-from datetime import datetime, date
+from datetime import date, datetime
 from numbers import Number
 
 from helpers.test_column import TestColumn
@@ -65,7 +65,7 @@ class SqlDialect:
         schema_name: str | None = None,
         table_name_like_filter: str | None = None,
         include_table_name_like_filters: list[str] = None,
-        exclude_table_name_like_filters: list[str] = None
+        exclude_table_name_like_filters: list[str] = None,
     ) -> str:
         """
         Builds the full SQL query to query table names from the data source metadata.
@@ -74,13 +74,14 @@ class SqlDialect:
         # table_name_column_quoted: str = self.quote_default(table_name_column)
         information_schema_table_name_qualified: str = self.information_schema_table_name_qualified()
 
-        sql = (
-            f"SELECT {table_name_column} \n"
-            f"FROM {information_schema_table_name_qualified}"
-        )
+        sql = f"SELECT {table_name_column} \n" f"FROM {information_schema_table_name_qualified}"
 
         where_clauses: list[str] = self._filter_clauses_information_schema_table_name(
-            database_name, schema_name, table_name_like_filter, include_table_name_like_filters, exclude_table_name_like_filters
+            database_name,
+            schema_name,
+            table_name_like_filter,
+            include_table_name_like_filters,
+            exclude_table_name_like_filters,
         )
 
         if where_clauses:
@@ -94,9 +95,7 @@ class SqlDialect:
         information_schema_schema_name: str = self.information_schema_schema_name()
         information_schema_table_name: str = self.information_schema_table_name()
         return self.qualify_table(
-            database_name=None,
-            schema_name=information_schema_schema_name,
-            table_name=information_schema_table_name
+            database_name=None, schema_name=information_schema_schema_name, table_name=information_schema_table_name
         )
 
     def information_schema_database_name(self) -> str | None:
@@ -182,33 +181,23 @@ class SqlDialect:
 
     def stmt_drop_test_table(self, database_name: str | None, schema_name: str | None, table_name: str) -> str:
         qualified_table_name = self.qualify_table(
-            database_name=database_name,
-            schema_name=schema_name,
-            table_name=table_name
+            database_name=database_name, schema_name=schema_name, table_name=table_name
         )
         return f"DROP TABLE IF EXISTS {qualified_table_name}"
 
-    def stmt_create_test_table(
-            self,
-            database_name: str | None,
-            schema_name: str | None,
-            test_table: TestTable
-    ) -> str:
+    def stmt_create_test_table(self, database_name: str | None, schema_name: str | None, test_table: TestTable) -> str:
 
         table_name_qualified_quoted = self.qualify_table(
             database_name=database_name,
             schema_name=schema_name,
             table_name=test_table.unique_table_name,
-            quote_table_name=test_table.quote_names
+            quote_table_name=test_table.quote_names,
         )
 
         test_columns = test_table.test_columns
         if test_table.quote_names:
             test_columns = [
-                TestColumn(
-                    name=self.quote_default(test_column.name),
-                    data_type=test_column.data_type
-                )
+                TestColumn(name=self.quote_default(test_column.name), data_type=test_column.data_type)
                 for test_column in test_columns
             ]
 
@@ -259,7 +248,7 @@ class SqlDialect:
                 database_name=database_name,
                 schema_name=schema_name,
                 table_name=test_table.unique_table_name,
-                quote_table_name=test_table.quote_names
+                quote_table_name=test_table.quote_names,
             )
 
             def sql_test_table_row(row):
@@ -269,25 +258,17 @@ class SqlDialect:
             return f"INSERT INTO {table_name_qualified_quoted} VALUES \n" f"{rows_sql};"
 
     def qualify_table(
-        self,
-        database_name: str | None,
-        schema_name: str | None,
-        table_name: str,
-        quote_table_name: bool = False
+        self, database_name: str | None, schema_name: str | None, table_name: str, quote_table_name: bool = False
     ) -> str:
         """
         Creates a fully qualified table name, optionally quoting the table name
         """
-        parts = [
-            database_name,
-            schema_name,
-            self.quote_default(table_name) if quote_table_name else table_name
-        ]
+        parts = [database_name, schema_name, self.quote_default(table_name) if quote_table_name else table_name]
         return ".".join([p for p in parts if p])
 
     def quote_default(self, identifier: str | None) -> str | None:
         return (
-            f'{self.default_quote_char}{identifier}{self.default_quote_char}'
+            f"{self.default_quote_char}{identifier}{self.default_quote_char}"
             if isinstance(identifier, str) and len(identifier) > 0
             else None
         )

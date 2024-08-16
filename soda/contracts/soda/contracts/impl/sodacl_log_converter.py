@@ -1,9 +1,11 @@
 import logging
 
 from soda.common.logs import Logs as SodaClLogs
-from soda.contracts.impl.logs import Logs, Log, LogLevel
+
+from soda.contracts.impl.logs import Log, LogLevel, Logs
 
 logger = logging.getLogger("soda.contracts.sodacl_log_converter")
+
 
 class SodaClLogConverter(SodaClLogs):
 

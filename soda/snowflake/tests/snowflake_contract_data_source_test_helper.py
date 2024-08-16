@@ -2,7 +2,9 @@ from __future__ import annotations
 
 import os
 
-from contracts.helpers.contract_data_source_test_helper import ContractDataSourceTestHelper
+from contracts.helpers.contract_data_source_test_helper import (
+    ContractDataSourceTestHelper,
+)
 
 
 class SnowflakeContractDataSourceTestHelper(ContractDataSourceTestHelper):
@@ -13,11 +15,7 @@ class SnowflakeContractDataSourceTestHelper(ContractDataSourceTestHelper):
     def _create_database_name(self) -> str | None:
         return os.getenv("SNOWFLAKE_DATABASE", "sodasql")
 
-    def _create_contract_data_source_yaml_dict(
-        self,
-        database_name: str | None,
-        schema_name: str | None
-    ) -> dict:
+    def _create_contract_data_source_yaml_dict(self, database_name: str | None, schema_name: str | None) -> dict:
         return {
             "type": "snowflake",
             "name": "snowflake_test_ds",
@@ -26,8 +24,8 @@ class SnowflakeContractDataSourceTestHelper(ContractDataSourceTestHelper):
                 "user": os.getenv("SNOWFLAKE_USERNAME"),
                 "password": os.getenv("SNOWFLAKE_PASSWORD"),
                 "schema": schema_name if schema_name else os.getenv("SNOWFLAKE_SCHEMA", "public"),
-                "database": database_name
-            }
+                "database": database_name,
+            },
         }
 
     def _create_schema_if_not_exists_sql(self):

@@ -1,9 +1,10 @@
 import logging
 from textwrap import dedent
 
-from contracts.helpers.contract_data_source_test_helper import TestContractVerification, ContractDataSourceTestHelper
+from contracts.helpers.contract_data_source_test_helper import (
+    ContractDataSourceTestHelper,
+)
 from helpers.test_table import TestTable
-from soda.contracts.impl.sql_dialect import SqlDialect
 from soda.execution.data_type import DataType
 
 from soda.contracts.check import SchemaCheckResult
@@ -12,6 +13,7 @@ from soda.contracts.contract_verification import (
     ContractVerification,
     ContractVerificationResult,
 )
+from soda.contracts.impl.sql_dialect import SqlDialect
 
 contracts_missing_test_table = TestTable(
     name="contracts_skip",
@@ -41,8 +43,7 @@ def test_skip_all_checks_except_schema_check(data_source_test_helper: ContractDa
     ).strip()
 
     contract_yaml_str = data_source_test_helper.casify_contract_yaml_str(
-        test_table=contracts_missing_test_table,
-        contract_yaml_str=contract_yaml_str
+        test_table=contracts_missing_test_table, contract_yaml_str=contract_yaml_str
     )
 
     contract_yaml_str = dedent(contract_yaml_str).strip()

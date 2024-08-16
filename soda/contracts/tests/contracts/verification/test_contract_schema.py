@@ -1,12 +1,14 @@
 import logging
 
-from contracts.helpers.contract_data_source_test_helper import ContractDataSourceTestHelper
+from contracts.helpers.contract_data_source_test_helper import (
+    ContractDataSourceTestHelper,
+)
 from helpers.test_table import TestTable
-from soda.contracts.impl.sql_dialect import SqlDialect
 from soda.execution.data_type import DataType
 
 from soda.contracts.check import SchemaCheck, SchemaCheckResult
 from soda.contracts.contract import CheckOutcome, ContractResult
+from soda.contracts.impl.sql_dialect import SqlDialect
 
 logger = logging.getLogger(__name__)
 
@@ -45,7 +47,7 @@ def test_contract_schema_pass_with_data_types(data_source_test_helper: ContractD
                 data_type: {DataType.INTEGER}
               - name: created
                 data_type: {DataType.DATE}
-         """
+         """,
     )
 
     schema_check_result = contract_result.check_results[0]
@@ -79,7 +81,7 @@ def test_contract_schema_pass_without_data_types(data_source_test_helper: Contra
               - name: size
               - name: distance
               - name: created
-        """
+        """,
     )
 
     sql_dialect: SqlDialect = data_source_test_helper.contract_data_source.sql_dialect
@@ -132,7 +134,7 @@ def test_contract_schema_missing_column(data_source_test_helper: ContractDataSou
                 data_type: {DataType.TEXT}
               - name: created
                 data_type: {DataType.DATE}
-        """
+        """,
     )
 
     schema_check_result = contract_result.check_results[0]
@@ -173,7 +175,7 @@ def test_contract_schema_missing_optional_column(data_source_test_helper: Contra
                 optional: true
               - name: created
                 data_type: {DataType.DATE}
-        """
+        """,
     )
 
     schema_check_result = contract_result.check_results[0]
@@ -207,7 +209,7 @@ def test_contract_schema_extra_column(data_source_test_helper: ContractDataSourc
                 data_type: {DataType.DECIMAL}
               - name: created
                 data_type: {DataType.DATE}
-        """
+        """,
     )
 
     schema_check_result = contract_result.check_results[0]
@@ -245,7 +247,7 @@ def test_contract_schema_data_type_mismatch(data_source_test_helper: ContractDat
                 data_type: {DataType.INTEGER}
               - name: created
                 data_type: {DataType.DATE}
-        """
+        """,
     )
 
     schema_check_result = contract_result.check_results[0]

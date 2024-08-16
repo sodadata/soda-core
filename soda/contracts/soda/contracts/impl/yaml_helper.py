@@ -3,7 +3,7 @@ from __future__ import annotations
 import os
 from numbers import Number
 
-from ruamel.yaml import CommentedMap, CommentedSeq, round_trip_dump, YAML
+from ruamel.yaml import YAML, CommentedMap, CommentedSeq, round_trip_dump
 from ruamel.yaml.error import MarkedYAMLError
 
 from soda.contracts.impl.logs import Location, Logs
@@ -11,7 +11,6 @@ from soda.contracts.impl.variable_resolver import VariableResolver
 
 
 class YamlFile:
-
     """
     Allows yaml configurations to be specified as a file_path, yaml_str or a yaml_dict.
     If yaml configurations are specified as text (file or str), then parsing will resolve variables.
@@ -38,10 +37,7 @@ class YamlFile:
         self.logs: Logs = logs
 
     def get_dict(self) -> dict:
-        assert self.is_parsed, (
-            "Usage of YamlFile requires that self.parse(...) "
-            "is invoked before the dict is used."
-        )
+        assert self.is_parsed, "Usage of YamlFile requires that self.parse(...) " "is invoked before the dict is used."
         return self.dict
 
     def is_ok(self):

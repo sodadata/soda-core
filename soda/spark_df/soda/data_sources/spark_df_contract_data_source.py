@@ -4,12 +4,12 @@ import logging
 import re
 
 from pyspark.sql import SparkSession
+from soda.data_sources.spark_df_connection import SparkDfConnection
+from soda.execution.data_type import DataType
 
 from soda.contracts.impl.contract_data_source import FileClContractDataSource
 from soda.contracts.impl.sql_dialect import SqlDialect
 from soda.contracts.impl.yaml_helper import YamlFile
-from soda.data_sources.spark_df_connection import SparkDfConnection
-from soda.execution.data_type import DataType
 
 logger = logging.getLogger(__name__)
 
@@ -20,7 +20,7 @@ class SparkDfSqlDialect(SqlDialect):
         super().__init__()
 
     def _get_default_quote_char(self) -> str:
-        return '`'
+        return "`"
 
     def stmt_create_schema_if_not_exists(self, database_name: str, schema_name: str) -> str:
         schema_name_quoted: str = self.quote_default(schema_name)
@@ -56,18 +56,10 @@ class SparkDfSqlDialect(SqlDialect):
         schema_name: str | None = None,
         table_name_like_filter: str | None = None,
         include_table_name_like_filters: list[str] = None,
-        exclude_table_name_like_filters: list[str] = None
+        exclude_table_name_like_filters: list[str] = None,
     ) -> str:
-        from_schema: str = (
-            f" FROM {self.quote_default(schema_name)}"
-            if schema_name
-            else ""
-        )
-        like_filter: str = (
-            f" LIKE '{table_name_like_filter}'"
-            if table_name_like_filter
-            else ""
-        )
+        from_schema: str = f" FROM {self.quote_default(schema_name)}" if schema_name else ""
+        like_filter: str = f" LIKE '{table_name_like_filter}'" if table_name_like_filter else ""
         return f"SHOW TABLES{from_schema}{like_filter}"
 
     def literal_date(self, date: date):
@@ -92,6 +84,7 @@ class SparkDfSqlDialect(SqlDialect):
 
     def regex_replace_flags(self) -> str:
         return ""
+
 
 class SparkDfContractDataSource(FileClContractDataSource):
 

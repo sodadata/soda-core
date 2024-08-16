@@ -1,4 +1,6 @@
-from contracts.helpers.contract_data_source_test_helper import ContractDataSourceTestHelper
+from contracts.helpers.contract_data_source_test_helper import (
+    ContractDataSourceTestHelper,
+)
 from helpers.test_table import TestTable
 from soda.execution.data_type import DataType
 
@@ -39,7 +41,7 @@ def test_contract_metric_query_on_column(data_source_test_helper: ContractDataSo
                     WHERE country = 'US'
                   must_be_not_between: [0, 5]
               - name: country
-        """
+        """,
     )
 
     check_result = contract_result.check_results[1]
@@ -74,7 +76,7 @@ def test_contract_metric_query_on_dataset(data_source_test_helper: ContractDataS
               FROM {qualified_table_name}
               WHERE country = 'US'
             must_be_not_between: [0, 5]
-    """
+    """,
     )
 
     check_result = contract_result.check_results[1]

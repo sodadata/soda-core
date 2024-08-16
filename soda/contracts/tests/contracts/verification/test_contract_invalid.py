@@ -1,4 +1,6 @@
-from contracts.helpers.contract_data_source_test_helper import ContractDataSourceTestHelper
+from contracts.helpers.contract_data_source_test_helper import (
+    ContractDataSourceTestHelper,
+)
 from helpers.test_table import TestTable
 from soda.execution.data_type import DataType
 
@@ -30,7 +32,7 @@ def test_contract_no_invalid_with_valid_values_pass(data_source_test_helper: Con
                 checks:
                 - type: no_invalid_values
                   valid_length: 3
-        """
+        """,
     )
 
     check_result = contract_result.check_results[1]
@@ -54,7 +56,7 @@ def test_contract_no_invalid_with_valid_values_fail(data_source_test_helper: Con
             checks:
             - type: no_invalid_values
               valid_values: ['ID1']
-    """
+    """,
     )
 
     check_result = contract_result.check_results[1]
@@ -111,7 +113,7 @@ def test_contract_invalid_count_pass(data_source_test_helper: ContractDataSource
               - type: invalid_count
                 valid_values: ['ID1']
                 must_be: 2
-    """
+    """,
     )
 
     check_result = contract_result.check_results[1]
@@ -136,7 +138,7 @@ def test_contract_invalid_count_fail(data_source_test_helper: ContractDataSource
               - type: invalid_count
                 valid_values: ['ID1']
                 must_be: 0
-    """
+    """,
     )
     check_result = contract_result.check_results[1]
     assert isinstance(check_result, MetricCheckResult)
@@ -165,7 +167,7 @@ def test_contract_missing_and_invalid_values_pass(data_source_test_helper: Contr
               - type: invalid_count
                 valid_values: ['ID1']
                 must_be: 1
-    """
+    """,
     )
 
     check_result = contract_result.check_results[1]
@@ -221,7 +223,7 @@ def test_contract_multi_validity_configs(data_source_test_helper: ContractDataSo
                 valid_values: ['ID1', 'XXX', '1234567890' ]
                 valid_max_length: 4
                 must_be: 2
-    """
+    """,
     )
 
     check_result = contract_result.check_results[1]
@@ -268,7 +270,7 @@ def test_contract_column_invalid_reference_check(data_source_test_helper: Contra
                     dataset: {reference_data_table_name}
                     column: one
                 samples_limit: 20
-    """
+    """,
     )
 
     check_result = contract_result.check_results[1]

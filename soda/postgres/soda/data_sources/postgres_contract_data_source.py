@@ -12,6 +12,7 @@ logger = logging.getLogger(__name__)
 class PostgresSqlDialect(SqlDialect):
     pass
 
+
 class PostgresContractDataSource(FileClContractDataSource):
 
     def __init__(self, data_source_yaml_file: YamlFile):
@@ -29,6 +30,8 @@ class PostgresContractDataSource(FileClContractDataSource):
         self._log_connection_properties_excl_pwd("postgres", connection_yaml_dict)
 
         if "username" in connection_yaml_dict and "user" not in connection_yaml_dict:
-            raise ValueError("Rename postgres connection property username to user. See https://www.postgresql.org/docs/current/libpq-connect.html#LIBPQ-PARAMKEYWORDS")
+            raise ValueError(
+                "Rename postgres connection property username to user. See https://www.postgresql.org/docs/current/libpq-connect.html#LIBPQ-PARAMKEYWORDS"
+            )
 
         return psycopg2.connect(**connection_yaml_dict)

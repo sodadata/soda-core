@@ -1,4 +1,6 @@
-from contracts.helpers.contract_data_source_test_helper import ContractDataSourceTestHelper
+from contracts.helpers.contract_data_source_test_helper import (
+    ContractDataSourceTestHelper,
+)
 
 
 def test_duplicate_column_check_identity_not_unique_error(data_source_test_helper: ContractDataSourceTestHelper):

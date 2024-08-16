@@ -1,5 +1,7 @@
+from contracts.helpers.contract_data_source_test_helper import (
+    ContractDataSourceTestHelper,
+)
 from contracts.helpers.contract_test_tables import contracts_test_table
-from contracts.helpers.contract_data_source_test_helper import ContractDataSourceTestHelper
 
 
 def test_contract_without_dataset(data_source_test_helper: ContractDataSourceTestHelper):
@@ -67,5 +69,5 @@ def test_contract_row_count_ignore_other_keys(data_source_test_helper: ContractD
               - type: rows_exist
                 fail_when_not_between: [0, 10]
                 another_dataset_check_key: check
-    """
+    """,
     )

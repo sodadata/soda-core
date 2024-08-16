@@ -3,10 +3,11 @@ from __future__ import annotations
 import logging
 import re
 
+from soda.execution.data_type import DataType
+
 from soda.contracts.impl.contract_data_source import FileClContractDataSource
 from soda.contracts.impl.sql_dialect import SqlDialect
 from soda.contracts.impl.yaml_helper import YamlFile
-from soda.execution.data_type import DataType
 
 logger = logging.getLogger(__name__)
 
@@ -107,6 +108,7 @@ class SnowflakeContractDataSource(FileClContractDataSource):
 
     def _create_connection(self, connection_yaml_dict: dict) -> object:
         from snowflake import connector
+
         self._log_connection_properties_excl_pwd("postgres", connection_yaml_dict)
 
         private_key = self.__get_private_key(connection_yaml_dict)

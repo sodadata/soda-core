@@ -1,4 +1,6 @@
-from contracts.helpers.contract_data_source_test_helper import ContractDataSourceTestHelper
+from contracts.helpers.contract_data_source_test_helper import (
+    ContractDataSourceTestHelper,
+)
 from helpers.test_table import TestTable
 from soda.execution.data_type import DataType
 
@@ -28,7 +30,7 @@ def test_contract_row_count(data_source_test_helper: ContractDataSourceTestHelpe
               - name: one
             checks:
               - type: rows_exist
-        """
+        """,
     )
     check_result = contract_result.check_results[1]
     assert isinstance(check_result, MetricCheckResult)
@@ -51,7 +53,7 @@ def test_contract_row_count2(data_source_test_helper: ContractDataSourceTestHelp
             checks:
               - type: row_count
                 must_be_between: [100, 120]
-        """
+        """,
     )
     check_result = contract_result.check_results[1]
     assert isinstance(check_result, MetricCheckResult)
