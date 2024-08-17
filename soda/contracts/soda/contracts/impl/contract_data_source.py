@@ -226,7 +226,7 @@ class ContractDataSource(ABC):
             sql_indented = textwrap.indent(text=sql, prefix="  # ")
             logger.debug(f"SQL update: \n{sql_indented}")
             updates = cursor.execute(sql)
-            self.connection.commit()
+            self.commit()
             return updates
         finally:
             cursor.close()

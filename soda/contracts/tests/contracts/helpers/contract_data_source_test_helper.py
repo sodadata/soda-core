@@ -239,7 +239,8 @@ class ContractDataSourceTestHelper:
         insert_table_sql = ds.sql_dialect._insert_test_table_sql(
             database_name=database_name, schema_name=schema_name, test_table=test_table
         )
-        ds._execute_sql_update(insert_table_sql)
+        if insert_table_sql:
+            ds._execute_sql_update(insert_table_sql)
 
     def get_parse_errors_str(self, contract_yaml_str: str) -> str:
         contract_yaml_str = dedent(contract_yaml_str).strip()
