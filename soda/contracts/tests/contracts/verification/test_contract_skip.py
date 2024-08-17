@@ -15,7 +15,7 @@ from soda.contracts.contract_verification import (
 )
 from soda.contracts.impl.sql_dialect import SqlDialect
 
-contracts_missing_test_table = TestTable(
+contracts_skip_test_table = TestTable(
     name="contracts_skip",
     # fmt: off
     columns=[
@@ -28,9 +28,7 @@ contracts_missing_test_table = TestTable(
 
 
 def test_skip_all_checks_except_schema_check(data_source_test_helper: ContractDataSourceTestHelper):
-    sql_dialect: SqlDialect = data_source_test_helper.contract_data_source.sql_dialect
-
-    table_name: str = data_source_test_helper.ensure_test_table(contracts_missing_test_table)
+    table_name: str = data_source_test_helper.ensure_test_table(contracts_skip_test_table)
 
     contract_yaml_str: str = dedent(
         f"""
@@ -43,7 +41,7 @@ def test_skip_all_checks_except_schema_check(data_source_test_helper: ContractDa
     ).strip()
 
     contract_yaml_str = data_source_test_helper.casify_contract_yaml_str(
-        test_table=contracts_missing_test_table, contract_yaml_str=contract_yaml_str
+        test_table=contracts_skip_test_table, contract_yaml_str=contract_yaml_str
     )
 
     contract_yaml_str = dedent(contract_yaml_str).strip()

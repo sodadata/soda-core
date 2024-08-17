@@ -167,8 +167,8 @@ class ContractDataSourceTestHelper:
             self.create_test_schema_if_not_exists(database_name=self.database_name, schema_name=self.schema_name)
 
     def end_test_session(self, exception: Exception | None) -> None:
-        self.end_test_session_close_connection()
         self.end_test_session_drop_schema()
+        self.end_test_session_close_connection()
 
     def end_test_session_close_connection(self) -> None:
         self.contract_data_source.enable_close_connection()
