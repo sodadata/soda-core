@@ -13,7 +13,6 @@ from soda.contracts.contract_verification import (
     ContractVerification,
     ContractVerificationResult,
 )
-from soda.contracts.impl.sql_dialect import SqlDialect
 
 contracts_skip_test_table = TestTable(
     name="contracts_skip",
