@@ -202,7 +202,7 @@ You need to give Docker permission to acccess your configuration.yml and checks.
 #### Error: Configuration path does not exist
 
 If you encounter the following error, double check the syntax of the scan command in step 4 above. 
-* Be sure to prepend `/sodacl/` to both the congifuration.yml filepath and the checks.yml filepath. 
+* Be sure to prepend `/sodacl/` to both the configuration.yml filepath and the checks.yml filepath. 
 * Be sure to mount your files into the container by including the `-v` option.  For example, `-v /Users/MyName/soda_core_project:/sodacl`.
 
 ```shell
