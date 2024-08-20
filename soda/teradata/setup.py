@@ -3,7 +3,7 @@
 from setuptools import find_namespace_packages, setup
 
 package_name = "soda-core-teradata"
-package_version = "3.3.14"
+package_version = "3.3.15"
 description = "Soda Core Teradata Package"
 
 requires = [
