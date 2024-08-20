@@ -12,7 +12,7 @@ class AtlanPlugin(Plugin):
 
     def __init__(self, logs: Logs, plugin_name: str, plugin_yaml_files: list[YamlFile]):
         super().__init__(logs, plugin_name, plugin_yaml_files)
-        atlan_configuration_dict: dict = self.plugin_yaml_files[0].dict
+        atlan_configuration_dict: dict = self.plugin_yaml_files[0].get_dict()
         self.atlan_api_key: str = atlan_configuration_dict["atlan_api_key"]
         self.atlan_base_url: str = atlan_configuration_dict["atlan_base_url"]
 
@@ -41,9 +41,7 @@ class AtlanPlugin(Plugin):
             )
             return None
 
-        contract_dict: dict = contract_result.contract.contract_file.dict.copy()
-        contract_dict.setdefault("type", "Table")
-        contract_dict.setdefault("status", "DRAFT")
+        contract_dict: dict = contract_result.contract.contract_file.get_dict().copy()
         contract_dict.setdefault("kind", "DataContract")
 
         contract_json_str: str = dumps(contract_dict)

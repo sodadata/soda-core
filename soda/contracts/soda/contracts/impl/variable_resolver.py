@@ -27,3 +27,4 @@ class VariableResolver:
         if variable_name in os.environ:
             return os.getenv(variable_name)
         self.logs.error(f"Variable '{variable_name}' not defined in the variables nor as environment variable")
+        return ""

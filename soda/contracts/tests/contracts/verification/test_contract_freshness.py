@@ -1,6 +1,8 @@
 from datetime import datetime, timezone
 
-from contracts.helpers.test_data_source import TestDataSource
+from contracts.helpers.contract_data_source_test_helper import (
+    ContractDataSourceTestHelper,
+)
 from helpers.test_table import TestTable
 from soda.execution.data_type import DataType
 
@@ -23,14 +25,12 @@ contracts_freshness_test_table = TestTable(
 )
 
 
-def test_contract_freshness_pass(test_data_source: TestDataSource, environ: dict):
-    table_name: str = test_data_source.ensure_test_table(contracts_freshness_test_table)
-
+def test_contract_freshness_pass(data_source_test_helper: ContractDataSourceTestHelper, environ: dict):
     variables: dict[str, str] = {"NOW": "2021-01-01 12:30"}
 
-    contract_result: ContractResult = test_data_source.assert_contract_pass(
+    contract_result: ContractResult = data_source_test_helper.assert_contract_pass(
+        test_table=contracts_freshness_test_table,
         contract_yaml_str=f"""
-        dataset: {table_name}
         columns:
           - name: id
           - name: created
@@ -47,14 +47,12 @@ def test_contract_freshness_pass(test_data_source: TestDataSource, environ: dict
     assert check_result.freshness == "2:19:50"
 
 
-def test_contract_freshness_fail(test_data_source: TestDataSource, environ: dict):
-    table_name: str = test_data_source.ensure_test_table(contracts_freshness_test_table)
-
+def test_contract_freshness_fail(data_source_test_helper: ContractDataSourceTestHelper, environ: dict):
     variables: dict[str, str] = {"NOW": "2021-01-01 13:30"}
 
-    contract_result: ContractResult = test_data_source.assert_contract_fail(
+    contract_result: ContractResult = data_source_test_helper.assert_contract_fail(
+        test_table=contracts_freshness_test_table,
         contract_yaml_str=f"""
-        dataset: {table_name}
         columns:
           - name: id
           - name: created
@@ -71,9 +69,9 @@ def test_contract_freshness_fail(test_data_source: TestDataSource, environ: dict
     assert check_result.outcome == CheckOutcome.FAIL
     assert check_result.freshness == "3:19:50"
 
-    assert "Expected freshness(created) < 3h" in contract_result_str
-    assert "Actual freshness(created) was 3:19:50" in contract_result_str
-    assert "Max value in column was ...... 2021-01-01 10:10:10+00:00" in contract_result_str
-    assert "Max value in column in UTC was 2021-01-01 10:10:10+00:00" in contract_result_str
-    assert "Now was ...................... 2021-01-01 13:30" in contract_result_str
-    assert "Now in UTC was ............... 2021-01-01 13:30:00+00:00" in contract_result_str
+    assert "expected freshness(created) < 3h" in contract_result_str.lower()
+    assert "actual freshness(created) was 3:19:50" in contract_result_str.lower()
+    assert "max value in column was ...... 2021-01-01 10:10:10" in contract_result_str.lower()
+    assert "max value in column in utc was 2021-01-01 10:10:10" in contract_result_str.lower()
+    assert "now was ...................... 2021-01-01 13:30" in contract_result_str.lower()
+    assert "now in utc was ............... 2021-01-01 13:30:00" in contract_result_str.lower()

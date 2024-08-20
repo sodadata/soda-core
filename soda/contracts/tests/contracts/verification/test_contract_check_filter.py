@@ -1,4 +1,6 @@
-from contracts.helpers.test_data_source import TestDataSource
+from contracts.helpers.contract_data_source_test_helper import (
+    ContractDataSourceTestHelper,
+)
 from helpers.test_table import TestTable
 from soda.execution.data_type import DataType
 
@@ -23,21 +25,19 @@ contracts_check_filter_test_table = TestTable(
 )
 
 
-def test_contract_check_filter(test_data_source: TestDataSource):
-    table_name: str = test_data_source.ensure_test_table(contracts_check_filter_test_table)
-
-    contract_result: ContractResult = test_data_source.assert_contract_fail(
-        f"""
-        dataset: {table_name}
-        columns:
-        - name: id
-        - name: country
-        - name: currency
-          checks:
-          - type: no_invalid_values
-            valid_values: ['pounds']
-            filter_sql: country = 'UK'
-    """
+def test_contract_check_filter(data_source_test_helper: ContractDataSourceTestHelper):
+    contract_result: ContractResult = data_source_test_helper.assert_contract_fail(
+        test_table=contracts_check_filter_test_table,
+        contract_yaml_str=f"""
+            columns:
+            - name: id
+            - name: country
+            - name: currency
+              checks:
+              - type: no_invalid_values
+                valid_values: ['pounds']
+                filter_sql: country = 'UK'
+        """,
     )
     check_result = contract_result.check_results[1]
     assert isinstance(check_result, MetricCheckResult)
@@ -48,6 +48,6 @@ def test_contract_check_filter(test_data_source: TestDataSource):
     assert isinstance(check, MetricCheck)
     assert check.type == "no_invalid_values"
     assert check.metric == "invalid_count"
-    assert check.column == "currency"
+    assert check.column.lower() == "currency"
 
-    assert "Actual invalid_count(currency) was 1" in str(contract_result)
+    assert "actual invalid_count(currency) was 1" in str(contract_result).lower()

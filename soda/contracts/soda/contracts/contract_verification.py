@@ -2,17 +2,23 @@ from __future__ import annotations
 
 import logging
 
+from pyspark.sql import SparkSession
 from soda.common import logs as soda_core_logs
+from soda.data_sources.spark_df_contract_data_source import SparkDfContractDataSource
+from soda.execution.data_source import DataSource as SodaCLDataSource
 from soda.scan import Scan
 from soda.scan import logger as scan_logger
 
 from soda.contracts.contract import Contract, ContractResult
+from soda.contracts.impl.contract_data_source import (
+    ClContractDataSource,
+    ContractDataSource,
+)
 from soda.contracts.impl.customized_sodacl_soda_cloud import CustomizedSodaClCloud
-from soda.contracts.impl.data_source import DataSource, SparkConfiguration
 from soda.contracts.impl.logs import Location, Log, LogLevel, Logs
 from soda.contracts.impl.plugin import Plugin
 from soda.contracts.impl.soda_cloud import SodaCloud
-from soda.contracts.impl.yaml_helper import QuotingSerializer, YamlFile, YamlHelper
+from soda.contracts.impl.yaml_helper import YamlFile, YamlHelper
 
 logger = logging.getLogger(__name__)
 
@@ -22,7 +28,7 @@ class ContractVerificationBuilder:
     def __init__(self):
         self.logs: Logs = Logs()
         self.data_source_yaml_file: YamlFile | None = None
-        self.spark_configuration: SparkConfiguration | None = None
+        self.spark_session: object | None = None
         self.contract_files: list[YamlFile] = []
         self.soda_cloud_file: YamlFile | None = None
         self.plugin_files: list[YamlFile] = []
@@ -70,13 +76,13 @@ class ContractVerificationBuilder:
     def with_data_source_spark_session(
         self, spark_session: object, data_source_yaml_dict: dict | None = None
     ) -> ContractVerificationBuilder:
+        if data_source_yaml_dict is None:
+            data_source_yaml_dict = {}
         assert isinstance(spark_session, object)
-        assert isinstance(data_source_yaml_dict, dict) or data_source_yaml_dict is None
-        self.spark_configuration = SparkConfiguration(
-            spark_session=spark_session,
-            data_source_yaml_dict=data_source_yaml_dict if isinstance(data_source_yaml_dict, dict) else {},
-            logs=self.logs,
-        )
+        assert isinstance(data_source_yaml_dict, dict)
+        data_source_yaml_file = YamlFile(logs=self.logs, yaml_dict=data_source_yaml_dict)
+        self.data_source_yaml_files.append(data_source_yaml_file)
+        self.spark_session = spark_session
         return self
 
     def with_soda_cloud_yaml_file(self, soda_cloud_yaml_file_path: str) -> ContractVerificationBuilder:
@@ -141,7 +147,7 @@ class ContractVerification:
     def __init__(self, contract_verification_builder: ContractVerificationBuilder):
         self.logs: Logs = contract_verification_builder.logs
         self.variables: dict[str, str] = contract_verification_builder.variables
-        self.data_source: DataSource | None = None
+        self.data_source: ContractDataSource | None = None
         self.contracts: list[Contract] = []
         self.soda_cloud: SodaCloud | None = None
         self.plugins: list[Plugin] = []
@@ -153,13 +159,23 @@ class ContractVerification:
         self._initialize_plugins(contract_verification_builder)
 
     def _initialize_data_source(self, contract_verification_builder: ContractVerificationBuilder) -> None:
-        data_source_yaml_file: YamlFile | None = contract_verification_builder.data_source_yaml_file
-        spark_configuration: SparkConfiguration | None = contract_verification_builder.spark_configuration
-        if isinstance(data_source_yaml_file, YamlFile):
-            data_source_yaml_file.parse(contract_verification_builder.variables)
-            self.data_source = DataSource.from_yaml_file(data_source_yaml_file)
-        elif isinstance(spark_configuration, SparkConfiguration):
-            self.data_source = DataSource.from_spark_session(spark_configuration)
+        if isinstance(contract_verification_builder.data_source_yaml_file, YamlFile):
+            data_source_yaml_file: YamlFile = contract_verification_builder.data_source_yaml_file
+            if isinstance(data_source_yaml_file, YamlFile):
+                data_source_yaml_file.parse(contract_verification_builder.variables)
+                spark_session: SparkSession | None = contract_verification_builder.spark_session
+                if spark_session is None:
+                    data_source = ContractDataSource.from_yaml_file(data_source_yaml_file)
+                else:
+                    data_source = SparkDfContractDataSource(
+                        data_source_yaml_file=data_source_yaml_file, spark_session=spark_session
+                    )
+                if isinstance(data_source, ContractDataSource):
+                    self.data_source = data_source
+                else:
+                    self.logs.error(f"Error creating data source from {data_source_yaml_file}. See logs above.")
+        else:
+            self.logs.error("No data source configured")
 
     def _initialize_contracts(self, contract_verification_builder: ContractVerificationBuilder) -> None:
         for contract_file in contract_verification_builder.contract_files:
@@ -204,22 +220,30 @@ class ContractVerification:
     def execute(self) -> ContractVerificationResult:
         contract_results: list[ContractResult] = []
 
-        if self.data_source is not None:
-            with self.data_source:
+        if isinstance(self.data_source, ContractDataSource):
+            self.data_source.open_connection()
+            try:
                 if len(self.contracts) > 0:
                     for contract in self.contracts:
+                        self.data_source.set_contract_context(
+                            database_name=contract.database_name, schema_name=contract.schema_name
+                        )
                         contract_result: ContractResult = self._verify(contract)
                         contract_results.append(contract_result)
                         for plugin in self.plugins:
                             plugin.process_contract_results(contract_result)
                 else:
-                    self.logs.error("No contracts configured")
+                    self.logs.error("No contracts specified")
+            finally:
+                self.data_source.close_connection()
         else:
             self.logs.error("No data source configured")
 
         return ContractVerificationResult(logs=self.logs, variables=self.variables, contract_results=contract_results)
 
     def _verify(self, contract: Contract) -> ContractResult:
+        contract_data_source = self.data_source
+
         scan = Scan()
 
         scan_logs = soda_core_logs.Logs(logger=scan_logger)
@@ -231,31 +255,46 @@ class ContractVerification:
             logger.debug("Generated SodaCL:")
             logger.debug(sodacl_yaml_str)
 
-            if sodacl_yaml_str and hasattr(self.data_source, "sodacl_data_source"):
+            if not isinstance(contract_data_source, ClContractDataSource):
+                raise NotImplementedError(f"Only ClDataSource's supported atm.  No support for {type(self).__name__}")
+
+            if not isinstance(sodacl_yaml_str, str):
+                self.logs.error("Bug: Empty SodaCL YAML string")
+            else:
                 scan._logs = scan_logs
 
-                # This assumes the connection is a DataSourceConnection
-                sodacl_data_source = self.data_source.sodacl_data_source
-                # Execute the contract SodaCL in a scan
-                scan.set_data_source_name(sodacl_data_source.data_source_name)
+                prefix_parts: list[str | None] = [contract.database_name, contract.schema_name]
+                prefix_parts_str: list[str] = [
+                    prefix_part for prefix_part in prefix_parts if isinstance(prefix_part, str)
+                ]
+                prefix_underscored: str = "_".join(prefix_parts_str)
+                sodacl_data_source_name: str = f"{contract_data_source.name}_{prefix_underscored}"
+
+                sodacl_data_source: SodaCLDataSource = contract_data_source._create_sodacl_data_source(
+                    sodacl_data_source_name=sodacl_data_source_name
+                )
                 # noinspection PyProtectedMember
-                scan._data_source_manager.data_sources[self.data_source.data_source_name] = sodacl_data_source
+                scan._data_source_manager.data_sources[sodacl_data_source_name] = sodacl_data_source
+                # Execute the contract SodaCL in a scan
+                scan.set_data_source_name(sodacl_data_source_name)
 
                 if self.soda_cloud:
                     scan_definition_name_parts: list[str] = [
-                        self.data_source.data_source_name,
+                        sodacl_data_source_name,
                         contract.database_name,
                         contract.schema_name,
                         contract.dataset_name,
                     ]
-                    parts_str: str = "/".join([part for part in scan_definition_name_parts if part is not None])
-                    scan_definition_name = f"dataset://{parts_str}"
+                    scan_definition_name_parts_str: str = "/".join(
+                        [part for part in scan_definition_name_parts if part is not None]
+                    )
+                    scan_definition_name = f"contract://{scan_definition_name_parts_str}"
                     scan.set_scan_definition_name(scan_definition_name)
 
-                    prefix_parts: list[str] = [contract.database_name, contract.schema_name]
-                    prefix = ".".join([prefix_part for prefix_part in prefix_parts if isinstance(prefix_part, str)])
-
-                    default_data_source_properties = {"type": self.data_source.data_source_type, "prefix": prefix}
+                    default_data_source_properties = {
+                        "type": contract_data_source.type,
+                        "prefix": ".".join(prefix_parts_str),
+                    }
 
                     # noinspection PyProtectedMember
                     scan._configuration.soda_cloud = CustomizedSodaClCloud(
@@ -283,14 +322,18 @@ class ContractVerification:
         self._append_scan_warning_and_error_logs(scan_logs=scan_logs, contract=contract)
 
         return ContractResult(
-            data_source=self.data_source, contract=contract, sodacl_yaml_str=sodacl_yaml_str, logs=self.logs, scan=scan
+            data_source=contract_data_source,
+            contract=contract,
+            sodacl_yaml_str=sodacl_yaml_str,
+            logs=self.logs,
+            scan=scan,
         )
 
     def _generate_sodacl_yaml_str(self, contract: Contract) -> str:
         # Serialize the SodaCL YAML object to a YAML string
         sodacl_checks: list = []
 
-        dataset_name: str = QuotingSerializer.quote(contract.dataset_name)
+        dataset_name: str = contract.dataset_name
         sodacl_yaml_object: dict = (
             {
                 f"filter {dataset_name} [filter]": {"where": contract.filter_sql},

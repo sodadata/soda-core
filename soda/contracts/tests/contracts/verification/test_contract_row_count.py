@@ -1,4 +1,6 @@
-from contracts.helpers.test_data_source import TestDataSource
+from contracts.helpers.contract_data_source_test_helper import (
+    ContractDataSourceTestHelper,
+)
 from helpers.test_table import TestTable
 from soda.execution.data_type import DataType
 
@@ -20,17 +22,15 @@ contracts_row_count_test_table = TestTable(
 )
 
 
-def test_contract_row_count(test_data_source: TestDataSource):
-    table_name: str = test_data_source.ensure_test_table(contracts_row_count_test_table)
-
-    contract_result: ContractResult = test_data_source.assert_contract_pass(
-        f"""
-        dataset: {table_name}
-        columns:
-          - name: one
-        checks:
-          - type: rows_exist
-    """
+def test_contract_row_count(data_source_test_helper: ContractDataSourceTestHelper):
+    contract_result: ContractResult = data_source_test_helper.assert_contract_pass(
+        test_table=contracts_row_count_test_table,
+        contract_yaml_str=f"""
+            columns:
+              - name: one
+            checks:
+              - type: rows_exist
+        """,
     )
     check_result = contract_result.check_results[1]
     assert isinstance(check_result, MetricCheckResult)
@@ -44,18 +44,16 @@ def test_contract_row_count(test_data_source: TestDataSource):
     assert check.column is None
 
 
-def test_contract_row_count2(test_data_source: TestDataSource):
-    table_name: str = test_data_source.ensure_test_table(contracts_row_count_test_table)
-
-    contract_result: ContractResult = test_data_source.assert_contract_fail(
-        f"""
-        dataset: {table_name}
-        columns:
-          - name: one
-        checks:
-          - type: row_count
-            must_be_between: [100, 120]
-    """
+def test_contract_row_count2(data_source_test_helper: ContractDataSourceTestHelper):
+    contract_result: ContractResult = data_source_test_helper.assert_contract_fail(
+        test_table=contracts_row_count_test_table,
+        contract_yaml_str=f"""
+            columns:
+              - name: one
+            checks:
+              - type: row_count
+                must_be_between: [100, 120]
+        """,
     )
     check_result = contract_result.check_results[1]
     assert isinstance(check_result, MetricCheckResult)
