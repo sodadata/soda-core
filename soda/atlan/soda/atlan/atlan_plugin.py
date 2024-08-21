@@ -18,6 +18,10 @@ class AtlanPlugin(Plugin):
 
     def process_contract_results(self, contract_result: ContractResult) -> None:
         error_messages: list[str] = []
+
+        atlan_is_glue: bool = contract_result.data_source_yaml_dict.get("atlan_is_glue")
+        is_glue: bool = isinstance(atlan_is_glue, bool) and atlan_is_glue
+
         atlan_qualified_name: str = contract_result.data_source_yaml_dict.get("atlan_qualified_name")
         if not isinstance(atlan_qualified_name, str):
             error_messages.append("atlan_qualified_name is required in a data source configuration yaml")
@@ -31,7 +35,11 @@ class AtlanPlugin(Plugin):
             error_messages.append("schema is required in the contract yaml")
 
         dataset_name: str = contract_result.contract.dataset_name
-        dataset_atlan_qualified_name: str = f"{atlan_qualified_name}/{database_name}/{schema_name}/{dataset_name}"
+
+        dataset_atlan_qualified_name: str = (
+            f"{atlan_qualified_name}/{database_name}/{schema_name}/{dataset_name}"
+            if not is_glue else f"{atlan_qualified_name}/AwsDataCatalog/{database_name}/{dataset_name}"
+        )
 
         if error_messages:
             error_messages_text = ", ".join(error_messages)
