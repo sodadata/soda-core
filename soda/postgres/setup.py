@@ -3,7 +3,7 @@
 from setuptools import find_namespace_packages, setup
 
 package_name = "soda-core-postgres"
-package_version = "3.3.16"
+package_version = "3.3.17"
 # TODO Add proper description
 description = "Soda Core Postgres Package"
 
