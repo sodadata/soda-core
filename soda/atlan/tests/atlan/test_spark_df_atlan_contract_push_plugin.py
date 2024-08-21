@@ -48,7 +48,9 @@ def test_spark_df_atlan_contract_push_plugin():
     contract_data_source_test_helper.start_test_session()
     exception: Exception | None = None
     try:
-        unique_table_name: str = contract_data_source_test_helper.ensure_test_table(contracts_spark_df_atlan_contract_test_table)
+        unique_table_name: str = contract_data_source_test_helper.ensure_test_table(
+            contracts_spark_df_atlan_contract_test_table
+        )
 
         spark_session: SparkSession = contract_data_source_test_helper.contract_data_source.spark_session
         df = spark_session.sql(f"SELECT * FROM {unique_table_name}")
