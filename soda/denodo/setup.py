@@ -3,7 +3,7 @@
 from setuptools import find_namespace_packages, setup
 
 package_name = "soda-core-denodo"
-package_version = "3.3.17"
+package_version = "3.3.18"
 # TODO Add proper description
 description = "Soda Core Denodo Package"
 
