@@ -43,7 +43,6 @@ def test_atlan_contract_push_plugin():
             database: ${CONTRACTS_POSTGRES_DATABASE}
             user: ${CONTRACTS_POSTGRES_USERNAME}
             password: ${CONTRACTS_POSTGRES_PASSWORD}
-            schema: contracts
     """
     )
 
