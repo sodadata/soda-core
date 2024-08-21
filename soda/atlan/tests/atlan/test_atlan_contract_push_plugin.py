@@ -26,6 +26,7 @@ contracts_atlan_contract_test_table = TestTable(
     # fmt: on
 )
 
+
 @pytest.mark.skip(
     "Takes too long to be part of the local development test suite & depends on Atlan & Soda Cloud services"
 )
