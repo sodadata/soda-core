@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from textwrap import dedent
 
+import pytest
 from dotenv import load_dotenv
 from helpers.fixtures import project_root_dir
 from helpers.test_table import TestTable
@@ -35,9 +36,9 @@ class AtlanSparkDfContractDataSourceTestHelper(SparkDfContractDataSourceTestHelp
         return {"atlan_qualified_name": "default/postgres/1718112025", "atlan_is_glue": True}
 
 
-# @pytest.mark.skip(
-#     "Takes too long to be part of the local development test suite & depends on Atlan & Soda Cloud services"
-# )
+@pytest.mark.skip(
+    "Takes too long to be part of the local development test suite & depends on Atlan & Soda Cloud services"
+)
 def test_atlan_contract_push_plugin():
     load_dotenv(f"{project_root_dir}/.env", override=True)
 

@@ -1,5 +1,6 @@
 from textwrap import dedent
 
+import pytest
 from dotenv import load_dotenv
 from helpers.fixtures import project_root_dir
 from helpers.test_table import TestTable
@@ -25,10 +26,9 @@ contracts_atlan_contract_test_table = TestTable(
     # fmt: on
 )
 
-
-# @pytest.mark.skip(
-#     "Takes too long to be part of the local development test suite & depends on Atlan & Soda Cloud services"
-# )
+@pytest.mark.skip(
+    "Takes too long to be part of the local development test suite & depends on Atlan & Soda Cloud services"
+)
 def test_atlan_contract_push_plugin():
     load_dotenv(f"{project_root_dir}/.env", override=True)
 
