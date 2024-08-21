@@ -1,17 +1,14 @@
 from textwrap import dedent
 
-import pytest
 from dotenv import load_dotenv
-
-from contracts.helpers.contract_data_source_test_helper import ContractDataSourceTestHelper
 from helpers.fixtures import project_root_dir
 from helpers.test_table import TestTable
+from soda.execution.data_type import DataType
 
 from soda.contracts.contract_verification import (
     ContractVerification,
     ContractVerificationResult,
 )
-from soda.execution.data_type import DataType
 
 contracts_atlan_contract_test_table = TestTable(
     name="contracts_atlan_contract",
@@ -27,6 +24,7 @@ contracts_atlan_contract_test_table = TestTable(
     ]
     # fmt: on
 )
+
 
 # @pytest.mark.skip(
 #     "Takes too long to be part of the local development test suite & depends on Atlan & Soda Cloud services"

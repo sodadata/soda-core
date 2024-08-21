@@ -38,7 +38,8 @@ class AtlanPlugin(Plugin):
 
         dataset_atlan_qualified_name: str = (
             f"{atlan_qualified_name}/{database_name}/{schema_name}/{dataset_name}"
-            if not is_glue else f"{atlan_qualified_name}/AwsDataCatalog/{database_name}/{dataset_name}"
+            if not is_glue
+            else f"{atlan_qualified_name}/AwsDataCatalog/{database_name}/{dataset_name}"
         )
 
         if error_messages:
