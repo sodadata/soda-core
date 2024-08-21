@@ -1,6 +1,7 @@
 from json import dumps
 
 from pyatlan.errors import AtlanError
+from ruamel.yaml import YAML
 
 from soda.contracts.contract import ContractResult
 from soda.contracts.impl.logs import Logs
@@ -31,7 +32,7 @@ class AtlanPlugin(Plugin):
             error_messages.append("database is required in the contract yaml")
 
         schema_name: str = contract_result.contract.schema_name
-        if not isinstance(schema_name, str):
+        if not is_glue and not isinstance(schema_name, str):
             error_messages.append("schema is required in the contract yaml")
 
         dataset_name: str = contract_result.contract.dataset_name
@@ -50,9 +51,10 @@ class AtlanPlugin(Plugin):
             )
             return None
 
-        contract_dict: dict = contract_result.contract.contract_file.get_dict().copy()
+        contract_yaml_source_str: str = contract_result.contract.contract_file.source_str
+        yaml: YAML = YAML()
+        contract_dict = yaml.load(contract_yaml_source_str)
         contract_dict.setdefault("kind", "DataContract")
-
         contract_json_str: str = dumps(contract_dict)
 
         self.logs.info(f"Pushing contract to Atlan: {dataset_atlan_qualified_name}")

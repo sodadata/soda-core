@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from textwrap import dedent
 
 import pytest
@@ -55,6 +56,8 @@ def test_spark_df_atlan_contract_push_plugin():
         spark_session: SparkSession = contract_data_source_test_helper.contract_data_source.spark_session
         df = spark_session.sql(f"SELECT * FROM {unique_table_name}")
         df.createOrReplaceTempView("students")
+
+        os.environ["DATE"] = "2024-08-21"
 
         contract_yaml_str: str = dedent(
             f"""
