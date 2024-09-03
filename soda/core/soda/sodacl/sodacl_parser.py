@@ -442,7 +442,8 @@ class SodaCLParser(Parser):
                 for invalid_configuration_key in [
                     key
                     for key in check_configurations
-                    if key not in [NAME, WARN, FAIL, FAIL_CONDITION, FAIL_QUERY, SAMPLES_LIMIT, SAMPLES_COLUMNS, ATTRIBUTES]
+                    if key
+                    not in [NAME, WARN, FAIL, FAIL_CONDITION, FAIL_QUERY, SAMPLES_LIMIT, SAMPLES_COLUMNS, ATTRIBUTES]
                 ]:
                     self.logs.error(
                         f'Invalid user defined failed rows check configuration key "{invalid_configuration_key}"',
