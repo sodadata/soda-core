@@ -1,23 +1,14 @@
 from __future__ import annotations
 
-from soda.sodacl.column_configurations_cfg import ColumnConfigurationsCfg
-from soda.sodacl.location import Location
 from soda.sodacl.partition_cfg import PartitionCfg
 
 
 class TableCfg:
     def __init__(self, table_name: str):
         self.table_name: str = table_name
-        self.column_configurations_cfgs: dict[str, ColumnConfigurationsCfg] = {}
-        self.column_configuration_locations: list[Location] = []
+        self.attributes: dict | None = None
+        self.samples_columns: list | None = None
         self.partition_cfgs: list[PartitionCfg] = []
-
-    def get_or_create_column_configurations(self, column_name: str) -> ColumnConfigurationsCfg:
-        column_configurations_cfg = self.column_configurations_cfgs.get(column_name)
-        if not column_configurations_cfg:
-            column_configurations_cfg = ColumnConfigurationsCfg(column_name)
-            self.column_configurations_cfgs[column_name] = column_configurations_cfg
-        return column_configurations_cfg
 
     def create_partition(self, file_path: str, partition_name: str) -> PartitionCfg:
         # Because the default table level checks are modelled with filter_name = None

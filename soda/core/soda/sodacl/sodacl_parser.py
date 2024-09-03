@@ -246,7 +246,15 @@ class SodaCLParser(Parser):
                         self._dataset_attributes = check_configurations
                     else:
                         check_cfg = self.__parse_table_check_str(header_str, check_str, check_configurations)
-                        if self._dataset_attributes:
+                        if table_cfg.attributes is not None:
+                            check_cfg.source_configurations = (
+                                {} if check_cfg.source_configurations is None else check_cfg.source_configurations
+                            )
+                            check_cfg.source_configurations[ATTRIBUTES] = {
+                                **check_cfg.source_configurations.get(ATTRIBUTES, {}),
+                                **table_cfg.attributes,
+                            }
+                        elif self._dataset_attributes:
                             check_cfg.source_configurations = (
                                 {} if check_cfg.source_configurations is None else check_cfg.source_configurations
                             )
@@ -256,6 +264,8 @@ class SodaCLParser(Parser):
                             }
 
                         if check_cfg:
+                            if table_cfg.samples_columns and check_cfg.samples_columns is None:
+                                check_cfg.samples_columns = table_cfg.samples_columns
                             column_name = check_cfg.get_column_name()
                             if column_name:
                                 column_checks = partition_cfg.get_or_create_column_checks(column_name)
