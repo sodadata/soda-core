@@ -22,9 +22,11 @@ def test_dataset_samples_columns(data_source_fixture: DataSourceFixture):
       configurations for {table_name}:
         samples columns: ["id", "cat"]
       checks for {table_name}:
-        - duplicate_count(cat) = 0:
+        - avg_surface between 1068 and 1069:
+            avg_surface expression: AVG(cst_size * distance)
             name: "Dataset samples columns"
-        - duplicate_count(country) = 0:
+        - avg_surface between 1068 and 1069:
+            avg_surface expression: AVG(cst_size * distance)
             name: "Check samples columns"
             samples columns: ["id", "country"]
     """

@@ -14,6 +14,7 @@ def test_numeric_metric_checks_on_text_column(data_source_fixture: DataSourceFix
     scan = data_source_fixture.create_test_scan()
     scan.add_sodacl_yaml_str(
         f"""
+          checks for {table_name}:
             - min(cst_size_txt) = -3:
                 valid format: decimal
             - max(cst_size_txt) = 6:
