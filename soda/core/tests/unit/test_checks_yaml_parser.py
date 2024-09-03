@@ -54,10 +54,10 @@ def test_configurations_parsing():
               "country" NOT IN ('UK', 'US')
 
       configurations for CUSTOMERS:
-        missing values for id: [N/A, No value]
-        valid format for id: uuid
-        valid max length for cst_size: 6
-        valid min for cst_size: -500.10
+        attributes:
+            priority: 1
+            tags: ["user-created"]
+        samples columns: ["id"]
     """
         ).strip()
     )
@@ -66,10 +66,9 @@ def test_configurations_parsing():
     data_source_scan_cfg = scan._sodacl_cfg.data_source_scan_cfgs[None]
     customers_table_cfg = data_source_scan_cfg.tables_cfgs["CUSTOMERS"]
 
-    assert customers_table_cfg.column_configurations_cfgs["id"].missing_values == ["N/A", "No value"]
-    assert customers_table_cfg.column_configurations_cfgs["id"].valid_format == "uuid"
-    assert customers_table_cfg.column_configurations_cfgs["cst_size"].valid_max_length == 6
-    assert customers_table_cfg.column_configurations_cfgs["cst_size"].valid_min == -500.10
+    assert customers_table_cfg.attributes["priority"] == 1
+    assert customers_table_cfg.attributes["tags"] == ["user-created"]
+    assert customers_table_cfg.samples_columns[0] == "id"
 
 
 def test_wrong_yaml():

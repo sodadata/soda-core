@@ -13,7 +13,8 @@ def test_data_source_specific_statistics_aggregation_metrics(data_source_fixture
         "variance(cst_size)": "variance(cst_size) between 10.65 and 10.66",
         "var_pop(cst_size)": "var_pop(cst_size) between 9.13 and 9.14",
         "var_samp(cst_size)": "var_samp(cst_size) between 10.65 and 10.66",
-        "percentile(distance, 0.7)": "percentile(distance, 0.7) = 999",
+        "percentile(distance, 0.7)": """percentile(distance, 0.7) = 999:
+      valid min: 0""",
     }
 
     supported_checks = all_checks
@@ -44,8 +45,6 @@ def test_data_source_specific_statistics_aggregation_metrics(data_source_fixture
             f"""
 checks for {table_name}:
 {checks_str}
-configurations for {table_name}:
-    valid min for distance: 0
 """
         )
         scan.execute()

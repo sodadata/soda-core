@@ -403,7 +403,6 @@ class Scan:
         self._logs.debug("Scan execution starts")
         exit_value = 0
         try:
-            from soda.execution.column import Column
             from soda.execution.metric.column_metrics import ColumnMetrics
             from soda.execution.partition import Partition
             from soda.execution.table import Table
@@ -445,10 +444,6 @@ class Scan:
 
                     for table_cfg in data_source_scan_cfg.tables_cfgs.values():
                         table: Table = data_source_scan.get_or_create_table(table_cfg.table_name)
-
-                        for column_configurations_cfg in table_cfg.column_configurations_cfgs.values():
-                            column: Column = table.get_or_create_column(column_configurations_cfg.column_name)
-                            column.set_column_configuration_cfg(column_configurations_cfg)
 
                         for partition_cfg in table_cfg.partition_cfgs:
                             partition: Partition = table.get_or_create_partition(partition_cfg.partition_name)

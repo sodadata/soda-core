@@ -31,13 +31,16 @@ def test_column_configured_invalid_values(data_source_fixture: DataSourceFixture
     scan.add_sodacl_yaml_str(
         f"""
       checks for {table_name}:
-        - invalid_count(id) = 6
-        - valid_count(id) = 3
-      configurations for {table_name}:
-        valid values for id:
-         - ID1
-         - ID2
-         - ID3
+        - invalid_count(id) = 6:
+            valid values:
+              - ID1
+              - ID2
+              - ID3
+        - valid_count(id) = 3:
+            valid values:
+              - ID1
+              - ID2
+              - ID3
     """
     )
     scan.execute()
@@ -117,12 +120,15 @@ def test_column_configured_invalid_and_missing_values(data_source_fixture: DataS
     scan.add_sodacl_yaml_str(
         f"""
           checks for {table_name}:
-            - missing_count(pct) = 3
-            - invalid_count(pct) = 1
-            - valid_count(pct) = 6
-          configurations for {table_name}:
-            missing values for pct: ['N/A', 'No value']
-            valid format for pct: percentage
+            - missing_count(pct) = 3:
+                missing values: ['N/A', 'No value']
+                valid format: percentage
+            - invalid_count(pct) = 1:
+                missing values: ['N/A', 'No value']
+                valid format: percentage
+            - valid_count(pct) = 6:
+                missing values: ['N/A', 'No value']
+                valid format: percentage
         """
     )
     scan.execute()
@@ -137,11 +143,12 @@ def test_valid_length(data_source_fixture: DataSourceFixture):
     scan.add_sodacl_yaml_str(
         f"""
           checks for {table_name}:
-            - invalid_count(cat) = 2
-            - valid_count(cat) = 3
-          configurations for {table_name}:
-            valid min length for cat: 4
-            valid max length for cat: 4
+            - invalid_count(cat) = 2:
+                valid min length: 4
+                valid max length: 4
+            - valid_count(cat) = 3:
+                valid min length: 4
+                valid max length: 4
         """
     )
     scan.execute()
@@ -152,41 +159,10 @@ def test_valid_length(data_source_fixture: DataSourceFixture):
     scan.add_sodacl_yaml_str(
         f"""
           checks for {table_name}:
-            - invalid_count(cat) = 2
-            - valid_count(cat) = 3
-          configurations for {table_name}:
-            valid length for cat: 4
-        """
-    )
-    scan.execute()
-
-    scan.assert_all_checks_pass()
-
-
-def test_check_and_column_configured_invalid_values(data_source_fixture: DataSourceFixture):
-    """
-    In case both column *and* check configurations are specified, they both are applied.
-    """
-    table_name = data_source_fixture.ensure_test_table(customers_test_table)
-
-    digit_regex = data_source_fixture.data_source.escape_regex(id_regex)
-
-    scan = data_source_fixture.create_test_scan()
-    scan.add_sodacl_yaml_str(
-        f"""
-          checks for {table_name}:
-            - valid_count(id) = 9
-            - valid_count(id) = 2:
-                valid values:
-                 - ID1
-                 - ID2
-            - invalid_count(id) = 0
-            - invalid_count(id) = 7:
-                valid values:
-                 - ID1
-                 - ID2
-          configurations for {table_name}:
-            valid regex for id: {digit_regex}
+            - invalid_count(cat) = 2:
+                valid length: 4
+            - valid_count(cat) = 3:
+                valid length: 4
         """
     )
     scan.execute()

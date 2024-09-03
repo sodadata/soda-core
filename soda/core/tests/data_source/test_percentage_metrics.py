@@ -15,11 +15,12 @@ def test_default_missing_percentage(data_source_fixture: DataSourceFixture):
     scan.add_sodacl_yaml_str(
         f"""
       checks for {table_name}:
-        - missing_percent(pct) = 30
-        - invalid_percent(pct) = 10
-      configurations for {table_name}:
-        missing values for pct: [No value, N/A]
-        valid format for pct: percentage
+        - missing_percent(pct) = 30:
+            missing values: [No value, N/A]
+            valid format: percentage
+        - invalid_percent(pct) = 10:
+            missing values: [No value, N/A]
+            valid format: percentage
     """
     )
     scan.execute()
