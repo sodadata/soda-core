@@ -7,7 +7,6 @@ class TableCfg:
     def __init__(self, table_name: str):
         self.table_name: str = table_name
         self.attributes: dict | None = None
-        self.samples_columns: list | None = None
         self.partition_cfgs: list[PartitionCfg] = []
 
     def create_partition(self, file_path: str, partition_name: str) -> PartitionCfg:

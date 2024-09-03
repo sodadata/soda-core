@@ -264,8 +264,6 @@ class SodaCLParser(Parser):
                             }
 
                         if check_cfg:
-                            if table_cfg.samples_columns and check_cfg.samples_columns is None:
-                                check_cfg.samples_columns = table_cfg.samples_columns
                             column_name = check_cfg.get_column_name()
                             if column_name:
                                 column_checks = partition_cfg.get_or_create_column_checks(column_name)
@@ -444,7 +442,7 @@ class SodaCLParser(Parser):
                 for invalid_configuration_key in [
                     key
                     for key in check_configurations
-                    if key not in [NAME, WARN, FAIL, FAIL_CONDITION, FAIL_QUERY, SAMPLES_LIMIT, ATTRIBUTES]
+                    if key not in [NAME, WARN, FAIL, FAIL_CONDITION, FAIL_QUERY, SAMPLES_LIMIT, SAMPLES_COLUMNS, ATTRIBUTES]
                 ]:
                     self.logs.error(
                         f'Invalid user defined failed rows check configuration key "{invalid_configuration_key}"',
@@ -983,8 +981,6 @@ class SodaCLParser(Parser):
             ) in header_content.items():
                 if configuration_key == ATTRIBUTES:
                     table_cfg.attributes = configuration_value
-                elif configuration_key == SAMPLES_COLUMNS:
-                    table_cfg.samples_columns = configuration_value
                 else:
                     self.logs.error(
                         f'Invalid configuration "{configuration_key}" for a table "{table_name}"',
