@@ -982,24 +982,15 @@ class SodaCLParser(Parser):
                 configuration_key,
                 configuration_value,
             ) in header_content.items():
-                parts = configuration_key.split(" for ")
-                if len(parts) != 2:
+                if configuration_key == ATTRIBUTES:
+                    table_cfg.attributes = configuration_value
+                elif configuration_key == SAMPLES_COLUMNS:
+                    table_cfg.samples_columns = configuration_value
+                else:
                     self.logs.error(
-                        f"Column configuration key {configuration_key} not in appropriate format {{configuration_type}} for {{column}}",
+                        f'Invalid configuration "{configuration_key}" for a table "{table_name}"',
                         location=self.location,
                     )
-                else:
-                    configuration_type = parts[0].strip()
-                    column_name = parts[1].strip()
-                    column_configurations_cfg = table_cfg.get_or_create_column_configurations(column_name)
-                    if configuration_type in CFG_MISSING_VALID_ALL:
-                        self.__parse_missing_and_valid(
-                            configuration_type,
-                            configuration_value,
-                            column_configurations_cfg,
-                        )
-                    else:
-                        self.logs.error(f'Invalid configuration "{configuration_key}"', location=self.location)
         elif isinstance(header_content, list) and len(header_content) > 0:
             self.logs.error(
                 f'Contents of column configurations "{header_str}" is a list, but should be plain configurations.  Remove the "-" before the nested configurations',
