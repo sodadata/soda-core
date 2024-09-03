@@ -976,7 +976,6 @@ class SodaCLParser(Parser):
         if isinstance(header_content, dict):
             data_source_scan_cfg = self.get_data_source_scan_cfgs()
             table_cfg: TableCfg = data_source_scan_cfg.get_or_create_table_cfg(table_name)
-            table_cfg.column_configuration_locations.append(self.location)
 
             for (
                 configuration_key,
