@@ -5,8 +5,6 @@ import re
 from datetime import date, datetime
 from numbers import Number
 
-from helpers.test_column import TestColumn
-from helpers.test_table import TestTable
 from soda.execution.data_type import DataType
 
 logger = logging.getLogger(__name__)
@@ -185,33 +183,6 @@ class SqlDialect:
         )
         return f"DROP TABLE IF EXISTS {qualified_table_name}"
 
-    def stmt_create_test_table(self, database_name: str | None, schema_name: str | None, test_table: TestTable) -> str:
-
-        table_name_qualified_quoted = self.qualify_table(
-            database_name=database_name,
-            schema_name=schema_name,
-            table_name=test_table.unique_table_name,
-            quote_table_name=test_table.quote_names,
-        )
-
-        test_columns = test_table.test_columns
-        if test_table.quote_names:
-            test_columns = [
-                TestColumn(name=self.quote_default(test_column.name), data_type=test_column.data_type)
-                for test_column in test_columns
-            ]
-
-        columns_sql = ",\n".join(
-            [
-                f"  {test_column.name} {self.get_create_table_sql_type(test_column.data_type)}"
-                for test_column in test_columns
-            ]
-        )
-        return self.compose_create_table_statement(table_name_qualified_quoted, columns_sql)
-
-    def get_create_table_sql_type(self, data_type: str) -> str:
-        return self.create_table_sql_type_dict.get(data_type)
-
     def get_schema_check_sql_type(self, data_type: str) -> str:
         return self.schema_check_sql_type_dict.get(data_type)
 
@@ -238,24 +209,6 @@ class SqlDialect:
 
     def get_schema_check_sql_type_boolean(self) -> str:
         return self.schema_check_sql_type_dict.get(DataType.BOOLEAN)
-
-    def compose_create_table_statement(self, qualified_table_name, columns_sql) -> str:
-        return f"CREATE TABLE {qualified_table_name} ( \n{columns_sql} \n)"
-
-    def _insert_test_table_sql(self, database_name: str | None, schema_name: str | None, test_table: TestTable) -> str:
-        if test_table.values:
-            table_name_qualified_quoted = self.qualify_table(
-                database_name=database_name,
-                schema_name=schema_name,
-                table_name=test_table.unique_table_name,
-                quote_table_name=test_table.quote_names,
-            )
-
-            def sql_test_table_row(row):
-                return ",".join([self.literal(value) for value in row])
-
-            rows_sql = ",\n".join([f"  ({sql_test_table_row(row)})" for row in test_table.values])
-            return f"INSERT INTO {table_name_qualified_quoted} VALUES \n" f"{rows_sql};"
 
     def qualify_table(
         self, database_name: str | None, schema_name: str | None, table_name: str, quote_table_name: bool = False
