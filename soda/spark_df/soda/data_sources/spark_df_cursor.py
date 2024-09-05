@@ -29,7 +29,7 @@ class SparkDfCursor:
     def fetchmany(self, size: int) -> tuple[tuple]:
         rows = []
         self.rowcount = self.df.count()
-        spark_rows: list[Row] = self.df.limit(size).offset(self.cursor_index).collect()
+        spark_rows: list[Row] = self.df.offset(self.cursor_index).limit(size).collect()
         self.cursor_index += len(spark_rows)
         for spark_row in spark_rows:
             row = self.convert_spark_row_to_dbapi_row(spark_row)

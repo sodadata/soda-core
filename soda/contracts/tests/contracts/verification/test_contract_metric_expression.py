@@ -1,4 +1,6 @@
-from contracts.helpers.test_data_source import TestDataSource
+from contracts.helpers.contract_data_source_test_helper import (
+    ContractDataSourceTestHelper,
+)
 from helpers.test_table import TestTable
 from soda.execution.data_type import DataType
 
@@ -21,12 +23,10 @@ user_defined_metric_expression_test_table = TestTable(
 )
 
 
-def test_contract_column_metric_expression(test_data_source: TestDataSource):
-    table_name: str = test_data_source.ensure_test_table(user_defined_metric_expression_test_table)
-
-    contract_result: ContractResult = test_data_source.assert_contract_fail(
-        f"""
-        dataset: {table_name}
+def test_contract_column_metric_expression(data_source_test_helper: ContractDataSourceTestHelper):
+    contract_result: ContractResult = data_source_test_helper.assert_contract_fail(
+        test_table=user_defined_metric_expression_test_table,
+        contract_yaml_str=f"""
         columns:
           - name: id
           - name: country
@@ -35,7 +35,7 @@ def test_contract_column_metric_expression(test_data_source: TestDataSource):
               metric: us_count
               expression_sql: COUNT(CASE WHEN country = 'US' THEN 1 END)
               must_be: 0
-    """
+    """,
     )
 
     check_result = contract_result.check_results[1]
@@ -47,26 +47,24 @@ def test_contract_column_metric_expression(test_data_source: TestDataSource):
     assert isinstance(check, UserDefinedMetricExpressionCheck)
     assert check.type == "metric_expression"
     assert check.metric == "us_count"
-    assert check.column == "country"
+    assert check.column.lower() == "country"
 
-    assert "Actual us_count(country) was 2" in str(contract_result)
+    assert "actual us_count(country) was 2" in str(contract_result).lower()
 
 
-def test_contract_dataset_metric_expression(test_data_source: TestDataSource):
-    table_name: str = test_data_source.ensure_test_table(user_defined_metric_expression_test_table)
-
-    contract_result: ContractResult = test_data_source.assert_contract_fail(
-        f"""
-        dataset: {table_name}
-        columns:
-          - name: id
-          - name: country
-        checks:
-        - type: metric_expression
-          metric: us_count
-          expression_sql: COUNT(CASE WHEN country = 'US' THEN 1 END)
-          must_be: 0
-    """
+def test_contract_dataset_metric_expression(data_source_test_helper: ContractDataSourceTestHelper):
+    contract_result: ContractResult = data_source_test_helper.assert_contract_fail(
+        test_table=user_defined_metric_expression_test_table,
+        contract_yaml_str=f"""
+            columns:
+              - name: id
+              - name: country
+            checks:
+            - type: metric_expression
+              metric: us_count
+              expression_sql: COUNT(CASE WHEN country = 'US' THEN 1 END)
+              must_be: 0
+        """,
     )
 
     check_result = contract_result.check_results[1]

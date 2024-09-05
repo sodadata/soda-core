@@ -5,7 +5,9 @@ import os
 from datetime import date
 from textwrap import dedent
 
-from contracts.helpers.test_data_source import TestDataSource
+from contracts.helpers.contract_data_source_test_helper import (
+    ContractDataSourceTestHelper,
+)
 from helpers.test_table import TestTable
 from soda.execution.data_type import DataType
 
@@ -32,8 +34,8 @@ contracts_api_test_table = TestTable(
 )
 
 
-def test_contract_verification_api(test_data_source: TestDataSource, environ: dict):
-    table_name: str = test_data_source.ensure_test_table(contracts_api_test_table)
+def test_contract_verification_api(data_source_test_helper: ContractDataSourceTestHelper, environ: dict):
+    table_name: str = data_source_test_helper.ensure_test_table(contracts_api_test_table)
 
     environ["USERNAME"] = "sodasql"
     environ["PORT"] = os.getenv("POSTGRES_PORT", "5432")
@@ -45,7 +47,7 @@ def test_contract_verification_api(test_data_source: TestDataSource, environ: di
         connection:
             host: localhost
             database: sodasql
-            username: ${USERNAME}
+            user: ${USERNAME}
             port: ${PORT}
     """
     )

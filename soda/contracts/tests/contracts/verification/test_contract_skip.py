@@ -1,7 +1,9 @@
 import logging
 from textwrap import dedent
 
-from contracts.helpers.test_data_source import TestContractVerification, TestDataSource
+from contracts.helpers.contract_data_source_test_helper import (
+    ContractDataSourceTestHelper,
+)
 from helpers.test_table import TestTable
 from soda.execution.data_type import DataType
 
@@ -12,7 +14,7 @@ from soda.contracts.contract_verification import (
     ContractVerificationResult,
 )
 
-contracts_missing_test_table = TestTable(
+contracts_skip_test_table = TestTable(
     name="contracts_skip",
     # fmt: off
     columns=[
@@ -24,8 +26,8 @@ contracts_missing_test_table = TestTable(
 )
 
 
-def test_skip_all_checks_except_schema_check(test_data_source: TestDataSource):
-    table_name: str = test_data_source.ensure_test_table(contracts_missing_test_table)
+def test_skip_all_checks_except_schema_check(data_source_test_helper: ContractDataSourceTestHelper):
+    table_name: str = data_source_test_helper.ensure_test_table(contracts_skip_test_table)
 
     contract_yaml_str: str = dedent(
         f"""
@@ -37,12 +39,16 @@ def test_skip_all_checks_except_schema_check(test_data_source: TestDataSource):
     """
     ).strip()
 
+    contract_yaml_str = data_source_test_helper.casify_contract_yaml_str(
+        test_table=contracts_skip_test_table, contract_yaml_str=contract_yaml_str
+    )
+
     contract_yaml_str = dedent(contract_yaml_str).strip()
+
     logging.debug(contract_yaml_str)
 
     contract_verification: ContractVerification = (
-        TestContractVerification.builder()
-        .with_data_source(test_data_source)
+        data_source_test_helper.create_test_verification_builder()
         .with_contract_yaml_str(contract_yaml_str=contract_yaml_str)
         .build()
     )

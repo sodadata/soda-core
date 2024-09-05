@@ -1,4 +1,6 @@
-from contracts.helpers.test_data_source import TestDataSource
+from contracts.helpers.contract_data_source_test_helper import (
+    ContractDataSourceTestHelper,
+)
 from helpers.test_table import TestTable
 from soda.execution.data_type import DataType
 
@@ -21,18 +23,16 @@ contracts_basic_sql_functions_check_types_test_table = TestTable(
 )
 
 
-def test_contract_avg(test_data_source: TestDataSource):
-    table_name: str = test_data_source.ensure_test_table(contracts_basic_sql_functions_check_types_test_table)
-
-    contract_result: ContractResult = test_data_source.assert_contract_fail(
-        f"""
-        dataset: {table_name}
-        columns:
-          - name: one
-            checks:
-              - type: avg
-                must_be: 0
-    """
+def test_contract_avg(data_source_test_helper: ContractDataSourceTestHelper):
+    contract_result: ContractResult = data_source_test_helper.assert_contract_fail(
+        test_table=contracts_basic_sql_functions_check_types_test_table,
+        contract_yaml_str=f"""
+            columns:
+              - name: one
+                checks:
+                  - type: avg
+                    must_be: 0
+        """,
     )
 
     check_result = contract_result.check_results[1]
@@ -44,23 +44,21 @@ def test_contract_avg(test_data_source: TestDataSource):
     assert isinstance(check, MetricCheck)
     assert check.type == "avg"
     assert check.metric == "avg"
-    assert check.column == "one"
+    assert check.column.lower() == "one"
 
-    assert "Actual avg(one) was 2" in str(contract_result)
+    assert "actual avg(one) was 2" in str(contract_result).lower()
 
 
-def test_contract_sum(test_data_source: TestDataSource):
-    table_name: str = test_data_source.ensure_test_table(contracts_basic_sql_functions_check_types_test_table)
-
-    contract_result: ContractResult = test_data_source.assert_contract_fail(
-        f"""
-        dataset: {table_name}
-        columns:
-          - name: one
-            checks:
-              - type: sum
-                must_be: 0
-    """
+def test_contract_sum(data_source_test_helper: ContractDataSourceTestHelper):
+    contract_result: ContractResult = data_source_test_helper.assert_contract_fail(
+        test_table=contracts_basic_sql_functions_check_types_test_table,
+        contract_yaml_str=f"""
+            columns:
+              - name: one
+                checks:
+                  - type: sum
+                    must_be: 0
+        """,
     )
 
     check_result = contract_result.check_results[1]
@@ -72,6 +70,6 @@ def test_contract_sum(test_data_source: TestDataSource):
     assert isinstance(check, MetricCheck)
     assert check.type == "sum"
     assert check.metric == "sum"
-    assert check.column == "one"
+    assert check.column.lower() == "one"
 
-    assert "Actual sum(one) was 6" in str(contract_result)
+    assert "actual sum(one) was 6" in str(contract_result).lower()

@@ -30,7 +30,7 @@ from soda.contracts.check import (
     ValidConfigurations,
     ValidValuesReferenceData,
 )
-from soda.contracts.impl.data_source import DataSource
+from soda.contracts.impl.contract_data_source import ContractDataSource
 from soda.contracts.impl.json_schema_verifier import JsonSchemaVerifier
 from soda.contracts.impl.logs import Location, Logs
 from soda.contracts.impl.yaml_helper import YamlFile, YamlHelper
@@ -80,9 +80,9 @@ class Contract:
 
             # Verify the contract schema on the ruamel instance object
             json_schema_verifier: JsonSchemaVerifier = JsonSchemaVerifier(self.logs)
-            json_schema_verifier.verify(self.contract_file.dict)
+            json_schema_verifier.verify(self.contract_file.get_dict())
 
-            contract_yaml_dict = self.contract_file.dict
+            contract_yaml_dict = self.contract_file.get_dict()
 
             self.data_source_name: str | None = yaml_helper.read_string_opt(contract_yaml_dict, "data_source")
             self.database_name: str | None = yaml_helper.read_string_opt(contract_yaml_dict, "database")
@@ -350,7 +350,7 @@ class ContractResult:
     check_results: List[CheckResult]
 
     def __init__(
-        self, data_source: DataSource, contract: Contract, sodacl_yaml_str: str | None, logs: Logs, scan: Scan
+        self, data_source: ContractDataSource, contract: Contract, sodacl_yaml_str: str | None, logs: Logs, scan: Scan
     ):
         self.data_source_yaml_dict: dict = data_source.data_source_yaml_dict
         self.contract = contract
@@ -410,10 +410,13 @@ class ContractResult:
         error_texts_list: List[str] = [str(error) for error in self.logs.get_errors()]
 
         check_failure_message_list: list[str] = []
+
+        check_failure_count: int = 0
         for check_result in self.check_results:
             if check_result.outcome == CheckOutcome.FAIL:
                 result_str_lines = check_result.get_contract_result_str_lines()
                 check_failure_message_list.extend(result_str_lines)
+                check_failure_count += 1
 
         if not error_texts_list and not check_failure_message_list:
             return "All is good. No checks failed. No contract execution errors."
@@ -422,8 +425,8 @@ class ContractResult:
         if len(error_texts_list) != 1:
             errors_summary_text = f"{errors_summary_text}s"
 
-        checks_summary_text = f"{len(check_failure_message_list)} check failure"
-        if len(check_failure_message_list) != 1:
+        checks_summary_text = f"{check_failure_count} check failure"
+        if check_failure_count != 1:
             checks_summary_text = f"{checks_summary_text}s"
 
         parts = [f"{checks_summary_text} and {errors_summary_text}"]
