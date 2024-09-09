@@ -174,8 +174,6 @@ class ContractVerification:
                     self.data_source = data_source
                 else:
                     self.logs.error(f"Error creating data source from {data_source_yaml_file}. See logs above.")
-        else:
-            self.logs.error("No data source configured")
 
     def _initialize_contracts(self, contract_verification_builder: ContractVerificationBuilder) -> None:
         for contract_file in contract_verification_builder.contract_files:

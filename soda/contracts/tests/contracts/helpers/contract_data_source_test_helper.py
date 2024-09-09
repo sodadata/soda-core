@@ -245,8 +245,10 @@ class ContractDataSourceTestHelper:
 
     def get_parse_errors_str(self, contract_yaml_str: str) -> str:
         contract_yaml_str = dedent(contract_yaml_str).strip()
-        contract_verification_builder = self.create_test_verification_builder().with_contract_yaml_str(
-            contract_yaml_str=contract_yaml_str
+        contract_verification_builder = (ContractVerification.builder()
+            .with_contract_yaml_str(
+                contract_yaml_str=contract_yaml_str
+            )
         )
         contract_verification = contract_verification_builder.build()
         errors: list[Log] = contract_verification.logs.get_errors()
