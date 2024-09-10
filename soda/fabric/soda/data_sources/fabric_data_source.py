@@ -13,8 +13,8 @@ class FabricDataSource(SQLServerDataSource):
         DataType.DECIMAL: "float",
         DataType.DATE: "date",
         DataType.TIME: "time",
-        DataType.TIMESTAMP: "datetime2",
-        DataType.TIMESTAMP_TZ: "datetime2",
+        DataType.TIMESTAMP: "datetime2(6)",
+        DataType.TIMESTAMP_TZ: "datetime2(6)",
         DataType.BOOLEAN: "bit",
     }
 
