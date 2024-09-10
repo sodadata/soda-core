@@ -176,8 +176,6 @@ class DataSource:
             return "SparkDf"
         elif "sqlserver" == data_source_type:
             return "SQLServer"
-        elif "fabric" == data_source_type:
-            return "Fabric"
         elif "mysql" == data_source_type:
             return "MySQL"
         elif "duckdb" == data_source_type:
