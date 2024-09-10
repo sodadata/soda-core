@@ -6,9 +6,7 @@ package_name = "soda-core-fabric"
 package_version = "3.3.20"
 description = "Soda Core Microsoft Fabric Package"
 
-requires = [
-    f"soda-core-sqlserver=={package_version}"
-]
+requires = [f"soda-core-sqlserver=={package_version}"]
 # TODO Fix the params
 setup(
     name=package_name,
