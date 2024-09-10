@@ -68,7 +68,6 @@ class ContractDataSource(ABC):
             "bigquery": "BigQuery",
             "spark_df": "SparkDf",
             "sqlserver": "SQLServer",
-            "fabric": "Fabric",
             "mysql": "MySQL",
             "duckdb": "DuckDB",
         }
