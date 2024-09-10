@@ -1,22 +1,26 @@
 from __future__ import annotations
 
-from itertools import chain, repeat
 import logging
 import re
 import struct
-from datetime import datetime, timedelta, timezone
-from textwrap import dedent
 import time
+from datetime import datetime, timedelta, timezone
+from itertools import chain, repeat
+from textwrap import dedent
 from typing import Callable, Mapping
 
 import pyodbc
 from azure.core.credentials import AccessToken
-from azure.identity import AzureCliCredential, DefaultAzureCredential, EnvironmentCredential
+from azure.identity import (
+    AzureCliCredential,
+    DefaultAzureCredential,
+    EnvironmentCredential,
+)
+from soda.__version__ import SODA_CORE_VERSION
 from soda.common.exceptions import DataSourceConnectionError
 from soda.common.logs import Logs
 from soda.execution.data_source import DataSource
 from soda.execution.data_type import DataType
-from soda.__version__ import SODA_CORE_VERSION
 
 logger = logging.getLogger(__name__)
 
@@ -25,50 +29,58 @@ _MAX_REMAINING_AZURE_ACCESS_TOKEN_LIFETIME = 300
 _AZURE_CREDENTIAL_SCOPE = "https://database.windows.net//.default"
 _AZURE_AUTH_FUNCTION_TYPE = Callable[..., AccessToken]
 
+
 def _get_auto_access_token() -> AccessToken:
     return DefaultAzureCredential().get_token(_AZURE_CREDENTIAL_SCOPE)
+
 
 def _get_environment_access_token() -> AccessToken:
     return EnvironmentCredential().get_token(_AZURE_CREDENTIAL_SCOPE)
 
+
 def _get_azure_cli_access_token() -> AccessToken:
     return AzureCliCredential().get_token(_AZURE_CREDENTIAL_SCOPE)
+
 
 _AZURE_AUTH_FUNCTIONS: Mapping[str, _AZURE_AUTH_FUNCTION_TYPE] = {
     "auto": _get_auto_access_token,
     "cli": _get_azure_cli_access_token,
-    "environment": _get_environment_access_token
+    "environment": _get_environment_access_token,
 }
+
 
 def convert_bytes_to_mswindows_byte_string(value):
     encoded_bytes = bytes(chain.from_iterable(zip(value, repeat(0))))
     return struct.pack("<i", len(encoded_bytes)) + encoded_bytes
 
+
 def convert_access_token_to_mswindows_byte_string(token):
     value = bytes(token.token, "UTF-8")
     return convert_bytes_to_mswindows_byte_string(value)
 
+
 def get_pyodbc_attrs(authentication_method: str):
     if not authentication_method.lower() in _AZURE_AUTH_FUNCTIONS:
         return None
-    
+
     global _azure_access_token
     _azure_access_token = None
-    
+
     if _azure_access_token:
-        time_remaining = (_azure_access_token.expires_on - time.time())
+        time_remaining = _azure_access_token.expires_on - time.time()
         if time_remaining < _MAX_REMAINING_AZURE_ACCESS_TOKEN_LIFETIME:
             _azure_access_token = None
-    
+
     if not _azure_access_token:
         _azure_access_token = _AZURE_AUTH_FUNCTIONS[authentication_method.lower()]()
-    
+
     token_bytes = convert_access_token_to_mswindows_byte_string(_azure_access_token)
     return {_SQL_COPT_SS_ACCESS_TOKEN: token_bytes}
 
+
 class SQLServerDataSource(DataSource):
     TYPE = "sqlserver"
-    
+
     SCHEMA_CHECK_TYPES_MAPPING: dict = {"TEXT": ["text", "varchar", "char", "nvarchar", "nchar"]}
 
     SQL_TYPE_FOR_CREATE_TABLE_MAP: dict = {
@@ -182,7 +194,7 @@ class SQLServerDataSource(DataSource):
                 tup[6] // 1000,
                 timezone(timedelta(hours=tup[7], minutes=tup[8])),
             )
-        
+
         def build_connection_string():
             connection_parameters_string = self.get_connection_parameters_string()
             conn_params = []
@@ -202,19 +214,19 @@ class SQLServerDataSource(DataSource):
 
             if self.trusted_connection:
                 conn_params.append("Trusted_Connection=YES")
-            
+
             if self.trust_server_certificate:
                 conn_params.append("TrustServerCertificate=YES")
-            
+
             if self.encrypt:
                 conn_params.append("Encrypt=YES")
-            
+
             if int(self.connection_max_retries) > 0:
                 conn_params.append(f"ConnectRetryCount={int(self.connection_max_retries)}")
-            
+
             if self.enable_tracing:
                 conn_params.append("SQL_ATTR_TRACE=SQL_OPT_TRACE_ON")
-            
+
             if self.authentication.lower() == "sql":
                 conn_params.append(f"UID={{{self.username}}}")
                 conn_params.append(f"PWD={{{self.password}}}")
@@ -237,7 +249,7 @@ class SQLServerDataSource(DataSource):
             conn_str = ";".join(conn_params)
 
             return conn_str
-        
+
         try:
             self.connection = pyodbc.connect(
                 build_connection_string(),

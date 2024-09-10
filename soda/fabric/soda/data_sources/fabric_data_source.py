@@ -28,7 +28,7 @@ class FabricDataSource(SQLServerDataSource):
         DataType.TIMESTAMP_TZ: "datetime2",
         DataType.BOOLEAN: "bit",
     }
-    
+
     NUMERIC_TYPES_FOR_PROFILING = [
         "bigint",
         "numeric",
