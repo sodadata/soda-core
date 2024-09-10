@@ -7,6 +7,10 @@ def test_formats(data_source_fixture: DataSourceFixture):
     table_name = data_source_fixture.ensure_test_table(customers_test_table)
 
     test_definitions = {
+        "email": {
+            "passing_values": ["info@soda.io", "some+email@gmail.com", "a@b.be"],
+            "failing_values": ["", "a", " ", "1.5", "4,2", "@@@@@"],
+        },
         "integer": {
             "passing_values": ["0", "1234567890", "-0", "- 1234567890", "+0", "+1"],
             "failing_values": ["", "a", " ", "1.5", "4,2"],
