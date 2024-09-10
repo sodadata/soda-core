@@ -174,7 +174,8 @@ class SQLServerDataSource(DataSource):
             "date inverse": f"({{expr}} LIKE '[0-9][0-9][0-9][0-9]/[0-9][0-9]/[0-9][0-9]' OR {{expr}} LIKE '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]' OR {{expr}} LIKE '[0-9][0-9][0-9][0-9].[0-9][0-9].[0-9][0-9]')",
             "ip address": f"({{expr}} LIKE '[0-9]%.%' and {{expr}} like '[0-9].[0-9].[0-9].[0-9]'  or {{expr}} like '[0-9][0-9].%' or {{expr}} like '[0-9][0-9][0-9].%' or {{expr}} like '[0-9][0-9][0-9].%')",
             "uuid": f"({{expr}} LIKE '[0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F]-[0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F]-[0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F]-[0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F]-[0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F]')",
-            "phone number": f"({{expr}} like '[+!0-9]%' and {{expr}} not like '%[a-z!A-z]')",
+            "phone number": f"({{expr}} LIKE '[+!0-9]%' and {{expr}} not like '%[a-z!A-z]')",
+            "email": f"({{expr}} LIKE '%_@_%.__%')",
         }
 
     def connect(self):
