@@ -1,24 +1,75 @@
 from __future__ import annotations
 
+from itertools import chain, repeat
 import logging
 import re
 import struct
 from datetime import datetime, timedelta, timezone
 from textwrap import dedent
+import time
+from typing import Callable, Mapping
 
 import pyodbc
+from azure.core.credentials import AccessToken
+from azure.identity import AzureCliCredential, DefaultAzureCredential, EnvironmentCredential
 from soda.common.exceptions import DataSourceConnectionError
 from soda.common.logs import Logs
 from soda.execution.data_source import DataSource
 from soda.execution.data_type import DataType
+from soda.__version__ import SODA_CORE_VERSION
 
 logger = logging.getLogger(__name__)
 
+_SQL_COPT_SS_ACCESS_TOKEN = 1256
+_MAX_REMAINING_AZURE_ACCESS_TOKEN_LIFETIME = 300
+_AZURE_CREDENTIAL_SCOPE = "https://database.windows.net//.default"
+_AZURE_AUTH_FUNCTION_TYPE = Callable[..., AccessToken]
+
+def _get_auto_access_token() -> AccessToken:
+    return DefaultAzureCredential().get_token(_AZURE_CREDENTIAL_SCOPE)
+
+def _get_environment_access_token() -> AccessToken:
+    return EnvironmentCredential().get_token(_AZURE_CREDENTIAL_SCOPE)
+
+def _get_azure_cli_access_token() -> AccessToken:
+    return AzureCliCredential().get_token(_AZURE_CREDENTIAL_SCOPE)
+
+_AZURE_AUTH_FUNCTIONS: Mapping[str, _AZURE_AUTH_FUNCTION_TYPE] = {
+    "auto": _get_auto_access_token,
+    "cli": _get_azure_cli_access_token,
+    "environment": _get_environment_access_token
+}
+
+def convert_bytes_to_mswindows_byte_string(value):
+    encoded_bytes = bytes(chain.from_iterable(zip(value, repeat(0))))
+    return struct.pack("<i", len(encoded_bytes)) + encoded_bytes
+
+def convert_access_token_to_mswindows_byte_string(token):
+    value = bytes(token.token, "UTF-8")
+    return convert_bytes_to_mswindows_byte_string(value)
+
+def get_pyodbc_attrs(authentication_method: str):
+    if not authentication_method.lower() in _AZURE_AUTH_FUNCTIONS:
+        return None
+    
+    global _azure_access_token
+    _azure_access_token = None
+    
+    if _azure_access_token:
+        time_remaining = (_azure_access_token.expires_on - time.time())
+        if time_remaining < _MAX_REMAINING_AZURE_ACCESS_TOKEN_LIFETIME:
+            _azure_access_token = None
+    
+    if not _azure_access_token:
+        _azure_access_token = _AZURE_AUTH_FUNCTIONS[authentication_method.lower()]()
+    
+    token_bytes = convert_access_token_to_mswindows_byte_string(_azure_access_token)
+    return {_SQL_COPT_SS_ACCESS_TOKEN: token_bytes}
 
 class SQLServerDataSource(DataSource):
     TYPE = "sqlserver"
-
-    SCHEMA_CHECK_TYPES_MAPPING: dict = {"TEXT": ["text", "varchar", "char"]}
+    
+    SCHEMA_CHECK_TYPES_MAPPING: dict = {"TEXT": ["text", "varchar", "char", "nvarchar", "nchar"]}
 
     SQL_TYPE_FOR_CREATE_TABLE_MAP: dict = {
         DataType.TEXT: "varchar(255)",
@@ -28,7 +79,7 @@ class SQLServerDataSource(DataSource):
         DataType.TIME: "time",
         DataType.TIMESTAMP: "datetime",
         DataType.TIMESTAMP_TZ: "datetimeoffset",
-        DataType.BOOLEAN: "boolean",
+        DataType.BOOLEAN: "bit",
     }
 
     SQL_TYPE_FOR_SCHEMA_CHECK_MAP: dict = {
@@ -39,8 +90,9 @@ class SQLServerDataSource(DataSource):
         DataType.TIME: "time",
         DataType.TIMESTAMP: "datetime",
         DataType.TIMESTAMP_TZ: "datetimeoffset",
-        DataType.BOOLEAN: "boolean",
+        DataType.BOOLEAN: "bit",
     }
+
     NUMERIC_TYPES_FOR_PROFILING = [
         "bigint",
         "numeric",
@@ -55,22 +107,29 @@ class SQLServerDataSource(DataSource):
         "real",
     ]
 
-    TEXT_TYPES_FOR_PROFILING = ["char", "varchar", "text"]
+    TEXT_TYPES_FOR_PROFILING = ["char", "varchar", "text", "nchar", "nvarchar"]
     LIMIT_KEYWORD = "TOP"
 
     def __init__(self, logs: Logs, data_source_name: str, data_source_properties: dict):
         super().__init__(logs, data_source_name, data_source_properties)
 
         self.host = data_source_properties.get("host", "localhost")
-        self.port = data_source_properties.get("port", "1433")
+        self.port = data_source_properties.get("port", 1433)
         self.driver = data_source_properties.get("driver", "ODBC Driver 18 for SQL Server")
-        self.username = data_source_properties.get("username")
-        self.password = data_source_properties.get("password")
+        self.authentication = data_source_properties.get("authentication", "SQL")
+        self.username = data_source_properties.get("username", None)
+        self.password = data_source_properties.get("password", None)
+        self.client_id = data_source_properties.get("client_id", None)
+        self.client_secret = data_source_properties.get("client_secret", None)
+        self.tenant_id = data_source_properties.get("tenant_id", None)
         self.database = data_source_properties.get("database", "master")
         self.schema = data_source_properties.get("schema", "dbo")
         self.trusted_connection = data_source_properties.get("trusted_connection", False)
         self.encrypt = data_source_properties.get("encrypt", False)
         self.trust_server_certificate = data_source_properties.get("trust_server_certificate", False)
+        self.connection_max_retries = data_source_properties.get("connection_max_retries", 0)
+        self.enable_tracing = data_source_properties.get("enable_tracing", False)
+        self.login_timeout = data_source_properties.get("login_timeout", 0)
 
         # sqlserver reuses only a handful of default formats.
         reuse_formats = ["percentage"]
@@ -123,26 +182,67 @@ class SQLServerDataSource(DataSource):
                 tup[6] // 1000,
                 timezone(timedelta(hours=tup[7], minutes=tup[8])),
             )
-
-        try:
+        
+        def build_connection_string():
             connection_parameters_string = self.get_connection_parameters_string()
+            conn_params = []
+
+            conn_params.append(f"DRIVER={{{self.driver}}}")
+            conn_params.append(f"DATABASE={self.database}")
+
+            if "\\" in self.host:
+                # If there is a backslash in the host name, the host is a
+                # SQL Server named instance. In this case then port number has to be omitted.
+                conn_params.append(f"SERVER={self.host}")
+            else:
+                conn_params.append(f"SERVER={self.host},{int(self.port)}")
+
+            if connection_parameters_string and connection_parameters_string != "":
+                conn_params.append(connection_parameters_string)
+
+            if self.trusted_connection:
+                conn_params.append("Trusted_Connection=YES")
+            
+            if self.trust_server_certificate:
+                conn_params.append("TrustServerCertificate=YES")
+            
+            if self.encrypt:
+                conn_params.append("Encrypt=YES")
+            
+            if int(self.connection_max_retries) > 0:
+                conn_params.append(f"ConnectRetryCount={int(self.connection_max_retries)}")
+            
+            if self.enable_tracing:
+                conn_params.append("SQL_ATTR_TRACE=SQL_OPT_TRACE_ON")
+            
+            if self.authentication.lower() == "sql":
+                conn_params.append(f"UID={{{self.username}}}")
+                conn_params.append(f"PWD={{{self.password}}}")
+            elif self.authentication.lower() == "activedirectoryinteractive":
+                conn_params.append("Authentication=ActiveDirectoryInteractive")
+                conn_params.append(f"UID={{{self.username}}}")
+            elif self.authentication.lower() == "activedirectorypassword":
+                conn_params.append("Authentication=ActiveDirectoryPassword")
+                conn_params.append(f"UID={{{self.username}}}")
+                conn_params.append(f"PWD={{{self.password}}}")
+            elif self.authentication.lower() == "activedirectoryserviceprincipal":
+                conn_params.append("Authentication=ActiveDirectoryServicePrincipal")
+                conn_params.append(f"UID={{{self.client_id}}}")
+                conn_params.append(f"PWD={{{self.client_secret}}}")
+            elif "activedirectory" in self.authentication.lower():
+                conn_params.append(f"Authentication={self.authentication}")
+
+            conn_params.append(f"APP=soda-core-fabric/{SODA_CORE_VERSION}")
+
+            conn_str = ";".join(conn_params)
+
+            return conn_str
+        
+        try:
             self.connection = pyodbc.connect(
-                ("Trusted_Connection=YES;" if self.trusted_connection else "")
-                + ("TrustServerCertificate=YES;" if self.trust_server_certificate else "")
-                + ("Encrypt=YES;" if self.encrypt else "")
-                + (f"{connection_parameters_string};" if connection_parameters_string else "")
-                + "DRIVER={"
-                + self.driver
-                + "};SERVER="
-                + self.host
-                + ","
-                + str(self.port)
-                + ";DATABASE="
-                + self.database
-                + ";UID="
-                + self.username
-                + ";PWD="
-                + self.password
+                build_connection_string(),
+                attrs_before=get_pyodbc_attrs(self.authentication),
+                timeout=int(self.login_timeout),
             )
 
             self.connection.add_output_converter(-155, handle_datetimeoffset)

@@ -2,14 +2,14 @@
 
 from setuptools import find_namespace_packages, setup
 
-package_name = "soda-core-sqlserver"
+package_name = "soda-core-fabric"
 package_version = "3.3.20"
-description = "Soda Core SQL Server Package"
+description = "Soda Core Microsoft Fabric Package"
 
 requires = [
     f"soda-core=={package_version}",
+    f"soda-core-sqlserver=={package_version}",
     "pyodbc",
-    "azure-identity~=1.17.1"
 ]
 # TODO Fix the params
 setup(

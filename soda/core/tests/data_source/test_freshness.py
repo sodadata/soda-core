@@ -116,7 +116,7 @@ def test_freshness_with_table_filter(data_source_fixture: DataSourceFixture):
     table_name = data_source_fixture.ensure_test_table(customers_test_table)
     where_cond = (
         f"""CONVERT(DATETIME,'${{START_TIME}}') <= ts AND ts < CONVERT(DATETIME,'${{END_TIME}}')"""
-        if test_data_source == "sqlserver"
+        if test_data_source in ["fabric", "sqlserver"]
         else f"""TIMESTAMP '${{START_TIME}}' <= ts AND ts < TIMESTAMP '${{END_TIME}}'"""
     )
 
@@ -146,7 +146,7 @@ def test_freshness_with_table_filter(data_source_fixture: DataSourceFixture):
 def test_freshness_no_rows(data_source_fixture: DataSourceFixture):
     table_name = data_source_fixture.ensure_test_table(customers_test_table)
     # There is no boolean type and variables in Teradata
-    cond = "1 = 0" if test_data_source in ["sqlserver", "teradata"] else "FALSE"
+    cond = "1 = 0" if test_data_source in ["sqlserver", "teradata", "fabric"] else "FALSE"
     scan = data_source_fixture.create_test_scan()
     scan.add_variables(
         {
@@ -174,7 +174,7 @@ def test_freshness_with_check_filter(data_source_fixture: DataSourceFixture):
     table_name = data_source_fixture.ensure_test_table(customers_test_table)
     where_cond = (
         f"""CONVERT(DATETIME,'${{START_TIME}}') <= ts AND ts < CONVERT(DATETIME,'${{END_TIME}}')"""
-        if test_data_source == "sqlserver"
+        if test_data_source in ["fabric", "sqlserver"]
         else f"""TIMESTAMP '${{START_TIME}}' <= ts AND ts < TIMESTAMP '${{END_TIME}}'"""
     )
 
@@ -206,7 +206,7 @@ def test_freshness_with_check_filter(data_source_fixture: DataSourceFixture):
 def test_freshness_check_filter_no_rows(data_source_fixture: DataSourceFixture):
     table_name = data_source_fixture.ensure_test_table(customers_test_table)
     # There is no boolean type and variables in Teradata
-    cond = "1 = 0" if test_data_source in ["sqlserver", "teradata"] else "FALSE"
+    cond = "1 = 0" if test_data_source in ["sqlserver", "teradata", "fabric"] else "FALSE"
     scan = data_source_fixture.create_test_scan()
     scan.add_variables(
         {

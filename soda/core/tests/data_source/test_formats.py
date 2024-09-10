@@ -133,7 +133,7 @@ def test_formats(data_source_fixture: DataSourceFixture):
         },
     }
 
-    if test_data_source == "sqlserver":
+    if test_data_source in ["fabric", "sqlserver"]:
         test_definitions.pop("percentage")  # Partially supported.
         test_definitions.pop("date us")  # Partially supported.
         test_definitions.pop("date eu")  # Partially supported.
@@ -159,7 +159,7 @@ def assert_format_values(format, data_source_fixture: DataSourceFixture, table_n
     def set_up_expression(value: str, format: str) -> str:
         expression = data_source.get_default_format_expression(f"'{value}'", format)
         # Special handling for sqlserver and teradata - expression matching cannot be used in the SELECT statement, so wrap it in CASE ... THEN ... ELSE for this test.
-        if test_data_source in ["sqlserver", "teradata"]:
+        if test_data_source in ["sqlserver", "teradata", "fabric"]:
             expression = f"CASE WHEN {expression} THEN 1 ELSE 0 END"
 
         return expression
