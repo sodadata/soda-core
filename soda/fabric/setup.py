@@ -7,9 +7,7 @@ package_version = "3.3.20"
 description = "Soda Core Microsoft Fabric Package"
 
 requires = [
-    f"soda-core=={package_version}",
-    f"soda-core-sqlserver=={package_version}",
-    "pyodbc",
+    f"soda-core-sqlserver=={package_version}"
 ]
 # TODO Fix the params
 setup(
