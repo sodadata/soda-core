@@ -345,7 +345,7 @@ def test_distribution_check_with_sample(data_source_fixture: DataSourceFixture, 
     sample_query = ""
     if data_source_name in ["postgres", "snowflake"]:
         sample_query = "TABLESAMPLE SYSTEM (100)"
-    elif data_source_name in ("sqlserver", "fabric"):
+    elif data_source_name == "sqlserver":
         sample_query = "TABLESAMPLE (100 PERCENT)"
     elif data_source_name == "athena":
         sample_query = "TABLESAMPLE BERNOULLI(100)"
