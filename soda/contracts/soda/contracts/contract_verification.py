@@ -81,7 +81,7 @@ class ContractVerificationBuilder:
         assert isinstance(spark_session, object)
         assert isinstance(data_source_yaml_dict, dict)
         data_source_yaml_file = YamlFile(logs=self.logs, yaml_dict=data_source_yaml_dict)
-        self.data_source_yaml_files.append(data_source_yaml_file)
+        self.data_source_yaml_file = data_source_yaml_file
         self.spark_session = spark_session
         return self
 
