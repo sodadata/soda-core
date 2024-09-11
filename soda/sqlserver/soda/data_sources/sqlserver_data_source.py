@@ -27,6 +27,7 @@ logger = logging.getLogger(__name__)
 _SQL_COPT_SS_ACCESS_TOKEN = 1256
 _MAX_REMAINING_AZURE_ACCESS_TOKEN_LIFETIME = 300
 _AZURE_CREDENTIAL_SCOPE = "https://database.windows.net//.default"
+_MSSPARKUTILS_CREDENTIAL_SCOPE = "DW"
 _AZURE_AUTH_FUNCTION_TYPE = Callable[..., AccessToken]
 
 
@@ -41,11 +42,23 @@ def _get_environment_access_token() -> AccessToken:
 def _get_azure_cli_access_token() -> AccessToken:
     return AzureCliCredential().get_token(_AZURE_CREDENTIAL_SCOPE)
 
+def _get_mssparkutils_access_token() -> AccessToken:
+    from notebookutils import mssparkutils
+
+    aad_token = mssparkutils.credentials.getToken(_MSSPARKUTILS_CREDENTIAL_SCOPE)
+    expires_on = int(time.time() + 4500.0)
+    token = AccessToken(
+        token=aad_token,
+        expires_on=expires_on,
+    )
+    return token
+
 
 _AZURE_AUTH_FUNCTIONS: Mapping[str, _AZURE_AUTH_FUNCTION_TYPE] = {
     "auto": _get_auto_access_token,
     "cli": _get_azure_cli_access_token,
     "environment": _get_environment_access_token,
+    "mssparkutils": _get_mssparkutils_access_token,
 }
 
 
