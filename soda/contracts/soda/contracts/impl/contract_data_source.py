@@ -90,10 +90,6 @@ class ContractDataSource(ABC):
         yaml_helper: yaml_helper = YamlHelper(yaml_file=data_source_yaml_file, logs=self.logs)
         self.type = yaml_helper.read_string(self.data_source_yaml_dict, self._KEY_TYPE)
         self.name = yaml_helper.read_string(self.data_source_yaml_dict, self._KEY_NAME)
-        if isinstance(self.name, str) and not re.match("[_a-z0-9]+", self.name):
-            self.logs.error(
-                f"Data source name must contain only lower case letters, numbers and underscores.  Was {self.name}"
-            )
 
         self.sql_dialect: SqlDialect = self._create_sql_dialect()
 
