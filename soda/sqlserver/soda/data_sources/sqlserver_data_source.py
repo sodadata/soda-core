@@ -42,6 +42,7 @@ def _get_environment_access_token() -> AccessToken:
 def _get_azure_cli_access_token() -> AccessToken:
     return AzureCliCredential().get_token(_AZURE_CREDENTIAL_SCOPE)
 
+
 def _get_mssparkutils_access_token() -> AccessToken:
     from notebookutils import mssparkutils
 
