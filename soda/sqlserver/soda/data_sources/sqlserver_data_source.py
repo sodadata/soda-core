@@ -24,11 +24,13 @@ from soda.execution.data_type import DataType
 
 logger = logging.getLogger(__name__)
 
+
+_AZURE_AUTH_FUNCTION_TYPE = Callable[..., AccessToken]
 _SQL_COPT_SS_ACCESS_TOKEN = 1256
 _MAX_REMAINING_AZURE_ACCESS_TOKEN_LIFETIME = 300
 _AZURE_CREDENTIAL_SCOPE = "https://database.windows.net//.default"
-_MSSPARKUTILS_CREDENTIAL_SCOPE = "DW"
-_AZURE_AUTH_FUNCTION_TYPE = Callable[..., AccessToken]
+_SYNAPSE_SPARK_CREDENTIAL_SCOPE = "DW"
+_FABRIC_SPARK_CREDENTIAL_SCOPE = "https://analysis.windows.net/powerbi/api"
 
 
 def _get_auto_access_token() -> AccessToken:
@@ -43,10 +45,10 @@ def _get_azure_cli_access_token() -> AccessToken:
     return AzureCliCredential().get_token(_AZURE_CREDENTIAL_SCOPE)
 
 
-def _get_mssparkutils_access_token() -> AccessToken:
+def _get_mssparkutils_access_token(scope: str) -> AccessToken:
     from notebookutils import mssparkutils
 
-    aad_token = mssparkutils.credentials.getToken(_MSSPARKUTILS_CREDENTIAL_SCOPE)
+    aad_token = mssparkutils.credentials.getToken(scope)
     expires_on = int(time.time() + 4500.0)
     token = AccessToken(
         token=aad_token,
@@ -55,11 +57,20 @@ def _get_mssparkutils_access_token() -> AccessToken:
     return token
 
 
+def _get_synapse_spark_access_token() -> AccessToken:
+    return _get_mssparkutils_access_token(_SYNAPSE_SPARK_CREDENTIAL_SCOPE)
+
+
+def _get_fabric_spark_access_token() -> AccessToken:
+    return _get_mssparkutils_access_token(_FABRIC_SPARK_CREDENTIAL_SCOPE)
+
+
 _AZURE_AUTH_FUNCTIONS: Mapping[str, _AZURE_AUTH_FUNCTION_TYPE] = {
     "auto": _get_auto_access_token,
     "cli": _get_azure_cli_access_token,
     "environment": _get_environment_access_token,
-    "mssparkutils": _get_mssparkutils_access_token,
+    "synapsespark": _get_synapse_spark_access_token,
+    "fabricspark": _get_fabric_spark_access_token,
 }
 
 
