@@ -1,5 +1,7 @@
-from ruamel.yaml import YAML, StringIO
 import threading
+
+from ruamel.yaml import YAML, StringIO
+
 
 def create_yaml() -> YAML:
     yaml = YAML()
@@ -15,7 +17,7 @@ def to_yaml_str(yaml_object) -> str:
 
 class YamlHelper:
     """
-    A helper class to serialize and deserialize objects to and from YAML format. 
+    A helper class to serialize and deserialize objects to and from YAML format.
     This class is thread-safe and ensures that each thread has its own instance of the YAML parser/dumper.
 
     Usage:
@@ -33,7 +35,7 @@ class YamlHelper:
 
         :return: a YAML instance specific to the current thread.
         """
-        if not hasattr(cls._thread_local, 'yaml'):
+        if not hasattr(cls._thread_local, "yaml"):
             cls._thread_local.yaml = create_yaml()
         return cls._thread_local.yaml
 
