@@ -58,9 +58,9 @@ class YamlHelper:
         Deserializes a YAML formatted string into a Python object.
 
         :param str yaml_str: the YAML formatted string to deserialize.
-        :return: the deserialized Python object, or None if the input is empty.
+        :return: the deserialized Python object, or None if the input is None or empty.
         """
-        if not yaml_str.strip():
+        if yaml_str is None or not yaml_str.strip():
             return None
         yaml_instance = cls._get_yaml()
         return yaml_instance.load(yaml_str)
