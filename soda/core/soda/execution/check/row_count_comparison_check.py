@@ -41,8 +41,12 @@ class RowCountComparisonCheck(Check):
 
         # If the other partition is None, we ignore the partition_cfg setup
         if row_count_comparison_check_cfg.other_partition_name:
-            other_table_cfg = data_source_scan_cfg.get_or_create_table_cfg(row_count_comparison_check_cfg.other_table_name)
-            other_partition_cfg = other_table_cfg.find_partition(row_count_comparison_check_cfg.location.file_path, row_count_comparison_check_cfg.other_partition_name)
+            other_table_cfg = data_source_scan_cfg.get_or_create_table_cfg(
+                row_count_comparison_check_cfg.other_table_name
+            )
+            other_partition_cfg = other_table_cfg.find_partition(
+                row_count_comparison_check_cfg.location.file_path, row_count_comparison_check_cfg.other_partition_name
+            )
             self.other_partition.set_partition_cfg(other_partition_cfg)
 
         self.metrics["row_count"] = self.data_source_scan.resolve_metric(
