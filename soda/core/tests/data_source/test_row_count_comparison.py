@@ -61,3 +61,33 @@ def test_row_count_comparison_cross_data_source(data_source_fixture: DataSourceF
     scan.execute()
 
     scan.assert_all_checks_pass()
+
+def test_row_count_comparison_cross_data_source_with_filter(data_source_fixture: DataSourceFixture):
+    """Does not really create two connections and test cross data sources with filtering, that is handled in integration tests.
+
+    Tests syntax parsing and check execution.
+    """
+    customers_table_name = data_source_fixture.ensure_test_table(customers_test_table)
+    rawcustomers_table_name = data_source_fixture.ensure_test_table(raw_customers_test_table)
+
+    # Reuse the same data source name
+    other_data_source_name = data_source_fixture.data_source.data_source_name
+
+    scan = data_source_fixture.create_test_scan()
+    scan.add_sodacl_yaml_str(
+        f"""
+            filter {customers_table_name} [daily]:
+              where: cst_size IS NULL
+
+            filter {rawcustomers_table_name} [daily-ref]:
+              where: cst_size IS NULL
+
+            checks for {customers_table_name} [daily]:
+              - row_count same as {rawcustomers_table_name} daily-ref in {other_data_source_name}
+        """
+    )
+
+    scan.execute()
+    print(scan.get_passing_queries())
+
+    scan.assert_all_checks_pass()
