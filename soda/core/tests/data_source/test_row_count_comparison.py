@@ -62,6 +62,7 @@ def test_row_count_comparison_cross_data_source(data_source_fixture: DataSourceF
 
     scan.assert_all_checks_pass()
 
+
 def test_row_count_comparison_cross_data_source_with_filter(data_source_fixture: DataSourceFixture):
     """Does not really create two connections and test cross data sources with filtering, that is handled in integration tests.
 
