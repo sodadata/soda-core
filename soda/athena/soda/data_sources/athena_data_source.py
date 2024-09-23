@@ -48,6 +48,7 @@ class AthenaDataSource(DataSource):
                 catalog_name=self.catalog,
                 work_group=self.work_group,
                 schema_name=self.schema,
+                aws_session_token=self.aws_credentials.session_token,
             )
 
             return self.connection
