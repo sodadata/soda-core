@@ -22,3 +22,4 @@
 ./soda/teradata
 ./soda/contracts
 ./soda/atlan
+./soda/fabric
