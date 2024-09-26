@@ -14,7 +14,7 @@ def test_filter_on_date(data_source_fixture: DataSourceFixture):
     scan.add_variables(
         {"DATE_LOWER": "2020-06-23", "DATE_UPPER": "2020-06-24"}
     )  # use DATE_LOWER and DATE_UPPER to avoid issues with dask
-    date_expr = "" if test_data_source == "sqlserver" else "DATE"
+    date_expr = "" if test_data_source in ["fabric", "sqlserver"] else "DATE"
     scan.add_sodacl_yaml_str(
         f"""
           filter {table_name} [daily]:
@@ -69,7 +69,7 @@ def test_table_filter_on_timestamp(data_source_fixture: DataSourceFixture):
     table_name = data_source_fixture.ensure_test_table(customers_test_table)
 
     scan = data_source_fixture.create_test_scan()
-    if test_data_source == "sqlserver":
+    if test_data_source in ["fabric", "sqlserver"]:
         where_cond = f"""CONVERT(DATETIME, '${{ts_start}}') <= ts AND ts <  CONVERT(DATETIME,'${{ts_end}}')"""
     elif test_data_source == "dask":
         where_cond = f"""\"'${{ts_start}}' <= ts AND ts < '${{ts_end}}'\""""
