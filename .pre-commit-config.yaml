@@ -4,7 +4,7 @@ files: ^soda/
 exclude: antlr/
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v4.6.0
+    rev: v5.0.0
     hooks:
       - id: trailing-whitespace
       - id: check-added-large-files
@@ -24,7 +24,7 @@ repos:
       - id: autoflake
         args: ["--in-place", "--remove-all-unused-imports"]
   - repo: https://github.com/asottile/pyupgrade
-    rev: v3.17.0
+    rev: v3.18.0
     hooks:
       - id: pyupgrade
         exclude: _models?\.py$
@@ -36,7 +36,7 @@ repos:
         additional_dependencies: [toml]
         name: Sort imports using isort
   - repo: https://github.com/psf/black
-    rev: 24.8.0
+    rev: 24.10.0
     hooks:
       - id: black
         name: Run black formatter
