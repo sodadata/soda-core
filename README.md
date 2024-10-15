@@ -11,7 +11,7 @@
 <hr />
 
 > [!IMPORTANT]  
-> **🚀 We're hiring! Are you passionate about open-source and love working on projects like Soda Core? Join our team as a Software Engineer and help shape the future of data quality tools. [Apply now!](https://careers.soda.io/o/software-engineer-data-testing-python-data-engineering-mediorsenior)**
+> **🚀 We're hiring! Are you passionate about open-source and love working on projects like Soda Core? Join our team as a Software Engineer and help shape the future of data quality tools. [Apply now!](https://careers.soda.io/o/software-engineer-data-testing-python-data-engineering-mediorsenior?source=gh-core)**
 
 <hr />
 
