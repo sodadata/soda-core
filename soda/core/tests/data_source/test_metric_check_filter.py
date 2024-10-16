@@ -65,7 +65,7 @@ def test_missing_filtered_sample_query(data_source_fixture: DataSourceFixture):
 
 
 @pytest.mark.skipif(
-    test_data_source == "sqlserver",
+    test_data_source in ["fabric", "sqlserver"],
     reason="Full regex support is not supported by SQLServer. 'Percentage' format is supported but with limited functionality.",
 )
 def test_valid_filtered(data_source_fixture: DataSourceFixture):
@@ -88,7 +88,7 @@ def test_valid_filtered(data_source_fixture: DataSourceFixture):
 
 
 @pytest.mark.skipif(
-    test_data_source == "sqlserver",
+    test_data_source in ["fabric", "sqlserver"],
     reason="Full regex support is not supported by SQLServer. 'Percentage' format is supported but with limited functionality.",
 )
 def test_valid_percentage_filtered(data_source_fixture: DataSourceFixture):

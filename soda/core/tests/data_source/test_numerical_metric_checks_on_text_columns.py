@@ -5,7 +5,7 @@ from helpers.fixtures import test_data_source
 
 
 @pytest.mark.skipif(
-    test_data_source in ["sqlserver"],
+    test_data_source in ["sqlserver", "fabric"],
     reason="Full regex support is not supported by SQLServer. REGEXP_REPLACE is used in this check but it is not supported.",
 )
 def test_numeric_metric_checks_on_text_column(data_source_fixture: DataSourceFixture):
@@ -32,7 +32,7 @@ def test_numeric_metric_checks_on_text_column(data_source_fixture: DataSourceFix
 
 
 @pytest.mark.skipif(
-    test_data_source in ["sqlserver"],
+    test_data_source in ["sqlserver", "fabric"],
     reason="Full regex support is not supported by SQLServer. REGEXP_REPLACE is used in this check but it is not supported.",
 )
 def test_numeric_metric_checks_on_text_column_local_format(data_source_fixture: DataSourceFixture):

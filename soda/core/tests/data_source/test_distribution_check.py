@@ -132,7 +132,7 @@ def test_distribution_sql(data_source_fixture: DataSourceFixture, mock_file_syst
             table_name=table_name,
             schema_name=f"{data_source_fixture.data_source.database}.{data_source_fixture.schema_name}.",
         )
-    elif test_data_source == "sqlserver":
+    elif test_data_source in ["fabric", "sqlserver"]:
         expectation = "SELECT TOP 1000000 \n  cst_size \nFROM {schema_name}{table_name}"
         assert scan._checks[0].query.sql == expectation.format(
             table_name=table_name, schema_name=f"{data_source_fixture.schema_name}."
@@ -498,7 +498,7 @@ def test_continuous_distribution_check_large_sample_size(data_source_fixture: Da
     data_source_name = data_source_fixture.data_source_name
     if data_source_name in ["spark_df", "dask"]:
         assert sorted(distro_check.query.rows) == sorted([[1.0], [1.0], [2.0], [2.0], [3.0]])
-    elif data_source_name in ["snowflake", "bigquery", "sqlserver"]:
+    elif data_source_name in ["snowflake", "bigquery", "sqlserver", "fabric"]:
         assert len(distro_check.query.rows) == 5
     else:
         assert distro_check.query.rows == sorted([(1.0,), (1.0,), (2.0,), (2.0,), (3.0,)])

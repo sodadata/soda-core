@@ -31,7 +31,7 @@ def test_data_source_specific_statistics_aggregation_metrics(data_source_fixture
         supported_checks.pop("stddev_samp")
     # TODO see what's going wrong with Vertica later:
     # Message: Function APPROXIMATE_PERCENTILE(int) does not exist
-    if test_data_source in ["sqlserver", "mysql", "spark_df", "oracle", "vertica"]:
+    if test_data_source in ["sqlserver", "mysql", "spark_df", "oracle", "vertica", "fabric"]:
         supported_checks = {}
 
     if supported_checks:

@@ -10,7 +10,7 @@ def test_user_defined_table_expression_metric_check(data_source_fixture: DataSou
     table_name = data_source_fixture.ensure_test_table(customers_test_table)
 
     scan = data_source_fixture.create_test_scan()
-    length_expr = "LEN" if data_source_fixture.data_source_name == "sqlserver" else "LENGTH"
+    length_expr = "LEN" if data_source_fixture.data_source_name in ["sqlserver", "fabric"] else "LENGTH"
 
     ones_expression = f"SUM({length_expr}(cst_size_txt))"
 
