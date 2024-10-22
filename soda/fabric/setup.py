@@ -2,14 +2,11 @@
 
 from setuptools import find_namespace_packages, setup
 
-package_name = "soda-core-teradata"
+package_name = "soda-core-fabric"
 package_version = "3.4.0"
-description = "Soda Core Teradata Package"
+description = "Soda Core Microsoft Fabric Package"
 
-requires = [
-    f"soda-core=={package_version}",
-    "teradatasql>=17.10.0.0",
-]
+requires = [f"soda-core-sqlserver=={package_version}"]
 # TODO Fix the params
 setup(
     name=package_name,
