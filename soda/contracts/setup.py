@@ -3,7 +3,7 @@
 from setuptools import find_namespace_packages, setup
 
 package_name = "soda-core-contracts"
-package_version = "3.4.0"
+package_version = "3.4.1"
 description = "Soda Core Contracts Package"
 
 requires = [f"soda-core=={package_version}", "jsonschema>=4.20.0"]
