@@ -226,9 +226,16 @@ class TestScan(Scan):
 
         return error_message
 
+    @property
+    def data_source(self) -> DataSource:
+        return self._data_source_manager.data_sources[self._data_source_name]
+
     def casify_data_type(self, data_type: str) -> str:
         data_source_type = self.data_source.get_sql_type_for_schema_check(data_type)
         return self.data_source.default_casify_column_name(data_source_type)
 
     def casify_column_name(self, test_column_name: str) -> str:
         return self.data_source.default_casify_column_name(test_column_name)
+
+    def quote_table_name(self, table_name: str) -> str:
+        return self.data_source.quote_table(table_name)

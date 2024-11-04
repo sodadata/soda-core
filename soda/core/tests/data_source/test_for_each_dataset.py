@@ -105,3 +105,29 @@ def test_for_each_dataset_with_quotes_warning(data_source_fixture: DataSourceFix
         x for x in scan_results["logs"] if "It looks like quote characters are present" in x["message"]
     ]
     assert len(character_log_warnings) == 2
+
+
+@pytest.mark.skipif(
+    test_data_source in ["sqlserver"],
+    reason="Avoid running in datasources that need special quoting as that clashes with templates.",
+)
+def test_for_each_dataset_variables(data_source_fixture: DataSourceFixture):
+    customers_table_name = data_source_fixture.ensure_test_table(customers_test_table)
+
+    scan = data_source_fixture.create_test_scan()
+    scan.add_sodacl_yaml_str(
+        f"""
+          for each dataset D:
+            datasets:
+              - {customers_table_name}
+            checks:
+              - failed rows:
+                  fail query: "SELECT * FROM ${{D}} WHERE {scan.casify_column_name('id')} = 'ID100'"
+              - user_metric < 100:
+                  user_metric query: "SELECT count(*) FROM ${{D}}"
+        """
+    )
+    scan.execute()
+
+    scan.assert_all_checks_pass()
+    assert len(scan._checks) == 2
