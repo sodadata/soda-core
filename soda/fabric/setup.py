@@ -2,11 +2,11 @@
 
 from setuptools import find_namespace_packages, setup
 
-package_name = "soda-core-redshift"
+package_name = "soda-core-fabric"
 package_version = "3.4.1"
-description = "Soda Core Redshift Package"
+description = "Soda Core Microsoft Fabric Package"
 
-requires = [f"soda-core=={package_version}", "boto3", "psycopg2-binary>=2.8.5, <3.0"]
+requires = [f"soda-core-sqlserver=={package_version}"]
 # TODO Fix the params
 setup(
     name=package_name,
