@@ -34,7 +34,7 @@ class Jinja:
         This method throws no exceptions.  Returns None in case of Jinja exceptions.
         """
         if environment is None:
-            environment = create_os_environment()
+            environment = Jinja.environment
         if not isinstance(variables, dict):
             variables = {}
         jinja_template = environment.from_string(template)
