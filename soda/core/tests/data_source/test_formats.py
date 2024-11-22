@@ -60,6 +60,8 @@ def test_formats(data_source_fixture: DataSourceFixture):
                 "07-04-1776",
                 "08-15-1620",
                 "09-20-1519",
+                "01-01-2100",
+                "01-01-1899",
             ],
             "failing_values": [
                 "",
@@ -125,6 +127,10 @@ def test_formats(data_source_fixture: DataSourceFixture):
                 "2020-02-08 09Z",
                 "2020-04-30",
                 "2020-04-30T00:00:00.000",
+                "2020-10-11 11:34",
+                "2100-01-01 14:36",
+                "1899-01-01 21:55",
+                "1623-10-11T10:10:10.0000+01:00",
             ],
             "failing_values": [
                 "",
@@ -133,6 +139,8 @@ def test_formats(data_source_fixture: DataSourceFixture):
                 "9999-01-01",
                 "2000-13-01",
                 "2000-01-32",
+                "2020-10-11 90:34",
+                "2100-01-01 14:67",
             ],
         },
     }
