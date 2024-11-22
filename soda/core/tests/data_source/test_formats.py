@@ -125,6 +125,7 @@ def test_formats(data_source_fixture: DataSourceFixture):
                 "2020-02-08 09Z",
                 "2020-04-30",
                 "2020-04-30T00:00:00.000",
+                "1981-10-10T00:00:00.000",
             ],
             "failing_values": [
                 "",
