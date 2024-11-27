@@ -18,6 +18,8 @@ CFG_MISSING_VALUES = "missing values"
 CFG_MISSING_FORMAT = "missing format"
 CFG_MISSING_REGEX = "missing regex"
 
+CFG_INCLUDE_NULL = "include null"
+
 CFG_MISSING_VALID_ALL = [
     CFG_VALID_VALUES,
     CFG_INVALID_VALUES,
@@ -33,6 +35,7 @@ CFG_MISSING_VALID_ALL = [
     CFG_MISSING_VALUES,
     CFG_MISSING_FORMAT,
     CFG_MISSING_REGEX,
+    CFG_INCLUDE_NULL,
 ]
 
 
@@ -68,6 +71,8 @@ class MissingAndValidCfg:
         self.valid_min_location: Location | None = None
         self.valid_max: float | None = None
         self.valid_max_location: Location | None = None
+        self.include_null: bool | None = None
+        self.include_null_location: Location | None = None
         # TODO
         # self.valid_expr: Optional[str] = None
 
@@ -86,6 +91,7 @@ class MissingAndValidCfg:
             Identity.property("valid_max_length", self.valid_max_length),
             Identity.property("valid_min", self.valid_min),
             Identity.property("valid_max", self.valid_max),
+            Identity.property("include_null", self.include_null),
         ]
 
     def is_empty(self) -> bool:
@@ -161,3 +167,7 @@ class MissingAndValidCfg:
         if self.valid_max is None and other.valid_max is not None:
             self.valid_max = other.valid_max
             self.valid_max_location = other.valid_max_location
+
+        if self.include_null is None and other.include_null is not None:
+            self.include_null = other.include_null
+            self.include_null_location = other.include_null_location

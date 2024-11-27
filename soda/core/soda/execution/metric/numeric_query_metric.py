@@ -71,10 +71,11 @@ class NumericQueryMetric(QueryMetric):
                 missing_condition = self.build_missing_condition()
                 valid_condition = self.build_valid_condition()
                 invalid_condition = self.build_invalid_condition()
+                include_null = self.build_include_null()
                 if valid_condition:
-                    condition = f"NOT ({missing_condition}) AND NOT ({valid_condition})"
+                    condition = f"NOT ({missing_condition}) AND NOT ({valid_condition}){include_null}"
                 elif invalid_condition:
-                    condition = f"NOT ({missing_condition}) AND ({invalid_condition})"
+                    condition = f"NOT ({missing_condition}) AND ({invalid_condition}){include_null}"
                 else:
                     self.logs.warning(
                         f'Counting invalid without valid or invalid specification does not make sense. ("{self.check.check_cfg.source_line}" @ {self.check.check_cfg.location})'
@@ -272,12 +273,18 @@ class NumericQueryMetric(QueryMetric):
         missing_condition = self.build_missing_condition()
         valid_condition = self.build_valid_condition()
         invalid_condition = self.build_invalid_condition()
+        include_null = self.build_include_null()
         if valid_condition:
-            return f"NOT ({missing_condition}) AND ({valid_condition})"
+            return f"NOT ({missing_condition}) AND ({valid_condition}){include_null}"
         elif invalid_condition:
-            return f"NOT ({missing_condition}) AND NOT ({invalid_condition})"
+            return f"NOT ({missing_condition}) AND NOT ({invalid_condition}){include_null}"
         else:
             return f"NOT ({missing_condition})"
+        
+    def build_include_null(self) -> str:
+        column_name = self.column_name
+
+        return f" OR {column_name} IS NULL" if self.missing_and_valid_cfg.include_null == True else ""
 
     def get_numeric_format(self) -> str | None:
         if self.missing_and_valid_cfg and FormatHelper.is_numeric(self.missing_and_valid_cfg.valid_format):
@@ -297,6 +304,7 @@ class NumericQueryMetric(QueryMetric):
             and isinstance(self.value, Number)
             and self.value > 0
         ):
+            include_null = None
             where_clauses = []
             passing_where_clauses = []
             partition_filter = self.partition.sql_partition_filter
@@ -309,6 +317,7 @@ class NumericQueryMetric(QueryMetric):
                 where_clauses.append(f"({self.build_missing_condition()})")
                 passing_where_clauses.append(f"NOT ({self.build_missing_condition()})")
             elif self.name == "invalid_count":
+                include_null = self.build_include_null()
                 where_clauses.append(f"NOT ({self.build_missing_condition()})")
                 passing_where_clauses.append(f"NOT ({self.build_missing_condition()})")
 
@@ -328,6 +337,9 @@ class NumericQueryMetric(QueryMetric):
 
             where_sql = " AND ".join(where_clauses)
             passing_where_sql = " AND ".join(passing_where_clauses)
+
+            if include_null is not None:
+                where_sql += include_null
 
             sql = self.data_source_scan.data_source.sql_select_all(
                 self.partition.table.table_name, self.samples_limit, where_sql
