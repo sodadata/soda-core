@@ -284,6 +284,9 @@ class NumericQueryMetric(QueryMetric):
     def build_include_null(self) -> str:
         column_name = self.column_name
 
+        if self.missing_and_valid_cfg is None:
+            return ""
+
         return f" OR {column_name} IS NULL" if self.missing_and_valid_cfg.include_null == True else ""
 
     def get_numeric_format(self) -> str | None:
