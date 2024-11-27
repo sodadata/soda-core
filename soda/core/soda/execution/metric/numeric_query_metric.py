@@ -280,7 +280,7 @@ class NumericQueryMetric(QueryMetric):
             return f"NOT ({missing_condition}) AND NOT ({invalid_condition}){include_null}"
         else:
             return f"NOT ({missing_condition})"
-        
+
     def build_include_null(self) -> str:
         column_name = self.column_name
 
