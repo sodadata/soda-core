@@ -3,7 +3,7 @@
 from setuptools import find_namespace_packages, setup
 
 package_name = "soda-core-snowflake"
-package_version = "3.4.1"
+package_version = "3.4.2"
 description = "Soda Core Snowflake Package"
 
 requires = [f"soda-core=={package_version}", "snowflake-connector-python~=3.0"]
