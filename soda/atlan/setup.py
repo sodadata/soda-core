@@ -3,7 +3,7 @@
 from setuptools import find_namespace_packages, setup
 
 package_name = "soda-core-atlan"
-package_version = "3.4.1"
+package_version = "3.4.2"
 description = "Soda Core Atlan Package"
 
 requires = [f"soda-core=={package_version}", "pyatlan>=2.2.4, <3.0"]

@@ -1640,6 +1640,14 @@ class SodaCLParser(Parser):
                     f"{configuration_type} must be a string, but was {type(configuration_value).__name__}",
                     location=self.location,
                 )
+        elif configuration_type in ["include null"]:
+            if isinstance(configuration_value, bool):
+                set_configuration_value(configuration_value)
+            else:
+                self.logs.error(
+                    f"{configuration_type} must be a boolean, but was '{type(configuration_value).__name__}'",
+                    location=self.location,
+                )
 
     def __parse_table_filter_section(self, antlr_table_filter_header, header_str, header_content):
         from soda.sodacl.partition_cfg import PartitionCfg
