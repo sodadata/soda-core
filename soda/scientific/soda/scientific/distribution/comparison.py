@@ -277,6 +277,10 @@ class ChiSqAlgorithm(DistributionAlgorithm):
         ref_data_frequencies = ref_data_frequencies + 1
         test_data_frequencies = test_data_frequencies + 1
 
+        # sort the data to make sure that the categories are in the same order before cast to array_like
+        ref_data_frequencies = ref_data_frequencies.sort_index()
+        test_data_frequencies = test_data_frequencies.sort_index()
+
         # Normalise because scipy wants sums of observed and reference counts to be equal
         # workaround found and discussed in: https://github.com/UDST/synthpop/issues/75#issuecomment-907137304
         stat_value, p_value = chisquare(
