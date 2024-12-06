@@ -1,0 +1,31 @@
+from soda.contracts.helpers.data_source_test_helper import DataSourceTestHelper
+from soda.contracts.helpers.test_table import TestTableSpecification
+
+test_table_specification = (
+    TestTableSpecification.builder()
+    .table_purpose("test_schema")
+    .column_text("id")
+    .column_integer("size")
+    .column_date("created")
+    .build()
+)
+
+
+def test_schema(data_source_test_helper: DataSourceTestHelper):
+
+    test_table = data_source_test_helper.ensure_test_table(test_table_specification)
+
+    data_source_test_helper.assert_contract_pass(
+        test_table=test_table,
+        contract_yaml_str=f"""
+            checks: 
+              - type: schema
+            columns:
+              - name: id
+                data_type: {test_table.data_type('id')}
+              - name: size
+                data_type: {test_table.data_type('size')}
+              - name: created
+                data_type: {test_table.data_type('created')}
+        """
+    )

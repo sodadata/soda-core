@@ -1,0 +1,34 @@
+data_source: postgres_test_ds
+database: soda_test
+schema: dev_tom
+dataset: SODATEST_test_schema_31761d69
+
+check_schedule:
+  cron: * * 6 0 0
+
+check_filter:
+  variables:
+  expression_sql:
+
+columns:
+  - name: id
+    data_type: varchar(255)
+    valid_max_length: 255
+    valid_values: ['M']
+    checks:
+      - type: missing
+      - type: invalid
+      - type: duplicate
+      - type: freshness
+
+      - type: sql_metric
+        metric_expression_sql: COUNT(SOMETHING)
+        metric_query_sql: SELECT COUNT(SOMETHING) FROM ...
+        metric_name: us_count
+
+      - type: failed_rows
+        failed_rows_sql: SELECT * FROM ...
+
+checks:
+  schema:
+    extra columns allowed: true
