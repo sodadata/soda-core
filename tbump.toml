@@ -109,3 +109,7 @@ search = 'package_version = "{current_version}"'
 [[file]]
 src = "soda/fabric/setup.py"
 search = 'package_version = "{current_version}"'
+
+[[file]]
+src = "soda/impala/setup.py"
+search = 'package_version = "{current_version}"'
