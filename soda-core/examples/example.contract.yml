@@ -3,9 +3,6 @@ database: soda_test
 schema: dev_tom
 dataset: SODATEST_test_schema_31761d69
 
-check_schedule:
-  cron: * * 6 0 0
-
 check_filter:
   variables:
   expression_sql:
@@ -20,15 +17,13 @@ columns:
       - type: invalid
       - type: duplicate
       - type: freshness
-
       - type: sql_metric
         metric_expression_sql: COUNT(SOMETHING)
         metric_query_sql: SELECT COUNT(SOMETHING) FROM ...
         metric_name: us_count
-
-      - type: failed_rows
+      - type: failed_rows_query
         failed_rows_sql: SELECT * FROM ...
-
+  - name: other_column
 checks:
-  schema:
-    extra columns allowed: true
+  - type: schema
+    extra_columns_allowed: true
