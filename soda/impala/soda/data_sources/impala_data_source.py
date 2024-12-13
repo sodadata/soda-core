@@ -71,12 +71,10 @@ class ImpalaDataSource(DataSource):
                 use_ssl=self.use_ssl,
                 auth_mechanism=self.auth_mechanism,
                 port=self.port,
-                database=self.database
+                database=self.database,
             )
         else:
-            raise ConnectionError(
-                f"Invalid impala connection properties: invalid host: {self.host}"
-            )
+            raise ConnectionError(f"Invalid impala connection properties: invalid host: {self.host}")
         return self.connection
 
     def safe_connection_data(self):
@@ -107,9 +105,7 @@ class ImpalaDataSource(DataSource):
         return f"SHOW TABLES{from_clause}"
 
     def sql_get_table_names_with_count(
-        self,
-        include_tables: Union[list[str], None] = None,
-        exclude_tables: Union[list[str], None] = None
+        self, include_tables: Union[list[str], None] = None, exclude_tables: Union[list[str], None] = None
     ) -> str:
         return ""
 

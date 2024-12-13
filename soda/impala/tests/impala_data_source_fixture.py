@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 import os
 
-from helpers.data_source_fixture import DataSourceFixture, is_cicd
+from helpers.data_source_fixture import DataSourceFixture
 
 logger = logging.getLogger(__name__)
 
@@ -17,9 +17,9 @@ class ImpalaDataSourceFixture(DataSourceFixture):
             "data_source impala": {
                 "type": "impala",
                 "host": os.getenv("IMPALA_HOST", "localhost"),
-                #"username": os.getenv("IMPALA_USERNAME", "impala"),
-                #"password": os.getenv("IMPALA_PASSWORD"),
-                #"database": os.getenv("IMPALA_DATABASE", "default"),
+                # "username": os.getenv("IMPALA_USERNAME", "impala"),
+                # "password": os.getenv("IMPALA_PASSWORD"),
+                # "database": os.getenv("IMPALA_DATABASE", "default"),
                 "port": int(os.getenv("IMPALA_PORT", "21050")),
                 "auth_mechanism": "NOSASL",
             }
