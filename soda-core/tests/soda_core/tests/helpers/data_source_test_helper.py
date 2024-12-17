@@ -232,15 +232,16 @@ class DataSourceTestHelper:
                 self.drop_test_schema_if_exists()
 
     def create_test_schema_if_not_exists(self) -> None:
-        self.data_source.data_source_connection.execute_query(
-            self.data_source.sql_dialect
+        self.data_source.execute_update(
+            self.data_source
             .create_create_schema()
             .with_database_name(self.database_name)
             .with_schema_name(self.schema_name)
-            .build_sql())
+            .build())
 
     def drop_test_schema_if_exists(self) -> None:
-        (self.data_source.create_drop_schema()
+        (self.data_source
+         .create_drop_schema()
             .with_database_name(self.database_name)
             .with_schema_name(self.schema_name)
             .execute())

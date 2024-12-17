@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from soda_core.common.data_source import DataSource
-from soda_core.common.data_source_connection import QueryResult
+from soda_core.common.data_source_connection import QueryResult, DataSourceConnection
+from soda_core.common.sql_dialect import SqlDialect
 
 
 @dataclass
@@ -15,8 +15,9 @@ class FullyQualifiedTableName:
 
 class MetadataTablesQuery:
 
-    def __init__(self, data_source: DataSource):
-        self.data_source: DataSource = data_source
+    def __init__(self, sql_dialect: SqlDialect, data_source_connection: DataSourceConnection):
+        self.sql_dialect = sql_dialect
+        self.data_source_connection = data_source_connection
         self.database_name: str | None = None
         self.schema_name: str | None = None
         self.include_table_name_like_filters: list[str] | None = None
@@ -40,7 +41,7 @@ class MetadataTablesQuery:
 
     def execute(self) -> list[FullyQualifiedTableName]:
         sql: str = self._build_sql()
-        query_result: QueryResult = self.data_source.data_source_connection.execute_query(sql)
+        query_result: QueryResult = self.data_source_connection.execute_query(sql)
         return [
             FullyQualifiedTableName(
                 database_name=database_name,

@@ -6,7 +6,6 @@ from textwrap import indent
 
 from soda_core.common.logs import Logs
 from soda_core.common.yaml import YamlFile
-from soda_core.contracts.impl.contract_yaml import ContractYaml, CheckYaml
 
 
 class ContractVerificationBuilder:
@@ -233,26 +232,22 @@ class CheckOutcome(Enum):
 
 class CheckResult(ABC):
 
-    def __init__(self, check_yaml: CheckYaml):
-        self.check_yaml: CheckYaml = check_yaml
-        self.outcome: CheckOutcome = CheckOutcome.NOT_EVALUATED
+    def __init__(self, summary: str, outcome: CheckOutcome):
+        self.summary: str = summary
+        self.outcome: CheckOutcome = outcome
 
     def __str__(self) -> str:
         return "\n".join(self.get_contract_result_str_lines())
 
-    @abstractmethod
     def get_contract_result_str_lines(self) -> list[str]:
         """
         Provides the summary for the contract result logs, as well as the __str__ impl of this check result.
         Method implementations can use self._get_outcome_line(self)
         """
+        return [self.get_outcome_and_summary_line()]
 
-    def get_outcome_and_name_line(self) -> str:
-        name_str: str = f" [{self.check_yaml.name}]" if self.check_yaml.name else ""
-        return f"Check {self.get_outcome_str()}{name_str}"
-
-    def get_outcome_str(self) -> str:
-        return self.outcome.name
+    def get_outcome_and_summary_line(self) -> str:
+        return f"Check {self.outcome.name}{self.summary}"
 
 
 class ContractResult:
@@ -263,7 +258,7 @@ class ContractResult:
 
     def __init__(
             self,
-            contract_yaml: ContractYaml,
+            contract_yaml: 'ContractYaml',
             check_results: list[CheckResult]
     ):
         self.contract_yaml = contract_yaml

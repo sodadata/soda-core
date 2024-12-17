@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from soda_core.common.data_source import DataSource
 from soda_core.common.data_source_connection import DataSourceConnection
 from soda_core.common.sql_dialect import SqlDialect
 
@@ -15,8 +14,9 @@ class InsertIntoRow:
 
 class InsertInto:
 
-    def __init__(self, data_source: DataSource):
-        self.data_source: DataSource = data_source
+    def __init__(self, sql_dialect: SqlDialect, data_source_connection: DataSourceConnection):
+        self.sql_dialect = sql_dialect
+        self.data_source_connection = data_source_connection
         self.database_name: str | None = None
         self.schema_name: str | None = None
         self.dataset_name: str | None = None

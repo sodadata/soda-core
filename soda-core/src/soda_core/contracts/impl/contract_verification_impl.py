@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from abc import abstractmethod
+from abc import abstractmethod, ABC
 
 from soda_core.common.data_source import DataSource
 from soda_core.common.data_source_connection import QueryResult
@@ -9,9 +9,7 @@ from soda_core.common.logs import Logs
 from soda_core.common.yaml import YamlFile
 from soda_core.contracts.contract_verification import ContractVerificationResult, ContractResult, \
     ContractVerificationBuilder, CheckResult
-from soda_core.contracts.impl.check_types.schema_check_type import SchemaCheckResult, SchemaMetric, \
-    SchemaQuery, SchemaCheck
-from soda_core.contracts.impl.contract_yaml import ContractYaml, CheckYaml, ColumnYaml, CheckType, check_types
+from soda_core.contracts.impl.contract_yaml import ContractYaml, CheckYaml, ColumnYaml, CheckType
 
 
 class ContractVerificationImpl:
@@ -118,74 +116,18 @@ class ContractVerificationImpl:
 
     def verify_contract(self, contract: Contract) -> ContractResult:
         # Ensures that all contract->check->metrics that are equal are merged into the same Python object
-        self._resolve_metrics(contract)
+        for query in contract.queries:
+            query.execute(self.data_source)
 
-        self.checks_not_evaluated: list[Check] = checks
-        self.checks_evaluating_batch: list[Check] = []
-        self.checks_evaluated: list[Check] = []
+        check_results: list[CheckResult] = []
+        for check in contract.checks:
+            check_result: CheckResult = check.evaluate()
+            check_results.append(check_result)
 
-        schema_check_results: list[CheckResult] = self._execute_schema_checks(contract)
-        schema_check_result: SchemaCheckResult | None = next(
-            (check_result for check_result in schema_check_results if isinstance(check_result, SchemaCheckResult)),
-            None
-        )
-        schema_check_results: list[CheckResult] = self._execute_other_checks(contract, schema_check_result)
-        all_check_results: list[CheckResult] = schema_check_results + schema_check_results
         return ContractResult(
             contract_yaml=contract.contract_yaml,
-            check_results=all_check_results
+            check_results=check_results
         )
-
-    def _execute_schema_checks(self,  contract: Contract) -> list[CheckResult]:
-        """
-        Executes all the schema checks (typically 1) in the contract, appends the schema
-        check results to the check_results parameter and returns the first schema measurement,
-        if there is one so that the other, subsequent check evaluations can use the schema measurement.
-        """
-        schema_checks: list[Check] = [
-            check for check in contract.checks if check.check_type.get_check_type_name() == "schema"
-        ]
-        return self.execute_checks(checks=schema_checks)
-
-    def _execute_other_checks(self, contract: Contract, schema_check_result: SchemaCheckResult | None) -> list[CheckResult]:
-        other_checks: list[Check] = [
-            check for check in contract.checks if not isinstance(check, SchemaCheck)
-        ]
-        for other_check in other_checks:
-            other_check.skip_if_schema_is_not_matching(schema_check_result)
-        other_checks_not_skipped: list[Check] = [
-            check for check in contract.checks if not check.skip
-        ]
-        return self.execute_checks(checks=other_checks_not_skipped)
-
-    def execute_checks(self, checks: list[Check]) -> list[CheckResult]:
-        query_builder: QueryBuilder = QueryBuilder()
-        query_builder.build_queries(checks)
-        query_builder.execute_queries(self.data_source)
-        return [
-            check.evaluate()
-            for check in checks
-        ]
-
-    def build_queries(self, checks: list[Check]) -> None:
-        metrics: list[Metric] = self._resolve_metrics(checks)
-        for metric in metrics:
-            self._ensure_query_for_metric(metric)
-
-    def execute(self, data_source: DataSource) -> QueryResult:
-        query_sql: str = self.build_query_sql()
-        return data_source.data_source_connection.execute_query(query_sql)
-
-    @abstractmethod
-    def build_query_sql(self) -> str:
-        pass
-
-    @abstractmethod
-    def process_query_result(self, query_result: QueryResult) -> None:
-        """
-        Push the query result into the metrics
-        """
-        pass
 
 
 class CheckDependencyResolver:
@@ -224,16 +166,14 @@ class Contract:
         self.schema_name: str | None = contract_yaml.schema_name if contract_yaml else None
         self.dataset_name: str | None = contract_yaml.dataset_name if contract_yaml else None
         metrics_resolver: MetricsResolver = MetricsResolver()
-        queries_factory: QueriesFactory = QueriesFactory()
-        self.checks: list[Check] = self._parse_checks(contract_yaml, metrics_resolver, queries_factory)
-        self.metrics: list[Metric] =
-        self.queries: list[Query] = self._build_queries(self.metrics)
+        self.checks: list[Check] = self._parse_checks(contract_yaml, metrics_resolver)
+        self.metrics: list[Metric] = metrics_resolver.get_resolved_metrics()
+        self.queries: list[Query] = self._build_queries()
 
     def _parse_checks(
         self,
         contract_yaml: ContractYaml,
         metrics_resolver: MetricsResolver,
-        queries_factory: QueriesFactory
     ) -> list[Check]:
         checks: list[Check] = []
 
@@ -243,7 +183,6 @@ class Contract:
                 check_yaml=check_yaml,
                 column_yaml=None,
                 metrics_resolver=metrics_resolver,
-                query_factory=query_factory
             ))
         for column_yaml in contract_yaml.columns:
             for check_yaml in column_yaml.checks:
@@ -252,7 +191,6 @@ class Contract:
                     check_yaml=check_yaml,
                     column_yaml=column_yaml,
                     metrics_resolver=metrics_resolver,
-                    query_factory=query_factory
                 ))
 
         return checks
@@ -262,40 +200,42 @@ class Contract:
         contract_yaml: ContractYaml,
         check_yaml: CheckYaml,
         column_yaml: ColumnYaml | None,
+        metrics_resolver: MetricsResolver
     ) -> Check | None:
+        return check_yaml.create_check(
+            check_yaml=check_yaml,
+            column_yaml=column_yaml,
+            contract_yaml=contract_yaml,
+            metrics_resolver=metrics_resolver,
+            data_source=self.data_source
+        )
 
-        self.check_type: CheckType | None = check_types.get(check_yaml.type)
-        if self.check_type is None:
-            self.logs.error(f"Check type '{check_yaml.type}' is not supported")
-        else:
-            return self.check_type.create_check(
-                contract_yaml=contract_yaml,
-                check_yaml=check_yaml,
-                column_yaml=column_yaml,
-                metrics_resolver=metrics_resolver
-            )
+    def _build_queries(self) -> list[Query]:
+        queries: list[Query] = []
+        aggregations: list[Aggregation] = []
+        for check in self.checks:
+            queries.extend(check.queries)
+            aggregations.extend(check.aggregations)
 
-    def _resolve_metrics(self, checks: list[Check]) -> list[Metric]:
-        metrics: list[Metric] = []
+        from soda_core.contracts.impl.check_types.schema_check_type import SchemaQuery
+        schema_queries: list[SchemaQuery] = []
+        other_queries: list[SchemaQuery] = []
+        for query in queries:
+            if isinstance(query, SchemaQuery):
+                schema_queries.append(query)
+            else:
+                other_queries.append(query)
 
-        for check in checks:
-            check_metrics: list[Metric] = []
-            for metric in check.metrics:
-                existing_metric: Metric | None = next((m for m in metrics if m == metric), None)
-                if existing_metric:
-                    check_metrics.append(existing_metric)
-                else:
-                    metrics.append(metric)
-                    check_metrics.append(metric)
-            check.metrics = check_metrics
+        aggregation_queries: list[AggregationQuery] = []
+        for aggregation in aggregations:
+            if len(aggregation_queries) == 0 or not aggregation_queries[-1].can_add(aggregation):
+                aggregations.append(AggregationQuery())
+            aggregation_queries[-1].append_aggregation(aggregation)
 
-        return metrics
+        for aggregation_query in aggregation_queries:
+            aggregation_query.build()
 
-    def _build_queries(self, metrics: list[Metric]) -> list[Query]:
-        query_builder: QueryBuilder = QueryBuilder()
-        for metric in metrics:
-            metric.ensure_queries(query_builder)
-        return query_builder.build()
+        return schema_queries + aggregation_queries + other_queries
 
 
 class MetricsResolver:
@@ -310,32 +250,19 @@ class MetricsResolver:
             self.metrics.append(metric)
             return metric
 
+    def get_resolved_metrics(self) -> list[Metric]:
+        return self.metrics
 
-class QueryFactory:
+
+class AggregationQueries:
 
     def __init__(self):
-        self.schema_queries: list[SchemaQuery] = []
         self.aggregations: list[Aggregation] = []
-        self.other_query_builders: list[QueryBuilder] = []
 
-    def add_query_builder(self, query_builder: QueryBuilder):
-        if isinstance(query_builder, SchemaQueryBuilder):
-            self.schema_query_builders.append(query_builder)
-        else:
-            self.other_query_builders.append(query_builder)
-
-    def add_aggregation(self, aggregation: Aggregation):
+    def add_aggregation(self, aggregation: Aggregation) -> None:
         self.aggregations.append(aggregation)
 
-    def build_queries(self) -> list[Query]:
-        return (self._build_queries(self.schema_query_builders)
-                + self._build_aggregation_queries(self.aggregations)
-                + self._build_queries(self.other_query_builders))
-
-    def _build_queries(self, query_builders: list[QueryBuilder]) -> list[Query]:
-        return [query_builder.build_query() for query_builder in query_builders]
-
-    def _build_aggregation_queries(self, aggregations: list[Aggregation]) -> list[Query]:
+    def build(self) -> list[Query]:
         pass
 
 
@@ -344,33 +271,30 @@ class Check:
     def __init__(
         self,
         contract_yaml: ContractYaml,
-        check_yaml: CheckYaml,
         column_yaml: ColumnYaml | None,
+        check_yaml: CheckYaml,
     ):
         self.logs: Logs = contract_yaml.logs
-        self.contract_yaml: ContractYaml = contract_yaml
-        self.check_yaml: CheckYaml = check_yaml
-        self.column_yaml: ColumnYaml = column_yaml
 
         self.data_source_name: str = contract_yaml.data_source_name
         self.database_name: str | None = contract_yaml.database_name
         self.schema_name: str | None = contract_yaml.schema_name
         self.dataset_name: str = contract_yaml.dataset_name
         self.column_name: str | None = column_yaml.name if column_yaml else None
+        self.type: str = check_yaml.type
+        self.qualifier: str | None = check_yaml.qualifier
+
+        self.metrics: list[Metric] = []
+        self.queries: list[Query] = []
+        self.aggregations: list[Aggregation] = []
 
         self.skip: bool = False
-        self.metrics: list[Metric] = self._create_metrics()
-
-    @abstractmethod
-    def _create_metrics(self) -> list[Metric]:
-        pass
 
     def skip_if_schema_is_not_matching(self, schema_check_result: SchemaCheckResult) -> None:
         if schema_check_result.dataset_does_not_exists():
             self.skip = True
-        elif (self.column_yaml
-              and self.column_yaml.name
-              and schema_check_result.column_does_not_exist(self.column_yaml.name)
+        elif (self.column_name
+              and schema_check_result.column_does_not_exist(self.column_name)
              ):
             self.skip = True
 
@@ -396,27 +320,41 @@ class Metric:
         self.dataset_name: str | None = dataset_name
         self.column_name: str | None = column_name
         self.type: str = metric_type_name
+        # Initialized in the check.evaluate after queries are executed
+        self.measured_value: any = None
+
+    def _get_eq_properties(self, m: Metric) -> dict:
+        return {
+            k: v for k, v in m.__dict__.items() if k != "measured_value"
+        }
 
     def __eq__(self, other):
         if type(other) != type(self):
             return False
-        if other.__dict__ != self.__dict__:
+        other_metric_properties: dict = self._get_eq_properties(other)
+        self_metric_properties: dict = self._get_eq_properties(self)
+        if other_metric_properties != self_metric_properties:
             return False
         return True
 
-    def ensure_queries(self, queries_factory: QueriesFactory) -> None:
+
+class Query(ABC):
+
+    def __init__(
+        self,
+        sql: str,
+        metrics: list[Metric]
+    ):
+        self.sql: str = sql
+        self.metrics: list[Metric] = metrics
+
+    @abstractmethod
+    def execute(self, data_source: DataSource) -> None:
         pass
 
 
 class Aggregation:
     pass
-
-
-class Query:
-
-    def __init__(self):
-        self.sql: str | None = None
-        self.metrics: list[Metric] = []
 
 
 class AggregationQuery(Query):

@@ -2,6 +2,7 @@ from soda_core.common.data_source import DataSource
 from soda_core.common.data_source_connection import DataSourceConnection
 from soda_core.common.logs import Logs
 from soda_core.common.sql_dialect import SqlDialect
+from soda_core.common.yaml import YamlFile
 from soda_postgres.common.data_sources.postgres_data_source_connection import PostgresDataSourceConnection
 
 

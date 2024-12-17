@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 
-from soda_core.common.data_source_connection import DataSourceConnection
+from soda_core.common.data_source_connection import DataSourceConnection, QueryResult, UpdateResult
 from soda_core.common.logs import Logs
 from soda_core.common.sql_dialect import SqlDialect
 from soda_core.common.statements.create_schema import CreateSchema
@@ -25,7 +25,7 @@ class DataSource(ABC):
             connection_properties: dict,
             spark_session: object | None
     ) -> DataSource:
-        from soda_postgres.common.data_sources.postgres_data_source_connection import PostgresDataSource
+        from soda_core.common.data_sources.postgres_data_source import PostgresDataSource
         return PostgresDataSource(
                 data_source_yaml_file=data_source_yaml_file,
                 name=name,
@@ -41,10 +41,10 @@ class DataSource(ABC):
             connection_properties: dict,
     ):
         self.data_source_yaml_file: YamlFile = data_source_yaml_file
+        self.logs: Logs = data_source_yaml_file.logs
         self.name: str = name
         self.type_name: str = type_name
         self.sql_dialect = self._create_sql_dialect()
-        self.logs: Logs = self.data_source_yaml_file.logs
         self.connection_properties: dict | None = connection_properties
         self.data_source_connection: DataSourceConnection | None = None
 
@@ -83,19 +83,25 @@ class DataSource(ABC):
             self.data_source_connection.close_connection()
 
     def create_create_schema(self) -> CreateSchema:
-        return self.sql_dialect.create_create_schema(self)
+        return CreateSchema(sql_dialect=self.sql_dialect, data_source_connection=self.data_source_connection)
 
     def create_drop_schema(self) -> DropSchema:
-        return self.sql_dialect.create_drop_schema(self)
+        return self.create_drop_schema()
 
     def create_create_table(self) -> CreateTable:
-        return self.sql_dialect.create_create_table(self)
+        return self.create_create_table()
 
     def create_drop_table(self) -> DropTable:
-        return self.sql_dialect.create_drop_table(self)
+        return self.create_drop_table()
 
     def create_insert_into(self) -> InsertInto:
-        return self.sql_dialect.create_insert_into(self)
+        return self.create_insert_into()
 
     def create_table_names_query(self) -> MetadataTablesQuery:
-        return self.sql_dialect.create_metadata_tables_query(self)
+        return MetadataTablesQuery(sql_dialect=self.sql_dialect, data_source_connection=self.data_source_connection)
+
+    def execute_query(self, sql: str) -> QueryResult:
+        return self.data_source_connection.execute_query(sql=sql)
+
+    def execute_update(self, sql: str) -> UpdateResult:
+        return self.data_source_connection.execute_update(sql=sql)

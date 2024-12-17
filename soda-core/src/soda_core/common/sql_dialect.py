@@ -4,14 +4,6 @@ import re
 from datetime import date, datetime
 from numbers import Number
 
-from soda_core.common.data_source import DataSource
-from soda_core.common.statements.create_schema import CreateSchema
-from soda_core.common.statements.create_table import CreateTable
-from soda_core.common.statements.drop_schema import DropSchema
-from soda_core.common.statements.drop_table import DropTable
-from soda_core.common.statements.insert_into import InsertInto
-from soda_core.common.statements.metadata_tables_query import MetadataTablesQuery
-
 
 class SqlDialect:
     """
@@ -22,25 +14,6 @@ class SqlDialect:
 
     def __init__(self):
         self.default_quote_char = self._get_default_quote_char()
-
-    def create_create_schema(self, data_source: DataSource) -> CreateSchema:
-        return CreateSchema(data_source)
-
-    def create_drop_schema(self, data_source: DataSource) -> DropSchema:
-        return DropSchema(data_source)
-
-    def create_create_table(self, data_source: DataSource) -> CreateTable:
-        return CreateTable(data_source)
-
-    def create_drop_table(self, data_source: DataSource) -> DropTable:
-        return DropTable(data_source)
-
-    def create_insert_into(self, data_source: DataSource) -> InsertInto:
-        return InsertInto(data_source)
-
-    def create_metadata_tables_query(self, data_source: DataSource) -> MetadataTablesQuery:
-        return MetadataTablesQuery(data_source)
-
 
     def _get_default_quote_char(self) -> str:
         return '"'
