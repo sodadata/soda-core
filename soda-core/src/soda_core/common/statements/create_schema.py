@@ -23,7 +23,3 @@ class CreateSchema:
     def build(self) -> str:
         schema_name_quoted: str = self.sql_dialect.quote_default(self.schema_name)
         return f"CREATE SCHEMA IF NOT EXISTS {schema_name_quoted} AUTHORIZATION CURRENT_USER;"
-
-    def build(self) -> str:
-        schema_name_quoted: str = self.sql_dialect.quote_default(self.schema_name)
-        return f"CREATE SCHEMA IF NOT EXISTS {schema_name_quoted} {columnpart}AUTHORIZATION CURRENT_USER;"

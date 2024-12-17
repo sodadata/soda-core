@@ -58,7 +58,7 @@ class MetadataColumnsQuery:
         return f"{sql};"
 
     def _information_schema_columns_table_qualified(self) -> str:
-        return self.data_source.sql_dialect.qualify_table(
+        return self.sql_dialect.qualify_table(
             database_name=self.database_name,
             schema_name=self._schema_name_information_schema(),
             table_name=self._table_name_information_schema_columns()

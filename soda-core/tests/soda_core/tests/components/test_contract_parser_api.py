@@ -1,6 +1,5 @@
 from soda_core.common.yaml import YamlFile
 from soda_core.contracts.impl.contract_yaml import ContractYaml, ColumnYaml, CheckYaml
-from soda_core.contracts.impl.contract_parser import ContractParser
 
 
 def test_contract_parser():
@@ -13,13 +12,13 @@ def test_contract_parser():
         columns:
           - name: id
             data_type: varchar(255)
-            checks:
-              - type: missing
+        checks:
+          - type: schema
         """
     )
+    contract_yaml_file.parse({})
 
-    contract_parser: ContractParser = ContractParser(contract_yaml_file=contract_yaml_file)
-    contract: ContractYaml = contract_parser.parse()
+    contract: ContractYaml = ContractYaml(contract_yaml_file=contract_yaml_file)
 
     assert "postgres_test_ds" == contract.data_source_name
     assert "soda_test" == contract.database_name
@@ -30,5 +29,5 @@ def test_contract_parser():
     assert "id" == column.name
     assert "varchar(255)" == column.data_type
 
-    check: CheckYaml = column.checks[0]
-    assert type(check).__name__ == "MissingCheck"
+    check: CheckYaml = contract.checks[0]
+    assert check.__class__.__name__ == "SchemaCheckYaml"

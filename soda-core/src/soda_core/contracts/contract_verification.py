@@ -232,8 +232,8 @@ class CheckOutcome(Enum):
 
 class CheckResult(ABC):
 
-    def __init__(self, summary: str, outcome: CheckOutcome):
-        self.summary: str = summary
+    def __init__(self, check_summary: str, outcome: CheckOutcome):
+        self.check_summary: str = check_summary
         self.outcome: CheckOutcome = outcome
 
     def __str__(self) -> str:
@@ -247,7 +247,7 @@ class CheckResult(ABC):
         return [self.get_outcome_and_summary_line()]
 
     def get_outcome_and_summary_line(self) -> str:
-        return f"Check {self.outcome.name}{self.summary}"
+        return f"Check {self.outcome.name}{self.check_summary}"
 
 
 class ContractResult:

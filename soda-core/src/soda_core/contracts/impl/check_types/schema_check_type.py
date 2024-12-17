@@ -166,7 +166,6 @@ class SchemaCheck(Check):
             )
 
         return SchemaCheckResult(
-            check_yaml=self.check_yaml,
             expected_columns=self.expected_columns,
             outcome=outcome,
             actual_columns=actual_columns,
@@ -244,7 +243,6 @@ class SchemaQuery(Query):
 class SchemaCheckResult(CheckResult):
 
     def __init__(self,
-                 check_yaml: SchemaCheckYaml,
                  expected_columns: list[ExpectedColumn],
                  outcome: CheckOutcome,
                  actual_columns: list[ActualColumn],
@@ -252,7 +250,10 @@ class SchemaCheckResult(CheckResult):
                  actual_column_names_not_expected: list[str],
                  column_data_type_mismatches: list[ColumnDataTypeMismatch],
                  ):
-        super().__init__(check_yaml=check_yaml, outcome=outcome)
+        super().__init__(
+            check_summary="Schema must be as expected",
+            outcome=outcome
+        )
         self.expected_columns: list[ExpectedColumn] = expected_columns
         self.actual_columns: list[ActualColumn] = actual_columns
         self.expected_column_names_not_actual: list[str] = expected_column_names_not_actual
@@ -279,7 +280,7 @@ class SchemaCheckResult(CheckResult):
         ])
 
         lines: list[str] = [
-            f"Schema check {self.get_outcome_str()}",
+            f"Schema check {self.outcome.name}",
             f"  Expected schema: {expected_columns_str}",
             f"  Actual schema: {actual_columns_str}",
         ]

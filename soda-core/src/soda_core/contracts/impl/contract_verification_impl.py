@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from abc import abstractmethod, ABC
 
+from click import Context
+
 from soda_core.common.data_source import DataSource
 from soda_core.common.data_source_connection import QueryResult
 from soda_core.common.data_source_parser import DataSourceParser
@@ -161,6 +163,7 @@ class Contract:
         self.logs: Logs = logs
         self.data_source: DataSource = data_source
         self.contract_yaml: ContractYaml = contract_yaml
+
         self.data_source_name: str | None = contract_yaml.data_source_name if contract_yaml else None
         self.database_name: str | None = contract_yaml.database_name if contract_yaml else None
         self.schema_name: str | None = contract_yaml.schema_name if contract_yaml else None
