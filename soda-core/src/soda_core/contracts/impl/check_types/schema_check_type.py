@@ -132,14 +132,17 @@ class SchemaCheck(Check):
             actual_column_types = {
                 actual_column.column_name: actual_column.data_type for actual_column in actual_columns
             }
+            expected_column_names = [
+                expected_column.column_name for expected_column in self.expected_columns
+            ]
 
-            for expected_column in self.expected_columns:
+            for expected_column in expected_column_names:
                 if expected_column not in actual_column_names:
-                    expected_column_names_not_actual.append(expected_column.column_name)
+                    expected_column_names_not_actual.append(expected_column)
 
-            for measured_column_name in actual_column_names:
-                if measured_column_name not in self.expected_columns:
-                    actual_column_names_not_expected.append(measured_column_name)
+            for actual_column_name in actual_column_names:
+                if actual_column_name not in expected_column_names:
+                    actual_column_names_not_expected.append(actual_column_name)
 
             for expected_column in self.expected_columns:
                 expected_data_type: str | None = expected_column.data_type

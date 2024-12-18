@@ -39,23 +39,24 @@ class MetadataColumnsQuery:
         query_result: QueryResult = self.data_source.data_source_connection.execute_query(sql)
         return [
             MetadataColumn(
-                name=...,
-                data_type=...
+                name=column_name,
+                data_type=data_type
             )
-            for database_name, schema_name, table_name in query_result.rows
+            for column_name, data_type in query_result.rows
         ]
 
     def build_sql(self) -> str:
         """
         Builds the full SQL query to query table names from the data source metadata.
         """
-        sql = (
-            f"SELECT "
-            f" {self._column_name_information_schema_columns_column_name()} as column_name,"
-            f" {self._column_name_information_schema_columns_data_type()} as schema_name "
-            f"FROM {self._information_schema_columns_table_qualified()}"
+        return (
+            f"SELECT {self._column_name_information_schema_columns_column_name()}, \n"
+            f"       {self._column_name_information_schema_columns_data_type()} \n"
+            f"FROM {self._information_schema_columns_table_qualified()} \n"
+            f"WHERE {self._column_name_information_schema_columns_table_catalog()} = {self.sql_dialect.literal(self.database_name)} \n"
+            f"  AND {self._column_name_information_schema_columns_table_schema()} = {self.sql_dialect.literal(self.schema_name)} \n"
+            f"  AND {self._column_name_information_schema_columns_table_name()} = {self.sql_dialect.literal(self.dataset_name)};"
         )
-        return f"{sql};"
 
     def _information_schema_columns_table_qualified(self) -> str:
         return self.sql_dialect.qualify_table(
@@ -75,6 +76,24 @@ class MetadataColumnsQuery:
         Name of the table that has the columns information in the metadata
         """
         return "columns"
+
+    def _column_name_information_schema_columns_table_catalog(self) -> str:
+        """
+        Name of the column that has the database information in the tables metadata table
+        """
+        return "table_catalog"
+
+    def _column_name_information_schema_columns_table_schema(self) -> str:
+        """
+        Name of the column that has the schema information in the tables metadata table
+        """
+        return "table_schema"
+
+    def _column_name_information_schema_columns_table_name(self) -> str:
+        """
+        Name of the column that has the table name in the tables metadata table
+        """
+        return "table_name"
 
     def _column_name_information_schema_columns_column_name(self) -> str:
         """
