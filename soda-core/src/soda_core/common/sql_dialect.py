@@ -123,9 +123,11 @@ class SqlDialect:
 
         return select_sql_lines
 
-    def _build_expression_sql(self, expression: Expression | str) -> str:
+    def _build_expression_sql(self, expression: Expression | str | Number) -> str:
         if isinstance(expression, str):
             return self.quote_default(expression)
+        elif isinstance(expression, Number):
+            return str(expression)
         elif isinstance(expression, COLUMN):
             return self._build_column_sql(expression)
         elif isinstance(expression, LITERAL):
@@ -134,16 +136,19 @@ class SqlDialect:
             return self._build_or_sql(expression)
         elif isinstance(expression, AND):
             return self._build_and_sql(expression)
-        elif isinstance(expression, EQ):
-            return self._build_eq_sql(expression)
+        elif isinstance(expression, Operator):
+            return self._build_operator_sql(expression)
+        elif isinstance(expression, FUNCTION):
+            return self._build_function_sql(expression)
         elif isinstance(expression, STAR):
             return "*"
         raise Exception(f"Invalid expression type {expression.__class__.__name__}")
 
     def _build_column_sql(self, column: COLUMN) -> str:
-        alias_sql: str = f"{self.quote_default(column.table_alias)}." if column.table_alias else ""
+        table_alias_sql: str = f"{self.quote_default(column.table_alias)}." if column.table_alias else ""
         column_sql: str = self.quote_default(column.name)
-        return f"{alias_sql}{column_sql}"
+        field_alias_sql: str = f" AS {self.quote_default(column.field_alias)}" if column.field_alias else ""
+        return f"{table_alias_sql}{column_sql}{field_alias_sql}"
 
     def _build_or_sql(self, or_expr: OR) -> str:
         if isinstance(or_expr.clauses, str) or isinstance(or_expr.clauses, Expression):
@@ -198,8 +203,18 @@ class SqlDialect:
             from_part += f" AS {self.quote_default(from_clause.alias)}"
         return from_part
 
-    def _build_eq_sql(self, eq: EQ) -> str:
-        return f"{self._build_expression_sql(eq.left)} = {self._build_expression_sql(eq.right)}"
+    def _build_operator_sql(self, operator: Operator) -> str:
+        operators: dict[type, str] = {
+            EQ: "=",
+            NEQ: "!=",
+            LT: "<",
+            LTE: "<=",
+            GT: ">",
+            GTE: ">=",
+            LIKE: "like",
+        }
+        operator_sql: str = operators[type(operator)]
+        return f"{self._build_expression_sql(operator.left)} {operator_sql} {self._build_expression_sql(operator.right)}"
 
     def _build_where_sql_lines(self, select_elements: list) -> list[str]:
         and_expressions: list[Expression] = []
@@ -222,6 +237,19 @@ class SqlDialect:
                 sql_line = f"  AND {where_parts[i]}"
             where_sql_lines.append(sql_line)
         return where_sql_lines
+
+    def _build_function_sql(self, function: FUNCTION) -> str:
+        args: list[Expression | str] = [function.args] if not isinstance(function.args, list) else function.args
+        args_sqls: list[str] = [
+            self._build_expression_sql(arg)
+            for arg in args
+        ]
+        if function.name in ["+", "-", "/", "*"]:
+            operators: str = f" {function.name} ".join(args_sqls)
+            return f"({operators})"
+        else:
+            args_list_sql: str = ", ".join(args_sqls)
+            return f"{function.name}({args_list_sql})"
 
 
 @dataclass
@@ -262,9 +290,19 @@ class STAR(Expression):
 class COLUMN(Expression):
     name: str
     table_alias: str | None = None
+    field_alias: str | None = None
 
     def IN(self, table_alias: str) -> COLUMN:
-        return COLUMN(name=self.name, table_alias=table_alias)
+        return COLUMN(name=self.name, table_alias=table_alias, field_alias=self.field_alias)
+
+    def AS(self, field_alias: str) -> COLUMN:
+        return COLUMN(name=self.name, table_alias=self.table_alias, field_alias=field_alias)
+
+
+@dataclass
+class FUNCTION(Expression):
+    name: str
+    args: list[Expression | str]
 
 
 @dataclass
@@ -273,9 +311,49 @@ class LITERAL(Expression):
 
 
 @dataclass
-class EQ(Expression):
+class Operator(Expression):
     left: Expression | str
     right: Expression | str
+
+
+@dataclass
+class EQ(Operator):
+    pass
+
+
+@dataclass
+class NEQ(Operator):
+    pass
+
+
+@dataclass
+class LIKE(Operator):
+    pass
+
+
+@dataclass
+class GT(Operator):
+    pass
+
+
+@dataclass
+class GTE(Operator):
+    pass
+
+
+@dataclass
+class LT(Operator):
+    pass
+
+
+@dataclass
+class LTE(Operator):
+    pass
+
+
+@dataclass
+class NOT(Expression):
+    expression: Expression | str
 
 
 @dataclass
