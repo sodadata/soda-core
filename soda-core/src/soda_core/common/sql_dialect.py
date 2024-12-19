@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+from dataclasses import dataclass
 from datetime import date, datetime
 from numbers import Number
 
@@ -85,131 +86,215 @@ class SqlDialect:
     def escape_regex(self, value: str):
         return value
 
+    def build_select_sql(self, select_elements: list) -> str:
+        statement_lines: list[str] = self._build_select_sql_lines(select_elements)
+        statement_lines.extend(self._build_from_sql_lines(select_elements))
+        statement_lines.extend(self._build_where_sql_lines(select_elements))
+        return "\n".join(statement_lines) + ";"
 
-    # def stmt_drop_schema_if_exists(self, database_name: str, schema_name: str) -> str:
-    #     schema_name_quoted: str = self.quote_default(schema_name)
-    #     return f"DROP SCHEMA IF EXISTS {schema_name_quoted} CASCADE"
-    #
-    # def stmt_create_schema_if_not_exists(self, database_name: str, schema_name: str) -> str:
-    #     schema_name_quoted: str = self.quote_default(schema_name)
-    #     return f"CREATE SCHEMA IF NOT EXISTS {schema_name_quoted} AUTHORIZATION CURRENT_USER"
-    #
-    # def stmt_select_table_names(
-    #     self,
-    #     database_name: str | None = None,
-    #     schema_name: str | None = None,
-    #     table_name_like_filter: str | None = None,
-    #     include_table_name_like_filters: list[str] = None,
-    #     exclude_table_name_like_filters: list[str] = None,
-    # ) -> str:
-    #     """
-    #     Builds the full SQL query to query table names from the data source metadata.
-    #     """
-    #     table_name_column: str = self.sql_information_schema_tables_table_column()
-    #     # table_name_column_quoted: str = self.quote_default(table_name_column)
-    #     information_schema_table_name_qualified: str = self.information_schema_table_name_qualified()
-    #
-    #     sql = f"SELECT {table_name_column} \n" f"FROM {information_schema_table_name_qualified}"
-    #
-    #     where_clauses: list[str] = self._filter_clauses_information_schema_table_name(
-    #         database_name,
-    #         schema_name,
-    #         table_name_like_filter,
-    #         include_table_name_like_filters,
-    #         exclude_table_name_like_filters,
-    #     )
-    #
-    #     if where_clauses:
-    #         where_clauses_sql = "\n  AND ".join(where_clauses)
-    #         sql += f"\nWHERE {where_clauses_sql}"
-    #
-    #     return sql
-    #
-    # def information_schema_table_name_qualified(self) -> str:
-    #     information_schema_database_name: str = self.information_schema_database_name()
-    #     information_schema_schema_name: str = self.information_schema_schema_name()
-    #     information_schema_table_name: str = self.information_schema_table_name()
-    #     return self.qualify_table(
-    #         database_name=None, schema_name=information_schema_schema_name, table_name=information_schema_table_name
-    #     )
-    #
-    # def information_schema_database_name(self) -> str | None:
-    #     return None
-    #
-    # def information_schema_schema_name(self) -> str | None:
-    #     return "information_schema"
-    #
-    # def information_schema_table_name(self) -> str:
-    #     return "tables"
-    #
-    # def sql_information_schema_tables_database_column(self) -> str:
-    #     """
-    #     Name of the column in the information_schema table that contains the database name
-    #     """
-    #     return "table_catalog"
-    #
-    # def sql_information_schema_tables_schema_column(self) -> str:
-    #     """
-    #     Name of the column in the information_schema table that contains the schema name
-    #     """
-    #     return "table_schema"
-    #
-    # def sql_information_schema_tables_table_column(self) -> str:
-    #     """
-    #     Name of the column in the information_schema table that contains the table name
-    #     """
-    #     return "table_name"
-    #
-    # def _filter_clauses_information_schema_table_name(
-    #     self,
-    #     database_name: str | None = None,
-    #     schema_name: str | None = None,
-    #     table_name_like_filter: str | None = None,
-    #     include_table_name_like_filters: list[str] = None,
-    #     exclude_table_name_like_filters: list[str] = None,
-    # ) -> list[str]:
-    #     """
-    #     Builds the list of where clauses to query table names from the data source metadata.
-    #     All comparisons are case-insensitive by converting to lower case.
-    #     All column names are quoted.
-    #     """
-    #
-    #     where_clauses = []
-    #
-    #     if database_name:
-    #         database_column_name: str | None = self.sql_information_schema_tables_database_column()
-    #         if database_column_name:
-    #             # database_column_name: str = self.quote_default(database_column_name)
-    #             database_name_lower: str = database_name.lower()
-    #             where_clauses.append(f"LOWER({database_column_name}) = '{database_name_lower}'")
-    #
-    #     if schema_name:
-    #         schema_column_name: str | None = self.sql_information_schema_tables_schema_column()
-    #         if schema_column_name:
-    #             # schema_column_name: str = self.quote_default(schema_column_name)
-    #             schema_name_lower: str = schema_name.lower()
-    #             where_clauses.append(f"LOWER({schema_column_name}) = '{schema_name_lower}'")
-    #
-    #     table_name_column = self.sql_information_schema_tables_table_column()
-    #     # table_name_column = self.quote_default(table_name_column)
-    #
-    #     if table_name_like_filter:
-    #         where_clauses.append(f"LOWER({table_name_column}) LIKE '{table_name_like_filter.lower()}'")
-    #
-    #     def build_table_matching_conditions(table_expressions: list[str], comparison_operator: str):
-    #         conditions = []
-    #         if table_expressions:
-    #             for table_expression in table_expressions:
-    #                 table_expression_lower: str = table_expression.lower()
-    #                 conditions.append(f"LOWER({table_name_column}) {comparison_operator} '{table_expression_lower}'")
-    #         return conditions
-    #
-    #     if include_table_name_like_filters:
-    #         sql_include_clauses = " OR ".join(build_table_matching_conditions(include_table_name_like_filters, "LIKE"))
-    #         where_clauses.append(f"({sql_include_clauses})")
-    #
-    #     if exclude_table_name_like_filters:
-    #         sql_exclude_clauses = build_table_matching_conditions(exclude_table_name_like_filters, "NOT LIKE")
-    #         where_clauses.extend(sql_exclude_clauses)
-    #
-    #     return where_clauses
+    def _build_select_sql_lines(self, select_elements: list) -> list[str]:
+        select_field_sqls: list[str] = []
+        for select_element in select_elements:
+            if isinstance(select_element, SELECT):
+                if isinstance(select_element.fields, str) or isinstance(select_element.fields, Expression):
+                    select_element.fields = [select_element.fields]
+                for select_field in select_element.fields:
+                    if isinstance(select_field, str):
+                        select_field_sqls.append(self.quote_default(select_field))
+                    elif isinstance(select_field, Expression):
+                        select_field_sqls.append(self._build_expression_sql(select_field))
+                    else:
+                        raise Exception(f"Invalid select field type: {select_field.__class__.__name__}")
+
+        # Alternatively, concatenate all the fields on one line to reduce SQL statement length
+        # return "SELECT " + (", ".join(select_fields_sql))
+        # For now, we opt for SELECT statement readability...
+
+        select_sql_lines: list[str] = []
+        for i in range(0, len(select_field_sqls)):
+            if i == 0:
+                sql_line = f"SELECT {select_field_sqls[0]}"
+            else:
+                sql_line = f"       {select_field_sqls[i]}"
+            # Append comma all lines except the last one
+            if i < len(select_field_sqls) - 1:
+                sql_line += ","
+            select_sql_lines.append(sql_line)
+
+        return select_sql_lines
+
+    def _build_expression_sql(self, expression: Expression | str) -> str:
+        if isinstance(expression, str):
+            return self.quote_default(expression)
+        elif isinstance(expression, COLUMN):
+            return self._build_column_sql(expression)
+        elif isinstance(expression, LITERAL):
+            return self.literal(expression.value)
+        elif isinstance(expression, OR):
+            return self._build_or_sql(expression)
+        elif isinstance(expression, AND):
+            return self._build_and_sql(expression)
+        elif isinstance(expression, EQ):
+            return self._build_eq_sql(expression)
+        elif isinstance(expression, STAR):
+            return "*"
+        raise Exception(f"Invalid expression type {expression.__class__.__name__}")
+
+    def _build_column_sql(self, column: COLUMN) -> str:
+        alias_sql: str = f"{self.quote_default(column.table_alias)}." if column.table_alias else ""
+        column_sql: str = self.quote_default(column.name)
+        return f"{alias_sql}{column_sql}"
+
+    def _build_or_sql(self, or_expr: OR) -> str:
+        if isinstance(or_expr.clauses, str) or isinstance(or_expr.clauses, Expression):
+            return self._build_expression_sql(or_expr.clauses)
+        or_clauses_sql: str = " OR ".join(
+            self._build_expression_sql(or_clause)
+            for or_clause in or_expr.clauses
+        )
+        return f"({or_clauses_sql})"
+
+    def _build_and_sql(self, and_expr: AND) -> str:
+        if isinstance(and_expr.clauses, str) or isinstance(and_expr.clauses, Expression):
+            return self._build_expression_sql(and_expr.clauses)
+        return " AND ".join(
+            self._build_expression_sql(and_clause)
+            for and_clause in and_expr.clauses
+        )
+
+    def _build_from_sql_lines(self, select_elements: list) -> list[str]:
+        from_parts: list[str] = []
+        for select_element in select_elements:
+            if isinstance(select_element, FROM):
+                from_parts.append(self._build_from_part(select_element))
+
+        # Alternatively, concatenate all the fields on one line to reduce SQL statement length
+        # return "SELECT " + (", ".join(select_fields_sql))
+        # For now, we opt for SELECT statement readability...
+
+        from_sql_lines: list[str] = []
+        for i in range(0, len(from_parts)):
+            if i == 0:
+                sql_line = f"FROM {from_parts[0]}"
+            else:
+                sql_line = f"     {from_parts[i]}"
+            # Append comma all lines except the last one
+            if i < len(from_parts) - 1:
+                sql_line += ", "
+            from_sql_lines.append(sql_line)
+
+        return from_sql_lines
+
+    def _build_from_part(self, from_clause: FROM) -> str:
+        table_parts_quoted: list[str] = []
+        if from_clause.table_prefixes:
+            table_parts_quoted.extend([
+                self.quote_default(prefix_part)
+                for prefix_part in from_clause.table_prefixes
+            ])
+        table_parts_quoted.append(self.quote_default(from_clause.table_name))
+        from_part: str = ".".join(table_parts_quoted)
+        if from_clause.alias:
+            from_part += f" AS {self.quote_default(from_clause.alias)}"
+        return from_part
+
+    def _build_eq_sql(self, eq: EQ) -> str:
+        return f"{self._build_expression_sql(eq.left)} = {self._build_expression_sql(eq.right)}"
+
+    def _build_where_sql_lines(self, select_elements: list) -> list[str]:
+        and_expressions: list[Expression] = []
+        for select_element in select_elements:
+            if isinstance(select_element, WHERE):
+                and_expressions.append(select_element.condition)
+            elif isinstance(select_element, AND):
+                and_expressions.extend(select_element._get_clauses_as_list())
+
+        where_parts: list[str] = [
+            self._build_expression_sql(and_expression)
+            for and_expression in and_expressions
+        ]
+
+        where_sql_lines: list[str] = []
+        for i in range(0, len(where_parts)):
+            if i == 0:
+                sql_line = f"WHERE {where_parts[0]}"
+            else:
+                sql_line = f"  AND {where_parts[i]}"
+            where_sql_lines.append(sql_line)
+        return where_sql_lines
+
+
+@dataclass
+class SELECT:
+    fields: Expression | str | list[Expression | str]
+
+
+@dataclass
+class FROM:
+    table_name: str
+    table_prefixes: list[str] | None = None
+    alias: str | None = None
+
+    def AS(self, alias: str) -> FROM:
+        return FROM(table_name=self.table_name, table_prefixes=self.table_prefixes, alias=alias)
+
+    def IN(self, table_prefixes: str | list[str]) -> FROM:
+        table_prefixes = table_prefixes if isinstance(table_prefixes, list) else [table_prefixes]
+        return FROM(table_name=self.table_name, table_prefixes=table_prefixes, alias=self.alias)
+
+
+@dataclass
+class WHERE:
+    condition: Expression
+
+
+@dataclass
+class Expression:
+    pass
+
+
+@dataclass
+class STAR(Expression):
+    pass
+
+
+@dataclass
+class COLUMN(Expression):
+    name: str
+    table_alias: str | None = None
+
+    def IN(self, table_alias: str) -> COLUMN:
+        return COLUMN(name=self.name, table_alias=table_alias)
+
+
+@dataclass
+class LITERAL(Expression):
+    value: object
+
+
+@dataclass
+class EQ(Expression):
+    left: Expression | str
+    right: Expression | str
+
+
+@dataclass
+class AND(Expression):
+    clauses: Expression | str | list[Expression]
+
+    def _get_clauses_as_list(self) -> list[Expression]:
+        if isinstance(self.clauses, list):
+            return self.clauses
+        else:
+            return [self.clauses]
+
+
+@dataclass
+class OR(Expression):
+    clauses: Expression | str | list[Expression]
+
+    def _get_clauses_as_list(self) -> list[Expression]:
+        if isinstance(self.clauses, list):
+            return self.clauses
+        else:
+            return [self.clauses]
