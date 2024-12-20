@@ -110,7 +110,9 @@ def test_user_defined_data_source_query_metric_check_with_variable(data_source_f
     assert 1068 < avg_surface < 1069
 
 
-def test_user_defined_data_source_query_metric_check_with_variable_special_chars(data_source_fixture: DataSourceFixture):
+def test_user_defined_data_source_query_metric_check_with_variable_special_chars(
+    data_source_fixture: DataSourceFixture,
+):
     table_name = data_source_fixture.ensure_test_table(customers_test_table)
 
     qualified_table_name = data_source_fixture.data_source.qualified_table_name(table_name)
