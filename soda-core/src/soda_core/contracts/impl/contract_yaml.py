@@ -97,6 +97,8 @@ class ContractYaml:
 
                         from soda_core.contracts.impl.check_types.schema_check_type import SchemaCheckType
                         CheckType.register_check_type(SchemaCheckType())
+                        from soda_core.contracts.impl.check_types.mising_check_type import MissingCheckType
+                        CheckType.register_check_type(MissingCheckType())
 
                         check_type: CheckType = CheckType.get_check_type(check_type_name)
                         if check_type:

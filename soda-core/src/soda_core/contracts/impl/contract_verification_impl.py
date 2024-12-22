@@ -2,16 +2,15 @@ from __future__ import annotations
 
 from abc import abstractmethod, ABC
 
-from click import Context
-
 from soda_core.common.data_source import DataSource
-from soda_core.common.data_source_connection import QueryResult
+from soda_core.common.data_source_results import QueryResult
 from soda_core.common.data_source_parser import DataSourceParser
 from soda_core.common.logs import Logs
+from soda_core.common.sql_dialect import *
 from soda_core.common.yaml import YamlFile
 from soda_core.contracts.contract_verification import ContractVerificationResult, ContractResult, \
     ContractVerificationBuilder, CheckResult
-from soda_core.contracts.impl.contract_yaml import ContractYaml, CheckYaml, ColumnYaml, CheckType
+from soda_core.contracts.impl.contract_yaml import ContractYaml, CheckYaml, ColumnYaml
 
 
 class ContractVerificationImpl:
@@ -119,7 +118,7 @@ class ContractVerificationImpl:
     def verify_contract(self, contract: Contract) -> ContractResult:
         # Ensures that all contract->check->metrics that are equal are merged into the same Python object
         for query in contract.queries:
-            query.execute(self.data_source)
+            query.execute()
 
         check_results: list[CheckResult] = []
         for check in contract.checks:
@@ -215,10 +214,10 @@ class Contract:
 
     def _build_queries(self) -> list[Query]:
         queries: list[Query] = []
-        aggregations: list[Aggregation] = []
+        aggregation_metrics: list[AggregationMetric] = []
         for check in self.checks:
             queries.extend(check.queries)
-            aggregations.extend(check.aggregations)
+            aggregation_metrics.extend(check.aggregation_metrics)
 
         from soda_core.contracts.impl.check_types.schema_check_type import SchemaQuery
         schema_queries: list[SchemaQuery] = []
@@ -230,13 +229,15 @@ class Contract:
                 other_queries.append(query)
 
         aggregation_queries: list[AggregationQuery] = []
-        for aggregation in aggregations:
-            if len(aggregation_queries) == 0 or not aggregation_queries[-1].can_add(aggregation):
-                aggregations.append(AggregationQuery())
-            aggregation_queries[-1].append_aggregation(aggregation)
-
-        for aggregation_query in aggregation_queries:
-            aggregation_query.build()
+        for aggregation_metric in aggregation_metrics:
+            if len(aggregation_queries) == 0 or not aggregation_queries[-1].can_accept(aggregation_metric):
+                aggregation_queries.append(AggregationQuery(
+                    dataset_qualifiers=[self.database_name, self.schema_name],
+                    dataset_name=self.dataset_name,
+                    filter_condition=None,
+                    data_source=self.data_source
+                ))
+            aggregation_queries[-1].append_aggregation_metric(aggregation_metric)
 
         return schema_queries + aggregation_queries + other_queries
 
@@ -255,18 +256,6 @@ class MetricsResolver:
 
     def get_resolved_metrics(self) -> list[Metric]:
         return self.metrics
-
-
-class AggregationQueries:
-
-    def __init__(self):
-        self.aggregations: list[Aggregation] = []
-
-    def add_aggregation(self, aggregation: Aggregation) -> None:
-        self.aggregations.append(aggregation)
-
-    def build(self) -> list[Query]:
-        pass
 
 
 class Check:
@@ -289,11 +278,11 @@ class Check:
 
         self.metrics: list[Metric] = []
         self.queries: list[Query] = []
-        self.aggregations: list[Aggregation] = []
+        self.aggregation_metrics: list[AggregationMetric] = []
 
         self.skip: bool = False
 
-    def skip_if_schema_is_not_matching(self, schema_check_result: SchemaCheckResult) -> None:
+    def skip_if_schema_is_not_matching(self, schema_check_result: 'SchemaCheckResult') -> None:
         if schema_check_result.dataset_does_not_exists():
             self.skip = True
         elif (self.column_name
@@ -341,38 +330,99 @@ class Metric:
         return True
 
 
+class AggregationMetric(Metric):
+
+    def __init__(self, data_source_name: str, database_name: str | None, schema_name: str | None,
+                 dataset_name: str | None, column_name: str | None, metric_type_name: str):
+        super().__init__(data_source_name, database_name, schema_name, dataset_name, column_name, metric_type_name)
+
+    @abstractmethod
+    def sql_expression(self) -> SqlExpression:
+        pass
+
+    def set_measured_value(self, param):
+        pass
+
+
 class Query(ABC):
 
     def __init__(
         self,
-        sql: str,
-        metrics: list[Metric]
+        data_source: DataSource,
+        metrics: list[Metric],
+        sql: str | None = None
     ):
-        self.sql: str = sql
+        self.data_source: DataSource = data_source
         self.metrics: list[Metric] = metrics
+        self.sql: str | None = sql
+
+    def build_sql(self) -> str:
+        """
+        Signals the query building process is done.  The framework assumes that after this call the self.sql is initialized with the query string.
+        """
+        return self.sql
 
     @abstractmethod
-    def execute(self, data_source: DataSource) -> None:
+    def execute(self) -> None:
         pass
-
-
-class Aggregation:
-    pass
 
 
 class AggregationQuery(Query):
 
-    def __init__(self):
-        super().__init__()
+    def __init__(
+        self,
+        dataset_qualifiers: list[str],
+        dataset_name: str,
+        filter_condition: str | None,
+        data_source: DataSource
+    ):
+        super().__init__(data_source=data_source, metrics=[])
+        self.dataset_qualifiers: list[str] = dataset_qualifiers
+        self.dataset_name: str = dataset_name
+        self.filter_condition: str = filter_condition
+        self.aggregation_metrics: list[AggregationMetric] = []
+        self.data_source: DataSource = data_source
+        self.query_size: int = len(self.build_sql())
 
-    def is_full(self) -> bool:
-        return len(self.metrics) > 50
+    def can_accept(self, aggregation_metric: AggregationMetric) -> bool:
+        sql_expression: SqlExpression = aggregation_metric.sql_expression()
+        sql_expression_str: str = self.data_source.sql_dialect.build_expression_sql(sql_expression)
+        return self.query_size + len(sql_expression_str) < self.data_source.get_max_aggregation_query_length()
 
-    def build_query_sql(self) -> str:
-        pass
+    def append_aggregation_metric(self, aggregation_metric: AggregationMetric) -> None:
+        self.aggregation_metrics.append(aggregation_metric)
+
+    def build_sql(self) -> str:
+        field_expressions: list[SqlExpression] = self.build_field_expressions()
+        select = [
+            SELECT(field_expressions),
+            FROM(self.dataset_name, self.dataset_qualifiers)
+        ]
+        if self.filter_condition:
+            select.append(WHERE(SqlExpressionStr(self.filter_condition)))
+        self.sql = self.data_source.sql_dialect.build_select_sql(select)
+        return self.sql
+
+    def build_field_expressions(self) -> list[SqlExpression]:
+        if len(self.aggregation_metrics) == 0:
+            # This is to get the initial query length in the constructor
+            return [COUNT(STAR())]
+        return [
+            aggregation_metric.sql_expression()
+            for aggregation_metric in self.aggregation_metrics
+        ]
+
+    def execute(self) -> None:
+        query_result: QueryResult = self.data_source.execute_query(self.sql)
+        row: tuple = query_result.rows[0]
+        for i in range(0, len(self.aggregation_metrics)):
+            aggregation_metric: AggregationMetric = self.aggregation_metrics[i]
+            aggregation_metric.set_measured_value(row[i])
 
     def process_query_result(self, query_result: QueryResult) -> None:
-        pass
+        row: tuple = query_result.rows[0]
+        for i in range(0, len(row)):
+            self.aggregation_metrics[i].measured_value = row[i]
 
 
 class Measurement:

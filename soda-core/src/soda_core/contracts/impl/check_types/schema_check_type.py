@@ -3,12 +3,12 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from soda_core.common.data_source import DataSource
-from soda_core.common.data_source_connection import QueryResult
-from soda_core.common.statements.metadata_columns_query import MetadataColumnsQuery
+from soda_core.common.data_source_results import QueryResult
+from soda_core.common.statements.metadata_columns_query import MetadataColumnsQuery, MetadataColumn
 from soda_core.common.yaml import YamlObject
 from soda_core.contracts.contract_verification import CheckResult, CheckOutcome
-from soda_core.contracts.impl.contract_verification_impl import Metric, CheckType, Check, MetricsResolver, Query
-from soda_core.contracts.impl.contract_yaml import CheckYaml, ColumnYaml, ContractYaml
+from soda_core.contracts.impl.contract_verification_impl import Metric, Check, MetricsResolver, Query
+from soda_core.contracts.impl.contract_yaml import CheckYaml, ColumnYaml, ContractYaml, CheckType
 
 
 class SchemaCheckType(CheckType):
@@ -54,12 +54,6 @@ class SchemaCheckYaml(CheckYaml):
             metrics_resolver=metrics_resolver,
             data_source=data_source
         )
-
-
-@dataclass
-class ActualColumn:
-    column_name: str
-    data_type: str
 
 
 @dataclass
@@ -124,7 +118,7 @@ class SchemaCheck(Check):
         actual_column_names_not_expected: list[str] = []
         column_data_type_mismatches: list[ColumnDataTypeMismatch] = []
 
-        actual_columns: list[ActualColumn] = self.metrics[0].measured_value
+        actual_columns: list[MetadataColumn] = self.metrics[0].measured_value
         if actual_columns:
             actual_column_names = [
                 actual_column.column_name for actual_column in actual_columns
@@ -208,39 +202,20 @@ class SchemaQuery(Query):
         data_source: DataSource
     ):
         super().__init__(
-            sql=self._build_schema_query_sql(
-                database_name=database_name,
-                schema_name=schema_name,
-                dataset_name=dataset_name,
-                data_source=data_source
-            ),
+            data_source=data_source,
             metrics=[schema_metric]
         )
-        self.database_name: str | None = database_name
-        self.schema_name: str | None = schema_name
-        self.dataset_name: str = dataset_name
-
-    def _build_schema_query_sql(
-        self,
-        database_name: str | None,
-        schema_name: str | None,
-        dataset_name: str,
-        data_source: DataSource
-    ) -> str:
-        return (
-            MetadataColumnsQuery(sql_dialect=data_source.sql_dialect, data_source_connection=data_source.data_source_connection)
-            .with_database_name(database_name)
-            .with_schema_name(schema_name)
-            .with_dataset_name(dataset_name)
-            .build_sql()
+        self.metadata_columns_query_builder: MetadataColumnsQuery = data_source.create_metadata_columns_query()
+        self.sql = self.metadata_columns_query_builder.build_sql(
+            database_name=database_name,
+            schema_name=schema_name,
+            dataset_name=dataset_name,
         )
 
-    def execute(self, data_source: DataSource) -> None:
-        query_result: QueryResult = data_source.execute_query(self.sql)
-        columns_metadata: list[ActualColumn] = [
-            ActualColumn(row[0], row[1]) for row in query_result.rows
-        ]
-        self.metrics[0].measured_value = columns_metadata
+    def execute(self) -> None:
+        query_result: QueryResult = self.data_source.execute_query(self.sql)
+        metadata_columns: list[MetadataColumn] = self.metadata_columns_query_builder.get_result(query_result)
+        self.metrics[0].measured_value = metadata_columns
 
 
 class SchemaCheckResult(CheckResult):
@@ -248,7 +223,7 @@ class SchemaCheckResult(CheckResult):
     def __init__(self,
                  expected_columns: list[ExpectedColumn],
                  outcome: CheckOutcome,
-                 actual_columns: list[ActualColumn],
+                 actual_columns: list[MetadataColumn],
                  expected_column_names_not_actual: list[str],
                  actual_column_names_not_expected: list[str],
                  column_data_type_mismatches: list[ColumnDataTypeMismatch],
@@ -258,7 +233,7 @@ class SchemaCheckResult(CheckResult):
             outcome=outcome
         )
         self.expected_columns: list[ExpectedColumn] = expected_columns
-        self.actual_columns: list[ActualColumn] = actual_columns
+        self.actual_columns: list[MetadataColumn] = actual_columns
         self.expected_column_names_not_actual: list[str] = expected_column_names_not_actual
         self.actual_column_names_not_expected: list[str] = actual_column_names_not_expected
         self.column_data_type_mismatches: list[ColumnDataTypeMismatch] = column_data_type_mismatches

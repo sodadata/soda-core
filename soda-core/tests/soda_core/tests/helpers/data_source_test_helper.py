@@ -8,10 +8,10 @@ import string
 from textwrap import dedent
 
 from soda_core.common.data_source import DataSource
+from soda_core.common.data_source_results import QueryResult
 from soda_core.common.data_source_parser import DataSourceParser
 from soda_core.common.logs import Logs, Log
-from soda_core.common.statements.create_table import CreateTableColumn
-from soda_core.common.statements.metadata_tables_query import FullyQualifiedTableName
+from soda_core.common.statements.metadata_tables_query import FullyQualifiedTableName, MetadataTablesQuery
 from soda_core.common.yaml import YamlFile
 from soda_core.contracts.contract_verification import (
     ContractVerification,
@@ -19,7 +19,6 @@ from soda_core.contracts.contract_verification import (
     ContractVerificationResult, ContractResult,
 )
 from soda_core.tests.helpers.test_table import TestDataType, TestTable, TestTableSpecification, TestColumn
-
 
 logger = logging.getLogger(__name__)
 
@@ -231,38 +230,38 @@ class DataSourceTestHelper:
             if self.is_cicd:
                 self.drop_test_schema_if_exists()
 
+    def query_existing_test_table_names(self):
+        metadata_tables_query: MetadataTablesQuery = self.data_source.create_metadata_tables_query()
+        fully_qualified_table_names: list[FullyQualifiedTableName] = metadata_tables_query.execute(
+            database_name=self.database_name,
+            schema_name=self.schema_name,
+            include_table_name_like_filters=["SODATEST_%"],
+        )
+        return [
+            fully_qualified_test_table_name.table_name
+            for fully_qualified_test_table_name in fully_qualified_table_names
+        ]
+
     def create_test_schema_if_not_exists(self) -> None:
-        self.data_source.execute_update(
-            self.data_source
-            .create_create_schema()
-            .with_database_name(self.database_name)
-            .with_schema_name(self.schema_name)
-            .build())
+        sql: str = self.create_test_schema_if_not_exists_sql()
+        self.data_source.execute_update(sql)
+
+    def create_test_schema_if_not_exists_sql(self) -> str:
+        return f"CREATE SCHEMA IF NOT EXISTS {self.schema_name} AUTHORIZATION CURRENT_USER;"
 
     def drop_test_schema_if_exists(self) -> None:
-        (self.data_source
-         .create_drop_schema()
-            .with_database_name(self.database_name)
-            .with_schema_name(self.schema_name)
-            .execute())
+        sql: str = self.drop_test_schema_if_exists_sql()
+        self.data_source.execute_update(sql)
+
+    def drop_test_schema_if_exists_sql(self) -> str:
+        return f"DROP SCHEMA IF EXISTS {self.schema_name} CASCADE;"
 
     def ensure_test_table(self, test_table_specification: TestTableSpecification) -> TestTable:
         """
         Returns a test table with the given table data
         """
         if self.existing_test_table_names is None:
-            fully_qualified_test_table_names: list[FullyQualifiedTableName] = (
-                self.data_source.create_table_names_query()
-                .with_database_name(self.database_name)
-                .with_schema_name(self.schema_name)
-                .with_include_table_name_like_filters(["SODATEST_%"])
-                .execute()
-            )
-
-            self.existing_test_table_names = [
-                fully_qualified_test_table_name.table_name
-                for fully_qualified_test_table_name in fully_qualified_test_table_names
-            ]
+            self.existing_test_table_names = self.query_existing_test_table_names()
 
         test_table: TestTable = self.test_tables.get(test_table_specification.unique_name)
         if not test_table:
@@ -322,42 +321,83 @@ class DataSourceTestHelper:
         )
 
     def _create_and_insert_test_table(self, test_table: TestTable) -> None:
-        (self.data_source.create_create_table()
-            .with_database_name(self.database_name)
-            .with_schema_name(self.schema_name)
-            .with_dataset_name(test_table.unique_name)
-            .with_columns([
-                CreateTableColumn(column_name=test_column_name, data_type=test_column.data_type)
-                for test_column_name, test_column in test_table.columns.items()
-            ])
-            .execute()
-        )
+        self._create_test_table(test_table)
+        self._insert_test_table_rows(test_table)
 
+    def _create_test_table(self, test_table: TestTable) -> None:
+        sql: str = self._create_test_table_sql(test_table)
+        self.data_source.execute_update(sql)
+
+    def _create_test_table_sql(self, test_table: TestTable) -> str:
+        test_table_name_qualified_quoted: str = self.data_source.sql_dialect.qualify_table(
+            database_name=self.database_name,
+            schema_name=self.schema_name,
+            table_name=test_table.unique_name
+        )
+        columns_sql: str = ",\n".join(
+            [
+                f"  {column.name} {column.data_type}"
+                for column in test_table.columns.values()
+            ]
+        )
+        return self._create_test_table_sql_statement(test_table_name_qualified_quoted, columns_sql)
+
+    def _create_test_table_sql_statement(self, table_name_qualified_quoted: str, columns_sql: str) -> str:
+        return f"CREATE TABLE {table_name_qualified_quoted} ( \n{columns_sql} \n);"
+
+    def _insert_test_table_rows(self, test_table: TestTable) -> None:
+        sql: str = self._insert_test_table_rows_sql(test_table)
+        if sql:
+            self.data_source.execute_update(sql)
+
+    def _insert_test_table_rows_sql(self, test_table: TestTable) -> str:
         if test_table.row_values:
             def literalize_row(row: tuple) -> list[str]:
                 return [
                     self.data_source.sql_dialect.literal(value)
                     for value in row
                 ]
+
             literal_row_values = [
                 literalize_row(row_values)
                 for row_values in test_table.row_values
             ]
 
-            (self.data_source.create_insert_into()
-                .with_database_name(self.database_name)
-                .with_schema_name(self.schema_name)
-                .with_dataset_name(test_table.unique_name)
-                .with_literal_row_values(literal_row_values)
-                .execute()
-             )
+            table_name_qualified_quoted = self.data_source.sql_dialect.qualify_table(
+                database_name=self.database_name,
+                schema_name=self.schema_name,
+                table_name=test_table.unique_name
+            )
+
+            def format_literal_row_values(row: list[str]) -> str:
+                return ",".join(row)
+
+            rows_sql = ",\n".join(
+                [
+                    f"  ({format_literal_row_values(row)})" for row in literal_row_values
+                ]
+            )
+
+            return self._insert_test_table_rows_sql_statement(table_name_qualified_quoted, rows_sql)
+
+    def _insert_test_table_rows_sql_statement(self, table_name_qualified_quoted, rows_sql):
+        return f"INSERT INTO {table_name_qualified_quoted} VALUES \n" f"{rows_sql};"
 
     def _drop_test_table(self, table_name: str) -> None:
-        (self.data_source.create_drop_table()
-         .with_database_name(self.database_name)
-         .with_schema_name(self.schema_name)
-         .with_dataset_name(table_name)
-         .execute())
+        sql: str = self._drop_test_table_sql(table_name)
+        self.data_source.execute_update(sql)
+
+    def _drop_test_table_sql(self, table_name) -> str:
+        table_name_qualified_quoted: str = self.data_source.sql_dialect.qualify_table(
+            database_name=self.database_name,
+            schema_name=self.schema_name,
+            table_name=table_name
+        )
+
+        return self._drop_test_table_sql_statement(table_name_qualified_quoted)
+
+    def _drop_test_table_sql_statement(self, table_name_qualified_quoted: str) -> str:
+        return f"DROP TABLE {table_name_qualified_quoted};"
 
     def get_parse_errors_str(self, contract_yaml_str: str) -> str:
         contract_yaml_str = dedent(contract_yaml_str).strip()

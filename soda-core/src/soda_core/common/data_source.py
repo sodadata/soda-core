@@ -2,14 +2,11 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 
-from soda_core.common.data_source_connection import DataSourceConnection, QueryResult, UpdateResult
+from soda_core.common.data_source_connection import DataSourceConnection
+from soda_core.common.data_source_results import QueryResult, UpdateResult
 from soda_core.common.logs import Logs
 from soda_core.common.sql_dialect import SqlDialect
-from soda_core.common.statements.create_schema import CreateSchema
-from soda_core.common.statements.create_table import CreateTable
-from soda_core.common.statements.drop_schema import DropSchema
-from soda_core.common.statements.drop_table import DropTable
-from soda_core.common.statements.insert_into import InsertInto
+from soda_core.common.statements.metadata_columns_query import MetadataColumnsQuery
 from soda_core.common.statements.metadata_tables_query import MetadataTablesQuery
 from soda_core.common.yaml import YamlFile
 
@@ -44,7 +41,7 @@ class DataSource(ABC):
         self.logs: Logs = data_source_yaml_file.logs
         self.name: str = name
         self.type_name: str = type_name
-        self.sql_dialect = self._create_sql_dialect()
+        self.sql_dialect: SqlDialect = self._create_sql_dialect()
         self.connection_properties: dict | None = connection_properties
         self.data_source_connection: DataSourceConnection | None = None
 
@@ -82,26 +79,26 @@ class DataSource(ABC):
         if self.data_source_connection:
             self.data_source_connection.close_connection()
 
-    def create_create_schema(self) -> CreateSchema:
-        return CreateSchema(sql_dialect=self.sql_dialect, data_source_connection=self.data_source_connection)
-
-    def create_drop_schema(self) -> DropSchema:
-        return self.create_drop_schema()
-
-    def create_create_table(self) -> CreateTable:
-        return self.create_create_table()
-
-    def create_drop_table(self) -> DropTable:
-        return self.create_drop_table()
-
-    def create_insert_into(self) -> InsertInto:
-        return self.create_insert_into()
-
-    def create_table_names_query(self) -> MetadataTablesQuery:
+    def create_metadata_tables_query(self) -> MetadataTablesQuery:
         return MetadataTablesQuery(sql_dialect=self.sql_dialect, data_source_connection=self.data_source_connection)
+
+    def create_metadata_columns_query(self) -> MetadataColumnsQuery:
+        return MetadataColumnsQuery(sql_dialect=self.sql_dialect, data_source_connection=self.data_source_connection)
 
     def execute_query(self, sql: str) -> QueryResult:
         return self.data_source_connection.execute_query(sql=sql)
 
     def execute_update(self, sql: str) -> UpdateResult:
         return self.data_source_connection.execute_update(sql=sql)
+
+    def get_max_aggregation_query_length(self) -> int:
+        # What is the maximum query length of common analytical databases?
+        # ChatGPT said:
+        # Here are the maximum query lengths for some common analytical databases:
+        # PostgreSQL: 1 GB
+        # MySQL: 1 MB (configurable via max_allowed_packet)
+        # SQL Server: 65,536 bytes (approximately 65 KB)
+        # Oracle: 64 KB (depends on SQL string encoding)
+        # Snowflake: 1 MB
+        # BigQuery: No documented limit on query size, but practical limits on complexity and performance.
+        return 63 * 1024 * 1024

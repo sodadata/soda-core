@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass
 from datetime import date, datetime
 from numbers import Number
+
+from soda_core.common.sql_ast import *
 
 
 class SqlDialect:
@@ -96,13 +97,13 @@ class SqlDialect:
         select_field_sqls: list[str] = []
         for select_element in select_elements:
             if isinstance(select_element, SELECT):
-                if isinstance(select_element.fields, str) or isinstance(select_element.fields, Expression):
+                if isinstance(select_element.fields, str) or isinstance(select_element.fields, SqlExpression):
                     select_element.fields = [select_element.fields]
                 for select_field in select_element.fields:
                     if isinstance(select_field, str):
                         select_field_sqls.append(self.quote_default(select_field))
-                    elif isinstance(select_field, Expression):
-                        select_field_sqls.append(self._build_expression_sql(select_field))
+                    elif isinstance(select_field, SqlExpression):
+                        select_field_sqls.append(self.build_expression_sql(select_field))
                     else:
                         raise Exception(f"Invalid select field type: {select_field.__class__.__name__}")
 
@@ -123,7 +124,7 @@ class SqlDialect:
 
         return select_sql_lines
 
-    def _build_expression_sql(self, expression: Expression | str | Number) -> str:
+    def build_expression_sql(self, expression: SqlExpression | str | Number) -> str:
         if isinstance(expression, str):
             return self.quote_default(expression)
         elif isinstance(expression, Number):
@@ -138,8 +139,22 @@ class SqlDialect:
             return self._build_and_sql(expression)
         elif isinstance(expression, Operator):
             return self._build_operator_sql(expression)
+        elif isinstance(expression, COUNT):
+            return self._build_count_sql(expression)
+        elif isinstance(expression, CASE_WHEN):
+            return self._build_case_when_sql(expression)
+        elif isinstance(expression, IS_NULL):
+            return self._build_is_null_sql(expression)
+        elif isinstance(expression, LIKE):
+            return self._build_like_sql(expression)
+        elif isinstance(expression, NOT_LIKE):
+            return self._build_not_like_sql(expression)
+        elif isinstance(expression, LOWER):
+            return self._build_lower_sql(expression)
         elif isinstance(expression, FUNCTION):
             return self._build_function_sql(expression)
+        elif isinstance(expression, SqlExpressionStr):
+            return expression.expression_str
         elif isinstance(expression, STAR):
             return "*"
         raise Exception(f"Invalid expression type {expression.__class__.__name__}")
@@ -151,19 +166,19 @@ class SqlDialect:
         return f"{table_alias_sql}{column_sql}{field_alias_sql}"
 
     def _build_or_sql(self, or_expr: OR) -> str:
-        if isinstance(or_expr.clauses, str) or isinstance(or_expr.clauses, Expression):
-            return self._build_expression_sql(or_expr.clauses)
+        if isinstance(or_expr.clauses, str) or isinstance(or_expr.clauses, SqlExpression):
+            return self.build_expression_sql(or_expr.clauses)
         or_clauses_sql: str = " OR ".join(
-            self._build_expression_sql(or_clause)
+            self.build_expression_sql(or_clause)
             for or_clause in or_expr.clauses
         )
         return f"({or_clauses_sql})"
 
     def _build_and_sql(self, and_expr: AND) -> str:
-        if isinstance(and_expr.clauses, str) or isinstance(and_expr.clauses, Expression):
-            return self._build_expression_sql(and_expr.clauses)
+        if isinstance(and_expr.clauses, str) or isinstance(and_expr.clauses, SqlExpression):
+            return self.build_expression_sql(and_expr.clauses)
         return " AND ".join(
-            self._build_expression_sql(and_clause)
+            self.build_expression_sql(and_clause)
             for and_clause in and_expr.clauses
         )
 
@@ -214,10 +229,10 @@ class SqlDialect:
             LIKE: "like",
         }
         operator_sql: str = operators[type(operator)]
-        return f"{self._build_expression_sql(operator.left)} {operator_sql} {self._build_expression_sql(operator.right)}"
+        return f"{self.build_expression_sql(operator.left)} {operator_sql} {self.build_expression_sql(operator.right)}"
 
     def _build_where_sql_lines(self, select_elements: list) -> list[str]:
-        and_expressions: list[Expression] = []
+        and_expressions: list[SqlExpression] = []
         for select_element in select_elements:
             if isinstance(select_element, WHERE):
                 and_expressions.append(select_element.condition)
@@ -225,7 +240,7 @@ class SqlDialect:
                 and_expressions.extend(select_element._get_clauses_as_list())
 
         where_parts: list[str] = [
-            self._build_expression_sql(and_expression)
+            self.build_expression_sql(and_expression)
             for and_expression in and_expressions
         ]
 
@@ -239,9 +254,9 @@ class SqlDialect:
         return where_sql_lines
 
     def _build_function_sql(self, function: FUNCTION) -> str:
-        args: list[Expression | str] = [function.args] if not isinstance(function.args, list) else function.args
+        args: list[SqlExpression | str] = [function.args] if not isinstance(function.args, list) else function.args
         args_sqls: list[str] = [
-            self._build_expression_sql(arg)
+            self.build_expression_sql(arg)
             for arg in args
         ]
         if function.name in ["+", "-", "/", "*"]:
@@ -251,128 +266,22 @@ class SqlDialect:
             args_list_sql: str = ", ".join(args_sqls)
             return f"{function.name}({args_list_sql})"
 
+    def _build_count_sql(self, count: COUNT) -> str:
+        return f"COUNT({self.build_expression_sql(count.expression)})"
 
-@dataclass
-class SELECT:
-    fields: Expression | str | list[Expression | str]
+    def _build_is_null_sql(self, is_null: IS_NULL) -> str:
+        return f"{self.build_expression_sql(is_null.expression)} IS NULL"
 
+    def _build_like_sql(self, like: LIKE) -> str:
+        return f"{self.build_expression_sql(like.left)} LIKE {self.build_expression_sql(like.right)}"
 
-@dataclass
-class FROM:
-    table_name: str
-    table_prefixes: list[str] | None = None
-    alias: str | None = None
+    def _build_not_like_sql(self, not_like: NOT_LIKE) -> str:
+        return f"{self.build_expression_sql(not_like.left)} NOT LIKE {self.build_expression_sql(not_like.right)}"
 
-    def AS(self, alias: str) -> FROM:
-        return FROM(table_name=self.table_name, table_prefixes=self.table_prefixes, alias=alias)
+    def _build_lower_sql(self, lower: LOWER) -> str:
+        return f"LOWER({self.build_expression_sql(lower.expression)})"
 
-    def IN(self, table_prefixes: str | list[str]) -> FROM:
-        table_prefixes = table_prefixes if isinstance(table_prefixes, list) else [table_prefixes]
-        return FROM(table_name=self.table_name, table_prefixes=table_prefixes, alias=self.alias)
-
-
-@dataclass
-class WHERE:
-    condition: Expression
-
-
-@dataclass
-class Expression:
-    pass
-
-
-@dataclass
-class STAR(Expression):
-    pass
-
-
-@dataclass
-class COLUMN(Expression):
-    name: str
-    table_alias: str | None = None
-    field_alias: str | None = None
-
-    def IN(self, table_alias: str) -> COLUMN:
-        return COLUMN(name=self.name, table_alias=table_alias, field_alias=self.field_alias)
-
-    def AS(self, field_alias: str) -> COLUMN:
-        return COLUMN(name=self.name, table_alias=self.table_alias, field_alias=field_alias)
-
-
-@dataclass
-class FUNCTION(Expression):
-    name: str
-    args: list[Expression | str]
-
-
-@dataclass
-class LITERAL(Expression):
-    value: object
-
-
-@dataclass
-class Operator(Expression):
-    left: Expression | str
-    right: Expression | str
-
-
-@dataclass
-class EQ(Operator):
-    pass
-
-
-@dataclass
-class NEQ(Operator):
-    pass
-
-
-@dataclass
-class LIKE(Operator):
-    pass
-
-
-@dataclass
-class GT(Operator):
-    pass
-
-
-@dataclass
-class GTE(Operator):
-    pass
-
-
-@dataclass
-class LT(Operator):
-    pass
-
-
-@dataclass
-class LTE(Operator):
-    pass
-
-
-@dataclass
-class NOT(Expression):
-    expression: Expression | str
-
-
-@dataclass
-class AND(Expression):
-    clauses: Expression | str | list[Expression]
-
-    def _get_clauses_as_list(self) -> list[Expression]:
-        if isinstance(self.clauses, list):
-            return self.clauses
-        else:
-            return [self.clauses]
-
-
-@dataclass
-class OR(Expression):
-    clauses: Expression | str | list[Expression]
-
-    def _get_clauses_as_list(self) -> list[Expression]:
-        if isinstance(self.clauses, list):
-            return self.clauses
-        else:
-            return [self.clauses]
+    def _build_case_when_sql(self, case_when: CASE_WHEN) -> str:
+        return (f"CASE WHEN {self.build_expression_sql(case_when.condition)}, "
+                f"{self.build_expression_sql(case_when.if_value)}, "
+                f"{self.build_expression_sql(case_when.else_value)})")

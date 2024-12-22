@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime
 from typing import Iterable
 
 from soda_core.tests.helpers.consistent_hash_builder import ConsistentHashBuilder
