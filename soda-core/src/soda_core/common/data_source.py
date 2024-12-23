@@ -9,33 +9,26 @@ from soda_core.common.sql_dialect import SqlDialect
 from soda_core.common.statements.metadata_columns_query import MetadataColumnsQuery
 from soda_core.common.statements.metadata_tables_query import MetadataTablesQuery
 from soda_core.common.yaml import YamlFile
+from typing import Type
+
+
+def soda_datasource(type: str):
+    def decorator(cls: Type[DataSource]):
+        if not issubclass(cls, DataSource):
+            raise TypeError(f"Class {cls.__name__} must inherit from DataSource.")
+        DataSourceRegistry.data_source_types[type] = cls
+        return cls
+
+    return decorator
 
 
 class DataSource(ABC):
-
-    @classmethod
-    def create(
-            cls,
-            data_source_yaml_file: YamlFile,
-            name: str,
-            type_name: str,
-            connection_properties: dict,
-            spark_session: object | None
-    ) -> DataSource:
-        from soda_core.common.data_sources.postgres_data_source import PostgresDataSource
-        return PostgresDataSource(
-                data_source_yaml_file=data_source_yaml_file,
-                name=name,
-                type_name=type_name,
-                connection_properties=connection_properties
-            )
-
     def __init__(
-            self,
-            data_source_yaml_file: YamlFile,
-            name: str,
-            type_name: str,
-            connection_properties: dict,
+        self,
+        data_source_yaml_file: YamlFile,
+        name: str,
+        type_name: str,
+        connection_properties: dict,
     ):
         self.data_source_yaml_file: YamlFile = data_source_yaml_file
         self.logs: Logs = data_source_yaml_file.logs
@@ -51,10 +44,7 @@ class DataSource(ABC):
 
     @abstractmethod
     def _create_data_source_connection(
-            self,
-            name: str,
-            connection_properties: dict,
-            logs: Logs
+        self, name: str, connection_properties: dict, logs: Logs
     ) -> DataSourceConnection:
         pass
 
@@ -69,7 +59,7 @@ class DataSource(ABC):
         self.data_source_connection = self._create_data_source_connection(
             name=self.name,
             connection_properties=self.connection_properties,
-            logs=self.data_source_yaml_file.logs
+            logs=self.data_source_yaml_file.logs,
         )
 
     def __exit__(self, exc_type, exc_val, exc_tb):
@@ -80,10 +70,16 @@ class DataSource(ABC):
             self.data_source_connection.close_connection()
 
     def create_metadata_tables_query(self) -> MetadataTablesQuery:
-        return MetadataTablesQuery(sql_dialect=self.sql_dialect, data_source_connection=self.data_source_connection)
+        return MetadataTablesQuery(
+            sql_dialect=self.sql_dialect,
+            data_source_connection=self.data_source_connection,
+        )
 
     def create_metadata_columns_query(self) -> MetadataColumnsQuery:
-        return MetadataColumnsQuery(sql_dialect=self.sql_dialect, data_source_connection=self.data_source_connection)
+        return MetadataColumnsQuery(
+            sql_dialect=self.sql_dialect,
+            data_source_connection=self.data_source_connection,
+        )
 
     def execute_query(self, sql: str) -> QueryResult:
         return self.data_source_connection.execute_query(sql=sql)
@@ -102,3 +98,38 @@ class DataSource(ABC):
         # Snowflake: 1 MB
         # BigQuery: No documented limit on query size, but practical limits on complexity and performance.
         return 63 * 1024 * 1024
+
+
+class DataSourceRegistry:
+    data_source_types = []
+    data_sources = {str: DataSource}
+
+    @classmethod
+    def create(
+        cls,
+        data_source_yaml_file: YamlFile,
+        name: str,
+        type_name: str,
+        connection_properties: dict,
+        spark_session: object | None,
+    ) -> DataSource:
+        if type_name not in cls.data_source_types:
+            raise ValueError(
+                f"Data source type '{type_name}' is not supported or is not correctly registered."
+            )
+
+        if name not in cls.data_sources:
+            cls.data_sources[name] = cls.data_source_types[type_name](
+                data_source_yaml_file=data_source_yaml_file,
+                name=name,
+                type_name=type_name,
+                connection_properties=connection_properties,
+            )
+
+        return cls.data_sources[name]
+
+    @classmethod
+    def get(cls, name: str) -> DataSource:
+        if name not in cls.data_sources:
+            raise ValueError(f"Data source '{name}' is not registered.")
+        return cls.data_sources[name]

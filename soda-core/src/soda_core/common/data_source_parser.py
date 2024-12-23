@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from soda_core.common.data_source import DataSource
+from soda_core.common.data_source import DataSourceRegistry
 from soda_core.common.logs import Logs
 from soda_core.common.yaml import YamlFile, YamlObject
 
@@ -8,9 +8,7 @@ from soda_core.common.yaml import YamlFile, YamlObject
 class DataSourceParser:
 
     def __init__(
-            self,
-            data_source_yaml_file: YamlFile,
-            spark_session: object | None = None
+        self, data_source_yaml_file: YamlFile, spark_session: object | None = None
     ):
         self.logs: Logs = data_source_yaml_file.logs
         self.data_source_yaml_file: YamlFile = data_source_yaml_file
@@ -33,10 +31,10 @@ class DataSourceParser:
                     # TODO add location
                 )
 
-            return DataSource.create(
+            return DataSourceRegistry.create(
                 data_source_yaml_file=self.data_source_yaml_file,
                 name=data_source_name,
                 type_name=data_source_type_name,
                 connection_properties=connection_properties,
-                spark_session=self.spark_session
+                spark_session=self.spark_session,
             )
