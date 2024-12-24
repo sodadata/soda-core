@@ -69,7 +69,7 @@ class ContractVerificationImpl:
         contracts: list[Contract] = []
         for contract_yaml_file in self.contract_files:
             contract_yaml_file.parse(variables=self.variables)
-            contract_yaml: ContractYaml = ContractYaml(contract_yaml_file=contract_yaml_file)
+            contract_yaml: ContractYaml = ContractYaml(contract_yaml_file_content=contract_yaml_file)
             contract: Contract = Contract(contract_yaml=contract_yaml, data_source=self.data_source, logs=self.logs)
             contracts.append(contract)
         return contracts

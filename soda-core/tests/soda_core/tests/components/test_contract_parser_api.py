@@ -18,7 +18,7 @@ def test_contract_parser():
     )
     contract_yaml_file.parse({})
 
-    contract: ContractYaml = ContractYaml(contract_yaml_file=contract_yaml_file)
+    contract: ContractYaml = ContractYaml(contract_yaml_file_content=contract_yaml_file)
 
     assert "postgres_test_ds" == contract.data_source_file
     assert "soda_test" == contract.database_name

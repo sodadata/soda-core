@@ -5,7 +5,7 @@ from numbers import Number
 
 from soda_core.common.data_source import DataSource
 from soda_core.common.logs import Logs
-from soda_core.common.yaml import YamlSource, YamlObject, YamlList, YamlValue
+from soda_core.common.yaml import YamlSource, YamlObject, YamlList, YamlValue, YamlFileContent
 
 
 class CheckType(ABC):
@@ -45,13 +45,12 @@ class ContractYaml:
     List properties will have a None value if the property is not present or the content was not a list, a list otherwise
     """
 
-    def __init__(self, contract_yaml_file: YamlSource):
-        assert contract_yaml_file.is_parsed
-        assert isinstance(contract_yaml_file, YamlSource)
-        self.contract_yaml_file: YamlSource = contract_yaml_file
-        self.logs: Logs = contract_yaml_file.logs
+    def __init__(self, contract_yaml_file_content: YamlFileContent):
+        assert isinstance(contract_yaml_file_content, YamlFileContent)
+        self.contract_yaml_file_content: YamlFileContent = contract_yaml_file_content
+        self.logs: Logs = contract_yaml_file_content.logs
 
-        contract_yaml_object = self.contract_yaml_file.get_yaml_object()
+        contract_yaml_object = self.contract_yaml_file_content.get_yaml_object()
         self.contract_yaml_object: YamlObject = contract_yaml_object
 
         self.data_source_file: str | None = (
