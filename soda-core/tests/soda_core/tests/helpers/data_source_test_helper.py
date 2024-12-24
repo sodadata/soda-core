@@ -12,7 +12,7 @@ from soda_core.common.data_source_results import QueryResult
 from soda_core.common.data_source_parser import DataSourceParser
 from soda_core.common.logs import Logs, Log
 from soda_core.common.statements.metadata_tables_query import FullyQualifiedTableName, MetadataTablesQuery
-from soda_core.common.yaml import YamlFile
+from soda_core.common.yaml import YamlSource
 from soda_core.contracts.contract_verification import (
     ContractVerification,
     ContractVerificationBuilder,
@@ -86,7 +86,7 @@ class DataSourceTestHelper:
         """
         logs: Logs = Logs()
         test_data_source_yaml_dict: dict = self._create_data_source_yaml_dict()
-        data_source_yaml_file = YamlFile(yaml_dict=test_data_source_yaml_dict, logs=logs)
+        data_source_yaml_file = YamlSource(yaml_dict=test_data_source_yaml_dict, logs=logs)
         data_source_parser = DataSourceParser(
             data_source_yaml_file=data_source_yaml_file,
             spark_session=None

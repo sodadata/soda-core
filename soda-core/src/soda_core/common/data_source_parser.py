@@ -2,18 +2,18 @@ from __future__ import annotations
 
 from soda_core.common.data_source import DataSource
 from soda_core.common.logs import Logs
-from soda_core.common.yaml import YamlFile, YamlObject
+from soda_core.common.yaml import YamlSource, YamlObject
 
 
 class DataSourceParser:
 
     def __init__(
             self,
-            data_source_yaml_file: YamlFile,
+            data_source_yaml_file: YamlSource,
             spark_session: object | None = None
     ):
         self.logs: Logs = data_source_yaml_file.logs
-        self.data_source_yaml_file: YamlFile = data_source_yaml_file
+        self.data_source_yaml_file: YamlSource = data_source_yaml_file
         self.spark_session: object = spark_session
 
     def parse(self, variables: dict | None = None) -> DataSource | None:

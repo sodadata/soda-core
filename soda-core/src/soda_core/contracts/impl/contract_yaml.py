@@ -5,7 +5,7 @@ from numbers import Number
 
 from soda_core.common.data_source import DataSource
 from soda_core.common.logs import Logs
-from soda_core.common.yaml import YamlFile, YamlObject, YamlList, YamlValue
+from soda_core.common.yaml import YamlSource, YamlObject, YamlList, YamlValue
 
 
 class CheckType(ABC):
@@ -45,25 +45,26 @@ class ContractYaml:
     List properties will have a None value if the property is not present or the content was not a list, a list otherwise
     """
 
-    def __init__(self, contract_yaml_file: YamlFile):
+    def __init__(self, contract_yaml_file: YamlSource):
         assert contract_yaml_file.is_parsed
-        assert isinstance(contract_yaml_file, YamlFile)
-        self.contract_yaml_file: YamlFile = contract_yaml_file
+        assert isinstance(contract_yaml_file, YamlSource)
+        self.contract_yaml_file: YamlSource = contract_yaml_file
         self.logs: Logs = contract_yaml_file.logs
 
         contract_yaml_object = self.contract_yaml_file.get_yaml_object()
         self.contract_yaml_object: YamlObject = contract_yaml_object
-        self.data_source_name: str | None = None
-        self.database_name: str | None = None
-        self.schema_name: str | None = None
-        self.dataset_name: str | None = None
 
-        if isinstance(contract_yaml_object, YamlObject):
-            self.contract_yaml_object: YamlObject = contract_yaml_object
-            self.data_source_name: str | None = contract_yaml_object.read_string_opt("data_source")
-            self.database_name: str | None = contract_yaml_object.read_string_opt("database")
-            self.schema_name: str | None = contract_yaml_object.read_string_opt("schema")
-            self.dataset_name: str | None = contract_yaml_object.read_string("dataset")
+        self.data_source_file: str | None = (
+            contract_yaml_object.read_string_opt("data_source_file")
+            if contract_yaml_object else None)
+
+        self.data_source_path: list[str] | None = (
+            contract_yaml_object.read_list_of_strings("data_source_path")
+            if contract_yaml_object else None)
+
+        self.dataset_name: str | None = (
+            contract_yaml_object.read_string("dataset")
+            if contract_yaml_object else None)
 
         self.columns: list[ColumnYaml | None] = self._parse_columns(contract_yaml_object)
         self.checks: list[CheckYaml | None] = self._parse_checks(contract_yaml_object)

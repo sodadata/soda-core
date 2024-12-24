@@ -1,7 +1,7 @@
 from soda_core.common.data_source import DataSource
 from soda_core.common.data_source_results import QueryResult
 from soda_core.common.data_source_parser import DataSourceParser
-from soda_core.common.yaml import YamlFile
+from soda_core.common.yaml import YamlSource
 from soda_core.tests.helpers.data_source_test_helper import DataSourceTestHelper
 from soda_core.tests.helpers.test_table import TestTableSpecification
 
@@ -24,7 +24,7 @@ def test_data_source_api(data_source_test_helper: DataSourceTestHelper):
     test_table = data_source_test_helper.ensure_test_table(test_table_specification)
 
     data_source_yaml_dict: dict = data_source_test_helper._create_data_source_yaml_dict()
-    data_source_yaml_file: YamlFile = YamlFile(yaml_dict=data_source_yaml_dict)
+    data_source_yaml_file: YamlSource = YamlSource(yaml_dict=data_source_yaml_dict)
     data_source_parser: DataSourceParser = DataSourceParser(data_source_yaml_file)
     data_source: DataSource = data_source_parser.parse()
 

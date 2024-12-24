@@ -7,7 +7,7 @@ from soda_core.common.data_source_results import QueryResult
 from soda_core.common.data_source_parser import DataSourceParser
 from soda_core.common.logs import Logs
 from soda_core.common.sql_dialect import *
-from soda_core.common.yaml import YamlFile
+from soda_core.common.yaml import YamlSource
 from soda_core.contracts.contract_verification import ContractVerificationResult, ContractResult, \
     ContractVerificationBuilder, CheckResult
 from soda_core.contracts.impl.contract_yaml import ContractYaml, CheckYaml, ColumnYaml
@@ -17,21 +17,21 @@ class ContractVerificationImpl:
 
     def __init__(
             self,
-            data_source_yaml_file: YamlFile | None,
+            data_source_yaml_file: YamlSource | None,
             data_source: object | None,
             spark_session: object | None,
-            contract_files: list[YamlFile],
-            soda_cloud_file: YamlFile | None,
-            plugin_files: list[YamlFile],
+            contract_files: list[YamlSource],
+            soda_cloud_file: YamlSource | None,
+            plugin_files: list[YamlSource],
             variables: dict[str, str],
             logs: Logs = Logs()
     ):
-        self.data_source_yaml_file: YamlFile | None = data_source_yaml_file
+        self.data_source_yaml_file: YamlSource | None = data_source_yaml_file
         self.data_source: object | None = data_source
         self.spark_session: object | None = spark_session
-        self.contract_files: list[YamlFile] = contract_files
-        self.soda_cloud_file: YamlFile | None = soda_cloud_file
-        self.plugin_files: list[YamlFile] = plugin_files
+        self.contract_files: list[YamlSource] = contract_files
+        self.soda_cloud_file: YamlSource | None = soda_cloud_file
+        self.plugin_files: list[YamlSource] = plugin_files
         self.variables: dict[str, str] = variables
         self.logs: Logs = logs
         self.data_source: DataSource = self._parse_data_source()
@@ -54,7 +54,7 @@ class ContractVerificationImpl:
     def _parse_data_source(self) -> DataSource | None:
         if isinstance(self.data_source, DataSource):
             return self.data_source
-        elif isinstance(self.data_source_yaml_file, YamlFile):
+        elif isinstance(self.data_source_yaml_file, YamlSource):
             data_source_yaml_file = self.data_source_yaml_file
             spark_session = self.spark_session
             data_source_parser = DataSourceParser(
@@ -75,13 +75,13 @@ class ContractVerificationImpl:
         return contracts
 
     def _parse_soda_cloud(self, contract_verification_builder: ContractVerificationBuilder) -> None:
-        soda_cloud_file: YamlFile | None = contract_verification_builder.soda_cloud_file
-        if isinstance(soda_cloud_file, YamlFile) and soda_cloud_file.exists():
+        soda_cloud_file: YamlSource | None = contract_verification_builder.soda_cloud_file
+        if isinstance(soda_cloud_file, YamlSource) and soda_cloud_file.exists():
             soda_cloud_file.parse(contract_verification_builder.variables)
             self.soda_cloud = SodaCloud(soda_cloud_file)
 
     def _parse_plugins(self, contract_verification_builder) -> None:
-        plugin_files_by_type: dict[str, list[YamlFile]] = {}
+        plugin_files_by_type: dict[str, list[YamlSource]] = {}
         for plugin_file in contract_verification_builder.plugin_files:
             plugin_file.parse(self.variables)
             if isinstance(plugin_file.dict, dict):
@@ -163,7 +163,7 @@ class Contract:
         self.data_source: DataSource = data_source
         self.contract_yaml: ContractYaml = contract_yaml
 
-        self.data_source_name: str | None = contract_yaml.data_source_name if contract_yaml else None
+        self.data_source_name: str | None = contract_yaml.data_source_file if contract_yaml else None
         self.database_name: str | None = contract_yaml.database_name if contract_yaml else None
         self.schema_name: str | None = contract_yaml.schema_name if contract_yaml else None
         self.dataset_name: str | None = contract_yaml.dataset_name if contract_yaml else None
@@ -268,7 +268,7 @@ class Check:
     ):
         self.logs: Logs = contract_yaml.logs
 
-        self.data_source_name: str = contract_yaml.data_source_name
+        self.data_source_name: str = contract_yaml.data_source_file
         self.database_name: str | None = contract_yaml.database_name
         self.schema_name: str | None = contract_yaml.schema_name
         self.dataset_name: str = contract_yaml.dataset_name

@@ -8,7 +8,7 @@ from soda_core.common.logs import Logs
 from soda_core.common.sql_dialect import SqlDialect
 from soda_core.common.statements.metadata_columns_query import MetadataColumnsQuery
 from soda_core.common.statements.metadata_tables_query import MetadataTablesQuery
-from soda_core.common.yaml import YamlFile
+from soda_core.common.yaml import YamlSource
 
 
 class DataSource(ABC):
@@ -16,7 +16,7 @@ class DataSource(ABC):
     @classmethod
     def create(
             cls,
-            data_source_yaml_file: YamlFile,
+            data_source_yaml_file: YamlSource,
             name: str,
             type_name: str,
             connection_properties: dict,
@@ -32,12 +32,12 @@ class DataSource(ABC):
 
     def __init__(
             self,
-            data_source_yaml_file: YamlFile,
+            data_source_yaml_file: YamlSource,
             name: str,
             type_name: str,
             connection_properties: dict,
     ):
-        self.data_source_yaml_file: YamlFile = data_source_yaml_file
+        self.data_source_yaml_file: YamlSource = data_source_yaml_file
         self.logs: Logs = data_source_yaml_file.logs
         self.name: str = name
         self.type_name: str = type_name

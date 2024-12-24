@@ -1,9 +1,9 @@
-from soda_core.common.yaml import YamlFile
+from soda_core.common.yaml import YamlSource
 from soda_core.contracts.impl.contract_yaml import ContractYaml, ColumnYaml, CheckYaml
 
 
 def test_contract_parser():
-    contract_yaml_file: YamlFile = YamlFile(
+    contract_yaml_file: YamlSource = YamlSource(
         yaml_str="""
         data_source: postgres_test_ds
         database: soda_test
@@ -20,7 +20,7 @@ def test_contract_parser():
 
     contract: ContractYaml = ContractYaml(contract_yaml_file=contract_yaml_file)
 
-    assert "postgres_test_ds" == contract.data_source_name
+    assert "postgres_test_ds" == contract.data_source_file
     assert "soda_test" == contract.database_name
     assert "dev_tom" == contract.schema_name
     assert "SODATEST_test_schema_31761d69" == contract.dataset_name
