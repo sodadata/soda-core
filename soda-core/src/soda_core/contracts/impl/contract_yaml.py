@@ -3,6 +3,8 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from numbers import Number
 
+from tomlkit import string
+
 from soda_core.common.data_source import DataSource
 from soda_core.common.logs import Logs
 from soda_core.common.yaml import YamlSource, YamlObject, YamlList, YamlValue, YamlFileContent
@@ -55,14 +57,29 @@ class ContractYaml:
 
         self.data_source_file: str | None = (
             contract_yaml_object.read_string_opt("data_source_file")
-            if contract_yaml_object else None)
+            if contract_yaml_object else None
+        )
 
-        self.data_source_path: list[str] | None = (
-            contract_yaml_object.read_list_of_strings("data_source_path")
-            if contract_yaml_object else None)
+        self.data_source_location: dict[str, str] | None = None
+        data_source_location_yaml_object: YamlObject = (
+            contract_yaml_object.read_object_opt("data_source_location")
+            if contract_yaml_object else None
+        )
+        if data_source_location_yaml_object:
+            self.data_source_location = {}
+            data_source_location_dict: dict = data_source_location_yaml_object.to_dict()
+            for k, v in data_source_location_dict.items():
+                if not isinstance(k, str):
+                    self.logs.error(f"Invalid location key type '{k}:{v}'.  "
+                                    f"Expected string, but was {k.__class__.__name__}")
+                if not isinstance(v, str):
+                    self.logs.error(f"Invalid location value type '{k}:{v}'.  "
+                                    f"Expected string, but was {v.__class__.__name__}")
+                if isinstance(k, str) and isinstance(v, str):
+                    self.data_source_location[k] = v
 
         self.dataset_name: str | None = (
-            contract_yaml_object.read_string("dataset")
+            contract_yaml_object.read_string("dataset_name")
             if contract_yaml_object else None)
 
         self.columns: list[ColumnYaml | None] = self._parse_columns(contract_yaml_object)
