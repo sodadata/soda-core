@@ -4,7 +4,7 @@ from soda_core.tests.helpers.test_functions import dedent_and_strip
 
 
 def test_contract_parser():
-    contract_yaml_source: YamlSource = YamlSource.from_str(file_type="test_contract", yaml_str=dedent_and_strip("""
+    contract_yaml_source: YamlSource = YamlSource.from_str(yaml_str=dedent_and_strip("""
         data_source_file: ../../data_source_${env}.yml
         data_source_location:
           database: soda_test
@@ -17,9 +17,8 @@ def test_contract_parser():
           - type: schema
         """
     ))
-    contract_yaml_file_content: YamlFileContent = contract_yaml_source.parse_yaml_file_content({"env": "test"})
 
-    contract: ContractYaml = ContractYaml(contract_yaml_file_content=contract_yaml_file_content)
+    contract: ContractYaml = ContractYaml(contract_yaml_source=contract_yaml_source, variables={"env": "test"})
 
     assert "../../data_source_test.yml" == contract.data_source_file
     assert "soda_test" == contract.data_source_location.get("database")

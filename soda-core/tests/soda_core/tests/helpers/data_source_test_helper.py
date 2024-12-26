@@ -50,7 +50,7 @@ class TestContractVerification(ContractVerification):
         super().__init__(contract_verification_builder=test_contract_verification_builder)
 
     def _initialize_data_source(self, contract_verification_builder: ContractVerificationBuilder) -> None:
-        self.data_source = contract_verification_builder.data_source
+        self.data_source = contract_verification_builder.provided_data_source
 
 
 class DataSourceTestHelper:
@@ -86,9 +86,10 @@ class DataSourceTestHelper:
         """
         logs: Logs = Logs()
         test_data_source_yaml_dict: dict = self._create_data_source_yaml_dict()
-        data_source_yaml_file = YamlSource(yaml_dict=test_data_source_yaml_dict, logs=logs)
+        data_source_yaml_file = YamlSource.from_dict(yaml_dict=test_data_source_yaml_dict)
         data_source_parser = DataSourceParser(
-            data_source_yaml_file=data_source_yaml_file,
+            data_source_yaml_source=data_source_yaml_file,
+            logs=logs,
             spark_session=None
         )
         data_source: DataSource = data_source_parser.parse()

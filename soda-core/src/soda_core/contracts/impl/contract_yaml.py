@@ -47,7 +47,8 @@ class ContractYaml:
     List properties will have a None value if the property is not present or the content was not a list, a list otherwise
     """
 
-    def __init__(self, contract_yaml_file_content: YamlFileContent):
+    def __init__(self, contract_yaml_source: YamlSource, variables: dict[str, str] | None = None):
+        contract_yaml_file_content: YamlFileContent = contract_yaml_source.parse_yaml_file_content(file_type="contract", variables=variables)
         assert isinstance(contract_yaml_file_content, YamlFileContent)
         self.contract_yaml_file_content: YamlFileContent = contract_yaml_file_content
         self.logs: Logs = contract_yaml_file_content.logs

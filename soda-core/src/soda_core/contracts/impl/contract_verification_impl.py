@@ -1,118 +1,141 @@
 from __future__ import annotations
 
+import os
 from abc import abstractmethod, ABC
 
 from soda_core.common.data_source import DataSource
-from soda_core.common.data_source_results import QueryResult
 from soda_core.common.data_source_parser import DataSourceParser
+from soda_core.common.data_source_results import QueryResult
 from soda_core.common.logs import Logs
 from soda_core.common.sql_dialect import *
-from soda_core.common.yaml import YamlSource
+from soda_core.common.yaml import YamlSource, YamlFileContent
 from soda_core.contracts.contract_verification import ContractVerificationResult, ContractResult, \
     ContractVerificationBuilder, CheckResult
 from soda_core.contracts.impl.contract_yaml import ContractYaml, CheckYaml, ColumnYaml
+
+
+class DataSourceContracts:
+
+    def __init__(self, data_source: DataSource):
+        self.data_source: DataSource = data_source
+        self.contracts: list[Contract] = []
+
+    def add_contract(self, contract: Contract) -> None:
+        self.contracts.append(contract)
 
 
 class ContractVerificationImpl:
 
     def __init__(
             self,
-            data_source_yaml_file: YamlSource | None,
-            data_source: object | None,
-            spark_session: object | None,
-            contract_files: list[YamlSource],
-            soda_cloud_file: YamlSource | None,
-            plugin_files: list[YamlSource],
+            provided_data_source: DataSource,
+            contract_yaml_sources: list[YamlSource],
             variables: dict[str, str],
             logs: Logs = Logs()
     ):
-        self.data_source_yaml_file: YamlSource | None = data_source_yaml_file
-        self.data_source: object | None = data_source
-        self.spark_session: object | None = spark_session
-        self.contract_files: list[YamlSource] = contract_files
-        self.soda_cloud_file: YamlSource | None = soda_cloud_file
-        self.plugin_files: list[YamlSource] = plugin_files
-        self.variables: dict[str, str] = variables
         self.logs: Logs = logs
-        self.data_source: DataSource = self._parse_data_source()
-        self.contracts: list[Contract] = self._parse_contracts()
+        self.provided_data_source: DataSource | None = provided_data_source
+        self.data_sources_contracts: list[DataSourceContracts] = []
+
+        if provided_data_source:
+            self.data_sources_contracts.append(DataSourceContracts(data_source=provided_data_source))
+
+        for contract_yaml_source in contract_yaml_sources:
+            contract_yaml: ContractYaml = ContractYaml(contract_yaml_source=contract_yaml_source, variables=variables)
+            data_source_contracts: DataSourceContracts = self.resolve_data_source_contracts(contract_yaml)
+            data_source: DataSource = data_source_contracts.data_source
+            contract: Contract = Contract(contract_yaml=contract_yaml, data_source=data_source, logs=self.logs)
+            data_source_contracts.contracts.append(contract)
+
+    def resolve_data_source_contracts(self, contract_yaml: ContractYaml) -> DataSourceContracts:
+        if self.provided_data_source:
+            ...TODO...
+        else:
+            contract_path: str = contract_yaml.contract_yaml_file_content.yaml_file_path
+            if isinstance(contract_path, str):
+                real_contract_path: str = os.path.realpath(contract_path)
+                contract_dir: str = os.path.dirname(real_contract_path)
+
+                data_source_relative_path: str | None = contract_yaml.data_source_file
+                data_source_path: str = os.path.join(contract_dir, data_source_relative_path)
+                real_data_source_path: str = os.path.realpath(data_source_path)
+
+                data_source_contracts: DataSourceContracts = self.find_existing_data_source_contracts(real_data_source_path)
+
+                if not data_source_contracts:
+                    data_source_yaml_source: YamlSource = YamlSource.from_file_path(yaml_file_path=real_data_source_path)
+                    data_source_parser: DataSourceParser = DataSourceParser(data_source_yaml_source, logs=self.logs)
+                    data_source = data_source_parser.parse()
+                    data_source_contracts = DataSourceContracts(data_source=data_source)
+
+                return data_source_contracts
+
+    def find_existing_data_source_contracts(self, real_data_source_path: str) -> DataSourceContracts | None:
+        for data_source_contracts in self.data_sources_contracts:
+            if real_data_source_path == data_source_contracts.data_source.data_source_yaml_file_content.yaml_file_path:
+                return data_source_contracts
+        return None
 
     def execute(self) -> ContractVerificationResult:
         contract_results: list[ContractResult] = []
 
-        if isinstance(self.data_source, DataSource) and len(self.contracts) > 0:
-            contract_results: list[ContractResult] = self.verify_contracts(self.contracts)
-        else:
-            self.logs.error("No data source configured")
+        for data_source_contracts in self.data_sources_contracts:
+            if isinstance(data_source_contracts.data_source, DataSource) and len(data_source_contracts.contracts) > 0:
+                data_source_contract_results: list[ContractResult] = self.verify_data_source_contracts(
+                    data_source_contracts
+                )
+                contract_results.extend(data_source_contract_results)
+            else:
+                self.logs.error("No data source configured")
 
         return ContractVerificationResult(
             logs=self.logs,
-            variables=self.variables,
             contract_results=contract_results
         )
 
-    def _parse_data_source(self) -> DataSource | None:
-        if isinstance(self.data_source, DataSource):
-            return self.data_source
-        elif isinstance(self.data_source_yaml_file, YamlSource):
-            data_source_yaml_file = self.data_source_yaml_file
-            spark_session = self.spark_session
-            data_source_parser = DataSourceParser(
-                data_source_yaml_file=data_source_yaml_file,
-                spark_session=spark_session
-            )
-            return data_source_parser.parse(self.variables)
-        else:
-            self.logs.error("No data source provided")
+    # def _parse_soda_cloud(self, contract_verification_builder: ContractVerificationBuilder) -> None:
+    #     soda_cloud_file: YamlSource | None = contract_verification_builder.soda_cloud_file
+    #     if isinstance(soda_cloud_file, YamlSource) and soda_cloud_file.exists():
+    #         soda_cloud_file.parse(contract_verification_builder.variables)
+    #         self.soda_cloud = SodaCloud(soda_cloud_file)
+    #
+    # def _parse_plugins(self, contract_verification_builder) -> None:
+    #     plugin_files_by_type: dict[str, list[YamlSource]] = {}
+    #     for plugin_file in contract_verification_builder.plugin_files:
+    #         plugin_file.parse(self.variables)
+    #         if isinstance(plugin_file.dict, dict):
+    #             plugin: str | None = plugin_file.dict.get("plugin")
+    #             if isinstance(plugin, str):
+    #                 plugin_files_by_type.setdefault(plugin, []).append(plugin_file)
+    #             else:
+    #                 self.logs.error(f"Key plugin is required in plugin YAML files")
+    #         else:
+    #             self.logs.error(f"Could not read plugin YAML file {plugin_file.file_path}")
+    #     for plugin_name, plugin_yaml_files in plugin_files_by_type.items():
+    #         for plugin_yaml_file in plugin_yaml_files:
+    #             plugin_yaml_file.parse(self.variables)
+    #         plugin: Plugin = Plugin.create(plugin_name, plugin_yaml_files, self.logs)
+    #         if isinstance(plugin, Plugin):
+    #             self.plugins.append(plugin)
+    #         else:
+    #             self.logs.error(f"Could not load plugin {plugin_name}")
 
-    def _parse_contracts(self) -> list[Contract]:
-        contracts: list[Contract] = []
-        for contract_yaml_file in self.contract_files:
-            contract_yaml_file.parse(variables=self.variables)
-            contract_yaml: ContractYaml = ContractYaml(contract_yaml_file_content=contract_yaml_file)
-            contract: Contract = Contract(contract_yaml=contract_yaml, data_source=self.data_source, logs=self.logs)
-            contracts.append(contract)
-        return contracts
-
-    def _parse_soda_cloud(self, contract_verification_builder: ContractVerificationBuilder) -> None:
-        soda_cloud_file: YamlSource | None = contract_verification_builder.soda_cloud_file
-        if isinstance(soda_cloud_file, YamlSource) and soda_cloud_file.exists():
-            soda_cloud_file.parse(contract_verification_builder.variables)
-            self.soda_cloud = SodaCloud(soda_cloud_file)
-
-    def _parse_plugins(self, contract_verification_builder) -> None:
-        plugin_files_by_type: dict[str, list[YamlSource]] = {}
-        for plugin_file in contract_verification_builder.plugin_files:
-            plugin_file.parse(self.variables)
-            if isinstance(plugin_file.dict, dict):
-                plugin: str | None = plugin_file.dict.get("plugin")
-                if isinstance(plugin, str):
-                    plugin_files_by_type.setdefault(plugin, []).append(plugin_file)
-                else:
-                    self.logs.error(f"Key plugin is required in plugin YAML files")
-            else:
-                self.logs.error(f"Could not read plugin YAML file {plugin_file.file_path}")
-        for plugin_name, plugin_yaml_files in plugin_files_by_type.items():
-            for plugin_yaml_file in plugin_yaml_files:
-                plugin_yaml_file.parse(self.variables)
-            plugin: Plugin = Plugin.create(plugin_name, plugin_yaml_files, self.logs)
-            if isinstance(plugin, Plugin):
-                self.plugins.append(plugin)
-            else:
-                self.logs.error(f"Could not load plugin {plugin_name}")
-
-    def verify_contracts(self, contracts: list[Contract]) -> list[ContractResult]:
+    def verify_data_source_contracts(self, data_source_contracts: DataSourceContracts) -> list[ContractResult]:
         contract_results: list[ContractResult] = []
-        self.data_source.data_source_connection.open_connection()
+        data_source = data_source_contracts.data_source
+        open_close: bool = data_source.has_open_connection()
+        if open_close:
+            data_source.open_connection()
         try:
-            if len(contracts) > 0:
-                for contract in contracts:
+            if len(data_source_contracts.contracts) == 0:
+                self.logs.error("No contracts specified")
+            else:
+                for contract in data_source_contracts.contracts:
                     contract_result: ContractResult = self.verify_contract(contract)
                     contract_results.append(contract_result)
-            else:
-                self.logs.error("No contracts specified")
         finally:
-            self.data_source.data_source_connection.close_connection()
+            if open_close:
+                data_source.close_connection()
         return contract_results
 
     def verify_contract(self, contract: Contract) -> ContractResult:
@@ -131,29 +154,29 @@ class ContractVerificationImpl:
         )
 
 
-class CheckDependencyResolver:
-    def __init__(self, checks: list[Check]):
-        self.checks_not_evaluated: list[Check] = checks
-        self.checks_evaluating_batch: list[Check] = []
-        self.checks_evaluated: list[Check] = []
-
-    def next_dependency_batch(self) -> bool:
-        self.checks_evaluated.extend(self.checks_evaluating_batch)
-        self.checks_evaluating_batch = []
-        for check_not_evaluated in self.checks_not_evaluated:
-            if self.has_all_dependencies_available(check_not_evaluated):
-                self.checks_not_evaluated.remove(check_not_evaluated)
-                self.checks_evaluating_batch.append(check_not_evaluated)
-        return len(self.checks_evaluating_batch) > 0
-
-    def has_all_dependencies_available(self, check_not_evaluated: Check) -> bool:
-        return all(
-            check_dependency in self.checks_evaluated
-            for check_dependency in check_not_evaluated.check_dependencies
-        )
-
-    def get_next_dependency_batch(self) -> list[Check]:
-        return self.checks_evaluating_batch
+# class CheckDependencyResolver:
+#     def __init__(self, checks: list[Check]):
+#         self.checks_not_evaluated: list[Check] = checks
+#         self.checks_evaluating_batch: list[Check] = []
+#         self.checks_evaluated: list[Check] = []
+#
+#     def next_dependency_batch(self) -> bool:
+#         self.checks_evaluated.extend(self.checks_evaluating_batch)
+#         self.checks_evaluating_batch = []
+#         for check_not_evaluated in self.checks_not_evaluated:
+#             if self.has_all_dependencies_available(check_not_evaluated):
+#                 self.checks_not_evaluated.remove(check_not_evaluated)
+#                 self.checks_evaluating_batch.append(check_not_evaluated)
+#         return len(self.checks_evaluating_batch) > 0
+#
+#     def has_all_dependencies_available(self, check_not_evaluated: Check) -> bool:
+#         return all(
+#             check_dependency in self.checks_evaluated
+#             for check_dependency in check_not_evaluated.check_dependencies
+#         )
+#
+#     def get_next_dependency_batch(self) -> list[Check]:
+#         return self.checks_evaluating_batch
 
 
 class Contract:

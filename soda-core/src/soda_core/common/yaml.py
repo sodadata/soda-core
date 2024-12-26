@@ -21,112 +21,75 @@ class YamlParser:
 
 class YamlSource:
 
-    __yaml_parser = YamlParser()
-
-    def __init__(self, description: str, yaml_file_path: str | None = None):
-        self.description: str = description
-        self.yaml_file_path: str | None = yaml_file_path
-
     @classmethod
-    def from_str(cls, file_type: str, yaml_str: str) -> YamlSource:
+    def from_str(cls, yaml_str: str) -> YamlSource:
         return StrYamlSource(
-            file_type=file_type,
             yaml_str=yaml_str
         )
 
     @classmethod
-    def from_file_path(cls, file_type: str, yaml_file_path: str) -> YamlSource:
+    def from_file_path(cls, yaml_file_path: str) -> YamlSource:
         return FileYamlSource(
-            file_type=file_type,
             yaml_file_path=yaml_file_path
         )
 
     @classmethod
-    def from_dict(cls, file_type: str, yaml_dict: dict) -> YamlSource:
+    def from_dict(cls, yaml_dict: dict) -> YamlSource:
         return DictYamlSource(
-            file_type=file_type,
             yaml_dict=yaml_dict
         )
 
     @abstractmethod
-    def parse_yaml_file_content(self, variables: dict | None = None, logs: Logs = None) -> YamlFileContent:
+    def parse_yaml_file_content(
+        self, file_type: str, variables: dict | None = None, logs: Logs = None
+    ) -> YamlFileContent:
         pass
-
-    def _resolve_yaml_str(self, yaml_str: str, variables: dict | None) -> str | None:
-        return VariableResolver.resolve(source_text_with_variables=yaml_str, variables=variables)
-
-    def _parse_yaml_dict(self, yaml_str: str, logs: Logs) -> any:
-        if isinstance(yaml_str, str):
-            try:
-                root_yaml_object: any = self.__yaml_parser.ruamel_yaml_parser.load(yaml_str)
-                if isinstance(root_yaml_object, dict):
-                    return root_yaml_object
-                else:
-                    location = Location(file_path=self.yaml_file_path, line=0, column=0)
-                    logs.error(
-                        message=f"Root YAML in {self.description} is not an object, "
-                                f"but was: {root_yaml_object.__class__.__name__}",
-                        location=location
-                    )
-                    return None
-
-            except MarkedYAMLError as e:
-                mark = e.context_mark if e.context_mark else e.problem_mark
-                line = mark.line + 1
-                col = mark.column + 1
-                location = Location(file_path=self.yaml_file_path, line=line, column=col)
-                logs.error(message=f"YAML syntax error in {self.description}", exception=e, location=location)
-
-    def __str__(self) -> str:
-        return self.description
 
 
 class FileYamlSource(YamlSource):
 
-    def __init__(self, file_type: str, yaml_file_path: str):
-        super().__init__(description=f"{file_type} {yaml_file_path}", yaml_file_path=yaml_file_path)
+    def __init__(self, yaml_file_path: str):
+        super().__init__()
+        self.yaml_file_path: str = yaml_file_path
 
-    def parse_yaml_file_content(self, variables: dict | None = None, logs: Logs | None = None) -> YamlFileContent:
+    def parse_yaml_file_content(self, file_type: str, variables: dict | None = None, logs: Logs | None = None) -> YamlFileContent:
         logs = logs if logs else Logs()
-        yaml_str: str | None = self._read_yaml_file(file_path=self.yaml_file_path, logs=logs)
-        yaml_str_resolved: str = self._resolve_yaml_str(yaml_str=yaml_str, variables=variables)
-        yaml_dict: dict | None = self._parse_yaml_dict(yaml_str=yaml_str_resolved, logs=logs)
+        yaml_source_description: str = f"{file_type} {self.yaml_file_path}"
+        yaml_str: str | None = YamlFileContent.read_yaml_file(
+            file_path=self.yaml_file_path, yaml_source_description=yaml_source_description, logs=logs
+        )
+        yaml_str_resolved: str = YamlFileContent.resolve_yaml_str(yaml_str=yaml_str, variables=variables)
+        yaml_dict: dict | None = YamlFileContent.parse_yaml_dict(
+            yaml_str=yaml_str_resolved, yaml_file_path=self.yaml_file_path,
+            yaml_source_description=yaml_source_description, logs=logs
+        )
         return YamlFileContent(
             yaml_file_path=self.yaml_file_path,
-            yaml_source_description=self.description,
+            yaml_source_description=yaml_source_description,
             yaml_str_source=yaml_str,
             yaml_str_resolved=yaml_str_resolved,
             yaml_dict=yaml_dict,
             logs=logs,
         )
 
-    def _read_yaml_file(self, file_path: str, logs: Logs) -> str | None:
-        if isinstance(file_path, str):
-            try:
-                with open(file_path) as f:
-                    return f.read()
-            except OSError as e:
-                if not os.path.exists(file_path):
-                    logs.error(message=f"{self.description} does not exist")
-                elif not os.path.isdir(file_path):
-                    logs.error(message=f"{self.description} is a directory")
-                else:
-                    logs.error(message=f"{self.description} can't be read", exception=e)
-
 
 class StrYamlSource(YamlSource):
 
-    def __init__(self, file_type: str, yaml_str: str):
-        super().__init__(description=f"{file_type} yaml_str")
+    def __init__(self, yaml_str: str):
+        super().__init__()
         self.yaml_str: str = yaml_str
 
-    def parse_yaml_file_content(self, variables: dict | None = None, logs: Logs | None = None) -> YamlFileContent:
+    def parse_yaml_file_content(self, file_type: str, variables: dict | None = None, logs: Logs | None = None) -> YamlFileContent:
         logs = logs if logs else Logs()
-        yaml_str_resolved: str | None = self._resolve_yaml_str(yaml_str=self.yaml_str, variables=variables)
-        yaml_dict: dict | None = self._parse_yaml_dict(yaml_str=yaml_str_resolved, logs=logs)
+        yaml_source_description: str = f"{file_type} yaml string"
+        yaml_str_resolved: str = YamlFileContent.resolve_yaml_str(yaml_str=self.yaml_str, variables=variables)
+        yaml_dict: dict | None = YamlFileContent.parse_yaml_dict(
+            yaml_str=yaml_str_resolved, yaml_file_path=yaml_source_description,
+            yaml_source_description=yaml_source_description, logs=logs
+        )
         return YamlFileContent(
             yaml_file_path=None,
-            yaml_source_description=self.description,
+            yaml_source_description=yaml_source_description,
             yaml_str_source=self.yaml_str,
             yaml_str_resolved=yaml_str_resolved,
             yaml_dict=yaml_dict,
@@ -136,15 +99,15 @@ class StrYamlSource(YamlSource):
 
 class DictYamlSource(YamlSource):
 
-    def __init__(self, file_type: str, yaml_dict: dict):
-        super().__init__(description=f"{file_type} yaml_dict")
+    def __init__(self, yaml_dict: dict):
+        super().__init__()
         self.yaml_dict: dict = yaml_dict
 
-    def parse_yaml_file_content(self, variables: dict | None = None, logs: Logs | None = None) -> YamlFileContent:
+    def parse_yaml_file_content(self, file_type: str, variables: dict | None = None, logs: Logs | None = None) -> YamlFileContent:
         logs = logs if logs else Logs()
         return YamlFileContent(
             yaml_file_path=None,
-            yaml_source_description=self.description,
+            yaml_source_description=f"{file_type} yaml dict",
             yaml_str_source=None,
             yaml_str_resolved=None,
             yaml_dict=self.yaml_dict,
@@ -153,6 +116,9 @@ class DictYamlSource(YamlSource):
 
 
 class YamlFileContent:
+
+    __yaml_parser = YamlParser()
+
     def __init__(
         self,
         yaml_file_path: str | None,
@@ -169,6 +135,47 @@ class YamlFileContent:
         self.yaml_dict: dict | None = yaml_dict
         self.logs: Logs = logs
 
+    @classmethod
+    def read_yaml_file(cls, file_path: str, yaml_source_description: str, logs: Logs) -> str | None:
+        if isinstance(file_path, str):
+            try:
+                with open(file_path) as f:
+                    return f.read()
+            except OSError as e:
+                if not os.path.exists(file_path):
+                    logs.error(message=f"{yaml_source_description} does not exist")
+                elif not os.path.isdir(file_path):
+                    logs.error(message=f"{yaml_source_description} is a directory")
+                else:
+                    logs.error(message=f"{yaml_source_description} can't be read", exception=e)
+
+    @classmethod
+    def resolve_yaml_str(cls, yaml_str: str, variables: dict | None) -> str | None:
+        return VariableResolver.resolve(source_text_with_variables=yaml_str, variables=variables)
+
+    @classmethod
+    def parse_yaml_dict(cls, yaml_str: str, yaml_file_path: str | None, yaml_source_description: str, logs: Logs) -> any:
+        if isinstance(yaml_str, str):
+            try:
+                root_yaml_object: any = cls.__yaml_parser.ruamel_yaml_parser.load(yaml_str)
+                if isinstance(root_yaml_object, dict):
+                    return root_yaml_object
+                else:
+                    location = Location(file_path=yaml_file_path, line=0, column=0)
+                    logs.error(
+                        message=f"Root YAML in {yaml_source_description} is not an object, "
+                                f"but was: {root_yaml_object.__class__.__name__}",
+                        location=location
+                    )
+                    return None
+
+            except MarkedYAMLError as e:
+                mark = e.context_mark if e.context_mark else e.problem_mark
+                line = mark.line + 1
+                col = mark.column + 1
+                location = Location(file_path=yaml_file_path, line=line, column=col)
+                logs.error(message=f"YAML syntax error in {yaml_source_description}", exception=e, location=location)
+
     def get_yaml_object(self) -> YamlObject | None:
         return YamlObject(self, self.yaml_dict) if isinstance(self.yaml_dict, dict) else None
 
@@ -181,6 +188,9 @@ class YamlFileContent:
     def assert_no_errors(self) -> None:
         if self.logs.has_errors():
             raise AssertionError(f"{self.yaml_source_description} has errors: {self.logs}")
+
+    def __str__(self) -> str:
+        return self.yaml_source_description
 
 
 class YamlValue:

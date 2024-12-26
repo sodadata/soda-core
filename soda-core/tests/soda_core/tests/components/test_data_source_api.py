@@ -24,8 +24,8 @@ def test_data_source_api(data_source_test_helper: DataSourceTestHelper):
     test_table = data_source_test_helper.ensure_test_table(test_table_specification)
 
     data_source_yaml_dict: dict = data_source_test_helper._create_data_source_yaml_dict()
-    data_source_yaml_file: YamlSource = YamlSource(yaml_dict=data_source_yaml_dict)
-    data_source_parser: DataSourceParser = DataSourceParser(data_source_yaml_file)
+    data_source_yaml_source: YamlSource = YamlSource.from_dict(yaml_dict=data_source_yaml_dict)
+    data_source_parser: DataSourceParser = DataSourceParser(data_source_yaml_source)
     data_source: DataSource = data_source_parser.parse()
 
     with data_source:

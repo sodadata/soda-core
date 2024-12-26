@@ -8,7 +8,7 @@ from soda_core.common.logs import Logs
 from soda_core.common.sql_dialect import SqlDialect
 from soda_core.common.statements.metadata_columns_query import MetadataColumnsQuery
 from soda_core.common.statements.metadata_tables_query import MetadataTablesQuery
-from soda_core.common.yaml import YamlSource
+from soda_core.common.yaml import YamlSource, YamlFileContent
 
 
 class DataSource(ABC):
@@ -16,15 +16,19 @@ class DataSource(ABC):
     @classmethod
     def create(
             cls,
-            data_source_yaml_file: YamlSource,
+            data_source_yaml_source: YamlSource,
             name: str,
             type_name: str,
             connection_properties: dict,
-            spark_session: object | None
+            variables: dict[str, str] | None
     ) -> DataSource:
+        data_source_yaml_file_content: YamlFileContent = data_source_yaml_source.parse_yaml_file_content(
+            file_type="data source", variables=variables
+        )
+
         from soda_core.common.data_sources.postgres_data_source import PostgresDataSource
         return PostgresDataSource(
-                data_source_yaml_file=data_source_yaml_file,
+                data_source_yaml_file_content=data_source_yaml_file_content,
                 name=name,
                 type_name=type_name,
                 connection_properties=connection_properties
@@ -32,13 +36,13 @@ class DataSource(ABC):
 
     def __init__(
             self,
-            data_source_yaml_file: YamlSource,
+            data_source_yaml_file_content: YamlFileContent,
             name: str,
             type_name: str,
             connection_properties: dict,
     ):
-        self.data_source_yaml_file: YamlSource = data_source_yaml_file
-        self.logs: Logs = data_source_yaml_file.logs
+        self.data_source_yaml_file_content: YamlFileContent = data_source_yaml_file_content
+        self.logs: Logs = data_source_yaml_file_content.logs
         self.name: str = name
         self.type_name: str = type_name
         self.sql_dialect: SqlDialect = self._create_sql_dialect()
@@ -69,8 +73,11 @@ class DataSource(ABC):
         self.data_source_connection = self._create_data_source_connection(
             name=self.name,
             connection_properties=self.connection_properties,
-            logs=self.data_source_yaml_file.logs
+            logs=self.data_source_yaml_file_content.logs
         )
+
+    def has_open_connection(self) -> bool:
+        return isinstance(self.data_source_connection, DataSourceConnection)
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.close_connection()

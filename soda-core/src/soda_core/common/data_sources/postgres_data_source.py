@@ -2,14 +2,14 @@ from soda_core.common.data_source import DataSource
 from soda_core.common.data_source_connection import DataSourceConnection
 from soda_core.common.logs import Logs
 from soda_core.common.sql_dialect import SqlDialect
-from soda_core.common.yaml import YamlSource
+from soda_core.common.yaml import YamlFileContent
 from soda_postgres.common.data_sources.postgres_data_source_connection import PostgresDataSourceConnection
 
 
 class PostgresDataSource(DataSource):
 
-    def __init__(self, data_source_yaml_file: YamlSource, name: str, type_name: str, connection_properties: dict):
-        super().__init__(data_source_yaml_file, name, type_name, connection_properties)
+    def __init__(self, data_source_yaml_file_content: YamlFileContent, name: str, type_name: str, connection_properties: dict):
+        super().__init__(data_source_yaml_file_content, name, type_name, connection_properties)
 
     def _get_data_source_type_name(self) -> str:
         return "postgres"
