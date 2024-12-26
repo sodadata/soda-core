@@ -41,34 +41,41 @@ class ContractVerificationImpl:
             self.data_sources_contracts.append(DataSourceContracts(data_source=provided_data_source))
 
         for contract_yaml_source in contract_yaml_sources:
-            contract_yaml: ContractYaml = ContractYaml(contract_yaml_source=contract_yaml_source, variables=variables)
+            contract_yaml: ContractYaml = ContractYaml(contract_yaml_source=contract_yaml_source, variables=variables, logs=logs)
             data_source_contracts: DataSourceContracts = self.resolve_data_source_contracts(contract_yaml)
-            data_source: DataSource = data_source_contracts.data_source
-            contract: Contract = Contract(contract_yaml=contract_yaml, data_source=data_source, logs=self.logs)
-            data_source_contracts.contracts.append(contract)
+            if data_source_contracts:
+                data_source: DataSource = data_source_contracts.data_source
+                contract: Contract = Contract(contract_yaml=contract_yaml, data_source=data_source, logs=self.logs)
+                data_source_contracts.contracts.append(contract)
 
-    def resolve_data_source_contracts(self, contract_yaml: ContractYaml) -> DataSourceContracts:
+    def resolve_data_source_contracts(self, contract_yaml: ContractYaml) -> DataSourceContracts | None:
         if self.provided_data_source:
-            ...TODO...
+            if isinstance(contract_yaml.data_source_file, str):
+                self.logs.error(f"No 'data_source_file' allowed when using a provided data source. Was '{contract_yaml.data_source_file}'")
+            return self.data_sources_contracts[0]
         else:
             contract_path: str = contract_yaml.contract_yaml_file_content.yaml_file_path
-            if isinstance(contract_path, str):
-                real_contract_path: str = os.path.realpath(contract_path)
-                contract_dir: str = os.path.dirname(real_contract_path)
+            contract_file_exists: bool = isinstance(contract_path, str) and os.path.exists(contract_path)
+            if contract_file_exists:
+                if not isinstance(contract_yaml.data_source_file, str):
+                    self.logs.error(f"'data_source_file' is required. (Unless a data source is provided in the API)")
+                else:
+                    real_contract_path: str = os.path.realpath(contract_path)
+                    contract_dir: str = os.path.dirname(real_contract_path)
 
-                data_source_relative_path: str | None = contract_yaml.data_source_file
-                data_source_path: str = os.path.join(contract_dir, data_source_relative_path)
-                real_data_source_path: str = os.path.realpath(data_source_path)
+                    data_source_relative_path: str = contract_yaml.data_source_file
+                    data_source_path: str = os.path.join(contract_dir, data_source_relative_path)
+                    real_data_source_path: str = os.path.realpath(data_source_path)
 
-                data_source_contracts: DataSourceContracts = self.find_existing_data_source_contracts(real_data_source_path)
+                    data_source_contracts: DataSourceContracts = self.find_existing_data_source_contracts(real_data_source_path)
 
-                if not data_source_contracts:
-                    data_source_yaml_source: YamlSource = YamlSource.from_file_path(yaml_file_path=real_data_source_path)
-                    data_source_parser: DataSourceParser = DataSourceParser(data_source_yaml_source, logs=self.logs)
-                    data_source = data_source_parser.parse()
-                    data_source_contracts = DataSourceContracts(data_source=data_source)
+                    if not data_source_contracts:
+                        data_source_yaml_source: YamlSource = YamlSource.from_file_path(yaml_file_path=real_data_source_path)
+                        data_source_parser: DataSourceParser = DataSourceParser(data_source_yaml_source, logs=self.logs)
+                        data_source = data_source_parser.parse()
+                        data_source_contracts = DataSourceContracts(data_source=data_source)
 
-                return data_source_contracts
+                    return data_source_contracts
 
     def find_existing_data_source_contracts(self, real_data_source_path: str) -> DataSourceContracts | None:
         for data_source_contracts in self.data_sources_contracts:
@@ -187,8 +194,8 @@ class Contract:
         self.contract_yaml: ContractYaml = contract_yaml
 
         self.data_source_name: str | None = contract_yaml.data_source_file if contract_yaml else None
-        self.database_name: str | None = contract_yaml.database_name if contract_yaml else None
-        self.schema_name: str | None = contract_yaml.schema_name if contract_yaml else None
+        data_source_location: dict[str, str] = contract_yaml.data_source_locations.get(data_source.get_data_source_type_name())
+        self.dataset_prefix: list[str] | None = data_source.build_dataset_prefix(data_source_location)
         self.dataset_name: str | None = contract_yaml.dataset_name if contract_yaml else None
         metrics_resolver: MetricsResolver = MetricsResolver()
         self.checks: list[Check] = self._parse_checks(contract_yaml, metrics_resolver)

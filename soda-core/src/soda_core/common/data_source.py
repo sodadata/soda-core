@@ -50,7 +50,7 @@ class DataSource(ABC):
         self.data_source_connection: DataSourceConnection | None = None
 
     @abstractmethod
-    def _get_data_source_type_name(self) -> str:
+    def get_data_source_type_name(self) -> str:
         pass
 
     @abstractmethod
@@ -109,3 +109,11 @@ class DataSource(ABC):
         # Snowflake: 1 MB
         # BigQuery: No documented limit on query size, but practical limits on complexity and performance.
         return 63 * 1024 * 1024
+
+    def build_dataset_prefix(self, data_source_location: dict[str, str]) -> list[str] | None:
+        if isinstance(data_source_location, dict):
+            if "database" not in data_source_location:
+                self.logs.error(f"For {self.get_data_source_type_name()}, 'database' is required in 'data_source_location'")
+            if "schema" not in data_source_location:
+                self.logs.error(f"For {self.get_data_source_type_name()}, 'schema' is required in 'data_source_location'")
+            return [data_source_location.get("database"), data_source_location.get("schema")]

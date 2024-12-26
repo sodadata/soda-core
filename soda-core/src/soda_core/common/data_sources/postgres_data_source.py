@@ -11,7 +11,7 @@ class PostgresDataSource(DataSource):
     def __init__(self, data_source_yaml_file_content: YamlFileContent, name: str, type_name: str, connection_properties: dict):
         super().__init__(data_source_yaml_file_content, name, type_name, connection_properties)
 
-    def _get_data_source_type_name(self) -> str:
+    def get_data_source_type_name(self) -> str:
         return "postgres"
 
     def _create_sql_dialect(self) -> SqlDialect:

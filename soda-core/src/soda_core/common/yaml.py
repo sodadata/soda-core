@@ -54,7 +54,7 @@ class FileYamlSource(YamlSource):
 
     def parse_yaml_file_content(self, file_type: str, variables: dict | None = None, logs: Logs | None = None) -> YamlFileContent:
         logs = logs if logs else Logs()
-        yaml_source_description: str = f"{file_type} {self.yaml_file_path}"
+        yaml_source_description: str = f"{file_type} file {self.yaml_file_path}"
         yaml_str: str | None = YamlFileContent.read_yaml_file(
             file_path=self.yaml_file_path, yaml_source_description=yaml_source_description, logs=logs
         )
@@ -223,6 +223,9 @@ class YamlObject(YamlValue):
 
     def items(self) -> list[tuple]:
         return [(k,self._yaml_wrap(v)) for k, v in self.yaml_dict.items()]
+
+    def keys(self) -> list[str]:
+        return self.yaml_dict.keys()
 
     def __iter__(self) -> iter:
         return iter(self.yaml_dict.keys())

@@ -47,44 +47,49 @@ class ContractYaml:
     List properties will have a None value if the property is not present or the content was not a list, a list otherwise
     """
 
-    def __init__(self, contract_yaml_source: YamlSource, variables: dict[str, str] | None = None):
-        contract_yaml_file_content: YamlFileContent = contract_yaml_source.parse_yaml_file_content(file_type="contract", variables=variables)
+    def __init__(self, contract_yaml_source: YamlSource, variables: dict[str, str] | None = None, logs: Logs | None = None):
+        contract_yaml_file_content: YamlFileContent = contract_yaml_source.parse_yaml_file_content(file_type="Contract", variables=variables, logs=logs)
         assert isinstance(contract_yaml_file_content, YamlFileContent)
         self.contract_yaml_file_content: YamlFileContent = contract_yaml_file_content
         self.logs: Logs = contract_yaml_file_content.logs
 
-        contract_yaml_object = self.contract_yaml_file_content.get_yaml_object()
-        self.contract_yaml_object: YamlObject = contract_yaml_object
+        self.contract_yaml_object: YamlObject = self.contract_yaml_file_content.get_yaml_object()
 
         self.data_source_file: str | None = (
-            contract_yaml_object.read_string_opt("data_source_file")
-            if contract_yaml_object else None
+            self.contract_yaml_object.read_string_opt("data_source_file")
+            if self.contract_yaml_object else None
         )
 
-        self.data_source_location: dict[str, str] | None = None
-        data_source_location_yaml_object: YamlObject = (
-            contract_yaml_object.read_object_opt("data_source_location")
-            if contract_yaml_object else None
-        )
-        if data_source_location_yaml_object:
-            self.data_source_location = {}
-            data_source_location_dict: dict = data_source_location_yaml_object.to_dict()
-            for k, v in data_source_location_dict.items():
-                if not isinstance(k, str):
-                    self.logs.error(f"Invalid location key type '{k}:{v}'.  "
-                                    f"Expected string, but was {k.__class__.__name__}")
-                if not isinstance(v, str):
-                    self.logs.error(f"Invalid location value type '{k}:{v}'.  "
-                                    f"Expected string, but was {v.__class__.__name__}")
-                if isinstance(k, str) and isinstance(v, str):
-                    self.data_source_location[k] = v
+        self.data_source_locations: dict[str, dict[str, str]] | None = None
+        for contract_key in self.contract_yaml_object.keys():
+            data_source_location_key_prefix: str = "data_source_location_"
+            if contract_key.startswith(data_source_location_key_prefix):
+                data_source_location = {}
+                location_data_source_type = contract_key[-len(data_source_location_key_prefix):]
+                if not isinstance(self.data_source_locations, dict):
+                    self.data_source_locations = {}
+                self.data_source_locations[location_data_source_type] = data_source_location
+                data_source_location_yaml_object: YamlObject | None = self.contract_yaml_object.read_object(contract_key)
+                if data_source_location_yaml_object:
+                    data_source_location_dict: dict = data_source_location_yaml_object.to_dict()
+                    for k, v in data_source_location_dict.items():
+                        if not isinstance(k, str):
+                            self.logs.error(f"Invalid location key type '{k}:{v}'.  "
+                                            f"Expected string, but was {k.__class__.__name__}")
+                        if not isinstance(v, str):
+                            self.logs.error(f"Invalid location value type '{k}:{v}'.  "
+                                            f"Expected string, but was {v.__class__.__name__}")
+                        if isinstance(k, str) and isinstance(v, str):
+                            data_source_location[k] = v
+                    if not isinstance(self.data_source_locations, dict):
+                        self.data_source_locations = {}
 
         self.dataset_name: str | None = (
-            contract_yaml_object.read_string("dataset_name")
-            if contract_yaml_object else None)
+            self.contract_yaml_object.read_string("dataset_name")
+            if self.contract_yaml_object else None)
 
-        self.columns: list[ColumnYaml | None] = self._parse_columns(contract_yaml_object)
-        self.checks: list[CheckYaml | None] = self._parse_checks(contract_yaml_object)
+        self.columns: list[ColumnYaml | None] = self._parse_columns(self.contract_yaml_object)
+        self.checks: list[CheckYaml | None] = self._parse_checks(self.contract_yaml_object)
 
     def _parse_columns(self, contract_yaml_object: YamlObject) -> list[ColumnYaml] | None:
         columns: list[ColumnYaml] = []
