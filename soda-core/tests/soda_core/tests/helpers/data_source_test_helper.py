@@ -26,8 +26,8 @@ logger = logging.getLogger(__name__)
 class TestContractVerificationBuilder(ContractVerificationBuilder):
     __test__ = False
 
-    def __init__(self):
-        super().__init__()
+    def __init__(self, default_data_source: DataSource | None = None):
+        super().__init__(default_data_source=default_data_source)
         self.data_source = None
 
     def with_contract_yaml_str(self, contract_yaml_str: str) -> ContractVerificationBuilder:
@@ -43,14 +43,14 @@ class TestContractVerification(ContractVerification):
     __test__ = False
 
     @classmethod
-    def builder(cls) -> TestContractVerificationBuilder:
-        return TestContractVerificationBuilder()
+    def builder(cls, default_data_source: DataSource | None = None) -> TestContractVerificationBuilder:
+        return TestContractVerificationBuilder(default_data_source=default_data_source)
 
     def __init__(self, test_contract_verification_builder: TestContractVerificationBuilder):
         super().__init__(contract_verification_builder=test_contract_verification_builder)
 
     def _initialize_data_source(self, contract_verification_builder: ContractVerificationBuilder) -> None:
-        self.data_source = contract_verification_builder.provided_data_source
+        self.data_source = contract_verification_builder.default_data_source
 
 
 class DataSourceTestHelper:
@@ -466,17 +466,15 @@ class DataSourceTestHelper:
         return contract_verification_result
 
     def create_test_verification_builder(self):
-        return TestContractVerification.builder().with_data_source(self.data_source)
+        return TestContractVerification.builder(self.data_source)
 
     def _build_full_contract_yaml_str(self, test_table: TestTable, unique_table_name: str, contract_yaml_str: str):
         header_lines: list[str] = [
             f"dataset: {unique_table_name}",
-            f"data_source: {self.data_source.name}"
+            f"dataset_location_{self.data_source.get_data_source_type_name()}:",
+            f"  database: {self.database_name}",
+            f"  schema: {self.schema_name}"
         ]
-        if self.database_name:
-            header_lines.append(f"database: {self.database_name}")
-        if self.schema_name:
-            header_lines.append(f"schema: {self.schema_name}")
         header_contract_yaml_str = "\n".join(header_lines)
         checks_contract_yaml_str = dedent(contract_yaml_str).strip()
         return f"{header_contract_yaml_str}\n{checks_contract_yaml_str}"

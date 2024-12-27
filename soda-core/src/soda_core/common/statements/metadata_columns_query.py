@@ -23,13 +23,14 @@ class MetadataColumnsQuery:
 
     def build_sql(
         self,
-        database_name: str,
-        schema_name: str,
+        dataset_prefix: list[str] | None,
         dataset_name: str
     ) -> str:
         """
         Builds the full SQL query to query table names from the data source metadata.
         """
+        database_name: str = dataset_prefix[0]
+        schema_name: str = dataset_prefix[1]
         return self.sql_dialect.build_select_sql([
             SELECT([
                 self._column_column_name(),

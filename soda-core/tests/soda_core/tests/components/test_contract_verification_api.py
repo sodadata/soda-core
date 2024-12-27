@@ -1,8 +1,9 @@
+import pytest
+
 from soda_core.common.data_source import DataSource
 from soda_core.common.data_source_parser import DataSourceParser
 from soda_core.common.yaml import YamlSource
-from soda_core.contracts.contract_verification import ContractVerificationResult, ContractVerification
-from soda_core.tests.helpers.data_source_test_helper import DataSourceTestHelper
+from soda_core.contracts.contract_verification import ContractVerificationResult, ContractVerification, SodaException
 
 
 def test_contract_verification_file_api():
@@ -13,18 +14,41 @@ def test_contract_verification_file_api():
         .execute()
     )
 
-    assert "Contract file ../soda/mydb/myschema/table.yml does not exist" in str(contract_verification_result)
+    assert "Contract file '../soda/mydb/myschema/table.yml' does not exist" in str(contract_verification_result)
 
 
-def test_contract_provided_and_configured(data_source_test_helper: DataSourceTestHelper):
+def test_contract_verification_file_api_exception_on_error():
+    with pytest.raises(SodaException) as e:
+        contract_verification_result: ContractVerificationResult = (
+            ContractVerification.builder()
+            .with_contract_yaml_file("../soda/mydb/myschema/table.yml")
+            .with_variables({"env": "test"})
+            .execute()
+            .assert_ok()
+        )
+
+    exception_string = str(e.value)
+    assert "Contract file '../soda/mydb/myschema/table.yml' does not exist" in exception_string
+
+
+def test_contract_provided_and_configured():
+    """
+    If there is no default data source configured and there is none provided in the contract, an error has to be logged
+    """
     contract_verification_result: ContractVerificationResult = (
-        ContractVerification.builder(data_source_test_helper.data_source)
-        .with_contract_yaml_file("../soda/mydb/myschema/table.yml")
+        ContractVerification.builder()
+        .with_contract_yaml_str(f"""
+          dataset: CUSTOMERS
+          columns:
+            - name: id
+        """)
         .with_variables({"env": "test"})
         .execute()
     )
 
-    assert "Contract file ../soda/mydb/myschema/table.yml does not exist" in str(contract_verification_result)
+    assert (("'data_source_file' is required. "
+            "No default data source was configured in the contract verification builder.")
+            in str(contract_verification_result))
 
 
 def test_contract_verification_spark_session():
@@ -38,12 +62,13 @@ def test_contract_verification_spark_session():
     ).parse()
 
     contract_verification_result: ContractVerificationResult = (
-        ContractVerification.builder(provided_data_source=spark_data_source)
+        ContractVerification.builder(default_data_source=spark_data_source)
         .with_contract_yaml_dict({
-            "data_source_file": "./path/to/file.yml"
+            "dataset": "customers",
+            "columns": [
+                { "name": "id" }
+            ]
         })
         .with_variables({"env": "test"})
         .execute()
     )
-
-    assert "Contract file ../soda/mydb/myschema/table.yml does not exist" in str(contract_verification_result)

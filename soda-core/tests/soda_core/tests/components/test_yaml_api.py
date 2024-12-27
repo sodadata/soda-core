@@ -5,7 +5,7 @@ from soda_core.tests.helpers.test_functions import dedent_and_strip
 
 
 def test_yaml_api():
-    yaml_source: YamlSource = YamlSource.from_str(file_type="contract", yaml_str=dedent_and_strip(
+    yaml_source: YamlSource = YamlSource.from_str(yaml_str=dedent_and_strip(
         """
         dataset: lskdjflks
         """
@@ -18,7 +18,7 @@ def test_yaml_api():
 
 def test_yaml_resolve_env_vars(env_vars: dict):
     env_vars["DS"] = "thedataset"
-    yaml_source: YamlSource = YamlSource.from_str(file_type="contract", yaml_str=dedent_and_strip(
+    yaml_source: YamlSource = YamlSource.from_str(yaml_str=dedent_and_strip(
         """
         dataset: ${DS}
         """
@@ -31,7 +31,7 @@ def test_yaml_resolve_env_vars(env_vars: dict):
 
 def test_yaml_file():
     test_yaml_api_file_path = f"{os.path.dirname(__file__)}/test_yaml_api_file.yml"
-    yaml_source: YamlSource = YamlSource.from_file_path(file_type="contract", yaml_file_path=test_yaml_api_file_path)
+    yaml_source: YamlSource = YamlSource.from_file_path(yaml_file_path=test_yaml_api_file_path)
     yaml_file_content: YamlFileContent = yaml_source.parse_yaml_file_content()
     assert not yaml_file_content.has_errors()
     yaml_object: YamlObject = yaml_file_content.get_yaml_object()
@@ -40,7 +40,7 @@ def test_yaml_file():
 
 def test_yaml_error_file_not_found():
     test_yaml_api_file_path = f"{os.path.dirname(__file__)}/unexisting.yml"
-    yaml_source: YamlSource = YamlSource.from_file_path(file_type="contract", yaml_file_path=test_yaml_api_file_path)
+    yaml_source: YamlSource = YamlSource.from_file_path(yaml_file_path=test_yaml_api_file_path)
     yaml_file_content: YamlFileContent = yaml_source.parse_yaml_file_content()
     errors_str = yaml_file_content.logs.get_errors_str()
     assert "unexisting.yml' does not exist" in errors_str
@@ -49,7 +49,7 @@ def test_yaml_error_file_not_found():
 
 
 def test_yaml_error_invalid_top_level_element():
-    yaml_source: YamlSource = YamlSource.from_str(file_type="contract", yaml_str=dedent_and_strip(
+    yaml_source: YamlSource = YamlSource.from_str(yaml_str=dedent_and_strip(
         """
         - one
         - two
@@ -57,13 +57,22 @@ def test_yaml_error_invalid_top_level_element():
     ))
     yaml_file_content: YamlFileContent = yaml_source.parse_yaml_file_content()
     errors_str = yaml_file_content.logs.get_errors_str()
-    assert "Expected top level YAML object in provided YAML str" in errors_str
+    assert "Root YAML in yaml string must be an object, but was a list" in errors_str
+    assert yaml_file_content.has_errors()
+    assert yaml_file_content.get_yaml_object() is None
+
+
+def test_yaml_error_empty_yaml_str():
+    yaml_source: YamlSource = YamlSource.from_str(yaml_str="")
+    yaml_file_content: YamlFileContent = yaml_source.parse_yaml_file_content()
+    errors_str = yaml_file_content.logs.get_errors_str()
+    assert "Root YAML in yaml string must be an object, but was empty" in errors_str
     assert yaml_file_content.has_errors()
     assert yaml_file_content.get_yaml_object() is None
 
 
 def test_yaml_nested_level():
-    yaml_source: YamlSource = YamlSource.from_str(file_type="contract", yaml_str=dedent_and_strip(
+    yaml_source: YamlSource = YamlSource.from_str(yaml_str=dedent_and_strip(
         """
         level_one:
           level_two:

@@ -207,10 +207,10 @@ class SqlDialect:
 
     def _build_from_part(self, from_clause: FROM) -> str:
         table_parts_quoted: list[str] = []
-        if from_clause.table_prefixes:
+        if from_clause.table_prefix:
             table_parts_quoted.extend([
                 self.quote_default(prefix_part)
-                for prefix_part in from_clause.table_prefixes
+                for prefix_part in from_clause.table_prefix
             ])
         table_parts_quoted.append(self.quote_default(from_clause.table_name))
         from_part: str = ".".join(table_parts_quoted)

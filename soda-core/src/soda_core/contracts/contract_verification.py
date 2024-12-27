@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from abc import ABC
 from enum import Enum
+from logging import ERROR
 from textwrap import indent
 
 from soda_core.common.data_source import DataSource
@@ -12,8 +13,8 @@ from soda_core.contracts.impl.contract_yaml import ContractYaml
 
 class ContractVerificationBuilder:
 
-    def __init__(self, provided_data_source: DataSource | None = None):
-        self.provided_data_source: DataSource | None = provided_data_source
+    def __init__(self, default_data_source: DataSource | None = None):
+        self.default_data_source: DataSource | None = default_data_source
         self.contract_yaml_sources: list[YamlSource] = []
         self.variables: dict[str, str] = {}
         self.logs: Logs = Logs()
@@ -92,13 +93,13 @@ class ContractVerificationBuilder:
 class ContractVerification:
 
     @classmethod
-    def builder(cls, provided_data_source: DataSource | None = None) -> ContractVerificationBuilder:
-        return ContractVerificationBuilder(provided_data_source=provided_data_source)
+    def builder(cls, default_data_source: DataSource | None = None) -> ContractVerificationBuilder:
+        return ContractVerificationBuilder(default_data_source=default_data_source)
 
     def __init__(self, contract_verification_builder: ContractVerificationBuilder):
         from soda_core.contracts.impl.contract_verification_impl import ContractVerificationImpl
         self.contract_verification_impl: ContractVerificationImpl = ContractVerificationImpl(
-            provided_data_source=contract_verification_builder.provided_data_source,
+            default_data_source=contract_verification_builder.default_data_source,
             contract_yaml_sources=contract_verification_builder.contract_yaml_sources,
             variables=contract_verification_builder.variables,
             logs=contract_verification_builder.logs
@@ -138,9 +139,10 @@ class ContractVerificationResult:
         return not self.has_errors() and not self.has_failures()
 
     def assert_ok(self) -> ContractVerificationResult:
-        errors_str: str | None = self.logs.get_errors_str() if self.logs.get_errors() else None
-        if errors_str or any(contract_result.failed() for contract_result in self.contract_results):
-            raise SodaException(message=errors_str, contract_verification_result=self)
+        has_error: bool = any(log.level >= ERROR for log in self.logs.logs)
+        has_check_failures: bool = any(contract_result.failed() for contract_result in self.contract_results)
+        if has_error or has_check_failures:
+            raise SodaException(message=str(self), contract_verification_result=self)
         return self
 
     def __str__(self) -> str:
@@ -163,13 +165,7 @@ class SodaException(Exception):
         self, message: str | None = None, contract_verification_result: ContractVerificationResult | None = None
     ):
         self.contract_verification_result: ContractVerificationResult | None = contract_verification_result
-        message_parts: list[str] = []
-        if message:
-            message_parts.append(message)
-        if self.contract_verification_result:
-            message_parts.append(str(self.contract_verification_result))
-        exception_message: str = "\n".join(message_parts)
-        super().__init__(exception_message)
+        super().__init__(message)
 
 
 class CheckOutcome(Enum):
@@ -207,11 +203,12 @@ class ContractResult:
     def __init__(
             self,
             contract_yaml: 'ContractYaml',
-            check_results: list[CheckResult]
+            check_results: list[CheckResult],
+            logs: Logs
     ):
         self.contract_yaml = contract_yaml
-        self.logs: Logs = contract_yaml.contract_yaml_file.logs
-        self.check_results: list[CheckResult] = []
+        self.logs: Logs = logs
+        self.check_results: list[CheckResult] = check_results
 
     def failed(self) -> bool:
         """

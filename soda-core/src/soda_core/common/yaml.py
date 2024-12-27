@@ -41,7 +41,7 @@ class YamlSource:
 
     @abstractmethod
     def parse_yaml_file_content(
-        self, file_type: str, variables: dict | None = None, logs: Logs = None
+        self, file_type: str | None = None, variables: dict | None = None, logs: Logs = None
     ) -> YamlFileContent:
         pass
 
@@ -52,9 +52,10 @@ class FileYamlSource(YamlSource):
         super().__init__()
         self.yaml_file_path: str = yaml_file_path
 
-    def parse_yaml_file_content(self, file_type: str, variables: dict | None = None, logs: Logs | None = None) -> YamlFileContent:
+    def parse_yaml_file_content(self, file_type: str | None = None, variables: dict | None = None, logs: Logs | None = None) -> YamlFileContent:
         logs = logs if logs else Logs()
-        yaml_source_description: str = f"{file_type} file {self.yaml_file_path}"
+        yaml_source_description: str = (f"{file_type} file '{self.yaml_file_path}'" if file_type
+                                        else f"'{self.yaml_file_path}'")
         yaml_str: str | None = YamlFileContent.read_yaml_file(
             file_path=self.yaml_file_path, yaml_source_description=yaml_source_description, logs=logs
         )
@@ -79,9 +80,9 @@ class StrYamlSource(YamlSource):
         super().__init__()
         self.yaml_str: str = yaml_str
 
-    def parse_yaml_file_content(self, file_type: str, variables: dict | None = None, logs: Logs | None = None) -> YamlFileContent:
+    def parse_yaml_file_content(self, file_type: str | None = None, variables: dict | None = None, logs: Logs | None = None) -> YamlFileContent:
         logs = logs if logs else Logs()
-        yaml_source_description: str = f"{file_type} yaml string"
+        yaml_source_description: str = f"{file_type} yaml string" if file_type else "yaml string"
         yaml_str_resolved: str = YamlFileContent.resolve_yaml_str(yaml_str=self.yaml_str, variables=variables)
         yaml_dict: dict | None = YamlFileContent.parse_yaml_dict(
             yaml_str=yaml_str_resolved, yaml_file_path=yaml_source_description,
@@ -103,11 +104,12 @@ class DictYamlSource(YamlSource):
         super().__init__()
         self.yaml_dict: dict = yaml_dict
 
-    def parse_yaml_file_content(self, file_type: str, variables: dict | None = None, logs: Logs | None = None) -> YamlFileContent:
+    def parse_yaml_file_content(self, file_type: str | None = None, variables: dict | None = None, logs: Logs | None = None) -> YamlFileContent:
         logs = logs if logs else Logs()
+        yaml_source_description: str = f"{file_type} yaml dict" if file_type else "yaml dict"
         return YamlFileContent(
             yaml_file_path=None,
-            yaml_source_description=f"{file_type} yaml dict",
+            yaml_source_description=yaml_source_description,
             yaml_str_source=None,
             yaml_str_resolved=None,
             yaml_dict=self.yaml_dict,
@@ -162,9 +164,11 @@ class YamlFileContent:
                     return root_yaml_object
                 else:
                     location = Location(file_path=yaml_file_path, line=0, column=0)
+                    yaml_type: str = root_yaml_object.__class__.__name__ if root_yaml_object is not None else "empty"
+                    yaml_type = "a list" if yaml_type == "CommentedSeq" else yaml_type
                     logs.error(
-                        message=f"Root YAML in {yaml_source_description} is not an object, "
-                                f"but was: {root_yaml_object.__class__.__name__}",
+                        message=f"Root YAML in {yaml_source_description} must be an object, "
+                                f"but was {yaml_type}",
                         location=location
                     )
                     return None
@@ -257,7 +261,7 @@ class YamlObject(YamlValue):
                     if isinstance(element, expected_element_type):
                         filtered_list.append(element)
                     else:
-                        self.yaml_file.logs.error(
+                        self.logs.error(
                             message=f"'{key}' expects a list of {expected_element_type.__name__}. "
                                     f"But element {index} was {type(element).__name__}",
                             location=self.create_location_from_yaml_dict_key(key)
@@ -272,13 +276,16 @@ class YamlObject(YamlValue):
         """
         return self.read_value(key=key, expected_type=list, required=False, default_value=None)
 
+    def read_list_of_objects_opt(self, key: str) -> YamlList | None:
+        return self.read_list_of_objects(key) if key in self.yaml_dict else None
+
     def read_list_of_objects(self, key: str) -> YamlList | None:
         list_value: YamlList | None = self.read_list(key=key, expected_element_type=YamlObject)
         if isinstance(list_value, YamlList):
             for i in range(0, len(list_value.yaml_list)):
                 element = list_value.yaml_list[i]
                 if not isinstance(element, YamlObject):
-                    self.yaml_file.logs.error(
+                    self.logs.error(
                         message=f"'{key}' expected list of objects.  But element {i} was {type(element).__name__}",
                         location=self.create_location_from_yaml_dict_key(key)
                     )

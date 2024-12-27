@@ -110,7 +110,7 @@ class DataSource(ABC):
         # BigQuery: No documented limit on query size, but practical limits on complexity and performance.
         return 63 * 1024 * 1024
 
-    def build_dataset_prefix(self, data_source_location: dict[str, str]) -> list[str] | None:
+    def build_dataset_prefix(self, data_source_location: dict[str, str] | None) -> list[str] | None:
         if isinstance(data_source_location, dict):
             if "database" not in data_source_location:
                 self.logs.error(f"For {self.get_data_source_type_name()}, 'database' is required in 'data_source_location'")

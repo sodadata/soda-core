@@ -51,7 +51,7 @@ class MetadataTablesQuery:
         Builds the full SQL query statement to query table names from the data source metadata.
         """
         select: list = [
-            FROM(self._table_tables(), table_prefixes=[database_name, self._schema_information_schema()]),
+            FROM(self._table_tables(), table_prefix=[database_name, self._schema_information_schema()]),
             SELECT([self._column_table_catalog(), self._column_table_schema(), self._column_table_name()]),
         ]
 

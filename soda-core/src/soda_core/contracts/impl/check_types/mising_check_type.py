@@ -42,14 +42,16 @@ class MissingCheckYaml(CheckYaml):
         column_yaml: ColumnYaml | None,
         contract_yaml: ContractYaml,
         metrics_resolver: MetricsResolver,
-        data_source: DataSource
+        data_source: DataSource,
+        dataset_prefix: list[str] | None
     ) -> Check:
         return MissingCheck(
             contract_yaml=contract_yaml,
             column_yaml=column_yaml,
             check_yaml=self,
             metrics_resolver=metrics_resolver,
-            data_source=data_source
+            data_source=data_source,
+            dataset_prefix=dataset_prefix
         )
 
 
@@ -61,18 +63,19 @@ class MissingCheck(Check):
         column_yaml: ColumnYaml | None,
         check_yaml: MissingCheckYaml,
         metrics_resolver: MetricsResolver,
-        data_source: DataSource
+        data_source: DataSource,
+        dataset_prefix: list[str] | None
     ):
         super().__init__(
             contract_yaml=contract_yaml,
             column_yaml=column_yaml,
             check_yaml=check_yaml,
+            dataset_prefix=dataset_prefix
         )
 
         missing_count_metric = MissingCountMetric(
             data_source_name=self.data_source_name,
-            database_name=self.database_name,
-            schema_name=self.schema_name,
+            dataset_prefix=self.dataset_prefix,
             dataset_name=self.dataset_name,
             column_name=self.column_name
         )
@@ -97,15 +100,13 @@ class MissingCountMetric(AggregationMetric):
     def __init__(
         self,
         data_source_name: str,
-        database_name: str | None,
-        schema_name: str | None,
+        dataset_prefix: list[str] | None,
         dataset_name: str,
         column_name: str
     ):
         super().__init__(
             data_source_name=data_source_name,
-            database_name=database_name,
-            schema_name=schema_name,
+            dataset_prefix=dataset_prefix,
             dataset_name=dataset_name,
             column_name=column_name,
             metric_type_name="missing_count"

@@ -10,15 +10,15 @@ class SELECT:
 @dataclass
 class FROM:
     table_name: str
-    table_prefixes: list[str] | None = None
+    table_prefix: list[str] | None = None
     alias: str | None = None
 
     def AS(self, alias: str) -> FROM:
-        return FROM(table_name=self.table_name, table_prefixes=self.table_prefixes, alias=alias)
+        return FROM(table_name=self.table_name, table_prefix=self.table_prefix, alias=alias)
 
     def IN(self, table_prefixes: str | list[str]) -> FROM:
         table_prefixes = table_prefixes if isinstance(table_prefixes, list) else [table_prefixes]
-        return FROM(table_name=self.table_name, table_prefixes=table_prefixes, alias=self.alias)
+        return FROM(table_name=self.table_name, table_prefix=table_prefixes, alias=self.alias)
 
 
 @dataclass

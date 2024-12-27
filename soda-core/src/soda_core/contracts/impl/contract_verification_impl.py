@@ -8,9 +8,9 @@ from soda_core.common.data_source_parser import DataSourceParser
 from soda_core.common.data_source_results import QueryResult
 from soda_core.common.logs import Logs
 from soda_core.common.sql_dialect import *
-from soda_core.common.yaml import YamlSource, YamlFileContent
+from soda_core.common.yaml import YamlSource
 from soda_core.contracts.contract_verification import ContractVerificationResult, ContractResult, \
-    ContractVerificationBuilder, CheckResult
+    CheckResult
 from soda_core.contracts.impl.contract_yaml import ContractYaml, CheckYaml, ColumnYaml
 
 
@@ -28,54 +28,61 @@ class ContractVerificationImpl:
 
     def __init__(
             self,
-            provided_data_source: DataSource,
+            default_data_source: DataSource,
             contract_yaml_sources: list[YamlSource],
             variables: dict[str, str],
             logs: Logs = Logs()
     ):
         self.logs: Logs = logs
-        self.provided_data_source: DataSource | None = provided_data_source
+        self.default_data_source_contracts: DataSourceContracts | None = None
         self.data_sources_contracts: list[DataSourceContracts] = []
-
-        if provided_data_source:
-            self.data_sources_contracts.append(DataSourceContracts(data_source=provided_data_source))
+        if default_data_source:
+            self.default_data_source_contracts = DataSourceContracts(data_source=default_data_source)
+            self.data_sources_contracts.append(self.default_data_source_contracts)
 
         for contract_yaml_source in contract_yaml_sources:
-            contract_yaml: ContractYaml = ContractYaml(contract_yaml_source=contract_yaml_source, variables=variables, logs=logs)
-            data_source_contracts: DataSourceContracts = self.resolve_data_source_contracts(contract_yaml)
-            if data_source_contracts:
-                data_source: DataSource = data_source_contracts.data_source
-                contract: Contract = Contract(contract_yaml=contract_yaml, data_source=data_source, logs=self.logs)
-                data_source_contracts.contracts.append(contract)
+            contract_yaml: ContractYaml = ContractYaml.parse(contract_yaml_source=contract_yaml_source, variables=variables, logs=logs)
+            if contract_yaml:
+                data_source_contracts: DataSourceContracts = self.resolve_data_source_contracts(contract_yaml)
+                if data_source_contracts:
+                    data_source: DataSource = data_source_contracts.data_source
+                    contract: Contract = Contract(contract_yaml=contract_yaml, data_source=data_source, logs=self.logs)
+                    data_source_contracts.contracts.append(contract)
 
     def resolve_data_source_contracts(self, contract_yaml: ContractYaml) -> DataSourceContracts | None:
-        if self.provided_data_source:
-            if isinstance(contract_yaml.data_source_file, str):
-                self.logs.error(f"No 'data_source_file' allowed when using a provided data source. Was '{contract_yaml.data_source_file}'")
-            return self.data_sources_contracts[0]
+        data_source_file_is_configured: bool = isinstance(contract_yaml.data_source_file, str)
+        if data_source_file_is_configured:
+            contract_yaml_file_path: str = contract_yaml.contract_yaml_file_content.yaml_file_path
+            contract_file_exists: bool = isinstance(contract_yaml_file_path, str) and os.path.exists(
+                contract_yaml_file_path)
+            if not contract_file_exists:
+                self.logs.error(
+                    "'data_source_file' is configured, but that can't be used with contract yaml string or yaml dict."
+                )
+            else:
+                real_contract_path: str = os.path.realpath(contract_yaml_file_path)
+                contract_dir: str = os.path.dirname(real_contract_path)
+
+                data_source_relative_path: str = contract_yaml.data_source_file
+                data_source_path: str = os.path.join(contract_dir, data_source_relative_path)
+                real_data_source_path: str = os.path.realpath(data_source_path)
+
+                data_source_contracts: DataSourceContracts = self.find_existing_data_source_contracts(real_data_source_path)
+
+                if not data_source_contracts:
+                    data_source_yaml_source: YamlSource = YamlSource.from_file_path(yaml_file_path=real_data_source_path)
+                    data_source_parser: DataSourceParser = DataSourceParser(data_source_yaml_source, logs=self.logs)
+                    data_source = data_source_parser.parse()
+                    data_source_contracts = DataSourceContracts(data_source=data_source)
+
+                return data_source_contracts
+        if self.default_data_source_contracts:
+            return self.default_data_source_contracts
         else:
-            contract_path: str = contract_yaml.contract_yaml_file_content.yaml_file_path
-            contract_file_exists: bool = isinstance(contract_path, str) and os.path.exists(contract_path)
-            if contract_file_exists:
-                if not isinstance(contract_yaml.data_source_file, str):
-                    self.logs.error(f"'data_source_file' is required. (Unless a data source is provided in the API)")
-                else:
-                    real_contract_path: str = os.path.realpath(contract_path)
-                    contract_dir: str = os.path.dirname(real_contract_path)
-
-                    data_source_relative_path: str = contract_yaml.data_source_file
-                    data_source_path: str = os.path.join(contract_dir, data_source_relative_path)
-                    real_data_source_path: str = os.path.realpath(data_source_path)
-
-                    data_source_contracts: DataSourceContracts = self.find_existing_data_source_contracts(real_data_source_path)
-
-                    if not data_source_contracts:
-                        data_source_yaml_source: YamlSource = YamlSource.from_file_path(yaml_file_path=real_data_source_path)
-                        data_source_parser: DataSourceParser = DataSourceParser(data_source_yaml_source, logs=self.logs)
-                        data_source = data_source_parser.parse()
-                        data_source_contracts = DataSourceContracts(data_source=data_source)
-
-                    return data_source_contracts
+            self.logs.error(
+                f"'data_source_file' is required. "
+                f"No default data source was configured in the contract verification builder."
+            )
 
     def find_existing_data_source_contracts(self, real_data_source_path: str) -> DataSourceContracts | None:
         for data_source_contracts in self.data_sources_contracts:
@@ -157,7 +164,8 @@ class ContractVerificationImpl:
 
         return ContractResult(
             contract_yaml=contract.contract_yaml,
-            check_results=check_results
+            check_results=check_results,
+            logs=self.logs
         )
 
 
@@ -194,7 +202,10 @@ class Contract:
         self.contract_yaml: ContractYaml = contract_yaml
 
         self.data_source_name: str | None = contract_yaml.data_source_file if contract_yaml else None
-        data_source_location: dict[str, str] = contract_yaml.data_source_locations.get(data_source.get_data_source_type_name())
+        data_source_location: dict[str, str] | None = (
+            contract_yaml.dataset_locations.get(data_source.get_data_source_type_name())
+            if contract_yaml.dataset_locations else None
+        )
         self.dataset_prefix: list[str] | None = data_source.build_dataset_prefix(data_source_location)
         self.dataset_name: str | None = contract_yaml.dataset_name if contract_yaml else None
         metrics_resolver: MetricsResolver = MetricsResolver()
@@ -239,7 +250,8 @@ class Contract:
             column_yaml=column_yaml,
             contract_yaml=contract_yaml,
             metrics_resolver=metrics_resolver,
-            data_source=self.data_source
+            data_source=self.data_source,
+            dataset_prefix=self.dataset_prefix
         )
 
     def _build_queries(self) -> list[Query]:
@@ -262,7 +274,7 @@ class Contract:
         for aggregation_metric in aggregation_metrics:
             if len(aggregation_queries) == 0 or not aggregation_queries[-1].can_accept(aggregation_metric):
                 aggregation_queries.append(AggregationQuery(
-                    dataset_qualifiers=[self.database_name, self.schema_name],
+                    dataset_prefix=self.dataset_prefix,
                     dataset_name=self.dataset_name,
                     filter_condition=None,
                     data_source=self.data_source
@@ -295,12 +307,12 @@ class Check:
         contract_yaml: ContractYaml,
         column_yaml: ColumnYaml | None,
         check_yaml: CheckYaml,
+        dataset_prefix: str | None
     ):
         self.logs: Logs = contract_yaml.logs
 
         self.data_source_name: str = contract_yaml.data_source_file
-        self.database_name: str | None = contract_yaml.database_name
-        self.schema_name: str | None = contract_yaml.schema_name
+        self.dataset_prefix: str | None = dataset_prefix
         self.dataset_name: str = contract_yaml.dataset_name
         self.column_name: str | None = column_yaml.name if column_yaml else None
         self.type: str = check_yaml.type
@@ -330,15 +342,13 @@ class Metric:
     def __init__(
         self,
         data_source_name: str,
-        database_name: str | None,
-        schema_name: str | None,
+        dataset_prefix: list[str] | None,
         dataset_name: str | None,
         column_name: str | None,
         metric_type_name: str
     ):
         self.data_source_name: str = data_source_name
-        self.database_name: str | None = database_name
-        self.schema_name: str | None = schema_name
+        self.dataset_prefix: list[str] | None = dataset_prefix
         self.dataset_name: str | None = dataset_name
         self.column_name: str | None = column_name
         self.type: str = metric_type_name
@@ -362,9 +372,9 @@ class Metric:
 
 class AggregationMetric(Metric):
 
-    def __init__(self, data_source_name: str, database_name: str | None, schema_name: str | None,
+    def __init__(self, data_source_name: str, dataset_prefix: list[str] | None,
                  dataset_name: str | None, column_name: str | None, metric_type_name: str):
-        super().__init__(data_source_name, database_name, schema_name, dataset_name, column_name, metric_type_name)
+        super().__init__(data_source_name, dataset_prefix, dataset_name, column_name, metric_type_name)
 
     @abstractmethod
     def sql_expression(self) -> SqlExpression:
@@ -401,13 +411,13 @@ class AggregationQuery(Query):
 
     def __init__(
         self,
-        dataset_qualifiers: list[str],
+        dataset_prefix: list[str],
         dataset_name: str,
         filter_condition: str | None,
         data_source: DataSource
     ):
         super().__init__(data_source=data_source, metrics=[])
-        self.dataset_qualifiers: list[str] = dataset_qualifiers
+        self.dataset_prefix: list[str] = dataset_prefix
         self.dataset_name: str = dataset_name
         self.filter_condition: str = filter_condition
         self.aggregation_metrics: list[AggregationMetric] = []
@@ -426,7 +436,7 @@ class AggregationQuery(Query):
         field_expressions: list[SqlExpression] = self.build_field_expressions()
         select = [
             SELECT(field_expressions),
-            FROM(self.dataset_name, self.dataset_qualifiers)
+            FROM(self.dataset_name, self.dataset_prefix)
         ]
         if self.filter_condition:
             select.append(WHERE(SqlExpressionStr(self.filter_condition)))
