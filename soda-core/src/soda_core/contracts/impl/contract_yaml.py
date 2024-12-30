@@ -14,18 +14,20 @@ class CheckType(ABC):
 
     @classmethod
     def register_check_type(cls, check_type: CheckType):
-        cls.__CHECK_TYPES_BY_NAME[check_type.name] = check_type
+        for check_type_name in check_type.get_check_type_names():
+            cls.__CHECK_TYPES_BY_NAME[check_type_name] = check_type
 
     @classmethod
     def get_check_type(cls, check_type_name: str) -> CheckType | None:
         return cls.__CHECK_TYPES_BY_NAME.get(check_type_name)
 
     @classmethod
-    def get_all_type_names(cls):
+    def get_all_check_type_names(cls):
         return cls.__CHECK_TYPES_BY_NAME.keys()
 
-    def __init__(self, name: str):
-        self.name: str = name
+    @abstractmethod
+    def get_check_type_names(self) -> list[str]:
+        pass
 
     @abstractmethod
     def parse_check_yaml(
@@ -131,7 +133,7 @@ class ContractYaml:
                         else:
                             self.logs.error(
                                 f"Invalid check type '{check_type_name}'. "
-                                f"Existing check types: {CheckType.get_all_type_names()}"
+                                f"Existing check types: {CheckType.get_all_check_type_names()}"
                             )
                     else:
                         self.logs.error(f"Checks must have a YAML object structure.")
@@ -210,28 +212,33 @@ class CheckYaml(ABC):
 
     def __init__(self, check_yaml_object: YamlObject):
         self.check_yaml_object: YamlObject = check_yaml_object
+        self.logs: Logs = check_yaml_object.logs
 
         self.type: str = check_yaml_object.read_string("type")
         self.name: str | None = check_yaml_object.read_string_opt("name")
         self.qualifier: str | None = check_yaml_object.read_string_opt("qualifier")
 
-        self.must_be_greater_than: Number | None = check_yaml_object.read_number_opt("must_be_greater_than")
-        self.must_be_greater_than_or_equal: Number | None = check_yaml_object.read_number_opt("must_be_greater_than_or_equal")
-        self.must_be_less_than: Number | None = check_yaml_object.read_number_opt("must_be_less_than")
-        self.must_be_less_than_or_equal: Number | None = check_yaml_object.read_number_opt("must_be_less_than_or_equal")
-        self.must_be: Number | None = check_yaml_object.read_number_opt("must_be")
-        self.must_not_be: Number | None = check_yaml_object.read_number_opt("must_not_be")
-        self.must_be_between: RangeYaml | None = RangeYaml.read_opt(check_yaml_object, "must_be_between")
-        self.must_be_not_between: RangeYaml | None = RangeYaml.read_opt(check_yaml_object, "must_be_not_between")
+        self.must_be_greater_than: Number | None = None
+        self.must_be_greater_than_or_equal: Number | None = None
+        self.must_be_less_than: Number | None = None
+        self.must_be_less_than_or_equal: Number | None = None
+        self.must_be: Number | None = None
+        self.must_not_be: Number | None = None
+        self.must_be_between: RangeYaml | None = None
+        self.must_be_not_between: RangeYaml | None = None
+
+    def parse_threshold(self, check_yaml_object: YamlObject):
+        self.must_be_greater_than = check_yaml_object.read_number_opt("must_be_greater_than")
+        self.must_be_greater_than_or_equal = check_yaml_object.read_number_opt("must_be_greater_than_or_equal")
+        self.must_be_less_than = check_yaml_object.read_number_opt("must_be_less_than")
+        self.must_be_less_than_or_equal = check_yaml_object.read_number_opt("must_be_less_than_or_equal")
+        self.must_be = check_yaml_object.read_number_opt("must_be")
+        self.must_not_be = check_yaml_object.read_number_opt("must_not_be")
+        self.must_be_between = RangeYaml.read_opt(check_yaml_object, "must_be_between")
+        self.must_be_not_between = RangeYaml.read_opt(check_yaml_object, "must_be_not_between")
 
     @abstractmethod
-    def create_check(
-        self,
-        check_yaml: CheckYaml,
-        column_yaml: ColumnYaml | None,
-        contract_yaml: ContractYaml,
-        metrics_resolver: 'MetricsResolver',
-        data_source: DataSource,
-        dataset_prefix: list[str] | None
-    ) -> 'Check':
+    def create_check(self, data_source: DataSource, dataset_prefix: list[str] | None, contract_yaml: ContractYaml,
+                     column_yaml: ColumnYaml | None, check_yaml: CheckYaml,
+                     metrics_resolver: 'MetricsResolver') -> 'Check':
         pass

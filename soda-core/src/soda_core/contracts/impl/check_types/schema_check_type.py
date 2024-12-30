@@ -13,8 +13,8 @@ from soda_core.contracts.impl.contract_yaml import CheckYaml, ColumnYaml, Contra
 
 class SchemaCheckType(CheckType):
 
-    def __init__(self):
-        super().__init__("schema")
+    def get_check_type_names(self) -> list[str]:
+        return ["schema"]
 
     def parse_check_yaml(
         self,
@@ -24,9 +24,6 @@ class SchemaCheckType(CheckType):
         return SchemaCheckYaml(
             check_yaml_object=check_yaml_object,
         )
-
-
-CheckType.register_check_type(SchemaCheckType())
 
 
 class SchemaCheckYaml(CheckYaml):
@@ -39,15 +36,8 @@ class SchemaCheckYaml(CheckYaml):
             check_yaml_object=check_yaml_object,
         )
 
-    def create_check(
-        self,
-        check_yaml: CheckYaml,
-        column_yaml: ColumnYaml | None,
-        contract_yaml: ContractYaml,
-        metrics_resolver: MetricsResolver,
-        data_source: DataSource,
-        dataset_prefix: list[str] | None
-    ) -> Check:
+    def create_check(self, data_source: DataSource, dataset_prefix: list[str] | None, contract_yaml: ContractYaml,
+                     column_yaml: ColumnYaml | None, check_yaml: CheckYaml, metrics_resolver: MetricsResolver) -> Check:
         return SchemaCheck(
             contract_yaml=contract_yaml,
             column_yaml=column_yaml,
@@ -103,7 +93,7 @@ class SchemaCheck(Check):
             dataset_name=self.dataset_name,
         )
         resolved_schema_metric: SchemaMetric = metrics_resolver.resolve_metric(schema_metric)
-        self.metrics.append(resolved_schema_metric)
+        self.metrics["schema"] = resolved_schema_metric
 
         schema_query: Query = SchemaQuery(
             dataset_prefix=self.dataset_prefix,
@@ -120,7 +110,7 @@ class SchemaCheck(Check):
         actual_column_names_not_expected: list[str] = []
         column_data_type_mismatches: list[ColumnDataTypeMismatch] = []
 
-        actual_columns: list[MetadataColumn] = self.metrics[0].measured_value
+        actual_columns: list[MetadataColumn] = self.metrics["schema"].measured_value
         if actual_columns:
             actual_column_names = [
                 actual_column.column_name for actual_column in actual_columns
@@ -156,12 +146,12 @@ class SchemaCheck(Check):
             # schema_column_index_mismatches = {}
 
             outcome = (
-                CheckOutcome.PASS if (
+                CheckOutcome.PASSED if (
                     len(expected_column_names_not_actual)
                     + len(actual_column_names_not_expected)
                     + len(column_data_type_mismatches)
                 ) == 0
-                else CheckOutcome.FAIL
+                else CheckOutcome.FAILED
             )
 
         return SchemaCheckResult(
@@ -219,16 +209,23 @@ class SchemaQuery(Query):
 class SchemaCheckResult(CheckResult):
 
     def __init__(self,
-                 expected_columns: list[ExpectedColumn],
                  outcome: CheckOutcome,
+                 expected_columns: list[ExpectedColumn],
                  actual_columns: list[MetadataColumn],
                  expected_column_names_not_actual: list[str],
                  actual_column_names_not_expected: list[str],
                  column_data_type_mismatches: list[ColumnDataTypeMismatch],
                  ):
         super().__init__(
-            check_summary="Schema must be as expected",
-            outcome=outcome
+            outcome=outcome,
+            check_summary="Schema",
+            diagnostic_lines=self._create_diagnostic_lines(
+                expected_columns=expected_columns,
+                actual_columns=actual_columns,
+                expected_column_names_not_actual=expected_column_names_not_actual,
+                actual_column_names_not_expected=actual_column_names_not_expected,
+                column_data_type_mismatches=column_data_type_mismatches
+            )
         )
         self.expected_columns: list[ExpectedColumn] = expected_columns
         self.actual_columns: list[MetadataColumn] = actual_columns
@@ -236,35 +233,36 @@ class SchemaCheckResult(CheckResult):
         self.actual_column_names_not_expected: list[str] = actual_column_names_not_expected
         self.column_data_type_mismatches: list[ColumnDataTypeMismatch] = column_data_type_mismatches
 
-    def dataset_does_not_exists(self) -> bool:
-        return len(self.actual_columns) == 0
-
-    def column_does_not_exist(self, column_name: str) -> bool:
-        return any(actual_column.column_name == column_name for actual_column in self.actual_columns)
-
-    def get_contract_result_str_lines(self) -> list[str]:
+    @classmethod
+    def _create_diagnostic_lines(
+        cls,
+        expected_columns: list[ExpectedColumn],
+        actual_columns: list[MetadataColumn],
+        expected_column_names_not_actual: list[str],
+        actual_column_names_not_expected: list[str],
+        column_data_type_mismatches: list[ColumnDataTypeMismatch],
+    ) -> list[str]:
         expected_columns_str: str = ",".join(
             [
                 f"{expected_column.column_name} {expected_column.data_type}"
-                for expected_column in self.expected_columns
+                for expected_column in expected_columns
             ]
         )
 
         actual_columns_str: str = ",".join([
             f"{actual_column.column_name} {actual_column.data_type if actual_column.data_type else ''}"
-            for actual_column in self.actual_columns
+            for actual_column in actual_columns
         ])
 
         lines: list[str] = [
-            f"Schema check {self.outcome.name}",
             f"  Expected schema: {expected_columns_str}",
             f"  Actual schema: {actual_columns_str}",
         ]
         lines.extend(
-            [f"  Column '{column}' was present and not allowed" for column in self.actual_column_names_not_expected]
+            [f"  Column '{column}' was present and not allowed" for column in actual_column_names_not_expected]
         )
         lines.extend(
-            [f"  Column '{column}' was missing" for column in self.expected_column_names_not_actual]
+            [f"  Column '{column}' was missing" for column in expected_column_names_not_actual]
         )
         lines.extend(
             [
@@ -272,7 +270,19 @@ class SchemaCheckResult(CheckResult):
                     f"  Column '{data_type_mismatch.column}': Expected type '{data_type_mismatch.expected_data_type}', "
                     f"but was '{data_type_mismatch.actual_data_type}'"
                 )
-                for data_type_mismatch in self.column_data_type_mismatches
+                for data_type_mismatch in column_data_type_mismatches
             ]
         )
         return lines
+
+    def dataset_does_not_exists(self) -> bool:
+        """
+        Helper method for testing
+        """
+        return len(self.actual_columns) == 0
+
+    def column_does_not_exist(self, column_name: str) -> bool:
+        """
+        Helper method for testing
+        """
+        return any(actual_column.column_name == column_name for actual_column in self.actual_columns)

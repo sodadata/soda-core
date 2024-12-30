@@ -169,29 +169,31 @@ class SodaException(Exception):
 
 
 class CheckOutcome(Enum):
-    PASS = "pass"
-    FAIL = "fail"
-    NOT_EVALUATED = "not_evaluated"
+    PASSED = "PASSED"
+    FAILED = "FAILED"
+    NOT_EVALUATED = "NOT_EVALUATED"
 
 
 class CheckResult(ABC):
 
-    def __init__(self, check_summary: str, outcome: CheckOutcome):
-        self.check_summary: str = check_summary
+    def __init__(self, outcome: CheckOutcome, check_summary: str, diagnostic_lines: list[str]):
         self.outcome: CheckOutcome = outcome
+        self.check_summary: str = check_summary
+        self.diagnostic_lines: list[str] = diagnostic_lines
 
     def __str__(self) -> str:
-        return "\n".join(self.get_contract_result_str_lines())
+        return "\n".join(self.get_log_lines())
 
-    def get_contract_result_str_lines(self) -> list[str]:
+    def get_log_lines(self) -> list[str]:
         """
         Provides the summary for the contract result logs, as well as the __str__ impl of this check result.
         Method implementations can use self._get_outcome_line(self)
         """
-        return [self.get_outcome_and_summary_line()]
-
-    def get_outcome_and_summary_line(self) -> str:
-        return f"Check {self.outcome.name}{self.check_summary}"
+        log_lines: list[str] = [f"Check {self.outcome.name} {self.check_summary}"]
+        log_lines.extend([
+            f"  {diagnostic_line}" for diagnostic_line in self.diagnostic_lines
+        ])
+        return log_lines
 
 
 class ContractResult:
@@ -215,7 +217,7 @@ class ContractResult:
         Returns true if there are checks that have failed.
         Ignores execution errors in the logs.
         """
-        return any(check.outcome == CheckOutcome.FAIL for check in self.check_results)
+        return any(check.outcome == CheckOutcome.FAILED for check in self.check_results)
 
     def passed(self) -> bool:
         """
@@ -231,8 +233,8 @@ class ContractResult:
 
         check_failure_count: int = 0
         for check_result in self.check_results:
-            if check_result.outcome == CheckOutcome.FAIL:
-                result_str_lines = check_result.get_contract_result_str_lines()
+            if check_result.outcome == CheckOutcome.FAILED:
+                result_str_lines = check_result.get_log_lines()
                 check_failure_message_list.extend(result_str_lines)
                 check_failure_count += 1
 

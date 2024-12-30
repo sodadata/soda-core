@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 from abc import abstractmethod, ABC
+from enum import Enum
 
 from soda_core.common.data_source import DataSource
 from soda_core.common.data_source_parser import DataSourceParser
@@ -11,7 +12,7 @@ from soda_core.common.sql_dialect import *
 from soda_core.common.yaml import YamlSource
 from soda_core.contracts.contract_verification import ContractVerificationResult, ContractResult, \
     CheckResult
-from soda_core.contracts.impl.contract_yaml import ContractYaml, CheckYaml, ColumnYaml
+from soda_core.contracts.impl.contract_yaml import ContractYaml, CheckYaml, ColumnYaml, RangeYaml
 
 
 class DataSourceContracts:
@@ -245,21 +246,16 @@ class Contract:
         column_yaml: ColumnYaml | None,
         metrics_resolver: MetricsResolver
     ) -> Check | None:
-        return check_yaml.create_check(
-            check_yaml=check_yaml,
-            column_yaml=column_yaml,
-            contract_yaml=contract_yaml,
-            metrics_resolver=metrics_resolver,
-            data_source=self.data_source,
-            dataset_prefix=self.dataset_prefix
-        )
+        return check_yaml.create_check(data_source=self.data_source, dataset_prefix=self.dataset_prefix,
+                                       contract_yaml=contract_yaml, column_yaml=column_yaml, check_yaml=check_yaml,
+                                       metrics_resolver=metrics_resolver)
 
     def _build_queries(self) -> list[Query]:
         queries: list[Query] = []
         aggregation_metrics: list[AggregationMetric] = []
         for check in self.checks:
             queries.extend(check.queries)
-            aggregation_metrics.extend(check.aggregation_metrics)
+            aggregation_metrics.extend(check.aggregation_metrics.values())
 
         from soda_core.contracts.impl.check_types.schema_check_type import SchemaQuery
         schema_queries: list[SchemaQuery] = []
@@ -300,6 +296,141 @@ class MetricsResolver:
         return self.metrics
 
 
+class ThresholdType(Enum):
+    SINGLE_COMPARATOR = "single_comparator"
+    INNER_RANGE = "inner_range"
+    OUTER_RANGE = "outer_range"
+
+
+class Threshold:
+
+    @classmethod
+    def create(cls, check_yaml: CheckYaml, default_threshold: Threshold | None = None) -> Threshold | None:
+        total_config_count: int = cls.__config_count([
+            check_yaml.must_be_greater_than, check_yaml.must_be_greater_than_or_equal, check_yaml.must_be_less_than,
+            check_yaml.must_be_less_than_or_equal, check_yaml.must_be, check_yaml.must_not_be,
+            check_yaml.must_be_between, check_yaml.must_be_not_between])
+
+        if total_config_count == 0:
+            if default_threshold:
+                return default_threshold
+            check_yaml.logs.error("Threshold required, but not specified")
+            return None
+
+        if total_config_count == 1 and cls.__config_count([
+            check_yaml.must_be_greater_than, check_yaml.must_be_greater_than_or_equal, check_yaml.must_be_less_than,
+            check_yaml.must_be_less_than_or_equal, check_yaml.must_be, check_yaml.must_not_be]) == 1:
+            return Threshold(
+                type=ThresholdType.SINGLE_COMPARATOR,
+                must_be_greater_than=check_yaml.must_be_greater_than,
+                must_be_greater_than_or_equal=check_yaml.must_be_greater_than_or_equal,
+                must_be_less_than=check_yaml.must_be_less_than,
+                must_be_less_than_or_equal=check_yaml.must_be_less_than_or_equal,
+                must_be=check_yaml.must_be,
+                must_not_be=check_yaml.must_not_be,
+            )
+
+        elif total_config_count == 1 and isinstance(check_yaml.must_be_between, RangeYaml):
+            if (isinstance(check_yaml.must_be_between.lower_bound, Number)
+               and isinstance(check_yaml.must_be_between.upper_bound, Number)):
+                if check_yaml.must_be_between.lower_bound < check_yaml.must_be_between.upper_bound:
+                    return Threshold(
+                        type=ThresholdType.INNER_RANGE,
+                        must_be_greater_than_or_equal=check_yaml.must_be_between.lower_bound,
+                        must_be_less_than_or_equal=check_yaml.must_be_between.upper_bound,
+                    )
+                else:
+                    check_yaml.logs.error("Threshold must_be_between range: "
+                                          "first value must be less than the second value")
+                    return None
+
+        elif total_config_count == 1 and isinstance(check_yaml.must_be_not_between, RangeYaml):
+            if (isinstance(check_yaml.must_be_not_between.lower_bound, Number)
+               and isinstance(check_yaml.must_be_not_between.upper_bound, Number)):
+                if check_yaml.must_be_between.lower_bound < check_yaml.must_be_between.upper_bound:
+                    return Threshold(
+                        type=ThresholdType.OUTER_RANGE,
+                        must_be_greater_than_or_equal=check_yaml.must_be_not_between.upper_bound,
+                        must_be_less_than_or_equal=check_yaml.must_be_not_between.lower_bound,
+                    )
+                else:
+                    check_yaml.logs.error("Threshold must_be_not_between range: "
+                                          "first value must be less than the second value")
+                    return None
+        else:
+            lower_bound_count = cls.__config_count([check_yaml.must_be_greater_than, check_yaml.must_be_greater_than_or_equal])
+            upper_bound_count = cls.__config_count([check_yaml.must_be_less_than, check_yaml.must_be_less_than_or_equal])
+            if lower_bound_count == 1 and upper_bound_count == 1:
+                lower_bound = check_yaml.must_be_greater_than if check_yaml.must_be_greater_than is not None else check_yaml.must_be_greater_than_or_equal
+                upper_bound = check_yaml.must_be_less_than if check_yaml.must_be_less_than is not None else check_yaml.must_be_less_than_or_equal
+                if lower_bound < upper_bound:
+                    return Threshold(
+                        type=ThresholdType.INNER_RANGE,
+                        must_be_greater_than=check_yaml.must_be_greater_than,
+                        must_be_greater_than_or_equal=check_yaml.must_be_greater_than_or_equal,
+                        must_be_less_than=check_yaml.must_be_less_than,
+                        must_be_less_than_or_equal=check_yaml.must_be_less_than_or_equal,
+                    )
+                else:
+                    return Threshold(
+                        type=ThresholdType.OUTER_RANGE,
+                        must_be_greater_than=check_yaml.must_be_greater_than,
+                        must_be_greater_than_or_equal=check_yaml.must_be_greater_than_or_equal,
+                        must_be_less_than=check_yaml.must_be_less_than,
+                        must_be_less_than_or_equal=check_yaml.must_be_less_than_or_equal,
+                    )
+
+    @classmethod
+    def __config_count(cls, members: list[any]) -> int:
+        return sum([
+            0 if v is None else 1
+            for v in members])
+
+    def __init__(self,
+                 type: ThresholdType,
+                 must_be_greater_than: Number | None = None,
+                 must_be_greater_than_or_equal: Number | None = None,
+                 must_be_less_than: Number | None = None,
+                 must_be_less_than_or_equal: Number | None = None,
+                 must_be: Number | None = None,
+                 must_not_be: Number | None = None
+                 ):
+        self.type: ThresholdType = type
+        self.must_be_greater_than: Number | None = must_be_greater_than
+        self.must_be_greater_than_or_equal: Number | None = must_be_greater_than_or_equal
+        self.must_be_less_than: Number | None = must_be_less_than
+        self.must_be_less_than_or_equal: Number | None = must_be_less_than_or_equal
+        self.must_be: Number | None = must_be
+        self.must_not_be: Number | None = must_not_be
+
+    def get_assertion_summary(self, metric_name: str) -> str:
+        if self.type == ThresholdType.SINGLE_COMPARATOR:
+            if isinstance(self.must_be_greater_than, Number):
+                return f"{metric_name} > {self.must_be_greater_than}"
+            if isinstance(self.must_be_greater_than_or_equal, Number):
+                return f"{metric_name} >= {self.must_be_greater_than_or_equal}"
+            if isinstance(self.must_be_less_than, Number):
+                return f"{metric_name} < {self.must_be_less_than}"
+            if isinstance(self.must_be_less_than_or_equal, Number):
+                return f"{metric_name} <= {self.must_be_less_than_or_equal}"
+            if isinstance(self.must_be, Number):
+                return f"{metric_name} = {self.must_be}"
+            if isinstance(self.must_not_be, Number):
+                return f"{metric_name} != {self.must_not_be}"
+        elif self.type == ThresholdType.INNER_RANGE:
+            lower_bound = (str(self.must_be_greater_than) if isinstance(self.must_be_greater_than, Number)
+                           else f"{self.must_be_greater_than_or_equal} (included)")
+            upper_bound = (str(self.must_be_less_than) if isinstance(self.must_be_less_than, Number)
+                           else f"{self.must_be_less_than_or_equal} (included)")
+            return f"{metric_name} must be between {lower_bound} and {upper_bound}"
+        elif self.type == ThresholdType.OUTER_RANGE:
+            lower_bound = (str(self.must_be_less_than) if isinstance(self.must_be_less_than, Number)
+                           else f"{self.must_be_less_than_or_equal} (included)")
+            upper_bound = (str(self.must_be_greater_than) if isinstance(self.must_be_greater_than, Number)
+                           else f"{self.must_be_greater_than_or_equal} (included)")
+            return f"{metric_name} must be between {lower_bound} and {upper_bound}"
+
+
 class Check:
 
     def __init__(
@@ -307,7 +438,9 @@ class Check:
         contract_yaml: ContractYaml,
         column_yaml: ColumnYaml | None,
         check_yaml: CheckYaml,
-        dataset_prefix: str | None
+        dataset_prefix: str | None,
+        threshold: Threshold | None,
+        summary: str
     ):
         self.logs: Logs = contract_yaml.logs
 
@@ -317,10 +450,13 @@ class Check:
         self.column_name: str | None = column_yaml.name if column_yaml else None
         self.type: str = check_yaml.type
         self.qualifier: str | None = check_yaml.qualifier
+        self.check_yaml: CheckYaml = check_yaml
+        self.threshold: Threshold | None = threshold
+        self.summary: str | None = summary
 
-        self.metrics: list[Metric] = []
-        self.queries: list[Query] = []
+        self.metrics: dict[str, Metric] = {}
         self.aggregation_metrics: list[AggregationMetric] = []
+        self.queries: list[Query] = []
 
         self.skip: bool = False
 
