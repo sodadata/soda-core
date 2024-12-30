@@ -275,7 +275,8 @@ class Contract:
                     filter_condition=None,
                     data_source=self.data_source
                 ))
-            aggregation_queries[-1].append_aggregation_metric(aggregation_metric)
+            last_aggregation_query: AggregationQuery = aggregation_queries[-1]
+            last_aggregation_query.append_aggregation_metric(aggregation_metric)
 
         return schema_queries + aggregation_queries + other_queries
 
@@ -598,7 +599,8 @@ class AggregationQuery(Query):
         ]
 
     def execute(self) -> None:
-        query_result: QueryResult = self.data_source.execute_query(self.sql)
+        sql = self.build_sql()
+        query_result: QueryResult = self.data_source.execute_query(sql)
         row: tuple = query_result.rows[0]
         for i in range(0, len(self.aggregation_metrics)):
             aggregation_metric: AggregationMetric = self.aggregation_metrics[i]

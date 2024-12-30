@@ -282,6 +282,6 @@ class SqlDialect:
         return f"LOWER({self.build_expression_sql(lower.expression)})"
 
     def _build_case_when_sql(self, case_when: CASE_WHEN) -> str:
-        return (f"CASE WHEN {self.build_expression_sql(case_when.condition)}, "
-                f"{self.build_expression_sql(case_when.if_value)}, "
-                f"{self.build_expression_sql(case_when.else_value)})")
+        return (f"CASE WHEN {self.build_expression_sql(case_when.condition)} "
+                f"THEN {self.build_expression_sql(case_when.if_value)} "
+                f"ELSE {self.build_expression_sql(case_when.else_value)} END")

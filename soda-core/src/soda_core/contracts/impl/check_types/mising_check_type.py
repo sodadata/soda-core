@@ -64,8 +64,8 @@ class MissingCheck(Check):
             type=ThresholdType.SINGLE_COMPARATOR,
             must_be=0
         ))
-        summary = (threshold.get_assertion_summary(metric_name="missing_count")
-                   if threshold else "missing_count (invalid threshold)")
+        summary = (threshold.get_assertion_summary(metric_name=check_yaml.type)
+                   if threshold else f"{check_yaml.type} (invalid threshold)")
         super().__init__(
             contract_yaml=contract_yaml,
             column_yaml=column_yaml,
@@ -86,7 +86,6 @@ class MissingCheck(Check):
         self.aggregation_metrics.append(resolved_missing_count_metric)
 
         if self.type == "missing_percent":
-            self.metrics["row_count"] = resolved_missing_count_metric
             row_count_metric = RowCountMetric(
                 data_source_name=self.data_source_name,
                 dataset_prefix=self.dataset_prefix,
@@ -96,14 +95,25 @@ class MissingCheck(Check):
             self.metrics["row_count"] = resolved_row_count_metric
             self.aggregation_metrics.append(resolved_row_count_metric)
 
-
     def evaluate(self) -> CheckResult:
         outcome: CheckOutcome = CheckOutcome.NOT_EVALUATED
 
         missing_count: int = self.metrics["missing_count"].measured_value
+        diagnostic_lines = [
+            f"Actual missing_count was {missing_count}"
+        ]
+
+        if self.type == "missing_count":
+            threshold_value = missing_count
+        else:
+            row_count: int = self.metrics["row_count"].measured_value
+            diagnostic_lines.append(f"Actual row_count was {row_count}")
+            missing_percent: float = missing_count * 100 / row_count
+            diagnostic_lines.append(f"Actual missing_percent was {missing_percent}")
+            threshold_value = missing_percent
 
         if self.threshold:
-            if self.threshold.passes(missing_count):
+            if self.threshold.passes(threshold_value):
                 outcome = CheckOutcome.PASSED
             else:
                 outcome = CheckOutcome.FAILED
@@ -111,9 +121,7 @@ class MissingCheck(Check):
         return CheckResult(
             outcome=outcome,
             check_summary=self.summary,
-            diagnostic_lines=[
-                f"Actual missing_count was {missing_count}"
-            ],
+            diagnostic_lines=diagnostic_lines,
         )
 
 
