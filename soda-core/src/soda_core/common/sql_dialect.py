@@ -141,6 +141,8 @@ class SqlDialect:
             return self._build_operator_sql(expression)
         elif isinstance(expression, COUNT):
             return self._build_count_sql(expression)
+        elif isinstance(expression, SUM):
+            return self._build_sum_sql(expression)
         elif isinstance(expression, CASE_WHEN):
             return self._build_case_when_sql(expression)
         elif isinstance(expression, IS_NULL):
@@ -268,6 +270,9 @@ class SqlDialect:
 
     def _build_count_sql(self, count: COUNT) -> str:
         return f"COUNT({self.build_expression_sql(count.expression)})"
+
+    def _build_sum_sql(self, count: COUNT) -> str:
+        return f"SUM({self.build_expression_sql(count.expression)})"
 
     def _build_is_null_sql(self, is_null: IS_NULL) -> str:
         return f"{self.build_expression_sql(is_null.expression)} IS NULL"

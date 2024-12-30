@@ -28,3 +28,18 @@ def test_schema(data_source_test_helper: DataSourceTestHelper):
               - name: created
         """
     )
+
+
+def test_missing_percent_no_division_by_zero(data_source_test_helper: DataSourceTestHelper):
+
+    test_table = data_source_test_helper.ensure_test_table(test_table_specification)
+
+    data_source_test_helper.assert_contract_pass(
+        test_table=test_table,
+        contract_yaml_str=f"""
+            columns:
+              - name: id
+                checks:
+                  - type: missing_percent
+        """
+    )

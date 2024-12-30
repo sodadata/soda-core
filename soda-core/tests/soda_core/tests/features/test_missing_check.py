@@ -5,6 +5,11 @@ test_table_specification = (
     TestTableSpecification.builder()
     .table_purpose("test_missing")
     .column_text("id")
+    .rows(rows=[
+        ("1",),
+        (None,),
+        ("3",),
+    ])
     .build()
 )
 
@@ -13,7 +18,7 @@ def test_missing_count(data_source_test_helper: DataSourceTestHelper):
 
     test_table = data_source_test_helper.ensure_test_table(test_table_specification)
 
-    data_source_test_helper.assert_contract_pass(
+    data_source_test_helper.assert_contract_fail(
         test_table=test_table,
         contract_yaml_str=f"""
             columns:
@@ -35,5 +40,6 @@ def test_missing_percent(data_source_test_helper: DataSourceTestHelper):
               - name: id
                 checks:
                   - type: missing_percent
+                    must_be_less_than: 50
         """
     )

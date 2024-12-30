@@ -429,9 +429,8 @@ class DataSourceTestHelper:
     def assert_contract_fail(
         self, test_table: TestTable, contract_yaml_str: str, variables: dict[str, str] | None = None
     ) -> ContractResult:
-        unique_table_name: str = self.ensure_test_table(test_table)
         full_contract_yaml_str: str = self._build_full_contract_yaml_str(
-            test_table=test_table, unique_table_name=unique_table_name, contract_yaml_str=contract_yaml_str
+            test_table=test_table, unique_table_name=test_table.unique_name, contract_yaml_str=contract_yaml_str
         )
         logging.debug(full_contract_yaml_str)
         contract_verification_result: ContractVerificationResult = (

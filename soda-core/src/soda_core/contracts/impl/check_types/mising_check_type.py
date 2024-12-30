@@ -36,6 +36,7 @@ class MissingCheckYaml(CheckYaml):
         super().__init__(
             check_yaml_object=check_yaml_object
         )
+        self.parse_threshold(check_yaml_object)
 
     def create_check(self, data_source: DataSource, dataset_prefix: list[str] | None, contract_yaml: ContractYaml,
                      column_yaml: ColumnYaml | None, check_yaml: CheckYaml, metrics_resolver: MetricsResolver) -> Check:
@@ -143,7 +144,7 @@ class MissingCountMetric(AggregationMetric):
         )
 
     def sql_expression(self) -> SqlExpression:
-        return COUNT(CASE_WHEN(IS_NULL(self.column_name), LITERAL(1), LITERAL(0)))
+        return SUM(CASE_WHEN(IS_NULL(self.column_name), LITERAL(1), LITERAL(0)))
 
     def set_measured_value(self, value):
         self.measured_value = int(value)

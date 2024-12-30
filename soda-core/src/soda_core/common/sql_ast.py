@@ -42,6 +42,11 @@ class COUNT(SqlExpression):
 
 
 @dataclass
+class SUM(SqlExpression):
+    expression: SqlExpression | str
+
+
+@dataclass
 class SqlExpressionStr(SqlExpression):
     expression_str: str
 
