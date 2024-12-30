@@ -1,10 +1,14 @@
 from __future__ import annotations
 
+from tkinter.filedialog import dialogstates
+
 from soda_core.common.data_source import DataSource
 from soda_core.common.sql_dialect import *
 from soda_core.common.yaml import YamlObject
 from soda_core.contracts.contract_verification import CheckResult, CheckOutcome
-from soda_core.contracts.impl.contract_verification_impl import MetricsResolver, Check, AggregationMetric
+from soda_core.contracts.impl.check_types.row_count_check_type import RowCountMetric
+from soda_core.contracts.impl.contract_verification_impl import MetricsResolver, Check, AggregationMetric, Threshold, \
+    ThresholdType
 from soda_core.contracts.impl.contract_yaml import CheckYaml, ColumnYaml, ContractYaml, CheckType
 
 
@@ -56,11 +60,19 @@ class MissingCheck(Check):
         check_yaml: MissingCheckYaml,
         metrics_resolver: MetricsResolver,
     ):
+        threshold = Threshold.create(check_yaml=check_yaml, default_threshold=Threshold(
+            type=ThresholdType.SINGLE_COMPARATOR,
+            must_be=0
+        ))
+        summary = (threshold.get_assertion_summary(metric_name="missing_count")
+                   if threshold else "missing_count (invalid threshold)")
         super().__init__(
             contract_yaml=contract_yaml,
             column_yaml=column_yaml,
             check_yaml=check_yaml,
             dataset_prefix=dataset_prefix,
+            threshold=threshold,
+            summary=summary
         )
 
         missing_count_metric = MissingCountMetric(
@@ -88,13 +100,20 @@ class MissingCheck(Check):
     def evaluate(self) -> CheckResult:
         outcome: CheckOutcome = CheckOutcome.NOT_EVALUATED
 
-        missing_count: int = self.aggregation_metrics["missing_count"].measured_value
+        missing_count: int = self.metrics["missing_count"].measured_value
 
-        return NumericIntegerMetricCheckResult(
+        if self.threshold:
+            if self.threshold.passes(missing_count):
+                outcome = CheckOutcome.PASSED
+            else:
+                outcome = CheckOutcome.FAILED
+
+        return CheckResult(
             outcome=outcome,
-            diagnostics={
-                "missing_count":
-            }
+            check_summary=self.summary,
+            diagnostic_lines=[
+                f"Actual missing_count was {missing_count}"
+            ],
         )
 
 

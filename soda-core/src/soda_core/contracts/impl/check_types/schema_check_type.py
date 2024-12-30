@@ -76,7 +76,9 @@ class SchemaCheck(Check):
             contract_yaml=contract_yaml,
             column_yaml=column_yaml,
             check_yaml=check_yaml,
-            dataset_prefix=dataset_prefix
+            dataset_prefix=dataset_prefix,
+            threshold=None,
+            summary="Schema"
         )
 
         self.expected_columns: list[ExpectedColumn] = [
@@ -242,15 +244,21 @@ class SchemaCheckResult(CheckResult):
         actual_column_names_not_expected: list[str],
         column_data_type_mismatches: list[ColumnDataTypeMismatch],
     ) -> list[str]:
-        expected_columns_str: str = ",".join(
+        def opt_data_type(data_type: str | None) -> str:
+            if isinstance(data_type, str):
+                return f"({data_type})"
+            else:
+                return ""
+
+        expected_columns_str: str = ", ".join(
             [
-                f"{expected_column.column_name} {expected_column.data_type}"
+                f"{expected_column.column_name}{opt_data_type(expected_column.data_type)}"
                 for expected_column in expected_columns
             ]
         )
 
-        actual_columns_str: str = ",".join([
-            f"{actual_column.column_name} {actual_column.data_type if actual_column.data_type else ''}"
+        actual_columns_str: str = ", ".join([
+            f"{actual_column.column_name}({actual_column.data_type})"
             for actual_column in actual_columns
         ])
 

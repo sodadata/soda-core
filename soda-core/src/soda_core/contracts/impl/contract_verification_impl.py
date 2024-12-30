@@ -255,7 +255,7 @@ class Contract:
         aggregation_metrics: list[AggregationMetric] = []
         for check in self.checks:
             queries.extend(check.queries)
-            aggregation_metrics.extend(check.aggregation_metrics.values())
+            aggregation_metrics.extend(check.aggregation_metrics)
 
         from soda_core.contracts.impl.check_types.schema_check_type import SchemaQuery
         schema_queries: list[SchemaQuery] = []
@@ -429,6 +429,15 @@ class Threshold:
             upper_bound = (str(self.must_be_greater_than) if isinstance(self.must_be_greater_than, Number)
                            else f"{self.must_be_greater_than_or_equal} (included)")
             return f"{metric_name} must be between {lower_bound} and {upper_bound}"
+
+    def passes(self, value: Number) -> bool:
+        return ((self.must_be_greater_than is None or value > self.must_be_greater_than)
+           and (self.must_be_greater_than_or_equal is None or value >= self.must_be_greater_than_or_equal)
+           and (self.must_be_less_than is None or value < self.must_be_less_than)
+           and (self.must_be_less_than_or_equal is None or value <= self.must_be_less_than_or_equal)
+           and (not (isinstance(self.must_be, Number) or isinstance(self.must_be, str)) or value == self.must_be)
+           and (not (isinstance(self.must_not_be, Number) or isinstance(self.must_not_be, str)) or value != self.must_not_be)
+        )
 
 
 class Check:

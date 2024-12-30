@@ -43,6 +43,7 @@ class RowCountCheckYaml(CheckYaml):
             data_source=data_source,
             dataset_prefix=dataset_prefix,
             contract_yaml=contract_yaml,
+            column_yaml=None,
             check_yaml=self,
             metrics_resolver=metrics_resolver,
         )
@@ -63,8 +64,8 @@ class RowCountCheck(Check):
             type=ThresholdType.SINGLE_COMPARATOR,
             must_be_greater_than=0
         ))
-        summary = (self.threshold.get_assertion_summary(metric_name="row_count")
-                   if self.threshold else "row_count (invalid threshold)")
+        summary = (threshold.get_assertion_summary(metric_name="row_count")
+                   if threshold else "row_count (invalid threshold)")
         super().__init__(
             dataset_prefix=dataset_prefix,
             contract_yaml=contract_yaml,
@@ -87,6 +88,12 @@ class RowCountCheck(Check):
         outcome: CheckOutcome = CheckOutcome.NOT_EVALUATED
         row_count: int = self.metrics["row_count"].measured_value
 
+        if self.threshold:
+            if self.threshold.passes(row_count):
+                outcome = CheckOutcome.PASSED
+            else:
+                outcome = CheckOutcome.FAILED
+
         return CheckResult(
             outcome=outcome,
             check_summary=self.summary,
@@ -94,6 +101,7 @@ class RowCountCheck(Check):
                 f"Actual row_count was {row_count}"
             ],
         )
+
 
 class RowCountMetric(AggregationMetric):
 
@@ -107,6 +115,7 @@ class RowCountMetric(AggregationMetric):
             data_source_name=data_source_name,
             dataset_prefix=dataset_prefix,
             dataset_name=dataset_name,
+            column_name=None,
             metric_type_name="row_count"
         )
 

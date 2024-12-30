@@ -26,6 +26,5 @@ def test_schema(data_source_test_helper: DataSourceTestHelper):
               - name: size
                 data_type: {test_table.data_type('size')}
               - name: created
-                data_type: {test_table.data_type('created')}
         """
     )

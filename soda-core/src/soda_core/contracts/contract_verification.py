@@ -153,7 +153,7 @@ class ContractVerificationResult:
 
     @classmethod
     def __format_contract_results_with_heading(cls, contract_result: ContractResult) -> list[str]:
-        return [f"# Contract results for {contract_result.contract_yaml.dataset_name}", str(contract_result)]
+        return [f"### Contract results for {contract_result.contract_yaml.dataset_name}", str(contract_result)]
 
 
 class SodaException(Exception):
@@ -227,34 +227,22 @@ class ContractResult:
         return not self.failed()
 
     def __str__(self) -> str:
-        error_texts_list: list[str] = [str(error) for error in self.logs.get_errors()]
-
-        check_failure_message_list: list[str] = []
+        log_lines: list[str] = [str(log) for log in self.logs.logs]
 
         check_failure_count: int = 0
         for check_result in self.check_results:
+            result_str_lines = check_result.get_log_lines()
+            log_lines.extend(result_str_lines)
             if check_result.outcome == CheckOutcome.FAILED:
-                result_str_lines = check_result.get_log_lines()
-                check_failure_message_list.extend(result_str_lines)
                 check_failure_count += 1
 
-        if not error_texts_list and not check_failure_message_list:
-            return "All is good. No checks failed. No contract execution errors."
+        error_count: int = len(self.logs.get_errors())
 
-        errors_summary_text = f"{len(error_texts_list)} execution error"
-        if len(error_texts_list) != 1:
-            errors_summary_text = f"{errors_summary_text}s"
+        if check_failure_count + error_count == 0:
+            log_lines.append("Contract summary: All is good. No checks failed. No contract execution errors.")
+        elif check_failure_count > 0:
+            log_lines.append(f"Contract summary: Ouch! {check_failure_count} check failures and {error_count} errors")
+        else:
+            log_lines.append(f"Contract summary: Ouch! {error_count} errors and {check_failure_count} check failures")
 
-        checks_summary_text = f"{check_failure_count} check failure"
-        if check_failure_count != 1:
-            checks_summary_text = f"{checks_summary_text}s"
-
-        parts = [f"{checks_summary_text} and {errors_summary_text}"]
-        if error_texts_list:
-            error_lines_text: str = indent("\n".join(error_texts_list), "  ")
-            parts.append(f"Errors: \n{error_lines_text}")
-
-        if check_failure_message_list:
-            parts.append("\n".join(check_failure_message_list))
-
-        return "\n".join(parts)
+        return "\n".join(log_lines)
