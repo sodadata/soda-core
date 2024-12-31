@@ -408,47 +408,10 @@ class DataSourceTestHelper:
         errors: list[Log] = contract_verification.logs.get_errors()
         return "\n".join([str(e) for e in errors])
 
-    def assert_contract_pass(
-        self, test_table: TestTable, contract_yaml_str: str, variables: dict[str, str] | None = None
-    ) -> ContractResult:
-        full_contract_yaml_str: str = self._build_full_contract_yaml_str(
-            test_table=test_table, unique_table_name=test_table.unique_name, contract_yaml_str=contract_yaml_str
-        )
-        contract_verification_result: ContractVerificationResult = (
-            self.create_test_verification_builder()
-            .with_contract_yaml_str(full_contract_yaml_str)
-            .with_variables(variables)
-            .execute()
-        )
-        if contract_verification_result.failed():
-            raise AssertionError(f"Expected contract verification passed, but was: {contract_verification_result}")
-        logging.debug(f"Contract result: {contract_verification_result}")
-        return contract_verification_result.contract_results[0]
-
-    def assert_contract_fail(
-        self, test_table: TestTable, contract_yaml_str: str, variables: dict[str, str] | None = None
-    ) -> ContractResult:
-        full_contract_yaml_str: str = self._build_full_contract_yaml_str(
-            test_table=test_table, unique_table_name=test_table.unique_name, contract_yaml_str=contract_yaml_str
-        )
-        logging.debug(full_contract_yaml_str)
-        contract_verification_result: ContractVerificationResult = (
-            self.create_test_verification_builder()
-            .with_contract_yaml_str(full_contract_yaml_str)
-            .with_variables(variables)
-            .execute()
-        )
-        if not contract_verification_result.failed():
-            raise AssertionError(
-                f"Expected contract verification failed, but got contract result: {contract_verification_result}"
-            )
-        logging.debug(f"Contract result: {contract_verification_result}")
-        return contract_verification_result.contract_results[0]
-
     def assert_contract_error(
         self, contract_yaml_str: str, variables: dict[str, str] | None = None
     ) -> ContractVerificationResult:
-        contract_yaml_str = dedent(contract_yaml_str).strip()
+        contract_yaml_str: str = dedent(contract_yaml_str).strip()
         logging.debug(contract_yaml_str)
         contract_verification_result: ContractVerificationResult = (
             self.create_test_verification_builder()
@@ -463,16 +426,56 @@ class DataSourceTestHelper:
         logging.debug(f"Contract result: {contract_result_str}")
         return contract_verification_result
 
+    def assert_contract_pass(
+        self, test_table: TestTable, contract_yaml_str: str, variables: dict[str, str] | None = None
+    ) -> ContractResult:
+        contract_verification_result: ContractVerificationResult = self._verify_contract(
+            contract_yaml_str=contract_yaml_str,
+            test_table=test_table,
+            variables=variables
+        )
+        if contract_verification_result.failed():
+            raise AssertionError(f"Expected contract verification passed, but was: {contract_verification_result}")
+        logging.debug(f"Contract result: {contract_verification_result}")
+        return contract_verification_result.contract_results[0]
+
+    def assert_contract_fail(
+        self, test_table: TestTable, contract_yaml_str: str, variables: dict[str, str] | None = None
+    ) -> ContractResult:
+        contract_verification_result: ContractVerificationResult = self._verify_contract(
+            contract_yaml_str=contract_yaml_str,
+            test_table=test_table,
+            variables=variables
+        )
+        if not contract_verification_result.failed():
+            raise AssertionError(
+                f"Expected contract verification failed, but got contract result: {contract_verification_result}"
+            )
+        logging.debug(f"Contract result: {contract_verification_result}")
+        return contract_verification_result.contract_results[0]
+
+    def _verify_contract(
+        self,
+        contract_yaml_str: str,
+        test_table: TestTable,
+        variables: dict
+    ) -> ContractVerificationResult:
+        header_contract_yaml_str: str = (
+            f"dataset: {test_table.unique_name}\n"
+            f"dataset_location_{self.data_source.get_data_source_type_name()}:\n"
+            f"  database: {self.database_name}\n"
+            f"  schema: {self.schema_name}\n"
+        )
+        checks_contract_yaml_str = dedent(contract_yaml_str).strip()
+        full_contract_yaml_str: str = header_contract_yaml_str + checks_contract_yaml_str
+        logging.debug(full_contract_yaml_str)
+        contract_verification_result: ContractVerificationResult = (
+            self.create_test_verification_builder()
+            .with_contract_yaml_str(full_contract_yaml_str)
+            .with_variables(variables)
+            .execute()
+        )
+        return contract_verification_result
+
     def create_test_verification_builder(self):
         return TestContractVerification.builder(self.data_source)
-
-    def _build_full_contract_yaml_str(self, test_table: TestTable, unique_table_name: str, contract_yaml_str: str):
-        header_lines: list[str] = [
-            f"dataset: {unique_table_name}",
-            f"dataset_location_{self.data_source.get_data_source_type_name()}:",
-            f"  database: {self.database_name}",
-            f"  schema: {self.schema_name}"
-        ]
-        header_contract_yaml_str = "\n".join(header_lines)
-        checks_contract_yaml_str = dedent(contract_yaml_str).strip()
-        return f"{header_contract_yaml_str}\n{checks_contract_yaml_str}"

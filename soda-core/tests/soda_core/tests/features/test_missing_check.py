@@ -25,6 +25,7 @@ def test_missing_count(data_source_test_helper: DataSourceTestHelper):
               - name: id
                 checks:
                   - type: missing_count
+                    # must_be: 0 is the default threshold
         """
     )
 
