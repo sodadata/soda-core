@@ -168,6 +168,8 @@ class SqlDialect:
         return f"{table_alias_sql}{column_sql}{field_alias_sql}"
 
     def _build_or_sql(self, or_expr: OR) -> str:
+        if isinstance(or_expr.clauses, list) and len(or_expr.clauses) == 1:
+            return self.build_expression_sql(or_expr.clauses[0])
         if isinstance(or_expr.clauses, str) or isinstance(or_expr.clauses, SqlExpression):
             return self.build_expression_sql(or_expr.clauses)
         or_clauses_sql: str = " OR ".join(
@@ -177,6 +179,8 @@ class SqlDialect:
         return f"({or_clauses_sql})"
 
     def _build_and_sql(self, and_expr: AND) -> str:
+        if isinstance(and_expr.clauses, list) and len(and_expr.clauses) == 1:
+            return self.build_expression_sql(and_expr.clauses[0])
         if isinstance(and_expr.clauses, str) or isinstance(and_expr.clauses, SqlExpression):
             return self.build_expression_sql(and_expr.clauses)
         return " AND ".join(
@@ -276,6 +280,10 @@ class SqlDialect:
 
     def _build_is_null_sql(self, is_null: IS_NULL) -> str:
         return f"{self.build_expression_sql(is_null.expression)} IS NULL"
+
+    def _build_in_sql(self, in_: IN) -> str:
+        list_expressions: str = ", ".join([self.build_expression_sql(element) for element in in_.list_expression])
+        return f"{self.build_expression_sql(in_.expression)} IN ({list_expressions})"
 
     def _build_like_sql(self, like: LIKE) -> str:
         return f"{self.build_expression_sql(like.left)} LIKE {self.build_expression_sql(like.right)}"

@@ -65,6 +65,12 @@ class IS_NULL(SqlExpression):
 
 
 @dataclass
+class IN(SqlExpression):
+    expression: SqlExpression | str
+    list_expression: list[SqlExpression]
+
+
+@dataclass
 class LOWER(SqlExpression):
     expression: SqlExpression | str
 

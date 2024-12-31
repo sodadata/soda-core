@@ -5,9 +5,11 @@ from soda_core.common.sql_dialect import *
 from soda_core.common.yaml import YamlObject
 from soda_core.contracts.contract_verification import CheckResult, CheckOutcome
 from soda_core.contracts.impl.check_types.row_count_check_type import RowCountMetric
+from soda_core.contracts.impl.column_configurations import MissingConfigurations
 from soda_core.contracts.impl.contract_verification_impl import MetricsResolver, Check, AggregationMetric, Threshold, \
     ThresholdType, DerivedPercentageMetric
 from soda_core.contracts.impl.contract_yaml import CheckYaml, ColumnYaml, ContractYaml, CheckType
+from soda_core.tests.features.test_missing_check import missing_no_rows_specification
 
 
 class MissingCheckType(CheckType):
@@ -74,11 +76,14 @@ class MissingCheck(Check):
             summary=summary
         )
 
+        missing_configurations: MissingConfigurations = column_yaml.get_missing_configurations()
+
         missing_count_metric = MissingCountMetric(
             data_source_name=self.data_source_name,
             dataset_prefix=self.dataset_prefix,
             dataset_name=self.dataset_name,
             column_name=self.column_name,
+            missing_configurations=missing_configurations
         )
         resolved_missing_count_metric: MissingCountMetric = metrics_resolver.resolve_metric(missing_count_metric)
         self.metrics["missing_count"] = resolved_missing_count_metric
@@ -139,7 +144,8 @@ class MissingCountMetric(AggregationMetric):
         data_source_name: str,
         dataset_prefix: list[str] | None,
         dataset_name: str,
-        column_name: str
+        column_name: str,
+        missing_configurations: MissingConfigurations
     ):
         super().__init__(
             data_source_name=data_source_name,
@@ -148,9 +154,15 @@ class MissingCountMetric(AggregationMetric):
             column_name=column_name,
             metric_type_name="missing_count"
         )
+        self.missing_configurations = missing_configurations
 
     def sql_expression(self) -> SqlExpression:
-        return SUM(CASE_WHEN(IS_NULL(self.column_name), LITERAL(1), LITERAL(0)))
+        is_missing_clauses: list[SqlExpression] = [IS_NULL(self.column_name)]
+        if isinstance(self.missing_configurations.missing_values, list):
+            literal_values = [LITERAL(value) for value in self.missing_configurations.missing_values]
+            is_missing_clauses.append(IN(self.column_name, literal_values))
+        ...TODO like regex...
+        return SUM(CASE_WHEN(OR(is_missing_clauses), LITERAL(1), LITERAL(0)))
 
     def set_value(self, value):
         # expression SUM(CASE WHEN "id" IS NULL THEN 1 ELSE 0 END) gives NULL / None as a result if there are no rows

@@ -6,6 +6,7 @@ from numbers import Number
 from soda_core.common.data_source import DataSource
 from soda_core.common.logs import Logs
 from soda_core.common.yaml import YamlSource, YamlObject, YamlList, YamlValue, YamlFileContent
+from soda_core.contracts.impl.column_configurations import MissingConfigurations
 
 
 class CheckType(ABC):
@@ -185,6 +186,13 @@ class ColumnYaml:
             checks_containing_yaml_object=column_yaml_object,
             column_yaml=self
         )
+
+    def get_missing_configurations(self) -> MissingConfigurations | None:
+        return MissingConfigurations(
+            missing_values=self.missing_values,
+            missing_regex_sql=self.missing_regex_sql
+        )
+
 
 
 class RangeYaml:
