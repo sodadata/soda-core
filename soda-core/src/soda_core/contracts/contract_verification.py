@@ -3,7 +3,6 @@ from __future__ import annotations
 from abc import ABC
 from enum import Enum
 from logging import ERROR
-from textwrap import indent
 
 from soda_core.common.data_source import DataSource
 from soda_core.common.logs import Logs

@@ -8,7 +8,6 @@ import string
 from textwrap import dedent
 
 from soda_core.common.data_source import DataSource
-from soda_core.common.data_source_results import QueryResult
 from soda_core.common.data_source_parser import DataSourceParser
 from soda_core.common.logs import Logs, Log
 from soda_core.common.statements.metadata_tables_query import FullyQualifiedTableName, MetadataTablesQuery

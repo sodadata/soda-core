@@ -1,4 +1,4 @@
-from soda_core.common.yaml import YamlSource, YamlFileContent
+from soda_core.common.yaml import YamlSource
 from soda_core.contracts.impl.contract_yaml import ContractYaml, ColumnYaml, CheckYaml
 from soda_core.tests.helpers.test_functions import dedent_and_strip
 

@@ -1,10 +1,9 @@
 from soda_core.common.data_source import DataSource
-from soda_core.common.data_source_results import QueryResult
 from soda_core.common.data_source_parser import DataSourceParser
+from soda_core.common.data_source_results import QueryResult
 from soda_core.common.yaml import YamlSource
 from soda_core.tests.helpers.data_source_test_helper import DataSourceTestHelper
 from soda_core.tests.helpers.test_table import TestTableSpecification
-
 
 test_table_specification = (
     TestTableSpecification.builder()

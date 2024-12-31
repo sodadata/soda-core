@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from tkinter.filedialog import dialogstates
-
 from soda_core.common.data_source import DataSource
 from soda_core.common.sql_dialect import *
 from soda_core.common.yaml import YamlObject
