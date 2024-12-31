@@ -6,7 +6,7 @@ from soda_core.common.yaml import YamlObject
 from soda_core.contracts.contract_verification import CheckResult, CheckOutcome
 from soda_core.contracts.impl.check_types.row_count_check_type import RowCountMetric
 from soda_core.contracts.impl.contract_verification_impl import MetricsResolver, Check, AggregationMetric, Threshold, \
-    ThresholdType
+    ThresholdType, DerivedPercentageMetric
 from soda_core.contracts.impl.contract_yaml import CheckYaml, ColumnYaml, ContractYaml, CheckType
 
 
@@ -94,10 +94,16 @@ class MissingCheck(Check):
             self.metrics["row_count"] = resolved_row_count_metric
             self.aggregation_metrics.append(resolved_row_count_metric)
 
+            self.metrics["missing_percent"] = DerivedPercentageMetric(
+                metric_name="missing_percent",
+                fraction_metric=resolved_missing_count_metric,
+                total_metric=resolved_row_count_metric
+            )
+
     def evaluate(self) -> CheckResult:
         outcome: CheckOutcome = CheckOutcome.NOT_EVALUATED
 
-        missing_count: int = self.metrics["missing_count"].measured_value
+        missing_count: int = self.metrics["missing_count"].value
         diagnostic_lines = [
             f"Actual missing_count was {missing_count}"
         ]
@@ -106,10 +112,10 @@ class MissingCheck(Check):
         if self.type == "missing_count":
             threshold_value = missing_count
         else:
-            row_count: int = self.metrics["row_count"].measured_value
+            row_count: int = self.metrics["row_count"].value
             diagnostic_lines.append(f"Actual row_count was {row_count}")
             if row_count > 0:
-                missing_percent: float = missing_count * 100 / row_count
+                missing_percent: float = self.metrics["missing_percent"].value
                 diagnostic_lines.append(f"Actual missing_percent was {missing_percent}")
                 threshold_value = missing_percent
 
@@ -146,7 +152,7 @@ class MissingCountMetric(AggregationMetric):
     def sql_expression(self) -> SqlExpression:
         return SUM(CASE_WHEN(IS_NULL(self.column_name), LITERAL(1), LITERAL(0)))
 
-    def set_measured_value(self, value):
+    def set_value(self, value):
         # expression SUM(CASE WHEN "id" IS NULL THEN 1 ELSE 0 END) gives NULL / None as a result if there are no rows
         value = 0 if value is None else value
-        self.measured_value = int(value)
+        self.value = int(value)

@@ -154,10 +154,19 @@ class ContractVerificationImpl:
         return contract_results
 
     def verify_contract(self, contract: Contract) -> ContractResult:
-        # Ensures that all contract->check->metrics that are equal are merged into the same Python object
+        # Executing the queries will set the value of the metrics linked to queries
         for query in contract.queries:
             query.execute()
 
+        # Triggering the derived metrics to initialize their value based on their dependencies
+        derived_metrics: list[DerivedPercentageMetric] = [
+            derived_metric for derived_metric in contract.metrics
+            if isinstance(derived_metric, DerivedPercentageMetric)
+        ]
+        for derived_metric in derived_metrics:
+            derived_metric.initialize_measured_value()
+
+        # Evaluate the checks
         check_results: list[CheckResult] = []
         for check in contract.checks:
             check_result: CheckResult = check.evaluate()
@@ -168,31 +177,6 @@ class ContractVerificationImpl:
             check_results=check_results,
             logs=self.logs
         )
-
-
-# class CheckDependencyResolver:
-#     def __init__(self, checks: list[Check]):
-#         self.checks_not_evaluated: list[Check] = checks
-#         self.checks_evaluating_batch: list[Check] = []
-#         self.checks_evaluated: list[Check] = []
-#
-#     def next_dependency_batch(self) -> bool:
-#         self.checks_evaluated.extend(self.checks_evaluating_batch)
-#         self.checks_evaluating_batch = []
-#         for check_not_evaluated in self.checks_not_evaluated:
-#             if self.has_all_dependencies_available(check_not_evaluated):
-#                 self.checks_not_evaluated.remove(check_not_evaluated)
-#                 self.checks_evaluating_batch.append(check_not_evaluated)
-#         return len(self.checks_evaluating_batch) > 0
-#
-#     def has_all_dependencies_available(self, check_not_evaluated: Check) -> bool:
-#         return all(
-#             check_dependency in self.checks_evaluated
-#             for check_dependency in check_not_evaluated.check_dependencies
-#         )
-#
-#     def get_next_dependency_batch(self) -> list[Check]:
-#         return self.checks_evaluating_batch
 
 
 class Contract:
@@ -499,7 +483,7 @@ class Metric:
         self.column_name: str | None = column_name
         self.type: str = metric_type_name
         # Initialized in the check.evaluate after queries are executed
-        self.measured_value: any = None
+        self.value: any = None
 
     def _get_eq_properties(self, m: Metric) -> dict:
         return {
@@ -526,8 +510,33 @@ class AggregationMetric(Metric):
     def sql_expression(self) -> SqlExpression:
         pass
 
-    def set_measured_value(self, param):
+    def set_value(self, value: any) -> None:
         pass
+
+
+class DerivedPercentageMetric(Metric):
+    def __init__(
+        self,
+        metric_name: str,
+        fraction_metric: Metric,
+        total_metric: Metric
+    ):
+        super().__init__(
+            data_source_name=fraction_metric.data_source_name,
+            dataset_prefix=fraction_metric.dataset_prefix,
+            dataset_name=fraction_metric.dataset_name,
+            column_name=fraction_metric.column_name,
+            metric_type_name=metric_name
+        )
+
+        self.fraction_metric: Metric = fraction_metric
+        self.total_metric: Metric = total_metric
+
+    def initialize_measured_value(self) -> None:
+        fraction: Number = self.fraction_metric.value
+        total: Number = self.total_metric.value
+        if isinstance(fraction, Number) and isinstance(total, Number) and total != 0:
+            self.value = fraction * 100 / total
 
 
 class Query(ABC):
@@ -604,12 +613,12 @@ class AggregationQuery(Query):
         row: tuple = query_result.rows[0]
         for i in range(0, len(self.aggregation_metrics)):
             aggregation_metric: AggregationMetric = self.aggregation_metrics[i]
-            aggregation_metric.set_measured_value(row[i])
+            aggregation_metric.set_value(row[i])
 
     def process_query_result(self, query_result: QueryResult) -> None:
         row: tuple = query_result.rows[0]
         for i in range(0, len(row)):
-            self.aggregation_metrics[i].measured_value = row[i]
+            self.aggregation_metrics[i].value = row[i]
 
 
 class Measurement:

@@ -84,7 +84,7 @@ class RowCountCheck(Check):
 
     def evaluate(self) -> CheckResult:
         outcome: CheckOutcome = CheckOutcome.NOT_EVALUATED
-        row_count: int = self.metrics["row_count"].measured_value
+        row_count: int = self.metrics["row_count"].value
 
         if self.threshold:
             if self.threshold.passes(row_count):
@@ -120,5 +120,5 @@ class RowCountMetric(AggregationMetric):
     def sql_expression(self) -> SqlExpression:
         return COUNT(STAR())
 
-    def set_measured_value(self, value):
-        self.measured_value = int(value)
+    def set_value(self, value: any) -> None:
+        self.value = int(value)

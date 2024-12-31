@@ -112,7 +112,7 @@ class SchemaCheck(Check):
         actual_column_names_not_expected: list[str] = []
         column_data_type_mismatches: list[ColumnDataTypeMismatch] = []
 
-        actual_columns: list[MetadataColumn] = self.metrics["schema"].measured_value
+        actual_columns: list[MetadataColumn] = self.metrics["schema"].value
         if actual_columns:
             actual_column_names = [
                 actual_column.column_name for actual_column in actual_columns
@@ -205,7 +205,7 @@ class SchemaQuery(Query):
     def execute(self) -> None:
         query_result: QueryResult = self.data_source.execute_query(self.sql)
         metadata_columns: list[MetadataColumn] = self.metadata_columns_query_builder.get_result(query_result)
-        self.metrics[0].measured_value = metadata_columns
+        self.metrics[0].value = metadata_columns
 
 
 class SchemaCheckResult(CheckResult):
