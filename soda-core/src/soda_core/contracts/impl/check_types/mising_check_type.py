@@ -104,16 +104,18 @@ class MissingCheck(Check):
             f"Actual missing_count was {missing_count}"
         ]
 
+        threshold_value: Number | None = None
         if self.type == "missing_count":
             threshold_value = missing_count
         else:
             row_count: int = self.metrics["row_count"].measured_value
             diagnostic_lines.append(f"Actual row_count was {row_count}")
-            missing_percent: float = missing_count * 100 / row_count
-            diagnostic_lines.append(f"Actual missing_percent was {missing_percent}")
-            threshold_value = missing_percent
+            if row_count > 0:
+                missing_percent: float = missing_count * 100 / row_count
+                diagnostic_lines.append(f"Actual missing_percent was {missing_percent}")
+                threshold_value = missing_percent
 
-        if self.threshold:
+        if self.threshold and isinstance(threshold_value, Number):
             if self.threshold.passes(threshold_value):
                 outcome = CheckOutcome.PASSED
             else:
@@ -147,4 +149,6 @@ class MissingCountMetric(AggregationMetric):
         return SUM(CASE_WHEN(IS_NULL(self.column_name), LITERAL(1), LITERAL(0)))
 
     def set_measured_value(self, value):
+        # expression SUM(CASE WHEN "id" IS NULL THEN 1 ELSE 0 END) gives NULL / None as a result if there are no rows
+        value = 0 if value is None else value
         self.measured_value = int(value)
