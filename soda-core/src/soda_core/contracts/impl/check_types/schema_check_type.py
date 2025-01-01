@@ -7,14 +7,15 @@ from soda_core.common.data_source_results import QueryResult
 from soda_core.common.statements.metadata_columns_query import MetadataColumnsQuery, MetadataColumn
 from soda_core.common.yaml import YamlObject
 from soda_core.contracts.contract_verification import CheckResult, CheckOutcome
-from soda_core.contracts.impl.contract_verification_impl import Metric, Check, MetricsResolver, Query
-from soda_core.contracts.impl.contract_yaml import CheckYaml, ColumnYaml, ContractYaml, CheckType
+from soda_core.contracts.impl.contract_verification_impl import Metric, Check, MetricsResolver, Query, CheckParser, \
+    Contract, Column
+from soda_core.contracts.impl.contract_yaml import CheckYaml, ColumnYaml, ContractYaml, CheckYamlParser
 
 
-class SchemaCheckType(CheckType):
+class SchemaCheckYamlParser(CheckYamlParser):
 
     def get_check_type_names(self) -> list[str]:
-        return ["schema"]
+        return ['schema']
 
     def parse_check_yaml(
         self,
@@ -36,15 +37,23 @@ class SchemaCheckYaml(CheckYaml):
             check_yaml_object=check_yaml_object,
         )
 
-    def create_check(self, data_source: DataSource, dataset_prefix: list[str] | None, contract_yaml: ContractYaml,
-                     column_yaml: ColumnYaml | None, check_yaml: CheckYaml, metrics_resolver: MetricsResolver) -> Check:
+
+class SchemaCheckParser(CheckParser):
+
+    def get_check_type_names(self) -> list[str]:
+        return ['schema']
+
+    def parse_check(
+        self,
+        contract: Contract,
+        column: Column | None,
+        check_yaml: SchemaCheckYaml,
+        metrics_resolver: MetricsResolver,
+    ) -> Check | None:
         return SchemaCheck(
-            contract_yaml=contract_yaml,
-            column_yaml=column_yaml,
-            check_yaml=self,
+            contract=contract,
+            check_yaml=check_yaml,
             metrics_resolver=metrics_resolver,
-            data_source=data_source,
-            dataset_prefix=dataset_prefix
         )
 
 
@@ -65,21 +74,17 @@ class SchemaCheck(Check):
 
     def __init__(
         self,
-        contract_yaml: ContractYaml,
-        column_yaml: ColumnYaml | None,
+        contract: Contract,
         check_yaml: SchemaCheckYaml,
         metrics_resolver: MetricsResolver,
-        data_source: DataSource,
-        dataset_prefix: list[str] | None
     ):
         super().__init__(
-            contract_yaml=contract_yaml,
-            column_yaml=column_yaml,
+            contract=contract,
             check_yaml=check_yaml,
-            dataset_prefix=dataset_prefix,
-            threshold=None,
-            summary="Schema"
+            metrics_resolver=metrics_resolver
         )
+
+        self.summary = "schema"
 
         self.expected_columns: list[ExpectedColumn] = [
             ExpectedColumn(
@@ -98,10 +103,10 @@ class SchemaCheck(Check):
         self.metrics["schema"] = resolved_schema_metric
 
         schema_query: Query = SchemaQuery(
-            dataset_prefix=self.dataset_prefix,
-            dataset_name=self.dataset_name,
+            dataset_prefix=contract.dataset_prefix,
+            dataset_name=contract.dataset_name,
             schema_metric=resolved_schema_metric,
-            data_source=data_source
+            data_source=contract.data_source
         )
         self.queries.append(schema_query)
 

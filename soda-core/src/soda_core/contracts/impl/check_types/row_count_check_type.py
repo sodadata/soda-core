@@ -5,11 +5,11 @@ from soda_core.common.sql_dialect import *
 from soda_core.common.yaml import YamlObject
 from soda_core.contracts.contract_verification import CheckResult, CheckOutcome
 from soda_core.contracts.impl.contract_verification_impl import MetricsResolver, Check, AggregationMetric, Threshold, \
-    ThresholdType
-from soda_core.contracts.impl.contract_yaml import CheckYaml, ColumnYaml, ContractYaml, CheckType
+    ThresholdType, CheckParser, Contract, Column
+from soda_core.contracts.impl.contract_yaml import CheckYaml, ColumnYaml, ContractYaml, CheckType, CheckYamlParser
 
 
-class RowCountCheckType(CheckType):
+class RowCountCheckYamlParser(CheckYamlParser):
 
     def get_check_type_names(self) -> list[str]:
         return ['row_count']
@@ -35,14 +35,23 @@ class RowCountCheckYaml(CheckYaml):
         )
         self.parse_threshold(check_yaml_object=check_yaml_object)
 
-    def create_check(self, data_source: DataSource, dataset_prefix: list[str] | None, contract_yaml: ContractYaml,
-                     column_yaml: ColumnYaml | None, check_yaml: CheckYaml, metrics_resolver: MetricsResolver) -> Check:
+
+class RowCountCheckParser(CheckParser):
+
+    def get_check_type_names(self) -> list[str]:
+        return ['row_count']
+
+    def parse_check(
+        self,
+        contract: Contract,
+        column: Column | None,
+        check_yaml: RowCountCheckYaml,
+        metrics_resolver: MetricsResolver,
+    ) -> Check | None:
         return RowCountCheck(
-            data_source=data_source,
-            dataset_prefix=dataset_prefix,
-            contract_yaml=contract_yaml,
-            column_yaml=None,
-            check_yaml=self,
+            contract=contract,
+            column=column,
+            check_yaml=check_yaml,
             metrics_resolver=metrics_resolver,
         )
 

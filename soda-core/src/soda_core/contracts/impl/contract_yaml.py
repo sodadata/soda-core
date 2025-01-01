@@ -9,36 +9,6 @@ from soda_core.common.yaml import YamlSource, YamlObject, YamlList, YamlValue, Y
 from soda_core.contracts.impl.column_configurations import MissingConfigurations
 
 
-class CheckType(ABC):
-
-    __CHECK_TYPES_BY_NAME: dict[str, CheckType] = {}
-
-    @classmethod
-    def register_check_type(cls, check_type: CheckType):
-        for check_type_name in check_type.get_check_type_names():
-            cls.__CHECK_TYPES_BY_NAME[check_type_name] = check_type
-
-    @classmethod
-    def get_check_type(cls, check_type_name: str) -> CheckType | None:
-        return cls.__CHECK_TYPES_BY_NAME.get(check_type_name)
-
-    @classmethod
-    def get_all_check_type_names(cls):
-        return cls.__CHECK_TYPES_BY_NAME.keys()
-
-    @abstractmethod
-    def get_check_type_names(self) -> list[str]:
-        pass
-
-    @abstractmethod
-    def parse_check_yaml(
-        self,
-        check_yaml_object: YamlObject,
-        column_yaml: ColumnYaml | None,
-    ) -> CheckYaml | None:
-        pass
-
-
 class ContractYaml:
 
     """
@@ -120,13 +90,6 @@ class ContractYaml:
                     if isinstance(check_yaml_object, YamlObject):
                         check_type_name: str | None = check_yaml_object.read_string("type")
 
-                        from soda_core.contracts.impl.check_types.schema_check_type import SchemaCheckType
-                        CheckType.register_check_type(SchemaCheckType())
-                        from soda_core.contracts.impl.check_types.mising_check_type import MissingCheckType
-                        CheckType.register_check_type(MissingCheckType())
-                        from soda_core.contracts.impl.check_types.row_count_check_type import RowCountCheckType
-                        CheckType.register_check_type(RowCountCheckType())
-
                         check_type: CheckType = CheckType.get_check_type(check_type_name)
                         if check_type:
                             check_yaml = check_type.parse_check_yaml(
@@ -194,7 +157,6 @@ class ColumnYaml:
         )
 
 
-
 class RangeYaml:
     """
     Boundary values are inclusive
@@ -218,7 +180,47 @@ class RangeYaml:
             return RangeYaml(lower_bound=lower_bound, upper_bound=upper_bound)
 
 
+class CheckYamlParser(ABC):
+
+    @abstractmethod
+    def get_check_type_names(self) -> list[str]:
+        pass
+
+    @abstractmethod
+    def parse_check_yaml(
+        self,
+        check_yaml_object: YamlObject,
+        column_yaml: ColumnYaml | None,
+    ) -> CheckYaml | None:
+        pass
+
+
 class CheckYaml(ABC):
+
+    check_yaml_parsers: dict[str, CheckYamlParser] = {}
+
+    @classmethod
+    def register(cls, check_yaml_parser: CheckYamlParser) -> None:
+        for check_type_name in check_yaml_parser.get_check_type_names():
+            cls.check_yaml_parsers[check_type_name] = check_yaml_parser
+
+    @classmethod
+    def get_check_type_names(cls) -> list[str]:
+        return list(cls.check_yaml_parsers.keys())
+
+    @classmethod
+    def parse_check_yaml(
+        cls,
+        check_yaml_object: YamlObject,
+        column_yaml: ColumnYaml | None,
+    ) -> CheckYaml | None:
+        check_type: str | None = check_yaml_object.read_string("type")
+        if isinstance(check_type, str):
+            check_yaml_parser: CheckYamlParser | None = cls.check_yaml_parsers.get(check_type)
+            if check_yaml_parser:
+                return check_yaml_parser.parse_check_yaml(check_yaml_object=check_yaml_object, column_yaml=column_yaml)
+            else:
+                check_yaml_object.logs.error(f"Unknown check type '{check_type}'")
 
     def __init__(self, check_yaml_object: YamlObject):
         self.check_yaml_object: YamlObject = check_yaml_object
@@ -246,9 +248,3 @@ class CheckYaml(ABC):
         self.must_not_be = check_yaml_object.read_number_opt("must_not_be")
         self.must_be_between = RangeYaml.read_opt(check_yaml_object, "must_be_between")
         self.must_be_not_between = RangeYaml.read_opt(check_yaml_object, "must_be_not_between")
-
-    @abstractmethod
-    def create_check(self, data_source: DataSource, dataset_prefix: list[str] | None, contract_yaml: ContractYaml,
-                     column_yaml: ColumnYaml | None, check_yaml: CheckYaml,
-                     metrics_resolver: 'MetricsResolver') -> 'Check':
-        pass

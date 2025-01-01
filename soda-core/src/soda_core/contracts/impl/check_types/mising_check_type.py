@@ -1,18 +1,15 @@
 from __future__ import annotations
 
-from soda_core.common.data_source import DataSource
 from soda_core.common.sql_dialect import *
 from soda_core.common.yaml import YamlObject
 from soda_core.contracts.contract_verification import CheckResult, CheckOutcome
 from soda_core.contracts.impl.check_types.row_count_check_type import RowCountMetric
-from soda_core.contracts.impl.column_configurations import MissingConfigurations
 from soda_core.contracts.impl.contract_verification_impl import MetricsResolver, Check, AggregationMetric, Threshold, \
-    ThresholdType, DerivedPercentageMetric
-from soda_core.contracts.impl.contract_yaml import CheckYaml, ColumnYaml, ContractYaml, CheckType
-from soda_core.tests.features.test_missing_check import missing_no_rows_specification
+    ThresholdType, DerivedPercentageMetric, CheckParser, Contract, Column
+from soda_core.contracts.impl.contract_yaml import CheckYaml, ColumnYaml, CheckYamlParser
 
 
-class MissingCheckType(CheckType):
+class MissingCheckYamlParser(CheckYamlParser):
 
     def get_check_type_names(self) -> list[str]:
         return ['missing_count', 'missing_percent']
@@ -38,14 +35,23 @@ class MissingCheckYaml(CheckYaml):
         )
         self.parse_threshold(check_yaml_object)
 
-    def create_check(self, data_source: DataSource, dataset_prefix: list[str] | None, contract_yaml: ContractYaml,
-                     column_yaml: ColumnYaml | None, check_yaml: CheckYaml, metrics_resolver: MetricsResolver) -> Check:
+
+class MissingCheckParser(CheckParser):
+
+    def get_check_type_names(self) -> list[str]:
+        return ['missing_count', 'missing_percent']
+
+    def parse_check(
+        self,
+        contract: Contract,
+        column: Column | None,
+        check_yaml: MissingCheckYaml,
+        metrics_resolver: MetricsResolver,
+    ) -> Check | None:
         return MissingCheck(
-            data_source=data_source,
-            dataset_prefix=dataset_prefix,
-            contract_yaml=contract_yaml,
-            column_yaml=column_yaml,
-            check_yaml=self,
+            contract=contract,
+            column=column,
+            check_yaml=check_yaml,
             metrics_resolver=metrics_resolver,
         )
 
@@ -54,36 +60,29 @@ class MissingCheck(Check):
 
     def __init__(
         self,
-        data_source: DataSource,
-        dataset_prefix: list[str] | None,
-        contract_yaml: ContractYaml,
-        column_yaml: ColumnYaml | None,
+        contract: Contract,
+        column: Column,
         check_yaml: MissingCheckYaml,
         metrics_resolver: MetricsResolver,
     ):
-        threshold = Threshold.create(check_yaml=check_yaml, default_threshold=Threshold(
-            type=ThresholdType.SINGLE_COMPARATOR,
-            must_be=0
-        ))
-        summary = (threshold.get_assertion_summary(metric_name=check_yaml.type)
-                   if threshold else f"{check_yaml.type} (invalid threshold)")
         super().__init__(
-            contract_yaml=contract_yaml,
-            column_yaml=column_yaml,
+            contract=contract,
+            column=column,
             check_yaml=check_yaml,
-            dataset_prefix=dataset_prefix,
-            threshold=threshold,
-            summary=summary
+        )
+        self.threshold = Threshold.create(
+            check_yaml=check_yaml,
+            default_threshold=Threshold(type=ThresholdType.SINGLE_COMPARATOR,must_be=0)
+        )
+        self.summary = (
+            self.threshold.get_assertion_summary(metric_name=check_yaml.type) if self.threshold
+            else f"{check_yaml.type} (invalid threshold)"
         )
 
-        missing_configurations: MissingConfigurations = column_yaml.get_missing_configurations()
-
         missing_count_metric = MissingCountMetric(
-            data_source_name=self.data_source_name,
-            dataset_prefix=self.dataset_prefix,
-            dataset_name=self.dataset_name,
-            column_name=self.column_name,
-            missing_configurations=missing_configurations
+            contract=contract,
+            column=column,
+            check=self
         )
         resolved_missing_count_metric: MissingCountMetric = metrics_resolver.resolve_metric(missing_count_metric)
         self.metrics["missing_count"] = resolved_missing_count_metric
@@ -141,20 +140,16 @@ class MissingCountMetric(AggregationMetric):
 
     def __init__(
         self,
-        data_source_name: str,
-        dataset_prefix: list[str] | None,
-        dataset_name: str,
-        column_name: str,
-        missing_configurations: MissingConfigurations
+        contract: Contract,
+        column: Column,
+        check: Check,
     ):
         super().__init__(
-            data_source_name=data_source_name,
-            dataset_prefix=dataset_prefix,
-            dataset_name=dataset_name,
-            column_name=column_name,
-            metric_type_name="missing_count"
+            contract=contract,
+            column=column,
+            metric_type_name=check.type,
+            qualifier=check.qualifier
         )
-        self.missing_configurations = missing_configurations
 
     def sql_expression(self) -> SqlExpression:
         is_missing_clauses: list[SqlExpression] = [IS_NULL(self.column_name)]

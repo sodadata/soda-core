@@ -12,7 +12,8 @@ from soda_core.common.sql_dialect import *
 from soda_core.common.yaml import YamlSource
 from soda_core.contracts.contract_verification import ContractVerificationResult, ContractResult, \
     CheckResult
-from soda_core.contracts.impl.contract_yaml import ContractYaml, CheckYaml, ColumnYaml, RangeYaml
+from soda_core.contracts.impl.contract_yaml import ContractYaml, CheckYaml, ColumnYaml, RangeYaml, \
+    CheckYamlParser
 
 
 class DataSourceContracts:
@@ -23,6 +24,21 @@ class DataSourceContracts:
 
     def add_contract(self, contract: Contract) -> None:
         self.contracts.append(contract)
+
+
+def register_check_types() -> None:
+    CheckYaml.register(SchemaCheckYamlParser())
+    from soda_core.contracts.impl.check_types.schema_check_type import SchemaCheckParser
+    Check.register(SchemaCheckParser())
+
+    from soda_core.contracts.impl.check_types.mising_check_type import MissingCheckYamlParser
+    CheckYaml.register(MissingCheckYamlParser())
+    from soda_core.contracts.impl.check_types.mising_check_type import MissingCheckParser
+    Check.register(MissingCheckParser())
+
+    from soda_core.contracts.impl.check_types.row_count_check_type import RowCountCheckYamlParser
+    CheckYaml.register(RowCountCheckYamlParser())
+    Check.register(RowCountCheckParser())
 
 
 class ContractVerificationImpl:
@@ -37,6 +53,11 @@ class ContractVerificationImpl:
         self.logs: Logs = logs
         self.default_data_source_contracts: DataSourceContracts | None = None
         self.data_sources_contracts: list[DataSourceContracts] = []
+
+        check_types_have_been_registered: bool = len(CheckYaml.check_yaml_parsers) > 0
+        if not check_types_have_been_registered:
+           register_check_types()
+
         if default_data_source:
             self.default_data_source_contracts = DataSourceContracts(data_source=default_data_source)
             self.data_sources_contracts.append(self.default_data_source_contracts)
@@ -194,6 +215,9 @@ class Contract:
         self.dataset_prefix: list[str] | None = data_source.build_dataset_prefix(data_source_location)
         self.dataset_name: str | None = contract_yaml.dataset_name if contract_yaml else None
         metrics_resolver: MetricsResolver = MetricsResolver()
+        self.columns: list[Column] = self._parse_columns(contract_yaml)
+
+        # The list of all checks: Includes all column and dataset checks
         self.checks: list[Check] = self._parse_checks(contract_yaml, metrics_resolver)
         self.metrics: list[Metric] = metrics_resolver.get_resolved_metrics()
         self.queries: list[Query] = self._build_queries()
@@ -204,35 +228,20 @@ class Contract:
         metrics_resolver: MetricsResolver,
     ) -> list[Check]:
         checks: list[Check] = []
-
         for check_yaml in contract_yaml.checks:
-            checks.append(self._parse_check(
-                contract_yaml=contract_yaml,
+            checks.append(Check.parse(
+                data_source=self.data_source,
+                dataset_prefix=self.dataset_prefix,
+                contract=self,
+                column=None,
                 check_yaml=check_yaml,
-                column_yaml=None,
                 metrics_resolver=metrics_resolver,
             ))
+        columns: list[Column] = []
         for column_yaml in contract_yaml.columns:
-            for check_yaml in column_yaml.checks:
-                checks.append(self._parse_check(
-                    contract_yaml=contract_yaml,
-                    check_yaml=check_yaml,
-                    column_yaml=column_yaml,
-                    metrics_resolver=metrics_resolver,
-                ))
-
+            column: Column = Column(column_yaml)
+            columns.append(column)
         return checks
-
-    def _parse_check(
-        self,
-        contract_yaml: ContractYaml,
-        check_yaml: CheckYaml,
-        column_yaml: ColumnYaml | None,
-        metrics_resolver: MetricsResolver
-    ) -> Check | None:
-        return check_yaml.create_check(data_source=self.data_source, dataset_prefix=self.dataset_prefix,
-                                       contract_yaml=contract_yaml, column_yaml=column_yaml, check_yaml=check_yaml,
-                                       metrics_resolver=metrics_resolver)
 
     def _build_queries(self) -> list[Query]:
         queries: list[Query] = []
@@ -263,6 +272,27 @@ class Contract:
             last_aggregation_query.append_aggregation_metric(aggregation_metric)
 
         return schema_queries + aggregation_queries + other_queries
+
+    def _parse_columns(self, contract_yaml: ContractYaml) -> list[Column]:
+        columns: list[Column] = []
+        for column_yaml in contract_yaml.columns:
+            columns.append(Column(column_yaml=column_yaml))
+
+
+class Column:
+    def __init__(self, contract: Contract, column_yaml: ColumnYaml, metrics_resolver: MetricsResolver):
+        self.column_yaml = column_yaml
+        self.checks: list[Check] = []
+        for check_yaml in column_yaml.checks:
+            self.checks.append(Check.parse_check(
+                contract=contract,
+                column=self,
+                check_yaml=check_yaml,
+                metrics_resolver=metrics_resolver,
+            ))
+
+    def get_missing_expr(self) -> SqlExpression:
+        pass
 
 
 class MetricsResolver:
@@ -425,41 +455,70 @@ class Threshold:
         )
 
 
+class CheckParser(ABC):
+
+    @abstractmethod
+    def get_check_type_names(self) -> list[str]:
+        pass
+
+    @abstractmethod
+    def parse_check(
+        self,
+        contract: Contract,
+        column: Column | None,
+        check_yaml: CheckYaml,
+        metrics_resolver: MetricsResolver,
+    ) -> Check | None:
+        pass
+
+
 class Check:
+    check_parsers: dict[str, CheckParser] = {}
+
+    @classmethod
+    def register(cls, check_parser: CheckParser) -> None:
+        for check_type_name in check_parser.get_check_type_names():
+            cls.check_parsers[check_type_name] = check_parser
+
+    @classmethod
+    def get_check_type_names(cls) -> list[str]:
+        return list(cls.check_parsers.keys())
+
+    @classmethod
+    def parse_check(
+        cls,
+        contract: Contract,
+        column: Column | None,
+        check_yaml: CheckYaml,
+        metrics_resolver: MetricsResolver,
+    ) -> Check | None:
+        pass
 
     def __init__(
         self,
-        contract_yaml: ContractYaml,
-        column_yaml: ColumnYaml | None,
+        contract: Contract,
+        column: Column | None,
         check_yaml: CheckYaml,
-        dataset_prefix: str | None,
-        threshold: Threshold | None,
-        summary: str
     ):
-        self.logs: Logs = contract_yaml.logs
+        self.logs: Logs = contract.logs
 
-        self.data_source_name: str = contract_yaml.data_source_file
-        self.dataset_prefix: str | None = dataset_prefix
-        self.dataset_name: str = contract_yaml.dataset_name
-        self.column_name: str | None = column_yaml.name if column_yaml else None
+        self.contract: Contract = contract
+        self.column: Column | None = column
         self.type: str = check_yaml.type
         self.qualifier: str | None = check_yaml.qualifier
         self.check_yaml: CheckYaml = check_yaml
-        self.threshold: Threshold | None = threshold
-        self.summary: str | None = summary
 
+        self.threshold: Threshold | None = None
+        self.summary: str | None = None
         self.metrics: dict[str, Metric] = {}
         self.aggregation_metrics: list[AggregationMetric] = []
         self.queries: list[Query] = []
-
         self.skip: bool = False
 
-    def skip_if_schema_is_not_matching(self, schema_check_result: 'SchemaCheckResult') -> None:
+    def skip_if_schema_is_not_matching(self, schema_check_result: SchemaCheckResult) -> None:
         if schema_check_result.dataset_does_not_exists():
             self.skip = True
-        elif (self.column_name
-              and schema_check_result.column_does_not_exist(self.column_name)
-             ):
+        elif self.column and schema_check_result.column_does_not_exist(self.column.column_yaml.name):
             self.skip = True
 
     @abstractmethod
@@ -471,23 +530,22 @@ class Metric:
 
     def __init__(
         self,
-        data_source_name: str,
-        dataset_prefix: list[str] | None,
-        dataset_name: str | None,
-        column_name: str | None,
-        metric_type_name: str
+        contract: Contract,
+        column: Column | None,
+        metric_type_name: str,
+        qualifier: str | None
     ):
-        self.data_source_name: str = data_source_name
-        self.dataset_prefix: list[str] | None = dataset_prefix
-        self.dataset_name: str | None = dataset_name
-        self.column_name: str | None = column_name
+        self.contract: Contract = contract
+        self.column: Column | None = column
         self.type: str = metric_type_name
+        self.qualifiers: str | None = qualifier
+
         # Initialized in the check.evaluate after queries are executed
         self.value: any = None
 
     def _get_eq_properties(self, m: Metric) -> dict:
         return {
-            k: v for k, v in m.__dict__.items() if k != "measured_value"
+            k: v for k, v in m.__dict__.items() if k != "value"
         }
 
     def __eq__(self, other):
@@ -502,9 +560,19 @@ class Metric:
 
 class AggregationMetric(Metric):
 
-    def __init__(self, data_source_name: str, dataset_prefix: list[str] | None,
-                 dataset_name: str | None, column_name: str | None, metric_type_name: str):
-        super().__init__(data_source_name, dataset_prefix, dataset_name, column_name, metric_type_name)
+    def __init__(
+        self,
+        contract: Contract,
+        column: Column | None,
+        metric_type_name: str,
+        qualifier: str | None
+    ):
+        super().__init__(
+            contract=contract,
+            column=column,
+            metric_type_name=metric_type_name,
+            qualifier=qualifier
+        )
 
     @abstractmethod
     def sql_expression(self) -> SqlExpression:
