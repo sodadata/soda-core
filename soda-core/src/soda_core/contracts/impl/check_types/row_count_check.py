@@ -2,38 +2,11 @@ from __future__ import annotations
 
 from soda_core.common.data_source import DataSource
 from soda_core.common.sql_dialect import *
-from soda_core.common.yaml import YamlObject
 from soda_core.contracts.contract_verification import CheckResult, CheckOutcome
+from soda_core.contracts.impl.check_types.row_count_check_yaml import RowCountCheckYaml
 from soda_core.contracts.impl.contract_verification_impl import MetricsResolver, Check, AggregationMetric, Threshold, \
     ThresholdType, CheckParser, Contract, Column
-from soda_core.contracts.impl.contract_yaml import CheckYaml, ColumnYaml, ContractYaml, CheckType, CheckYamlParser
-
-
-class RowCountCheckYamlParser(CheckYamlParser):
-
-    def get_check_type_names(self) -> list[str]:
-        return ['row_count']
-
-    def parse_check_yaml(
-        self,
-        check_yaml_object: YamlObject,
-        column_yaml: ColumnYaml | None,
-    ) -> CheckYaml | None:
-        return RowCountCheckYaml(
-            check_yaml_object=check_yaml_object,
-        )
-
-
-class RowCountCheckYaml(CheckYaml):
-
-    def __init__(
-        self,
-        check_yaml_object: YamlObject,
-    ):
-        super().__init__(
-            check_yaml_object=check_yaml_object
-        )
-        self.parse_threshold(check_yaml_object=check_yaml_object)
+from soda_core.contracts.impl.contract_yaml import ColumnYaml, ContractYaml
 
 
 class RowCountCheckParser(CheckParser):
@@ -60,32 +33,32 @@ class RowCountCheck(Check):
 
     def __init__(
         self,
-        data_source: DataSource,
-        dataset_prefix: list[str] | None,
-        contract_yaml: ContractYaml,
-        column_yaml: ColumnYaml | None,
+        contract: Contract,
+        column: Column | None,
         check_yaml: RowCountCheckYaml,
         metrics_resolver: MetricsResolver,
     ):
-        threshold = Threshold.create(check_yaml=check_yaml, default_threshold=Threshold(
-            type=ThresholdType.SINGLE_COMPARATOR,
-            must_be_greater_than=0
-        ))
-        summary = (threshold.get_assertion_summary(metric_name="row_count")
-                   if threshold else "row_count (invalid threshold)")
         super().__init__(
-            dataset_prefix=dataset_prefix,
-            contract_yaml=contract_yaml,
-            column_yaml=column_yaml,
+            contract=contract,
+            column=column,
             check_yaml=check_yaml,
-            threshold=threshold,
-            summary=summary
+        )
+
+        self.threshold = Threshold.create(
+            check_yaml=check_yaml,
+            default_threshold=Threshold(
+                type=ThresholdType.SINGLE_COMPARATOR,
+                must_be_greater_than=0
+            )
+        )
+
+        self.summary = (
+            self.threshold.get_assertion_summary(metric_name="row_count") if self.threshold
+            else "row_count (invalid threshold)"
         )
 
         row_count_metric = RowCountMetric(
-            data_source_name=self.data_source_name,
-            dataset_prefix=self.dataset_prefix,
-            dataset_name=self.dataset_name,
+            contract=contract,
         )
         resolved_row_count_metric: RowCountMetric = metrics_resolver.resolve_metric(row_count_metric)
         self.metrics["row_count"] = resolved_row_count_metric
@@ -114,16 +87,11 @@ class RowCountMetric(AggregationMetric):
 
     def __init__(
         self,
-        data_source_name: str,
-        dataset_prefix: list[str] | None,
-        dataset_name: str,
+        contract: Contract,
     ):
         super().__init__(
-            data_source_name=data_source_name,
-            dataset_prefix=dataset_prefix,
-            dataset_name=dataset_name,
-            column_name=None,
-            metric_type_name="row_count"
+            contract=contract,
+            metric_type="row_count",
         )
 
     def sql_expression(self) -> SqlExpression:

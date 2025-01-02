@@ -3,10 +3,27 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from numbers import Number
 
-from soda_core.common.data_source import DataSource
 from soda_core.common.logs import Logs
 from soda_core.common.yaml import YamlSource, YamlObject, YamlList, YamlValue, YamlFileContent
-from soda_core.contracts.impl.column_configurations import MissingConfigurations
+
+
+def register_check_types() -> None:
+    from soda_core.contracts.impl.contract_verification_impl import Check
+
+    from soda_core.contracts.impl.check_types.schema_check_yaml import SchemaCheckYamlParser
+    CheckYaml.register(SchemaCheckYamlParser())
+    from soda_core.contracts.impl.check_types.schema_check import SchemaCheckParser
+    Check.register(SchemaCheckParser())
+
+    from soda_core.contracts.impl.check_types.mising_check_yaml import MissingCheckYamlParser
+    CheckYaml.register(MissingCheckYamlParser())
+    from soda_core.contracts.impl.check_types.mising_check import MissingCheckParser
+    Check.register(MissingCheckParser())
+
+    from soda_core.contracts.impl.check_types.row_count_check_yaml import RowCountCheckYamlParser
+    CheckYaml.register(RowCountCheckYamlParser())
+    from soda_core.contracts.impl.check_types.row_count_check import RowCountCheckParser
+    Check.register(RowCountCheckParser())
 
 
 class ContractYaml:
@@ -22,6 +39,11 @@ class ContractYaml:
     def parse(cls, contract_yaml_source: YamlSource, variables: dict[str, str] | None = None,
               logs: Logs | None = None) -> ContractYaml | None:
         logs = logs if logs else Logs()
+
+        check_types_have_been_registered: bool = len(CheckYaml.check_yaml_parsers) > 0
+        if not check_types_have_been_registered:
+           register_check_types()
+
         contract_yaml_file_content: YamlFileContent | None = (
             contract_yaml_source.parse_yaml_file_content(file_type="Contract", variables=variables, logs=logs)
         )
@@ -64,15 +86,18 @@ class ContractYaml:
         return dataset_locations
 
     def _parse_columns(self, contract_yaml_object: YamlObject) -> list[ColumnYaml] | None:
-        columns: list[ColumnYaml] = []
+        columns: list[ColumnYaml] | None = None
         if contract_yaml_object:
             column_yaml_objects: YamlList | None = contract_yaml_object.read_list_of_objects_opt("columns")
             if isinstance(column_yaml_objects, YamlList):
+                columns = []
                 for column_yaml_object in column_yaml_objects:
-                    column: ColumnYaml | None = None
                     if isinstance(column_yaml_object, YamlObject):
-                        column = ColumnYaml(self, column_yaml_object)
-                    columns.append(column)
+                        column_yaml: ColumnYaml = ColumnYaml(
+                            contract_yaml=self,
+                            column_yaml_object=column_yaml_object
+                        )
+                        columns.append(column_yaml)
         return columns
 
     def _parse_checks(
@@ -80,30 +105,29 @@ class ContractYaml:
         checks_containing_yaml_object: YamlObject,
         column_yaml: ColumnYaml | None = None
     ) -> list[CheckYaml | None]:
-        checks: list[CheckYaml | None] = []
+        checks: list[CheckYaml | None] | None = None
 
         if checks_containing_yaml_object:
             checks_yaml_list: YamlList = checks_containing_yaml_object.read_list_opt("checks")
             if checks_yaml_list:
+                checks = []
                 for check_yaml_object in checks_yaml_list:
-                    check_yaml: CheckYaml | None = None
                     if isinstance(check_yaml_object, YamlObject):
                         check_type_name: str | None = check_yaml_object.read_string("type")
 
-                        check_type: CheckType = CheckType.get_check_type(check_type_name)
-                        if check_type:
-                            check_yaml = check_type.parse_check_yaml(
-                                check_yaml_object=check_yaml_object,
-                                column_yaml=column_yaml
-                            )
+                        check_yaml: CheckYaml | None = CheckYaml.parse_check_yaml(
+                            check_yaml_object=check_yaml_object,
+                            column_yaml=column_yaml,
+                        )
+                        if check_yaml:
+                            checks.append(check_yaml)
                         else:
                             self.logs.error(
                                 f"Invalid check type '{check_type_name}'. "
-                                f"Existing check types: {CheckType.get_all_check_type_names()}"
+                                f"Existing check types: {CheckYaml.get_check_type_names()}"
                             )
                     else:
                         self.logs.error(f"Checks must have a YAML object structure.")
-                    checks.append(check_yaml)
 
         return checks
 
@@ -148,12 +172,6 @@ class ColumnYaml:
         self.checks: list[CheckYaml] | None = contract_yaml._parse_checks(
             checks_containing_yaml_object=column_yaml_object,
             column_yaml=self
-        )
-
-    def get_missing_configurations(self) -> MissingConfigurations | None:
-        return MissingConfigurations(
-            missing_values=self.missing_values,
-            missing_regex_sql=self.missing_regex_sql
         )
 
 
@@ -219,8 +237,6 @@ class CheckYaml(ABC):
             check_yaml_parser: CheckYamlParser | None = cls.check_yaml_parsers.get(check_type)
             if check_yaml_parser:
                 return check_yaml_parser.parse_check_yaml(check_yaml_object=check_yaml_object, column_yaml=column_yaml)
-            else:
-                check_yaml_object.logs.error(f"Unknown check type '{check_type}'")
 
     def __init__(self, check_yaml_object: YamlObject):
         self.check_yaml_object: YamlObject = check_yaml_object

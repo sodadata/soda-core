@@ -30,7 +30,7 @@ def test_row_count(data_source_test_helper: DataSourceTestHelper):
     assert CheckOutcome.PASSED == check_result.outcome
 
 
-def test_row_count(data_source_test_helper: DataSourceTestHelper):
+def test_row_count_2(data_source_test_helper: DataSourceTestHelper):
     test_table = data_source_test_helper.ensure_test_table(test_table_specification)
 
     contract_result: ContractResult = data_source_test_helper.assert_contract_pass(

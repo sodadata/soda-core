@@ -41,9 +41,9 @@ def test_missing_count_custom_missing_values(data_source_test_helper: DataSource
         contract_yaml_str=f"""
             columns:
               - name: id
+                missing_values: ['X', 'Y']
                 checks:
                   - type: missing_count
-                    missing_values: ['X', 'Y']
                     must_be: 2
         """
     )

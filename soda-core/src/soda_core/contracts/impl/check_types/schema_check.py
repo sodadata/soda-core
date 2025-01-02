@@ -5,37 +5,10 @@ from dataclasses import dataclass
 from soda_core.common.data_source import DataSource
 from soda_core.common.data_source_results import QueryResult
 from soda_core.common.statements.metadata_columns_query import MetadataColumnsQuery, MetadataColumn
-from soda_core.common.yaml import YamlObject
 from soda_core.contracts.contract_verification import CheckResult, CheckOutcome
+from soda_core.contracts.impl.check_types.schema_check_yaml import SchemaCheckYaml
 from soda_core.contracts.impl.contract_verification_impl import Metric, Check, MetricsResolver, Query, CheckParser, \
     Contract, Column
-from soda_core.contracts.impl.contract_yaml import CheckYaml, ColumnYaml, ContractYaml, CheckYamlParser
-
-
-class SchemaCheckYamlParser(CheckYamlParser):
-
-    def get_check_type_names(self) -> list[str]:
-        return ['schema']
-
-    def parse_check_yaml(
-        self,
-        check_yaml_object: YamlObject,
-        column_yaml: ColumnYaml | None,
-    ) -> CheckYaml | None:
-        return SchemaCheckYaml(
-            check_yaml_object=check_yaml_object,
-        )
-
-
-class SchemaCheckYaml(CheckYaml):
-
-    def __init__(
-        self,
-        check_yaml_object: YamlObject,
-    ):
-        super().__init__(
-            check_yaml_object=check_yaml_object,
-        )
 
 
 class SchemaCheckParser(CheckParser):
@@ -80,24 +53,22 @@ class SchemaCheck(Check):
     ):
         super().__init__(
             contract=contract,
+            column=None,
             check_yaml=check_yaml,
-            metrics_resolver=metrics_resolver
         )
 
         self.summary = "schema"
 
         self.expected_columns: list[ExpectedColumn] = [
             ExpectedColumn(
-                column_name=column_yaml.name,
-                data_type=column_yaml.data_type
+                column_name=column.column_yaml.name,
+                data_type=column.column_yaml.data_type
             )
-            for column_yaml in contract_yaml.columns
+            for column in contract.columns
         ]
 
         schema_metric = SchemaMetric(
-            data_source_name=self.data_source_name,
-            dataset_prefix=self.dataset_prefix,
-            dataset_name=self.dataset_name,
+            contract=contract,
         )
         resolved_schema_metric: SchemaMetric = metrics_resolver.resolve_metric(schema_metric)
         self.metrics["schema"] = resolved_schema_metric
@@ -175,16 +146,11 @@ class SchemaMetric(Metric):
 
     def __init__(
         self,
-        data_source_name: str,
-        dataset_prefix: list[str] | None,
-        dataset_name: str | None,
+        contract: Contract,
     ):
         super().__init__(
-            data_source_name=data_source_name,
-            dataset_prefix=dataset_prefix,
-            dataset_name=dataset_name,
-            column_name=None,
-            metric_type_name="schema"
+            contract=contract,
+            metric_type="schema"
         )
 
 

@@ -149,6 +149,8 @@ class SqlDialect:
             return self._build_is_null_sql(expression)
         elif isinstance(expression, LIKE):
             return self._build_like_sql(expression)
+        elif isinstance(expression, IN):
+            return self._build_in_sql(expression)
         elif isinstance(expression, NOT_LIKE):
             return self._build_not_like_sql(expression)
         elif isinstance(expression, LOWER):

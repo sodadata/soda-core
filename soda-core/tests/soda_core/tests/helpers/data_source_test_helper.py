@@ -29,11 +29,6 @@ class TestContractVerificationBuilder(ContractVerificationBuilder):
         super().__init__(default_data_source=default_data_source)
         self.data_source = None
 
-    def with_contract_yaml_str(self, contract_yaml_str: str) -> ContractVerificationBuilder:
-        logger.debug(f"Contract:\n{contract_yaml_str}")
-        super().with_contract_yaml_str(contract_yaml_str)
-        return self
-
     def build(self) -> TestContractVerification:
         return TestContractVerification(self)
 
@@ -412,7 +407,6 @@ class DataSourceTestHelper:
         self, contract_yaml_str: str, variables: dict[str, str] | None = None
     ) -> ContractVerificationResult:
         contract_yaml_str: str = dedent(contract_yaml_str).strip()
-        logging.debug(contract_yaml_str)
         contract_verification_result: ContractVerificationResult = (
             self.create_test_verification_builder()
             .with_contract_yaml_str(contract_yaml_str)
@@ -436,7 +430,6 @@ class DataSourceTestHelper:
         )
         if contract_verification_result.failed():
             raise AssertionError(f"Expected contract verification passed, but was: {contract_verification_result}")
-        logging.debug(f"Contract result: {contract_verification_result}")
         return contract_verification_result.contract_results[0]
 
     def assert_contract_fail(
@@ -451,7 +444,6 @@ class DataSourceTestHelper:
             raise AssertionError(
                 f"Expected contract verification failed, but got contract result: {contract_verification_result}"
             )
-        logging.debug(f"Contract result: {contract_verification_result}")
         return contract_verification_result.contract_results[0]
 
     def _verify_contract(
@@ -468,13 +460,14 @@ class DataSourceTestHelper:
         )
         checks_contract_yaml_str = dedent(contract_yaml_str).strip()
         full_contract_yaml_str: str = header_contract_yaml_str + checks_contract_yaml_str
-        logging.debug(full_contract_yaml_str)
+        logger.debug(f"Contract:\n{full_contract_yaml_str}")
         contract_verification_result: ContractVerificationResult = (
             self.create_test_verification_builder()
             .with_contract_yaml_str(full_contract_yaml_str)
             .with_variables(variables)
             .execute()
         )
+        logger.debug(f"Contract result:\n{contract_verification_result}")
         return contract_verification_result
 
     def create_test_verification_builder(self):

@@ -1,39 +1,11 @@
 from __future__ import annotations
 
 from soda_core.common.sql_dialect import *
-from soda_core.common.yaml import YamlObject
 from soda_core.contracts.contract_verification import CheckResult, CheckOutcome
-from soda_core.contracts.impl.check_types.row_count_check_type import RowCountMetric
+from soda_core.contracts.impl.check_types.mising_check_yaml import MissingCheckYaml
+from soda_core.contracts.impl.check_types.row_count_check import RowCountMetric
 from soda_core.contracts.impl.contract_verification_impl import MetricsResolver, Check, AggregationMetric, Threshold, \
     ThresholdType, DerivedPercentageMetric, CheckParser, Contract, Column
-from soda_core.contracts.impl.contract_yaml import CheckYaml, ColumnYaml, CheckYamlParser
-
-
-class MissingCheckYamlParser(CheckYamlParser):
-
-    def get_check_type_names(self) -> list[str]:
-        return ['missing_count', 'missing_percent']
-
-    def parse_check_yaml(
-        self,
-        check_yaml_object: YamlObject,
-        column_yaml: ColumnYaml | None,
-    ) -> CheckYaml | None:
-        return MissingCheckYaml(
-            check_yaml_object=check_yaml_object,
-        )
-
-
-class MissingCheckYaml(CheckYaml):
-
-    def __init__(
-        self,
-        check_yaml_object: YamlObject,
-    ):
-        super().__init__(
-            check_yaml_object=check_yaml_object
-        )
-        self.parse_threshold(check_yaml_object)
 
 
 class MissingCheckParser(CheckParser):
@@ -90,16 +62,14 @@ class MissingCheck(Check):
 
         if self.type == "missing_percent":
             row_count_metric = RowCountMetric(
-                data_source_name=self.data_source_name,
-                dataset_prefix=self.dataset_prefix,
-                dataset_name=self.dataset_name
+                contract=contract,
             )
             resolved_row_count_metric: RowCountMetric = metrics_resolver.resolve_metric(row_count_metric)
             self.metrics["row_count"] = resolved_row_count_metric
             self.aggregation_metrics.append(resolved_row_count_metric)
 
             self.metrics["missing_percent"] = DerivedPercentageMetric(
-                metric_name="missing_percent",
+                metric_type="missing_percent",
                 fraction_metric=resolved_missing_count_metric,
                 total_metric=resolved_row_count_metric
             )
@@ -147,17 +117,11 @@ class MissingCountMetric(AggregationMetric):
         super().__init__(
             contract=contract,
             column=column,
-            metric_type_name=check.type,
-            qualifier=check.qualifier
+            metric_type=check.type,
         )
 
     def sql_expression(self) -> SqlExpression:
-        is_missing_clauses: list[SqlExpression] = [IS_NULL(self.column_name)]
-        if isinstance(self.missing_configurations.missing_values, list):
-            literal_values = [LITERAL(value) for value in self.missing_configurations.missing_values]
-            is_missing_clauses.append(IN(self.column_name, literal_values))
-        ...TODO like regex...
-        return SUM(CASE_WHEN(OR(is_missing_clauses), LITERAL(1), LITERAL(0)))
+        return self.column.get_missing_expr()
 
     def set_value(self, value):
         # expression SUM(CASE WHEN "id" IS NULL THEN 1 ELSE 0 END) gives NULL / None as a result if there are no rows
