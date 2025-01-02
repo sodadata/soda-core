@@ -3,7 +3,6 @@
 set -e
 
 rm -rf .venv
-rm -rf soda_sql.egg-info
 
 virtualenv .venv
 # shellcheck disable=SC1091
