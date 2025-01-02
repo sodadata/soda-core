@@ -140,7 +140,7 @@ class ContractVerificationImpl:
     def verify_data_source_contracts(self, data_source_contracts: DataSourceContracts) -> list[ContractResult]:
         contract_results: list[ContractResult] = []
         data_source = data_source_contracts.data_source
-        open_close: bool = data_source.has_open_connection()
+        open_close: bool = not data_source.has_open_connection()
         if open_close:
             data_source.open_connection()
         try:
@@ -208,7 +208,10 @@ class Contract:
 
         for check in self.all_checks:
             queries.extend(check.queries)
-            aggregation_metrics.extend(check.aggregation_metrics)
+
+        for metric in self.metrics:
+            if isinstance(metric, AggregationMetric):
+                aggregation_metrics.append(metric)
 
         from soda_core.contracts.impl.check_types.schema_check import SchemaQuery
         schema_queries: list[SchemaQuery] = []
@@ -434,18 +437,17 @@ class Threshold:
                 return f"{metric_name} = {self.must_be}"
             if isinstance(self.must_not_be, Number):
                 return f"{metric_name} != {self.must_not_be}"
-        elif self.type == ThresholdType.INNER_RANGE:
-            lower_bound = (str(self.must_be_greater_than) if isinstance(self.must_be_greater_than, Number)
-                           else f"{self.must_be_greater_than_or_equal} (included)")
-            upper_bound = (str(self.must_be_less_than) if isinstance(self.must_be_less_than, Number)
-                           else f"{self.must_be_less_than_or_equal} (included)")
-            return f"{metric_name} must be between {lower_bound} and {upper_bound}"
-        elif self.type == ThresholdType.OUTER_RANGE:
-            lower_bound = (str(self.must_be_less_than) if isinstance(self.must_be_less_than, Number)
-                           else f"{self.must_be_less_than_or_equal} (included)")
-            upper_bound = (str(self.must_be_greater_than) if isinstance(self.must_be_greater_than, Number)
-                           else f"{self.must_be_greater_than_or_equal} (included)")
-            return f"{metric_name} must be between {lower_bound} and {upper_bound}"
+        elif self.type == ThresholdType.INNER_RANGE or self.type == ThresholdType.OUTER_RANGE:
+            gt_comparator: str = " < " if isinstance(self.must_be_greater_than, Number) else " <= "
+            gt_bound: str = (str(self.must_be_greater_than) if isinstance(self.must_be_greater_than, Number)
+                                else str(self.must_be_greater_than_or_equal))
+            lt_comparator: str = " < " if isinstance(self.must_be_less_than, Number) else " <= "
+            lt_bound: str = (str(self.must_be_less_than) if isinstance(self.must_be_less_than, Number)
+                                else str(self.must_be_less_than_or_equal))
+            if self.type == ThresholdType.INNER_RANGE:
+                return f"{gt_bound}{gt_comparator}{metric_name}{lt_comparator}{lt_bound}"
+            else:
+                return f"{metric_name}{lt_comparator}{lt_bound} or {gt_bound}{gt_comparator}{metric_name}"
 
     def passes(self, value: Number) -> bool:
         return ((self.must_be_greater_than is None or value > self.must_be_greater_than)
@@ -523,7 +525,6 @@ class Check:
         self.threshold: Threshold | None = None
         self.summary: str | None = None
         self.metrics: dict[str, Metric] = {}
-        self.aggregation_metrics: list[AggregationMetric] = []
         self.queries: list[Query] = []
         self.skip: bool = False
 

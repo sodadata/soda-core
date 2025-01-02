@@ -228,20 +228,29 @@ class ContractResult:
     def __str__(self) -> str:
         log_lines: list[str] = [str(log) for log in self.logs.logs]
 
-        check_failure_count: int = 0
+        failed_count: int = 0
+        not_evaluated_count: int = 0
+        passed_count: int = 0
         for check_result in self.check_results:
             result_str_lines = check_result.get_log_lines()
             log_lines.extend(result_str_lines)
             if check_result.outcome == CheckOutcome.FAILED:
-                check_failure_count += 1
+                failed_count += 1
+            elif check_result.outcome == CheckOutcome.NOT_EVALUATED:
+                not_evaluated_count += 1
+            elif check_result.outcome == CheckOutcome.PASSED:
+                passed_count += 1
 
         error_count: int = len(self.logs.get_errors())
 
-        if check_failure_count + error_count == 0:
-            log_lines.append("Contract summary: All is good. No checks failed. No contract execution errors.")
-        elif check_failure_count > 0:
-            log_lines.append(f"Contract summary: Ouch! {check_failure_count} check failures and {error_count} errors")
+        not_evaluated_count: int = sum(1 if check_result.outcome == CheckOutcome.NOT_EVALUATED else 0
+            for check_result in self.check_results)
+
+        if failed_count + error_count + not_evaluated_count == 0:
+            log_lines.append(f"Contract summary: All is good. All {passed_count} checks passed. No execution errors.")
         else:
-            log_lines.append(f"Contract summary: Ouch! {error_count} errors and {check_failure_count} check failures")
+            log_lines.append(f"Contract summary: Ouch! {failed_count} checks failures, "
+                             f"{passed_count} checks passed, {not_evaluated_count} checks not evaluated "
+                             f"and {error_count} errors.")
 
         return "\n".join(log_lines)

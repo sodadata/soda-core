@@ -428,7 +428,7 @@ class DataSourceTestHelper:
             test_table=test_table,
             variables=variables
         )
-        if contract_verification_result.failed():
+        if not contract_verification_result.is_ok():
             raise AssertionError(f"Expected contract verification passed, but was: {contract_verification_result}")
         return contract_verification_result.contract_results[0]
 

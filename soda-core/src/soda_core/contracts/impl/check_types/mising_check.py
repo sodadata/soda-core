@@ -58,7 +58,6 @@ class MissingCheck(Check):
         )
         resolved_missing_count_metric: MissingCountMetric = metrics_resolver.resolve_metric(missing_count_metric)
         self.metrics["missing_count"] = resolved_missing_count_metric
-        self.aggregation_metrics.append(resolved_missing_count_metric)
 
         if self.type == "missing_percent":
             row_count_metric = RowCountMetric(
@@ -66,13 +65,12 @@ class MissingCheck(Check):
             )
             resolved_row_count_metric: RowCountMetric = metrics_resolver.resolve_metric(row_count_metric)
             self.metrics["row_count"] = resolved_row_count_metric
-            self.aggregation_metrics.append(resolved_row_count_metric)
 
-            self.metrics["missing_percent"] = DerivedPercentageMetric(
+            self.metrics["missing_percent"] = metrics_resolver.resolve_metric(DerivedPercentageMetric(
                 metric_type="missing_percent",
                 fraction_metric=resolved_missing_count_metric,
                 total_metric=resolved_row_count_metric
-            )
+            ))
 
     def evaluate(self) -> CheckResult:
         outcome: CheckOutcome = CheckOutcome.NOT_EVALUATED

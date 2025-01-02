@@ -60,7 +60,7 @@ def test_missing_percent(data_source_test_helper: DataSourceTestHelper):
               - name: id
                 checks:
                   - type: missing_percent
-                    must_be_less_than: 50
+                    must_be_between: [24, 26]
         """
     )
 
@@ -84,5 +84,20 @@ def test_missing_percent_no_division_by_zero(data_source_test_helper: DataSource
               - name: id
                 checks:
                   - type: missing_percent
+        """
+    )
+
+
+def test_missing_count_no_rows(data_source_test_helper: DataSourceTestHelper):
+
+    test_table = data_source_test_helper.ensure_test_table(missing_no_rows_specification)
+
+    data_source_test_helper.assert_contract_pass(
+        test_table=test_table,
+        contract_yaml_str=f"""
+            columns:
+              - name: id
+                checks:
+                  - type: missing_count
         """
     )
