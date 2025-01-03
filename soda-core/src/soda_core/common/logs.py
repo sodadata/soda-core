@@ -18,7 +18,7 @@ class Location:
         self.line: int | None = line
         self.column: int | None = column
 
-    def __str__(self):
+    def __str__(self) -> str:
         parts = [
             f"line={self.line}" if self.line is not None else None,
             f"column={self.column}" if self.column is not None else None,

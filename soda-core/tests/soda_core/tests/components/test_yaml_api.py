@@ -1,3 +1,4 @@
+import logging
 import os
 
 from soda_core.common.yaml import YamlSource, YamlObject, YamlList, YamlFileContent
@@ -93,3 +94,34 @@ def test_yaml_nested_level():
     for element in level_two_list:
         assert isinstance(element, YamlObject)
         assert "item" == element.read_string("type")
+
+
+def test_yaml_locations():
+    yaml_str: str = dedent_and_strip("""
+        one:
+          one_two:
+            - type: item
+              name: entry
+        two:
+          two_one: a
+          two_two: b
+        """)
+    logging.debug(f"\n=== YAML string ============\n{yaml_str}\n============================")
+    yaml_source: YamlSource = YamlSource.from_str(yaml_str=yaml_str)
+    root_object: YamlObject = yaml_source.parse_yaml_file_content().get_yaml_object()
+    assert root_object.location is not None
+    assert root_object.location.file_path is None
+    assert root_object.location.line == 0
+    assert root_object.location.column == 0
+
+    value_one: YamlObject = root_object.read_object("one")
+    assert value_one.location.line == 1
+    assert value_one.location.column == 2
+
+    value_one_two: YamlList = value_one.read_list("one_two")
+    assert value_one_two.location.line == 2
+    assert value_one_two.location.column == 4
+
+    value_two: YamlObject = root_object.read_object("two")
+    assert value_two.location.line == 5
+    assert value_two.location.column == 2

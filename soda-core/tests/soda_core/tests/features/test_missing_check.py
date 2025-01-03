@@ -5,11 +5,12 @@ test_table_specification = (
     TestTableSpecification.builder()
     .table_purpose("missing")
     .column_text("id")
+    .column_integer("age")
     .rows(rows=[
-        ("1",),
-        (None,),
-        ("3",),
-        ("X",),
+        ("1",  1),
+        (None, -1),
+        ("3",  None),
+        ("X",  2),
     ])
     .build()
 )
@@ -42,6 +43,23 @@ def test_missing_count_custom_missing_values(data_source_test_helper: DataSource
             columns:
               - name: id
                 missing_values: ['X', 'Y']
+                checks:
+                  - type: missing_count
+                    must_be: 2
+        """
+    )
+
+
+def test_missing_count_custom_missing_values_int(data_source_test_helper: DataSourceTestHelper):
+
+    test_table = data_source_test_helper.ensure_test_table(test_table_specification)
+
+    data_source_test_helper.assert_contract_pass(
+        test_table=test_table,
+        contract_yaml_str=f"""
+            columns:
+              - name: age
+                missing_values: [-1, -2]
                 checks:
                   - type: missing_count
                     must_be: 2

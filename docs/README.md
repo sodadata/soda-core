@@ -6,6 +6,7 @@ Table of contents
 * [Writing check files](pages/writing_check_files.md)
 * Check types
   * [Schema check](pages/schema_check.md)
-  * Row count check
-  * Missing check
-* Data sources configuration reference 
+  * [Row count check](pages/row_count_check.md)
+  * [Missing checks](pages/missing_checks.md)
+* [Thresholds](pages/thresholds.md)
+* [Data sources configuration reference](pages/data_source_configuration_reference.md) 

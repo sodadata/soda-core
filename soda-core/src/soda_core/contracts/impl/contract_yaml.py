@@ -3,7 +3,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from numbers import Number
 
-from soda_core.common.logs import Logs
+from soda_core.common.logs import Logs, Location
 from soda_core.common.yaml import YamlSource, YamlObject, YamlList, YamlValue, YamlFileContent
 
 
@@ -91,6 +91,7 @@ class ContractYaml:
             column_yaml_objects: YamlList | None = contract_yaml_object.read_list_of_objects_opt("columns")
             if isinstance(column_yaml_objects, YamlList):
                 columns = []
+                column_locations_by_name: dict[str, list[Location | None]] = {}
                 for column_yaml_object in column_yaml_objects:
                     if isinstance(column_yaml_object, YamlObject):
                         column_yaml: ColumnYaml = ColumnYaml(
@@ -98,6 +99,18 @@ class ContractYaml:
                             column_yaml_object=column_yaml_object
                         )
                         columns.append(column_yaml)
+                        if isinstance(column_yaml.name, str):
+                            (column_locations_by_name
+                             .setdefault(column_yaml.name, [])
+                             .append(column_yaml_object.location))
+                for column_name, locations in column_locations_by_name.items():
+                    if len(locations) > 1:
+                        locations_message: str = ", ".join([
+                            f"[{location}]" for location in locations
+                            if location is not None
+                        ])
+                        locations_message = f": {locations_message}" if locations_message else ""
+                        self.logs.error(f"Duplicate columns with name '{column_name}'{locations_message}")
         return columns
 
     def _parse_checks(

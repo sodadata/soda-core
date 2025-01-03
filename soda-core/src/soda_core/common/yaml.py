@@ -219,11 +219,21 @@ class YamlValue:
         return o
 
 
+def get_location(yaml_value: any, yaml_file_path: str | None) -> Location | None:
+    if isinstance(yaml_value, CommentedMap) or isinstance(yaml_value, CommentedSeq):
+        return Location(
+            file_path=yaml_file_path,
+            line=yaml_value.lc.line,
+            column=yaml_value.lc.col
+        )
+
+
 class YamlObject(YamlValue):
 
     def __init__(self, yaml_file_content: YamlFileContent, yaml_dict: dict) -> None:
         super().__init__(yaml_file_content)
         self.yaml_dict: dict = yaml_dict
+        self.location: Location | None = get_location(self.yaml_dict, yaml_file_content.yaml_file_path)
 
     def items(self) -> list[tuple]:
         return [(k,self._yaml_wrap(v)) for k, v in self.yaml_dict.items()]
@@ -348,7 +358,7 @@ class YamlObject(YamlValue):
             if required:
                 self.logs.error(
                     message=f"'{key}' is required",
-                    location=self.create_location_from_yaml_dict_key(key)
+                    location=self.location
                 )
             return default_value
         value = self.yaml_dict.get(key)
@@ -366,18 +376,6 @@ class YamlObject(YamlValue):
                 line: int = ruamel_location[0]
                 column: int = ruamel_location[1]
                 return Location(file_path=self.yaml_file_content.yaml_file_path, line=line, column=column)
-            else:
-                return self.create_location_from_yaml_value()
-        return None
-
-    def create_location_from_yaml_value(self) -> Location | None:
-        if isinstance(self.yaml_dict, CommentedMap) or isinstance(self.yaml_dict, CommentedSeq):
-            return Location(
-                file_path=self.yaml_file_content.yaml_file_path,
-                line=self.yaml_dict.lc.line,
-                column=self.yaml_dict.lc.col
-            )
-        return None
 
     def to_dict(self) -> dict:
         return YamlValue.yaml_unwrap(self)
@@ -388,6 +386,7 @@ class YamlList(YamlValue, Iterable):
     def __init__(self, yaml_file_content: YamlFileContent, yaml_list: list) -> None:
         super().__init__(yaml_file_content)
         self.yaml_list: list = [self._yaml_wrap(element) for element in yaml_list]
+        self.location: Location | None = get_location(yaml_list, yaml_file_content.yaml_file_path)
 
     def __iter__(self) -> iter:
         return iter(self.yaml_list)

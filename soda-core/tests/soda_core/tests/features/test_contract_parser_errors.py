@@ -1,17 +1,25 @@
-from unittest import skip
-
 from soda_core.tests.helpers.data_source_test_helper import DataSourceTestHelper
 
 
-@skip
 def test_error_duplicate_column_names(data_source_test_helper: DataSourceTestHelper):
     errors_msg: str = str(data_source_test_helper.assert_contract_error(
         contract_yaml_str=f"""
-            dataset: required
+            dataset: sometable
             columns:
               - name: id
               - name: id
         """
     ))
 
-    assert "duplicate column definition: 'id'" in errors_msg
+    assert "Duplicate columns with name 'id': [line=2,column=4], [line=3,column=4]" in errors_msg
+
+
+def test_error_no_dataset(data_source_test_helper: DataSourceTestHelper):
+    errors_msg: str = str(data_source_test_helper.assert_contract_error(
+        contract_yaml_str=f"""
+            columns:
+              - name: id
+        """
+    ))
+
+    assert "'dataset' is required" in errors_msg
