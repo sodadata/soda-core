@@ -147,6 +147,8 @@ class SqlDialect:
             return self._build_case_when_sql(expression)
         elif isinstance(expression, IS_NULL):
             return self._build_is_null_sql(expression)
+        elif isinstance(expression, MATCHES):
+            return self._build_matches_sql(expression)
         elif isinstance(expression, LIKE):
             return self._build_like_sql(expression)
         elif isinstance(expression, IN):
@@ -277,8 +279,8 @@ class SqlDialect:
     def _build_count_sql(self, count: COUNT) -> str:
         return f"COUNT({self.build_expression_sql(count.expression)})"
 
-    def _build_sum_sql(self, count: COUNT) -> str:
-        return f"SUM({self.build_expression_sql(count.expression)})"
+    def _build_sum_sql(self, sum: SUM) -> str:
+        return f"SUM({self.build_expression_sql(sum.expression)})"
 
     def _build_is_null_sql(self, is_null: IS_NULL) -> str:
         return f"{self.build_expression_sql(is_null.expression)} IS NULL"
@@ -293,10 +295,13 @@ class SqlDialect:
     def _build_not_like_sql(self, not_like: NOT_LIKE) -> str:
         return f"{self.build_expression_sql(not_like.left)} NOT LIKE {self.build_expression_sql(not_like.right)}"
 
+    def _build_matches_sql(self, matches: MATCHES) -> str:
+        return f"REGEXP_LIKE({matches.expression}, '{matches.regex_pattern}')"
+
     def _build_lower_sql(self, lower: LOWER) -> str:
         return f"LOWER({self.build_expression_sql(lower.expression)})"
 
     def _build_case_when_sql(self, case_when: CASE_WHEN) -> str:
         return (f"CASE WHEN {self.build_expression_sql(case_when.condition)} "
-                f"THEN {self.build_expression_sql(case_when.if_value)} "
-                f"ELSE {self.build_expression_sql(case_when.else_value)} END")
+                f"THEN {self.build_expression_sql(case_when.if_expression)} "
+                f"ELSE {self.build_expression_sql(case_when.else_expression)} END")

@@ -4,7 +4,7 @@ from dataclasses import dataclass
 
 from soda_core.common.data_source import DataSource
 from soda_core.common.data_source_results import QueryResult
-from soda_core.common.statements.metadata_columns_query import MetadataColumnsQuery, MetadataColumn
+from soda_core.common.statements.metadata_columns_query import MetadataColumnsQuery, ColumnMetadata
 from soda_core.contracts.contract_verification import CheckResult, CheckOutcome
 from soda_core.contracts.impl.check_types.schema_check_yaml import SchemaCheckYaml
 from soda_core.contracts.impl.contract_verification_impl import Metric, Check, MetricsResolver, Query, CheckParser, \
@@ -88,15 +88,15 @@ class SchemaCheck(Check):
         actual_column_names_not_expected: list[str] = []
         column_data_type_mismatches: list[ColumnDataTypeMismatch] = []
 
-        actual_columns: list[MetadataColumn] = self.metrics["schema"].value
+        actual_columns: list[ColumnMetadata] = self.metrics["schema"].value
         if actual_columns:
-            actual_column_names = [
+            actual_column_names: list[str] = [
                 actual_column.column_name for actual_column in actual_columns
             ]
-            actual_column_types = {
-                actual_column.column_name: actual_column.data_type for actual_column in actual_columns
+            actual_column_metadata_by_name: [str, ColumnMetadata] = {
+                actual_column.column_name: actual_column for actual_column in actual_columns
             }
-            expected_column_names = [
+            expected_column_names: list[str] = [
                 expected_column.column_name for expected_column in self.expected_columns
             ]
 
@@ -110,13 +110,14 @@ class SchemaCheck(Check):
 
             for expected_column in self.expected_columns:
                 expected_data_type: str | None = expected_column.data_type
-                actual_data_type: str | None = actual_column_types.get(expected_column.column_name)
-                if expected_data_type and actual_data_type != expected_data_type:
+                actual_column_metadata: ColumnMetadata = actual_column_metadata_by_name.get(expected_column.column_name)
+                if expected_data_type and not self.contract.data_source.is_data_type_equal(expected_data_type, actual_column_metadata):
+                    data_type_str: str = self.contract.data_source.get_data_type_text(actual_column_metadata)
                     column_data_type_mismatches.append(
                         ColumnDataTypeMismatch(
                             column=expected_column.column_name,
                             expected_data_type=expected_data_type,
-                            actual_data_type=actual_data_type
+                            actual_data_type=data_type_str,
                         )
                     )
 
@@ -175,7 +176,7 @@ class SchemaQuery(Query):
 
     def execute(self) -> None:
         query_result: QueryResult = self.data_source.execute_query(self.sql)
-        metadata_columns: list[MetadataColumn] = self.metadata_columns_query_builder.get_result(query_result)
+        metadata_columns: list[ColumnMetadata] = self.metadata_columns_query_builder.get_result(query_result)
         self.metrics[0].value = metadata_columns
 
 
@@ -184,7 +185,7 @@ class SchemaCheckResult(CheckResult):
     def __init__(self,
                  outcome: CheckOutcome,
                  expected_columns: list[ExpectedColumn],
-                 actual_columns: list[MetadataColumn],
+                 actual_columns: list[ColumnMetadata],
                  expected_column_names_not_actual: list[str],
                  actual_column_names_not_expected: list[str],
                  column_data_type_mismatches: list[ColumnDataTypeMismatch],
@@ -201,7 +202,7 @@ class SchemaCheckResult(CheckResult):
             )
         )
         self.expected_columns: list[ExpectedColumn] = expected_columns
-        self.actual_columns: list[MetadataColumn] = actual_columns
+        self.actual_columns: list[ColumnMetadata] = actual_columns
         self.expected_column_names_not_actual: list[str] = expected_column_names_not_actual
         self.actual_column_names_not_expected: list[str] = actual_column_names_not_expected
         self.column_data_type_mismatches: list[ColumnDataTypeMismatch] = column_data_type_mismatches
@@ -210,14 +211,14 @@ class SchemaCheckResult(CheckResult):
     def _create_diagnostic_lines(
         cls,
         expected_columns: list[ExpectedColumn],
-        actual_columns: list[MetadataColumn],
+        actual_columns: list[ColumnMetadata],
         expected_column_names_not_actual: list[str],
         actual_column_names_not_expected: list[str],
         column_data_type_mismatches: list[ColumnDataTypeMismatch],
     ) -> list[str]:
         def opt_data_type(data_type: str | None) -> str:
             if isinstance(data_type, str):
-                return f"({data_type})"
+                return f"[{data_type}]"
             else:
                 return ""
 

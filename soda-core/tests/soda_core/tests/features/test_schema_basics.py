@@ -3,7 +3,7 @@ from soda_core.tests.helpers.test_table import TestTableSpecification
 
 test_table_specification = (
     TestTableSpecification.builder()
-    .table_purpose("test_schema")
+    .table_purpose("schema")
     .column_text("id")
     .column_integer("size")
     .column_date("created")

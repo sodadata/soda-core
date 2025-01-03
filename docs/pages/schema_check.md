@@ -2,13 +2,10 @@
 
 ### Basic schema check
 
-Verify the schema by adding a schema check to the list of checks.
-This is the most common schema check. The list of column must be exact as 
-specified in the contract.  No extra nor missing columns are allowed.  Column 
-names are case sensitive.  
-
-If the data type is specified on the column, the schema check will also verify 
-that they match. 
+To verify the schema, add a check with `type: schema` to the list of checks.
+This is the most common check. The list of column must be exact as 
+specified in the contract.  No extra nor missing columns are allowed.  
+Column names are case sensitive.
 
 For example:
 
@@ -16,9 +13,9 @@ For example:
 dataset: dim_employee
 columns:
   - name: id
-    data_type: character varying
+    data_type: varchar
   - name: last_name
-    data_type: character varying
+    data_type: varchar
   - name: address_line1
 
 checks:
@@ -30,14 +27,23 @@ The above check will verify that the table `dim_employee` has exact
 and `last_name`, the warehouse data type has to match the provided, 
 data-source-specific data types.
 
-### Data type limitation
+There are no further configuration keys for the schema check.
 
-> Limitation: At the moment, the schema check data type check is based on 
-> comparing the data type name coming from the warehouse metadata value 
-> with the `data_type` value in the contract.  There is no support yet 
-> for handling synonyms like varchar == character varying and to test the 
-> length of varchar fields like varchar(255).  The name has to be exact 
-> as in the metadata.
+### Data type matching 
+
+Column `data_type` keys are optional.  Only if the `data_type` key is specified on 
+the column, the data type is checked as part of the schema check.
+
+Data types specified in the contract will be checked case insensitive.
+
+Data types may support synonyms.  Consult the specific data source 
+for details (TODO).  Like eg in postgres, `data_type: varchar` will be equal 
+to a column with metadata type `character varying`. 
+
+Data sources may support max lengths like `data_type: varchar(255)`.  
+Lengths are considered optional.  They are only checked if specified in the 
+contract with round brackets.  So for a column with data type `data_type: varchar`
+the length will not be checked.
 
 ### Optional columns
 

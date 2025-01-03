@@ -1,9 +1,14 @@
-data_source: postgres_test_ds
-database: soda_test
-schema: dev_tom
+# Optional, default is ../../data_source.yml
+data_source_file: ../../postgres_test_ds.yml
+
+# Optional, default is derived from data source file {database_name}/{schema_name}/data_source.yml
+dataset_location_postgres:
+  database: soda_test
+  schema: dev_tom
+
 dataset: SODATEST_test_schema_31761d69
 
-check_filter:
+checks_filter:
   variables:
   expression_sql:
 
@@ -13,9 +18,9 @@ columns:
     valid_max_length: 255
     valid_values: ['M']
     checks:
-      - type: missing
-      - type: invalid
-      - type: duplicate
+      - type: missing_count
+      - type: invalid_percent
+      - type: duplicate_count
       - type: freshness
       - type: sql_metric
         metric_expression_sql: COUNT(SOMETHING)

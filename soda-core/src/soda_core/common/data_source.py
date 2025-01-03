@@ -1,12 +1,13 @@
 from __future__ import annotations
 
+import re
 from abc import ABC, abstractmethod
 
 from soda_core.common.data_source_connection import DataSourceConnection
 from soda_core.common.data_source_results import QueryResult, UpdateResult
 from soda_core.common.logs import Logs
 from soda_core.common.sql_dialect import SqlDialect
-from soda_core.common.statements.metadata_columns_query import MetadataColumnsQuery
+from soda_core.common.statements.metadata_columns_query import MetadataColumnsQuery, ColumnMetadata
 from soda_core.common.statements.metadata_tables_query import MetadataTablesQuery
 from soda_core.common.yaml import YamlSource, YamlFileContent
 
@@ -117,3 +118,19 @@ class DataSource(ABC):
             if "schema" not in data_source_location:
                 self.logs.error(f"For {self.get_data_source_type_name()}, 'schema' is required in 'data_source_location'")
             return [data_source_location.get("database"), data_source_location.get("schema")]
+
+    def is_data_type_equal(self, expected_data_type: str, actual_column_metadata: ColumnMetadata) -> bool:
+        expected_data_type_lower: str = expected_data_type.lower()
+        expected_data_type_lower = expected_data_type_lower.replace("character varying", "varchar")
+        expected_data_type_lower = expected_data_type_lower.replace("integer", "int")
+        has_length: bool = bool(re.match(r"^[a-zA-Z0-9 ]+\(\d+\)$", expected_data_type_lower))
+        actual_data_type = self.get_data_type_text(column_metadata=actual_column_metadata, include_length=has_length)
+        return expected_data_type_lower == actual_data_type
+
+    def get_data_type_text(self, column_metadata: ColumnMetadata, include_length: bool = True) -> str:
+        data_type: str = column_metadata.data_type
+        data_type = data_type.replace("character varying", "varchar")
+        data_type = data_type.replace("integer", "int")
+        if include_length and isinstance(column_metadata.max_length, int):
+            data_type = f"{data_type}({column_metadata.max_length})"
+        return data_type

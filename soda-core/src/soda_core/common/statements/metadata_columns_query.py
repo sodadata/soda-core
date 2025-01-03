@@ -6,9 +6,10 @@ from soda_core.common.sql_dialect import *
 
 
 @dataclass
-class MetadataColumn:
+class ColumnMetadata:
     column_name: str
     data_type: str
+    max_length: int | None
 
 
 class MetadataColumnsQuery:
@@ -34,7 +35,8 @@ class MetadataColumnsQuery:
         return self.sql_dialect.build_select_sql([
             SELECT([
                 self._column_column_name(),
-                self._column_data_type()]),
+                self._column_data_type(),
+                self._column_data_type_max_length()]),
             FROM(self._table_columns()).IN([database_name, self._schema_information_schema()]),
             WHERE(AND([
                 EQ(self._column_table_catalog(), LITERAL(database_name)),
@@ -43,13 +45,14 @@ class MetadataColumnsQuery:
             ])),
         ])
 
-    def get_result(self, query_result: QueryResult) -> list[MetadataColumn]:
+    def get_result(self, query_result: QueryResult) -> list[ColumnMetadata]:
         return [
-            MetadataColumn(
+            ColumnMetadata(
                 column_name=column_name,
-                data_type=data_type
+                data_type=data_type,
+                max_length=max_length
             )
-            for column_name, data_type in query_result.rows
+            for column_name, data_type, max_length in query_result.rows
         ]
 
     def _schema_information_schema(self) -> str:
@@ -100,3 +103,10 @@ class MetadataColumnsQuery:
         Purpose of this method is to allow specific data source to override.
         """
         return "data_type"
+
+    def _column_data_type_max_length(self) -> str:
+        """
+        Name of the column that has the mas data type length in the tables metadata table.
+        Purpose of this method is to allow specific data source to override.
+        """
+        return "character_maximum_length"

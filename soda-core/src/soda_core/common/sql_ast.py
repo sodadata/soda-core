@@ -55,8 +55,8 @@ class SqlExpressionStr(SqlExpression):
 @dataclass
 class CASE_WHEN(SqlExpression):
     condition: SqlExpression | str
-    if_value: SqlExpression | str
-    else_value: SqlExpression | str
+    if_expression: SqlExpression | str
+    else_expression: SqlExpression | str
 
 
 @dataclass
@@ -138,6 +138,12 @@ class LTE(Operator):
 @dataclass
 class NOT(SqlExpression):
     expression: SqlExpression | str
+
+
+@dataclass
+class MATCHES(SqlExpression):
+    expression: SqlExpression | str
+    regex_pattern: str
 
 
 @dataclass

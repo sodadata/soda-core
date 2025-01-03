@@ -293,8 +293,8 @@ class DataSourceTestHelper:
             contract_data_type = self.get_contract_data_type(test_column_specification.test_data_type)
             test_column: TestColumn = TestColumn(
                 name=test_column_specification.name,
-                test_data_type=self.get_create_table_sql_type(test_column_specification.test_data_type),
-                data_type=contract_data_type
+                test_data_type=contract_data_type,
+                data_type=self.get_create_table_sql_type(test_column_specification.test_data_type)
             )
             columns.append(test_column)
 
