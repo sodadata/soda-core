@@ -35,6 +35,10 @@ the contracts for the same data source. Typically, there will be only contracts 
 
 ### Programmatically specifying the data source file path
 
+If you don't want to use the default file structure to organize your Soda configuration YAML files, you can 
+specify a data source programmatically.  Either by referencing the file path or an actual data source in 
+the `ContractVerification.builder`
+
 ```
 contract_verification_result: ContractVerificationResult = (
     ContractVerification.builder(data_source_file_path="../soda/my_postgres_ds.yml")
@@ -45,24 +49,25 @@ contract_verification_result: ContractVerificationResult = (
 )
 ```
 
-### Passing variables
+### Variables
 
-In YAML configuration files like data source and contract files, variables can be specified in the notation `${VAR_NAME}`
+Use the syntax `${VAR_NAME}` in Soda YAML configuration files like data source and contract files to add dynamic content.
+Those variables will be resolved from the variables passed in the API `.with_variables({"VAR_NAME":"value"})` and from 
+the environment variables.
 
 It is highly recommended to use variables for credentials in data source YAML files.
 
-Variable names are treated case sensitive.
+User defined variables specified in the API have precedence over environment variables. 
 
-The environment variables will always be used when variables are resolved.  Optionally user defined variables can be specified in the 
-Python API with the `with_variables` method. Eg
+Variable are resolved case sensitive.
+
+Example to provide variable values through the API.
 ```
 contract_verification_result: ContractVerificationResult = (
     ContractVerification.builder()
     .with_contract_yaml_file("../soda/mydb/myschema/table.yml")
-    .with_variables({"env": "test"})
+    .with_variables({"VAR_NAME":"value"})
     .execute()
     .assert_ok()
 )
 ```
-
-User defined variables specified in the API have precedence over environment variables. 

@@ -12,19 +12,20 @@ columns:
   - name: id
     checks:
       - type: missing_count
-      - type: duplicate_count
   - name: last_name
     checks:
-    - type: duplicate_count
-      must_be_less_than: 10
+      - type: missing_percent
+        must_be_less_than: 10
   - name: address_line1
+    missing_values: ['N/A', 'No value', '-']
     checks:
-    - type: duplicate_percent
-      must_be_between: [0, 10]
+      - type: missing_count
+        must_be_between: [0, 10]
 
 checks:
   - type: schema
   - type: row_count
+    must_be_between: [10, 100]
 ```
 
 ### Linking contracts to the data source

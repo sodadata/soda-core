@@ -1,7 +1,8 @@
 # TODOs
 
-* [ ] Reconsider the term scan for contract verification.
-* [ ] Finish threshold testing  in soda_core/tests/components/test_thresholds.py
+* [ ] Most urgent: Reconsider the term scan for contract verification.
+* [ ] Extend schema check to test the length of fields.  See [Limitation in schema check page](docs/pages/schema_check.md#data-type-limitation)
+* [ ] Finish threshold testing  in [soda_core/tests/components/test_thresholds.py](soda-core/tests/soda_core/tests/components/test_thresholds.py)
 * [ ] Finish missing regex implementation and docs
 * [ ] Test & document identity & qualifiers
 * [ ] Test & document line info in error messages & doc links
