@@ -185,7 +185,18 @@ GT: '>';
 IDENTIFIER_DOUBLE_QUOTE: '"' ( ~'"' | '\\"')+ '"';
 IDENTIFIER_BACKTICK: '`' ( ~'`' | '\\`')+ '`';
 IDENTIFIER_UNQUOTED:
-	[a-zA-Z_$] ~(
+	[0-9]+ [a-zA-Z_$] ~(
+		' '
+		| '<'
+		| '='
+		| '>'
+		| '('
+		| ')'
+		| '['
+		| ']'
+		| ','
+	)*
+  | [a-zA-Z_$] ~(
 		' '
 		| '<'
 		| '='
