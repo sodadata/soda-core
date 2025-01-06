@@ -10,7 +10,7 @@ requires = [f"soda-core=={package_version}"]
 
 extras = {
     "hive": [
-        "PyHive[hive]",
+        "PyHive[hive_pure_sasl]",
     ],
     "odbc": [
         "pyodbc",
