@@ -29,16 +29,30 @@ class PostgresDataSource(DataSource):
             self.logs.debug(
                 f'Postgres connection properties: host="{self.host}", port="{self.port}", database="{self.database}", user="{self.username}", options="{options}", connection_timeout="{self.connection_timeout}"'
             )
-            self.connection = psycopg2.connect(
-                user=self.username,
-                password=self.password,
-                host=self.host,
-                port=self.port,
-                connect_timeout=self.connection_timeout,
-                database=self.database,
-                options=options,
-                sslmode=self.sslmode,
-            )
+            try:
+                self.connection = psycopg2.connect(
+                    user=self.username,
+                    password=self.password,
+                    host=self.host,
+                    port=self.port,
+                    connect_timeout=self.connection_timeout,
+                    database=self.database,
+                    options=options,
+                    sslmode=self.sslmode,
+                )
+            except psycopg2.OperationalError as e:
+                if "unsupported startup parameter: options" in str(e):
+                    self.connection = psycopg2.connect(
+                        user=self.username,
+                        password=self.password,
+                        host=self.host,
+                        port=self.port,
+                        connect_timeout=self.connection_timeout,
+                        database=self.database,
+                        sslmode=self.sslmode,
+                    )
+                else:
+                    raise e
         else:
             raise ConnectionError(f"Invalid postgres connection properties: invalid host: {self.host}")
         return self.connection
