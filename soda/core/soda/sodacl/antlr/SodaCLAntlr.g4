@@ -182,6 +182,12 @@ EQUAL: '=';
 LT: '<';
 GT: '>';
 
+TIMEUNIT: DIGITS (DAY | HOUR | MINUTE);
+
+DAY: 'd';
+HOUR: 'h';
+MINUTE: 'm';
+
 IDENTIFIER_DOUBLE_QUOTE: '"' ( ~'"' | '\\"')+ '"';
 IDENTIFIER_BACKTICK: '`' ( ~'`' | '\\`')+ '`';
 IDENTIFIER_UNQUOTED:
@@ -211,11 +217,5 @@ IDENTIFIER_SQUARE_BRACKETS:
 	'[' [a-zA-Z_$] (~'[' | '\\[' | ']' | '\\]')+ ']';
 STRING: [a-z]+;
 DIGITS: [0-9]+;
-
-TIMEUNIT: DIGITS (DAY | HOUR | MINUTE);
-
-DAY: 'd';
-HOUR: 'h';
-MINUTE: 'm';
 
 S: ' ';
