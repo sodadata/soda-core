@@ -3,7 +3,7 @@
 from setuptools import find_namespace_packages, setup
 
 package_name = "soda-core-sqlserver"
-package_version = "3.4.3"
+package_version = "3.4.4"
 description = "Soda Core SQL Server Package"
 
 requires = [f"soda-core=={package_version}", "pyodbc", "azure-identity~=1.17.1"]
